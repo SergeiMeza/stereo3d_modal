@@ -61,6 +61,14 @@ async def submit_video(body: dict) -> dict:
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     if body.get("stereo_mode", "both") not in ("both", "left", "right"):
         raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
+    from app.stages.video_depth_models import DEPTH_MODELS
+
+    depth_model = body.get("depth_model", "vda")
+    if depth_model not in ("vda", *DEPTH_MODELS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"depth_model must be one of {('vda', *DEPTH_MODELS)}",
+        )
     input_size = int(body.get("input_size", 980))
     if input_size % 14 != 0 or not (140 <= input_size <= 2100):
         raise HTTPException(status_code=400, detail="input_size must be a multiple of 14 in [140, 2100]")
@@ -158,14 +166,25 @@ async def cancel_job(job_id: str) -> dict:
 @web_app.post("/v1/stages/video-depth")
 async def stage_video_depth(body: dict) -> dict:
     from app.stages.video_depth import VideoDepthWorker
+    from app.stages.video_depth_models import DEPTH_MODELS, FrameDepthWorker
 
     input_path = _require(body, "input_path")
     input_size = int(body.get("input_size", 980))
     encoder = body.get("encoder", "vitl")
+    depth_model = body.get("depth_model", "vda")
+    if depth_model not in ("vda", *DEPTH_MODELS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"depth_model must be one of {('vda', *DEPTH_MODELS)}",
+        )
 
     def spawn(job_id: str):
         from app.common.storage import bucket_path
 
+        if depth_model != "vda":
+            return FrameDepthWorker(model_name=depth_model).generate.spawn(
+                job_id, str(bucket_path(input_path)), input_size=input_size
+            )
         return VideoDepthWorker(encoder=encoder).generate.spawn(
             job_id, str(bucket_path(input_path)), input_size=input_size
         )

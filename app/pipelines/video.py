@@ -51,7 +51,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "displacement": 0.0125,
       "inpaint": "propainter" | "none" | "m2svid",
       "input_size": 980,            # depth model resolution
-      "encoder": "vitl" | "vits",
+      "depth_model": "vda" | "da2-metric-indoor" | "da2-metric-outdoor"
+                     | "da3" | "da3-metric",
+      "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
       "include_audio": true,
@@ -94,20 +96,37 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # workers (identical output: depth alignment resets at cuts and
         # stereo segments align to batch boundaries)
         parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > 1500))
-        depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
-        worker_cls = (
-            VideoDepthWorker if depth_gpu == "L40S"
-            else VideoDepthWorker.with_options(gpu=depth_gpu)
-        )
-        jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, parallel={parallel})")
-        worker = worker_cls(encoder=request.get("encoder", "vitl"))
-        if parallel:
-            depth = _parallel_depth(
-                job_id, jlog, worker, pre, input_size, fps_rational,
-                max_workers=int(request.get("max_gpu_workers", 4)),
+        depth_model = request.get("depth_model", "vda")
+        if depth_model == "vda":
+            depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
+            worker_cls = (
+                VideoDepthWorker if depth_gpu == "L40S"
+                else VideoDepthWorker.with_options(gpu=depth_gpu)
             )
+            jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, parallel={parallel})")
+            worker = worker_cls(encoder=request.get("encoder", "vitl"))
+            if parallel:
+                depth = _parallel_depth(
+                    job_id, jlog, worker, pre, input_size, fps_rational,
+                    max_workers=int(request.get("max_gpu_workers", 4)),
+                )
+            else:
+                depth = worker.generate.remote(
+                    job_id,
+                    pre["work_path"],
+                    input_size=input_size,
+                    fps_rational=fps_rational,
+                    band=(0.15, 0.5),
+                )
         else:
-            depth = worker.generate.remote(
+            # per-frame backends (DA2-metric / DA3): single L40S worker
+            # regardless of length — per-frame inference is much lighter
+            # than VDA's 32-frame windows, and metric mode needs one
+            # job-wide normalization pass, which a fan-out would break
+            from app.stages.video_depth_models import FrameDepthWorker
+
+            jlog.info(f"🖥  depth GPU: L40S (depth_model={depth_model}, input_size={input_size})")
+            depth = FrameDepthWorker(model_name=depth_model).generate.remote(
                 job_id,
                 pre["work_path"],
                 input_size=input_size,

@@ -111,6 +111,31 @@ def ensure_da2_metric(variant: str = "indoor") -> Path:
     )
 
 
+def ensure_da3(variant: str = "mono-large", metric: bool = False) -> Path:
+    """Depth Anything 3 monocular checkpoint (Apache-2.0, ~1.34 GB).
+
+    ``metric`` selects the checkpoint family — they share one
+    architecture (ViT-L + DPT) but differ in output semantics:
+    - DA3MONO-LARGE (metric=False): scale-free relative DEPTH (not
+      disparity like DA2-relative);
+    - DA3METRIC-LARGE (metric=True): focal-normalized metric depth,
+      ``meters = focal_px * output / 300`` per the upstream FAQ. The
+      focal factor is constant per video, so it cancels under the
+      job-wide disparity normalization in video_depth_models.
+
+    Returns the local snapshot dir for
+    ``DepthAnything3.from_pretrained`` (config.json + safetensors; the
+    architecture yaml ships inside the pip package's registry).
+    """
+    size = {"mono-large": "LARGE"}[variant]
+    family = "DA3METRIC" if metric else "DA3MONO"
+    return _hf_snapshot(
+        repo_id=f"depth-anything/{family}-{size}",
+        subdir=f"da3/{family.lower()}-{size.lower()}",
+        allow_patterns=["*.json", "*.safetensors"],
+    )
+
+
 def ensure_lama() -> Path:
     """TorchScript-traced LAMA inpainting model (still images)."""
     return _hf_download(

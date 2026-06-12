@@ -6,6 +6,8 @@ One image per pipeline segment instead of a monolith:
 - ``media_image``        — CPU media work: probing, black-bar detection,
                            scene detection, ffmpeg encodes/muxing
 - ``video_depth_image``  — VideoDepthAnything (no warp, no inpainting)
+- ``depth_models_image`` — per-frame depth backends: DA2-metric + DA3
+                           (defined in app/images/depth_models.py)
 - ``stereo_image``       — Forward-Warp splatting + ProPainter video
                            inpainting
 - ``m2svid_image``       — Forward-Warp splatting + M2SVid one-step
@@ -18,6 +20,7 @@ One image per pipeline segment instead of a monolith:
 import modal
 
 from app.images.common import PYTHON_VERSION, cuda_torch_base, with_forward_warp
+from app.images.depth_models import depth_models_image  # noqa: F401
 
 # ---------------------------------------------------------------- web
 web_image = (
