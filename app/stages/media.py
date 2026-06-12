@@ -161,6 +161,7 @@ def detect_scenes(input_path: str) -> dict:
 
     cache_volume.reload()
     path = bucket_path(input_path) if not Path(input_path).exists() else Path(input_path)
+    logger.info(f"🎯 scene detection: {path.name}")
     video = open_video(str(path))
     manager = SceneManager()
     manager.add_detector(AdaptiveDetector())
@@ -170,6 +171,10 @@ def detect_scenes(input_path: str) -> dict:
          "start_sec": start.get_seconds(), "end_sec": end.get_seconds()}
         for start, end in manager.get_scene_list()
     ]
+    logger.info(
+        f"🏁 {len(scenes)} scene(s): cuts at "
+        f"{[s['start'] for s in scenes[1:]] or 'none'}"
+    )
     return {"scenes": scenes, "count": len(scenes)}
 
 

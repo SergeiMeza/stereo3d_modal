@@ -60,6 +60,10 @@ def encode_mvhevc(
               "hfov_deg": float, "dadj": int} — see app/stages/vexu.py
     for defaults (iPhone-15-Pro-like).
     """
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
+
     safe_reload(cache_volume)
     sbs = Path(sbs_path)
     if not sbs.exists():
@@ -70,6 +74,7 @@ def encode_mvhevc(
     from app.stages.media import probe_video
 
     fps = probe_video(sbs)["fps"]
+    jlog.info(f"🎯 MV-HEVC encode: {sbs.name} @ {fps:.3f} fps, cq={quality}, spatial={spatial}")
 
     with jobs.stage_timer(job_id, "encode_mvhevc", gpu=MVHEVC_GPU, quality=quality):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,6 +102,7 @@ def encode_mvhevc(
             )
             if encode.returncode != 0:
                 raise RuntimeError(f"MV-HEVC encode failed: {encode.stderr[-2000:]}")
+            jlog.info(f"✔ NVENC two-view stream: {raw.stat().st_size / 1e6:.1f} MB")
 
             # 2) optional audio from the original
             mux_inputs = ["-add", f"{raw}:fps={fps}"]
@@ -120,6 +126,7 @@ def encode_mvhevc(
             )
             if mux.returncode != 0:
                 raise RuntimeError(f"MP4Box mux failed: {mux.stderr[-2000:]}")
+            jlog.info(f"✔ MP4Box mux done (audio={'yes' if len(mux_inputs) > 2 else 'no'})")
 
             # 4) inject Apple spatial metadata (vexu + hfov) into the
             #    hvc1 sample entry — required for the visionOS/macOS
@@ -167,6 +174,10 @@ def encode_mvhevc(
 
             dst = out_dir / "mvhevc.mov"
             dst.write_bytes(local.read_bytes())
+            jlog.info(
+                f"🏁 spatial .mov published: {local.stat().st_size / 1e6:.1f} MB, "
+                f"boxes_ok={boxes_ok}, two_views={two_views} → {public_url(dst)}"
+            )
 
     return {
         "mvhevc": public_url(dst),
