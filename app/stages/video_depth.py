@@ -30,7 +30,7 @@ with video_depth_image.imports():
 
 
 @app.cls(
-    gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
+    gpu=VIDEO_DEPTH_GPU,
     image=video_depth_image,
     volumes=GPU_VOLUMES,
     secrets=[hf_secret, slack_secret],

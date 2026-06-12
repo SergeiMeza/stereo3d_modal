@@ -54,7 +54,7 @@ SEGMENT_FRAMES = 240
 
 
 @app.cls(
-    gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
+    gpu=VIDEO_STEREO_GPU,
     image=stereo_image,
     volumes=GPU_VOLUMES,
     secrets=[hf_secret, slack_secret],
