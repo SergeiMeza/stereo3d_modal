@@ -46,6 +46,10 @@ video_depth_image = (
         "matplotlib==3.10.3",
         "scenedetect==0.6.6",
     )
+    # memory-efficient attention — without it DINOv2 falls back to
+    # naive O(N²) attention and OOMs above ~518px input (122 GiB alloc).
+    # 0.0.31.post1 is the torch 2.7.1-matched build.
+    .uv_pip_install("xformers==0.0.31.post1", extra_index_url="https://download.pytorch.org/whl/cu126")
     .add_local_python_source("app")
 )
 
