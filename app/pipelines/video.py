@@ -71,10 +71,18 @@ def process_video_job(job_id: str, request: dict) -> dict:
         jobs.update_job(job_id, progress=0.15, stage="video_depth")
 
         fps_rational = pre["probe"].get("fps_rational")
-        depth = VideoDepthWorker(encoder=request.get("encoder", "vitl")).generate.remote(
+        # route depth to a GPU with enough VRAM for the model resolution
+        input_size = int(request.get("input_size", 980))
+        depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
+        worker_cls = (
+            VideoDepthWorker if depth_gpu == "L40S"
+            else VideoDepthWorker.with_options(gpu=depth_gpu)
+        )
+        jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size})")
+        depth = worker_cls(encoder=request.get("encoder", "vitl")).generate.remote(
             job_id,
             pre["work_path"],
-            input_size=int(request.get("input_size", 980)),
+            input_size=input_size,
             fps_rational=fps_rational,
             band=(0.15, 0.5),
         )
