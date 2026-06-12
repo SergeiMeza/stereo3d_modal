@@ -188,3 +188,142 @@ def encode_mvhevc(
         "spatial_boxes_verified": boxes_ok,
         "streams": json.loads(info).get("streams", []),
     }
+
+
+@app.function(
+    image=nvenc_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    cpu=16,
+    memory=(8 * 1024, 32 * 1024),
+    ephemeral_disk=64 * 1024,
+    timeout=3600,
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
+)
+@fail_fast
+def encode_mvhevc_x265(
+    job_id: str,
+    sbs_path: str,
+    crf: int = 23,
+    preset: str = "medium",
+    original_path: str | None = None,
+    spatial: dict | None = None,
+) -> dict:
+    """Apple-recognized spatial video via x265 MV-HEVC (CPU).
+
+    x265 is the only Linux encoder whose VPS multiview signaling
+    Apple's spatial classifier accepts — NVENC output (encode_mvhevc)
+    plays in players but never earns the Photos/Files spatial badge.
+    Same downstream chain: MP4Box mux (hvcC+lhvC) + vexu/hfov injection.
+    """
+    from app.common.debug import job_logger
+    from app.stages.media import probe_video
+
+    jlog = job_logger(job_id)
+    safe_reload(cache_volume)
+    sbs = Path(sbs_path)
+    if not sbs.exists():
+        raise FileNotFoundError(sbs)
+
+    probe = probe_video(sbs)
+    eye_w, eye_h = probe["width"] // 2, probe["height"]
+    fps_rational = probe["fps_rational"]
+    num_frames = probe["num_frames"]
+    keyint = max(1, round(probe["fps"] * 2))  # closed 2s GOPs for visionOS
+    out_dir = job_output_dir(job_id)
+    jlog.info(f"🎯 x265 MV-HEVC: {eye_w}x{eye_h}/eye, {num_frames}f, crf={crf}, preset={preset}")
+
+    with jobs.stage_timer(job_id, "encode_mvhevc_x265", crf=crf, preset=preset):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            yuv = tmp_dir / "sbs.yuv"
+            raw = tmp_dir / "video.hevc"
+
+            # 1) decode the full-SBS master to raw 8-bit yuv420p
+            subprocess.run(
+                ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(sbs),
+                 "-an", "-pix_fmt", "yuv420p", "-f", "rawvideo", str(yuv)],
+                check=True,
+            )
+
+            # 2) x265 multiview: format 1 = one SBS input, two views;
+            #    --input-res is PER-VIEW
+            cfg = tmp_dir / "mv.cfg"
+            cfg.write_text(f'--num-views 2\n--format 1\n--input "{yuv}"\n')
+            enc = subprocess.run(
+                ["x265", "--multiview-config", str(cfg),
+                 "--input-res", f"{eye_w}x{eye_h}", "--input-csp", "i420",
+                 "--input-depth", "8", "--fps", fps_rational,
+                 "--frames", str(num_frames), "--profile", "main",
+                 "--colorprim", "bt709", "--transfer", "bt709",
+                 "--colormatrix", "bt709", "--range", "limited",
+                 "--preset", preset, "--crf", str(crf),
+                 "--keyint", str(keyint), "--min-keyint", str(keyint),
+                 "--no-open-gop", "--repeat-headers",
+                 "--output", str(raw)],
+                capture_output=True, text=True,
+            )
+            if enc.returncode != 0 or not raw.exists():
+                raise RuntimeError(f"x265 multiview encode failed: {enc.stderr[-2000:]}")
+            jlog.info(f"✔ x265 two-view stream: {raw.stat().st_size / 1e6:.1f} MB")
+
+            # 3) mux + audio + vexu/hfov injection (same proven chain)
+            mux_inputs = ["-add", f"{raw}:fps={fps_rational}:colr=nclx,bt709,bt709,bt709,off"]
+            original = Path(original_path) if original_path else None
+            if original and original.exists():
+                audio = tmp_dir / "audio.m4a"
+                ok = subprocess.run(
+                    ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(original),
+                     "-vn", "-c:a", "aac", str(audio)],
+                    capture_output=True, text=True,
+                ).returncode == 0 and audio.exists()
+                if ok:
+                    mux_inputs += ["-add", str(audio)]
+
+            muxed = tmp_dir / "muxed.mp4"
+            local = tmp_dir / "mvhevc.mov"
+            mux = subprocess.run(["MP4Box", *mux_inputs, "-new", str(muxed)],
+                                 capture_output=True, text=True)
+            if mux.returncode != 0:
+                raise RuntimeError(f"MP4Box mux failed: {mux.stderr[-1500:]}")
+
+            spatial = spatial or {}
+            (tmp_dir / "vexu.bin").write_bytes(vexu_blobs.build_vexu(
+                hero=spatial.get("hero", "left"),
+                baseline_mm=float(spatial.get("baseline_mm", vexu_blobs.DEFAULT_BASELINE_MM)),
+                dadj=int(spatial.get("dadj", vexu_blobs.DEFAULT_DADJ)),
+                projection=spatial.get("projection", "rect"),
+            ))
+            (tmp_dir / "hfov.bin").write_bytes(
+                vexu_blobs.build_hfov(float(spatial.get("hfov_deg", vexu_blobs.DEFAULT_HFOV_DEG)))
+            )
+            inject = subprocess.run(
+                ["mp4edit",
+                 "--insert", f"moov/trak/mdia/minf/stbl/stsd/hvc1:{tmp_dir}/vexu.bin",
+                 "--insert", f"moov/trak/mdia/minf/stbl/stsd/hvc1:{tmp_dir}/hfov.bin",
+                 str(muxed), str(local)],
+                capture_output=True, text=True,
+            )
+            if inject.returncode != 0:
+                raise RuntimeError(f"vexu injection failed: {inject.stderr[-1000:]}")
+
+            dump = subprocess.run(["mp4dump", str(local)], capture_output=True, text=True).stdout
+            boxes_ok = all(tag in dump for tag in ("lhvC", "vexu", "hfov"))
+            check = subprocess.run(
+                ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(local),
+                 "-map", "0:v:view:1", "-frames:v", "1", str(tmp_dir / "v1.png")],
+                capture_output=True, text=True,
+            )
+            two_views = check.returncode == 0 and (tmp_dir / "v1.png").exists()
+
+            dst = out_dir / "mvhevc.mov"
+            dst.write_bytes(local.read_bytes())
+            jlog.info(f"🏁 x265 spatial .mov: {local.stat().st_size / 1e6:.1f} MB, "
+                      f"boxes_ok={boxes_ok}, two_views={two_views} → {public_url(dst)}")
+
+    return {
+        "mvhevc": public_url(dst),
+        "encoder": "x265",
+        "two_views_verified": two_views,
+        "spatial_boxes_verified": boxes_ok,
+    }

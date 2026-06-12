@@ -118,10 +118,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
         outputs = dict(encoded["outputs"])
         if "mvhevc" in formats:
-            from app.stages.mvhevc import encode_mvhevc
+            from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
 
             jobs.update_job(job_id, stage="encode_mvhevc", progress=0.92)
-            mv = encode_mvhevc.remote(
+            # x265 = Apple spatial badge (default); nvenc = fast, for custom players
+            encoder_fn = (
+                encode_mvhevc if request.get("mvhevc_encoder") == "nvenc" else encode_mvhevc_x265
+            )
+            mv = encoder_fn.remote(
                 job_id,
                 sbs_path=stereo["sbs_path"],
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,

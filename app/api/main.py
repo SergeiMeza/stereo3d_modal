@@ -192,19 +192,21 @@ async def stage_video_stereo(body: dict) -> dict:
 
 @web_app.post("/v1/stages/encode-mvhevc")
 async def stage_encode_mvhevc(body: dict) -> dict:
-    from app.stages.mvhevc import encode_mvhevc
+    from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
 
     sbs_path = _require(body, "sbs_path")
-    return _submit(
-        "stage:encode-mvhevc",
-        body,
-        lambda job_id: encode_mvhevc.spawn(
-            job_id,
-            sbs_path=sbs_path,
-            quality=int(body.get("quality", 28)),
+    if body.get("encoder") == "nvenc":
+        spawner = lambda job_id: encode_mvhevc.spawn(
+            job_id, sbs_path=sbs_path,
+            quality=int(body.get("quality", 28)), spatial=body.get("spatial"),
+        )
+    else:  # x265 default: the only path Apple recognizes as spatial
+        spawner = lambda job_id: encode_mvhevc_x265.spawn(
+            job_id, sbs_path=sbs_path,
+            crf=int(body.get("crf", 23)), preset=body.get("preset", "medium"),
             spatial=body.get("spatial"),
-        ),
-    )
+        )
+    return _submit("stage:encode-mvhevc", body, spawner)
 
 
 @web_app.post("/v1/stages/scene-detect")

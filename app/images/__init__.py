@@ -78,7 +78,7 @@ nvenc_image = (
         "curl", "xz-utils", "unzip",
         # GPAC build deps — distro gpac (1.0.1) writes no lhvC box, which
         # visionOS requires for MV-HEVC; build modern MP4Box from source.
-        "build-essential", "pkg-config", "zlib1g-dev", "git",
+        "build-essential", "pkg-config", "zlib1g-dev", "git", "cmake", "nasm",
     )
     .run_commands(
         f"curl -L --retry 5 --retry-all-errors --retry-delay 3 {FFMPEG8_URL} -o /tmp/ff.tar.xz",
@@ -102,6 +102,16 @@ nvenc_image = (
         "git clone --depth 1 https://github.com/gpac/gpac.git /tmp/gpac"
         " && cd /tmp/gpac && ./configure --static-mp4box && make -j$(nproc)"
         " && cp bin/gcc/MP4Box /usr/local/bin/MP4Box && rm -rf /tmp/gpac",
+    )
+    .run_commands(
+        # x265 4.2 with MV-HEVC multiview: the only Linux encoder whose
+        # VPS multiview signaling Apple's spatial classifier accepts
+        # (NVENC output plays but never gets the Photos/Files badge).
+        # 8-bit only; multilib not wired for ENABLE_MULTIVIEW.
+        "git clone --depth 1 --branch 4.2 https://bitbucket.org/multicoreware/x265_git.git /tmp/x265"
+        " && cmake -S /tmp/x265/source -B /tmp/x265/build -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTIVIEW=ON"
+        " && cmake --build /tmp/x265/build -j$(nproc)"
+        " && cp /tmp/x265/build/x265 /usr/local/bin/x265 && rm -rf /tmp/x265",
     )
     .add_local_python_source("app")
 )
