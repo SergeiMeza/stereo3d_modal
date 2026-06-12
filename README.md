@@ -95,6 +95,14 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
   workspace limit is 10 concurrent GPU containers.
 - **Memory:** depth+stereo stages stream frames through generators and
   ffmpeg pipes; long 4K clips stay bounded.
-- **MV-HEVC (Vision Pro):** ffmpeg 8 `hevc_nvenc -profile:v mv` works on
-  Ada GPUs (L4/L40S) — *not* Blackwell-only; B200/H100/A100 have no
-  NVENC. Experimental stage tracked in docs/ARCHITECTURE.md.
+- **Apple spatial video (device-verified):** the `mvhevc` format makes
+  Photos/Files-recognized spatial .movs entirely in the cloud — x265
+  multiview (CPU) + MP4Box + byte-exact vexu/hfov injection. NVENC (L4)
+  remains as the fast MV-HEVC path for custom players. Details + the
+  long elimination story: docs/ARCHITECTURE.md.
+- **Long videos:** scene-aligned chunks fan out across up to
+  `max_gpu_workers` GPU containers (auto >1500 frames) with resumable
+  segment checkpoints; ~Nx wall-clock speedup.
+- **Presets:** `draft` / `1080p` / `qhd` / `3k` / `4k` bundle target
+  resolution, depth input_size, inpainting work res, and (via routing)
+  GPU tier.

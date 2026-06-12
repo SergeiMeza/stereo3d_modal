@@ -18,6 +18,12 @@ expires after a day. Poll `GET /v1/jobs/{job_id}`.
 ```jsonc
 {
   "input_path": "inputs/samples/videos/clip_10s_scenes_1080p.mp4",  // required
+  "preset": "qhd",               // draft | 1080p | qhd (2560x1440) | 3k (2880x1620) | 4k
+                                 // bundles target_height/input_size/work res; explicit fields win
+  "parallel": true,              // scene-aligned multi-GPU fan-out (auto for >1500 frames)
+  "max_gpu_workers": 4,          // fan-out width (workspace cap: 10 GPUs)
+  "mvhevc_encoder": "x265",      // x265 = Apple spatial badge (default); nvenc = fast, custom players
+  "work_height": 720, "work_width": 1280,  // ProPainter working res; >720p routes to H200
   "displacement": 0.0125,        // max disparity, fraction of width (0, 0.1]
   "inpaint": "propainter",       // "propainter" (best) | "none" (raw warp, fastest)
   "input_size": 980,             // depth resolution, multiple of 14; ≤1148 fits L40S
@@ -36,9 +42,16 @@ expires after a day. Poll `GET /v1/jobs/{job_id}`.
 ```
 
 The `mvhevc` format produces an Apple Vision Pro **spatial video**
-.mov: NVENC MV-HEVC on L4 → MP4Box mux (hvcC+lhvC) → vexu/hfov
-injection. The job result reports `two_views_verified` and
+.mov (device-verified: badge + clean scene cuts). Default encoder is
+**x265 multiview** on CPU (format-0 two-eye inputs, --no-scenecut) —
+the only Linux encoder whose VPS signaling Apple's spatial classifier
+accepts. `"mvhevc_encoder": "nvenc"` keeps the fast L4 path (plays in
+players/own apps but no Photos badge). Both: MP4Box mux (hvcC+lhvC) +
+byte-exact vexu/hfov injection; results report `two_views_verified` /
 `spatial_boxes_verified`.
+
+GPU routing is automatic: depth L40S ≤1148 → A100-80GB ≤1442 → H200;
+stereo L40S at ≤720p work res → H200 above.
 
 → `{"job_id": "...", "status": "pending", "status_url": "/v1/jobs/..."}`
 
