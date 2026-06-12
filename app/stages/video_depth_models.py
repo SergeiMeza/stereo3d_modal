@@ -17,6 +17,13 @@ Backends (request field ``depth_model``):
   depth (meters = focal_px * output / 300). The focal factor is
   unknown for arbitrary footage but constant per video, and a constant
   scale cancels under the normalization below.
+- ``depth-pro`` — Apple Depth Pro (R&D ONLY: the weights are
+  apple-amlr, research use only — see ensure_depth_pro); output is
+  absolute metric depth in meters (canonical inverse depth scaled by
+  the model's own focal-length estimate). Uniquely it also estimates
+  a per-frame focal length / horizontal field of view; per-scene mean
+  FOVs are returned under an additive ``fov_deg`` key for shot-type
+  classification.
 
 Unlike VideoDepthAnything there is no temporal window or cross-window
 alignment — every frame is independent — so temporal coherence comes
@@ -46,6 +53,7 @@ skipped if already complete on a retried call, lossless concat, and
 the frame-count invariant enforced before returning.
 """
 
+import json
 import time
 from pathlib import Path
 
@@ -69,8 +77,8 @@ FRAME_DEPTH_GPU = "L40S"
 # exposed in the API; DA2-metric variants stay dormant (indoor/outdoor
 # checkpoint split makes them operationally clumsy — user decision) but
 # the loader still understands them for experiments
-DEPTH_MODELS = ("da3", "da3-metric")
-METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric")
+DEPTH_MODELS = ("da3", "da3-metric", "depth-pro")
+METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric", "depth-pro")
 
 # Frames sampled for the job-wide disparity range (metric models).
 RANGE_SAMPLE_FRAMES = 32
@@ -84,7 +92,7 @@ with depth_models_image.imports():
     import torchvision.transforms.v2 as v2
     from torchcodec.decoders import VideoDecoder
 
-    from app.common.weights import ensure_da2_metric, ensure_da3
+    from app.common.weights import ensure_da2_metric, ensure_da3, ensure_depth_pro
 
 
 def _gray16_video_writer(h: int, w: int, fps, file: str | Path):
@@ -165,6 +173,10 @@ class FrameDepthWorker:
         start = time.perf_counter()
         torch.backends.cudnn.benchmark = True
         self.metric = self.model_name in METRIC_MODELS
+        # per-frame horizontal-FOV samples (depth-pro only): the infer
+        # closure appends one value per frame; generate() resets the
+        # list per scene and turns it into per-scene means
+        self._fov_samples: list[float] = []
         if self.model_name.startswith("da2-metric"):
             from transformers import DepthAnythingForDepthEstimation
 
@@ -174,6 +186,22 @@ class FrameDepthWorker:
                 .to("cuda")
                 .eval()
             )
+        elif self.model_name == "depth-pro":
+            import dataclasses
+
+            from depth_pro.depth_pro import DEFAULT_MONODEPTH_CONFIG_DICT, create_model_and_transforms
+
+            config = dataclasses.replace(
+                DEFAULT_MONODEPTH_CONFIG_DICT, checkpoint_uri=str(ensure_depth_pro())
+            )
+            # fp16 per the official CLI; the returned transform is
+            # discarded — it targets PIL/ndarray input, while this
+            # worker normalizes decoded uint8 tensors itself (see
+            # _make_infer)
+            self.model, _ = create_model_and_transforms(
+                config=config, device=torch.device("cuda"), precision=torch.half
+            )
+            self.model.eval()
         else:
             from depth_anything_3.api import DepthAnything3
 
@@ -255,18 +283,40 @@ class FrameDepthWorker:
             to_u16 = v2.ToDtype(torch.uint16, scale=True)
             depth_shape: tuple[int, int] | None = None
 
+            # depth-pro: collect the per-frame FOV estimates into one
+            # mean per scene; checkpointed in a sidecar JSON next to
+            # the scene segment so a resumed (skipped) scene keeps its
+            # value instead of degrading to null
+            collect_fov = self.model_name == "depth-pro"
+            scene_fovs: list[float | None] = []
+
             segments: list[Path] = []
             num_frames = 0
             for first, last in ranges:
                 seg = seg_dir / f"depth_{first:08d}_{last:08d}.mp4"
+                fov_file = seg.with_suffix(".fov.json")
                 if seg.exists() and count_frames(seg) == last - first:
                     logger.info(f"⏭  scene [{first}, {last}) already done, skipping")
+                    if collect_fov:
+                        scene_fovs.append(
+                            json.loads(fov_file.read_text())["fov_deg"] if fov_file.exists() else None
+                        )
                 else:
+                    self._fov_samples = []
                     disp = self._scene_disparity(
                         decoder, first, last, batch_size, infer,
                         on_batch=lambda done, base=num_frames: on_progress(base + done, total_frames),
                         align_frames=(disp_range is None),  # relative models only
                     )
+                    if collect_fov:
+                        fov = (
+                            sum(self._fov_samples) / len(self._fov_samples)
+                            if self._fov_samples else None
+                        )
+                        scene_fovs.append(fov)
+                        fov_file.write_text(json.dumps({"fov_deg": fov}))
+                        if fov is not None:
+                            logger.info(f"📐 scene [{first}, {last}) mean horizontal FOV: {fov:.1f}°")
                     normalized = self._normalize(disp, disp_range)
                     track(f"scene_depth[{first}:{last}]", normalized, logger)
                     if depth_shape is None:
@@ -296,7 +346,7 @@ class FrameDepthWorker:
         del decoder  # drop decoder file handles before the next input
         torch.cuda.empty_cache()
 
-        return {
+        result = {
             "depth_path": str(out),
             "num_frames": num_frames,
             "fps": float(meta.average_fps),
@@ -304,6 +354,13 @@ class FrameDepthWorker:
             "depth_shape": list(depth_shape),
             "scene_cuts": jlog_cuts,
         }
+        if collect_fov:
+            # additive key (depth-pro only): mean horizontal FOV in
+            # degrees per scene, ordered like the scene ranges implied
+            # by scene_cuts (null for a resumed scene whose sidecar
+            # predates this feature)
+            result["fov_deg"] = [round(f, 2) if f is not None else None for f in scene_fovs]
+        return result
 
     # -------------------------------------------------------- inference
 
@@ -321,6 +378,18 @@ class FrameDepthWorker:
                 v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             )
             return lambda frames: self._infer_da2(frames, pre)
+        if self.model_name == "depth-pro":
+            resize_shape = _resize_shape(source_shape, input_size)
+            # [-1, 1] normalization per the official transform
+            # (Normalize([0.5]*3, [0.5]*3)); resize to the working
+            # resolution first so the returned depth honors the same
+            # depth_shape contract as the other backends
+            pre = torch.nn.Sequential(
+                v2.ToDtype(torch.float32, scale=True),
+                v2.Resize(size=resize_shape, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),
+                v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            )
+            return lambda frames: self._infer_depth_pro(frames, pre)
         return lambda frames: self._infer_da3(frames, input_size)
 
     def _infer_da2(self, frames: "torch.Tensor", pre) -> "torch.Tensor":
@@ -341,6 +410,36 @@ class FrameDepthWorker:
             imgs, process_res=input_size, process_res_method="lower_bound_resize"
         )
         return torch.from_numpy(prediction.depth).float()  # (T, h, w)
+
+    def _infer_depth_pro(self, frames: "torch.Tensor", pre) -> "torch.Tensor":
+        """Apple Depth Pro: absolute metric depth in meters at the
+        working resolution, plus a per-frame horizontal-FOV estimate.
+
+        ``model.infer`` resamples internally to the fixed 1536x1536
+        network input (squashing aspect, by upstream design) and
+        returns depth resized back to the resolution it was given.
+        Frames run ONE at a time: infer's f_px math assumes a single
+        image — with a batch, the (B, 1) focal tensor mis-broadcasts
+        against the (B, 1, H, W) canonical inverse depth.
+
+        The horizontal FOV is recovered exactly from the estimated
+        focal length, fov = 2*atan(W / (2*f_px)) — the inverse of
+        infer's own ``f_px = W / (2*tan(fov/2))`` — and appended to
+        ``self._fov_samples`` for per-scene means. FOV is invariant to
+        uniform resizing, so the working-resolution resize (≤7 px of
+        aspect rounding) does not bias it.
+        """
+        import math
+
+        x = pre(frames.cuda()).half()
+        width = x.shape[-1]
+        depths = []
+        for i in range(x.shape[0]):
+            out = self.model.infer(x[i])
+            depths.append(out["depth"].float().cpu())  # (h, w) meters
+            f_px = float(out["focallength_px"])
+            self._fov_samples.append(math.degrees(2.0 * math.atan(width / (2.0 * f_px))))
+        return torch.stack(depths)
 
     def _scene_disparity(
         self, decoder, first: int, last: int, batch_size: int, infer, on_batch,

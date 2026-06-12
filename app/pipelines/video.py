@@ -52,7 +52,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "inpaint": "propainter" | "none" | "m2svid",
       "input_size": 980,            # depth model resolution
       "depth_model": "vda" | "da2-metric-indoor" | "da2-metric-outdoor"
-                     | "da3" | "da3-metric",
+                     | "da3" | "da3-metric" | "depth-pro",
+                     # depth-pro (R&D only, apple-amlr weights) also
+                     # reports per-scene mean "fov_deg" in metadata
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
@@ -119,7 +121,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     band=(0.15, 0.5),
                 )
         else:
-            # per-frame backends (DA2-metric / DA3): single L40S worker
+            # per-frame backends (DA2-metric / DA3 / Depth Pro): single L40S worker
             # regardless of length — per-frame inference is much lighter
             # than VDA's 32-frame windows, and metric mode needs one
             # job-wide normalization pass, which a fan-out would break
@@ -247,6 +249,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "scene_cuts": depth["scene_cuts"],
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),
+                # additive: per-scene mean horizontal FOV (depth-pro
+                # only) for shot-type classification
+                **({"fov_deg": depth["fov_deg"]} if "fov_deg" in depth else {}),
             },
         )
         jlog.info(f"🏁 job completed: {len(outputs)} output(s) published")
