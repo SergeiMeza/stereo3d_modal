@@ -120,10 +120,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # ProPainter VRAM scales with work res × source res: above the
         # default 720p working res (or 4K sources), L40S 48GB OOMs
         big_work = stereo_kwargs["work_height"] * stereo_kwargs["work_width"] > 1280 * 720
+        # >720p ProPainter needs ~80+ GB (project A ran 1080p on H200)
         stereo_cls = (
-            VideoStereoWorker.with_options(gpu="A100-80GB") if big_work else VideoStereoWorker
+            VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
         )
-        jlog.info(f"🖥  stereo GPU: {'A100-80GB' if big_work else 'L40S'}")
+        jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'}")
         if parallel:
             stereo = _parallel_stereo(
                 job_id, jlog, pre, stereo_kwargs, stereo_cls,

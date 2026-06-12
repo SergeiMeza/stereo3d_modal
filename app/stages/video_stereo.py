@@ -62,6 +62,7 @@ SEGMENT_FRAMES = 240
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
     scaledown_window=SCALEDOWN_WINDOW,
+    env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
 class VideoStereoWorker:
