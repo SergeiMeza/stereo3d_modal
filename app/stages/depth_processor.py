@@ -75,6 +75,7 @@ class DepthResult:
     source_shape: tuple[int, int] = (0, 0)  # (H, W)
     depth_shape: tuple[int, int] = (0, 0)  # (H, W) of the written depth video
     scene_cuts: list[int] = field(default_factory=list)  # frame indices
+    segments: list[str] = field(default_factory=list)  # per-scene files (no-concat mode)
 
 
 class DepthProcessor:
@@ -92,7 +93,12 @@ class DepthProcessor:
         input_size: int = 980,
         device: str = "cuda",
         fp32: bool = False,
+        scene_ranges: list[tuple[int, int]] | None = None,
     ):
+        # scene_ranges: explicit (first, last) scene boundaries — used by
+        # the long-video fan-out, where scenes are detected once up front
+        # and chunks of them are processed on parallel workers.
+        self._fixed_ranges = scene_ranges
         if input_size % 14 != 0:
             raise ValueError(f"input_size must be a multiple of 14, got {input_size}")
         self.path = Path(path)
@@ -107,7 +113,10 @@ class DepthProcessor:
         self.scene_cuts: list[int] = []
 
         self._build_transforms()
-        self._start_scene_detection()
+        if scene_ranges is None:
+            self._start_scene_detection()
+        else:
+            self.scene_cuts = [last for _, last in scene_ranges]
 
     # ------------------------------------------------------------ setup
 
@@ -238,6 +247,9 @@ class DepthProcessor:
 
     def scene_ranges(self) -> Iterator[tuple[int, int]]:
         """Iterate scene boundaries (first, last) as detection produces them."""
+        if self._fixed_ranges is not None:
+            yield from self._fixed_ranges
+            return
         first = 0
         while True:
             item = self.scene_queue.get()
@@ -271,6 +283,7 @@ class DepthProcessor:
         fps_rational: str | None = None,
         on_scene_done=None,
         on_progress=None,
+        concat: bool = True,
     ) -> DepthResult:
         """Run the full pass, writing a gray16le H.264 depth video.
 
@@ -317,6 +330,15 @@ class DepthProcessor:
             if on_scene_done is not None:
                 on_scene_done(first, last)
 
+        if not concat:
+            return DepthResult(
+                num_frames=num_frames,
+                fps=float(meta.average_fps),
+                source_shape=self.source_shape,
+                depth_shape=self.resize_shape,
+                scene_cuts=sorted(self.scene_cuts),
+                segments=[str(s) for s in segments],
+            )
         concat_segments(segments, output)
         written = count_frames(output)
         if written != num_frames:

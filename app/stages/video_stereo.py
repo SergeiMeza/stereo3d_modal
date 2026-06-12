@@ -92,6 +92,9 @@ class VideoStereoWorker:
         work_width: int = 1280,
         fps_rational: str | None = None,
         band: tuple[float, float] = (0.0, 1.0),
+        frame_range: tuple[int, int] | None = None,
+        batch_size: int | None = None,
+        concat: bool = True,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
@@ -138,8 +141,10 @@ class VideoStereoWorker:
             (height, width), interpolation=v2.InterpolationMode.BICUBIC, antialias=True
         )
 
-        batch_size = _pick_batch_size(num_frames)
+        if batch_size is None:
+            batch_size = _pick_batch_size(num_frames)
         seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
+        range_start, range_end = frame_range or (0, num_frames)
         logger.info(
             f"🎬 SBS pass: {num_frames} frames @ {width}x{height}, "
             f"batch={batch_size}, segment={seg_len}, inpaint={inpaint}"
@@ -160,8 +165,8 @@ class VideoStereoWorker:
             segments: list[Path] = []
 
             with torch.no_grad():
-                for s in range(0, num_frames, seg_len):
-                    e = min(s + seg_len, num_frames)
+                for s in range(range_start, range_end, seg_len):
+                    e = min(s + seg_len, range_end)
                     seg = seg_dir / f"sbs_{s:08d}_{e:08d}.mp4"
                     segments.append(seg)
                     if seg.exists() and count_frames(seg) == e - s:
@@ -201,6 +206,17 @@ class VideoStereoWorker:
                         writer.wait()
                     cache_volume.commit()  # checkpoint the finished segment
 
+            if not concat:
+                cache_volume.commit()
+                del decoder, depth_decoder
+                return {
+                    "segments": [str(p) for p in segments],
+                    "num_frames": range_end - range_start,
+                    "fps": float(meta.average_fps),
+                    "width": width * 2,
+                    "height": height,
+                    "inpaint": inpaint,
+                }
             concat_segments(segments, out)
             written = count_frames(out)
             if written != num_frames:

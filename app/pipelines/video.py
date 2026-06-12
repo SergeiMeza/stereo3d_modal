@@ -73,19 +73,30 @@ def process_video_job(job_id: str, request: dict) -> dict:
         fps_rational = pre["probe"].get("fps_rational")
         # route depth to a GPU with enough VRAM for the model resolution
         input_size = int(request.get("input_size", 980))
+        # long videos fan out scene-aligned chunks across parallel GPU
+        # workers (identical output: depth alignment resets at cuts and
+        # stereo segments align to batch boundaries)
+        parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > 1500))
         depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
         worker_cls = (
             VideoDepthWorker if depth_gpu == "L40S"
             else VideoDepthWorker.with_options(gpu=depth_gpu)
         )
-        jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size})")
-        depth = worker_cls(encoder=request.get("encoder", "vitl")).generate.remote(
-            job_id,
-            pre["work_path"],
-            input_size=input_size,
-            fps_rational=fps_rational,
-            band=(0.15, 0.5),
-        )
+        jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, parallel={parallel})")
+        worker = worker_cls(encoder=request.get("encoder", "vitl"))
+        if parallel:
+            depth = _parallel_depth(
+                job_id, jlog, worker, pre, input_size, fps_rational,
+                max_workers=int(request.get("max_gpu_workers", 4)),
+            )
+        else:
+            depth = worker.generate.remote(
+                job_id,
+                pre["work_path"],
+                input_size=input_size,
+                fps_rational=fps_rational,
+                band=(0.15, 0.5),
+            )
         check_worker_result(depth, "video_depth")
         # frame-count invariant: any silent drop would desync audio
         if depth["num_frames"] != pre["probe"]["num_frames"]:
@@ -97,8 +108,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                   f"{len(depth['scene_cuts'])} scene cut(s)")
         jobs.update_job(job_id, progress=0.5, stage="video_stereo")
 
-        stereo = VideoStereoWorker().generate.remote(
-            job_id,
+        stereo_kwargs = dict(
             video_path=pre["work_path"],
             depth_path=depth["depth_path"],
             displacement=float(request.get("displacement", 0.0125)),
@@ -106,8 +116,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
             work_height=int(request.get("work_height", 720)),
             work_width=int(request.get("work_width", 1280)),
             fps_rational=fps_rational,
-            band=(0.5, 0.85),
         )
+        if parallel:
+            stereo = _parallel_stereo(
+                job_id, jlog, pre, stereo_kwargs,
+                max_workers=int(request.get("max_gpu_workers", 4)),
+            )
+        else:
+            stereo = VideoStereoWorker().generate.remote(
+                job_id, band=(0.5, 0.85), **stereo_kwargs
+            )
         check_worker_result(stereo, "video_stereo")
         if stereo["num_frames"] != pre["probe"]["num_frames"]:
             raise RuntimeError(
@@ -167,3 +185,93 @@ def process_video_job(job_id: str, request: dict) -> dict:
         logger.exception(f"❌ video job {job_id} failed")
         jobs.update_job(job_id, status=jobs.FAILED, error=str(exc))
         raise
+
+
+# ---------------------------------------------------- long-video fan-out
+
+def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
+    """Group scene ranges into chunks of ~target frames."""
+    chunks, cur, size = [], [], 0
+    for first, last in boundaries:
+        cur.append((first, last))
+        size += last - first
+        if size >= target:
+            chunks.append(cur)
+            cur, size = [], 0
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
+def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_workers):
+    from app.common.errors import check_worker_result
+    from app.stages.media import concat_cache_segments, detect_scenes
+
+    scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+    boundaries = [(s["start"], s["end"]) for s in scenes] or [(0, pre["probe"]["num_frames"])]
+    total = pre["probe"]["num_frames"]
+    chunks = _chunk_ranges(boundaries, total, target=max(600, total // max_workers + 1))
+    jlog.info(f"🧩 depth fan-out: {len(boundaries)} scene(s) → {len(chunks)} chunk(s)")
+
+    results = list(worker.generate_scenes.starmap(
+        [(job_id, pre["work_path"], chunk, input_size, fps_rational) for chunk in chunks]
+    ))
+    segments, num_frames = [], 0
+    for r in results:
+        check_worker_result(r, "video_depth[chunk]")
+        segments += r["segments"]
+        num_frames += r["num_frames"]
+
+    from app.common.storage import job_cache_dir
+
+    depth_path = str(job_cache_dir(job_id) / "depth.mp4")
+    concat_cache_segments.remote(job_id, sorted(segments), depth_path, num_frames)
+    return {
+        "depth_path": depth_path,
+        "num_frames": num_frames,
+        "depth_shape": results[0]["depth_shape"],
+        "scene_cuts": [b for _, b in boundaries[:-1]],
+    }
+
+
+def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, max_workers):
+    from app.common.errors import check_worker_result
+    from app.common.storage import job_cache_dir
+    from app.stages.media import concat_cache_segments
+    from app.stages.video_stereo import SEGMENT_FRAMES, VideoStereoWorker, _pick_batch_size
+
+    total = pre["probe"]["num_frames"]
+    batch_size = _pick_batch_size(total)
+    seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
+    # chunk = several segments, aligned so results are identical
+    chunk_len = seg_len * max(1, (total // max_workers) // seg_len + 1)
+    ranges = [(s, min(s + chunk_len, total)) for s in range(0, total, chunk_len)]
+    jlog.info(f"🧩 stereo fan-out: {total}f → {len(ranges)} chunk(s) of ≤{chunk_len}f")
+
+    # spawn all chunks, then gather — parallel across ≤max_workers containers
+    handles = [
+        VideoStereoWorker().generate.spawn(
+            job_id, frame_range=r, batch_size=batch_size, concat=False,
+            band=(0.5, 0.85), **stereo_kwargs,
+        )
+        for r in ranges
+    ]
+    results = [h.get() for h in handles]
+    segments, num_frames = [], 0
+    for r in results:
+        check_worker_result(r, "video_stereo[chunk]")
+        segments += r["segments"]
+        num_frames += r["num_frames"]
+
+    inpaint = stereo_kwargs["inpaint"]
+    sbs_path = str(job_cache_dir(job_id) / f"sbs_{inpaint}.mp4")
+    concat_cache_segments.remote(job_id, sorted(segments), sbs_path, num_frames)
+    first = results[0]
+    return {
+        "sbs_path": sbs_path,
+        "num_frames": num_frames,
+        "fps": first["fps"],
+        "width": first["width"],
+        "height": first["height"],
+        "inpaint": inpaint,
+    }

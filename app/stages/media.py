@@ -306,3 +306,29 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     url = public_url(dst)
     jlog.info(f"✔ published {name}: {url}")
     return url
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=4,
+    memory=(2 * 1024, 16 * 1024),
+    timeout=1800,
+)
+def concat_cache_segments(job_id: str, segments: list, output_path: str, expected_frames: int) -> dict:
+    """Lossless concat of worker-produced segment files (long-video
+    fan-out), with the frame-count invariant enforced."""
+    from app.common.ffmpeg_utils import concat_segments, count_frames
+
+    cache_volume.reload()
+    out = Path(output_path)
+    concat_segments([Path(s) for s in segments], out)
+    written = count_frames(out)
+    if written != expected_frames:
+        raise RuntimeError(
+            f"concat frame count mismatch: {written} != {expected_frames} (audio would drift)"
+        )
+    cache_volume.commit()
+    return {"path": str(out), "num_frames": written}

@@ -115,3 +115,46 @@ class VideoDepthWorker:
             "depth_shape": list(result.depth_shape),
             "scene_cuts": result.scene_cuts,
         }
+
+    @modal.method()
+    @fail_fast
+    def generate_scenes(
+        self,
+        job_id: str,
+        input_path: str,
+        scene_ranges: list,
+        input_size: int = 980,
+        fps_rational: str | None = None,
+    ) -> dict:
+        """Long-video fan-out: depth for an explicit subset of scenes.
+        Writes per-scene segment files (resumable) without concatenating;
+        the orchestrator concats all chunks' segments in order."""
+        safe_reload(cache_volume)
+        src = Path(input_path)
+        if not src.exists():
+            raise FileNotFoundError(f"input video not found: {src}")
+
+        out = job_cache_dir(job_id) / "depth.mp4"  # segments dir derives from this
+        ranges = [tuple(r) for r in scene_ranges]
+        with jobs.stage_timer(
+            job_id, f"video_depth[{ranges[0][0]}:{ranges[-1][1]}]",
+            gpu=VIDEO_DEPTH_GPU, input_size=input_size, scenes=len(ranges),
+        ):
+            processor = DepthProcessor(
+                src, self.model, input_size=input_size, scene_ranges=ranges
+            )
+            result = processor.write_depth_video(
+                out,
+                fps_rational=fps_rational,
+                on_scene_done=lambda first, last: cache_volume.commit(),
+                concat=False,
+            )
+
+        cache_volume.commit()
+        del processor
+        torch.cuda.empty_cache()
+        return {
+            "segments": result.segments,
+            "num_frames": result.num_frames,
+            "depth_shape": list(result.depth_shape),
+        }
