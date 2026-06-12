@@ -235,20 +235,30 @@ def encode_mvhevc_x265(
     with jobs.stage_timer(job_id, "encode_mvhevc_x265", crf=crf, preset=preset):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            yuv = tmp_dir / "sbs.yuv"
+            left_yuv = tmp_dir / "left.yuv"
+            right_yuv = tmp_dir / "right.yuv"
             raw = tmp_dir / "video.hevc"
 
-            # 1) decode the full-SBS master to raw 8-bit yuv420p
+            # 1) decode the SBS master into two per-eye raw streams.
+            #    format 0 (two inputs) — the single-SBS-input format 1
+            #    produced temporally desynced views (left/right showed
+            #    different scenes); two explicit inputs is the
+            #    community-validated path.
             subprocess.run(
                 ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(sbs),
-                 "-an", "-pix_fmt", "yuv420p", "-f", "rawvideo", str(yuv)],
+                 "-an",
+                 "-filter_complex",
+                 "[0:v]crop=iw/2:ih:0:0[l];[0:v]crop=iw/2:ih:iw/2:0[r]",
+                 "-map", "[l]", "-pix_fmt", "yuv420p", "-f", "rawvideo", str(left_yuv),
+                 "-map", "[r]", "-pix_fmt", "yuv420p", "-f", "rawvideo", str(right_yuv)],
                 check=True,
             )
 
-            # 2) x265 multiview: format 1 = one SBS input, two views;
-            #    --input-res is PER-VIEW
+            # 2) x265 multiview: first --input = layer 0 = hero (left) eye
             cfg = tmp_dir / "mv.cfg"
-            cfg.write_text(f'--num-views 2\n--format 1\n--input "{yuv}"\n')
+            cfg.write_text(
+                f'--num-views 2\n--format 0\n--input "{left_yuv}"\n--input "{right_yuv}"\n'
+            )
             enc = subprocess.run(
                 ["x265", "--multiview-config", str(cfg),
                  "--input-res", f"{eye_w}x{eye_h}", "--input-csp", "i420",
