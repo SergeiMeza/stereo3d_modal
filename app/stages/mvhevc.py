@@ -28,6 +28,7 @@ from app.common.storage import (
 )
 from app.images import nvenc_image
 from app.modal_app import app
+from app.stages import vexu as vexu_blobs
 
 logger = get_logger(__name__)
 
@@ -41,15 +42,22 @@ MVHEVC_GPU = "L4"
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
     timeout=3600,
+    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
 )
 def encode_mvhevc(
     job_id: str,
     sbs_path: str,
     quality: int = 28,
     original_path: str | None = None,
+    spatial: dict | None = None,
 ) -> dict:
-    """Encode a full-width SBS video into MV-HEVC. Returns the public
-    URL of the .mov plus stream info for verification."""
+    """Encode a full-width SBS video into Apple spatial video:
+    MV-HEVC (NVENC) → MP4Box mux (hvcC+lhvC) → vexu/hfov injection.
+
+    spatial: {"hero": "left"|"right"|None, "baseline_mm": float,
+              "hfov_deg": float, "dadj": int} — see app/stages/vexu.py
+    for defaults (iPhone-15-Pro-like).
+    """
     safe_reload(cache_volume)
     sbs = Path(sbs_path)
     if not sbs.exists():
@@ -101,13 +109,45 @@ def encode_mvhevc(
                 if got_audio:
                     mux_inputs += ["-add", str(audio)]
 
-            # 3) mux with MP4Box (preserves both views, verified)
+            # 3) mux with MP4Box (modern GPAC writes hvcC + lhvC;
+            #    ffmpeg's mov muxer would drop the second view)
+            muxed = tmp_dir / "muxed.mp4"
             mux = subprocess.run(
-                ["MP4Box", *mux_inputs, "-new", str(local)],
+                ["MP4Box", *mux_inputs, "-new", str(muxed)],
                 capture_output=True, text=True,
             )
             if mux.returncode != 0:
                 raise RuntimeError(f"MP4Box mux failed: {mux.stderr[-2000:]}")
+
+            # 4) inject Apple spatial metadata (vexu + hfov) into the
+            #    hvc1 sample entry — required for the visionOS/macOS
+            #    "spatial media" treatment
+            spatial = spatial or {}
+            (tmp_dir / "vexu.bin").write_bytes(
+                vexu_blobs.build_vexu(
+                    hero=spatial.get("hero", "left"),
+                    baseline_mm=float(spatial.get("baseline_mm", vexu_blobs.DEFAULT_BASELINE_MM)),
+                    dadj=int(spatial.get("dadj", vexu_blobs.DEFAULT_DADJ)),
+                )
+            )
+            (tmp_dir / "hfov.bin").write_bytes(
+                vexu_blobs.build_hfov(float(spatial.get("hfov_deg", vexu_blobs.DEFAULT_HFOV_DEG)))
+            )
+            inject = subprocess.run(
+                ["mp4edit",
+                 "--insert", f"moov/trak/mdia/minf/stbl/stsd/hvc1:{tmp_dir}/vexu.bin",
+                 "--insert", f"moov/trak/mdia/minf/stbl/stsd/hvc1:{tmp_dir}/hfov.bin",
+                 str(muxed), str(local)],
+                capture_output=True, text=True,
+            )
+            if inject.returncode != 0:
+                raise RuntimeError(f"vexu injection failed: {inject.stderr[-1000:]}")
+
+            # 5) verify: lhvC + vexu + hfov present, second view decodes
+            dump = subprocess.run(
+                ["mp4dump", str(local)], capture_output=True, text=True
+            ).stdout
+            boxes_ok = all(tag in dump for tag in ("lhvC", "vexu", "hfov"))
 
             info = subprocess.run(
                 ["ffprobe8", "-v", "error", "-show_entries",
@@ -116,7 +156,6 @@ def encode_mvhevc(
                 capture_output=True, text=True,
             ).stdout
 
-            # verify the second view survived muxing
             check = subprocess.run(
                 ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(local),
                  "-map", "0:v:view:1", "-frames:v", "1", str(tmp_dir / "v1.png")],
@@ -130,5 +169,6 @@ def encode_mvhevc(
     return {
         "mvhevc": public_url(dst),
         "two_views_verified": two_views,
+        "spatial_boxes_verified": boxes_ok,
         "streams": json.loads(info).get("streams", []),
     }

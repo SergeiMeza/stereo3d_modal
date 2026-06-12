@@ -195,7 +195,10 @@ async def stage_encode_mvhevc(body: dict) -> dict:
         "stage:encode-mvhevc",
         body,
         lambda job_id: encode_mvhevc.spawn(
-            job_id, sbs_path=sbs_path, quality=int(body.get("quality", 28))
+            job_id,
+            sbs_path=sbs_path,
+            quality=int(body.get("quality", 28)),
+            spatial=body.get("spatial"),
         ),
     )
 

@@ -16,6 +16,7 @@ logger = get_logger(__name__)
     cpu=1,
     memory=(512, 4 * 1024),
     timeout=2 * 3600,
+    nonpreemptible=True,
 )
 def process_image_job(job_id: str, request: dict) -> dict:
     """request:

@@ -235,8 +235,8 @@ class DepthProcessor:
             yield final_frames
             aligned = aligned[-INTERP_LEN:]
 
-    def scenes(self) -> Iterator[tuple[torch.Tensor, int, int]]:
-        """Iterate scenes; yields (normalized depth (N,1,h,w) on CPU, first, last)."""
+    def scene_ranges(self) -> Iterator[tuple[int, int]]:
+        """Iterate scene boundaries (first, last) as detection produces them."""
         first = 0
         while True:
             item = self.scene_queue.get()
@@ -245,34 +245,102 @@ class DepthProcessor:
             last = item
             if last <= first:
                 continue
-            chunk = torch.cat([t.to("cpu") for t in self._process_scene(first, last)])
-            lo, hi = chunk.min(), chunk.max()
-            normalized = (chunk - lo) / (hi - lo + 1e-8)
-            track(f"scene_depth[{first}:{last}]", normalized, logger)
-            yield normalized, first, last
+            yield first, last
             first = last
 
-    def write_depth_video(self, output: Path) -> DepthResult:
-        """Run the full pass, writing a gray16le H.264 depth video."""
+    def compute_scene_depth(self, first: int, last: int) -> torch.Tensor:
+        """Normalized depth (N, 1, h, w) on CPU for one scene."""
+        chunk = torch.cat([t.to("cpu") for t in self._process_scene(first, last)])
+        lo, hi = chunk.min(), chunk.max()
+        normalized = (chunk - lo) / (hi - lo + 1e-8)
+        track(f"scene_depth[{first}:{last}]", normalized, logger)
+        return normalized
+
+    def write_depth_video(
+        self,
+        output: Path,
+        fps_rational: str | None = None,
+        on_scene_done=None,
+    ) -> DepthResult:
+        """Run the full pass, writing a gray16le H.264 depth video.
+
+        Preemption tolerance: each scene is written to its own
+        ``<output>.segments/depth_<first>_<last>.mp4`` file and the
+        final video is a lossless concat. If this function re-runs on
+        the same input (Modal restarts preempted calls), completed
+        scene segments are detected by frame count and skipped.
+
+        fps_rational: exact frame rate as a fraction string
+        ("24000/1001") — floats drift against the audio track over
+        long durations. on_scene_done(first, last): checkpoint hook
+        (e.g. volume commit).
+        """
         meta = self.decoder.metadata
-        fps = float(meta.average_fps)
+        fps = fps_rational or float(meta.average_fps)
         h, w = self.resize_shape
-        writer = gray16_video_writer(h=h, w=w, fps=fps, file=output)
+        seg_dir = Path(f"{output}.segments")
+        seg_dir.mkdir(parents=True, exist_ok=True)
+
+        segments: list[Path] = []
         num_frames = 0
-        try:
-            for normalized, first, last in self.scenes():
-                writer.stdin.write(self.to_u16(normalized).numpy().tobytes())
-                num_frames += last - first
-        finally:
-            writer.stdin.close()
-            writer.wait()
+        for first, last in self.scene_ranges():
+            seg = seg_dir / f"depth_{first:08d}_{last:08d}.mp4"
+            if seg.exists() and count_frames(seg) == last - first:
+                logger.info(f"⏭  scene [{first}, {last}) already done, skipping")
+            else:
+                normalized = self.compute_scene_depth(first, last)
+                writer = gray16_video_writer(h=h, w=w, fps=fps, file=seg)
+                try:
+                    writer.stdin.write(self.to_u16(normalized).numpy().tobytes())
+                finally:
+                    writer.stdin.close()
+                    writer.wait()
+                del normalized
+            segments.append(seg)
+            num_frames += last - first
+            if on_scene_done is not None:
+                on_scene_done(first, last)
+
+        concat_segments(segments, output)
+        written = count_frames(output)
+        if written != num_frames:
+            raise RuntimeError(
+                f"depth frame count mismatch: wrote {written}, expected {num_frames} "
+                "— refusing to continue (audio would drift out of sync)"
+            )
         return DepthResult(
             num_frames=num_frames,
-            fps=fps,
+            fps=float(meta.average_fps),
             source_shape=self.source_shape,
             depth_shape=self.resize_shape,
             scene_cuts=sorted(self.scene_cuts),
         )
+
+
+def count_frames(path: Path) -> int:
+    """Exact frame count by counting packets (fast, no decode)."""
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-count_packets", "-show_entries", "stream=nb_read_packets",
+         "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    return int(out) if out else -1
+
+
+def concat_segments(segments: list[Path], output: Path) -> None:
+    """Lossless stream-copy concat of mp4 segments in order."""
+    if len(segments) == 1:
+        output.write_bytes(segments[0].read_bytes())
+        return
+    list_file = Path(f"{output}.concat.txt")
+    list_file.write_text("".join(f"file '{s}'\n" for s in segments))
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "concat",
+         "-safe", "0", "-i", str(list_file), "-c", "copy", "-y", str(output)],
+        check=True,
+    )
+    list_file.unlink()
 
 
 def gray16_video_writer(h: int, w: int, fps: float, file: str | Path) -> subprocess.Popen:

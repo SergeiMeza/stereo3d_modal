@@ -37,6 +37,7 @@ with video_depth_image.imports():
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
     scaledown_window=SCALEDOWN_WINDOW,
+    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
 )
 class VideoDepthWorker:
     encoder: str = modal.parameter(default="vitl")
@@ -48,6 +49,12 @@ class VideoDepthWorker:
         self.model = load_video_depth_model(checkpoint, self.encoder)
         logger.info(f"🚀 VideoDepthAnything-{self.encoder} loaded in {time.perf_counter() - start:.1f}s")
 
+    @modal.exit()
+    def flush(self) -> None:
+        # also runs on preemption (30s grace): persist finished scene
+        # segments so the retried call can resume instead of restarting
+        cache_volume.commit()
+
     @modal.method()
     def generate(
         self,
@@ -55,10 +62,14 @@ class VideoDepthWorker:
         input_path: str,
         input_size: int = 980,
         fp32: bool = False,
+        fps_rational: str | None = None,
     ) -> dict:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
-        cache-volume path of the gray16le depth video."""
+        cache-volume path of the gray16le depth video.
+
+        Resumable: scene segments completed before a preemption are
+        skipped on the retried call."""
         safe_reload(cache_volume)  # pick up files written by upstream stages
         src = Path(input_path)
         if not src.exists():
@@ -68,7 +79,11 @@ class VideoDepthWorker:
 
         with jobs.stage_timer(job_id, "video_depth", gpu=VIDEO_DEPTH_GPU, input_size=input_size):
             processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32)
-            result = processor.write_depth_video(out)
+            result = processor.write_depth_video(
+                out,
+                fps_rational=fps_rational,
+                on_scene_done=lambda first, last: cache_volume.commit(),
+            )
 
         cache_volume.commit()
         del processor  # drop decoder file handles before the next input

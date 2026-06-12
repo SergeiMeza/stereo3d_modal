@@ -46,6 +46,9 @@ def probe_video(path: Path) -> dict:
         "width": stream["width"],
         "height": stream["height"],
         "fps": fps,
+        # exact rational ("24000/1001") — floats drift against audio
+        # over long durations, so writers get this string instead
+        "fps_rational": stream["avg_frame_rate"],
         "duration": duration,
         "num_frames": int(stream.get("nb_frames") or round(duration * fps)),
         "codec": stream.get("codec_name"),
@@ -103,6 +106,7 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
     timeout=1800,
@@ -134,12 +138,15 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
             work_path.write_bytes(src.read_bytes())
 
     cache_volume.commit()
-    return {"work_path": str(work_path), "probe": probe, "crop": crop}
+    # source_path: the pristine input — audio is muxed from here, since
+    # the work file is video-only (crop re-encode drops audio with -an)
+    return {"work_path": str(work_path), "source_path": str(src), "probe": probe, "crop": crop}
 
 
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(2 * 1024, 16 * 1024),
     timeout=1800,
@@ -166,6 +173,7 @@ def detect_scenes(input_path: str) -> dict:
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
     timeout=3600,
@@ -208,6 +216,7 @@ def encode_outputs(
         "anaglyph": "stereo3d=sbsl:arcd",
     }
 
+    av_sync: dict[str, float | None] = {}
     with jobs.stage_timer(job_id, "encode_outputs", formats=formats):
         with tempfile.TemporaryDirectory() as tmp:
             for fmt in formats:
@@ -228,13 +237,35 @@ def encode_outputs(
                 dst = out_dir / f"{fmt}.mp4"
                 dst.write_bytes(local.read_bytes())
                 outputs[fmt] = public_url(dst)
+                av_sync.setdefault(fmt, _av_sync_ms(local))
 
-    return {"outputs": outputs}
+    return {"outputs": outputs, "av_sync_ms": av_sync}
+
+
+def _av_sync_ms(path: Path) -> float | None:
+    """Video-vs-audio duration delta in ms (None if no audio). Frame
+    loss anywhere upstream surfaces here as a growing offset."""
+    raw = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,duration",
+         "-of", "json", str(path)],
+        capture_output=True, text=True,
+    ).stdout
+    durations = {}
+    for s in json.loads(raw).get("streams", []):
+        if s.get("duration"):
+            durations[s["codec_type"]] = float(s["duration"])
+    if "audio" not in durations or "video" not in durations:
+        return None
+    delta_ms = (durations["video"] - durations["audio"]) * 1000
+    if abs(delta_ms) > 25:  # more than ~half a frame at 24fps
+        logger.warning(f"⚠️ A/V duration delta {delta_ms:.1f} ms in {path.name}")
+    return round(delta_ms, 1)
 
 
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(1024, 8 * 1024),
     timeout=600,

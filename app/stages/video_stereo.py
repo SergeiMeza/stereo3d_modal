@@ -47,6 +47,11 @@ def _pick_batch_size(num_frames: int) -> int:
     return 20
 
 
+# target segment length in frames (~10s @ 24fps); each segment is an
+# independently written, resumable checkpoint
+SEGMENT_FRAMES = 240
+
+
 @app.cls(
     gpu=VIDEO_STEREO_GPU,
     image=stereo_image,
@@ -56,6 +61,7 @@ def _pick_batch_size(num_frames: int) -> int:
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
     scaledown_window=SCALEDOWN_WINDOW,
+    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
 )
 class VideoStereoWorker:
     @modal.enter()
@@ -65,6 +71,12 @@ class VideoStereoWorker:
         self.splatter = DepthSplatter().eval()
         self.propainter = propainter_runner.ProPainterModels()
         logger.info(f"🚀 stereo worker ready in {time.perf_counter() - start:.1f}s")
+
+    @modal.exit()
+    def flush(self) -> None:
+        # also runs on preemption (30s grace): persist finished SBS
+        # segments so the retried call resumes instead of restarting
+        cache_volume.commit()
 
     @modal.method()
     def generate(
@@ -76,9 +88,18 @@ class VideoStereoWorker:
         inpaint: str = "propainter",
         work_height: int = 720,
         work_width: int = 1280,
+        fps_rational: str | None = None,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
-        volume / bucket mount. Returns the cache path of the SBS file."""
+        volume / bucket mount. Returns the cache path of the SBS file.
+
+        Written in ~SEGMENT_FRAMES checkpoints (aligned to ProPainter
+        batch boundaries, so segmentation never changes results); on a
+        preemption retry, finished segments are skipped. The final
+        concat is frame-count-verified so audio can never drift.
+        """
+        from app.stages.depth_processor import concat_segments, count_frames
+
         if inpaint not in ("propainter", "none"):
             raise ValueError(f"unknown inpaint mode: {inpaint!r}")
 
@@ -90,31 +111,20 @@ class VideoStereoWorker:
                 raise FileNotFoundError(p)
 
         out = job_cache_dir(job_id) / f"sbs_{inpaint}.mp4"
+        seg_dir = Path(f"{out}.segments")
+        seg_dir.mkdir(parents=True, exist_ok=True)
 
         decoder = VideoDecoder(str(src), device="cpu", num_ffmpeg_threads=0)
         depth_decoder = VideoDecoder(str(depth_src), device="cpu", num_ffmpeg_threads=0)
         meta = decoder.metadata
-        fps = float(meta.average_fps)
+        fps = fps_rational or float(meta.average_fps)
         height, width = meta.height, meta.width
         num_frames = min(meta.num_frames, depth_decoder.metadata.num_frames)
-
-        writer = (
-            ffmpeg.input(
-                "pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width * 2}x{height}", r=fps
+        if meta.num_frames != depth_decoder.metadata.num_frames:
+            raise RuntimeError(
+                f"frame count mismatch: source {meta.num_frames} vs depth "
+                f"{depth_decoder.metadata.num_frames} — upstream stage dropped frames"
             )
-            .output(
-                str(out),
-                pix_fmt="yuv420p",
-                vcodec="libx264",
-                preset="slow",
-                vsync="cfr",
-                r=fps,
-                crf=16,
-            )
-            .global_args("-loglevel", "error")
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
-        )
 
         to_work = v2.Resize(
             (work_height, work_width),
@@ -126,9 +136,10 @@ class VideoStereoWorker:
         )
 
         batch_size = _pick_batch_size(num_frames)
+        seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
         logger.info(
             f"🎬 SBS pass: {num_frames} frames @ {width}x{height}, "
-            f"batch={batch_size}, inpaint={inpaint}"
+            f"batch={batch_size}, segment={seg_len}, inpaint={inpaint}"
         )
 
         with jobs.stage_timer(
@@ -143,45 +154,88 @@ class VideoStereoWorker:
 
             jlog = job_logger(job_id)
             pass_start = time.perf_counter()
+            segments: list[Path] = []
+
             with torch.no_grad():
-                for i in range(0, num_frames, batch_size):
-                    j = min(i + batch_size, num_frames)
-                    frames = decoder[i:j].cuda()  # (T, 3, H, W) uint8
-                    depths = depth_decoder[i:j].cuda()  # (T, C, h, w) uint8
-                    if depths.shape[1] > 1:
-                        depths = depths[:, :1]
-                    depths = to_source(depths)
+                for s in range(0, num_frames, seg_len):
+                    e = min(s + seg_len, num_frames)
+                    seg = seg_dir / f"sbs_{s:08d}_{e:08d}.mp4"
+                    segments.append(seg)
+                    if seg.exists() and count_frames(seg) == e - s:
+                        jlog.info(f"⏭  segment [{s}, {e}) already done, skipping")
+                        continue
 
-                    if inpaint == "none":
-                        self._write_raw_warp(writer, frames, depths, displacement)
-                    else:
-                        self._write_inpainted(
-                            writer, frames, depths, displacement, to_work, to_source
-                        )
+                    writer = self._segment_writer(seg, width, height, fps)
+                    try:
+                        for i in range(s, e, batch_size):
+                            j = min(i + batch_size, e)
+                            frames = decoder[i:j].cuda()  # (T, 3, H, W) uint8
+                            depths = depth_decoder[i:j].cuda()  # (T, C, h, w) uint8
+                            if depths.shape[1] > 1:
+                                depths = depths[:, :1]
+                            depths = to_source(depths)
 
-                    del frames, depths
-                    torch.cuda.empty_cache()
-                    elapsed = time.perf_counter() - pass_start
-                    jlog.info(
-                        f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
-                        f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
-                    )
-                    # e2e jobs sit between 50% (depth done) and 85% (encode)
-                    jobs.update_job(job_id, progress=round(0.5 + 0.35 * j / num_frames, 3))
+                            if inpaint == "none":
+                                self._write_raw_warp(writer, frames, depths, displacement)
+                            else:
+                                self._write_inpainted(
+                                    writer, frames, depths, displacement, to_work, to_source
+                                )
 
-            writer.stdin.close()
-            writer.wait()
+                            del frames, depths
+                            torch.cuda.empty_cache()
+                            elapsed = time.perf_counter() - pass_start
+                            jlog.info(
+                                f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
+                                f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
+                            )
+                            # e2e jobs sit between 50% (depth) and 85% (encode)
+                            jobs.update_job(
+                                job_id, progress=round(0.5 + 0.35 * j / num_frames, 3)
+                            )
+                    finally:
+                        writer.stdin.close()
+                        writer.wait()
+                    cache_volume.commit()  # checkpoint the finished segment
+
+            concat_segments(segments, out)
+            written = count_frames(out)
+            if written != num_frames:
+                raise RuntimeError(
+                    f"SBS frame count mismatch: wrote {written}, expected {num_frames} "
+                    "— refusing to continue (audio would drift out of sync)"
+                )
 
         cache_volume.commit()
         del decoder, depth_decoder  # drop file handles before the next input
         return {
             "sbs_path": str(out),
             "num_frames": num_frames,
-            "fps": fps,
+            "fps": float(meta.average_fps),
             "width": width * 2,
             "height": height,
             "inpaint": inpaint,
         }
+
+    @staticmethod
+    def _segment_writer(path: Path, width: int, height: int, fps):
+        return (
+            ffmpeg.input(
+                "pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width * 2}x{height}", r=fps
+            )
+            .output(
+                str(path),
+                pix_fmt="yuv420p",
+                vcodec="libx264",
+                preset="slow",
+                vsync="cfr",
+                r=fps,
+                crf=16,
+            )
+            .global_args("-loglevel", "error")
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+        )
 
     # ------------------------------------------------------------ modes
 
