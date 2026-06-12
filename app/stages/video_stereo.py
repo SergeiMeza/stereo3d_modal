@@ -36,7 +36,7 @@ with stereo_image.imports():
     from torchcodec.decoders import VideoDecoder
 
     from app.stages import propainter_runner
-    from app.stages.splat import BOTH, LEFT, RIGHT, DepthSplatter
+    from app.stages.splat import BOTH, DEFAULT_PLACEMENT, LEFT, RIGHT, DepthSplatter
 
 
 def _pick_batch_size(num_frames: int) -> int:
@@ -51,6 +51,76 @@ def _pick_batch_size(num_frames: int) -> int:
 # target segment length in frames (~10s @ 24fps); each segment is an
 # independently written, resumable checkpoint
 SEGMENT_FRAMES = 240
+
+
+def _scene_param_lookup(
+    scene_params: list[dict],
+    default_displacement: float,
+    default_placement: tuple[float, float],
+):
+    """Build ``index -> (displacement, placement)`` over absolute frame
+    indices from a per-shot depth script (profile_scenes output).
+
+    Lookup is by absolute index — segment/batch boundaries are aligned
+    to ProPainter batches, NOT scene cuts, so a batch can straddle two
+    shots and each frame must resolve its own shot. Frames not covered
+    by any shot (defensive: the script should tile the video) fall back
+    to the job-level defaults rather than failing mid-render.
+
+    Intra-shot ramps: a span carrying a "keyframes" list (dynamic shots
+    from profile_scenes, entries {"index", "displacement", "placement"})
+    does not hold one constant setting — displacement and each placement
+    component are linearly interpolated between the bracketing keyframes
+    by frame index, clamped to the first/last keyframe's values outside
+    their range, so a shot whose depth composition changes ramps
+    smoothly instead of using one static compromise. Spans without
+    "keyframes" behave exactly as before. Pure function of its inputs.
+    """
+    spans = sorted(
+        (
+            (
+                int(sp["first"]),
+                int(sp["last"]),
+                float(sp["displacement"]),
+                tuple(float(v) for v in sp["placement"]),
+                tuple(sorted(
+                    (
+                        int(kf["index"]),
+                        float(kf["displacement"]),
+                        tuple(float(v) for v in kf["placement"]),
+                    )
+                    for kf in sp["keyframes"]
+                )) if sp.get("keyframes") else None,
+            )
+            for sp in scene_params
+        ),
+        key=lambda span: (span[0], span[1]),
+    )
+
+    def lookup(index: int) -> tuple[float, tuple[float, float]]:
+        for first, last, disp, placement, keyframes in spans:
+            if first <= index < last:
+                if not keyframes:
+                    return disp, placement
+                if index <= keyframes[0][0]:
+                    return keyframes[0][1], keyframes[0][2]
+                if index >= keyframes[-1][0]:
+                    return keyframes[-1][1], keyframes[-1][2]
+                # half-open brackets: an index exactly on a keyframe is
+                # t=0 of the next bracket, returning its values exactly
+                for (i0, d0, p0), (i1, d1, p1) in zip(keyframes, keyframes[1:]):
+                    if i0 <= index < i1:
+                        t = (index - i0) / (i1 - i0)
+                        return (
+                            d0 + (d1 - d0) * t,
+                            (
+                                p0[0] + (p1[0] - p0[0]) * t,
+                                p0[1] + (p1[1] - p0[1]) * t,
+                            ),
+                        )
+        return default_displacement, default_placement
+
+    return lookup
 
 
 @app.cls(
@@ -97,6 +167,7 @@ class VideoStereoWorker:
         frame_range: tuple[int, int] | None = None,
         batch_size: int | None = None,
         concat: bool = True,
+        scene_params: list[dict] | None = None,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
@@ -105,6 +176,17 @@ class VideoStereoWorker:
         batch boundaries, so segmentation never changes results); on a
         preemption retry, finished segments are skipped. The final
         concat is frame-count-verified so audio can never drift.
+
+        ``scene_params`` (adaptive per-shot depth script, optional):
+        list of {"first", "last", "displacement", "placement"} dicts
+        from FrameDepthWorker.profile_scenes. When given, each frame's
+        splatting displacement + placement come from its shot (looked
+        up by absolute frame index); shots carrying a "keyframes" list
+        (dynamic shots) ramp linearly between keyframes — see
+        _scene_param_lookup. Masks and inpainting are unchanged. When
+        None, behavior is byte-identical to before: the
+        ``displacement`` argument and the default placement apply to
+        every frame.
         """
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
@@ -165,6 +247,10 @@ class VideoStereoWorker:
             from app.common.debug import job_logger
 
             jlog = job_logger(job_id)
+            params_at = None
+            if scene_params:
+                params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
+                jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
             pass_start = time.perf_counter()
             segments: list[Path] = []
 
@@ -188,11 +274,15 @@ class VideoStereoWorker:
                             depths = to_source(depths)
 
                             if inpaint == "none":
-                                self._write_raw_warp(writer, frames, depths, displacement, stereo_mode)
+                                self._write_raw_warp(
+                                    writer, frames, depths, displacement, stereo_mode,
+                                    frame_start=i, params_at=params_at,
+                                )
                             else:
                                 self._write_inpainted(
                                     writer, frames, depths, displacement,
                                     to_work, to_source, stereo_mode,
+                                    frame_start=i, params_at=params_at,
                                 )
 
                             del frames, depths
@@ -270,16 +360,28 @@ class VideoStereoWorker:
 
     # ------------------------------------------------------------ modes
 
-    def _write_raw_warp(self, writer, frames, depths, displacement, stereo_mode) -> None:
+    def _write_raw_warp(
+        self, writer, frames, depths, displacement, stereo_mode,
+        frame_start: int = 0, params_at=None,
+    ) -> None:
         """Forward warp only — no masks, no inpainting. In "left"/"right"
         mode the other eye is the untouched original frame and the
         generated eye gets the FULL displacement (matching the still
-        image pipeline's convention)."""
+        image pipeline's convention).
+
+        ``frame_start`` is the batch's absolute start index, so
+        ``params_at`` (adaptive per-shot lookup) can resolve each
+        frame's shot even when a batch straddles a scene cut."""
         for k in range(frames.shape[0]):
+            disp_k, placement_k = (
+                params_at(frame_start + k) if params_at is not None
+                else (displacement, DEFAULT_PLACEMENT)
+            )
             frame = frames[k].unsqueeze(0)
             depth = depths[k].unsqueeze(0).float() / 255.0
             left, right, _, _ = self.splatter(
-                image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
+                image=frame, depthmap=depth, disp=disp_k,
+                stereo_mode=stereo_mode, placement=placement_k,
             )
             left_u8 = frame if left is None else (left * 255).clamp(0, 255).to(torch.uint8)
             right_u8 = frame if right is None else (right * 255).clamp(0, 255).to(torch.uint8)
@@ -287,7 +389,8 @@ class VideoStereoWorker:
             writer.stdin.write(sbs.squeeze(0).permute(1, 2, 0).cpu().numpy().tobytes())
 
     def _write_inpainted(
-        self, writer, frames, depths, displacement, to_work, to_source, stereo_mode
+        self, writer, frames, depths, displacement, to_work, to_source, stereo_mode,
+        frame_start: int = 0, params_at=None,
     ) -> None:
         """Splat at source resolution, inpaint occlusions with
         ProPainter at working resolution, then composite the upscaled
@@ -297,6 +400,10 @@ class VideoStereoWorker:
         stereo_mode "left"/"right": only that eye is synthesized (full
         displacement) and inpainted — the other eye is the original
         frame, halving the ProPainter cost vs "both".
+
+        ``frame_start`` + ``params_at``: adaptive per-shot lookup, see
+        _write_raw_warp — only the splatting parameters vary per frame;
+        the mask/ProPainter flow is untouched.
         """
         gen_left = stereo_mode in (BOTH, LEFT)
         gen_right = stereo_mode in (BOTH, RIGHT)
@@ -304,11 +411,16 @@ class VideoStereoWorker:
         originals = []
 
         for k in range(frames.shape[0]):
+            disp_k, placement_k = (
+                params_at(frame_start + k) if params_at is not None
+                else (displacement, DEFAULT_PLACEMENT)
+            )
             frame = frames[k].unsqueeze(0)
             originals.append(frame.cpu())
             depth = depths[k].unsqueeze(0).float() / 255.0
             left, right, left_occ, right_occ = self.splatter(
-                image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
+                image=frame, depthmap=depth, disp=disp_k,
+                stereo_mode=stereo_mode, placement=placement_k,
             )
             for name, img, occ in (("L", left, left_occ), ("R", right, right_occ)):
                 if img is None:

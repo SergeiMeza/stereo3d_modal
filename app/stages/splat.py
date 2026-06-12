@@ -18,6 +18,12 @@ LEFT = "left"
 RIGHT = "right"
 BOTH = "both"
 
+# Default depth-budget placement (see DepthSplatter.forward): depth 0
+# (far) maps to -1.0 × max_disp (behind the screen plane) and depth 1
+# (near) to +0.5 × max_disp (moderate pop-out). Chosen so default calls
+# reproduce the original hard-coded ``depthmap * 1.5 - 1.0`` exactly.
+DEFAULT_PLACEMENT: tuple[float, float] = (-1.0, 0.5)
+
 
 class ForwardWarpStereo(nn.Module):
     def __init__(self, eps=1e-6, occlu_map=False):
@@ -65,6 +71,7 @@ class DepthSplatter(nn.Module):
         depthmap: torch.Tensor,  # (B, 1, H, W) float [0,1]
         disp: float,  # max displacement as a fraction of width
         stereo_mode: str = BOTH,
+        placement: tuple[float, float] = DEFAULT_PLACEMENT,
     ) -> tuple[
         torch.Tensor | None,  # left_image  float [0,1]
         torch.Tensor | None,  # right_image float [0,1]
@@ -82,9 +89,15 @@ class DepthSplatter(nn.Module):
         if stereo_mode == BOTH:
             max_disp *= 0.5
 
-        # depth [0,1] -> disparity scaled to [-1, 0.5]: content sits
-        # mostly behind the screen plane with moderate pop-out
-        disp_map = depthmap * 1.5 - 1.0
+        # depth [0,1] -> signed disparity in [placement[0], placement[1]]
+        # (fractions of max_disp). ``placement`` positions the scene's
+        # depth budget relative to the screen plane: negative = behind,
+        # positive = pop-out. The default (-1.0, 0.5) — content mostly
+        # behind the screen with moderate pop-out — reproduces the
+        # original hard-coded mapping ``depthmap * 1.5 - 1.0`` exactly;
+        # the adaptive per-shot pipeline narrows/shifts it (e.g. close-
+        # ups cap pop-out at 0.1 to avoid window violations).
+        disp_map = depthmap * (placement[1] - placement[0]) + placement[0]
         disp_map = max_disp * disp_map
 
         left_image = right_image = left_mask = right_mask = None

@@ -24,6 +24,9 @@ class VideoRequest(TypedDict, total=False):
     formats: list[VideoFormat]  # default ["sbs", "half_sbs", "anaglyph"]
     include_audio: bool  # default True
     output_depth: bool  # default True
+    adaptive: bool  # default False; per-shot depth script (R&D prototype,
+    # sequential propainter/none path only); decisions appear in
+    # metadata["depth_script"]
 
 
 class ImageItem(TypedDict, total=False):

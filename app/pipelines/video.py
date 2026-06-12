@@ -57,8 +57,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
       "include_audio": true,
-      "output_depth": true
+      "output_depth": true,
+      "adaptive": false          # per-shot depth script (R&D prototype)
     }
+
+    adaptive: detect scenes, profile 3 keyframes per shot with
+    da3-metric, and drive per-shot displacement/placement through the
+    stereo stage (decisions stored in metadata["depth_script"]). The
+    MAIN depth pass still uses whatever ``depth_model`` says (default
+    vda). Prototype limits: sequential stereo only — combining with
+    explicit ``parallel`` or ``inpaint="m2svid"`` raises (follow-ups).
     """
     from app.common.debug import job_logger
     from app.common.errors import check_worker_result
@@ -97,6 +105,48 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # stereo segments align to batch boundaries)
         parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > 1500))
         depth_model = request.get("depth_model", "vda")
+
+        # -------------------------------- adaptive per-shot depth script
+        adaptive = bool(request.get("adaptive", False))
+        depth_script: list[dict] | None = None
+        if adaptive:
+            # prototype limits (follow-ups): the parallel stereo fan-out
+            # and the M2SVid worker don't take scene_params yet — fail
+            # loudly rather than silently dropping the depth script
+            if request.get("inpaint", "propainter") == "m2svid":
+                raise RuntimeError("adaptive=true is not supported with inpaint='m2svid' yet")
+            if request.get("parallel"):
+                raise RuntimeError("adaptive=true is not supported with parallel=true yet")
+            if parallel:  # implicit long-video fan-out: fall back, don't fail
+                jlog.info("🎛  adaptive: forcing sequential path (fan-out unsupported)")
+                parallel = False
+
+            from app.stages.media import detect_scenes
+            from app.stages.video_depth_models import FrameDepthWorker
+
+            jobs.update_job(job_id, stage="profile_scenes", progress=0.17)
+            scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+            scene_ranges = (
+                [(s["start"], s["end"]) for s in scenes]
+                or [(0, pre["probe"]["num_frames"])]
+            )
+            jlog.info(f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with da3-metric")
+            # profiling worker is always da3-metric, independent of the
+            # depth_model used for the MAIN depth pass below
+            depth_script = FrameDepthWorker(model_name="da3-metric").profile_scenes.remote(
+                job_id, pre["work_path"], scene_ranges, input_size=518
+            )
+            check_worker_result(depth_script, "profile_scenes")
+            # persist the per-shot decisions immediately so they are
+            # inspectable while the job is still running (and survive a
+            # later-stage failure); also folded into final metadata below
+            jobs.update_job(job_id, depth_script=depth_script)
+            for shot in depth_script:
+                jlog.info(
+                    f"🎛  shot [{shot['first']}, {shot['last']}): {shot['shot_type']} "
+                    f"disp={shot['displacement']} placement={shot['placement']} "
+                    f"(median={shot['median']}, near_fraction={shot['near_fraction']})"
+                )
         if depth_model == "vda":
             depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
             worker_cls = (
@@ -179,6 +229,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 work_height=int(request.get("work_height", 720)),
                 work_width=int(request.get("work_width", 1280)),
                 fps_rational=fps_rational,
+                scene_params=depth_script,  # None unless adaptive
             )
             # ProPainter VRAM scales with work res × source res: above the
             # default 720p working res (or 4K sources), L40S 48GB OOMs
@@ -247,6 +298,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "scene_cuts": depth["scene_cuts"],
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),
+                **({"depth_script": depth_script} if depth_script is not None else {}),
             },
         )
         jlog.info(f"🏁 job completed: {len(outputs)} output(s) published")

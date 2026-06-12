@@ -75,6 +75,20 @@ async def submit_video(body: dict) -> dict:
     displacement = float(body.get("displacement", 0.0125))
     if not (0.0 < displacement <= 0.1):
         raise HTTPException(status_code=400, detail="displacement must be in (0, 0.1]")
+    # adaptive per-shot depth script (R&D prototype): sequential
+    # ProPainter/none path only — reject unsupported combinations at
+    # submit time so the job doesn't fail minutes in
+    if bool(body.get("adaptive", False)):
+        if inpaint == "m2svid":
+            raise HTTPException(
+                status_code=400,
+                detail="adaptive=true is not supported with inpaint='m2svid' yet",
+            )
+        if body.get("parallel"):
+            raise HTTPException(
+                status_code=400,
+                detail="adaptive=true is not supported with parallel=true yet",
+            )
 
     return _submit("video", body, lambda job_id: process_video_job.spawn(job_id, body))
 

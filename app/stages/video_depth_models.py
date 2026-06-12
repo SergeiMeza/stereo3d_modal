@@ -53,7 +53,7 @@ import modal
 
 from app.common import jobs
 from app.common.errors import fail_fast
-from app.common.debug import get_logger, track
+from app.common.debug import get_logger, job_logger, track
 from app.common.ffmpeg_utils import concat_segments, count_frames
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
@@ -77,6 +77,279 @@ RANGE_SAMPLE_FRAMES = 32
 # Depth floor before inversion — guards 1/0 only; the percentile (or
 # per-scene min-max) mapping handles outliers.
 DEPTH_EPS = 1e-4
+
+# ------------------------------------------- adaptive shot profiling
+#
+# Threshold calibration (da3-metric, focal-normalized scale):
+# DA3METRIC outputs depth with ``meters = focal_px * output / 300``,
+# i.e. ``output = 300 * meters / focal_px``. At the 518-px profiling
+# resolution a typical ~50° HFOV camera has focal_px ≈ 550, so
+# ``output ≈ 0.55 × meters``. The absolute thresholds below are
+# therefore read as: 1.5 ≈ scene median within ~3 m (close-up framing),
+# 6.0 ≈ scene median beyond ~11 m (wide / establishing shot). Because
+# the true focal is unknown for arbitrary footage, these absolute cuts
+# are intentionally loose, and the focal-invariant ``near_fraction``
+# (measured against the job's OWN pooled disparity range, so a constant
+# focal scale cancels) carries most of the decision weight: it is OR'd
+# in for close-ups and AND'd in for wides.
+PROFILE_CLOSE_MEDIAN = 1.5  # raw da3-metric units (~3 m at 50° HFOV)
+PROFILE_WIDE_MEDIAN = 6.0   # raw da3-metric units (~11 m at 50° HFOV)
+PROFILE_NEAR_FRACTION_CLOSE = 0.35
+PROFILE_NEAR_FRACTION_WIDE = 0.10
+# "nearest 25% of the job's disparity range" = normalized disparity > 0.75
+PROFILE_NEAR_BAND = 0.75
+# "strong disagreement" between the 3 keyframes: spread of the per-frame
+# median normalized disparity (the scene's depth center moved by >30% of
+# the job's whole disparity range) or of the per-frame near_fraction
+# (>25 pp of the image entered/left the near band) — both indicate the
+# shot has large subject/camera motion and one static profile would lie.
+PROFILE_DYNAMIC_DISP_SPREAD = 0.30
+PROFILE_DYNAMIC_NEAR_SPREAD = 0.25
+# Depth continuity: adjacent shots may differ by at most this much
+# displacement, so the eye never gets yanked across a cut.
+PROFILE_MAX_DISPLACEMENT_STEP = 0.005
+# Pixels kept per keyframe for the profiling statistics (medians and
+# fractions converge long before this; keeps memory flat per scene).
+PROFILE_PIXEL_SAMPLES = 200_000
+
+# ---------------------------------- pro treatment v2 (stereographer)
+# Depth-matched cuts: max allowed jump of the SALIENT screen disparity
+# (the median-depth content the viewer is looking at) across a cut, as
+# a fraction of frame width. 0.2% of width is small enough that the
+# eyes re-converge without a noticeable vergence jerk.
+CUT_DISPARITY_TOLERANCE = 0.002
+# Comfort budget: background divergence (behind-screen disparity of the
+# farthest content) ≤ 2% of width — roughly the broadcast divergence
+# limit; pop-out (in-front-of-screen disparity) ≤ 0.8% of width.
+MAX_BACKGROUND_DISPARITY = 0.02
+MAX_POPOUT_DISPARITY = 0.008
+# Bounds for cut-matching placement shifts: the far plane may never be
+# pushed below −1.3 × max_disp nor the near plane above +0.6 × max_disp
+# (beyond these the comfort budget could not be honored by any sane
+# displacement, and the depth budget geometry degenerates).
+PLACEMENT_SHIFT_MIN = -1.3
+PLACEMENT_SHIFT_MAX = 0.6
+
+# Per-shot stereo parameters. ``displacement`` is the max disparity as a
+# fraction of width (VideoStereoWorker convention); ``placement`` is the
+# DepthSplatter depth-budget mapping (see app/stages/splat.py):
+# - close_up: small displacement + pop-out capped at 0.1 — a face filling
+#   the frame at full budget causes eye strain and window violations.
+# - wide: largest displacement, everything at/behind the screen plane —
+#   distant content tolerates (and needs) more disparity to read as deep.
+# - dynamic: conservative middle ground — keyframes disagree, so any
+#   aggressive setting will be wrong for part of the shot.
+# - standard: the pipeline's existing defaults, byte-identical behavior.
+SHOT_PARAMS: dict[str, dict] = {
+    "close_up": {"displacement": 0.008, "placement": (-1.0, 0.1)},
+    "wide":     {"displacement": 0.018, "placement": (-1.0, 0.0)},
+    "dynamic":  {"displacement": 0.010, "placement": (-1.0, 0.3)},
+    "standard": {"displacement": 0.0125, "placement": (-1.0, 0.5)},
+}
+
+
+# ------------------------------------------ depth-script construction
+#
+# Everything below is pure python (no torch) so the script-building
+# math is testable offline; profile_scenes converts its tensors to
+# plain floats/lists before calling _build_depth_script. See
+# docs/DEPTH_SCRIPT.md for the full algorithm write-up.
+
+def _classify_keyframe(median_depth: float, near_fraction: float) -> str:
+    """Classify a single keyframe (or a whole non-dynamic shot — the
+    thresholds are identical). Spread checks don't apply to one frame,
+    so a lone keyframe is close_up / wide / standard, never dynamic."""
+    if (median_depth < PROFILE_CLOSE_MEDIAN
+            or near_fraction > PROFILE_NEAR_FRACTION_CLOSE):
+        return "close_up"
+    if (median_depth > PROFILE_WIDE_MEDIAN
+            and near_fraction < PROFILE_NEAR_FRACTION_WIDE):
+        return "wide"
+    return "standard"
+
+
+def _salient_screen_disp(displacement: float, placement, nd: float) -> float:
+    """Signed screen disparity, as a fraction of frame width, of content
+    at normalized disparity ``nd`` — the same mapping DepthSplatter
+    applies: displacement × (nd × (placement[1] − placement[0]) +
+    placement[0])."""
+    return displacement * (nd * (placement[1] - placement[0]) + placement[0])
+
+
+def _boundary_params(entry: dict, edge: int) -> dict:
+    """The dict carrying the stereo params active at a shot edge
+    (``edge=0`` incoming/first frame, ``edge=-1`` outgoing/last frame):
+    the boundary keyframe for dynamic shots (which ramp), the entry
+    itself otherwise. Returned by reference so callers can adjust it."""
+    keyframes = entry.get("keyframes")
+    return keyframes[edge] if keyframes else entry
+
+
+def _apply_comfort_budget(holder: dict, label: str, notes: list) -> None:
+    """Scale ``holder['displacement']`` DOWN (never placement — moving
+    placement would un-match a depth-matched cut) until background
+    divergence ≤ MAX_BACKGROUND_DISPARITY and pop-out ≤
+    MAX_POPOUT_DISPARITY. Appends a human-readable note when it fires."""
+    disp = float(holder["displacement"])
+    p0, p1 = holder["placement"]
+    background = disp * abs(min(float(p0), 0.0))
+    popout = disp * max(float(p1), 0.0)
+    scale = 1.0
+    reasons = []
+    if background > MAX_BACKGROUND_DISPARITY:
+        scale = min(scale, MAX_BACKGROUND_DISPARITY / background)
+        reasons.append("divergence cap")
+    if popout > MAX_POPOUT_DISPARITY:
+        scale = min(scale, MAX_POPOUT_DISPARITY / popout)
+        reasons.append("pop-out cap")
+    if scale < 1.0:
+        holder["displacement"] = round(disp * scale, 6)
+        notes.append(
+            f"{label}displacement scaled {disp}→{holder['displacement']} "
+            f"({', '.join(reasons)})"
+        )
+
+
+def _build_depth_script(per_scene_stats: list, lo: float, hi: float) -> list:
+    """Build the per-shot depth script from plain-python keyframe stats
+    (pro treatment v2). Pure function, no torch — testable offline.
+
+    ``per_scene_stats``: one dict per shot, in shot order:
+      {"first": int, "last": int,
+       "keyframes": [abs frame index, ...],           # sorted, 1–3
+       "median_depth": [median raw depth per kf],     # da3-metric units
+       "median_disp": [median raw disparity per kf],  # 1/depth
+       "near_fraction": [near-band pixel fraction per kf]}
+    ``lo``/``hi``: job-wide disparity range (pooled keyframe p1/p99) —
+    per-keyframe median normalized disparity is recovered as
+    clip((median_disp − lo) / (hi − lo), 0, 1).
+
+    Stages, in order:
+      1. classify each shot (dynamic → close_up → wide → standard) and
+         assign SHOT_PARAMS. Dynamic shots also classify EACH keyframe
+         alone and emit a "keyframes" ramp (consumers interpolate); the
+         top-level params stay the dynamic compromise for consumers
+         that ignore keyframes.
+      2. v1 continuity: clamp adjacent-shot displacement deltas to
+         ≤ PROFILE_MAX_DISPLACEMENT_STEP (forward pass).
+      3. v2 depth-matched cuts: forward pass over cuts — shift the
+         incoming shot's placement uniformly so the salient screen
+         disparity jump is ≤ CUT_DISPARITY_TOLERANCE, with the shift
+         bounded by PLACEMENT_SHIFT_MIN/MAX. For dynamic shots the
+         boundary KEYFRAME is matched (first incoming / last outgoing).
+      4. v2 comfort budget, applied last: scale displacement down per
+         shot AND per keyframe to honor the divergence/pop-out caps.
+         (Scaling after matching changes screen_disp linearly — a
+         documented v2 approximation.)
+
+    Each entry keeps the v1 keys and gains "screen_disp_in" /
+    "screen_disp_out" (post-adjustment, 5 dp) plus "adjustments"
+    (list of strings) when any correction fired.
+    """
+    scale = max(hi - lo, 1e-6)
+    script: list = []
+    med_nds: list = []  # per shot: per-keyframe median normalized disparity
+    notes: list = []    # per shot: adjustment strings
+
+    # stage 1 — classification + SHOT_PARAMS (and keyframe ramps)
+    for s in per_scene_stats:
+        depth_med = [float(v) for v in s["median_depth"]]
+        near = [float(v) for v in s["near_fraction"]]
+        med_nd = [
+            min(max((float(d) - lo) / scale, 0.0), 1.0) for d in s["median_disp"]
+        ]
+        # lower-middle median, matching torch.median over the keyframes
+        median_depth = sorted(depth_med)[(len(depth_med) - 1) // 2]
+        near_fraction = sum(near) / len(near)
+        disp_spread = max(med_nd) - min(med_nd)
+        near_spread = max(near) - min(near)
+
+        if (disp_spread > PROFILE_DYNAMIC_DISP_SPREAD
+                or near_spread > PROFILE_DYNAMIC_NEAR_SPREAD):
+            shot_type = "dynamic"
+        else:
+            shot_type = _classify_keyframe(median_depth, near_fraction)
+
+        params = SHOT_PARAMS[shot_type]
+        entry = {
+            "first": int(s["first"]),
+            "last": int(s["last"]),
+            "shot_type": shot_type,
+            "displacement": params["displacement"],
+            "placement": list(params["placement"]),
+            "median": round(median_depth, 4),
+            "near_fraction": round(near_fraction, 4),
+        }
+        if shot_type == "dynamic":
+            entry["keyframes"] = [
+                {
+                    "index": int(idx),
+                    "displacement": SHOT_PARAMS[_classify_keyframe(d, nf)]["displacement"],
+                    "placement": list(SHOT_PARAMS[_classify_keyframe(d, nf)]["placement"]),
+                }
+                for idx, d, nf in zip(s["keyframes"], depth_med, near)
+            ]
+        script.append(entry)
+        med_nds.append(med_nd)
+        notes.append([])
+
+    # stage 2 — v1 displacement continuity (forward pass; earlier shots
+    # anchor later ones, so a lone outlier is pulled toward its context)
+    for i in range(1, len(script)):
+        prev = script[i - 1]["displacement"]
+        want = script[i]["displacement"]
+        clamped = min(max(want, prev - PROFILE_MAX_DISPLACEMENT_STEP),
+                      prev + PROFILE_MAX_DISPLACEMENT_STEP)
+        if clamped != want:
+            script[i]["displacement"] = round(clamped, 6)
+            notes[i].append(
+                f"displacement clamped {want}→{script[i]['displacement']} "
+                "(adjacent-shot step)"
+            )
+
+    # stage 3 — v2 depth-matched cuts (forward pass: the adjusted state
+    # of shot i is what shot i+1 matches against)
+    for i in range(1, len(script)):
+        b_out = _boundary_params(script[i - 1], -1)
+        b_in = _boundary_params(script[i], 0)
+        sd_out = _salient_screen_disp(
+            b_out["displacement"], b_out["placement"], med_nds[i - 1][-1])
+        sd_in = _salient_screen_disp(
+            b_in["displacement"], b_in["placement"], med_nds[i][0])
+        jump = sd_in - sd_out
+        if abs(jump) <= CUT_DISPARITY_TOLERANCE or b_in["displacement"] <= 0:
+            continue
+        sign = 1.0 if jump > 0 else -1.0
+        delta = -(jump - sign * CUT_DISPARITY_TOLERANCE) / b_in["displacement"]
+        p0, p1 = (float(v) for v in b_in["placement"])
+        applied = min(max(delta, PLACEMENT_SHIFT_MIN - p0), PLACEMENT_SHIFT_MAX - p1)
+        b_in["placement"] = [round(p0 + applied, 6), round(p1 + applied, 6)]
+        note = (
+            f"placement shifted {applied:+.4f} to match cut at frame "
+            f"{script[i]['first']}"
+        )
+        if abs(applied - delta) > 1e-9:
+            note += " (shift clamped; residual jump above tolerance)"
+        notes[i].append(note)
+
+    # stage 4 — v2 comfort budget, per shot and per keyframe, last
+    for i, entry in enumerate(script):
+        _apply_comfort_budget(entry, "", notes[i])
+        for kf in entry.get("keyframes", []):
+            _apply_comfort_budget(kf, f"keyframe {kf['index']}: ", notes[i])
+
+    # bookkeeping — post-adjustment boundary disparities + adjustments
+    for i, entry in enumerate(script):
+        b_in = _boundary_params(entry, 0)
+        b_out = _boundary_params(entry, -1)
+        entry["screen_disp_in"] = round(_salient_screen_disp(
+            b_in["displacement"], b_in["placement"], med_nds[i][0]), 5)
+        entry["screen_disp_out"] = round(_salient_screen_disp(
+            b_out["displacement"], b_out["placement"], med_nds[i][-1]), 5)
+        if notes[i]:
+            entry["adjustments"] = notes[i]
+    return script
+
 
 with depth_models_image.imports():
     import ffmpeg
@@ -304,6 +577,142 @@ class FrameDepthWorker:
             "depth_shape": list(depth_shape),
             "scene_cuts": jlog_cuts,
         }
+
+    @modal.method()
+    @fail_fast
+    def profile_scenes(
+        self,
+        job_id: str,
+        input_path: str,
+        scene_ranges: list,
+        input_size: int = 518,
+    ) -> list[dict]:
+        """Adaptive per-shot depth script (R&D prototype): analyze 3
+        keyframes (first / middle / last) of every scene with the
+        metric depth model and choose stereo parameters per shot.
+
+        Why keyframes instead of every frame: the goal is a per-SHOT
+        decision (displacement + screen-plane placement are perceptual
+        settings that must be constant within a shot anyway), and three
+        frames are enough to tell a static close-up from a wide from a
+        shot whose depth composition is changing.
+
+        Why the disparity range comes from the keyframes themselves
+        rather than ``_estimate_disparity_range``: profiling already
+        decodes and infers 3 frames per scene spread across the whole
+        video — pooling those gives the same job-wide p1/p99 estimate
+        without a second sampling pass, and keeps the near_fraction
+        statistic focal-invariant (a constant per-video focal scale
+        cancels in the normalization).
+
+        Classification precedence: ``dynamic`` is tested FIRST — when
+        the three keyframes disagree strongly, the scene-level median /
+        near_fraction are averages over different compositions and
+        cannot be trusted to call close-up/wide, so the conservative
+        profile wins. Then close-up, then wide, else standard.
+
+        Script construction (classification, the v1 displacement-step
+        clamp, and the pro-treatment v2 mechanisms: depth-matched cuts,
+        comfort budget, intra-shot keyframe ramps for dynamic shots)
+        lives in the pure-python module-level ``_build_depth_script``
+        — see its docstring and docs/DEPTH_SCRIPT.md.
+
+        Returns [{"first", "last", "shot_type", "displacement",
+        "placement", "median", "near_fraction", "screen_disp_in",
+        "screen_disp_out", optional "keyframes", optional
+        "adjustments"}, ...] covering ``scene_ranges`` in order — the
+        contract consumed by VideoStereoWorker.generate(scene_params=...).
+        """
+        if input_size % 14 != 0:
+            raise ValueError(f"input_size must be a multiple of 14, got {input_size}")
+        if not self.metric:
+            raise ValueError(
+                f"profile_scenes requires a metric depth model (thresholds are "
+                f"calibrated for 'da3-metric'), got {self.model_name!r}"
+            )
+        if not scene_ranges:
+            raise ValueError("scene_ranges must contain at least one (first, last) range")
+        safe_reload(cache_volume)  # pick up files written by upstream stages
+        src = Path(input_path)
+        if not src.exists():
+            raise FileNotFoundError(f"input video not found: {src}")
+
+        decoder = VideoDecoder(str(src), device="cpu", num_ffmpeg_threads=0)
+        meta = decoder.metadata
+        if meta.height is None or meta.width is None:
+            raise ValueError(f"could not read dimensions of {src}")
+        infer = self._make_infer((meta.height, meta.width), input_size)
+        ranges = [(int(first), int(last)) for first, last in scene_ranges]
+        jlog = job_logger(job_id)
+
+        with jobs.stage_timer(
+            job_id, "profile_scenes",
+            gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
+            input_size=input_size, model=self.model_name, scenes=len(ranges),
+        ):
+            # pass 1 — depth on each scene's keyframes; keep a pixel
+            # subsample of disparity per keyframe for the statistics
+            per_scene: list[dict] = []
+            for first, last in ranges:
+                keyframes = sorted({first, first + (last - 1 - first) // 2, last - 1})
+                frames = torch.stack([decoder[i] for i in keyframes])
+                depth = infer(frames).float()  # (k, h, w)
+                flat_depth = depth.flatten(1)
+                stride = max(1, flat_depth.shape[1] // PROFILE_PIXEL_SAMPLES)
+                depth_sub = flat_depth[:, ::stride]  # (k, n)
+                per_scene.append({
+                    "first": first,
+                    "last": last,
+                    "keyframes": keyframes,
+                    "disp": depth_sub.clamp(min=DEPTH_EPS).reciprocal(),
+                    "median_depth": depth_sub.median(dim=1).values,  # per keyframe
+                })
+                del frames, depth, flat_depth, depth_sub
+
+            # job-wide disparity range over the pooled keyframes — same
+            # robust p1/p99 policy as _estimate_disparity_range
+            pooled = torch.cat([s["disp"].flatten() for s in per_scene])
+            if pooled.numel() > 8_000_000:  # torch.quantile caps at ~16M
+                pooled = pooled[:: pooled.numel() // 8_000_000 + 1]
+            lo, hi = torch.quantile(pooled, torch.tensor([0.01, 0.99])).tolist()
+            if hi - lo < 1e-6:  # near-constant depth: avoid amplifying noise
+                hi = lo + 1e-6
+            jlog.info(f"📏 profiling disparity range (p1, p99) = ({lo:.4g}, {hi:.4g})")
+
+            # pass 2 — reduce each scene's keyframe tensors to plain
+            # python stats, then build the script with the pure helper
+            # (classification, v1 clamp, v2 depth-matched cuts +
+            # comfort budget + dynamic-shot keyframe ramps)
+            per_scene_stats: list[dict] = []
+            for s in per_scene:
+                nd = ((s["disp"] - lo) / (hi - lo)).clamp(0.0, 1.0)  # (k, n)
+                per_scene_stats.append({
+                    "first": s["first"],
+                    "last": s["last"],
+                    "keyframes": list(s["keyframes"]),
+                    "median_depth": [float(v) for v in s["median_depth"]],
+                    "median_disp": [float(v) for v in s["disp"].median(dim=1).values],
+                    "near_fraction": [
+                        float(v) for v in (nd > PROFILE_NEAR_BAND).float().mean(dim=1)
+                    ],
+                })
+            script = _build_depth_script(per_scene_stats, lo, hi)
+
+            for entry in script:
+                jlog.info(
+                    f"🎛  shot [{entry['first']}, {entry['last']}): {entry['shot_type']} "
+                    f"disp={entry['displacement']} placement={entry['placement']} "
+                    f"(median={entry['median']}, near_fraction={entry['near_fraction']}, "
+                    f"screen_disp in/out={entry['screen_disp_in']}/{entry['screen_disp_out']})"
+                )
+                for note in entry.get("adjustments", []):
+                    jlog.info(
+                        f"🎛  shot [{entry['first']}, {entry['last']}): {note}"
+                    )
+
+        del decoder  # drop decoder file handles before the next input
+        torch.cuda.empty_cache()
+        return script
 
     # -------------------------------------------------------- inference
 
