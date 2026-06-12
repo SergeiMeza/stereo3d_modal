@@ -68,9 +68,18 @@ FFMPEG8_URL = (
     "ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz"
 )
 
+# Bento4 mp4edit splices the Apple vexu/hfov spatial-metadata blobs
+# (and patches stco chunk offsets automatically).
+BENTO4_URL = "https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip"
+
 nvenc_image = (
     modal.Image.debian_slim(python_version=PYTHON_VERSION)
-    .apt_install("curl", "xz-utils", "gpac")  # gpac: MP4Box muxes layered MV-HEVC (ffmpeg's mov muxer drops view 1)
+    .apt_install(
+        "curl", "xz-utils", "unzip",
+        # GPAC build deps — distro gpac (1.0.1) writes no lhvC box, which
+        # visionOS requires for MV-HEVC; build modern MP4Box from source.
+        "build-essential", "pkg-config", "zlib1g-dev", "git",
+    )
     .run_commands(
         f"curl -L --retry 5 --retry-all-errors --retry-delay 3 {FFMPEG8_URL} -o /tmp/ff.tar.xz",
         "mkdir -p /opt/ffmpeg && tar -xJf /tmp/ff.tar.xz -C /opt/ffmpeg --strip-components=1",
@@ -80,6 +89,19 @@ nvenc_image = (
         "ln -sf /opt/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg",
         "ln -sf /opt/ffmpeg/bin/ffprobe /usr/local/bin/ffprobe",
         "rm /tmp/ff.tar.xz",
+    )
+    .run_commands(
+        f"curl -L --retry 5 --retry-all-errors --retry-delay 3 {BENTO4_URL} -o /tmp/bento4.zip",
+        "unzip -q /tmp/bento4.zip -d /opt && mv /opt/Bento4-SDK-* /opt/bento4",
+        "ln -sf /opt/bento4/bin/mp4edit /usr/local/bin/mp4edit",
+        "ln -sf /opt/bento4/bin/mp4dump /usr/local/bin/mp4dump",
+        "ln -sf /opt/bento4/bin/mp4extract /usr/local/bin/mp4extract",
+        "rm /tmp/bento4.zip",
+    )
+    .run_commands(
+        "git clone --depth 1 https://github.com/gpac/gpac.git /tmp/gpac"
+        " && cd /tmp/gpac && ./configure --static-mp4box && make -j$(nproc)"
+        " && cp bin/gcc/MP4Box /usr/local/bin/MP4Box && rm -rf /tmp/gpac",
     )
     .add_local_python_source("app")
 )
