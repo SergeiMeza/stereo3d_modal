@@ -391,8 +391,14 @@ class FrameDepthWorker:
         if disp_range is not None:
             lo, hi = disp_range
             return ((disp - lo) / (hi - lo)).clamp(0.0, 1.0)
-        lo, hi = disp.min(), disp.max()
-        return (disp - lo) / (hi - lo + 1e-8)
+        # robust percentiles, not min-max: one outlier frame in a scene
+        # (imperfect alignment fit, model spike) would otherwise stretch
+        # the range and crush the whole scene toward black (observed)
+        flat = disp.flatten()
+        if flat.numel() > 8_000_000:
+            flat = flat[:: flat.numel() // 8_000_000 + 1]
+        lo, hi = torch.quantile(flat, torch.tensor([0.005, 0.995])).tolist()
+        return ((disp - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
 
     def _estimate_disparity_range(self, decoder, total_frames: int, batch_size: int, infer) -> tuple[float, float]:
         """Quick first pass for metric models: p1/p99 of disparity over
