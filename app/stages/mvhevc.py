@@ -269,6 +269,10 @@ def encode_mvhevc_x265(
                  "--preset", preset, "--crf", str(crf),
                  "--keyint", str(keyint), "--min-keyint", str(keyint),
                  "--no-open-gop", "--repeat-headers",
+                 # adaptive scene-cut I-frames are asymmetric between the
+                 # two layers and corrupt layer-1 prediction at cuts —
+                 # periodic IDRs only
+                 "--no-scenecut",
                  "--output", str(raw)],
                 capture_output=True, text=True,
             )
