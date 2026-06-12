@@ -127,6 +127,10 @@ def _reconcile_with_call(job: dict) -> dict | None:
         )
     except Exception as exc:
         return jobs.update_job(job["job_id"], status=jobs.FAILED, error=str(exc))
+    from app.common.errors import FAILED_KEY
+
+    if isinstance(result, dict) and result.get(FAILED_KEY):
+        return jobs.update_job(job["job_id"], status=jobs.FAILED, error=result.get("error"))
     fields = {"status": jobs.COMPLETED, "progress": 1.0}
     if isinstance(result, dict):
         fields["result"] = result

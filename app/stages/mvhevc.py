@@ -18,6 +18,7 @@ from pathlib import Path
 import modal
 
 from app.common import jobs
+from app.common.errors import fail_fast
 from app.common.debug import get_logger
 from app.common.storage import (
     slack_secret,
@@ -44,8 +45,9 @@ MVHEVC_GPU = "L4"
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
     timeout=3600,
-    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
+@fail_fast
 def encode_mvhevc(
     job_id: str,
     sbs_path: str,

@@ -12,6 +12,7 @@ from pathlib import Path
 import modal
 
 from app.common import jobs
+from app.common.errors import fail_fast
 from app.common.debug import get_logger, track
 from app.common.storage import (
     GPU_VOLUMES,
@@ -73,6 +74,7 @@ class ImageStereoWorker:
         logger.info(f"🚀 image worker ready in {time.perf_counter() - start:.1f}s")
 
     @modal.method()
+    @fail_fast
     def process_batch(self, job_id: str, items: list[dict]) -> dict:
         """Process a batch of images sequentially in this container.
         Each item: {"item_id", "input_path", "displacement", "stereo_mode",

@@ -11,6 +11,7 @@ from pathlib import Path
 import modal
 
 from app.common import jobs
+from app.common.errors import fail_fast
 from app.common.debug import get_logger
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
@@ -37,7 +38,7 @@ with video_depth_image.imports():
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
     scaledown_window=SCALEDOWN_WINDOW,
-    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
 class VideoDepthWorker:
     encoder: str = modal.parameter(default="vitl")
@@ -56,6 +57,7 @@ class VideoDepthWorker:
         cache_volume.commit()
 
     @modal.method()
+    @fail_fast
     def generate(
         self,
         job_id: str,

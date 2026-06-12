@@ -18,6 +18,7 @@ from pathlib import Path
 import modal
 
 from app.common import jobs
+from app.common.errors import fail_fast
 from app.common.debug import get_logger, track
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
@@ -61,7 +62,7 @@ SEGMENT_FRAMES = 240
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
     scaledown_window=SCALEDOWN_WINDOW,
-    retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=2.0),
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
 class VideoStereoWorker:
     @modal.enter()
@@ -79,6 +80,7 @@ class VideoStereoWorker:
         cache_volume.commit()
 
     @modal.method()
+    @fail_fast
     def generate(
         self,
         job_id: str,

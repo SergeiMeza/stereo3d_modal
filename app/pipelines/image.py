@@ -32,6 +32,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
     }
     """
     from app.common.debug import job_logger
+    from app.common.errors import check_worker_result
     from app.stages.image_stereo import ImageStereoWorker
 
     jlog = job_logger(job_id)
@@ -50,6 +51,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
         )
         jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="image_stereo")
         result = ImageStereoWorker().process_batch.remote(job_id, items)
+        check_worker_result(result, "image_stereo")
         jlog.info(f"📋 batch done: {result['completed']} ok, {result['failed']} failed")
 
         status = jobs.COMPLETED if result["failed"] == 0 else (

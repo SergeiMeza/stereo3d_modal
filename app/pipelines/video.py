@@ -47,6 +47,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
     }
     """
     from app.common.debug import job_logger
+    from app.common.errors import check_worker_result
     from app.stages.media import encode_outputs, preprocess_video, publish_file
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_stereo import VideoStereoWorker
@@ -76,6 +77,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             input_size=int(request.get("input_size", 980)),
             fps_rational=fps_rational,
         )
+        check_worker_result(depth, "video_depth")
         # frame-count invariant: any silent drop would desync audio
         if depth["num_frames"] != pre["probe"]["num_frames"]:
             raise RuntimeError(
@@ -94,6 +96,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             inpaint=request.get("inpaint", "propainter"),
             fps_rational=fps_rational,
         )
+        check_worker_result(stereo, "video_stereo")
         if stereo["num_frames"] != pre["probe"]["num_frames"]:
             raise RuntimeError(
                 f"stereo produced {stereo['num_frames']} frames for a "
@@ -122,6 +125,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,
                 spatial=request.get("spatial"),
             )
+            check_worker_result(mv, "encode_mvhevc")
             outputs["mvhevc"] = mv["mvhevc"]
         if request.get("output_depth", True):
             outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
