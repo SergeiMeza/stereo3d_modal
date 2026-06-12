@@ -61,7 +61,7 @@ async def submit_video(body: dict) -> dict:
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     if body.get("stereo_mode", "both") not in ("both", "left", "right"):
         raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
-    from app.stages.video_depth_models import DEPTH_MODELS
+    from app.stages.video_depth_models import DEPTH_MODELS, PROFILER_MODELS
 
     depth_model = body.get("depth_model", "vda")
     if depth_model not in ("vda", *DEPTH_MODELS):
@@ -78,7 +78,19 @@ async def submit_video(body: dict) -> dict:
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in
-    if bool(body.get("adaptive", False)):
+    adaptive = bool(body.get("adaptive", False))
+    profiler = body.get("profiler")
+    if profiler is not None and not adaptive:
+        raise HTTPException(
+            status_code=400,
+            detail="profiler is only meaningful with adaptive=true",
+        )
+    if profiler is not None and profiler not in PROFILER_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"profiler must be one of {PROFILER_MODELS}",
+        )
+    if adaptive:
         if inpaint == "m2svid":
             raise HTTPException(
                 status_code=400,

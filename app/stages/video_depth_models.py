@@ -79,6 +79,10 @@ FRAME_DEPTH_GPU = "L40S"
 # the loader still understands them for experiments
 DEPTH_MODELS = ("da3", "da3-metric", "depth-pro")
 METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric", "depth-pro")
+# Adaptive profiling backends exposed via the "profiler" request field
+# (api/main.py validates; both metric): "da3-metric" is the default,
+# "depth-pro" (v3) profiles in true meters and adds the FOV modifier.
+PROFILER_MODELS = ("da3-metric", "depth-pro")
 
 # Frames sampled for the job-wide disparity range (metric models).
 RANGE_SAMPLE_FRAMES = 32
@@ -102,6 +106,24 @@ DEPTH_EPS = 1e-4
 # in for close-ups and AND'd in for wides.
 PROFILE_CLOSE_MEDIAN = 1.5  # raw da3-metric units (~3 m at 50° HFOV)
 PROFILE_WIDE_MEDIAN = 6.0   # raw da3-metric units (~11 m at 50° HFOV)
+#
+# v3 (profiler="depth-pro", units="meters"): Depth Pro returns TRUE
+# metric depth in meters (its own focal estimate is folded in), so the
+# deliberately-loose focal-unknown heuristics above are REPLACED by
+# tight absolute cuts. near_fraction and the dynamic spread tests are
+# scale-invariant (measured against the job's own pooled disparity
+# range) and stay identical across units.
+PROFILE_CLOSE_MEDIAN_M = 3.0   # meters: median subject within 3 m → close-up
+PROFILE_WIDE_MEDIAN_M = 11.0   # meters: median beyond 11 m → wide
+# v3 FOV classification modifier (shot-mean horizontal FOV, Depth Pro
+# only — its per-frame focal estimate gives fov = 2·atan(W/(2·f_px))).
+# Lens character biases shots the absolute cuts call "standard":
+PROFILE_FOV_LONG_LENS_DEG = 30.0      # below = long lens
+PROFILE_FOV_LONG_LENS_MEDIAN_M = 5.0  # long lens AND median < 5 m → close_up
+                                      # (portrait compression reads as close
+                                      # even past the 3 m cut)
+PROFILE_FOV_WIDE_LENS_DEG = 60.0      # above = wide-angle lens
+PROFILE_FOV_WIDE_LENS_MEDIAN_M = 8.0  # wide lens AND median > 8 m → wide
 PROFILE_NEAR_FRACTION_CLOSE = 0.35
 PROFILE_NEAR_FRACTION_WIDE = 0.10
 # "nearest 25% of the job's disparity range" = normalized disparity > 0.75
@@ -163,14 +185,48 @@ SHOT_PARAMS: dict[str, dict] = {
 # plain floats/lists before calling _build_depth_script. See
 # docs/DEPTH_SCRIPT.md for the full algorithm write-up.
 
-def _classify_keyframe(median_depth: float, near_fraction: float) -> str:
+def _classify_keyframe(
+    median_depth: float,
+    near_fraction: float,
+    units: str = "da3_metric",
+    fov_deg: float | None = None,
+) -> str:
     """Classify a single keyframe (or a whole non-dynamic shot — the
     thresholds are identical). Spread checks don't apply to one frame,
-    so a lone keyframe is close_up / wide / standard, never dynamic."""
-    if (median_depth < PROFILE_CLOSE_MEDIAN
+    so a lone keyframe is close_up / wide / standard, never dynamic.
+
+    ``units`` selects the absolute-threshold calibration:
+    - ``"da3_metric"`` (default): focal-normalized da3-metric units —
+      deliberately loose because the true focal is unknown.
+    - ``"meters"`` (v3, Depth Pro): TRUE meters — the tight
+      PROFILE_CLOSE_MEDIAN_M / PROFILE_WIDE_MEDIAN_M cuts replace the
+      loose heuristics. The near_fraction thresholds are
+      scale-invariant and shared by both calibrations.
+
+    ``fov_deg`` (v3, meters only): shot-mean horizontal FOV used as a
+    classification MODIFIER between the absolute cuts — long lens
+    (< 30°) with median < 5 m biases to close_up; wide-angle lens
+    (> 60°) with median > 8 m (and a clear foreground) biases to wide.
+    """
+    if units not in ("da3_metric", "meters"):
+        raise ValueError(f"unknown units {units!r}, expected 'da3_metric' or 'meters'")
+    close_cut, wide_cut = (
+        (PROFILE_CLOSE_MEDIAN_M, PROFILE_WIDE_MEDIAN_M)
+        if units == "meters"
+        else (PROFILE_CLOSE_MEDIAN, PROFILE_WIDE_MEDIAN)
+    )
+    if (median_depth < close_cut
             or near_fraction > PROFILE_NEAR_FRACTION_CLOSE):
         return "close_up"
-    if (median_depth > PROFILE_WIDE_MEDIAN
+    if units == "meters" and fov_deg is not None:
+        if (fov_deg < PROFILE_FOV_LONG_LENS_DEG
+                and median_depth < PROFILE_FOV_LONG_LENS_MEDIAN_M):
+            return "close_up"
+        if (fov_deg > PROFILE_FOV_WIDE_LENS_DEG
+                and median_depth > PROFILE_FOV_WIDE_LENS_MEDIAN_M
+                and near_fraction < PROFILE_NEAR_FRACTION_WIDE):
+            return "wide"
+    if (median_depth > wide_cut
             and near_fraction < PROFILE_NEAR_FRACTION_WIDE):
         return "wide"
     return "standard"
@@ -218,19 +274,35 @@ def _apply_comfort_budget(holder: dict, label: str, notes: list) -> None:
         )
 
 
-def _build_depth_script(per_scene_stats: list, lo: float, hi: float) -> list:
+def _build_depth_script(
+    per_scene_stats: list, lo: float, hi: float, units: str = "da3_metric"
+) -> list:
     """Build the per-shot depth script from plain-python keyframe stats
-    (pro treatment v2). Pure function, no torch — testable offline.
+    (pro treatment v2 + FOV-informed v3). Pure function, no torch —
+    testable offline.
 
     ``per_scene_stats``: one dict per shot, in shot order:
       {"first": int, "last": int,
        "keyframes": [abs frame index, ...],           # sorted, 1–3
-       "median_depth": [median raw depth per kf],     # da3-metric units
+       "median_depth": [median raw depth per kf],     # ``units`` scale
        "median_disp": [median raw disparity per kf],  # 1/depth
-       "near_fraction": [near-band pixel fraction per kf]}
+       "near_fraction": [near-band pixel fraction per kf],
+       optional "fov_deg": [horizontal FOV per kf, ...],  # v3, may hold None
+       optional "units": str}                         # bookkeeping flag
     ``lo``/``hi``: job-wide disparity range (pooled keyframe p1/p99) —
     per-keyframe median normalized disparity is recovered as
     clip((median_disp − lo) / (hi − lo), 0, 1).
+    ``units``: depth-unit calibration for the absolute classification
+    thresholds — "da3_metric" (default, byte-identical v2 behavior) or
+    "meters" (v3, Depth Pro): see _classify_keyframe. Per-job, not
+    per-scene (one profiler model serves the whole job).
+
+    v3: when a shot's stats carry "fov_deg", the shot-mean FOV is used
+    as a classification modifier (see _classify_keyframe) — including
+    for the per-keyframe ramps of dynamic shots (lens character is a
+    per-shot property) — and recorded on the entry as "fov_deg"
+    (1 dp). Everything downstream of classification (clamp, cuts,
+    comfort) operates on normalized disparity and is unit-agnostic.
 
     Stages, in order:
       1. classify each shot (dynamic → close_up → wide → standard) and
@@ -266,6 +338,10 @@ def _build_depth_script(per_scene_stats: list, lo: float, hi: float) -> list:
         med_nd = [
             min(max((float(d) - lo) / scale, 0.0), 1.0) for d in s["median_disp"]
         ]
+        # v3: shot-mean FOV (Nones dropped — a resumed scene's sidecar
+        # may predate the feature); None when the profiler has no FOV
+        fovs = [float(v) for v in (s.get("fov_deg") or []) if v is not None]
+        fov_mean = sum(fovs) / len(fovs) if fovs else None
         # lower-middle median, matching torch.median over the keyframes
         median_depth = sorted(depth_med)[(len(depth_med) - 1) // 2]
         near_fraction = sum(near) / len(near)
@@ -276,7 +352,9 @@ def _build_depth_script(per_scene_stats: list, lo: float, hi: float) -> list:
                 or near_spread > PROFILE_DYNAMIC_NEAR_SPREAD):
             shot_type = "dynamic"
         else:
-            shot_type = _classify_keyframe(median_depth, near_fraction)
+            shot_type = _classify_keyframe(
+                median_depth, near_fraction, units=units, fov_deg=fov_mean
+            )
 
         params = SHOT_PARAMS[shot_type]
         entry = {
@@ -288,12 +366,18 @@ def _build_depth_script(per_scene_stats: list, lo: float, hi: float) -> list:
             "median": round(median_depth, 4),
             "near_fraction": round(near_fraction, 4),
         }
+        if fov_mean is not None:
+            entry["fov_deg"] = round(fov_mean, 1)
         if shot_type == "dynamic":
             entry["keyframes"] = [
                 {
                     "index": int(idx),
-                    "displacement": SHOT_PARAMS[_classify_keyframe(d, nf)]["displacement"],
-                    "placement": list(SHOT_PARAMS[_classify_keyframe(d, nf)]["placement"]),
+                    "displacement": SHOT_PARAMS[
+                        _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
+                    ]["displacement"],
+                    "placement": list(SHOT_PARAMS[
+                        _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
+                    ]["placement"]),
                 }
                 for idx, d, nf in zip(s["keyframes"], depth_med, near)
             ]
@@ -648,6 +732,13 @@ class FrameDepthWorker:
         keyframes (first / middle / last) of every scene with the
         metric depth model and choose stereo parameters per shot.
 
+        v3 (model_name="depth-pro"): Depth Pro returns TRUE metric
+        meters (no focal normalization), so classification uses the
+        tight meters thresholds (units="meters"), and its per-keyframe
+        horizontal-FOV estimates are captured into the stats
+        ("fov_deg") to bias classification by lens character — see
+        _classify_keyframe and docs/DEPTH_SCRIPT.md.
+
         Why keyframes instead of every frame: the goal is a per-SHOT
         decision (displacement + screen-plane placement are perceptual
         settings that must be constant within a shot anyway), and three
@@ -684,8 +775,9 @@ class FrameDepthWorker:
             raise ValueError(f"input_size must be a multiple of 14, got {input_size}")
         if not self.metric:
             raise ValueError(
-                f"profile_scenes requires a metric depth model (thresholds are "
-                f"calibrated for 'da3-metric'), got {self.model_name!r}"
+                f"profile_scenes requires a metric depth model (the absolute "
+                f"thresholds are calibrated for 'da3-metric' units or "
+                f"'depth-pro' meters), got {self.model_name!r}"
             )
         if not scene_ranges:
             raise ValueError("scene_ranges must contain at least one (first, last) range")
@@ -707,12 +799,19 @@ class FrameDepthWorker:
             gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
             input_size=input_size, model=self.model_name, scenes=len(ranges),
         ):
+            # v3: depth-pro profiles in TRUE meters and emits per-frame
+            # FOV estimates (the infer closure appends one per frame)
+            collect_fov = self.model_name == "depth-pro"
+            units = "meters" if self.model_name == "depth-pro" else "da3_metric"
+
             # pass 1 — depth on each scene's keyframes; keep a pixel
             # subsample of disparity per keyframe for the statistics
             per_scene: list[dict] = []
             for first, last in ranges:
                 keyframes = sorted({first, first + (last - 1 - first) // 2, last - 1})
                 frames = torch.stack([decoder[i] for i in keyframes])
+                if collect_fov:
+                    self._fov_samples = []
                 depth = infer(frames).float()  # (k, h, w)
                 flat_depth = depth.flatten(1)
                 stride = max(1, flat_depth.shape[1] // PROFILE_PIXEL_SAMPLES)
@@ -723,6 +822,8 @@ class FrameDepthWorker:
                     "keyframes": keyframes,
                     "disp": depth_sub.clamp(min=DEPTH_EPS).reciprocal(),
                     "median_depth": depth_sub.median(dim=1).values,  # per keyframe
+                    # per-keyframe horizontal FOV (depth-pro only)
+                    "fov_deg": list(self._fov_samples) if collect_fov else None,
                 })
                 del frames, depth, flat_depth, depth_sub
 
@@ -743,7 +844,7 @@ class FrameDepthWorker:
             per_scene_stats: list[dict] = []
             for s in per_scene:
                 nd = ((s["disp"] - lo) / (hi - lo)).clamp(0.0, 1.0)  # (k, n)
-                per_scene_stats.append({
+                stat = {
                     "first": s["first"],
                     "last": s["last"],
                     "keyframes": list(s["keyframes"]),
@@ -752,15 +853,21 @@ class FrameDepthWorker:
                     "near_fraction": [
                         float(v) for v in (nd > PROFILE_NEAR_BAND).float().mean(dim=1)
                     ],
-                })
-            script = _build_depth_script(per_scene_stats, lo, hi)
+                    "units": units,  # depth-unit flag for the stats consumer
+                }
+                if s["fov_deg"] is not None:
+                    stat["fov_deg"] = [float(v) for v in s["fov_deg"]]
+                per_scene_stats.append(stat)
+            script = _build_depth_script(per_scene_stats, lo, hi, units=units)
 
             for entry in script:
                 jlog.info(
                     f"🎛  shot [{entry['first']}, {entry['last']}): {entry['shot_type']} "
                     f"disp={entry['displacement']} placement={entry['placement']} "
                     f"(median={entry['median']}, near_fraction={entry['near_fraction']}, "
-                    f"screen_disp in/out={entry['screen_disp_in']}/{entry['screen_disp_out']})"
+                    f"screen_disp in/out={entry['screen_disp_in']}/{entry['screen_disp_out']}"
+                    + (f", fov={entry['fov_deg']}°" if "fov_deg" in entry else "")
+                    + ")"
                 )
                 for note in entry.get("adjustments", []):
                     jlog.info(
