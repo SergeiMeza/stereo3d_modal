@@ -66,12 +66,15 @@ FFMPEG8_URL = (
 
 nvenc_image = (
     modal.Image.debian_slim(python_version=PYTHON_VERSION)
-    .apt_install("curl", "xz-utils")
+    .apt_install("curl", "xz-utils", "gpac")  # gpac: MP4Box muxes layered MV-HEVC (ffmpeg's mov muxer drops view 1)
     .run_commands(
         f"curl -L --retry 5 --retry-all-errors --retry-delay 3 {FFMPEG8_URL} -o /tmp/ff.tar.xz",
         "mkdir -p /opt/ffmpeg && tar -xJf /tmp/ff.tar.xz -C /opt/ffmpeg --strip-components=1",
         "ln -sf /opt/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg8",
         "ln -sf /opt/ffmpeg/bin/ffprobe /usr/local/bin/ffprobe8",
+        # standard names too — shared helpers (e.g. probe_video) call plain ffprobe
+        "ln -sf /opt/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg",
+        "ln -sf /opt/ffmpeg/bin/ffprobe /usr/local/bin/ffprobe",
         "rm /tmp/ff.tar.xz",
     )
     .add_local_python_source("app")

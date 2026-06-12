@@ -51,42 +51,78 @@ def encode_mvhevc(
 
     out_dir = job_output_dir(job_id)
 
+    from app.stages.media import probe_video
+
+    fps = probe_video(sbs)["fps"]
+
     with jobs.stage_timer(job_id, "encode_mvhevc", gpu=MVHEVC_GPU, quality=quality):
         with tempfile.TemporaryDirectory() as tmp:
-            local = Path(tmp) / "mvhevc.mov"
-            # split SBS into left/right eyes, interleave as frame-sequence
-            # stereo, encode two views with NVENC's multiview profile
-            cmd = [
-                "ffmpeg8", "-y", "-hide_banner", "-loglevel", "warning",
-                "-i", str(sbs),
-            ]
-            audio_args = []
-            if original_path and Path(original_path).exists():
-                cmd += ["-i", str(original_path)]
-                audio_args = ["-map", "1:a?", "-c:a", "aac", "-shortest"]
-            cmd += [
-                "-filter_complex",
-                "[0:v]crop=iw/2:ih:0:0[left];[0:v]crop=iw/2:ih:iw/2:0[right];"
-                "[left][right]framepack=frameseq[v]",
-                "-map", "[v]", *audio_args,
-                "-c:v", "hevc_nvenc", "-profile:v", "mv", "-tune", "hq",
-                "-rc", "vbr", "-cq", str(quality), "-b_ref_mode", "0",
-                "-tag:v", "hvc1", "-movflags", "+faststart",
-                str(local),
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"MV-HEVC encode failed: {result.stderr[-2000:]}")
+            tmp_dir = Path(tmp)
+            raw = tmp_dir / "video.hevc"
+            local = tmp_dir / "mvhevc.mov"
+
+            # 1) split SBS into eyes, interleave as frame-sequence
+            #    stereo, encode two views with NVENC's multiview profile.
+            #    Output a RAW elementary stream: ffmpeg's mov muxer drops
+            #    the second view's layer data (verified) — MP4Box doesn't.
+            encode = subprocess.run(
+                [
+                    "ffmpeg8", "-y", "-hide_banner", "-loglevel", "warning",
+                    "-i", str(sbs),
+                    "-filter_complex",
+                    "[0:v]crop=iw/2:ih:0:0[left];[0:v]crop=iw/2:ih:iw/2:0[right];"
+                    "[left][right]framepack=frameseq[v]",
+                    "-map", "[v]",
+                    "-c:v", "hevc_nvenc", "-profile:v", "mv", "-tune", "hq",
+                    "-rc", "vbr", "-cq", str(quality), "-b_ref_mode", "0",
+                    "-f", "hevc", str(raw),
+                ],
+                capture_output=True, text=True,
+            )
+            if encode.returncode != 0:
+                raise RuntimeError(f"MV-HEVC encode failed: {encode.stderr[-2000:]}")
+
+            # 2) optional audio from the original
+            mux_inputs = ["-add", f"{raw}:fps={fps}"]
+            original = Path(original_path) if original_path else None
+            if original and original.exists():
+                audio = tmp_dir / "audio.m4a"
+                got_audio = subprocess.run(
+                    ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(original),
+                     "-vn", "-c:a", "aac", str(audio)],
+                    capture_output=True, text=True,
+                ).returncode == 0 and audio.exists()
+                if got_audio:
+                    mux_inputs += ["-add", str(audio)]
+
+            # 3) mux with MP4Box (preserves both views, verified)
+            mux = subprocess.run(
+                ["MP4Box", *mux_inputs, "-new", str(local)],
+                capture_output=True, text=True,
+            )
+            if mux.returncode != 0:
+                raise RuntimeError(f"MP4Box mux failed: {mux.stderr[-2000:]}")
 
             info = subprocess.run(
                 ["ffprobe8", "-v", "error", "-show_entries",
-                 "stream=codec_name,profile,width,height", "-of", "json", str(local)],
+                 "stream=codec_name,codec_tag_string,profile,width,height",
+                 "-of", "json", str(local)],
                 capture_output=True, text=True,
             ).stdout
+
+            # verify the second view survived muxing
+            check = subprocess.run(
+                ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(local),
+                 "-map", "0:v:view:1", "-frames:v", "1", str(tmp_dir / "v1.png")],
+                capture_output=True, text=True,
+            )
+            two_views = check.returncode == 0 and (tmp_dir / "v1.png").exists()
+
             dst = out_dir / "mvhevc.mov"
             dst.write_bytes(local.read_bytes())
 
     return {
         "mvhevc": public_url(dst),
+        "two_views_verified": two_views,
         "streams": json.loads(info).get("streams", []),
     }
