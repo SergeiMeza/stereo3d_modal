@@ -21,6 +21,9 @@ logger = get_logger(__name__)
 
 PROPAINTER_RELEASE = "https://github.com/sczhou/ProPainter/releases/download/v0.1.0"
 
+# Public GCS bucket of the official M2SVid release (no auth required)
+M2SVID_RELEASE = "https://storage.googleapis.com/gresearch/m2svid"
+
 
 def _download_url(url: str, dest: Path) -> Path:
     if dest.exists():
@@ -66,6 +69,48 @@ def ensure_depth_anything_v2() -> Path:
     )
 
 
+def _hf_snapshot(repo_id: str, subdir: str, allow_patterns: list[str] | None = None) -> Path:
+    """Download a full HF repo snapshot into the weights volume.
+
+    Used for transformers-style checkpoints (config.json +
+    model.safetensors + ...) that are loaded with ``from_pretrained``
+    on a local directory, so a container never hits the Hub after the
+    first download."""
+    dest = WEIGHTS_DIR / subdir
+    done = dest / ".complete"  # snapshot is multi-file: mark atomicity ourselves
+    if done.exists():
+        return dest
+    from huggingface_hub import snapshot_download
+
+    logger.info(f"⬇️  downloading hf snapshot {repo_id} -> {dest}")
+    dest.mkdir(parents=True, exist_ok=True)
+    snapshot_download(repo_id=repo_id, local_dir=dest, allow_patterns=allow_patterns)
+    done.touch()
+    return dest
+
+
+def ensure_da2_metric(variant: str = "indoor") -> Path:
+    """Depth-Anything-V2 metric checkpoint (transformers format).
+
+    ``variant``: "indoor" (Hypersim fine-tune, max_depth=20 m) or
+    "outdoor" (VKITTI fine-tune, max_depth=80 m). Unlike the
+    TorchScript-traced relative DA2 used for stills, these output
+    absolute depth in meters (sigmoid * max_depth head), which is what
+    makes job-wide consistent disparity mapping possible.
+
+    License note: upstream GitHub marks the Large weights
+    CC-BY-NC-4.0 even though the HF repos are tagged apache-2.0 —
+    verify before commercial use. Returns the local snapshot dir for
+    ``DepthAnythingForDepthEstimation.from_pretrained``.
+    """
+    name = {"indoor": "Indoor", "outdoor": "Outdoor"}[variant]
+    return _hf_snapshot(
+        repo_id=f"depth-anything/Depth-Anything-V2-Metric-{name}-Large-hf",
+        subdir=f"da2_metric/{variant}",
+        allow_patterns=["*.json", "*.safetensors"],
+    )
+
+
 def ensure_lama() -> Path:
     """TorchScript-traced LAMA inpainting model (still images)."""
     return _hf_download(
@@ -82,6 +127,36 @@ def ensure_migan() -> Path:
         filename="migan_traced.pt",
         subdir="spatial_video_studio",
     )
+
+
+def ensure_m2svid(variant: str = "full_attention") -> dict[str, Path]:
+    """M2SVid mono-to-stereo video inpainting weights (3DV 2026).
+
+    Two files:
+    - the VideoLDM checkpoint (~4.6 GiB, deepspeed-format ``.pt`` with
+      the full 13-channel SVD-XT-derived UNet + VAE + conditioners),
+      from Google's public GCS release bucket;
+    - the OpenCLIP ViT-H image-encoder bin (~3.9 GiB) the conditioner
+      config instantiates from. Upstream ships it inside Hi3D's Google
+      Drive ``ckpts.zip``; this is the identical standard laion
+      checkpoint from HF (the encoder is frozen, and its weights are
+      restored from the M2SVid state dict again afterwards).
+
+    ``variant``: "full_attention" (released default; full attention
+    over disoccluded tokens) or "no_full_attention" (cheaper fallback).
+    """
+    name = {
+        "full_attention": "m2svid_weights.pt",
+        "no_full_attention": "m2svid_no_full_atten_weights.pt",
+    }[variant]
+    return {
+        "checkpoint": _download_url(f"{M2SVID_RELEASE}/{name}", WEIGHTS_DIR / "m2svid" / name),
+        "open_clip": _hf_download(
+            repo_id="laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
+            filename="open_clip_pytorch_model.bin",
+            subdir="m2svid",
+        ),
+    }
 
 
 def ensure_propainter() -> dict[str, Path]:

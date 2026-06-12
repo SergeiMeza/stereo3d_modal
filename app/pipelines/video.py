@@ -49,7 +49,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
     {
       "input_path": "inputs/samples/clip_1s_1080p.mp4",
       "displacement": 0.0125,
-      "inpaint": "propainter" | "none",
+      "inpaint": "propainter" | "none" | "m2svid",
       "input_size": 980,            # depth model resolution
       "encoder": "vitl" | "vits",
       "remove_black_bars": true,
@@ -125,33 +125,58 @@ def process_video_job(job_id: str, request: dict) -> dict:
                   f"{len(depth['scene_cuts'])} scene cut(s)")
         jobs.update_job(job_id, progress=0.5, stage="video_stereo")
 
-        stereo_kwargs = dict(
-            video_path=pre["work_path"],
-            depth_path=depth["depth_path"],
-            displacement=float(request.get("displacement", 0.0125)),
-            inpaint=request.get("inpaint", "propainter"),
-            stereo_mode=request.get("stereo_mode", "both"),
-            work_height=int(request.get("work_height", 720)),
-            work_width=int(request.get("work_width", 1280)),
-            fps_rational=fps_rational,
-        )
-        # ProPainter VRAM scales with work res × source res: above the
-        # default 720p working res (or 4K sources), L40S 48GB OOMs
-        big_work = stereo_kwargs["work_height"] * stereo_kwargs["work_width"] > 1280 * 720
-        # >720p ProPainter needs ~80+ GB (project A ran 1080p on H200)
-        stereo_cls = (
-            VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
-        )
-        jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'}")
-        if parallel:
-            stereo = _parallel_stereo(
-                job_id, jlog, pre, stereo_kwargs, stereo_cls,
-                max_workers=int(request.get("max_gpu_workers", 4)),
+        inpaint = request.get("inpaint", "propainter")
+        if inpaint == "m2svid":
+            from app.stages.video_stereo_m2svid import M2SVID_STEREO_GPU, M2SVidStereoWorker
+
+            # M2SVid always runs at its trained ~512-tier model
+            # resolution (the worker derives a 64-multiple width from
+            # the source aspect); the ProPainter work_height/work_width
+            # knobs do not apply. Left eye stays the original frame.
+            m2svid_kwargs = dict(
+                video_path=pre["work_path"],
+                depth_path=depth["depth_path"],
+                displacement=float(request.get("displacement", 0.0125)),
+                fps_rational=fps_rational,
             )
+            jlog.info(f"🖥  stereo GPU: {M2SVID_STEREO_GPU} (m2svid)")
+            if parallel:
+                stereo = _parallel_stereo_m2svid(
+                    job_id, jlog, pre, m2svid_kwargs,
+                    max_workers=int(request.get("max_gpu_workers", 4)),
+                )
+            else:
+                stereo = M2SVidStereoWorker().generate.remote(
+                    job_id, band=(0.5, 0.85), **m2svid_kwargs
+                )
         else:
-            stereo = stereo_cls().generate.remote(
-                job_id, band=(0.5, 0.85), **stereo_kwargs
+            stereo_kwargs = dict(
+                video_path=pre["work_path"],
+                depth_path=depth["depth_path"],
+                displacement=float(request.get("displacement", 0.0125)),
+                inpaint=inpaint,
+                stereo_mode=request.get("stereo_mode", "both"),
+                work_height=int(request.get("work_height", 720)),
+                work_width=int(request.get("work_width", 1280)),
+                fps_rational=fps_rational,
             )
+            # ProPainter VRAM scales with work res × source res: above the
+            # default 720p working res (or 4K sources), L40S 48GB OOMs
+            big_work = stereo_kwargs["work_height"] * stereo_kwargs["work_width"] > 1280 * 720
+            # >720p ProPainter needs ~80+ GB (project A ran 1080p on H200)
+            stereo_cls = (
+                VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
+            )
+            jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'}")
+            if parallel:
+                stereo = _parallel_stereo(
+                    job_id, jlog, pre, stereo_kwargs, stereo_cls,
+                    max_workers=int(request.get("max_gpu_workers", 4)),
+                )
+            else:
+                stereo = stereo_cls().generate.remote(
+                    job_id, band=(0.5, 0.85), **stereo_kwargs
+                )
         check_worker_result(stereo, "video_stereo")
         if stereo["num_frames"] != pre["probe"]["num_frames"]:
             raise RuntimeError(
@@ -300,4 +325,50 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
         "width": first["width"],
         "height": first["height"],
         "inpaint": inpaint,
+    }
+
+
+def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers):
+    """Same fan-out as _parallel_stereo, but chunks align to the fixed
+    25-frame M2SVid model window (its segmentation invariant) instead
+    of ProPainter's adaptive batch size. Windows are independent and
+    deterministic, so chunking never changes results."""
+    from app.common.errors import check_worker_result
+    from app.common.storage import job_cache_dir
+    from app.stages.media import concat_cache_segments
+    from app.stages.video_stereo_m2svid import M2SVID_CHUNK, SEGMENT_FRAMES, M2SVidStereoWorker
+
+    total = pre["probe"]["num_frames"]
+    batch_size = M2SVID_CHUNK
+    seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
+    # chunk = several segments, aligned so results are identical
+    chunk_len = seg_len * max(1, (total // max_workers) // seg_len + 1)
+    ranges = [(s, min(s + chunk_len, total)) for s in range(0, total, chunk_len)]
+    jlog.info(f"🧩 stereo[m2svid] fan-out: {total}f → {len(ranges)} chunk(s) of ≤{chunk_len}f")
+
+    # spawn all chunks, then gather — parallel across ≤max_workers containers
+    handles = [
+        M2SVidStereoWorker().generate.spawn(
+            job_id, frame_range=r, batch_size=batch_size, concat=False,
+            band=(0.5, 0.85), **m2svid_kwargs,
+        )
+        for r in ranges
+    ]
+    results = [h.get() for h in handles]
+    segments, num_frames = [], 0
+    for r in results:
+        check_worker_result(r, "video_stereo[chunk]")
+        segments += r["segments"]
+        num_frames += r["num_frames"]
+
+    sbs_path = str(job_cache_dir(job_id) / "sbs_m2svid.mp4")
+    concat_cache_segments.remote(job_id, sorted(segments), sbs_path, num_frames)
+    first = results[0]
+    return {
+        "sbs_path": sbs_path,
+        "num_frames": num_frames,
+        "fps": first["fps"],
+        "width": first["width"],
+        "height": first["height"],
+        "inpaint": "m2svid",
     }

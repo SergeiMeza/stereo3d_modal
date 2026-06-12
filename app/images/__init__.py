@@ -8,6 +8,8 @@ One image per pipeline segment instead of a monolith:
 - ``video_depth_image``  — VideoDepthAnything (no warp, no inpainting)
 - ``stereo_image``       — Forward-Warp splatting + ProPainter video
                            inpainting
+- ``m2svid_image``       — Forward-Warp splatting + M2SVid one-step
+                           SVD-based right-view inpainting (sgm stack)
 - ``image_stereo_image`` — DepthAnything v2 + Forward-Warp + LAMA for
                            still images (one A10G container runs the
                            whole still-image pipeline)
@@ -56,6 +58,33 @@ video_depth_image = (
 # ------------------------------------------- stereo (splat + inpaint)
 stereo_image = (
     with_forward_warp(cuda_torch_base().uv_pip_install("matplotlib==3.10.3"))
+    .add_local_python_source("app")
+)
+
+# ----------------------------------------- stereo (splat + M2SVid)
+# M2SVid (app/vendor/m2svid) runs on the Stability ``sgm`` stack, not
+# diffusers. Upstream pins torch 2.0.1/cu118 + pytorch-lightning 1.5 +
+# xformers 0.0.22; the ports below are deliberate:
+# - pytorch-lightning 2.x: only the LightningModule base class is used
+#   at inference (no Trainer), and 1.5 does not install on this stack.
+# - xformers 0.0.31.post1: the torch 2.7.1-matched build (same pin as
+#   video_depth_image); sgm requests softmax-xformers attention and
+#   falls back to plain softmax if it were missing.
+# Weights are NOT baked in — see app/common/weights.py:ensure_m2svid.
+m2svid_image = (
+    with_forward_warp(
+        cuda_torch_base()
+        .uv_pip_install(
+            "omegaconf==2.3.0",
+            "pytorch-lightning==2.5.1",
+            "open-clip-torch==2.29.0",
+            "transformers==4.47.1",
+            "kornia==0.8.1",
+            "safetensors==0.5.3",
+            "pytorch-msssim==1.0.0",
+        )
+        .uv_pip_install("xformers==0.0.31.post1", extra_index_url="https://download.pytorch.org/whl/cu126")
+    )
     .add_local_python_source("app")
 )
 

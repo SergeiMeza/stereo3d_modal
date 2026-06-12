@@ -57,7 +57,7 @@ async def submit_video(body: dict) -> dict:
 
     _require(body, "input_path")
     inpaint = body.get("inpaint", "propainter")
-    if inpaint not in ("propainter", "none"):
+    if inpaint not in ("propainter", "none", "m2svid"):
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     if body.get("stereo_mode", "both") not in ("both", "left", "right"):
         raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
@@ -176,17 +176,28 @@ async def stage_video_depth(body: dict) -> dict:
 @web_app.post("/v1/stages/video-stereo")
 async def stage_video_stereo(body: dict) -> dict:
     from app.stages.video_stereo import VideoStereoWorker
+    from app.stages.video_stereo_m2svid import M2SVidStereoWorker
 
     video_path = _require(body, "video_path")
     depth_path = _require(body, "depth_path")
+    inpaint = body.get("inpaint", "propainter")
+    if inpaint not in ("propainter", "none", "m2svid"):
+        raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
 
     def spawn(job_id: str):
+        if inpaint == "m2svid":
+            return M2SVidStereoWorker().generate.spawn(
+                job_id,
+                video_path=video_path,
+                depth_path=depth_path,
+                displacement=float(body.get("displacement", 0.0125)),
+            )
         return VideoStereoWorker().generate.spawn(
             job_id,
             video_path=video_path,
             depth_path=depth_path,
             displacement=float(body.get("displacement", 0.0125)),
-            inpaint=body.get("inpaint", "propainter"),
+            inpaint=inpaint,
         )
 
     return _submit("stage:video-stereo", body, spawn)

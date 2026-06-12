@@ -19,6 +19,7 @@ from app.stages import media as _media  # noqa: F401
 from app.stages import mvhevc as _mvhevc  # noqa: F401
 from app.stages import video_depth as _video_depth  # noqa: F401
 from app.stages import video_stereo as _video_stereo  # noqa: F401
+from app.stages import video_stereo_m2svid as _video_stereo_m2svid  # noqa: F401
 
 
 from app.common.storage import slack_secret
