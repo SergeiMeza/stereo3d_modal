@@ -117,13 +117,20 @@ def process_video_job(job_id: str, request: dict) -> dict:
             work_width=int(request.get("work_width", 1280)),
             fps_rational=fps_rational,
         )
+        # ProPainter VRAM scales with work res × source res: above the
+        # default 720p working res (or 4K sources), L40S 48GB OOMs
+        big_work = stereo_kwargs["work_height"] * stereo_kwargs["work_width"] > 1280 * 720
+        stereo_cls = (
+            VideoStereoWorker.with_options(gpu="A100-80GB") if big_work else VideoStereoWorker
+        )
+        jlog.info(f"🖥  stereo GPU: {'A100-80GB' if big_work else 'L40S'}")
         if parallel:
             stereo = _parallel_stereo(
-                job_id, jlog, pre, stereo_kwargs,
+                job_id, jlog, pre, stereo_kwargs, stereo_cls,
                 max_workers=int(request.get("max_gpu_workers", 4)),
             )
         else:
-            stereo = VideoStereoWorker().generate.remote(
+            stereo = stereo_cls().generate.remote(
                 job_id, band=(0.5, 0.85), **stereo_kwargs
             )
         check_worker_result(stereo, "video_stereo")
@@ -234,11 +241,11 @@ def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_wor
     }
 
 
-def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, max_workers):
+def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
     from app.common.errors import check_worker_result
     from app.common.storage import job_cache_dir
     from app.stages.media import concat_cache_segments
-    from app.stages.video_stereo import SEGMENT_FRAMES, VideoStereoWorker, _pick_batch_size
+    from app.stages.video_stereo import SEGMENT_FRAMES, _pick_batch_size
 
     total = pre["probe"]["num_frames"]
     batch_size = _pick_batch_size(total)
@@ -250,7 +257,7 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, max_workers):
 
     # spawn all chunks, then gather — parallel across ≤max_workers containers
     handles = [
-        VideoStereoWorker().generate.spawn(
+        stereo_cls().generate.spawn(
             job_id, frame_range=r, batch_size=batch_size, concat=False,
             band=(0.5, 0.85), **stereo_kwargs,
         )
