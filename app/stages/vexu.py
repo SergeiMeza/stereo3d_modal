@@ -45,8 +45,15 @@ def build_vexu(
     hero: str | None = LEFT,
     baseline_mm: float = DEFAULT_BASELINE_MM,
     dadj: int = DEFAULT_DADJ,
+    projection: str | None = "rect",
 ) -> bytes:
-    """vexu box bytes. hero: "left" | "right" | None (omit hero box)."""
+    """vexu box bytes. hero: "left" | "right" | None (omit hero box).
+
+    projection: 'rect' | 'equi' | 'hequ' | 'fish' | None. The spec calls
+    an absent proj box "equivalent to rect", but Files/Photos only grant
+    the spatial badge when prji is explicitly present (verified against
+    Apple's `spatial` CLI output) — so default it on.
+    """
     if not -10000 <= dadj <= 10000:
         raise ValueError(f"dadj must be in [-10000, 10000], got {dadj}")
     stri = _full_box("stri", bytes([0b0000_0011]))  # left + right views present
@@ -58,7 +65,13 @@ def build_vexu(
         raise ValueError("baseline must be positive for spatial-media recognition")
     eyes_children += _box("cams", _full_box("blin", struct.pack(">I", baseline_um)))
     eyes_children += _box("cmfy", _full_box("dadj", struct.pack(">i", dadj)))
-    return _box("vexu", _box("eyes", eyes_children))
+
+    vexu_children = _box("eyes", eyes_children)
+    if projection is not None:
+        if len(projection) != 4:
+            raise ValueError(f"projection must be a fourcc, got {projection!r}")
+        vexu_children += _box("proj", _full_box("prji", projection.encode("ascii")))
+    return _box("vexu", vexu_children)
 
 
 def build_hfov(hfov_deg: float = DEFAULT_HFOV_DEG) -> bytes:
@@ -70,17 +83,21 @@ def self_test() -> None:
     """Verify against the reference hex of Apple's spec layout
     (iPhone-15-Pro-like values: baseline 19240 µm, dadj +200,
     hfov 63.4°, hero=right, both eyes present)."""
-    vexu = build_vexu(hero=RIGHT, baseline_mm=19.24, dadj=200)
+    vexu = build_vexu(hero=RIGHT, baseline_mm=19.24, dadj=200, projection="rect")
     hfov = build_hfov(63.4)
+    # reference layout verified byte-for-byte against Apple's `spatial`
+    # CLI (v0.6.2) output
     expected_vexu = bytes.fromhex(
-        "0000005a76657875"              # vexu (90)
-        "0000005265796573"              # └ eyes (82)
-        "0000000d737472690000000003"    #   stri v0 f0, 0x03 = L|R
-        "0000000d6865726f0000000002"    #   hero v0 f0, 2 = right
-        "0000001863616d73"              #   cams (24)
-        "00000010626c696e0000000000004b28"  # └ blin = 19240 µm
-        "00000018636d6679"              #   cmfy (24)
-        "000000106461646a00000000000000c8"  # └ dadj = +200
+        "0000007276657875"              # vexu (114)
+        "0000005265796573"              # ├ eyes (82)
+        "0000000d737472690000000003"    # │  stri v0 f0, 0x03 = L|R
+        "0000000d6865726f0000000002"    # │  hero v0 f0, 2 = right
+        "0000001863616d73"              # │  cams (24)
+        "00000010626c696e0000000000004b28"  # │ └ blin = 19240 µm
+        "00000018636d6679"              # │  cmfy (24)
+        "000000106461646a00000000000000c8"  # │ └ dadj = +200
+        "0000001870726f6a"              # └ proj (24)
+        "0000001070726a69000000007265637400"[:-2]  # └ prji = 'rect'
     )
     assert vexu == expected_vexu, f"\ngot      {vexu.hex()}\nexpected {expected_vexu.hex()}"
     assert hfov == bytes.fromhex("0000000c68666f760000f7a8")

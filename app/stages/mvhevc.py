@@ -139,6 +139,7 @@ def encode_mvhevc(
                     hero=spatial.get("hero", "left"),
                     baseline_mm=float(spatial.get("baseline_mm", vexu_blobs.DEFAULT_BASELINE_MM)),
                     dadj=int(spatial.get("dadj", vexu_blobs.DEFAULT_DADJ)),
+                    projection=spatial.get("projection", "rect"),
                 )
             )
             (tmp_dir / "hfov.bin").write_bytes(
