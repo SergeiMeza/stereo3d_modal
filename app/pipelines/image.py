@@ -31,7 +31,10 @@ def process_image_job(job_id: str, request: dict) -> dict:
       "remove_black_bars": true
     }
     """
+    from app.common.debug import job_logger
     from app.stages.image_stereo import ImageStereoWorker
+
+    jlog = job_logger(job_id)
 
     defaults = {
         k: request[k]
@@ -41,8 +44,13 @@ def process_image_job(job_id: str, request: dict) -> dict:
     items = [{**defaults, **item} for item in request["items"]]
 
     try:
+        jlog.info(
+            f"🎯 image job started: {len(items)} item(s), "
+            f"formats={defaults.get('formats', ['lr'])}"
+        )
         jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="image_stereo")
         result = ImageStereoWorker().process_batch.remote(job_id, items)
+        jlog.info(f"📋 batch done: {result['completed']} ok, {result['failed']} failed")
 
         status = jobs.COMPLETED if result["failed"] == 0 else (
             jobs.COMPLETED if result["completed"] > 0 else jobs.FAILED
@@ -55,6 +63,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
             outputs={k: v.get("outputs", {}) for k, v in result["results"].items()},
             error=None if result["failed"] == 0 else f"{result['failed']} item(s) failed",
         )
+        jlog.info(f"🏁 job {status}")
         return {"job_id": job_id, "status": status, **result}
 
     except Exception as exc:
