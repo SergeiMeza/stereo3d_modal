@@ -66,7 +66,10 @@ FRAME_DEPTH_GPU = "L40S"
 
 # Request enum (api/main.py validates against this; "vda" routes to the
 # original VideoDepthWorker and never reaches this module).
-DEPTH_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3", "da3-metric")
+# exposed in the API; DA2-metric variants stay dormant (indoor/outdoor
+# checkpoint split makes them operationally clumsy — user decision) but
+# the loader still understands them for experiments
+DEPTH_MODELS = ("da3", "da3-metric")
 METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric")
 
 # Frames sampled for the job-wide disparity range (metric models).
