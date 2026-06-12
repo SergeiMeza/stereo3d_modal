@@ -91,6 +91,7 @@ class VideoStereoWorker:
         work_height: int = 720,
         work_width: int = 1280,
         fps_rational: str | None = None,
+        band: tuple[float, float] = (0.0, 1.0),
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
@@ -191,9 +192,9 @@ class VideoStereoWorker:
                                 f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
                                 f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
                             )
-                            # e2e jobs sit between 50% (depth) and 85% (encode)
-                            jobs.update_job(
-                                job_id, progress=round(0.5 + 0.35 * j / num_frames, 3)
+                            jobs.report_progress(
+                                job_id, f"video_stereo[{inpaint}]", j, num_frames,
+                                rate_per_s=j / max(elapsed, 1e-6), band=tuple(band),
                             )
                     finally:
                         writer.stdin.close()

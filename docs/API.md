@@ -65,7 +65,12 @@ injection. The job result reports `two_views_verified` and
 ```jsonc
 {
   "job_id": "…", "kind": "video", "status": "in_progress",  // pending|in_progress|completed|failed
-  "stage": "video_depth", "progress": 0.5,
+  "stage": "video_depth", "progress": 0.62,
+  "progress_detail": {            // client-app progress, updated every ~30 frames / 5s
+    "stage": "video_stereo[propainter]",
+    "done": 90, "total": 240, "unit": "frames",
+    "rate_per_s": 0.7, "eta_seconds": 210
+  },
   "outputs": {"sbs": "https://…", "anaglyph": "https://…", "depth": "https://…"},
   "timings": [   // per-stage benchmark records
     {"stage": "preprocess", "seconds": 4.1, "gpu": null, "detail": {"crop": "3840:1664:0:248"}},

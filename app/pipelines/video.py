@@ -76,6 +76,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             pre["work_path"],
             input_size=int(request.get("input_size", 980)),
             fps_rational=fps_rational,
+            band=(0.15, 0.5),
         )
         check_worker_result(depth, "video_depth")
         # frame-count invariant: any silent drop would desync audio
@@ -95,6 +96,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             displacement=float(request.get("displacement", 0.0125)),
             inpaint=request.get("inpaint", "propainter"),
             fps_rational=fps_rational,
+            band=(0.5, 0.85),
         )
         check_worker_result(stereo, "video_stereo")
         if stereo["num_frames"] != pre["probe"]["num_frames"]:

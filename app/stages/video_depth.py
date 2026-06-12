@@ -65,6 +65,7 @@ class VideoDepthWorker:
         input_size: int = 980,
         fp32: bool = False,
         fps_rational: str | None = None,
+        band: tuple[float, float] = (0.0, 1.0),
     ) -> dict:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
@@ -79,12 +80,27 @@ class VideoDepthWorker:
 
         out = job_cache_dir(job_id) / "depth.mp4"
 
+        # client-facing progress, throttled to one dict write per ~5s
+        start = time.perf_counter()
+        last_report = [0.0]
+
+        def on_progress(done: int, total: int) -> None:
+            now = time.perf_counter()
+            if now - last_report[0] < 5 and done < total:
+                return
+            last_report[0] = now
+            jobs.report_progress(
+                job_id, "video_depth", done, total,
+                rate_per_s=done / max(now - start, 1e-6), band=tuple(band),
+            )
+
         with jobs.stage_timer(job_id, "video_depth", gpu=VIDEO_DEPTH_GPU, input_size=input_size):
             processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32)
             result = processor.write_depth_video(
                 out,
                 fps_rational=fps_rational,
                 on_scene_done=lambda first, last: cache_volume.commit(),
+                on_progress=on_progress,
             )
 
         cache_volume.commit()

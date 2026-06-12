@@ -249,9 +249,17 @@ class DepthProcessor:
             yield first, last
             first = last
 
-    def compute_scene_depth(self, first: int, last: int) -> torch.Tensor:
-        """Normalized depth (N, 1, h, w) on CPU for one scene."""
-        chunk = torch.cat([t.to("cpu") for t in self._process_scene(first, last)])
+    def compute_scene_depth(self, first: int, last: int, on_window=None) -> torch.Tensor:
+        """Normalized depth (N, 1, h, w) on CPU for one scene.
+        on_window(done_in_scene) fires per inference window."""
+        chunks: list[torch.Tensor] = []
+        done = 0
+        for t in self._process_scene(first, last):
+            chunks.append(t.to("cpu"))
+            done += t.shape[0]
+            if on_window is not None:
+                on_window(done)
+        chunk = torch.cat(chunks)
         lo, hi = chunk.min(), chunk.max()
         normalized = (chunk - lo) / (hi - lo + 1e-8)
         track(f"scene_depth[{first}:{last}]", normalized, logger)
@@ -262,6 +270,7 @@ class DepthProcessor:
         output: Path,
         fps_rational: str | None = None,
         on_scene_done=None,
+        on_progress=None,
     ) -> DepthResult:
         """Run the full pass, writing a gray16le H.264 depth video.
 
@@ -274,10 +283,12 @@ class DepthProcessor:
         fps_rational: exact frame rate as a fraction string
         ("24000/1001") — floats drift against the audio track over
         long durations. on_scene_done(first, last): checkpoint hook
-        (e.g. volume commit).
+        (e.g. volume commit). on_progress(done_frames, total_frames):
+        client-facing progress, fires per inference window.
         """
         meta = self.decoder.metadata
         fps = fps_rational or float(meta.average_fps)
+        total_frames = meta.num_frames
         h, w = self.resize_shape
         seg_dir = Path(f"{output}.segments")
         seg_dir.mkdir(parents=True, exist_ok=True)
@@ -289,7 +300,11 @@ class DepthProcessor:
             if seg.exists() and count_frames(seg) == last - first:
                 logger.info(f"⏭  scene [{first}, {last}) already done, skipping")
             else:
-                normalized = self.compute_scene_depth(first, last)
+                on_window = None
+                if on_progress is not None:
+                    base = num_frames
+                    on_window = lambda done, base=base: on_progress(base + done, total_frames)
+                normalized = self.compute_scene_depth(first, last, on_window=on_window)
                 writer = gray16_video_writer(h=h, w=w, fps=fps, file=seg)
                 try:
                     writer.stdin.write(self.to_u16(normalized).numpy().tobytes())
