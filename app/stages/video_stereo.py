@@ -54,7 +54,7 @@ SEGMENT_FRAMES = 240
 
 
 @app.cls(
-    gpu=VIDEO_STEREO_GPU,
+    gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
     image=stereo_image,
     volumes=GPU_VOLUMES,
     secrets=[hf_secret, slack_secret],
@@ -154,7 +154,7 @@ class VideoStereoWorker:
         with jobs.stage_timer(
             job_id,
             f"video_stereo[{inpaint}]",
-            gpu=VIDEO_STEREO_GPU,
+            gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
             frames=num_frames,
             width=width,
             height=height,

@@ -30,7 +30,7 @@ with video_depth_image.imports():
 
 
 @app.cls(
-    gpu=VIDEO_DEPTH_GPU,
+    gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""),
     image=video_depth_image,
     volumes=GPU_VOLUMES,
     secrets=[hf_secret, slack_secret],
@@ -94,7 +94,7 @@ class VideoDepthWorker:
                 rate_per_s=done / max(now - start, 1e-6), band=tuple(band),
             )
 
-        with jobs.stage_timer(job_id, "video_depth", gpu=VIDEO_DEPTH_GPU, input_size=input_size):
+        with jobs.stage_timer(job_id, "video_depth", gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""), input_size=input_size):
             processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32)
             result = processor.write_depth_video(
                 out,
@@ -138,7 +138,7 @@ class VideoDepthWorker:
         ranges = [tuple(r) for r in scene_ranges]
         with jobs.stage_timer(
             job_id, f"video_depth[{ranges[0][0]}:{ranges[-1][1]}]",
-            gpu=VIDEO_DEPTH_GPU, input_size=input_size, scenes=len(ranges),
+            gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""), input_size=input_size, scenes=len(ranges),
         ):
             processor = DepthProcessor(
                 src, self.model, input_size=input_size, scene_ranges=ranges
