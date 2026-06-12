@@ -69,26 +69,35 @@ def add_timing(job_id: str, stage: str, seconds: float, gpu: str | None = None, 
 
 
 class stage_timer:
-    """Context manager: times a stage, records it on the job, and sets
-    the job's current stage marker.
+    """Context manager: times a stage, records it on the job, sets the
+    job's current stage marker, and logs start/finish so the container
+    log stream alone tells the pipeline story.
 
     with stage_timer(job_id, "video_depth", gpu="L40S", frames=240):
         ...
     """
 
     def __init__(self, job_id: str, stage: str, gpu: str | None = None, **detail):
+        from app.common.debug import job_logger
+
         self.job_id = job_id
         self.stage = stage
         self.gpu = gpu
         self.detail = detail
+        self.log = job_logger(job_id)
 
     def __enter__(self):
         self.start = time.perf_counter()
         update_job(self.job_id, stage=self.stage, status=IN_PROGRESS)
+        self.log.info(f"▶ {self.stage} started ({self.detail or ''})")
         return self
 
     def __exit__(self, exc_type, exc, tb):
         seconds = time.perf_counter() - self.start
         self.detail["failed"] = exc is not None
         add_timing(self.job_id, self.stage, seconds, gpu=self.gpu, **self.detail)
+        if exc is None:
+            self.log.info(f"✔ {self.stage} finished in {seconds:.1f}s")
+        else:
+            self.log.error(f"✖ {self.stage} failed after {seconds:.1f}s: {exc}")
         return False

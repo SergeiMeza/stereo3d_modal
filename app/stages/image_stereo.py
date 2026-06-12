@@ -20,6 +20,7 @@ from app.common.storage import (
     job_output_dir,
     public_url,
 )
+from app.env import SCALEDOWN_WINDOW
 from app.images import image_stereo_image
 from app.modal_app import app
 
@@ -52,7 +53,7 @@ with image_stereo_image.imports():
     cpu=2,
     memory=(2 * 1024, 32 * 1024),
     timeout=3600,
-    scaledown_window=120,
+    scaledown_window=SCALEDOWN_WINDOW,
 )
 class ImageStereoWorker:
     @modal.enter()

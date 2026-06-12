@@ -20,6 +20,7 @@ import modal
 from app.common import jobs
 from app.common.debug import get_logger, track
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir, safe_reload
+from app.env import SCALEDOWN_WINDOW
 from app.images import stereo_image
 from app.modal_app import app
 
@@ -54,7 +55,7 @@ def _pick_batch_size(num_frames: int) -> int:
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
-    scaledown_window=120,
+    scaledown_window=SCALEDOWN_WINDOW,
 )
 class VideoStereoWorker:
     @modal.enter()
@@ -138,6 +139,10 @@ class VideoStereoWorker:
             width=width,
             height=height,
         ):
+            from app.common.debug import job_logger
+
+            jlog = job_logger(job_id)
+            pass_start = time.perf_counter()
             with torch.no_grad():
                 for i in range(0, num_frames, batch_size):
                     j = min(i + batch_size, num_frames)
@@ -156,6 +161,13 @@ class VideoStereoWorker:
 
                     del frames, depths
                     torch.cuda.empty_cache()
+                    elapsed = time.perf_counter() - pass_start
+                    jlog.info(
+                        f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
+                        f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
+                    )
+                    # e2e jobs sit between 50% (depth done) and 85% (encode)
+                    jobs.update_job(job_id, progress=round(0.5 + 0.35 * j / num_frames, 3))
 
             writer.stdin.close()
             writer.wait()
