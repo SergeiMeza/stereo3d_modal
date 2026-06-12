@@ -196,7 +196,6 @@ def encode_mvhevc(
     secrets=[slack_secret],
     cpu=16,
     memory=(8 * 1024, 32 * 1024),
-    ephemeral_disk=64 * 1024,
     timeout=3600,
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )

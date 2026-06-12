@@ -95,6 +95,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             depth_path=depth["depth_path"],
             displacement=float(request.get("displacement", 0.0125)),
             inpaint=request.get("inpaint", "propainter"),
+            work_height=int(request.get("work_height", 720)),
+            work_width=int(request.get("work_width", 1280)),
             fps_rational=fps_rational,
             band=(0.5, 0.85),
         )
