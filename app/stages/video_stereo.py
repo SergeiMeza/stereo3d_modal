@@ -198,10 +198,17 @@ class VideoStereoWorker:
                                 f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
                                 f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
                             )
-                            jobs.report_progress(
-                                job_id, f"video_stereo[{inpaint}]", j, num_frames,
-                                rate_per_s=j / max(elapsed, 1e-6), band=tuple(band),
-                            )
+                            if frame_range is not None:
+                                jobs.report_progress(
+                                    job_id, f"video_stereo[{inpaint}]",
+                                    j - range_start, num_frames,
+                                    band=tuple(band), chunk=range_start,
+                                )
+                            else:
+                                jobs.report_progress(
+                                    job_id, f"video_stereo[{inpaint}]", j, num_frames,
+                                    rate_per_s=j / max(elapsed, 1e-6), band=tuple(band),
+                                )
                     finally:
                         writer.stdin.close()
                         writer.wait()

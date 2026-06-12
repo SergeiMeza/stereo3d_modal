@@ -81,15 +81,39 @@ def report_progress(
     total: int,
     rate_per_s: float | None = None,
     band: tuple[float, float] = (0.0, 1.0),
+    chunk: str | int | None = None,
 ) -> None:
     """Structured progress for client apps polling GET /v1/jobs/{id}.
 
     ``band`` maps stage-local progress into the job's overall progress
     range (e.g. the e2e video pipeline gives depth (0.15, 0.5) and
     stereo (0.5, 0.85)); standalone stage jobs use the full (0, 1).
+
+    ``chunk``: long-video fan-out workers pass their chunk key and
+    chunk-local ``done`` (with job-wide ``total``); progress is then
+    aggregated across chunks so it stays monotonic instead of
+    interleaving the parallel workers' positions.
     """
     if total <= 0:
         return
+    extra: dict = {}
+    if chunk is not None:
+        job = job_dict.get(job_id)
+        if job is None:
+            return
+        prefix = stage.split("[")[0]
+        if job.get("agg_stage") != prefix:  # new fan-out stage: reset
+            extra["agg_stage"] = prefix
+            extra["agg_started_at"] = time.time()
+            chunk_progress = {}
+        else:
+            chunk_progress = dict(job.get("chunk_progress") or {})
+        chunk_progress[str(chunk)] = done
+        extra["chunk_progress"] = chunk_progress
+        done = sum(chunk_progress.values())
+        started = extra.get("agg_started_at") or job.get("agg_started_at") or time.time()
+        rate_per_s = done / max(time.time() - started, 1e-6)
+        stage = prefix
     frac = min(1.0, done / total)
     detail = {"stage": stage, "done": done, "total": total, "unit": "frames"}
     if rate_per_s and rate_per_s > 0:
@@ -99,6 +123,7 @@ def report_progress(
         job_id,
         progress=round(band[0] + (band[1] - band[0]) * frac, 3),
         progress_detail=detail,
+        **extra,
     )
 
 

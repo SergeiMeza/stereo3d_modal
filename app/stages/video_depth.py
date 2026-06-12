@@ -143,10 +143,23 @@ class VideoDepthWorker:
             processor = DepthProcessor(
                 src, self.model, input_size=input_size, scene_ranges=ranges
             )
+            last_report = [0.0]
+
+            def on_progress(done: int, total: int) -> None:
+                now = time.perf_counter()
+                if now - last_report[0] < 5 and done < total:
+                    return
+                last_report[0] = now
+                jobs.report_progress(
+                    job_id, "video_depth", done, total,
+                    band=(0.15, 0.5), chunk=ranges[0][0],
+                )
+
             result = processor.write_depth_video(
                 out,
                 fps_rational=fps_rational,
                 on_scene_done=lambda first, last: cache_volume.commit(),
+                on_progress=on_progress,
                 concat=False,
             )
 
