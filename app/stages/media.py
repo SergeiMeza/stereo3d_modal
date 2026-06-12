@@ -278,8 +278,14 @@ def _av_sync_ms(path: Path) -> float | None:
 def publish_file(job_id: str, cache_file: str, name: str) -> str:
     """Copy a cache-volume artifact (e.g. the depth video) to the
     job's bucket output dir and return its public URL."""
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
     cache_volume.reload()
     src = Path(cache_file)
     dst = job_output_dir(job_id) / name
+    jlog.info(f"⬆️  publishing {src.name} → {dst} ({src.stat().st_size / 1e6:.1f} MB)")
     dst.write_bytes(src.read_bytes())
-    return public_url(dst)
+    url = public_url(dst)
+    jlog.info(f"✔ published {name}: {url}")
+    return url
