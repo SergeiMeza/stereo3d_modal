@@ -19,7 +19,13 @@ import modal
 
 from app.common import jobs
 from app.common.debug import get_logger
-from app.common.storage import PIPELINE_VOLUMES, cache_volume, job_output_dir, public_url
+from app.common.storage import (
+    PIPELINE_VOLUMES,
+    cache_volume,
+    job_output_dir,
+    public_url,
+    safe_reload,
+)
 from app.images import nvenc_image
 from app.modal_app import app
 
@@ -44,7 +50,7 @@ def encode_mvhevc(
 ) -> dict:
     """Encode a full-width SBS video into MV-HEVC. Returns the public
     URL of the .mov plus stream info for verification."""
-    cache_volume.reload()
+    safe_reload(cache_volume)
     sbs = Path(sbs_path)
     if not sbs.exists():
         raise FileNotFoundError(sbs)

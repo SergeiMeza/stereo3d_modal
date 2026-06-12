@@ -60,6 +60,22 @@ GPU_VOLUMES = {
 }
 
 
+def safe_reload(volume: modal.Volume) -> None:
+    """Volume.reload() refuses to run while this container holds open
+    files — and a previous input's decoders may still be alive until
+    GC runs. Collect first, then degrade to a warning: a failed reload
+    only matters if the file is missing, which callers check anyway."""
+    import gc
+
+    gc.collect()
+    try:
+        volume.reload()
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).warning(f"volume reload skipped: {exc}")
+
+
 def bucket_path(path: str) -> Path:
     """Translate an API input path to the mounted filesystem path.
 

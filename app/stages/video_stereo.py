@@ -19,7 +19,7 @@ import modal
 
 from app.common import jobs
 from app.common.debug import get_logger, track
-from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir
+from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir, safe_reload
 from app.images import stereo_image
 from app.modal_app import app
 
@@ -81,7 +81,7 @@ class VideoStereoWorker:
         if inpaint not in ("propainter", "none"):
             raise ValueError(f"unknown inpaint mode: {inpaint!r}")
 
-        cache_volume.reload()
+        safe_reload(cache_volume)
         src = Path(video_path)
         depth_src = Path(depth_path)
         for p in (src, depth_src):
@@ -161,6 +161,7 @@ class VideoStereoWorker:
             writer.wait()
 
         cache_volume.commit()
+        del decoder, depth_decoder  # drop file handles before the next input
         return {
             "sbs_path": str(out),
             "num_frames": num_frames,

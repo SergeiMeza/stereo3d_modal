@@ -12,7 +12,7 @@ import modal
 
 from app.common import jobs
 from app.common.debug import get_logger
-from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir
+from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir, safe_reload
 from app.images import video_depth_image
 from app.modal_app import app
 
@@ -58,7 +58,7 @@ class VideoDepthWorker:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
         cache-volume path of the gray16le depth video."""
-        cache_volume.reload()  # pick up files written by upstream stages
+        safe_reload(cache_volume)  # pick up files written by upstream stages
         src = Path(input_path)
         if not src.exists():
             raise FileNotFoundError(f"input video not found: {src}")
@@ -70,6 +70,7 @@ class VideoDepthWorker:
             result = processor.write_depth_video(out)
 
         cache_volume.commit()
+        del processor  # drop decoder file handles before the next input
         torch.cuda.empty_cache()
 
         return {
