@@ -112,21 +112,38 @@ def ensure_da2_metric(variant: str = "indoor") -> Path:
 
 
 def ensure_da3(variant: str = "mono-large", metric: bool = False) -> Path:
-    """Depth Anything 3 monocular checkpoint (Apache-2.0, ~1.34 GB).
+    """Depth Anything 3 checkpoint.
 
-    ``metric`` selects the checkpoint family — they share one
-    architecture (ViT-L + DPT) but differ in output semantics:
-    - DA3MONO-LARGE (metric=False): scale-free relative DEPTH (not
-      disparity like DA2-relative);
-    - DA3METRIC-LARGE (metric=True): focal-normalized metric depth,
-      ``meters = focal_px * output / 300`` per the upstream FAQ. The
-      focal factor is constant per video, so it cancels under the
-      job-wide disparity normalization in video_depth_models.
+    ``variant`` selects the checkpoint:
+    - "mono-large" + metric=False: DA3MONO-LARGE (Apache-2.0,
+      ~1.34 GB) — scale-free relative DEPTH (not disparity like
+      DA2-relative);
+    - "mono-large" + metric=True: DA3METRIC-LARGE (Apache-2.0,
+      ~1.34 GB) — focal-normalized metric depth, ``meters = focal_px *
+      output / 300`` per the upstream FAQ. The focal factor is
+      constant per video, so it cancels under the job-wide disparity
+      normalization in video_depth_models;
+    - "giant": DA3-GIANT-1.1 (**CC BY-NC 4.0 — non-commercial use
+      only; acceptable for R&D, revisit before any commercial use**,
+      ~5.42 GB) — the flagship any-view model (ViT-Giant, 1.15B
+      params). We run it single-view (monocular); output is scale-free
+      relative depth like DA3MONO. The 1.1 refresh is upstream's
+      recommended weights (better street scenes) and shares the exact
+      ``da3-giant`` architecture config that ships in the pinned
+      depth-anything-3==0.1.1 registry, so no package bump is needed.
 
     Returns the local snapshot dir for
     ``DepthAnything3.from_pretrained`` (config.json + safetensors; the
     architecture yaml ships inside the pip package's registry).
     """
+    if variant == "giant":
+        if metric:
+            raise ValueError("DA3-GIANT has no metric variant")
+        return _hf_snapshot(
+            repo_id="depth-anything/DA3-GIANT-1.1",
+            subdir="da3/da3-giant-1.1",
+            allow_patterns=["*.json", "*.safetensors"],
+        )
     size = {"mono-large": "LARGE"}[variant]
     family = "DA3METRIC" if metric else "DA3MONO"
     return _hf_snapshot(

@@ -13,6 +13,13 @@ Backends (request field ``depth_model``):
   absolute depth in meters (sigmoid * max_depth: 20 m / 80 m).
 - ``da3`` — Depth Anything 3 DA3MONO-LARGE; output is scale-free
   relative DEPTH (not disparity).
+- ``da3-giant`` — DA3-GIANT-1.1, the flagship any-view model
+  (ViT-Giant, 1.15B params; CC BY-NC 4.0 — R&D only). Run single-view
+  (one frame per call): from layer ``alt_start=13`` the backbone does
+  cross-view attention, so a batch of frames would be fused as views
+  of one scene instead of independent monocular inputs. Output is
+  scale-free relative depth; the camera/ray outputs are discarded.
+  Normalized exactly like ``da3``.
 - ``da3-metric`` — DA3METRIC-LARGE; output is focal-normalized metric
   depth (meters = focal_px * output / 300). The focal factor is
   unknown for arbitrary footage but constant per video, and a constant
@@ -69,7 +76,7 @@ FRAME_DEPTH_GPU = "L40S"
 # exposed in the API; DA2-metric variants stay dormant (indoor/outdoor
 # checkpoint split makes them operationally clumsy — user decision) but
 # the loader still understands them for experiments
-DEPTH_MODELS = ("da3", "da3-metric")
+DEPTH_MODELS = ("da3", "da3-giant", "da3-metric")
 METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric")
 
 # Frames sampled for the job-wide disparity range (metric models).
@@ -177,7 +184,17 @@ class FrameDepthWorker:
         else:
             from depth_anything_3.api import DepthAnything3
 
-            checkpoint = ensure_da3("mono-large", metric=self.model_name == "da3-metric")
+            if self.model_name == "da3-giant":
+                # ViT-Giant, 1.15B params: ~5.4 GB of fp32 weights on
+                # the GPU; DA3's forward autocasts to bf16 internally
+                # (from_pretrained has no dtype arg), so peak VRAM at
+                # 980 px single-view stays well under L40S's 48 GB.
+                # If a larger input_size or multi-view batching ever
+                # pushes past it, route via
+                # FrameDepthWorker.with_options(gpu="A100-80GB").
+                checkpoint = ensure_da3("giant")
+            else:
+                checkpoint = ensure_da3("mono-large", metric=self.model_name == "da3-metric")
             self.model = DepthAnything3.from_pretrained(str(checkpoint)).to("cuda")
         logger.info(f"🚀 {self.model_name} loaded in {time.perf_counter() - start:.1f}s")
 
@@ -321,6 +338,8 @@ class FrameDepthWorker:
                 v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             )
             return lambda frames: self._infer_da2(frames, pre)
+        if self.model_name == "da3-giant":
+            return lambda frames: self._infer_da3_giant(frames, input_size)
         return lambda frames: self._infer_da3(frames, input_size)
 
     def _infer_da2(self, frames: "torch.Tensor", pre) -> "torch.Tensor":
@@ -341,6 +360,27 @@ class FrameDepthWorker:
             imgs, process_res=input_size, process_res_method="lower_bound_resize"
         )
         return torch.from_numpy(prediction.depth).float()  # (T, h, w)
+
+    def _infer_da3_giant(self, frames: "torch.Tensor", input_size: int) -> "torch.Tensor":
+        """DA3-GIANT any-view model run as MONOCULAR depth: one
+        inference call per frame (1-view input). Unlike the mono/metric
+        presets (``alt_start=-1``), the giant preset enables cross-view
+        attention from backbone layer 13, so passing a batch of frames
+        in one call would treat them as views of a single static scene
+        (coupled scale, view-reference reordering) — wrong for video
+        with motion. With a single view those layers reduce to plain
+        self-attention. ``prediction`` also carries camera extrinsics/
+        intrinsics and confidence from the depth-ray head; only depth
+        is kept. Per-frame calls cost throughput vs. the batched LARGE
+        path, on top of ~3x the FLOPs of ViT-L."""
+        depths = []
+        for f in frames:
+            img = f.permute(1, 2, 0).contiguous().numpy()  # HWC RGB uint8
+            prediction = self.model.inference(
+                [img], process_res=input_size, process_res_method="lower_bound_resize"
+            )
+            depths.append(torch.from_numpy(prediction.depth[0]).float())
+        return torch.stack(depths)  # (T, h, w)
 
     def _scene_disparity(
         self, decoder, first: int, last: int, batch_size: int, infer, on_batch,

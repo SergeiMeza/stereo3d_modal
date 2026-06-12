@@ -16,7 +16,14 @@ invalidates the proven VideoDepthAnything image. Notes on the pins:
   depth inference.
 - xformers and gsplat are NOT installed: DA3 guards both imports with
   pure-torch fallbacks and only needs them for ViT-Giant (SwiGLU FFN)
-  and 3DGS export respectively — we run ViT-L, which uses torch SDPA.
+  and 3DGS export respectively. The ``da3-giant`` backend (ViT-Giant)
+  runs on the fallback ``SwiGLUFFN`` — verified state-dict compatible
+  with the checkpoint (same packed ``w12``/``w3`` layout as xformers'
+  default) — so the Giant model needs no image change either. The
+  0.1.1 wheel's registry already ships the ``da3-giant`` architecture
+  yaml, and the DA3-GIANT-1.1 checkpoint's config.json matches it
+  exactly (verified against the HF repo), so no version bump is
+  needed for the Giant checkpoints.
 """
 
 from app.images.common import cuda_torch_base

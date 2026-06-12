@@ -52,7 +52,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "inpaint": "propainter" | "none" | "m2svid",
       "input_size": 980,            # depth model resolution
       "depth_model": "vda" | "da2-metric-indoor" | "da2-metric-outdoor"
-                     | "da3" | "da3-metric",
+                     | "da3" | "da3-giant" | "da3-metric",
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
