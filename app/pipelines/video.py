@@ -148,12 +148,21 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     f"(median={shot['median']}, near_fraction={shot['near_fraction']})"
                 )
         if depth_model == "vda":
-            depth_gpu = "L40S" if input_size <= 1148 else ("A100-80GB" if input_size <= 1442 else "H200")
+            # VRAM scales with pixel count ∝ input_size² × aspect; the
+            # L40S/A100 ceilings below were calibrated on 16:9 sources.
+            # Wider frames (e.g. 2.31:1 after letterbox crop) OOM at the
+            # same input_size, so route on an aspect-corrected size.
+            aspect = probe["width"] / max(probe["height"], 1)
+            eff_size = input_size * max(aspect / (16 / 9), 1.0) ** 0.5
+            depth_gpu = "L40S" if eff_size <= 1148 else ("A100-80GB" if eff_size <= 1442 else "H200")
             worker_cls = (
                 VideoDepthWorker if depth_gpu == "L40S"
                 else VideoDepthWorker.with_options(gpu=depth_gpu)
             )
-            jlog.info(f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, parallel={parallel})")
+            jlog.info(
+                f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, "
+                f"effective={eff_size:.0f} at {aspect:.2f}:1, parallel={parallel})"
+            )
             worker = worker_cls(encoder=request.get("encoder", "vitl"))
             if parallel:
                 depth = _parallel_depth(
