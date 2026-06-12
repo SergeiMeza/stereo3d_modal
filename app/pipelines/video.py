@@ -1,0 +1,105 @@
+"""End-to-end video pipeline orchestrator.
+
+Runs on a cheap CPU container and drives the GPU stages:
+
+    preprocess (CPU)  →  video depth (GPU)  →  stereo+inpaint (GPU)
+                                              →  encode outputs (CPU)
+
+Stage workers write intermediates to the shared cache volume; only
+final deliverables are published to the bucket. Every stage records
+its wall time on the job, so completed jobs double as benchmark runs.
+"""
+
+import modal
+
+from app.common import jobs
+from app.common.debug import get_logger
+from app.common.storage import PIPELINE_VOLUMES
+from app.images import media_image
+from app.modal_app import app
+
+logger = get_logger(__name__)
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    cpu=2,
+    memory=(1024, 8 * 1024),
+    timeout=2 * 3600,
+)
+def process_video_job(job_id: str, request: dict) -> dict:
+    """request (all optional except input_path):
+    {
+      "input_path": "inputs/samples/clip_1s_1080p.mp4",
+      "displacement": 0.0125,
+      "inpaint": "propainter" | "none",
+      "input_size": 980,            # depth model resolution
+      "encoder": "vitl" | "vits",
+      "remove_black_bars": true,
+      "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
+      "include_audio": true,
+      "output_depth": true
+    }
+    """
+    from app.stages.media import encode_outputs, preprocess_video, publish_file
+    from app.stages.video_depth import VideoDepthWorker
+    from app.stages.video_stereo import VideoStereoWorker
+
+    try:
+        jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="preprocess", progress=0.05)
+
+        pre = preprocess_video.remote(
+            job_id,
+            request["input_path"],
+            remove_black_bars=request.get("remove_black_bars", True),
+        )
+        jobs.update_job(job_id, progress=0.15, stage="video_depth")
+
+        depth = VideoDepthWorker(encoder=request.get("encoder", "vitl")).generate.remote(
+            job_id,
+            pre["work_path"],
+            input_size=int(request.get("input_size", 980)),
+        )
+        jobs.update_job(job_id, progress=0.5, stage="video_stereo")
+
+        stereo = VideoStereoWorker().generate.remote(
+            job_id,
+            video_path=pre["work_path"],
+            depth_path=depth["depth_path"],
+            displacement=float(request.get("displacement", 0.0125)),
+            inpaint=request.get("inpaint", "propainter"),
+        )
+        jobs.update_job(job_id, progress=0.85, stage="encode_outputs")
+
+        encoded = encode_outputs.remote(
+            job_id,
+            sbs_path=stereo["sbs_path"],
+            original_path=pre["work_path"],
+            formats=request.get("formats", ["sbs", "half_sbs", "anaglyph"]),
+            include_audio=request.get("include_audio", True),
+        )
+
+        outputs = dict(encoded["outputs"])
+        if request.get("output_depth", True):
+            outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
+
+        jobs.update_job(
+            job_id,
+            status=jobs.COMPLETED,
+            stage=None,
+            progress=1.0,
+            outputs=outputs,
+            metadata={
+                "probe": pre["probe"],
+                "crop": pre["crop"],
+                "scene_cuts": depth["scene_cuts"],
+                "depth_shape": depth["depth_shape"],
+            },
+        )
+        return {"job_id": job_id, "status": jobs.COMPLETED, "outputs": outputs}
+
+    except Exception as exc:
+        logger.exception(f"❌ video job {job_id} failed")
+        jobs.update_job(job_id, status=jobs.FAILED, error=str(exc))
+        raise
