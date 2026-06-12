@@ -16,6 +16,7 @@ from app.pipelines import image as _image_pipeline  # noqa: F401
 from app.pipelines import video as _video_pipeline  # noqa: F401
 from app.stages import image_stereo as _image_stereo  # noqa: F401
 from app.stages import media as _media  # noqa: F401
+from app.stages import mvhevc as _mvhevc  # noqa: F401
 from app.stages import video_depth as _video_depth  # noqa: F401
 from app.stages import video_stereo as _video_stereo  # noqa: F401
 

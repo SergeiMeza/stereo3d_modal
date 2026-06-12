@@ -4,6 +4,7 @@ output encoding/muxing. No GPU — runs on the cheap media_image.
 
 import json
 import subprocess
+import tempfile
 from fractions import Fraction
 from pathlib import Path
 
@@ -74,7 +75,8 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
         ts = duration * (k + 0.5) / samples
         out = subprocess.run(
             ["ffmpeg", "-hide_banner", "-ss", f"{ts:.2f}", "-i", str(path),
-             "-t", f"{window}", "-vf", "cropdetect=mode=black:limit=24:round=2",
+             # no mode=black: needs ffmpeg ≥6.1, debian_slim has 5.x; black is the default
+             "-t", f"{window}", "-vf", "cropdetect=limit=24:round=2",
              "-an", "-f", "null", "-"],
             capture_output=True, text=True,
         ).stderr
@@ -207,20 +209,25 @@ def encode_outputs(
     }
 
     with jobs.stage_timer(job_id, "encode_outputs", formats=formats):
-        for fmt in formats:
-            if fmt not in recipes:
-                logger.warning(f"skipping unknown format {fmt!r}")
-                continue
-            dst = out_dir / f"{fmt}.mp4"
-            cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
-            cmd += audio_args
-            vf = recipes[fmt]
-            if vf:
-                cmd += ["-vf", vf]
-            cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "17",
-                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(dst)]
-            subprocess.run(cmd, check=True)
-            outputs[fmt] = public_url(dst)
+        with tempfile.TemporaryDirectory() as tmp:
+            for fmt in formats:
+                if fmt not in recipes:
+                    logger.warning(f"skipping unknown format {fmt!r}")
+                    continue
+                # encode locally: mp4 muxing seeks, which bucket mounts
+                # don't support — publish with one sequential copy
+                local = Path(tmp) / f"{fmt}.mp4"
+                cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
+                cmd += audio_args
+                vf = recipes[fmt]
+                if vf:
+                    cmd += ["-vf", vf]
+                cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "17",
+                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(local)]
+                subprocess.run(cmd, check=True)
+                dst = out_dir / f"{fmt}.mp4"
+                dst.write_bytes(local.read_bytes())
+                outputs[fmt] = public_url(dst)
 
     return {"outputs": outputs}
 

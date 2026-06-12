@@ -70,7 +70,8 @@ def with_forward_warp(image: modal.Image) -> modal.Image:
     reproducible than compiling on an attached GPU).
     """
     return (
-        image.add_local_dir(
+        image.uv_pip_install("setuptools==80.9.0", "wheel==0.45.1", "ninja==1.11.1.4")
+        .add_local_dir(
             "app/vendor/forward_warp",
             "/build/forward_warp",
             copy=True,

@@ -186,6 +186,20 @@ async def stage_video_stereo(body: dict) -> dict:
     return _submit("stage:video-stereo", body, spawn)
 
 
+@web_app.post("/v1/stages/encode-mvhevc")
+async def stage_encode_mvhevc(body: dict) -> dict:
+    from app.stages.mvhevc import encode_mvhevc
+
+    sbs_path = _require(body, "sbs_path")
+    return _submit(
+        "stage:encode-mvhevc",
+        body,
+        lambda job_id: encode_mvhevc.spawn(
+            job_id, sbs_path=sbs_path, quality=int(body.get("quality", 28))
+        ),
+    )
+
+
 @web_app.post("/v1/stages/scene-detect")
 async def stage_scene_detect(body: dict) -> dict:
     from app.stages.media import detect_scenes

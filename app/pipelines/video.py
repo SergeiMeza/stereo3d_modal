@@ -72,15 +72,26 @@ def process_video_job(job_id: str, request: dict) -> dict:
         )
         jobs.update_job(job_id, progress=0.85, stage="encode_outputs")
 
+        formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
         encoded = encode_outputs.remote(
             job_id,
             sbs_path=stereo["sbs_path"],
             original_path=pre["work_path"],
-            formats=request.get("formats", ["sbs", "half_sbs", "anaglyph"]),
+            formats=[f for f in formats if f != "mvhevc"],
             include_audio=request.get("include_audio", True),
         )
 
         outputs = dict(encoded["outputs"])
+        if "mvhevc" in formats:
+            from app.stages.mvhevc import encode_mvhevc
+
+            jobs.update_job(job_id, stage="encode_mvhevc", progress=0.92)
+            mv = encode_mvhevc.remote(
+                job_id,
+                sbs_path=stereo["sbs_path"],
+                original_path=pre["work_path"] if request.get("include_audio", True) else None,
+            )
+            outputs["mvhevc"] = mv["mvhevc"]
         if request.get("output_depth", True):
             outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
 
