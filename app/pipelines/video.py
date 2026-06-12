@@ -20,6 +20,18 @@ from app.modal_app import app
 
 logger = get_logger(__name__)
 
+# Resolution/quality presets: bundle target output resolution with the
+# matched depth resolution, inpainting working res, and (implicitly via
+# routing) GPU tier. Explicit request fields override preset values.
+PRESETS = {
+    "draft":   {"target_height": 1080, "input_size": 518, "inpaint": "none"},
+    "1080p":   {"target_height": 1080, "input_size": 980},
+    "qhd":     {"target_height": 1440, "input_size": 1148},   # 2560x1440, all-L40S
+    "3k":      {"target_height": 1620, "input_size": 1148},   # 2880x1620, all-L40S
+    "4k":      {"target_height": 2160, "input_size": 1442,    # A100 depth + H200 stereo
+                "work_height": 1080, "work_width": 1920},
+}
+
 
 @app.function(
     image=media_image,
@@ -49,6 +61,10 @@ def process_video_job(job_id: str, request: dict) -> dict:
     from app.common.debug import job_logger
     from app.common.errors import check_worker_result
     from app.stages.media import encode_outputs, preprocess_video, publish_file
+
+    preset = PRESETS.get(request.get("preset", ""))
+    if preset:
+        request = {**preset, **request}  # explicit fields win over the preset
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_stereo import VideoStereoWorker
 
@@ -64,6 +80,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             job_id,
             request["input_path"],
             remove_black_bars=request.get("remove_black_bars", True),
+            target_height=request.get("target_height"),
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "

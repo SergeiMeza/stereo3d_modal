@@ -113,7 +113,7 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
     memory=(2 * 1024, 16 * 1024),
     timeout=1800,
 )
-def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = True) -> dict:
+def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = True, target_height: int | None = None) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
     Returns the working path + probe metadata."""
@@ -125,12 +125,19 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
     work_dir = job_cache_dir(job_id)
     crop = detect_crop(src, probe) if remove_black_bars else None
 
-    with jobs.stage_timer(job_id, "preprocess", crop=crop, **{k: probe[k] for k in ("width", "height", "num_frames")}):
-        if crop:
-            work_path = work_dir / "source_cropped.mp4"
+    # never upscale; scale applies after the crop
+    scale = target_height if target_height and probe["height"] > target_height else None
+    with jobs.stage_timer(job_id, "preprocess", crop=crop, scale=scale,
+                          **{k: probe[k] for k in ("width", "height", "num_frames")}):
+        if crop or scale:
+            filters = ",".join(
+                f for f in (f"crop={crop}" if crop else "", f"scale=-2:{scale}" if scale else "")
+                if f
+            )
+            work_path = work_dir / "source_processed.mp4"
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(src),
-                 "-vf", f"crop={crop}", "-an", "-c:v", "libx264", "-preset", "fast",
+                 "-vf", filters, "-an", "-c:v", "libx264", "-preset", "fast",
                  "-crf", "16", "-pix_fmt", "yuv420p", "-y", str(work_path)],
                 check=True,
             )
