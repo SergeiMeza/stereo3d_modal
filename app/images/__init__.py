@@ -109,9 +109,9 @@ nvenc_image = (
         # (NVENC output plays but never gets the Photos/Files badge).
         # 8-bit only; multilib not wired for ENABLE_MULTIVIEW.
         "git clone --depth 1 --branch 4.2 https://bitbucket.org/multicoreware/x265_git.git /tmp/x265"
-        " && cmake -S /tmp/x265/source -B /tmp/x265/build -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTIVIEW=ON"
+        " && cmake -S /tmp/x265/source -B /tmp/x265/build -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTIVIEW=ON -DENABLE_SHARED=OFF"
         " && cmake --build /tmp/x265/build -j$(nproc)"
-        " && cp /tmp/x265/build/x265 /usr/local/bin/x265 && rm -rf /tmp/x265",
+        " && cp /tmp/x265/build/x265 /usr/local/bin/x265 && x265 --version && rm -rf /tmp/x265",
     )
     .add_local_python_source("app")
 )
