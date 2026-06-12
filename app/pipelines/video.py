@@ -153,6 +153,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # the source aspect); the ProPainter work_height/work_width
             # knobs do not apply. Left eye stays the original frame.
             m2svid_kwargs = dict(
+                stereo_mode=request.get("stereo_mode", "right"),
                 video_path=pre["work_path"],
                 depth_path=depth["depth_path"],
                 displacement=float(request.get("displacement", 0.0125)),

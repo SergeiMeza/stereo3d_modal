@@ -58,7 +58,7 @@ with m2svid_image.imports():
     from torchcodec.decoders import VideoDecoder
 
     from app.stages import m2svid_runner
-    from app.stages.splat import RIGHT, DepthSplatter
+    from app.stages.splat import BOTH, RIGHT, DepthSplatter
 
 # model window: fixed by the SVD temporal layers (see m2svid_runner)
 M2SVID_CHUNK = 25
@@ -108,6 +108,7 @@ class M2SVidStereoWorker:
         video_path: str,
         depth_path: str,
         displacement: float = 0.0125,
+        stereo_mode: str = "right",
         work_height: int = 512,
         work_width: int | None = None,
         fps_rational: str | None = None,
@@ -211,7 +212,7 @@ class M2SVidStereoWorker:
                             depths = to_source(depths)
 
                             self._write_inpainted(
-                                writer, frames, depths, displacement,
+                                writer, stereo_mode, frames, depths, displacement,
                                 to_work, to_work_mask, to_source, float(meta.average_fps),
                             )
 
@@ -290,8 +291,25 @@ class M2SVidStereoWorker:
 
     # ------------------------------------------------------------ mode
 
+    def _fill_eye(self, frames, warp, occ, to_work, to_work_mask, to_source, fps, mirror: bool):
+        """Run M2SVid on one eye. mirror=True flips inputs/outputs
+        horizontally (left-eye warps are out-of-distribution otherwise)."""
+        if mirror:
+            frames, warp, occ = frames.flip(-1), warp.flip(-1), occ.flip(-1)
+        warp_u8 = (warp * 255).clamp(0, 255).to(torch.uint8)
+        track("m2svid_warp", warp_u8, logger)
+        filled_work = m2svid_runner.inpaint_chunk(
+            self.model, to_work(frames), to_work(warp_u8).float() / 255.0,
+            to_work_mask(occ), fps,
+        )
+        torch.cuda.empty_cache()
+        fill = to_source(filled_work)
+        hole = m2svid_runner.hole_mask(occ)
+        eye = torch.where(hole.expand(-1, 3, -1, -1), fill, warp_u8)
+        return eye.flip(-1) if mirror else eye
+
     def _write_inpainted(
-        self, writer, frames, depths, displacement, to_work, to_work_mask, to_source, fps
+        self, writer, stereo_mode, frames, depths, displacement, to_work, to_work_mask, to_source, fps
     ) -> None:
         """Splat the right eye at source resolution and FULL
         displacement, run M2SVid at working resolution, then composite
@@ -300,36 +318,33 @@ class M2SVidStereoWorker:
         frame, so only the right eye trades hole pixels for upscaled
         ones — everything else keeps source detail.
         """
-        warps, occs = [], []
+        mode = BOTH if stereo_mode == "both" else RIGHT
+        l_warps, l_occs, r_warps, r_occs = [], [], [], []
         for k in range(frames.shape[0]):
             frame = frames[k].unsqueeze(0)
             depth = depths[k].unsqueeze(0).float() / 255.0
-            # RIGHT-only mode warps by the full displacement (the 0.5x
-            # factor in DepthSplatter applies only to BOTH mode)
-            _, right, _, right_occ = self.splatter(
-                image=frame, depthmap=depth, disp=displacement, stereo_mode=RIGHT
+            # RIGHT mode warps by the full displacement; BOTH splits it
+            # half per eye (DepthSplatter handles the 0.5x internally)
+            left, right, left_occ, right_occ = self.splatter(
+                image=frame, depthmap=depth, disp=displacement, stereo_mode=mode
             )
-            warps.append(right)
-            occs.append(right_occ)
+            r_warps.append(right)
+            r_occs.append(right_occ)
+            if left is not None:
+                l_warps.append(left)
+                l_occs.append(left_occ)
 
-        warp = torch.cat(warps, dim=0)  # (T, 3, H, W) float [0, 1]
-        occ = torch.cat(occs, dim=0)  # (T, 1, H, W) float [0, 1], 1 = hole
-        warp_u8 = (warp * 255).clamp(0, 255).to(torch.uint8)
-        track("m2svid_warp", warp_u8, logger)
+        right = self._fill_eye(frames, torch.cat(r_warps), torch.cat(r_occs),
+                               to_work, to_work_mask, to_source, fps, mirror=False)
+        if l_warps:
+            # M2SVid is trained left-reference/right-target: mirror the
+            # left-eye problem horizontally so its warp direction matches
+            # the training distribution, fill, then mirror back.
+            left = self._fill_eye(frames, torch.cat(l_warps), torch.cat(l_occs),
+                                  to_work, to_work_mask, to_source, fps, mirror=True)
+        else:
+            left = frames  # right-only mode: left eye = source
 
-        left_work = to_work(frames)  # (T, 3, h, w) uint8
-        warp_work = to_work(warp_u8).float() / 255.0
-        occ_work = to_work_mask(occ)
-
-        right_work = m2svid_runner.inpaint_chunk(self.model, left_work, warp_work, occ_work, fps)
-        torch.cuda.empty_cache()
-
-        # composite: model fill into the (closed+dilated) holes of the
-        # full-res warp; identical morphology to what the model filled
-        fill = to_source(right_work)  # (T, 3, H, W) uint8
-        hole_hires = m2svid_runner.hole_mask(occ)  # (T, 1, H, W) bool
-        right = torch.where(hole_hires.expand(-1, 3, -1, -1), fill, warp_u8)
-
-        sbs = torch.cat([frames, right], dim=3)  # left eye = source frame
+        sbs = torch.cat([left, right], dim=3)
         for k in range(sbs.shape[0]):
             writer.stdin.write(sbs[k].permute(1, 2, 0).cpu().numpy().tobytes())
