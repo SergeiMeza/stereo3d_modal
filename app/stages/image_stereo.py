@@ -17,6 +17,7 @@ from app.common.storage import (
     GPU_VOLUMES,
     bucket_path,
     hf_secret,
+    slack_secret,
     job_output_dir,
     public_url,
 )
@@ -49,7 +50,7 @@ with image_stereo_image.imports():
     gpu=IMAGE_GPU,
     image=image_stereo_image,
     volumes=GPU_VOLUMES,
-    secrets=[hf_secret],
+    secrets=[hf_secret, slack_secret],
     cpu=2,
     memory=(2 * 1024, 32 * 1024),
     timeout=3600,

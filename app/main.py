@@ -21,7 +21,10 @@ from app.stages import video_depth as _video_depth  # noqa: F401
 from app.stages import video_stereo as _video_stereo  # noqa: F401
 
 
-@app.function(image=web_image, timeout=300)
+from app.common.storage import slack_secret
+
+
+@app.function(image=web_image, secrets=[slack_secret], timeout=300)
 @modal.concurrent(max_inputs=100)
 @modal.asgi_app(label=API_LABEL)
 def fastapi_app():

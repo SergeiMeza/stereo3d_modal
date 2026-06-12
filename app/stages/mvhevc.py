@@ -20,6 +20,7 @@ import modal
 from app.common import jobs
 from app.common.debug import get_logger
 from app.common.storage import (
+    slack_secret,
     PIPELINE_VOLUMES,
     cache_volume,
     job_output_dir,
@@ -39,6 +40,7 @@ MVHEVC_GPU = "L4"
     image=nvenc_image,
     gpu=MVHEVC_GPU,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
     timeout=3600,

@@ -13,6 +13,7 @@ import modal
 from app.common import jobs
 from app.common.debug import get_logger
 from app.common.storage import (
+    slack_secret,
     PIPELINE_VOLUMES,
     bucket_path,
     cache_volume,
@@ -106,6 +107,7 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
@@ -146,6 +148,7 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(2 * 1024, 16 * 1024),
@@ -173,6 +176,7 @@ def detect_scenes(input_path: str) -> dict:
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
@@ -265,6 +269,7 @@ def _av_sync_ms(path: Path) -> float | None:
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(1024, 8 * 1024),

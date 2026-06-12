@@ -38,6 +38,10 @@ gcp_hmac_secret = modal.Secret.from_name(
 
 hf_secret = modal.Secret.from_name("hf-secret", required_keys=["HF_TOKEN"])
 
+# Slack pipeline notifications (see app/common/notify.py). Create with:
+#   modal secret create slack-webhook SLACK_WEBHOOK_URL=https://hooks.slack.com/...
+slack_secret = modal.Secret.from_name("slack-webhook", required_keys=["SLACK_WEBHOOK_URL"])
+
 bucket_mount = modal.CloudBucketMount(
     bucket_name=BUCKET_NAME,
     bucket_endpoint_url="https://storage.googleapis.com",

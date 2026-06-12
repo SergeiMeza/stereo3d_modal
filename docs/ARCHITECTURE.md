@@ -78,27 +78,69 @@ budget. Videos: ffmpeg `cropdetect` sampled at 3 points, conservative
 max-intensity threshold inside the image worker. Both report the crop
 in job metadata.
 
-## MV-HEVC for Apple Vision Pro (experimental, planned)
+## MV-HEVC spatial video for Apple Vision Pro
 
-Research conclusions (June 2026):
+Implemented in `app/stages/mvhevc.py` on **L4** ($0.80/h — NVENC is
+fixed-function; bigger GPUs add nothing). Verified facts that shaped it:
 
-- NVENC MV-HEVC ships in Video Codec SDK 13.0, gated by the runtime cap
-  `NV_ENC_CAPS_SUPPORT_MVHEVC_ENCODE`, **not** by Blackwell.
-  On Modal: L4 / L40S / A10G / T4 / RTX-PRO-6000 have NVENC;
-  **B200, H100/H200, A100 have none.**
-- ffmpeg ≥ 8.0 encodes it natively: `-c:v hevc_nvenc -profile:v mv`
-  with `framepack=frameseq` input (driver ≥ 570 — satisfied on Modal).
-- ffmpeg's MP4 muxer can't write the layered boxes yet → mux the raw
-  `.hevc` with GPAC `MP4Box`, retag `hvc1`.
-- "Spatial" recognition on Vision Pro additionally needs `vexu`
-  metadata; on Linux, splice prebuilt atoms with Bento4 `mp4edit`
-  (or run Mike Swanson's `spatial` CLI on a Mac as a final pass).
-- Fallbacks: NVIDIA `AppEncCuda` sample / PyNvVideoCodec; CPU x265 4.x
-  `ENABLE_MULTIVIEW`; visionOS 26 APMP frame-packed SBS.
+- NVENC MV-HEVC ships in Video Codec SDK 13.0, gated by a runtime cap,
+  **not** by Blackwell. On Modal: L4 / L40S / A10G / T4 / RTX-PRO-6000
+  have NVENC; **B200, H100/H200, A100 have none**.
+- Must use the **ffmpeg n8.1 release build** — master builds target
+  NVENC API 13.1, which needs driver ≥ 610; Modal hosts run 580.x.
+- ffmpeg's MOV muxer silently **drops the second view** (verified), so
+  the stage encodes a raw `.hevc` and muxes with **GPAC master
+  MP4Box** (distro GPAC 1.0.1 writes no `lhvC` box — the layered
+  config visionOS requires; master writes `hvcC`+`lhvC` correctly).
+- Apple "spatial media" recognition needs `vexu` (eyes/stri/hero +
+  cams/blin + cmfy/dadj) and `hfov` boxes inside the `hvc1` sample
+  entry. `app/stages/vexu.py` builds them byte-exact per Apple's
+  Stereo Video ISOBMFF Extensions spec (self-tested against reference
+  hex); Bento4 `mp4edit` splices them and patches chunk offsets.
+- Every run verifies: `lhvC`+`vexu`+`hfov` present (mp4dump) and the
+  second view decodes — reported as `spatial_boxes_verified` /
+  `two_views_verified`.
 
-Plan: an `nvenc_image` (BtbN ffmpeg-8 static build + gpac + bento4) and
-an `encode-mvhevc` stage on **L4**, consuming the SBS master. First step
-is a 10-frame cap probe per GPU type.
+Defaults (request `spatial` object overrides): baseline 19.24 mm,
+hfov 63.4°, disparity adjustment +0.02, hero=left — iPhone-15-Pro-like.
+
+## Preemption tolerance
+
+Modal preempts functions and retries them on the same input; a naive
+monolithic stage would restart a long video from zero. Mitigations:
+
+- **Segmented checkpoints**: video depth writes one file per scene
+  (alignment resets at cuts anyway, so results are identical); the
+  stereo pass writes ~240-frame segments aligned to ProPainter batch
+  boundaries. Segments live in the cache volume (committed as they
+  finish, plus an `@modal.exit` commit in the 30s preemption grace
+  window); the retried call skips finished segments and the final
+  output is a lossless ffmpeg concat.
+- **Retries** on every worker (`modal.Retries`, 3 attempts, backoff).
+- **Non-preemptible orchestrators**: the pipeline coordinators are
+  tiny CPU containers; `nonpreemptible=True` costs 3× of almost
+  nothing and keeps the conductor alive across the whole job.
+- Scale-out for very long videos (segment fan-out over multiple GPU
+  containers in parallel, scene-aligned) is the natural next step —
+  the segment files and manifest layout already support it.
+
+## A/V sync guarantees
+
+Frame loss anywhere in a distributed pipeline accumulates into
+audible audio drift. Defenses, in order:
+
+1. Decoding is index-based (torchcodec) and writers receive raw frame
+   pipes — no timestamp-driven drops/dups.
+2. The exact rational frame rate (`24000/1001`, not a float) threads
+   from probe to every ffmpeg writer.
+3. **Frame-count invariants**: depth and SBS outputs are packet-counted
+   and must equal the source frame count — the segment concat and the
+   orchestrator both refuse to continue on mismatch.
+4. Audio is muxed once, at the very end, from the **pristine source**
+   (the cropped work file is video-only by design).
+5. `encode_outputs` measures the video-vs-audio duration delta per
+   deliverable (`av_sync_ms` in job metadata) and warns above ~half a
+   frame.
 
 ## Job lifecycle
 

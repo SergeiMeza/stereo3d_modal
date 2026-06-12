@@ -3,7 +3,7 @@ does everything; this wraps job bookkeeping)."""
 
 from app.common import jobs
 from app.common.debug import get_logger
-from app.common.storage import PIPELINE_VOLUMES
+from app.common.storage import PIPELINE_VOLUMES, slack_secret
 from app.images import media_image
 from app.modal_app import app
 
@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     cpu=1,
     memory=(512, 4 * 1024),
     timeout=2 * 3600,

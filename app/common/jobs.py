@@ -29,6 +29,7 @@ def create_job(job_id: str, kind: str, request: dict) -> dict:
     job = {
         "job_id": job_id,
         "kind": kind,  # "image" | "video" | a stage name
+        "notify": bool(request.get("notify", True)),  # Slack lifecycle messages
         "status": PENDING,
         "created_at": time.time(),
         "updated_at": time.time(),
@@ -51,9 +52,14 @@ def update_job(job_id: str, **fields) -> dict | None:
     job = job_dict.get(job_id)
     if job is None:
         return None
+    old = dict(job)
     job.update(fields)
     job["updated_at"] = time.time()
     job_dict[job_id] = job
+
+    from app.common.notify import job_event
+
+    job_event(old, job)  # Slack lifecycle messages (no-op without webhook)
     return job
 
 

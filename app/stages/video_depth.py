@@ -12,7 +12,7 @@ import modal
 
 from app.common import jobs
 from app.common.debug import get_logger
-from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir, safe_reload
+from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
 from app.images import video_depth_image
 from app.modal_app import app
@@ -32,7 +32,7 @@ with video_depth_image.imports():
     gpu=VIDEO_DEPTH_GPU,
     image=video_depth_image,
     volumes=GPU_VOLUMES,
-    secrets=[hf_secret],
+    secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,

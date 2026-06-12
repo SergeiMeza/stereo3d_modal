@@ -19,7 +19,7 @@ import modal
 
 from app.common import jobs
 from app.common.debug import get_logger, track
-from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, job_cache_dir, safe_reload
+from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
 from app.images import stereo_image
 from app.modal_app import app
@@ -56,7 +56,7 @@ SEGMENT_FRAMES = 240
     gpu=VIDEO_STEREO_GPU,
     image=stereo_image,
     volumes=GPU_VOLUMES,
-    secrets=[hf_secret],
+    secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
     timeout=3600,
