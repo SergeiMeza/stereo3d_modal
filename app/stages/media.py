@@ -220,6 +220,14 @@ def encode_outputs(
         "anaglyph": "stereo3d=sbsl:arcd",
     }
 
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
+    jlog.info(
+        f"🎯 encoding {formats} from {sbs.name} "
+        f"(audio={'yes' if audio_args else 'no'})"
+    )
+
     av_sync: dict[str, float | None] = {}
     with jobs.stage_timer(job_id, "encode_outputs", formats=formats):
         with tempfile.TemporaryDirectory() as tmp:
@@ -242,6 +250,10 @@ def encode_outputs(
                 dst.write_bytes(local.read_bytes())
                 outputs[fmt] = public_url(dst)
                 av_sync.setdefault(fmt, _av_sync_ms(local))
+                jlog.info(
+                    f"✔ {fmt}: {local.stat().st_size / 1e6:.1f} MB, "
+                    f"av_sync={av_sync[fmt]} ms → {outputs[fmt]}"
+                )
 
     return {"outputs": outputs, "av_sync_ms": av_sync}
 
