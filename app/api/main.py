@@ -59,6 +59,8 @@ async def submit_video(body: dict) -> dict:
     inpaint = body.get("inpaint", "propainter")
     if inpaint not in ("propainter", "none"):
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
+    if body.get("stereo_mode", "both") not in ("both", "left", "right"):
+        raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
     input_size = int(body.get("input_size", 980))
     if input_size % 14 != 0 or not (140 <= input_size <= 2100):
         raise HTTPException(status_code=400, detail="input_size must be a multiple of 14 in [140, 2100]")

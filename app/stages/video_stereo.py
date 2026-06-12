@@ -36,7 +36,7 @@ with stereo_image.imports():
     from torchcodec.decoders import VideoDecoder
 
     from app.stages import propainter_runner
-    from app.stages.splat import BOTH, DepthSplatter
+    from app.stages.splat import BOTH, LEFT, RIGHT, DepthSplatter
 
 
 def _pick_batch_size(num_frames: int) -> int:
@@ -91,6 +91,7 @@ class VideoStereoWorker:
         inpaint: str = "propainter",
         work_height: int = 720,
         work_width: int = 1280,
+        stereo_mode: str = "both",
         fps_rational: str | None = None,
         band: tuple[float, float] = (0.0, 1.0),
         frame_range: tuple[int, int] | None = None,
@@ -109,6 +110,8 @@ class VideoStereoWorker:
 
         if inpaint not in ("propainter", "none"):
             raise ValueError(f"unknown inpaint mode: {inpaint!r}")
+        if stereo_mode not in ("both", "left", "right"):
+            raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
 
         safe_reload(cache_volume)
         src = Path(video_path)
@@ -185,10 +188,11 @@ class VideoStereoWorker:
                             depths = to_source(depths)
 
                             if inpaint == "none":
-                                self._write_raw_warp(writer, frames, depths, displacement)
+                                self._write_raw_warp(writer, frames, depths, displacement, stereo_mode)
                             else:
                                 self._write_inpainted(
-                                    writer, frames, depths, displacement, to_work, to_source
+                                    writer, frames, depths, displacement,
+                                    to_work, to_source, stereo_mode,
                                 )
 
                             del frames, depths
@@ -243,6 +247,107 @@ class VideoStereoWorker:
             "height": height,
             "inpaint": inpaint,
         }
+
+    @staticmethod
+    def _segment_writer(path: Path, width: int, height: int, fps):
+        return (
+            ffmpeg.input(
+                "pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width * 2}x{height}", r=fps
+            )
+            .output(
+                str(path),
+                pix_fmt="yuv420p",
+                vcodec="libx264",
+                preset="slow",
+                vsync="cfr",
+                r=fps,
+                crf=16,
+            )
+            .global_args("-loglevel", "error")
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+        )
+
+    # ------------------------------------------------------------ modes
+
+    def _write_raw_warp(self, writer, frames, depths, displacement, stereo_mode) -> None:
+        """Forward warp only — no masks, no inpainting. In "left"/"right"
+        mode the other eye is the untouched original frame and the
+        generated eye gets the FULL displacement (matching the still
+        image pipeline's convention)."""
+        for k in range(frames.shape[0]):
+            frame = frames[k].unsqueeze(0)
+            depth = depths[k].unsqueeze(0).float() / 255.0
+            left, right, _, _ = self.splatter(
+                image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
+            )
+            left_u8 = frame if left is None else (left * 255).clamp(0, 255).to(torch.uint8)
+            right_u8 = frame if right is None else (right * 255).clamp(0, 255).to(torch.uint8)
+            sbs = torch.cat([left_u8, right_u8], dim=3)
+            writer.stdin.write(sbs.squeeze(0).permute(1, 2, 0).cpu().numpy().tobytes())
+
+    def _write_inpainted(
+        self, writer, frames, depths, displacement, to_work, to_source, stereo_mode
+    ) -> None:
+        """Splat at source resolution, inpaint occlusions with
+        ProPainter at working resolution, then composite the upscaled
+        fill back into the full-resolution warp (only the holes receive
+        upscaled pixels — the rest keeps source detail).
+
+        stereo_mode "left"/"right": only that eye is synthesized (full
+        displacement) and inpainted — the other eye is the original
+        frame, halving the ProPainter cost vs "both".
+        """
+        gen_left = stereo_mode in (BOTH, LEFT)
+        gen_right = stereo_mode in (BOTH, RIGHT)
+        sides = {}  # name -> (work_frames, masks, dilated, hires list)
+        originals = []
+
+        for k in range(frames.shape[0]):
+            frame = frames[k].unsqueeze(0)
+            originals.append(frame.cpu())
+            depth = depths[k].unsqueeze(0).float() / 255.0
+            left, right, left_occ, right_occ = self.splatter(
+                image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
+            )
+            for name, img, occ in (("L", left, left_occ), ("R", right, right_occ)):
+                if img is None:
+                    continue
+                u8 = (img * 255).clamp(0, 255).to(torch.uint8)
+                mask_hi = propainter_runner.dilate_mask(occ > 0.5, kernel_size=3, iterations=2)
+                mask_wk = to_work(occ) > 0.5
+                side = sides.setdefault(name, ([], [], [], []))
+                side[0].append(to_work(u8))
+                side[1].append(mask_wk)
+                side[2].append(propainter_runner.dilate_mask(mask_wk, kernel_size=3, iterations=2))
+                side[3].append((u8.cpu(), mask_hi.cpu()))
+
+        done = {}
+        for name, (work, masks, dilated, hires) in sides.items():
+            filled = propainter_runner.inpaint_window(
+                self.propainter,
+                torch.cat(work, dim=0),
+                torch.cat(masks, dim=0),
+                torch.cat(dilated, dim=0),
+            )
+            torch.cuda.empty_cache()
+            done[name] = (filled, hires)
+
+        for k in range(frames.shape[0]):
+            if gen_left:
+                filled, hires = done["L"]
+                left = self._composite(filled[k], *hires[k], to_source)
+            else:
+                left = originals[k].cuda()
+            if gen_right:
+                filled, hires = done["R"]
+                right = self._composite(filled[k], *hires[k], to_source)
+            else:
+                right = originals[k].cuda()
+            sbs = torch.cat([left, right], dim=3)
+            writer.stdin.write(
+                sbs.squeeze(0).permute(1, 2, 0).to(torch.uint8).cpu().numpy().tobytes()
+            )
 
     @staticmethod
     def _segment_writer(path: Path, width: int, height: int, fps):
