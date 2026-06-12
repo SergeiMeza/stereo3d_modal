@@ -363,14 +363,21 @@ class FrameDepthWorker:
             depth = infer(decoder[b0:b1])
             disp = depth.clamp(min=DEPTH_EPS).reciprocal().float()
             if align_frames:
+                # Anchor every frame to the scene's FIRST frame: chaining
+                # frame->previous compounds scale errors multiplicatively
+                # and collapses the signal to a constant over long scenes
+                # (observed). A fixed anchor cannot drift; the scale guard
+                # rejects degenerate fits (e.g. momentary occlusions).
                 aligned = []
                 for i in range(disp.shape[0]):
                     d = disp[i]
-                    if ref is not None:
+                    if ref is None:
+                        ref = d
+                    else:
                         scale, shift = _affine_to_ref(d, ref)
-                        d = (d * scale + shift).clamp(min=0.0)
+                        if 0.25 < float(scale) < 4.0:
+                            d = (d * scale + shift).clamp(min=0.0)
                     aligned.append(d)
-                    ref = d
                 disp = torch.stack(aligned)
             # fp16 buffer: same precision the VDA path stores scenes at
             chunks.append(disp.to(torch.float16))
