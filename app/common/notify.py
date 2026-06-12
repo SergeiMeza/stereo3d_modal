@@ -68,6 +68,20 @@ def job_event(old: dict, new: dict) -> None:
     # per-stage progress: video pipeline jobs only (bounded message count)
     if kind == "video" and new.get("stage") and new.get("stage") != old.get("stage"):
         notify_slack(f"🎬 {tag} → `{new['stage']}` ({new.get('progress', 0):.0%})")
+        return
+
+    # non-production: granular progress at every 25% crossing, with the
+    # frames/rate/ETA detail that client apps poll from the job record
+    if APP_ENV != "prod":
+        old_q = int(float(old.get("progress") or 0) * 4)
+        new_q = int(float(new.get("progress") or 0) * 4)
+        if new_q > old_q and new.get("status") == "in_progress":
+            d = new.get("progress_detail") or {}
+            extra = ""
+            if d.get("total"):
+                extra = (f" — {d.get('stage')} {d.get('done')}/{d.get('total')} {d.get('unit', '')}"
+                         f", {d.get('rate_per_s', '?')}/s, ETA {d.get('eta_seconds', '?')}s")
+            notify_slack(f"⏳ {tag} {new.get('progress', 0):.0%}{extra}")
 
 
 def _flatten_links(outputs: dict, prefix: str = "") -> list[tuple[str, str]]:
