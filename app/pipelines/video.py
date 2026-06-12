@@ -46,11 +46,17 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "output_depth": true
     }
     """
+    from app.common.debug import job_logger
     from app.stages.media import encode_outputs, preprocess_video, publish_file
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_stereo import VideoStereoWorker
 
+    jlog = job_logger(job_id)
+
     try:
+        jlog.info(f"🎯 video job started: {request.get('input_path')} "
+                  f"(inpaint={request.get('inpaint', 'propainter')}, "
+                  f"input_size={request.get('input_size', 980)})")
         jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="preprocess", progress=0.05)
 
         pre = preprocess_video.remote(
@@ -58,6 +64,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
             request["input_path"],
             remove_black_bars=request.get("remove_black_bars", True),
         )
+        probe = pre["probe"]
+        jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "
+                  f"{probe['num_frames']}f @ {probe['fps_rational']}, crop={pre['crop']}")
         jobs.update_job(job_id, progress=0.15, stage="video_depth")
 
         fps_rational = pre["probe"].get("fps_rational")
@@ -73,6 +82,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"depth produced {depth['num_frames']} frames for a "
                 f"{pre['probe']['num_frames']}-frame source"
             )
+        jlog.info(f"📋 depth done: {depth['num_frames']}f at {depth['depth_shape']}, "
+                  f"{len(depth['scene_cuts'])} scene cut(s)")
         jobs.update_job(job_id, progress=0.5, stage="video_stereo")
 
         stereo = VideoStereoWorker().generate.remote(
@@ -88,6 +99,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"stereo produced {stereo['num_frames']} frames for a "
                 f"{pre['probe']['num_frames']}-frame source"
             )
+        jlog.info(f"📋 stereo done: {stereo['sbs_path']} ({stereo['width']}x{stereo['height']})")
         jobs.update_job(job_id, progress=0.85, stage="encode_outputs")
 
         formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
@@ -128,6 +140,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "av_sync_ms": encoded.get("av_sync_ms"),
             },
         )
+        jlog.info(f"🏁 job completed: {len(outputs)} output(s) published")
         return {"job_id": job_id, "status": jobs.COMPLETED, "outputs": outputs}
 
     except Exception as exc:
