@@ -98,7 +98,7 @@ class VideoStereoWorker:
         preemption retry, finished segments are skipped. The final
         concat is frame-count-verified so audio can never drift.
         """
-        from app.stages.depth_processor import concat_segments, count_frames
+        from app.common.ffmpeg_utils import concat_segments, count_frames
 
         if inpaint not in ("propainter", "none"):
             raise ValueError(f"unknown inpaint mode: {inpaint!r}")
