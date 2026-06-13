@@ -39,15 +39,20 @@ STALL_TIMEOUT_S = 600
 
 
 def _modal_not_ready_exc():
-    """The exception ``FunctionCall.get(timeout=N)`` raises when the call
-    hasn't finished yet. Imported lazily so this module stays importable
-    without Modal installed (and so tests don't need it)."""
+    """The exception(s) ``FunctionCall.get(timeout=N)`` raises when the
+    call hasn't finished yet. Modal's poll-timeout surfaces as a PLAIN
+    builtin ``TimeoutError`` (from the container IO manager), NOT the
+    ``FunctionTimeoutError`` that signals a function's own execution
+    timeout — so we must catch the base ``TimeoutError`` here or healthy
+    in-progress chunks get mis-read as worker failures. We return a tuple
+    of both to be safe across Modal versions. Imported lazily so the
+    module stays importable (and testable) without Modal."""
     try:
         from modal.exception import FunctionTimeoutError
 
-        return FunctionTimeoutError
+        return (TimeoutError, FunctionTimeoutError)
     except Exception:  # pragma: no cover - modal always present in containers
-        return TimeoutError
+        return (TimeoutError,)
 
 
 def gather_with_heartbeat(
