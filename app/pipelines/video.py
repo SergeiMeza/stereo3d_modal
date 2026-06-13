@@ -79,7 +79,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
                      # reports per-scene mean "fov_deg" in metadata
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
-      "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
+      "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb",
+                  "mvhevc", "mvhevc_hls"],
+                     # mvhevc      = single-file Apple-spatial .mov
+                     #               (x265 by default; "share to Photos")
+                     # mvhevc_hls  = segmented spatial HLS (.m3u8 + fMP4
+                     #               segments) for streaming/visionOS;
+                     #               fans the per-segment encode out across
+                     #               max_hls_workers (default max_gpu_workers
+                     #               or 4). Both can be requested together.
+      "max_hls_workers": 4,         # mvhevc_hls only: per-segment fan-out cap
       "include_audio": true,
       "output_depth": true,
       "adaptive": false,         # per-shot depth script (R&D prototype)
@@ -334,15 +343,19 @@ def process_video_job(job_id: str, request: dict) -> dict:
         jobs.update_job(job_id, progress=0.85, stage="encode_outputs")
 
         formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
+        # mvhevc (single-file .mov) and mvhevc_hls (segmented HLS) are
+        # encoded by their own spatial stages below, not encode_outputs
+        _spatial_formats = ("mvhevc", "mvhevc_hls")
         encoded = encode_outputs.remote(
             job_id,
             sbs_path=stereo["sbs_path"],
             original_path=pre["source_path"],  # pristine input carries the audio
-            formats=[f for f in formats if f != "mvhevc"],
+            formats=[f for f in formats if f not in _spatial_formats],
             include_audio=request.get("include_audio", True),
         )
 
         outputs = dict(encoded["outputs"])
+        include_audio = request.get("include_audio", True)
         if "mvhevc" in formats:
             from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
 
@@ -354,11 +367,30 @@ def process_video_job(job_id: str, request: dict) -> dict:
             mv = encoder_fn.remote(
                 job_id,
                 sbs_path=stereo["sbs_path"],
-                original_path=pre["source_path"] if request.get("include_audio", True) else None,
+                original_path=pre["source_path"] if include_audio else None,
                 spatial=request.get("spatial"),
             )
             check_worker_result(mv, "encode_mvhevc")
             outputs["mvhevc"] = mv["mvhevc"]
+        if "mvhevc_hls" in formats:
+            # SECOND spatial format: segmented MV-HEVC over HLS (streaming
+            # / visionOS / Safari). Fans the per-segment x265 encode out
+            # across workers; independent of the single-file .mov above
+            # (both can be requested in the same job).
+            from app.stages.mvhevc import encode_mvhevc_hls
+
+            jobs.update_job(job_id, stage="encode_mvhevc_hls", progress=0.94)
+            mv_hls = encode_mvhevc_hls.remote(
+                job_id,
+                sbs_path=stereo["sbs_path"],
+                original_path=pre["source_path"] if include_audio else None,
+                spatial=request.get("spatial"),
+                max_workers=int(
+                    request.get("max_hls_workers", request.get("max_gpu_workers", 4))
+                ),
+            )
+            check_worker_result(mv_hls, "encode_mvhevc_hls")
+            outputs["mvhevc_hls"] = mv_hls["mvhevc_hls"]
         if request.get("output_depth", True):
             outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
 

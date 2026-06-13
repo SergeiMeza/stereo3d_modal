@@ -10,7 +10,19 @@ from typing import Literal, TypedDict
 
 StereoMode = Literal["left", "right", "both"]
 ImageFormat = Literal["lr", "tb", "half_lr", "half_tb", "anaglyph"]
-VideoFormat = Literal["sbs", "half_sbs", "tb", "half_tb", "anaglyph"]
+# Spatial (Apple Vision Pro) formats:
+#   "mvhevc"     — single-file MV-HEVC .mov (x265 multiview by default,
+#                  Apple spatial badge; the "share to Photos" form).
+#   "mvhevc_hls" — segmented MV-HEVC over HLS: a .m3u8 master playlist
+#                  (REQ-VIDEO-LAYOUT="CH-STEREO") over closed-GOP fMP4
+#                  segments. The STREAMING / visionOS / Safari form; the
+#                  per-segment x265 encode fans out across workers
+#                  (max_hls_workers). NEEDS ON-DEVICE VALIDATION — see
+#                  docs/MVHEVC_HLS.md. Both spatial formats may be
+#                  requested together (independent outputs).
+VideoFormat = Literal[
+    "sbs", "half_sbs", "tb", "half_tb", "anaglyph", "mvhevc", "mvhevc_hls"
+]
 InpaintMode = Literal["propainter", "none"]
 
 
@@ -22,6 +34,8 @@ class VideoRequest(TypedDict, total=False):
     encoder: Literal["vits", "vitl"]  # default "vitl"
     remove_black_bars: bool  # default True
     formats: list[VideoFormat]  # default ["sbs", "half_sbs", "anaglyph"]
+    max_hls_workers: int  # mvhevc_hls only: cap on concurrent per-segment
+    # encode containers (default: max_gpu_workers, else 4)
     include_audio: bool  # default True
     output_depth: bool  # default True
     adaptive: bool  # default False; per-shot depth script (R&D prototype,
