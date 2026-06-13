@@ -237,17 +237,21 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, "
                 f"effective={eff_size:.0f} at {aspect:.2f}:1, parallel={parallel})"
             )
-            worker = worker_cls(encoder=request.get("encoder", "vitl"))
+            encoder = request.get("encoder", "vitl")
             if parallel:
+                # _parallel_depth applies .with_options(max_containers=) on
+                # the CLASS then instantiates per chunk — so it takes the
+                # class + ctor args, not a built instance (instances have
+                # no .with_options).
                 depth = _parallel_depth(
-                    job_id, jlog, worker, pre, input_size, fps_rational,
+                    job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
                     max_workers=int(request.get("max_gpu_workers", 4)),
                     stall_timeout_s=stall_timeout_s,
                 )
             else:
                 # single worker: coverage relies on Modal's depth function
                 # timeout (2-4h), not the heartbeat watchdog
-                depth = worker.generate.remote(
+                depth = worker_cls(encoder=encoder).generate.remote(
                     job_id,
                     pre["work_path"],
                     input_size=input_size,
@@ -438,8 +442,8 @@ def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
     return chunks
 
 
-def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_workers,
-                    stall_timeout_s=STALL_TIMEOUT_S):
+def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
+                    max_workers, stall_timeout_s=STALL_TIMEOUT_S):
     from app.common.errors import check_worker_result
     from app.stages.media import concat_cache_segments, detect_scenes
 
@@ -462,9 +466,11 @@ def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_wor
     # batch (every ~5s via report_progress chunk=ranges[0][0]), so a
     # multi-minute gap = a silent hang. Same watchdog protection as the
     # stereo fan-out.
-    capped = worker.with_options(max_containers=max_workers)
+    capped = worker_cls.with_options(max_containers=max_workers)
     handles = [
-        capped.generate_scenes.spawn(job_id, pre["work_path"], chunk, input_size, fps_rational)
+        capped(encoder=encoder).generate_scenes.spawn(
+            job_id, pre["work_path"], chunk, input_size, fps_rational
+        )
         for chunk in chunks
     ]
     results = gather_with_heartbeat(
