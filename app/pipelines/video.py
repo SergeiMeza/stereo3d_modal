@@ -83,10 +83,19 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "include_audio": true,
       "output_depth": true,
       "adaptive": false,         # per-shot depth script (R&D prototype)
-      "profiler": "da3-metric" | "depth-pro"
+      "profiler": "da3-metric" | "depth-pro",
                      # adaptive only: profiling backend. depth-pro (R&D
                      # only, apple-amlr weights) classifies in TRUE
                      # meters and biases by the shot-mean FOV (v3)
+      "depth_scale": 1.0,        # adaptive only [0.3, 1.5]: uniform
+                     # displacement multiplier; explicit value overrides
+                     # auto_comfort
+      "auto_comfort": true,      # adaptive only (default true): auto-pick
+                     # the scale that lands p95 salient disparity within
+                     # comfort_budget; only tones down. Chosen scale ->
+                     # metadata["comfort_scale"]
+      "comfort_budget": 0.02     # adaptive only (0, 0.05]: target peak
+                     # salient screen disparity for auto_comfort
     }
 
     adaptive: detect scenes, profile 3 keyframes per shot with the
@@ -161,12 +170,20 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # uniform multiplier on every shot's displacement — tone the
             # whole effect down/up without touching the script structure
             depth_scale = float(request.get("depth_scale", 1.0))
+            # auto_comfort (default ON): let the profiler pick the scale
+            # that lands the clip's salient disparities inside the comfort
+            # budget. An explicit depth_scale overrides it (the worker
+            # enforces this precedence).
+            auto_comfort = bool(request.get("auto_comfort", True))
+            comfort_budget = float(request.get("comfort_budget", 0.02))
             jlog.info(
                 f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with "
-                f"{profiler} (depth_scale={depth_scale})"
+                f"{profiler} (depth_scale={depth_scale}, "
+                f"auto_comfort={auto_comfort}, comfort_budget={comfort_budget})"
             )
             depth_script = FrameDepthWorker(model_name=profiler).profile_scenes.remote(
                 job_id, pre["work_path"], scene_ranges, input_size=518,
+                auto_comfort=auto_comfort, comfort_budget=comfort_budget,
                 depth_scale=depth_scale,
             )
             check_worker_result(depth_script, "profile_scenes")
@@ -358,6 +375,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),
                 **({"depth_script": depth_script} if depth_script is not None else {}),
+                # auto_comfort: the effective per-job displacement scale the
+                # profiler chose (worker stored it top-level on the job;
+                # surface it in metadata too). None when not adaptive.
+                **(
+                    {"comfort_scale": (jobs.get_job(job_id) or {}).get("comfort_scale")}
+                    if adaptive else {}
+                ),
                 # additive: per-scene mean horizontal FOV (depth-pro
                 # only) for shot-type classification
                 **({"fov_deg": depth["fov_deg"]} if "fov_deg" in depth else {}),

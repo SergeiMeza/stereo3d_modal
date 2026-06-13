@@ -36,7 +36,16 @@ class VideoRequest(TypedDict, total=False):
     depth_scale: float  # default 1.0, range [0.3, 1.5]; adaptive only.
     # Uniform multiplier on every shot's displacement — tones the whole
     # stereo effect down (<1) or up (>1) while preserving the script's
-    # relative structure; comfort caps remain hard limits
+    # relative structure; comfort caps remain hard limits. An explicit
+    # value OVERRIDES auto_comfort (manual wins).
+    auto_comfort: bool  # default True; adaptive only. Auto-pick the scale
+    # that lands the clip's p95 salient screen disparity within
+    # comfort_budget — only ever tones DOWN (never amplifies). Skipped
+    # when an explicit depth_scale is given. The chosen scale appears in
+    # job metadata as "comfort_scale".
+    comfort_budget: float  # default 0.02, range (0, 0.05]; adaptive only.
+    # Target peak salient screen disparity (fraction of width) for
+    # auto_comfort; 0.02 = broadcast background-divergence bracket.
     reuse_depth_from: str  # job_id of a prior run on the SAME source
     # (same crop/resolution): skip the depth pass and reuse its cached
     # depth map. Frame count + dimensions are verified; mismatch = 400.

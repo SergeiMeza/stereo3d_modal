@@ -110,6 +110,36 @@ disparity downstream of classification and are unit-agnostic.
 inference — trivial next to the main depth pass — but loading Depth Pro adds
 container cold-start time versus reusing a warm da3-metric profiler.
 
+## Auto-comfort
+
+`"auto_comfort": true` (default; `adaptive: true` only) picks the per-job
+displacement scale automatically instead of making the user guess `depth_scale`.
+The profiler builds the script once at scale 1.0, measures the **p95** of
+`|screen_disp_in| / |screen_disp_out|` across all shots, and compares it to
+`comfort_budget` (default `0.02` = the broadcast background-divergence bracket,
+i.e. `MAX_BACKGROUND_DISPARITY`; request override range `(0, 0.05]`):
+
+    scale = clamp(comfort_budget / measured_p95, 0.3, 1.0)
+
+p95 (not max) so a single outlier shot can't crush the whole video — with few
+shots p95 ≈ max anyway. It only ever tones **down**: `>1.0` is capped at 1.0, so
+a quiet clip is never pushed past the artistic default; `measured == 0`
+(degenerate) → 1.0. When the chosen scale < 1.0 the script is **rebuilt** at
+that scale (not post-multiplied) so depth-matched-cut placement shifts, the v1
+step clamp, and the comfort budget all recompute proportionally. The chosen
+scale is logged (🎛 `auto_comfort: ...`) and surfaced in job
+`metadata["comfort_scale"]`.
+
+**Precedence**: an explicit `depth_scale != 1.0` is a manual override and WINS —
+auto-comfort is skipped entirely (logged). `auto_comfort: false` → scale stays
+at `depth_scale` (1.0 default) unconditionally.
+
+Auto-comfort is **complementary to v3**: v3 fixes classification at the source
+(true meters + FOV), while auto-comfort is a safety clamp on the resulting
+disparities. Pure helpers `_auto_comfort_scale(script, comfort_budget)` and
+`_apply_auto_comfort(...) -> (script, applied_scale)` live at module level and
+are offline-testable.
+
 ## Script entry
 
 `{"first", "last", "shot_type", "displacement", "placement", "median",
