@@ -117,17 +117,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         adaptive = bool(request.get("adaptive", False))
         depth_script: list[dict] | None = None
         if adaptive:
-            # prototype limit (follow-up): the parallel stereo fan-out
-            # workers don't thread scene_params yet — fail loudly on an
-            # explicit request, downgrade an implicit long-video fan-out
-            # to sequential rather than silently dropping the script.
-            # M2SVid sequential DOES consume scene_params (v2.1).
-            if request.get("parallel"):
-                raise RuntimeError("adaptive=true is not supported with parallel=true yet")
-            if parallel:  # implicit long-video fan-out: fall back, don't fail
-                jlog.info("🎛  adaptive: forcing sequential path (fan-out unsupported)")
-                parallel = False
-
+            # adaptive composes with the stereo fan-out: the depth script
+            # keys on ABSOLUTE frame index and is passed whole to every
+            # chunk worker, so each chunk looks up its own frames' params
+            # (output is identical to sequential). Both stereo backends
+            # thread scene_params through their parallel paths.
             from app.stages.media import detect_scenes
             from app.stages.video_depth_models import FrameDepthWorker
 

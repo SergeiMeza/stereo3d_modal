@@ -101,14 +101,9 @@ async def submit_video(body: dict) -> dict:
             raise HTTPException(
                 status_code=400, detail="depth_scale must be in [0.3, 1.5]"
             )
-    if adaptive:
-        # M2SVid sequential consumes scene_params (v2.1); only the
-        # parallel fan-out workers don't thread them yet
-        if body.get("parallel"):
-            raise HTTPException(
-                status_code=400,
-                detail="adaptive=true is not supported with parallel=true yet",
-            )
+    # adaptive composes with the stereo fan-out for both backends:
+    # the depth script keys on absolute frame index and is passed whole
+    # to every chunk worker, so parallel output matches sequential.
 
     return _submit("video", body, lambda job_id: process_video_job.spawn(job_id, body))
 
