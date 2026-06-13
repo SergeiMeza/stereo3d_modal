@@ -15,6 +15,7 @@ import modal
 from app.common import jobs
 from app.common.debug import get_logger
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
+from app.common.watchdog import STALL_TIMEOUT_S, gather_with_heartbeat
 from app.images import media_image
 from app.modal_app import app
 
@@ -143,6 +144,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # stereo segments align to batch boundaries)
         parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > PARALLEL_THRESHOLD))
         depth_model = request.get("depth_model", "vda")
+        # Heartbeat-watchdog threshold for the fan-out gathers: fail the
+        # job fast if no worker emits progress for this many seconds (a
+        # silent hang) instead of stalling until Modal's multi-hour
+        # function timeout. Overridable per request.
+        stall_timeout_s = int(request.get("stall_timeout_s", STALL_TIMEOUT_S))
 
         # -------------------------------- adaptive per-shot depth script
         adaptive = bool(request.get("adaptive", False))
@@ -181,6 +187,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"{profiler} (depth_scale={depth_scale}, "
                 f"auto_comfort={auto_comfort}, comfort_budget={comfort_budget})"
             )
+            # single worker: coverage relies on Modal's profiler function
+            # timeout (~10min), not the heartbeat watchdog
             depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
                 job_id, pre["work_path"], scene_ranges, input_size=518,
                 auto_comfort=auto_comfort, comfort_budget=comfort_budget,
@@ -234,8 +242,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 depth = _parallel_depth(
                     job_id, jlog, worker, pre, input_size, fps_rational,
                     max_workers=int(request.get("max_gpu_workers", 4)),
+                    stall_timeout_s=stall_timeout_s,
                 )
             else:
+                # single worker: coverage relies on Modal's depth function
+                # timeout (2-4h), not the heartbeat watchdog
                 depth = worker.generate.remote(
                     job_id,
                     pre["work_path"],
@@ -251,6 +262,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             from app.stages.video_depth_models import FrameDepthWorker
 
             jlog.info(f"🖥  depth GPU: L40S (depth_model={depth_model}, input_size={input_size})")
+            # single worker: coverage relies on Modal's depth function
+            # timeout (2-4h), not the heartbeat watchdog
             depth = FrameDepthWorker(model_name=depth_model).generate.remote(
                 job_id,
                 pre["work_path"],
@@ -290,8 +303,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 stereo = _parallel_stereo_m2svid(
                     job_id, jlog, pre, m2svid_kwargs,
                     max_workers=int(request.get("max_gpu_workers", 4)),
+                    stall_timeout_s=stall_timeout_s,
                 )
             else:
+                # single worker: coverage relies on Modal's stereo function
+                # timeout, not the heartbeat watchdog
                 stereo = M2SVidStereoWorker().generate.remote(
                     job_id, band=(0.5, 0.85), **m2svid_kwargs
                 )
@@ -319,8 +335,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 stereo = _parallel_stereo(
                     job_id, jlog, pre, stereo_kwargs, stereo_cls,
                     max_workers=int(request.get("max_gpu_workers", 4)),
+                    stall_timeout_s=stall_timeout_s,
                 )
             else:
+                # single worker: coverage relies on Modal's stereo function
+                # timeout, not the heartbeat watchdog
                 stereo = stereo_cls().generate.remote(
                     job_id, band=(0.5, 0.85), **stereo_kwargs
                 )
@@ -419,7 +438,8 @@ def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
     return chunks
 
 
-def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_workers):
+def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_workers,
+                    stall_timeout_s=STALL_TIMEOUT_S):
     from app.common.errors import check_worker_result
     from app.stages.media import concat_cache_segments, detect_scenes
 
@@ -437,10 +457,19 @@ def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_wor
         f"(≤{max_workers} concurrent)"
     )
 
+    # spawn (not starmap) so each chunk yields a FunctionCall handle the
+    # heartbeat watchdog can poll/cancel. generate_scenes heartbeats per
+    # batch (every ~5s via report_progress chunk=ranges[0][0]), so a
+    # multi-minute gap = a silent hang. Same watchdog protection as the
+    # stereo fan-out.
     capped = worker.with_options(max_containers=max_workers)
-    results = list(capped.generate_scenes.starmap(
-        [(job_id, pre["work_path"], chunk, input_size, fps_rational) for chunk in chunks]
-    ))
+    handles = [
+        capped.generate_scenes.spawn(job_id, pre["work_path"], chunk, input_size, fps_rational)
+        for chunk in chunks
+    ]
+    results = gather_with_heartbeat(
+        job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_depth"
+    )
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_depth[chunk]")
@@ -459,7 +488,8 @@ def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_wor
     }
 
 
-def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
+def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
+                     stall_timeout_s=STALL_TIMEOUT_S):
     from app.common.errors import check_worker_result
     from app.common.storage import job_cache_dir
     from app.stages.media import concat_cache_segments
@@ -492,7 +522,9 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
         )
         for r in ranges
     ]
-    results = [h.get() for h in handles]
+    results = gather_with_heartbeat(
+        job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_stereo"
+    )
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_stereo[chunk]")
@@ -513,7 +545,8 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
     }
 
 
-def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers):
+def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
+                            stall_timeout_s=STALL_TIMEOUT_S):
     """Same fan-out as _parallel_stereo, but chunks align to the fixed
     25-frame M2SVid model window (its segmentation invariant) instead
     of ProPainter's adaptive batch size. Windows are independent and
@@ -545,7 +578,10 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers):
         )
         for r in ranges
     ]
-    results = [h.get() for h in handles]
+    results = gather_with_heartbeat(
+        job_id, handles, jlog,
+        stall_timeout_s=stall_timeout_s, label="video_stereo[m2svid]",
+    )
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_stereo[chunk]")
