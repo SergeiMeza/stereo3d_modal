@@ -37,6 +37,11 @@ class VideoRequest(TypedDict, total=False):
     # Uniform multiplier on every shot's displacement — tones the whole
     # stereo effect down (<1) or up (>1) while preserving the script's
     # relative structure; comfort caps remain hard limits
+    reuse_depth_from: str  # job_id of a prior run on the SAME source
+    # (same crop/resolution): skip the depth pass and reuse its cached
+    # depth map. Frame count + dimensions are verified; mismatch = 400.
+    # For stereo-only experiments (propainter vs m2svid, displacement
+    # sweeps) — saves the whole depth stage
 
 
 class ImageItem(TypedDict, total=False):

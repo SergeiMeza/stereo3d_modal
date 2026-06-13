@@ -58,7 +58,8 @@ with m2svid_image.imports():
     from torchcodec.decoders import VideoDecoder
 
     from app.stages import m2svid_runner
-    from app.stages.splat import BOTH, RIGHT, DepthSplatter
+    from app.stages.splat import BOTH, DEFAULT_PLACEMENT, RIGHT, DepthSplatter
+    from app.stages.video_stereo import _scene_param_lookup
 
 # model window: fixed by the SVD temporal layers (see m2svid_runner)
 M2SVID_CHUNK = 25
@@ -116,6 +117,7 @@ class M2SVidStereoWorker:
         frame_range: tuple[int, int] | None = None,
         batch_size: int | None = None,
         concat: bool = True,
+        scene_params: list[dict] | None = None,
     ) -> dict:
         """Produce a full-width SBS video (left = source, right =
         warped + M2SVid-filled). Paths are inside the cache volume /
@@ -130,6 +132,13 @@ class M2SVidStereoWorker:
         independent and deterministic); on a preemption retry, finished
         segments are skipped. The final concat is frame-count-verified
         so audio can never drift.
+
+        ``scene_params`` (adaptive per-shot depth script, optional):
+        same contract as VideoStereoWorker — per-frame displacement +
+        placement looked up by absolute index; only the splatting
+        varies, the M2SVid fill is unchanged. Caveat: a 25-frame model
+        window straddling a cut mixes two disparity regimes in one
+        fill (masked by the cut itself, same as ProPainter batches).
         """
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
@@ -189,6 +198,10 @@ class M2SVidStereoWorker:
             from app.common.debug import job_logger
 
             jlog = job_logger(job_id)
+            params_at = None
+            if scene_params:
+                params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
+                jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
             pass_start = time.perf_counter()
             segments: list[Path] = []
 
@@ -214,6 +227,7 @@ class M2SVidStereoWorker:
                             self._write_inpainted(
                                 writer, stereo_mode, frames, depths, displacement,
                                 to_work, to_work_mask, to_source, float(meta.average_fps),
+                                frame_start=i, params_at=params_at,
                             )
 
                             del frames, depths
@@ -309,7 +323,8 @@ class M2SVidStereoWorker:
         return eye.flip(-1) if mirror else eye
 
     def _write_inpainted(
-        self, writer, stereo_mode, frames, depths, displacement, to_work, to_work_mask, to_source, fps
+        self, writer, stereo_mode, frames, depths, displacement, to_work, to_work_mask, to_source, fps,
+        frame_start: int = 0, params_at=None,
     ) -> None:
         """Splat the right eye at source resolution and FULL
         displacement, run M2SVid at working resolution, then composite
@@ -317,16 +332,25 @@ class M2SVidStereoWorker:
         full-resolution warp. The left eye is the untouched source
         frame, so only the right eye trades hole pixels for upscaled
         ones — everything else keeps source detail.
+
+        ``frame_start`` + ``params_at``: adaptive per-shot lookup (see
+        VideoStereoWorker._write_raw_warp) — only the splat parameters
+        vary per frame; the fill is untouched.
         """
         mode = BOTH if stereo_mode == "both" else RIGHT
         l_warps, l_occs, r_warps, r_occs = [], [], [], []
         for k in range(frames.shape[0]):
+            disp_k, placement_k = (
+                params_at(frame_start + k) if params_at is not None
+                else (displacement, DEFAULT_PLACEMENT)
+            )
             frame = frames[k].unsqueeze(0)
             depth = depths[k].unsqueeze(0).float() / 255.0
             # RIGHT mode warps by the full displacement; BOTH splits it
             # half per eye (DepthSplatter handles the 0.5x internally)
             left, right, left_occ, right_occ = self.splatter(
-                image=frame, depthmap=depth, disp=displacement, stereo_mode=mode
+                image=frame, depthmap=depth, disp=disp_k,
+                stereo_mode=mode, placement=placement_k,
             )
             r_warps.append(right)
             r_occs.append(right_occ)

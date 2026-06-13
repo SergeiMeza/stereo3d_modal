@@ -117,11 +117,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         adaptive = bool(request.get("adaptive", False))
         depth_script: list[dict] | None = None
         if adaptive:
-            # prototype limits (follow-ups): the parallel stereo fan-out
-            # and the M2SVid worker don't take scene_params yet — fail
-            # loudly rather than silently dropping the depth script
-            if request.get("inpaint", "propainter") == "m2svid":
-                raise RuntimeError("adaptive=true is not supported with inpaint='m2svid' yet")
+            # prototype limit (follow-up): the parallel stereo fan-out
+            # workers don't thread scene_params yet — fail loudly on an
+            # explicit request, downgrade an implicit long-video fan-out
+            # to sequential rather than silently dropping the script.
+            # M2SVid sequential DOES consume scene_params (v2.1).
             if request.get("parallel"):
                 raise RuntimeError("adaptive=true is not supported with parallel=true yet")
             if parallel:  # implicit long-video fan-out: fall back, don't fail
@@ -164,7 +164,23 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     f"disp={shot['displacement']} placement={shot['placement']} "
                     f"(median={shot['median']}, near_fraction={shot['near_fraction']})"
                 )
-        if depth_model == "vda":
+        # depth reuse: experiments that vary only the stereo/inpaint
+        # stage (e.g. propainter vs m2svid, displacement sweeps,
+        # adaptive on/off) can skip the depth pass entirely by pointing
+        # at a prior job's depth map on the shared cache volume. The
+        # source/crop/resolution MUST match — we verify frame count and
+        # depth dimensions against this run's preprocess before using it.
+        reuse_from = request.get("reuse_depth_from")
+        if reuse_from:
+            from app.stages.media import probe_depth_reuse
+
+            depth = probe_depth_reuse.remote(job_id, reuse_from, pre["probe"]["num_frames"])
+            check_worker_result(depth, "video_depth(reuse)")
+            jlog.info(
+                f"♻️  reusing depth from job {reuse_from}: "
+                f"{depth['num_frames']}f at {depth['depth_shape']}"
+            )
+        elif depth_model == "vda":
             # VRAM scales with pixel count ∝ input_size² × aspect; the
             # L40S/A100 ceilings below were calibrated on 16:9 sources.
             # Wider frames (e.g. 2.31:1 after letterbox crop) OOM at the
@@ -234,6 +250,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 depth_path=depth["depth_path"],
                 displacement=float(request.get("displacement", 0.0125)),
                 fps_rational=fps_rational,
+                scene_params=depth_script,  # None unless adaptive
             )
             jlog.info(f"🖥  stereo GPU: {M2SVID_STEREO_GPU} (m2svid)")
             if parallel:

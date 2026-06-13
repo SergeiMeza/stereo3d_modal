@@ -319,6 +319,63 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
+    cpu=2,
+    memory=(1024, 8 * 1024),
+    timeout=600,
+)
+def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> dict:
+    """Reuse a prior job's depth map for a stereo-only experiment.
+
+    The depth video lives on the shared cache volume at
+    ``/cache/jobs/<source_job_id>/depth.mp4`` and survives across jobs.
+    We copy it into THIS job's cache dir (so segment naming, concat,
+    and the optional depth publish all work unchanged) and verify it
+    matches this run's preprocess output: identical frame count (else
+    audio would desync) and the depth dimensions the stereo stage will
+    rescale from. Mismatches mean the source/crop/resolution differ —
+    fail fast rather than warp against the wrong geometry.
+
+    Returns the same dict shape as VideoDepthWorker.generate, except
+    ``scene_cuts`` is unknown (the depth was decoded, not regenerated)
+    and reported as empty — only the non-adaptive metadata uses it.
+    """
+    from app.common.debug import job_logger
+    from app.common.ffmpeg_utils import count_frames
+
+    jlog = job_logger(job_id)
+    cache_volume.reload()
+    src = job_cache_dir(source_job_id) / "depth.mp4"
+    if not src.exists():
+        raise FileNotFoundError(
+            f"reuse_depth_from={source_job_id}: no depth.mp4 in its cache dir "
+            f"(jobs older than the cache retention, or a job that never ran depth)"
+        )
+    frames = count_frames(src)
+    if frames != expected_frames:
+        raise RuntimeError(
+            f"reuse_depth_from={source_job_id}: depth has {frames} frames but "
+            f"this source preprocessed to {expected_frames} — different "
+            f"source/crop/resolution, cannot reuse"
+        )
+    probe = probe_video(src)
+    dst = job_cache_dir(job_id) / "depth.mp4"
+    if dst.resolve() != src.resolve():
+        dst.write_bytes(src.read_bytes())
+    cache_volume.commit()
+    jlog.info(f"♻️  reused depth from {source_job_id}: {frames}f at "
+              f"{probe['width']}x{probe['height']}")
+    return {
+        "depth_path": str(dst),
+        "num_frames": frames,
+        "depth_shape": [probe["height"], probe["width"]],
+        "scene_cuts": [],
+    }
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),

@@ -102,11 +102,8 @@ async def submit_video(body: dict) -> dict:
                 status_code=400, detail="depth_scale must be in [0.3, 1.5]"
             )
     if adaptive:
-        if inpaint == "m2svid":
-            raise HTTPException(
-                status_code=400,
-                detail="adaptive=true is not supported with inpaint='m2svid' yet",
-            )
+        # M2SVid sequential consumes scene_params (v2.1); only the
+        # parallel fan-out workers don't thread them yet
         if body.get("parallel"):
             raise HTTPException(
                 status_code=400,
