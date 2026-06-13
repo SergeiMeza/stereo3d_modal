@@ -44,7 +44,8 @@ MVHEVC_GPU = "L4"
     secrets=[slack_secret],
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
-    timeout=3600,
+    # NVENC is fast (GPU-accelerated) but kept generous for long clips
+    timeout=3 * 3600,
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
 @fail_fast
@@ -196,7 +197,11 @@ def encode_mvhevc(
     secrets=[slack_secret],
     cpu=16,
     memory=(8 * 1024, 32 * 1024),
-    timeout=3600,
+    # x265 multiview is single-encode CPU work that scales with length
+    # AND resolution: ~36x realtime at 4K (≈3h for a 5-min clip), ~18x
+    # at qhd. It can't fan out (one contiguous encode), so the timeout
+    # must cover the worst case — 6h ceiling for long 4K jobs.
+    timeout=6 * 3600,
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )
 @fail_fast

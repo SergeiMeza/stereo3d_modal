@@ -111,7 +111,9 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
-    timeout=1800,
+    # decode + crop + rescale the whole source; scales with length, 2h
+    # covers long 4K inputs
+    timeout=2 * 3600,
 )
 def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = True, target_height: int | None = None) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
@@ -159,7 +161,8 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(2 * 1024, 16 * 1024),
-    timeout=1800,
+    # full-video scene scan (PySceneDetect); scales with length, 2h
+    timeout=2 * 3600,
 )
 def detect_scenes(input_path: str) -> dict:
     """Standalone scene detection (the production video-depth worker
@@ -192,7 +195,9 @@ def detect_scenes(input_path: str) -> dict:
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
-    timeout=3600,
+    # encodes each requested format (libx264 SBS etc.) — scales with
+    # length; 3h covers long multi-format jobs
+    timeout=3 * 3600,
 )
 def encode_outputs(
     job_id: str,
@@ -297,7 +302,8 @@ def _av_sync_ms(path: Path) -> float | None:
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(1024, 8 * 1024),
-    timeout=600,
+    # byte copy cache→bucket; a long 4K output can be many GB, 30min
+    timeout=1800,
 )
 def publish_file(job_id: str, cache_file: str, name: str) -> str:
     """Copy a cache-volume artifact (e.g. the depth video) to the
@@ -321,7 +327,9 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     secrets=[slack_secret],
     cpu=2,
     memory=(1024, 8 * 1024),
-    timeout=600,
+    # frame-count check + byte copy of a prior depth.mp4; 30min for big
+    # 4K depth files
+    timeout=1800,
 )
 def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> dict:
     """Reuse a prior job's depth map for a stereo-only experiment.
@@ -379,7 +387,9 @@ def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> 
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=4,
     memory=(2 * 1024, 16 * 1024),
-    timeout=1800,
+    # lossless concat of fan-out segments (stream copy, no re-encode, so
+    # fast) but a long video has many segments; 2h is ample headroom
+    timeout=2 * 3600,
 )
 def concat_cache_segments(job_id: str, segments: list, output_path: str, expected_frames: int) -> dict:
     """Lossless concat of worker-produced segment files (long-video

@@ -81,7 +81,10 @@ def _round64(x: float) -> int:
     secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
-    timeout=3600,
+    # Per-WORKER timeout. M2SVid is fast (~6 fps → 1200f chunk ≈ 3 min)
+    # but a non-fanned-out sequential run does the whole clip; 2h covers
+    # the longest no-fan-out clip plus the diffusion model's cold load.
+    timeout=2 * 3600,
     scaledown_window=SCALEDOWN_WINDOW,
     env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),

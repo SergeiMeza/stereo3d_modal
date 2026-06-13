@@ -36,7 +36,11 @@ with video_depth_image.imports():
     secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
-    timeout=3600,
+    # Per-WORKER timeout. VDA is fast (~11 fps); fan-out caps a chunk at
+    # DEPTH_CHUNK_FRAMES (~3000f ≈ 5 min). A non-fanned-out sequential
+    # run does the whole video — 2h covers very long clips that somehow
+    # skip fan-out, plus the 32-frame-window model's warm-up.
+    timeout=2 * 3600,
     scaledown_window=SCALEDOWN_WINDOW,
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )

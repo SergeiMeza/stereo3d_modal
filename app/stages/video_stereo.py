@@ -130,7 +130,12 @@ def _scene_param_lookup(
     secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
-    timeout=3600,
+    # Per-WORKER timeout. Fan-out caps a chunk at STEREO_CHUNK_FRAMES
+    # (~1200f ≈ 33 min ProPainter at 0.6 fps); a non-fanned-out
+    # sequential run handles the WHOLE video in one worker, so this
+    # ceiling must cover the longest sequential clip we'd run without
+    # fan-out (≤1500f). 2h leaves wide margin for both + model load.
+    timeout=2 * 3600,
     scaledown_window=SCALEDOWN_WINDOW,
     env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),

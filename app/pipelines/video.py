@@ -20,6 +20,22 @@ from app.modal_app import app
 
 logger = get_logger(__name__)
 
+# Fan-out chunk ceilings (frames per worker). The point is BOUNDED work
+# per container so a worker's wall time never grows with total video
+# length — only the worker COUNT grows. Sized so the slowest backend
+# stays well under its function timeout (see the stage modules):
+#   ProPainter ~0.6 fps  → 1200f ≈ 33 min  (timeout 4h)
+#   M2SVid     ~6 fps    → 1200f ≈ 3 min
+#   VDA depth  ~11 fps   → 3000f ≈ 5 min   (timeout 2h)
+#   per-frame depth ~2 fps (DA3/DepthPro) → 1500f ≈ 12 min
+# A long video simply spawns more chunks (bounded by MAX_GPU_WORKERS,
+# which the caller can raise toward the workspace's 10-GPU ceiling).
+STEREO_CHUNK_FRAMES = 1200
+DEPTH_CHUNK_FRAMES = 1500
+# fan out once a video exceeds this (overridable per request via
+# "parallel"); below it the per-container cold-start isn't worth it
+PARALLEL_THRESHOLD = 1500
+
 # Resolution/quality presets: bundle target output resolution with the
 # matched depth resolution, inpainting working res, and (implicitly via
 # routing) GPU tier. Explicit request fields override preset values.
@@ -39,9 +55,15 @@ PRESETS = {
     secrets=[slack_secret],
     cpu=2,
     memory=(1024, 8 * 1024),
-    timeout=2 * 3600,
-    # the coordinator must outlive every GPU stage; CPU-only functions
-    # can opt out of preemption (3x CPU/mem price on a tiny container)
+    # The coordinator blocks on the SUM of every stage (preprocess +
+    # depth + stereo + encode), so its timeout must exceed the slowest
+    # end-to-end run. With fan-out the stereo/depth stages are bounded
+    # by chunk size, but a non-fanned-out path (≤1500f) or a per-frame
+    # depth experiment on a long clip can be hours. 8h ceiling — a long
+    # multi-minute job should never be dropped mid-flight. (Cheap: a
+    # tiny idle CPU container.) CPU-only functions can opt out of
+    # preemption (3x CPU/mem price on a tiny container).
+    timeout=8 * 3600,
     nonpreemptible=True,
 )
 def process_video_job(job_id: str, request: dict) -> dict:
@@ -110,7 +132,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # long videos fan out scene-aligned chunks across parallel GPU
         # workers (identical output: depth alignment resets at cuts and
         # stereo segments align to batch boundaries)
-        parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > 1500))
+        parallel = bool(request.get("parallel", pre["probe"]["num_frames"] > PARALLEL_THRESHOLD))
         depth_model = request.get("depth_model", "vda")
 
         # -------------------------------- adaptive per-shot depth script
@@ -352,6 +374,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
 # ---------------------------------------------------- long-video fan-out
 
+
+def _align_up(n: int, multiple: int) -> int:
+    """Round n up to the nearest multiple of ``multiple`` (segment len),
+    so chunk boundaries land on segment boundaries and fan-out output is
+    byte-identical to sequential."""
+    return max(multiple, -(-n // multiple) * multiple)
+
 def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
     """Group scene ranges into chunks of ~target frames."""
     chunks, cur, size = [], [], 0
@@ -373,10 +402,19 @@ def _parallel_depth(job_id, jlog, worker, pre, input_size, fps_rational, max_wor
     scenes = detect_scenes.remote(pre["work_path"])["scenes"]
     boundaries = [(s["start"], s["end"]) for s in scenes] or [(0, pre["probe"]["num_frames"])]
     total = pre["probe"]["num_frames"]
-    chunks = _chunk_ranges(boundaries, total, target=max(600, total // max_workers + 1))
-    jlog.info(f"🧩 depth fan-out: {len(boundaries)} scene(s) → {len(chunks)} chunk(s)")
+    # capped chunk size: bounded worker wall time, more chunks for long
+    # videos (same principle as the stereo fan-out)
+    chunks = _chunk_ranges(
+        boundaries, total,
+        target=min(DEPTH_CHUNK_FRAMES, max(600, -(-total // max_workers))),
+    )
+    jlog.info(
+        f"🧩 depth fan-out: {len(boundaries)} scene(s) → {len(chunks)} chunk(s) "
+        f"(≤{max_workers} concurrent)"
+    )
 
-    results = list(worker.generate_scenes.starmap(
+    capped = worker.with_options(max_containers=max_workers)
+    results = list(capped.generate_scenes.starmap(
         [(job_id, pre["work_path"], chunk, input_size, fps_rational) for chunk in chunks]
     ))
     segments, num_frames = [], 0
@@ -406,14 +444,25 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers):
     total = pre["probe"]["num_frames"]
     batch_size = _pick_batch_size(total)
     seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
-    # chunk = several segments, aligned so results are identical
-    chunk_len = seg_len * max(1, (total // max_workers) // seg_len + 1)
+    # chunk size is CAPPED (STEREO_CHUNK_FRAMES) so a worker's wall time
+    # never grows with total length — long videos spawn MORE chunks, not
+    # bigger ones. The cap is the binding constraint; if even one chunk
+    # per worker would exceed it, we use the cap and let chunk count
+    # exceed max_workers (they queue at the concurrency limit and drain).
+    chunk_len = _align_up(
+        min(STEREO_CHUNK_FRAMES, -(-total // max_workers)), seg_len
+    )
     ranges = [(s, min(s + chunk_len, total)) for s in range(0, total, chunk_len)]
-    jlog.info(f"🧩 stereo fan-out: {total}f → {len(ranges)} chunk(s) of ≤{chunk_len}f")
+    jlog.info(
+        f"🧩 stereo fan-out: {total}f → {len(ranges)} chunk(s) of ≤{chunk_len}f "
+        f"(≤{max_workers} concurrent)"
+    )
 
-    # spawn all chunks, then gather — parallel across ≤max_workers containers
+    # cap concurrent containers so chunk count > max_workers queues
+    # instead of all firing at once (workspace has a 10-GPU ceiling)
+    cls = stereo_cls.with_options(max_containers=max_workers)
     handles = [
-        stereo_cls().generate.spawn(
+        cls().generate.spawn(
             job_id, frame_range=r, batch_size=batch_size, concat=False,
             band=(0.5, 0.85), **stereo_kwargs,
         )
@@ -453,14 +502,20 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers):
     total = pre["probe"]["num_frames"]
     batch_size = M2SVID_CHUNK
     seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
-    # chunk = several segments, aligned so results are identical
-    chunk_len = seg_len * max(1, (total // max_workers) // seg_len + 1)
+    # capped chunk size (see _parallel_stereo): bounded worker wall time,
+    # long videos spawn more chunks. Aligned to the 25-frame window.
+    chunk_len = _align_up(
+        min(STEREO_CHUNK_FRAMES, -(-total // max_workers)), seg_len
+    )
     ranges = [(s, min(s + chunk_len, total)) for s in range(0, total, chunk_len)]
-    jlog.info(f"🧩 stereo[m2svid] fan-out: {total}f → {len(ranges)} chunk(s) of ≤{chunk_len}f")
+    jlog.info(
+        f"🧩 stereo[m2svid] fan-out: {total}f → {len(ranges)} chunk(s) of "
+        f"≤{chunk_len}f (≤{max_workers} concurrent)"
+    )
 
-    # spawn all chunks, then gather — parallel across ≤max_workers containers
+    cls = M2SVidStereoWorker.with_options(max_containers=max_workers)
     handles = [
-        M2SVidStereoWorker().generate.spawn(
+        cls().generate.spawn(
             job_id, frame_range=r, batch_size=batch_size, concat=False,
             band=(0.5, 0.85), **m2svid_kwargs,
         )

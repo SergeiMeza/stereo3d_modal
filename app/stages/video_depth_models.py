@@ -527,7 +527,13 @@ def _resize_shape(source_shape: tuple[int, int], input_size: int) -> tuple[int, 
     secrets=[hf_secret, slack_secret],
     cpu=4,
     memory=(4 * 1024, 128 * 1024),
-    timeout=3600,
+    # Per-frame backends (DA3 / Depth Pro) run as a SINGLE worker — they
+    # need one job-wide p1/p99 disparity pass for cross-scene metric
+    # consistency, so they CANNOT fan out like VDA. At ~2 fps a 10-min
+    # clip is ~2h, so allow 4h. profile_scenes (3 keyframes/shot) is
+    # always cheap; the risk is a full per-frame depth pass on a long
+    # clip. (Production depth is VDA-only; this guards experiments.)
+    timeout=4 * 3600,
     scaledown_window=SCALEDOWN_WINDOW,
     retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
 )

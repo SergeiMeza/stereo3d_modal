@@ -100,9 +100,45 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
   multiview (CPU) + MP4Box + byte-exact vexu/hfov injection. NVENC (L4)
   remains as the fast MV-HEVC path for custom players. Details + the
   long elimination story: docs/ARCHITECTURE.md.
-- **Long videos:** scene-aligned chunks fan out across up to
-  `max_gpu_workers` GPU containers (auto >1500 frames) with resumable
-  segment checkpoints; ~Nx wall-clock speedup.
+- **Long videos:** depth and stereo fan out across up to
+  `max_gpu_workers` GPU containers (auto >1500 frames, or force with
+  `"parallel": true`) with resumable segment checkpoints. Chunk size is
+  **capped** (not divided by a fixed worker count), so a worker's wall
+  time never grows with video length — long clips spawn *more* chunks
+  (`STEREO_CHUNK_FRAMES=1200`, `DEPTH_CHUNK_FRAMES=1500`), bounded to
+  `max_gpu_workers` concurrent via `max_containers`. Adaptive depth
+  scripts fan out too (they key on absolute frame index). Raising
+  `max_gpu_workers` toward the workspace ceiling scales throughput.
 - **Presets:** `draft` / `1080p` / `qhd` / `3k` / `4k` bundle target
   resolution, depth input_size, inpainting work res, and (via routing)
   GPU tier.
+
+## Timeouts
+
+Sized so **expensive long-video work is never dropped mid-flight**. Two
+rules: (1) per-worker timeouts cover a *bounded* unit (a fan-out chunk,
+or a ≤1500-frame no-fan-out clip) plus model cold-load; (2) the
+orchestrator and the un-parallelizable single-pass stages cover the
+worst-case *whole-video* runtime.
+
+| Function | Timeout | Why |
+|---|---|---|
+| `process_video_job` (orchestrator) | **8h** | Blocks on the SUM of all stages; must outlive the slowest end-to-end run. Cheap idle CPU container. |
+| `VideoStereoWorker` (ProPainter) | 2h | Chunk ≤1200f ≈ 33 min @ 0.6 fps; covers a no-fan-out clip + model load. |
+| `M2SVidStereoWorker` | 2h | Fast (~6 fps) but covers no-fan-out clip + diffusion cold-load. |
+| `VideoDepthWorker` (VDA) | 2h | Chunk ≤3000f ≈ 5 min @ 11 fps; wide margin. |
+| `FrameDepthWorker` (DA3 / Depth Pro) | **4h** | **Cannot fan out** — needs one job-wide p1/p99 metric pass. ~2 fps → a 10-min clip ≈ 2h. Production depth is VDA; this guards experiments + the adaptive profiler. |
+| `encode_mvhevc_x265` | **6h** | Single CPU encode, can't fan out: ~36× realtime @ 4K (≈3h for 5 min). |
+| `encode_mvhevc` (NVENC) | 3h | GPU-accelerated; generous for long clips. |
+| `encode_outputs` | 3h | Per-format encodes (libx264 SBS etc.), scale with length. |
+| `preprocess_video` | 2h | Decode + crop + rescale whole source. |
+| `detect_scenes` | 2h | Full-video PySceneDetect scan. |
+| `concat_cache_segments` | 2h | Lossless stream-copy of fan-out segments. |
+| `publish_file` / `probe_depth_reuse` | 30 min | Byte copies of (possibly multi-GB 4K) files. |
+| `web_app` (API endpoints) | 5 min | Submit/poll only — real work runs async. |
+
+`SCALEDOWN_WINDOW` (`app/env.py`): 300s prod / 30s non-prod — idle
+container linger, unrelated to job timeouts. `nonpreemptible=True` on
+the CPU orchestrator so a preemption never kills the coordinator
+holding a multi-hour job together. **If you change a backend's
+throughput or add a stage, re-check the bounded-chunk math here.**
