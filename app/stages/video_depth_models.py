@@ -275,7 +275,8 @@ def _apply_comfort_budget(holder: dict, label: str, notes: list) -> None:
 
 
 def _build_depth_script(
-    per_scene_stats: list, lo: float, hi: float, units: str = "da3_metric"
+    per_scene_stats: list, lo: float, hi: float, units: str = "da3_metric",
+    depth_scale: float = 1.0,
 ) -> list:
     """Build the per-shot depth script from plain-python keyframe stats
     (pro treatment v2 + FOV-informed v3). Pure function, no torch —
@@ -325,8 +326,19 @@ def _build_depth_script(
     Each entry keeps the v1 keys and gains "screen_disp_in" /
     "screen_disp_out" (post-adjustment, 5 dp) plus "adjustments"
     (list of strings) when any correction fired.
+
+    ``depth_scale``: uniform per-job multiplier on every shot's (and
+    keyframe's) displacement, applied at SHOT_PARAMS lookup so all
+    downstream stages see scaled values: cut-matching is preserved
+    proportionally (screen disparities and jumps scale together) and
+    the comfort caps stay HARD limits. The v1 step clamp scales too,
+    keeping the relative shot-to-shot structure identical. Use < 1.0
+    to tone the whole effect down when subjects sit at mid distance
+    (per-scene depth normalization otherwise stretches them across
+    the full budget).
     """
     scale = max(hi - lo, 1e-6)
+    max_step = PROFILE_MAX_DISPLACEMENT_STEP * depth_scale
     script: list = []
     med_nds: list = []  # per shot: per-keyframe median normalized disparity
     notes: list = []    # per shot: adjustment strings
@@ -361,7 +373,7 @@ def _build_depth_script(
             "first": int(s["first"]),
             "last": int(s["last"]),
             "shot_type": shot_type,
-            "displacement": params["displacement"],
+            "displacement": round(params["displacement"] * depth_scale, 6),
             "placement": list(params["placement"]),
             "median": round(median_depth, 4),
             "near_fraction": round(near_fraction, 4),
@@ -372,9 +384,9 @@ def _build_depth_script(
             entry["keyframes"] = [
                 {
                     "index": int(idx),
-                    "displacement": SHOT_PARAMS[
+                    "displacement": round(SHOT_PARAMS[
                         _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
-                    ]["displacement"],
+                    ]["displacement"] * depth_scale, 6),
                     "placement": list(SHOT_PARAMS[
                         _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
                     ]["placement"]),
@@ -390,8 +402,7 @@ def _build_depth_script(
     for i in range(1, len(script)):
         prev = script[i - 1]["displacement"]
         want = script[i]["displacement"]
-        clamped = min(max(want, prev - PROFILE_MAX_DISPLACEMENT_STEP),
-                      prev + PROFILE_MAX_DISPLACEMENT_STEP)
+        clamped = min(max(want, prev - max_step), prev + max_step)
         if clamped != want:
             script[i]["displacement"] = round(clamped, 6)
             notes[i].append(
@@ -727,6 +738,7 @@ class FrameDepthWorker:
         input_path: str,
         scene_ranges: list,
         input_size: int = 518,
+        depth_scale: float = 1.0,
     ) -> list[dict]:
         """Adaptive per-shot depth script (R&D prototype): analyze 3
         keyframes (first / middle / last) of every scene with the
@@ -858,7 +870,9 @@ class FrameDepthWorker:
                 if s["fov_deg"] is not None:
                     stat["fov_deg"] = [float(v) for v in s["fov_deg"]]
                 per_scene_stats.append(stat)
-            script = _build_depth_script(per_scene_stats, lo, hi, units=units)
+            script = _build_depth_script(
+                per_scene_stats, lo, hi, units=units, depth_scale=depth_scale
+            )
 
             for entry in script:
                 jlog.info(

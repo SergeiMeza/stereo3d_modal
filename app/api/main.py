@@ -90,6 +90,17 @@ async def submit_video(body: dict) -> dict:
             status_code=400,
             detail=f"profiler must be one of {PROFILER_MODELS}",
         )
+    depth_scale = body.get("depth_scale")
+    if depth_scale is not None:
+        if not adaptive:
+            raise HTTPException(
+                status_code=400,
+                detail="depth_scale is only meaningful with adaptive=true",
+            )
+        if not (0.3 <= float(depth_scale) <= 1.5):
+            raise HTTPException(
+                status_code=400, detail="depth_scale must be in [0.3, 1.5]"
+            )
     if adaptive:
         if inpaint == "m2svid":
             raise HTTPException(

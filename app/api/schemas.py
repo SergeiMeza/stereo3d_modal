@@ -33,6 +33,10 @@ class VideoRequest(TypedDict, total=False):
     # weights) profiles in TRUE meters (tight 3 m / 11 m close/wide
     # cuts) and uses the shot-mean horizontal FOV as a classification
     # modifier; script entries gain "fov_deg" (shot mean, 1 dp)
+    depth_scale: float  # default 1.0, range [0.3, 1.5]; adaptive only.
+    # Uniform multiplier on every shot's displacement — tones the whole
+    # stereo effect down (<1) or up (>1) while preserving the script's
+    # relative structure; comfort caps remain hard limits
 
 
 class ImageItem(TypedDict, total=False):

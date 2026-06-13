@@ -142,9 +142,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # modifier), independent of the depth_model used for the
             # MAIN depth pass below
             profiler = request.get("profiler", "da3-metric")
-            jlog.info(f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with {profiler}")
+            # uniform multiplier on every shot's displacement — tone the
+            # whole effect down/up without touching the script structure
+            depth_scale = float(request.get("depth_scale", 1.0))
+            jlog.info(
+                f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with "
+                f"{profiler} (depth_scale={depth_scale})"
+            )
             depth_script = FrameDepthWorker(model_name=profiler).profile_scenes.remote(
-                job_id, pre["work_path"], scene_ranges, input_size=518
+                job_id, pre["work_path"], scene_ranges, input_size=518,
+                depth_scale=depth_scale,
             )
             check_worker_result(depth_script, "profile_scenes")
             # persist the per-shot decisions immediately so they are
