@@ -85,7 +85,7 @@ app/
   images/          per-stage Modal images (stable layers first)
   common/          storage (GCS+volumes), jobs (modal.Dict), weights, debug
   vendor/          vendored model code (VideoDepthAnything, ProPainter, Forward-Warp)
-samples/           test inputs (1s / 10s-with-scene-cuts clips at 480p–2160p,
+samples/           test inputs (1s / 10s / 60s clips at 480p–2160p,
                    letterboxed clips, 5 photos + letterboxed frame)
 scripts/           upload_samples, smoke_test, benchmark
 docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)

@@ -4,3 +4,8 @@ __pycache__/
 .DS_Store
 docs/benchmarks.json
 previews/
+
+# 4K 60s sample clips exceed GitHub's 100 MB push limit — regenerate
+# locally with: python scripts/make_samples.py  (sources are local-only)
+samples/videos/clip_60s_scenes_2160p.mp4
+samples/videos/letterbox_60s_2160p.mp4
