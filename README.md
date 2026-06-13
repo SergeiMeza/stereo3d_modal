@@ -62,6 +62,16 @@ Models migrated from the old project (latest variants):
 - **Forward-Warp** CUDA splatting — raw warp, no blurs/masks
   (`"inpaint": "none"` gives the pure-warp output)
 
+> **Inpainter decision (2026-06-13, device-confirmed): ProPainter is
+> the default and preferred backend.** Headset comparison on the 60s
+> dance + letterbox clips (ProPainter vs M2SVid, identical depth via
+> `reuse_depth_from` so only the fill differs) — ProPainter produces
+> better results overall: cleaner silhouettes and fewer disocclusion
+> artifacts. M2SVid (`"inpaint": "m2svid"`) stays available for
+> reference (and is ~3–4× faster) but shows white edge-fuzz on
+> high-contrast disocclusion stripes. **Skip M2SVid for new experiments
+> — use ProPainter.**
+
 ## Layout
 
 ```
