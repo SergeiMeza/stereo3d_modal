@@ -101,6 +101,28 @@ async def submit_video(body: dict) -> dict:
             raise HTTPException(
                 status_code=400, detail="depth_scale must be in [0.3, 1.5]"
             )
+    # auto_comfort (default True): the profiler picks the scale that lands
+    # salient disparities within comfort_budget. An explicit depth_scale
+    # overrides it (enforced in the worker). Both adaptive-only.
+    if "auto_comfort" in body:
+        if not adaptive:
+            raise HTTPException(
+                status_code=400,
+                detail="auto_comfort is only meaningful with adaptive=true",
+            )
+        if not isinstance(body["auto_comfort"], bool):
+            raise HTTPException(status_code=400, detail="auto_comfort must be a bool")
+    comfort_budget = body.get("comfort_budget")
+    if comfort_budget is not None:
+        if not adaptive:
+            raise HTTPException(
+                status_code=400,
+                detail="comfort_budget is only meaningful with adaptive=true",
+            )
+        if not (0.0 < float(comfort_budget) <= 0.05):
+            raise HTTPException(
+                status_code=400, detail="comfort_budget must be in (0, 0.05]"
+            )
     # adaptive composes with the stereo fan-out for both backends:
     # the depth script keys on absolute frame index and is passed whole
     # to every chunk worker, so parallel output matches sequential.

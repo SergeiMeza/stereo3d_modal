@@ -454,6 +454,82 @@ def _build_depth_script(
     return script
 
 
+def _percentile(sorted_values: list, q: float) -> float:
+    """Linear-interpolation percentile (numpy default) of an already
+    SORTED, non-empty list. ``q`` in [0, 1]. Kept torch-free so the
+    auto-comfort math stays offline-testable."""
+    if not sorted_values:
+        return 0.0
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    pos = q * (len(sorted_values) - 1)
+    lo_i = int(pos)
+    hi_i = min(lo_i + 1, len(sorted_values) - 1)
+    frac = pos - lo_i
+    return float(sorted_values[lo_i]) * (1.0 - frac) + float(sorted_values[hi_i]) * frac
+
+
+def _auto_comfort_scale(script: list, comfort_budget: float) -> float:
+    """Scale that brings the clip's peak salient screen disparity within
+    ``comfort_budget``. Measures the p95 of |screen_disp_in| /
+    |screen_disp_out| across all shots and returns
+    ``clamp(comfort_budget / measured, 0.3, 1.0)`` — it only ever tones
+    DOWN (>1.0 capped at 1.0 so a quiet clip is never pushed past the
+    artistic default). ``measured == 0`` (degenerate / empty) → 1.0.
+
+    Uses p95 of the absolute shot-boundary screen disparities so a
+    single outlier shot does not crush the whole video; with few shots
+    p95 ≈ max, which is fine.
+    """
+    disps: list = []
+    for entry in script:
+        for key in ("screen_disp_in", "screen_disp_out"):
+            if key in entry:
+                disps.append(abs(float(entry[key])))
+    if not disps:
+        return 1.0
+    measured = _percentile(sorted(disps), 0.95)
+    if measured <= 0.0:
+        return 1.0
+    return min(max(comfort_budget / measured, 0.3), 1.0)
+
+
+def _apply_auto_comfort(
+    per_scene_stats: list, lo: float, hi: float, units: str = "da3_metric",
+    auto_comfort: bool = False, comfort_budget: float = MAX_BACKGROUND_DISPARITY,
+    depth_scale: float = 1.0,
+) -> tuple[list, float]:
+    """Build the depth script, applying auto-comfort when requested.
+    Returns ``(script, applied_scale)``.
+
+    Precedence (matches the design):
+    - An explicit ``depth_scale != 1.0`` is a MANUAL override and always
+      wins — auto-comfort is skipped and ``applied_scale == depth_scale``.
+    - ``auto_comfort`` with the default ``depth_scale == 1.0``: build once
+      at scale 1.0, measure p95 boundary disparity vs ``comfort_budget``
+      via ``_auto_comfort_scale``, and if the computed scale < 1.0 REBUILD
+      the script at that scale (so cut-matching / comfort / step-clamp all
+      recompute proportionally — a post-multiply would leave depth-matched
+      placement shifts wrong). ``applied_scale`` is the chosen scale.
+    - ``auto_comfort`` False: build at ``depth_scale`` (1.0 default),
+      ``applied_scale == depth_scale``.
+
+    Pure (no torch) so the whole measure/rebuild loop is offline-testable.
+    """
+    script = _build_depth_script(
+        per_scene_stats, lo, hi, units=units, depth_scale=depth_scale
+    )
+    # manual depth_scale override, or auto-comfort off → nothing to do
+    if not auto_comfort or depth_scale != 1.0:
+        return script, depth_scale
+    chosen = _auto_comfort_scale(script, comfort_budget)
+    if chosen < 1.0:
+        script = _build_depth_script(
+            per_scene_stats, lo, hi, units=units, depth_scale=chosen
+        )
+    return script, chosen
+
+
 with depth_models_image.imports():
     import ffmpeg
     import torch
@@ -744,6 +820,8 @@ class FrameDepthWorker:
         input_path: str,
         scene_ranges: list,
         input_size: int = 518,
+        auto_comfort: bool = True,
+        comfort_budget: float = MAX_BACKGROUND_DISPARITY,
         depth_scale: float = 1.0,
     ) -> list[dict]:
         """Adaptive per-shot depth script (R&D prototype): analyze 3
@@ -756,6 +834,17 @@ class FrameDepthWorker:
         horizontal-FOV estimates are captured into the stats
         ("fov_deg") to bias classification by lens character — see
         _classify_keyframe and docs/DEPTH_SCRIPT.md.
+
+        ``auto_comfort`` (default True): when the user did NOT pass an
+        explicit ``depth_scale`` (i.e. it is left at 1.0), build the
+        script at scale 1.0, measure the p95 of |screen_disp_in/out|
+        across shots, and if that exceeds ``comfort_budget`` (default
+        MAX_BACKGROUND_DISPARITY = 0.02, the broadcast background-
+        divergence bracket) REBUILD the script at the toned-down scale
+        so cut-matching and comfort recompute proportionally. It only
+        ever tones DOWN (scale clamped to [0.3, 1.0]). An explicit
+        ``depth_scale != 1.0`` is a manual override and WINS — auto-
+        comfort is skipped. See _auto_comfort_scale / _apply_auto_comfort.
 
         Why keyframes instead of every frame: the goal is a per-SHOT
         decision (displacement + screen-plane placement are perceptual
@@ -876,9 +965,40 @@ class FrameDepthWorker:
                 if s["fov_deg"] is not None:
                     stat["fov_deg"] = [float(v) for v in s["fov_deg"]]
                 per_scene_stats.append(stat)
-            script = _build_depth_script(
-                per_scene_stats, lo, hi, units=units, depth_scale=depth_scale
+            script, applied_scale = _apply_auto_comfort(
+                per_scene_stats, lo, hi, units=units,
+                auto_comfort=auto_comfort, comfort_budget=comfort_budget,
+                depth_scale=depth_scale,
             )
+            # expose the effective scale in job metadata (return contract
+            # stays the script list, so consumers are untouched)
+            jobs.update_job(job_id, comfort_scale=applied_scale)
+            # log the auto-comfort decision (measure once at scale 1.0
+            # for the human-readable p95, regardless of outcome)
+            if depth_scale != 1.0:
+                jlog.info(
+                    f"🎛  auto_comfort: skipped (explicit depth_scale="
+                    f"{depth_scale} overrides), scale {applied_scale}"
+                )
+            elif auto_comfort:
+                base = _build_depth_script(per_scene_stats, lo, hi, units=units)
+                measured = _percentile(
+                    sorted(
+                        abs(float(e[k])) for e in base
+                        for k in ("screen_disp_in", "screen_disp_out") if k in e
+                    ),
+                    0.95,
+                )
+                if applied_scale < 1.0:
+                    jlog.info(
+                        f"🎛  auto_comfort: measured p95 disparity {measured:.5f}, "
+                        f"target {comfort_budget} → scale {applied_scale} (rebuilding)"
+                    )
+                else:
+                    jlog.info(
+                        f"🎛  auto_comfort: clip within budget "
+                        f"(p95 {measured:.5f} ≤ {comfort_budget}), scale 1.0"
+                    )
 
             for entry in script:
                 jlog.info(
