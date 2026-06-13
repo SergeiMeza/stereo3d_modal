@@ -596,6 +596,138 @@ def _resize_shape(source_shape: tuple[int, int], input_size: int) -> tuple[int, 
     return (input_size, round(input_size * ratio / 14) * 14)
 
 
+# ------------------------------------------ shared model load + inference
+#
+# FrameDepthWorker (main per-frame depth, 4h timeout) and ShotProfiler
+# (adaptive 3-keyframe profiler, 10-min timeout) run the SAME depth
+# backends — DA2-metric / DA3 / DA3-metric / Depth Pro — so the
+# model-construction and the per-backend inference adapters live here as
+# module-level functions that BOTH classes' @modal.enter load() and
+# inference helpers delegate to. There is ONE implementation of each;
+# the only per-class difference is the @app.cls config (timeout +
+# retries) and which @modal.method entrypoints are exposed. Keeping these
+# as module functions (rather than a mixin) sidesteps the Modal @app.cls
+# constraint that @modal.enter/@modal.method live on the decorated class,
+# while still giving a single source of truth for the depth math.
+
+
+def _build_model(model_name: str):
+    """Construct and return the depth model for ``model_name`` on cuda
+    (eval mode). Shared by both worker classes' @modal.enter load()."""
+    if model_name.startswith("da2-metric"):
+        from transformers import DepthAnythingForDepthEstimation
+
+        variant = model_name.rsplit("-", 1)[-1]  # indoor | outdoor
+        return (
+            DepthAnythingForDepthEstimation.from_pretrained(str(ensure_da2_metric(variant)))
+            .to("cuda")
+            .eval()
+        )
+    if model_name == "depth-pro":
+        import dataclasses
+
+        from depth_pro.depth_pro import DEFAULT_MONODEPTH_CONFIG_DICT, create_model_and_transforms
+
+        config = dataclasses.replace(
+            DEFAULT_MONODEPTH_CONFIG_DICT, checkpoint_uri=str(ensure_depth_pro())
+        )
+        # fp16 per the official CLI; the returned transform is discarded
+        # — it targets PIL/ndarray input, while these workers normalize
+        # decoded uint8 tensors themselves (see _make_infer)
+        model, _ = create_model_and_transforms(
+            config=config, device=torch.device("cuda"), precision=torch.half
+        )
+        return model.eval()
+    from depth_anything_3.api import DepthAnything3
+
+    checkpoint = ensure_da3("mono-large", metric=model_name == "da3-metric")
+    return DepthAnything3.from_pretrained(str(checkpoint)).to("cuda")
+
+
+def _make_infer(model, model_name: str, source_shape: tuple[int, int], input_size: int,
+                fov_samples: list):
+    """Bind a ``(T, C, H, W) uint8 cpu -> (T, h, w) float32 cpu raw
+    depth`` function for this call's video geometry. ``fov_samples`` is
+    the list the depth-pro path appends one horizontal-FOV value per
+    frame to (callers reset it per scene). Shared by both classes."""
+    if model_name.startswith("da2-metric"):
+        resize_shape = _resize_shape(source_shape, input_size)
+        # Official DA2 preprocessing: aspect-preserving resize to
+        # multiples of 14 + ImageNet stats, no padding (≤7 px of
+        # aspect distortion from the rounding).
+        pre = torch.nn.Sequential(
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Resize(size=resize_shape, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        )
+        return lambda frames: _infer_da2(model, frames, pre)
+    if model_name == "depth-pro":
+        resize_shape = _resize_shape(source_shape, input_size)
+        # [-1, 1] normalization per the official transform
+        # (Normalize([0.5]*3, [0.5]*3)); resize to the working
+        # resolution first so the returned depth honors the same
+        # depth_shape contract as the other backends
+        pre = torch.nn.Sequential(
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Resize(size=resize_shape, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),
+            v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        )
+        return lambda frames: _infer_depth_pro(model, frames, pre, fov_samples)
+    return lambda frames: _infer_da3(model, frames, input_size)
+
+
+def _infer_da2(model, frames: "torch.Tensor", pre) -> "torch.Tensor":
+    """transformers DA2-metric: returns depth in meters at the
+    working resolution."""
+    with torch.no_grad(), torch.autocast(device_type="cuda"):
+        depth = model(pixel_values=pre(frames.cuda())).predicted_depth  # (T, h, w)
+    return depth.float().cpu()
+
+
+def _infer_da3(model, frames: "torch.Tensor", input_size: int) -> "torch.Tensor":
+    """DA3 api: its InputProcessor handles resize (short side =
+    input_size via lower_bound_resize, matching the VDA working-
+    resolution convention) + ImageNet normalization. With
+    ``alt_start=-1`` in the mono/metric presets there is no
+    cross-view attention, so batching frames cannot couple them."""
+    imgs = [f.permute(1, 2, 0).contiguous().numpy() for f in frames]  # HWC RGB uint8
+    prediction = model.inference(
+        imgs, process_res=input_size, process_res_method="lower_bound_resize"
+    )
+    return torch.from_numpy(prediction.depth).float()  # (T, h, w)
+
+
+def _infer_depth_pro(model, frames: "torch.Tensor", pre, fov_samples: list) -> "torch.Tensor":
+    """Apple Depth Pro: absolute metric depth in meters at the
+    working resolution, plus a per-frame horizontal-FOV estimate.
+
+    ``model.infer`` resamples internally to the fixed 1536x1536
+    network input (squashing aspect, by upstream design) and
+    returns depth resized back to the resolution it was given.
+    Frames run ONE at a time: infer's f_px math assumes a single
+    image — with a batch, the (B, 1) focal tensor mis-broadcasts
+    against the (B, 1, H, W) canonical inverse depth.
+
+    The horizontal FOV is recovered exactly from the estimated
+    focal length, fov = 2*atan(W / (2*f_px)) — the inverse of
+    infer's own ``f_px = W / (2*tan(fov/2))`` — and appended to
+    ``fov_samples`` for per-scene means. FOV is invariant to
+    uniform resizing, so the working-resolution resize (≤7 px of
+    aspect rounding) does not bias it.
+    """
+    import math
+
+    x = pre(frames.cuda()).half()
+    width = x.shape[-1]
+    depths = []
+    for i in range(x.shape[0]):
+        out = model.infer(x[i])
+        depths.append(out["depth"].float().cpu())  # (h, w) meters
+        f_px = float(out["focallength_px"])
+        fov_samples.append(math.degrees(2.0 * math.atan(width / (2.0 * f_px))))
+    return torch.stack(depths)
+
+
 @app.cls(
     gpu=FRAME_DEPTH_GPU,
     image=depth_models_image,
@@ -627,36 +759,7 @@ class FrameDepthWorker:
         # closure appends one value per frame; generate() resets the
         # list per scene and turns it into per-scene means
         self._fov_samples: list[float] = []
-        if self.model_name.startswith("da2-metric"):
-            from transformers import DepthAnythingForDepthEstimation
-
-            variant = self.model_name.rsplit("-", 1)[-1]  # indoor | outdoor
-            self.model = (
-                DepthAnythingForDepthEstimation.from_pretrained(str(ensure_da2_metric(variant)))
-                .to("cuda")
-                .eval()
-            )
-        elif self.model_name == "depth-pro":
-            import dataclasses
-
-            from depth_pro.depth_pro import DEFAULT_MONODEPTH_CONFIG_DICT, create_model_and_transforms
-
-            config = dataclasses.replace(
-                DEFAULT_MONODEPTH_CONFIG_DICT, checkpoint_uri=str(ensure_depth_pro())
-            )
-            # fp16 per the official CLI; the returned transform is
-            # discarded — it targets PIL/ndarray input, while this
-            # worker normalizes decoded uint8 tensors itself (see
-            # _make_infer)
-            self.model, _ = create_model_and_transforms(
-                config=config, device=torch.device("cuda"), precision=torch.half
-            )
-            self.model.eval()
-        else:
-            from depth_anything_3.api import DepthAnything3
-
-            checkpoint = ensure_da3("mono-large", metric=self.model_name == "da3-metric")
-            self.model = DepthAnything3.from_pretrained(str(checkpoint)).to("cuda")
+        self.model = _build_model(self.model_name)
         logger.info(f"🚀 {self.model_name} loaded in {time.perf_counter() - start:.1f}s")
 
     @modal.exit()
@@ -811,6 +914,180 @@ class FrameDepthWorker:
             # predates this feature)
             result["fov_deg"] = [round(f, 2) if f is not None else None for f in scene_fovs]
         return result
+
+    # -------------------------------------------------------- inference
+
+    def _make_infer(self, source_shape: tuple[int, int], input_size: int):
+        """Delegate to the shared module-level ``_make_infer`` (same
+        binding for both worker classes), threading this worker's
+        ``_fov_samples`` list so the depth-pro path accumulates per-frame
+        FOV estimates the same way it always has."""
+        return _make_infer(
+            self.model, self.model_name, source_shape, input_size, self._fov_samples
+        )
+
+    def _scene_disparity(
+        self, decoder, first: int, last: int, batch_size: int, infer, on_batch,
+        align_frames: bool = False,
+    ) -> "torch.Tensor":
+        """Raw disparity 1/depth (N, h, w) float16 on CPU for one scene.
+        on_batch(done_in_scene) fires per inference batch.
+
+        align_frames (relative models): each frame's disparity is
+        affinely aligned (scale+shift least squares, VDA-style) to the
+        previous aligned frame — per-frame relative outputs each have an
+        arbitrary affine, and scene-wide min-max alone cannot remove
+        that frame-to-frame flicker. Metric models skip this (their
+        scale is already consistent).
+        """
+        chunks: list[torch.Tensor] = []
+        ref: torch.Tensor | None = None
+        for b0 in range(first, last, batch_size):
+            b1 = min(b0 + batch_size, last)
+            depth = infer(decoder[b0:b1])
+            disp = depth.clamp(min=DEPTH_EPS).reciprocal().float()
+            if align_frames:
+                # Anchor every frame to the scene's FIRST frame: chaining
+                # frame->previous compounds scale errors multiplicatively
+                # and collapses the signal to a constant over long scenes
+                # (observed). A fixed anchor cannot drift; the scale guard
+                # rejects degenerate fits (e.g. momentary occlusions).
+                aligned = []
+                for i in range(disp.shape[0]):
+                    d = disp[i]
+                    if ref is None:
+                        ref = d
+                    else:
+                        scale, shift = _affine_to_ref(d, ref)
+                        if 0.25 < float(scale) < 4.0:
+                            d = (d * scale + shift).clamp(min=0.0)
+                    aligned.append(d)
+                disp = torch.stack(aligned)
+            # fp16 buffer: same precision the VDA path stores scenes at
+            chunks.append(disp.to(torch.float16))
+            on_batch(b1 - first)
+        return torch.cat(chunks)
+
+    def _normalize(self, disp: "torch.Tensor", disp_range: tuple[float, float] | None) -> "torch.Tensor":
+        """Map disparity to [0, 1]: job-wide affine for metric models,
+        per-scene min-max for relative ones (see module docstring)."""
+        disp = disp.float()
+        if disp_range is not None:
+            lo, hi = disp_range
+            return ((disp - lo) / (hi - lo)).clamp(0.0, 1.0)
+        # robust percentiles, not min-max: one outlier frame in a scene
+        # (imperfect alignment fit, model spike) would otherwise stretch
+        # the range and crush the whole scene toward black (observed)
+        flat = disp.flatten()
+        if flat.numel() > 8_000_000:
+            flat = flat[:: flat.numel() // 8_000_000 + 1]
+        lo, hi = torch.quantile(flat, torch.tensor([0.005, 0.995])).tolist()
+        return ((disp - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
+
+    def _estimate_disparity_range(self, decoder, total_frames: int, batch_size: int, infer) -> tuple[float, float]:
+        """Quick first pass for metric models: p1/p99 of disparity over
+        ~RANGE_SAMPLE_FRAMES frames sampled uniformly across the video,
+        so one affine mapping holds for the whole job."""
+        n = min(RANGE_SAMPLE_FRAMES, total_frames)
+        indices = sorted({round(i * (total_frames - 1) / max(n - 1, 1)) for i in range(n)})
+        samples: list[torch.Tensor] = []
+        for b0 in range(0, len(indices), batch_size):
+            batch = indices[b0 : b0 + batch_size]
+            frames = torch.stack([decoder[i] for i in batch])
+            disp = infer(frames).clamp(min=DEPTH_EPS).reciprocal()
+            # subsample pixels: torch.quantile is capped at ~16M elements
+            flat = disp.flatten()
+            samples.append(flat[:: max(1, flat.numel() // 500_000)])
+        pooled = torch.cat(samples)
+        lo, hi = torch.quantile(pooled, torch.tensor([0.01, 0.99])).tolist()
+        if hi - lo < 1e-6:  # near-constant depth: avoid amplifying noise
+            hi = lo + 1e-6
+        return (lo, hi)
+
+
+def _affine_to_ref(pred: "torch.Tensor", target: "torch.Tensor", max_px: int = 100_000):
+    """Least-squares (scale, shift) mapping pred -> target over a pixel
+    subsample (closed-form 2x2 solve, same math as the VDA alignment)."""
+    import torch
+
+    p = pred.flatten()
+    t = target.flatten()
+    stride = max(1, p.numel() // max_px)
+    p, t = p[::stride].float(), t[::stride].float()
+    a00 = (p * p).sum()
+    a01 = p.sum()
+    a11 = torch.tensor(float(p.numel()))
+    b0 = (p * t).sum()
+    b1 = t.sum()
+    det = a00 * a11 - a01 * a01
+    if det.abs() < 1e-12:
+        return b0 / (a00 + 1e-6), torch.tensor(0.0)
+    return (a11 * b0 - a01 * b1) / det, (-a01 * b0 + a00 * b1) / det
+
+
+@app.cls(
+    gpu=FRAME_DEPTH_GPU,
+    image=depth_models_image,
+    volumes=GPU_VOLUMES,
+    secrets=[hf_secret, slack_secret],
+    cpu=4,
+    memory=(4 * 1024, 128 * 1024),
+    # Adaptive profiling is DECOUPLED from the main per-frame depth pass
+    # (FrameDepthWorker.generate, timeout=4h). The profiler loads depth
+    # for only 3 keyframes per shot (first / middle / last), so the work
+    # is BOUNDED: ~3 × num_scenes keyframe inferences at ~0.3-0.5s each.
+    # Even a few hundred keyframes is a couple of minutes worst case, and
+    # in practice a whole clip profiles in ~15-25s. A 10-minute timeout is
+    # therefore a wide margin for legitimate work while still catching a
+    # hung profiler in MINUTES — instead of letting it sit for hours under
+    # the depth worker's 4h timeout, which was the whole point of the split.
+    timeout=600,  # 10 min — generous for many-shot profiling, tight on hangs
+    scaledown_window=SCALEDOWN_WINDOW,
+    # profiling is cheap and idempotent, so a transient hang / preemption
+    # should re-run cheaply rather than fail the job
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
+)
+class ShotProfiler:
+    """Adaptive shot profiler — the bounded 3-keyframe-per-shot pass that
+    chooses per-shot stereo parameters, decoupled from FrameDepthWorker so
+    it runs on its OWN function with a tight 10-min timeout + retries
+    (rather than inheriting the depth worker's 4h timeout). Shares the
+    model load + inference adapters with FrameDepthWorker via the
+    module-level ``_build_model`` / ``_make_infer`` / ``_infer_*`` helpers,
+    so the profiling depth math is byte-identical regardless of which
+    class runs it."""
+
+    model_name: str = modal.parameter(default="da3-metric")
+
+    @modal.enter()
+    def load(self) -> None:
+        if self.model_name not in DEPTH_MODELS:
+            raise ValueError(f"unknown depth model {self.model_name!r}, expected one of {DEPTH_MODELS}")
+        start = time.perf_counter()
+        torch.backends.cudnn.benchmark = True
+        self.metric = self.model_name in METRIC_MODELS
+        # per-frame horizontal-FOV samples (depth-pro only): the infer
+        # closure appends one value per frame; profile_scenes resets the
+        # list per scene and turns it into per-keyframe stats
+        self._fov_samples: list[float] = []
+        self.model = _build_model(self.model_name)
+        logger.info(f"🚀 {self.model_name} loaded in {time.perf_counter() - start:.1f}s")
+
+    @modal.exit()
+    def flush(self) -> None:
+        # also runs on preemption (30s grace); profiling writes nothing to
+        # checkpoint, but commit keeps the exit contract symmetric with
+        # FrameDepthWorker (and persists any job-metadata side writes)
+        cache_volume.commit()
+
+    def _make_infer(self, source_shape: tuple[int, int], input_size: int):
+        """Delegate to the shared module-level ``_make_infer`` (same
+        binding for both worker classes), threading this worker's
+        ``_fov_samples`` list so the depth-pro path accumulates per-frame
+        FOV estimates the same way it always has."""
+        return _make_infer(
+            self.model, self.model_name, source_shape, input_size, self._fov_samples
+        )
 
     @modal.method()
     @fail_fast
@@ -1017,180 +1294,3 @@ class FrameDepthWorker:
         del decoder  # drop decoder file handles before the next input
         torch.cuda.empty_cache()
         return script
-
-    # -------------------------------------------------------- inference
-
-    def _make_infer(self, source_shape: tuple[int, int], input_size: int):
-        """Bind a ``(T, C, H, W) uint8 cpu -> (T, h, w) float32 cpu raw
-        depth`` function for this call's video geometry."""
-        if self.model_name.startswith("da2-metric"):
-            resize_shape = _resize_shape(source_shape, input_size)
-            # Official DA2 preprocessing: aspect-preserving resize to
-            # multiples of 14 + ImageNet stats, no padding (≤7 px of
-            # aspect distortion from the rounding).
-            pre = torch.nn.Sequential(
-                v2.ToDtype(torch.float32, scale=True),
-                v2.Resize(size=resize_shape, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),
-                v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            )
-            return lambda frames: self._infer_da2(frames, pre)
-        if self.model_name == "depth-pro":
-            resize_shape = _resize_shape(source_shape, input_size)
-            # [-1, 1] normalization per the official transform
-            # (Normalize([0.5]*3, [0.5]*3)); resize to the working
-            # resolution first so the returned depth honors the same
-            # depth_shape contract as the other backends
-            pre = torch.nn.Sequential(
-                v2.ToDtype(torch.float32, scale=True),
-                v2.Resize(size=resize_shape, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),
-                v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-            )
-            return lambda frames: self._infer_depth_pro(frames, pre)
-        return lambda frames: self._infer_da3(frames, input_size)
-
-    def _infer_da2(self, frames: "torch.Tensor", pre) -> "torch.Tensor":
-        """transformers DA2-metric: returns depth in meters at the
-        working resolution."""
-        with torch.no_grad(), torch.autocast(device_type="cuda"):
-            depth = self.model(pixel_values=pre(frames.cuda())).predicted_depth  # (T, h, w)
-        return depth.float().cpu()
-
-    def _infer_da3(self, frames: "torch.Tensor", input_size: int) -> "torch.Tensor":
-        """DA3 api: its InputProcessor handles resize (short side =
-        input_size via lower_bound_resize, matching the VDA working-
-        resolution convention) + ImageNet normalization. With
-        ``alt_start=-1`` in the mono/metric presets there is no
-        cross-view attention, so batching frames cannot couple them."""
-        imgs = [f.permute(1, 2, 0).contiguous().numpy() for f in frames]  # HWC RGB uint8
-        prediction = self.model.inference(
-            imgs, process_res=input_size, process_res_method="lower_bound_resize"
-        )
-        return torch.from_numpy(prediction.depth).float()  # (T, h, w)
-
-    def _infer_depth_pro(self, frames: "torch.Tensor", pre) -> "torch.Tensor":
-        """Apple Depth Pro: absolute metric depth in meters at the
-        working resolution, plus a per-frame horizontal-FOV estimate.
-
-        ``model.infer`` resamples internally to the fixed 1536x1536
-        network input (squashing aspect, by upstream design) and
-        returns depth resized back to the resolution it was given.
-        Frames run ONE at a time: infer's f_px math assumes a single
-        image — with a batch, the (B, 1) focal tensor mis-broadcasts
-        against the (B, 1, H, W) canonical inverse depth.
-
-        The horizontal FOV is recovered exactly from the estimated
-        focal length, fov = 2*atan(W / (2*f_px)) — the inverse of
-        infer's own ``f_px = W / (2*tan(fov/2))`` — and appended to
-        ``self._fov_samples`` for per-scene means. FOV is invariant to
-        uniform resizing, so the working-resolution resize (≤7 px of
-        aspect rounding) does not bias it.
-        """
-        import math
-
-        x = pre(frames.cuda()).half()
-        width = x.shape[-1]
-        depths = []
-        for i in range(x.shape[0]):
-            out = self.model.infer(x[i])
-            depths.append(out["depth"].float().cpu())  # (h, w) meters
-            f_px = float(out["focallength_px"])
-            self._fov_samples.append(math.degrees(2.0 * math.atan(width / (2.0 * f_px))))
-        return torch.stack(depths)
-
-    def _scene_disparity(
-        self, decoder, first: int, last: int, batch_size: int, infer, on_batch,
-        align_frames: bool = False,
-    ) -> "torch.Tensor":
-        """Raw disparity 1/depth (N, h, w) float16 on CPU for one scene.
-        on_batch(done_in_scene) fires per inference batch.
-
-        align_frames (relative models): each frame's disparity is
-        affinely aligned (scale+shift least squares, VDA-style) to the
-        previous aligned frame — per-frame relative outputs each have an
-        arbitrary affine, and scene-wide min-max alone cannot remove
-        that frame-to-frame flicker. Metric models skip this (their
-        scale is already consistent).
-        """
-        chunks: list[torch.Tensor] = []
-        ref: torch.Tensor | None = None
-        for b0 in range(first, last, batch_size):
-            b1 = min(b0 + batch_size, last)
-            depth = infer(decoder[b0:b1])
-            disp = depth.clamp(min=DEPTH_EPS).reciprocal().float()
-            if align_frames:
-                # Anchor every frame to the scene's FIRST frame: chaining
-                # frame->previous compounds scale errors multiplicatively
-                # and collapses the signal to a constant over long scenes
-                # (observed). A fixed anchor cannot drift; the scale guard
-                # rejects degenerate fits (e.g. momentary occlusions).
-                aligned = []
-                for i in range(disp.shape[0]):
-                    d = disp[i]
-                    if ref is None:
-                        ref = d
-                    else:
-                        scale, shift = _affine_to_ref(d, ref)
-                        if 0.25 < float(scale) < 4.0:
-                            d = (d * scale + shift).clamp(min=0.0)
-                    aligned.append(d)
-                disp = torch.stack(aligned)
-            # fp16 buffer: same precision the VDA path stores scenes at
-            chunks.append(disp.to(torch.float16))
-            on_batch(b1 - first)
-        return torch.cat(chunks)
-
-    def _normalize(self, disp: "torch.Tensor", disp_range: tuple[float, float] | None) -> "torch.Tensor":
-        """Map disparity to [0, 1]: job-wide affine for metric models,
-        per-scene min-max for relative ones (see module docstring)."""
-        disp = disp.float()
-        if disp_range is not None:
-            lo, hi = disp_range
-            return ((disp - lo) / (hi - lo)).clamp(0.0, 1.0)
-        # robust percentiles, not min-max: one outlier frame in a scene
-        # (imperfect alignment fit, model spike) would otherwise stretch
-        # the range and crush the whole scene toward black (observed)
-        flat = disp.flatten()
-        if flat.numel() > 8_000_000:
-            flat = flat[:: flat.numel() // 8_000_000 + 1]
-        lo, hi = torch.quantile(flat, torch.tensor([0.005, 0.995])).tolist()
-        return ((disp - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
-
-    def _estimate_disparity_range(self, decoder, total_frames: int, batch_size: int, infer) -> tuple[float, float]:
-        """Quick first pass for metric models: p1/p99 of disparity over
-        ~RANGE_SAMPLE_FRAMES frames sampled uniformly across the video,
-        so one affine mapping holds for the whole job."""
-        n = min(RANGE_SAMPLE_FRAMES, total_frames)
-        indices = sorted({round(i * (total_frames - 1) / max(n - 1, 1)) for i in range(n)})
-        samples: list[torch.Tensor] = []
-        for b0 in range(0, len(indices), batch_size):
-            batch = indices[b0 : b0 + batch_size]
-            frames = torch.stack([decoder[i] for i in batch])
-            disp = infer(frames).clamp(min=DEPTH_EPS).reciprocal()
-            # subsample pixels: torch.quantile is capped at ~16M elements
-            flat = disp.flatten()
-            samples.append(flat[:: max(1, flat.numel() // 500_000)])
-        pooled = torch.cat(samples)
-        lo, hi = torch.quantile(pooled, torch.tensor([0.01, 0.99])).tolist()
-        if hi - lo < 1e-6:  # near-constant depth: avoid amplifying noise
-            hi = lo + 1e-6
-        return (lo, hi)
-
-
-def _affine_to_ref(pred: "torch.Tensor", target: "torch.Tensor", max_px: int = 100_000):
-    """Least-squares (scale, shift) mapping pred -> target over a pixel
-    subsample (closed-form 2x2 solve, same math as the VDA alignment)."""
-    import torch
-
-    p = pred.flatten()
-    t = target.flatten()
-    stride = max(1, p.numel() // max_px)
-    p, t = p[::stride].float(), t[::stride].float()
-    a00 = (p * p).sum()
-    a01 = p.sum()
-    a11 = torch.tensor(float(p.numel()))
-    b0 = (p * t).sum()
-    b1 = t.sum()
-    det = a00 * a11 - a01 * a01
-    if det.abs() < 1e-12:
-        return b0 / (a00 + 1e-6), torch.tensor(0.0)
-    return (a11 * b0 - a01 * b1) / det, (-a01 * b0 + a00 * b1) / det

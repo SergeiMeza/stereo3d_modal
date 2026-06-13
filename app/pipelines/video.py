@@ -154,7 +154,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # (output is identical to sequential). Both stereo backends
             # thread scene_params through their parallel paths.
             from app.stages.media import detect_scenes
-            from app.stages.video_depth_models import FrameDepthWorker
+            from app.stages.video_depth_models import ShotProfiler
 
             jobs.update_job(job_id, stage="profile_scenes", progress=0.17)
             scenes = detect_scenes.remote(pre["work_path"])["scenes"]
@@ -181,7 +181,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"{profiler} (depth_scale={depth_scale}, "
                 f"auto_comfort={auto_comfort}, comfort_budget={comfort_budget})"
             )
-            depth_script = FrameDepthWorker(model_name=profiler).profile_scenes.remote(
+            depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
                 job_id, pre["work_path"], scene_ranges, input_size=518,
                 auto_comfort=auto_comfort, comfort_budget=comfort_budget,
                 depth_scale=depth_scale,
