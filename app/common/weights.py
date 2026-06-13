@@ -136,6 +136,26 @@ def ensure_da3(variant: str = "mono-large", metric: bool = False) -> Path:
     )
 
 
+def ensure_depth_pro() -> Path:
+    """Apple Depth Pro checkpoint (single fp16 ``.pt`` state dict, ~1.8 GB).
+
+    Metric monocular depth PLUS a per-image focal-length / field-of-view
+    estimate (ViT-L multi-scale patch encoder + FOV head, fixed
+    1536x1536 network input) — the FOV output is what the pipeline
+    wants for shot-type classification.
+
+    License note: code AND weights ship under the Apple ML Research
+    license (apple-amlr) — research/R&D use only, redistribution and
+    commercial use are NOT permitted. Keep this backend out of
+    production until the license is cleared.
+    """
+    return _hf_download(
+        repo_id="apple/DepthPro",
+        filename="depth_pro.pt",
+        subdir="depth_pro",
+    )
+
+
 def ensure_lama() -> Path:
     """TorchScript-traced LAMA inpainting model (still images)."""
     return _hf_download(

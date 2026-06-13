@@ -1,16 +1,17 @@
-# Adaptive Per-Shot Depth Script (v1 + pro treatment v2)
+# Adaptive Per-Shot Depth Script (v1 + pro treatment v2 + FOV-informed v3)
 
 The adaptive pipeline (`"adaptive": true` on a video job) replaces the single
 job-wide `displacement`/`placement` with a per-shot "depth script": scenes are
-detected, profiled with `da3-metric`, and graded like a stereographer would
-grade a conversion. Code: `FrameDepthWorker.profile_scenes` +
-`_build_depth_script` in `app/stages/video_depth_models.py` (pure python,
-testable offline); consumed per frame via `_scene_param_lookup` in
-`app/stages/video_stereo.py`.
+detected, profiled with the `"profiler"` model (`da3-metric` default,
+`depth-pro` for v3), and graded like a stereographer would grade a conversion.
+Code: `FrameDepthWorker.profile_scenes` + `_build_depth_script` in
+`app/stages/video_depth_models.py` (pure python, testable offline); consumed
+per frame via `_scene_param_lookup` in `app/stages/video_stereo.py`.
 
 ## Profiling (v1)
 
-Per scene, 3 keyframes (first / middle / last) are inferred with DA3METRIC.
+Per scene, 3 keyframes (first / middle / last) are inferred with the profiler
+model (DA3METRIC by default).
 All keyframe disparities (`1/depth`) are pooled and the job-wide p1/p99 range
 `(lo, hi)` defines normalized disparity `nd = clip((d − lo)/(hi − lo), 0, 1)`.
 Per keyframe we keep: median raw depth, median raw disparity, and
@@ -75,27 +76,60 @@ applies per keyframe. `_scene_param_lookup` linearly interpolates displacement
 and each placement component between bracketing keyframes (clamped outside the
 keyframe range), so the grade ramps instead of compromising.
 
+## v3 — FOV-informed profiling (Depth Pro)
+
+`"profiler": "depth-pro"` (only with `adaptive: true`; default stays
+`da3-metric` and is byte-identical to v2) switches the profiling backend to
+Apple Depth Pro, which returns TRUE metric depth in meters (its own per-frame
+focal estimate is folded in — no focal normalization) plus a per-frame
+horizontal FOV, `fov = 2·atan(W/(2·f_px))`.
+
+**Meters thresholds** (`units="meters"` in `_build_depth_script`): the tight
+absolute cuts `PROFILE_CLOSE_MEDIAN_M = 3.0` (median subject within 3 m →
+close-up) and `PROFILE_WIDE_MEDIAN_M = 11.0` (beyond 11 m → wide) REPLACE the
+loose focal-unknown da3-metric heuristics (1.5 / 6.0 raw units, which only
+approximate 3 m / 11 m at an assumed ~50° HFOV). `near_fraction` and the
+spread-based dynamic test are scale-invariant (measured against the job's own
+pooled disparity range) and stay unchanged.
+
+**FOV modifier** (shot-mean over the keyframes, applied after the dynamic and
+base close-up tests, before the base wide test):
+
+- long lens: `fov < 30°` AND `median < 5 m` → bias to **close_up** — portrait
+  compression reads as close even past the 3 m cut;
+- wide-angle lens: `fov > 60°` AND `median > 8 m` AND `near_fraction < 0.10`
+  → bias to **wide**.
+
+Precedence stays dynamic-first. Dynamic keyframe ramps classify each keyframe
+with the same units and shot-mean FOV (lens character is a per-shot
+property). Script entries gain `"fov_deg"` (shot mean, 1 dp) when available;
+all v2 mechanisms (cut matching, comfort budget, ramps) operate on normalized
+disparity downstream of classification and are unit-agnostic.
+
+**Cost**: profiling adds ~0.3 s/keyframe × 3 keyframes × scenes of Depth Pro
+inference — trivial next to the main depth pass — but loading Depth Pro adds
+container cold-start time versus reusing a warm da3-metric profiler.
+
 ## Script entry
 
 `{"first", "last", "shot_type", "displacement", "placement", "median",
 "near_fraction", "screen_disp_in", "screen_disp_out"}` plus optional
-`"keyframes"` and `"adjustments"` (human-readable strings, also jlogged 🎛).
+`"fov_deg"` (depth-pro profiler, shot mean, 1 dp), `"keyframes"` and
+`"adjustments"` (human-readable strings, also jlogged 🎛).
 
 ## Known limitations
 
 - **3-keyframe sampling** — motion between keyframes is invisible; a brief
   insert can be misclassified.
-- **FOV-dependent thresholds** — `da3-metric` is focal-normalized; the
-  absolute close/wide cuts assume ~50° HFOV. `near_fraction` is
-  focal-invariant and carries most of the weight.
+- **FOV-dependent thresholds (da3-metric profiler)** — `da3-metric` is
+  focal-normalized; the absolute close/wide cuts assume ~50° HFOV.
+  `near_fraction` is focal-invariant and carries most of the weight. Solved by
+  the v3 `depth-pro` profiler (true meters + FOV modifier).
 - **Displacement scaling after matching** — see comfort budget above.
 - **No floating windows yet** — window violations on pop-out at frame edges
   are not masked.
 - **ProPainter batches straddling cuts** — a batch can mix two disparity
   regimes; per-frame lookup is correct but the inpainting window sees both.
 
-## Planned v3
-
-Per-scene `fov_deg` from the Depth Pro backend (branch `depth-pro-backend`)
-will replace the focal-unknown heuristics with true metric distances, making
-the close/wide thresholds camera-independent. Not implemented.
+- **Depth Pro weights are research-only** (apple-amlr license) — the v3
+  profiler is R&D only, like the `depth-pro` depth backend.

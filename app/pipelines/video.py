@@ -52,21 +52,28 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "inpaint": "propainter" | "none" | "m2svid",
       "input_size": 980,            # depth model resolution
       "depth_model": "vda" | "da2-metric-indoor" | "da2-metric-outdoor"
-                     | "da3" | "da3-metric",
+                     | "da3" | "da3-metric" | "depth-pro",
+                     # depth-pro (R&D only, apple-amlr weights) also
+                     # reports per-scene mean "fov_deg" in metadata
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
       "include_audio": true,
       "output_depth": true,
-      "adaptive": false          # per-shot depth script (R&D prototype)
+      "adaptive": false,         # per-shot depth script (R&D prototype)
+      "profiler": "da3-metric" | "depth-pro"
+                     # adaptive only: profiling backend. depth-pro (R&D
+                     # only, apple-amlr weights) classifies in TRUE
+                     # meters and biases by the shot-mean FOV (v3)
     }
 
-    adaptive: detect scenes, profile 3 keyframes per shot with
-    da3-metric, and drive per-shot displacement/placement through the
-    stereo stage (decisions stored in metadata["depth_script"]). The
-    MAIN depth pass still uses whatever ``depth_model`` says (default
-    vda). Prototype limits: sequential stereo only — combining with
-    explicit ``parallel`` or ``inpaint="m2svid"`` raises (follow-ups).
+    adaptive: detect scenes, profile 3 keyframes per shot with the
+    ``profiler`` model (default da3-metric), and drive per-shot
+    displacement/placement through the stereo stage (decisions stored
+    in metadata["depth_script"]). The MAIN depth pass still uses
+    whatever ``depth_model`` says (default vda). Prototype limits:
+    sequential stereo only — combining with explicit ``parallel`` or
+    ``inpaint="m2svid"`` raises (follow-ups).
     """
     from app.common.debug import job_logger
     from app.common.errors import check_worker_result
@@ -130,10 +137,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 [(s["start"], s["end"]) for s in scenes]
                 or [(0, pre["probe"]["num_frames"])]
             )
-            jlog.info(f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with da3-metric")
-            # profiling worker is always da3-metric, independent of the
-            # depth_model used for the MAIN depth pass below
-            depth_script = FrameDepthWorker(model_name="da3-metric").profile_scenes.remote(
+            # v3: the profiling backend is selectable ("profiler":
+            # "da3-metric" default | "depth-pro" true-meters + FOV
+            # modifier), independent of the depth_model used for the
+            # MAIN depth pass below
+            profiler = request.get("profiler", "da3-metric")
+            jlog.info(f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with {profiler}")
+            depth_script = FrameDepthWorker(model_name=profiler).profile_scenes.remote(
                 job_id, pre["work_path"], scene_ranges, input_size=518
             )
             check_worker_result(depth_script, "profile_scenes")
@@ -178,7 +188,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     band=(0.15, 0.5),
                 )
         else:
-            # per-frame backends (DA2-metric / DA3): single L40S worker
+            # per-frame backends (DA2-metric / DA3 / Depth Pro): single L40S worker
             # regardless of length — per-frame inference is much lighter
             # than VDA's 32-frame windows, and metric mode needs one
             # job-wide normalization pass, which a fan-out would break
@@ -308,6 +318,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),
                 **({"depth_script": depth_script} if depth_script is not None else {}),
+                # additive: per-scene mean horizontal FOV (depth-pro
+                # only) for shot-type classification
+                **({"fov_deg": depth["fov_deg"]} if "fov_deg" in depth else {}),
             },
         )
         jlog.info(f"🏁 job completed: {len(outputs)} output(s) published")

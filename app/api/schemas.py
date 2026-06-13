@@ -27,6 +27,12 @@ class VideoRequest(TypedDict, total=False):
     adaptive: bool  # default False; per-shot depth script (R&D prototype,
     # sequential propainter/none path only); decisions appear in
     # metadata["depth_script"]
+    profiler: Literal["da3-metric", "depth-pro"]  # default "da3-metric";
+    # adaptive profiling backend — only valid with adaptive=true
+    # (rejected otherwise). "depth-pro" (v3; R&D only, apple-amlr
+    # weights) profiles in TRUE meters (tight 3 m / 11 m close/wide
+    # cuts) and uses the shot-mean horizontal FOV as a classification
+    # modifier; script entries gain "fov_deg" (shot mean, 1 dp)
 
 
 class ImageItem(TypedDict, total=False):
