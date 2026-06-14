@@ -31,11 +31,18 @@ from app.common.debug import get_logger
 logger = get_logger(__name__)
 
 # Healthy fan-out workers heartbeat every few seconds via report_progress.
-# 10 min of TOTAL silence is unambiguously a silent hang, while still
-# tolerating a slow batch / cold model reload / brief GCS stall (those
-# keep emitting progress, so updated_at keeps advancing and the watchdog
-# stays quiet). Overridable per request via "stall_timeout_s".
-STALL_TIMEOUT_S = 600
+# With PER-CHUNK heartbeat tracking (see gather_with_heartbeat), a single
+# chunk going silent for this long is unambiguously hung — the other
+# chunks' progress no longer masks it (the old GLOBAL clock needed 600s to
+# avoid a slow batch on ANY chunk resetting the whole video's timer; the
+# per-chunk clock can be tighter because each chunk is judged on its own
+# heartbeat). 240s tolerates a cold model reload / brief GCS stall while
+# catching a real hang ~2.5× faster. Overridable per request.
+STALL_TIMEOUT_S = 240
+# A hung chunk is RESUBMITTED (fresh container) up to this many times
+# before the job is failed — a chunk that hangs repeatedly is a real bug,
+# not a transient GPU wedge. Per chunk, not per job.
+MAX_CHUNK_RETRIES = 2
 
 
 def _modal_not_ready_exc():
@@ -61,43 +68,67 @@ def gather_with_heartbeat(
     jlog,
     *,
     stall_timeout_s,
-    poll_s=20,
+    poll_s=10,
     label="stage",
+    chunk_keys=None,
+    respawn_fn=None,
+    max_chunk_retries=MAX_CHUNK_RETRIES,
+    register_handles_fn=None,
     now_fn=time.time,
     read_updated_at_fn=None,
+    read_chunk_progress_fn=None,
     not_ready_exc=None,
 ):
-    """Block until all ``handles`` complete, but FAIL FAST on a silent hang.
+    """Block until all ``handles`` complete, SELF-HEALING a single hung
+    chunk instead of failing the whole job.
 
-    Polls each not-yet-done handle with ``h.get(timeout=poll_s)``; a
-    poll-timeout means "not ready yet" and we move on. After any full
-    sweep in which NO handle newly completed, we read the job's
-    ``updated_at`` and, if ``now - updated_at > stall_timeout_s``, treat
-    it as a silent hang: cancel all remaining handles, mark the job
-    failed, and raise ``RuntimeError`` (so the orchestrator's except
-    block runs).
+    Each chunk worker heartbeats per batch via ``jobs.report_progress``,
+    which records its chunk-local ``done`` count in the job's
+    ``chunk_progress`` map keyed by ``chunk_keys[i]``. We watch each
+    chunk's OWN counter: a chunk whose count hasn't advanced for
+    ``stall_timeout_s`` is hung — detected independently of the other
+    chunks (which previously masked it, since they kept the job-global
+    ``updated_at`` fresh).
 
-    Healthy/slow-but-progressing work keeps bumping ``updated_at`` and
-    never trips. A real worker exception surfacing from ``h.get()``
-    propagates unchanged (it is NOT masked as a stall).
+    On a hung chunk:
+      - if ``respawn_fn`` is given and the chunk has retries left, cancel
+        its (wedged) handle and RESUBMIT it on a fresh container
+        (``respawn_fn(i)`` returns a new handle for the same frame range).
+        The healthy chunks keep running untouched.
+      - otherwise (no respawn_fn, or retries exhausted) fall back to the
+        legacy behavior: cancel all pending, fail the job, raise.
 
-    Returns results in handle order on success.
+    ``register_handles_fn(handles)`` (optional) is called whenever the
+    handle set changes (initial + after each respawn) so the job's
+    child-call registry — used by DELETE /v1/jobs/{id} — stays current
+    and a user-cancel still reaches the resubmitted worker.
 
-    Injectable seams (default to real impls):
-      - ``now_fn()`` -> wall-clock seconds.
-      - ``read_updated_at_fn(job_id)`` -> the job's ``updated_at`` float
-        (defaults to reading the modal.Dict job record).
-      - ``not_ready_exc`` -> the exception class meaning "not ready yet"
-        (defaults to Modal's FunctionTimeoutError).
+    Without ``chunk_keys`` this degrades to the old global-heartbeat
+    watchdog (back-compat for callers that don't fan out by chunk).
+
+    A real worker exception from ``h.get()`` propagates unchanged (NOT
+    masked as a stall). Returns results in handle order on success.
+
+    Injectable seams (default to real impls): ``now_fn``,
+    ``read_updated_at_fn(job_id)``, ``read_chunk_progress_fn(job_id)`` ->
+    the job's ``chunk_progress`` dict, ``not_ready_exc``.
     """
     if read_updated_at_fn is None:
         read_updated_at_fn = _default_read_updated_at
+    if read_chunk_progress_fn is None:
+        read_chunk_progress_fn = _default_read_chunk_progress
     if not_ready_exc is None:
         not_ready_exc = _modal_not_ready_exc()
 
     n = len(handles)
+    handles = list(handles)  # mutable: a hung chunk's handle is swapped out
     results = [None] * n
     done = [False] * n
+    # per-chunk heartbeat bookkeeping (only used when chunk_keys given)
+    per_chunk = chunk_keys is not None and respawn_fn is not None
+    last_done = [0] * n          # last-seen chunk-local progress count
+    last_advance = [now_fn()] * n  # when that count last increased
+    retries = [0] * n
 
     while not all(done):
         completed_this_sweep = False
@@ -109,40 +140,91 @@ def gather_with_heartbeat(
                 done[i] = True
                 completed_this_sweep = True
             except not_ready_exc:
-                # not finished yet — keep waiting on the rest
-                continue
-            # NOTE: any other exception (a real worker error) propagates
-            # out of the function — it must NOT be swallowed as a stall.
+                continue  # not finished yet
+            # any OTHER exception (a real worker error) propagates out.
 
         if completed_this_sweep:
-            continue  # progress happened (a handle finished); don't check staleness
+            continue  # a handle finished — don't check staleness this round
 
-        # Full sweep, nothing newly finished: is the job still heartbeating?
+        if per_chunk:
+            # ---- per-chunk staleness: judge each pending chunk alone ----
+            progress = read_chunk_progress_fn(job_id) or {}
+            now = now_fn()
+            for i, h in enumerate(handles):
+                if done[i]:
+                    continue
+                cur = int(progress.get(str(chunk_keys[i]), 0))
+                if cur > last_done[i]:
+                    last_done[i] = cur
+                    last_advance[i] = now
+                    continue
+                if now - last_advance[i] <= stall_timeout_s:
+                    continue  # this chunk still within its heartbeat window
+                # chunk i is hung
+                if retries[i] < max_chunk_retries:
+                    retries[i] += 1
+                    jlog.warning(
+                        f"🩹 watchdog: chunk {chunk_keys[i]} silent for "
+                        f"{int(now - last_advance[i])}s in {label} — resubmitting "
+                        f"(retry {retries[i]}/{max_chunk_retries})"
+                    )
+                    try:
+                        h.cancel()  # free the wedged container
+                    except Exception:
+                        logger.warning("watchdog: cancel of hung chunk failed",
+                                       exc_info=True)
+                    handles[i] = respawn_fn(i)  # fresh container, same range
+                    last_advance[i] = now_fn()
+                    if register_handles_fn is not None:
+                        register_handles_fn(handles)
+                else:
+                    # retries exhausted on this chunk → genuine failure
+                    _fail_all(job_id, handles, done, jlog, label, retries[i],
+                              chunk_keys[i])
+            continue
+
+        # ---- legacy global heartbeat (no chunk_keys/respawn_fn) ----
         updated_at = read_updated_at_fn(job_id)
-        silent_for = now_fn() - (updated_at or now_fn())
+        # explicit None check: a real updated_at is a unix timestamp, but
+        # `updated_at or now_fn()` would mis-read a legit 0.0 as "missing"
+        # and never trip — guard against that degenerate case.
+        ref = now_fn() if updated_at is None else updated_at
+        silent_for = now_fn() - ref
         if silent_for > stall_timeout_s:
-            pending = [h for i, h in enumerate(handles) if not done[i]]
-            jlog.error(
-                f"🚨 watchdog: no progress for {int(silent_for)}s in {label} "
-                f"— cancelling {len(pending)} worker(s)"
-            )
-            for h in pending:
-                try:
-                    h.cancel()
-                except Exception:  # best-effort: a worker may already be gone
-                    logger.warning("watchdog: failed to cancel a worker", exc_info=True)
-            from app.common import jobs
-
-            err = (
-                f"{label} stalled: no worker progress for {stall_timeout_s}s "
-                f"(silent hang) — cancelled and failed; resubmit"
-            )
-            jobs.update_job(job_id, status=jobs.FAILED, error=err)
-            raise RuntimeError(err)
-        # else: a poll cycle just elapsed without completions, but the job
-        # is still heartbeating (slow batch) — keep waiting.
+            _fail_all(job_id, handles, done, jlog, label, None, None,
+                      silent_for=silent_for, stall_timeout_s=stall_timeout_s)
 
     return results
+
+
+def _fail_all(job_id, handles, done, jlog, label, retries, chunk_key,
+              *, silent_for=None, stall_timeout_s=None):
+    """Cancel every pending handle, mark the job failed, and raise — the
+    terminal path when recovery is impossible (no respawn_fn, or a chunk
+    exhausted its retries)."""
+    pending = [h for i, h in enumerate(handles) if not done[i]]
+    if chunk_key is not None:
+        reason = (f"chunk {chunk_key} hung and exhausted {retries} resubmit(s)")
+    else:
+        reason = (f"no worker progress for {int(silent_for or 0)}s (silent hang)")
+    jlog.error(f"🚨 watchdog: {label} — {reason}; cancelling {len(pending)} worker(s)")
+    for h in pending:
+        try:
+            h.cancel()
+        except Exception:
+            logger.warning("watchdog: failed to cancel a worker", exc_info=True)
+    from app.common import jobs
+
+    err = f"{label} failed: {reason} — cancelled; resubmit"
+    jobs.update_job(job_id, status=jobs.FAILED, error=err)
+    raise RuntimeError(err)
+
+
+def _default_read_chunk_progress(job_id):
+    from app.common import jobs
+
+    job = jobs.get_job(job_id)
+    return (job or {}).get("chunk_progress")
 
 
 def _default_read_updated_at(job_id):

@@ -501,18 +501,23 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
     # multi-minute gap = a silent hang. Same watchdog protection as the
     # stereo fan-out.
     capped = worker_cls.with_options(max_containers=max_workers)
-    handles = [
-        capped(encoder=encoder).generate_scenes.spawn(
-            job_id, pre["work_path"], chunk, input_size, fps_rational
+
+    def _spawn(i):
+        return capped(encoder=encoder).generate_scenes.spawn(
+            job_id, pre["work_path"], chunks[i], input_size, fps_rational
         )
-        for chunk in chunks
-    ]
-    # record the GPU workers so a user-cancel (DELETE /v1/jobs/{id}) can
-    # tear them down — cancelling the coordinator alone leaves these
-    # spawned calls running. Cleared once the gather returns (done).
+
+    handles = [_spawn(i) for i in range(len(chunks))]
+    # per-chunk heartbeat key = the chunk's first frame (generate_scenes
+    # passes chunk=ranges[0][0] to report_progress). A hung depth chunk is
+    # resubmitted on a fresh container instead of failing the whole job.
+    chunk_keys = [c[0][0] for c in chunks]
     jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
-        job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_depth"
+        job_id, handles, jlog, stall_timeout_s=stall_timeout_s,
+        label="video_depth", chunk_keys=chunk_keys, respawn_fn=_spawn,
+        register_handles_fn=lambda hs: jobs.register_child_calls(
+            job_id, [h.object_id for h in hs]),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -559,18 +564,24 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
     # cap concurrent containers so chunk count > max_workers queues
     # instead of all firing at once (workspace has a 10-GPU ceiling)
     cls = stereo_cls.with_options(max_containers=max_workers)
-    handles = [
-        cls().generate.spawn(
-            job_id, frame_range=r, batch_size=batch_size, concat=False,
+
+    def _spawn(i):
+        return cls().generate.spawn(
+            job_id, frame_range=ranges[i], batch_size=batch_size, concat=False,
             band=(0.5, 0.85), **stereo_kwargs,
         )
-        for r in ranges
-    ]
-    # see _parallel_depth: register spawned GPU workers for user-cancel,
-    # clear once the gather returns
+
+    handles = [_spawn(i) for i in range(len(ranges))]
+    # per-chunk heartbeat key = the chunk's start frame (workers pass
+    # chunk=range_start to report_progress); respawn_fn re-rolls a hung
+    # chunk on a fresh container instead of failing the whole job.
+    chunk_keys = [r[0] for r in ranges]
     jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
-        job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_stereo"
+        job_id, handles, jlog, stall_timeout_s=stall_timeout_s,
+        label="video_stereo", chunk_keys=chunk_keys, respawn_fn=_spawn,
+        register_handles_fn=lambda hs: jobs.register_child_calls(
+            job_id, [h.object_id for h in hs]),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -619,19 +630,22 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
     )
 
     cls = M2SVidStereoWorker.with_options(max_containers=max_workers)
-    handles = [
-        cls().generate.spawn(
-            job_id, frame_range=r, batch_size=batch_size, concat=False,
+
+    def _spawn(i):
+        return cls().generate.spawn(
+            job_id, frame_range=ranges[i], batch_size=batch_size, concat=False,
             band=(0.5, 0.85), **m2svid_kwargs,
         )
-        for r in ranges
-    ]
-    # see _parallel_depth: register spawned GPU workers for user-cancel,
-    # clear once the gather returns
+
+    handles = [_spawn(i) for i in range(len(ranges))]
+    chunk_keys = [r[0] for r in ranges]
     jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
         job_id, handles, jlog,
         stall_timeout_s=stall_timeout_s, label="video_stereo[m2svid]",
+        chunk_keys=chunk_keys, respawn_fn=_spawn,
+        register_handles_fn=lambda hs: jobs.register_child_calls(
+            job_id, [h.object_id for h in hs]),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
