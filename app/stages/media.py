@@ -115,10 +115,48 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
     # covers long 4K inputs
     timeout=2 * 3600,
 )
-def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = True, target_height: int | None = None) -> dict:
+def _resolve_trim_spec(spec: dict | None, num_frames: int, fps: float) -> tuple[int, int] | None:
+    """Resolve a raw trim spec to a frame-exact (from_frame, to_frame)
+    half-open range. ``from_frame``/``to_frame`` are canonical; if only
+    ``from_sec``/``to_sec`` are given they convert via ``fps`` (round to
+    nearest frame). Missing start ⇒ 0; missing end ⇒ num_frames."""
+    if not spec:
+        return None
+    if "from_frame" in spec or "to_frame" in spec:
+        first = int(spec.get("from_frame", 0))
+        last = int(spec.get("to_frame", num_frames))
+    else:
+        first = round(float(spec.get("from_sec", 0.0)) * fps)
+        last = round(float(spec["to_sec"]) * fps) if "to_sec" in spec else num_frames
+    first = max(0, first)
+    last = min(num_frames, last)
+    if not (0 <= first < last <= num_frames):
+        raise ValueError(
+            f"trim resolves to [{first}, {last}) — out of range for {num_frames} frames"
+        )
+    return (first, last)
+
+
+def preprocess_video(
+    job_id: str,
+    input_path: str,
+    remove_black_bars: bool = True,
+    target_height: int | None = None,
+    trim_spec: dict | None = None,
+) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
-    Returns the working path + probe metadata."""
+    Returns the working path + probe metadata.
+
+    ``trim_spec`` (optional) = a dict with ``from_frame``/``to_frame``
+    (canonical, frame-exact) or ``from_sec``/``to_sec`` (convenience,
+    converted to frames via this clip's fps). Resolved to a half-open
+    [from_frame, to_frame) range. Trimming forces a re-encode so the work
+    file is always clean H.264 (also sidesteps the raw-AV1/webm seek
+    path). Applied BEFORE crop/scale; the returned probe reflects the
+    trimmed clip (num_frames = kept span), so all downstream frame indices
+    are clip-local [0, span).
+    """
     src = bucket_path(input_path)
     if not src.exists():
         raise FileNotFoundError(f"input video not found: {input_path}")
@@ -129,11 +167,24 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
 
     # never upscale; scale applies after the crop
     scale = target_height if target_height and probe["height"] > target_height else None
-    with jobs.stage_timer(job_id, "preprocess", crop=crop, scale=scale,
+
+    # resolve trim against THIS source's frame count + fps (frame-exact)
+    trim = _resolve_trim_spec(trim_spec, probe["num_frames"], probe["fps"])
+    trim_filter = None
+    if trim is not None:
+        first, last = trim
+        # to-frame is half-open; ffmpeg's between() is inclusive on both
+        trim_filter = f"select='between(n,{first},{last - 1})',setpts=PTS-STARTPTS"
+
+    with jobs.stage_timer(job_id, "preprocess", crop=crop, scale=scale, trim=trim,
                           **{k: probe[k] for k in ("width", "height", "num_frames")}):
-        if crop or scale:
+        if crop or scale or trim_filter:
             filters = ",".join(
-                f for f in (f"crop={crop}" if crop else "", f"scale=-2:{scale}" if scale else "")
+                f for f in (
+                    trim_filter or "",
+                    f"crop={crop}" if crop else "",
+                    f"scale=-2:{scale}" if scale else "",
+                )
                 if f
             )
             work_path = work_dir / "source_processed.mp4"
@@ -150,8 +201,12 @@ def preprocess_video(job_id: str, input_path: str, remove_black_bars: bool = Tru
 
     cache_volume.commit()
     # source_path: the pristine input — audio is muxed from here, since
-    # the work file is video-only (crop re-encode drops audio with -an)
-    return {"work_path": str(work_path), "source_path": str(src), "probe": probe, "crop": crop}
+    # the work file is video-only (crop re-encode drops audio with -an).
+    # trim: the audio mux must match, so pass the trim window downstream.
+    return {
+        "work_path": str(work_path), "source_path": str(src),
+        "probe": probe, "crop": crop, "trim": trim,
+    }
 
 
 @app.function(
@@ -205,6 +260,7 @@ def encode_outputs(
     original_path: str | None = None,
     formats: list[str] | None = None,
     include_audio: bool = True,
+    audio_trim: tuple[float, float] | None = None,
 ) -> dict:
     """Stage 3: derive deliverables from the full-width SBS master and
     publish them to the bucket.
@@ -226,7 +282,12 @@ def encode_outputs(
     audio_args: list[str] = []
     original = Path(original_path) if original_path else None
     if include_audio and original and original.exists() and has_audio(original):
-        audio_args = ["-i", str(original), "-map", "0:v", "-map", "1:a?", "-c:a", "aac", "-shortest"]
+        # trimmed clip: cut audio to the same window before muxing
+        # (-ss/-t before the audio -i for a fast, frame-aligned seek)
+        seek = []
+        if audio_trim is not None:
+            seek = ["-ss", f"{audio_trim[0]:.3f}", "-t", f"{audio_trim[1] - audio_trim[0]:.3f}"]
+        audio_args = [*seek, "-i", str(original), "-map", "0:v", "-map", "1:a?", "-c:a", "aac", "-shortest"]
 
     # filter recipes from the full-width SBS master
     recipes = {

@@ -162,19 +162,31 @@ PLACEMENT_SHIFT_MAX = 0.6
 
 # Per-shot stereo parameters. ``displacement`` is the max disparity as a
 # fraction of width (VideoStereoWorker convention); ``placement`` is the
-# DepthSplatter depth-budget mapping (see app/stages/splat.py):
-# - close_up: small displacement + pop-out capped at 0.1 — a face filling
-#   the frame at full budget causes eye strain and window violations.
-# - wide: largest displacement, everything at/behind the screen plane —
-#   distant content tolerates (and needs) more disparity to read as deep.
-# - dynamic: conservative middle ground — keyframes disagree, so any
-#   aggressive setting will be wrong for part of the shot.
-# - standard: the pipeline's existing defaults, byte-identical behavior.
+# DepthSplatter depth-budget mapping (see app/stages/splat.py).
+#
+# Tuning (2026-06-14, device-confirmed on dance + webm2): the original
+# table RAMPED UP displacement with shot width (wide 0.018 > close 0.008),
+# on the theory that distant content needs more disparity to read as deep.
+# For FORWARD-WARP stereo that's backwards and was the cause of the
+# "too strong + artifacts on wide shots" feedback:
+#   - wider shot ⇒ more disocclusion ⇒ more inpainting ⇒ more artifacts;
+#   - wider shot has more depth RANGE, so the same displacement yields a
+#     bigger near↔far disparity ⇒ reads as "too strong".
+# Close-ups were confirmed on point, so we KEEP 0.008 as the ceiling and
+# RAMP DOWN as shots widen (A). Wide shots also go fully behind the screen
+# plane (placement near-plane −0.2, a window) since pop-out is exactly
+# what exposes disocclusion edges most (B).
+# - close_up: confirmed on point; small displacement, mild pop-out.
+# - standard (mid): "a little too strong" → modest cut from 0.0125.
+# - wide: "too strong + artifacts" → LESS than standard + window (behind
+#   screen), to minimize holes and divergence on full-scene shots.
+# - dynamic: middle ground; its per-keyframe ramp now samples this
+#   corrected table so close→far moves no longer over-deepen at the far end.
 SHOT_PARAMS: dict[str, dict] = {
     "close_up": {"displacement": 0.008, "placement": (-1.0, 0.1)},
-    "wide":     {"displacement": 0.018, "placement": (-1.0, 0.0)},
-    "dynamic":  {"displacement": 0.010, "placement": (-1.0, 0.3)},
-    "standard": {"displacement": 0.0125, "placement": (-1.0, 0.5)},
+    "standard": {"displacement": 0.009, "placement": (-1.0, 0.3)},
+    "dynamic":  {"displacement": 0.0085, "placement": (-1.0, 0.1)},
+    "wide":     {"displacement": 0.007, "placement": (-1.0, -0.2)},
 }
 
 

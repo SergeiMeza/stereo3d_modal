@@ -46,6 +46,12 @@ class VideoRequest(TypedDict, total=False):
     comfort_budget: float  # default 0.02, range (0, 0.05]; adaptive only.
     # Target peak salient screen disparity (fraction of width) for
     # auto_comfort; 0.02 = broadcast background-divergence bracket.
+    from_frame: int  # trim: keep [from_frame, to_frame) — frame-exact,
+    to_frame: int    # canonical. Half-open. Omit start⇒0, end⇒end.
+    from_sec: float  # convenience: converted to frames via source fps
+    to_sec: float    # (round to nearest). Use from_frame/to_frame for
+    # exactness (e.g. depth-reuse alignment). Audio is cut to the same
+    # window. Trimming always re-encodes to clean H.264.
     reuse_depth_from: str  # job_id of a prior run on the SAME source
     # (same crop/resolution): skip the depth pass and reuse its cached
     # depth map. Frame count + dimensions are verified; mismatch = 400.

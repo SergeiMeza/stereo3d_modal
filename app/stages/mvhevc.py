@@ -55,6 +55,7 @@ def encode_mvhevc(
     quality: int = 28,
     original_path: str | None = None,
     spatial: dict | None = None,
+    audio_trim: tuple[float, float] | None = None,
 ) -> dict:
     """Encode a full-width SBS video into Apple spatial video:
     MV-HEVC (NVENC) → MP4Box mux (hvcC+lhvC) → vexu/hfov injection.
@@ -112,8 +113,11 @@ def encode_mvhevc(
             original = Path(original_path) if original_path else None
             if original and original.exists():
                 audio = tmp_dir / "audio.m4a"
+                seek = []
+                if audio_trim is not None:
+                    seek = ["-ss", f"{audio_trim[0]:.3f}", "-t", f"{audio_trim[1] - audio_trim[0]:.3f}"]
                 got_audio = subprocess.run(
-                    ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(original),
+                    ["ffmpeg8", "-y", "-loglevel", "error", *seek, "-i", str(original),
                      "-vn", "-c:a", "aac", str(audio)],
                     capture_output=True, text=True,
                 ).returncode == 0 and audio.exists()
@@ -212,6 +216,7 @@ def encode_mvhevc_x265(
     preset: str = "medium",
     original_path: str | None = None,
     spatial: dict | None = None,
+    audio_trim: tuple[float, float] | None = None,
 ) -> dict:
     """Apple-recognized spatial video via x265 MV-HEVC (CPU).
 
@@ -290,8 +295,15 @@ def encode_mvhevc_x265(
             original = Path(original_path) if original_path else None
             if original and original.exists():
                 audio = tmp_dir / "audio.m4a"
+                # when the video was trimmed, the audio must be cut to the
+                # SAME window (-ss start before -i for fast seek, -t span)
+                # or it would desync / overrun the shortened video
+                seek = []
+                if audio_trim is not None:
+                    a_start, a_end = float(audio_trim[0]), float(audio_trim[1])
+                    seek = ["-ss", f"{a_start:.3f}", "-t", f"{a_end - a_start:.3f}"]
                 ok = subprocess.run(
-                    ["ffmpeg8", "-y", "-loglevel", "error", "-i", str(original),
+                    ["ffmpeg8", "-y", "-loglevel", "error", *seek, "-i", str(original),
                      "-vn", "-c:a", "aac", str(audio)],
                     capture_output=True, text=True,
                 ).returncode == 0 and audio.exists()

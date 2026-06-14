@@ -125,11 +125,17 @@ def process_video_job(job_id: str, request: dict) -> dict:
                   f"input_size={request.get('input_size', 980)})")
         jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="preprocess", progress=0.05)
 
+        # trim: from_frame/to_frame are canonical; from_sec/to_sec are a
+        # convenience layer. The sec→frame conversion needs the source fps,
+        # which preprocess_video has from its probe, so we pass the raw
+        # spec through and resolve it there (keeps one probe, frame-exact).
+        trim_spec = _trim_spec(request)
         pre = preprocess_video.remote(
             job_id,
             request["input_path"],
             remove_black_bars=request.get("remove_black_bars", True),
             target_height=request.get("target_height"),
+            trim_spec=trim_spec,
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "
@@ -356,6 +362,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
         jlog.info(f"📋 stereo done: {stereo['sbs_path']} ({stereo['width']}x{stereo['height']})")
         jobs.update_job(job_id, progress=0.85, stage="encode_outputs")
 
+        # if the clip was trimmed, audio must be cut to the same window
+        # (the work file is video-only; audio is muxed from the full
+        # source_path). trim is in frames → seconds via the source fps.
+        audio_trim = None
+        if pre.get("trim"):
+            src_fps = probe["fps"]
+            audio_trim = (pre["trim"][0] / src_fps, pre["trim"][1] / src_fps)
+
         formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
         encoded = encode_outputs.remote(
             job_id,
@@ -363,6 +377,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             original_path=pre["source_path"],  # pristine input carries the audio
             formats=[f for f in formats if f != "mvhevc"],
             include_audio=request.get("include_audio", True),
+            audio_trim=audio_trim,
         )
 
         outputs = dict(encoded["outputs"])
@@ -379,6 +394,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 sbs_path=stereo["sbs_path"],
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,
                 spatial=request.get("spatial"),
+                audio_trim=audio_trim,
             )
             check_worker_result(mv, "encode_mvhevc")
             outputs["mvhevc"] = mv["mvhevc"]
@@ -420,6 +436,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
 
 # ---------------------------------------------------- long-video fan-out
+
+
+def _trim_spec(request: dict) -> dict | None:
+    """Pull trim fields out of the request into a spec dict (or None).
+    Accepts from_frame/to_frame (canonical) or from_sec/to_sec
+    (convenience). preprocess_video resolves these to exact frames using
+    the source fps."""
+    keys = ("from_frame", "to_frame", "from_sec", "to_sec")
+    spec = {k: request[k] for k in keys if k in request and request[k] is not None}
+    return spec or None
 
 
 def _align_up(n: int, multiple: int) -> int:
