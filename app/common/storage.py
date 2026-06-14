@@ -24,7 +24,16 @@ import modal
 from app.env import APP_ENV
 
 BUCKET_NAME = "spatial-video-studio-app"
-BUCKET_PREFIX = f"stereo3d/{APP_ENV}/"
+# Bucket prefix policy:
+# - PROD is ISOLATED: it gets its own prefix so R&D jobs can never read or
+#   overwrite production data.
+# - All R&D workspaces (stereo-crafter-test / -stg / -dev) SHARE one prefix,
+#   so a job submitted on any of them sees the same inputs and writes
+#   outputs to one place — no per-workspace re-uploads, and we can run the
+#   same conversion across workspaces in parallel (separate GPU pools).
+# The cache/weights VOLUMES remain per-workspace (Modal volumes can't cross
+# workspaces); only this external GCS prefix is shared across R&D.
+BUCKET_PREFIX = "stereo3d/prod/" if APP_ENV == "prod" else "stereo3d/test/"
 
 # Mount points (same in every container)
 BUCKET_DIR = Path("/bucket")
