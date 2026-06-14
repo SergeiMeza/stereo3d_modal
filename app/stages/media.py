@@ -104,17 +104,6 @@ def detect_crop(path: Path, probe: dict, samples: int = 3, window: float = 2.0) 
     return best
 
 
-@app.function(
-    image=media_image,
-    volumes=PIPELINE_VOLUMES,
-    secrets=[slack_secret],
-    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=4,
-    memory=(2 * 1024, 16 * 1024),
-    # decode + crop + rescale the whole source; scales with length, 2h
-    # covers long 4K inputs
-    timeout=2 * 3600,
-)
 def _resolve_trim_spec(spec: dict | None, num_frames: int, fps: float) -> tuple[int, int] | None:
     """Resolve a raw trim spec to a frame-exact (from_frame, to_frame)
     half-open range. ``from_frame``/``to_frame`` are canonical; if only
@@ -137,6 +126,17 @@ def _resolve_trim_spec(spec: dict | None, num_frames: int, fps: float) -> tuple[
     return (first, last)
 
 
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=4,
+    memory=(2 * 1024, 16 * 1024),
+    # decode + crop + rescale the whole source; scales with length, 2h
+    # covers long 4K inputs
+    timeout=2 * 3600,
+)
 def preprocess_video(
     job_id: str,
     input_path: str,
