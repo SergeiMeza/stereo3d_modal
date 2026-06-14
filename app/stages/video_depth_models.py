@@ -216,10 +216,13 @@ PLACEMENT_SHIFT_MAX = 0.6
 # - dynamic: middle ground; its per-keyframe ramp now samples this
 #   corrected table so close→far moves no longer over-deepen at the far end.
 SHOT_PARAMS: dict[str, dict] = {
+    # v3 (2026-06-14): gentle ~25% bump up from v2 — v2 read slightly
+    # flat, so a touch more depth, still well short of the too-strong
+    # original. close_up kept (on point); wide stays behind-screen.
     "close_up": {"displacement": 0.008, "placement": (-1.0, 0.1)},
-    "standard": {"displacement": 0.009, "placement": (-1.0, 0.3)},
-    "dynamic":  {"displacement": 0.0085, "placement": (-1.0, 0.1)},
-    "wide":     {"displacement": 0.007, "placement": (-1.0, -0.2)},
+    "standard": {"displacement": 0.010, "placement": (-1.0, 0.3)},
+    "dynamic":  {"displacement": 0.009, "placement": (-1.0, 0.1)},
+    "wide":     {"displacement": 0.0085, "placement": (-1.0, -0.2)},
 }
 
 
