@@ -113,8 +113,15 @@ class M2SVidStereoWorker:
         depth_path: str,
         displacement: float = 0.0125,
         stereo_mode: str = "right",
+        # MODEL CONSTRAINT, not a quality/VRAM tuning knob (unlike
+        # ProPainter's work_height/work_width). M2SVid is a diffusion model
+        # TRAINED at the ~512-tall tier; running far off it pushes the fill
+        # out of its training distribution → WORSE fills, not just slower.
+        # The pipeline deliberately does NOT plumb these from the request
+        # (see app/pipelines/video.py m2svid_kwargs) so they stay pinned.
+        # Override only for deliberate model-resolution experiments.
         work_height: int = 512,
-        work_width: int | None = None,
+        work_width: int | None = None,  # None → aspect-derived from source
         fps_rational: str | None = None,
         band: tuple[float, float] = (0.0, 1.0),
         frame_range: tuple[int, int] | None = None,
@@ -126,9 +133,17 @@ class M2SVidStereoWorker:
         warped + M2SVid-filled). Paths are inside the cache volume /
         bucket mount. Returns the cache path of the SBS file.
 
-        ``work_height``/``work_width`` are the model resolution,
-        snapped to multiples of 64; ``work_width=None`` derives it from
-        the source aspect ratio (e.g. 512x896 for 16:9).
+        ``work_height``/``work_width`` are the M2SVid MODEL resolution —
+        a fixed training constraint, NOT a tunable like ProPainter's
+        equivalents. They snap to multiples of 64; ``work_width=None``
+        derives the width from the source aspect ratio while pinning the
+        height to the ~512 trained tier (e.g. 512x896 for 16:9). The
+        pipeline keeps these at their defaults (it does not forward the
+        request's work_height/work_width here, unlike the ProPainter path)
+        because off-tier resolutions degrade the diffusion fill quality.
+        Splatting is at SOURCE resolution; only the warp+masks handed to
+        the model are at the work tier (full-res warp detail is preserved
+        outside the inpainted region).
 
         Written in ~SEGMENT_FRAMES checkpoints aligned to the 25-frame
         model window (segmentation never changes results — windows are
@@ -168,6 +183,9 @@ class M2SVidStereoWorker:
                 f"{depth_decoder.metadata.num_frames} — upstream stage dropped frames"
             )
 
+        # model-tier resolution (see generate() docstring): height pinned
+        # to the ~512 trained tier, width aspect-derived; both snapped to
+        # the model's 64-multiple requirement. NOT a free tuning knob.
         wh = _round64(work_height)
         ww = _round64(work_width if work_width is not None else width * wh / height)
         # BICUBIC down/up (not the ProPainter path's nearest): the

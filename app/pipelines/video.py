@@ -305,8 +305,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
             # M2SVid always runs at its trained ~512-tier model
             # resolution (the worker derives a 64-multiple width from
-            # the source aspect); the ProPainter work_height/work_width
-            # knobs do not apply. Left eye stays the original frame.
+            # the source aspect). work_height/work_width are DELIBERATELY
+            # NOT forwarded from the request here (unlike stereo_kwargs for
+            # ProPainter): they are a MODEL constraint, not a tunable —
+            # off-tier resolutions degrade the diffusion fill. Do not add
+            # them "for parity". See M2SVidStereoWorker.generate docstring.
+            # Left eye stays the original frame.
             m2svid_kwargs = dict(
                 stereo_mode=request.get("stereo_mode", "right"),
                 video_path=pre["work_path"],
