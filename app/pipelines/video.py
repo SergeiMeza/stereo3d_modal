@@ -155,6 +155,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # silent hang) instead of stalling until Modal's multi-hour
         # function timeout. Overridable per request.
         stall_timeout_s = int(request.get("stall_timeout_s", STALL_TIMEOUT_S))
+        # fan-out tuning: max_gpu_workers caps concurrent containers;
+        # stereo_chunk_frames/depth_chunk_frames shrink the per-chunk size
+        # so more, shorter chunks run in parallel (faster wall-clock when
+        # GPUs are plentiful). Defaults preserve prior behavior.
+        max_gpu_workers = int(request.get("max_gpu_workers", 4))
+        stereo_chunk_cap = int(request.get("stereo_chunk_frames", STEREO_CHUNK_FRAMES))
+        depth_chunk_cap = int(request.get("depth_chunk_frames", DEPTH_CHUNK_FRAMES))
 
         # -------------------------------- adaptive per-shot depth script
         adaptive = bool(request.get("adaptive", False))
@@ -251,8 +258,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 # no .with_options).
                 depth = _parallel_depth(
                     job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
-                    max_workers=int(request.get("max_gpu_workers", 4)),
-                    stall_timeout_s=stall_timeout_s,
+                    max_workers=max_gpu_workers,
+                    stall_timeout_s=stall_timeout_s, chunk_cap=depth_chunk_cap,
                 )
             else:
                 # single worker: coverage relies on Modal's depth function
@@ -312,7 +319,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             if parallel:
                 stereo = _parallel_stereo_m2svid(
                     job_id, jlog, pre, m2svid_kwargs,
-                    max_workers=int(request.get("max_gpu_workers", 4)),
+                    max_workers=max_gpu_workers,
                     stall_timeout_s=stall_timeout_s,
                 )
             else:
@@ -344,8 +351,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             if parallel:
                 stereo = _parallel_stereo(
                     job_id, jlog, pre, stereo_kwargs, stereo_cls,
-                    max_workers=int(request.get("max_gpu_workers", 4)),
-                    stall_timeout_s=stall_timeout_s,
+                    max_workers=max_gpu_workers,
+                    stall_timeout_s=stall_timeout_s, chunk_cap=stereo_chunk_cap,
                 )
             else:
                 # single worker: coverage relies on Modal's stereo function
@@ -469,7 +476,7 @@ def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
 
 
 def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
-                    max_workers, stall_timeout_s=STALL_TIMEOUT_S):
+                    max_workers, stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=DEPTH_CHUNK_FRAMES):
     from app.common.errors import check_worker_result
     from app.stages.media import concat_cache_segments, detect_scenes
 
@@ -477,10 +484,11 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
     boundaries = [(s["start"], s["end"]) for s in scenes] or [(0, pre["probe"]["num_frames"])]
     total = pre["probe"]["num_frames"]
     # capped chunk size: bounded worker wall time, more chunks for long
-    # videos (same principle as the stereo fan-out)
+    # videos (same principle as the stereo fan-out). A smaller chunk_cap
+    # with many GPUs ⇒ more, shorter chunks ⇒ lower wall-clock.
     chunks = _chunk_ranges(
         boundaries, total,
-        target=min(DEPTH_CHUNK_FRAMES, max(600, -(-total // max_workers))),
+        target=min(chunk_cap, max(600, -(-total // max_workers))),
     )
     jlog.info(
         f"🧩 depth fan-out: {len(boundaries)} scene(s) → {len(chunks)} chunk(s) "
@@ -521,7 +529,7 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
 
 
 def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
-                     stall_timeout_s=STALL_TIMEOUT_S):
+                     stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=STEREO_CHUNK_FRAMES):
     from app.common.errors import check_worker_result
     from app.common.storage import job_cache_dir
     from app.stages.media import concat_cache_segments
@@ -530,13 +538,12 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
     total = pre["probe"]["num_frames"]
     batch_size = _pick_batch_size(total)
     seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
-    # chunk size is CAPPED (STEREO_CHUNK_FRAMES) so a worker's wall time
-    # never grows with total length — long videos spawn MORE chunks, not
-    # bigger ones. The cap is the binding constraint; if even one chunk
-    # per worker would exceed it, we use the cap and let chunk count
-    # exceed max_workers (they queue at the concurrency limit and drain).
+    # chunk size is CAPPED (chunk_cap, default STEREO_CHUNK_FRAMES) so a
+    # worker's wall time never grows with total length — long videos spawn
+    # MORE chunks, not bigger ones. A SMALLER cap (e.g. when many GPUs are
+    # available) makes more, shorter chunks → lower wall-clock per chunk.
     chunk_len = _align_up(
-        min(STEREO_CHUNK_FRAMES, -(-total // max_workers)), seg_len
+        min(chunk_cap, -(-total // max_workers)), seg_len
     )
     ranges = [(s, min(s + chunk_len, total)) for s in range(0, total, chunk_len)]
     jlog.info(
