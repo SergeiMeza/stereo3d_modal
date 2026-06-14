@@ -258,6 +258,48 @@ def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
     return DISPLACEMENT_RAMP_ANCHORS[-1][1]
 
 
+# v5 (2026-06-14): the NEAR PLANE (pop-out) is now ALSO a continuous
+# function of median depth, replacing the static per-class placement near
+# value. ``placement`` is (far_plane, near_plane): far_plane stays −1.0
+# (deepest content behind screen, no divergence issues); near_plane sets
+# how far the CLOSEST content comes toward the viewer (positive = pop-out
+# in front of screen, negative = still behind = a window).
+# Rationale (user): with v4's disparity now right, some scenes "look 3D but
+# the plane is too far back" — specifically close SUBJECTS that should pop
+# but got parked behind the screen because their per-class placement didn't
+# read their actual distance. Making near_plane follow depth (like
+# displacement) pops near content forward regardless of class, while far
+# establishing shots stay windowed (which also keeps hiding disocclusion
+# edges on the shots that can't be inpainted). Applied per-shot AND
+# per-keyframe, so a dynamic close→far move tapers pop-out as the subject
+# recedes. The MAX_POPOUT_DISPARITY comfort cap remains the guardrail.
+#
+# Anchors (median_m → near_plane), piecewise-linear, clamped:
+#   3 m → +0.4 (pops well forward), 7 m → +0.1 (at/near screen),
+#   15 m → −0.1 (mild window), 20 m → −0.2 (deep wides fully back).
+NEAR_PLANE_RAMP_ANCHORS = [(3.0, 0.4), (7.0, 0.1), (15.0, -0.1), (20.0, -0.2)]
+
+
+def _ramp_near_plane(median_depth: float) -> float:
+    """Continuous near-plane (pop-out) as a piecewise-linear function of
+    median depth in METERS. Clamped flat outside the anchor range. Near
+    content pops forward (positive), far content recedes (negative)."""
+    m = max(NEAR_PLANE_RAMP_ANCHORS[0][0],
+            min(NEAR_PLANE_RAMP_ANCHORS[-1][0], float(median_depth)))
+    for (m0, p0), (m1, p1) in zip(NEAR_PLANE_RAMP_ANCHORS, NEAR_PLANE_RAMP_ANCHORS[1:]):
+        if m0 <= m <= m1:
+            t = (m - m0) / (m1 - m0)
+            return round(p0 + t * (p1 - p0), 4)
+    return NEAR_PLANE_RAMP_ANCHORS[-1][1]
+
+
+def _ramp_placement(median_depth: float, units: str = "meters") -> tuple:
+    """v5 placement: far_plane fixed at −1.0, near_plane from the depth
+    ramp. Meters-profiler only; callers fall back to the per-class
+    SHOT_PARAMS placement for non-meters units."""
+    return (-1.0, _ramp_near_plane(median_depth))
+
+
 # ------------------------------------------ depth-script construction
 #
 # Everything below is pure python (no torch) so the script-building
@@ -449,27 +491,32 @@ def _build_depth_script(
             )
 
         params = SHOT_PARAMS[shot_type]
-        # v4: displacement is the depth ramp (meters profiler); placement
-        # still comes from the class. Fall back to the bucket displacement
-        # for non-meters units (no true depth scale to ramp on).
+        # v4: displacement is the depth ramp (meters profiler).
+        # v5: placement (near plane / pop-out) is ALSO the depth ramp.
+        # Both fall back to the per-class SHOT_PARAMS bucket for non-meters
+        # units (da3-metric has no true depth scale to ramp on).
         if units == "meters":
             shot_disp = _ramp_displacement(median_depth)
+            shot_placement = _ramp_placement(median_depth)
         else:
             shot_disp = params["displacement"]
+            shot_placement = params["placement"]
         entry = {
             "first": int(s["first"]),
             "last": int(s["last"]),
             "shot_type": shot_type,
             "displacement": round(shot_disp * depth_scale, 6),
-            "placement": list(params["placement"]),
+            "placement": list(shot_placement),
             "median": round(median_depth, 4),
             "near_fraction": round(near_fraction, 4),
         }
         if fov_mean is not None:
             entry["fov_deg"] = round(fov_mean, 1)
         if shot_type == "dynamic":
-            # per-keyframe: displacement ramps on EACH keyframe's own depth
-            # (so a close→far push tapers), placement still per-keyframe class
+            # per-keyframe: BOTH displacement and placement ramp on EACH
+            # keyframe's own depth (a close→far push tapers disparity AND
+            # recedes the pop-out; a far→close push brings the subject
+            # forward as it approaches).
             entry["keyframes"] = [
                 {
                     "index": int(idx),
@@ -477,9 +524,9 @@ def _build_depth_script(
                         (_ramp_displacement(d) if units == "meters"
                          else SHOT_PARAMS[_classify_keyframe(d, nf, units=units, fov_deg=fov_mean)]["displacement"])
                         * depth_scale, 6),
-                    "placement": list(SHOT_PARAMS[
-                        _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
-                    ]["placement"]),
+                    "placement": list(
+                        _ramp_placement(d) if units == "meters"
+                        else SHOT_PARAMS[_classify_keyframe(d, nf, units=units, fov_deg=fov_mean)]["placement"]),
                 }
                 for idx, d, nf in zip(s["keyframes"], depth_med, near)
             ]
