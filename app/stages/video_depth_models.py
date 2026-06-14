@@ -225,6 +225,38 @@ SHOT_PARAMS: dict[str, dict] = {
     "wide":     {"displacement": 0.0085, "placement": (-1.0, -0.2)},
 }
 
+# v4 (2026-06-14, device-confirmed): displacement is now a CONTINUOUS
+# function of median depth (meters), replacing the discrete per-class
+# values above. The class still sets PLACEMENT (where the plane sits),
+# but DISPLACEMENT always follows depth: near ⇒ more, far ⇒ less.
+# Rationale (user, dance first-shot screenshot): a far shot (figures
+# filling ≤50% height against a flat wall) at the old flat wide=0.0085
+# opens huge disocclusion holes the inpainter can't fill (smeared faces).
+# Far content reads as far with little parallax AND can't be inpainted, so
+# it needs LESS displacement. This also makes dynamic-shot keyframes taper
+# correctly (a close→far push reduces disparity at the far end), since the
+# ramp is applied PER-KEYFRAME on each keyframe's own median depth.
+#
+# Anchors (median_m → displacement), piecewise-linear, clamped at the ends:
+#   2 m → 0.010 (near), 5 m → 0.008 (mid), 11 m → 0.006 (wide),
+#   20 m → 0.0045 (far floor). The user's 14.9 m screenshot → 0.00535,
+#   a real ~24% cut from the old 0.007/0.0085.
+DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.010), (5.0, 0.008), (11.0, 0.006), (20.0, 0.0045)]
+
+
+def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
+    """Continuous displacement as a piecewise-linear function of median
+    depth in METERS (depth-pro profiler). Clamped flat outside the anchor
+    range. For non-meters units (da3-metric, no true scale) the ramp can't
+    be applied — callers fall back to the SHOT_PARAMS bucket value."""
+    m = max(DISPLACEMENT_RAMP_ANCHORS[0][0],
+            min(DISPLACEMENT_RAMP_ANCHORS[-1][0], float(median_depth)))
+    for (m0, d0), (m1, d1) in zip(DISPLACEMENT_RAMP_ANCHORS, DISPLACEMENT_RAMP_ANCHORS[1:]):
+        if m0 <= m <= m1:
+            t = (m - m0) / (m1 - m0)
+            return round(d0 + t * (d1 - d0), 6)
+    return DISPLACEMENT_RAMP_ANCHORS[-1][1]
+
 
 # ------------------------------------------ depth-script construction
 #
@@ -417,11 +449,18 @@ def _build_depth_script(
             )
 
         params = SHOT_PARAMS[shot_type]
+        # v4: displacement is the depth ramp (meters profiler); placement
+        # still comes from the class. Fall back to the bucket displacement
+        # for non-meters units (no true depth scale to ramp on).
+        if units == "meters":
+            shot_disp = _ramp_displacement(median_depth)
+        else:
+            shot_disp = params["displacement"]
         entry = {
             "first": int(s["first"]),
             "last": int(s["last"]),
             "shot_type": shot_type,
-            "displacement": round(params["displacement"] * depth_scale, 6),
+            "displacement": round(shot_disp * depth_scale, 6),
             "placement": list(params["placement"]),
             "median": round(median_depth, 4),
             "near_fraction": round(near_fraction, 4),
@@ -429,12 +468,15 @@ def _build_depth_script(
         if fov_mean is not None:
             entry["fov_deg"] = round(fov_mean, 1)
         if shot_type == "dynamic":
+            # per-keyframe: displacement ramps on EACH keyframe's own depth
+            # (so a close→far push tapers), placement still per-keyframe class
             entry["keyframes"] = [
                 {
                     "index": int(idx),
-                    "displacement": round(SHOT_PARAMS[
-                        _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
-                    ]["displacement"] * depth_scale, 6),
+                    "displacement": round(
+                        (_ramp_displacement(d) if units == "meters"
+                         else SHOT_PARAMS[_classify_keyframe(d, nf, units=units, fov_deg=fov_mean)]["displacement"])
+                        * depth_scale, 6),
                     "placement": list(SHOT_PARAMS[
                         _classify_keyframe(d, nf, units=units, fov_deg=fov_mean)
                     ]["placement"]),
