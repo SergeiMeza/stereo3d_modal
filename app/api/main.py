@@ -198,17 +198,43 @@ def _reconcile_with_call(job: dict) -> dict | None:
     return jobs.update_job(job["job_id"], **fields)
 
 
-@web_app.delete("/v1/jobs/{job_id}")
-async def cancel_job(job_id: str) -> dict:
+def _cancel_call(call_id: str) -> bool:
+    """Best-effort cancel of one FunctionCall. A child may have already
+    finished or aged out of call history (~1-day retention) — that's not
+    an error, just nothing left to cancel."""
     import modal
 
+    try:
+        modal.FunctionCall.from_id(call_id).cancel()
+        return True
+    except Exception:
+        return False
+
+
+@web_app.delete("/v1/jobs/{job_id}")
+async def cancel_job(job_id: str) -> dict:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
-    call_id = job.get("call_id")
-    if call_id and job["status"] in (jobs.PENDING, jobs.IN_PROGRESS):
-        modal.FunctionCall.from_id(call_id).cancel()
-        jobs.update_job(job_id, status=jobs.FAILED, error="cancelled by user")
+    if job["status"] not in (jobs.PENDING, jobs.IN_PROGRESS):
+        return job  # already terminal — nothing to cancel
+
+    # Cancel the coordinator AND every GPU worker it spawned. Cancelling
+    # the coordinator alone leaves the fan-out's spawned calls running
+    # (independent FunctionCalls) — the bug this addresses. Cancel the
+    # children FIRST so they can't outlive the coordinator if the
+    # coordinator cancel lands a beat sooner.
+    cancelled = 0
+    for cid in (job.get("child_call_ids") or []):
+        cancelled += _cancel_call(cid)
+    if job.get("call_id"):
+        _cancel_call(job["call_id"])
+    jobs.update_job(
+        job_id,
+        status=jobs.FAILED,
+        error=f"cancelled by user (cancelled {cancelled} GPU worker(s))",
+        child_call_ids=[],
+    )
     return jobs.get_job(job_id)
 
 

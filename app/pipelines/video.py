@@ -507,9 +507,14 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
         )
         for chunk in chunks
     ]
+    # record the GPU workers so a user-cancel (DELETE /v1/jobs/{id}) can
+    # tear them down — cancelling the coordinator alone leaves these
+    # spawned calls running. Cleared once the gather returns (done).
+    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
         job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_depth"
     )
+    jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_depth[chunk]")
@@ -561,9 +566,13 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
         )
         for r in ranges
     ]
+    # see _parallel_depth: register spawned GPU workers for user-cancel,
+    # clear once the gather returns
+    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
         job_id, handles, jlog, stall_timeout_s=stall_timeout_s, label="video_stereo"
     )
+    jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_stereo[chunk]")
@@ -617,10 +626,14 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
         )
         for r in ranges
     ]
+    # see _parallel_depth: register spawned GPU workers for user-cancel,
+    # clear once the gather returns
+    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
         job_id, handles, jlog,
         stall_timeout_s=stall_timeout_s, label="video_stereo[m2svid]",
     )
+    jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
     for r in results:
         check_worker_result(r, "video_stereo[chunk]")

@@ -63,6 +63,38 @@ def update_job(job_id: str, **fields) -> dict | None:
     return job
 
 
+def register_child_calls(job_id: str, call_ids: list[str]) -> None:
+    """Record the FunctionCall ids of GPU workers a coordinator spawned.
+
+    Cancelling the coordinator's own call_id does NOT propagate to calls
+    it spawned via .spawn() — they are independent FunctionCalls. So the
+    fan-out stages register their per-chunk worker ids here, and
+    cancel_job (DELETE /v1/jobs/{id}) cancels every one of them, not just
+    the coordinator. Appends (a job may run depth then stereo fan-outs);
+    clear_child_calls resets between stages so we never try to cancel an
+    already-finished call."""
+    job = job_dict.get(job_id)
+    if job is None:
+        return
+    existing = list(job.get("child_call_ids") or [])
+    existing.extend(cid for cid in call_ids if cid and cid not in existing)
+    job["child_call_ids"] = existing
+    job["updated_at"] = time.time()
+    job_dict[job_id] = job
+
+
+def clear_child_calls(job_id: str) -> None:
+    """Drop the recorded child-call ids (e.g. after a fan-out stage's
+    gather returns and those workers are no longer running)."""
+    job = job_dict.get(job_id)
+    if job is None:
+        return
+    if job.get("child_call_ids"):
+        job["child_call_ids"] = []
+        job["updated_at"] = time.time()
+        job_dict[job_id] = job
+
+
 def add_timing(job_id: str, stage: str, seconds: float, gpu: str | None = None, **detail):
     job = job_dict.get(job_id)
     if job is None:
