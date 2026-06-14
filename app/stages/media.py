@@ -395,14 +395,21 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
 def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> dict:
     """Reuse a prior job's depth map for a stereo-only experiment.
 
-    The depth video lives on the shared cache volume at
-    ``/cache/jobs/<source_job_id>/depth.mp4`` and survives across jobs.
-    We copy it into THIS job's cache dir (so segment naming, concat,
-    and the optional depth publish all work unchanged) and verify it
-    matches this run's preprocess output: identical frame count (else
-    audio would desync) and the depth dimensions the stereo stage will
-    rescale from. Mismatches mean the source/crop/resolution differ —
-    fail fast rather than warp against the wrong geometry.
+    Source priority:
+      1. the source job's cache-volume depth (same workspace, fastest);
+      2. fallback to the PUBLISHED depth on GCS at
+         ``outputs/<source_job_id>/depth.mp4`` — this is what enables
+         CROSS-WORKSPACE reuse: the bucket prefix is shared across the
+         R&D workspaces, so a job run on workspace A can reuse a depth
+         map produced on workspace B (whose cache volume we can't see).
+         Requires the source job ran with output_depth=true (default).
+
+    We copy the chosen depth into THIS job's cache dir (so segment
+    naming, concat, and the optional depth publish all work unchanged)
+    and verify it matches this run's preprocess output: identical frame
+    count (else audio would desync) and the depth dimensions the stereo
+    stage will rescale from. Mismatches mean the source/crop/resolution
+    differ — fail fast rather than warp against the wrong geometry.
 
     Returns the same dict shape as VideoDepthWorker.generate, except
     ``scene_cuts`` is unknown (the depth was decoded, not regenerated)
@@ -410,15 +417,25 @@ def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> 
     """
     from app.common.debug import job_logger
     from app.common.ffmpeg_utils import count_frames
+    from app.common.storage import job_output_dir
 
     jlog = job_logger(job_id)
     cache_volume.reload()
     src = job_cache_dir(source_job_id) / "depth.mp4"
+    where = "cache volume"
     if not src.exists():
-        raise FileNotFoundError(
-            f"reuse_depth_from={source_job_id}: no depth.mp4 in its cache dir "
-            f"(jobs older than the cache retention, or a job that never ran depth)"
-        )
+        # cross-workspace / evicted-cache fallback: the published depth on GCS
+        gcs_src = job_output_dir(source_job_id) / "depth.mp4"
+        if gcs_src.exists():
+            src = gcs_src
+            where = "GCS (published)"
+        else:
+            raise FileNotFoundError(
+                f"reuse_depth_from={source_job_id}: no depth.mp4 in its cache dir "
+                f"nor published on GCS (outputs/{source_job_id}/depth.mp4). The "
+                f"source job must have run with output_depth=true, or its cache "
+                f"has aged out."
+            )
     frames = count_frames(src)
     if frames != expected_frames:
         raise RuntimeError(
@@ -431,7 +448,7 @@ def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> 
     if dst.resolve() != src.resolve():
         dst.write_bytes(src.read_bytes())
     cache_volume.commit()
-    jlog.info(f"♻️  reused depth from {source_job_id}: {frames}f at "
+    jlog.info(f"♻️  reused depth from {source_job_id} via {where}: {frames}f at "
               f"{probe['width']}x{probe['height']}")
     return {
         "depth_path": str(dst),
