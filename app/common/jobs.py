@@ -106,6 +106,29 @@ def add_timing(job_id: str, stage: str, seconds: float, gpu: str | None = None, 
     job_dict[job_id] = job
 
 
+def clear_chunk_progress_key(job_id: str, chunk_key) -> None:
+    """Drop a single chunk's entry from the job's ``chunk_progress`` map.
+
+    The watchdog calls this when it RESUBMITS a hung chunk: the old
+    (cancelled) worker may have left a stale ``chunk_progress[key]`` value
+    behind, and the resubmitted worker reuses the SAME key (frame_range).
+    Without clearing it, the watchdog would see the key already present,
+    flip the chunk to 'started', and run its stall clock against the stale
+    value WHILE the resubmitted container is still queued — a resubmit
+    death-spiral. Clearing makes 'key not in chunk_progress' true again
+    until the fresh worker emits its first real heartbeat."""
+    job = job_dict.get(job_id)
+    if job is None:
+        return
+    cp = job.get("chunk_progress")
+    if cp and str(chunk_key) in cp:
+        cp = dict(cp)
+        del cp[str(chunk_key)]
+        job["chunk_progress"] = cp
+        job["updated_at"] = time.time()
+        job_dict[job_id] = job
+
+
 def report_progress(
     job_id: str,
     stage: str,

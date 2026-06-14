@@ -23,6 +23,7 @@ def _load_watchdog():
 
     jobs.update_job = update_job
     jobs.get_job = lambda j: {}
+    jobs.clear_chunk_progress_key = lambda job_id, key: None  # no-op stub
     sys.modules["app.common.jobs"] = jobs
     spec = importlib.util.spec_from_file_location(
         "wd", "app/common/watchdog.py")
@@ -143,7 +144,8 @@ def test_chunk_failing_past_max_retries_fails_job():
         _T[0] += 1
         prog["0"] = _T[0] * 10
         prog["200"] = _T[0] * 10
-        return dict(prog)  # "100" stays 0
+        prog["100"] = 5  # started (wrote a heartbeat) then FROZE at 5
+        return dict(prog)
 
     raised = False
     try:
@@ -200,6 +202,58 @@ def test_queued_chunk_not_killed_while_others_progress():
     assert sorted(r["key"] for r in res) == keys
     assert jobs._failed is False
     assert respawn.called == 0  # queued chunk was never mistaken for hung
+
+
+def test_resubmitted_chunk_stale_key_does_not_death_spiral():
+    """Regression (the production bug): a hung chunk's CANCELLED worker
+    leaves a stale chunk_progress[key]. The resubmit reuses the same key
+    but sits QUEUED for a long time. Without clearing the stale entry, the
+    watchdog sees key-present, flips started=True, and runs the stall clock
+    against the frozen stale value WHILE queued — resubmitting again and
+    again until retries exhaust (the 15-min-queue-then-instant-cancel
+    pathology). With the clear, the resubmitted chunk is correctly treated
+    as queued (unbounded patience) until its fresh worker advances."""
+    wd, jobs = _load_watchdog()
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0, 100]
+    prog = {"0": 0, "100": 7}  # chunk 100 started, wrote 7, then froze
+    cleared = {"100": False}
+    resub_at = [None]
+
+    handles = [
+        _Handle(0, lambda t: t >= 30),
+        _Handle(100, lambda t: False),  # original hangs frozen at 7
+    ]
+
+    def respawn(i):
+        resub_at[0] = _T[0]
+        # fresh worker sits QUEUED a long time (20 ticks) then advances
+        return _Handle(keys[i],
+                       lambda t: resub_at[0] is not None and t >= resub_at[0] + 25)
+
+    def clear_cp(job_id, key):
+        cleared[str(key)] = True
+        prog.pop(str(key), None)  # the real clear: drop the stale entry
+
+    def read_cp(job):
+        _T[0] += 1
+        prog["0"] = _T[0]
+        # after resubmit + clear, chunk 100 stays ABSENT (queued) for 20
+        # ticks, then the fresh worker starts advancing
+        if resub_at[0] is not None and _T[0] >= resub_at[0] + 20:
+            prog["100"] = (_T[0] - (resub_at[0] + 20)) + 1
+        return dict(prog)
+
+    res = wd.gather_with_heartbeat(
+        "job", handles, _log(), stall_timeout_s=3, start_timeout_s=10_000,
+        poll_s=0, label="t", chunk_keys=keys, respawn_fn=respawn,
+        max_chunk_retries=2, register_handles_fn=lambda hs: None,
+        now_fn=lambda: _T[0], read_chunk_progress_fn=read_cp,
+        clear_chunk_progress_fn=clear_cp, not_ready_exc=(_NotReady,))
+    assert sorted(r["key"] for r in res) == keys
+    assert jobs._failed is False
+    assert cleared["100"] is True  # stale key WAS cleared on resubmit
 
 
 def test_legacy_global_path_still_fails_on_total_silence():

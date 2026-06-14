@@ -85,6 +85,7 @@ def gather_with_heartbeat(
     now_fn=time.time,
     read_updated_at_fn=None,
     read_chunk_progress_fn=None,
+    clear_chunk_progress_fn=None,
     not_ready_exc=None,
 ):
     """Block until all ``handles`` complete, SELF-HEALING a single hung
@@ -125,6 +126,8 @@ def gather_with_heartbeat(
         read_updated_at_fn = _default_read_updated_at
     if read_chunk_progress_fn is None:
         read_chunk_progress_fn = _default_read_chunk_progress
+    if clear_chunk_progress_fn is None:
+        clear_chunk_progress_fn = _default_clear_chunk_progress
     if not_ready_exc is None:
         not_ready_exc = _modal_not_ready_exc()
 
@@ -163,21 +166,23 @@ def gather_with_heartbeat(
                 if done[i]:
                     continue
                 key = str(chunk_keys[i])
-                # A chunk only appears in chunk_progress once it STARTS
-                # running and emits its first heartbeat. With the
-                # max_containers concurrency cap, chunks beyond the first N
-                # sit QUEUED (no entry) — that is NOT a hang, even for many
-                # minutes (they wait for a slot). Don't judge a never-started
-                # chunk on its own clock. The wedged-pool case (NOTHING in
-                # the whole job advances) is caught separately below via the
-                # job-global silence guard, so the job can't hang forever.
+                # A chunk appears in chunk_progress only once it STARTS
+                # running and writes a heartbeat. With the max_containers
+                # cap, chunks beyond the first N sit QUEUED (no entry) for
+                # many minutes — NOT a hang; a queued chunk gets UNBOUNDED
+                # patience. This is reliable because on resubmit we CLEAR the
+                # cancelled worker's stale entry (clear_chunk_progress_fn),
+                # so "key not in progress" genuinely means "not running" —
+                # without that clear, a resubmitted chunk's stale key would
+                # mark it started while still queued (the death-spiral bug).
+                # The wedged-pool case (nothing advances job-wide) is the
+                # job-global guard below, so the job can't hang forever.
                 if key not in progress and not started[i]:
                     continue
                 cur = int(progress.get(key, 0))
                 if not started[i]:
-                    # first time we see it report → it has started running;
-                    # begin its clock NOW (not at spawn, which may have been
-                    # a long time ago while it queued)
+                    # first heartbeat seen → running; start its clock NOW
+                    # (not at spawn, which may have been a long queue ago)
                     started[i] = True
                     last_done[i] = cur
                     last_advance[i] = now
@@ -201,11 +206,20 @@ def gather_with_heartbeat(
                     except Exception:
                         logger.warning("watchdog: cancel of hung chunk failed",
                                        exc_info=True)
+                    # CRITICAL: drop the stale chunk_progress entry the
+                    # cancelled worker left behind. The resubmitted worker
+                    # reuses the SAME key (frame_range); if the stale value
+                    # lingers, `key in progress` stays true, started[] flips
+                    # back to True immediately, and the stall clock runs
+                    # against a frozen value WHILE the fresh container is
+                    # still QUEUED — a resubmit death-spiral (the queued-15min
+                    # then instant-cancel pathology). Clearing makes the
+                    # chunk genuinely "not started" until its fresh worker
+                    # emits a real heartbeat.
+                    clear_chunk_progress_fn(job_id, key)
                     handles[i] = respawn_fn(i)  # fresh container, same range
-                    # the resubmitted chunk re-queues behind the cap — reset
-                    # its started flag so we don't immediately re-judge it as
-                    # hung while it waits for a slot (the bug this whole
-                    # started[] tracking prevents)
+                    # reset so the resubmitted chunk is treated as queued
+                    # (unbounded patience) until its first real heartbeat
                     started[i] = False
                     last_done[i] = 0
                     last_advance[i] = now_fn()
@@ -270,6 +284,12 @@ def _default_read_chunk_progress(job_id):
 
     job = jobs.get_job(job_id)
     return (job or {}).get("chunk_progress")
+
+
+def _default_clear_chunk_progress(job_id, chunk_key):
+    from app.common import jobs
+
+    jobs.clear_chunk_progress_key(job_id, chunk_key)
 
 
 def _default_read_updated_at(job_id):
