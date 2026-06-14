@@ -158,6 +158,50 @@ def test_chunk_failing_past_max_retries_fails_job():
     assert jobs._failed is True
 
 
+def test_queued_chunk_not_killed_while_others_progress():
+    """Regression: with more chunks than workers, late chunks sit QUEUED
+    (never appear in chunk_progress) for many minutes. They must NOT be
+    judged hung while running chunks heartbeat — the bug that failed both
+    new videos on chunk 2880 (the 5th chunk behind a 4-worker cap)."""
+    wd, jobs = _load_watchdog()
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0, 100, 200, 300, 400]  # 5 chunks
+    # chunks 0..3 run and finish over time; chunk 400 stays QUEUED (never
+    # reports) until t>=20, then runs and finishes — like a slot freeing.
+    handles = [
+        _Handle(0, lambda t: t >= 5),
+        _Handle(100, lambda t: t >= 6),
+        _Handle(200, lambda t: t >= 7),
+        _Handle(300, lambda t: t >= 8),
+        _Handle(400, lambda t: t >= 25),  # starts late, finishes later
+    ]
+    prog = {}
+
+    def respawn(i):  # should NEVER be called for the queued chunk
+        respawn.called += 1
+        return handles[i]
+    respawn.called = 0
+
+    def read_cp(job):
+        _T[0] += 1
+        # running chunks advance; chunk 400 has NO entry until t>=20
+        for k in (0, 100, 200, 300):
+            prog[str(k)] = _T[0] * 10
+        if _T[0] >= 20:
+            prog["400"] = (_T[0] - 20) * 10
+        return dict(prog)
+
+    res = wd.gather_with_heartbeat(
+        "job", handles, _log(), stall_timeout_s=3, start_timeout_s=10_000,
+        poll_s=0, label="t", chunk_keys=keys, respawn_fn=respawn,
+        register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+        read_chunk_progress_fn=read_cp, not_ready_exc=(_NotReady,))
+    assert sorted(r["key"] for r in res) == keys
+    assert jobs._failed is False
+    assert respawn.called == 0  # queued chunk was never mistaken for hung
+
+
 def test_legacy_global_path_still_fails_on_total_silence():
     wd, jobs = _load_watchdog()
     _T[0] = 0

@@ -43,6 +43,13 @@ STALL_TIMEOUT_S = 240
 # before the job is failed — a chunk that hangs repeatedly is a real bug,
 # not a transient GPU wedge. Per chunk, not per job.
 MAX_CHUNK_RETRIES = 2
+# Wedged-pool backstop: fail the job only if NO chunk anywhere advances for
+# this long. Must be well above STALL_TIMEOUT_S because with the
+# max_containers cap, late chunks legitimately sit QUEUED for many minutes
+# while earlier ones run — but as long as SOME chunk heartbeats, the job is
+# alive. Only total job-wide silence (a stuck pool) trips this. Generous so
+# normal queueing never mis-fires.
+START_TIMEOUT_S = 1800
 
 
 def _modal_not_ready_exc():
@@ -73,6 +80,7 @@ def gather_with_heartbeat(
     chunk_keys=None,
     respawn_fn=None,
     max_chunk_retries=MAX_CHUNK_RETRIES,
+    start_timeout_s=START_TIMEOUT_S,
     register_handles_fn=None,
     now_fn=time.time,
     read_updated_at_fn=None,
@@ -128,7 +136,8 @@ def gather_with_heartbeat(
     per_chunk = chunk_keys is not None and respawn_fn is not None
     last_done = [0] * n          # last-seen chunk-local progress count
     last_advance = [now_fn()] * n  # when that count last increased
-    retries = [0] * n
+    started = [False] * n        # has this chunk emitted a first heartbeat?
+    retries = [0] * n            # a queued chunk (not yet started) is NOT hung
 
     while not all(done):
         completed_this_sweep = False
@@ -153,14 +162,33 @@ def gather_with_heartbeat(
             for i, h in enumerate(handles):
                 if done[i]:
                     continue
-                cur = int(progress.get(str(chunk_keys[i]), 0))
+                key = str(chunk_keys[i])
+                # A chunk only appears in chunk_progress once it STARTS
+                # running and emits its first heartbeat. With the
+                # max_containers concurrency cap, chunks beyond the first N
+                # sit QUEUED (no entry) — that is NOT a hang, even for many
+                # minutes (they wait for a slot). Don't judge a never-started
+                # chunk on its own clock. The wedged-pool case (NOTHING in
+                # the whole job advances) is caught separately below via the
+                # job-global silence guard, so the job can't hang forever.
+                if key not in progress and not started[i]:
+                    continue
+                cur = int(progress.get(key, 0))
+                if not started[i]:
+                    # first time we see it report → it has started running;
+                    # begin its clock NOW (not at spawn, which may have been
+                    # a long time ago while it queued)
+                    started[i] = True
+                    last_done[i] = cur
+                    last_advance[i] = now
+                    continue
                 if cur > last_done[i]:
                     last_done[i] = cur
                     last_advance[i] = now
                     continue
                 if now - last_advance[i] <= stall_timeout_s:
                     continue  # this chunk still within its heartbeat window
-                # chunk i is hung
+                # chunk i is hung (it had started, then went silent)
                 if retries[i] < max_chunk_retries:
                     retries[i] += 1
                     jlog.warning(
@@ -174,6 +202,12 @@ def gather_with_heartbeat(
                         logger.warning("watchdog: cancel of hung chunk failed",
                                        exc_info=True)
                     handles[i] = respawn_fn(i)  # fresh container, same range
+                    # the resubmitted chunk re-queues behind the cap — reset
+                    # its started flag so we don't immediately re-judge it as
+                    # hung while it waits for a slot (the bug this whole
+                    # started[] tracking prevents)
+                    started[i] = False
+                    last_done[i] = 0
                     last_advance[i] = now_fn()
                     if register_handles_fn is not None:
                         register_handles_fn(handles)
@@ -181,6 +215,17 @@ def gather_with_heartbeat(
                     # retries exhausted on this chunk → genuine failure
                     _fail_all(job_id, handles, done, jlog, label, retries[i],
                               chunk_keys[i])
+
+            # wedged-pool backstop: if NO chunk advanced anywhere in the
+            # whole job for start_timeout_s (much looser than the per-chunk
+            # stall — normal queueing keeps SOME chunk heartbeating), the
+            # pool is stuck. Fail rather than hang forever on queued chunks
+            # that will never get a slot.
+            updated_at = read_updated_at_fn(job_id)
+            ref = now if updated_at is None else updated_at
+            if now - ref > start_timeout_s:
+                _fail_all(job_id, handles, done, jlog, label, None, None,
+                          silent_for=now - ref, stall_timeout_s=start_timeout_s)
             continue
 
         # ---- legacy global heartbeat (no chunk_keys/respawn_fn) ----
