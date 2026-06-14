@@ -142,6 +142,39 @@ PROFILE_MAX_DISPLACEMENT_STEP = 0.005
 # fractions converge long before this; keeps memory flat per scene).
 PROFILE_PIXEL_SAMPLES = 200_000
 
+# Adaptive keyframe sampling: sample one keyframe roughly every
+# PROFILE_KEYFRAME_INTERVAL_S seconds within a shot, so longer shots get
+# proportionally more samples and the per-keyframe ramp can follow a
+# non-linear camera move (push-in → hold → pull-out) instead of a coarse
+# 3-point linear blend. Clamped to [MIN, MAX]: MIN=3 keeps short shots
+# byte-identical to the old first/middle/last sampling; MAX caps the cost
+# (and ramp density) on a very long single take. At ~0.3 s/keyframe of
+# Depth Pro profiling, MAX=12 is ~4 s of profiling for the longest shot.
+PROFILE_KEYFRAME_INTERVAL_S = 2.0
+PROFILE_MIN_KEYFRAMES = 3
+PROFILE_MAX_KEYFRAMES = 12
+
+
+def _sample_keyframes(first: int, last: int, fps: float) -> list[int]:
+    """Pick keyframe indices within a shot [first, last) at ~one every
+    PROFILE_KEYFRAME_INTERVAL_S seconds, clamped to
+    [PROFILE_MIN_KEYFRAMES, PROFILE_MAX_KEYFRAMES] and evenly spaced
+    across the shot (endpoints always included). Returns sorted unique
+    indices in [first, last). For a short shot this reduces to
+    {first, middle, last-1} — identical to the prior behavior."""
+    span = last - first
+    if span <= 1:
+        return [first]
+    duration_s = span / max(fps, 1e-6)
+    n = round(duration_s / PROFILE_KEYFRAME_INTERVAL_S) + 1
+    n = max(PROFILE_MIN_KEYFRAMES, min(PROFILE_MAX_KEYFRAMES, n))
+    n = min(n, span)  # can't sample more frames than the shot has
+    if n <= 1:
+        return [first]
+    # evenly spaced incl. endpoints; last sample is the final frame (last-1)
+    idxs = {first + round(i * (span - 1) / (n - 1)) for i in range(n)}
+    return sorted(idxs)
+
 # ---------------------------------- pro treatment v2 (stereographer)
 # Depth-matched cuts: max allowed jump of the SALIENT screen disparity
 # (the median-depth content the viewer is looking at) across a cut, as
@@ -296,7 +329,7 @@ def _build_depth_script(
 
     ``per_scene_stats``: one dict per shot, in shot order:
       {"first": int, "last": int,
-       "keyframes": [abs frame index, ...],           # sorted, 1–3
+       "keyframes": [abs frame index, ...],           # sorted, adaptive N (≥3)
        "median_depth": [median raw depth per kf],     # ``units`` scale
        "median_disp": [median raw disparity per kf],  # 1/depth
        "near_fraction": [near-band pixel fraction per kf],
@@ -1202,9 +1235,12 @@ class ShotProfiler:
 
             # pass 1 — depth on each scene's keyframes; keep a pixel
             # subsample of disparity per keyframe for the statistics
+            kf_fps = float(meta.average_fps) if meta.average_fps else 24.0
             per_scene: list[dict] = []
             for first, last in ranges:
-                keyframes = sorted({first, first + (last - 1 - first) // 2, last - 1})
+                # adaptive: ~1 keyframe / 2 s, clamped [3, 12]; long shots
+                # get more samples so the ramp follows non-linear moves
+                keyframes = _sample_keyframes(first, last, kf_fps)
                 frames = torch.stack([decoder[i] for i in keyframes])
                 if collect_fov:
                     self._fov_samples = []
