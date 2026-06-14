@@ -11,6 +11,7 @@ players handle plain MV-HEVC already.
 """
 
 import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -35,6 +36,37 @@ from app.stages import vexu as vexu_blobs
 logger = get_logger(__name__)
 
 MVHEVC_GPU = "L4"
+
+
+def _container_cpus(default: int = 16) -> int:
+    """Cores actually allocated to THIS container (the Modal cpu= request),
+    for sizing x265's --pools. os.cpu_count() reports the host's cores on
+    Modal, so read the cgroup CPU quota instead; fall back to affinity,
+    then a fixed default. Clamped to [1, 64]."""
+    # cgroup v2: "<quota> <period>" ('max' = unlimited)
+    try:
+        with open("/sys/fs/cgroup/cpu.max") as f:
+            quota, period = f.read().split()[:2]
+        if quota != "max":
+            n = int(round(int(quota) / int(period)))
+            if n >= 1:
+                return max(1, min(n, 64))
+    except Exception:
+        pass
+    # cgroup v1
+    try:
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as f:
+            quota = int(f.read())
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us") as f:
+            period = int(f.read())
+        if quota > 0 and period > 0:
+            return max(1, min(int(round(quota / period)), 64))
+    except Exception:
+        pass
+    try:
+        return max(1, min(len(os.sched_getaffinity(0)), 64))
+    except Exception:
+        return default
 
 
 @app.function(
@@ -199,7 +231,14 @@ def encode_mvhevc(
     image=nvenc_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
-    cpu=16,
+    # x265 multiview DOES parallelize (WPP + frame-threads): metrics
+    # showed it saturating 16 cores and clamping at the Modal limit, so it
+    # was core-STARVED, not under-utilizing. 32 cores ≈ halves the encode
+    # wall-clock at ~cost-neutral core-seconds (a serial tail-stage the
+    # whole job waits on). Paired with explicit --pools below so the thread
+    # pool deterministically uses the allocation instead of auto-detecting
+    # whatever the container limit happens to be.
+    cpu=32,
     memory=(8 * 1024, 32 * 1024),
     # x265 multiview is single-encode CPU work that scales with length
     # AND resolution: ~36x realtime at 4K (≈3h for a 5-min clip), ~18x
@@ -240,7 +279,16 @@ def encode_mvhevc_x265(
     num_frames = probe["num_frames"]
     keyint = max(1, round(probe["fps"] * 2))  # closed 2s GOPs for visionOS
     out_dir = job_output_dir(job_id)
-    jlog.info(f"🎯 x265 MV-HEVC: {eye_w}x{eye_h}/eye, {num_frames}f, crf={crf}, preset={preset}")
+    # pin x265's thread pool to the cores Modal actually gave this
+    # container, so the encode deterministically uses the full allocation.
+    # os.cpu_count() returns the HOST's cores on Modal (100+), which would
+    # over-subscribe — read the cgroup CPU quota instead (the real cpu=
+    # allocation), clamped to a sane range.
+    n_cores = _container_cpus()
+    jlog.info(
+        f"🎯 x265 MV-HEVC: {eye_w}x{eye_h}/eye, {num_frames}f, crf={crf}, "
+        f"preset={preset}, pools={n_cores}"
+    )
 
     with jobs.stage_timer(job_id, "encode_mvhevc_x265", crf=crf, preset=preset):
         with tempfile.TemporaryDirectory() as tmp:
@@ -271,6 +319,9 @@ def encode_mvhevc_x265(
             )
             enc = subprocess.run(
                 ["x265", "--multiview-config", str(cfg),
+                 # use every allocated core (default auto-detect rode the
+                 # container limit; explicit pools is deterministic)
+                 "--pools", str(n_cores),
                  "--input-res", f"{eye_w}x{eye_h}", "--input-csp", "i420",
                  "--input-depth", "8", "--fps", fps_rational,
                  "--frames", str(num_frames), "--profile", "main",
