@@ -128,6 +128,11 @@ PROFILE_NEAR_FRACTION_CLOSE = 0.35
 PROFILE_NEAR_FRACTION_WIDE = 0.10
 # "nearest 25% of the job's disparity range" = normalized disparity > 0.75
 PROFILE_NEAR_BAND = 0.75
+# v6 per-shot far plane: the FAR-content depth of a shot is the 5th
+# percentile of its normalized disparity (low nd = far). A robust low
+# tail (not the min) so a handful of stray far pixels don't anchor the
+# depth box to noise. Feeds _far_plane via the profiler stats.
+PROFILE_FAR_PERCENTILE = 0.05
 # "strong disagreement" between the 3 keyframes: spread of the per-frame
 # median normalized disparity (the scene's depth center moved by >30% of
 # the job's whole disparity range) or of the per-frame near_fraction
@@ -274,10 +279,14 @@ def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
 # per-keyframe, so a dynamic close→far move tapers pop-out as the subject
 # recedes. The MAX_POPOUT_DISPARITY comfort cap remains the guardrail.
 #
-# Anchors (median_m → near_plane), piecewise-linear, clamped:
-#   3 m → +0.4 (pops well forward), 7 m → +0.1 (at/near screen),
-#   15 m → −0.1 (mild window), 20 m → −0.2 (deep wides fully back).
-NEAR_PLANE_RAMP_ANCHORS = [(3.0, 0.4), (7.0, 0.1), (15.0, -0.1), (20.0, -0.2)]
+# Anchors (median_m → near_plane), piecewise-linear, clamped.
+# v6 (2026-06-14, Option B): pulled the near ramp back from v5 so close
+# subjects pop less aggressively (v5 read too forward on close-ups, and
+# the v4 mid/far plane felt dull). The mid/far ROUNDNESS now comes from
+# the per-shot far plane below, not from pushing the near plane:
+#   3 m → +0.2 (was +0.4), 7 m → +0.05 (was +0.1),
+#   15 m → −0.12 (mild window), 20 m → −0.2 (deep wides fully back).
+NEAR_PLANE_RAMP_ANCHORS = [(3.0, 0.2), (7.0, 0.05), (15.0, -0.12), (20.0, -0.2)]
 
 
 def _ramp_near_plane(median_depth: float) -> float:
@@ -296,8 +305,85 @@ def _ramp_near_plane(median_depth: float) -> float:
 def _ramp_placement(median_depth: float, units: str = "meters") -> tuple:
     """v5 placement: far_plane fixed at −1.0, near_plane from the depth
     ramp. Meters-profiler only; callers fall back to the per-class
-    SHOT_PARAMS placement for non-meters units."""
+    SHOT_PARAMS placement for non-meters units.
+
+    v6 supersedes the fixed −1.0 far plane with a PER-SHOT far plane
+    (_far_plane below), so this helper now only sets the near plane; the
+    caller pairs it with the per-shot far. Kept returning a tuple for
+    backward compatibility (the −1.0 here is overwritten by the v6 far
+    when far_nd is available)."""
     return (-1.0, _ramp_near_plane(median_depth))
+
+
+# v6 (2026-06-14): PER-SHOT FAR PLANE + span refill (best-practice depth
+# box). v5 pinned far=−1.0 for every shot — a NORMALIZED back plane, not
+# the shot's actual farthest content. On a mid/far shot whose content
+# only occupies, say, normalized depth 0.4→1.0, the depth budget was
+# allocated to EMPTY space behind the content, so the real planes got
+# squeezed into a thin slice ⇒ "dull/flat" mid-far shots (user feedback).
+#
+# Fix, in two steps per shot:
+#   1. far plane tracks the shot's FAR-content normalized disparity
+#      (far_nd = a low percentile of per-pixel normalized disparity;
+#      0 = genuinely deep, ~1 = nothing deep / flat wall). A deep shot
+#      keeps far≈−1.0; a flat/shallow-rear shot pulls far IN toward 0,
+#      tightening the box around the content.
+#   2. displacement is RESCALED so the occupied span (displacement ×
+#      (near − far)) refills to a target budget (TARGET_SPAN). This is
+#      where the roundness comes from: same total disparity, now spread
+#      across only the OCCUPIED depth range instead of wasted on empty
+#      rear ⇒ content planes separate more. A flat-far shot has near==far
+#      collapse, so it stays shallow (few disocclusion holes) — no refill
+#      room, by construction.
+# The divergence cap (displacement × |far| ≤ MAX_BACKGROUND_DISPARITY)
+# stays the hard safety rail in _apply_comfort_budget and is only ever
+# LOOSER when far is pulled in.
+#
+# FAR_PULL_IN: how far toward 0 the back plane may move (far ∈ [−1.0,
+# −1.0+FAR_PULL_IN]). FAR_MIN_NEG floors it so a near-content shot can't
+# collapse the box to nothing.
+FAR_PULL_IN = 0.55
+FAR_MIN_NEG = -0.45
+# Option 2 ("~1.1× v4"): the refill REDISTRIBUTES depth into the occupied
+# box but never makes a shot LOUDER than its v5 ramp displacement — so v6
+# inpaint is ≤ v5 everywhere (the thing the user wanted held). The gain is
+# the ratio of the FULL v5 box (near − (−1.0)) to this shot's TIGHTENED box
+# (near − far): a flat-far shot (far pulled in, small box) keeps the SAME
+# screen disparity over its occupied range with LESS displacement ⇒ fewer
+# holes; a deep shot (far≈−1.0, gain≈1) is essentially unchanged from v5.
+# Capped at REFILL_GAIN_CAP (slightly above 1 = the "~1.1×" of Option 2:
+# the tightest boxes may concentrate up to +10% depth, no more).
+REFILL_GAIN_CAP = 1.10
+# v5 reference far plane the refill measures the box against.
+REFILL_REF_FAR = -1.0
+
+
+def _far_plane(far_nd: float) -> float:
+    """Per-shot far plane from the shot's far-content normalized disparity
+    ``far_nd`` (0 = genuinely deep ⇒ far≈−1.0; →1 = nothing deep / flat
+    rear ⇒ far pulled IN toward 0). Clamped to [FAR_MIN_NEG, −1.0]."""
+    far = -1.0 + FAR_PULL_IN * max(0.0, min(1.0, float(far_nd)))
+    return round(max(min(far, FAR_MIN_NEG), -1.0), 4)
+
+
+def _refill_displacement(displacement: float, near: float, far: float) -> float:
+    """v6 Option 2: hold the screen disparity over the OCCUPIED depth range
+    roughly constant as the far plane tightens, WITHOUT ever exceeding the
+    v5 ramp ``displacement``. The salient disparity a viewer reads scales
+    with displacement × (near − far); to keep that constant when far moves
+    in, displacement would scale by (near − REF_FAR)/(near − far) ≥ 1 — but
+    we CAP that gain at REFILL_GAIN_CAP so v6 is at most ~1.1× v5, never the
+    runaway amplification an uncapped refill produces on already-wide boxes.
+    Tightening a box thus mostly REDISTRIBUTES depth (the planes that have
+    content separate more) rather than turning up the volume; a collapsed
+    box (near≈far) is left at the ramp value (gain→1)."""
+    tight = (near - far)
+    full = (near - REFILL_REF_FAR)
+    if tight <= 1e-6 or full <= 1e-6:
+        return round(displacement, 6)
+    gain = min(full / tight, REFILL_GAIN_CAP)
+    gain = max(1.0, gain)  # never tone the ramp value DOWN here (cap does the rest)
+    return round(displacement * gain, 6)
 
 
 # ------------------------------------------ depth-script construction
@@ -396,6 +482,34 @@ def _apply_comfort_budget(holder: dict, label: str, notes: list) -> None:
         )
 
 
+def _keyframe_params(
+    idx, depth, near_frac, far_nd, units, fov_mean, depth_scale,
+) -> dict:
+    """One dynamic-shot keyframe's stereo params, ramped on its OWN depth.
+    Meters: displacement/near from the depth ramps; v6 far plane + span
+    refill from this keyframe's far_nd (None ⇒ v5 fixed −1.0, no refill).
+    Non-meters: per-class SHOT_PARAMS bucket (unchanged)."""
+    if units == "meters":
+        near_plane = _ramp_near_plane(depth)
+        if far_nd is not None:
+            far_plane = _far_plane(far_nd)
+            disp = _refill_displacement(
+                _ramp_displacement(depth), near_plane, far_plane)
+        else:
+            far_plane = -1.0
+            disp = _ramp_displacement(depth)
+        placement = (far_plane, near_plane)
+    else:
+        cls = _classify_keyframe(depth, near_frac, units=units, fov_deg=fov_mean)
+        disp = SHOT_PARAMS[cls]["displacement"]
+        placement = SHOT_PARAMS[cls]["placement"]
+    return {
+        "index": int(idx),
+        "displacement": round(disp * depth_scale, 6),
+        "placement": list(placement),
+    }
+
+
 def _build_depth_script(
     per_scene_stats: list, lo: float, hi: float, units: str = "da3_metric",
     depth_scale: float = 1.0,
@@ -472,6 +586,11 @@ def _build_depth_script(
         med_nd = [
             min(max((float(d) - lo) / scale, 0.0), 1.0) for d in s["median_disp"]
         ]
+        # v6: per-keyframe far-content normalized disparity (0 = deep,
+        # →1 = flat rear). Profiler emits it ("far_nd"); absent on resumed
+        # pre-v6 sidecars, in which case the far plane falls back to −1.0
+        # (v5 behavior) and no span refill happens.
+        far_nd_kf = [float(v) for v in (s.get("far_nd") or [])]
         # v3: shot-mean FOV (Nones dropped — a resumed scene's sidecar
         # may predate the feature); None when the profiler has no FOV
         fovs = [float(v) for v in (s.get("fov_deg") or []) if v is not None]
@@ -493,11 +612,20 @@ def _build_depth_script(
         params = SHOT_PARAMS[shot_type]
         # v4: displacement is the depth ramp (meters profiler).
         # v5: placement (near plane / pop-out) is ALSO the depth ramp.
-        # Both fall back to the per-class SHOT_PARAMS bucket for non-meters
-        # units (da3-metric has no true depth scale to ramp on).
+        # v6: far plane is PER-SHOT (from far_nd) and displacement is
+        # REFILLED so the occupied span hits TARGET_SPAN (see _far_plane /
+        # _refill_displacement). All meters-only; non-meters units fall
+        # back to the per-class SHOT_PARAMS bucket (no true depth scale).
         if units == "meters":
-            shot_disp = _ramp_displacement(median_depth)
-            shot_placement = _ramp_placement(median_depth)
+            near_plane = _ramp_near_plane(median_depth)
+            if far_nd_kf:
+                far_plane = _far_plane(sum(far_nd_kf) / len(far_nd_kf))
+                shot_disp = _refill_displacement(
+                    _ramp_displacement(median_depth), near_plane, far_plane)
+            else:  # pre-v6 sidecar: keep v5 fixed far, no refill
+                far_plane = -1.0
+                shot_disp = _ramp_displacement(median_depth)
+            shot_placement = (far_plane, near_plane)
         else:
             shot_disp = params["displacement"]
             shot_placement = params["placement"]
@@ -516,19 +644,14 @@ def _build_depth_script(
             # per-keyframe: BOTH displacement and placement ramp on EACH
             # keyframe's own depth (a close→far push tapers disparity AND
             # recedes the pop-out; a far→close push brings the subject
-            # forward as it approaches).
+            # forward as it approaches). v6: the far plane + span refill
+            # are also per-keyframe (each keyframe's own far_nd), so a
+            # dynamic move retightens the box frame-by-frame.
+            kf_far_nd = far_nd_kf or [None] * len(s["keyframes"])
             entry["keyframes"] = [
-                {
-                    "index": int(idx),
-                    "displacement": round(
-                        (_ramp_displacement(d) if units == "meters"
-                         else SHOT_PARAMS[_classify_keyframe(d, nf, units=units, fov_deg=fov_mean)]["displacement"])
-                        * depth_scale, 6),
-                    "placement": list(
-                        _ramp_placement(d) if units == "meters"
-                        else SHOT_PARAMS[_classify_keyframe(d, nf, units=units, fov_deg=fov_mean)]["placement"]),
-                }
-                for idx, d, nf in zip(s["keyframes"], depth_med, near)
+                _keyframe_params(idx, d, nf, fnd, units, fov_mean, depth_scale)
+                for idx, d, nf, fnd in zip(
+                    s["keyframes"], depth_med, near, kf_far_nd)
             ]
         script.append(entry)
         med_nds.append(med_nd)
@@ -1368,6 +1491,15 @@ class ShotProfiler:
             per_scene_stats: list[dict] = []
             for s in per_scene:
                 nd = ((s["disp"] - lo) / (hi - lo)).clamp(0.0, 1.0)  # (k, n)
+                # v6: per-keyframe FAR-content normalized disparity — the
+                # 5th percentile of nd (low nd = far). 0 ⇒ genuinely deep
+                # content present (far plane stays ≈−1.0); high ⇒ nothing
+                # deep / flat rear (far plane pulls in, tightening the box).
+                # Robust low percentile (not min) so a few stray far pixels
+                # don't anchor the box to noise.
+                far_nd = torch.quantile(
+                    nd, PROFILE_FAR_PERCENTILE, dim=1
+                )  # (k,)
                 stat = {
                     "first": s["first"],
                     "last": s["last"],
@@ -1377,6 +1509,7 @@ class ShotProfiler:
                     "near_fraction": [
                         float(v) for v in (nd > PROFILE_NEAR_BAND).float().mean(dim=1)
                     ],
+                    "far_nd": [float(v) for v in far_nd],  # v6 per-shot far plane
                     "units": units,  # depth-unit flag for the stats consumer
                 }
                 if s["fov_deg"] is not None:
