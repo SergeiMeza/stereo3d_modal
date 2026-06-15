@@ -18,7 +18,7 @@ cold-start + idle overhead (see "Estimate vs billed" below).
 | A100-80GB | 0.000944 | $3.40 | **dropped from routing** — H200 faster & ~cost-neutral           |
 | H200      | 0.001097 | $3.95 | depth 2.5–6.5 MP, all 4K stereo/splat                            |
 | H100      | 0.001097 | $3.95 | (same rate as H200)                                              |
-| B200      | 0.001736 | $6.25 | VRAM ceiling tier — **not yet usable** (xformers sm_100 pending) |
+| B200      | 0.001736 | $6.25 | VRAM-ceiling tier, depth >6.5 working-MP only (cu128 image). NOT cost-competitive ≤H200: ~0.74× H200 throughput at 58% higher $/s |
 
 CPU-only stages (preprocess, encode_outputs, encode_mvhevc_x265) priced on
 cpu+mem seconds, not GPU.
@@ -47,6 +47,23 @@ cpu+mem seconds, not GPU.
 | d1806, inpaint=none       | computed | 0.001591 | $1.59         | $2.65         |
 | d1078, **ProPainter**@720 | reused   | 0.001847 | $1.85         | $3.07         |
 | d1806, **ProPainter**@720 | reused   | 0.001844 | $1.84         | $3.07         |
+
+### C) Depth GPU tier — same workload, per-frame (30s clip, 360 frames)
+
+The depth stage in isolation, to show the GPU-tier cost step. B200 only
+runs above the H200 VRAM ceiling (>6.5 working-MP), so its row is at the
+higher depth_res it exists to serve — it is NOT a cheaper way to do work
+H200 already fits.
+
+| GPU  | depth_res | working-MP | depth s | s/frame | $/frame (depth) | note |
+| ---- | --------- | ---------- | ------- | ------- | --------------- | ---- |
+| H200 | 1806      | 5.80       | 321.42  | 0.893   | 0.000980        | proven max for H200 |
+| B200 | 2100      | 7.84       | 415.91  | 1.155   | 0.002006        | OOMs on H200; B200-only |
+
+B200 depth runs ~2.05× the per-frame cost of H200's max — partly more
+pixels (2100² vs 1806² = 1.35×), partly the 58%-higher $/s. At *equal*
+resolution B200 would still lose: ~0.74× H200 throughput. Use B200 only
+when the work won't fit H200 at all.
 
 ## What drives cost — the levers, biggest first
 
