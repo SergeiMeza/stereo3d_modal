@@ -1,7 +1,12 @@
 # v7: Dual-Resolution 4K Splat — Spec
 
 **Branch:** `v7-dualres-4k-splat` (merge to main only after on-GPU verification)
-**Status:** in progress
+**Status:** IMPLEMENTED (steps 1-5), NOT yet GPU-verified. Default path
+(no inpaint_res) is byte-identical — verified by logic trace. Dual-res
+engages only when inpaint_res < output. PENDING: on-GPU test of a real 4K
+clip for concern #2 (depth↔frame alignment / no ghosting), #3 (4K splat
+VRAM / batch_size tuning), and end-to-end frame-count + AV sync. Do NOT
+merge to main until that passes.
 
 ## Goal
 
