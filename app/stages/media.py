@@ -527,13 +527,14 @@ def _av_sync_ms(path: Path) -> float | None:
     memory=(1024, 8 * 1024),
     timeout=1800,
 )
-def fetch_preprocess_reuse(job_id: str, gcs_relpath: str) -> dict:
+def fetch_preprocess_reuse(
+    job_id: str, gcs_relpath: str, splat_relpath: str | None = None
+) -> dict:
     """Reuse a previously-published preprocess work file (content-addressed
-    reuse). Copies the GCS-published work file into THIS job's cache dir
-    and re-probes it, returning the same dict shape preprocess_video does
-    (minus crop/trim/fps_decimation detail, which are encoded in the key —
-    the work file already reflects them). The caller verified the key match;
-    here we just verify the file exists and probe it."""
+    reuse). Copies the GCS-published work file (and the dual-res splat file
+    if ``splat_relpath`` is given) into THIS job's cache dir and re-probes,
+    returning the same dict shape preprocess_video does. The caller verified
+    the key match; here we verify the files exist and probe them."""
     from app.common.debug import job_logger
     from app.common.storage import BUCKET_DIR
 
@@ -542,13 +543,29 @@ def fetch_preprocess_reuse(job_id: str, gcs_relpath: str) -> dict:
     src = BUCKET_DIR / gcs_relpath
     if not src.exists():
         raise FileNotFoundError(f"reuse work file missing on GCS: {gcs_relpath}")
-    dst = job_cache_dir(job_id) / "source_processed.mp4"
+    dst = job_cache_dir(job_id) / "source_work.mp4"
     dst.write_bytes(src.read_bytes())
-    cache_volume.commit()
     probe = probe_video(dst)
-    jlog.info(f"♻️  reused preprocess work file from {gcs_relpath}: "
-              f"{probe['width']}x{probe['height']} {probe['num_frames']}f")
-    return {"work_path": str(dst), "probe": probe}
+    out = {"work_path": str(dst), "probe": probe, "splat_path": None}
+    if splat_relpath:
+        ssrc = BUCKET_DIR / splat_relpath
+        if not ssrc.exists():
+            raise FileNotFoundError(f"reuse splat file missing on GCS: {splat_relpath}")
+        sdst = job_cache_dir(job_id) / "source_processed.mp4"
+        sdst.write_bytes(ssrc.read_bytes())
+        sprobe = probe_video(sdst)
+        if sprobe["num_frames"] != probe["num_frames"]:
+            raise RuntimeError(
+                f"reuse dual-res frame mismatch: work {probe['num_frames']} "
+                f"vs splat {sprobe['num_frames']}"
+            )
+        out["splat_path"] = str(sdst)
+        out["splat_probe"] = sprobe
+    cache_volume.commit()
+    jlog.info(f"♻️  reused preprocess from {gcs_relpath}: "
+              f"{probe['width']}x{probe['height']} {probe['num_frames']}f"
+              + (f" (+splat {out.get('splat_probe',{}).get('width')}px)" if splat_relpath else ""))
+    return out
 
 
 def publish_file(job_id: str, cache_file: str, name: str) -> str:

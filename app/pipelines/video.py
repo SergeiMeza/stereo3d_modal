@@ -144,6 +144,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
         target_fps = request.get("target_fps")
         output_res = request.get("output_res")
         remove_bars = request.get("remove_black_bars", True)
+        # DUAL-RES (v7): the inpaint/depth work file is downscaled to this
+        # short side; the splat surface stays at output_res. Only engages
+        # when an inpaint_res is given AND it's smaller than the output —
+        # i.e. the client explicitly opted into low-res inpaint / high-res
+        # splat. Without inpaint_res, single-res (work == splat), unchanged.
+        inpaint_short_side = request.get("inpaint_res")
 
         # ---- content-addressed PREPROCESS reuse (v7) -------------------
         # The work file is a pure function of these inputs; if an identical
@@ -157,7 +163,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
         )
         pre = _reuse_or_preprocess(
             job_id, jlog, request, pp_key, trim_spec, target_fps, output_res,
-            remove_bars,
+            remove_bars, inpaint_short_side,
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "
@@ -424,14 +430,30 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 request, src_w=probe["width"], src_h=probe["height"])
             stereo_kwargs["work_height"] = wh
             stereo_kwargs["work_width"] = ww
-            # ProPainter VRAM scales with work res × source res: above the
-            # default ~720p working res (or 4K sources), L40S 48GB OOMs
-            big_work = wh * ww > 1280 * 720
-            # >720p ProPainter needs ~80+ GB (project A ran 1080p on H200)
+            # DUAL-RES (v7): when preprocess produced a separate output-res
+            # splat surface, the worker splats+composites there while still
+            # filling at (wh, ww). The frame count is invariant (splat is a
+            # scale of work), so chunking/concat are unchanged.
+            splat_probe = pre.get("splat_probe")
+            if pre.get("splat_path"):
+                stereo_kwargs["splat_video_path"] = pre["splat_path"]
+                splat_px = (splat_probe or probe)["width"] * (splat_probe or probe)["height"]
+                jlog.info(
+                    f"🪟 dual-res: splat@{(splat_probe or probe)['width']}x"
+                    f"{(splat_probe or probe)['height']}, inpaint@{ww}x{wh}"
+                )
+            else:
+                splat_px = probe["width"] * probe["height"]
+            # GPU routing by the SPLAT pixel count (the new VRAM driver): 4K
+            # splat/composite buffers need H200; the inpaint stays at (wh,ww).
+            # Also escalate on a big inpaint work res (legacy behavior).
+            big_work = (wh * ww > 1280 * 720) or (splat_px > 2560 * 1440)
+            # >720p ProPainter / 4K splat needs ~80+ GB
             stereo_cls = (
                 VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
             )
-            jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'}")
+            jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'} "
+                      f"(splat_px={splat_px}, work={ww}x{wh})")
             if parallel:
                 stereo = _parallel_stereo(
                     job_id, jlog, pre, stereo_kwargs, stereo_cls,
@@ -546,7 +568,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
 
 def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
-                         output_res, remove_bars):
+                         output_res, remove_bars, inpaint_short_side=None):
     """Auto-reuse a published preprocess work file if one matches pp_key,
     else run preprocess and publish+register the result.
 
@@ -573,10 +595,11 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
             f"♻️ *preprocess reuse* job `{job_id}` reused work file from "
             f"`{entry['job_id']}` (key `{pp_key}`)"
         )
-        pre = fetch_preprocess_reuse.remote(job_id, entry["gcs_relpath"])
+        meta = entry.get("meta") or {}
+        pre = fetch_preprocess_reuse.remote(
+            job_id, entry["gcs_relpath"], meta.get("splat_relpath"))
         # reconstruct source-derived fields the downstream stages need from
         # the registry meta (recorded when the work file was published)
-        meta = entry.get("meta") or {}
         src_fps = meta.get("source_fps")
         trim = meta.get("trim")
         return {
@@ -596,18 +619,28 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
         target_height=request.get("target_height"), trim_spec=trim_spec,
         target_fps=float(target_fps) if target_fps is not None else None,
         target_short_side=int(output_res) if output_res is not None else None,
+        inpaint_short_side=int(inpaint_short_side) if inpaint_short_side else None,
     )
-    # publish the work file + register so the NEXT identical run reuses it
+    # publish the work file (+ the dual-res splat file if any) and register
+    # so the NEXT identical run reuses BOTH. The splat surface is reusable
+    # too (concern #1: save it), keyed under the same preprocess key.
     try:
-        url = publish_file.remote(job_id, pre["work_path"], "preprocess.mp4")
+        publish_file.remote(job_id, pre["work_path"], "preprocess.mp4")
         relpath = f"outputs/{job_id}/preprocess.mp4"
+        splat_relpath = None
+        if pre.get("splat_path"):
+            publish_file.remote(job_id, pre["splat_path"], "preprocess_splat.mp4")
+            splat_relpath = f"outputs/{job_id}/preprocess_splat.mp4"
         reuse.register(pp_key, job_id, relpath, meta={
             "source_fps": pre.get("source_fps"),
             "trim": list(pre["trim"]) if pre.get("trim") else None,
             "crop": pre.get("crop"),
             "fps_decimation": pre.get("fps_decimation"),
+            "splat_relpath": splat_relpath,
+            "splat_probe": pre.get("splat_probe"),
         })
-        jlog.info(f"📌 registered preprocess for reuse ({pp_key}) → {relpath}")
+        jlog.info(f"📌 registered preprocess for reuse ({pp_key}) → {relpath}"
+                  + (f" (+splat {splat_relpath})" if splat_relpath else ""))
     except Exception:
         logger.warning("preprocess publish/register failed (non-fatal)", exc_info=True)
     pre["_pp_key"] = pp_key
