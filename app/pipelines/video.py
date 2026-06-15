@@ -396,6 +396,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 fps_rational=fps_rational,
                 scene_params=depth_script,  # None unless adaptive
             )
+            # DUAL-RES (v7): splat at output-res; M2SVid fill stays at its
+            # 512 model tier (resolution-independent of the splat).
+            if pre.get("splat_path"):
+                m2svid_kwargs["splat_video_path"] = pre["splat_path"]
+                sp = pre.get("splat_probe") or probe
+                jlog.info(f"🪟 dual-res (m2svid): splat@{sp['width']}x{sp['height']}")
             jlog.info(f"🖥  stereo GPU: {M2SVID_STEREO_GPU} (m2svid)")
             if parallel:
                 stereo = _parallel_stereo_m2svid(
