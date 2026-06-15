@@ -754,17 +754,23 @@ def _propainter_work_res(request: dict, src_w: int, src_h: int) -> tuple[int, in
        (back-compat / expert override).
     2. otherwise a SHORT-SIDE value (``inpaint_res``, else ``work_height``,
        default 720): the short side = that value, the long side derived
-       from the source aspect, both rounded to even (encoder-friendly). So
-       a 16:9 source → 1280×720, a 9:16 portrait → 720×1280, 1:1 → 720×720
-       — never the fixed 1280×720 rectangle that distorts non-landscape.
+       from the source aspect. BOTH dims are rounded to a MULTIPLE OF 8 —
+       ProPainter's RAFT flow downsamples by 8, and if a dim isn't /8-clean
+       the image grid and the flow grid round to different widths (e.g. a
+       2.31:1 source → 1662 even → 207.75 vs 208 after /8), which crashes
+       grid_sampler with a 1-pixel batch/size mismatch. /8 keeps both grids
+       identical. So a 16:9 source → 1280×720, a 9:16 portrait → 720×1280,
+       1:1 → 720×720, an ultra-wide 2.31:1 → 1664×720 — never the fixed
+       1280×720 rectangle that distorts non-landscape.
     """
     if request.get("work_height") and request.get("work_width"):
         return int(request["work_height"]), int(request["work_width"])
     short = int(request.get("inpaint_res") or request.get("work_height") or 720)
     src_long = max(src_w, src_h)
     src_short = max(min(src_w, src_h), 1)
-    long_side = int(round(short * src_long / src_short / 2)) * 2  # even
-    short = (short // 2) * 2
+    # /8 (not just even): RAFT flow grid must tile identically to the image
+    long_side = max(8, int(round(short * src_long / src_short / 8)) * 8)
+    short = max(8, (short // 8) * 8)
     if src_h >= src_w:  # portrait or square: height is the long side
         return long_side, short
     return short, long_side  # landscape: width is the long side
