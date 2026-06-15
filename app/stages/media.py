@@ -479,6 +479,22 @@ def _av_sync_ms(path: Path) -> float | None:
     # byte copy cache→bucket; a long 4K output can be many GB, 30min
     timeout=1800,
 )
+def publish_file(job_id: str, cache_file: str, name: str) -> str:
+    """Copy a cache-volume artifact (e.g. the depth video) to the
+    job's bucket output dir and return its public URL."""
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
+    cache_volume.reload()
+    src = Path(cache_file)
+    dst = job_output_dir(job_id) / name
+    jlog.info(f"⬆️  publishing {src.name} → {dst} ({src.stat().st_size / 1e6:.1f} MB)")
+    dst.write_bytes(src.read_bytes())
+    url = public_url(dst)
+    jlog.info(f"✔ published {name}: {url}")
+    return url
+
+
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
@@ -509,22 +525,6 @@ def fetch_preprocess_reuse(job_id: str, gcs_relpath: str) -> dict:
     jlog.info(f"♻️  reused preprocess work file from {gcs_relpath}: "
               f"{probe['width']}x{probe['height']} {probe['num_frames']}f")
     return {"work_path": str(dst), "probe": probe}
-
-
-def publish_file(job_id: str, cache_file: str, name: str) -> str:
-    """Copy a cache-volume artifact (e.g. the depth video) to the
-    job's bucket output dir and return its public URL."""
-    from app.common.debug import job_logger
-
-    jlog = job_logger(job_id)
-    cache_volume.reload()
-    src = Path(cache_file)
-    dst = job_output_dir(job_id) / name
-    jlog.info(f"⬆️  publishing {src.name} → {dst} ({src.stat().st_size / 1e6:.1f} MB)")
-    dst.write_bytes(src.read_bytes())
-    url = public_url(dst)
-    jlog.info(f"✔ published {name}: {url}")
-    return url
 
 
 @app.function(
