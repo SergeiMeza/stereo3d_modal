@@ -80,6 +80,26 @@ async def submit_video(body: dict) -> dict:
     target_fps = body.get("target_fps")
     if target_fps is not None and not (0.0 < float(target_fps) <= 240.0):
         raise HTTPException(status_code=400, detail="target_fps must be in (0, 240]")
+    # v7 resolution knobs. depth_res aliases input_size (same ×14/[140,2100]
+    # rule). output_res/inpaint_res are SHORT-SIDE values in pixels;
+    # min ~540 (below that depth/disparity quantization degrades), max
+    # bounded here, and preprocess never upscales past the source.
+    depth_res = body.get("depth_res")
+    if depth_res is not None and (int(depth_res) % 14 != 0 or not (140 <= int(depth_res) <= 2100)):
+        raise HTTPException(status_code=400, detail="depth_res must be a multiple of 14 in [140, 2100]")
+    output_res = body.get("output_res")
+    if output_res is not None and not (540 <= int(output_res) <= 4320):
+        raise HTTPException(status_code=400, detail="output_res (short side) must be in [540, 4320]")
+    inpaint_res = body.get("inpaint_res")
+    if inpaint_res is not None:
+        if not (360 <= int(inpaint_res) <= 2160):
+            raise HTTPException(status_code=400, detail="inpaint_res (short side) must be in [360, 2160]")
+        # never inpaint above the frame it composites into
+        if output_res is not None and int(inpaint_res) > int(output_res):
+            raise HTTPException(
+                status_code=400,
+                detail="inpaint_res must not exceed output_res (filling above the output frame is wasted)",
+            )
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in

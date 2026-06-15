@@ -114,6 +114,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
     preset = PRESETS.get(request.get("preset", ""))
     if preset:
         request = {**preset, **request}  # explicit fields win over the preset
+    # v7 resolution knobs (client-facing aliases over the internal fields):
+    #   depth_res   → input_size       (depth inference resolution)
+    #   output_res  → target_short_side (output short side, orientation-agnostic)
+    #   inpaint_res → ProPainter short side (consumed in _propainter_work_res)
+    # Aliases only set the internal field when not already present, so a
+    # preset or an explicit internal field still wins per the merge above.
+    if request.get("depth_res") and "input_size" not in request:
+        request["input_size"] = int(request["depth_res"])
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_stereo import VideoStereoWorker
 
@@ -134,6 +142,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # carries the decimated fps + frame count, so every downstream stage
         # (depth/stereo/encode) and fps_rational adapt automatically.
         target_fps = request.get("target_fps")
+        output_res = request.get("output_res")
         pre = preprocess_video.remote(
             job_id,
             request["input_path"],
@@ -141,6 +150,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             target_height=request.get("target_height"),
             trim_spec=trim_spec,
             target_fps=float(target_fps) if target_fps is not None else None,
+            target_short_side=int(output_res) if output_res is not None else None,
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "

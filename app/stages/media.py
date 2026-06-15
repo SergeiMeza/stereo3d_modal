@@ -197,6 +197,7 @@ def preprocess_video(
     target_height: int | None = None,
     trim_spec: dict | None = None,
     target_fps: float | None = None,
+    target_short_side: int | None = None,
 ) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
@@ -231,8 +232,25 @@ def preprocess_video(
     work_dir = job_cache_dir(job_id)
     crop = detect_crop(src, probe) if remove_black_bars else None
 
-    # never upscale; scale applies after the crop
-    scale = target_height if target_height and probe["height"] > target_height else None
+    # never upscale; scale applies after the crop.
+    # target_short_side (v7, orientation-agnostic) scales the SHORT side to
+    # the target (so "1080" means 1080 on the short edge whether landscape
+    # or portrait); target_height (legacy) scales the height. short-side
+    # wins when both given. scale_filter is the ffmpeg -vf scale expression.
+    scale = None  # legacy height scale (kept for the metadata/back-compat)
+    scale_filter = None
+    src_short = min(probe["width"], probe["height"])
+    if target_short_side and src_short > target_short_side:
+        s = (int(target_short_side) // 2) * 2  # even
+        # scale the short side to s, long side auto (-2 keeps even + aspect)
+        if probe["width"] >= probe["height"]:  # landscape: height is short
+            scale_filter = f"scale=-2:{s}"
+        else:  # portrait: width is short
+            scale_filter = f"scale={s}:-2"
+        scale = s
+    elif target_height and probe["height"] > target_height:
+        scale = target_height
+        scale_filter = f"scale=-2:{scale}"
 
     # resolve trim against THIS source's frame count + fps (frame-exact)
     trim = _resolve_trim_spec(trim_spec, probe["num_frames"], probe["fps"])
@@ -260,13 +278,13 @@ def preprocess_video(
     with jobs.stage_timer(job_id, "preprocess", crop=crop, scale=scale, trim=trim,
                           fps=fps_dec,
                           **{k: probe[k] for k in ("width", "height", "num_frames")}):
-        if crop or scale or trim_filter or fps_filter:
+        if crop or scale_filter or trim_filter or fps_filter:
             filters = ",".join(
                 f for f in (
                     trim_filter or "",
                     fps_filter or "",
                     f"crop={crop}" if crop else "",
-                    f"scale=-2:{scale}" if scale else "",
+                    scale_filter or "",
                 )
                 if f
             )
