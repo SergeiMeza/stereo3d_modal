@@ -173,6 +173,7 @@ class VideoStereoWorker:
         batch_size: int | None = None,
         concat: bool = True,
         scene_params: list[dict] | None = None,
+        splat_video_path: str | None = None,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
@@ -201,7 +202,15 @@ class VideoStereoWorker:
             raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
 
         safe_reload(cache_volume)
-        src = Path(video_path)
+        # DUAL-RES (v7): when splat_video_path is given, the SPLAT + composite
+        # run on those output-res frames while ProPainter still fills at
+        # (work_height, work_width). The forward-warp is a geometric pixel
+        # shift, so warping the high-res frames preserves output-res detail
+        # everywhere except the disocclusion holes (filled at inpaint res,
+        # upscaled into the high-res warp by _composite). Depth (depth-res)
+        # upscales to the SPLAT dims via to_source. Without it, src == the
+        # work video and behavior is byte-identical to before.
+        src = Path(splat_video_path or video_path)
         depth_src = Path(depth_path)
         for p in (src, depth_src):
             if not p.exists():
@@ -215,11 +224,13 @@ class VideoStereoWorker:
         depth_decoder = VideoDecoder(str(depth_src), device="cpu", num_ffmpeg_threads=0)
         meta = decoder.metadata
         fps = fps_rational or float(meta.average_fps)
+        # height/width = the SPLAT (output) resolution — the warp, composite,
+        # and SBS output all happen here; ProPainter sees to_work below.
         height, width = meta.height, meta.width
         num_frames = min(meta.num_frames, depth_decoder.metadata.num_frames)
         if meta.num_frames != depth_decoder.metadata.num_frames:
             raise RuntimeError(
-                f"frame count mismatch: source {meta.num_frames} vs depth "
+                f"frame count mismatch: splat/source {meta.num_frames} vs depth "
                 f"{depth_decoder.metadata.num_frames} — upstream stage dropped frames"
             )
 

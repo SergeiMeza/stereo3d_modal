@@ -128,6 +128,7 @@ class M2SVidStereoWorker:
         batch_size: int | None = None,
         concat: bool = True,
         scene_params: list[dict] | None = None,
+        splat_video_path: str | None = None,
     ) -> dict:
         """Produce a full-width SBS video (left = source, right =
         warped + M2SVid-filled). Paths are inside the cache volume /
@@ -161,7 +162,12 @@ class M2SVidStereoWorker:
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
         safe_reload(cache_volume)
-        src = Path(video_path)
+        # DUAL-RES (v7): when splat_video_path is given, splat the output-res
+        # frames while the M2SVid fill stays at its 512 model tier (the model
+        # resolution is independent of the splat resolution — the fill only
+        # touches the disocclusion holes, upscaled back into the high-res
+        # warp). Without it, src == the work video (byte-identical to before).
+        src = Path(splat_video_path or video_path)
         depth_src = Path(depth_path)
         for p in (src, depth_src):
             if not p.exists():

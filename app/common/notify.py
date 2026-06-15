@@ -51,7 +51,11 @@ def job_event(old: dict, new: dict) -> None:
 
     if new_status == "completed" and old_status != "completed":
         elapsed = sum(t["seconds"] for t in new.get("timings", []))
-        lines = [f"✅ {tag} completed — {elapsed:.0f}s of stage time"]
+        headline = f"✅ {tag} completed — {elapsed:.0f}s of stage time"
+        cost = _cost_suffix(new)
+        if cost:
+            headline += cost
+        lines = [headline]
         outputs = new.get("outputs") or {}
         links = _flatten_links(outputs)
         if links:
@@ -82,6 +86,21 @@ def job_event(old: dict, new: dict) -> None:
                 extra = (f" — {d.get('stage')} {d.get('done')}/{d.get('total')} {d.get('unit', '')}"
                          f", {d.get('rate_per_s', '?')}/s, ETA {d.get('eta_seconds', '?')}s")
             notify_slack(f"⏳ {tag} {new.get('progress', 0):.0%}{extra}")
+
+
+def _cost_suffix(job: dict) -> str:
+    """`, ~$0.18 est.` for the completion line — None if no cost summary
+    (e.g. all stages CPU-only with no priced resources, or summary write
+    failed). Flags when a GPU rate was missing so the figure isn't trusted
+    as complete."""
+    s = job.get("cost_summary") or {}
+    total = s.get("total_usd")
+    if not total:
+        return ""
+    suffix = f" · ~${total:.2f} est."
+    if s.get("gpu_unpriced_stages"):
+        suffix += " (⚠ some GPU unpriced)"
+    return suffix
 
 
 def _flatten_links(outputs: dict, prefix: str = "") -> list[tuple[str, str]]:

@@ -198,6 +198,7 @@ def preprocess_video(
     trim_spec: dict | None = None,
     target_fps: float | None = None,
     target_short_side: int | None = None,
+    inpaint_short_side: int | None = None,
 ) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
@@ -288,37 +289,76 @@ def preprocess_video(
                 )
                 if f
             )
-            work_path = work_dir / "source_processed.mp4"
             # force the output frame rate when decimating so the container
             # fps metadata matches the decimated stream (the encoder + all
             # downstream fps_rational reads come from this work file's probe)
             rate_args = (
                 ["-r", f"{_fps_to_rational(fps_dec['fps'])}"] if fps_dec else []
             )
+            # DUAL-RES (v7): this processed file is the SPLAT-res surface
+            # (output_res). When a smaller inpaint_short_side is requested,
+            # we ALSO derive a downscaled work file from it below — a pure
+            # scale of the same frames, so frame counts are IDENTICAL (the
+            # AV-sync invariant). Without dual-res this IS the work file.
+            splat_path = work_dir / "source_processed.mp4"
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(src),
                  "-vf", filters, *rate_args, "-an", "-c:v", "libx264",
                  "-preset", "fast", "-crf", "16", "-pix_fmt", "yuv420p",
-                 "-y", str(work_path)],
+                 "-y", str(splat_path)],
                 check=True,
             )
-            probe = probe_video(work_path)
+            splat_probe = probe_video(splat_path)
         else:
-            work_path = work_dir / ("source" + src.suffix)
-            work_path.write_bytes(src.read_bytes())
+            splat_path = work_dir / ("source" + src.suffix)
+            splat_path.write_bytes(src.read_bytes())
+            splat_probe = probe_video(splat_path)
+
+        # dual-res: derive the (smaller) inpaint/depth work file by scaling
+        # the splat file's SHORT side to inpaint_short_side. Pure scale →
+        # identical frame count + fps. Only when it's actually smaller.
+        splat_short = min(splat_probe["width"], splat_probe["height"])
+        dual_res = bool(inpaint_short_side and splat_short > inpaint_short_side)
+        if dual_res:
+            iss = (int(inpaint_short_side) // 2) * 2
+            if splat_probe["width"] >= splat_probe["height"]:
+                wf_scale = f"scale=-2:{iss}"
+            else:
+                wf_scale = f"scale={iss}:-2"
+            work_path = work_dir / "source_work.mp4"
+            subprocess.run(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(splat_path),
+                 "-vf", wf_scale, "-an", "-c:v", "libx264", "-preset", "fast",
+                 "-crf", "16", "-pix_fmt", "yuv420p", "-y", str(work_path)],
+                check=True,
+            )
+            work_probe = probe_video(work_path)
+            # invariant: pure scale must preserve frame count
+            if work_probe["num_frames"] != splat_probe["num_frames"]:
+                raise RuntimeError(
+                    f"dual-res frame mismatch: splat {splat_probe['num_frames']} "
+                    f"vs work {work_probe['num_frames']}"
+                )
+        else:
+            work_path, work_probe, splat_path = splat_path, splat_probe, None
 
     cache_volume.commit()
-    # source_path: the pristine input — audio is muxed from here, since
-    # the work file is video-only (crop re-encode drops audio with -an).
-    # trim: the audio mux must match, so pass the trim window downstream.
+    # probe = the WORK file's probe (depth/inpaint run here; num_frames is
+    # the canonical frame count — identical to splat by the invariant).
+    # splat_path/splat_probe drive the splat+composite at output_res when
+    # dual-res; None means single-res (splat == work, today's behavior).
     return {
         "work_path": str(work_path), "source_path": str(src),
-        "probe": probe, "crop": crop, "trim": trim,
+        "probe": work_probe, "crop": crop, "trim": trim,
         "fps_decimation": fps_dec,
         # the SOURCE fps (pre-decimation) — trim indices are in source
         # frames, so audio_trim seconds must divide by THIS, not the
         # (possibly decimated) work-file probe fps.
         "source_fps": source_fps,
+        # dual-res splat surface (v7): output-res work file for the splat +
+        # composite. None when single-res (splat == work_path).
+        "splat_path": str(splat_path) if splat_path else None,
+        "splat_probe": splat_probe if dual_res else None,
     }
 
 
@@ -473,6 +513,55 @@ def _av_sync_ms(path: Path) -> float | None:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
+    cpu=2,
+    memory=(1024, 8 * 1024),
+    timeout=1800,
+)
+def fetch_preprocess_reuse(
+    job_id: str, gcs_relpath: str, splat_relpath: str | None = None
+) -> dict:
+    """Reuse a previously-published preprocess work file (content-addressed
+    reuse). Copies the GCS-published work file (and the dual-res splat file
+    if ``splat_relpath`` is given) into THIS job's cache dir and re-probes,
+    returning the same dict shape preprocess_video does. The caller verified
+    the key match; here we verify the files exist and probe them."""
+    from app.common.debug import job_logger
+    from app.common.storage import BUCKET_DIR
+
+    jlog = job_logger(job_id)
+    cache_volume.reload()
+    src = BUCKET_DIR / gcs_relpath
+    if not src.exists():
+        raise FileNotFoundError(f"reuse work file missing on GCS: {gcs_relpath}")
+    dst = job_cache_dir(job_id) / "source_work.mp4"
+    dst.write_bytes(src.read_bytes())
+    probe = probe_video(dst)
+    out = {"work_path": str(dst), "probe": probe, "splat_path": None}
+    if splat_relpath:
+        ssrc = BUCKET_DIR / splat_relpath
+        if not ssrc.exists():
+            raise FileNotFoundError(f"reuse splat file missing on GCS: {splat_relpath}")
+        sdst = job_cache_dir(job_id) / "source_processed.mp4"
+        sdst.write_bytes(ssrc.read_bytes())
+        sprobe = probe_video(sdst)
+        if sprobe["num_frames"] != probe["num_frames"]:
+            raise RuntimeError(
+                f"reuse dual-res frame mismatch: work {probe['num_frames']} "
+                f"vs splat {sprobe['num_frames']}"
+            )
+        out["splat_path"] = str(sdst)
+        out["splat_probe"] = sprobe
+    cache_volume.commit()
+    jlog.info(f"♻️  reused preprocess from {gcs_relpath}: "
+              f"{probe['width']}x{probe['height']} {probe['num_frames']}f"
+              + (f" (+splat {out.get('splat_probe',{}).get('width')}px)" if splat_relpath else ""))
+    return out
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     cpu=2,
     memory=(1024, 8 * 1024),
@@ -493,38 +582,6 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     url = public_url(dst)
     jlog.info(f"✔ published {name}: {url}")
     return url
-
-
-@app.function(
-    image=media_image,
-    volumes=PIPELINE_VOLUMES,
-    secrets=[slack_secret],
-    cpu=2,
-    memory=(1024, 8 * 1024),
-    timeout=1800,
-)
-def fetch_preprocess_reuse(job_id: str, gcs_relpath: str) -> dict:
-    """Reuse a previously-published preprocess work file (content-addressed
-    reuse). Copies the GCS-published work file into THIS job's cache dir
-    and re-probes it, returning the same dict shape preprocess_video does
-    (minus crop/trim/fps_decimation detail, which are encoded in the key —
-    the work file already reflects them). The caller verified the key match;
-    here we just verify the file exists and probe it."""
-    from app.common.debug import job_logger
-    from app.common.storage import BUCKET_DIR
-
-    jlog = job_logger(job_id)
-    cache_volume.reload()
-    src = BUCKET_DIR / gcs_relpath
-    if not src.exists():
-        raise FileNotFoundError(f"reuse work file missing on GCS: {gcs_relpath}")
-    dst = job_cache_dir(job_id) / "source_processed.mp4"
-    dst.write_bytes(src.read_bytes())
-    cache_volume.commit()
-    probe = probe_video(dst)
-    jlog.info(f"♻️  reused preprocess work file from {gcs_relpath}: "
-              f"{probe['width']}x{probe['height']} {probe['num_frames']}f")
-    return {"work_path": str(dst), "probe": probe}
 
 
 @app.function(

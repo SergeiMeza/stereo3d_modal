@@ -18,6 +18,36 @@ from app.env import APP_ENV
 
 job_dict = modal.Dict.from_name(f"stereo3d-jobs-{APP_ENV}", create_if_missing=True)
 
+# Resources reserved per stage, for cost estimation. Keyed by stage-name
+# PREFIX (the part before "[" — stages fan out as "video_depth[0:240]",
+# "image[item3]", so we match the prefix, mirroring report_progress's
+# stage.split("[")[0]). Each value is (cpu_cores, mem_gib) where mem_gib
+# is the CEILING — the limit half of each @app.function's
+# memory=(request, limit). These MUST track the decorators; if you change
+# a function's cpu=/memory=, update the matching row here.
+#
+# GPU is NOT in this table — stage_timer already receives the live GPU
+# name (torch.cuda.get_device_name), which is more accurate than a static
+# map (H200/H100 routing varies per run).
+STAGE_RESOURCES: dict[str, tuple[int, int]] = {
+    "video_depth": (4, 128),         # video_depth.py, video_depth_models.py
+    "profile_scenes": (4, 128),      # video_depth_models.py (scene profiling)
+    "video_stereo": (4, 128),        # video_stereo.py + m2svid (both 4/128)
+    "encode_mvhevc": (4, 16),        # mvhevc.py NVENC path
+    "encode_mvhevc_x265": (32, 32),  # mvhevc.py x265 (cpu=32, mem ceil 32G)
+    "image": (2, 32),                # image_stereo.py
+    "preprocess": (4, 16),           # media.py preprocess
+    "encode_outputs": (4, 16),       # media.py encode_outputs
+}
+
+
+def stage_resources(stage: str) -> tuple[int | None, int | None]:
+    """(cpu_cores, mem_gib) reserved for a stage, by name prefix. Returns
+    (None, None) for stages absent from STAGE_RESOURCES so cost still
+    captures GPU+seconds without inventing CPU/mem numbers."""
+    prefix = stage.split("[")[0]
+    return STAGE_RESOURCES.get(prefix, (None, None))
+
 # Job statuses
 PENDING = "pending"
 IN_PROGRESS = "in_progress"
@@ -55,6 +85,22 @@ def update_job(job_id: str, **fields) -> dict | None:
     old = dict(job)
     job.update(fields)
     job["updated_at"] = time.time()
+
+    # On the first transition into COMPLETED, roll up per-stage costs into
+    # a final cost.yaml in GCS and stash the summary on the job so Slack
+    # (and API consumers) can read it without recomputing. Best-effort: a
+    # storage hiccup must not fail the job. Done here (not in notify) so the
+    # yaml is written even when Slack notify is off.
+    if job.get("status") == COMPLETED and old.get("status") != COMPLETED:
+        try:
+            from app.common.cost_report import write_final_cost
+
+            job["cost_summary"] = write_final_cost(job_id, job.get("timings") or [])
+        except Exception as exc:  # pragma: no cover - best effort
+            from app.common.debug import get_logger
+
+            get_logger(__name__).warning(f"final cost yaml skipped: {exc}")
+
     job_dict[job_id] = job
 
     from app.common.notify import job_event
@@ -96,14 +142,35 @@ def clear_child_calls(job_id: str) -> None:
 
 
 def add_timing(job_id: str, stage: str, seconds: float, gpu: str | None = None, **detail):
+    from app.common.pricing import estimate_cost
+
     job = job_dict.get(job_id)
     if job is None:
         return
+    cpu, mem_gib = stage_resources(stage)
+    cost = estimate_cost(seconds, gpu=gpu, cpu=cpu, mem_gib=mem_gib)
     job["timings"].append(
-        {"stage": stage, "seconds": round(seconds, 3), "gpu": gpu, "detail": detail}
+        {
+            "stage": stage,
+            "seconds": round(seconds, 3),
+            "gpu": gpu,
+            "cost": cost,
+            "detail": detail,
+        }
     )
     job["updated_at"] = time.time()
     job_dict[job_id] = job
+
+    # Drop a per-stage cost YAML next to this job's outputs (depth/sbs/...).
+    # Best-effort: a storage hiccup must never fail the pipeline.
+    try:
+        from app.common.cost_report import write_stage_cost
+
+        write_stage_cost(job_id, stage, cost, detail)
+    except Exception as exc:  # pragma: no cover - best effort
+        from app.common.debug import get_logger
+
+        get_logger(__name__).warning(f"stage cost yaml skipped ({stage}): {exc}")
 
 
 def clear_chunk_progress_key(job_id: str, chunk_key) -> None:
