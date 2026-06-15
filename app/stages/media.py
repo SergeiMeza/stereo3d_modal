@@ -57,6 +57,20 @@ def probe_video(path: Path) -> dict:
     }
 
 
+def _decoded_frame_count(path: Path) -> int:
+    """EXACT number of decodable video frames (ffprobe -count_frames). Use
+    when the cheap probe_video num_frames (header nb_frames) can't be
+    trusted — e.g. the dual-res splat/work invariant, where a phantom-tail
+    nb_frames off-by-one would otherwise hard-fail. Slower (decodes the
+    stream) so reserved for that exactness-critical check, not the hot path."""
+    raw = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames",
+         "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return int(raw)
+
+
 def has_audio(path: Path) -> bool:
     raw = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
@@ -325,20 +339,35 @@ def preprocess_video(
                 wf_scale = f"scale=-2:{iss}"
             else:
                 wf_scale = f"scale={iss}:-2"
+            # The dual-res invariant is that splat and work decode to the
+            # SAME number of frames (they're read in lockstep — the composite
+            # pulls fill from the upscaled work into the splat's holes). The
+            # cheap nb_frames probe can LIE by one here: this clip's splat
+            # reports nb_frames=3327 but only 3326 frames actually decode,
+            # while the work re-encode reports 3326 — a phantom-tail mismatch,
+            # not a real one. So use the EXACT decoded count (authoritative),
+            # pin the work output to it with -frames:v, and trust that as the
+            # canonical length for both.
+            splat_real = _decoded_frame_count(splat_path)
             work_path = work_dir / "source_work.mp4"
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(splat_path),
-                 "-vf", wf_scale, "-an", "-c:v", "libx264", "-preset", "fast",
+                 "-vf", wf_scale, "-frames:v", str(splat_real),
+                 "-an", "-c:v", "libx264", "-preset", "fast",
                  "-crf", "16", "-pix_fmt", "yuv420p", "-y", str(work_path)],
                 check=True,
             )
             work_probe = probe_video(work_path)
-            # invariant: pure scale must preserve frame count
-            if work_probe["num_frames"] != splat_probe["num_frames"]:
+            work_real = _decoded_frame_count(work_path)
+            if work_real != splat_real:
                 raise RuntimeError(
-                    f"dual-res frame mismatch: splat {splat_probe['num_frames']} "
-                    f"vs work {work_probe['num_frames']}"
+                    f"dual-res frame mismatch after -frames:v pin: splat "
+                    f"{splat_real} vs work {work_real} (decoded counts)"
                 )
+            # canonicalize both probes to the true decoded length so every
+            # downstream stage (depth/splat/composite) agrees frame-for-frame
+            splat_probe["num_frames"] = splat_real
+            work_probe["num_frames"] = work_real
         else:
             work_path, work_probe, splat_path = splat_path, splat_probe, None
 
