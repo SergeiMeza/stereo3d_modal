@@ -684,18 +684,27 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
 #   2.39:1 , depth_res 1806 → 7.80 MP → ERROR           (ultra-wide hits the
 #                                                         cap earlier — correct)
 #
-# Above H200_MAX_MP we FAIL FAST: B200 (the next VRAM tier) is pending an
-# xformers/torch image rebuild (its current xformers has no sm_100 kernels),
-# so routing there would error confusingly — better to reject with guidance.
+# Above H200_MAX_MP we route to B200 (Blackwell/sm_100), the next VRAM tier:
+#   2.39:1 4K, depth_res 2100 → 7.84 MP → ran on B200 in 415.9s (no OOM —
+#                                         proven; H200 OOMs the same workload)
+# B200's ~180 GB clears what H200's 141 GB cannot. It runs the depth image's
+# Blackwell torch 2.9.1 + xformers 0.0.33.post2 stack (sm_100 cutlass fmha
+# kernels); the old cu126 torch 2.7.1 / xformers 0.0.31 gave "no kernel image
+# available" on B200. B200 is 58% pricier/s than H200 and ~0.74× its
+# throughput at equal work, so it is NOT cost-competitive at resolutions H200
+# can already handle — it exists purely as the VRAM-ceiling tier for the work
+# H200 physically cannot fit. Above B200_MAX_MP we FAIL FAST.
 L40S_MAX_MP = 2.5
 H200_MAX_MP = 6.5
+B200_MAX_MP = 8.5  # 7.84 MP (depth_res 2100, 2.39:1 4K) proven to fit, with
+#                    margin to ~180 GB. Above this, no current tier — reject.
 
 
 def _route_depth_gpu(input_size: int, probe: dict) -> tuple[str, float, float]:
     """Pick the depth GPU by WORKING MEGAPIXELS (input_size² × elongation),
     aspect- and orientation-agnostic. Returns (gpu, work_mp, elongation).
-    Raises ValueError above the H200 ceiling (B200 not yet supported).
-    See the module comment above for the threshold derivation + examples."""
+    Routes L40S → H200 → B200 by VRAM need; raises ValueError above the B200
+    ceiling. See the module comment above for the threshold derivation."""
     long_side = max(probe["width"], probe["height"])
     short_side = max(min(probe["width"], probe["height"]), 1)
     elongation = long_side / short_side  # ≥ 1
@@ -704,12 +713,13 @@ def _route_depth_gpu(input_size: int, probe: dict) -> tuple[str, float, float]:
         return "L40S", work_mp, elongation
     if work_mp <= H200_MAX_MP:
         return "H200", work_mp, elongation
+    if work_mp <= B200_MAX_MP:
+        return "B200", work_mp, elongation
     raise ValueError(
         f"depth working resolution too high: {work_mp:.2f} MP/frame "
-        f"(input_size={input_size}, {elongation:.2f}:1 aspect) exceeds the H200 "
-        f"VRAM ceiling (~{H200_MAX_MP} MP). B200 (the next tier) is pending an "
-        f"xformers/torch image rebuild. Lower depth_res, or the source/output "
-        f"aspect's long side."
+        f"(input_size={input_size}, {elongation:.2f}:1 aspect) exceeds the B200 "
+        f"VRAM ceiling (~{B200_MAX_MP} MP) — the largest tier available. Lower "
+        f"depth_res, or the source/output aspect's long side."
     )
 
 

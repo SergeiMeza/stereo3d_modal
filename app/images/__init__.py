@@ -19,7 +19,13 @@ One image per pipeline segment instead of a monolith:
 
 import modal
 
-from app.images.common import PYTHON_VERSION, cuda_torch_base, with_forward_warp
+from app.images.common import (
+    PYTHON_VERSION,
+    TORCH_INDEX_BLACKWELL,
+    TORCH_PIN_BLACKWELL,
+    cuda_torch_base,
+    with_forward_warp,
+)
 from app.images.depth_models import depth_models_image  # noqa: F401
 
 # ---------------------------------------------------------------- web
@@ -44,8 +50,12 @@ media_image = (
 )
 
 # -------------------------------------------------------- video depth
+# Runs on the Blackwell torch stack (torch 2.9.1, cu128) so both torch
+# AND xformers carry sm_100 kernels — this image is the only one that
+# routes to B200. All other GPU images stay on the cu126 torch 2.7.1
+# base. (cu126 torch has no sm_100 kernels, so it MUST be cu128 here.)
 video_depth_image = (
-    cuda_torch_base()
+    cuda_torch_base(torch_pin=TORCH_PIN_BLACKWELL, torch_index=TORCH_INDEX_BLACKWELL)
     .uv_pip_install(
         "easydict==1.13",
         "matplotlib==3.10.3",
@@ -53,8 +63,10 @@ video_depth_image = (
     )
     # memory-efficient attention — without it DINOv2 falls back to
     # naive O(N²) attention and OOMs above ~518px input (122 GiB alloc).
-    # 0.0.31.post1 is the torch 2.7.1-matched build.
-    .uv_pip_install("xformers==0.0.31.post1", extra_index_url="https://download.pytorch.org/whl/cu126")
+    # 0.0.33.post2 is the first line with prebuilt Blackwell/sm_100
+    # cutlass fmha kernels (needed for B200; 0.0.31/0.0.32 give
+    # "no kernel image available" on sm_100); torch 2.9.1-matched, cu128.
+    .uv_pip_install("xformers==0.0.33.post2", extra_index_url=TORCH_INDEX_BLACKWELL)
     .add_local_python_source("app")
 )
 
