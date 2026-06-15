@@ -393,6 +393,62 @@ def _refill_displacement(displacement: float, near: float, far: float) -> float:
 # plain floats/lists before calling _build_depth_script. See
 # docs/DEPTH_SCRIPT.md for the full algorithm write-up.
 
+
+def _ts(frame: int, fps: float) -> str:
+    """Frame index → m:ss.cc timestamp (for the human-readable sidecar)."""
+    s = frame / fps if fps else 0.0
+    return f"{int(s // 60)}:{s - 60 * (s // 60):05.2f}"
+
+
+def depth_script_to_yaml(script: list, fps: float, meta: dict | None = None) -> str:
+    """Render a depth_script (list of per-shot dicts) as readable YAML with
+    a wall-clock ``time`` range per shot, so a later re-run can eyeball the
+    exact per-shot classification / far / displacement decisions. Hand-rolled
+    (no PyYAML dependency in the media image); the script is flat scalars +
+    a ``placement`` [far, near] pair + optional ``keyframes`` list."""
+    def scalar(v):
+        if isinstance(v, float):
+            return repr(round(v, 6))
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if v is None:
+            return "null"
+        return str(v)
+
+    lines = ["# Per-shot depth script — durable sidecar (survives jobs-Dict rotation).",
+             "# 'placement' is [far_plane, near_plane]; far pulled toward 0 = box",
+             "# tightened on a flat-rear (wide) shot. 'time' is informational.",
+             f"fps: {scalar(round(float(fps), 4))}"]
+    if meta:
+        lines.append("meta:")
+        for k, v in meta.items():
+            lines.append(f"  {k}: {scalar(v)}")
+    lines.append(f"shot_count: {len(script)}")
+    lines.append("shots:")
+    for sh in script:
+        first, last = int(sh["first"]), int(sh["last"])
+        lines.append(f"  - time: \"{_ts(first, fps)}–{_ts(last, fps)}\"")
+        lines.append(f"    frames: [{first}, {last}]")
+        # ordered, readable subset first; then any remaining keys
+        ordered = ["shot_type", "median", "near_fraction", "fov_deg",
+                   "placement", "displacement"]
+        for k in ordered:
+            if k in sh:
+                v = sh[k]
+                if isinstance(v, list):
+                    lines.append(f"    {k}: [{', '.join(scalar(x) for x in v)}]")
+                else:
+                    lines.append(f"    {k}: {scalar(v)}")
+        if "keyframes" in sh:
+            lines.append(f"    keyframes:  # {len(sh['keyframes'])} (dynamic shot)")
+            for kf in sh["keyframes"]:
+                inner = ", ".join(
+                    f"{k}: {scalar(v) if not isinstance(v, list) else '[' + ', '.join(scalar(x) for x in v) + ']'}"
+                    for k, v in kf.items())
+                lines.append(f"      - {{{inner}}}")
+    return "\n".join(lines) + "\n"
+
+
 def _classify_keyframe(
     median_depth: float,
     near_fraction: float,

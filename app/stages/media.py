@@ -588,6 +588,30 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=2,
+    memory=(512, 2 * 1024),
+    timeout=300,
+)
+def publish_text(job_id: str, text: str, name: str) -> str:
+    """Write an in-memory text sidecar (e.g. depth_script.yaml) to the
+    job's bucket output dir and return its public URL. Durable: unlike the
+    jobs Dict, it survives Dict rotation, so a later re-run can read back
+    the exact per-shot decisions."""
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
+    dst = job_output_dir(job_id) / name
+    dst.write_text(text)
+    url = public_url(dst)
+    jlog.info(f"✔ published {name}: {url}")
+    return url
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     cpu=2,
     memory=(1024, 8 * 1024),
     # frame-count check + byte copy of a prior depth.mp4; 30min for big

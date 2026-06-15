@@ -109,7 +109,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
     """
     from app.common.debug import job_logger
     from app.common.errors import check_worker_result
-    from app.stages.media import encode_outputs, preprocess_video, publish_file
+    from app.stages.media import (
+        encode_outputs, preprocess_video, publish_file, publish_text,
+    )
 
     preset = PRESETS.get(request.get("preset", ""))
     if preset:
@@ -265,6 +267,27 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # inspectable while the job is still running (and survive a
             # later-stage failure); also folded into final metadata below
             jobs.update_job(job_id, depth_script=depth_script)
+            # also write a DURABLE, human-readable sidecar to the bucket so
+            # the per-shot decisions survive the jobs-Dict rotating (the
+            # Dict is volatile; outputs/<job>/ persists). Best-effort — a
+            # sidecar failure must not fail the job.
+            try:
+                from app.stages.video_depth_models import (
+                    FAR_PULL_IN, depth_script_to_yaml,
+                )
+                yaml_text = depth_script_to_yaml(
+                    depth_script, eff_fps,
+                    meta={
+                        "job_id": job_id,
+                        "input_path": request["input_path"],
+                        "depth_res": input_size,
+                        "profiler": profiler,
+                        "far_pull_in": FAR_PULL_IN,
+                    },
+                )
+                publish_text.remote(job_id, yaml_text, "depth_script.yaml")
+            except Exception as e:  # noqa: BLE001
+                jlog.warning(f"depth_script.yaml sidecar skipped: {e}")
             for shot in depth_script:
                 jlog.info(
                     f"🎛  shot [{shot['first']}, {shot['last']}): {shot['shot_type']} "
