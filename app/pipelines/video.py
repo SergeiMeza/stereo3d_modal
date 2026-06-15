@@ -46,7 +46,7 @@ PRESETS = {
     "qhd":     {"target_height": 1440, "input_size": 1148},   # 2560x1440, all-L40S
     "3k":      {"target_height": 1620, "input_size": 1148},   # 2880x1620, all-L40S
     "4k":      {"target_height": 2160, "input_size": 1442,    # A100 depth + H200 stereo
-                "work_height": 1080, "work_width": 1920},
+                "inpaint_res": 1080},  # short-side; width aspect-derived (was 1080×1920, landscape-only)
 }
 
 
@@ -250,12 +250,18 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"{depth['num_frames']}f at {depth['depth_shape']}"
             )
         elif depth_model == "vda":
-            # VRAM scales with pixel count ∝ input_size² × aspect; the
-            # L40S/A100 ceilings below were calibrated on 16:9 sources.
-            # Wider frames (e.g. 2.31:1 after letterbox crop) OOM at the
-            # same input_size, so route on an aspect-corrected size.
-            aspect = probe["width"] / max(probe["height"], 1)
-            eff_size = input_size * max(aspect / (16 / 9), 1.0) ** 0.5
+            # VRAM scales with the WORKING pixel count: depth resizes the
+            # SHORT side to input_size, so long side = input_size × (long/
+            # short). Route on an "effective size" = input_size scaled by
+            # the elongation past 16:9 — orientation-AGNOSTIC (uses long/
+            # short, always ≥1, so a 9:16 portrait routes the same as a 16:9
+            # landscape of equal elongation; the old aspect=w/h only handled
+            # frames WIDER than 16:9 and under-routed portrait). L40S/A100
+            # ceilings calibrated on 16:9.
+            long_side = max(probe["width"], probe["height"])
+            short_side = max(min(probe["width"], probe["height"]), 1)
+            elongation = long_side / short_side  # ≥ 1, orientation-free
+            eff_size = input_size * max(elongation / (16 / 9), 1.0) ** 0.5
             depth_gpu = "L40S" if eff_size <= 1148 else ("A100-80GB" if eff_size <= 1442 else "H200")
             worker_cls = (
                 VideoDepthWorker if depth_gpu == "L40S"
@@ -263,7 +269,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             )
             jlog.info(
                 f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, "
-                f"effective={eff_size:.0f} at {aspect:.2f}:1, parallel={parallel})"
+                f"effective={eff_size:.0f} at {elongation:.2f}:1, parallel={parallel})"
             )
             encoder = request.get("encoder", "vitl")
             if parallel:
@@ -354,14 +360,23 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 displacement=float(request.get("displacement", 0.0125)),
                 inpaint=inpaint,
                 stereo_mode=request.get("stereo_mode", "both"),
-                work_height=int(request.get("work_height", 720)),
-                work_width=int(request.get("work_width", 1280)),
                 fps_rational=fps_rational,
                 scene_params=depth_script,  # None unless adaptive
             )
+            # ProPainter work resolution — ORIENTATION-AGNOSTIC: derive
+            # (height, width) from a SHORT-SIDE value + the source aspect,
+            # so a portrait frame fills a portrait work rect (no 1280×720
+            # distortion). Back-compat: explicit work_height/work_width still
+            # honored; otherwise short-side default 720 → 1280×720 for 16:9,
+            # 720×1280 for 9:16, etc. (inpaint_res knob in v7 sets the short
+            # side.)
+            wh, ww = _propainter_work_res(
+                request, src_w=probe["width"], src_h=probe["height"])
+            stereo_kwargs["work_height"] = wh
+            stereo_kwargs["work_width"] = ww
             # ProPainter VRAM scales with work res × source res: above the
-            # default 720p working res (or 4K sources), L40S 48GB OOMs
-            big_work = stereo_kwargs["work_height"] * stereo_kwargs["work_width"] > 1280 * 720
+            # default ~720p working res (or 4K sources), L40S 48GB OOMs
+            big_work = wh * ww > 1280 * 720
             # >720p ProPainter needs ~80+ GB (project A ran 1080p on H200)
             stereo_cls = (
                 VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
@@ -467,6 +482,30 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
 
 # ---------------------------------------------------- long-video fan-out
+
+
+def _propainter_work_res(request: dict, src_w: int, src_h: int) -> tuple[int, int]:
+    """ProPainter (height, width) working resolution, ORIENTATION-AGNOSTIC.
+
+    Precedence:
+    1. explicit work_height AND work_width in the request → used verbatim
+       (back-compat / expert override).
+    2. otherwise a SHORT-SIDE value (``inpaint_res``, else ``work_height``,
+       default 720): the short side = that value, the long side derived
+       from the source aspect, both rounded to even (encoder-friendly). So
+       a 16:9 source → 1280×720, a 9:16 portrait → 720×1280, 1:1 → 720×720
+       — never the fixed 1280×720 rectangle that distorts non-landscape.
+    """
+    if request.get("work_height") and request.get("work_width"):
+        return int(request["work_height"]), int(request["work_width"])
+    short = int(request.get("inpaint_res") or request.get("work_height") or 720)
+    src_long = max(src_w, src_h)
+    src_short = max(min(src_w, src_h), 1)
+    long_side = int(round(short * src_long / src_short / 2)) * 2  # even
+    short = (short // 2) * 2
+    if src_h >= src_w:  # portrait or square: height is the long side
+        return long_side, short
+    return short, long_side  # landscape: width is the long side
 
 
 def _trim_spec(request: dict) -> dict | None:
