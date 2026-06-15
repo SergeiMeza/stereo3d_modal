@@ -14,7 +14,10 @@ APP_NAME = f"stereo3d-{APP_ENV}"
 # Web endpoint label (https://<workspace>--<label>.modal.run)
 API_LABEL = f"stereo3d-api-{APP_ENV}"
 
-# How long idle containers linger before scale-down. Non-production
-# environments release (expensive GPU) containers quickly; production
-# keeps them warm to absorb bursts.
-SCALEDOWN_WINDOW = 300 if APP_ENV == "prod" else 30
+# How long idle GPU containers linger before scale-down. 30s everywhere:
+# long enough that a fan-out worker stays warm to pick up its next queued
+# chunk (avoiding a per-wave cold-start of model weights, ~20-40s GPU),
+# short enough that idle GPU cost stays low. Prod previously used 300s to
+# absorb bursts, but the cold-start vs idle tradeoff favors 30s for this
+# fan-out workload.
+SCALEDOWN_WINDOW = 30
