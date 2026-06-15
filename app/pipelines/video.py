@@ -306,52 +306,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 f"{depth['num_frames']}f at {depth['depth_shape']}"
             )
         elif depth_model == "vda":
-            # VRAM scales with the WORKING pixel count: depth resizes the
-            # SHORT side to input_size, so long side = input_size × (long/
-            # short). Route on an "effective size" = input_size scaled by
-            # the elongation past 16:9 — orientation-AGNOSTIC (uses long/
-            # short, always ≥1, so a 9:16 portrait routes the same as a 16:9
-            # landscape of equal elongation; the old aspect=w/h only handled
-            # frames WIDER than 16:9 and under-routed portrait). L40S/A100
-            # ceilings calibrated on 16:9.
-            long_side = max(probe["width"], probe["height"])
-            short_side = max(min(probe["width"], probe["height"]), 1)
-            elongation = long_side / short_side  # ≥ 1, orientation-free
-            eff_size = input_size * max(elongation / (16 / 9), 1.0) ** 0.5
-            # Depth GPU tiers (VDA depth is bandwidth-bound; route by the
-            # working pixel count that drives VRAM + the bandwidth that
-            # drives speed):
-            #  - L40S (≤1148 eff): cheapest, sufficient for the small tier.
-            #  - H200 (1148<eff≤1806): HBM3e ~4.8 TB/s, ~1.4× faster than
-            #    A100 — both faster AND ~cost-neutral (measured: d1806 on
-            #    H200 = 258s vs d1442 on A100 = 358s). A100 tier dropped.
-            # NOTE: B200 (Blackwell/sm_100) would be the natural VRAM-ceiling
-            # tier for eff_size>1806 (H200's 141 GB OOMs there at 4K), BUT the
-            # depth image's xformers==0.0.31.post1 has no sm_100 kernels
-            # ("no kernel image available" on B200 — verified). Enabling B200
-            # needs an xformers/torch bump + image rebuild (tracked separately).
-            # Until then, cap at the H200 tier and FAIL FAST with a clear
-            # message rather than routing to a broken B200 or silently OOMing.
-            H200_MAX_EFF = 1806  # measured: 1806 fits H200, 2100 OOMs
-            if eff_size <= 1148:
-                depth_gpu = "L40S"
-            elif eff_size <= H200_MAX_EFF:
-                depth_gpu = "H200"
-            else:
-                raise ValueError(
-                    f"depth_res too high: effective working size {eff_size:.0f} "
-                    f"exceeds the H200 capacity (~{H200_MAX_EFF}) for VDA depth at "
-                    f"this source resolution. B200 support (the next tier) is "
-                    f"pending an xformers/torch image rebuild. Lower depth_res or "
-                    f"the source/output resolution."
-                )
+            depth_gpu, work_mp, elongation = _route_depth_gpu(input_size, probe)
             worker_cls = (
                 VideoDepthWorker if depth_gpu == "L40S"
                 else VideoDepthWorker.with_options(gpu=depth_gpu)
             )
             jlog.info(
                 f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, "
-                f"effective={eff_size:.0f} at {elongation:.2f}:1, parallel={parallel})"
+                f"working={work_mp:.2f}MP at {elongation:.2f}:1, parallel={parallel})"
             )
             encoder = request.get("encoder", "vitl")
             if parallel:
@@ -677,6 +639,78 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
         logger.warning("preprocess publish/register failed (non-fatal)", exc_info=True)
     pre["_pp_key"] = pp_key
     return pre
+
+
+# ---------------------------------------------------------- depth GPU routing
+#
+# VDA depth's VRAM is driven by the WORKING PIXEL COUNT, not by depth_res
+# (input_size) alone. The depth model resizes the SHORT side to input_size
+# and the long side follows the source aspect, so:
+#
+#     working_pixels = short × long = input_size × (input_size × elongation)
+#                    = input_size² × elongation      (elongation = long/short ≥ 1)
+#
+# We therefore route on WORKING MEGAPIXELS (work_mp) — a single, physical,
+# orientation-AND-aspect-agnostic axis. The same work_mp uses the same VRAM
+# whether the frame is 16:9, 9:16, 1:1, or 2.39:1, so one set of thresholds
+# is correct for every aspect (the old `eff_size` proxy was calibrated on
+# 16:9 and mis-handled non-16:9 — it over-capped square content and could
+# mis-route ultra-wide).
+#
+# THRESHOLDS are calibrated from MEASURED runs on a 16:9 4K source
+# (3840×2160, elongation 1.78). work_mp = input_size² × 1.78 / 1e6:
+#
+#   depth_res 1078 → 2.07 MP → ran on L40S          (worked)
+#   depth_res 1148 → 2.34 MP → old L40S boundary
+#   depth_res 1442 → 3.70 MP → ran (was A100)       (worked)
+#   depth_res 1806 → 5.80 MP → ran on H200          (worked — proven H200 max)
+#   depth_res 2100 → 7.84 MP → OOM on H200          (FAILED: needed >141 GB)
+#
+# So:
+#   L40S_MAX_MP = 2.5  → ~depth_res 1184 on 16:9 (matches the old ≤1148 tier;
+#                        d1078 @ 2.07 MP comfortably inside)
+#   H200_MAX_MP = 6.5  → ~depth_res 1912 on 16:9; CONSERVATIVE within the
+#                        measured band [5.80 works … 7.84 OOMs] (OOM is a
+#                        hard failure, so we leave margin below 7.84)
+#
+# Worked examples at these thresholds (shows the aspect-proofing):
+#   16:9 4K, depth_res 1806 → 5.80 MP → H200            (the proven case)
+#   9:16   , depth_res 1806 → 5.80 MP → H200            (identical to 16:9)
+#   1:1    , depth_res 1806 → 3.26 MP → H200            (less VRAM; safe)
+#   1:1    , depth_res 2100 → 4.41 MP → H200            (the old proxy WRONGLY
+#                                                         errored here; 1:1
+#                                                         genuinely fits H200)
+#   9:16   , depth_res 2100 → 7.84 MP → ERROR           (same as 16:9; OOM risk)
+#   2.39:1 , depth_res 1806 → 7.80 MP → ERROR           (ultra-wide hits the
+#                                                         cap earlier — correct)
+#
+# Above H200_MAX_MP we FAIL FAST: B200 (the next VRAM tier) is pending an
+# xformers/torch image rebuild (its current xformers has no sm_100 kernels),
+# so routing there would error confusingly — better to reject with guidance.
+L40S_MAX_MP = 2.5
+H200_MAX_MP = 6.5
+
+
+def _route_depth_gpu(input_size: int, probe: dict) -> tuple[str, float, float]:
+    """Pick the depth GPU by WORKING MEGAPIXELS (input_size² × elongation),
+    aspect- and orientation-agnostic. Returns (gpu, work_mp, elongation).
+    Raises ValueError above the H200 ceiling (B200 not yet supported).
+    See the module comment above for the threshold derivation + examples."""
+    long_side = max(probe["width"], probe["height"])
+    short_side = max(min(probe["width"], probe["height"]), 1)
+    elongation = long_side / short_side  # ≥ 1
+    work_mp = (input_size ** 2) * elongation / 1e6
+    if work_mp <= L40S_MAX_MP:
+        return "L40S", work_mp, elongation
+    if work_mp <= H200_MAX_MP:
+        return "H200", work_mp, elongation
+    raise ValueError(
+        f"depth working resolution too high: {work_mp:.2f} MP/frame "
+        f"(input_size={input_size}, {elongation:.2f}:1 aspect) exceeds the H200 "
+        f"VRAM ceiling (~{H200_MAX_MP} MP). B200 (the next tier) is pending an "
+        f"xformers/torch image rebuild. Lower depth_res, or the source/output "
+        f"aspect's long side."
+    )
 
 
 def _propainter_work_res(request: dict, src_w: int, src_h: int) -> tuple[int, int]:
