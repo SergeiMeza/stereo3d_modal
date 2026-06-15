@@ -12,13 +12,13 @@ cold-start + idle overhead (see "Estimate vs billed" below).
 
 ## Modal GPU rates ($/second) — `app/common/pricing.py`
 
-| GPU | $/sec | $/hr | notes |
-|-----|-------|------|-------|
-| L40S | 0.000542 | $1.95 | cheapest; depth ≤2.5 working-MP, small stereo |
-| A100-80GB | 0.000944 | $3.40 | **dropped from routing** — H200 faster & ~cost-neutral |
-| H200 | 0.001097 | $3.95 | depth 2.5–6.5 MP, all 4K stereo/splat |
-| H100 | 0.001097 | $3.95 | (same rate as H200) |
-| B200 | 0.001736 | $6.25 | VRAM ceiling tier — **not yet usable** (xformers sm_100 pending) |
+| GPU       | $/sec    | $/hr  | notes                                                            |
+| --------- | -------- | ----- | ---------------------------------------------------------------- |
+| L40S      | 0.000542 | $1.95 | cheapest; depth ≤2.5 working-MP, small stereo                    |
+| A100-80GB | 0.000944 | $3.40 | **dropped from routing** — H200 faster & ~cost-neutral           |
+| H200      | 0.001097 | $3.95 | depth 2.5–6.5 MP, all 4K stereo/splat                            |
+| H100      | 0.001097 | $3.95 | (same rate as H200)                                              |
+| B200      | 0.001736 | $6.25 | VRAM ceiling tier — **not yet usable** (xformers sm_100 pending) |
 
 CPU-only stages (preprocess, encode_outputs, encode_mvhevc_x265) priced on
 cpu+mem seconds, not GPU.
@@ -27,26 +27,26 @@ cpu+mem seconds, not GPU.
 
 ### A) Depth-res sweep — 60s @ 6fps = **360 frames**, inpaint=none, dual-res splat
 
-| job | depth_res | output | $/frame | $/1000-frames | total (360f) | depth GPU |
-|-----|-----------|--------|---------|---------------|--------------|-----------|
-| 1a | 714  | 1440p | 0.000267 | $0.27 | $0.096 | L40S |
-| 1b | 714  | 4K    | 0.000949 | $0.95 | $0.342 | L40S depth, H200 splat |
-| 2a | 1078 | 1440p | 0.000771 | $0.77 | $0.277 | L40S |
-| 2b | 1078 | 4K    | 0.001181 | $1.18 | $0.425 | L40S depth, H200 splat |
-| 3a | 1442 | 1440p | 0.001343 | $1.34 | $0.484 | A100 (old routing) |
-| 3b | 1442 | 4K    | 0.001808 | $1.81 | $0.651 | A100 depth, H200 splat |
-| 4a | 1806 | 1440p | 0.001295 | $1.30 | $0.466 | H200 |
-| 4b | 1806 | 1800p | 0.001641 | $1.64 | $0.591 | H200 |
-| 4c | 1806 | 4K    | 0.001912 | $1.91 | $0.688 | H200 |
+| job | depth_res | output | $/frame  | $/1000-frames | total (360f) | depth GPU              |
+| --- | --------- | ------ | -------- | ------------- | ------------ | ---------------------- |
+| 1a  | 714       | 1440p  | 0.000267 | $0.27         | $0.096       | L40S                   |
+| 1b  | 714       | 4K     | 0.000949 | $0.95         | $0.342       | L40S depth, H200 splat |
+| 2a  | 1078      | 1440p  | 0.000771 | $0.77         | $0.277       | L40S                   |
+| 2b  | 1078      | 4K     | 0.001181 | $1.18         | $0.425       | L40S depth, H200 splat |
+| 3a  | 1442      | 1440p  | 0.001343 | $1.34         | $0.484       | A100 (old routing)     |
+| 3b  | 1442      | 4K     | 0.001808 | $1.81         | $0.651       | A100 depth, H200 splat |
+| 4a  | 1806      | 1440p  | 0.001295 | $1.30         | $0.466       | H200                   |
+| 4b  | 1806      | 1800p  | 0.001641 | $1.64         | $0.591       | H200                   |
+| 4c  | 1806      | 4K     | 0.001912 | $1.91         | $0.688       | H200                   |
 
 ### B) 4K in/out, **12 fps**, full 138s clip = **1663 frames**
 
-| variant | depth | $/frame | $/1000-frames | total (1663f) |
-|---------|-------|---------|---------------|---------------|
-| d1078, inpaint=none | computed | 0.001078 | $1.08 | $1.79 |
-| d1806, inpaint=none | computed | 0.001591 | $1.59 | $2.65 |
-| d1078, **ProPainter**@720 | reused | 0.001847 | $1.85 | $3.07 |
-| d1806, **ProPainter**@720 | reused | 0.001844 | $1.84 | $3.07 |
+| variant                   | depth    | $/frame  | $/1000-frames | total (1663f) |
+| ------------------------- | -------- | -------- | ------------- | ------------- |
+| d1078, inpaint=none       | computed | 0.001078 | $1.08         | $1.79         |
+| d1806, inpaint=none       | computed | 0.001591 | $1.59         | $2.65         |
+| d1078, **ProPainter**@720 | reused   | 0.001847 | $1.85         | $3.07         |
+| d1806, **ProPainter**@720 | reused   | 0.001844 | $1.84         | $3.07         |
 
 ## What drives cost — the levers, biggest first
 
@@ -70,6 +70,7 @@ Note the SAME depth_res gives different $/frame between the 360-frame sweep
 and the 1663-frame clip — because fixed per-job overhead (preprocess,
 profile_scenes, cold-start, encode setup) amortizes over more frames on the
 longer clip. So:
+
 - **Short clips** carry MORE per-frame overhead — budget higher $/frame.
 - **At scale (1000s of frames)**, $/frame converges toward the marginal
   (per-frame depth + stereo + encode) cost. Use the **full-clip B table**
