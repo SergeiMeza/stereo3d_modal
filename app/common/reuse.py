@@ -106,6 +106,26 @@ def register(key: str, job_id: str, gcs_relpath: str, meta: dict | None = None) 
     }
 
 
+def register_value(key: str, job_id: str, value) -> None:
+    """Cache a small INLINE result (no GCS file) directly in the registry —
+    e.g. scene cuts, a JSON list. The value lives in the entry, so reuse is
+    a pure Dict read with no file fetch."""
+    reuse_dict[key] = {
+        "job_id": job_id,
+        "value": value,
+        "created_at": time.time(),
+    }
+
+
+def lookup_value(key: str):
+    """Return the inline cached value for ``key`` (register_value), or None.
+    No file-existence check — the value is self-contained."""
+    entry = reuse_dict.get(key)
+    if entry and "value" in entry:
+        return entry["value"]
+    return None
+
+
 def lookup(key: str):
     """Return the registry entry for ``key`` IF its published GCS artifact
     still exists, else None (a stale pointer degrades to recompute — never

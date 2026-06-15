@@ -208,7 +208,22 @@ def process_video_job(job_id: str, request: dict) -> dict:
             from app.stages.video_depth_models import ShotProfiler
 
             jobs.update_job(job_id, stage="profile_scenes", progress=0.17)
-            scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+            # content-addressed scene-cut reuse (v7): scenes depend ONLY on
+            # the work file (preprocess_key), so cache the cut list INLINE in
+            # the registry (it's tiny — no GCS file). skip_reuse_scenes forces
+            # a re-detect.
+            s_key = reuse.scenes_key(pre.get("_pp_key") or pp_key)
+            scenes = None
+            if not request.get("skip_reuse_scenes"):
+                scenes = reuse.lookup_value(s_key)
+                if scenes is not None:
+                    jlog.info(f"♻️  scene-cut auto-reuse HIT ({s_key}): {len(scenes)} scene(s)")
+            if scenes is None:
+                scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+                try:
+                    reuse.register_value(s_key, job_id, scenes)
+                except Exception:
+                    logger.warning("scenes register failed (non-fatal)", exc_info=True)
             scene_ranges = (
                 [(s["start"], s["end"]) for s in scenes]
                 or [(0, pre["probe"]["num_frames"])]
