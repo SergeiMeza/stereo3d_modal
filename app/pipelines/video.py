@@ -318,7 +318,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
             short_side = max(min(probe["width"], probe["height"]), 1)
             elongation = long_side / short_side  # ≥ 1, orientation-free
             eff_size = input_size * max(elongation / (16 / 9), 1.0) ** 0.5
-            depth_gpu = "L40S" if eff_size <= 1148 else ("A100-80GB" if eff_size <= 1442 else "H200")
+            # H200 over A100-80GB above the L40S tier: VDA depth is
+            # bandwidth-bound, and H200's HBM3e (~4.8 TB/s) runs the pass
+            # ~1.4× FASTER than A100-SXM4 (~2 TB/s) — measured on the
+            # depth-res sweep (d1806 on H200 = 258s vs d1442 on A100 = 358s).
+            # The 16% higher H200 $/s is more than offset by the speedup, so
+            # H200 is both faster AND ~cost-neutral/cheaper. A100 tier dropped.
+            depth_gpu = "L40S" if eff_size <= 1148 else "H200"
             worker_cls = (
                 VideoDepthWorker if depth_gpu == "L40S"
                 else VideoDepthWorker.with_options(gpu=depth_gpu)
