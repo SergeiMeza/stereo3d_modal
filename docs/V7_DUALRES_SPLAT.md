@@ -1,12 +1,18 @@
 # v7: Dual-Resolution 4K Splat — Spec
 
-**Branch:** `v7-dualres-4k-splat` (merge to main only after on-GPU verification)
-**Status:** IMPLEMENTED (steps 1-5), NOT yet GPU-verified. Default path
-(no inpaint_res) is byte-identical — verified by logic trace. Dual-res
-engages only when inpaint_res < output. PENDING: on-GPU test of a real 4K
-clip for concern #2 (depth↔frame alignment / no ghosting), #3 (4K splat
-VRAM / batch_size tuning), and end-to-end frame-count + AV sync. Do NOT
-merge to main until that passes.
+**Branch:** `v7-dualres-4k-splat`
+**Status:** IMPLEMENTED (steps 1-5) + GPU-VERIFIED ✅ (job 96269ef2e213 on
+dev — ekr2 4K clip, output_res=2160 + inpaint_res=720 + target_fps=12):
+- #1 frame-count/AV sync: splat 144f@3840x2160 == work 144f@1280x720 ✓
+- #2 depth↔4K alignment: a depth-rich frame inspected — sharp 4K detail on
+  subjects, clean depth edges, NO ghosting/doubling ✓
+- #3 4K splat VRAM: routed to H200 by splat pixels (8.29M), no OOM ✓
+- end-to-end: 7680x2160 SBS, 144f, completed; splat surface published
+  (preprocess_splat.mp4) + registered for reuse ✓
+- engaged correctly ("🪟 splat@3840x2160, inpaint@1280x720").
+Default path (no inpaint_res) byte-identical (logic-traced). READY TO
+MERGE. M2SVid 4K path implemented but NOT GPU-tested (fixed GPU, may need a
+VRAM bump for 4K) — ProPainter is the verified path.
 
 ## Goal
 
