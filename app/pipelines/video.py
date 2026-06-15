@@ -130,12 +130,17 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # which preprocess_video has from its probe, so we pass the raw
         # spec through and resolve it there (keeps one probe, frame-exact).
         trim_spec = _trim_spec(request)
+        # target_fps (v7): decimate in preprocess; the work file's probe then
+        # carries the decimated fps + frame count, so every downstream stage
+        # (depth/stereo/encode) and fps_rational adapt automatically.
+        target_fps = request.get("target_fps")
         pre = preprocess_video.remote(
             job_id,
             request["input_path"],
             remove_black_bars=request.get("remove_black_bars", True),
             target_height=request.get("target_height"),
             trim_spec=trim_spec,
+            target_fps=float(target_fps) if target_fps is not None else None,
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "
@@ -165,6 +170,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
         # -------------------------------- adaptive per-shot depth script
         adaptive = bool(request.get("adaptive", False))
+        # v7 draft mode: at very low fps (≤3, set via target_fps for rough
+        # previews), scene detection has too few frames to be reliable and
+        # the adaptive profiler samples 1-2 frames/shot — its per-shot
+        # precision is wasted. Skip profiling and use a flat displacement
+        # (cheaper, and the draft is for layout, not final grading).
+        eff_fps = (pre.get("fps_decimation") or {}).get("fps") or probe["fps"]
+        if adaptive and eff_fps <= 3.0:
+            jlog.info(f"🎚  draft fps ({eff_fps:.1f}) → skipping adaptive profiler "
+                      "(flat displacement)")
+            adaptive = False
         depth_script: list[dict] | None = None
         if adaptive:
             # adaptive composes with the stereo fan-out: the depth script
@@ -378,7 +393,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # source_path). trim is in frames → seconds via the source fps.
         audio_trim = None
         if pre.get("trim"):
-            src_fps = probe["fps"]
+            # trim indices are in SOURCE frames; convert to seconds via the
+            # SOURCE fps (pre.["probe"] may be decimated by target_fps). The
+            # video duration is unchanged by decimation (fewer frames at a
+            # lower rate = same seconds), so audio still aligns.
+            src_fps = pre.get("source_fps") or probe["fps"]
             audio_trim = (pre["trim"][0] / src_fps, pre["trim"][1] / src_fps)
 
         formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
@@ -421,6 +440,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             metadata={
                 "probe": pre["probe"],
                 "crop": pre["crop"],
+                "fps_decimation": pre.get("fps_decimation"),  # v7: None if not decimated
                 "scene_cuts": depth["scene_cuts"],
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),

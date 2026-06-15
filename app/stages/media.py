@@ -126,6 +126,59 @@ def _resolve_trim_spec(spec: dict | None, num_frames: int, fps: float) -> tuple[
     return (first, last)
 
 
+# Largest tolerance for snapping a requested fps to an exact divisor of
+# the source fps. If target is within this fraction of a divisor, snap to
+# the divisor (exact frame-select, no cadence artifacts); otherwise use
+# ffmpeg's nearest-frame fps= resample. 4% ≈ 24→23/25 snaps to 24.
+_FPS_SNAP_TOLERANCE = 0.04
+
+
+def _fps_to_rational(fps: float) -> str:
+    """A clean ffmpeg rate string for an fps value, as an exact rational so
+    timestamps don't drift. A clean (near-)integer fps → ``N/1`` . An NTSC
+    fractional rate (k/1001 ≈ 23.976/29.97/… and their integer divisions)
+    → ``k/1001``. Otherwise a low-denominator fraction."""
+    from fractions import Fraction
+
+    # clean integer first (24, 15, 30, 8, 2, …) — don't dress it as /1001
+    if abs(fps - round(fps)) < 1e-4:
+        return f"{round(fps)}/1"
+    # NTSC fractional family: k/1001 where k is a multiple of 1000
+    k = round(fps * 1001)
+    if k % 1000 == 0 and abs(fps - k / 1001) < 1e-3:
+        return f"{k}/1001"
+    frac = Fraction(fps).limit_denominator(1000)
+    return f"{frac.numerator}/{frac.denominator}"
+
+
+def _resolve_target_fps(target_fps: float | None, source_fps: float) -> dict | None:
+    """Resolve a requested target fps against the source fps. Returns None
+    (no decimation) when target is absent or ≥ source. Otherwise returns
+    ``{"fps": <effective>, "divisor": int|None}``:
+
+    - target divides source within _FPS_SNAP_TOLERANCE → EXACT frame select
+      every Nth frame (``divisor`` = N, ``fps`` = source/N). Pixel-perfect,
+      no cadence artifacts. The common case (60→15/30, 48→24/12, 24→8/4/3/2/1).
+    - else → ffmpeg ``fps=`` NEAREST-FRAME resample (``divisor`` = None,
+      ``fps`` = the requested value). Real frames, non-uniform cadence.
+
+    NEVER interpolates up: target ≥ source is clamped to no-op (returns None).
+    NEVER motion-interpolates."""
+    if target_fps is None:
+        return None
+    target_fps = float(target_fps)
+    if target_fps <= 0:
+        raise ValueError(f"target_fps must be positive, got {target_fps}")
+    if target_fps >= source_fps - 1e-6:
+        return None  # can't add frames; no decimation
+    # nearest integer divisor N such that source/N ≈ target
+    n = max(1, round(source_fps / target_fps))
+    snapped = source_fps / n
+    if abs(snapped - target_fps) <= _FPS_SNAP_TOLERANCE * target_fps and n >= 2:
+        return {"fps": snapped, "divisor": n}
+    return {"fps": target_fps, "divisor": None}
+
+
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
@@ -143,6 +196,7 @@ def preprocess_video(
     remove_black_bars: bool = True,
     target_height: int | None = None,
     trim_spec: dict | None = None,
+    target_fps: float | None = None,
 ) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
@@ -156,12 +210,24 @@ def preprocess_video(
     path). Applied BEFORE crop/scale; the returned probe reflects the
     trimmed clip (num_frames = kept span), so all downstream frame indices
     are clip-local [0, span).
+
+    ``target_fps`` (optional) = decimate to fewer fps (v7). The biggest
+    GPU-cost saver — every downstream stage (depth/splat/inpaint) scales
+    with frame count, so 60→15 = 4× less GPU work. Resolved via
+    _resolve_target_fps: a near-divisor target is EXACT frame select
+    (pixel-perfect), else ffmpeg fps= nearest-frame resample (never
+    interpolates up or motion-interpolates). Applied AFTER trim (decimate
+    within the kept span). The returned probe reflects the decimated fps +
+    frame count, so all downstream frame indices and the encoder's fps are
+    clip-local and correct; audio is muxed from the pristine source
+    untouched (full sample rate). Returns the resolved ``fps_decimation``.
     """
     src = bucket_path(input_path)
     if not src.exists():
         raise FileNotFoundError(f"input video not found: {input_path}")
 
     probe = probe_video(src)
+    source_fps = probe["fps"]  # before any decimation re-probe (for audio_trim)
     work_dir = job_cache_dir(job_id)
     crop = detect_crop(src, probe) if remove_black_bars else None
 
@@ -176,22 +242,46 @@ def preprocess_video(
         # to-frame is half-open; ffmpeg's between() is inclusive on both
         trim_filter = f"select='between(n,{first},{last - 1})',setpts=PTS-STARTPTS"
 
+    # fps decimation (v7): applied AFTER trim's select so frame indices in
+    # mod() are within the trimmed span. divisor → exact select every Nth
+    # frame; non-divisor → fps= nearest-frame resample.
+    fps_dec = _resolve_target_fps(target_fps, probe["fps"])
+    fps_filter = None
+    if fps_dec is not None:
+        if fps_dec["divisor"] is not None:
+            # exact: keep every Nth frame, reset timestamps to the new rate
+            fps_filter = (
+                f"select='not(mod(n,{fps_dec['divisor']}))',"
+                f"setpts=N/({_fps_to_rational(fps_dec['fps'])}*TB)"
+            )
+        else:
+            fps_filter = f"fps={fps_dec['fps']:.6f}"
+
     with jobs.stage_timer(job_id, "preprocess", crop=crop, scale=scale, trim=trim,
+                          fps=fps_dec,
                           **{k: probe[k] for k in ("width", "height", "num_frames")}):
-        if crop or scale or trim_filter:
+        if crop or scale or trim_filter or fps_filter:
             filters = ",".join(
                 f for f in (
                     trim_filter or "",
+                    fps_filter or "",
                     f"crop={crop}" if crop else "",
                     f"scale=-2:{scale}" if scale else "",
                 )
                 if f
             )
             work_path = work_dir / "source_processed.mp4"
+            # force the output frame rate when decimating so the container
+            # fps metadata matches the decimated stream (the encoder + all
+            # downstream fps_rational reads come from this work file's probe)
+            rate_args = (
+                ["-r", f"{_fps_to_rational(fps_dec['fps'])}"] if fps_dec else []
+            )
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(src),
-                 "-vf", filters, "-an", "-c:v", "libx264", "-preset", "fast",
-                 "-crf", "16", "-pix_fmt", "yuv420p", "-y", str(work_path)],
+                 "-vf", filters, *rate_args, "-an", "-c:v", "libx264",
+                 "-preset", "fast", "-crf", "16", "-pix_fmt", "yuv420p",
+                 "-y", str(work_path)],
                 check=True,
             )
             probe = probe_video(work_path)
@@ -206,6 +296,11 @@ def preprocess_video(
     return {
         "work_path": str(work_path), "source_path": str(src),
         "probe": probe, "crop": crop, "trim": trim,
+        "fps_decimation": fps_dec,
+        # the SOURCE fps (pre-decimation) — trim indices are in source
+        # frames, so audio_trim seconds must divide by THIS, not the
+        # (possibly decimated) work-file probe fps.
+        "source_fps": source_fps,
     }
 
 

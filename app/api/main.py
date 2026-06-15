@@ -75,6 +75,11 @@ async def submit_video(body: dict) -> dict:
     displacement = float(body.get("displacement", 0.0125))
     if not (0.0 < displacement <= 0.1):
         raise HTTPException(status_code=400, detail="displacement must be in (0, 0.1]")
+    # target_fps (v7): decimate to fewer fps (cap at source applied in
+    # preprocess once the source fps is probed; here just sanity-bound it).
+    target_fps = body.get("target_fps")
+    if target_fps is not None and not (0.0 < float(target_fps) <= 240.0):
+        raise HTTPException(status_code=400, detail="target_fps must be in (0, 240]")
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in
