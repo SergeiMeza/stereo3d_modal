@@ -100,6 +100,11 @@ async def submit_video(body: dict) -> dict:
                 status_code=400,
                 detail="inpaint_res must not exceed output_res (filling above the output frame is wasted)",
             )
+    # content-addressed auto-reuse skip flags (v7): default OFF (auto-reuse
+    # ON); set true to force a recompute of that stage. Must be bools.
+    for flag in ("skip_reuse_preprocess", "skip_reuse_depth", "skip_reuse_scenes"):
+        if flag in body and not isinstance(body[flag], bool):
+            raise HTTPException(status_code=400, detail=f"{flag} must be a bool")
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in

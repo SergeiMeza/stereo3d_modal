@@ -12,7 +12,7 @@ its wall time on the job, so completed jobs double as benchmark runs.
 
 import modal
 
-from app.common import jobs
+from app.common import jobs, reuse
 from app.common.debug import get_logger
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
 from app.common.watchdog import STALL_TIMEOUT_S, gather_with_heartbeat
@@ -143,14 +143,21 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # (depth/stereo/encode) and fps_rational adapt automatically.
         target_fps = request.get("target_fps")
         output_res = request.get("output_res")
-        pre = preprocess_video.remote(
-            job_id,
-            request["input_path"],
-            remove_black_bars=request.get("remove_black_bars", True),
-            target_height=request.get("target_height"),
-            trim_spec=trim_spec,
-            target_fps=float(target_fps) if target_fps is not None else None,
-            target_short_side=int(output_res) if output_res is not None else None,
+        remove_bars = request.get("remove_black_bars", True)
+
+        # ---- content-addressed PREPROCESS reuse (v7) -------------------
+        # The work file is a pure function of these inputs; if an identical
+        # run already published one, reuse it (no job id needed). The trim
+        # is resolved inside preprocess (needs source fps), so for the key
+        # we use the raw spec — identical raw spec ⇒ identical resolved trim
+        # for the same source. skip_reuse_preprocess forces a recompute.
+        pp_key = reuse.preprocess_key(
+            request["input_path"], remove_bars, output_res,
+            request.get("target_height"), target_fps, trim_spec,
+        )
+        pre = _reuse_or_preprocess(
+            job_id, jlog, request, pp_key, trim_spec, target_fps, output_res,
+            remove_bars,
         )
         probe = pre["probe"]
         jlog.info(f"📋 preprocess done: {probe['width']}x{probe['height']} "
@@ -249,7 +256,25 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # at a prior job's depth map on the shared cache volume. The
         # source/crop/resolution MUST match — we verify frame count and
         # depth dimensions against this run's preprocess before using it.
+        # Explicit reuse_depth_from (job id) WINS; otherwise content-
+        # addressed auto-reuse looks up the depth key (preprocess + model +
+        # input_size + encoder) and reuses the matching published depth.
         reuse_from = request.get("reuse_depth_from")
+        d_key = reuse.depth_key(
+            pre.get("_pp_key") or pp_key, depth_model, input_size,
+            request.get("encoder", "vitl"),
+        )
+        if not reuse_from and not request.get("skip_reuse_depth"):
+            hit = reuse.lookup(d_key)
+            if hit:
+                from app.common.notify import notify_slack
+
+                reuse_from = hit["job_id"]
+                jlog.info(f"♻️  depth auto-reuse HIT ({d_key}) ← job {reuse_from}")
+                notify_slack(
+                    f"♻️ *depth reuse* job `{job_id}` reused depth from "
+                    f"`{reuse_from}` (key `{d_key}`)"
+                )
         if reuse_from:
             from app.stages.media import probe_depth_reuse
 
@@ -455,6 +480,17 @@ def process_video_job(job_id: str, request: dict) -> dict:
             outputs["mvhevc"] = mv["mvhevc"]
         if request.get("output_depth", True):
             outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
+            # register this depth for content-addressed auto-reuse (only
+            # when freshly computed — reusing then re-registering the same
+            # key is a harmless no-op, but skip it to keep the pointer at the
+            # original producer). depth published at outputs/<job>/depth.mp4.
+            if not reuse_from:
+                try:
+                    reuse.register(d_key, job_id, f"outputs/{job_id}/depth.mp4",
+                                   meta={"depth_shape": depth.get("depth_shape")})
+                    jlog.info(f"📌 registered depth for reuse ({d_key})")
+                except Exception:
+                    logger.warning("depth register failed (non-fatal)", exc_info=True)
 
         jobs.update_job(
             job_id,
@@ -492,6 +528,75 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
 
 # ---------------------------------------------------- long-video fan-out
+
+
+def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
+                         output_res, remove_bars):
+    """Auto-reuse a published preprocess work file if one matches pp_key,
+    else run preprocess and publish+register the result.
+
+    A reused work file already encodes crop/scale/fps/trim, but the
+    pipeline still needs source-derived fields (source_path for the audio
+    mux, source_fps for audio_trim, the resolved trim window, the
+    fps_decimation record). We reconstruct them from a cheap probe of the
+    ORIGINAL source (always on GCS) so the reuse path returns the same dict
+    shape as a fresh preprocess.
+
+    skip_reuse_preprocess forces a recompute (and still publishes, so the
+    fresh result is registered for the next run)."""
+    from app.stages.media import (fetch_preprocess_reuse, preprocess_video,
+                                   publish_file)
+    from app.common.storage import bucket_path
+
+    skip = bool(request.get("skip_reuse_preprocess"))
+    entry = None if skip else reuse.lookup(pp_key)
+    if entry:
+        from app.common.notify import notify_slack
+
+        jlog.info(f"♻️  preprocess auto-reuse HIT ({pp_key}) ← job {entry['job_id']}")
+        notify_slack(
+            f"♻️ *preprocess reuse* job `{job_id}` reused work file from "
+            f"`{entry['job_id']}` (key `{pp_key}`)"
+        )
+        pre = fetch_preprocess_reuse.remote(job_id, entry["gcs_relpath"])
+        # reconstruct source-derived fields the downstream stages need from
+        # the registry meta (recorded when the work file was published)
+        meta = entry.get("meta") or {}
+        src_fps = meta.get("source_fps")
+        trim = meta.get("trim")
+        return {
+            **pre,
+            "source_path": str(bucket_path(request["input_path"])),
+            "crop": meta.get("crop"),
+            "trim": tuple(trim) if trim else None,
+            "fps_decimation": meta.get("fps_decimation"),
+            "source_fps": src_fps,
+            "_pp_key": pp_key,
+        }
+
+    if skip:
+        jlog.info(f"⏭  preprocess reuse skipped (skip_reuse_preprocess); recomputing")
+    pre = preprocess_video.remote(
+        job_id, request["input_path"], remove_black_bars=remove_bars,
+        target_height=request.get("target_height"), trim_spec=trim_spec,
+        target_fps=float(target_fps) if target_fps is not None else None,
+        target_short_side=int(output_res) if output_res is not None else None,
+    )
+    # publish the work file + register so the NEXT identical run reuses it
+    try:
+        url = publish_file.remote(job_id, pre["work_path"], "preprocess.mp4")
+        relpath = f"outputs/{job_id}/preprocess.mp4"
+        reuse.register(pp_key, job_id, relpath, meta={
+            "source_fps": pre.get("source_fps"),
+            "trim": list(pre["trim"]) if pre.get("trim") else None,
+            "crop": pre.get("crop"),
+            "fps_decimation": pre.get("fps_decimation"),
+        })
+        jlog.info(f"📌 registered preprocess for reuse ({pp_key}) → {relpath}")
+    except Exception:
+        logger.warning("preprocess publish/register failed (non-fatal)", exc_info=True)
+    pre["_pp_key"] = pp_key
+    return pre
 
 
 def _propainter_work_res(request: dict, src_w: int, src_h: int) -> tuple[int, int]:
