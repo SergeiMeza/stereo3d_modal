@@ -513,16 +513,6 @@ def _av_sync_ms(path: Path) -> float | None:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
-    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=2,
-    memory=(1024, 8 * 1024),
-    # byte copy cache→bucket; a long 4K output can be many GB, 30min
-    timeout=1800,
-)
-@app.function(
-    image=media_image,
-    volumes=PIPELINE_VOLUMES,
-    secrets=[slack_secret],
     cpu=2,
     memory=(1024, 8 * 1024),
     timeout=1800,
@@ -568,6 +558,16 @@ def fetch_preprocess_reuse(
     return out
 
 
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=2,
+    memory=(1024, 8 * 1024),
+    # byte copy cache→bucket; a long 4K output can be many GB, 30min
+    timeout=1800,
+)
 def publish_file(job_id: str, cache_file: str, name: str) -> str:
     """Copy a cache-volume artifact (e.g. the depth video) to the
     job's bucket output dir and return its public URL."""
