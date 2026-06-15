@@ -505,16 +505,27 @@ def process_video_job(job_id: str, request: dict) -> dict:
             audio_trim = (pre["trim"][0] / src_fps, pre["trim"][1] / src_fps)
 
         formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
-        encoded = encode_outputs.remote(
-            job_id,
-            sbs_path=stereo["sbs_path"],
-            original_path=pre["source_path"],  # pristine input carries the audio
-            formats=[f for f in formats if f != "mvhevc"],
-            include_audio=request.get("include_audio", True),
-            audio_trim=audio_trim,
-        )
-
-        outputs = dict(encoded["outputs"])
+        # SBS-family formats handled by encode_outputs; mvhevc is a separate
+        # stage that reads the raw stereo (stereo["sbs_path"]) directly. If
+        # the request asks for ONLY mvhevc, the sbs-family list is empty —
+        # SKIP encode_outputs entirely. (Previously an empty list fell through
+        # to encode_outputs' own ``formats or [defaults]`` and wrongly encoded
+        # sbs+half_sbs+anaglyph that nobody requested — ~12min of waste on a
+        # full-fps 4K mvhevc-only job.)
+        sbs_formats = [f for f in formats if f != "mvhevc"]
+        if sbs_formats:
+            encoded = encode_outputs.remote(
+                job_id,
+                sbs_path=stereo["sbs_path"],
+                original_path=pre["source_path"],  # pristine input carries the audio
+                formats=sbs_formats,
+                include_audio=request.get("include_audio", True),
+                audio_trim=audio_trim,
+            )
+            outputs = dict(encoded["outputs"])
+        else:
+            jlog.info("⏭  no SBS-family formats requested — skipping encode_outputs")
+            outputs = {}
         if "mvhevc" in formats:
             from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
 
