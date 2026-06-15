@@ -325,17 +325,26 @@ def process_video_job(job_id: str, request: dict) -> dict:
             #  - H200 (1148<eff≤1806): HBM3e ~4.8 TB/s, ~1.4× faster than
             #    A100 — both faster AND ~cost-neutral (measured: d1806 on
             #    H200 = 258s vs d1442 on A100 = 358s). A100 tier dropped.
-            #  - B200 (>1806 eff): the VRAM-CEILING tier. H200 (141 GB) OOMs
-            #    above ~1806 at 4K (measured: depth_res=2100 needed >140 GB).
-            #    B200 (~180+ GB, HBM3e ~8 TB/s) is the only GPU that fits the
-            #    largest depth resolutions. 58% pricier/s than H200, so it's
-            #    used ONLY where H200 can't fit — not as a blanket default.
+            # NOTE: B200 (Blackwell/sm_100) would be the natural VRAM-ceiling
+            # tier for eff_size>1806 (H200's 141 GB OOMs there at 4K), BUT the
+            # depth image's xformers==0.0.31.post1 has no sm_100 kernels
+            # ("no kernel image available" on B200 — verified). Enabling B200
+            # needs an xformers/torch bump + image rebuild (tracked separately).
+            # Until then, cap at the H200 tier and FAIL FAST with a clear
+            # message rather than routing to a broken B200 or silently OOMing.
+            H200_MAX_EFF = 1806  # measured: 1806 fits H200, 2100 OOMs
             if eff_size <= 1148:
                 depth_gpu = "L40S"
-            elif eff_size <= 1806:
+            elif eff_size <= H200_MAX_EFF:
                 depth_gpu = "H200"
             else:
-                depth_gpu = "B200"
+                raise ValueError(
+                    f"depth_res too high: effective working size {eff_size:.0f} "
+                    f"exceeds the H200 capacity (~{H200_MAX_EFF}) for VDA depth at "
+                    f"this source resolution. B200 support (the next tier) is "
+                    f"pending an xformers/torch image rebuild. Lower depth_res or "
+                    f"the source/output resolution."
+                )
             worker_cls = (
                 VideoDepthWorker if depth_gpu == "L40S"
                 else VideoDepthWorker.with_options(gpu=depth_gpu)
