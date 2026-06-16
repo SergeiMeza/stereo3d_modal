@@ -616,8 +616,10 @@ def _av_sync_ms(path: Path) -> float | None:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
-    cpu=2,
-    memory=(1024, 8 * 1024),
+    # I/O-bound byte copy of a published work file (+splat); 1 core. mem max
+    # 8G covers read_bytes of a large work file.
+    cpu=1,
+    memory=(512, 8 * 1024),
     timeout=1800,
 )
 def fetch_preprocess_reuse(
@@ -666,9 +668,11 @@ def fetch_preprocess_reuse(
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=2,
-    memory=(1024, 8 * 1024),
-    # byte copy cache→bucket; a long 4K output can be many GB, 30min
+    # I/O-bound byte copy cache→bucket (not CPU work): 1 core is plenty. mem
+    # min low; max stays 8G because read_bytes() loads the whole file (a 4K
+    # SBS can be ~1.5G) before the write.
+    cpu=1,
+    memory=(512, 8 * 1024),
     timeout=1800,
 )
 def publish_file(job_id: str, cache_file: str, name: str) -> str:
@@ -692,8 +696,9 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=2,
-    memory=(512, 2 * 1024),
+    # writes a tiny text sidecar (KB) — minimal resources
+    cpu=1,
+    memory=(256, 1024),
     timeout=300,
 )
 def publish_text(job_id: str, text: str, name: str) -> str:
@@ -715,10 +720,10 @@ def publish_text(job_id: str, text: str, name: str) -> str:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
-    cpu=2,
-    memory=(1024, 8 * 1024),
-    # frame-count check + byte copy of a prior depth.mp4; 30min for big
-    # 4K depth files
+    # ffprobe frame-count check + byte copy of a prior depth.mp4 — I/O bound,
+    # 1 core. mem max stays 8G (read_bytes loads the depth file to copy it).
+    cpu=1,
+    memory=(512, 8 * 1024),
     timeout=1800,
 )
 def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> dict:
@@ -792,10 +797,10 @@ def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> 
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=4,
-    memory=(2 * 1024, 16 * 1024),
-    # lossless concat of fan-out segments (stream copy, no re-encode, so
-    # fast) but a long video has many segments; 2h is ample headroom
+    # lossless concat (STREAM COPY, no re-encode) — I/O bound, not CPU.
+    # Dropped cpu 4→2; mem min 2G→1G (ffmpeg demux/remux buffers only).
+    cpu=2,
+    memory=(1024, 16 * 1024),
     timeout=2 * 3600,
 )
 def concat_cache_segments(job_id: str, segments: list, output_path: str, expected_frames: int) -> dict:
