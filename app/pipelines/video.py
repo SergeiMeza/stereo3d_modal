@@ -608,10 +608,39 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
     shape as a fresh preprocess.
 
     skip_reuse_preprocess forces a recompute (and still publishes, so the
-    fresh result is registered for the next run)."""
+    fresh result is registered for the next run).
+
+    EXPLICIT reuse_preprocess_from (job id) WINS over auto-reuse and works
+    CROSS-ENV: it fetches outputs/<job>/preprocess.mp4 (+ _splat) from the
+    shared GCS prefix by path, and takes the source-derived metadata from
+    the ``preprocess_meta`` payload (the per-env Dict isn't readable across
+    envs). Get both from POST /v1/reuse/lookup, which returns the job id
+    AND the meta. Mirrors reuse_depth_from for the cheap-to-skip preprocess
+    stage."""
     from app.stages.media import (fetch_preprocess_reuse, preprocess_video,
                                    publish_file)
     from app.common.storage import bucket_path
+
+    # explicit cross-env reuse by job id + provided metadata (no Dict lookup)
+    pp_from = request.get("reuse_preprocess_from")
+    if pp_from:
+        meta = request.get("preprocess_meta") or {}
+        relpath = f"outputs/{pp_from}/preprocess.mp4"
+        splat_relpath = meta.get("splat_relpath")
+        jlog.info(
+            f"♻️  preprocess EXPLICIT reuse ← job {pp_from} "
+            f"({relpath}{', +splat' if splat_relpath else ''})")
+        pre = fetch_preprocess_reuse.remote(job_id, relpath, splat_relpath)
+        trim = meta.get("trim")
+        return {
+            **pre,
+            "source_path": str(bucket_path(request["input_path"])),
+            "crop": meta.get("crop"),
+            "trim": tuple(trim) if trim else None,
+            "fps_decimation": meta.get("fps_decimation"),
+            "source_fps": meta.get("source_fps"),
+            "_pp_key": pp_key,
+        }
 
     skip = bool(request.get("skip_reuse_preprocess"))
     entry = None if skip else reuse.lookup(pp_key)

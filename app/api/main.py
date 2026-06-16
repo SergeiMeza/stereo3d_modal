@@ -105,6 +105,20 @@ async def submit_video(body: dict) -> dict:
     for flag in ("skip_reuse_preprocess", "skip_reuse_depth", "skip_reuse_scenes"):
         if flag in body and not isinstance(body[flag], bool):
             raise HTTPException(status_code=400, detail=f"{flag} must be a bool")
+    # explicit cross-env reuse by job id (from POST /v1/reuse/lookup).
+    # reuse_depth_from needs only the file; reuse_preprocess_from also needs
+    # preprocess_meta (source_fps/trim/crop/fps_decimation/splat_relpath).
+    for arg in ("reuse_depth_from", "reuse_preprocess_from"):
+        if arg in body and body[arg] is not None and not isinstance(body[arg], str):
+            raise HTTPException(status_code=400, detail=f"{arg} must be a job-id string")
+    if body.get("preprocess_meta") is not None and not isinstance(body["preprocess_meta"], dict):
+        raise HTTPException(status_code=400, detail="preprocess_meta must be an object")
+    if body.get("reuse_preprocess_from") and body.get("preprocess_meta") is None:
+        raise HTTPException(
+            status_code=400,
+            detail="reuse_preprocess_from requires preprocess_meta (get both from "
+                   "POST /v1/reuse/lookup)",
+        )
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in
