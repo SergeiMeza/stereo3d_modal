@@ -69,9 +69,14 @@ async def submit_video(body: dict) -> dict:
             status_code=400,
             detail=f"depth_model must be one of {('vda', *DEPTH_MODELS)}",
         )
+    # input_size must be a multiple of 14 (the depth model's patch size). The
+    # UPPER bound here is just a sanity rail — the REAL VRAM limit is enforced
+    # downstream by _route_depth_gpu (working-MP, aspect-aware: rejects >B200's
+    # 8.5 MP). 2520 lets a SQUARER aspect (e.g. 4:3) reach B200, which a flat
+    # 2100 cap blocked (4:3 @ 2100 = only 5.88 MP → H200; needs ~2212+ for B200).
     input_size = int(body.get("input_size", 980))
-    if input_size % 14 != 0 or not (140 <= input_size <= 2100):
-        raise HTTPException(status_code=400, detail="input_size must be a multiple of 14 in [140, 2100]")
+    if input_size % 14 != 0 or not (140 <= input_size <= 2520):
+        raise HTTPException(status_code=400, detail="input_size must be a multiple of 14 in [140, 2520]")
     displacement = float(body.get("displacement", 0.0125))
     if not (0.0 < displacement <= 0.1):
         raise HTTPException(status_code=400, detail="displacement must be in (0, 0.1]")
@@ -80,13 +85,14 @@ async def submit_video(body: dict) -> dict:
     target_fps = body.get("target_fps")
     if target_fps is not None and not (0.0 < float(target_fps) <= 240.0):
         raise HTTPException(status_code=400, detail="target_fps must be in (0, 240]")
-    # v7 resolution knobs. depth_res aliases input_size (same ×14/[140,2100]
-    # rule). output_res/inpaint_res are SHORT-SIDE values in pixels;
-    # min ~540 (below that depth/disparity quantization degrades), max
-    # bounded here, and preprocess never upscales past the source.
+    # v7 resolution knobs. depth_res aliases input_size (same ×14/[140,2520]
+    # rule; the working-MP router is the real VRAM guard). output_res/
+    # inpaint_res are SHORT-SIDE values in pixels; min ~540 (below that
+    # depth/disparity quantization degrades), max bounded here, and
+    # preprocess never upscales past the source.
     depth_res = body.get("depth_res")
-    if depth_res is not None and (int(depth_res) % 14 != 0 or not (140 <= int(depth_res) <= 2100)):
-        raise HTTPException(status_code=400, detail="depth_res must be a multiple of 14 in [140, 2100]")
+    if depth_res is not None and (int(depth_res) % 14 != 0 or not (140 <= int(depth_res) <= 2520)):
+        raise HTTPException(status_code=400, detail="depth_res must be a multiple of 14 in [140, 2520]")
     output_res = body.get("output_res")
     if output_res is not None and not (540 <= int(output_res) <= 4320):
         raise HTTPException(status_code=400, detail="output_res (short side) must be in [540, 4320]")
