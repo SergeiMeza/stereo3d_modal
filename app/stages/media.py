@@ -649,11 +649,22 @@ def fetch_preprocess_reuse(
         sdst = job_cache_dir(job_id) / "source_processed.mp4"
         sdst.write_bytes(ssrc.read_bytes())
         sprobe = probe_video(sdst)
-        if sprobe["num_frames"] != probe["num_frames"]:
+        # Compare EXACT decoded counts, not the header nb_frames — the latter
+        # over-reports the splat by one on AV1/webm-derived files (e.g. splat
+        # header 3327 vs 3326 real), which is the same phantom-tail off-by-one
+        # the fresh-preprocess path handles (see _decoded_frame_count). The
+        # files genuinely decode to the same length; canonicalize both probes
+        # to it so downstream lockstep holds.
+        work_real = _decoded_frame_count(dst)
+        splat_real = _decoded_frame_count(sdst)
+        if work_real != splat_real:
             raise RuntimeError(
-                f"reuse dual-res frame mismatch: work {probe['num_frames']} "
-                f"vs splat {sprobe['num_frames']}"
+                f"reuse dual-res frame mismatch (decoded): work {work_real} "
+                f"vs splat {splat_real}"
             )
+        probe["num_frames"] = work_real
+        sprobe["num_frames"] = splat_real
+        out["probe"] = probe
         out["splat_path"] = str(sdst)
         out["splat_probe"] = sprobe
     cache_volume.commit()
