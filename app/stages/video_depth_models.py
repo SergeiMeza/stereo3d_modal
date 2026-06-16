@@ -246,7 +246,14 @@ SHOT_PARAMS: dict[str, dict] = {
 #   2 m → 0.010 (near), 5 m → 0.008 (mid), 11 m → 0.006 (wide),
 #   20 m → 0.0045 (far floor). The user's 14.9 m screenshot → 0.00535,
 #   a real ~24% cut from the old 0.007/0.0085.
-DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.010), (5.0, 0.008), (11.0, 0.006), (20.0, 0.0045)]
+# v6.1 (2026-06-16): MODERATE bump on the mid/far end for more depth on
+# wide/far shots (user: "increase by a moderate amount"). Near (2 m)
+# unchanged — close-ups get their 3D from the restored near-plane pop-out
+# above, not from displacement. Mid/wide/far lifted ~10/13/16%:
+#   5 m → 0.0088, 11 m → 0.0068, 20 m → 0.0052. Kept MODERATE because this
+# is the disocclusion-hole lever (the v4 cut was to stop smeared far walls);
+# ProPainter fills this amount cleanly, but pushing it harder reopens that.
+DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.010), (5.0, 0.0088), (11.0, 0.0068), (20.0, 0.0052)]
 
 
 def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
@@ -286,7 +293,17 @@ def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
 # the per-shot far plane below, not from pushing the near plane:
 #   3 m → +0.2 (was +0.4), 7 m → +0.05 (was +0.1),
 #   15 m → −0.12 (mild window), 20 m → −0.2 (deep wides fully back).
-NEAR_PLANE_RAMP_ANCHORS = [(3.0, 0.2), (7.0, 0.05), (15.0, -0.12), (20.0, -0.2)]
+# v6.1 (2026-06-16): RESTORE close-up pop-out to v5 levels. Measured
+# (optical-flow disparity, v4 vs v6): close-ups read ~5-7% shallower than v4
+# and visibly didn't pop (user's main complaint). The v6 "Option B" near
+# pullback over-corrected. Per user: get as close to v5 as possible on
+# close-ups — so the CLOSE anchors are restored to v5 EXACTLY (3 m → +0.40,
+# 7 m → +0.10). 15 m / 20 m UNCHANGED — far wides stay windowed. Pop-out is
+# FOREGROUND parallax, so it opens NO disocclusion holes (zero inpaint/smear
+# cost), and even +0.40 stays under MAX_POPOUT_DISPARITY=0.008 (anchor, not
+# cap, is the limiter — ~2x headroom). v6's per-shot far plane (below) is
+# KEPT, so wides stay rounder than v5 had them.
+NEAR_PLANE_RAMP_ANCHORS = [(3.0, 0.40), (7.0, 0.10), (15.0, -0.12), (20.0, -0.2)]
 
 
 def _ramp_near_plane(median_depth: float) -> float:
