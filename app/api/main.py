@@ -348,6 +348,67 @@ async def stage_encode_mvhevc(body: dict) -> dict:
     return _submit("stage:encode-mvhevc", body, spawner)
 
 
+@web_app.post("/v1/reuse/lookup")
+async def reuse_lookup(body: dict) -> dict:
+    """Check the content-addressed reuse cache for a given video request,
+    WITHOUT submitting a job. Computes the same preprocess/depth/scenes keys
+    the pipeline would, reads the per-env reuse Dict, and reports any cached
+    artifacts. Use the returned depth ``job_id`` as ``reuse_depth_from`` to
+    skip the depth pass — that path reads the published GCS artifact under
+    the shared R&D prefix, so it works ACROSS environments (the reuse Dict
+    is per-env, but reuse_depth_from is not). No GCS existence check here;
+    the entry reflects what was registered.
+
+    Body: the SAME fields as POST /v1/videos that affect the keys
+    (input_path required; remove_black_bars, output_res, target_height,
+    target_fps, trim, depth_res/input_size, depth_model, encoder optional)."""
+    from app.common import reuse
+
+    input_path = _require(body, "input_path")
+    remove_bars = body.get("remove_black_bars", True)
+    output_res = body.get("output_res")
+    target_height = body.get("target_height")
+    target_fps = body.get("target_fps")
+    trim_spec = _trim_keys(body)
+    depth_model = body.get("depth_model", "vda")
+    input_size = int(body.get("depth_res") or body.get("input_size") or 980)
+    encoder = body.get("encoder", "vitl")
+
+    pp_key = reuse.preprocess_key(
+        input_path, remove_bars, output_res, target_height, target_fps, trim_spec
+    )
+    d_key = reuse.depth_key(pp_key, depth_model, input_size, encoder)
+    s_key = reuse.scenes_key(pp_key)
+
+    def _entry(key):
+        e = reuse.peek(key)
+        if not e:
+            return {"key": key, "cached": False}
+        return {
+            "key": key, "cached": True, "job_id": e.get("job_id"),
+            "gcs_relpath": e.get("gcs_relpath"), "created_at": e.get("created_at"),
+            "meta": e.get("meta", {}),
+        }
+
+    pp, depth, scenes = _entry(pp_key), _entry(d_key), _entry(s_key)
+    return {
+        "env": APP_ENV,
+        "preprocess": pp,
+        "depth": depth,
+        "scenes": scenes,
+        # the convenient cross-env skip: pass this as reuse_depth_from
+        "reuse_depth_from": depth.get("job_id") if depth["cached"] else None,
+    }
+
+
+def _trim_keys(body: dict) -> dict | None:
+    """Pull trim fields into the spec dict the pipeline hashes (mirrors
+    pipelines.video._trim_spec) so the computed preprocess key matches."""
+    keys = ("from_frame", "to_frame", "from_sec", "to_sec")
+    spec = {k: body[k] for k in keys if k in body and body[k] is not None}
+    return spec or None
+
+
 @web_app.post("/v1/stages/scene-detect")
 async def stage_scene_detect(body: dict) -> dict:
     from app.stages.media import detect_scenes

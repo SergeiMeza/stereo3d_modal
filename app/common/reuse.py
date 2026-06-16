@@ -139,3 +139,11 @@ def lookup(key: str):
     if not (BUCKET_DIR / entry["gcs_relpath"]).exists():
         return None  # published file gone — ignore the stale entry
     return entry
+
+
+def peek(key: str):
+    """Return the raw registry entry for ``key`` (or None) WITHOUT the GCS
+    file-existence check. For contexts that don't mount the bucket (the web
+    API endpoint) — callers can verify the file separately via its URL.
+    Use lookup() inside the pipeline where the mount is present."""
+    return reuse_dict.get(key)
