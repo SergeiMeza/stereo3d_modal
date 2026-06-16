@@ -162,6 +162,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
         pp_key = reuse.preprocess_key(
             request["input_path"], remove_bars, output_res,
             request.get("target_height"), target_fps, trim_spec,
+            crop_override=request.get("crop"),
         )
         pre = _reuse_or_preprocess(
             job_id, jlog, request, pp_key, trim_spec, target_fps, output_res,

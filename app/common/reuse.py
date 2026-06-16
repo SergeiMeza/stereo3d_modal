@@ -62,11 +62,14 @@ def preprocess_key(
     target_height,
     target_fps,
     trim,
+    crop_override=None,
 ) -> str:
     """Key for a preprocess result. trim is the resolved (first, last) or
     None; target_* are the output-resolution spec; target_fps the
-    decimation request (None = source rate). Any change → different work
-    file → different key."""
+    decimation request (None = source rate). crop_override (explicit
+    "W:H:X:Y") changes the work file too, so it MUST be in the key — else a
+    forced-crop run reuses a no-crop cached work file. Any change → different
+    work file → different key."""
     return compute_key(PREPROCESS, {
         "input_path": str(input_path),
         "remove_black_bars": bool(remove_black_bars),
@@ -74,6 +77,7 @@ def preprocess_key(
         "target_height": target_height,
         "target_fps": target_fps,
         "trim": list(trim) if trim else None,
+        "crop_override": str(crop_override).removeprefix("crop=") if crop_override else None,
     })
 
 

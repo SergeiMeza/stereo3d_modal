@@ -403,7 +403,8 @@ async def reuse_lookup(body: dict) -> dict:
     encoder = body.get("encoder", "vitl")
 
     pp_key = reuse.preprocess_key(
-        input_path, remove_bars, output_res, target_height, target_fps, trim_spec
+        input_path, remove_bars, output_res, target_height, target_fps, trim_spec,
+        crop_override=body.get("crop"),
     )
     d_key = reuse.depth_key(pp_key, depth_model, input_size, encoder)
     s_key = reuse.scenes_key(pp_key)
