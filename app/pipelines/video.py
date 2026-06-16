@@ -525,6 +525,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             outputs = dict(encoded["outputs"])
         else:
             jlog.info("⏭  no SBS-family formats requested — skipping encode_outputs")
+            encoded = {"outputs": {}, "av_sync_ms": {}}  # so downstream av_sync ref is safe
             outputs = {}
         if "mvhevc" in formats:
             from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
