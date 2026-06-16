@@ -489,33 +489,104 @@ def encode_outputs(
     )
 
     av_sync: dict[str, float | None] = {}
+    # FAN OUT BY FORMAT: each SBS-family format is an independent ffmpeg pass
+    # over the same master with NO cross-format state, so spawn one container
+    # per format instead of looping here. Shrinks the preemption blast radius
+    # (a spot reclaim kills ONE ~3min format, not the whole ~12min batch) and
+    # runs them in parallel (wall-clock ≈ slowest single format). RESUME: a
+    # format already published to outputs/<job>/<fmt>.mp4 is skipped, so a
+    # restart redoes nothing already done.
+    todo = []
+    for fmt in formats:
+        if fmt not in recipes:
+            logger.warning(f"skipping unknown format {fmt!r}")
+            continue
+        dst = out_dir / f"{fmt}.mp4"
+        if dst.exists():
+            jlog.info(f"⏭  {fmt} already published — skipping (resume)")
+            outputs[fmt] = public_url(dst)
+            continue
+        todo.append(fmt)
+
     with jobs.stage_timer(job_id, "encode_outputs", formats=formats):
-        with tempfile.TemporaryDirectory() as tmp:
-            for fmt in formats:
-                if fmt not in recipes:
-                    logger.warning(f"skipping unknown format {fmt!r}")
-                    continue
-                # encode locally: mp4 muxing seeks, which bucket mounts
-                # don't support — publish with one sequential copy
-                local = Path(tmp) / f"{fmt}.mp4"
-                cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
-                cmd += audio_args
-                vf = recipes[fmt]
-                if vf:
-                    cmd += ["-vf", vf]
-                cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "17",
-                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(local)]
-                subprocess.run(cmd, check=True)
-                dst = out_dir / f"{fmt}.mp4"
-                dst.write_bytes(local.read_bytes())
-                outputs[fmt] = public_url(dst)
-                av_sync.setdefault(fmt, _av_sync_ms(local))
-                jlog.info(
-                    f"✔ {fmt}: {local.stat().st_size / 1e6:.1f} MB, "
-                    f"av_sync={av_sync[fmt]} ms → {outputs[fmt]}"
-                )
+        handles = [
+            encode_one_format.spawn(
+                job_id, str(sbs), fmt, original_path,
+                include_audio=include_audio, audio_trim=audio_trim,
+            )
+            for fmt in todo
+        ]
+        for fmt, h in zip(todo, handles):
+            res = h.get()
+            outputs[fmt] = res["url"]
+            av_sync[fmt] = res["av_sync_ms"]
 
     return {"outputs": outputs, "av_sync_ms": av_sync}
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=4,
+    memory=(2 * 1024, 16 * 1024),
+    # one format's ffmpeg pass over the SBS master; 90min covers a long 4K
+    # transcode with margin
+    timeout=90 * 60,
+)
+def encode_one_format(
+    job_id: str,
+    sbs_path: str,
+    fmt: str,
+    original_path: str | None = None,
+    include_audio: bool = True,
+    audio_trim: tuple[float, float] | None = None,
+) -> dict:
+    """Encode ONE SBS-family deliverable from the full-width SBS master and
+    publish it. Fanned out by encode_outputs (one container per format) so a
+    preemption only loses this format, not the whole batch. Self-contained:
+    re-deriving audio_args + the per-format recipe here, no shared state."""
+    cache_volume.reload()
+    from app.common.debug import job_logger
+    jlog = job_logger(job_id)
+
+    sbs = Path(sbs_path)
+    if not sbs.exists():
+        raise FileNotFoundError(sbs)
+    recipes = {
+        "sbs": None, "half_sbs": "scale=iw/2:ih", "tb": "stereo3d=sbsl:abl",
+        "half_tb": "stereo3d=sbsl:ab2l", "anaglyph": "stereo3d=sbsl:arcd",
+    }
+    if fmt not in recipes:
+        raise ValueError(f"unknown format {fmt!r}")
+
+    audio_args: list[str] = []
+    original = Path(original_path) if original_path else None
+    if include_audio and original and original.exists() and has_audio(original):
+        seek = []
+        if audio_trim is not None:
+            seek = ["-ss", f"{audio_trim[0]:.3f}", "-t", f"{audio_trim[1] - audio_trim[0]:.3f}"]
+        audio_args = [*seek, "-i", str(original), "-map", "0:v", "-map", "1:a?",
+                      "-c:a", "aac", "-shortest"]
+
+    out_dir = job_output_dir(job_id)
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / f"{fmt}.mp4"
+        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
+        cmd += audio_args
+        vf = recipes[fmt]
+        if vf:
+            cmd += ["-vf", vf]
+        cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "17",
+                "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(local)]
+        subprocess.run(cmd, check=True)
+        dst = out_dir / f"{fmt}.mp4"
+        dst.write_bytes(local.read_bytes())
+        sync = _av_sync_ms(local)
+        url = public_url(dst)
+        jlog.info(f"✔ {fmt}: {local.stat().st_size / 1e6:.1f} MB, av_sync={sync} ms → {url}")
+    return {"fmt": fmt, "url": url, "av_sync_ms": sync}
 
 
 def _av_sync_ms(path: Path) -> float | None:
