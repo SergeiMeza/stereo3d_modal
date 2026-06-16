@@ -430,10 +430,13 @@ def detect_scenes(input_path: str) -> dict:
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
-    cpu=4,
-    memory=(2 * 1024, 16 * 1024),
-    # encodes each requested format (libx264 SBS etc.) — scales with
-    # length; 3h covers long multi-format jobs
+    # ORCHESTRATOR ONLY: spawns one encode_one_format worker per format and
+    # awaits them — does no ffmpeg itself, so it needs minimal cpu/mem. The
+    # heavy transcode (cpu=4, mem=16G) lives in encode_one_format below.
+    cpu=1,
+    memory=(512, 2 * 1024),
+    # just dispatch + gather; the per-format 90min timeout bounds the real
+    # work, this only needs to outlast the slowest format + its retries
     timeout=3 * 3600,
 )
 def encode_outputs(
