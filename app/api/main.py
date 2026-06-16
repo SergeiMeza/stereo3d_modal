@@ -119,6 +119,14 @@ async def submit_video(body: dict) -> dict:
             raise HTTPException(status_code=400, detail=f"{arg} must be a job-id string")
     if body.get("preprocess_meta") is not None and not isinstance(body["preprocess_meta"], dict):
         raise HTTPException(status_code=400, detail="preprocess_meta must be an object")
+    # explicit crop override "W:H:X:Y" (ffmpeg crop geometry) — forces a crop,
+    # bypassing auto black-bar detection (for letterboxes detect_crop's
+    # multi-sample conservatism misses). Requires remove_black_bars (default on).
+    crop = body.get("crop")
+    if crop is not None:
+        parts = str(crop).removeprefix("crop=").split(":")
+        if len(parts) != 4 or not all(p.lstrip("-").isdigit() for p in parts):
+            raise HTTPException(status_code=400, detail="crop must be 'W:H:X:Y' (four integers)")
     if body.get("reuse_preprocess_from") and body.get("preprocess_meta") is None:
         raise HTTPException(
             status_code=400,

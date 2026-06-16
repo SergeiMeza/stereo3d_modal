@@ -678,6 +678,7 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
         target_fps=float(target_fps) if target_fps is not None else None,
         target_short_side=int(output_res) if output_res is not None else None,
         inpaint_short_side=int(inpaint_short_side) if inpaint_short_side else None,
+        crop_override=request.get("crop"),
     )
     # publish the work file (+ the dual-res splat file if any) and register
     # so the NEXT identical run reuses BOTH. The splat surface is reusable

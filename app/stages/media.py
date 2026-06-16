@@ -213,6 +213,7 @@ def preprocess_video(
     target_fps: float | None = None,
     target_short_side: int | None = None,
     inpaint_short_side: int | None = None,
+    crop_override: str | None = None,
 ) -> dict:
     """Stage 1: bring the input into the cache volume, removing black
     bars if present (they ruin depth + waste disparity budget).
@@ -245,7 +246,16 @@ def preprocess_video(
     probe = probe_video(src)
     source_fps = probe["fps"]  # before any decimation re-probe (for audio_trim)
     work_dir = job_cache_dir(job_id)
-    crop = detect_crop(src, probe) if remove_black_bars else None
+    # crop_override (e.g. "1920:930:0:76") forces a specific crop, bypassing
+    # auto-detect — for letterboxes that detect_crop's multi-sample
+    # conservatism misses (a clip where the bars aren't present in every
+    # sampled second). Wins over detection; remove_black_bars still gates it.
+    if remove_black_bars and crop_override:
+        # bare "W:H:X:Y" (same shape detect_crop returns); the filter chain
+        # below prepends "crop=". Strip a leading "crop=" if the caller added one.
+        crop = str(crop_override).removeprefix("crop=")
+    else:
+        crop = detect_crop(src, probe) if remove_black_bars else None
 
     # never upscale; scale applies after the crop.
     # target_short_side (v7, orientation-agnostic) scales the SHORT side to
