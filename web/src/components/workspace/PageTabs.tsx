@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Bottom page bar, DaVinci Resolve-style: one tab per pipeline stage,
- * centered, icon over label, switchable with the number keys (1–6 — the
- * keydown handler lives in WorkspaceScreen). Pure presentation: active id
- * in, onChange out.
+ * Left page rail, DaVinci Resolve-style: one tab per pipeline stage,
+ * vertically centered, icon over label, switchable with the number keys
+ * (1–6 — the keydown handler lives in WorkspaceScreen). Pure presentation:
+ * active id in, onChange out.
  */
 
 import type { JSX } from "react";
@@ -128,7 +128,7 @@ export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
     <div
       role="tablist"
       aria-label="Workspace pages"
-      className="flex shrink-0 items-stretch justify-center gap-1 border-t border-edge bg-surface-1 px-4"
+      className="flex shrink-0 flex-col items-stretch justify-center gap-1 border-r border-edge bg-surface-1 py-4"
     >
       {WORKSPACE_TABS.map((tab, i) => {
         const selected = tab.id === active;
@@ -141,14 +141,14 @@ export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
                 aria-selected={selected}
                 data-testid={`tab-${tab.id}`}
                 onClick={() => onChange(tab.id)}
-                className={`relative flex w-20 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
+                className={`relative flex w-16 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
                   selected ? "text-primary" : "text-fg-muted hover:text-fg"
                 }`}
               >
                 {/* active indicator, Resolve-style thin bar on the tab edge */}
                 <span
                   aria-hidden
-                  className={`absolute inset-x-3 top-0 h-0.5 rounded-b ${
+                  className={`absolute inset-y-2 left-0 w-0.5 rounded-r ${
                     selected ? "bg-primary" : "bg-transparent"
                   }`}
                 />
@@ -156,7 +156,7 @@ export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
                 {tab.label}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="flex items-center gap-1.5">
+            <TooltipContent side="right" className="flex items-center gap-1.5">
               {tab.hint}
               <kbd>{i + 1}</kbd>
             </TooltipContent>

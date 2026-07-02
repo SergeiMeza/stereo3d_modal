@@ -25,3 +25,11 @@ export const mutedAtom = atom(true);
  * read-only strips, deepest on editable ones). Strips clamp the stored
  * index to their own level count. */
 export const timelineZoomIndexAtom = atom<number | null>(null);
+
+/** Player layout: false = theater (full width, the default), true = compact
+ * (height capped so the controls below stay on screen). */
+export const compactPlayerAtom = atom(false);
+
+/** Filmstrip layout: false = full-height strip, true = compact (shorter
+ * strip, proportionally narrower tiles). */
+export const compactTimelineAtom = atom(false);

@@ -162,6 +162,9 @@ export function isExtractionZoom(
  * with the video aspect it fixes the PIXEL width of one tile. */
 export const STRIP_HEIGHT_PX = 90;
 
+/** Compact-mode strip height (FilmstripTimeline's h-14 = 56px). */
+export const COMPACT_STRIP_HEIGHT_PX = 56;
+
 /** Tile aspect when the probe's dimensions are unknown. */
 export const DEFAULT_TILE_ASPECT = 16 / 9;
 
@@ -175,10 +178,14 @@ export const TILE_MARGIN = 4;
 
 /** Pixel width of one filmstrip tile: strip height × the video's aspect
  * ratio (probe width/height), so a source frame drawn into the tile is
- * never squeezed — the professional-NLE convention. ~160 px for 16:9. */
-export function tileWidthPx(aspect?: number): number {
+ * never squeezed — the professional-NLE convention. ~160 px for 16:9 at
+ * the full strip height. */
+export function tileWidthPx(
+  aspect?: number,
+  stripHeight: number = STRIP_HEIGHT_PX,
+): number {
   const a = aspect !== undefined && aspect > 0 ? aspect : DEFAULT_TILE_ASPECT;
-  return Math.max(1, Math.round(STRIP_HEIGHT_PX * a));
+  return Math.max(1, Math.round(stripHeight * a));
 }
 
 /** One fixed-width strip tile, anchored at a PIXEL position of the zoomed

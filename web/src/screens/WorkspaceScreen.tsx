@@ -3,8 +3,8 @@
 /**
  * Project workspace — a DaVinci-Resolve-style paged screen: a slim project
  * header, one full-width page per pipeline stage (Media · Cut · Depth ·
- * Stereo · Deliver · History), and a bottom page bar. Pages switch with the
- * bar or the 1–6 keys; the active page persists in the URL hash (#tab=…).
+ * Stereo · Deliver · History), and a left page rail. Pages switch with the
+ * rail or the 1–6 keys; the active page persists in the URL hash (#tab=…).
  *
  * Loads the project (GET /v1/projects/{id}); while analyze is running it
  * polls every 3 s. The Cut page owns the frame-accurate scene-cut editor;
@@ -274,54 +274,56 @@ export default function WorkspaceScreen({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        {tab === "media" ? (
-          <MediaTab project={project} onNavigate={setTab} />
-        ) : tab === "cut" ? (
-          project.analyze.state === "failed" ? (
-            <div
-              role="alert"
-              className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
-            >
-              <p className="font-medium">Analysis failed.</p>
-              {project.analyze.error ? (
-                <p className="mt-1 text-sm">{project.analyze.error}</p>
-              ) : null}
-            </div>
-          ) : ready ? (
-            <SceneCutEditor
-              projectId={project.project_id}
-              projectName={project.name}
-              probe={probe}
-              scenes={scenes}
-              crop={project.crop}
-              previewUrl={project.preview_url}
-              stripThumbs={project.strip_thumbs ?? []}
-              sceneThumbs={project.scene_thumbs ?? []}
-              onProjectChanged={refetch}
+      <div className="flex min-h-0 flex-1">
+        <PageTabs active={tab} onChange={setTab} />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {tab === "media" ? (
+            <MediaTab project={project} onNavigate={setTab} />
+          ) : tab === "cut" ? (
+            project.analyze.state === "failed" ? (
+              <div
+                role="alert"
+                className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
+              >
+                <p className="font-medium">Analysis failed.</p>
+                {project.analyze.error ? (
+                  <p className="mt-1 text-sm">{project.analyze.error}</p>
+                ) : null}
+              </div>
+            ) : ready ? (
+              <SceneCutEditor
+                projectId={project.project_id}
+                projectName={project.name}
+                probe={probe}
+                scenes={scenes}
+                crop={project.crop}
+                previewUrl={project.preview_url}
+                stripThumbs={project.strip_thumbs ?? []}
+                sceneThumbs={project.scene_thumbs ?? []}
+                onProjectChanged={refetch}
+              />
+            ) : (
+              analyzingCard
+            )
+          ) : step ? (
+            <StepTab
+              step={step}
+              project={project}
+              onProjectChanged={() => void refetch()}
+              onNavigate={setTab}
             />
           ) : (
-            analyzingCard
-          )
-        ) : step ? (
-          <StepTab
-            step={step}
-            project={project}
-            onProjectChanged={() => void refetch()}
-            onNavigate={setTab}
-          />
-        ) : (
-          <div className="mx-auto flex max-w-4xl flex-col gap-3">
-            <PageHeader
-              title="History"
-              description="Something off with a run? Click its id to copy it and quote it to support — every conversion is traceable end-to-end by that id."
-            />
-            <HistoryList project={project} />
-          </div>
-        )}
+            <div className="mx-auto flex max-w-4xl flex-col gap-3">
+              <PageHeader
+                title="History"
+                description="Something off with a run? Click its id to copy it and quote it to support — every conversion is traceable end-to-end by that id."
+              />
+              <HistoryList project={project} />
+            </div>
+          )}
+        </div>
       </div>
 
-      <PageTabs active={tab} onChange={setTab} />
       <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </section>
   );

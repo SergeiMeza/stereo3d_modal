@@ -14,6 +14,7 @@ import {
   planTiles,
   sameCuts,
   scrollFractionToCenter,
+  COMPACT_STRIP_HEIGHT_PX,
   STRIP_HEIGHT_PX,
   TILE_MARGIN,
   tileWidthPx,
@@ -223,6 +224,12 @@ describe("tileWidthPx", () => {
     expect(tileWidthPx(undefined)).toBe(160);
     expect(tileWidthPx(0)).toBe(160);
     expect(tileWidthPx(-2)).toBe(160);
+  });
+
+  it("scales with an explicit strip height (compact mode)", () => {
+    // 56 px compact strip × 16/9 = 99.6 → 100 px tiles
+    expect(tileWidthPx(16 / 9, COMPACT_STRIP_HEIGHT_PX)).toBe(100);
+    expect(tileWidthPx(undefined, COMPACT_STRIP_HEIGHT_PX)).toBe(100);
   });
 });
 

@@ -13,6 +13,8 @@ import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
 import {
+  compactPlayerAtom,
+  compactTimelineAtom,
   mutedAtom,
   playbackSpeedAtom,
   timelineZoomIndexAtom,
@@ -23,6 +25,8 @@ afterEach(() => {
   store.set(playbackSpeedAtom, 1);
   store.set(mutedAtom, true);
   store.set(timelineZoomIndexAtom, null);
+  store.set(compactPlayerAtom, false);
+  store.set(compactTimelineAtom, false);
 });
 
 class ResizeObserverStub {

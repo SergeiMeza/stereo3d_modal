@@ -24,6 +24,7 @@
 
 /* eslint-disable @next/next/no-img-element -- fallback GCS thumbnail URLs. */
 
+import { useAtom } from "jotai";
 import { useState, type ReactNode, type RefObject } from "react";
 
 import { PlayerBadge } from "@/components/steps/PlayerBadge";
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import type { Probe, Thumb } from "@/lib/api/types";
 import { frameLabel, type RationalFPS } from "@/lib/frames";
 import { blurAfterMouseClick } from "@/lib/interactions";
+import { compactPlayerAtom } from "@/lib/viewerPrefs";
 
 import type { PreviewPlayer } from "./usePreviewPlayer";
 import { nearestThumb, parseCrop } from "./utils";
@@ -74,10 +76,25 @@ export function PreviewViewer({
   const [proxyDims, setProxyDims] = useState<{ w: number; h: number } | null>(
     null,
   );
+  // Theater (default) spans the full page width; compact caps the player at
+  // ~30% of the viewport height so the timeline and controls below stay on
+  // screen. The box is aspect-ratio-sized off its width, so the cap is a
+  // width limit: 30vh × aspect per player (the aside doubles it, + gap-2).
+  const [compact, setCompact] = useAtom(compactPlayerAtom);
+  const aspect = probe.width / probe.height;
+  const compactMaxWidth = aside
+    ? `calc(60vh * ${aspect} + 0.5rem)`
+    : `calc(30vh * ${aspect})`;
 
   return (
     <div className="space-y-2">
-      <div className={aside ? "grid gap-2 sm:grid-cols-2" : undefined}>
+      <div
+        className={[
+          aside ? "grid gap-2 sm:grid-cols-2" : "",
+          compact ? "mx-auto w-full" : "",
+        ].join(" ")}
+        style={compact ? { maxWidth: compactMaxWidth } : undefined}
+      >
         <div
           className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
           style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
@@ -191,7 +208,20 @@ export function PreviewViewer({
             active picture {cropRect.width}×{cropRect.height}
           </span>
         ) : null}
-        <span className="ml-auto text-xs text-fg-muted">
+        <Button
+          variant="outline"
+          size="xs"
+          className="ml-auto"
+          aria-pressed={compact}
+          aria-label={compact ? "Theater player" : "Compact player"}
+          onClick={(e) => {
+            blurAfterMouseClick(e);
+            setCompact(!compact);
+          }}
+        >
+          {compact ? "Theater" : "Compact"}
+        </Button>
+        <span className="text-xs text-fg-muted">
           Space play/pause · ←/→ ±1 frame · Shift ±1 s
         </span>
       </div>

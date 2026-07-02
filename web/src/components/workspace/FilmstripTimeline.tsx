@@ -45,15 +45,17 @@ import { Button } from "@/components/ui/button";
 import type { Thumb } from "@/lib/api/types";
 import { frameLabel, frameToPosition, type RationalFPS } from "@/lib/frames";
 import { blurAfterMouseClick } from "@/lib/interactions";
-import { timelineZoomIndexAtom } from "@/lib/viewerPrefs";
+import { compactTimelineAtom, timelineZoomIndexAtom } from "@/lib/viewerPrefs";
 
 import { useFrameThumbs } from "./useFrameThumbs";
 import {
+  COMPACT_STRIP_HEIGHT_PX,
   DEFAULT_VIEWPORT_PX,
   isExtractionZoom,
   nearestThumb,
   planTiles,
   scrollFractionToCenter,
+  STRIP_HEIGHT_PX,
   tileWidthPx,
   windowPositionToFrame,
   zoomedWindow,
@@ -119,6 +121,7 @@ export function FilmstripTimeline({
   // editable strips open fully zoomed IN, centered on the playhead — the
   // Cut page is a precision tool; readOnly (Media) opens at Fit for context.
   const [storedZoomIndex, setZoomIndex] = useAtom(timelineZoomIndexAtom);
+  const [compact, setCompact] = useAtom(compactTimelineAtom);
   const zoomIndex = Math.min(
     storedZoomIndex ?? (readOnly ? 0 : levels.length - 1),
     levels.length - 1,
@@ -245,7 +248,10 @@ export function FilmstripTimeline({
   // depth: nearest server tile at shallow zooms; past isExtractionZoom the
   // tile's start frame is extracted client-side, with the server tile as
   // the fallback while pending (or permanently, on failure).
-  const tileW = tileWidthPx(aspect);
+  const tileW = tileWidthPx(
+    aspect,
+    compact ? COMPACT_STRIP_HEIGHT_PX : STRIP_HEIGHT_PX,
+  );
   const tiles = useMemo(
     () => planTiles(numFrames, zoom, scrollFraction, viewportPx, tileW),
     [numFrames, zoom, scrollFraction, viewportPx, tileW],
@@ -312,6 +318,21 @@ export function FilmstripTimeline({
           +
         </Button>
         <span>⌘/Ctrl + scroll to zoom · scroll to pan</span>
+        <Button
+          variant="outline"
+          size="xs"
+          className="ml-auto"
+          aria-pressed={compact}
+          aria-label={
+            compact ? "Full-height timeline" : "Compact timeline"
+          }
+          onClick={(e) => {
+            blurAfterMouseClick(e);
+            setCompact(!compact);
+          }}
+        >
+          {compact ? "Full strip" : "Compact strip"}
+        </Button>
       </div>
 
       <div
@@ -320,7 +341,9 @@ export function FilmstripTimeline({
         data-zoom={zoom}
         data-window-start={frameWindow.start}
         data-window-frames={frameWindow.frames}
-        className="relative h-[90px] w-full cursor-crosshair overflow-x-auto overflow-y-hidden rounded-md border border-edge bg-surface-2 select-none"
+        className={`relative w-full cursor-crosshair overflow-x-auto overflow-y-hidden rounded-md border border-edge bg-surface-2 select-none ${
+          compact ? "h-14" : "h-[90px]"
+        }`}
         onScroll={handleScroll}
         onClick={(e) => onScrub(frameAtClientX(e.clientX))}
         onDoubleClick={
