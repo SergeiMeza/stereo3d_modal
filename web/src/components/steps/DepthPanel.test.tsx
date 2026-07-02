@@ -1,9 +1,11 @@
 /**
  * Depth page tests: the depth_res/fps-only surface (no displacement, no
  * preset, no formats), request bodies on the wire, the depth_res_factor
- * quote line, the source-vs-depth compare view with its fraction-synced
- * transport, prior-runs listing, and the shared checkout machinery
- * (idempotency, lifecycle, cancel) inherited from useStepCheckout.
+ * quote line, the ONE-transport review area (the depth_vis follower beside
+ * the main preview, synced off the master video's element events), the
+ * Cut-style timeline + auto-scrolling scene grid, depth-map export/import,
+ * and the shared checkout machinery (idempotency, lifecycle, cancel)
+ * inherited from useStepCheckout.
  *
  * Quote expectations follow the mock's math on the real fixture:
  * 3587 frames @ 24 fps = 149.46 s → base 25¢ at 10¢/min; −50¢ analyze
@@ -32,22 +34,15 @@ import {
 import type {
   Conversion,
   Project,
-  SceneProfile,
   StepConversionRequest,
 } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
-import {
-  cutsToRanges,
-  frameToSeconds,
-  frameToTimecode,
-  parseRational,
-} from "@/lib/frames";
+import { cutsToRanges, frameToTimecode, parseRational } from "@/lib/frames";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import downloadsFixture from "../../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../../fixtures/project.json";
-import sceneProfileFixture from "../../../fixtures/scene_profile.json";
 
 import { DepthPanel } from "./DepthPanel";
 import { loadStereoDraft } from "./stereoStore";
@@ -55,7 +50,7 @@ import { loadStereoDraft } from "./stereoStore";
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
 
 // jsdom's HTMLMediaElement.play/pause are "not implemented"; stub them to
-// dispatch their events so the compare transport stays honest.
+// dispatch their events — the follower sync listens to exactly these.
 beforeAll(() => {
   HTMLMediaElement.prototype.play = function play(this: HTMLMediaElement) {
     this.dispatchEvent(new Event("play"));
@@ -73,7 +68,7 @@ afterEach(() => {
   server.events.removeAllListeners();
   mockDb.reset();
   vi.restoreAllMocks();
-  window.localStorage.clear(); // the panel now mounts the shared stereo draft
+  window.localStorage.clear(); // the panel mounts the shared stereo draft
 });
 afterAll(() => server.close());
 
@@ -85,15 +80,9 @@ function fixtureProject(overrides: Partial<Project> = {}): Project {
 }
 
 const FIXTURE = projectFixture as unknown as Project;
-const PROFILE = (sceneProfileFixture as { scene_profile: unknown })
-  .scene_profile as SceneProfile;
 const FPS = parseRational(FIXTURE.probe!.fps_rational);
-/** Scene ranges the picker must derive when no (fresh) profile exists. */
 const RANGES = cutsToRanges(FIXTURE.scenes!.cuts, FIXTURE.probe!.num_frames);
-
-function sceneLabel([first, last]: [number, number], i: number): string {
-  return `Scene ${i + 1} · f${first}–f${last} · ${frameToTimecode(first, FPS)}`;
-}
+const REAL_DOWNLOADS = downloadsFixture.downloads as Record<string, string>;
 
 function renderPanel(project: Project = fixtureProject()) {
   const onProjectChanged = vi.fn();
@@ -155,6 +144,15 @@ function seededDepthRun(
   };
   mockDb.conversions.set(conv.conversion_id, structuredClone(conv));
   return conv;
+}
+
+/** Render with a seeded succeeded run and wait for the follower video. */
+async function renderWithDepth(project = fixtureProject()) {
+  project.conversions = [seededDepthRun(project.project_id)];
+  const rendered = renderPanel(project);
+  const depth = (await screen.findByTestId("depth-video")) as HTMLVideoElement;
+  const master = screen.getByTestId("preview-video") as HTMLVideoElement;
+  return { ...rendered, project, master, depth };
 }
 
 describe("DepthPanel controls", () => {
@@ -289,7 +287,7 @@ describe("DepthPanel quotes", () => {
 });
 
 describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
-  it("runs create → pay → poll to succeeded → downloads include the playable depth_vis", async () => {
+  it("runs create → pay → poll to succeeded; the tracker reports state WITHOUT a downloads list (the review area owns the outputs)", async () => {
     const user = userEvent.setup();
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
@@ -306,12 +304,12 @@ describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
     await screen.findByText("succeeded", undefined, { timeout: 3000 });
     await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(1));
 
-    // outputs: anaglyph + depth + depth_vis; depth_vis plays inline, raw
-    // depth stays a plain link
-    await screen.findByRole("link", { name: "depth_vis" });
-    expect(screen.getByTestId("preview-depth_vis").tagName).toBe("VIDEO");
-    expect(screen.getByRole("link", { name: "depth" })).toBeDefined();
-    expect(screen.queryByTestId("preview-depth")).toBeNull();
+    // NO download links/players inside the tracker on the Depth tab — the
+    // side-by-side depth view + Export replaced that surface
+    const tracker = screen.getByTestId("conversion-tracker");
+    expect(within(tracker).queryByRole("link")).toBeNull();
+    expect(within(tracker).queryByTestId("preview-depth_vis")).toBeNull();
+    expect(within(tracker).queryByText("Downloads")).toBeNull();
 
     // the mocked success also stamps the project's scene_profile
     const project = mockDb.projects.get(
@@ -356,111 +354,88 @@ describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
   });
 });
 
-describe("DepthPanel compare view", () => {
-  it("plays the last succeeded run's depth_vis NEXT TO the source proxy with a fraction-synced transport", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id)];
-    renderPanel(project);
+describe("DepthPanel depth follower (one transport)", () => {
+  it("renders the last succeeded run's depth_vis BESIDE the main preview — no second transport", async () => {
+    const { project, master, depth } = await renderWithDepth();
+    expect(master.getAttribute("src")).toBe(project.preview_url);
+    expect(depth.getAttribute("src")).toBe(REAL_DOWNLOADS.depth_vis);
 
-    await screen.findByTestId("depth-compare");
-    const source = screen.getByTestId("depth-compare-source") as HTMLVideoElement;
-    const depth = screen.getByTestId("depth-compare-depth") as HTMLVideoElement;
-    expect(source.getAttribute("src")).toBe(project.preview_url);
-    expect(depth.getAttribute("src")).toBe(
-      (downloadsFixture.downloads as Record<string, string>).depth_vis,
-    );
-
-    // one transport for both players
-    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play");
-    fireEvent.click(screen.getByLabelText("Play comparison"));
-    expect(playSpy).toHaveBeenCalledTimes(2);
-
-    // follower syncs by FRACTION of duration (the depth video may run at a
-    // different fps — no frame math against it)
-    Object.defineProperty(source, "duration", { value: 100, configurable: true });
-    Object.defineProperty(depth, "duration", { value: 50, configurable: true });
-    source.currentTime = 40;
-    fireEvent.timeUpdate(source);
-    expect(depth.currentTime).toBeCloseTo(20, 5);
-
-    const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, "pause");
-    fireEvent.click(screen.getByLabelText("Pause comparison"));
-    expect(pauseSpy).toHaveBeenCalledTimes(2);
+    // ONE transport: the main preview's. No compare-specific controls left.
+    expect(screen.getByLabelText("Play preview")).toBeDefined();
+    expect(screen.queryByLabelText("Play comparison")).toBeNull();
+    expect(screen.queryByLabelText("Scene to play")).toBeNull();
+    expect(screen.getAllByLabelText("Speed")).toHaveLength(1);
   });
 
-  it("badges each player with what it shows and its decoded size once metadata lands", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id)];
-    renderPanel(project);
-    await screen.findByTestId("depth-compare");
-    const source = screen.getByTestId("depth-compare-source") as HTMLVideoElement;
-    const depth = screen.getByTestId("depth-compare-depth") as HTMLVideoElement;
+  it("the MAIN Play/Pause drives both videos (the follower mirrors the master's play/pause events)", async () => {
+    const { depth } = await renderWithDepth();
 
-    // before metadata the badges only NAME the streams
-    expect(screen.getByTestId("depth-compare-source-badge").textContent).toBe(
-      "source proxy",
-    );
-    expect(screen.getByTestId("depth-compare-depth-badge").textContent).toBe(
-      "depth_vis",
-    );
+    const playSpy = vi.spyOn(depth, "play");
+    fireEvent.click(screen.getByLabelText("Play preview"));
+    expect(playSpy).toHaveBeenCalledTimes(1); // master play event → follower
 
-    // loadedmetadata reveals the ACTUAL decoded videoWidth×videoHeight
-    Object.defineProperty(source, "videoWidth", { value: 640, configurable: true });
-    Object.defineProperty(source, "videoHeight", { value: 360, configurable: true });
-    fireEvent(source, new Event("loadedmetadata"));
-    expect(screen.getByTestId("depth-compare-source-badge").textContent).toBe(
-      "source proxy 640×360",
-    );
+    const pauseSpy = vi.spyOn(depth, "pause");
+    fireEvent.click(screen.getByLabelText("Pause preview"));
+    expect(pauseSpy).toHaveBeenCalled();
+  });
+
+  it("Space (the main transport key) also reaches the follower", async () => {
+    const { depth } = await renderWithDepth();
+    const playSpy = vi.spyOn(depth, "play");
+    fireEvent.keyDown(window, { key: " " });
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("syncs the follower by FRACTION of duration on master timeupdate and seeked (never frame math)", async () => {
+    const { master, depth } = await renderWithDepth();
+    Object.defineProperty(master, "duration", { value: 100, configurable: true });
+    Object.defineProperty(depth, "duration", { value: 50, configurable: true });
+
+    // while playing: timeupdate
+    master.currentTime = 40;
+    fireEvent.timeUpdate(master);
+    expect(depth.currentTime).toBeCloseTo(20, 5);
+
+    // paused seeks (timeline scrubs, scene-card jumps, frame steps) fire
+    // seeked, not timeupdate — the follower must track those too
+    master.currentTime = 80;
+    fireEvent.seeked(master);
+    expect(depth.currentTime).toBeCloseTo(40, 5);
+  });
+
+  it("mirrors the master's playbackRate on ratechange — the fraction-sync would fight a different speed", async () => {
+    const { master, depth } = await renderWithDepth();
+    const speed = screen.getByLabelText("Speed") as HTMLSelectElement;
+    await userEvent.setup().selectOptions(speed, "0.5");
+    expect(master.playbackRate).toBe(0.5);
+    // jsdom doesn't dispatch ratechange on assignment — fire it like a browser
+    fireEvent(master, new Event("ratechange"));
+    expect(depth.playbackRate).toBe(0.5);
+  });
+
+  it("unmuting the main transport gives sound to the MASTER only — the depth follower STAYS muted", async () => {
+    const { master, depth } = await renderWithDepth();
+    expect(master.muted).toBe(true);
+    expect(depth.muted).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Unmute"));
+    expect(master.muted).toBe(false); // the source proxy carries the audio
+    expect(depth.muted).toBe(true); // the follower must never double-play
+
+    fireEvent.click(screen.getByLabelText("Mute"));
+    expect(master.muted).toBe(true);
+  });
+
+  it("badges the follower and reveals its decoded size once metadata lands", async () => {
+    const { depth } = await renderWithDepth();
+    expect(screen.getByTestId("depth-video-badge").textContent).toBe("depth_vis");
 
     Object.defineProperty(depth, "videoWidth", { value: 1232, configurable: true });
     Object.defineProperty(depth, "videoHeight", { value: 518, configurable: true });
     fireEvent(depth, new Event("loadedmetadata"));
-    expect(screen.getByTestId("depth-compare-depth-badge").textContent).toBe(
+    expect(screen.getByTestId("depth-video-badge").textContent).toBe(
       "depth_vis 1232×518",
     );
-  });
-
-  it("the comparison Play button toggles BOTH players; Space is owned by the main preview, not the compare", async () => {
-    // The Depth tab's main PreviewViewer owns the window-level Space handler
-    // now, so the embedded compare suppresses its own (keyboardShortcuts=false)
-    // — otherwise one Space press would toggle two players. The compare's Play
-    // button still drives both compare players.
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id)];
-    renderPanel(project);
-    const compare = await screen.findByTestId("depth-compare");
-
-    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play");
-    fireEvent.click(within(compare).getByLabelText("Play comparison"));
-    expect(playSpy).toHaveBeenCalledTimes(2); // source AND depth
-    expect(within(compare).getByLabelText("Pause comparison")).toBeTruthy();
-
-    const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, "pause");
-    fireEvent.click(within(compare).getByLabelText("Pause comparison"));
-    expect(pauseSpy).toHaveBeenCalledTimes(2);
-    expect(within(compare).getByLabelText("Play comparison")).toBeTruthy();
-  });
-
-  it("unmuting gives sound to the MASTER only — the depth_vis follower STAYS muted", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id)];
-    renderPanel(project);
-    const compare = await screen.findByTestId("depth-compare");
-    const source = screen.getByTestId("depth-compare-source") as HTMLVideoElement;
-    const depth = screen.getByTestId("depth-compare-depth") as HTMLVideoElement;
-
-    // both start muted (autoplay policy)
-    expect(source.muted).toBe(true);
-    expect(depth.muted).toBe(true);
-
-    // scope to the compare — the main preview has its own Mute control
-    fireEvent.click(within(compare).getByLabelText("Unmute"));
-    expect(source.muted).toBe(false); // master = the source proxy (has audio)
-    expect(depth.muted).toBe(true); // follower must never double-play sound
-
-    fireEvent.click(within(compare).getByLabelText("Mute"));
-    expect(source.muted).toBe(true);
-    expect(depth.muted).toBe(true);
   });
 
   it("falls back gracefully when the run produced no depth_vis", async () => {
@@ -472,191 +447,31 @@ describe("DepthPanel compare view", () => {
     ];
     renderPanel(project);
 
-    await screen.findByTestId("depth-compare-missing");
-    expect(screen.queryByTestId("depth-compare")).toBeNull();
+    await screen.findByTestId("depth-video-missing");
+    expect(screen.queryByTestId("depth-video")).toBeNull();
+  });
+
+  it("shows no depth slot at all (single full-width preview) without a succeeded run", () => {
+    renderPanel();
+    expect(screen.queryByTestId("depth-video")).toBeNull();
+    expect(screen.queryByTestId("depth-video-missing")).toBeNull();
+    expect(
+      screen.getByText(/Run a depth preview to see the depth map/),
+    ).toBeDefined();
   });
 });
 
-describe("DepthPanel scene-scoped playback", () => {
-  /** Render with a seeded succeeded run and wait for the compare view. */
-  async function renderCompare(project = fixtureProject()) {
-    project.conversions = [seededDepthRun(project.project_id)];
-    renderPanel(project);
-    await screen.findByTestId("depth-compare");
-    return {
-      picker: screen.getByLabelText("Scene to play") as HTMLSelectElement,
-      source: screen.getByTestId("depth-compare-source") as HTMLVideoElement,
-      depth: screen.getByTestId("depth-compare-depth") as HTMLVideoElement,
-    };
-  }
-
-  it("offers Whole video (default) + one option per scene, labels DERIVED from the fixture's cuts", async () => {
-    const { picker } = await renderCompare();
-    expect(picker.value).toBe(""); // Whole video preselected
-    expect([...picker.options].map((o) => o.textContent)).toEqual([
-      "Whole video",
-      ...RANGES.map(sceneLabel),
-    ]);
-  });
-
-  it("prefers a FRESH scene_profile's shot ranges; a stale one falls back to the cuts", async () => {
-    const withProfile = fixtureProject();
-    withProfile.scene_profile = structuredClone(PROFILE) as SceneProfile;
-    withProfile.scene_profile.scenes_version = withProfile.scenes!.version;
-    const { picker } = await renderCompare(withProfile);
-    // the profiled shots are the exact ranges the pipeline rendered — the
-    // fixture's last shot ends at last_src (≠ num_frames), which proves the
-    // options came from the profile, not cutsToRanges
-    expect([...picker.options].map((o) => o.textContent)).toEqual([
-      "Whole video",
-      ...PROFILE.shots.map((s, i) =>
-        sceneLabel([s.first_src, s.last_src], i),
-      ),
-    ]);
-    cleanup();
-
-    const stale = fixtureProject();
-    stale.scene_profile = structuredClone(PROFILE) as SceneProfile;
-    stale.scene_profile.scenes_version = stale.scenes!.version - 1;
-    const again = await renderCompare(stale);
-    expect([...again.picker.options].map((o) => o.textContent)).toEqual([
-      "Whole video",
-      ...RANGES.map(sceneLabel),
-    ]);
-  });
-
-  it("picking a scene seeks the MASTER to the scene start (source time), stays paused, and loops at the boundary with the follower in sync", async () => {
-    const user = userEvent.setup();
-    const { picker, source, depth } = await renderCompare();
-    const [first, last] = RANGES[2];
-    const startT = frameToSeconds(first, FPS);
-    const endT = frameToSeconds(last, FPS);
-
-    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play");
-    await user.selectOptions(picker, "2");
-    expect(source.currentTime).toBeCloseTo(startT, 5);
-    expect(playSpy).not.toHaveBeenCalled(); // picked while paused → stays paused
-
-    // inside the scene: no seeking
-    Object.defineProperty(source, "duration", {
-      value: FIXTURE.probe!.duration_s,
-      configurable: true,
-    });
-    Object.defineProperty(depth, "duration", {
-      value: FIXTURE.probe!.duration_s,
-      configurable: true,
-    });
-    const mid = (startT + endT) / 2;
-    source.currentTime = mid;
-    fireEvent.timeUpdate(source);
-    expect(source.currentTime).toBeCloseTo(mid, 5);
-
-    // past the end: loop back to the start, follower tracks the looped time
-    source.currentTime = endT + 0.2;
-    fireEvent.timeUpdate(source);
-    expect(source.currentTime).toBeCloseTo(startT, 5);
-    expect(depth.currentTime).toBeCloseTo(startT, 5); // equal durations → equal fraction
-  });
-
-  it("a PAUSED scene pick syncs the follower via seeked (timeupdate never fires while paused)", async () => {
-    const user = userEvent.setup();
-    const { picker, source, depth } = await renderCompare();
-    for (const v of [source, depth]) {
-      Object.defineProperty(v, "duration", {
-        value: FIXTURE.probe!.duration_s,
-        configurable: true,
-      });
-    }
-
-    const startT = frameToSeconds(RANGES[2][0], FPS);
-    await user.selectOptions(picker, "2"); // paused pick → master seeks
-    expect(source.currentTime).toBeCloseTo(startT, 5);
-    // the browser answers the seek with a 'seeked' event, not 'timeupdate'
-    fireEvent.seeked(source);
-    expect(depth.currentTime).toBeCloseTo(startT, 5);
-  });
-
-  it("‹ / › step scenes: › from Whole video goes to Scene 1, ‹ from Scene 1 returns to Whole video, › stops at the last scene", async () => {
-    const user = userEvent.setup();
-    const { picker, source } = await renderCompare();
-    const prev = screen.getByLabelText("Previous scene") as HTMLButtonElement;
-    const next = screen.getByLabelText("Next scene") as HTMLButtonElement;
-
-    expect(prev.disabled).toBe(true); // Whole video — nothing before it
-    fireEvent.click(next);
-    expect(picker.value).toBe("0"); // Scene 1
-    fireEvent.click(next);
-    expect(picker.value).toBe("1"); // Scene 2 — and the master followed
-    expect(source.currentTime).toBeCloseTo(frameToSeconds(RANGES[1][0], FPS), 5);
-    fireEvent.click(prev);
-    expect(picker.value).toBe("0");
-    fireEvent.click(prev);
-    expect(picker.value).toBe(""); // back to Whole video
-    expect(prev.disabled).toBe(true);
-
-    await user.selectOptions(picker, String(RANGES.length - 1));
-    expect(next.disabled).toBe(true); // last scene — no further
-    fireEvent.click(prev);
-    expect(picker.value).toBe(String(RANGES.length - 2));
-  });
-
-  it("switching back to Whole video clears the loop and does NOT seek", async () => {
-    const user = userEvent.setup();
-    const { picker, source } = await renderCompare();
-    const [, last] = RANGES[0];
-    await user.selectOptions(picker, "0");
-
-    await user.selectOptions(picker, "");
-    const past = frameToSeconds(last, FPS) + 3; // well past the old scene end
-    source.currentTime = past;
-    fireEvent.timeUpdate(source);
-    expect(source.currentTime).toBeCloseTo(past, 5); // no loop, no seek
-  });
-
-  it("re-applies the scene seek on loadedmetadata when the video had no metadata yet — exactly once", async () => {
-    const user = userEvent.setup();
-    const { picker, source } = await renderCompare();
-    const startT = frameToSeconds(RANGES[2][0], FPS);
-
-    // jsdom videos report readyState 0 (no metadata) — the seek is pending
-    expect(source.readyState).toBe(0);
-    await user.selectOptions(picker, "2");
-    source.currentTime = 0; // the browser dropped the pre-metadata seek
-    fireEvent(source, new Event("loadedmetadata"));
-    expect(source.currentTime).toBeCloseTo(startT, 5);
-
-    // a later loadedmetadata must not re-seek (pending consumed)
-    source.currentTime = 1;
-    fireEvent(source, new Event("loadedmetadata"));
-    expect(source.currentTime).toBe(1);
-  });
-
-  it("the Speed select (0.25×–2×, 1× default) sets playbackRate on BOTH compare players", async () => {
-    const user = userEvent.setup();
-    const { source, depth } = await renderCompare();
-
-    // the main preview has its own Speed select — scope to the compare
-    const compare = screen.getByTestId("depth-compare");
-    const speed = within(compare).getByLabelText("Speed") as HTMLSelectElement;
-    expect(speed.value).toBe("1");
-    expect([...speed.options].map((o) => o.textContent)).toEqual([
-      "0.25×",
-      "0.5×",
-      "1×",
-      "1.5×",
-      "2×",
-    ]);
-    expect(source.playbackRate).toBe(1);
-
-    await user.selectOptions(speed, "0.5");
-    // master AND follower share the rate — the fraction-sync would fight a
-    // follower running at a different speed
-    expect(source.playbackRate).toBe(0.5);
-    expect(depth.playbackRate).toBe(0.5);
-
-    await user.selectOptions(speed, "2");
-    expect(source.playbackRate).toBe(2);
-    expect(depth.playbackRate).toBe(2);
+describe("DepthPanel timeline (Cut-style)", () => {
+  it("renders the read-only filmstrip with the project's cut markers (inert) and the playhead", () => {
+    renderPanel();
+    const strip = screen.getByTestId("filmstrip");
+    expect(strip).toBeDefined();
+    const markers = screen.getAllByTestId("cut-marker");
+    // first cut is frame 0 → cutsToRanges implies cuts.length markers
+    expect(markers).toHaveLength(FIXTURE.scenes!.cuts.length);
+    // readOnly markers are inert DIVs, not draggable buttons
+    for (const m of markers) expect(m.tagName).toBe("DIV");
+    expect(screen.getByTestId("playhead")).toBeDefined();
   });
 });
 
@@ -677,6 +492,29 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
         /Depth previews always render the full depth map regardless/,
       ),
     ).toBeDefined();
+  });
+
+  it("clicking a scene card seeks the MAIN preview to the scene's first frame and scrolls the active row to the top", async () => {
+    // jsdom has no Element.scrollTo — provide one so the auto-scroll runs
+    const scrollTo = vi.fn();
+    (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo = scrollTo;
+    try {
+      const { master } = await renderWithDepth();
+      const [start] = RANGES[2];
+      const card = screen
+        .getByTestId(`depth-scene-${start}`)
+        .querySelector("button")!;
+      fireEvent.click(card);
+      // frame-exact seek: mid-frame time of the scene's first frame
+      expect(master.currentTime).toBeGreaterThan(0);
+      expect(screen.getByTestId("frame-readout").textContent).toContain(
+        `f${start}`,
+      );
+      // the playhead crossed into a new scene → its card scrolled to the top
+      expect(scrollTo).toHaveBeenCalled();
+    } finally {
+      delete (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo;
+    }
   });
 
   it("unchecking a scene writes passthrough into the SHARED stereo draft and never touches the depth request", async () => {
@@ -709,33 +547,89 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
   });
 });
 
-describe("DepthPanel prior runs", () => {
-  it("lists prior depth runs with state, depth_res, fps and price, depth_vis playable", async () => {
+describe("DepthPanel depth-map export / import", () => {
+  it("replaces the prior-runs downloads card: no PriorRuns section even with prior conversions", async () => {
+    await renderWithDepth();
+    expect(screen.queryByTestId("prior-runs")).toBeNull();
+    expect(screen.queryByText("Prior depth runs")).toBeNull();
+  });
+
+  it("Export is disabled until a run succeeded, then opens a dialog explaining the 10-bit raw file and linking the `depth` download", async () => {
+    const { unmount } = render(
+      <AuthProvider>
+        <DepthPanel project={fixtureProject()} onProjectChanged={vi.fn()} />
+      </AuthProvider>,
+    );
+    const disabled = screen.getByRole("button", {
+      name: "Export depth map",
+    }) as HTMLButtonElement;
+    expect(disabled.disabled).toBe(true);
+    unmount();
+
+    await renderWithDepth();
+    const button = screen.getByRole("button", {
+      name: "Export depth map",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(button.disabled).toBe(false));
+
+    fireEvent.click(button);
+    const dialog = await screen.findByTestId("export-depth-dialog");
+    // the dialog names WHAT is exported: the full-precision 10-bit depth
+    // file, explicitly NOT the 8-bit depth_vis preview
+    expect(dialog.textContent).toContain("10-bit");
+    expect(dialog.textContent).toContain("not the 8-bit");
+    const link = within(dialog).getByTestId("export-depth-link");
+    expect(link.getAttribute("href")).toBe(REAL_DOWNLOADS.depth);
+    expect(link.getAttribute("download")).not.toBeNull();
+  });
+
+  it("imports a local depth video into the compare slot (object URL, review-only) and clears back to the run's depth_vis", async () => {
+    const createObjectURL = vi.fn(() => "blob:imported-depth");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+
+    const { depth } = await renderWithDepth();
+    expect(depth.getAttribute("src")).toBe(REAL_DOWNLOADS.depth_vis);
+
     const user = userEvent.setup();
-    const project = fixtureProject();
-    const ok = seededDepthRun(project.project_id);
-    const failed = seededDepthRun(project.project_id, {
-      conversion_id: "prior0000002",
-      state: "failed",
-      params: { preset: "draft", formats: ["anaglyph"], depth_res: 1442, target_fps: 24 },
-      outputs: undefined,
-      created_at: "2026-07-02T09:00:00Z",
-    });
-    project.conversions = [ok, failed];
-    renderPanel(project);
+    const file = new File(["x"], "my-depth.mp4", { type: "video/mp4" });
+    await user.upload(screen.getByLabelText("Depth map file"), file);
 
-    const rows = await screen.findAllByTestId(/^prior-run-/);
-    expect(rows).toHaveLength(2);
-    // newest first
-    expect(rows[0].getAttribute("data-testid")).toBe("prior-run-prior0000002");
-    expect(rows[0].textContent).toContain("depth 1442 · 24 fps");
-    expect(rows[0].textContent).toContain("failed");
-    expect(rows[1].textContent).toContain("depth 980 · 12 fps");
-    expect(rows[1].textContent).toContain("$0.50");
+    const importedVideo = screen.getByTestId("depth-video") as HTMLVideoElement;
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(importedVideo.getAttribute("src")).toBe("blob:imported-depth");
+    expect(screen.getByTestId("depth-video-badge").textContent).toBe(
+      "imported depth",
+    );
+    // the note names the file and that nothing is uploaded
+    const note = screen.getByTestId("imported-depth-note");
+    expect(note.textContent).toContain("my-depth.mp4");
+    expect(note.textContent).toContain("local review only");
 
-    // only the succeeded run offers downloads; its depth_vis plays inline
-    await user.click(screen.getByRole("button", { name: "Downloads" }));
-    const vis = await screen.findAllByTestId("preview-depth_vis");
-    expect(vis.length).toBeGreaterThanOrEqual(1);
+    // clearing reverts to the run's depth_vis and revokes the object URL
+    fireEvent.click(screen.getByLabelText("Clear imported depth map"));
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:imported-depth");
+    expect(
+      (screen.getByTestId("depth-video") as HTMLVideoElement).getAttribute("src"),
+    ).toBe(REAL_DOWNLOADS.depth_vis);
+    expect(screen.getByTestId("depth-video-badge").textContent).toBe("depth_vis");
+  });
+
+  it("import works with NO depth run — an external depth map previews beside the source", async () => {
+    const createObjectURL = vi.fn(() => "blob:external-depth");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+
+    renderPanel();
+    expect(screen.queryByTestId("depth-video")).toBeNull();
+
+    const user = userEvent.setup();
+    const file = new File(["x"], "external.mp4", { type: "video/mp4" });
+    await user.upload(screen.getByLabelText("Depth map file"), file);
+
+    const video = screen.getByTestId("depth-video") as HTMLVideoElement;
+    expect(video.getAttribute("src")).toBe("blob:external-depth");
+    expect(screen.getByTestId("depth-video-badge").textContent).toBe(
+      "imported depth",
+    );
   });
 });

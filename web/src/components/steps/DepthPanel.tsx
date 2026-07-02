@@ -4,30 +4,43 @@
  * Depth page (step depth_preview) — "define the depth map".
  *
  * The only knobs that matter here are the depth-map RESOLUTION (the
- * cost/quality axis — production inherits it via artifact reuse, so running
- * depth once at the final resolution makes the production quote discount
- * the whole depth stage) and the PREVIEW frame rate (reuse keys on fps: a
- * production run at a different fps re-runs depth). No displacement, no
- * preset, no formats — those belong to the Stereo and Deliver pages.
+ * cost/quality axis — production inherits it via artifact reuse) and the
+ * PREVIEW frame rate (reuse keys on fps). No displacement, no preset, no
+ * formats — those belong to the Stereo and Deliver pages.
  *
- * Layout mirrors the Cut tab: a frame-exact source PREVIEW (usePreviewPlayer
- * over the project proxy) sits up top with Space/←/→ transport; below it a
- * SCENE GRID (thumbnail cards, one per cut range) navigates the preview and
- * carries the per-scene "Convert to 3D" toggle from the SHARED stereo draft
- * store (2D passthrough — affects stereo_preview/production only; depth
- * previews always render the full depth map). When a depth run has succeeded,
- * the source-vs-depth compare (DepthCompare) renders INLINE directly under the
- * preview, synced by fraction of duration (the depth video runs at its own
- * fps — frame doctrine applies only to the source proxy, never derived
- * outputs).
+ * Layout mirrors the Cut tab: ONE frame-exact source preview up top
+ * (usePreviewPlayer over the project proxy, Space/←/→ transport), a
+ * FilmstripTimeline for scrubbing, and the scene grid (auto-scrolling the
+ * active scene to the top while playing, like Cut). When a depth run has
+ * succeeded, its depth_vis renders BESIDE the main preview as a follower of
+ * the SAME transport: play/pause/seek/speed mirror the master video's
+ * element events, position syncs by fraction of duration (the depth video
+ * runs at its own fps — frame doctrine applies only to the source proxy,
+ * never derived outputs).
+ *
+ * Depth-map export/import (the Cut tab's cuts-CSV pattern, applied to the
+ * depth artifact): Export downloads the run's RAW full-precision depth file
+ * (the `depth` output the later steps consume — an explanatory dialog makes
+ * clear it is NOT the 8-bit depth_vis preview); Import loads a local depth
+ * video into the compare slot as a review aid (nothing is uploaded).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { JSX, ReactNode } from "react";
+import type { JSX, ReactNode, RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FilmstripTimeline } from "@/components/workspace/FilmstripTimeline";
 import { PreviewViewer } from "@/components/workspace/PreviewViewer";
+import { useScrollActiveSceneToTop } from "@/components/workspace/SceneList";
 import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
 import { usePreviewPlayer } from "@/components/workspace/usePreviewPlayer";
 import { clampFrame } from "@/components/workspace/utils";
@@ -52,13 +65,6 @@ import { blurAfterMouseClick } from "@/lib/interactions";
 import { Field, selectClass } from "./controls";
 import { setRowPassthrough, useStereoDraft } from "./stereoStore";
 import { PlayerBadge, videoDims, type VideoDims } from "./PlayerBadge";
-import { PriorRuns } from "./PriorRuns";
-import { MuteToggle, ScenePicker, SpeedSelect } from "./ScenePicker";
-import {
-  sceneRangesForPlayback,
-  useScenePlayback,
-  type SceneRange,
-} from "./useScenePlayback";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 export { DEFAULT_DEPTH_RES };
@@ -95,11 +101,8 @@ export function DepthPanel({
   );
   const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
 
-  const depthRuns = (project.conversions ?? []).filter(
-    (c) => c.step === "depth_preview",
-  );
-  const lastSucceeded = depthRuns
-    .filter((c) => c.state === "succeeded")
+  const lastSucceeded = (project.conversions ?? [])
+    .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
     | Conversion
     | undefined;
@@ -124,7 +127,7 @@ export function DepthPanel({
 
   return (
     <PanelShell>
-      <DepthPreview
+      <DepthReview
         project={project}
         sourceFps={sourceFps}
         lastSucceeded={lastSucceeded}
@@ -140,11 +143,9 @@ export function DepthPanel({
               label="Depth-map resolution"
               hint={
                 <>
-                  The cost/quality knob, and what production inherits: run depth
-                  once at your final resolution and the production quote
-                  discounts the whole depth stage when fps and resolution match.
-                  Capped at the source resolution — you can&apos;t add detail
-                  the source doesn&apos;t have.
+                  The cost/quality knob. Production inherits it: run depth once
+                  at your final resolution and the production quote discounts
+                  the whole depth stage. Capped at the source resolution.
                 </>
               }
             >
@@ -169,9 +170,9 @@ export function DepthPanel({
               label="Preview frame rate"
               hint={
                 <>
-                  Defaults to the source rate. Honest caveat: depth reuse keys
-                  on fps — a production run at a different rate re-runs the depth
-                  stage at full price.
+                  Defaults to the source rate. Depth reuse keys on fps — a
+                  production run at a different rate re-runs the depth stage at
+                  full price.
                 </>
               }
             >
@@ -192,28 +193,19 @@ export function DepthPanel({
               </select>
             </Field>
           </div>
-          <StepCheckoutSection checkout={ck} request={request} />
+          <StepCheckoutSection
+            checkout={ck}
+            request={request}
+            trackerDownloads={false}
+          />
         </CardContent>
       </Card>
-
-      <PriorRuns
-        title="Prior depth runs"
-        conversions={depthRuns}
-        meta={(c) =>
-          [
-            c.params.depth_res !== undefined ? `depth ${c.params.depth_res}` : null,
-            c.params.target_fps !== undefined ? `${c.params.target_fps} fps` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || c.params.preset
-        }
-      />
     </PanelShell>
   );
 }
 
-/** Page frame: the preview/grid + params + prior runs stack, full width. The
- * page title/description live in the shared PageHeader (StepTab). */
+/** Page frame: the review area + params stack, full width. The page
+ * title/description live in the shared PageHeader (StepTab). */
 function PanelShell({ children }: { children: ReactNode }): JSX.Element {
   return (
     <div data-testid="depth-panel" className="flex flex-col gap-6">
@@ -222,13 +214,116 @@ function PanelShell({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
+/** The latest succeeded run's signed depth links: the browser-playable
+ * depth_vis and the raw full-precision depth file (for Export). */
+function useDepthDownloads(
+  conversion: Conversion | undefined,
+): { depthVis: string | null; depthRaw: string | null } | null {
+  const client = useGateway();
+  const id = conversion?.conversion_id ?? null;
+  const [fetched, setFetched] = useState<{
+    id: string;
+    depthVis: string | null;
+    depthRaw: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (id === null || fetched?.id === id) return;
+    let cancelled = false;
+    client
+      .getDownloads(id)
+      .then((d) => {
+        if (cancelled) return;
+        setFetched({
+          id,
+          depthVis: d.downloads.depth_vis ?? null,
+          depthRaw: d.downloads.depth ?? null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setFetched({ id, depthVis: null, depthRaw: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, id, fetched]);
+
+  return id !== null && fetched?.id === id ? fetched : null;
+}
+
 /**
- * Cut-style review area: the frame-exact source PREVIEW, the source-vs-depth
- * compare (inline, when a run succeeded), and the SCENE GRID with per-scene 3D
- * toggles. The preview playhead drives the grid highlight; clicking a scene
- * card seeks the preview to that scene's first frame.
+ * Keep the depth <video> a strict FOLLOWER of the master preview video, off
+ * the master's own element events (so every transport path — buttons, Space,
+ * timeline scrubs, scene-card jumps — is covered without extra wiring):
+ * play/pause/ratechange mirror; seeked/timeupdate sync the position by
+ * FRACTION of duration (the depth video is a derived artifact at its own
+ * fps — never frame-math it). The follower stays muted (audio belongs to
+ * the master).
  */
-function DepthPreview({
+function useFollowerVideo(
+  masterRef: RefObject<HTMLVideoElement | null>,
+  followerRef: RefObject<HTMLVideoElement | null>,
+  url: string | null,
+): void {
+  useEffect(() => {
+    const m = masterRef.current;
+    const f = followerRef.current;
+    if (!m || !f || url === null) return;
+
+    const sync = () => {
+      if (!m.duration || !f.duration) return;
+      const target = (m.currentTime / m.duration) * f.duration;
+      // small tolerance so playback isn't stuttered by constant micro-seeks
+      if (Math.abs(f.currentTime - target) > 0.15) f.currentTime = target;
+    };
+    const onPlay = () => {
+      f.playbackRate = m.playbackRate;
+      const p = f.play();
+      if (p instanceof Promise) p.catch(() => {});
+    };
+    const onPause = () => {
+      f.pause();
+      sync();
+    };
+    const onRate = () => {
+      f.playbackRate = m.playbackRate;
+    };
+
+    m.addEventListener("play", onPlay);
+    m.addEventListener("pause", onPause);
+    m.addEventListener("seeked", sync);
+    m.addEventListener("timeupdate", sync);
+    m.addEventListener("ratechange", onRate);
+    // durations arrive asynchronously — sync once the follower has one
+    f.addEventListener("loadedmetadata", sync);
+
+    // Adopt the master's CURRENT state (it may already be playing when the
+    // first depth run lands, or when an import swaps the follower element).
+    f.muted = true;
+    onRate();
+    sync();
+    if (!m.paused) onPlay();
+
+    return () => {
+      m.removeEventListener("play", onPlay);
+      m.removeEventListener("pause", onPause);
+      m.removeEventListener("seeked", sync);
+      m.removeEventListener("timeupdate", sync);
+      m.removeEventListener("ratechange", onRate);
+      f.removeEventListener("loadedmetadata", sync);
+      f.pause();
+    };
+  }, [masterRef, followerRef, url]);
+}
+
+/**
+ * Cut-style review area with ONE transport: the frame-exact source preview
+ * (master), the depth map beside it (follower, when available), the
+ * timeline, and the scene grid with per-scene 3D toggles. Also owns the
+ * depth-map Export (raw 10-bit file, behind an explanatory dialog) and
+ * Import (local review file) actions.
+ */
+function DepthReview({
   project,
   sourceFps,
   lastSucceeded,
@@ -244,8 +339,8 @@ function DepthPreview({
   const probe = project.probe!;
   const numFrames = probe.num_frames;
 
-  // Frame-exact preview player over the project proxy — same hook the Cut tab
-  // uses. The playhead follows the video while playing; scene-card clicks seek.
+  // Frame-exact preview player over the project proxy — same hook the Cut
+  // tab uses. The playhead drives the timeline and the scene highlight.
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const handleVideoFrame = useCallback(
@@ -275,8 +370,160 @@ function DepthPreview({
   const secondFrames = Math.max(1, Math.round(sourceFps.num / sourceFps.den));
   usePlayerShortcuts({ toggle: player.toggle, step, secondFrames });
 
+  // ------------------------------------------------ depth map beside source
+  const downloads = useDepthDownloads(lastSucceeded);
+  // Locally imported depth video (object URL) — overrides the run's
+  // depth_vis in the compare slot. Review aid only; nothing is uploaded.
+  const [imported, setImported] = useState<{ name: string; url: string } | null>(
+    null,
+  );
+  const importedRef = useRef(imported);
+  useEffect(() => {
+    importedRef.current = imported;
+  }, [imported]);
+  useEffect(
+    () => () => {
+      if (importedRef.current) URL.revokeObjectURL(importedRef.current.url);
+    },
+    [],
+  );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function importDepthFile(file: File): void {
+    const url = URL.createObjectURL(file);
+    setImported((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { name: file.name, url };
+    });
+  }
+  function clearImported(): void {
+    setImported((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }
+
+  const depthUrl = imported?.url ?? downloads?.depthVis ?? null;
+  const depthRef = useRef<HTMLVideoElement | null>(null);
+  useFollowerVideo(videoRef, depthRef, depthUrl);
+  const [depthDims, setDepthDims] = useState<VideoDims | null>(null);
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportUrl = downloads?.depthRaw ?? null;
+
+  const aside =
+    depthUrl !== null ? (
+      <div
+        className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
+        style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+      >
+        <video
+          ref={depthRef}
+          key={depthUrl}
+          src={depthUrl}
+          muted
+          playsInline
+          preload="auto"
+          data-testid="depth-video"
+          onLoadedMetadata={(e) => setDepthDims(videoDims(e))}
+          className="absolute inset-0 h-full w-full select-none object-contain"
+        />
+        <PlayerBadge
+          data-testid="depth-video-badge"
+          label={imported ? "imported depth" : "depth_vis"}
+          dims={depthDims}
+          title={
+            imported
+              ? `Local file ${imported.name} — shown for review only, nothing is uploaded`
+              : "The run's 8-bit depth visualization — Export gives the raw full-precision file"
+          }
+        />
+      </div>
+    ) : lastSucceeded && downloads !== null ? (
+      <div
+        data-testid="depth-video-missing"
+        className="flex w-full items-center justify-center rounded-md border border-edge bg-surface-1 p-4 text-center text-xs text-fg-muted"
+        style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+      >
+        The last depth run has no browser-playable depth video (depth_vis) —
+        export the raw depth file instead.
+      </div>
+    ) : null;
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex min-h-6 flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+          Depth map
+        </h3>
+        {imported ? (
+          <span
+            data-testid="imported-depth-note"
+            className="flex items-center gap-1 text-[11px] text-fg-muted"
+          >
+            <span className="max-w-48 truncate font-mono">{imported.name}</span>
+            (local review only)
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Clear imported depth map"
+              className="text-fg-muted hover:text-fg"
+              onClick={(e) => {
+                blurAfterMouseClick(e);
+                clearImported();
+              }}
+            >
+              ×
+            </Button>
+          </span>
+        ) : depthUrl === null && aside === null ? (
+          <span className="text-[11px] text-fg-muted">
+            Run a depth preview to see the depth map beside the source.
+          </span>
+        ) : null}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*"
+            aria-label="Depth map file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ""; // re-picking the same file must re-fire
+              if (file) importDepthFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            title="Preview a local depth video beside the source (review aid — nothing is uploaded)"
+            onClick={(e) => {
+              blurAfterMouseClick(e);
+              fileInputRef.current?.click();
+            }}
+          >
+            Import depth map…
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exportUrl === null}
+            title={
+              exportUrl === null
+                ? "Run a depth preview first — export downloads its raw depth file"
+                : "Download the raw full-precision depth file from the latest run"
+            }
+            onClick={(e) => {
+              blurAfterMouseClick(e);
+              setExportOpen(true);
+            }}
+          >
+            Export depth map
+          </Button>
+        </div>
+      </div>
+
       <PreviewViewer
         probe={probe}
         fps={sourceFps}
@@ -286,11 +533,20 @@ function DepthPreview({
         player={player}
         videoRef={videoRef}
         onStep={step}
+        aside={aside}
       />
 
-      {lastSucceeded ? (
-        <DepthResult project={project} conversion={lastSucceeded} />
-      ) : null}
+      <FilmstripTimeline
+        readOnly
+        thumbs={project.strip_thumbs ?? []}
+        numFrames={numFrames}
+        fps={sourceFps}
+        playhead={playhead}
+        cuts={project.scenes?.cuts ?? []}
+        previewUrl={project.preview_url}
+        aspect={probe.width / probe.height}
+        onScrub={scrub}
+      />
 
       {project.scenes ? (
         <DepthSceneGrid
@@ -304,17 +560,47 @@ function DepthPreview({
           onSelectScene={scrub}
         />
       ) : null}
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent data-testid="export-depth-dialog">
+          <DialogHeader>
+            <DialogTitle>Export depth map</DialogTitle>
+            <DialogDescription>
+              This downloads the raw <span className="font-mono">depth</span>{" "}
+              file from the latest run — the full-precision 10-bit depth map
+              the later steps consume, not the 8-bit{" "}
+              <span className="font-mono">depth_vis</span> preview playing on
+              this page. It may look flat or black in ordinary players; that is
+              expected for high-bit-depth grayscale.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button asChild>
+              <a
+                href={exportUrl ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                download
+                data-testid="export-depth-link"
+                onClick={() => setExportOpen(false)}
+              >
+                Download 10-bit depth
+              </a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 /**
  * Scene grid — thumbnail cards tiling the cut list (cutsToRanges: half-open
- * ranges over [0, numFrames)). Clicking a card seeks the preview to the
- * scene's first frame; the scene containing the playhead is highlighted. Each
- * card carries the per-scene "3D" toggle (shared stereo-draft passthrough):
- * unchecked scenes ship as 2D on Stereo/Deliver runs. Same card visuals as the
- * Cut tab's SceneList, plus the toggle overlay.
+ * ranges over [0, numFrames)), same visuals as the Cut tab's SceneList and
+ * the same follow-the-playhead scrolling (the active scene scrolls to the
+ * top while playing). Clicking a card seeks the preview to the scene's first
+ * frame. Each card carries the per-scene "3D" toggle (shared stereo-draft
+ * passthrough): unchecked scenes ship as 2D on Stereo/Deliver runs.
  */
 function DepthSceneGrid({
   cuts,
@@ -338,18 +624,23 @@ function DepthSceneGrid({
   const ranges = cutsToRanges(cuts, numFrames);
   const thumbs = sceneThumbs ?? [];
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeStart = ranges.find(
+    ([start, end]) => playhead >= start && playhead < end,
+  )?.[0];
+  useScrollActiveSceneToTop(scrollRef, activeStart);
+
   return (
     <section aria-label="Scenes" className="flex flex-col gap-1.5">
       <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
         Scenes · convert to 3D
       </h3>
       <p className="text-xs text-fg-muted">
-        Click a scene to jump the preview there. Unchecked scenes ship as 2D
-        passthrough on Stereo and Deliver runs (both eyes identical) — for end
-        credits, logos, title cards. Depth previews always render the full depth
-        map regardless.
+        Unchecked scenes ship as 2D on Stereo and Deliver runs (end credits,
+        logos). Depth previews always render the full depth map regardless.
       </p>
       <div
+        ref={scrollRef}
         data-testid="depth-scenes"
         className="grid max-h-[36rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
       >
@@ -421,224 +712,5 @@ function DepthSceneGrid({
         })}
       </div>
     </section>
-  );
-}
-
-/** The newest succeeded run's depth map compared against the source proxy.
- * Fetches the run's signed download links to find depth_vis; falls back
- * gracefully (message, no players) when the run didn't produce one. */
-function DepthResult({
-  project,
-  conversion,
-}: {
-  project: Project;
-  conversion: Conversion;
-}): JSX.Element | null {
-  const client = useGateway();
-  const id = conversion.conversion_id;
-  const [fetched, setFetched] = useState<{
-    id: string;
-    depthVis: string | null;
-  } | null>(null);
-
-  useEffect(() => {
-    if (fetched?.id === id) return;
-    let cancelled = false;
-    client
-      .getDownloads(id)
-      .then((d) => {
-        if (!cancelled) setFetched({ id, depthVis: d.downloads.depth_vis ?? null });
-      })
-      .catch(() => {
-        if (!cancelled) setFetched({ id, depthVis: null });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, id, fetched]);
-
-  if (fetched?.id !== id) return null;
-  if (fetched.depthVis === null) {
-    return (
-      <p data-testid="depth-compare-missing" className="text-xs text-fg-muted">
-        The last depth run has no browser-playable depth video (depth_vis) —
-        the raw depth output is under its downloads.
-      </p>
-    );
-  }
-  return (
-    <DepthCompare
-      sourceUrl={project.preview_url}
-      depthUrl={fetched.depthVis}
-      scenes={sceneRangesForPlayback(project)}
-      fps={parseRational(project.probe!.fps_rational)}
-      // The Depth tab's main PreviewViewer owns the Space transport; a second
-      // window-level Space handler here would toggle both players at once.
-      keyboardShortcuts={false}
-    />
-  );
-}
-
-/** Side-by-side source/depth players with one transport. The depth video is
- * a DERIVED artifact at its own fps — never frame-math it; the follower
- * tracks the source by fraction of duration on timeupdate. Scene playback
- * binds to the MASTER (the source proxy; the depth video when there is no
- * proxy — decimated but wall-clock-identical, so source-time bounds hold). */
-export function DepthCompare({
-  sourceUrl,
-  depthUrl,
-  scenes,
-  fps,
-  keyboardShortcuts = true,
-}: {
-  sourceUrl?: string;
-  depthUrl: string;
-  scenes: SceneRange[];
-  fps: RationalFPS;
-  /** Bind Space → play/pause on this transport. Set false when a sibling
-   * player (the Depth tab's main preview) already owns the window-level key. */
-  keyboardShortcuts?: boolean;
-}): JSX.Element {
-  const srcRef = useRef<HTMLVideoElement | null>(null);
-  const depRef = useRef<HTMLVideoElement | null>(null);
-  const masterRef = sourceUrl ? srcRef : depRef; // stable: the url never toggles while mounted
-  const playback = useScenePlayback(masterRef, scenes, fps);
-  const [playing, setPlaying] = useState(false);
-  const [rate, setRate] = useState(1);
-  const [muted, setMuted] = useState(true);
-  // Decoded sizes for the corner badges (read at loadedmetadata).
-  const [srcDims, setSrcDims] = useState<VideoDims | null>(null);
-  const [depDims, setDepDims] = useState<VideoDims | null>(null);
-
-  /** BOTH players share the rate — the fraction-sync would fight a follower
-   * running at a different speed. */
-  function changeRate(r: number): void {
-    setRate(r);
-    if (srcRef.current) srcRef.current.playbackRate = r;
-    if (depRef.current) depRef.current.playbackRate = r;
-  }
-
-  /** Only the MASTER gets sound (the source proxy carries the audio track);
-   * the depth_vis follower must STAY muted or the pair would double-play. */
-  function changeMuted(m: boolean): void {
-    setMuted(m);
-    if (masterRef.current) masterRef.current.muted = m;
-  }
-
-  function toggle(): void {
-    const s = srcRef.current;
-    const d = depRef.current;
-    if (playing) {
-      s?.pause();
-      d?.pause();
-      setPlaying(false);
-    } else {
-      void s?.play();
-      void d?.play();
-      setPlaying(true);
-    }
-  }
-
-  /** Sync the depth follower to the source's fraction of duration. */
-  function syncFollower(): void {
-    const s = srcRef.current;
-    const d = depRef.current;
-    if (!s || !d || !s.duration || !d.duration) return;
-    const target = (s.currentTime / s.duration) * d.duration;
-    // small tolerance so playback isn't stuttered by constant micro-seeks
-    if (Math.abs(d.currentTime - target) > 0.15) d.currentTime = target;
-  }
-
-  /** Master timeupdate: loop inside the selected scene FIRST, then the
-   * follower tracks the (possibly looped-back) master time. */
-  function onSourceTimeUpdate(): void {
-    playback.onTimeUpdate();
-    syncFollower();
-  }
-
-  // Space = play/pause, same shared hook as the Media/Cut transports (no
-  // frame stepping here — the outputs are decimated; frame keys are for
-  // the frame-exact proxy pages only). Suppressed when a sibling preview
-  // already owns the window-level Space handler (see keyboardShortcuts).
-  usePlayerShortcuts({ toggle: keyboardShortcuts ? toggle : () => {} });
-
-  return (
-    <div data-testid="depth-compare" className="flex flex-col gap-2">
-      {/* Transport row — same visual system as the workspace PreviewViewer:
-          outline xs ui/button shapes + the shared SpeedSelect. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Depth vs source
-        </h3>
-        <Button
-          variant="outline"
-          size="xs"
-          className="w-20"
-          aria-label={playing ? "Pause comparison" : "Play comparison"}
-          onClick={(e) => {
-            blurAfterMouseClick(e);
-            toggle();
-          }}
-        >
-          {playing ? "❚❚ Pause" : "▶ Play"}
-        </Button>
-        <ScenePicker id="depth-scene" playback={playback} />
-        <SpeedSelect id="depth-speed" value={rate} onChange={changeRate} />
-        <MuteToggle muted={muted} onChange={changeMuted} />
-        <span className="ml-auto text-xs text-fg-muted">Space play/pause</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {sourceUrl ? (
-          <div className="relative">
-            <video
-              ref={srcRef}
-              src={sourceUrl}
-              muted
-              onTimeUpdate={onSourceTimeUpdate}
-              // paused scene picks fire seeked (not timeupdate) — the
-              // follower must track those too, or it shows the OLD frame
-              // until playback starts
-              onSeeked={syncFollower}
-              onLoadedMetadata={(e) => {
-                playback.onLoadedMetadata();
-                setSrcDims(videoDims(e));
-              }}
-              preload="metadata"
-              data-testid="depth-compare-source"
-              className="w-full rounded-md border border-edge bg-black"
-            />
-            <PlayerBadge
-              data-testid="depth-compare-source-badge"
-              label="source proxy"
-              dims={srcDims}
-            />
-          </div>
-        ) : (
-          <p className="self-center text-xs text-fg-muted">
-            No source proxy available for comparison.
-          </p>
-        )}
-        <div className="relative">
-          <video
-            ref={depRef}
-            src={depthUrl}
-            muted
-            onTimeUpdate={sourceUrl ? undefined : playback.onTimeUpdate}
-            onLoadedMetadata={(e) => {
-              if (!sourceUrl) playback.onLoadedMetadata();
-              setDepDims(videoDims(e));
-            }}
-            preload="metadata"
-            data-testid="depth-compare-depth"
-            className="w-full rounded-md border border-edge bg-black"
-          />
-          <PlayerBadge
-            data-testid="depth-compare-depth-badge"
-            label="depth_vis"
-            dims={depDims}
-          />
-        </div>
-      </div>
-    </div>
   );
 }

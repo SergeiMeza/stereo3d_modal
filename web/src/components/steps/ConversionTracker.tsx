@@ -43,12 +43,17 @@ export interface ConversionTrackerProps {
   onProjectChanged: () => void;
   /** Fired once, when the conversion reaches a terminal state. */
   onSettled?: (conversion: Conversion) => void;
+  /** Render the downloads list on success (default). The Depth tab passes
+   * false — its side-by-side depth view and Export button already surface
+   * the outputs, so the tracker just reports the state. */
+  showDownloads?: boolean;
 }
 
 export function ConversionTracker({
   conversion,
   onProjectChanged,
   onSettled,
+  showDownloads = true,
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
   const [conv, setConv] = useState(conversion);
@@ -90,14 +95,16 @@ export function ConversionTracker({
     onSettled?.(conv);
     if (conv.state === "succeeded") {
       onProjectChanged();
-      client
-        .getDownloads(conv.conversion_id)
-        .then(setDownloads)
-        .catch((e: unknown) => {
-          setError(e instanceof Error ? e.message : "downloads failed");
-        });
+      if (showDownloads) {
+        client
+          .getDownloads(conv.conversion_id)
+          .then(setDownloads)
+          .catch((e: unknown) => {
+            setError(e instanceof Error ? e.message : "downloads failed");
+          });
+      }
     }
-  }, [client, conv, onProjectChanged, onSettled, terminal]);
+  }, [client, conv, onProjectChanged, onSettled, terminal, showDownloads]);
 
   async function cancel(): Promise<void> {
     setCanceling(true);
@@ -144,7 +151,7 @@ export function ConversionTracker({
         ) : null}
       </div>
       {!terminal ? <Progress value={pct} className="mt-3 h-1.5" /> : null}
-      {conv.state === "succeeded" ? (
+      {conv.state === "succeeded" && showDownloads ? (
         <div className="mt-3">
           <p className="mb-2 text-xs font-medium text-fg-muted">Downloads</p>
           {downloads ? (
