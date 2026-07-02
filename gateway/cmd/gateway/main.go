@@ -109,6 +109,7 @@ func main() {
 	}
 
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
+	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
 	mux.HandleFunc("POST /v1/conversions", authed(svc.HandleCreateConversion))
 	mux.HandleFunc("GET /v1/conversions", authed(svc.HandleListConversions))

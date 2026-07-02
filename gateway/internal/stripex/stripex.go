@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/stripe/stripe-go/v78"
+	portalsession "github.com/stripe/stripe-go/v78/billingportal/session"
 	"github.com/stripe/stripe-go/v78/customer"
 	"github.com/stripe/stripe-go/v78/ephemeralkey"
 	"github.com/stripe/stripe-go/v78/paymentintent"
@@ -49,6 +50,20 @@ func (c *Client) EnsureCustomer(uid, email string) (string, error) {
 		return "", err
 	}
 	return cust.ID, nil
+}
+
+// BillingPortalURL creates a Stripe customer-portal session — the hosted
+// page where the user manages saved payment methods and sees receipts. The
+// portal sends the user back to returnURL when they're done.
+func (c *Client) BillingPortalURL(customerID, returnURL string) (string, error) {
+	s, err := portalsession.New(&stripe.BillingPortalSessionParams{
+		Customer:  stripe.String(customerID),
+		ReturnURL: stripe.String(returnURL),
+	})
+	if err != nil {
+		return "", fmt.Errorf("create billing portal session: %w", err)
+	}
+	return s.URL, nil
 }
 
 type PaymentSheet struct {

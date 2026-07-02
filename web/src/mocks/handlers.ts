@@ -54,6 +54,11 @@ interface DB {
   analyzeTicks: Map<string, number>;
   /** per-project free-profile lifecycle position (advances per GET poll) */
   profileTicks: Map<string, number>;
+  /** Whether POST /v1/customers ran — the real gateway REJECTS conversion
+   * creation without it ("no billing profile"), and the mock mirrors that.
+   * Seeded true for tests (an already-ensured user); the browser worker
+   * boots it to false so local dev exercises the ensure flow end-to-end. */
+  billingProfile: boolean;
 }
 
 function seed(): DB {
@@ -68,6 +73,7 @@ function seed(): DB {
     idem: new Map(),
     analyzeTicks: new Map(),
     profileTicks: new Map(),
+    billingProfile: true,
   };
 }
 
@@ -81,6 +87,7 @@ export const mockDb = {
     this.idem = fresh.idem;
     this.analyzeTicks = fresh.analyzeTicks;
     this.profileTicks = fresh.profileTicks;
+    this.billingProfile = fresh.billingProfile;
   },
   setConversionState(id: string, state: Conversion["state"]) {
     const c = this.conversions.get(id);
@@ -459,9 +466,19 @@ function tick(c: Conversion) {
 }
 
 export const handlers = [
-  http.post(`${GATEWAY}/v1/customers`, () =>
-    HttpResponse.json({ customer_id: "cus_mock" }),
-  ),
+  http.post(`${GATEWAY}/v1/customers`, () => {
+    mockDb.billingProfile = true;
+    return HttpResponse.json({ customer_id: "cus_mock" });
+  }),
+
+  // Stripe customer-portal session (the /account "Manage billing" button).
+  // The real gateway ensures the billing profile inline, so mirror that.
+  http.post(`${GATEWAY}/v1/billing/portal`, () => {
+    mockDb.billingProfile = true;
+    return HttpResponse.json({
+      url: "https://billing.stripe.com/p/session/mock",
+    });
+  }),
 
   http.post(`${GATEWAY}/v1/uploads`, async ({ request }) => {
     const { filename } = (await request.json()) as { filename: string };
@@ -673,6 +690,12 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown>;
     const invalid = validateStepRequest(p, body);
     if (invalid) return invalid;
+    // The real gateway rejects paid conversions without a billing profile
+    // (api/handlers.go createPaidConversion) — enforce it here too so the
+    // ensure-customer flow can't silently regress against the mock.
+    if (!mockDb.billingProfile) {
+      return err(400, "invalid_request", "no billing profile; call POST /v1/customers first");
+    }
     const req = body as unknown as StepConversionRequest;
     const { quote, params: resolved } = quoteFor(p, req);
     if (p.analyze.credit_available) p.analyze.credit_available = false;
