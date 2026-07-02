@@ -14,11 +14,12 @@
  * scale the overlay exactly at any display size. When a project has no
  * preview proxy the viewer falls back to the nearest strip thumbnail.
  *
- * The shared PlayerBadge corner badge names what is on screen ("Proxy
- * 640×360" from the video's ACTUAL videoWidth×videoHeight, or "Thumbnail"
- * for the fallback) — users couldn't tell they were watching the 360p
- * proxy, not the source. The tooltip reiterates the doctrine: the proxy is
- * frame-exact, and every conversion uses the full-resolution source.
+ * The shared PlayerBadge corner badge names what is on screen ("Preview
+ * Resolution 640×360" from the video's ACTUAL videoWidth×videoHeight, or
+ * "Thumbnail" for the fallback) — users couldn't tell they were watching
+ * the 360p proxy, not the source. The tooltip reiterates the doctrine: the
+ * proxy is frame-exact, and every conversion uses the full-resolution
+ * source.
  */
 
 /* eslint-disable @next/next/no-img-element -- fallback GCS thumbnail URLs. */
@@ -26,7 +27,7 @@
 import { useState, type RefObject } from "react";
 
 import { PlayerBadge } from "@/components/steps/PlayerBadge";
-import { SpeedSelect } from "@/components/steps/ScenePicker";
+import { MuteToggle, SpeedSelect } from "@/components/steps/ScenePicker";
 import { Button } from "@/components/ui/button";
 import type { Probe, Thumb } from "@/lib/api/types";
 import { frameLabel, type RationalFPS } from "@/lib/frames";
@@ -104,7 +105,7 @@ export function PreviewViewer({
         {previewUrl || fallback ? (
           <PlayerBadge
             data-testid="proxy-badge"
-            label={previewUrl ? "Proxy" : "Thumbnail"}
+            label={previewUrl ? "Preview Resolution" : "Thumbnail"}
             dims={previewUrl ? proxyDims : null}
             title={`Frame-exact preview proxy — conversions always use the full-resolution source (${probe.width}×${probe.height})`}
           />
@@ -168,6 +169,11 @@ export function PreviewViewer({
           id="preview-speed"
           value={player.speed}
           onChange={player.setSpeed}
+        />
+        <MuteToggle
+          muted={player.muted}
+          onChange={player.setMuted}
+          disabled={!previewUrl}
         />
         <span data-testid="frame-readout" className="font-mono text-xs text-fg">
           {frameLabel(playhead, fps)}

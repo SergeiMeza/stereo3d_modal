@@ -50,6 +50,7 @@ import projectFixture from "../../../fixtures/project.json";
 import sceneProfileFixture from "../../../fixtures/scene_profile.json";
 
 import { DepthPanel } from "./DepthPanel";
+import { loadStereoDraft } from "./stereoStore";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
 
@@ -72,6 +73,7 @@ afterEach(() => {
   server.events.removeAllListeners();
   mockDb.reset();
   vi.restoreAllMocks();
+  window.localStorage.clear(); // the panel now mounts the shared stereo draft
 });
 afterAll(() => server.close());
 
@@ -226,6 +228,11 @@ describe("DepthPanel quotes", () => {
     expect(screen.getByTestId("quote-total").textContent).toBe("$0.50");
     expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
     expect(screen.queryByTestId("quote-base")).toBeNull();
+
+    // the coarse processing-time estimate, clearly labeled as an estimate
+    // (mock: 149.46 s × 0.8 → 120 s → "~2 min")
+    expect(screen.getByText(/Estimated processing time/)).toBeDefined();
+    expect(screen.getByTestId("quote-eta").textContent).toBe("~2 min");
   });
 
   it("renders the depth_res_factor line for a higher resolution and invalidates the quote on change", async () => {
@@ -427,6 +434,27 @@ describe("DepthPanel compare view", () => {
     expect(screen.getByLabelText("Play comparison")).toBeTruthy();
   });
 
+  it("unmuting gives sound to the MASTER only — the depth_vis follower STAYS muted", async () => {
+    const project = fixtureProject();
+    project.conversions = [seededDepthRun(project.project_id)];
+    renderPanel(project);
+    await screen.findByTestId("depth-compare");
+    const source = screen.getByTestId("depth-compare-source") as HTMLVideoElement;
+    const depth = screen.getByTestId("depth-compare-depth") as HTMLVideoElement;
+
+    // both start muted (autoplay policy)
+    expect(source.muted).toBe(true);
+    expect(depth.muted).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Unmute"));
+    expect(source.muted).toBe(false); // master = the source proxy (has audio)
+    expect(depth.muted).toBe(true); // follower must never double-play sound
+
+    fireEvent.click(screen.getByLabelText("Mute"));
+    expect(source.muted).toBe(true);
+    expect(depth.muted).toBe(true);
+  });
+
   it("falls back gracefully when the run produced no depth_vis", async () => {
     const project = fixtureProject();
     project.conversions = [
@@ -619,6 +647,55 @@ describe("DepthPanel scene-scoped playback", () => {
     await user.selectOptions(speed, "2");
     expect(source.playbackRate).toBe(2);
     expect(depth.playbackRate).toBe(2);
+  });
+});
+
+describe("DepthPanel scenes strip (shared 2D passthrough)", () => {
+  it("lists one row per scene (number + timecode) with a Convert-to-3D toggle, default checked, and says depth previews are unaffected", () => {
+    renderPanel();
+    const strip = screen.getByTestId("depth-scenes");
+    const rows = within(strip).getAllByTestId(/^depth-scene-/);
+    expect(rows).toHaveLength(RANGES.length);
+    expect(rows[0].textContent).toContain("Scene 1");
+    expect(rows[0].textContent).toContain(frameToTimecode(0, FPS));
+    const toggle = within(strip).getByLabelText(
+      "Scene 1 convert to 3D",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    expect(
+      screen.getByText(
+        /Depth previews always render the full depth map regardless/,
+      ),
+    ).toBeDefined();
+  });
+
+  it("unchecking a scene writes passthrough into the SHARED stereo draft and never touches the depth request", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByLabelText("Scene 1 convert to 3D"));
+    expect(
+      loadStereoDraft(FIXTURE.project_id, FIXTURE.scenes!.version).overrides["0"],
+    ).toEqual({ passthrough: true });
+    expect(screen.getByTestId("depth-scene-0").className).toContain("opacity-60");
+
+    // passthrough affects stereo_preview/production only — the depth quote
+    // request stays EXACTLY the depth_res/fps surface
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      step: "depth_preview",
+      depth_res: 980,
+      target_fps: 12,
+      platform: "web",
+    });
+
+    // re-checking clears the flag from the shared draft
+    await user.click(screen.getByLabelText("Scene 1 convert to 3D"));
+    expect(
+      loadStereoDraft(FIXTURE.project_id, FIXTURE.scenes!.version).overrides["0"],
+    ).toBeUndefined();
   });
 });
 

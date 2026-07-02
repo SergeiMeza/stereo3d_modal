@@ -4,3 +4,7 @@
  * so tests can vi.mock a faster cadence.
  */
 export const POLL_INTERVAL_MS = 2000;
+
+/** Project refetch cadence while a free shot-profiling job is running
+ * (project.profile.state === "running"). */
+export const PROFILE_POLL_MS = 5000;

@@ -36,7 +36,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-surface-0 font-sans text-sm leading-tight text-fg">
         <AuthProvider>
           <header className="sticky top-0 z-40 border-b border-edge bg-surface-1/95 backdrop-blur">
-            <nav className="flex h-12 w-full items-center gap-6 px-4">
+            <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-6 px-4">
               <Link
                 href="/projects"
                 className="font-semibold tracking-tight text-fg"
@@ -53,10 +53,11 @@ export default function RootLayout({
               <UserMenu />
             </nav>
           </header>
-          {/* Screens own their container: the workspace is a full-bleed,
-              viewport-height page (Resolve-style); list pages center
-              themselves with mx-auto max-w-*. */}
-          <main className="flex w-full flex-1 flex-col">
+          {/* The whole app is centered at one max width (wide enough that
+              the NLE timeline breathes on big displays); narrower screens
+              (max-w-7xl list pages) still center themselves inside it. The
+              workspace stays viewport-height (Resolve-style) within it. */}
+          <main className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col">
             <MswProvider>{children}</MswProvider>
           </main>
         </AuthProvider>

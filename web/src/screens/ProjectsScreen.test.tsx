@@ -112,6 +112,26 @@ describe("ProjectsScreen list", () => {
     ).toBeTruthy();
   });
 
+  it("shows the running badge's stage label, percent, and eta when the gateway sends progress", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID);
+    if (!p) throw new Error("fixture project missing");
+    p.analyze = {
+      state: "running",
+      error: "",
+      credit_cents: 0,
+      credit_available: false,
+      progress: 0.45,
+      stage: "proxy",
+      eta_seconds: 22,
+    };
+    renderScreen();
+    const badge = await screen.findByTestId("analyze-badge-running");
+    expect(badge.textContent).toContain("Building preview");
+    expect(badge.textContent).toContain("45%");
+    expect(badge.textContent).toContain("~22s left");
+    expect(within(badge).getByLabelText("Analyze progress")).toBeTruthy();
+  });
+
   it("shows an empty state inviting upload when there are no projects", async () => {
     mockDb.projects.clear();
     renderScreen();

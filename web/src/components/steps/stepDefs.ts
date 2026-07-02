@@ -45,6 +45,8 @@ export const STEP_DEFS: readonly StepDef[] = [
       "Every scene defaults to Auto (the adaptive profile) — only rows you actually change are sent as overrides.",
       "depth_scale scales EVERY scene's strength at once; per-scene displacement overrides win for their scene.",
       "Splatted mode skips inpainting: judge depth separation, not edge quality. Inpainted previews cost ×1.6.",
+      "Uncheck “Convert to 3D” on a scene to ship it as 2D passthrough — both eyes identical, no depth (end credits, logos, title cards).",
+      "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
       "Your tweaks persist per project and carry to the Deliver page automatically.",
     ],
   },

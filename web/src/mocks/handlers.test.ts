@@ -144,6 +144,42 @@ describe("mock gateway validation", () => {
     expect(ok.status).toBe(200);
   });
 
+  it("passthrough is mutually exclusive with the depth keys; a bare {first, passthrough:true} passes", async () => {
+    const step = "stereo_preview";
+    for (const extra of [
+      { shot_type: "wide" },
+      { displacement: 0.01 },
+      { placement: [-0.2, 0.4] },
+    ]) {
+      await expectInvalid(
+        { step, scene_overrides: [{ first: 0, passthrough: true, ...extra }] },
+        "scene_overrides[].passthrough cannot be combined with shot_type|displacement|placement",
+      );
+    }
+    const ok = await quote({
+      step,
+      scene_overrides: [
+        { first: 0, passthrough: true },
+        { first: CUTS[0], displacement: 0.02 },
+      ],
+    });
+    expect(ok.status).toBe(200);
+    const echoed = (await ok.json()) as StepQuoteResponse;
+    expect(echoed.params.scene_overrides).toEqual([
+      { first: 0, passthrough: true },
+      { first: CUTS[0], displacement: 0.02 },
+    ]);
+    // production accepts it too
+    expect(
+      (
+        await quote({
+          step: "production",
+          scene_overrides: [{ first: 0, passthrough: true }],
+        })
+      ).status,
+    ).toBe(200);
+  });
+
   it("still caps target_fps at the source rate and validates inpaint", async () => {
     await expectInvalid(
       { step: "stereo_preview", target_fps: 60 },
@@ -242,6 +278,151 @@ describe("mock gateway quote math + params echo", () => {
     expect(prod.params.formats).toEqual(["mvhevc", "half_sbs"]);
     expect(prod.params.inpaint).toBe("propainter");
     expect(prod.params.target_fps).toBeUndefined(); // full rate
+  });
+});
+
+describe("mock gateway quote eta", () => {
+  it("every quote response carries a plausible top-level eta_seconds", async () => {
+    for (const step of ["depth_preview", "stereo_preview", "production"] as const) {
+      const res = (await (await quote({ step })).json()) as StepQuoteResponse;
+      expect(typeof res.eta_seconds).toBe("number");
+      expect(res.eta_seconds!).toBeGreaterThan(0);
+    }
+    // production estimates longer than a preview of the same footage
+    const prev = (await (
+      await quote({ step: "depth_preview" })
+    ).json()) as StepQuoteResponse;
+    const prod = (await (
+      await quote({ step: "production" })
+    ).json()) as StepQuoteResponse;
+    expect(prod.eta_seconds!).toBeGreaterThan(prev.eta_seconds!);
+  });
+});
+
+describe("mock gateway analyze lifecycle", () => {
+  it("a new project reports progress/stage/eta on each poll, then the analysis folds in", async () => {
+    const createRes = await fetch(`${GATEWAY}/v1/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        gcs_key: "stereo3d/test/users/dev-user/newproj00001/source.mp4",
+        name: "progress test",
+      }),
+    });
+    expect(createRes.status).toBe(200);
+    const created = (await createRes.json()) as Project;
+    expect(created.analyze.state).toBe("running");
+    expect(created.analyze.stage).toBe("analyze");
+    expect(created.analyze.progress).toBeGreaterThan(0);
+    expect(created.analyze.eta_seconds).toBeGreaterThan(0);
+
+    // each GET advances exactly one stage, monotonically
+    const seen: Array<{ stage?: string; progress?: number }> = [];
+    let p = created;
+    for (let i = 0; i < 10 && p.analyze.state === "running"; i++) {
+      p = (await (
+        await fetch(`${GATEWAY}/v1/projects/${created.project_id}`)
+      ).json()) as Project;
+      if (p.analyze.state === "running") {
+        seen.push({ stage: p.analyze.stage, progress: p.analyze.progress });
+      }
+    }
+    expect(seen.map((s) => s.stage)).toEqual([
+      "analyze",
+      "proxy",
+      "scene_detect",
+      "thumbnails",
+    ]);
+    const progresses = seen.map((s) => s.progress!);
+    expect([...progresses].sort((a, b) => a - b)).toEqual(progresses);
+
+    // terminal fold-in: succeeded, probe/scenes present, progress fields gone
+    expect(p.analyze.state).toBe("succeeded");
+    expect(p.analyze.progress).toBeUndefined();
+    expect(p.probe).toBeDefined();
+    expect(p.scenes).toBeDefined();
+  });
+});
+
+describe("mock gateway free profile endpoint", () => {
+  async function startProfile(): Promise<Response> {
+    return fetch(`${GATEWAY}/v1/projects/${PID}/profile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+  }
+
+  it("starts a running profile, 409s a duplicate, advances on GET 1, completes on GET 2 with a cuts-derived scene_profile", async () => {
+    const res = await startProfile();
+    expect(res.status).toBe(200);
+    const started = (await res.json()) as Project;
+    expect(started.profile).toMatchObject({
+      state: "running",
+      scenes_version: FIXTURE.scenes!.version,
+      stage: "profiling",
+    });
+    expect(started.profile!.progress).toBeGreaterThan(0);
+    expect(started.scene_profile).toBeUndefined();
+
+    // a second start while running → conflict, like the gateway
+    const dup = await startProfile();
+    expect(dup.status).toBe(409);
+    expect(((await dup.json()) as { error: string }).error).toBe("conflict");
+
+    // GET 1: still running, progress advanced
+    const mid = (await (
+      await fetch(`${GATEWAY}/v1/projects/${PID}`)
+    ).json()) as Project;
+    expect(mid.profile!.state).toBe("running");
+    expect(mid.profile!.progress!).toBeGreaterThan(started.profile!.progress!);
+
+    // GET 2: succeeded — progress/stage gone, scene_profile folded in
+    const done = (await (
+      await fetch(`${GATEWAY}/v1/projects/${PID}`)
+    ).json()) as Project;
+    expect(done.profile).toMatchObject({
+      state: "succeeded",
+      scenes_version: FIXTURE.scenes!.version,
+    });
+    expect(done.profile!.progress).toBeUndefined();
+    expect(done.profile!.stage).toBeUndefined();
+
+    const profile = done.scene_profile!;
+    expect(profile.conversion_id).toMatch(/^profile:/);
+    expect(profile.scenes_version).toBe(done.scenes!.version);
+    // shots tile [0, num_frames) exactly along the CURRENT cuts
+    expect(profile.shots[0].first_src).toBe(0);
+    expect(profile.shots.at(-1)!.last_src).toBe(FIXTURE.probe!.num_frames);
+    expect(profile.shots.map((s) => s.first_src)).toEqual([0, ...CUTS]);
+    for (let i = 1; i < profile.shots.length; i++) {
+      expect(profile.shots[i].first_src).toBe(profile.shots[i - 1].last_src);
+    }
+    for (const s of profile.shots) {
+      expect(["close_up", "standard", "dynamic", "wide"]).toContain(s.shot_type);
+      expect(s.displacement).toBeGreaterThan(0);
+      expect(s.displacement).toBeLessThanOrEqual(0.03);
+      expect(s.placement[0]).toBeLessThan(s.placement[1]);
+    }
+
+    // a NEW profile can start once the previous one settled
+    expect((await startProfile()).status).toBe(200);
+  });
+
+  it("409s before analysis has completed", async () => {
+    const createRes = await fetch(`${GATEWAY}/v1/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        gcs_key: "stereo3d/test/users/dev-user/profearly0001/source.mp4",
+      }),
+    });
+    const created = (await createRes.json()) as Project;
+    const res = await fetch(
+      `${GATEWAY}/v1/projects/${created.project_id}/profile`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+    );
+    expect(res.status).toBe(409);
   });
 });
 

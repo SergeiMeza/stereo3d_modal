@@ -36,6 +36,7 @@ class FakeVideo implements PreviewVideoLike {
   currentTime = 0;
   paused = true;
   playbackRate = 1;
+  muted = true;
   playCalls = 0;
   pauseCalls = 0;
   requestVideoFrameCallback?: (callback: FrameCallback) => number;
@@ -285,6 +286,38 @@ describe("usePreviewPlayer — transport", () => {
       result.current.seekToFrame(10);
     });
     expect(video.playbackRate).toBe(0.5);
+  });
+
+  it("starts muted (autoplay policy) and setMuted drives video.muted", () => {
+    const video = new FakeVideo();
+    const { result } = renderPlayer(video);
+
+    expect(result.current.muted).toBe(true);
+    expect(video.muted).toBe(true);
+
+    act(() => result.current.setMuted(false));
+    expect(result.current.muted).toBe(false);
+    expect(video.muted).toBe(false);
+    // transport doesn't reset the audio state
+    act(() => {
+      result.current.play();
+      result.current.pause();
+      result.current.seekToFrame(10);
+    });
+    expect(video.muted).toBe(false);
+
+    act(() => result.current.setMuted(true));
+    expect(video.muted).toBe(true);
+  });
+
+  it("re-applies the mute state when the element remounts with its muted attribute", () => {
+    const video = new FakeVideo();
+    const { result, rerender } = renderPlayer(video);
+
+    act(() => result.current.setMuted(false));
+    video.muted = true; // a fresh <video muted> mounts muted
+    rerender();
+    expect(video.muted).toBe(false);
   });
 
   it("re-applies the speed when the element resets to 1× (remount)", () => {

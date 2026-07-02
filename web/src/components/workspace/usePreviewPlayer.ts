@@ -42,6 +42,7 @@ export interface PreviewVideoLike {
   currentTime: number;
   paused: boolean;
   playbackRate: number;
+  muted: boolean;
   play(): unknown;
   pause(): void;
   addEventListener(type: string, listener: () => void): void;
@@ -84,6 +85,11 @@ export interface PreviewPlayer {
    * rVFC still reports every presented frame's own timestamp. */
   speed: number;
   setSpeed(rate: number): void;
+  /** Audio mute (video.muted). Defaults to TRUE — the element keeps its
+   * `muted` attribute so autoplay isn't blocked; unmuting is always a user
+   * gesture, which browsers allow. */
+  muted: boolean;
+  setMuted(muted: boolean): void;
 }
 
 export function usePreviewPlayer(
@@ -93,6 +99,9 @@ export function usePreviewPlayer(
 ): PreviewPlayer {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeedState] = useState(1);
+  // muted defaults to true (autoplay policy) — React only applies the
+  // `muted` prop on mount, so changes go through the element, like speed.
+  const [muted, setMutedState] = useState(true);
   const onFrameRef = useRef(onFrame);
   const fpsRef = useRef(fps);
   useEffect(() => {
@@ -109,11 +118,22 @@ export function usePreviewPlayer(
     [videoRef],
   );
 
-  // Re-apply the rate if the element mounts after setSpeed (a fresh
-  // <video> always starts at 1×).
+  const setMuted = useCallback(
+    (m: boolean) => {
+      setMutedState(m);
+      const video = videoRef.current;
+      if (video) video.muted = m;
+    },
+    [videoRef],
+  );
+
+  // Re-apply the rate/mute if the element mounts after setSpeed/setMuted
+  // (a fresh <video> always starts at 1× and its initial muted attribute).
   useEffect(() => {
     const video = videoRef.current;
-    if (video && video.playbackRate !== speed) video.playbackRate = speed;
+    if (!video) return;
+    if (video.playbackRate !== speed) video.playbackRate = speed;
+    if (video.muted !== muted) video.muted = muted;
   });
 
   // Current-frame readout: rVFC when available (exact mediaTime of each
@@ -197,7 +217,17 @@ export function usePreviewPlayer(
   }, [playing, play, pause]);
 
   return useMemo(
-    () => ({ playing, play, pause, toggle, seekToFrame, speed, setSpeed }),
-    [playing, play, pause, toggle, seekToFrame, speed, setSpeed],
+    () => ({
+      playing,
+      play,
+      pause,
+      toggle,
+      seekToFrame,
+      speed,
+      setSpeed,
+      muted,
+      setMuted,
+    }),
+    [playing, play, pause, toggle, seekToFrame, speed, setSpeed, muted, setMuted],
   );
 }

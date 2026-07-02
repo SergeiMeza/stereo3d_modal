@@ -79,12 +79,19 @@ export interface SceneProfile {
 
 /** Per-scene override sent on stereo_preview/production requests. `first`
  * must be 0 or a CURRENT scenes.cuts value; entries strictly increasing;
- * at least one of the optional keys per entry. */
+ * at least one of the optional keys per entry.
+ *
+ * `passthrough: true` ships the scene as 2D — both eyes are the untouched
+ * source, no warp or inpainting (end credits, logos, title cards). It is
+ * MUTUALLY EXCLUSIVE with shot_type/displacement/placement on the same
+ * entry (the gateway 400s the combination): a passthrough entry must be
+ * exactly `{first, passthrough: true}`. */
 export interface SceneOverride {
   first: number;
   shot_type?: ShotType;
   displacement?: number; // (0, 0.03]
   placement?: [number, number];
+  passthrough?: boolean;
 }
 
 export interface AnalyzeInfo {
@@ -92,6 +99,29 @@ export interface AnalyzeInfo {
   error?: string;
   credit_cents: number;
   credit_available: boolean; // true until the first paid conversion consumes it
+  /** 0..1 — only while state === "running" (list AND detail responses) */
+  progress?: number;
+  /** current pipeline stage while running:
+   * "analyze" | "proxy" | "scene_detect" | "thumbnails" */
+  stage?: string;
+  /** coarse remaining-time estimate; present only when > 0 */
+  eta_seconds?: number;
+}
+
+/** Free standalone shot-profiling job (POST /v1/projects/{id}/profile) —
+ * the adaptive profiler measures each scene from the preview proxy. On
+ * success the gateway folds the result into project.scene_profile (its
+ * conversion_id looks like "profile:<jobid>"). */
+export interface ProfileJobInfo {
+  state: "running" | "succeeded" | "failed";
+  /** scenes.version the job profiles/profiled */
+  scenes_version: number;
+  error?: string;
+  /** 0..1 — only while state === "running" */
+  progress?: number;
+  /** current profiler stage — only while running */
+  stage?: string;
+  updated_at: string;
 }
 
 export interface Project {
@@ -110,6 +140,8 @@ export interface Project {
   scene_thumbs?: Thumb[]; // mid-frame keyframe per scene (h=360)
   /** present after the first successful pro video conversion */
   scene_profile?: SceneProfile;
+  /** free standalone profiling job state (POST .../profile) */
+  profile?: ProfileJobInfo;
   conversions?: Conversion[]; // only on GET /v1/projects/{id}
   /** omitted when false (Go omitempty) */
   pinned?: boolean;
@@ -199,6 +231,8 @@ export interface StepQuoteResponse {
   params: Params;
   quote: Quote;
   reuse_stages: string[]; // stages whose cached artifacts discounted the quote
+  /** coarse pre-run wall-clock estimate for the quoted step, in seconds */
+  eta_seconds?: number;
 }
 
 export interface UploadTicket {

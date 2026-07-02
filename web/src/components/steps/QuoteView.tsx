@@ -4,10 +4,18 @@ import type { QuoteBreakdown, StepQuoteResponse } from "@/lib/api/types";
 
 import { formatCents } from "./money";
 
+/** "~45s" under 90 s, "~3 min" (rounded) above — the quote's coarse
+ * processing-time estimate. */
+export function formatQuoteEta(seconds: number): string {
+  if (seconds < 90) return `~${Math.round(seconds)}s`;
+  return `~${Math.round(seconds / 60)} min`;
+}
+
 /**
  * Renders a step quote's breakdown as explicit line items. All amounts come
  * from the gateway in cents — no client-side price math beyond negating
- * discounts for display.
+ * discounts for display. When the gateway sends eta_seconds the estimated
+ * processing time is shown as a clearly-labeled estimate.
  */
 export function QuoteView({
   result,
@@ -133,6 +141,14 @@ export function QuoteView({
           {formatCents(result.quote.amount_cents)}
         </dd>
       </div>
+      {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
+        <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
+          <dt>Estimated processing time (estimate only)</dt>
+          <dd data-testid="quote-eta" className="font-mono">
+            {formatQuoteEta(result.eta_seconds)}
+          </dd>
+        </div>
+      ) : null}
     </dl>
   );
 }

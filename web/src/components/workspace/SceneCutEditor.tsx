@@ -23,14 +23,29 @@
  * Edits stay local until "Save cuts" sends {cuts, expect_version}; a 409
  * conflict surfaces a banner offering "Reload & reapply" (fetch the new
  * server version, keep the local edits on top, save again).
+ *
+ * Import/export (src/lib/cutlist.ts): "Export cuts" downloads the WORKING
+ * list as a PySceneDetect-style scene CSV; "Import cuts…" parses a CSV or
+ * plain frame list and — after an explicit confirm — replaces the local
+ * list through the SAME local-edit → Save path, keeping the versioned
+ * PATCH semantics intact.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { GatewayError } from "@/lib/api/client";
 import type { Probe, Scenes, Thumb } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { exportCutsCSV, parseCutList } from "@/lib/cutlist";
 import {
   frameLabel,
   frameToTimecode,
@@ -53,6 +68,8 @@ const DRAG_SEEK_THROTTLE_MS = 100;
 
 export interface SceneCutEditorProps {
   projectId: string;
+  /** For the export filename ("<project-name>-cuts.csv"). */
+  projectName?: string;
   probe: Probe;
   scenes: Scenes;
   crop?: string;
@@ -66,6 +83,7 @@ export interface SceneCutEditorProps {
 
 export function SceneCutEditor({
   projectId,
+  projectName,
   probe,
   scenes,
   crop,
@@ -200,6 +218,47 @@ export function SceneCutEditor({
     setEditNote(null);
   }
 
+  // -------------------------------------------------- cut import / export
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  /** Parsed-but-unconfirmed import; the confirm dialog is open while set. */
+  const [importPending, setImportPending] = useState<number[] | null>(null);
+
+  /** Download the WORKING cut list (local edits included) as the
+   * PySceneDetect-style scene CSV via a Blob URL. */
+  function exportCuts() {
+    const csv = exportCutsCSV(cuts, numFrames, fps);
+    const name = `${(projectName ?? "").trim().replace(/[/\\]/g, "-") || "project"}-cuts.csv`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Parse the picked file; errors surface via the inline edit note. The
+   * replacement itself waits for the confirm dialog. */
+  async function importCutsFile(file: File) {
+    try {
+      const parsed = parseCutList(await file.text(), numFrames);
+      setImportPending(parsed);
+      setEditNote(null);
+    } catch (e) {
+      setEditNote(e instanceof Error ? e.message : "Could not read the cut list.");
+    }
+  }
+
+  /** Confirmed import: replace the LOCAL working list — the same
+   * state/save path as manual add/remove, so the versioned PATCH
+   * ({cuts, expect_version}) semantics stay intact. */
+  function applyImport() {
+    if (importPending === null) return;
+    setCuts(importPending);
+    setSelectedIndex(null);
+    setEditNote(null);
+    setImportPending(null);
+  }
+
   /** Why "Add cut at playhead" is disabled right now, or null when legal.
    * (The playhead is always clamped to [0, numFrames), so only the two
    * user-reachable cases need naming.) */
@@ -314,6 +373,38 @@ export function SceneCutEditor({
         }
         actions={
           <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              aria-label="Cut list file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = ""; // re-picking the same file must re-fire
+                if (file) void importCutsFile(file);
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                blurAfterMouseClick(e);
+                fileInputRef.current?.click();
+              }}
+            >
+              Import cuts…
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                blurAfterMouseClick(e);
+                exportCuts();
+              }}
+            >
+              Export cuts
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -479,6 +570,28 @@ export function SceneCutEditor({
         onSelectScene={scrub}
         onMergeScene={mergeScene}
       />
+
+      <Dialog
+        open={importPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setImportPending(null);
+        }}
+      >
+        <DialogContent data-testid="import-cuts-dialog">
+          <DialogHeader>
+            <DialogTitle>Import scene cuts</DialogTitle>
+            <DialogDescription>
+              Replace {cuts.length} cuts with {importPending?.length ?? 0}{" "}
+              imported cuts? The replacement stays local until you save.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button type="button" onClick={applyImport}>
+              Replace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

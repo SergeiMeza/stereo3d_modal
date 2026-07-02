@@ -29,7 +29,8 @@ export function PlayerBadge({
   title,
   "data-testid": testId,
 }: {
-  /** What is playing ("sbs", "depth_vis", "source proxy", "Proxy"). */
+  /** What is playing ("sbs", "depth_vis", "source proxy",
+   * "Preview Resolution"). */
   label: string;
   /** Decoded videoWidth×videoHeight — null/undefined until metadata. */
   dims?: VideoDims | null;

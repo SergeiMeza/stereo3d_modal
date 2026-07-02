@@ -10,6 +10,11 @@
  * production run at a different fps re-runs depth). No displacement, no
  * preset, no formats — those belong to the Stereo and Deliver pages.
  *
+ * A compact Scenes strip exposes the per-scene "Convert to 3D" toggle from
+ * the SHARED stereo draft store (2D passthrough): it affects stereo_preview
+ * and production requests only — depth previews always render the full
+ * depth map.
+ *
  * After a run succeeds, the browser-playable depth_vis output plays NEXT TO
  * the source proxy with a shared transport, theater-wide ABOVE the params
  * card. The follower is synced by FRACTION of duration on timeupdate — the
@@ -28,17 +33,20 @@ import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
 import type { Conversion, Project, StepConversionRequest } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import {
+  cutsToRanges,
   defaultPreviewFPS,
   fpsOptions,
+  frameToTimecode,
   parseRational,
   type RationalFPS,
 } from "@/lib/frames";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { Field, selectClass } from "./controls";
+import { setRowPassthrough, useStereoDraft } from "./stereoStore";
 import { PlayerBadge, videoDims, type VideoDims } from "./PlayerBadge";
 import { PriorRuns } from "./PriorRuns";
-import { ScenePicker, SpeedSelect } from "./ScenePicker";
+import { MuteToggle, ScenePicker, SpeedSelect } from "./ScenePicker";
 import {
   sceneRangesForPlayback,
   useScenePlayback,
@@ -86,6 +94,12 @@ export function DepthPanel({
   const ck = useStepCheckout(project, onProjectChanged);
   const [depthRes, setDepthRes] = useState(DEFAULT_DEPTH_RES);
   const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
+  // SAME draft the Stereo page edits (shared localStorage key): the scenes
+  // strip below flips per-scene 2D passthrough in it.
+  const [draft, setDraft] = useStereoDraft(
+    project.project_id,
+    project.scenes?.version ?? 0,
+  );
 
   const sourceFps =
     project.analyze.state === "succeeded" && project.probe
@@ -184,6 +198,57 @@ export function DepthPanel({
           </select>
         </Field>
       </div>
+      {project.scenes ? (
+        <section aria-label="Scenes" className="flex flex-col gap-1.5">
+          <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Scenes · convert to 3D
+          </h3>
+          <p className="text-xs text-fg-muted">
+            Unchecked scenes ship as 2D passthrough on Stereo and Deliver runs
+            (both eyes identical) — for end credits, logos, title cards. Depth
+            previews always render the full depth map regardless.
+          </p>
+          <ul
+            data-testid="depth-scenes"
+            className="flex max-h-64 flex-col gap-1 overflow-y-auto pr-1"
+          >
+            {cutsToRanges(project.scenes.cuts, project.probe!.num_frames).map(
+              ([start, end], i) => {
+                const passthrough =
+                  draft.overrides[start]?.passthrough === true;
+                return (
+                  <li
+                    key={`${start}-${end}`}
+                    data-testid={`depth-scene-${start}`}
+                    className={`flex items-center gap-2 rounded-md border border-edge bg-surface-1 px-2 py-1 ${
+                      passthrough ? "opacity-60" : ""
+                    }`}
+                  >
+                    <span className="text-xs font-medium">Scene {i + 1}</span>
+                    <span className="font-mono text-[11px] text-fg-muted">
+                      {frameToTimecode(start, sourceFps)}
+                    </span>
+                    <label className="ml-auto flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        aria-label={`Scene ${i + 1} convert to 3D`}
+                        checked={!passthrough}
+                        onChange={(e) =>
+                          setDraft((d) =>
+                            setRowPassthrough(d, start, !e.target.checked),
+                          )
+                        }
+                        className="accent-primary"
+                      />
+                      <span className="text-xs">3D</span>
+                    </label>
+                  </li>
+                );
+              },
+            )}
+          </ul>
+        </section>
+      ) : null}
       <StepCheckoutSection checkout={ck} request={request} />
       <PriorRuns
         title="Prior depth runs"
@@ -295,6 +360,7 @@ export function DepthCompare({
   const playback = useScenePlayback(masterRef, scenes, fps);
   const [playing, setPlaying] = useState(false);
   const [rate, setRate] = useState(1);
+  const [muted, setMuted] = useState(true);
   // Decoded sizes for the corner badges (read at loadedmetadata).
   const [srcDims, setSrcDims] = useState<VideoDims | null>(null);
   const [depDims, setDepDims] = useState<VideoDims | null>(null);
@@ -305,6 +371,13 @@ export function DepthCompare({
     setRate(r);
     if (srcRef.current) srcRef.current.playbackRate = r;
     if (depRef.current) depRef.current.playbackRate = r;
+  }
+
+  /** Only the MASTER gets sound (the source proxy carries the audio track);
+   * the depth_vis follower must STAY muted or the pair would double-play. */
+  function changeMuted(m: boolean): void {
+    setMuted(m);
+    if (masterRef.current) masterRef.current.muted = m;
   }
 
   function toggle(): void {
@@ -365,6 +438,7 @@ export function DepthCompare({
         </Button>
         <ScenePicker id="depth-scene" playback={playback} />
         <SpeedSelect id="depth-speed" value={rate} onChange={changeRate} />
+        <MuteToggle muted={muted} onChange={changeMuted} />
         <span className="ml-auto text-xs text-fg-muted">Space play/pause</span>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -373,6 +447,7 @@ export function DepthCompare({
             <video
               ref={srcRef}
               src={sourceUrl}
+              muted
               onTimeUpdate={onSourceTimeUpdate}
               // paused scene picks fire seeked (not timeupdate) — the
               // follower must track those too, or it shows the OLD frame
@@ -401,6 +476,7 @@ export function DepthCompare({
           <video
             ref={depRef}
             src={depthUrl}
+            muted
             onTimeUpdate={sourceUrl ? undefined : playback.onTimeUpdate}
             onLoadedMetadata={(e) => {
               if (!sourceUrl) playback.onLoadedMetadata();

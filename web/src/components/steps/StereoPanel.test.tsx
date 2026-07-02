@@ -3,7 +3,9 @@
  * (frame ranges + timecodes via frames.ts, never hardcoded), scene_profile
  * seeding + the stale-profile warning, ONLY-changed-rows scene_overrides on
  * the wire (displacement top-level ABSENT), the ×1.6 inpaint quote line,
- * and localStorage draft persistence (the store Deliver inherits).
+ * localStorage draft persistence (the store Deliver inherits), per-scene 2D
+ * passthrough (exactly {first, passthrough:true} on the wire; draft depth
+ * values stashed and restored), and the free shot-profiling action.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -18,12 +20,15 @@ import {
   vi,
 } from "vitest";
 
+import { useState } from "react";
+
 import type {
   Conversion,
   Project,
   SceneProfile,
   StepConversionRequest,
 } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
 import { AuthProvider } from "@/lib/auth";
 import {
   cutsToRanges,
@@ -38,10 +43,11 @@ import downloadsFixture from "../../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../../fixtures/project.json";
 import sceneProfileFixture from "../../../fixtures/scene_profile.json";
 
+import { DepthPanel } from "./DepthPanel";
 import { loadStereoDraft, stereoDraftKey } from "./stereoStore";
 import { StereoPanel } from "./StereoPanel";
 
-vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
+vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50, PROFILE_POLL_MS: 50 }));
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
@@ -470,6 +476,22 @@ describe("StereoPanel output player (scene-scoped playback)", () => {
     await user.selectOptions(speed, "1.5");
     expect(video.playbackRate).toBe(1.5);
   });
+
+  it("the mute toggle unmutes the output player (starts muted for autoplay)", async () => {
+    const project = fixtureProject();
+    project.conversions = [seededStereoRun(project.project_id)];
+    renderPanel(project);
+
+    const video = (await screen.findByTestId(
+      "stereo-output-video",
+    )) as HTMLVideoElement;
+    expect(video.muted).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Unmute"));
+    expect(video.muted).toBe(false);
+    fireEvent.click(screen.getByLabelText("Mute"));
+    expect(video.muted).toBe(true);
+  });
 });
 
 describe("StereoPanel draft persistence", () => {
@@ -508,5 +530,212 @@ describe("StereoPanel draft persistence", () => {
     ).toBe("close_up");
     expect(screen.getByTestId("depth-scale-value").textContent).toBe("×1.05");
     expect(screen.getByTestId("override-chip-0")).toBeDefined();
+  });
+});
+
+describe("StereoPanel 2D passthrough", () => {
+  function toggle(start: number, n: number) {
+    return within(sceneRow(start)).getByLabelText(
+      `Scene ${n} convert to 3D`,
+    ) as HTMLInputElement;
+  }
+
+  it("defaults every scene to Convert-to-3D checked", () => {
+    renderPanel();
+    expect(toggle(0, 1).checked).toBe(true);
+    expect(toggle(FIRST_CUT, 2).checked).toBe(true);
+  });
+
+  it("unchecking disables the row's depth controls, mutes the row, and emits EXACTLY {first, passthrough: true} — the stashed displacement stays OFF the wire", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel();
+
+    // stash a depth tweak first — it must survive in the DRAFT but be
+    // dropped from the request while passthrough is on
+    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
+      target: { value: "0.02" },
+    });
+    await user.click(toggle(0, 1));
+
+    const shot = within(sceneRow(0)).getByLabelText(
+      "Scene 1 shot type",
+    ) as HTMLSelectElement;
+    const disp = within(sceneRow(0)).getByLabelText(
+      "Scene 1 displacement",
+    ) as HTMLInputElement;
+    expect(shot.disabled).toBe(true);
+    expect(disp.disabled).toBe(true);
+    expect(disp.value).toBe("0.02"); // kept in the UI, just disabled
+    expect(sceneRow(0).className).toContain("opacity-60");
+    expect(screen.getByTestId("passthrough-note-0").textContent).toBe(
+      "2D passthrough — shipped as-is (both eyes identical)",
+    );
+    // the draft stashes BOTH (passthrough + the depth tweak)
+    expect(loadStereoDraft(FIXTURE.project_id, VERSION).overrides["0"]).toEqual({
+      displacement: 0.02,
+      passthrough: true,
+    });
+
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].scene_overrides).toEqual([{ first: 0, passthrough: true }]);
+  });
+
+  it("toggling back to 3D re-enables the controls and restores the draft's depth values on the wire", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel();
+
+    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
+      target: { value: "0.02" },
+    });
+    await user.click(toggle(0, 1)); // off → passthrough
+    await user.click(toggle(0, 1)); // back on
+
+    const disp = within(sceneRow(0)).getByLabelText(
+      "Scene 1 displacement",
+    ) as HTMLInputElement;
+    expect(disp.disabled).toBe(false);
+    expect(disp.value).toBe("0.02");
+    expect(screen.queryByTestId("passthrough-note-0")).toBeNull();
+
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].scene_overrides).toEqual([{ first: 0, displacement: 0.02 }]);
+  });
+
+  it("a passthrough set on the DEPTH page appears here — same store", async () => {
+    const user = userEvent.setup();
+    const view = render(
+      <AuthProvider>
+        <DepthPanel project={fixtureProject()} onProjectChanged={vi.fn()} />
+      </AuthProvider>,
+    );
+    await user.click(
+      within(screen.getByTestId("depth-scenes")).getByLabelText(
+        "Scene 1 convert to 3D",
+      ),
+    );
+    expect(loadStereoDraft(FIXTURE.project_id, VERSION).overrides["0"]).toEqual({
+      passthrough: true,
+    });
+    view.unmount();
+
+    renderPanel();
+    expect(toggle(0, 1).checked).toBe(false);
+    expect(
+      (within(sceneRow(0)).getByLabelText("Scene 1 shot type") as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    expect(toggle(FIRST_CUT, 2).checked).toBe(true); // only scene 1 flagged
+  });
+});
+
+describe("StereoPanel free shot profiling", () => {
+  /** Minimal stand-in for the workspace: holds the project in state and
+   * refetches it from the mock gateway on onProjectChanged — each GET
+   * advances the mock's profile lifecycle one step. */
+  function ProfileHarness({ initial }: { initial: Project }) {
+    const client = useGateway();
+    const [project, setProject] = useState(initial);
+    return (
+      <StereoPanel
+        project={project}
+        onProjectChanged={() => {
+          void client.getProject(initial.project_id).then(setProject);
+        }}
+      />
+    );
+  }
+
+  const EXPLANATION =
+    /Measures each scene.s depth and seeds these controls — free/;
+
+  it("offers the free profile action when no scene_profile exists, and when it is STALE — not when fresh", () => {
+    renderPanel(); // fixture has no scene_profile
+    expect(screen.getByRole("button", { name: "Profile shots (free)" })).toBeDefined();
+    expect(screen.getByText(EXPLANATION)).toBeDefined();
+    cleanup();
+
+    renderPanel(withProfile(VERSION - 1)); // stale → offer again
+    expect(screen.getByRole("button", { name: "Profile shots (free)" })).toBeDefined();
+    cleanup();
+
+    renderPanel(withProfile()); // fresh → nothing to profile
+    expect(screen.queryByTestId("profile-action")).toBeNull();
+  });
+
+  it("click → running progress (stage + percent) → completion seeds the rows from the new scene_profile", async () => {
+    const user = userEvent.setup();
+    render(
+      <AuthProvider>
+        <ProfileHarness initial={fixtureProject()} />
+      </AuthProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Profile shots (free)" }));
+
+    // POST set profile running; the panel's refetch (project GET #1)
+    // advances the mock's progress
+    const running = await screen.findByTestId("profile-running");
+    expect(running.textContent).toContain("Profiling shots");
+    expect(running.textContent).toContain("60%");
+    expect(screen.queryByRole("button", { name: "Profile shots (free)" })).toBeNull();
+
+    // the 50 ms poll issues project GET #2 → succeeded + scene_profile
+    await waitFor(() => expect(screen.queryByTestId("profile-running")).toBeNull());
+
+    // rows re-seeded from the profiled shots (mock bucket 0 = standard,
+    // displacement 0.01) — and the action is gone (profile now fresh)
+    const shot = within(sceneRow(0)).getByLabelText(
+      "Scene 1 shot type",
+    ) as HTMLSelectElement;
+    expect(shot.selectedOptions[0].textContent).toBe("Auto (standard)");
+    const disp = within(sceneRow(0)).getByLabelText(
+      "Scene 1 displacement",
+    ) as HTMLInputElement;
+    expect(disp.placeholder).toBe("0.0100");
+    expect(screen.queryByTestId("profile-action")).toBeNull();
+    expect(screen.queryByTestId("stale-profile-warning")).toBeNull();
+
+    // and the mock stamped the project like the gateway would
+    const project = mockDb.projects.get(FIXTURE.project_id)!;
+    expect(project.profile?.state).toBe("succeeded");
+    expect(project.scene_profile?.conversion_id).toMatch(/^profile:/);
+    expect(project.scene_profile?.scenes_version).toBe(VERSION);
+  });
+
+  it("a failed profile shows its error inline with a Retry", () => {
+    const p = fixtureProject();
+    p.profile = {
+      state: "failed",
+      scenes_version: VERSION,
+      error: "profiler ran out of GPU memory",
+      updated_at: "2026-07-02T08:00:00Z",
+    };
+    renderPanel(p);
+    expect(screen.getByTestId("profile-error").textContent).toContain(
+      "profiler ran out of GPU memory",
+    );
+    expect(
+      screen.getByRole("button", { name: "Retry profiling (free)" }),
+    ).toBeDefined();
+  });
+
+  it("surfaces the gateway's 409 when a profile is already running", async () => {
+    const user = userEvent.setup();
+    mockDb.projects.get(FIXTURE.project_id)!.profile = {
+      state: "running",
+      scenes_version: VERSION,
+      progress: 0.1,
+      stage: "profiling",
+      updated_at: "2026-07-02T08:00:00Z",
+    };
+    renderPanel(); // the PROP project has no profile → button still offered
+    await user.click(screen.getByRole("button", { name: "Profile shots (free)" }));
+    expect(
+      (await screen.findByTestId("profile-error")).textContent,
+    ).toContain("a profiling job is already running");
   });
 });

@@ -28,6 +28,7 @@ import {
 import projectFixture from "../../fixtures/project.json";
 import { WHEEL_ZOOM_THRESHOLD } from "@/components/workspace/FilmstripTimeline";
 import { seekTimeForFrame } from "@/components/workspace/usePreviewPlayer";
+import { exportCutsCSV } from "@/lib/cutlist";
 import {
   frameToWindowPosition,
   windowPositionToFrame,
@@ -149,12 +150,15 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   // page switches persist in the URL hash — reset so every test starts on
-  // the default (Cut) page
+  // the default (Media) page
   window.history.replaceState(null, "", window.location.pathname);
 });
 afterAll(() => server.close());
 
+/** Most tests exercise the Cut page editor — open on it via the URL hash
+ * (the workspace DEFAULT is now the Media page; a hash always wins). */
 async function renderWorkspace(pollIntervalMs?: number): Promise<HTMLElement> {
+  window.history.replaceState(null, "", "#tab=cut");
   render(
     <AuthProvider>
       <WorkspaceScreen projectId={PID} pollIntervalMs={pollIntervalMs} />
@@ -286,7 +290,7 @@ describe("WorkspaceScreen — fixture rendering", () => {
     // before metadata: proxy named but unmeasured; tooltip carries the
     // frame-doctrine reassurance with the SOURCE dimensions
     const badge = screen.getByTestId("proxy-badge");
-    expect(badge.textContent).toBe("Proxy");
+    expect(badge.textContent).toBe("Preview Resolution");
     expect(badge.getAttribute("title")).toContain(
       `${PROBE.width}×${PROBE.height}`,
     );
@@ -303,7 +307,9 @@ describe("WorkspaceScreen — fixture rendering", () => {
       configurable: true,
     });
     fireEvent(video, new Event("loadedmetadata"));
-    expect(screen.getByTestId("proxy-badge").textContent).toBe("Proxy 640×360");
+    expect(screen.getByTestId("proxy-badge").textContent).toBe(
+      "Preview Resolution 640×360",
+    );
   });
 
   it("falls back to the nearest strip thumbnail when the project has no preview proxy", async () => {
@@ -400,6 +406,44 @@ describe("WorkspaceScreen — fixture rendering", () => {
     await screen.findByTestId("filmstrip");
     expect(screen.queryByTestId("analyzing-state")).toBeNull();
   });
+
+  it("shows the LIVE analyze progress (stage label, percent, bar, eta) while running", async () => {
+    const running = structuredClone(projectFixture) as unknown as Project;
+    running.analyze = {
+      state: "running",
+      error: "",
+      credit_cents: 0,
+      credit_available: false,
+      progress: 0.7,
+      stage: "scene_detect",
+      eta_seconds: 12,
+    };
+    delete running.probe;
+    delete running.scenes;
+    delete running.strip_thumbs;
+    delete running.scene_thumbs;
+    server.use(
+      http.get(`${GATEWAY}/v1/projects/:id`, () => HttpResponse.json(running)),
+    );
+
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} pollIntervalMs={60_000} />
+      </AuthProvider>,
+    );
+
+    // the waiting state carries the humanized stage + percent + eta, not
+    // just a spinner
+    const progress = await screen.findByTestId("analyze-progress");
+    expect(progress.textContent).toContain("Detecting scenes");
+    expect(progress.textContent).toContain("70%");
+    expect(progress.textContent).toContain("~12s left");
+    expect(
+      within(progress).getByLabelText("Analyze progress"),
+    ).toBeTruthy();
+    // the slim header chip mirrors the same readout (2 = chip + panel)
+    expect(screen.getAllByText(/Detecting scenes/)).toHaveLength(2);
+  });
 });
 
 describe("WorkspaceScreen — playhead & keyboard", () => {
@@ -471,6 +515,20 @@ describe("WorkspaceScreen — playhead & keyboard", () => {
 
     fireEvent.keyDown(window, { key: " " });
     expect(screen.getByLabelText("Pause preview")).toBeTruthy();
+  });
+
+  it("the mute toggle unmutes/mutes the preview proxy element (starts muted for autoplay)", async () => {
+    await renderWorkspace();
+    const video = previewVideo();
+    expect(video.muted).toBe(true); // initial attribute — autoplay-safe
+
+    fireEvent.click(screen.getByLabelText("Unmute"));
+    expect(video.muted).toBe(false);
+    expect(screen.getByLabelText("Mute")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Mute"));
+    expect(video.muted).toBe(true);
+    expect(screen.getByLabelText("Unmute")).toBeTruthy();
   });
 
   it("mouse clicks blur editing buttons so Space keeps meaning play/pause; keyboard clicks keep focus", async () => {
@@ -902,9 +960,128 @@ describe("WorkspaceScreen — save & versioning", () => {
   });
 });
 
-describe("WorkspaceScreen — pages", () => {
-  it("defaults to the Cut page and switches pages by click and number key", async () => {
+describe("WorkspaceScreen — cut import/export", () => {
+  it("Export cuts downloads the WORKING list (local edits included) as the scene CSV named after the project", async () => {
+    const strip = await renderWorkspace();
+    mockStripRect(strip);
+    zoomToFit(strip);
+    fireEvent.doubleClick(strip, { clientX: NEW_CUT }); // unsaved local edit
+
+    // jsdom has no Blob URLs — stub the pair and capture the payload
+    let blob: Blob | null = null;
+    const createObjectURL = vi.fn((b: Blob) => {
+      blob = b;
+      return "blob:mock";
+    });
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    let download = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+      function (this: HTMLAnchorElement) {
+        download = this.download;
+      },
+    );
+
+    fireEvent.click(screen.getByText("Export cuts"));
+
+    expect(download).toBe(`${FIXTURE.name}-cuts.csv`);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    const expectedCuts = [...CUTS, NEW_CUT].sort((a, b) => a - b);
+    expect(await blob!.text()).toBe(exportCutsCSV(expectedCuts, N, FPS));
+  });
+
+  it("Import cuts… replaces the local list only after the explicit confirm, through the normal save path", async () => {
+    const strip = await renderWorkspace();
+    mockStripRect(strip);
+    zoomToFit(strip);
+    const bodies = capturePatchBodies();
+
+    const imported = [NEW_CUT, FIRST_CUT + 1].sort((a, b) => a - b);
+    const file = new File([`# imported\n${imported.join("\n")}\n`], "cuts.txt", {
+      type: "text/plain",
+    });
+    fireEvent.change(screen.getByLabelText("Cut list file"), {
+      target: { files: [file] },
+    });
+
+    // confirm dialog names both counts; nothing changed yet
+    const dialog = await screen.findByTestId("import-cuts-dialog");
+    expect(dialog.textContent).toContain(
+      `Replace ${NCUTS} cuts with ${imported.length} imported cuts?`,
+    );
+    expect(markerFrames()).toEqual(CUTS);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Replace" }));
+    await waitFor(() => expect(markerFrames()).toEqual(imported));
+    // a LOCAL edit like any other: dirty until saved via the versioned PATCH
+    expect(screen.getByTestId("dirty-indicator")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Save cuts"));
+    await waitFor(() =>
+      expect(screen.getByTestId("scenes-version").textContent).toBe(
+        `v${SCENES_VERSION + 1}`,
+      ),
+    );
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      cuts: imported,
+      expect_version: SCENES_VERSION,
+    });
+  });
+
+  it("round-trips its own CSV export (PySceneDetect scene-list shape)", async () => {
     await renderWorkspace();
+    const csv = exportCutsCSV(CUTS, N, FPS);
+    const file = new File([csv], "scenes.csv", { type: "text/csv" });
+    fireEvent.change(screen.getByLabelText("Cut list file"), {
+      target: { files: [file] },
+    });
+
+    const dialog = await screen.findByTestId("import-cuts-dialog");
+    expect(dialog.textContent).toContain(
+      `Replace ${NCUTS} cuts with ${NCUTS} imported cuts?`,
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Replace" }));
+    expect(markerFrames()).toEqual(CUTS);
+    // identical to the saved list — nothing to save
+    expect(screen.queryByTestId("dirty-indicator")).toBeNull();
+  });
+
+  it("surfaces parse errors in the inline edit note and leaves the list untouched", async () => {
+    await renderWorkspace();
+    const file = new File(["not a number\n"], "cuts.txt", {
+      type: "text/plain",
+    });
+    fireEvent.change(screen.getByLabelText("Cut list file"), {
+      target: { files: [file] },
+    });
+
+    const note = await screen.findByTestId("edit-note");
+    expect(note.textContent).toMatch(/not an integer/);
+    expect(screen.queryByTestId("import-cuts-dialog")).toBeNull();
+    expect(markerFrames()).toEqual(CUTS);
+    expect(screen.queryByTestId("dirty-indicator")).toBeNull();
+  });
+});
+
+describe("WorkspaceScreen — pages", () => {
+  it("defaults to the MEDIA page when the URL has no tab hash", async () => {
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} />
+      </AuthProvider>,
+    );
+    await screen.findByTestId("media-tab");
+    expect(screen.getByTestId("tab-media").getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    // the Cut editor is NOT mounted by default
+    expect(screen.queryByText("Save cuts")).toBeNull();
+  });
+
+  it("honors a #tab= hash over the default and switches pages by click and number key", async () => {
+    await renderWorkspace(); // opens with #tab=cut
     expect(screen.getByTestId("tab-cut").getAttribute("aria-selected")).toBe(
       "true",
     );

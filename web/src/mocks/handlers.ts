@@ -9,7 +9,10 @@
  * Lifecycle simulation: conversions auto-advance one state per GET poll
  * (created→[after mock payment]→paid→processing→succeeded), so polling UIs
  * can be tested deterministically: each refetch moves the world forward.
- * Tests can also force any state via mockDb.setConversionState().
+ * Tests can also force any state via mockDb.setConversionState(). The free
+ * profile job (POST .../profile) advances the same way: project GET #1
+ * moves its progress, GET #2 completes it and folds a cuts-derived
+ * scene_profile into the project.
  */
 
 import { HttpResponse, http } from "msw";
@@ -19,9 +22,11 @@ import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type {
   Conversion,
+  ProfileShot,
   Project,
   SceneOverride,
   SceneProfile,
+  ShotType,
   Step,
   StepConversionRequest,
 } from "@/lib/api/types";
@@ -45,6 +50,10 @@ interface DB {
   /** conversions that received a mock payment confirmation */
   paid: Set<string>;
   idem: Map<string, string>; // Idempotency-Key → conversion_id
+  /** per-project analyze lifecycle position (one stage per GET poll) */
+  analyzeTicks: Map<string, number>;
+  /** per-project free-profile lifecycle position (advances per GET poll) */
+  profileTicks: Map<string, number>;
 }
 
 function seed(): DB {
@@ -57,6 +66,8 @@ function seed(): DB {
     conversions: new Map(),
     paid: new Set(),
     idem: new Map(),
+    analyzeTicks: new Map(),
+    profileTicks: new Map(),
   };
 }
 
@@ -68,6 +79,8 @@ export const mockDb = {
     this.conversions = fresh.conversions;
     this.paid = fresh.paid;
     this.idem = fresh.idem;
+    this.analyzeTicks = fresh.analyzeTicks;
+    this.profileTicks = fresh.profileTicks;
   },
   setConversionState(id: string, state: Conversion["state"]) {
     const c = this.conversions.get(id);
@@ -153,10 +166,25 @@ function validateStepRequest(
         return err(400, "invalid_request", "scene_overrides[].first must be strictly increasing");
       }
       prev = o.first;
+      // passthrough is MUTUALLY EXCLUSIVE with the depth keys: a passthrough
+      // entry must be exactly {first, passthrough: true}
+      if (
+        o.passthrough === true &&
+        (o.shot_type !== undefined ||
+          o.displacement !== undefined ||
+          o.placement !== undefined)
+      ) {
+        return err(
+          400,
+          "invalid_request",
+          "scene_overrides[].passthrough cannot be combined with shot_type|displacement|placement",
+        );
+      }
       if (
         o.shot_type === undefined &&
         o.displacement === undefined &&
-        o.placement === undefined
+        o.placement === undefined &&
+        o.passthrough !== true
       ) {
         return err(
           400,
@@ -196,6 +224,27 @@ function validateStepRequest(
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+
+/** Analyze lifecycle while running — one stage per detail GET, then the
+ * fixture analysis folds in (same shape the gateway's read-through poll
+ * produces: progress + stage + eta on BOTH list and detail responses). */
+const ANALYZE_STAGES: readonly {
+  stage: string;
+  progress: number;
+  eta: number;
+}[] = [
+  { stage: "analyze", progress: 0.15, eta: 34 },
+  { stage: "proxy", progress: 0.45, eta: 22 },
+  { stage: "scene_detect", progress: 0.7, eta: 12 },
+  { stage: "thumbnails", progress: 0.9, eta: 4 },
+];
+
+/** Coarse wall-clock estimate for a quoted step — mirrors the gateway's
+ * "billable duration × per-step throughput" shape, floored at 20 s. */
+function etaForStep(step: Step, billableSeconds: number): number {
+  const perSecond = { depth_preview: 0.8, stereo_preview: 1.2, production: 3 };
+  return Math.max(20, Math.round(billableSeconds * perSecond[step]));
+}
 
 function quoteFor(
   project: Project,
@@ -327,6 +376,70 @@ function succeed(c: Conversion) {
   }
 }
 
+/** Plausible SHOT_PARAMS-bucket values the mock profiler cycles across the
+ * project's scenes (fixture-like shot_type/displacement/placement). */
+const PROFILE_BUCKETS: readonly {
+  shot_type: ShotType;
+  displacement: number;
+  placement: [number, number];
+}[] = [
+  { shot_type: "standard", displacement: 0.01, placement: [-1.0, 0.3] },
+  { shot_type: "close_up", displacement: 0.008, placement: [-1.0, 0.1] },
+  { shot_type: "dynamic", displacement: 0.009, placement: [-1.0, 0.1] },
+  { shot_type: "wide", displacement: 0.012, placement: [-0.7, 0.6] },
+];
+
+/** Shots derived from the project's CURRENT scene cuts, tiling
+ * [0, num_frames) exactly — what the free profiler "measures". */
+function profiledShots(p: Project): ProfileShot[] {
+  const bounds = [0, ...(p.scenes?.cuts ?? []), p.probe!.num_frames];
+  const shots: ProfileShot[] = [];
+  for (let i = 0; i + 1 < bounds.length; i++) {
+    const b = PROFILE_BUCKETS[i % PROFILE_BUCKETS.length];
+    shots.push({
+      first_src: bounds[i],
+      last_src: bounds[i + 1],
+      shot_type: b.shot_type,
+      displacement: b.displacement,
+      placement: [...b.placement],
+    });
+  }
+  return shots;
+}
+
+/** Free-profile lifecycle while running — the FIRST detail GET advances
+ * progress, the SECOND completes: profile.state=succeeded and the result
+ * folds into project.scene_profile (conversion_id "profile:<jobid>"), like
+ * the gateway. */
+function tickProfile(p: Project) {
+  if (p.profile?.state !== "running") return;
+  const tick = mockDb.profileTicks.get(p.project_id) ?? 0;
+  const now = new Date().toISOString();
+  if (tick < 1) {
+    p.profile = { ...p.profile, progress: 0.6, stage: "profiling", updated_at: now };
+    mockDb.profileTicks.set(p.project_id, tick + 1);
+  } else {
+    const version = p.profile.scenes_version;
+    p.profile = { state: "succeeded", scenes_version: version, updated_at: now };
+    p.scene_profile = {
+      conversion_id: `profile:${newId()}`,
+      scenes_version: version,
+      shots: profiledShots(p),
+      updated_at: now,
+    };
+    mockDb.profileTicks.delete(p.project_id);
+  }
+}
+
+/** The detail-response shape (GET/PATCH project, POST profile): the project
+ * plus its conversions, newest first. */
+function projectDetail(p: Project) {
+  const conversions = [...mockDb.conversions.values()]
+    .filter((c) => c.project_id === p.project_id)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  return { ...p, conversions };
+}
+
 /** One poll = one lifecycle tick (paid→processing→succeeded). */
 function tick(c: Conversion) {
   if (c.state === "created" && mockDb.paid.has(c.conversion_id)) c.state = "paid";
@@ -375,7 +488,15 @@ export const handlers = [
       ...template,
       project_id: id,
       name: name || "Untitled project",
-      analyze: { state: "running", error: "", credit_cents: 0, credit_available: false },
+      analyze: {
+        state: "running",
+        error: "",
+        credit_cents: 0,
+        credit_available: false,
+        progress: 0.05,
+        stage: "analyze",
+        eta_seconds: 40,
+      },
       probe: undefined,
       scenes: undefined,
       strip_thumbs: undefined,
@@ -401,21 +522,55 @@ export const handlers = [
     const p = mockDb.projects.get(params.id as string);
     if (!p) return err(404, "not_found", "project not found");
     if (p.analyze.state === "running") {
-      // fold in the fixture analysis, like the gateway's read-through poll
-      const t = structuredClone(projectFixture) as unknown as Project;
-      Object.assign(p, {
-        analyze: t.analyze,
-        probe: t.probe,
-        scenes: t.scenes,
-        crop: t.crop,
-        strip_thumbs: t.strip_thumbs,
-        scene_thumbs: t.scene_thumbs,
-      });
+      const tick = mockDb.analyzeTicks.get(p.project_id) ?? 0;
+      if (tick < ANALYZE_STAGES.length) {
+        // advance one lifecycle stage per poll (deterministic for tests)
+        const s = ANALYZE_STAGES[tick];
+        p.analyze = {
+          ...p.analyze,
+          progress: s.progress,
+          stage: s.stage,
+          eta_seconds: s.eta,
+        };
+        mockDb.analyzeTicks.set(p.project_id, tick + 1);
+      } else {
+        // fold in the fixture analysis, like the gateway's read-through poll
+        const t = structuredClone(projectFixture) as unknown as Project;
+        Object.assign(p, {
+          analyze: t.analyze,
+          probe: t.probe,
+          scenes: t.scenes,
+          crop: t.crop,
+          strip_thumbs: t.strip_thumbs,
+          scene_thumbs: t.scene_thumbs,
+        });
+        mockDb.analyzeTicks.delete(p.project_id);
+      }
     }
-    const conversions = [...mockDb.conversions.values()]
-      .filter((c) => c.project_id === p.project_id)
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    return HttpResponse.json({ ...p, conversions });
+    tickProfile(p);
+    return HttpResponse.json(projectDetail(p));
+  }),
+
+  /** Free standalone shot profiling (empty JSON body). 409 while one is
+   * already running; the job advances/completes on subsequent detail GETs. */
+  http.post(`${GATEWAY}/v1/projects/:id/profile`, ({ params }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p) return err(404, "not_found", "project not found");
+    if (!p.probe || !p.scenes) {
+      return err(409, "conflict", "analysis has not completed yet");
+    }
+    if (p.profile?.state === "running") {
+      return err(409, "conflict", "a profiling job is already running");
+    }
+    p.profile = {
+      state: "running",
+      scenes_version: p.scenes.version,
+      progress: 0.1,
+      stage: "profiling",
+      updated_at: new Date().toISOString(),
+    };
+    mockDb.profileTicks.set(p.project_id, 0);
+    return HttpResponse.json(projectDetail(p));
   }),
 
   http.patch(`${GATEWAY}/v1/projects/:id`, async ({ params, request }) => {
@@ -453,10 +608,7 @@ export const handlers = [
       }
     }
     p.updated_at = new Date().toISOString();
-    const conversions = [...mockDb.conversions.values()]
-      .filter((c) => c.project_id === p.project_id)
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    return HttpResponse.json({ ...p, conversions });
+    return HttpResponse.json(projectDetail(p));
   }),
 
   http.patch(`${GATEWAY}/v1/projects/:id/scenes`, async ({ params, request }) => {
@@ -501,6 +653,10 @@ export const handlers = [
       params: resolved,
       quote,
       reuse_stages: reuseStages,
+      eta_seconds: etaForStep(
+        req.step,
+        quote.breakdown?.billable_seconds ?? p.probe!.duration_s,
+      ),
     });
   }),
 

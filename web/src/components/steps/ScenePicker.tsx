@@ -9,6 +9,7 @@
  * inspect .options (see controls.tsx).
  */
 
+import { Volume2, VolumeX } from "lucide-react";
 import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,36 @@ export function ScenePicker({
         ›
       </Button>
     </div>
+  );
+}
+
+/** The ONE audio mute toggle, sitting next to SpeedSelect on every
+ * transport (workspace viewer and step output players). Videos start MUTED
+ * (autoplay policy — the element keeps its initial `muted` attribute);
+ * unmuting here is a user gesture, so browsers allow it. In a compare pair
+ * only the MASTER gets sound — the follower must stay muted. */
+export function MuteToggle({
+  muted,
+  onChange,
+  disabled,
+}: {
+  muted: boolean;
+  onChange: (muted: boolean) => void;
+  disabled?: boolean;
+}): JSX.Element {
+  return (
+    <Button
+      variant="outline"
+      size="icon-xs"
+      aria-label={muted ? "Unmute" : "Mute"}
+      disabled={disabled}
+      onClick={(e) => {
+        blurAfterMouseClick(e);
+        onChange(!muted);
+      }}
+    >
+      {muted ? <VolumeX /> : <Volume2 />}
+    </Button>
   );
 }
 

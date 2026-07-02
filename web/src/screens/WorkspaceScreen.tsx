@@ -14,6 +14,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  AnalyzeProgress,
+  analyzePercent,
+  analyzeStageLabel,
+  formatEtaLeft,
+} from "@/components/projects/AnalyzeBadge";
 import { HistoryList } from "@/components/steps/HistoryList";
 import { formatCents } from "@/components/steps/money";
 import { MediaTab } from "@/components/workspace/MediaTab";
@@ -48,9 +54,11 @@ const STEP_BY_TAB: Partial<Record<WorkspaceTabId, Step>> = {
 };
 
 function initialTab(): WorkspaceTabId {
-  if (typeof window === "undefined") return "cut";
+  // Default page is Media (the source at a glance) — a fresh/analyzed
+  // project should orient the user before editing; a URL hash still wins.
+  if (typeof window === "undefined") return "media";
   const m = /(?:^#|&)tab=([a-z]+)/.exec(window.location.hash);
-  return m && isWorkspaceTabId(m[1]) ? m[1] : "cut";
+  return m && isWorkspaceTabId(m[1]) ? m[1] : "media";
 }
 
 export interface WorkspaceScreenProps {
@@ -170,11 +178,11 @@ export default function WorkspaceScreen({
     >
       <span
         aria-hidden
-        className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+        className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
       />
-      <div>
-        <p className="font-medium text-fg">Analyzing source…</p>
-        <p className="text-sm">
+      <div className="min-w-0 flex-1">
+        <AnalyzeProgress analyze={project.analyze} />
+        <p className="mt-1 text-sm">
           Probing the video, detecting scene cuts and crop geometry, rendering
           filmstrip thumbnails. This page refreshes automatically.
         </p>
@@ -210,7 +218,16 @@ export default function WorkspaceScreen({
               aria-hidden
               className="h-2.5 w-2.5 animate-spin rounded-full border border-primary border-t-transparent"
             />
-            Analyzing…
+            {analyzeStageLabel(project.analyze.stage)}…
+            {analyzePercent(project.analyze) !== null ? (
+              <span className="font-mono">
+                {analyzePercent(project.analyze)}%
+              </span>
+            ) : null}
+            {project.analyze.eta_seconds !== undefined &&
+            project.analyze.eta_seconds > 0 ? (
+              <span>{formatEtaLeft(project.analyze.eta_seconds)}</span>
+            ) : null}
           </span>
         ) : project.analyze.state === "failed" ? (
           <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
@@ -274,6 +291,7 @@ export default function WorkspaceScreen({
           ) : ready ? (
             <SceneCutEditor
               projectId={project.project_id}
+              projectName={project.name}
               probe={probe}
               scenes={scenes}
               crop={project.crop}

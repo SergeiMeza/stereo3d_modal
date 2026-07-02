@@ -142,6 +142,13 @@ export class GatewayClient {
     return this.request("PATCH", `/v1/projects/${id}/scenes`, req);
   }
 
+  /** Free standalone shot profiling (empty JSON body). Returns the full
+   * project; poll GET /v1/projects/{id} while project.profile is running.
+   * 409 conflict when a profile is already running. */
+  profileProject(id: string): Promise<Project> {
+    return this.request("POST", `/v1/projects/${id}/profile`, {});
+  }
+
   quoteStep(id: string, req: StepConversionRequest): Promise<StepQuoteResponse> {
     return this.request("POST", `/v1/projects/${id}/quotes`, req);
   }

@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
+import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
 import { formatCents } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ const GUIDE: readonly {
     n: 1,
     title: "Cut",
     blurb:
-      "Fix the detected scene cuts first — every later step maps depth per scene, so wrong cuts mean wrong 3D.",
+      "Fix the detected scene cuts first — every later step maps depth per scene, so wrong cuts mean wrong 3D. Cut lists import/export as PySceneDetect-style CSV.",
     price: "Free",
   },
   {
@@ -271,8 +272,27 @@ export function MediaTab({ project, onNavigate }: MediaTabProps): JSX.Element {
             />
           </div>
         ) : (
-          <div className="rounded-md border border-edge bg-surface-1 p-6 text-fg-muted">
-            The source preview appears here once analysis finishes.
+          <div
+            data-testid="analyzing-state"
+            className="flex items-center gap-3 rounded-md border border-edge bg-surface-1 p-6 text-fg-muted"
+          >
+            {project.analyze.state === "running" ? (
+              <>
+                <span
+                  aria-hidden
+                  className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                />
+                <div className="min-w-0 flex-1">
+                  <AnalyzeProgress analyze={project.analyze} />
+                  <p className="mt-1 text-sm">
+                    The source preview appears here once analysis finishes.
+                    This page refreshes automatically.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p>The source preview appears here once analysis finishes.</p>
+            )}
           </div>
         )}
       </div>
