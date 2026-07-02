@@ -207,7 +207,7 @@ describe("DeliverPanel inheritance", () => {
 });
 
 describe("DeliverPanel controls", () => {
-  it("offers presets, 4 formats (no TB), inpaint select and 'Full (no decimation)' fps default", () => {
+  it("offers presets, 4 formats (no TB) and the inpaint select — no fps control", () => {
     renderPanel();
 
     const preset = document.getElementById("production-preset") as HTMLSelectElement;
@@ -239,9 +239,10 @@ describe("DeliverPanel controls", () => {
     expect(inpaint.value).toBe("propainter");
     expect([...inpaint.options].map((o) => o.value)).toEqual(["propainter", "none"]);
 
-    const fps = document.getElementById("production-fps") as HTMLSelectElement;
-    expect(fps.value).toBe("");
-    expect(fps.selectedOptions[0].textContent).toBe("Full (no decimation)");
+    // no frame-rate control in this version — production runs at the
+    // source rate (the gateway default when target_fps is absent)
+    expect(document.getElementById("production-fps")).toBeNull();
+    expect(screen.queryByText(/frame rate/i)).toBeNull();
 
     // NO displacement slider anywhere on the pro steps
     expect(screen.queryByText(/displacement/i)).toBeNull();

@@ -34,7 +34,7 @@ import type {
   Project,
   StepConversionRequest,
 } from "@/lib/api/types";
-import { fpsOptions, parseRational } from "@/lib/frames";
+import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
 import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptions";
@@ -57,7 +57,6 @@ export function DeliverPanel({
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
   const [inpaint, setInpaint] = useState<Inpaint>("propainter");
-  const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
   const [fromScratch, setFromScratch] = useState(false);
   // "use pipeline default" escapes for the inherited settings
   const [depthDefault, setDepthDefault] = useState(false);
@@ -117,7 +116,7 @@ export function DeliverPanel({
       ...(sendStereo && sceneOverrides.length > 0
         ? { scene_overrides: sceneOverrides }
         : {}),
-      ...(targetFps !== undefined ? { target_fps: targetFps } : {}),
+      // no target_fps: production's gateway default IS the full source rate
       ...(fs ? { from_scratch: true } : {}),
       platform: "web",
     };
@@ -236,26 +235,6 @@ export function DeliverPanel({
             {RESOLUTION_PRESETS.map((p) => (
               <option key={p} value={p}>
                 {p}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="production-fps" label="Target fps">
-          <select
-            id="production-fps"
-            value={targetFps ?? ""}
-            onChange={(e) => {
-              setTargetFps(
-                e.target.value === "" ? undefined : Number(e.target.value),
-              );
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            <option value="">Full (no decimation)</option>
-            {fpsOptions(sourceFps).map((o) => (
-              <option key={o.divisor} value={o.value}>
-                {o.label}
               </option>
             ))}
           </select>
