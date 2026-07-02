@@ -237,7 +237,7 @@ describe("StereoPanel request building", () => {
         { first: 0, displacement: 0.02 },
         { first: FIRST_CUT, shot_type: "wide" },
       ],
-      target_fps: 12,
+      target_fps: 24,
       platform: "web",
     });
   });

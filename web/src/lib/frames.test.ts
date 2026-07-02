@@ -116,9 +116,9 @@ describe("fpsOptions / defaultPreviewFPS", () => {
     expect(opts[0].label).toBe("23.98 (full)");
     expect(opts[1]).toMatchObject({ value: 11.99, label: "11.99 (½ rate)" });
   });
-  it("default preview is half rate", () => {
-    expect(defaultPreviewFPS(EXACT24)).toMatchObject({ divisor: 2, value: 12 });
-    expect(defaultPreviewFPS(NTSC24).value).toBeCloseTo(11.99, 2);
+  it("default preview is the source's full rate", () => {
+    expect(defaultPreviewFPS(EXACT24)).toMatchObject({ divisor: 1, value: 24 });
+    expect(defaultPreviewFPS(NTSC24).value).toBeCloseTo(23.98, 2);
   });
   it("drops sub-1fps divisors", () => {
     const opts = fpsOptions(parseRational("6/1"));
