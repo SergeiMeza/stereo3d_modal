@@ -330,6 +330,23 @@ describe("usePreviewPlayer — transport", () => {
     expect(video.playbackRate).toBe(2);
   });
 
+  it("shares speed and mute across player instances (tab switches unmount the panel)", () => {
+    const first = renderPlayer(new FakeVideo());
+    act(() => {
+      first.result.current.setSpeed(2);
+      first.result.current.setMuted(false);
+    });
+    first.unmount();
+
+    // a different tab mounts its own player around a fresh <video>
+    const video = new FakeVideo(); // fresh element: 1×, muted
+    const { result } = renderPlayer(video);
+    expect(result.current.speed).toBe(2);
+    expect(result.current.muted).toBe(false);
+    expect(video.playbackRate).toBe(2);
+    expect(video.muted).toBe(false);
+  });
+
   it("is a no-op without a mounted video element", () => {
     const { result, onFrame } = renderPlayer(null);
 

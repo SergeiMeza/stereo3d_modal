@@ -23,6 +23,7 @@
  * object (jsdom renders <video> but never plays; that's fine).
  */
 
+import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -31,6 +32,7 @@ import {
   secondsToFrame,
   type RationalFPS,
 } from "@/lib/frames";
+import { mutedAtom, playbackSpeedAtom } from "@/lib/viewerPrefs";
 
 export interface PreviewFrameMetadata {
   /** presentation time (s) of the frame just displayed */
@@ -98,10 +100,12 @@ export function usePreviewPlayer(
   onFrame: (frame: number) => void,
 ): PreviewPlayer {
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeedState] = useState(1);
+  // speed and muted are shared viewer prefs (jotai) — the tab panels
+  // unmount on every switch, and these should follow the user across tabs.
   // muted defaults to true (autoplay policy) — React only applies the
   // `muted` prop on mount, so changes go through the element, like speed.
-  const [muted, setMutedState] = useState(true);
+  const [speed, setSpeedState] = useAtom(playbackSpeedAtom);
+  const [muted, setMutedState] = useAtom(mutedAtom);
   const onFrameRef = useRef(onFrame);
   const fpsRef = useRef(fps);
   useEffect(() => {
@@ -115,7 +119,7 @@ export function usePreviewPlayer(
       const video = videoRef.current;
       if (video) video.playbackRate = rate;
     },
-    [videoRef],
+    [videoRef, setSpeedState],
   );
 
   const setMuted = useCallback(
@@ -124,7 +128,7 @@ export function usePreviewPlayer(
       const video = videoRef.current;
       if (video) video.muted = m;
     },
-    [videoRef],
+    [videoRef, setMutedState],
   );
 
   // Re-apply the rate/mute if the element mounts after setSpeed/setMuted

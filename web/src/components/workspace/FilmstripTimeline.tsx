@@ -38,12 +38,14 @@
    data-URLs at fixed strip height; next/image adds nothing for tiny
    repeated tiles. */
 
+import { useAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Thumb } from "@/lib/api/types";
 import { frameLabel, frameToPosition, type RationalFPS } from "@/lib/frames";
 import { blurAfterMouseClick } from "@/lib/interactions";
+import { timelineZoomIndexAtom } from "@/lib/viewerPrefs";
 
 import { useFrameThumbs } from "./useFrameThumbs";
 import {
@@ -112,19 +114,22 @@ export function FilmstripTimeline({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const levels = useMemo(() => zoomLevels(numFrames), [numFrames]);
-  // Editable strips open fully zoomed IN, centered on the playhead — the
+  // The zoom level is a shared viewer pref (jotai) so it follows the user
+  // across tabs. Until they zoom (null), each strip uses its own default:
+  // editable strips open fully zoomed IN, centered on the playhead — the
   // Cut page is a precision tool; readOnly (Media) opens at Fit for context.
-  const [zoomIndex, setZoomIndex] = useState(() =>
-    readOnly ? 0 : levels.length - 1,
+  const [storedZoomIndex, setZoomIndex] = useAtom(timelineZoomIndexAtom);
+  const zoomIndex = Math.min(
+    storedZoomIndex ?? (readOnly ? 0 : levels.length - 1),
+    levels.length - 1,
   );
-  const zoom = levels[Math.min(zoomIndex, levels.length - 1)];
+  const zoom = levels[zoomIndex];
   /** scrollLeft as a fraction of the zoomed strip width (0..1-1/zoom) —
    * the single source of truth for the visible window; the DOM scroll
-   * position is synced to it (and updates it on user scrolls). */
+   * position is synced to it (and updates it on user scrolls). At any
+   * initial zoom past Fit the window opens centered on the playhead. */
   const [scrollFraction, setScrollFraction] = useState(() =>
-    readOnly
-      ? 0
-      : scrollFractionToCenter(playhead, numFrames, levels[levels.length - 1]),
+    zoom === 1 ? 0 : scrollFractionToCenter(playhead, numFrames, zoom),
   );
 
   const frameWindow = zoomedWindow(numFrames, zoom, scrollFraction);
