@@ -1,0 +1,8 @@
+{
+  "downloads": {
+    "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/82e0a6878392/sbs.mp4",
+    "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/82e0a6878392/depth.mp4",
+    "depth_vis": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/82e0a6878392/depth_vis.mp4"
+  },
+  "expires_in": 86400
+}

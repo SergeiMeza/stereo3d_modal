@@ -1,0 +1,818 @@
+{
+  "project_id": "a1b2c3d4e5f6",
+  "name": "dKmPEhJ4wjY",
+  "source_bytes": 110712074,
+  "analyze": {
+    "state": "succeeded",
+    "error": "",
+    "credit_cents": 50,
+    "credit_available": true
+  },
+  "probe": {
+    "width": 3840,
+    "height": 2160,
+    "fps": 24.0,
+    "fps_rational": "24/1",
+    "duration_s": 149.488,
+    "num_frames": 3587
+  },
+  "scenes": {
+    "version": 1,
+    "cuts": [
+      266,
+      314,
+      350,
+      374,
+      392,
+      427,
+      461,
+      486,
+      499,
+      542,
+      568,
+      587,
+      606,
+      621,
+      637,
+      654,
+      679,
+      712,
+      737,
+      813,
+      865,
+      902,
+      947,
+      978,
+      1019,
+      1042,
+      1067,
+      1080,
+      1161,
+      1177,
+      1205,
+      1224,
+      1256,
+      1270,
+      1289,
+      1311,
+      1343,
+      1365,
+      1382,
+      1411,
+      1440,
+      1487,
+      1525,
+      1544,
+      1567,
+      1582,
+      1596,
+      1620,
+      1635,
+      1668,
+      1691,
+      1707,
+      1747,
+      1801,
+      1833,
+      1868,
+      1898,
+      1964,
+      2023,
+      2054,
+      2083,
+      2110,
+      2127,
+      2169,
+      2221,
+      2276,
+      2470,
+      2555,
+      2635,
+      2814,
+      2981,
+      3175,
+      3273,
+      3352,
+      3504,
+      3574
+    ],
+    "edited": false,
+    "updated_at": "2026-07-02T07:00:00Z"
+  },
+  "crop": "3840:1606:0:276",
+  "preview_url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/preview.mp4",
+  "strip_thumbs": [
+    {
+      "frame": 0,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00001.jpg"
+    },
+    {
+      "frame": 36,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00002.jpg"
+    },
+    {
+      "frame": 72,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00003.jpg"
+    },
+    {
+      "frame": 109,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00004.jpg"
+    },
+    {
+      "frame": 145,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00005.jpg"
+    },
+    {
+      "frame": 181,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00006.jpg"
+    },
+    {
+      "frame": 217,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00007.jpg"
+    },
+    {
+      "frame": 254,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00008.jpg"
+    },
+    {
+      "frame": 290,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00009.jpg"
+    },
+    {
+      "frame": 326,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00010.jpg"
+    },
+    {
+      "frame": 362,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00011.jpg"
+    },
+    {
+      "frame": 398,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00012.jpg"
+    },
+    {
+      "frame": 435,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00013.jpg"
+    },
+    {
+      "frame": 471,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00014.jpg"
+    },
+    {
+      "frame": 507,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00015.jpg"
+    },
+    {
+      "frame": 543,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00016.jpg"
+    },
+    {
+      "frame": 580,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00017.jpg"
+    },
+    {
+      "frame": 616,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00018.jpg"
+    },
+    {
+      "frame": 652,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00019.jpg"
+    },
+    {
+      "frame": 688,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00020.jpg"
+    },
+    {
+      "frame": 724,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00021.jpg"
+    },
+    {
+      "frame": 761,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00022.jpg"
+    },
+    {
+      "frame": 797,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00023.jpg"
+    },
+    {
+      "frame": 833,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00024.jpg"
+    },
+    {
+      "frame": 869,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00025.jpg"
+    },
+    {
+      "frame": 906,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00026.jpg"
+    },
+    {
+      "frame": 942,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00027.jpg"
+    },
+    {
+      "frame": 978,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00028.jpg"
+    },
+    {
+      "frame": 1014,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00029.jpg"
+    },
+    {
+      "frame": 1050,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00030.jpg"
+    },
+    {
+      "frame": 1087,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00031.jpg"
+    },
+    {
+      "frame": 1123,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00032.jpg"
+    },
+    {
+      "frame": 1159,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00033.jpg"
+    },
+    {
+      "frame": 1195,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00034.jpg"
+    },
+    {
+      "frame": 1232,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00035.jpg"
+    },
+    {
+      "frame": 1268,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00036.jpg"
+    },
+    {
+      "frame": 1304,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00037.jpg"
+    },
+    {
+      "frame": 1340,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00038.jpg"
+    },
+    {
+      "frame": 1376,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00039.jpg"
+    },
+    {
+      "frame": 1413,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00040.jpg"
+    },
+    {
+      "frame": 1449,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00041.jpg"
+    },
+    {
+      "frame": 1485,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00042.jpg"
+    },
+    {
+      "frame": 1521,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00043.jpg"
+    },
+    {
+      "frame": 1558,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00044.jpg"
+    },
+    {
+      "frame": 1594,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00045.jpg"
+    },
+    {
+      "frame": 1630,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00046.jpg"
+    },
+    {
+      "frame": 1666,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00047.jpg"
+    },
+    {
+      "frame": 1702,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00048.jpg"
+    },
+    {
+      "frame": 1739,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00049.jpg"
+    },
+    {
+      "frame": 1775,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00050.jpg"
+    },
+    {
+      "frame": 1811,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00051.jpg"
+    },
+    {
+      "frame": 1847,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00052.jpg"
+    },
+    {
+      "frame": 1884,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00053.jpg"
+    },
+    {
+      "frame": 1920,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00054.jpg"
+    },
+    {
+      "frame": 1956,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00055.jpg"
+    },
+    {
+      "frame": 1992,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00056.jpg"
+    },
+    {
+      "frame": 2028,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00057.jpg"
+    },
+    {
+      "frame": 2065,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00058.jpg"
+    },
+    {
+      "frame": 2101,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00059.jpg"
+    },
+    {
+      "frame": 2137,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00060.jpg"
+    },
+    {
+      "frame": 2173,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00061.jpg"
+    },
+    {
+      "frame": 2210,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00062.jpg"
+    },
+    {
+      "frame": 2246,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00063.jpg"
+    },
+    {
+      "frame": 2282,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00064.jpg"
+    },
+    {
+      "frame": 2318,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00065.jpg"
+    },
+    {
+      "frame": 2354,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00066.jpg"
+    },
+    {
+      "frame": 2391,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00067.jpg"
+    },
+    {
+      "frame": 2427,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00068.jpg"
+    },
+    {
+      "frame": 2463,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00069.jpg"
+    },
+    {
+      "frame": 2499,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00070.jpg"
+    },
+    {
+      "frame": 2536,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00071.jpg"
+    },
+    {
+      "frame": 2572,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00072.jpg"
+    },
+    {
+      "frame": 2608,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00073.jpg"
+    },
+    {
+      "frame": 2644,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00074.jpg"
+    },
+    {
+      "frame": 2680,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00075.jpg"
+    },
+    {
+      "frame": 2717,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00076.jpg"
+    },
+    {
+      "frame": 2753,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00077.jpg"
+    },
+    {
+      "frame": 2789,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00078.jpg"
+    },
+    {
+      "frame": 2825,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00079.jpg"
+    },
+    {
+      "frame": 2862,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00080.jpg"
+    },
+    {
+      "frame": 2898,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00081.jpg"
+    },
+    {
+      "frame": 2934,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00082.jpg"
+    },
+    {
+      "frame": 2970,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00083.jpg"
+    },
+    {
+      "frame": 3006,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00084.jpg"
+    },
+    {
+      "frame": 3043,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00085.jpg"
+    },
+    {
+      "frame": 3079,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00086.jpg"
+    },
+    {
+      "frame": 3115,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00087.jpg"
+    },
+    {
+      "frame": 3151,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00088.jpg"
+    },
+    {
+      "frame": 3188,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00089.jpg"
+    },
+    {
+      "frame": 3224,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00090.jpg"
+    },
+    {
+      "frame": 3260,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00091.jpg"
+    },
+    {
+      "frame": 3296,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00092.jpg"
+    },
+    {
+      "frame": 3332,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00093.jpg"
+    },
+    {
+      "frame": 3369,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00094.jpg"
+    },
+    {
+      "frame": 3405,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00095.jpg"
+    },
+    {
+      "frame": 3441,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00096.jpg"
+    },
+    {
+      "frame": 3477,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00097.jpg"
+    },
+    {
+      "frame": 3514,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00098.jpg"
+    },
+    {
+      "frame": 3550,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00099.jpg"
+    },
+    {
+      "frame": 3586,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/strip_00100.jpg"
+    }
+  ],
+  "scene_thumbs": [
+    {
+      "frame": 132,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00001.jpg"
+    },
+    {
+      "frame": 289,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00002.jpg"
+    },
+    {
+      "frame": 331,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00003.jpg"
+    },
+    {
+      "frame": 361,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00004.jpg"
+    },
+    {
+      "frame": 382,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00005.jpg"
+    },
+    {
+      "frame": 409,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00006.jpg"
+    },
+    {
+      "frame": 443,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00007.jpg"
+    },
+    {
+      "frame": 473,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00008.jpg"
+    },
+    {
+      "frame": 492,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00009.jpg"
+    },
+    {
+      "frame": 520,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00010.jpg"
+    },
+    {
+      "frame": 554,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00011.jpg"
+    },
+    {
+      "frame": 577,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00012.jpg"
+    },
+    {
+      "frame": 596,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00013.jpg"
+    },
+    {
+      "frame": 613,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00014.jpg"
+    },
+    {
+      "frame": 628,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00015.jpg"
+    },
+    {
+      "frame": 645,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00016.jpg"
+    },
+    {
+      "frame": 666,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00017.jpg"
+    },
+    {
+      "frame": 695,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00018.jpg"
+    },
+    {
+      "frame": 724,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00019.jpg"
+    },
+    {
+      "frame": 774,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00020.jpg"
+    },
+    {
+      "frame": 838,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00021.jpg"
+    },
+    {
+      "frame": 883,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00022.jpg"
+    },
+    {
+      "frame": 924,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00023.jpg"
+    },
+    {
+      "frame": 962,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00024.jpg"
+    },
+    {
+      "frame": 998,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00025.jpg"
+    },
+    {
+      "frame": 1030,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00026.jpg"
+    },
+    {
+      "frame": 1054,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00027.jpg"
+    },
+    {
+      "frame": 1073,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00028.jpg"
+    },
+    {
+      "frame": 1120,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00029.jpg"
+    },
+    {
+      "frame": 1168,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00030.jpg"
+    },
+    {
+      "frame": 1190,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00031.jpg"
+    },
+    {
+      "frame": 1214,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00032.jpg"
+    },
+    {
+      "frame": 1239,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00033.jpg"
+    },
+    {
+      "frame": 1262,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00034.jpg"
+    },
+    {
+      "frame": 1279,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00035.jpg"
+    },
+    {
+      "frame": 1299,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00036.jpg"
+    },
+    {
+      "frame": 1326,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00037.jpg"
+    },
+    {
+      "frame": 1353,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00038.jpg"
+    },
+    {
+      "frame": 1373,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00039.jpg"
+    },
+    {
+      "frame": 1396,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00040.jpg"
+    },
+    {
+      "frame": 1425,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00041.jpg"
+    },
+    {
+      "frame": 1463,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00042.jpg"
+    },
+    {
+      "frame": 1505,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00043.jpg"
+    },
+    {
+      "frame": 1534,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00044.jpg"
+    },
+    {
+      "frame": 1555,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00045.jpg"
+    },
+    {
+      "frame": 1574,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00046.jpg"
+    },
+    {
+      "frame": 1588,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00047.jpg"
+    },
+    {
+      "frame": 1607,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00048.jpg"
+    },
+    {
+      "frame": 1627,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00049.jpg"
+    },
+    {
+      "frame": 1651,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00050.jpg"
+    },
+    {
+      "frame": 1679,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00051.jpg"
+    },
+    {
+      "frame": 1698,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00052.jpg"
+    },
+    {
+      "frame": 1726,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00053.jpg"
+    },
+    {
+      "frame": 1773,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00054.jpg"
+    },
+    {
+      "frame": 1816,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00055.jpg"
+    },
+    {
+      "frame": 1850,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00056.jpg"
+    },
+    {
+      "frame": 1882,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00057.jpg"
+    },
+    {
+      "frame": 1930,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00058.jpg"
+    },
+    {
+      "frame": 1993,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00059.jpg"
+    },
+    {
+      "frame": 2038,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00060.jpg"
+    },
+    {
+      "frame": 2068,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00061.jpg"
+    },
+    {
+      "frame": 2096,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00062.jpg"
+    },
+    {
+      "frame": 2118,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00063.jpg"
+    },
+    {
+      "frame": 2147,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00064.jpg"
+    },
+    {
+      "frame": 2194,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00065.jpg"
+    },
+    {
+      "frame": 2248,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00066.jpg"
+    },
+    {
+      "frame": 2372,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00067.jpg"
+    },
+    {
+      "frame": 2512,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00068.jpg"
+    },
+    {
+      "frame": 2594,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00069.jpg"
+    },
+    {
+      "frame": 2724,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00070.jpg"
+    },
+    {
+      "frame": 2897,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00071.jpg"
+    },
+    {
+      "frame": 3077,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00072.jpg"
+    },
+    {
+      "frame": 3223,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00073.jpg"
+    },
+    {
+      "frame": 3312,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00074.jpg"
+    },
+    {
+      "frame": 3427,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00075.jpg"
+    },
+    {
+      "frame": 3538,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00076.jpg"
+    },
+    {
+      "frame": 3580,
+      "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00077.jpg"
+    }
+  ],
+  "created_at": "2026-07-02T06:55:00Z",
+  "updated_at": "2026-07-02T07:00:00Z"
+}

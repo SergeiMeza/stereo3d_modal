@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/**
+ * Stereo3D Studio — dark professional theme.
+ *
+ * A pro video tool lives on dark surfaces, so the app is dark-only: the
+ * shadcn/ui tokens below ARE the studio palette (no .dark variant). The
+ * legacy surface-* / edge / fg-* utilities used by earlier components are
+ * aliased onto the same tokens in @theme inline — one source of truth.
+ */
+:root {
+  --background: #09090b; /* page background            (was surface-0) */
+  --foreground: #e7e7ea; /*                            (was fg)        */
+  --card: #101013; /*       panels, nav, cards         (was surface-1) */
+  --card-foreground: #e7e7ea;
+  --popover: #202027; /*    tooltips, menus, dialogs colors            */
+  --popover-foreground: #e7e7ea;
+  --primary: #4f8cff; /*    the studio blue            (was accent)    */
+  --primary-foreground: #ffffff;
+  --secondary: #18181d; /*  inputs, chips, wells       (was surface-2) */
+  --secondary-foreground: #e7e7ea;
+  --muted: #18181d;
+  --muted-foreground: #8b8b93; /*                      (was fg-muted)  */
+  --accent: #1e1e24; /*     shadcn hover wash — NOT the studio blue    */
+  --accent-foreground: #e7e7ea;
+  --destructive: #f87171;
+  --border: #26262c;
+  --input: #26262c;
+  --ring: #4f8cff;
+  --chart-1: #4f8cff;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #a78bfa;
+  --radius: 0.625rem;
+  --sidebar: #101013;
+  --sidebar-foreground: #e7e7ea;
+  --sidebar-primary: #4f8cff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e1e24;
+  --sidebar-accent-foreground: #e7e7ea;
+  --sidebar-border: #26262c;
+  --sidebar-ring: #4f8cff;
+}
+
+@theme inline {
+  /* legacy aliases — earlier components use bg-surface-* / border-edge /
+   * text-fg*; they resolve to the same tokens as the shadcn utilities */
+  --color-surface-0: var(--background);
+  --color-surface-1: var(--card);
+  --color-surface-2: var(--secondary);
+  --color-edge: var(--border);
+  --color-fg: var(--foreground);
+  --color-fg-muted: var(--muted-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Keyboard-shortcut keycaps (used in tooltips, hints, the shortcuts sheet). */
+kbd {
+  display: inline-block;
+  min-width: 1.25rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 0.25rem;
+  background: var(--secondary);
+  padding: 0 0.3rem;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  line-height: 1.15rem;
+  text-align: center;
+  color: var(--foreground);
+}
