@@ -1,0 +1,199 @@
+# stereo3d gateway
+
+Production wrapper for the stereo3d Modal API — Go on Cloud Run. Owns client
+auth (Firebase), billing (Stripe auth-then-capture), signed storage URLs, job
+history, and support tooling. Architecture and rationale: [DESIGN.md](DESIGN.md).
+
+## Client flow
+
+```
+POST /v1/customers                    once per sign-in (ensures Stripe customer)
+POST /v1/uploads                      → signed PUT URL; app uploads source media
+POST /v1/conversions                  → quote + PaymentSheet params (hold, not charge)
+  (app confirms payment via PaymentSheet / Apple Pay)
+GET  /v1/conversions/{id}             poll state/progress (webhook+reconciler drive it server-side)
+GET  /v1/conversions/{id}/downloads   → signed GET URLs when state=succeeded
+DELETE /v1/conversions/{id}           cancel (releases hold)
+```
+
+The user is charged only when a conversion succeeds; failures and cancels
+release the hold automatically.
+
+## Pro step pipeline (web client)
+
+1 video = 1 project (web/DESIGN.md). All frame values are integer
+source-frame indices, half-open ranges — never seconds.
+
+```
+POST  /v1/projects                     create from an upload; free analyze job starts
+GET   /v1/projects[/{id}]              list / project detail (+conversion history);
+                                       ?archived=1 lists archived projects instead
+PATCH /v1/projects/{id}                project management {name?, pinned?, archived?};
+                                       archived:true cancels active runs, false restores
+PATCH /v1/projects/{id}/scenes         replace scene cuts {cuts, expect_version}
+POST  /v1/projects/{id}/quotes         price a step {step, preset, ...} — no commitment
+POST  /v1/projects/{id}/conversions    paid step conversion (depth_preview |
+                                       stereo_preview | production); same PI flow
+DELETE /v1/projects/{id}               archive + cancel active conversions
+```
+
+The analyze step is free; its cost (`analyze_credit_cents`) is applied as a
+discount on the project's first paid conversion and restored if that
+conversion ends without a capture. Production quotes check Modal's
+content-addressed reuse cache and discount by `stage_shares` for cached
+stages; `from_scratch: true` bypasses reuse (and its discount) entirely.
+
+### Step parameters
+
+Every pro step runs Modal's adaptive per-shot profiler (the gateway always
+sends `adaptive: true`); the knobs below shape it. Global `displacement` is
+rejected on pro steps — it remains a legacy `POST /v1/conversions` field.
+
+| param | steps | rails |
+|---|---|---|
+| `depth_res` | all | multiple of 14 in [140, 2520]; 0/absent = preset default. THE cost/quality knob of the Depth page — production reuses the depth artifact when depth_res + fps match the preview's. Prices the depth share by `clamp((depth_res/depth_res_base)², 0.5, 4)`. |
+| `depth_scale` | stereo_preview, production | [0.3, 1.5]; globally scales the profiler's depth script |
+| `inpaint` | stereo_preview (default `none`), production (default `propainter`) | `none` = splatted preview, `propainter` = inpainted (stereo_preview pays `inpaint_multiplier`) |
+| `scene_overrides` | stereo_preview, production | per-scene `{first, displacement?, shot_type?, placement?}`; `first` must be 0 or a CURRENT scene cut, strictly increasing; displacement (0, 0.03]; shot_type close_up\|standard\|dynamic\|wide; placement `[far, near]` (index 0 = far plane, index 1 = near/pop-out — matches splat semantics), −1.5 ≤ far < near ≤ 1.5; ≥ 1 key per entry |
+| `formats` | stereo_preview (default `["sbs"]`), production (default `["mvhevc","half_sbs"]`) | allowlist; depth_preview is fixed to `["anaglyph"]` (the UI centers the `depth_vis` output) |
+
+When a pro video conversion succeeds and its job metadata carries a
+`depth_script` with `first_src`/`last_src` entries, the gateway folds it into
+the project as `scene_profile` (served on GET /v1/projects/{id}): the
+profiler's measured per-shot `shot_type`/`displacement`/`placement` in
+SOURCE-frame space, which the web Stereo page seeds its per-scene editors
+from. Latest succeeded run wins; `scene_profile.scenes_version` says which
+scene-list version it was computed against (stale after a cut edit).
+
+## Support runbook
+
+A user ticket should quote a `conversion_id` (the app shows it on every
+error). With it:
+
+1. **Firestore** `conversions_{env}/{id}` — full record: params, source
+   probe, quote, state history timestamps, `error.internal_message` (full
+   Modal error, never sent to the client), `stripe.payment_intent_id`,
+   `modal.job_id`.
+2. **Stripe dashboard** — search the PaymentIntent (or by
+   `metadata.conversion_id`); metadata links back to conversion + user.
+3. **Modal** — `modal.job_id` for pipeline logs; the job record in the Modal
+   Dict keeps per-stage timings and cost.
+4. **Cloud Logging** — filter `jsonPayload.conversion_id="..."` for the
+   gateway's request trail.
+5. **Slack** — every failure and every failed capture/cancel (money needing
+   manual follow-up) is posted as it happens.
+
+Reading a pro-step ticket ("my production looks different / cost more than
+the preview"):
+
+- `params.depth_res` on the two conversions is the first thing to compare —
+  it is the depth quality knob AND a price multiplier. The quote's
+  `breakdown.depth_res_factor` shows exactly what it did to the price
+  (`clamp((depth_res/depth_res_base)², 0.5, 4)` on the depth share);
+  `breakdown.inpaint_multiplier` explains a stereo_preview priced above the
+  flat per-minute rate. If depth_res or target_fps differ between preview and
+  production, the depth artifact was NOT reused — expect both a different
+  look and no depth reuse discount.
+- `params.scene_overrides` + `scenes_version` on the conversion say which
+  per-scene tweaks ran, validated against which scene list. Compare with the
+  project's `scene_profile` (what the adaptive profiler measured on the last
+  succeeded run, and what the Stereo page seeded its sliders from). A
+  `scene_profile.scenes_version` older than `scenes.version` means the user
+  edited cuts after the profiled run.
+
+## Deployed environments
+
+Both live in GCP project `spatial-video-studio` (the Firebase project the
+mobile app and web client authenticate against), region `us-central1`:
+
+| env | Cloud Run service | Modal backend | Stripe mode |
+|---|---|---|---|
+| test | `stereo3d-gateway-test` | `stereo-crafter-test--stereo3d-api-test.modal.run` | test keys |
+| prod | `stereo3d-gateway-prod` | `spatial-video-studio--stereo3d-api-prod.modal.run` | live keys |
+
+Browser clients are admitted by the CORS middleware; `CORS_ORIGINS`
+(comma-separated origins, default `*`) narrows it once the web domains are
+final. Auth is bearer-token only (no cookies), so reflected origins carry no
+credential risk.
+
+## One-time setup (per project/env)
+
+```bash
+# Service account
+gcloud iam service-accounts create stereo3d-gateway-$ENV
+# roles: datastore.user; storage.objectAdmin (scope to the bucket);
+# secretmanager.secretAccessor; iam.serviceAccountTokenCreator on ITSELF
+# (required for V4 signed URLs under ADC).
+
+# Secrets (Secret Manager)
+#   stripe-secret-key-$ENV, stripe-webhook-secret-$ENV, stripe-publishable-key-$ENV
+#   modal-token-id, modal-token-secret        # modal token new --name gateway
+#   reconcile-token-$ENV                      # any random string
+#   slack-webhook                             # optional, shared with the Modal app
+
+# Deploy
+GCP_PROJECT_ID=... MODAL_WORKSPACE=stereo-crafter-test ./deploy.sh test
+
+# Stripe webhook (dashboard → Developers → Webhooks): <service-url>/webhooks/stripe
+#   events: payment_intent.amount_capturable_updated,
+#           payment_intent.canceled, payment_intent.payment_failed
+
+# Reconciler (Cloud Scheduler, every minute)
+gcloud scheduler jobs create http stereo3d-gateway-$ENV-reconcile \
+  --schedule='* * * * *' --http-method=POST \
+  --uri="<service-url>/internal/reconcile" \
+  --headers="X-Reconcile-Token=<reconcile-token-$ENV>"
+
+# Firestore composite indexes:
+#   conversions: (uid ASC, created_at DESC)        — GET /v1/conversions
+#   conversions: (project_id ASC, created_at DESC) — project conversion history
+#   projects:    (uid ASC, created_at DESC)        — GET /v1/projects
+gcloud firestore indexes composite create --collection-group=conversions_$ENV \
+  --field-config field-path=uid,order=ascending \
+  --field-config field-path=created_at,order=descending
+gcloud firestore indexes composite create --collection-group=conversions_$ENV \
+  --field-config field-path=project_id,order=ascending \
+  --field-config field-path=created_at,order=descending
+gcloud firestore indexes composite create --collection-group=projects_$ENV \
+  --field-config field-path=uid,order=ascending \
+  --field-config field-path=created_at,order=descending
+```
+
+The Modal deployment must have proxy auth enabled (see repo root: the
+`fastapi_app` endpoint sets `requires_proxy_auth=True`), and the
+`modal-token-*` secrets must hold a proxy-auth token from that workspace.
+
+## Pricing
+
+Rates load from Firestore `config/pricing_{env}` (60s cache; code defaults in
+`internal/pricing/pricing.go` if the doc is absent). Defaults anchor on the
+old app's ~$1/min at 1080p, scaled by preset GPU cost:
+
+| field | default |
+|---|---|
+| `cents_per_minute` | draft 25 · 1080p 100 · qhd 150 · 3k 200 · 4k 300 |
+| `image_cents` | 50 |
+| `minimum_cents` | 50 |
+| `discount_threshold_cents` / `discount_pct` | 1000 / 0.10 |
+| `depth_preview_cents_per_minute` / `stereo_preview_cents_per_minute` | 10 / 25 |
+| `analyze_credit_cents` | 50 |
+| `stage_shares` | depth 0.35 · preprocess 0.05 |
+| `depth_res_base` | 980 (the depth_res that prices at 1×) |
+| `inpaint_multiplier` | 1.6 (stereo_preview with inpaint=propainter) |
+| `max_duration_s` | 1800 |
+| `max_source_bytes` | 8 GiB |
+| `max_active_per_user` | 3 |
+
+Edit the Firestore doc to change prices or caps — no deploy needed. Bump
+`rate_version` when you do; every quote records the version it was priced
+under.
+
+## Development
+
+```bash
+go build ./... && go test ./...
+```
+
+There is no local emulator wiring; test against the `test` env (its Modal
+workspace, Firestore collections `*_test`, and Stripe test keys are all
+isolated from prod).

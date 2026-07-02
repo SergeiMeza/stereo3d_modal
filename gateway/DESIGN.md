@@ -1,0 +1,223 @@
+# Gateway — production wrapper for the stereo3d Modal API
+
+Single Go service on Cloud Run that sits between the Spatial Photo Studio app
+and the Modal API. It owns client auth, Stripe billing, signed storage URLs,
+job proxying/history, and support tooling. The Modal API itself is private
+(Modal proxy-auth; only the gateway holds the token).
+
+Replaces, with no backward compatibility (old system is retired):
+- direct app → Modal calls (`/images_process`, `/video_process_v2`, …)
+- the payments Cloud Run service (`spatial-video-studio-payments-app`)
+- the storage Cloud Run service (`spatial-video-studio-storage-app`)
+
+## Design goals
+
+1. **Reliability** — jobs and money settle server-side. A user closing the app
+   mid-job must never lose money or a result.
+2. **Supportability** — one `conversion_id` traces a ticket end-to-end:
+   Firestore record ↔ Stripe PaymentIntent ↔ Modal job ↔ Cloud Logging.
+3. **Containment** — the Modal API's ~40-parameter research surface is not
+   exposed; the gateway forwards a clamped, whitelisted subset.
+
+## Billing model: auth-then-capture
+
+One Stripe PaymentIntent per conversion, `capture_method: manual`:
+
+- **Quote** — price computed server-side from ffprobe'd media (never from
+  client-supplied numbers). Rates live in Firestore `config/pricing`.
+- **Hold** — PaymentIntent created at submission with
+  `metadata: {conversion_id, user_id, env}`; app confirms via Apple Pay /
+  PaymentSheet. Funds authorized, not captured.
+- **Capture on success** — full quoted amount, after outputs are published.
+- **Cancel on failure/cancel/expiry** — hold released, user never charged.
+  No refund handling, no "charged for a failed job" tickets.
+
+Stripe holds are valid ~7 days; jobs run minutes-to-hours. A reconciler
+sweep cancels holds for conversions stuck > 24 h as a safety net.
+
+## Conversion state machine
+
+```
+created ──payment confirmed (webhook)──▶ paid ──submitted to Modal──▶ processing
+   │                                      │                             │
+   │ (hold fails/expires)                 │ (Modal submit fails         ├──▶ succeeded → capture PI
+   ▼                                      ▼   after retries)            ├──▶ failed    → cancel PI
+ expired                                failed → cancel PI              └──▶ canceled  → cancel PI + DELETE Modal job
+```
+
+State only advances via the gateway (webhook, reconciler, or user cancel) —
+the client is a pure observer. Transitions are idempotent: every mutation
+checks current state first, and Stripe capture/cancel calls are themselves
+idempotent per PaymentIntent.
+
+## HTTP surface
+
+Client-facing (Firebase ID token in `Authorization: Bearer`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/v1/customers` | Ensure Stripe customer for the Firebase user (on sign-in) |
+| POST | `/v1/uploads` | Signed GCS PUT URL for source media |
+| POST | `/v1/quotes` | Probe uploaded media, return price quote (also returned by create) |
+| POST | `/v1/conversions` | Create conversion: probe → quote → PaymentIntent (manual capture) → Firestore record. Returns payment sheet params. Idempotent via `Idempotency-Key` header. |
+| GET | `/v1/conversions` | List caller's conversions (job history UI + support) |
+| GET | `/v1/conversions/{id}` | Status: state, progress, stage, quote, outputs |
+| GET | `/v1/conversions/{id}/downloads` | Signed GCS GET URLs for outputs |
+| DELETE | `/v1/conversions/{id}` | Cancel: cancels Modal job + releases hold |
+| GET | `/health` | Liveness |
+
+Machine-facing:
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/webhooks/stripe` | Stripe signature | `payment_intent.amount_capturable_updated` → submit to Modal; `payment_intent.canceled` / `payment_failed` → mark expired |
+| POST | `/internal/reconcile` | Cloud Scheduler OIDC | Poll Modal for active conversions, settle terminal states, expire stale holds |
+
+Request params accepted on `/v1/conversions` (everything else is server-set):
+`kind` (video|image), `source_path` (from `/v1/uploads`), `preset`
+(draft|1080p|qhd|3k|4k), `formats` (whitelist incl. mvhevc), `displacement`
+(clamped (0, 0.03]), `target_fps`, `from_sec`/`to_sec`, `app_version`,
+`platform`. The gateway sets `notify`, never forwards reuse/fan-out knobs,
+and clamps everything server-side. (`adaptive` is set BY the gateway for pro
+steps — see below — never taken from the client.)
+
+## Pro pipeline: per-scene model, adaptive by default
+
+The web workspace edits a video as a list of scenes (source-frame cuts,
+versioned on the project). Two decisions shape the step params:
+
+- **Adaptive is the product default, not a knob.** Every pro step
+  (depth_preview | stereo_preview | production) is submitted with
+  `adaptive: true`: Modal's per-shot profiler picks displacement / shot type
+  / placement per scene, and the user CORRECTS it rather than configuring
+  stereo from scratch. The correction surface is `scene_overrides`
+  (per-scene `displacement` / `shot_type` / `placement`, keyed by the
+  scene's first source frame) plus a global `depth_scale`; the legacy
+  single global `displacement` is rejected on pro steps. Override firsts are
+  validated against the project's CURRENT cuts and the conversion records
+  `scenes_version`, so a cut edit invalidates nothing silently.
+- **The profiler's output is fed back.** On every succeeded pro video
+  conversion the gateway folds the job's `depth_script` (entries carry
+  `first_src`/`last_src` in source-frame space; extra research keys are
+  ignored, entries without src-frame bounds are skipped) into
+  `project.scene_profile`. That is what the Stereo page seeds its per-scene
+  editors from — the user always edits relative to what the pipeline
+  actually measured, and support can diff "profiled" vs "overridden".
+
+The Depth page owns `depth_res` (multiple of 14, [140, 2520]) — the depth
+map's inference resolution, THE quality/cost knob. depth_preview accepts it
+so the user locks the FINAL resolution while previewing (the job's
+`depth_vis` output is the browser-playable depth video); production then
+reuses the cached depth artifact when depth_res + fps match. Pricing scales
+the depth share of a step by `clamp((depth_res/depth_res_base)², 0.5, 4)` —
+quadratic because depth inference cost is ~res². Stereo previews choose
+splatted (`inpaint: none`, default) or inpainted (`propainter`, priced by
+`inpaint_multiplier`); production defaults to `propainter`, already priced
+into its per-preset rates.
+
+## Data model (Firestore)
+
+`customers/{uid}`: `stripe_customer_id`, `email`, `created_at`.
+
+`conversions/{id}` (id = 12-hex, generated by gateway, used everywhere):
+
+```
+uid, env, state, kind, created_at, updated_at
+client:  {app_version, platform}
+source:  {gcs_key, bytes, duration_s, frames, fps, width, height}   # from ffprobe
+params:  {preset, formats, displacement, target_fps, from_frame, to_frame,   # as forwarded
+          inpaint, depth_res, depth_scale, scene_cuts, scene_overrides, skip_reuse}
+quote:   {amount_cents, currency, rate_version, breakdown}
+stripe:  {customer_id, payment_intent_id, pi_status, captured_cents, capture_at, canceled_at}
+modal:   {job_id, submitted_at, last_polled_at, progress, stage, eta_seconds,
+          cost_usd, timings_summary}
+outputs: {name → gcs_key}
+error:   {code, user_message, internal_message}     # internal never sent to client
+```
+
+Support flow for a ticket: user quotes `conversion_id` → Firestore doc has
+params/timings/error → `stripe.payment_intent_id` links the charge (and the
+PI's metadata links back) → `modal.job_id` finds pipeline logs → Cloud
+Logging is filterable by `conversion_id` (structured field on every log line).
+Slack gets a notification on every failure (conversion_id, uid, error) before
+the user writes in.
+
+`config/pricing` (per-env doc, hot-reloaded with a TTL cache; code defaults
+if missing): `rate_version`, `currency`, per-preset `cents_per_minute`,
+`image_cents`, `minimum_cents`, `discount_threshold_cents`, `discount_pct`,
+`max_duration_s`, `max_source_bytes`, `max_active_per_user`.
+
+## Storage
+
+Bucket `spatial-video-studio-app`, env prefix `stereo3d/{test|prod}/` (same
+convention as the Modal app; prod isolated).
+
+- Uploads: `stereo3d/{env}/users/{uid}/{conversion_id}/source.{ext}` via
+  V4 signed PUT URL (15 min, content-length capped).
+- Modal outputs land under `stereo3d/{env}/outputs/{job_id}/`; the gateway
+  translates to V4 signed GET URLs (24 h) on demand. Clients never receive
+  raw `storage.googleapis.com` public URLs.
+- Signing uses the Cloud Run service account via IAM SignBlob (needs
+  `roles/iam.serviceAccountTokenCreator` on itself).
+
+## Modal client
+
+Base URL `https://{workspace}--stereo3d-api-{env}.modal.run` from config.
+Endpoints used: `POST /v1/videos`, `POST /v1/images`, `GET/DELETE
+/v1/jobs/{job_id}`. Every request carries `Modal-Key` / `Modal-Secret`
+(proxy-auth token from Secret Manager) — the corresponding change on the
+Modal side is `requires_proxy_auth=True` on the web endpoint. Timeouts 30 s,
+one retry on 5xx/network for idempotent calls; submit is guarded by the state
+machine rather than blind retries (a conversion in `paid` with no
+`modal.job_id` is re-submitted by the reconciler).
+
+## Reconciler
+
+Cloud Scheduler → `POST /internal/reconcile` every 60 s (OIDC service
+account auth):
+
+1. Query conversions in `processing` → `GET /v1/jobs/{id}` → update
+   progress/stage; on `completed`: copy outputs map + cost, capture PI, state
+   `succeeded`; on `failed`: cancel PI, state `failed`, Slack notify.
+2. Query `paid` with no Modal job (webhook lost / submit crashed) → submit.
+3. Query `created` older than 24 h → cancel PI if present, state `expired`.
+
+`GET /v1/conversions/{id}` also does a read-through poll of Modal when the
+record is active and `last_polled_at` > 10 s old, so interactive polling
+stays fresh without waiting for the sweep.
+
+## Abuse containment
+
+- Firebase ID token verified on every request (anonymous accounts allowed,
+  same as the app's current sign-in flow).
+- Params whitelisted + clamped; unknown fields dropped.
+- `max_active_per_user` concurrent conversions; per-source duration/bytes
+  caps from pricing config (0-cost media rejected).
+- Modal errors logged in full, returned to clients as generic
+  `upstream_error` with the conversion_id for support.
+
+## Layout
+
+```
+gateway/
+├── cmd/gateway/main.go      # wiring, routes, middleware
+├── internal/
+│   ├── api/                 # handlers (conversions, uploads, webhooks, reconcile)
+│   ├── auth/                # Firebase ID token verification
+│   ├── config/              # env config
+│   ├── httpx/               # request-id middleware, error/success JSON envelope
+│   ├── modalapi/            # Modal API client (proxy-auth)
+│   ├── pricing/             # quote calculation + Firestore config cache
+│   ├── probe/               # ffprobe wrapper (signed-URL or GCS read)
+│   ├── store/               # Firestore models + queries + state transitions
+│   ├── stripex/             # Stripe client (customers, PI lifecycle, webhook verify)
+│   └── notify/              # Slack failure notifications
+├── Dockerfile               # distroless-ish + ffprobe
+├── deploy.sh                # Cloud Run deploy (test|prod) + scheduler job
+└── README.md
+```
+
+Config via env vars: `APP_ENV` (test|prod), `GCP_PROJECT_ID`, `BUCKET_NAME`,
+`MODAL_BASE_URL`, `MODAL_TOKEN_ID/SECRET` (Secret Manager),
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`,
+`SLACK_WEBHOOK_URL` (optional), `FIREBASE_PROJECT_ID`.
