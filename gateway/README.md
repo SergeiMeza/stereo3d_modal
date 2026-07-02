@@ -31,6 +31,10 @@ GET   /v1/projects[/{id}]              list / project detail (+conversion histor
 PATCH /v1/projects/{id}                project management {name?, pinned?, archived?};
                                        archived:true cancels active runs, false restores
 PATCH /v1/projects/{id}/scenes         replace scene cuts {cuts, expect_version}
+POST  /v1/projects/{id}/profile        FREE standalone shot profiling (adaptive
+                                       profiler over the analyze proxy + current
+                                       cuts) → folds into scene_profile; live
+                                       state on project.profile
 POST  /v1/projects/{id}/quotes         price a step {step, preset, ...} — no commitment
 POST  /v1/projects/{id}/conversions    paid step conversion (depth_preview |
                                        stereo_preview | production); same PI flow
@@ -54,7 +58,7 @@ rejected on pro steps — it remains a legacy `POST /v1/conversions` field.
 | `depth_res` | all | multiple of 14 in [140, 2520]; 0/absent = preset default. THE cost/quality knob of the Depth page — production reuses the depth artifact when depth_res + fps match the preview's. Prices the depth share by `clamp((depth_res/depth_res_base)², 0.5, 4)`. |
 | `depth_scale` | stereo_preview, production | [0.3, 1.5]; globally scales the profiler's depth script |
 | `inpaint` | stereo_preview (default `none`), production (default `propainter`) | `none` = splatted preview, `propainter` = inpainted (stereo_preview pays `inpaint_multiplier`) |
-| `scene_overrides` | stereo_preview, production | per-scene `{first, displacement?, shot_type?, placement?}`; `first` must be 0 or a CURRENT scene cut, strictly increasing; displacement (0, 0.03]; shot_type close_up\|standard\|dynamic\|wide; placement `[far, near]` (index 0 = far plane, index 1 = near/pop-out — matches splat semantics), −1.5 ≤ far < near ≤ 1.5; ≥ 1 key per entry |
+| `scene_overrides` | stereo_preview, production | per-scene `{first, displacement?, shot_type?, placement?, passthrough?}`; `first` must be 0 or a CURRENT scene cut, strictly increasing; displacement (0, 0.03]; shot_type close_up\|standard\|dynamic\|wide; placement `[far, near]` (index 0 = far plane, index 1 = near/pop-out — matches splat semantics), −1.5 ≤ far < near ≤ 1.5; `passthrough: true` ships the scene as 2D (both eyes = source, no warp/inpaint — end credits etc.) and is mutually exclusive with the other keys; ≥ 1 key per entry |
 | `formats` | stereo_preview (default `["sbs"]`), production (default `["mvhevc","half_sbs"]`) | allowlist; depth_preview is fixed to `["anaglyph"]` (the UI centers the `depth_vis` output) |
 
 When a pro video conversion succeeds and its job metadata carries a

@@ -290,3 +290,22 @@ func TestStampScenesVersion(t *testing.T) {
 		t.Errorf("want scenes_version 0 for unanalyzed project, got %d", conv.ScenesVer)
 	}
 }
+
+// --------------------------------------------------------------- passthrough
+
+func TestResolvePassthroughOverride(t *testing.T) {
+	p := resolveOK(t, &stepConvReq{Step: store.StepStereoPreview,
+		SceneOverrides: []sceneOverrideReq{{First: 240, Passthrough: true}}})
+	if len(p.SceneOverrides) != 1 || !p.SceneOverrides[0].Passthrough {
+		t.Errorf("passthrough override not carried: %+v", p.SceneOverrides)
+	}
+}
+
+func TestResolvePassthroughExclusiveWithDepthKnobs(t *testing.T) {
+	resolveErr(t, &stepConvReq{Step: store.StepStereoPreview,
+		SceneOverrides: []sceneOverrideReq{{First: 240, Passthrough: true, ShotType: "wide"}}},
+		"cannot be combined")
+	resolveErr(t, &stepConvReq{Step: store.StepStereoPreview,
+		SceneOverrides: []sceneOverrideReq{{First: 240, Passthrough: true, Displacement: 0.01}}},
+		"cannot be combined")
+}

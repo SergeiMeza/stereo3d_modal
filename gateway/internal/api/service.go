@@ -175,6 +175,9 @@ func encodeSceneOverrides(overrides []store.SceneOverride) []map[string]any {
 		if len(o.Placement) == 2 {
 			m["placement"] = o.Placement
 		}
+		if o.Passthrough {
+			m["passthrough"] = true
+		}
 		out = append(out, m)
 	}
 	return out
@@ -496,8 +499,81 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 	case "failed":
 		return s.failAnalyze(ctx, p, job.Error)
 	default:
+		// Still running — surface live progress to the caller (transient;
+		// see store.Analyze).
+		pp := *p
+		pp.Analyze.Progress = job.Progress
+		pp.Analyze.Stage = job.Stage
+		pp.Analyze.ETASeconds = job.ProgressDetail.ETASeconds
+		return &pp, nil
+	}
+}
+
+// refreshProfile polls the standalone shot-profiling job and folds its
+// depth script into project.scene_profile on completion. GET read-through
+// only (the Stereo page polls while the job runs).
+func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.Project, error) {
+	if p.Profile == nil || p.Profile.State != "running" || p.Profile.JobID == "" {
 		return p, nil
 	}
+	job, err := s.Modal.GetJob(ctx, p.Profile.JobID)
+	if err != nil {
+		var upstream *modalapi.UpstreamError
+		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
+			return s.failProfile(ctx, p, "job record lost upstream (404)")
+		}
+		slog.WarnContext(ctx, "profile poll failed", "project_id", p.ID, "err", err)
+		return p, nil
+	}
+	switch job.Status {
+	case "completed":
+		shots := profileShots(job.Metadata)
+		if len(shots) == 0 {
+			return s.failProfile(ctx, p, "profile job returned no usable shots")
+		}
+		now := time.Now().UTC()
+		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
+			if pp.Profile == nil || pp.Profile.State != "running" {
+				return nil // lost a race; the winner already folded
+			}
+			pp.Profile.State = "succeeded"
+			pp.Profile.UpdatedAt = now
+			pp.SceneProfile = &store.SceneProfile{
+				ConversionID:  "profile:" + pp.Profile.JobID,
+				ScenesVersion: pp.Profile.ScenesVersion,
+				Shots:         shots,
+				UpdatedAt:     now,
+			}
+			return nil
+		})
+		if uerr != nil {
+			return nil, uerr
+		}
+		slog.InfoContext(ctx, "profile succeeded", "project_id", p.ID, "shots", len(shots))
+		return updated, nil
+	case "failed":
+		return s.failProfile(ctx, p, job.Error)
+	default:
+		pp := *p
+		prof := *pp.Profile
+		prof.Progress = job.Progress
+		prof.Stage = job.Stage
+		pp.Profile = &prof
+		return &pp, nil
+	}
+}
+
+func (s *Service) failProfile(ctx context.Context, p *store.Project, internalErr string) (*store.Project, error) {
+	slog.ErrorContext(ctx, "profile failed", "project_id", p.ID, "uid", p.UID, "err", internalErr)
+	return s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
+		if pp.Profile == nil || pp.Profile.State != "running" {
+			return nil
+		}
+		pp.Profile.State = "failed"
+		pp.Profile.Error = "shot profiling failed — retry, or contact support with project ID " + p.ID
+		pp.Profile.UpdatedAt = time.Now().UTC()
+		return nil
+	})
 }
 
 func (s *Service) failAnalyze(ctx context.Context, p *store.Project, internalErr string) (*store.Project, error) {

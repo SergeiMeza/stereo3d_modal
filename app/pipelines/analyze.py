@@ -48,13 +48,19 @@ def _strip_indices(num_frames: int, count: int) -> list[int]:
 
 def _make_proxy(src: Path, dest: Path, short_side: int) -> None:
     """Frame-exact 1:1 proxy transcode (scale only — no fps/trim filters, so
-    proxy frame n IS source frame n)."""
+    proxy frame n IS source frame n). Audio rides along (AAC) when the source
+    has a track — review with sound in the web player; ``0:a:0?`` keeps
+    silent sources valid. faststart fronts the moov atom so playback starts
+    before the whole file arrives."""
     subprocess.run(
         [
             "ffmpeg", "-y", "-v", "error", "-i", str(src),
+            "-map", "0:v:0", "-map", "0:a:0?",
             "-vf", f"scale=-2:{short_side}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-            "-an", str(dest),
+            "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart",
+            str(dest),
         ],
         check=True,
     )
@@ -219,5 +225,93 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
 
     except Exception as exc:
         logger.exception(f"❌ analyze job {job_id} failed")
+        jobs.update_job(job_id, status=jobs.FAILED, error=str(exc))
+        raise
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    cpu=2,
+    memory=(2 * 1024, 8 * 1024),
+    timeout=1800,
+    nonpreemptible=True,
+)
+def process_profile_job(job_id: str, request: dict) -> dict:
+    """Standalone shot-profiling job (no paid conversion needed): run the
+    adaptive ShotProfiler over the ANALYZE PROXY and return the depth script
+    as metadata — the gateway folds it into project.scene_profile so the
+    per-scene stereo editors have measured defaults before the first render.
+
+    request: {"input_path": <frame-exact 1:1 proxy key>, "scene_cuts"?: [int],
+    "profiler"?: "da3-metric"|"depth-pro", "depth_scale"?: float,
+    "auto_comfort"?: bool, "comfort_budget"?: float}.
+
+    The proxy is 1:1 with the source (analyze pipeline invariant), so work
+    space == SOURCE space here: scene_cuts are used as boundaries directly
+    and the script's first_src/last_src are identities. Profiling reads
+    statistics (medians, near fractions) at input_size=518 — the 360p proxy
+    is plenty for that, and being h264 it always decodes."""
+    from app.common.debug import job_logger
+    from app.common.storage import bucket_path
+    from app.stages.media import probe_video
+    from app.stages.video_depth_models import ShotProfiler
+
+    jlog = job_logger(job_id)
+    try:
+        input_path = request["input_path"]
+        src = bucket_path(input_path)
+        if not src.exists():
+            raise FileNotFoundError(f"input video not found: {input_path}")
+
+        jobs.update_job(job_id, status=jobs.IN_PROGRESS, stage="profile_scenes", progress=0.05)
+        probe = probe_video(str(src))
+        num_frames = probe["num_frames"]
+
+        cuts = [int(c) for c in (request.get("scene_cuts") or [])]
+        if any(c <= 0 or c >= num_frames for c in cuts) or cuts != sorted(set(cuts)):
+            raise ValueError(f"scene_cuts must be strictly increasing in (0, {num_frames})")
+        starts = [0, *cuts]
+        scene_ranges = [
+            (s, e) for s, e in zip(starts, [*cuts, num_frames]) if e > s
+        ]
+
+        profiler = request.get("profiler", "da3-metric")
+        depth_scale = float(request.get("depth_scale", 1.0))
+        auto_comfort = bool(request.get("auto_comfort", True))
+        comfort_budget = float(request.get("comfort_budget", 0.02))
+        jlog.info(
+            f"🎛  profile-only: {len(scene_ranges)} shot(s) with {profiler} "
+            f"(depth_scale={depth_scale}, auto_comfort={auto_comfort})"
+        )
+        depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
+            job_id, str(src), scene_ranges, input_size=518,
+            auto_comfort=auto_comfort, comfort_budget=comfort_budget,
+            depth_scale=depth_scale,
+        )
+        from app.common.errors import check_worker_result
+
+        check_worker_result(depth_script, "profile_scenes")
+        # identity mapping: the proxy is 1:1 with the source (no trim, no
+        # decimation), so work-space spans ARE source-space spans
+        for shot in depth_script:
+            shot["first_src"] = int(shot["first"])
+            shot["last_src"] = int(shot["last"])
+
+        jobs.update_job(
+            job_id,
+            status=jobs.COMPLETED,
+            stage=None,
+            progress=1.0,
+            error=None,
+            depth_script=depth_script,
+            metadata={"probe": probe, "depth_script": depth_script},
+        )
+        jlog.info(f"🏁 profile completed: {len(depth_script)} shot(s)")
+        return {"job_id": job_id, "status": jobs.COMPLETED, "shots": len(depth_script)}
+
+    except Exception as exc:
+        logger.exception(f"❌ profile job {job_id} failed")
         jobs.update_job(job_id, status=jobs.FAILED, error=str(exc))
         raise

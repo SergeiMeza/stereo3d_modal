@@ -37,7 +37,7 @@ def _require(body: dict, key: str) -> object:
 # scene_overrides entry contract (POST /v1/videos). Frame doctrine
 # (web/DESIGN.md): "first" is a SOURCE-frame scene start — the user's exact
 # number, validated hard at submit time and never coerced downstream.
-_OVERRIDE_KEYS = ("first", "displacement", "shot_type", "placement")
+_OVERRIDE_KEYS = ("first", "displacement", "shot_type", "placement", "passthrough")
 
 
 def _validate_scene_overrides(overrides: object, scene_cuts: list | None) -> None:
@@ -77,11 +77,21 @@ def _validate_scene_overrides(overrides: object, scene_cuts: list | None) -> Non
                 f"scene_overrides[{i}].first={first} is not a scene start "
                 f"(must be 0 or one of scene_cuts)"
             )
-        if not any(k in ov for k in ("displacement", "shot_type", "placement")):
+        if not any(k in ov for k in ("displacement", "shot_type", "placement", "passthrough")):
             raise bad(
                 f"scene_overrides[{i}] must set at least one of "
-                f"displacement/shot_type/placement"
+                f"displacement/shot_type/placement/passthrough"
             )
+        if "passthrough" in ov:
+            if not isinstance(ov["passthrough"], bool):
+                raise bad(f"scene_overrides[{i}].passthrough must be a boolean")
+            # passthrough ships the scene as 2D — depth knobs on the same
+            # entry would silently do nothing, so reject the combination
+            if ov["passthrough"] and any(k in ov for k in ("displacement", "shot_type", "placement")):
+                raise bad(
+                    f"scene_overrides[{i}]: passthrough cannot be combined "
+                    f"with displacement/shot_type/placement"
+                )
         if "displacement" in ov:
             d = ov["displacement"]
             if isinstance(d, bool) or not isinstance(d, (int, float)) or not (0.0 < float(d) <= 0.1):
@@ -139,6 +149,35 @@ async def submit_analyze(body: dict) -> dict:
                 detail=f"strip_count must be an int in [10, {MAX_STRIP_COUNT}]",
             )
     return _submit("analyze", body, lambda job_id: process_analyze_job.spawn(job_id, body))
+
+
+@web_app.post("/v1/profile")
+async def submit_profile(body: dict) -> dict:
+    """Standalone shot-profiling job: run the adaptive ShotProfiler over a
+    frame-exact 1:1 proxy (the analyze job's preview) + the CURRENT scene
+    cuts, without a paid conversion. Result metadata carries a depth_script
+    whose first_src/last_src are identities (proxy is 1:1 with the source).
+    GPU-light: statistics at input_size=518 from a few keyframes per scene."""
+    from app.pipelines.analyze import process_profile_job
+
+    _require(body, "input_path")
+    cuts = body.get("scene_cuts")
+    if cuts is not None:
+        if (
+            not isinstance(cuts, list)
+            or any(isinstance(c, bool) or not isinstance(c, int) or c <= 0 for c in cuts)
+            or cuts != sorted(set(cuts))
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="scene_cuts must be strictly increasing positive ints",
+            )
+    profiler = body.get("profiler")
+    if profiler is not None and profiler not in ("da3-metric", "depth-pro"):
+        raise HTTPException(
+            status_code=422, detail="profiler must be da3-metric or depth-pro"
+        )
+    return _submit("profile", body, lambda job_id: process_profile_job.spawn(job_id, body))
 
 
 @web_app.post("/v1/videos")

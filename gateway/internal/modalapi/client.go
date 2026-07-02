@@ -82,6 +82,16 @@ func (c *Client) SubmitAnalyze(ctx context.Context, body map[string]any) (*Submi
 	return &out, nil
 }
 
+// SubmitProfile starts a standalone shot-profiling job (free: the adaptive
+// profiler over the analyze proxy + current cuts — no conversion).
+func (c *Client) SubmitProfile(ctx context.Context, body map[string]any) (*SubmitResponse, error) {
+	var out SubmitResponse
+	if err := c.do(ctx, http.MethodPost, "/v1/profile", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // AnalyzeMetadata is the metadata shape of a completed /v1/analyze job
 // (docs/API.md). All frame indices are source-frame space.
 type AnalyzeMetadata struct {

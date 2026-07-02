@@ -123,6 +123,41 @@ def _scene_param_lookup(
     return lookup
 
 
+def _passthrough_lookup(scene_params: list[dict]):
+    """``index -> bool`` predicate over shots flagged ``passthrough: true``
+    (ship as 2D: both eyes = untouched source — credits, logos, etc.).
+    Returns None when no shot is flagged so the hot loop skips the split
+    entirely."""
+    spans = [
+        (int(sp["first"]), int(sp["last"]))
+        for sp in scene_params
+        if sp.get("passthrough")
+    ]
+    if not spans:
+        return None
+
+    def at(index: int) -> bool:
+        return any(first <= index < last for first, last in spans)
+
+    return at
+
+
+def _split_passthrough_runs(start: int, end: int, pass_at) -> list[tuple[int, int, bool]]:
+    """Split [start, end) into maximal runs of constant passthrough-ness so
+    a batch straddling a passthrough boundary dispatches each side to the
+    right writer. Pure function."""
+    runs: list[tuple[int, int, bool]] = []
+    a = start
+    cur = pass_at(start)
+    for idx in range(start + 1, end):
+        v = pass_at(idx)
+        if v != cur:
+            runs.append((a, idx, cur))
+            a, cur = idx, v
+    runs.append((a, end, cur))
+    return runs
+
+
 @app.cls(
     gpu=VIDEO_STEREO_GPU,
     image=stereo_image,
@@ -264,9 +299,14 @@ class VideoStereoWorker:
 
             jlog = job_logger(job_id)
             params_at = None
+            pass_at = None
             if scene_params:
                 params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
                 jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
+                pass_at = _passthrough_lookup(scene_params)
+                if pass_at is not None:
+                    n = sum(1 for sp in scene_params if sp.get("passthrough"))
+                    jlog.info(f"⏩ passthrough shots: {n} (2D, no warp/inpaint)")
             pass_start = time.perf_counter()
             segments: list[Path] = []
 
@@ -289,17 +329,28 @@ class VideoStereoWorker:
                                 depths = depths[:, :1]
                             depths = to_source(depths)
 
-                            if inpaint == "none":
-                                self._write_raw_warp(
-                                    writer, frames, depths, displacement, stereo_mode,
-                                    frame_start=i, params_at=params_at,
-                                )
-                            else:
-                                self._write_inpainted(
-                                    writer, frames, depths, displacement,
-                                    to_work, to_source, stereo_mode,
-                                    frame_start=i, params_at=params_at,
-                                )
+                            runs = (
+                                _split_passthrough_runs(i, j, pass_at)
+                                if pass_at is not None
+                                else [(i, j, False)]
+                            )
+                            for a, b, is_pass in runs:
+                                sub_frames = frames[a - i : b - i]
+                                if is_pass:
+                                    self._write_passthrough(writer, sub_frames)
+                                    continue
+                                sub_depths = depths[a - i : b - i]
+                                if inpaint == "none":
+                                    self._write_raw_warp(
+                                        writer, sub_frames, sub_depths, displacement, stereo_mode,
+                                        frame_start=a, params_at=params_at,
+                                    )
+                                else:
+                                    self._write_inpainted(
+                                        writer, sub_frames, sub_depths, displacement,
+                                        to_work, to_source, stereo_mode,
+                                        frame_start=a, params_at=params_at,
+                                    )
 
                             del frames, depths
                             torch.cuda.empty_cache()
@@ -375,6 +426,16 @@ class VideoStereoWorker:
         )
 
     # ------------------------------------------------------------ modes
+
+    @staticmethod
+    def _write_passthrough(writer, frames) -> None:
+        """Passthrough shots ship as 2D: both eyes are the untouched source
+        frame — no depth read, no warp, no inpainting. Byte layout matches
+        the other writers (rgb24, width×2)."""
+        for k in range(frames.shape[0]):
+            frame = frames[k].unsqueeze(0)
+            sbs = torch.cat([frame, frame], dim=3)
+            writer.stdin.write(sbs.squeeze(0).permute(1, 2, 0).cpu().numpy().tobytes())
 
     def _write_raw_warp(
         self, writer, frames, depths, displacement, stereo_mode,

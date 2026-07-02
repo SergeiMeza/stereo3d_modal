@@ -118,9 +118,18 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 	}
 	out := make([]map[string]any, 0, len(projects))
 	for _, p := range projects {
-		if p.Archived == wantArchived {
-			out = append(out, s.projectResponse(p, nil))
+		if p.Archived != wantArchived {
+			continue
 		}
+		// Read-through poll for running analyzes so list polling (the
+		// Projects screen) sees live progress, not just the reconciler's
+		// 60s-stale state.
+		if p.Analyze.State == store.AnalyzeRunning {
+			if refreshed, rerr := s.refreshAnalyze(ctx, p); rerr == nil && refreshed != nil {
+				p = refreshed
+			}
+		}
+		out = append(out, s.projectResponse(p, nil))
 	}
 	httpx.WriteOK(w, map[string]any{"projects": out})
 }
@@ -189,6 +198,9 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 	if refreshed, rerr := s.refreshAnalyze(ctx, p); rerr == nil && refreshed != nil {
 		p = refreshed
 	}
+	if refreshed, rerr := s.refreshProfile(ctx, p); rerr == nil && refreshed != nil {
+		p = refreshed
+	}
 	convs, err := s.Store.ListProjectConversions(ctx, id, 100)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -247,6 +259,67 @@ func (s *Service) HandleArchiveProject(w http.ResponseWriter, r *http.Request, u
 	}
 	httpx.Log(ctx).Info("project archived", "project_id", id, "uid", user.UID)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
+}
+
+// POST /v1/projects/{id}/profile — start the FREE standalone shot-profiling
+// job: the adaptive profiler runs over the analyze proxy + CURRENT cuts and
+// its depth script folds into project.scene_profile, so the Stereo page has
+// measured per-scene defaults before the first paid render.
+func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
+	ctx := r.Context()
+	p, err := s.ownedProject(ctx, user, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if p.Analyze.State != store.AnalyzeSucceeded || p.Scenes == nil {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict("profiling needs a completed analysis"))
+		return
+	}
+	if p.PreviewURL == "" {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict("project has no preview proxy to profile"))
+		return
+	}
+	if p.Profile != nil && p.Profile.State == "running" {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict("a profiling job is already running"))
+		return
+	}
+	proxyKey, kerr := s.GCS.KeyFromPublicURL(p.PreviewURL)
+	if kerr != nil || !s.GCS.InPrefix(proxyKey) {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict("preview proxy is not addressable for profiling"))
+		return
+	}
+	cuts := p.Scenes.Cuts
+	if cuts == nil {
+		cuts = []int{}
+	}
+	resp, merr := s.Modal.SubmitProfile(ctx, map[string]any{
+		"input_path": proxyKey,
+		"scene_cuts": cuts,
+		"notify":     false,
+	})
+	if merr != nil {
+		httpx.Log(ctx).Error("profile submit failed", "project_id", id, "err", merr)
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
+			"profiling could not be started; try again"))
+		return
+	}
+	updated, uerr := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
+		pp.Profile = &store.ProfileJob{
+			JobID:         resp.JobID,
+			State:         "running",
+			ScenesVersion: pp.Scenes.Version,
+			UpdatedAt:     time.Now().UTC(),
+		}
+		return nil
+	})
+	if uerr != nil {
+		httpx.WriteErr(ctx, w, uerr)
+		return
+	}
+	httpx.Log(ctx).Info("profile started",
+		"project_id", id, "uid", user.UID, "profile_job_id", resp.JobID)
+	httpx.WriteOK(w, s.projectResponse(updated, nil))
 }
 
 // ------------------------------------------------------------- scene edits
@@ -326,6 +399,10 @@ type sceneOverrideReq struct {
 	Displacement float64   `json:"displacement"`
 	ShotType     string    `json:"shot_type"`
 	Placement    []float64 `json:"placement"`
+	// Passthrough ships the scene as 2D (both eyes = untouched source, no
+	// warp/inpaint) — end credits etc. Mutually exclusive with the depth
+	// knobs above.
+	Passthrough bool `json:"passthrough"`
 }
 
 var allowedShotTypes = []string{"close_up", "standard", "dynamic", "wide"}
@@ -491,9 +568,17 @@ func validateSceneOverrides(reqs []sceneOverrideReq, cuts []int) ([]store.SceneO
 			so.Placement = o.Placement
 			hasKey = true
 		}
+		if o.Passthrough {
+			if hasKey {
+				return nil, httpx.ErrInvalid(fmt.Sprintf(
+					"scene_overrides[%d]: passthrough cannot be combined with displacement, shot_type, or placement", i))
+			}
+			so.Passthrough = true
+			hasKey = true
+		}
 		if !hasKey {
 			return nil, httpx.ErrInvalid(fmt.Sprintf(
-				"scene_overrides[%d] has no override keys: need at least one of displacement, shot_type, placement", i))
+				"scene_overrides[%d] has no override keys: need at least one of displacement, shot_type, placement, passthrough", i))
 		}
 		out = append(out, so)
 	}
@@ -596,12 +681,18 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, qerr)
 		return
 	}
-	httpx.WriteOK(w, map[string]any{
+	resp := map[string]any{
 		"step":         req.Step,
 		"params":       params,
 		"quote":        quote,
 		"reuse_stages": reuseStages,
-	})
+	}
+	// Pre-run wall-clock estimate for the same knobs the quote priced.
+	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
+		resp["eta_seconds"] = s.Pricing.EstimateStepETA(ctx,
+			req.Step, params.Preset, billable, params.DepthRes, params.Inpaint, reuseStages)
+	}
+	httpx.WriteOK(w, resp)
 }
 
 // POST /v1/projects/{id}/conversions — create a paid step conversion.
@@ -711,17 +802,29 @@ func (s *Service) ownedProject(ctx context.Context, user *AuthedUser, id string)
 	return p, nil
 }
 
+func analyzeResponse(a *store.Analyze) map[string]any {
+	resp := map[string]any{
+		"state":            a.State,
+		"error":            a.Error,
+		"credit_cents":     a.CreditCents,
+		"credit_available": a.State == store.AnalyzeSucceeded && a.CreditConsumedBy == "",
+	}
+	if a.State == store.AnalyzeRunning {
+		resp["progress"] = a.Progress
+		resp["stage"] = a.Stage
+		if a.ETASeconds > 0 {
+			resp["eta_seconds"] = a.ETASeconds
+		}
+	}
+	return resp
+}
+
 func (s *Service) projectResponse(p *store.Project, conversions []map[string]any) map[string]any {
 	resp := map[string]any{
 		"project_id":   p.ID,
 		"name":         p.Name,
 		"source_bytes": p.Source.Bytes,
-		"analyze": map[string]any{
-			"state":            p.Analyze.State,
-			"error":            p.Analyze.Error,
-			"credit_cents":     p.Analyze.CreditCents,
-			"credit_available": p.Analyze.State == store.AnalyzeSucceeded && p.Analyze.CreditConsumedBy == "",
-		},
+		"analyze": analyzeResponse(&p.Analyze),
 		"archived":   p.Archived,
 		"pinned":     p.Pinned,
 		"created_at": p.CreatedAt.Format(time.RFC3339),
@@ -735,6 +838,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	}
 	if p.SceneProfile != nil {
 		resp["scene_profile"] = p.SceneProfile
+	}
+	if p.Profile != nil {
+		resp["profile"] = p.Profile
 	}
 	if p.Crop != "" {
 		resp["crop"] = p.Crop

@@ -1130,6 +1130,23 @@ def _apply_scene_overrides(script: list, resolved: dict, depth_scale: float, jlo
         ov = resolved.get(int(entry["first"]))
         if ov is None:
             continue
+        if "passthrough" in ov and not ov["passthrough"]:
+            # explicit false = no override; don't let it reach the generic
+            # tail below (which would drop the shot's keyframes ramp)
+            ov = {k: v for k, v in ov.items() if k != "passthrough"}
+            if not ov:
+                continue
+        if ov.get("passthrough"):
+            # ship this shot as 2D (both eyes = source): the stereo stage
+            # skips warp/inpaint for it. Depth knobs are meaningless here;
+            # validation upstream already rejects the combination.
+            entry["passthrough"] = True
+            entry.pop("keyframes", None)
+            entry["override"] = dict(ov)
+            jlog.info(
+                f"⏩ passthrough override on shot [{entry['first']}, {entry['last']})"
+            )
+            continue
         if "shot_type" in ov:
             params = SHOT_PARAMS[ov["shot_type"]]
             entry["shot_type"] = ov["shot_type"]

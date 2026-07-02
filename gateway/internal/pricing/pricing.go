@@ -50,6 +50,16 @@ type Rates struct {
 	MaxDurationS     float64 `firestore:"max_duration_s"`
 	MaxSourceBytes   int64   `firestore:"max_source_bytes"`
 	MaxActivePerUser int     `firestore:"max_active_per_user"`
+
+	// Pre-run wall-clock estimate model (shown next to quotes; the live
+	// number always comes from the running Modal job). eta = base +
+	// factor × billable seconds, with the depth share scaled by the same
+	// depth_res factor as pricing, the inpaint multiplier applied on
+	// stereo_preview, and reused stage shares subtracted. Production
+	// factors are keyed "production_<preset>" with a "production"
+	// fallback.
+	EtaBaseSeconds map[string]float64 `firestore:"eta_base_seconds"`
+	EtaFactor      map[string]float64 `firestore:"eta_factor"`
 }
 
 func defaults() *Rates {
@@ -72,7 +82,63 @@ func defaults() *Rates {
 		MaxDurationS:                30 * 60,
 		MaxSourceBytes:              8 << 30,
 		MaxActivePerUser:            3,
+		// Rough anchors from observed test-env runs; tune in Firestore as
+		// real timings accumulate.
+		EtaBaseSeconds: map[string]float64{
+			"depth_preview": 60, "stereo_preview": 90, "production": 120,
+		},
+		EtaFactor: map[string]float64{
+			"depth_preview":    1.5,
+			"stereo_preview":   2.5,
+			"production_draft": 3.0, "production_1080p": 4.0,
+			"production_qhd": 5.0, "production_3k": 6.5, "production_4k": 8.0,
+			"production": 4.0,
+		},
 	}
+}
+
+// EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
+// Same shape-knobs as QuoteStep so the estimate tracks what the user picked;
+// deliberately coarse — the running job reports the live ETA.
+func (s *Service) EstimateStepETA(ctx context.Context, step, preset string, billableS float64,
+	depthRes int, inpaint string, reuseStages []string) int64 {
+	rates := s.Rates(ctx)
+	key := step
+	if step == "production" {
+		if _, ok := rates.EtaFactor["production_"+preset]; ok {
+			key = "production_" + preset
+		}
+	}
+	factor := rates.EtaFactor[key]
+	if factor <= 0 {
+		factor = 4.0
+	}
+	eta := rates.EtaBaseSeconds[step] + factor*billableS
+
+	if depthRes > 0 {
+		base := rates.DepthResBase
+		if base <= 0 {
+			base = 980
+		}
+		depthResFactor := math.Min(4.0, math.Max(0.5, math.Pow(float64(depthRes)/base, 2)))
+		depthShare := 1.0
+		if step != "depth_preview" {
+			depthShare = rates.StageShares["depth"]
+		}
+		eta *= 1 + depthShare*(depthResFactor-1)
+	}
+	if step == "stereo_preview" && inpaint == "propainter" && rates.InpaintMultiplier > 0 {
+		eta *= rates.InpaintMultiplier
+	}
+	reusedShare := 0.0
+	for _, stage := range reuseStages {
+		reusedShare += rates.StageShares[stage]
+	}
+	if reusedShare > 0.9 {
+		reusedShare = 0.9
+	}
+	eta *= 1 - reusedShare
+	return int64(math.Round(eta))
 }
 
 type Quote struct {

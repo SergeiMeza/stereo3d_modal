@@ -88,6 +88,9 @@ type SceneOverride struct {
 	Displacement float64   `firestore:"displacement,omitempty" json:"displacement,omitempty"`
 	ShotType     string    `firestore:"shot_type,omitempty" json:"shot_type,omitempty"`
 	Placement    []float64 `firestore:"placement,omitempty" json:"placement,omitempty"`
+	// Passthrough ships the scene as 2D (both eyes = source; no warp or
+	// inpaint). Mutually exclusive with the knobs above.
+	Passthrough bool `firestore:"passthrough,omitempty" json:"passthrough,omitempty"`
 }
 
 // Conversion steps (pro pipeline; "" for plain mobile conversions).
@@ -185,11 +188,34 @@ type Analyze struct {
 	State   string  `firestore:"state" json:"state"`
 	Error   string  `firestore:"error,omitempty" json:"error,omitempty"`
 	CostUSD float64 `firestore:"cost_usd,omitempty" json:"-"`
+	// Transient live-progress fields (state=running only): filled from the
+	// Modal job on each read-through poll, never persisted — Firestore would
+	// otherwise take a write per client poll.
+	Progress   float64 `firestore:"-" json:"progress,omitempty"`
+	Stage      string  `firestore:"-" json:"stage,omitempty"`
+	ETASeconds int64   `firestore:"-" json:"eta_seconds,omitempty"`
 	// CreditCents is granted on analyze success and consumed (as a discount)
 	// by the project's first paid conversion; restored if that conversion
 	// ends without capture.
 	CreditCents      int64  `firestore:"credit_cents" json:"credit_cents"`
 	CreditConsumedBy string `firestore:"credit_consumed_by,omitempty" json:"-"`
+}
+
+// ProfileJob tracks the FREE standalone shot-profiling job (the Stereo
+// page's "Profile shots" action): the adaptive profiler runs over the
+// analyze proxy + current cuts and folds its depth script into SceneProfile
+// — measured per-scene defaults without paying for a conversion.
+type ProfileJob struct {
+	JobID string `firestore:"job_id" json:"-"`
+	State string `firestore:"state" json:"state"` // running | succeeded | failed
+	// ScenesVersion the job was submitted against (staleness detection,
+	// same doctrine as SceneProfile.ScenesVersion).
+	ScenesVersion int    `firestore:"scenes_version" json:"scenes_version"`
+	Error         string `firestore:"error,omitempty" json:"error,omitempty"`
+	// Transient live-progress fields (state=running only) — see Analyze.
+	Progress  float64   `firestore:"-" json:"progress,omitempty"`
+	Stage     string    `firestore:"-" json:"stage,omitempty"`
+	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
 }
 
 // Scenes is the user-editable cut list. Cuts are SOURCE-frame indices (each
@@ -240,6 +266,7 @@ type Project struct {
 	Analyze      Analyze       `firestore:"analyze" json:"analyze"`
 	Scenes       *Scenes       `firestore:"scenes,omitempty" json:"scenes,omitempty"`
 	SceneProfile *SceneProfile `firestore:"scene_profile,omitempty" json:"scene_profile,omitempty"`
+	Profile      *ProfileJob   `firestore:"profile,omitempty" json:"profile,omitempty"`
 	Crop         string        `firestore:"crop,omitempty" json:"crop,omitempty"`
 	PreviewURL   string        `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
 	StripThumbs  []Thumb       `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`

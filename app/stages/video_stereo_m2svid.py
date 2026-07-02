@@ -226,9 +226,16 @@ class M2SVidStereoWorker:
 
             jlog = job_logger(job_id)
             params_at = None
+            pass_at = None
             if scene_params:
                 params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
                 jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
+                from app.stages.video_stereo import _passthrough_lookup
+
+                pass_at = _passthrough_lookup(scene_params)
+                if pass_at is not None:
+                    n = sum(1 for sp in scene_params if sp.get("passthrough"))
+                    jlog.info(f"⏩ passthrough shots: {n} (2D, no warp/inpaint)")
             pass_start = time.perf_counter()
             segments: list[Path] = []
 
@@ -251,11 +258,30 @@ class M2SVidStereoWorker:
                                 depths = depths[:, :1]
                             depths = to_source(depths)
 
-                            self._write_inpainted(
-                                writer, stereo_mode, frames, depths, displacement,
-                                to_work, to_work_mask, to_source, float(meta.average_fps),
-                                frame_start=i, params_at=params_at,
+                            from app.stages.video_stereo import _split_passthrough_runs
+
+                            runs = (
+                                _split_passthrough_runs(i, j, pass_at)
+                                if pass_at is not None
+                                else [(i, j, False)]
                             )
+                            for a, b, is_pass in runs:
+                                sub_frames = frames[a - i : b - i]
+                                if is_pass:
+                                    # 2D passthrough: both eyes = source frame
+                                    for k in range(sub_frames.shape[0]):
+                                        frame = sub_frames[k].unsqueeze(0)
+                                        sbs = torch.cat([frame, frame], dim=3)
+                                        writer.stdin.write(
+                                            sbs.squeeze(0).permute(1, 2, 0).cpu().numpy().tobytes()
+                                        )
+                                    continue
+                                self._write_inpainted(
+                                    writer, stereo_mode, sub_frames, depths[a - i : b - i],
+                                    displacement,
+                                    to_work, to_work_mask, to_source, float(meta.average_fps),
+                                    frame_start=a, params_at=params_at,
+                                )
 
                             del frames, depths
                             torch.cuda.empty_cache()
