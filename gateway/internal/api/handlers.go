@@ -29,24 +29,21 @@ const maxDisplacement = 0.03
 
 // ------------------------------------------------------------- customers
 
-// POST /v1/customers — ensure a Stripe customer exists for the caller.
-func (s *Service) HandleEnsureCustomer(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
-	ctx := r.Context()
+// ensureCustomerID returns the caller's Stripe customer id, creating the
+// customer (and the uid → customer mapping) on first use.
+func (s *Service) ensureCustomerID(ctx context.Context, user *AuthedUser) (string, error) {
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
 	if err == nil {
-		httpx.WriteOK(w, map[string]string{"customer_id": cust.StripeCustomerID})
-		return
+		return cust.StripeCustomerID, nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		// A transient read error must NOT mint a new Stripe customer — that
 		// would overwrite the mapping and orphan saved payment methods.
-		httpx.WriteErr(ctx, w, err)
-		return
+		return "", err
 	}
 	id, err := s.Stripe.EnsureCustomer(user.UID, user.Email)
 	if err != nil {
-		httpx.WriteErr(ctx, w, err)
-		return
+		return "", err
 	}
 	err = s.Store.PutCustomer(ctx, user.UID, &store.Customer{
 		StripeCustomerID: id, Email: user.Email, CreatedAt: time.Now().UTC(),
@@ -54,15 +51,55 @@ func (s *Service) HandleEnsureCustomer(w http.ResponseWriter, r *http.Request, u
 	if errors.Is(err, store.ErrAlreadyExists) {
 		// Lost a concurrent race — the other request's customer wins.
 		if cust, gerr := s.Store.GetCustomer(ctx, user.UID); gerr == nil {
-			httpx.WriteOK(w, map[string]string{"customer_id": cust.StripeCustomerID})
-			return
+			return cust.StripeCustomerID, nil
 		}
 	}
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// POST /v1/customers — ensure a Stripe customer exists for the caller.
+func (s *Service) HandleEnsureCustomer(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	id, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	httpx.WriteOK(w, map[string]string{"customer_id": id})
+}
+
+// POST /v1/billing/portal — a Stripe customer-portal session so the user
+// can manage saved payment methods and receipts (the /account page's
+// "Manage billing" button). Ensures the billing profile first, so it works
+// for accounts that predate the ensure-at-sign-in client flow.
+func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	var req struct {
+		ReturnURL string `json:"return_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	if !strings.HasPrefix(req.ReturnURL, "https://") && !strings.HasPrefix(req.ReturnURL, "http://") {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("return_url must be an absolute http(s) URL"))
+		return
+	}
+	id, err := s.ensureCustomerID(ctx, user)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	url, err := s.Stripe.BillingPortalURL(id, req.ReturnURL)
+	if err != nil {
+		httpx.Log(ctx).Error("billing portal session failed", "uid", user.UID, "err", err)
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "could not open the billing portal; try again"))
+		return
+	}
+	httpx.WriteOK(w, map[string]string{"url": url})
 }
 
 // ------------------------------------------------------------- uploads

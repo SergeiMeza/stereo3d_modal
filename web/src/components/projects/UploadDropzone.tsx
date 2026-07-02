@@ -66,6 +66,10 @@ export function UploadDropzone() {
       await gateway.uploadFile(ticket, file, setProgress);
       setProgress(1);
       setPhase("creating");
+      // The billing profile must exist before any paid conversion; ensure
+      // it (idempotent) before the project so the sign-in-time ensure has a
+      // guaranteed backstop.
+      await gateway.ensureCustomer();
       const project = await gateway.createProject({
         gcs_key: ticket.gcs_key,
         name: stem(file.name),

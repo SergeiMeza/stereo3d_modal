@@ -193,6 +193,33 @@ describe("ProjectsScreen upload", () => {
     expect(uploadSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("ensures the billing profile (POST /v1/customers) before creating the project", async () => {
+    mockDb.billingProfile = false;
+    stubUploadFile();
+    const order: string[] = [];
+    server.events.on("request:start", ({ request }) => {
+      const path = new URL(request.url).pathname;
+      if (
+        request.method === "POST" &&
+        (path === "/v1/customers" || path === "/v1/projects")
+      ) {
+        order.push(path);
+      }
+    });
+    renderScreen();
+    await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
+
+    const input = screen.getByLabelText("Upload video");
+    await userEvent.upload(
+      input,
+      new File(["mock-bytes"], "beach_day.mp4", { type: "video/mp4" }),
+    );
+
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(["/v1/customers", "/v1/projects"]);
+    expect(mockDb.billingProfile).toBe(true);
+  });
+
   it("rejects files that are not .mp4/.mov/.m4v", async () => {
     renderScreen();
     await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
