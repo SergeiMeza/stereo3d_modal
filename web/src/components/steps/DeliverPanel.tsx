@@ -3,12 +3,19 @@
 /**
  * Deliver page (step production) — the final full-quality run.
  *
+ * Layout mirrors the other pro pages (the shared StepReview): the
+ * frame-exact source preview with the latest production output BESIDE it as
+ * a follower of the same transport, and the timeline — review the final
+ * deliverable against the source, scene by scene, with one set of controls.
+ *
  * Production sends THE SAME depth_res / scene_overrides / depth_scale the
  * user set on the Depth and Stereo pages: depth_res from the last succeeded
  * depth run, per-scene tweaks from the shared stereo draft store
  * (localStorage). Summary chips make that inheritance explicit FIRST, each
- * with a "use pipeline default" escape. Compatible artifacts are reused
- * automatically — the quote's reuse_stages/discount lines show it.
+ * with a "use pipeline default" escape. Presets and formats are the SAME
+ * set the Stereo page previews (shared outputOptions). Compatible artifacts
+ * are reused automatically — the quote's reuse_stages/discount lines show
+ * it.
  *
  * There is NO displacement slider anywhere on the pro steps: per-scene
  * strength is scene_overrides[].displacement, the global multiplier is
@@ -20,6 +27,7 @@ import type { JSX, ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import type {
+  Conversion,
   Format,
   Inpaint,
   Preset,
@@ -29,27 +37,11 @@ import type {
 import { fpsOptions, parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
+import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptions";
 import { PriorRuns } from "./PriorRuns";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
+import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
-
-const PRESETS: readonly Preset[] = ["1080p", "qhd", "3k", "4k"];
-
-/** Output formats sold in the UI. The API still accepts tb/half_tb, but the
- * product no longer offers them — do not add them back here. */
-const FORMATS = [
-  "sbs",
-  "half_sbs",
-  "anaglyph",
-  "mvhevc",
-] as const satisfies readonly Format[];
-
-const FORMAT_LABELS: Record<(typeof FORMATS)[number], string> = {
-  sbs: "SBS",
-  half_sbs: "Half-SBS",
-  anaglyph: "Anaglyph",
-  mvhevc: "MV-HEVC",
-};
 
 export interface DeliverPanelProps {
   project: Project;
@@ -71,15 +63,27 @@ export function DeliverPanel({
   const [depthDefault, setDepthDefault] = useState(false);
   const [stereoDefault, setStereoDefault] = useState(false);
 
+  const productionRuns = (project.conversions ?? []).filter(
+    (c) => c.step === "production",
+  );
+  const lastSucceeded = productionRuns
+    .filter((c) => c.state === "succeeded")
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
+    | Conversion
+    | undefined;
+  const output = bestPlayable(useRunDownloads(lastSucceeded));
+
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
   if (!ready) {
     return (
-      <PanelCard>
-        <p className="text-sm text-fg-muted">
-          Analysis is still running — quotes unlock when it finishes.
-        </p>
-      </PanelCard>
+      <PanelShell>
+        <PanelCard>
+          <p className="text-sm text-fg-muted">
+            Analysis is still running — quotes unlock when it finishes.
+          </p>
+        </PanelCard>
+      </PanelShell>
     );
   }
   const probe = project.probe!;
@@ -125,7 +129,32 @@ export function DeliverPanel({
   }
 
   return (
-    <PanelCard>
+    <PanelShell>
+      <StepReview
+        project={project}
+        sourceFps={sourceFps}
+        heading="Final output"
+        headingExtras={
+          output === null ? (
+            <span className="text-[11px] text-fg-muted">
+              Run production to review the final output beside the source.
+            </span>
+          ) : null
+        }
+        follower={
+          output !== null
+            ? {
+                url: output.url,
+                label: output.name,
+                title:
+                  "The latest production run's output, synced to the source transport (MV-HEVC is not browser-playable — download it below)",
+                testId: "deliver-output-video",
+              }
+            : null
+        }
+      />
+
+      <PanelCard>
       <div className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
           Inherited from your previews
@@ -204,7 +233,7 @@ export function DeliverPanel({
             }}
             className={selectClass}
           >
-            {PRESETS.map((p) => (
+            {RESOLUTION_PRESETS.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
@@ -250,7 +279,7 @@ export function DeliverPanel({
       <fieldset className="flex flex-col gap-2">
         <legend className="text-xs font-medium text-fg-muted">Formats</legend>
         <div className="flex flex-wrap gap-2">
-          {FORMATS.map((f) => (
+          {OUTPUT_FORMATS.map((f) => (
             <CheckboxChip
               key={f}
               label={FORMAT_LABELS[f]}
@@ -286,12 +315,11 @@ export function DeliverPanel({
       </label>
 
       <StepCheckoutSection checkout={ck} request={buildRequest()} />
+      </PanelCard>
 
       <PriorRuns
         title="Prior production runs"
-        conversions={(project.conversions ?? []).filter(
-          (c) => c.step === "production",
-        )}
+        conversions={productionRuns}
         meta={(c) =>
           [
             c.params.preset,
@@ -303,15 +331,24 @@ export function DeliverPanel({
             .join(" · ")
         }
       />
-    </PanelCard>
+    </PanelShell>
   );
 }
 
-/** The params card. The page title/description live in the shared
- * PageHeader (StepTab). */
+/** Page frame: review area, params card, prior runs — full width. The page
+ * title/description live in the shared PageHeader (StepTab). */
+function PanelShell({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <div data-testid="deliver-panel" className="flex flex-col gap-6">
+      {children}
+    </div>
+  );
+}
+
+/** The params card. */
 function PanelCard({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <Card data-testid="deliver-panel">
+    <Card>
       <CardContent className="flex flex-col gap-4">{children}</CardContent>
     </Card>
   );

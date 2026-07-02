@@ -1,7 +1,16 @@
 "use client";
 
 /**
- * Stereo page (step stereo_preview) — per-scene 3D, splat vs inpaint.
+ * Stereo page (step stereo_preview) — per-scene 3D, preview what you deliver.
+ *
+ * Layout mirrors the Cut/Depth pages (the shared StepReview): ONE
+ * frame-exact source preview up top with the latest stereo output BESIDE it
+ * as a follower of the SAME transport (fraction-of-duration sync — the
+ * output is decimated but wall-clock-identical), a FilmstripTimeline for
+ * scrubbing, and the per-scene override rows underneath, driven by the
+ * playhead: the active scene is highlighted and auto-scrolls to the top
+ * while playing (like Cut), and clicking a scene's header seeks the preview
+ * there — profile each scene against the REAL video, not just a thumbnail.
  *
  * The pipeline is per-scene ADAPTIVE by default: the first pro run computes
  * a scene profile (shot_type / displacement / placement per shot), so every
@@ -13,6 +22,11 @@
  * Frame doctrine: rows are half-open [first, last) ranges in SOURCE-frame
  * space derived from scenes.cuts via cutsToRanges; every override `first`
  * is 0 or an exact cuts value — never a timestamp.
+ *
+ * Output params match the Deliver page (shared outputOptions): the SAME
+ * resolution presets and the SAME format set (MV-HEVC included), and
+ * inpainted (ProPainter) is the DEFAULT mode — the preview should look like
+ * the deliverable; splatted is the cheap opt-OUT for judging depth only.
  *
  * Draft edits (row overrides + master depth_scale) persist in localStorage
  * (stereoStore) keyed by project + scenes_version; the Deliver page reads
@@ -29,13 +43,6 @@
  * (POST .../profile); while project.profile runs the panel re-polls the
  * workspace refetch and, on success, the rows re-seed from the new
  * scene_profile automatically.
- *
- * After a run succeeds its best browser-playable output (sbs → half_sbs →
- * anaglyph) plays theater-wide ABOVE the params card, with a ScenePicker
- * that loops playback inside one scene at a time. The output is decimated
- * (different fps) but wall-clock-identical to the source, so the loop
- * bounds are frameToSeconds(first/last, SOURCE fps) — no frame math against
- * the output file (frame doctrine).
  */
 
 /* eslint-disable @next/next/no-img-element -- signed GCS thumbnail URLs. */
@@ -47,11 +54,12 @@ import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
+import { useScrollActiveSceneToTop } from "@/components/workspace/SceneList";
 import type {
   Conversion,
   Format,
   Inpaint,
+  Preset,
   ProfileShot,
   Project,
   ShotType,
@@ -66,22 +74,18 @@ import {
   parseRational,
   type RationalFPS,
 } from "@/lib/frames";
+import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
-import { PlayerBadge, videoDims, type VideoDims } from "./PlayerBadge";
+import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptions";
 import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
-import { MuteToggle, ScenePicker, SpeedSelect } from "./ScenePicker";
-import {
-  sceneRangesForPlayback,
-  useScenePlayback,
-  type SceneRange,
-} from "./useScenePlayback";
 import {
   draftToSceneOverrides,
   useStereoDraft,
   type RowOverride,
 } from "./stereoStore";
+import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 const SHOT_TYPES: readonly ShotType[] = [
@@ -90,16 +94,6 @@ const SHOT_TYPES: readonly ShotType[] = [
   "dynamic",
   "wide",
 ];
-
-/** Preview formats sold on this page — SBS is the industry-standard preview.
- * No tb/half_tb (dropped from the product), no mvhevc (production only). */
-const STEREO_FORMATS = ["sbs", "half_sbs", "anaglyph"] as const satisfies readonly Format[];
-
-const FORMAT_LABELS: Record<(typeof STEREO_FORMATS)[number], string> = {
-  sbs: "SBS",
-  half_sbs: "Half-SBS",
-  anaglyph: "Anaglyph",
-};
 
 export interface StereoPanelProps {
   project: Project;
@@ -118,7 +112,10 @@ export function StereoPanel({
   // Convert-to-3D toggle flips the same draft rows.
   const [draft, setDraft] = useStereoDraft(project.project_id, scenesVersion);
 
-  const [inpaint, setInpaint] = useState<Inpaint>("none");
+  // Inpainted is the DEFAULT: the preview should look like the deliverable
+  // (Deliver also defaults to ProPainter); splatted is the cheap opt-out.
+  const [inpaint, setInpaint] = useState<Inpaint>("propainter");
+  const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
   const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
 
@@ -145,6 +142,16 @@ export function StereoPanel({
       setProfileStarting(false);
     }
   }
+
+  const stereoRuns = (project.conversions ?? []).filter(
+    (c) => c.step === "stereo_preview",
+  );
+  const lastSucceeded = stereoRuns
+    .filter((c) => c.state === "succeeded")
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
+    | Conversion
+    | undefined;
+  const output = bestPlayable(useRunDownloads(lastSucceeded));
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
@@ -195,18 +202,10 @@ export function StereoPanel({
     ck.invalidate();
   }
 
-  const stereoRuns = (project.conversions ?? []).filter(
-    (c) => c.step === "stereo_preview",
-  );
-  const lastSucceeded = stereoRuns
-    .filter((c) => c.state === "succeeded")
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
-    | Conversion
-    | undefined;
-
   const sceneOverrides = draftToSceneOverrides(draft, [0, ...scenes.cuts]);
   const request: StepConversionRequest = {
     step: "stereo_preview",
+    preset,
     formats,
     inpaint,
     ...(draft.depth_scale !== 1 ? { depth_scale: draft.depth_scale } : {}),
@@ -215,196 +214,237 @@ export function StereoPanel({
     platform: "web",
   };
 
-  return (
-    <PanelShell
-      theater={
-        lastSucceeded ? (
-          <StereoResult project={project} conversion={lastSucceeded} />
-        ) : null
-      }
-    >
-      {profileStale ? (
-        <p
-          data-testid="stale-profile-warning"
-          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
-        >
-          Scene cuts changed since this profile was computed — defaults may be
-          misaligned. The next run re-profiles against the current cuts.
-        </p>
-      ) : null}
-      {profile === undefined ? (
-        <p data-testid="adaptive-note" className="text-xs text-fg-muted">
-          No scene profile yet — the first run computes per-scene depth
-          parameters automatically (adaptive), so overrides are optional.
-          After it succeeds, the computed values appear here as each scene&apos;s
-          Auto defaults.
-        </p>
-      ) : null}
-      {needsProfile ? (
-        profileRunning ? (
-          <div
-            data-testid="profile-running"
-            className="flex items-center gap-3 rounded-md border border-edge bg-surface-1 p-3 text-xs text-fg-muted"
-          >
-            <span
-              aria-hidden
-              className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
-            />
-            <AnalyzeProgress analyze={project.profile!} />
-          </div>
-        ) : (
-          <div
-            data-testid="profile-action"
-            className="flex flex-wrap items-center gap-x-2 gap-y-1"
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void startProfile()}
-              disabled={profileStarting}
-            >
-              {profileFailed ? "Retry profiling (free)" : "Profile shots (free)"}
-            </Button>
-            <span className="text-xs text-fg-muted">
-              Measures each scene&apos;s depth and seeds these controls — free,
-              ~1&nbsp;min.
-            </span>
-            {profileErrorText !== null ? (
-              <span data-testid="profile-error" className="text-xs text-red-400">
-                Profiling failed — {profileErrorText}
-              </span>
-            ) : null}
-          </div>
-        )
-      ) : null}
-
-      <section aria-label="Scenes" className="flex flex-col gap-1.5">
-        <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Per-scene 3D · {ranges.length} scenes
-        </h3>
-        <ul className="flex max-h-96 flex-col gap-1.5 overflow-y-auto pr-1">
-          {ranges.map(([start, end], i) => (
-            <SceneRow
-              key={`${start}-${end}`}
-              index={i}
-              start={start}
-              end={end}
-              timecode={frameToTimecode(start, sourceFps)}
-              thumbUrl={
-                project.scene_thumbs?.find(
-                  (t) => t.frame >= start && t.frame < end,
-                )?.url
-              }
-              shot={shotFor(start)}
-              override={draft.overrides[start]}
-              onPatch={(patch) => patchRow(start, patch)}
-            />
-          ))}
-        </ul>
-      </section>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-fg-muted">
-          Overall 3D strength (depth scale):{" "}
-          <span className="font-mono text-fg" data-testid="depth-scale-value">
-            ×{draft.depth_scale.toFixed(2)}
-          </span>{" "}
-          <span className="text-fg-muted">— scales every scene</span>
-        </span>
-        <Slider
-          aria-label="Overall 3D strength (depth scale)"
-          min={0.3}
-          max={1.5}
-          step={0.05}
-          value={[draft.depth_scale]}
-          onValueChange={([v]) => {
-            setDraft((d) => ({ ...d, depth_scale: v }));
-            ck.invalidate();
-          }}
+  const profileSection = needsProfile ? (
+    profileRunning ? (
+      <div
+        data-testid="profile-running"
+        className="flex items-center gap-3 rounded-md border border-edge bg-surface-1 p-3 text-xs text-fg-muted"
+      >
+        <span
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
         />
+        <AnalyzeProgress analyze={project.profile!} />
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <fieldset className="flex flex-col gap-1">
-          <legend className="text-xs font-medium text-fg-muted">Mode</legend>
-          <div className="flex gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
-              <input
-                type="radio"
-                name="stereo-mode"
-                checked={inpaint === "none"}
-                onChange={() => {
-                  setInpaint("none");
-                  ck.invalidate();
-                }}
-                className="accent-primary"
-              />
-              <span className="text-xs">Splatted (fast)</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
-              <input
-                type="radio"
-                name="stereo-mode"
-                checked={inpaint === "propainter"}
-                onChange={() => {
-                  setInpaint("propainter");
-                  ck.invalidate();
-                }}
-                className="accent-primary"
-              />
-              <span className="text-xs">Inpainted (ProPainter)</span>
-            </label>
-          </div>
-          <p className="text-xs text-fg-muted">
-            Splatted skips edge inpainting — judge depth separation, not edge
-            quality. Inpainted previews price at ×1.6.
-          </p>
-        </fieldset>
-        <Field id="stereo-fps" label="Preview frame rate">
-          <select
-            id="stereo-fps"
-            value={fps}
-            onChange={(e) => {
-              setTargetFps(Number(e.target.value));
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            {fpsOptions(sourceFps).map((o) => (
-              <option key={o.divisor} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+    ) : (
+      <div
+        data-testid="profile-action"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void startProfile()}
+          disabled={profileStarting}
+        >
+          {profileFailed ? "Retry profiling (free)" : "Profile shots (free)"}
+        </Button>
+        <span className="text-xs text-fg-muted">
+          Measures each scene&apos;s depth and seeds these controls — free,
+          ~1&nbsp;min.
+        </span>
+        {profileErrorText !== null ? (
+          <span data-testid="profile-error" className="text-xs text-red-400">
+            Profiling failed — {profileErrorText}
+          </span>
+        ) : null}
       </div>
+    )
+  ) : null;
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-medium text-fg-muted">Formats</legend>
-        <div className="flex flex-wrap gap-2">
-          {STEREO_FORMATS.map((f) => (
-            <CheckboxChip
-              key={f}
-              label={FORMAT_LABELS[f]}
-              checked={formats.includes(f)}
-              onChange={() => {
-                setFormats((prev) =>
-                  prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
-                );
+  return (
+    <PanelShell>
+      <StepReview
+        project={project}
+        sourceFps={sourceFps}
+        heading="Stereo preview"
+        headingExtras={
+          output === null ? (
+            <span className="text-[11px] text-fg-muted">
+              Run a stereo preview to see the 3D output beside the source.
+            </span>
+          ) : null
+        }
+        follower={
+          output !== null
+            ? {
+                url: output.url,
+                label: output.name,
+                title:
+                  "The latest run's stereo output — decimated to the preview rate, synced to the source transport",
+                testId: "stereo-output-video",
+              }
+            : null
+        }
+      >
+        {({ playhead, scrub }) => (
+          <>
+            {profileStale ? (
+              <p
+                data-testid="stale-profile-warning"
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
+              >
+                Scene cuts changed since this profile was computed — defaults
+                may be misaligned. The next run re-profiles against the current
+                cuts.
+              </p>
+            ) : null}
+            {profile === undefined ? (
+              <p data-testid="adaptive-note" className="text-xs text-fg-muted">
+                No scene profile yet — the first run computes per-scene depth
+                parameters automatically (adaptive), so overrides are optional.
+                After it succeeds, the computed values appear here as each
+                scene&apos;s Auto defaults.
+              </p>
+            ) : null}
+            {profileSection}
+            <SceneOverrideRows
+              ranges={ranges}
+              sourceFps={sourceFps}
+              sceneThumbs={project.scene_thumbs ?? []}
+              playhead={playhead}
+              onSelectScene={scrub}
+              draft={draft}
+              shotFor={shotFor}
+              onPatch={patchRow}
+            />
+          </>
+        )}
+      </StepReview>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-fg-muted">
+              Overall 3D strength (depth scale):{" "}
+              <span className="font-mono text-fg" data-testid="depth-scale-value">
+                ×{draft.depth_scale.toFixed(2)}
+              </span>{" "}
+              <span className="text-fg-muted">— scales every scene</span>
+            </span>
+            <Slider
+              aria-label="Overall 3D strength (depth scale)"
+              min={0.3}
+              max={1.5}
+              step={0.05}
+              value={[draft.depth_scale]}
+              onValueChange={([v]) => {
+                setDraft((d) => ({ ...d, depth_scale: v }));
                 ck.invalidate();
               }}
             />
-          ))}
-        </div>
-      </fieldset>
+          </div>
 
-      <StepCheckoutSection checkout={ck} request={request} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <fieldset className="flex flex-col gap-1">
+              <legend className="text-xs font-medium text-fg-muted">Mode</legend>
+              <div className="flex gap-2">
+                <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
+                  <input
+                    type="radio"
+                    name="stereo-mode"
+                    checked={inpaint === "propainter"}
+                    onChange={() => {
+                      setInpaint("propainter");
+                      ck.invalidate();
+                    }}
+                    className="accent-primary"
+                  />
+                  <span className="text-xs">Inpainted (ProPainter)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
+                  <input
+                    type="radio"
+                    name="stereo-mode"
+                    checked={inpaint === "none"}
+                    onChange={() => {
+                      setInpaint("none");
+                      ck.invalidate();
+                    }}
+                    className="accent-primary"
+                  />
+                  <span className="text-xs">Splatted (fast)</span>
+                </label>
+              </div>
+              <p className="text-xs text-fg-muted">
+                Inpainted (the default, ×1.6) previews the deliverable edge
+                quality. Splatted skips inpainting — judge depth separation
+                cheaply.
+              </p>
+            </fieldset>
+            <Field
+              id="stereo-preset"
+              label="Resolution preset"
+              hint="The resulting output resolution — same presets as Deliver."
+            >
+              <select
+                id="stereo-preset"
+                value={preset}
+                onChange={(e) => {
+                  setPreset(e.target.value as Preset);
+                  ck.invalidate();
+                }}
+                className={selectClass}
+              >
+                {RESOLUTION_PRESETS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="stereo-fps" label="Preview frame rate">
+              <select
+                id="stereo-fps"
+                value={fps}
+                onChange={(e) => {
+                  setTargetFps(Number(e.target.value));
+                  ck.invalidate();
+                }}
+                className={selectClass}
+              >
+                {fpsOptions(sourceFps).map((o) => (
+                  <option key={o.divisor} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs font-medium text-fg-muted">Formats</legend>
+            <div className="flex flex-wrap gap-2">
+              {OUTPUT_FORMATS.map((f) => (
+                <CheckboxChip
+                  key={f}
+                  label={FORMAT_LABELS[f]}
+                  checked={formats.includes(f)}
+                  onChange={() => {
+                    setFormats((prev) =>
+                      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+                    );
+                    ck.invalidate();
+                  }}
+                />
+              ))}
+            </div>
+          </fieldset>
+
+          <StepCheckoutSection
+            checkout={ck}
+            request={request}
+            trackerDownloads={false}
+          />
+        </CardContent>
+      </Card>
 
       <PriorRuns
         title="Prior stereo runs"
         conversions={stereoRuns}
         meta={(c) =>
           [
+            c.params.preset,
             c.params.formats.join("+"),
             c.params.inpaint,
             c.params.depth_scale !== undefined
@@ -423,156 +463,76 @@ export function StereoPanel({
   );
 }
 
-/** Theater layout: the output player (when present) spans the FULL page
- * width above the card that keeps the per-scene params + checkout. The
- * page title/description live in the shared PageHeader (StepTab). */
-function PanelShell({
-  theater,
-  children,
-}: {
-  theater?: ReactNode;
-  children: ReactNode;
-}): JSX.Element {
+/** Page frame: review area, params card, prior runs — full width. The page
+ * title/description live in the shared PageHeader (StepTab). */
+function PanelShell({ children }: { children: ReactNode }): JSX.Element {
   return (
     <div data-testid="stereo-panel" className="flex flex-col gap-6">
-      {theater}
-      <Card>
-        <CardContent className="flex flex-col gap-4">{children}</CardContent>
-      </Card>
+      {children}
     </div>
   );
 }
 
-/** Preference order for the theater player — SBS is the primary review
- * format; the raw list also carries non-playable outputs (ignored here;
- * PriorRuns still links everything). */
-const PLAYABLE_PREFERENCE = ["sbs", "half_sbs", "anaglyph"] as const;
-
-/** The newest succeeded run's best browser-playable output. Fetches the
- * run's signed download links; renders nothing when no stereo preview
- * format is present (the downloads expander still has the links). */
-function StereoResult({
-  project,
-  conversion,
+/**
+ * Per-scene override rows, driven by the review playhead: the row whose
+ * range contains the playhead is highlighted and auto-scrolls to the top
+ * while playing (the Cut tab's behavior); clicking a row's scene header
+ * seeks the preview there, so each scene is profiled against the REAL
+ * video. The row controls edit the shared stereo draft (only changed rows
+ * go on the wire — see draftToSceneOverrides).
+ */
+function SceneOverrideRows({
+  ranges,
+  sourceFps,
+  sceneThumbs,
+  playhead,
+  onSelectScene,
+  draft,
+  shotFor,
+  onPatch,
 }: {
-  project: Project;
-  conversion: Conversion;
-}): JSX.Element | null {
-  const client = useGateway();
-  const id = conversion.conversion_id;
-  const [fetched, setFetched] = useState<{
-    id: string;
-    name: string | null;
-    url: string | null;
-  } | null>(null);
-
-  useEffect(() => {
-    if (fetched?.id === id) return;
-    let cancelled = false;
-    client
-      .getDownloads(id)
-      .then((d) => {
-        if (cancelled) return;
-        const name =
-          PLAYABLE_PREFERENCE.find((n) => d.downloads[n] !== undefined) ?? null;
-        setFetched({ id, name, url: name ? d.downloads[name] : null });
-      })
-      .catch(() => {
-        if (!cancelled) setFetched({ id, name: null, url: null });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, id, fetched]);
-
-  if (fetched?.id !== id || fetched.name === null || fetched.url === null) {
-    return null;
-  }
-  return (
-    <StereoOutputPlayer
-      name={fetched.name}
-      url={fetched.url}
-      scenes={sceneRangesForPlayback(project)}
-      fps={parseRational(project.probe!.fps_rational)}
-    />
-  );
-}
-
-/** Theater-wide output player with scene-scoped playback. The loop bounds
- * come from SOURCE frames via frameToSeconds — valid for the decimated
- * output because it preserves wall-clock duration. */
-function StereoOutputPlayer({
-  name,
-  url,
-  scenes,
-  fps,
-}: {
-  name: string;
-  url: string;
-  scenes: SceneRange[];
-  fps: RationalFPS;
+  ranges: Array<[number, number]>;
+  sourceFps: RationalFPS;
+  sceneThumbs: Project["scene_thumbs"];
+  playhead: number;
+  onSelectScene: (startFrame: number) => void;
+  draft: ReturnType<typeof useStereoDraft>[0];
+  shotFor: (start: number) => ProfileShot | undefined;
+  onPatch: (start: number, patch: RowOverride | null) => void;
 }): JSX.Element {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playback = useScenePlayback(videoRef, scenes, fps);
-  const [rate, setRate] = useState(1);
-  const [muted, setMuted] = useState(true);
-  const [dims, setDims] = useState<VideoDims | null>(null);
-
-  function changeRate(r: number): void {
-    setRate(r);
-    if (videoRef.current) videoRef.current.playbackRate = r;
-  }
-
-  /** Starts muted (autoplay policy); unmuting is a user gesture. */
-  function changeMuted(m: boolean): void {
-    setMuted(m);
-    if (videoRef.current) videoRef.current.muted = m;
-  }
-
-  // Space = play/pause via the shared transport hook (no frame stepping —
-  // the output is decimated; frame keys belong to the frame-exact proxy).
-  function toggle(): void {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) void v.play();
-    else v.pause();
-  }
-  usePlayerShortcuts({ toggle });
+  const thumbs = sceneThumbs ?? [];
+  const scrollRef = useRef<HTMLUListElement>(null);
+  const activeStart = ranges.find(
+    ([start, end]) => playhead >= start && playhead < end,
+  )?.[0];
+  useScrollActiveSceneToTop(scrollRef, activeStart);
 
   return (
-    <section
-      data-testid="stereo-output"
-      aria-label="Latest stereo preview"
-      className="flex flex-col gap-2"
-    >
-      {/* Transport row — same visual system as the other players (shared
-          ScenePicker/SpeedSelect; the <video> keeps its native controls). */}
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Latest stereo preview · {name}
-        </h3>
-        <ScenePicker id="stereo-scene" playback={playback} />
-        <SpeedSelect id="stereo-speed" value={rate} onChange={changeRate} />
-        <MuteToggle muted={muted} onChange={changeMuted} />
-        <span className="ml-auto text-xs text-fg-muted">Space play/pause</span>
-      </div>
-      <div className="relative">
-        <video
-          ref={videoRef}
-          src={url}
-          controls
-          muted
-          preload="metadata"
-          onTimeUpdate={playback.onTimeUpdate}
-          onLoadedMetadata={(e) => {
-            playback.onLoadedMetadata();
-            setDims(videoDims(e));
-          }}
-          data-testid="stereo-output-video"
-          className="w-full rounded-md border border-edge bg-black"
-        />
-        <PlayerBadge data-testid="stereo-output-badge" label={name} dims={dims} />
-      </div>
+    <section aria-label="Scenes" className="flex flex-col gap-1.5">
+      <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+        Per-scene 3D · {ranges.length} scenes
+      </h3>
+      <p className="text-xs text-fg-muted">
+        Click a scene to jump the preview there — the playing scene leads the
+        list. Only rows you change are sent as overrides.
+      </p>
+      <ul ref={scrollRef} className="flex max-h-96 flex-col gap-1.5 overflow-y-auto pr-1">
+        {ranges.map(([start, end], i) => (
+          <SceneRow
+            key={`${start}-${end}`}
+            index={i}
+            start={start}
+            end={end}
+            active={playhead >= start && playhead < end}
+            timecode={frameToTimecode(start, sourceFps)}
+            thumbUrl={thumbs.find((t) => t.frame >= start && t.frame < end)?.url}
+            shot={shotFor(start)}
+            override={draft.overrides[start]}
+            onSelect={() => onSelectScene(start)}
+            onPatch={(patch) => onPatch(start, patch)}
+          />
+        ))}
+      </ul>
     </section>
   );
 }
@@ -581,19 +541,23 @@ function SceneRow({
   index,
   start,
   end,
+  active,
   timecode,
   thumbUrl,
   shot,
   override,
+  onSelect,
   onPatch,
 }: {
   index: number;
   start: number;
   end: number;
+  active: boolean;
   timecode: string;
   thumbUrl?: string;
   shot?: ProfileShot;
   override?: RowOverride;
+  onSelect: () => void;
   onPatch: (patch: RowOverride | null) => void;
 }): JSX.Element {
   const passthrough = override?.passthrough === true;
@@ -604,26 +568,44 @@ function SceneRow({
   return (
     <li
       data-testid={`stereo-scene-${start}`}
-      className={`flex flex-wrap items-center gap-2 rounded-md border border-edge bg-surface-1 p-1.5 ${
-        passthrough ? "opacity-60" : ""
-      }`}
+      className={`flex flex-wrap items-center gap-2 rounded-md border p-1.5 ${
+        active
+          ? "border-primary bg-surface-2 ring-1 ring-primary"
+          : "border-edge bg-surface-1"
+      } ${passthrough ? "opacity-60" : ""}`}
     >
-      <div className="h-9 w-16 shrink-0 overflow-hidden rounded bg-black">
-        {thumbUrl ? (
-          <img
-            src={thumbUrl}
-            alt={`scene ${n} keyframe`}
-            draggable={false}
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div className="flex min-w-28 flex-col">
-        <span className="text-xs font-medium">Scene {n}</span>
-        <span className="font-mono text-[11px] text-fg-muted">
-          f{start}–f{end} · {timecode}
+      {/* Scene header IS the seek control (data-start feeds the shared
+          auto-scroll hook) — click to review this scene in the preview. */}
+      <button
+        type="button"
+        data-testid="scene-card"
+        data-start={start}
+        data-end={end}
+        aria-current={active ? "true" : undefined}
+        title={`Jump the preview to scene ${n} (frame ${start})`}
+        onClick={(e) => {
+          blurAfterMouseClick(e);
+          onSelect();
+        }}
+        className="flex items-center gap-2 rounded text-left hover:bg-surface-2"
+      >
+        <span className="h-9 w-16 shrink-0 overflow-hidden rounded bg-black">
+          {thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={`scene ${n} keyframe`}
+              draggable={false}
+              className="h-full w-full object-cover"
+            />
+          ) : null}
         </span>
-      </div>
+        <span className="flex min-w-28 flex-col">
+          <span className="text-xs font-medium">Scene {n}</span>
+          <span className="font-mono text-[11px] text-fg-muted">
+            f{start}–f{end} · {timecode}
+          </span>
+        </span>
+      </button>
       <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
         <input
           type="checkbox"

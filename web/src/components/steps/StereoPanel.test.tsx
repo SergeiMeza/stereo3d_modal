@@ -2,10 +2,13 @@
  * Stereo page tests: per-scene rows derived from the fixture's REAL cuts
  * (frame ranges + timecodes via frames.ts, never hardcoded), scene_profile
  * seeding + the stale-profile warning, ONLY-changed-rows scene_overrides on
- * the wire (displacement top-level ABSENT), the ×1.6 inpaint quote line,
- * localStorage draft persistence (the store Deliver inherits), per-scene 2D
- * passthrough (exactly {first, passthrough:true} on the wire; draft depth
- * values stashed and restored), and the free shot-profiling action.
+ * the wire (displacement top-level ABSENT), the Deliver-parity output params
+ * (resolution preset + MV-HEVC format + inpainted DEFAULT, ×1.6 by default),
+ * the ONE-transport review area (the latest output as a follower of the main
+ * preview), row-click seeking + active-row highlight, localStorage draft
+ * persistence (the store Deliver inherits), per-scene 2D passthrough
+ * (exactly {first, passthrough:true} on the wire; draft depth values stashed
+ * and restored), and the free shot-profiling action.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -48,6 +51,18 @@ import { loadStereoDraft, stereoDraftKey } from "./stereoStore";
 import { StereoPanel } from "./StereoPanel";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50, PROFILE_POLL_MS: 50 }));
+
+// jsdom's HTMLMediaElement.play/pause are "not implemented"; stub them to
+// dispatch their events — the follower sync listens to exactly these.
+beforeAll(() => {
+  HTMLMediaElement.prototype.play = function play(this: HTMLMediaElement) {
+    this.dispatchEvent(new Event("play"));
+    return Promise.resolve();
+  };
+  HTMLMediaElement.prototype.pause = function pause(this: HTMLMediaElement) {
+    this.dispatchEvent(new Event("pause"));
+  };
+});
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
@@ -231,8 +246,9 @@ describe("StereoPanel request building", () => {
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).toEqual({
       step: "stereo_preview",
+      preset: "1080p",
       formats: ["sbs"],
-      inpaint: "none",
+      inpaint: "propainter",
       scene_overrides: [
         { first: 0, displacement: 0.02 },
         { first: FIRST_CUT, shot_type: "wide" },
@@ -280,47 +296,75 @@ describe("StereoPanel request building", () => {
     expect(bodies[1].depth_scale).toBeCloseTo(1.05, 5);
   });
 
-  it("offers sbs (default) + half_sbs + anaglyph — no tb, no mvhevc — and sends the picked set", async () => {
+  it("offers the SAME formats Deliver sells — MV-HEVC included, no TB — sbs default, and sends the picked set", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel();
 
     const formats = screen.getByRole("group", { name: "Formats" });
     const boxes = within(formats).getAllByRole("checkbox");
-    expect(boxes).toHaveLength(3);
+    expect(boxes).toHaveLength(4);
+    for (const name of ["SBS", "Half-SBS", "Anaglyph", "MV-HEVC"]) {
+      expect(within(formats).getByRole("checkbox", { name })).toBeDefined();
+    }
     expect(
       (within(formats).getByRole("checkbox", { name: "SBS" }) as HTMLInputElement)
         .checked,
     ).toBe(true);
-    expect(within(formats).queryByRole("checkbox", { name: "MV-HEVC" })).toBeNull();
     expect(within(formats).queryByRole("checkbox", { name: "TB" })).toBeNull();
 
-    await user.click(within(formats).getByRole("checkbox", { name: "Anaglyph" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "MV-HEVC" }));
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0].formats).toEqual(["sbs", "anaglyph"]);
+    expect(bodies[0].formats).toEqual(["sbs", "mvhevc"]);
+  });
+
+  it("offers the SAME resolution presets as Deliver (1080p default) and sends the pick on the wire", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel();
+
+    const preset = document.getElementById("stereo-preset") as HTMLSelectElement;
+    expect([...preset.options].map((o) => o.value)).toEqual([
+      "1080p",
+      "qhd",
+      "3k",
+      "4k",
+    ]);
+    expect(preset.value).toBe("1080p");
+
+    await user.selectOptions(preset, "4k");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].preset).toBe("4k");
   });
 });
 
 describe("StereoPanel quote pricing", () => {
-  it("splatted (default) prices without the inpaint line; Inpainted shows ×1.6", async () => {
+  it("Inpainted is the DEFAULT (×1.6 on the quote); Splatted is the cheap opt-out", async () => {
     const user = userEvent.setup();
     renderPanel();
-    await getQuote(user);
 
-    // 149.46 s at 25¢/min → 63¢, no multiplier, −50¢ credit → 50¢ floor
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$0.63");
-    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
-    expect(screen.getByTestId("quote-total").textContent).toBe("$0.50");
+    // default mode: inpainted — the preview matches the deliverable
+    expect(
+      (screen.getByRole("radio", { name: /Inpainted/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
 
-    await user.click(screen.getByRole("radio", { name: /Inpainted/ }));
-    expect(screen.queryByTestId("quote-breakdown")).toBeNull(); // invalidated
     await getQuote(user);
-    // 63¢ × 1.6 = 101¢ − 50¢ credit = 51¢
+    // 149.46 s at 25¢/min → 63¢ base × 1.6 = 101¢ − 50¢ credit = 51¢
     expect(screen.getByTestId("quote-base").textContent).toBe("$0.63");
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×1.6");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$1.01");
     expect(screen.getByTestId("quote-total").textContent).toBe("$0.51");
+
+    await user.click(screen.getByRole("radio", { name: /Splatted/ }));
+    expect(screen.queryByTestId("quote-breakdown")).toBeNull(); // invalidated
+    await getQuote(user);
+    // 63¢, no multiplier, −50¢ credit → 50¢ floor
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$0.63");
+    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
+    expect(screen.getByTestId("quote-total").textContent).toBe("$0.50");
   });
 
   it("surfaces the gateway's scene_overrides validation errors", async () => {
@@ -341,32 +385,32 @@ describe("StereoPanel quote pricing", () => {
   });
 });
 
-describe("StereoPanel output player (scene-scoped playback)", () => {
-  const RANGES = cutsToRanges(CUTS, N);
-
-  function sceneLabel([first, last]: [number, number], i: number): string {
-    return `Scene ${i + 1} · f${first}–f${last} · ${frameToTimecode(first, FPS)}`;
-  }
-
-  it("plays the last succeeded run's SBS output theater-wide with a scene picker derived from the cuts", async () => {
-    const project = fixtureProject();
+describe("StereoPanel output follower (one transport)", () => {
+  /** Render with a seeded succeeded run and wait for the follower video. */
+  async function renderWithOutput(project = fixtureProject()) {
     project.conversions = [seededStereoRun(project.project_id)];
     renderPanel(project);
-
-    const video = (await screen.findByTestId(
+    const output = (await screen.findByTestId(
       "stereo-output-video",
     )) as HTMLVideoElement;
-    expect(video.getAttribute("src")).toBe(
+    const master = screen.getByTestId("preview-video") as HTMLVideoElement;
+    return { project, master, output };
+  }
+
+  it("renders the last succeeded run's SBS output BESIDE the main preview — no second transport", async () => {
+    const { project, master, output } = await renderWithOutput();
+    expect(master.getAttribute("src")).toBe(project.preview_url);
+    expect(output.getAttribute("src")).toBe(
       (downloadsFixture.downloads as Record<string, string>).sbs,
     );
-    expect(screen.getByTestId("stereo-output").textContent).toContain("sbs");
+    expect(screen.getByTestId("stereo-output-video-badge").textContent).toBe("sbs");
 
-    const picker = screen.getByLabelText("Scene to play") as HTMLSelectElement;
-    expect(picker.value).toBe(""); // Whole video default
-    expect([...picker.options].map((o) => o.textContent)).toEqual([
-      "Whole video",
-      ...RANGES.map(sceneLabel),
-    ]);
+    // ONE transport: the main preview's. No compare-specific controls left.
+    expect(screen.getByLabelText("Play preview")).toBeDefined();
+    expect(screen.queryByLabelText("Scene to play")).toBeNull();
+    expect(screen.getAllByLabelText("Speed")).toHaveLength(1);
+    // and the Cut-style timeline is there for scrubbing
+    expect(screen.getByTestId("filmstrip")).toBeDefined();
   });
 
   it("prefers sbs → half_sbs → anaglyph when picking the playable output", async () => {
@@ -383,114 +427,79 @@ describe("StereoPanel output player (scene-scoped playback)", () => {
       "stereo-output-video",
     )) as HTMLVideoElement;
     expect(video.getAttribute("src")).toContain("half_sbs");
-    expect(screen.getByTestId("stereo-output").textContent).toContain(
+    expect(screen.getByTestId("stereo-output-video-badge").textContent).toBe(
       "half_sbs",
     );
   });
 
-  it("picking a scene seeks to frameToSeconds(first, SOURCE fps) and loops within [startT, endT); Whole video clears the loop", async () => {
-    const user = userEvent.setup();
-    const project = fixtureProject();
-    project.conversions = [seededStereoRun(project.project_id)];
-    renderPanel(project);
+  it("the MAIN transport drives the output too: Play/Pause mirror, position syncs by FRACTION of duration", async () => {
+    const { master, output } = await renderWithOutput();
 
-    const video = (await screen.findByTestId(
-      "stereo-output-video",
-    )) as HTMLVideoElement;
-    const picker = screen.getByLabelText("Scene to play") as HTMLSelectElement;
-    const [first, last] = RANGES[1]; // scene 2 = [FIRST_CUT, CUTS[1])
-    const startT = frameToSeconds(first, FPS);
-    const endT = frameToSeconds(last, FPS);
+    const playSpy = vi.spyOn(output, "play");
+    fireEvent.click(screen.getByLabelText("Play preview"));
+    expect(playSpy).toHaveBeenCalledTimes(1); // master play event → follower
 
-    await user.selectOptions(picker, "1");
-    expect(video.currentTime).toBeCloseTo(startT, 5);
+    Object.defineProperty(master, "duration", { value: 100, configurable: true });
+    Object.defineProperty(output, "duration", { value: 50, configurable: true });
+    master.currentTime = 40;
+    fireEvent.timeUpdate(master);
+    expect(output.currentTime).toBeCloseTo(20, 5);
 
-    // playback reaching the scene end loops back (and keeps playing — the
-    // component never pauses)
-    const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, "pause");
-    video.currentTime = endT + 0.1;
-    fireEvent.timeUpdate(video);
-    expect(video.currentTime).toBeCloseTo(startT, 5);
-    expect(pauseSpy).not.toHaveBeenCalled();
-
-    // ‹ / › steppers drive the same player
-    fireEvent.click(screen.getByLabelText("Next scene"));
-    expect(picker.value).toBe("2");
-    expect(video.currentTime).toBeCloseTo(frameToSeconds(RANGES[2][0], FPS), 5);
-
-    // Whole video: loop cleared, no seek
-    await user.selectOptions(picker, "");
-    const past = endT + 5;
-    video.currentTime = past;
-    fireEvent.timeUpdate(video);
-    expect(video.currentTime).toBeCloseTo(past, 5);
+    const pauseSpy = vi.spyOn(output, "pause");
+    fireEvent.click(screen.getByLabelText("Pause preview"));
+    expect(pauseSpy).toHaveBeenCalled();
   });
 
-  it("badges the output with its format + decoded size, and Space toggles play/pause", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededStereoRun(project.project_id)];
-    renderPanel(project);
+  it("clicking a scene row seeks the MAIN preview (and the follower via seeked) to the scene's first frame", async () => {
+    const { master, output } = await renderWithOutput();
+    const RANGES2 = cutsToRanges(CUTS, N);
+    const [first] = RANGES2[2];
 
-    const video = (await screen.findByTestId(
-      "stereo-output-video",
-    )) as HTMLVideoElement;
+    for (const v of [master, output]) {
+      Object.defineProperty(v, "duration", {
+        value: FIXTURE.probe!.duration_s,
+        configurable: true,
+      });
+    }
 
-    // before metadata the badge only NAMES the output
-    expect(screen.getByTestId("stereo-output-badge").textContent).toBe("sbs");
-    Object.defineProperty(video, "videoWidth", { value: 1920, configurable: true });
-    Object.defineProperty(video, "videoHeight", { value: 540, configurable: true });
-    fireEvent(video, new Event("loadedmetadata"));
-    expect(screen.getByTestId("stereo-output-badge").textContent).toBe(
+    fireEvent.click(
+      within(sceneRow(first)).getByTestId("scene-card"),
+    );
+    // frame-exact master seek: mid-frame time of the scene's first frame
+    expect(master.currentTime).toBeGreaterThan(frameToSeconds(first, FPS));
+    expect(sceneRow(first).getAttribute("class")).toContain("border-primary");
+    expect(screen.getByTestId("frame-readout").textContent).toContain(`f${first}`);
+
+    // the browser answers the seek with 'seeked' — the follower tracks it
+    fireEvent.seeked(master);
+    expect(output.currentTime).toBeCloseTo(master.currentTime, 5);
+  });
+
+  it("badges the output and reveals its decoded size once metadata lands; the follower STAYS muted when the master unmutes", async () => {
+    const { master, output } = await renderWithOutput();
+
+    Object.defineProperty(output, "videoWidth", { value: 1920, configurable: true });
+    Object.defineProperty(output, "videoHeight", { value: 540, configurable: true });
+    fireEvent(output, new Event("loadedmetadata"));
+    expect(screen.getByTestId("stereo-output-video-badge").textContent).toBe(
       "sbs 1920×540",
     );
 
-    // Space plays the paused output (shared player shortcut)…
-    const playSpy = vi
-      .spyOn(HTMLMediaElement.prototype, "play")
-      .mockImplementation(() => Promise.resolve());
-    fireEvent.keyDown(window, { key: " " });
-    expect(playSpy).toHaveBeenCalledTimes(1);
-
-    // …and pauses it once playing
-    Object.defineProperty(video, "paused", { value: false, configurable: true });
-    const pauseSpy = vi
-      .spyOn(HTMLMediaElement.prototype, "pause")
-      .mockImplementation(() => {});
-    fireEvent.keyDown(window, { key: " " });
-    expect(pauseSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("the Speed select sets playbackRate on the output player", async () => {
-    const user = userEvent.setup();
-    const project = fixtureProject();
-    project.conversions = [seededStereoRun(project.project_id)];
-    renderPanel(project);
-
-    const video = (await screen.findByTestId(
-      "stereo-output-video",
-    )) as HTMLVideoElement;
-    const speed = screen.getByLabelText("Speed") as HTMLSelectElement;
-    expect(speed.value).toBe("1");
-    expect(video.playbackRate).toBe(1);
-
-    await user.selectOptions(speed, "1.5");
-    expect(video.playbackRate).toBe(1.5);
-  });
-
-  it("the mute toggle unmutes the output player (starts muted for autoplay)", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededStereoRun(project.project_id)];
-    renderPanel(project);
-
-    const video = (await screen.findByTestId(
-      "stereo-output-video",
-    )) as HTMLVideoElement;
-    expect(video.muted).toBe(true);
-
+    expect(master.muted).toBe(true);
+    expect(output.muted).toBe(true);
     fireEvent.click(screen.getByLabelText("Unmute"));
-    expect(video.muted).toBe(false);
-    fireEvent.click(screen.getByLabelText("Mute"));
-    expect(video.muted).toBe(true);
+    expect(master.muted).toBe(false); // the source proxy carries the audio
+    expect(output.muted).toBe(true); // the follower must never double-play
+  });
+
+  it("the Speed select mirrors onto the output via ratechange", async () => {
+    const { master, output } = await renderWithOutput();
+    const speed = screen.getByLabelText("Speed") as HTMLSelectElement;
+    await userEvent.setup().selectOptions(speed, "1.5");
+    expect(master.playbackRate).toBe(1.5);
+    // jsdom doesn't dispatch ratechange on assignment — fire it like a browser
+    fireEvent(master, new Event("ratechange"));
+    expect(output.playbackRate).toBe(1.5);
   });
 });
 
