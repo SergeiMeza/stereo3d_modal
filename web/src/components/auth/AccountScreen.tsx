@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { UserAvatar } from "@/components/auth/UserAvatar";
+import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -35,8 +36,17 @@ function CardShell({
   );
 }
 
-export default function AccountScreen() {
+export interface AccountScreenProps {
+  /** Full-page redirect — injectable so tests can observe the Stripe
+   * billing-portal navigation (jsdom can't navigate). */
+  navigateExternal?: (url: string) => void;
+}
+
+export default function AccountScreen({
+  navigateExternal = (url) => window.location.assign(url),
+}: AccountScreenProps = {}) {
   const { user, signOutUser, updateDisplayName, deleteAccount } = useAuth();
+  const gateway = useGateway();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? "");
@@ -48,8 +58,28 @@ export default function AccountScreen() {
   const [confirmText, setConfirmText] = useState("");
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [billingPending, setBillingPending] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   if (user === null) return null;
+
+  async function openBillingPortal() {
+    setBillingPending(true);
+    setBillingError(null);
+    try {
+      const { url } = await gateway.createBillingPortalSession(
+        window.location.href,
+      );
+      navigateExternal(url);
+    } catch (err) {
+      setBillingPending(false);
+      setBillingError(
+        err instanceof Error
+          ? err.message
+          : "Could not open the billing portal.",
+      );
+    }
+  }
 
   async function saveName(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -171,10 +201,21 @@ export default function AccountScreen() {
         <p className="text-fg-muted">
           Billing is pay-per-conversion. Your card is charged only when a
           conversion succeeds — authorization holds are released automatically
-          if a run fails or is cancelled. Receipts arrive by email from
-          Stripe. There is no payment method to manage here: card details are
-          collected securely at checkout for each conversion.
+          if a run fails or is cancelled. Card details are collected securely
+          at checkout; saved payment methods and receipts live in the Stripe
+          billing portal.
         </p>
+        <button
+          type="button"
+          disabled={billingPending}
+          onClick={() => void openBillingPortal()}
+          className="rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg transition-colors hover:border-primary/60 disabled:opacity-50"
+        >
+          {billingPending ? "Opening…" : "Manage billing"}
+        </button>
+        {billingError !== null && (
+          <p className="text-xs text-destructive">{billingError}</p>
+        )}
       </CardShell>
 
       <CardShell title="Session">

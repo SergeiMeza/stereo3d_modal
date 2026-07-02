@@ -275,6 +275,20 @@ describe("DepthPanel quotes", () => {
 });
 
 describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
+  it("surfaces the gateway's error when the billing profile is missing (regression: shipped to staging unnoticed)", async () => {
+    mockDb.billingProfile = false;
+    const user = userEvent.setup();
+    renderPanel();
+    await getQuote(user);
+
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+
+    expect(
+      await screen.findByText("no billing profile; call POST /v1/customers first"),
+    ).toBeDefined();
+    expect(screen.queryByTestId("mock-checkout")).toBeNull();
+  });
+
   it("runs create → pay → poll to succeeded; the tracker reports state WITHOUT a downloads list (the review area owns the outputs)", async () => {
     const user = userEvent.setup();
     const { onProjectChanged } = renderPanel();

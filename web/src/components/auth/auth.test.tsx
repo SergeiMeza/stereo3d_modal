@@ -5,14 +5,19 @@
  * mocked /signin, RequireAuth passing through, and the account profile.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import Home from "@/app/page";
 import AccountScreen from "@/components/auth/AccountScreen";
-import { RequireAuth } from "@/components/auth/RequireAuth";
+import {
+  RequireAuth,
+  resetEnsuredBillingProfiles,
+} from "@/components/auth/RequireAuth";
 import SignInScreen from "@/components/auth/SignInScreen";
 import { AuthProvider } from "@/lib/auth";
+import { mockDb } from "@/mocks/handlers";
+import { server } from "@/mocks/server";
 
 const replace = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
@@ -28,11 +33,16 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
   cleanup(); // vitest runs with globals:false, so RTL auto-cleanup is off
   vi.restoreAllMocks();
   replace.mockClear();
+  server.resetHandlers();
+  mockDb.reset();
+  resetEnsuredBillingProfiles();
 });
+afterAll(() => server.close());
 
 function renderWithAuth(ui: React.ReactElement) {
   return render(<AuthProvider>{ui}</AuthProvider>);
@@ -80,6 +90,16 @@ describe("RequireAuth (mock mode)", () => {
     expect(screen.getByText("guarded content")).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
+
+  it("ensures the billing profile on sign-in (POST /v1/customers) — conversions hard-fail without it", async () => {
+    mockDb.billingProfile = false;
+    renderWithAuth(
+      <RequireAuth>
+        <p>guarded content</p>
+      </RequireAuth>,
+    );
+    await waitFor(() => expect(mockDb.billingProfile).toBe(true));
+  });
 });
 
 describe("AccountScreen (mock mode)", () => {
@@ -106,5 +126,18 @@ describe("AccountScreen (mock mode)", () => {
 
     expect(writeText).toHaveBeenCalledWith("dev-user");
     expect(await screen.findByText("Copied")).toBeTruthy();
+  });
+
+  it("opens the Stripe billing portal from Manage billing", async () => {
+    const navigate = vi.fn();
+    renderWithAuth(<AccountScreen navigateExternal={navigate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage billing" }));
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        "https://billing.stripe.com/p/session/mock",
+      ),
+    );
   });
 });

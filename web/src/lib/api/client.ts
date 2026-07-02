@@ -80,6 +80,14 @@ export class GatewayClient {
     return this.request("POST", "/v1/customers", {});
   }
 
+  /** Stripe customer-portal session (manage saved payment methods and
+   * receipts); the portal returns the user to returnUrl when done. */
+  createBillingPortalSession(returnUrl: string): Promise<{ url: string }> {
+    return this.request("POST", "/v1/billing/portal", {
+      return_url: returnUrl,
+    });
+  }
+
   // ------------------------------------------------------------ uploads
 
   createUpload(filename: string, contentType: string): Promise<UploadTicket> {
