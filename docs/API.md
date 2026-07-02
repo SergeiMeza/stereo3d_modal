@@ -59,7 +59,7 @@ On completion, `metadata` carries:
   "scene_cuts": [233, 610, ...],      // source frames, /v1/videos-ready
   "thumbnails": {
     "strip":  [ {"frame": 0, "url": "https://..."}, ... ],   // ~strip_count timeline tiles (h=90)
-    "scenes": [ {"scene": 0, "frame": 116, "url": "https://..."}, ... ]  // mid-frame keyframes (h=360)
+    "scenes": [ {"scene": 0, "frame": 116, "url": "https://..."}, ... ]  // mid-frame keyframes (h=480)
   }
 }
 ```

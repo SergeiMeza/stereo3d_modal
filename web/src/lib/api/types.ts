@@ -132,12 +132,12 @@ export interface Project {
   probe?: Probe; // present once analyze succeeded
   scenes?: Scenes;
   crop?: string; // "W:H:X:Y" black-bar geometry, if detected
-  /** frame-exact 1:1 h264/mp4 proxy of the source (360p short side) —
+  /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */
   preview_url?: string;
   strip_thumbs?: Thumb[]; // ~100 timeline tiles (h=90)
-  scene_thumbs?: Thumb[]; // mid-frame keyframe per scene (h=360)
+  scene_thumbs?: Thumb[]; // mid-frame keyframe per scene (h=480)
   /** present after the first successful pro video conversion */
   scene_profile?: SceneProfile;
   /** free standalone profiling job state (POST .../profile) */

@@ -15,9 +15,9 @@
  * preview proxy the viewer falls back to the nearest strip thumbnail.
  *
  * The shared PlayerBadge corner badge names what is on screen ("Preview
- * Resolution 640×360" from the video's ACTUAL videoWidth×videoHeight, or
+ * Resolution 854×480" from the video's ACTUAL videoWidth×videoHeight, or
  * "Thumbnail" for the fallback) — users couldn't tell they were watching
- * the 360p proxy, not the source. The tooltip reiterates the doctrine: the
+ * the 480p proxy, not the source. The tooltip reiterates the doctrine: the
  * proxy is frame-exact, and every conversion uses the full-resolution
  * source.
  */
@@ -65,7 +65,7 @@ export function PreviewViewer({
   const cropRect = parseCrop(crop);
   const fallback = previewUrl ? null : nearestThumb(thumbs, playhead);
   // The proxy's real decoded dimensions, read off the element at
-  // loadedmetadata — never hardcoded (short side is ~360 but width varies).
+  // loadedmetadata — never hardcoded (short side is ~480 but width varies).
   const [proxyDims, setProxyDims] = useState<{ w: number; h: number } | null>(
     null,
   );

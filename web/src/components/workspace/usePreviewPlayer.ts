@@ -2,7 +2,7 @@
 
 /**
  * usePreviewPlayer — frame-accurate playback control for the project's
- * preview proxy (Project.preview_url: a 360p h264 mp4 that is frame-exact
+ * preview proxy (Project.preview_url: a 480p h264 mp4 that is frame-exact
  * 1:1 with the source, so frame n of the proxy IS source frame n).
  *
  * This hook owns the ONLY frame↔time mapping in the workspace, built purely

@@ -1,8 +1,8 @@
 /**
  * PlayerBadge — the shared top-right corner badge on every player, naming
  * WHAT is on screen and its ACTUAL decoded size once loadedmetadata fires
- * (e.g. "depth_vis 1232×518", "source proxy 640×360", "sbs 1920×540").
- * Users couldn't tell a 360p proxy from the source — the badge says so.
+ * (e.g. "depth_vis 1232×518", "source proxy 854×480", "sbs 1920×540").
+ * Users couldn't tell a 480p proxy from the source — the badge says so.
  * The workspace PreviewViewer renders the same component with its
  * frame-doctrine tooltip on top.
  */

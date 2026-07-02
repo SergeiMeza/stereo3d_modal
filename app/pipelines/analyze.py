@@ -29,7 +29,7 @@ from app.modal_app import app
 
 logger = get_logger(__name__)
 
-PROXY_SHORT_SIDE = 360    # proxy resolution (short side); also scene-thumb height
+PROXY_SHORT_SIDE = 480    # proxy resolution (short side); also scene-thumb height
 STRIP_HEIGHT = 90         # filmstrip tile height (timeline scrubber)
 DEFAULT_STRIP_COUNT = 100
 MAX_STRIP_COUNT = 300
@@ -251,7 +251,7 @@ def process_profile_job(job_id: str, request: dict) -> dict:
     The proxy is 1:1 with the source (analyze pipeline invariant), so work
     space == SOURCE space here: scene_cuts are used as boundaries directly
     and the script's first_src/last_src are identities. Profiling reads
-    statistics (medians, near fractions) at input_size=518 — the 360p proxy
+    statistics (medians, near fractions) at input_size=518 — the 480p proxy
     is plenty for that, and being h264 it always decodes."""
     from app.common.debug import job_logger
     from app.common.storage import bucket_path

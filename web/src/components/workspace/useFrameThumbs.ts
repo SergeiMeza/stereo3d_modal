@@ -12,7 +12,7 @@
  * convention as playback (usePreviewPlayer.seekTimeForFrame — boundary
  * times are ambiguous between two frames), awaits 'seeked', and draws the
  * presented frame to a canvas at strip height. One video element, strictly
- * SEQUENTIAL: seeks are fast on the 360p proxy, and a single queue keeps
+ * SEQUENTIAL: seeks are fast on the 480p proxy, and a single queue keeps
  * the currently-wanted (visible-first) frames in front — when the wanted
  * list changes the pending queue is simply REPLACED, so stale requests are
  * dropped without any cancellation plumbing.
