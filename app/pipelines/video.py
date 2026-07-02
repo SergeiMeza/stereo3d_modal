@@ -50,6 +50,63 @@ PRESETS = {
 }
 
 
+def normalize_video_request(request: dict) -> dict:
+    """Resolve the preset merge + client-facing aliases into the EFFECTIVE
+    request (a new dict; the input is never mutated).
+
+    v7 resolution knobs (client-facing aliases over the internal fields):
+      depth_res   → input_size        (depth inference resolution)
+      output_res  → target_short_side (output short side, orientation-agnostic)
+      inpaint_res → ProPainter short side (consumed in _propainter_work_res)
+
+    Precedence: explicit request fields beat the preset. The depth_res
+    alias is applied BEFORE the preset merge — every preset defines
+    input_size, so an after-merge alias could never fire and an explicit
+    depth_res was silently discarded (billed at the preset's resolution).
+    An explicit input_size still beats depth_res (the alias only fills the
+    internal field when absent).
+
+    Shared by process_video_job and the reuse-key derivation
+    (reuse_request_keys), so cache keys are computed from the same
+    effective params the pipeline runs with — by construction."""
+    if request.get("depth_res") and "input_size" not in request:
+        request = {**request, "input_size": int(request["depth_res"])}
+    preset = PRESETS.get(request.get("preset", ""))
+    if preset:
+        request = {**preset, **request}  # explicit fields win over the preset
+    return request
+
+
+def reuse_request_keys(request: dict) -> tuple[str, str, str]:
+    """Compute the (preprocess, depth, scenes) reuse keys for a video
+    request. The ONE key derivation, shared by process_video_job and
+    POST /v1/reuse/lookup: both normalize the request the same way
+    (normalize_video_request) and hash the same effective fields, so the
+    endpoint's keys match the pipeline's by construction. (A raw-body
+    derivation in the endpoint previously hashed the pre-preset fields —
+    target_height=None, input_size from depth_res — so its keys never
+    matched a preset run's.) Idempotent over an already-normalized
+    request, so the pipeline can normalize first and still call this."""
+    req = normalize_video_request(request)
+    pp_key = reuse.preprocess_key(
+        req["input_path"],
+        req.get("remove_black_bars", True),
+        req.get("output_res"),
+        req.get("target_height"),
+        req.get("target_fps"),
+        _trim_spec(req),
+        crop_override=req.get("crop"),
+    )
+    d_key = reuse.depth_key(
+        pp_key,
+        req.get("depth_model", "vda"),
+        int(req.get("input_size", 980)),
+        req.get("encoder", "vitl"),
+        scene_cuts=req.get("scene_cuts"),
+    )
+    return pp_key, d_key, reuse.scenes_key(pp_key)
+
+
 @app.function(
     image=media_image,
     volumes=PIPELINE_VOLUMES,
@@ -110,20 +167,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
     from app.common.debug import job_logger
     from app.common.errors import check_worker_result
     from app.stages.media import (
-        encode_outputs, preprocess_video, publish_file, publish_text,
+        encode_outputs, preprocess_video, publish_depth_vis, publish_file,
+        publish_text,
     )
 
-    preset = PRESETS.get(request.get("preset", ""))
-    if preset:
-        request = {**preset, **request}  # explicit fields win over the preset
-    # v7 resolution knobs (client-facing aliases over the internal fields):
-    #   depth_res   → input_size       (depth inference resolution)
-    #   output_res  → target_short_side (output short side, orientation-agnostic)
-    #   inpaint_res → ProPainter short side (consumed in _propainter_work_res)
-    # Aliases only set the internal field when not already present, so a
-    # preset or an explicit internal field still wins per the merge above.
-    if request.get("depth_res") and "input_size" not in request:
-        request["input_size"] = int(request["depth_res"])
+    # preset merge + v7 aliases (depth_res/output_res/inpaint_res) — the
+    # ONE normalization, shared with the reuse-key derivation; see
+    # normalize_video_request for the precedence rules
+    request = normalize_video_request(request)
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_stereo import VideoStereoWorker
 
@@ -153,17 +204,15 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # splat. Without inpaint_res, single-res (work == splat), unchanged.
         inpaint_short_side = request.get("inpaint_res")
 
-        # ---- content-addressed PREPROCESS reuse (v7) -------------------
-        # The work file is a pure function of these inputs; if an identical
-        # run already published one, reuse it (no job id needed). The trim
-        # is resolved inside preprocess (needs source fps), so for the key
-        # we use the raw spec — identical raw spec ⇒ identical resolved trim
-        # for the same source. skip_reuse_preprocess forces a recompute.
-        pp_key = reuse.preprocess_key(
-            request["input_path"], remove_bars, output_res,
-            request.get("target_height"), target_fps, trim_spec,
-            crop_override=request.get("crop"),
-        )
+        # ---- content-addressed reuse keys (v7) -------------------------
+        # Each stage's artifact is a pure function of its key inputs; if an
+        # identical run already published one, reuse it (no job id needed).
+        # The trim is resolved inside preprocess (needs source fps), so the
+        # key uses the raw spec — identical raw spec ⇒ identical resolved
+        # trim for the same source. All three keys come from the shared
+        # derivation so POST /v1/reuse/lookup matches by construction.
+        # skip_reuse_<stage> forces a recompute of that stage.
+        pp_key, d_key, s_key = reuse_request_keys(request)
         pre = _reuse_or_preprocess(
             job_id, jlog, request, pp_key, trim_spec, target_fps, output_res,
             remove_bars, inpaint_short_side,
@@ -201,6 +250,20 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # the adaptive profiler samples 1-2 frames/shot — its per-shot
         # precision is wasted. Skip profiling and use a flat displacement
         # (cheaper, and the draft is for layout, not final grading).
+        # user-edited scene cuts (pro step pipeline): mapped once from
+        # source-frame space to work-file boundaries, then used by BOTH the
+        # adaptive profiler and the depth stage below (detection and the
+        # scenes reuse cache are bypassed — user cuts are not auto scenes).
+        user_boundaries = _user_scene_boundaries(request, pre)
+        if user_boundaries is not None:
+            jlog.info(f"✂️  user scene_cuts: {len(user_boundaries)} scene(s) "
+                      f"(mapped to work space, detection skipped)")
+        # user per-scene stereo overrides (pro step pipeline): SOURCE-frame
+        # keyed, resolved through the same mapping as scene_cuts. Applied to
+        # the profiler's script when adaptive; otherwise they synthesize the
+        # scene_params directly (no profiler, no extra GPU) — see below.
+        scene_overrides = request.get("scene_overrides")
+
         eff_fps = (pre.get("fps_decimation") or {}).get("fps") or probe["fps"]
         if adaptive and eff_fps <= 3.0:
             jlog.info(f"🎚  draft fps ({eff_fps:.1f}) → skipping adaptive profiler "
@@ -221,22 +284,24 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # the work file (preprocess_key), so cache the cut list INLINE in
             # the registry (it's tiny — no GCS file). skip_reuse_scenes forces
             # a re-detect.
-            s_key = reuse.scenes_key(pre.get("_pp_key") or pp_key)
-            scenes = None
-            if not request.get("skip_reuse_scenes"):
-                scenes = reuse.lookup_value(s_key)
-                if scenes is not None:
-                    jlog.info(f"♻️  scene-cut auto-reuse HIT ({s_key}): {len(scenes)} scene(s)")
-            if scenes is None:
-                scenes = detect_scenes.remote(pre["work_path"])["scenes"]
-                try:
-                    reuse.register_value(s_key, job_id, scenes)
-                except Exception:
-                    logger.warning("scenes register failed (non-fatal)", exc_info=True)
-            scene_ranges = (
-                [(s["start"], s["end"]) for s in scenes]
-                or [(0, pre["probe"]["num_frames"])]
-            )
+            if user_boundaries is not None:
+                scene_ranges = user_boundaries
+            else:
+                scenes = None
+                if not request.get("skip_reuse_scenes"):
+                    scenes = reuse.lookup_value(s_key)
+                    if scenes is not None:
+                        jlog.info(f"♻️  scene-cut auto-reuse HIT ({s_key}): {len(scenes)} scene(s)")
+                if scenes is None:
+                    scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+                    try:
+                        reuse.register_value(s_key, job_id, scenes)
+                    except Exception:
+                        logger.warning("scenes register failed (non-fatal)", exc_info=True)
+                scene_ranges = (
+                    [(s["start"], s["end"]) for s in scenes]
+                    or [(0, pre["probe"]["num_frames"])]
+                )
             # v3: the profiling backend is selectable ("profiler":
             # "da3-metric" default | "depth-pro" true-meters + FOV
             # modifier), independent of the depth_model used for the
@@ -264,6 +329,21 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 depth_scale=depth_scale,
             )
             check_worker_result(depth_script, "profile_scenes")
+            if scene_overrides:
+                # user overrides are the FINAL word: applied AFTER the
+                # profiler's smoothing/cut-matching/comfort passes, scaled
+                # like the profiler scales (the comfort_scale it chose, or
+                # the explicit depth_scale). Comfort clamps are NOT re-run
+                # over overridden shots.
+                resolved = _resolve_scene_overrides(request, pre, scene_ranges, jlog)
+                applied_scale = (
+                    (jobs.get_job(job_id) or {}).get("comfort_scale")
+                    or float(request.get("depth_scale", 1.0))
+                )
+                _apply_scene_overrides(depth_script, resolved, applied_scale, jlog)
+            # source-frame spans for the web client (frame doctrine): the
+            # work-space first/last stay for the stereo stages
+            _annotate_source_spans(depth_script, request, pre)
             # persist the per-shot decisions immediately so they are
             # inspectable while the job is still running (and survive a
             # later-stage failure); also folded into final metadata below
@@ -295,6 +375,27 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     f"disp={shot['displacement']} placement={shot['placement']} "
                     f"(median={shot['median']}, near_fraction={shot['near_fraction']})"
                 )
+        elif scene_overrides:
+            # scene_overrides WITHOUT adaptive: synthesize flat per-scene
+            # params directly (no profiler, no extra GPU) — every scene at
+            # the job-wide displacement default + the splatter's default
+            # placement (identical to a plain non-adaptive render), then
+            # the user's overrides edit their scenes. The result threads
+            # into the stereo stage exactly like an adaptive depth script
+            # (scene_params keys on absolute frame index, so it composes
+            # with both backends' sequential and parallel paths alike).
+            ranges = user_boundaries or [(0, pre["probe"]["num_frames"])]
+            resolved = _resolve_scene_overrides(request, pre, ranges, jlog)
+            depth_script = _synthesize_scene_params(
+                ranges, float(request.get("displacement", 0.0125))
+            )
+            _apply_scene_overrides(depth_script, resolved, 1.0, jlog)
+            _annotate_source_spans(depth_script, request, pre)
+            jlog.info(
+                f"🎚  scene_overrides (non-adaptive): synthesized "
+                f"{len(depth_script)} scene(s), {len(resolved)} overridden"
+            )
+            jobs.update_job(job_id, depth_script=depth_script)
         # depth reuse: experiments that vary only the stereo/inpaint
         # stage (e.g. propainter vs m2svid, displacement sweeps,
         # adaptive on/off) can skip the depth pass entirely by pointing
@@ -303,12 +404,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # depth dimensions against this run's preprocess before using it.
         # Explicit reuse_depth_from (job id) WINS; otherwise content-
         # addressed auto-reuse looks up the depth key (preprocess + model +
-        # input_size + encoder) and reuses the matching published depth.
+        # input_size + encoder + scene-boundary identity, computed above)
+        # and reuses the matching published depth.
         reuse_from = request.get("reuse_depth_from")
-        d_key = reuse.depth_key(
-            pre.get("_pp_key") or pp_key, depth_model, input_size,
-            request.get("encoder", "vitl"),
-        )
         if not reuse_from and not request.get("skip_reuse_depth"):
             hit = reuse.lookup(d_key)
             if hit:
@@ -349,6 +447,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
                     max_workers=max_gpu_workers,
                     stall_timeout_s=stall_timeout_s, chunk_cap=depth_chunk_cap,
+                    boundaries=user_boundaries,
                 )
             else:
                 # single worker: coverage relies on Modal's depth function
@@ -359,6 +458,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     input_size=input_size,
                     fps_rational=fps_rational,
                     band=(0.15, 0.5),
+                    scene_ranges=user_boundaries,
                 )
         else:
             # per-frame backends (DA2-metric / DA3 / Depth Pro): single L40S worker
@@ -547,6 +647,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
             outputs["mvhevc"] = mv["mvhevc"]
         if request.get("output_depth", True):
             outputs["depth"] = publish_file.remote(job_id, depth["depth_path"], "depth.mp4")
+            # browsers can't decode gray16le H.264, so ALSO publish an 8-bit
+            # yuv420p preview (short side ≤720, no upscale). Derived from
+            # THIS job's cache copy of the depth, so it exists on the reuse
+            # path too; the reuse registry below still points ONLY at
+            # depth.mp4 (the preview never enters the content-addressed key).
+            outputs["depth_vis"] = publish_depth_vis.remote(job_id, depth["depth_path"])
             # register this depth for content-addressed auto-reuse (only
             # when freshly computed — reusing then re-registering the same
             # key is a harmless no-op, but skip it to keep the pointer at the
@@ -573,6 +679,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 "depth_shape": depth["depth_shape"],
                 "av_sync_ms": encoded.get("av_sync_ms"),
                 **({"depth_script": depth_script} if depth_script is not None else {}),
+                # echo the raw request overrides for support/debugging (the
+                # applied form lives on each depth_script entry's "override")
+                **(
+                    {"scene_overrides": request["scene_overrides"]}
+                    if request.get("scene_overrides") is not None else {}
+                ),
                 # auto_comfort: the effective per-job displacement scale the
                 # profiler chose (worker stored it top-level on the job;
                 # surface it in metadata too). None when not adaptive.
@@ -641,6 +753,9 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
             "trim": tuple(trim) if trim else None,
             "fps_decimation": meta.get("fps_decimation"),
             "source_fps": meta.get("source_fps"),
+            # may be absent from older lookup payloads; the source-span
+            # annotation falls back to the trim end / inverse mapping
+            "source_num_frames": meta.get("source_num_frames"),
             "_pp_key": pp_key,
         }
 
@@ -668,6 +783,9 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
             "trim": tuple(trim) if trim else None,
             "fps_decimation": meta.get("fps_decimation"),
             "source_fps": src_fps,
+            # may be absent from entries registered before this field
+            # existed; the source-span annotation degrades gracefully
+            "source_num_frames": meta.get("source_num_frames"),
             "_pp_key": pp_key,
         }
 
@@ -693,6 +811,7 @@ def _reuse_or_preprocess(job_id, jlog, request, pp_key, trim_spec, target_fps,
             splat_relpath = f"outputs/{job_id}/preprocess_splat.mp4"
         reuse.register(pp_key, job_id, relpath, meta={
             "source_fps": pre.get("source_fps"),
+            "source_num_frames": pre.get("source_num_frames"),
             "trim": list(pre["trim"]) if pre.get("trim") else None,
             "crop": pre.get("crop"),
             "fps_decimation": pre.get("fps_decimation"),
@@ -829,6 +948,282 @@ def _trim_spec(request: dict) -> dict | None:
     return spec or None
 
 
+def _resample_source_fps(pre: dict) -> float:
+    """SOURCE fps for the non-divisor resample mapping — NO fallback to
+    pre["probe"]["fps"]: that probe is the WORK file, whose fps is the
+    TARGET rate, so falling back degenerates the resample mapping to
+    identity (silently wrong frames). A resampled preprocess whose reuse
+    meta predates source_fps fails the job loudly instead. (Divisor
+    decimation never calls this — it needs no fps.)"""
+    src_fps = pre.get("source_fps")
+    if not src_fps:
+        raise ValueError(
+            "preprocess meta is missing 'source_fps' for an fps-resampled "
+            "work file — the source↔work frame mapping cannot be computed "
+            "(the work probe's fps is the TARGET rate). Re-run with "
+            "skip_reuse_preprocess=true to recompute the preprocess and "
+            "re-register it with full meta."
+        )
+    return float(src_fps)
+
+
+def _map_source_to_work(c_src: int, pre: dict) -> int:
+    """SOURCE-frame index → WORK-frame index under trim + fps decimation.
+
+    This is the ONE source→work frame mapping (frame doctrine: the web
+    client and gateway never re-derive it; ``scene_cuts`` boundaries AND
+    ``scene_overrides`` targeting both resolve through here):
+      1. trim: work frames count from the trim start (indices at/before
+         the kept window's first frame clamp to 0);
+      2. exact fps decimation (divisor N keeps every Nth frame): the scene
+         starting at trimmed frame c begins at the first KEPT frame ≥ c,
+         i.e. ceil(c / N) — frame-exact;
+      3. non-divisor fps resample (nearest-frame): nearest work frame by
+         time, round(c · f_target / f_source) — best possible under
+         resampling, ±1 frame by construction.
+    """
+    trim = pre.get("trim")
+    c = int(c_src) - (trim[0] if trim else 0)
+    if c <= 0:
+        return 0
+    dec = pre.get("fps_decimation")
+    if dec is None:
+        return c
+    if dec.get("divisor"):
+        n = int(dec["divisor"])
+        return -(-c // n)  # ceil: first kept frame ≥ the cut
+    return round(c * float(dec["fps"]) / _resample_source_fps(pre))
+
+
+def _work_to_source_frame(w: int, pre: dict) -> int:
+    """Inverse of _map_source_to_work for KEPT work frames: the source
+    frame that work frame ``w`` decodes from. Exact under trim and divisor
+    decimation (kept frames are trim_start + w·N by construction);
+    nearest-frame under resample (±1, same tolerance as the forward map).
+    Used only to express auto-detected work-space scenes in SOURCE-frame
+    space for metadata (first_src/last_src) — user-provided cuts are
+    echoed verbatim instead, never round-tripped through this."""
+    trim = pre.get("trim")
+    t0 = trim[0] if trim else 0
+    dec = pre.get("fps_decimation")
+    if dec is None:
+        return t0 + int(w)
+    if dec.get("divisor"):
+        return t0 + int(w) * int(dec["divisor"])
+    return t0 + round(int(w) * _resample_source_fps(pre) / float(dec["fps"]))
+
+
+def _user_scene_boundaries(request: dict, pre: dict) -> list | None:
+    """Map user-edited ``scene_cuts`` (SOURCE-frame indices, each the first
+    frame of a new scene) to work-file scene boundaries [(first, last), …].
+
+    Returns None when the request carries no scene_cuts (auto-detect path).
+    Cuts outside the kept trim window (mapped to 0 or past the work span)
+    are dropped; colliding cuts (two source cuts landing on one work frame
+    under decimation) collapse to one."""
+    cuts_src = request.get("scene_cuts")
+    if cuts_src is None:
+        return None
+    num_work = pre["probe"]["num_frames"]
+    work_cuts: list[int] = []
+    for c in cuts_src:
+        w = _map_source_to_work(c, pre)
+        if 0 < w < num_work and (not work_cuts or w > work_cuts[-1]):
+            work_cuts.append(w)
+    edges = [0, *work_cuts, num_work]
+    return [(a, b) for a, b in zip(edges, edges[1:])]
+
+
+def _resolve_scene_overrides(request: dict, pre: dict, boundaries: list, jlog) -> dict:
+    """Map ``scene_overrides`` (keyed by SOURCE-frame scene start ``first``)
+    onto WORK-space scene starts: {work_first: {override fields}}.
+
+    Frame doctrine: an override whose ``first`` does not land on a resolved
+    scene start FAILS the job loudly (a user's frame decision is never
+    silently snapped or dropped). The ONE exception mirrors trimmed-out
+    scene_cuts handling: a scene that doesn't exist in this job — entirely
+    outside the trim window, OR keeping zero work frames because decimation
+    collapsed it onto the next scene's start — is dropped WITH a job-log
+    warning; there is nothing to override (applying it anyway would land
+    the user's numbers on the NEXT scene's content).
+
+    A scene whose START was trimmed away but whose tail survives IS the
+    first work scene, so its override resolves to work start 0 (same
+    collapse the boundary mapping applies to its cut)."""
+    overrides = request.get("scene_overrides") or []
+    if not overrides:
+        return {}
+    trim = pre.get("trim")
+    t0 = trim[0] if trim else 0
+    t1 = trim[1] if trim else None
+    cuts_src = request.get("scene_cuts") or []
+    num_work = pre["probe"]["num_frames"]
+    starts = {int(first) for first, _ in boundaries}
+    resolved: dict[int, dict] = {}
+    for ov in overrides:
+        f = int(ov["first"])
+        # this scene's SOURCE end = the next user cut (None = clip end)
+        nxt = next((c for c in cuts_src if c > f), None)
+        if (nxt is not None and nxt <= t0) or (t1 is not None and f >= t1):
+            jlog.warning(
+                f"⚠️  scene_overrides: scene starting at source frame {f} is "
+                f"entirely outside the trim window — override dropped"
+            )
+            continue
+        w = _map_source_to_work(f, pre)
+        if w >= num_work:
+            # same handling as a cut past the kept span (dropped there too)
+            jlog.warning(
+                f"⚠️  scene_overrides: source frame {f} maps past the work "
+                f"clip ({w} ≥ {num_work}) — override dropped"
+            )
+            continue
+        if nxt is not None and _map_source_to_work(nxt, pre) == w:
+            # the scene keeps NO work frames — decimation collapsed it onto
+            # the next scene's start (e.g. a 1-frame scene under divisor 2),
+            # so work frame w shows the NEXT scene's content. Same policy as
+            # a trimmed-out scene: the scene doesn't exist in this job, drop
+            # the override loudly rather than restyle the wrong scene.
+            jlog.warning(
+                f"⚠️  scene_overrides: scene starting at source frame {f} "
+                f"keeps no work frames under fps decimation (collapsed onto "
+                f"work frame {w}, the next scene's start) — override dropped"
+            )
+            continue
+        if w not in starts:
+            raise ValueError(
+                f"scene_overrides: first={f} maps to work frame {w}, which is "
+                f"not a resolved scene start (starts: {sorted(starts)}). "
+                f"Overrides must target frame 0 or an exact scene start "
+                f"(a scene_cuts value)."
+            )
+        if w in resolved:
+            # two source scenes collapsed onto one work scene (decimation
+            # collision / trim) — the later override wins, loudly
+            jlog.warning(
+                f"⚠️  scene_overrides: first={f} collapses onto work scene "
+                f"{w} already overridden — later entry wins"
+            )
+        resolved[w] = {k: v for k, v in ov.items() if k != "first"}
+    return resolved
+
+
+def _apply_scene_overrides(script: list, resolved: dict, depth_scale: float, jlog) -> None:
+    """Apply resolved scene_overrides onto the final depth script IN PLACE.
+
+    User override = FINAL word: applied AFTER the profiler's smoothing /
+    cut-matching / comfort passes, and comfort clamps are NOT re-run over
+    an overridden shot (a clamp silently editing the user's number would
+    violate the doctrine).
+    - ``displacement``: set flat.
+    - ``shot_type`` (without displacement): re-derive displacement from
+      SHOT_PARAMS[shot_type] × depth_scale — the same scaling the profiler
+      applies at SHOT_PARAMS lookup — and placement from SHOT_PARAMS.
+    - explicit ``placement`` wins over derived.
+    ANY override drops the shot's "keyframes" ramp: _scene_param_lookup
+    lets keyframes win over the entry-level values, so a leftover ramp
+    would silently render the profiler's numbers instead of the user's.
+    Each touched entry records ``"override": {...}`` for support/debug."""
+    from app.stages.video_depth_models import SHOT_PARAMS
+
+    for entry in script:
+        ov = resolved.get(int(entry["first"]))
+        if ov is None:
+            continue
+        if "shot_type" in ov:
+            params = SHOT_PARAMS[ov["shot_type"]]
+            entry["shot_type"] = ov["shot_type"]
+            entry["displacement"] = round(params["displacement"] * depth_scale, 6)
+            entry["placement"] = list(params["placement"])
+        if "displacement" in ov:  # wins over a shot_type re-derivation
+            entry["displacement"] = float(ov["displacement"])
+        if "placement" in ov:  # explicit placement wins over derived
+            entry["placement"] = [float(v) for v in ov["placement"]]
+        entry.pop("keyframes", None)  # a manual value must actually render
+        entry["override"] = dict(ov)
+        jlog.info(
+            f"🎚  override applied to shot [{entry['first']}, {entry['last']}): "
+            f"{ov} → disp={entry['displacement']} placement={entry['placement']}"
+        )
+    # defensive: every resolved override must have found its shot — the
+    # script tiles the same ranges we resolved against, so a miss here is
+    # a programming error, not a user error
+    matched = {int(e["first"]) for e in script}
+    missing = sorted(w for w in resolved if w not in matched)
+    if missing:
+        raise RuntimeError(
+            f"scene_overrides resolved to work starts {missing} absent from "
+            f"the depth script (script starts: {sorted(matched)})"
+        )
+
+
+def _synthesize_scene_params(ranges: list, displacement: float) -> list:
+    """scene_overrides WITHOUT adaptive: build flat per-scene params
+    directly — no profiler, no extra GPU. Every scene starts from EXACTLY
+    what a plain non-adaptive render uses — the request's displacement and
+    the splatter's DEFAULT_PLACEMENT — so overriding ONE scene never
+    changes any other scene's look (the 'standard' SHOT_PARAMS placement
+    used before is an adaptive-profiler bucket, NOT the non-adaptive
+    default), and the overrides then edit their scenes. Same entry
+    contract the stereo stage's scene_params lookup consumes."""
+    from app.stages.video_depth_models import DEFAULT_PLACEMENT
+
+    return [
+        {
+            "first": int(a),
+            "last": int(b),
+            "displacement": float(displacement),
+            "placement": list(DEFAULT_PLACEMENT),
+        }
+        for a, b in ranges
+    ]
+
+
+def _annotate_source_spans(script: list, request: dict, pre: dict) -> None:
+    """Attach ``first_src``/``last_src`` (SOURCE-frame scene span,
+    half-open) to every depth-script entry IN PLACE. The web client works
+    in source-frame space (frame doctrine) — the work-space
+    ``first``/``last`` stay untouched for the stereo stages.
+
+    Two derivations, both riding the ONE trim+decimation mapping:
+    - user ``scene_cuts``: spans are echoed from the USER'S source starts
+      (0 + the cuts), never round-tripped through the mapping — a work
+      scene's first_src is the LAST source start whose mapped work
+      position is at/before the work start (so a scene whose cut was
+      trimmed away / collapsed still names its true source scene), and
+      last_src is the next source start, or the source clip end.
+    - auto-detected scenes (no scene_cuts): spans are inverse-mapped via
+      _work_to_source_frame — exact under divisor decimation, ±1 under
+      resample.
+    The final scene's last_src is the SOURCE clip length when known
+    (preprocess records source_num_frames; older reuse-cache entries may
+    predate it, in which case the trim end / inverse-mapped work end is
+    the best available)."""
+    num_work = pre["probe"]["num_frames"]
+    trim = pre.get("trim")
+    src_end = (
+        pre.get("source_num_frames")
+        or (trim[1] if trim else None)
+        or _work_to_source_frame(num_work, pre)
+    )
+    cuts_src = request.get("scene_cuts")
+    if cuts_src is None:
+        for entry in script:
+            entry["first_src"] = _work_to_source_frame(int(entry["first"]), pre)
+            last = int(entry["last"])
+            entry["last_src"] = (
+                int(src_end) if last >= num_work else _work_to_source_frame(last, pre)
+            )
+        return
+    starts = [0, *cuts_src]
+    pos = [_map_source_to_work(s, pre) for s in starts]
+    for entry in script:
+        a = int(entry["first"])
+        i = max(j for j, p in enumerate(pos) if p <= a)
+        entry["first_src"] = int(starts[i])
+        entry["last_src"] = int(starts[i + 1]) if i + 1 < len(starts) else int(src_end)
+
+
 def _align_up(n: int, multiple: int) -> int:
     """Round n up to the nearest multiple of ``multiple`` (segment len),
     so chunk boundaries land on segment boundaries and fan-out output is
@@ -850,12 +1245,16 @@ def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
 
 
 def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
-                    max_workers, stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=DEPTH_CHUNK_FRAMES):
+                    max_workers, stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=DEPTH_CHUNK_FRAMES,
+                    boundaries=None):
     from app.common.errors import check_worker_result
     from app.stages.media import concat_cache_segments, detect_scenes
 
-    scenes = detect_scenes.remote(pre["work_path"])["scenes"]
-    boundaries = [(s["start"], s["end"]) for s in scenes] or [(0, pre["probe"]["num_frames"])]
+    # boundaries: precomputed work-space scene ranges (user-edited
+    # scene_cuts); None → auto-detect.
+    if boundaries is None:
+        scenes = detect_scenes.remote(pre["work_path"])["scenes"]
+        boundaries = [(s["start"], s["end"]) for s in scenes] or [(0, pre["probe"]["num_frames"])]
     total = pre["probe"]["num_frames"]
     # capped chunk size: bounded worker wall time, more chunks for long
     # videos (same principle as the stereo fan-out). A smaller chunk_cap

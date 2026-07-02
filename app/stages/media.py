@@ -394,6 +394,11 @@ def preprocess_video(
         # frames, so audio_trim seconds must divide by THIS, not the
         # (possibly decimated) work-file probe fps.
         "source_fps": source_fps,
+        # the SOURCE frame count (pre-trim/decimation) — the pipeline maps
+        # scene spans back to source-frame space for the web client
+        # (metadata first_src/last_src), and the LAST scene's source end is
+        # the source clip length, which no work-file probe can recover.
+        "source_num_frames": probe["num_frames"],
         # dual-res splat surface (v7): output-res work file for the splat +
         # composite. None when single-res (splat == work_path).
         "splat_path": str(splat_path) if splat_path else None,
@@ -709,6 +714,83 @@ def publish_file(job_id: str, cache_file: str, name: str) -> str:
     dst.write_bytes(src.read_bytes())
     url = public_url(dst)
     jlog.info(f"✔ published {name}: {url}")
+    return url
+
+
+# Browser depth preview: short-side cap in px. 720 keeps the preview cheap
+# to transcode/stream while staying legible; NEVER upscaled past the depth
+# file's own resolution (a preview can't add information).
+DEPTH_VIS_SHORT_SIDE = 720
+
+
+def _depth_vis_filter(width: int, height: int, cap: int = DEPTH_VIS_SHORT_SIDE) -> str:
+    """ffmpeg -vf chain turning a gray16le depth video into a browser-
+    playable 8-bit frame: ``format=gray`` maps the full 16-bit luminance
+    range onto 8 bits (swscale keeps the high byte — a straight full-range
+    remap, no level stretch), an optional aspect-preserving downscale caps
+    the SHORT side at ``cap`` (``-2`` keeps the long side even, which
+    yuv420p subsampling requires), and ``format=yuv420p`` lands on the one
+    pixel format every browser decodes. Pure function so the decision
+    logic (scale vs no-upscale) is testable offline."""
+    parts = ["format=gray"]
+    if min(width, height) > cap:
+        # scale the SHORT side to the cap, long side aspect-derived
+        parts.append(f"scale=-2:{cap}" if width >= height else f"scale={cap}:-2")
+    parts.append("format=yuv420p")
+    return ",".join(parts)
+
+
+def _depth_vis_cmd(src: str | Path, dst: str | Path, vf: str) -> list[str]:
+    """The single-pass CPU transcode command for the depth preview:
+    H.264 yuv420p, crf 20 / veryfast (a preview, not a deliverable),
+    +faststart so browsers can start playback before the download ends."""
+    return [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(src),
+        "-vf", vf, "-an", "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "-y", str(dst),
+    ]
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
+    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    cpu=4,
+    memory=(2 * 1024, 16 * 1024),
+    # one ffmpeg pass over the depth video at ≤720p short side; 90min covers
+    # a long clip with margin (same bound as encode_one_format)
+    timeout=90 * 60,
+)
+def publish_depth_vis(job_id: str, depth_path: str) -> str:
+    """Publish a BROWSER-PLAYABLE preview of the gray16le depth video as
+    ``depth_vis.mp4``. ``outputs.depth`` stays the lossless-ish gray16le
+    H.264 master (the reuse/artifact contract — browsers can't decode it);
+    this derives an 8-bit yuv420p H.264 with the short side capped at
+    720 (no upscale) in ONE CPU ffmpeg pass. Runs against THIS job's cache
+    copy of the depth, so it works identically whether the depth was
+    freshly computed or reused — and it never touches the content-addressed
+    reuse registry (only depth.mp4 is registered)."""
+    from app.common.debug import job_logger
+
+    jlog = job_logger(job_id)
+    cache_volume.reload()
+    src = Path(depth_path)
+    if not src.exists():
+        raise FileNotFoundError(src)
+    probe = probe_video(src)
+    vf = _depth_vis_filter(probe["width"], probe["height"])
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "depth_vis.mp4"
+        subprocess.run(_depth_vis_cmd(src, local, vf), check=True)
+        dst = job_output_dir(job_id) / "depth_vis.mp4"
+        dst.write_bytes(local.read_bytes())
+        url = public_url(dst)
+        jlog.info(
+            f"✔ depth_vis: {local.stat().st_size / 1e6:.1f} MB "
+            f"({probe['width']}x{probe['height']} → vf '{vf}') → {url}"
+        )
     return url
 
 

@@ -12,20 +12,53 @@ cold-start + idle overhead (see "Estimate vs billed" below).
 
 ## Modal GPU rates ($/second) — `app/common/pricing.py`
 
-| GPU       | $/sec    | $/hr  | notes                                                            |
-| --------- | -------- | ----- | ---------------------------------------------------------------- |
-| L40S      | 0.000542 | $1.95 | cheapest; depth ≤2.5 working-MP, small stereo                    |
-| A100-80GB | 0.000944 | $3.40 | **dropped from routing** — H200 faster & ~cost-neutral           |
-| H200      | 0.001097 | $3.95 | depth 2.5–6.5 MP, all 4K stereo/splat                            |
-| H100      | 0.001097 | $3.95 | (same rate as H200)                                              |
-| B200      | 0.001736 | $6.25 | VRAM-ceiling tier, depth >6.5 working-MP only (cu128 image). NOT cost-competitive ≤H200: ~0.74× H200 throughput at 58% higher $/s |
+| GPU       | $/sec    | $/hr  | role in routing                                                   |
+| --------- | -------- | ----- | ----------------------------------------------------------------- |
+| L40S      | 0.000542 | $1.95 | cheapest; depth ≤2.5 working-MP, per-frame depth models, small stereo |
+| H200      | 0.001097 | $3.95 | depth 2.5–6.5 working-MP, big stereo (>720p inpaint work res or >1440p splat) |
+| B200      | 0.001736 | $6.25 | VRAM-ceiling tier, depth 6.5–8.5 working-MP only (cu128 image). NOT cost-competitive ≤H200: ~0.74× H200 throughput at 58% higher $/s |
+| L4        | 0.000222 | $0.80 | `encode_mvhevc` NVENC path only (fixed-function; bigger GPUs add nothing) |
+| A10G      | 0.000306 | $1.10 | image pipeline (DA2-Large + LAMA)                                 |
+| A100-80GB | 0.000944 | $3.40 | **not in depth routing (reference only)** — H200 faster & ~cost-neutral; still pinned by the deprecated M2SVid stereo worker |
+| A100 40GB | 0.000694 | $2.50 | **not in routing (reference only)**                               |
+| H100      | 0.001097 | $3.95 | **not in routing** (same rate as H200; reference only)            |
+| T4        | 0.000164 | $0.59 | **not in routing (reference only)**                               |
 
 CPU-only stages (preprocess, encode_outputs, encode_mvhevc_x265) priced on
 cpu+mem seconds, not GPU.
 
+### Depth tier boundaries — working megapixels
+
+The depth GPU is picked by **working megapixels**, not depth_res alone
+(`_route_depth_gpu` in `app/pipelines/video.py`):
+
+    work_mp = depth_res² × elongation / 1e6   (elongation = long/short ≥ 1)
+
+L40S ≤ **2.5** MP < H200 ≤ **6.5** MP < B200 ≤ **8.5** MP; above 8.5 MP the
+job fails fast. On a 16:9 source that's roughly depth_res ≤1184 → L40S,
+≤1912 → H200; the same depth_res costs a different tier on a different
+aspect (e.g. 2100 on 1:1 = 4.41 MP fits H200; 2100 on 2.39:1 = 7.84 MP
+needs B200).
+
+### Cost formula (`estimate_cost`, rates revision `2026-06-15`)
+
+Per stage: `seconds × (gpu_rate + cpu_cores × $0.0000131 +
+mem_gib_ceiling × $0.00000222)` — CPU is $0.0000131/core/s (~$0.047/hr),
+memory $0.00000222/GiB/s (~$0.008/GiB/hr), billed at the function's
+memory **limit** (conservative ceiling). Unknown GPUs are flagged
+(`gpu_unpriced`), never silently $0. Every breakdown carries
+`rates_revision` (`RATES_REVISION = "2026-06-15"`) so stale rates are
+detectable.
+
 ## Per-frame cost — measured (V5bVtAej1hs, 4K source)
 
 ### A) Depth-res sweep — 60s @ 6fps = **360 frames**, inpaint=none, dual-res splat
+
+> **HISTORICAL** (measured under the old `eff_size` routing with an A100
+> tier). Routing is now working-MP based with A100 dropped: the d1442
+> rows (3a/3b, 3.70 working-MP on this 16:9 source) would route to
+> **H200** today. The measurements remain valid throughput/cost data for
+> the GPU they actually ran on; only the *routing* column is outdated.
 
 | job | depth_res | output | $/frame  | $/1000-frames | total (360f) | depth GPU              |
 | --- | --------- | ------ | -------- | ------------- | ------------ | ---------------------- |

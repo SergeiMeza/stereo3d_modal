@@ -44,9 +44,11 @@ Full reference: [docs/API.md](docs/API.md). Design: [docs/ARCHITECTURE.md](docs/
 ## Pipeline
 
 ```
-video:  preprocess (CPU: probe + black-bar crop)
-        → video depth   (GPU L40S: VideoDepthAnything v3, scene-aware streaming)
-        → video stereo  (GPU L40S: Forward-Warp splat + ProPainter inpaint)
+video:  preprocess (CPU: probe + black-bar crop, fps decimation, dual-res splat file)
+        → video depth   (GPU L40S→H200→B200 by working res: VideoDepthAnything v3,
+                         scene-aware streaming)
+        → video stereo  (GPU L40S, H200 for 4K/dual-res: Forward-Warp splat +
+                         ProPainter inpaint)
         → encode        (CPU: SBS master → half-SBS / TB / anaglyph + audio mux)
 
 image:  one A10G container: black-bar crop → Depth-Anything-V2-Large
@@ -101,27 +103,45 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
 
 ## Notes
 
-- **GPU budget:** workers cap at fixed GPU types (L40S / A10G); the
-  workspace limit is 10 concurrent GPU containers.
+- **GPU budget:** video depth routes L40S → H200 → B200 by working
+  megapixels (`depth_res`/`input_size` up to 2520, aspect-aware); video
+  stereo runs L40S, escalating to H200 for >720p inpaint or >QHD splat;
+  images stay on A10G. The workspace limit is 10 concurrent GPU
+  containers.
 - **Memory:** depth+stereo stages stream frames through generators and
   ffmpeg pipes; long 4K clips stay bounded.
 - **Apple spatial video (device-verified):** the `mvhevc` format makes
   Photos/Files-recognized spatial .movs entirely in the cloud — x265
-  multiview (CPU) + MP4Box + byte-exact vexu/hfov injection. NVENC (L4)
-  remains as the fast MV-HEVC path for custom players. Details + the
-  long elimination story: docs/ARCHITECTURE.md.
+  multiview (CPU, the Apple-compatible default) + MP4Box + byte-exact
+  vexu/hfov injection. NVENC (`"mvhevc_encoder": "nvenc"`, on a cheap
+  L4 GPU) remains as the fast MV-HEVC path for custom players. Details
+  + the long elimination story: docs/ARCHITECTURE.md.
 - **Long videos:** depth and stereo fan out across up to
   `max_gpu_workers` GPU containers (auto >1500 frames, or force with
   `"parallel": true`) with resumable segment checkpoints. Chunk size is
   **capped** (not divided by a fixed worker count), so a worker's wall
   time never grows with video length — long clips spawn *more* chunks
-  (`STEREO_CHUNK_FRAMES=1200`, `DEPTH_CHUNK_FRAMES=1500`), bounded to
-  `max_gpu_workers` concurrent via `max_containers`. Adaptive depth
-  scripts fan out too (they key on absolute frame index). Raising
-  `max_gpu_workers` toward the workspace ceiling scales throughput.
-- **Presets:** `draft` / `1080p` / `qhd` / `3k` / `4k` bundle target
-  resolution, depth input_size, inpainting work res, and (via routing)
-  GPU tier.
+  (defaults `STEREO_CHUNK_FRAMES=1200`, `DEPTH_CHUNK_FRAMES=1500`,
+  request-overridable via `stereo_chunk_frames` / `depth_chunk_frames`),
+  bounded to `max_gpu_workers` (default 4, request-overridable)
+  concurrent via `max_containers`. Adaptive depth scripts fan out too
+  (they key on absolute frame index). Raising `max_gpu_workers` toward
+  the workspace ceiling scales throughput; `stall_timeout_s` tunes the
+  fan-out heartbeat watchdog.
+- **Presets** bundle `target_height` + depth `input_size` (and, via
+  routing, GPU tier); explicit request fields override preset values:
+  `draft` (1080p, depth 518, `inpaint: "none"`), `1080p` (depth 980),
+  `qhd` (1440p, depth 1148), `3k` (1620p, depth 1148), `4k` (2160p,
+  depth 1442 + dual-res `inpaint_res: 1080`).
+- **Dual-res (v7):** `inpaint_res` (short side) runs ProPainter at a
+  cheaper work res while the splat/composite stays at the full
+  `output_res` — only engages when `inpaint_res` is set and smaller
+  than the output. `target_fps` decimation and an explicit `crop`
+  override (bypassing auto black-bar detection) land in preprocess.
+- **Content-addressed reuse (v7):** preprocess / depth / scene artifacts
+  are keyed by the inputs that affect them and reused automatically
+  across jobs (skip with `skip_reuse_*`); explicit cross-env reuse via
+  `reuse_depth_from` / `reuse_preprocess_from` + `POST /v1/reuse/lookup`.
 
 ## Timeouts
 
@@ -136,7 +156,7 @@ worst-case *whole-video* runtime.
 | `process_video_job` (orchestrator) | **8h** | Blocks on the SUM of all stages; must outlive the slowest end-to-end run. Cheap idle CPU container. |
 | `VideoStereoWorker` (ProPainter) | 2h | Chunk ≤1200f ≈ 33 min @ 0.6 fps; covers a no-fan-out clip + model load. |
 | `M2SVidStereoWorker` | 2h | Fast (~6 fps) but covers no-fan-out clip + diffusion cold-load. |
-| `VideoDepthWorker` (VDA) | 2h | Chunk ≤3000f ≈ 5 min @ 11 fps; wide margin. |
+| `VideoDepthWorker` (VDA) | 2h | Chunk ≤1500f ≈ 2 min @ 11 fps; wide margin. |
 | `FrameDepthWorker` (DA3 / Depth Pro) | **4h** | **Cannot fan out** — needs one job-wide p1/p99 metric pass. ~2 fps → a 10-min clip ≈ 2h. Production depth is VDA; this guards experiments + the adaptive profiler. |
 | `encode_mvhevc_x265` | **6h** | Single CPU encode, can't fan out: ~36× realtime @ 4K (≈3h for 5 min). |
 | `encode_mvhevc` (NVENC) | 3h | GPU-accelerated; generous for long clips. |

@@ -9,9 +9,10 @@ shared modal.App.
 
 import modal
 
-from app.env import API_LABEL
+from app.env import API_LABEL, APP_ENV
 from app.images import web_image
 from app.modal_app import app
+from app.pipelines import analyze as _analyze_pipeline  # noqa: F401
 from app.pipelines import image as _image_pipeline  # noqa: F401
 from app.pipelines import video as _video_pipeline  # noqa: F401
 from app.stages import image_stereo as _image_stereo  # noqa: F401
@@ -26,9 +27,12 @@ from app.stages import video_stereo_m2svid as _video_stereo_m2svid  # noqa: F401
 from app.common.storage import slack_secret
 
 
+# Prod is reachable only through the gateway (gateway/): proxy auth makes
+# Modal reject requests without a Modal-Key/Modal-Secret proxy-auth token.
+# Test stays open for direct R&D curl workflows.
 @app.function(image=web_image, secrets=[slack_secret], timeout=300)
 @modal.concurrent(max_inputs=100)
-@modal.asgi_app(label=API_LABEL)
+@modal.asgi_app(label=API_LABEL, requires_proxy_auth=(APP_ENV == "prod"))
 def fastapi_app():
     from app.api.main import web_app
 

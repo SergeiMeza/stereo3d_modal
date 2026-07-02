@@ -10,8 +10,9 @@ change its output:
 
 - preprocess: (input_path, remove_black_bars, output spec, target_fps, trim)
   → the work file is byte-identical for an identical key.
-- depth: (preprocess_key, depth_model, input_size, encoder) → depth is a
-  function of the exact frames AND the depth settings.
+- depth: (preprocess_key, depth_model, input_size, encoder, scene-boundary
+  identity) → depth is a function of the exact frames AND the depth
+  settings AND where per-scene normalization resets.
 - scenes: (preprocess_key) → scene cuts depend only on the work file.
 
 Safety: a key match means the artifact is *interchangeable*. The lookup
@@ -81,15 +82,29 @@ def preprocess_key(
     })
 
 
-def depth_key(pp_key: str, depth_model: str, input_size: int, encoder) -> str:
+def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
+              scene_cuts=None) -> str:
     """Key for a depth map: the EXACT preprocessed frames (pp_key) plus the
-    depth model + resolution + encoder. A different input_size is a
-    different depth map, so it MUST be in the key."""
+    depth model + resolution + encoder + the SCENE-BOUNDARY identity. A
+    different input_size is a different depth map, so it MUST be in the key.
+    Scene boundaries too: per-scene depth alignment/normalization resets at
+    cuts, so the same frames rendered under user cuts [100, 400] are NOT the
+    artifact for cuts [250]. scene_cuts is the request's raw SOURCE-frame
+    cut list (a list, including [] = one scene) and keys as ("user", cuts);
+    None means auto-detection and keys as ("auto",) with no cut list —
+    detection is deterministic for the same preprocessed content, so "auto"
+    alone identifies it. Adding this material invalidated entries registered
+    before it existed — intended: those keys were ambiguous across cut
+    lists, so a recompute is the correct degradation."""
     return compute_key(DEPTH, {
         "preprocess_key": pp_key,
         "depth_model": depth_model,
         "input_size": int(input_size),
         "encoder": encoder,
+        "scene_cuts": (
+            ["user", [int(c) for c in scene_cuts]] if scene_cuts is not None
+            else ["auto"]
+        ),
     })
 
 

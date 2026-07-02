@@ -25,6 +25,12 @@ def _load_watchdog():
     jobs.get_job = lambda j: {}
     jobs.clear_chunk_progress_key = lambda job_id, key: None  # no-op stub
     sys.modules["app.common.jobs"] = jobs
+    # If another test already imported the REAL app.common package,
+    # watchdog's `from app.common import jobs` resolves the package
+    # ATTRIBUTE (bound at first import), not sys.modules — patch it too so
+    # the stub wins regardless of test ordering.
+    if "app.common" in sys.modules:
+        sys.modules["app.common"].jobs = jobs
     spec = importlib.util.spec_from_file_location(
         "wd", "app/common/watchdog.py")
     wd = importlib.util.module_from_spec(spec)

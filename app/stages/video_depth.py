@@ -70,10 +70,16 @@ class VideoDepthWorker:
         fp32: bool = False,
         fps_rational: str | None = None,
         band: tuple[float, float] = (0.0, 1.0),
+        scene_ranges: list | None = None,
     ) -> dict:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
         cache-volume path of the gray16le depth video.
+
+        ``scene_ranges`` (optional): explicit work-space scene boundaries
+        [(first, last), …] — user-edited cuts from the pro step pipeline.
+        Skips the internal scene detection; alignment resets at exactly
+        these boundaries.
 
         Resumable: scene segments completed before a preemption are
         skipped on the retried call."""
@@ -99,7 +105,9 @@ class VideoDepthWorker:
             )
 
         with jobs.stage_timer(job_id, "video_depth", gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""), input_size=input_size):
-            processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32)
+            ranges = [tuple(r) for r in scene_ranges] if scene_ranges else None
+            processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32,
+                                       scene_ranges=ranges)
             result = processor.write_depth_video(
                 out,
                 fps_rational=fps_rational,

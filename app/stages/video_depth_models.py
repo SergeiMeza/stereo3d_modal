@@ -198,6 +198,16 @@ MAX_POPOUT_DISPARITY = 0.008
 PLACEMENT_SHIFT_MIN = -1.3
 PLACEMENT_SHIFT_MAX = 0.6
 
+# Default depth-budget placement (see DepthSplatter.forward): depth 0
+# (far) maps to -1.0 × max_disp (behind the screen plane) and depth 1
+# (near) to +0.5 × max_disp (moderate pop-out). Chosen so default calls
+# reproduce the original hard-coded ``depthmap * 1.5 - 1.0`` exactly.
+# Canonically DEFINED here (not in app/stages/splat.py, which re-exports
+# it) so the CPU coordinator can reference the real constant — splat.py
+# imports the Forward_Warp CUDA extension at module level, so it only
+# imports inside GPU containers.
+DEFAULT_PLACEMENT: tuple[float, float] = (-1.0, 0.5)
+
 # Per-shot stereo parameters. ``displacement`` is the max disparity as a
 # fraction of width (VideoStereoWorker convention); ``placement`` is the
 # DepthSplatter depth-budget mapping (see app/stages/splat.py).

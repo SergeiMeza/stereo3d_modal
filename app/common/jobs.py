@@ -38,6 +38,7 @@ STAGE_RESOURCES: dict[str, tuple[int, int]] = {
     "image": (2, 32),                # image_stereo.py
     "preprocess": (4, 16),           # media.py preprocess
     "encode_outputs": (4, 16),       # media.py encode_outputs
+    "analyze": (4, 8),               # pipelines/analyze.py (probe+scenes+thumbs)
 }
 
 

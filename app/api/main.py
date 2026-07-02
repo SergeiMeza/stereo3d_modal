@@ -34,6 +34,76 @@ def _require(body: dict, key: str) -> object:
     return value
 
 
+# scene_overrides entry contract (POST /v1/videos). Frame doctrine
+# (web/DESIGN.md): "first" is a SOURCE-frame scene start — the user's exact
+# number, validated hard at submit time and never coerced downstream.
+_OVERRIDE_KEYS = ("first", "displacement", "shot_type", "placement")
+
+
+def _validate_scene_overrides(overrides: object, scene_cuts: list | None) -> None:
+    """Validate the ``scene_overrides`` request field (422 on any problem —
+    a malformed per-scene decision must never reach the pipeline, where the
+    frame doctrine forces a loud job failure instead of a quick reject).
+
+    Shape: a list of {"first": int, "displacement"?: float,
+    "shot_type"?: str, "placement"?: [float, float]} — ``first`` ≥ 0,
+    strictly increasing across entries, and (when ``scene_cuts`` is also
+    in the request) 0 or one of the scene_cuts values, since those ARE the
+    job's scene starts. Each entry must carry at least one override field;
+    unknown keys are rejected so a typo can't silently no-op."""
+    from app.stages.video_depth_models import SHOT_PARAMS
+
+    def bad(msg: str):
+        return HTTPException(status_code=422, detail=msg)
+
+    if not isinstance(overrides, list) or not all(isinstance(o, dict) for o in overrides):
+        raise bad("scene_overrides must be a list of objects")
+    prev_first = -1
+    for i, ov in enumerate(overrides):
+        unknown = sorted(set(ov) - set(_OVERRIDE_KEYS))
+        if unknown:
+            raise bad(
+                f"scene_overrides[{i}]: unknown key(s) {unknown} "
+                f"(allowed: {', '.join(_OVERRIDE_KEYS)})"
+            )
+        first = ov.get("first")
+        if not isinstance(first, int) or isinstance(first, bool) or first < 0:
+            raise bad(f"scene_overrides[{i}].first must be a non-negative int (source-frame scene start)")
+        if first <= prev_first:
+            raise bad(f"scene_overrides[{i}].first must be strictly increasing (got {first} after {prev_first})")
+        prev_first = first
+        if scene_cuts is not None and first != 0 and first not in scene_cuts:
+            raise bad(
+                f"scene_overrides[{i}].first={first} is not a scene start "
+                f"(must be 0 or one of scene_cuts)"
+            )
+        if not any(k in ov for k in ("displacement", "shot_type", "placement")):
+            raise bad(
+                f"scene_overrides[{i}] must set at least one of "
+                f"displacement/shot_type/placement"
+            )
+        if "displacement" in ov:
+            d = ov["displacement"]
+            if isinstance(d, bool) or not isinstance(d, (int, float)) or not (0.0 < float(d) <= 0.1):
+                raise bad(f"scene_overrides[{i}].displacement must be a number in (0, 0.1]")
+        if "shot_type" in ov and ov["shot_type"] not in SHOT_PARAMS:
+            raise bad(
+                f"scene_overrides[{i}].shot_type must be one of {tuple(SHOT_PARAMS)}"
+            )
+        if "placement" in ov:
+            p = ov["placement"]
+            if (
+                not isinstance(p, (list, tuple)) or len(p) != 2
+                or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in p)
+                or not all(-1.5 <= float(v) <= 1.5 for v in p)
+                or not float(p[0]) < float(p[1])
+            ):
+                raise bad(
+                    f"scene_overrides[{i}].placement must be [far, near] floats "
+                    f"in [-1.5, 1.5] with far < near"
+                )
+
+
 def _submit(kind: str, body: dict, spawner) -> dict:
     job_id = uuid.uuid4().hex[:12]
     jobs.create_job(job_id, kind, body)
@@ -50,6 +120,26 @@ async def health() -> dict:
 
 
 # ---------------------------------------------------------- pipelines
+
+@web_app.post("/v1/analyze")
+async def submit_analyze(body: dict) -> dict:
+    """Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene
+    detect + filmstrip thumbnails on the SOURCE file. CPU-only, cheap. All
+    frame indices in the result metadata are source-frame space, directly
+    usable as ``scene_cuts`` on POST /v1/videos."""
+    from app.pipelines.analyze import MAX_STRIP_COUNT, process_analyze_job
+
+    _require(body, "input_path")
+    strip_count = body.get("strip_count")
+    if strip_count is not None:
+        if not isinstance(strip_count, int) or isinstance(strip_count, bool) \
+                or not (10 <= strip_count <= MAX_STRIP_COUNT):
+            raise HTTPException(
+                status_code=400,
+                detail=f"strip_count must be an int in [10, {MAX_STRIP_COUNT}]",
+            )
+    return _submit("analyze", body, lambda job_id: process_analyze_job.spawn(job_id, body))
+
 
 @web_app.post("/v1/videos")
 async def submit_video(body: dict) -> dict:
@@ -133,6 +223,31 @@ async def submit_video(body: dict) -> dict:
             detail="reuse_preprocess_from requires preprocess_meta (get both from "
                    "POST /v1/reuse/lookup)",
         )
+    # user-edited scene cuts (pro step pipeline): SOURCE-frame indices, each
+    # the first frame of a new scene, strictly increasing, > 0 (frame 0 opens
+    # the first scene implicitly). Bypasses scene detection AND the scenes
+    # reuse cache; the pipeline maps them through trim + fps decimation to
+    # work-file boundaries (one mapping implementation, server-side).
+    scene_cuts = body.get("scene_cuts")
+    if scene_cuts is not None:
+        if (
+            not isinstance(scene_cuts, list)
+            or not all(isinstance(c, int) and not isinstance(c, bool) for c in scene_cuts)
+            or any(c <= 0 for c in scene_cuts)
+            or any(b <= a for a, b in zip(scene_cuts, scene_cuts[1:]))
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="scene_cuts must be a strictly increasing list of source-frame "
+                       "indices > 0 (each the first frame of a new scene)",
+            )
+    # user per-scene stereo overrides (pro step pipeline): keyed by
+    # SOURCE-frame scene start, same space as scene_cuts. Works with or
+    # without adaptive (both stereo backends thread scene_params through
+    # their sequential AND parallel paths, so no inpaint/parallel
+    # restriction applies). Validated hard here — see the helper.
+    if body.get("scene_overrides") is not None:
+        _validate_scene_overrides(body["scene_overrides"], scene_cuts)
     # adaptive per-shot depth script (R&D prototype): sequential
     # ProPainter/none path only — reject unsupported combinations at
     # submit time so the job doesn't fail minutes in
@@ -388,26 +503,17 @@ async def reuse_lookup(body: dict) -> dict:
     the entry reflects what was registered.
 
     Body: the SAME fields as POST /v1/videos that affect the keys
-    (input_path required; remove_black_bars, output_res, target_height,
-    target_fps, trim, depth_res/input_size, depth_model, encoder optional)."""
+    (input_path required; preset, remove_black_bars, output_res,
+    target_height, target_fps, trim, depth_res/input_size, depth_model,
+    encoder, scene_cuts, crop optional). The keys come from the pipeline's
+    OWN derivation (reuse_request_keys: preset merge + aliases included),
+    so passing the exact submit body here yields the keys the job will
+    use — a raw-body derivation could never match a preset run."""
     from app.common import reuse
+    from app.pipelines.video import reuse_request_keys
 
-    input_path = _require(body, "input_path")
-    remove_bars = body.get("remove_black_bars", True)
-    output_res = body.get("output_res")
-    target_height = body.get("target_height")
-    target_fps = body.get("target_fps")
-    trim_spec = _trim_keys(body)
-    depth_model = body.get("depth_model", "vda")
-    input_size = int(body.get("depth_res") or body.get("input_size") or 980)
-    encoder = body.get("encoder", "vitl")
-
-    pp_key = reuse.preprocess_key(
-        input_path, remove_bars, output_res, target_height, target_fps, trim_spec,
-        crop_override=body.get("crop"),
-    )
-    d_key = reuse.depth_key(pp_key, depth_model, input_size, encoder)
-    s_key = reuse.scenes_key(pp_key)
+    _require(body, "input_path")
+    pp_key, d_key, s_key = reuse_request_keys(body)
 
     def _entry(key):
         e = reuse.peek(key)
@@ -428,14 +534,6 @@ async def reuse_lookup(body: dict) -> dict:
         # the convenient cross-env skip: pass this as reuse_depth_from
         "reuse_depth_from": depth.get("job_id") if depth["cached"] else None,
     }
-
-
-def _trim_keys(body: dict) -> dict | None:
-    """Pull trim fields into the spec dict the pipeline hashes (mirrors
-    pipelines.video._trim_spec) so the computed preprocess key matches."""
-    keys = ("from_frame", "to_frame", "from_sec", "to_sec")
-    spec = {k: body[k] for k in keys if k in body and body[k] is not None}
-    return spec or None
 
 
 @web_app.post("/v1/stages/scene-detect")

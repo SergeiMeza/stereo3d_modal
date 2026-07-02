@@ -14,15 +14,14 @@ import torch.nn as nn
 
 from Forward_Warp import forward_warp
 
+# canonical definition lives in video_depth_models (importable on the CPU
+# coordinator, which this module — with its CUDA extension import above —
+# is not); re-exported here for the splat/stereo call sites
+from app.stages.video_depth_models import DEFAULT_PLACEMENT  # noqa: F401
+
 LEFT = "left"
 RIGHT = "right"
 BOTH = "both"
-
-# Default depth-budget placement (see DepthSplatter.forward): depth 0
-# (far) maps to -1.0 × max_disp (behind the screen plane) and depth 1
-# (near) to +0.5 × max_disp (moderate pop-out). Chosen so default calls
-# reproduce the original hard-coded ``depthmap * 1.5 - 1.0`` exactly.
-DEFAULT_PLACEMENT: tuple[float, float] = (-1.0, 0.5)
 
 
 class ForwardWarpStereo(nn.Module):
