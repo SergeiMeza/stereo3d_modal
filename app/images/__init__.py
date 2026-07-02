@@ -32,16 +32,17 @@ from app.images.depth_models import depth_models_image  # noqa: F401
 # APP_ENV is read from os.environ at import time (app/env.py) — inside
 # containers, NOT at deploy time. Without baking it into every image, a
 # prod deployment's containers silently fall back to "test" naming (jobs
-# Dict, reuse registry, GCS prefixes). Kept as the LAST layer so it never
-# invalidates the cached build layers above it.
+# Dict, reuse registry, GCS prefixes). Applied after the build layers
+# (cheap, cache-friendly) but BEFORE add_local_python_source — Modal
+# requires non-copy local mounts to be the final image layers.
 _env_layer = {"APP_ENV": APP_ENV}
 
 # ---------------------------------------------------------------- web
 web_image = (
     modal.Image.debian_slim(python_version=PYTHON_VERSION)
     .uv_pip_install("fastapi[standard]==0.115.12")
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # -------------------------------------------------------------- media
@@ -55,8 +56,8 @@ media_image = (
         "ffmpeg-python==0.2.0",
         "tqdm==4.67.1",
     )
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # -------------------------------------------------------- video depth
@@ -77,15 +78,15 @@ video_depth_image = (
     # cutlass fmha kernels (needed for B200; 0.0.31/0.0.32 give
     # "no kernel image available" on sm_100); torch 2.9.1-matched, cu128.
     .uv_pip_install("xformers==0.0.33.post2", extra_index_url=TORCH_INDEX_BLACKWELL)
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # ------------------------------------------- stereo (splat + inpaint)
 stereo_image = (
     with_forward_warp(cuda_torch_base().uv_pip_install("matplotlib==3.10.3"))
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # ----------------------------------------- stereo (splat + M2SVid)
@@ -112,8 +113,8 @@ m2svid_image = (
         )
         .uv_pip_install("xformers==0.0.31.post1", extra_index_url="https://download.pytorch.org/whl/cu126")
     )
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # ------------------------------------------------ nvenc (MV-HEVC etc.)
@@ -170,8 +171,8 @@ nvenc_image = (
         " && cmake --build /tmp/x265/build -j$(nproc)"
         " && cp /tmp/x265/build/x265 /usr/local/bin/x265 && x265 --version && rm -rf /tmp/x265",
     )
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
 
 # ---------------------------------------------- image stereo (stills)
@@ -182,6 +183,6 @@ image_stereo_image = (
             "matplotlib==3.10.3",
         )
     )
-    .add_local_python_source("app")
     .env(_env_layer)
+    .add_local_python_source("app")
 )
