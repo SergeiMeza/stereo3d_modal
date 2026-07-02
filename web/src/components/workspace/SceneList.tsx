@@ -16,6 +16,8 @@
 
 /* eslint-disable @next/next/no-img-element -- signed GCS thumbnail URLs. */
 
+import { useEffect, useRef } from "react";
+
 import type { Thumb } from "@/lib/api/types";
 import {
   cutsToRanges,
@@ -47,6 +49,33 @@ export function SceneList({
 }: SceneListProps) {
   const ranges = cutsToRanges(cuts, numFrames);
 
+  // Scroll the active scene (the one containing the playhead) into view as the
+  // video plays / timeline is scrubbed. Keyed on the active scene's start frame
+  // so we only scroll when the playhead crosses into a new scene, not on every
+  // frame within the same scene.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeStart = ranges.find(
+    ([start, end]) => playhead >= start && playhead < end,
+  )?.[0];
+  useEffect(() => {
+    if (activeStart == null) return;
+    const container = scrollRef.current;
+    const card = container?.querySelector<HTMLElement>(
+      `[data-start="${activeStart}"]`,
+    );
+    if (!container || !card) return;
+    const cardTop = card.offsetTop - container.offsetTop;
+    const cardBottom = cardTop + card.offsetHeight;
+    if (cardTop < container.scrollTop) {
+      container.scrollTo({ top: cardTop, behavior: "smooth" });
+    } else if (cardBottom > container.scrollTop + container.clientHeight) {
+      container.scrollTo({
+        top: cardBottom - container.clientHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [activeStart]);
+
   return (
     <section aria-label="Scenes" className="space-y-2">
       <h2 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
@@ -54,7 +83,10 @@ export function SceneList({
       </h2>
       {/* ~4 rows of cards before scrolling — 2 rows forced constant
           scrolling on typical (10+ scene) detections. */}
-      <div className="grid max-h-[36rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1">
+      <div
+        ref={scrollRef}
+        className="grid max-h-[36rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
+      >
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;
           const thumb = sceneThumbs.find(
