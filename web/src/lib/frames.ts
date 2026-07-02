@@ -168,11 +168,10 @@ export function fpsOptions(fps: RationalFPS): FPSOption[] {
     }));
 }
 
-/** Default preview rate: HALF the source (divisor 2), falling back to full
- * for sub-2fps sources. */
+/** Default preview rate: the source's full rate (divisor 1). */
 export function defaultPreviewFPS(fps: RationalFPS): FPSOption {
   const options = fpsOptions(fps);
-  return options.find((o) => o.divisor === 2) ?? options[0];
+  return options.find((o) => o.divisor === 1) ?? options[0];
 }
 
 /** Scene ranges [(start, end), …] implied by a cut list — half-open,

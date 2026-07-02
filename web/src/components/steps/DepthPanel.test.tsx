@@ -173,7 +173,7 @@ describe("DepthPanel controls", () => {
     expect(select.value).toBe("980");
   });
 
-  it("offers only source-derived fps options, ½ rate (12) preselected as the PREVIEW rate", () => {
+  it("offers only source-derived fps options, full rate (24) preselected as the PREVIEW rate", () => {
     renderPanel();
     const fps = document.getElementById("depth-fps") as HTMLSelectElement;
     // 24/1 source → full first, then divisors; no invented rates
@@ -186,7 +186,7 @@ describe("DepthPanel controls", () => {
       "3 (⅛ rate)",
       "2 (1⁄12 rate)",
     ]);
-    expect(fps.value).toBe("12");
+    expect(fps.value).toBe("24");
   });
 
   it("exposes NO displacement, preset, formats, or anaglyph copy — depth_res and fps only", () => {
@@ -212,7 +212,7 @@ describe("DepthPanel quotes", () => {
     expect(bodies[0]).toEqual({
       step: "depth_preview",
       depth_res: 980,
-      target_fps: 12,
+      target_fps: 24,
       platform: "web",
     });
   });
@@ -687,7 +687,7 @@ describe("DepthPanel scenes strip (shared 2D passthrough)", () => {
     expect(bodies[0]).toEqual({
       step: "depth_preview",
       depth_res: 980,
-      target_fps: 12,
+      target_fps: 24,
       platform: "web",
     });
 
