@@ -55,3 +55,13 @@ After the first deploy, add the Vercel domains (production domain and the
 Settings → Authorized domains, or `signInWithPopup` will refuse to open.
 Optionally set `CORS_ORIGINS` on the Cloud Run gateways to the final domains
 (they default to `*`, which is safe with bearer-token auth but noisier).
+
+### Staging
+
+The `staging` branch is the test environment: pushes to it build a Vercel
+preview at the stable alias
+`https://stereo3d-studio-git-staging-spatial-ai-labs.vercel.app`, which uses
+the Preview env vars (test gateway → open Modal test endpoint, Stripe test
+mode). That alias is in Firebase authorized domains, so Google sign-in works
+there; other ad-hoc preview URLs are not. Typical flow: push to `staging`,
+verify against test billing, then fast-forward `main`.
