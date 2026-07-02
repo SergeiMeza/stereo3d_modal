@@ -600,7 +600,8 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	}
 	// Reuse discount (production, unless from-scratch): ask Modal's
 	// content-addressed cache whether prior artifacts match these params.
-	var reuseStages []string
+	// Non-nil so reuse_stages serializes as [] (never null) in responses.
+	reuseStages := []string{}
 	if step == store.StepProduction && !params.SkipReuse {
 		lookup, err := s.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
 		if err != nil {

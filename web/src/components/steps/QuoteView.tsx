@@ -23,6 +23,7 @@ export function QuoteView({
   result: StepQuoteResponse;
 }): JSX.Element {
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
+  const reuseStages = result.reuse_stages ?? [];
   const subtotal = b.subtotal_cents ?? result.quote.amount_cents;
   const minutes =
     b.billable_seconds !== undefined
@@ -87,12 +88,12 @@ export function QuoteView({
           {formatCents(subtotal)}
         </dd>
       </div>
-      {result.reuse_stages.length > 0 ? (
+      {reuseStages.length > 0 ? (
         <div className="flex items-baseline justify-between gap-3">
           <dt className="flex flex-wrap items-center gap-1.5 text-fg-muted">
             Reusing:
             <span data-testid="quote-reuse-stages" className="flex gap-1">
-              {result.reuse_stages.map((stage) => (
+              {reuseStages.map((stage) => (
                 <span
                   key={stage}
                   className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-300"
