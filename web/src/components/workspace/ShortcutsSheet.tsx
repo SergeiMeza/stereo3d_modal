@@ -31,17 +31,11 @@ const GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
     })),
   },
   {
-    title: "Playback (Media & Cut pages)",
+    title: "Playback (every preview & player)",
     shortcuts: [
-      { keys: ["Space"], action: "Play / pause the preview" },
+      { keys: ["Space"], action: "Play / pause" },
       { keys: ["←", "→"], action: "Step exactly ±1 frame" },
       { keys: ["Shift", "←/→"], action: "Step ±1 second" },
-    ],
-  },
-  {
-    title: "Players (Depth & Stereo pages)",
-    shortcuts: [
-      { keys: ["Space"], action: "Play / pause the output player" },
     ],
   },
   {
@@ -50,7 +44,7 @@ const GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
       { keys: ["Click"], action: "Scrub the filmstrip" },
       { keys: ["2×Click"], action: "Add a cut at the cursor frame" },
       { keys: ["Drag"], action: "Move a cut marker (snaps to frames)" },
-      { keys: ["Del"], action: "Remove the selected cut" },
+      { keys: ["Del", "⌫"], action: "Remove the selected cut" },
       { keys: ["⌘/Ctrl", "Scroll"], action: "Zoom the timeline at the playhead" },
     ],
   },
