@@ -19,6 +19,7 @@ One image per pipeline segment instead of a monolith:
 
 import modal
 
+from app.env import APP_ENV
 from app.images.common import (
     PYTHON_VERSION,
     TORCH_INDEX_BLACKWELL,
@@ -28,11 +29,19 @@ from app.images.common import (
 )
 from app.images.depth_models import depth_models_image  # noqa: F401
 
+# APP_ENV is read from os.environ at import time (app/env.py) — inside
+# containers, NOT at deploy time. Without baking it into every image, a
+# prod deployment's containers silently fall back to "test" naming (jobs
+# Dict, reuse registry, GCS prefixes). Kept as the LAST layer so it never
+# invalidates the cached build layers above it.
+_env_layer = {"APP_ENV": APP_ENV}
+
 # ---------------------------------------------------------------- web
 web_image = (
     modal.Image.debian_slim(python_version=PYTHON_VERSION)
     .uv_pip_install("fastapi[standard]==0.115.12")
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # -------------------------------------------------------------- media
@@ -47,6 +56,7 @@ media_image = (
         "tqdm==4.67.1",
     )
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # -------------------------------------------------------- video depth
@@ -68,12 +78,14 @@ video_depth_image = (
     # "no kernel image available" on sm_100); torch 2.9.1-matched, cu128.
     .uv_pip_install("xformers==0.0.33.post2", extra_index_url=TORCH_INDEX_BLACKWELL)
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # ------------------------------------------- stereo (splat + inpaint)
 stereo_image = (
     with_forward_warp(cuda_torch_base().uv_pip_install("matplotlib==3.10.3"))
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # ----------------------------------------- stereo (splat + M2SVid)
@@ -101,6 +113,7 @@ m2svid_image = (
         .uv_pip_install("xformers==0.0.31.post1", extra_index_url="https://download.pytorch.org/whl/cu126")
     )
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # ------------------------------------------------ nvenc (MV-HEVC etc.)
@@ -158,6 +171,7 @@ nvenc_image = (
         " && cp /tmp/x265/build/x265 /usr/local/bin/x265 && x265 --version && rm -rf /tmp/x265",
     )
     .add_local_python_source("app")
+    .env(_env_layer)
 )
 
 # ---------------------------------------------- image stereo (stills)
@@ -169,4 +183,5 @@ image_stereo_image = (
         )
     )
     .add_local_python_source("app")
+    .env(_env_layer)
 )

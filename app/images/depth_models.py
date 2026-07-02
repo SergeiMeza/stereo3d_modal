@@ -31,6 +31,7 @@ invalidates the proven VideoDepthAnything image. Notes on the pins:
   app/common/weights.py:ensure_depth_pro.
 """
 
+from app.env import APP_ENV
 from app.images.common import cuda_torch_base
 
 depth_models_image = (
@@ -61,4 +62,7 @@ depth_models_image = (
         " git+https://github.com/apple/ml-depth-pro.git@9efe5c1def37a26c5367a71df664b18e1306c708",
     )
     .add_local_python_source("app")
+    # APP_ENV must be baked into the image — containers don't inherit the
+    # deploy-time environment (see app/images/__init__.py).
+    .env({"APP_ENV": APP_ENV})
 )
