@@ -3,10 +3,13 @@
 /**
  * Depth page (step depth_preview) — "define the depth map".
  *
- * The only knobs that matter here are the depth-map RESOLUTION (the
- * cost/quality axis — production inherits it via artifact reuse) and the
- * PREVIEW frame rate (reuse keys on fps). No displacement, no preset, no
- * formats — those belong to the Stereo and Deliver pages.
+ * The only knob that matters here is the depth-map RESOLUTION (the
+ * cost/quality axis — production inherits it via artifact reuse). No
+ * displacement, no preset, no formats — those belong to the Stereo and
+ * Deliver pages. There is NO frame-rate control in this version: previews
+ * run at the FULL source rate, sent explicitly as target_fps because the
+ * gateway would otherwise default previews to half rate — and depth reuse
+ * keys on fps, so full rate keeps the artifact aligned with production.
  *
  * Layout mirrors the Cut tab: ONE frame-exact source preview up top
  * (usePreviewPlayer over the project proxy, Space/←/→ transport), a
@@ -49,7 +52,6 @@ import {
 import {
   cutsToRanges,
   defaultPreviewFPS,
-  fpsOptions,
   frameToTimecode,
   parseRational,
   type RationalFPS,
@@ -93,7 +95,6 @@ export function DepthPanel({
   const [depthRes, setDepthRes] = useState(() =>
     clampDepthRes(DEFAULT_DEPTH_RES, resChoices),
   );
-  const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
 
   const lastSucceeded = (project.conversions ?? [])
     .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
@@ -111,11 +112,12 @@ export function DepthPanel({
     );
   }
 
-  const fps = targetFps ?? defaultPreviewFPS(sourceFps).value;
+  // Full source rate, sent EXPLICITLY: an absent target_fps makes the
+  // gateway decimate previews to half rate, and depth reuse keys on fps.
   const request: StepConversionRequest = {
     step: "depth_preview",
     depth_res: depthRes,
-    target_fps: fps,
+    target_fps: defaultPreviewFPS(sourceFps).value,
     platform: "web",
   };
 
@@ -155,33 +157,6 @@ export function DepthPanel({
                 {resChoices.map((c) => (
                   <option key={c.value} value={c.value}>
                     {depthResLabel(c)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              id="depth-fps"
-              label="Preview frame rate"
-              hint={
-                <>
-                  Defaults to the source rate. Depth reuse keys on fps — a
-                  production run at a different rate re-runs the depth stage at
-                  full price.
-                </>
-              }
-            >
-              <select
-                id="depth-fps"
-                value={fps}
-                onChange={(e) => {
-                  setTargetFps(Number(e.target.value));
-                  ck.invalidate();
-                }}
-                className={selectClass}
-              >
-                {fpsOptions(sourceFps).map((o) => (
-                  <option key={o.divisor} value={o.value}>
-                    {o.label}
                   </option>
                 ))}
               </select>
