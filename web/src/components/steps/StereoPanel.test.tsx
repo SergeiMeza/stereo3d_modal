@@ -47,7 +47,8 @@ import projectFixture from "../../../fixtures/project.json";
 import sceneProfileFixture from "../../../fixtures/scene_profile.json";
 
 import { DepthPanel } from "./DepthPanel";
-import { loadStereoDraft, stereoDraftKey } from "./stereoStore";
+import { STEREO_PROFILE_KIND, type StereoProfileFile } from "./stereoProfile";
+import { loadStereoDraft, saveStereoDraft, stereoDraftKey } from "./stereoStore";
 import { StereoPanel } from "./StereoPanel";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50, PROFILE_POLL_MS: 50 }));
@@ -640,6 +641,147 @@ describe("StereoPanel 2D passthrough", () => {
         .disabled,
     ).toBe(true);
     expect(toggle(FIRST_CUT, 2).checked).toBe(true); // only scene 1 flagged
+  });
+});
+
+describe("StereoPanel scene-profile import/export", () => {
+  it("Export profile downloads the scene table (Auto values + draft tweaks + depth_scale) as JSON named after the project", async () => {
+    saveStereoDraft(FIXTURE.project_id, VERSION, {
+      overrides: { "0": { displacement: 0.02 } },
+      depth_scale: 1.1,
+    });
+    renderPanel(withProfile());
+
+    // jsdom has no Blob URLs — stub the pair and capture the payload
+    let blob: Blob | null = null;
+    const createObjectURL = vi.fn((b: Blob) => {
+      blob = b;
+      return "blob:mock";
+    });
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    let download = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+      function (this: HTMLAnchorElement) {
+        download = this.download;
+      },
+    );
+
+    fireEvent.click(screen.getByText("Export profile"));
+
+    expect(download).toBe(`${FIXTURE.name}-stereo-profile.json`);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    const doc = JSON.parse(await blob!.text()) as StereoProfileFile;
+    expect(doc.kind).toBe(STEREO_PROFILE_KIND);
+    expect(doc.scenes_version).toBe(VERSION);
+    expect(doc.depth_scale).toBe(1.1);
+    expect(doc.scenes).toHaveLength(CUTS.length + 1);
+    const shot0 = PROFILE.shots.find((s) => s.first_src === 0)!;
+    expect(doc.scenes[0]).toMatchObject({
+      scene: 1,
+      first: 0,
+      timecode: frameToTimecode(0, FPS),
+      auto: {
+        shot_type: shot0.shot_type,
+        displacement: shot0.displacement,
+      },
+      override: { displacement: 0.02 },
+    });
+  });
+
+  it("Import profile… replaces the draft only after the explicit confirm, and the values reach the wire", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel();
+
+    const file = new File(
+      [
+        JSON.stringify({
+          kind: STEREO_PROFILE_KIND,
+          scenes_version: VERSION,
+          depth_scale: 1.2,
+          scenes: [
+            { first: 0, override: { displacement: 0.015 } },
+            { first: FIRST_CUT, override: { shot_type: "wide" } },
+          ],
+        }),
+      ],
+      "profile.json",
+      { type: "application/json" },
+    );
+    fireEvent.change(screen.getByLabelText("Scene profile file"), {
+      target: { files: [file] },
+    });
+
+    // confirm dialog summarizes the replacement; nothing changed yet
+    const dialog = await screen.findByTestId("import-profile-dialog");
+    expect(dialog.textContent).toContain("2 imported overrides");
+    expect(dialog.textContent).toContain("×1.20");
+    expect(screen.queryByTestId("override-chip-0")).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Replace" }));
+    await waitFor(() =>
+      expect(screen.queryByTestId("import-profile-dialog")).toBeNull(),
+    );
+
+    // rows and the master slider show the imported draft, and it persisted
+    expect(
+      (within(sceneRow(0)).getByLabelText("Scene 1 displacement") as HTMLInputElement)
+        .value,
+    ).toBe("0.015");
+    expect(
+      (within(sceneRow(FIRST_CUT)).getByLabelText("Scene 2 shot type") as HTMLSelectElement)
+        .value,
+    ).toBe("wide");
+    expect(screen.getByTestId("depth-scale-value").textContent).toBe("×1.20");
+    await waitFor(() =>
+      expect(loadStereoDraft(FIXTURE.project_id, VERSION).depth_scale).toBeCloseTo(
+        1.2,
+        5,
+      ),
+    );
+
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].depth_scale).toBeCloseTo(1.2, 5);
+    expect(bodies[0].scene_overrides).toEqual([
+      { first: 0, displacement: 0.015 },
+      { first: FIRST_CUT, shot_type: "wide" },
+    ]);
+  });
+
+  it("surfaces parse/validation errors inline and leaves the draft untouched", async () => {
+    renderPanel();
+    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
+      target: { value: "0.02" },
+    });
+
+    const file = new File(
+      [
+        JSON.stringify({
+          kind: STEREO_PROFILE_KIND,
+          scenes_version: VERSION - 1,
+          scenes: [{ first: 1, override: { displacement: 0.01 } }],
+        }),
+      ],
+      "profile.json",
+      { type: "application/json" },
+    );
+    fireEvent.change(screen.getByLabelText("Scene profile file"), {
+      target: { files: [file] },
+    });
+
+    const note = await screen.findByTestId("profile-import-error");
+    expect(note.textContent).toContain(
+      "frame 1 does not start a scene on the current cut list",
+    );
+    expect(note.textContent).toContain(`v${VERSION - 1}`);
+    expect(screen.queryByTestId("import-profile-dialog")).toBeNull();
+    // the existing tweak survived
+    expect(
+      (within(sceneRow(0)).getByLabelText("Scene 1 displacement") as HTMLInputElement)
+        .value,
+    ).toBe("0.02");
   });
 });
 

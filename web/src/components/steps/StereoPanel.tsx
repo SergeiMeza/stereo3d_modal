@@ -5,8 +5,8 @@
  *
  * Layout mirrors the Cut/Depth pages (the shared StepReview): ONE
  * frame-exact source preview up top with the latest stereo output BESIDE it
- * as a follower of the SAME transport (fraction-of-duration sync — the
- * output is decimated but wall-clock-identical), a FilmstripTimeline for
+ * as a follower of the SAME transport (fraction-of-duration sync — outputs
+ * run at their own fps, wall-clock-identical), a FilmstripTimeline for
  * scrubbing, and the per-scene override rows underneath, driven by the
  * playhead: the active scene is highlighted and auto-scrolls to the top
  * while playing (like Cut), and clicking a scene's header seeks the preview
@@ -43,6 +43,12 @@
  * (POST .../profile); while project.profile runs the panel re-polls the
  * workspace refetch and, on success, the rows re-seed from the new
  * scene_profile automatically.
+ *
+ * Scene-profile export/import (the Cut tab's cuts-CSV pattern, applied to
+ * the per-scene 3D parameters — see stereoProfile.ts): Export downloads the
+ * scene table (Auto values + the draft's overrides + depth_scale) as JSON;
+ * Import parses such a file, validates it against the CURRENT cuts, and —
+ * after an explicit confirm — REPLACES the draft, which Deliver inherits.
  */
 
 /* eslint-disable @next/next/no-img-element -- signed GCS thumbnail URLs. */
@@ -53,6 +59,14 @@ import type { JSX, ReactNode } from "react";
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { useScrollActiveSceneToTop } from "@/components/workspace/SceneList";
 import type {
@@ -69,7 +83,6 @@ import { useGateway } from "@/lib/api/useGateway";
 import {
   cutsToRanges,
   defaultPreviewFPS,
-  fpsOptions,
   frameToTimecode,
   parseRational,
   type RationalFPS,
@@ -81,19 +94,18 @@ import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptio
 import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
 import {
+  exportStereoProfile,
+  parseStereoProfile,
+  SHOT_TYPES,
+} from "./stereoProfile";
+import {
   draftToSceneOverrides,
   useStereoDraft,
   type RowOverride,
+  type StereoDraft,
 } from "./stereoStore";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
-
-const SHOT_TYPES: readonly ShotType[] = [
-  "close_up",
-  "standard",
-  "dynamic",
-  "wide",
-];
 
 export interface StereoPanelProps {
   project: Project;
@@ -117,7 +129,13 @@ export function StereoPanel({
   const [inpaint, setInpaint] = useState<Inpaint>("propainter");
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
-  const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
+
+  // Scene-profile import/export (the Cut tab's cuts-CSV pattern): the file
+  // input feeds the parser; a parsed-but-unconfirmed draft holds the confirm
+  // dialog open (importing REPLACES every tweak on this page).
+  const profileFileRef = useRef<HTMLInputElement | null>(null);
+  const [importPending, setImportPending] = useState<StereoDraft | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Free shot profiling: while the standalone job runs, drive the
   // workspace's project refetch so project.profile/scene_profile stay live.
@@ -167,7 +185,6 @@ export function StereoPanel({
   const probe = project.probe!;
   const scenes = project.scenes!;
   const sourceFps = parseRational(probe.fps_rational);
-  const fps = targetFps ?? defaultPreviewFPS(sourceFps).value;
   const ranges = cutsToRanges(scenes.cuts, probe.num_frames);
 
   const profile = project.scene_profile;
@@ -184,6 +201,54 @@ export function StereoPanel({
    * profile is stale — the warning banner flags the possible misalignment). */
   function shotFor(start: number): ProfileShot | undefined {
     return profile?.shots.find((s) => s.first_src <= start && start < s.last_src);
+  }
+
+  /** Download the CURRENT page state (auto profile + draft tweaks) as the
+   * scene-profile JSON via a Blob URL — same flow as the Cut tab's CSV. */
+  function exportProfile(): void {
+    const json = exportStereoProfile({
+      draft,
+      ranges,
+      fps: sourceFps,
+      scenesVersion: scenes.version,
+      shotFor,
+    });
+    const name = `${(project.name ?? "").trim().replace(/[/\\]/g, "-") || "project"}-stereo-profile.json`;
+    const url = URL.createObjectURL(
+      new Blob([json], { type: "application/json" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Parse the picked file; errors surface inline. The draft replacement
+   * itself waits for the confirm dialog. */
+  async function importProfileFile(file: File): Promise<void> {
+    try {
+      const parsed = parseStereoProfile(
+        await file.text(),
+        [0, ...scenes.cuts],
+        scenes.version,
+      );
+      setImportPending(parsed);
+      setImportError(null);
+    } catch (e) {
+      setImportError(
+        e instanceof Error ? e.message : "Could not read the scene profile.",
+      );
+    }
+  }
+
+  /** Confirmed import: replace the WHOLE draft (rows + depth_scale) — the
+   * same store Deliver inherits, so production sees the imported values. */
+  function applyImport(): void {
+    if (importPending === null) return;
+    setDraft(importPending);
+    setImportPending(null);
+    ck.invalidate();
   }
 
   function patchRow(start: number, patch: RowOverride | null): void {
@@ -210,7 +275,9 @@ export function StereoPanel({
     inpaint,
     ...(draft.depth_scale !== 1 ? { depth_scale: draft.depth_scale } : {}),
     ...(sceneOverrides.length > 0 ? { scene_overrides: sceneOverrides } : {}),
-    target_fps: fps,
+    // Full source rate, sent EXPLICITLY: an absent target_fps makes the
+    // gateway decimate previews to half rate.
+    target_fps: defaultPreviewFPS(sourceFps).value,
     platform: "web",
   };
 
@@ -265,13 +332,51 @@ export function StereoPanel({
             </span>
           ) : null
         }
+        toolbar={
+          <>
+            <input
+              ref={profileFileRef}
+              type="file"
+              accept=".json,application/json"
+              aria-label="Scene profile file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = ""; // re-picking the same file must re-fire
+                if (file) void importProfileFile(file);
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              title="Load a scene profile exported from this page — replaces the per-scene tweaks and depth scale"
+              onClick={(e) => {
+                blurAfterMouseClick(e);
+                profileFileRef.current?.click();
+              }}
+            >
+              Import profile…
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title="Download the scene profile — each scene's Auto values plus your overrides and depth scale — as JSON"
+              onClick={(e) => {
+                blurAfterMouseClick(e);
+                exportProfile();
+              }}
+            >
+              Export profile
+            </Button>
+          </>
+        }
         follower={
           output !== null
             ? {
                 url: output.url,
                 label: output.name,
                 title:
-                  "The latest run's stereo output — decimated to the preview rate, synced to the source transport",
+                  "The latest run's stereo output, synced to the source transport",
                 testId: "stereo-output-video",
               }
             : null
@@ -279,6 +384,14 @@ export function StereoPanel({
       >
         {({ playhead, scrub }) => (
           <>
+            {importError !== null ? (
+              <p
+                data-testid="profile-import-error"
+                className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400"
+              >
+                Import failed — {importError}
+              </p>
+            ) : null}
             {profileStale ? (
               <p
                 data-testid="stale-profile-warning"
@@ -393,23 +506,6 @@ export function StereoPanel({
                 ))}
               </select>
             </Field>
-            <Field id="stereo-fps" label="Preview frame rate">
-              <select
-                id="stereo-fps"
-                value={fps}
-                onChange={(e) => {
-                  setTargetFps(Number(e.target.value));
-                  ck.invalidate();
-                }}
-                className={selectClass}
-              >
-                {fpsOptions(sourceFps).map((o) => (
-                  <option key={o.divisor} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
           </div>
 
           <fieldset className="flex flex-col gap-2">
@@ -438,6 +534,32 @@ export function StereoPanel({
           />
         </CardContent>
       </Card>
+
+      <Dialog
+        open={importPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setImportPending(null);
+        }}
+      >
+        <DialogContent data-testid="import-profile-dialog">
+          <DialogHeader>
+            <DialogTitle>Import scene profile</DialogTitle>
+            <DialogDescription>
+              Replace your per-scene tweaks with{" "}
+              {Object.keys(importPending?.overrides ?? {}).length} imported
+              overrides and depth scale ×
+              {(importPending?.depth_scale ?? 1).toFixed(2)}? Scenes without an
+              override go back to Auto. The Deliver page inherits the same
+              values.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button type="button" onClick={applyImport}>
+              Replace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PriorRuns
         title="Prior stereo runs"

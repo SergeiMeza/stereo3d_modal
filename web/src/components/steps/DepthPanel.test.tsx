@@ -174,42 +174,30 @@ describe("DepthPanel controls", () => {
     expect(select.value).toBe("980");
   });
 
-  it("offers only source-derived fps options, full rate (24) preselected as the PREVIEW rate", () => {
-    renderPanel();
-    const fps = document.getElementById("depth-fps") as HTMLSelectElement;
-    // 24/1 source → full first, then divisors; no invented rates
-    expect([...fps.options].map((o) => o.textContent)).toEqual([
-      "24 (full)",
-      "12 (½ rate)",
-      "8 (⅓ rate)",
-      "6 (¼ rate)",
-      "4 (⅙ rate)",
-      "3 (⅛ rate)",
-      "2 (1⁄12 rate)",
-    ]);
-    expect(fps.value).toBe("24");
-  });
-
-  it("exposes NO displacement, preset, formats, or anaglyph copy — depth_res and fps only", () => {
+  it("exposes NO displacement, preset, formats, fps, or anaglyph copy — depth_res only", () => {
     renderPanel();
     const panel = screen.getByTestId("depth-panel");
     expect(within(panel).queryByText(/displacement/i)).toBeNull();
     expect(within(panel).queryByRole("slider")).toBeNull();
     expect(within(panel).queryByRole("group", { name: "Formats" })).toBeNull();
     expect(document.getElementById("depth-preset")).toBeNull();
+    // no frame-rate control in this version — previews run at the source rate
+    expect(document.getElementById("depth-fps")).toBeNull();
+    expect(within(panel).queryByText(/frame rate/i)).toBeNull();
     expect(within(panel).queryByText(/anaglyph/i)).toBeNull();
   });
 });
 
 describe("DepthPanel quotes", () => {
-  it("sends EXACTLY step + depth_res + target_fps (+platform) on the wire", async () => {
+  it("sends EXACTLY step + depth_res + target_fps (+platform) on the wire — target_fps pinned to the FULL source rate", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel();
     await getQuote(user);
 
     await waitFor(() => expect(bodies).toHaveLength(1));
-    // exact object: proves displacement/preset/formats are ABSENT
+    // exact object: proves displacement/preset/formats are ABSENT, and that
+    // target_fps is still sent (an absent one means half-rate at the gateway)
     expect(bodies[0]).toEqual({
       step: "depth_preview",
       depth_res: 980,
