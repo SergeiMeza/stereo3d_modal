@@ -17,6 +17,7 @@
 /* eslint-disable @next/next/no-img-element -- signed GCS thumbnail URLs. */
 
 import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
 
 import type { Thumb } from "@/lib/api/types";
 import {
@@ -38,6 +39,38 @@ export interface SceneListProps {
   onMergeScene?: (startFrame: number) => void;
 }
 
+/**
+ * Scroll the active scene card (the one containing the playhead) to the top
+ * of its scroll container as the video plays / timeline is scrubbed, so its
+ * row leads the list. Keyed on the active scene's start frame so it only
+ * scrolls when the playhead crosses into a new scene, not on every frame
+ * within the same scene. Shared by the Cut tab's SceneList and the Depth
+ * tab's scene grid — both render `scene-card` buttons with data-start.
+ */
+export function useScrollActiveSceneToTop(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  activeStart: number | undefined,
+): void {
+  useEffect(() => {
+    if (activeStart == null) return;
+    const container = scrollRef.current;
+    const card = container?.querySelector<HTMLElement>(
+      `[data-testid="scene-card"][data-start="${activeStart}"]`,
+    );
+    // jsdom implements neither element scrollTo nor layout — skip there.
+    if (!container || !card || typeof container.scrollTo !== "function") return;
+    // Position relative to the container's scroll origin. Measure via
+    // bounding rects rather than offsetTop: the card's offsetParent is its
+    // own `relative` wrapper, so offsetTop would be ~0, not the offset within
+    // the scroll container. Always align the active row to the top (clamped by
+    // the browser to the max scroll range for rows near the end).
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const cardTop = cardRect.top - containerRect.top + container.scrollTop;
+    container.scrollTo({ top: cardTop, behavior: "smooth" });
+  }, [scrollRef, activeStart]);
+}
+
 export function SceneList({
   cuts,
   numFrames,
@@ -49,31 +82,11 @@ export function SceneList({
 }: SceneListProps) {
   const ranges = cutsToRanges(cuts, numFrames);
 
-  // Scroll the active scene (the one containing the playhead) to the top of the
-  // container as the video plays / timeline is scrubbed, so its row leads the
-  // list. Keyed on the active scene's start frame so we only scroll when the
-  // playhead crosses into a new scene, not on every frame within the same scene.
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeStart = ranges.find(
     ([start, end]) => playhead >= start && playhead < end,
   )?.[0];
-  useEffect(() => {
-    if (activeStart == null) return;
-    const container = scrollRef.current;
-    const card = container?.querySelector<HTMLElement>(
-      `[data-testid="scene-card"][data-start="${activeStart}"]`,
-    );
-    if (!container || !card) return;
-    // Position relative to the container's scroll origin. Measure via
-    // bounding rects rather than offsetTop: the card's offsetParent is its
-    // own `relative` wrapper, so offsetTop would be ~0, not the offset within
-    // the scroll container. Always align the active row to the top (clamped by
-    // the browser to the max scroll range for rows near the end).
-    const containerRect = container.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    const cardTop = cardRect.top - containerRect.top + container.scrollTop;
-    container.scrollTo({ top: cardTop, behavior: "smooth" });
-  }, [activeStart]);
+  useScrollActiveSceneToTop(scrollRef, activeStart);
 
   return (
     <section aria-label="Scenes" className="space-y-2">

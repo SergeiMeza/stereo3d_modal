@@ -151,6 +151,9 @@ export interface StepCheckoutSectionProps {
   /** The request the panel's CURRENT params produce — used for both the
    * quote and the conversion, so what was quoted is what runs. */
   request: StepConversionRequest;
+  /** Show the tracker's downloads list on success (default). Depth passes
+   * false — its inline depth view + Export button surface the outputs. */
+  trackerDownloads?: boolean;
 }
 
 /** The uniform bottom half of every step panel: Get quote / Convert buttons,
@@ -158,6 +161,7 @@ export interface StepCheckoutSectionProps {
 export function StepCheckoutSection({
   checkout: ck,
   request,
+  trackerDownloads = true,
 }: StepCheckoutSectionProps): JSX.Element {
   const impl = useCheckout();
   return (
@@ -194,6 +198,7 @@ export function StepCheckoutSection({
           conversion={ck.active}
           onProjectChanged={ck.onProjectChanged}
           onSettled={ck.handleSettled}
+          showDownloads={trackerDownloads}
         />
       ) : null}
     </>

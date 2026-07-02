@@ -24,7 +24,7 @@
 
 /* eslint-disable @next/next/no-img-element -- fallback GCS thumbnail URLs. */
 
-import { useState, type RefObject } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
 
 import { PlayerBadge } from "@/components/steps/PlayerBadge";
 import { MuteToggle, SpeedSelect } from "@/components/steps/ScenePicker";
@@ -49,6 +49,10 @@ export interface PreviewViewerProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   /** Step the playhead by a signed number of frames (parent pauses+seeks). */
   onStep: (deltaFrames: number) => void;
+  /** Companion panel rendered BESIDE the video (Depth's depth-map player),
+   * sharing this viewer's transport row. The parent styles it — typically a
+   * matching aspect-ratio box with its own <video> synced to videoRef. */
+  aside?: ReactNode;
 }
 
 export function PreviewViewer({
@@ -61,6 +65,7 @@ export function PreviewViewer({
   player,
   videoRef,
   onStep,
+  aside,
 }: PreviewViewerProps) {
   const cropRect = parseCrop(crop);
   const fallback = previewUrl ? null : nearestThumb(thumbs, playhead);
@@ -72,57 +77,60 @@ export function PreviewViewer({
 
   return (
     <div className="space-y-2">
-      <div
-        className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
-        style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
-      >
-        {previewUrl ? (
-          <video
-            ref={videoRef}
-            data-testid="preview-video"
-            src={previewUrl}
-            muted
-            playsInline
-            preload="auto"
-            onLoadedMetadata={(e) =>
-              setProxyDims({
-                w: e.currentTarget.videoWidth,
-                h: e.currentTarget.videoHeight,
-              })
-            }
-            className="absolute inset-0 h-full w-full select-none object-cover"
-          />
-        ) : fallback ? (
-          <img
-            data-testid="viewer-frame"
-            data-thumb-frame={fallback.frame}
-            src={fallback.url}
-            alt={`nearest thumbnail, frame ${fallback.frame}`}
-            draggable={false}
-            className="absolute inset-0 h-full w-full select-none object-cover"
-          />
-        ) : null}
-        {previewUrl || fallback ? (
-          <PlayerBadge
-            data-testid="proxy-badge"
-            label={previewUrl ? "Preview Resolution" : "Thumbnail"}
-            dims={previewUrl ? proxyDims : null}
-            title={`Frame-exact preview proxy — conversions always use the full-resolution source (${probe.width}×${probe.height})`}
-          />
-        ) : null}
-        {cropRect ? (
-          <div
-            data-testid="crop-overlay"
-            aria-hidden
-            className="pointer-events-none absolute border-2 border-primary/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
-            style={{
-              left: `${(cropRect.x / probe.width) * 100}%`,
-              top: `${(cropRect.y / probe.height) * 100}%`,
-              width: `${(cropRect.width / probe.width) * 100}%`,
-              height: `${(cropRect.height / probe.height) * 100}%`,
-            }}
-          />
-        ) : null}
+      <div className={aside ? "grid gap-2 sm:grid-cols-2" : undefined}>
+        <div
+          className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
+          style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+        >
+          {previewUrl ? (
+            <video
+              ref={videoRef}
+              data-testid="preview-video"
+              src={previewUrl}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={(e) =>
+                setProxyDims({
+                  w: e.currentTarget.videoWidth,
+                  h: e.currentTarget.videoHeight,
+                })
+              }
+              className="absolute inset-0 h-full w-full select-none object-cover"
+            />
+          ) : fallback ? (
+            <img
+              data-testid="viewer-frame"
+              data-thumb-frame={fallback.frame}
+              src={fallback.url}
+              alt={`nearest thumbnail, frame ${fallback.frame}`}
+              draggable={false}
+              className="absolute inset-0 h-full w-full select-none object-cover"
+            />
+          ) : null}
+          {previewUrl || fallback ? (
+            <PlayerBadge
+              data-testid="proxy-badge"
+              label={previewUrl ? "Preview Resolution" : "Thumbnail"}
+              dims={previewUrl ? proxyDims : null}
+              title={`Frame-exact preview proxy — conversions always use the full-resolution source (${probe.width}×${probe.height})`}
+            />
+          ) : null}
+          {cropRect ? (
+            <div
+              data-testid="crop-overlay"
+              aria-hidden
+              className="pointer-events-none absolute border-2 border-primary/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+              style={{
+                left: `${(cropRect.x / probe.width) * 100}%`,
+                top: `${(cropRect.y / probe.height) * 100}%`,
+                width: `${(cropRect.width / probe.width) * 100}%`,
+                height: `${(cropRect.height / probe.height) * 100}%`,
+              }}
+            />
+          ) : null}
+        </div>
+        {aside}
       </div>
 
       {/* Transport row — same shapes as the step players (ScenePicker.tsx):
