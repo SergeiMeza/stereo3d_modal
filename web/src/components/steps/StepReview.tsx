@@ -273,6 +273,7 @@ export function StepReview({
         playhead={playhead}
         previewUrl={project.preview_url}
         thumbs={project.strip_thumbs ?? []}
+        crop={project.crop}
         player={player}
         videoRef={videoRef}
         onStep={step}

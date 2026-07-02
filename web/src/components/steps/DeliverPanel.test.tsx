@@ -317,6 +317,8 @@ describe("DeliverPanel review area (one transport)", () => {
     renderPanel();
     expect(screen.getByTestId("preview-video")).toBeDefined();
     expect(screen.getByTestId("filmstrip")).toBeDefined();
+    // active-picture (crop) overlay on the preview, same as Media/Cut
+    expect(screen.getByTestId("crop-overlay")).toBeDefined();
     expect(
       screen.getByText(/Run production to review the final output/),
     ).toBeDefined();

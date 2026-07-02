@@ -411,6 +411,8 @@ describe("StereoPanel output follower (one transport)", () => {
     expect(screen.getAllByLabelText("Speed")).toHaveLength(1);
     // and the Cut-style timeline is there for scrubbing
     expect(screen.getByTestId("filmstrip")).toBeDefined();
+    // active-picture (crop) overlay on the preview, same as Media/Cut
+    expect(screen.getByTestId("crop-overlay")).toBeDefined();
   });
 
   it("prefers sbs → half_sbs → anaglyph when picking the playable output", async () => {
