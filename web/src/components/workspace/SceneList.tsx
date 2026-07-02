@@ -49,10 +49,10 @@ export function SceneList({
 }: SceneListProps) {
   const ranges = cutsToRanges(cuts, numFrames);
 
-  // Scroll the active scene (the one containing the playhead) into view as the
-  // video plays / timeline is scrubbed. Keyed on the active scene's start frame
-  // so we only scroll when the playhead crosses into a new scene, not on every
-  // frame within the same scene.
+  // Scroll the active scene (the one containing the playhead) to the top of the
+  // container as the video plays / timeline is scrubbed, so its row leads the
+  // list. Keyed on the active scene's start frame so we only scroll when the
+  // playhead crosses into a new scene, not on every frame within the same scene.
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeStart = ranges.find(
     ([start, end]) => playhead >= start && playhead < end,
@@ -61,19 +61,18 @@ export function SceneList({
     if (activeStart == null) return;
     const container = scrollRef.current;
     const card = container?.querySelector<HTMLElement>(
-      `[data-start="${activeStart}"]`,
+      `[data-testid="scene-card"][data-start="${activeStart}"]`,
     );
     if (!container || !card) return;
-    const cardTop = card.offsetTop - container.offsetTop;
-    const cardBottom = cardTop + card.offsetHeight;
-    if (cardTop < container.scrollTop) {
-      container.scrollTo({ top: cardTop, behavior: "smooth" });
-    } else if (cardBottom > container.scrollTop + container.clientHeight) {
-      container.scrollTo({
-        top: cardBottom - container.clientHeight,
-        behavior: "smooth",
-      });
-    }
+    // Position relative to the container's scroll origin. Measure via
+    // bounding rects rather than offsetTop: the card's offsetParent is its
+    // own `relative` wrapper, so offsetTop would be ~0, not the offset within
+    // the scroll container. Always align the active row to the top (clamped by
+    // the browser to the max scroll range for rows near the end).
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const cardTop = cardRect.top - containerRect.top + container.scrollTop;
+    container.scrollTo({ top: cardTop, behavior: "smooth" });
   }, [activeStart]);
 
   return (
