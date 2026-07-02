@@ -41,6 +41,17 @@ curl $BASE/v1/jobs/<job_id>     # status, outputs (public URLs), per-stage timin
 
 Full reference: [docs/API.md](docs/API.md). Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Web app (Stereo3D Studio)
+
+The pro web client lives in [`web/`](web/README.md) (Next.js on Vercel) and
+drives the pipeline through the Go gateway (`gateway/`) — 1 video = 1
+project, paid step conversions (Cut / Depth / Stereo / Deliver).
+
+| env        | URL                                                              | deploys from     | backend                        |
+| ---------- | ---------------------------------------------------------------- | ---------------- | ------------------------------ |
+| staging    | <https://stereo3d-studio-git-staging-spatial-ai-labs.vercel.app> | `staging` branch | test gateway, Stripe test mode |
+| production | <https://stereo3d-studio.vercel.app>                             | `main` branch    | prod gateway, Stripe live mode |
+
 ## Pipeline
 
 ```
@@ -56,6 +67,7 @@ image:  one A10G container: black-bar crop → Depth-Anything-V2-Large
 ```
 
 Models migrated from the old project (latest variants):
+
 - **video_depth_v3** / VideoDepthAnything (vitl/vits) with the
   scene-aware `DepthProcessor` (32-frame windows, 10-frame overlap,
   scale/shift alignment, cuts reset alignment)
@@ -95,11 +107,11 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
 
 ## Storage
 
-| What | Where |
-|---|---|
+| What           | Where                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
 | Inputs/outputs | `gs://spatial-video-studio-app/stereo3d/<env>/…` (HMAC `gcp-secret`); mount restricted by `key_prefix` |
-| Intermediates | Modal Volume `stereo3d-cache-<env>` at `/cache` |
-| Model weights | Modal Volume `stereo3d-weights` at `/weights` — downloaded on first use, survive image rebuilds |
+| Intermediates  | Modal Volume `stereo3d-cache-<env>` at `/cache`                                                        |
+| Model weights  | Modal Volume `stereo3d-weights` at `/weights` — downloaded on first use, survive image rebuilds        |
 
 ## Notes
 
@@ -115,12 +127,12 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
   multiview (CPU, the Apple-compatible default) + MP4Box + byte-exact
   vexu/hfov injection. NVENC (`"mvhevc_encoder": "nvenc"`, on a cheap
   L4 GPU) remains as the fast MV-HEVC path for custom players. Details
-  + the long elimination story: docs/ARCHITECTURE.md.
+  - the long elimination story: docs/ARCHITECTURE.md.
 - **Long videos:** depth and stereo fan out across up to
   `max_gpu_workers` GPU containers (auto >1500 frames, or force with
   `"parallel": true`) with resumable segment checkpoints. Chunk size is
   **capped** (not divided by a fixed worker count), so a worker's wall
-  time never grows with video length — long clips spawn *more* chunks
+  time never grows with video length — long clips spawn _more_ chunks
   (defaults `STEREO_CHUNK_FRAMES=1200`, `DEPTH_CHUNK_FRAMES=1500`,
   request-overridable via `stereo_chunk_frames` / `depth_chunk_frames`),
   bounded to `max_gpu_workers` (default 4, request-overridable)
@@ -146,26 +158,26 @@ docs/              API.md, ARCHITECTURE.md, BENCHMARKS.md (generated)
 ## Timeouts
 
 Sized so **expensive long-video work is never dropped mid-flight**. Two
-rules: (1) per-worker timeouts cover a *bounded* unit (a fan-out chunk,
+rules: (1) per-worker timeouts cover a _bounded_ unit (a fan-out chunk,
 or a ≤1500-frame no-fan-out clip) plus model cold-load; (2) the
 orchestrator and the un-parallelizable single-pass stages cover the
-worst-case *whole-video* runtime.
+worst-case _whole-video_ runtime.
 
-| Function | Timeout | Why |
-|---|---|---|
-| `process_video_job` (orchestrator) | **8h** | Blocks on the SUM of all stages; must outlive the slowest end-to-end run. Cheap idle CPU container. |
-| `VideoStereoWorker` (ProPainter) | 2h | Chunk ≤1200f ≈ 33 min @ 0.6 fps; covers a no-fan-out clip + model load. |
-| `M2SVidStereoWorker` | 2h | Fast (~6 fps) but covers no-fan-out clip + diffusion cold-load. |
-| `VideoDepthWorker` (VDA) | 2h | Chunk ≤1500f ≈ 2 min @ 11 fps; wide margin. |
-| `FrameDepthWorker` (DA3 / Depth Pro) | **4h** | **Cannot fan out** — needs one job-wide p1/p99 metric pass. ~2 fps → a 10-min clip ≈ 2h. Production depth is VDA; this guards experiments + the adaptive profiler. |
-| `encode_mvhevc_x265` | **6h** | Single CPU encode, can't fan out: ~36× realtime @ 4K (≈3h for 5 min). |
-| `encode_mvhevc` (NVENC) | 3h | GPU-accelerated; generous for long clips. |
-| `encode_outputs` | 3h | Per-format encodes (libx264 SBS etc.), scale with length. |
-| `preprocess_video` | 2h | Decode + crop + rescale whole source. |
-| `detect_scenes` | 2h | Full-video PySceneDetect scan. |
-| `concat_cache_segments` | 2h | Lossless stream-copy of fan-out segments. |
-| `publish_file` / `probe_depth_reuse` | 30 min | Byte copies of (possibly multi-GB 4K) files. |
-| `web_app` (API endpoints) | 5 min | Submit/poll only — real work runs async. |
+| Function                             | Timeout | Why                                                                                                                                                                |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `process_video_job` (orchestrator)   | **8h**  | Blocks on the SUM of all stages; must outlive the slowest end-to-end run. Cheap idle CPU container.                                                                |
+| `VideoStereoWorker` (ProPainter)     | 2h      | Chunk ≤1200f ≈ 33 min @ 0.6 fps; covers a no-fan-out clip + model load.                                                                                            |
+| `M2SVidStereoWorker`                 | 2h      | Fast (~6 fps) but covers no-fan-out clip + diffusion cold-load.                                                                                                    |
+| `VideoDepthWorker` (VDA)             | 2h      | Chunk ≤1500f ≈ 2 min @ 11 fps; wide margin.                                                                                                                        |
+| `FrameDepthWorker` (DA3 / Depth Pro) | **4h**  | **Cannot fan out** — needs one job-wide p1/p99 metric pass. ~2 fps → a 10-min clip ≈ 2h. Production depth is VDA; this guards experiments + the adaptive profiler. |
+| `encode_mvhevc_x265`                 | **6h**  | Single CPU encode, can't fan out: ~36× realtime @ 4K (≈3h for 5 min).                                                                                              |
+| `encode_mvhevc` (NVENC)              | 3h      | GPU-accelerated; generous for long clips.                                                                                                                          |
+| `encode_outputs`                     | 3h      | Per-format encodes (libx264 SBS etc.), scale with length.                                                                                                          |
+| `preprocess_video`                   | 2h      | Decode + crop + rescale whole source.                                                                                                                              |
+| `detect_scenes`                      | 2h      | Full-video PySceneDetect scan.                                                                                                                                     |
+| `concat_cache_segments`              | 2h      | Lossless stream-copy of fan-out segments.                                                                                                                          |
+| `publish_file` / `probe_depth_reuse` | 30 min  | Byte copies of (possibly multi-GB 4K) files.                                                                                                                       |
+| `web_app` (API endpoints)            | 5 min   | Submit/poll only — real work runs async.                                                                                                                           |
 
 `SCALEDOWN_WINDOW` (`app/env.py`): 300s prod / 30s non-prod — idle
 container linger, unrelated to job timeouts. `nonpreemptible=True` on

@@ -16,11 +16,11 @@ npx tsc --noEmit && npm run lint
 
 Two independent mode switches (`.env.local`, see `.env.local.example`):
 
-| env | values | what it does |
-|---|---|---|
-| `NEXT_PUBLIC_API_MOCK` | `1` / unset | `1` = MSW mock gateway in the browser (fixtures from `fixtures/`, fake checkout). Unset = real gateway. |
-| `NEXT_PUBLIC_AUTH_MODE` | `mock` (default) / `firebase` | `mock` = fixed dev user, token `mock-token`. `firebase` = real Firebase auth (Google / email+password) against the `spatial-video-studio` project. |
-| `NEXT_PUBLIC_GATEWAY_URL` | URL | gateway base; default `http://localhost:8787` |
+| env                       | values                        | what it does                                                                                                                                       |
+| ------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_MOCK`    | `1` / unset                   | `1` = MSW mock gateway in the browser (fixtures from `fixtures/`, fake checkout). Unset = real gateway.                                            |
+| `NEXT_PUBLIC_AUTH_MODE`   | `mock` (default) / `firebase` | `mock` = fixed dev user, token `mock-token`. `firebase` = real Firebase auth (Google / email+password) against the `spatial-video-studio` project. |
+| `NEXT_PUBLIC_GATEWAY_URL` | URL                           | gateway base; default `http://localhost:8787`                                                                                                      |
 
 The Firebase web config is hardcoded (public by design) in
 `src/lib/firebase.ts`; `NEXT_PUBLIC_FIREBASE_*` envs only override it.
@@ -29,11 +29,11 @@ Stripe's publishable key arrives per-conversion from the gateway
 
 ## Environments
 
-| | gateway | Stripe | Firebase |
-|---|---|---|---|
-| local mock | MSW in-browser | mock panel | mock user |
-| test | `https://stereo3d-gateway-test-151335782809.us-central1.run.app` | test mode | spatial-video-studio |
-| prod | `https://stereo3d-gateway-prod-151335782809.us-central1.run.app` | live mode | spatial-video-studio |
+|              | web app                                                          | gateway                                                          | Stripe     | Firebase             |
+| ------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------- | ---------- | -------------------- |
+| local mock   | `http://localhost:3000`                                          | MSW in-browser                                                   | mock panel | mock user            |
+| test/staging | <https://stereo3d-studio-git-staging-spatial-ai-labs.vercel.app> | `https://stereo3d-gateway-test-151335782809.us-central1.run.app` | test mode  | spatial-video-studio |
+| prod         | <https://stereo3d-studio.vercel.app>                             | `https://stereo3d-gateway-prod-151335782809.us-central1.run.app` | live mode  | spatial-video-studio |
 
 ## Deploy on Vercel
 
