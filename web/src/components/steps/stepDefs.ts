@@ -27,7 +27,7 @@ export const STEP_DEFS: readonly StepDef[] = [
     ],
     tips: [
       "Resolution is the knob that matters: run depth ONCE at the resolution you want production to use and the depth cost is paid once.",
-      "Higher resolutions route to bigger GPUs (L40S → H200 → B200) — the picker shows the tier per option.",
+      "Higher resolutions route to bigger GPUs automatically — pick by the detail you need, capped at the source resolution.",
       "Half the source frame rate is plenty to judge depth; but reuse keys on fps, so a production run at a different rate re-runs depth.",
       "Look for stable depth across a scene — flicker between frames shows up as shimmer in 3D.",
     ],
@@ -36,15 +36,15 @@ export const STEP_DEFS: readonly StepDef[] = [
     step: "stereo_preview",
     title: "Stereo",
     description:
-      "Per-scene 3D: the pipeline adapts depth per scene automatically; override individual scenes and set the overall strength, splatted (fast) or inpainted.",
+      "Per-scene 3D: the pipeline adapts depth per scene automatically; review each scene against the real video, override the ones that need it, and preview what you deliver.",
     outputs: [
-      "SBS preview (industry standard) — optional half-SBS and anaglyph",
+      "Stereo preview in the SAME presets and formats Deliver sells — SBS, half-SBS, anaglyph, MV-HEVC",
       "The per-scene profile computed by the run seeds this page's Auto defaults",
     ],
     tips: [
       "Every scene defaults to Auto (the adaptive profile) — only rows you actually change are sent as overrides.",
       "depth_scale scales EVERY scene's strength at once; per-scene displacement overrides win for their scene.",
-      "Splatted mode skips inpainting: judge depth separation, not edge quality. Inpainted previews cost ×1.6.",
+      "Inpainted (ProPainter) is the default — it previews the deliverable's edge quality (×1.6). Switch to Splatted to judge depth separation cheaply.",
       "Uncheck “Convert to 3D” on a scene to ship it as 2D passthrough — both eyes identical, no depth (end credits, logos, title cards).",
       "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
       "Your tweaks persist per project and carry to the Deliver page automatically.",
