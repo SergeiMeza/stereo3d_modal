@@ -472,6 +472,9 @@ describe("DepthPanel timeline (Cut-style)", () => {
     // readOnly markers are inert DIVs, not draggable buttons
     for (const m of markers) expect(m.tagName).toBe("DIV");
     expect(screen.getByTestId("playhead")).toBeDefined();
+    // the detected active-picture (crop) overlay renders on the preview,
+    // same as Media/Cut (the fixture's source is letterboxed)
+    expect(screen.getByTestId("crop-overlay")).toBeDefined();
   });
 });
 

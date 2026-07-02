@@ -44,11 +44,11 @@ export interface SceneListProps {
  * of its scroll container as the video plays / timeline is scrubbed, so its
  * row leads the list. Keyed on the active scene's start frame so it only
  * scrolls when the playhead crosses into a new scene, not on every frame
- * within the same scene. Shared by the Cut tab's SceneList and the Depth
- * tab's scene grid — both render `scene-card` buttons with data-start.
+ * within the same scene. Shared by the Cut tab's SceneList and the Depth /
+ * Stereo scene sections — all render `scene-card` elements with data-start.
  */
 export function useScrollActiveSceneToTop(
-  scrollRef: RefObject<HTMLDivElement | null>,
+  scrollRef: RefObject<HTMLElement | null>,
   activeStart: number | undefined,
 ): void {
   useEffect(() => {
@@ -93,11 +93,10 @@ export function SceneList({
       <h2 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
         Scenes · {ranges.length}
       </h2>
-      {/* ~4 rows of cards before scrolling — 2 rows forced constant
-          scrolling on typical (10+ scene) detections. */}
+      {/* ~2 rows of cards before scrolling. */}
       <div
         ref={scrollRef}
-        className="grid max-h-[36rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
+        className="grid max-h-[18rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
       >
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;

@@ -3,10 +3,11 @@
  * the Stereo page's shared localStorage draft), production request bodies
  * forwarding EXACTLY those values with per-field "pipeline default"
  * escapes, the reuse discount / from-scratch re-quote, and the absence of
- * any displacement control (pro steps have none).
+ * any displacement control (pro steps have none), and the shared review
+ * area (the latest production output as a follower of the main preview).
  */
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   afterAll,
@@ -23,12 +24,25 @@ import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
+import downloadsFixture from "../../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../../fixtures/project.json";
 
 import { DeliverPanel } from "./DeliverPanel";
 import { saveStereoDraft } from "./stereoStore";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
+
+// jsdom's HTMLMediaElement.play/pause are "not implemented"; stub them to
+// dispatch their events — the follower sync listens to exactly these.
+beforeAll(() => {
+  HTMLMediaElement.prototype.play = function play(this: HTMLMediaElement) {
+    this.dispatchEvent(new Event("play"));
+    return Promise.resolve();
+  };
+  HTMLMediaElement.prototype.pause = function pause(this: HTMLMediaElement) {
+    this.dispatchEvent(new Event("pause"));
+  };
+});
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
@@ -276,5 +290,64 @@ describe("DeliverPanel controls", () => {
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×2.17");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$3.52");
     expect(screen.getByTestId("quote-total").textContent).toBe("$1.61");
+  });
+});
+
+describe("DeliverPanel review area (one transport)", () => {
+  /** A succeeded production run seeded into the mock db (so /downloads works). */
+  function seededProductionRun(projectId: string): Conversion {
+    const conv: Conversion = {
+      conversion_id: "priorprod0001",
+      state: "succeeded",
+      kind: "video",
+      project_id: projectId,
+      step: "production",
+      params: { preset: "1080p", formats: ["mvhevc", "sbs"], inpaint: "propainter" },
+      quote: { amount_cents: 200, currency: "usd" },
+      progress: 1,
+      outputs: ["mvhevc", "sbs"],
+      created_at: "2026-07-02T08:00:00Z",
+      updated_at: "2026-07-02T08:05:00Z",
+    };
+    mockDb.conversions.set(conv.conversion_id, structuredClone(conv));
+    return conv;
+  }
+
+  it("hints at the review area before any production run — source preview + timeline still render", () => {
+    renderPanel();
+    expect(screen.getByTestId("preview-video")).toBeDefined();
+    expect(screen.getByTestId("filmstrip")).toBeDefined();
+    // active-picture (crop) overlay on the preview, same as Media/Cut
+    expect(screen.getByTestId("crop-overlay")).toBeDefined();
+    expect(
+      screen.getByText(/Run production to review the final output/),
+    ).toBeDefined();
+    expect(screen.queryByTestId("deliver-output-video")).toBeNull();
+  });
+
+  it("plays the last production run's best playable output BESIDE the source, synced to the main transport", async () => {
+    const project = fixtureProject();
+    project.conversions = [seededProductionRun(project.project_id)];
+    renderPanel(project);
+
+    // mvhevc is never browser-playable — sbs is picked
+    const output = (await screen.findByTestId(
+      "deliver-output-video",
+    )) as HTMLVideoElement;
+    expect(output.getAttribute("src")).toBe(
+      (downloadsFixture.downloads as Record<string, string>).sbs,
+    );
+    expect(screen.getByTestId("deliver-output-video-badge").textContent).toBe("sbs");
+
+    const master = screen.getByTestId("preview-video") as HTMLVideoElement;
+    const playSpy = vi.spyOn(output, "play");
+    fireEvent.click(screen.getByLabelText("Play preview"));
+    expect(playSpy).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(master, "duration", { value: 100, configurable: true });
+    Object.defineProperty(output, "duration", { value: 100, configurable: true });
+    master.currentTime = 30;
+    fireEvent.timeUpdate(master);
+    expect(output.currentTime).toBeCloseTo(30, 5);
   });
 });
