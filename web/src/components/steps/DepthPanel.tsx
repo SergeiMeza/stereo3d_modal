@@ -10,28 +10,35 @@
  * production run at a different fps re-runs depth). No displacement, no
  * preset, no formats — those belong to the Stereo and Deliver pages.
  *
- * A compact Scenes strip exposes the per-scene "Convert to 3D" toggle from
- * the SHARED stereo draft store (2D passthrough): it affects stereo_preview
- * and production requests only — depth previews always render the full
- * depth map.
- *
- * After a run succeeds, the browser-playable depth_vis output plays NEXT TO
- * the source proxy with a shared transport, theater-wide ABOVE the params
- * card. The follower is synced by FRACTION of duration on timeupdate — the
- * depth video may run at a different fps, and the frame doctrine (integer
- * source-frame indices) applies only to the source player, never to derived
- * outputs. A ScenePicker scopes review to one scene at a time: it drives
- * the MASTER player (loop in source-time bounds); the follower just tracks.
+ * Layout mirrors the Cut tab: a frame-exact source PREVIEW (usePreviewPlayer
+ * over the project proxy) sits up top with Space/←/→ transport; below it a
+ * SCENE GRID (thumbnail cards, one per cut range) navigates the preview and
+ * carries the per-scene "Convert to 3D" toggle from the SHARED stereo draft
+ * store (2D passthrough — affects stereo_preview/production only; depth
+ * previews always render the full depth map). When a depth run has succeeded,
+ * the source-vs-depth compare (DepthCompare) renders INLINE directly under the
+ * preview, synced by fraction of duration (the depth video runs at its own
+ * fps — frame doctrine applies only to the source proxy, never derived
+ * outputs).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PreviewViewer } from "@/components/workspace/PreviewViewer";
 import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
+import { usePreviewPlayer } from "@/components/workspace/usePreviewPlayer";
+import { clampFrame } from "@/components/workspace/utils";
 import type { Conversion, Project, StepConversionRequest } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import {
+  clampDepthRes,
+  DEFAULT_DEPTH_RES,
+  depthResChoices,
+  depthResLabel,
+} from "@/lib/depthRes";
 import {
   cutsToRanges,
   defaultPreviewFPS,
@@ -54,33 +61,7 @@ import {
 } from "./useScenePlayback";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
-/** Sold depth resolutions — all multiples of 14 (the depth model's patch
- * size); the gateway rejects anything else. */
-const DEPTH_RES_CHOICES: readonly { value: number; name?: string }[] = [
-  { value: 518, name: "Draft" },
-  { value: 700 },
-  { value: 980, name: "Standard" },
-  { value: 1148, name: "High" },
-  { value: 1442, name: "Very high" },
-  { value: 2100 },
-  { value: 2520, name: "Maximum" },
-];
-
-export const DEFAULT_DEPTH_RES = 980;
-
-/** GPU tier the depth stage routes to at a 16:9 working resolution
- * (app/pipelines/video.py _route_depth_gpu thresholds: L40S_MAX_MP 2.5 ≈
- * depth_res 1184 @ 16:9, H200_MAX_MP 6.5 ≈ 1912). */
-export function gpuTierForDepthRes(depthRes: number): "L40S" | "H200" | "B200" {
-  if (depthRes <= 1184) return "L40S";
-  if (depthRes <= 1912) return "H200";
-  return "B200";
-}
-
-export function depthResLabel(choice: { value: number; name?: string }): string {
-  const name = choice.name ? ` — ${choice.name}` : "";
-  return `${choice.value}${name} · ${gpuTierForDepthRes(choice.value)}`;
-}
+export { DEFAULT_DEPTH_RES };
 
 export interface DepthPanelProps {
   project: Project;
@@ -92,10 +73,8 @@ export function DepthPanel({
   onProjectChanged,
 }: DepthPanelProps): JSX.Element {
   const ck = useStepCheckout(project, onProjectChanged);
-  const [depthRes, setDepthRes] = useState(DEFAULT_DEPTH_RES);
-  const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
-  // SAME draft the Stereo page edits (shared localStorage key): the scenes
-  // strip below flips per-scene 2D passthrough in it.
+  // SAME draft the Stereo page edits (shared localStorage key): the scene
+  // grid below flips per-scene 2D passthrough in it.
   const [draft, setDraft] = useStereoDraft(
     project.project_id,
     project.scenes?.version ?? 0,
@@ -106,6 +85,16 @@ export function DepthPanel({
       ? parseRational(project.probe.fps_rational)
       : null;
 
+  // depth_res can never exceed the SOURCE short side (see lib/depthRes).
+  const shortSide = project.probe
+    ? Math.min(project.probe.width, project.probe.height)
+    : DEFAULT_DEPTH_RES;
+  const resChoices = depthResChoices(shortSide);
+  const [depthRes, setDepthRes] = useState(() =>
+    clampDepthRes(DEFAULT_DEPTH_RES, resChoices),
+  );
+  const [targetFps, setTargetFps] = useState<number | undefined>(undefined);
+
   const depthRuns = (project.conversions ?? []).filter(
     (c) => c.step === "depth_preview",
   );
@@ -115,7 +104,7 @@ export function DepthPanel({
     | Conversion
     | undefined;
 
-  if (sourceFps === null) {
+  if (sourceFps === null || !project.probe) {
     return (
       <PanelShell>
         <p className="text-sm text-fg-muted">
@@ -134,122 +123,79 @@ export function DepthPanel({
   };
 
   return (
-    <PanelShell
-      theater={
-        lastSucceeded ? (
-          <DepthResult project={project} conversion={lastSucceeded} />
-        ) : null
-      }
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          id="depth-res"
-          label="Depth-map resolution"
-          hint={
-            <>
-              The cost/quality knob, and what production inherits: run depth
-              once at your final resolution and the production quote discounts
-              the whole depth stage when fps and resolution match. GPU tier
-              shown at a 16:9 working resolution.
-            </>
-          }
-        >
-          <select
-            id="depth-res"
-            value={depthRes}
-            onChange={(e) => {
-              setDepthRes(Number(e.target.value));
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            {DEPTH_RES_CHOICES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {depthResLabel(c)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field
-          id="depth-fps"
-          label="Preview frame rate"
-          hint={
-            <>
-              Half the source rate is plenty to judge depth. Honest caveat:
-              depth reuse keys on fps — a production run at a different rate
-              re-runs the depth stage at full price.
-            </>
-          }
-        >
-          <select
-            id="depth-fps"
-            value={fps}
-            onChange={(e) => {
-              setTargetFps(Number(e.target.value));
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            {fpsOptions(sourceFps).map((o) => (
-              <option key={o.divisor} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
-      {project.scenes ? (
-        <section aria-label="Scenes" className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-            Scenes · convert to 3D
-          </h3>
-          <p className="text-xs text-fg-muted">
-            Unchecked scenes ship as 2D passthrough on Stereo and Deliver runs
-            (both eyes identical) — for end credits, logos, title cards. Depth
-            previews always render the full depth map regardless.
-          </p>
-          <ul
-            data-testid="depth-scenes"
-            className="flex max-h-64 flex-col gap-1 overflow-y-auto pr-1"
-          >
-            {cutsToRanges(project.scenes.cuts, project.probe!.num_frames).map(
-              ([start, end], i) => {
-                const passthrough =
-                  draft.overrides[start]?.passthrough === true;
-                return (
-                  <li
-                    key={`${start}-${end}`}
-                    data-testid={`depth-scene-${start}`}
-                    className={`flex items-center gap-2 rounded-md border border-edge bg-surface-1 px-2 py-1 ${
-                      passthrough ? "opacity-60" : ""
-                    }`}
-                  >
-                    <span className="text-xs font-medium">Scene {i + 1}</span>
-                    <span className="font-mono text-[11px] text-fg-muted">
-                      {frameToTimecode(start, sourceFps)}
-                    </span>
-                    <label className="ml-auto flex cursor-pointer items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        aria-label={`Scene ${i + 1} convert to 3D`}
-                        checked={!passthrough}
-                        onChange={(e) =>
-                          setDraft((d) =>
-                            setRowPassthrough(d, start, !e.target.checked),
-                          )
-                        }
-                        className="accent-primary"
-                      />
-                      <span className="text-xs">3D</span>
-                    </label>
-                  </li>
-                );
-              },
-            )}
-          </ul>
-        </section>
-      ) : null}
-      <StepCheckoutSection checkout={ck} request={request} />
+    <PanelShell>
+      <DepthPreview
+        project={project}
+        sourceFps={sourceFps}
+        lastSucceeded={lastSucceeded}
+        draft={draft}
+        setDraft={setDraft}
+      />
+
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="depth-res"
+              label="Depth-map resolution"
+              hint={
+                <>
+                  The cost/quality knob, and what production inherits: run depth
+                  once at your final resolution and the production quote
+                  discounts the whole depth stage when fps and resolution match.
+                  Capped at the source resolution — you can&apos;t add detail
+                  the source doesn&apos;t have.
+                </>
+              }
+            >
+              <select
+                id="depth-res"
+                value={depthRes}
+                onChange={(e) => {
+                  setDepthRes(Number(e.target.value));
+                  ck.invalidate();
+                }}
+                className={selectClass}
+              >
+                {resChoices.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {depthResLabel(c)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              id="depth-fps"
+              label="Preview frame rate"
+              hint={
+                <>
+                  Defaults to the source rate. Honest caveat: depth reuse keys
+                  on fps — a production run at a different rate re-runs the depth
+                  stage at full price.
+                </>
+              }
+            >
+              <select
+                id="depth-fps"
+                value={fps}
+                onChange={(e) => {
+                  setTargetFps(Number(e.target.value));
+                  ck.invalidate();
+                }}
+                className={selectClass}
+              >
+                {fpsOptions(sourceFps).map((o) => (
+                  <option key={o.divisor} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <StepCheckoutSection checkout={ck} request={request} />
+        </CardContent>
+      </Card>
+
       <PriorRuns
         title="Prior depth runs"
         conversions={depthRuns}
@@ -266,23 +212,215 @@ export function DepthPanel({
   );
 }
 
-/** Theater layout: the compare view (when present) spans the FULL page
- * width above the card that keeps the params + checkout machinery. The
+/** Page frame: the preview/grid + params + prior runs stack, full width. The
  * page title/description live in the shared PageHeader (StepTab). */
-function PanelShell({
-  theater,
-  children,
-}: {
-  theater?: ReactNode;
-  children: ReactNode;
-}): JSX.Element {
+function PanelShell({ children }: { children: ReactNode }): JSX.Element {
   return (
     <div data-testid="depth-panel" className="flex flex-col gap-6">
-      {theater}
-      <Card>
-        <CardContent className="flex flex-col gap-4">{children}</CardContent>
-      </Card>
+      {children}
     </div>
+  );
+}
+
+/**
+ * Cut-style review area: the frame-exact source PREVIEW, the source-vs-depth
+ * compare (inline, when a run succeeded), and the SCENE GRID with per-scene 3D
+ * toggles. The preview playhead drives the grid highlight; clicking a scene
+ * card seeks the preview to that scene's first frame.
+ */
+function DepthPreview({
+  project,
+  sourceFps,
+  lastSucceeded,
+  draft,
+  setDraft,
+}: {
+  project: Project;
+  sourceFps: RationalFPS;
+  lastSucceeded: Conversion | undefined;
+  draft: ReturnType<typeof useStereoDraft>[0];
+  setDraft: ReturnType<typeof useStereoDraft>[1];
+}): JSX.Element {
+  const probe = project.probe!;
+  const numFrames = probe.num_frames;
+
+  // Frame-exact preview player over the project proxy — same hook the Cut tab
+  // uses. The playhead follows the video while playing; scene-card clicks seek.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [playhead, setPlayhead] = useState(0);
+  const handleVideoFrame = useCallback(
+    (frame: number) => setPlayhead(clampFrame(frame, numFrames)),
+    [numFrames],
+  );
+  const player = usePreviewPlayer(videoRef, sourceFps, handleVideoFrame);
+
+  const scrub = useCallback(
+    (frame: number) => {
+      const f = clampFrame(frame, numFrames);
+      setPlayhead(f);
+      player.seekToFrame(f);
+    },
+    [numFrames, player],
+  );
+  const step = useCallback(
+    (delta: number) => {
+      player.pause();
+      const f = clampFrame(playhead + delta, numFrames);
+      setPlayhead(f);
+      player.seekToFrame(f);
+    },
+    [numFrames, player, playhead],
+  );
+
+  const secondFrames = Math.max(1, Math.round(sourceFps.num / sourceFps.den));
+  usePlayerShortcuts({ toggle: player.toggle, step, secondFrames });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PreviewViewer
+        probe={probe}
+        fps={sourceFps}
+        playhead={playhead}
+        previewUrl={project.preview_url}
+        thumbs={project.strip_thumbs ?? []}
+        player={player}
+        videoRef={videoRef}
+        onStep={step}
+      />
+
+      {lastSucceeded ? (
+        <DepthResult project={project} conversion={lastSucceeded} />
+      ) : null}
+
+      {project.scenes ? (
+        <DepthSceneGrid
+          cuts={project.scenes.cuts}
+          numFrames={numFrames}
+          fps={sourceFps}
+          sceneThumbs={project.scene_thumbs ?? []}
+          playhead={playhead}
+          draft={draft}
+          setDraft={setDraft}
+          onSelectScene={scrub}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Scene grid — thumbnail cards tiling the cut list (cutsToRanges: half-open
+ * ranges over [0, numFrames)). Clicking a card seeks the preview to the
+ * scene's first frame; the scene containing the playhead is highlighted. Each
+ * card carries the per-scene "3D" toggle (shared stereo-draft passthrough):
+ * unchecked scenes ship as 2D on Stereo/Deliver runs. Same card visuals as the
+ * Cut tab's SceneList, plus the toggle overlay.
+ */
+function DepthSceneGrid({
+  cuts,
+  numFrames,
+  fps,
+  sceneThumbs,
+  playhead,
+  draft,
+  setDraft,
+  onSelectScene,
+}: {
+  cuts: number[];
+  numFrames: number;
+  fps: RationalFPS;
+  sceneThumbs: Project["scene_thumbs"];
+  playhead: number;
+  draft: ReturnType<typeof useStereoDraft>[0];
+  setDraft: ReturnType<typeof useStereoDraft>[1];
+  onSelectScene: (startFrame: number) => void;
+}): JSX.Element {
+  const ranges = cutsToRanges(cuts, numFrames);
+  const thumbs = sceneThumbs ?? [];
+
+  return (
+    <section aria-label="Scenes" className="flex flex-col gap-1.5">
+      <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+        Scenes · convert to 3D
+      </h3>
+      <p className="text-xs text-fg-muted">
+        Click a scene to jump the preview there. Unchecked scenes ship as 2D
+        passthrough on Stereo and Deliver runs (both eyes identical) — for end
+        credits, logos, title cards. Depth previews always render the full depth
+        map regardless.
+      </p>
+      <div
+        data-testid="depth-scenes"
+        className="grid max-h-[36rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
+      >
+        {ranges.map(([start, end], i) => {
+          const active = playhead >= start && playhead < end;
+          const passthrough = draft.overrides[start]?.passthrough === true;
+          const thumb = thumbs.find((t) => t.frame >= start && t.frame < end);
+          return (
+            <div
+              key={`${start}-${end}`}
+              data-testid={`depth-scene-${start}`}
+              className={`relative ${passthrough ? "opacity-60" : ""}`}
+            >
+              <button
+                type="button"
+                data-testid="scene-card"
+                data-start={start}
+                data-end={end}
+                aria-current={active ? "true" : undefined}
+                onClick={(e) => {
+                  blurAfterMouseClick(e);
+                  onSelectScene(start);
+                }}
+                className={`w-full rounded-md border p-1.5 text-left transition-colors ${
+                  active
+                    ? "border-primary bg-surface-2 ring-1 ring-primary"
+                    : "border-edge bg-surface-1 hover:bg-surface-2"
+                }`}
+              >
+                <div className="mb-1 aspect-video w-full overflow-hidden rounded bg-black">
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- signed GCS thumbnail URLs.
+                    <img
+                      src={thumb.url}
+                      alt={`scene ${i + 1} keyframe`}
+                      draggable={false}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-medium text-fg">Scene {i + 1}</span>
+                  <span className="font-mono text-[11px] text-fg-muted">
+                    f{start}–f{end}
+                  </span>
+                </div>
+                <div className="font-mono text-[11px] text-fg-muted">
+                  {frameToTimecode(start, fps)}
+                </div>
+              </button>
+              {/* 3D toggle — SIBLING of the card button (nested buttons are
+                  invalid HTML), overlaid top-right. */}
+              <label className="absolute top-2.5 right-2.5 z-10 flex cursor-pointer items-center gap-1 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] hover:bg-black/80">
+                <input
+                  type="checkbox"
+                  aria-label={`Scene ${i + 1} convert to 3D`}
+                  checked={!passthrough}
+                  onChange={(e) =>
+                    setDraft((d) =>
+                      setRowPassthrough(d, start, !e.target.checked),
+                    )
+                  }
+                  className="accent-primary"
+                />
+                <span>3D</span>
+              </label>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -334,6 +472,9 @@ function DepthResult({
       depthUrl={fetched.depthVis}
       scenes={sceneRangesForPlayback(project)}
       fps={parseRational(project.probe!.fps_rational)}
+      // The Depth tab's main PreviewViewer owns the Space transport; a second
+      // window-level Space handler here would toggle both players at once.
+      keyboardShortcuts={false}
     />
   );
 }
@@ -348,11 +489,15 @@ export function DepthCompare({
   depthUrl,
   scenes,
   fps,
+  keyboardShortcuts = true,
 }: {
   sourceUrl?: string;
   depthUrl: string;
   scenes: SceneRange[];
   fps: RationalFPS;
+  /** Bind Space → play/pause on this transport. Set false when a sibling
+   * player (the Depth tab's main preview) already owns the window-level key. */
+  keyboardShortcuts?: boolean;
 }): JSX.Element {
   const srcRef = useRef<HTMLVideoElement | null>(null);
   const depRef = useRef<HTMLVideoElement | null>(null);
@@ -413,8 +558,9 @@ export function DepthCompare({
 
   // Space = play/pause, same shared hook as the Media/Cut transports (no
   // frame stepping here — the outputs are decimated; frame keys are for
-  // the frame-exact proxy pages only).
-  usePlayerShortcuts({ toggle });
+  // the frame-exact proxy pages only). Suppressed when a sibling preview
+  // already owns the window-level Space handler (see keyboardShortcuts).
+  usePlayerShortcuts({ toggle: keyboardShortcuts ? toggle : () => {} });
 
   return (
     <div data-testid="depth-compare" className="flex flex-col gap-2">

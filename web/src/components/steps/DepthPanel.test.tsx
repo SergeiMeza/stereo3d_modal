@@ -158,17 +158,20 @@ function seededDepthRun(
 }
 
 describe("DepthPanel controls", () => {
-  it("offers exactly the sold depth resolutions with GPU-tier hints, 980 Standard preselected", () => {
+  it("offers depth resolutions (no GPU tier) capped at source, with a source-native choice, 980 Standard preselected", () => {
+    // fixture source is 3840×2160 → short side 2160; the 2520 preset exceeds
+    // it and is dropped, and a source-native choice at 2156 (⌊2160/14⌋·14) is
+    // added as the ceiling. Labels carry NO GPU tier.
     renderPanel();
     const select = document.getElementById("depth-res") as HTMLSelectElement;
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      "518 — Draft · L40S",
-      "700 · L40S",
-      "980 — Standard · L40S",
-      "1148 — High · L40S",
-      "1442 — Very high · H200",
-      "2100 · B200",
-      "2520 — Maximum · B200",
+      "518 — Draft",
+      "700",
+      "980 — Standard",
+      "1148 — High",
+      "1442 — Very high",
+      "2100",
+      "2156 — source native",
     ]);
     expect(select.value).toBe("980");
   });
@@ -417,28 +420,32 @@ describe("DepthPanel compare view", () => {
     );
   });
 
-  it("Space toggles the comparison transport (shared player shortcut, BOTH players)", async () => {
+  it("the comparison Play button toggles BOTH players; Space is owned by the main preview, not the compare", async () => {
+    // The Depth tab's main PreviewViewer owns the window-level Space handler
+    // now, so the embedded compare suppresses its own (keyboardShortcuts=false)
+    // — otherwise one Space press would toggle two players. The compare's Play
+    // button still drives both compare players.
     const project = fixtureProject();
     project.conversions = [seededDepthRun(project.project_id)];
     renderPanel(project);
-    await screen.findByTestId("depth-compare");
+    const compare = await screen.findByTestId("depth-compare");
 
     const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play");
-    fireEvent.keyDown(window, { key: " " });
+    fireEvent.click(within(compare).getByLabelText("Play comparison"));
     expect(playSpy).toHaveBeenCalledTimes(2); // source AND depth
-    expect(screen.getByLabelText("Pause comparison")).toBeTruthy();
+    expect(within(compare).getByLabelText("Pause comparison")).toBeTruthy();
 
     const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, "pause");
-    fireEvent.keyDown(window, { key: " " });
+    fireEvent.click(within(compare).getByLabelText("Pause comparison"));
     expect(pauseSpy).toHaveBeenCalledTimes(2);
-    expect(screen.getByLabelText("Play comparison")).toBeTruthy();
+    expect(within(compare).getByLabelText("Play comparison")).toBeTruthy();
   });
 
   it("unmuting gives sound to the MASTER only — the depth_vis follower STAYS muted", async () => {
     const project = fixtureProject();
     project.conversions = [seededDepthRun(project.project_id)];
     renderPanel(project);
-    await screen.findByTestId("depth-compare");
+    const compare = await screen.findByTestId("depth-compare");
     const source = screen.getByTestId("depth-compare-source") as HTMLVideoElement;
     const depth = screen.getByTestId("depth-compare-depth") as HTMLVideoElement;
 
@@ -446,11 +453,12 @@ describe("DepthPanel compare view", () => {
     expect(source.muted).toBe(true);
     expect(depth.muted).toBe(true);
 
-    fireEvent.click(screen.getByLabelText("Unmute"));
+    // scope to the compare — the main preview has its own Mute control
+    fireEvent.click(within(compare).getByLabelText("Unmute"));
     expect(source.muted).toBe(false); // master = the source proxy (has audio)
     expect(depth.muted).toBe(true); // follower must never double-play sound
 
-    fireEvent.click(screen.getByLabelText("Mute"));
+    fireEvent.click(within(compare).getByLabelText("Mute"));
     expect(source.muted).toBe(true);
     expect(depth.muted).toBe(true);
   });
@@ -627,7 +635,9 @@ describe("DepthPanel scene-scoped playback", () => {
     const user = userEvent.setup();
     const { source, depth } = await renderCompare();
 
-    const speed = screen.getByLabelText("Speed") as HTMLSelectElement;
+    // the main preview has its own Speed select — scope to the compare
+    const compare = screen.getByTestId("depth-compare");
+    const speed = within(compare).getByLabelText("Speed") as HTMLSelectElement;
     expect(speed.value).toBe("1");
     expect([...speed.options].map((o) => o.textContent)).toEqual([
       "0.25×",
@@ -650,11 +660,11 @@ describe("DepthPanel scene-scoped playback", () => {
   });
 });
 
-describe("DepthPanel scenes strip (shared 2D passthrough)", () => {
-  it("lists one row per scene (number + timecode) with a Convert-to-3D toggle, default checked, and says depth previews are unaffected", () => {
+describe("DepthPanel scene grid (shared 2D passthrough)", () => {
+  it("shows one card per scene (number + timecode) with a Convert-to-3D toggle, default checked, and says depth previews are unaffected", () => {
     renderPanel();
     const strip = screen.getByTestId("depth-scenes");
-    const rows = within(strip).getAllByTestId(/^depth-scene-/);
+    const rows = within(strip).getAllByTestId(/^depth-scene-\d/);
     expect(rows).toHaveLength(RANGES.length);
     expect(rows[0].textContent).toContain("Scene 1");
     expect(rows[0].textContent).toContain(frameToTimecode(0, FPS));
