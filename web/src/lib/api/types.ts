@@ -230,7 +230,9 @@ export interface StepQuoteResponse {
   step: Step;
   params: Params;
   quote: Quote;
-  reuse_stages: string[]; // stages whose cached artifacts discounted the quote
+  /** Stages whose cached artifacts discounted the quote. The gateway sends
+   * null (Go nil slice) when nothing is reusable — treat as empty. */
+  reuse_stages?: string[] | null;
   /** coarse pre-run wall-clock estimate for the quoted step, in seconds */
   eta_seconds?: number;
 }

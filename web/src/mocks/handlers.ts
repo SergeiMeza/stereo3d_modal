@@ -652,7 +652,9 @@ export const handlers = [
       step: req.step,
       params: resolved,
       quote,
-      reuse_stages: reuseStages,
+      // null when empty, mirroring the Go gateway's nil-slice serialization
+      // (older deployments still send null) — keeps the client guard honest.
+      reuse_stages: reuseStages.length > 0 ? reuseStages : null,
       eta_seconds: etaForStep(
         req.step,
         quote.breakdown?.billable_seconds ?? p.probe!.duration_s,
