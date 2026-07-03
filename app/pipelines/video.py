@@ -1476,7 +1476,16 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
     from app.stages.video_stereo import SEGMENT_FRAMES, _pick_batch_size
 
     total = pre["probe"]["num_frames"]
-    batch_size = _pick_batch_size(total)
+    # Window sized by the INPAINT working resolution (VRAM scales with
+    # window × work MP — see _pick_batch_size). This call site passes
+    # batch_size explicitly to every chunk, so it must apply the same
+    # sizing the single-worker path gets from generate()'s default —
+    # the resolution-blind call here is exactly what re-OOMed the 4k runs.
+    work_mp = (
+        stereo_kwargs.get("work_height", 720)
+        * stereo_kwargs.get("work_width", 1280) / 1e6
+    )
+    batch_size = _pick_batch_size(total, work_mp)
     seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
     # chunk size is CAPPED (chunk_cap, default STEREO_CHUNK_FRAMES) so a
     # worker's wall time never grows with total length — long videos spawn
