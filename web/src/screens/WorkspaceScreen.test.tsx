@@ -35,7 +35,7 @@ import {
   zoomLevels,
   type FrameWindow,
 } from "@/components/workspace/utils";
-import type { Probe, Project } from "@/lib/api/types";
+import type { Conversion, Probe, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import {
   frameLabel,
@@ -1223,5 +1223,62 @@ describe("WorkspaceScreen — pages", () => {
       ),
     );
     expect(markerFrames()).toEqual([500, 1000]);
+  });
+});
+
+describe("Stereo tab gating", () => {
+  /** A succeeded depth run in the mock db — GET project folds it into
+   * project.conversions, which is what unlocks the Stereo tab. */
+  function seedSucceededDepthRun(): void {
+    const conv: Conversion = {
+      conversion_id: "gatingdepth01",
+      state: "succeeded",
+      kind: "video",
+      project_id: PID,
+      step: "depth_preview",
+      params: { preset: "draft", formats: ["anaglyph"], depth_res: 980 },
+      quote: { amount_cents: 50, currency: "usd" },
+      progress: 1,
+      outputs: ["anaglyph", "depth", "depth_vis"],
+      created_at: "2026-07-02T08:00:00Z",
+      updated_at: "2026-07-02T08:05:00Z",
+    };
+    mockDb.conversions.set(conv.conversion_id, conv);
+  }
+
+  it("locks Stereo until a depth run succeeds: rail click is a no-op, the deep link shows the explanation", async () => {
+    await renderWorkspace(); // fixture project has NO conversions
+
+    const tab = screen.getByTestId("tab-stereo");
+    expect(tab.getAttribute("aria-disabled")).toBe("true");
+
+    // clicking the locked tab does nothing — still on the Cut page
+    fireEvent.click(tab);
+    expect(screen.queryByTestId("step-card-stereo_preview")).toBeNull();
+    expect(screen.getByTestId("tab-cut").getAttribute("aria-selected")).toBe(
+      "true",
+    );
+
+    // the number key still switches the page state (deep links exist), but
+    // the panel is replaced by the lock card pointing at the Depth page
+    fireEvent.keyDown(window, { key: "4" });
+    const lock = await screen.findByTestId("stereo-locked");
+    expect(lock.textContent).toContain("Run a Depth preview first");
+    expect(screen.queryByTestId("step-card-stereo_preview")).toBeNull();
+    fireEvent.click(within(lock).getByRole("button", { name: "Go to Depth" }));
+    expect(screen.getByTestId("step-card-depth_preview")).toBeTruthy();
+  });
+
+  it("unlocks Stereo once a depth run has succeeded", async () => {
+    seedSucceededDepthRun();
+    await renderWorkspace();
+
+    const tab = screen.getByTestId("tab-stereo");
+    expect(tab.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(tab);
+    expect(
+      await screen.findByTestId("step-card-stereo_preview"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("stereo-locked")).toBeNull();
   });
 });

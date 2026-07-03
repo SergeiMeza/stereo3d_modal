@@ -29,6 +29,21 @@ export const SHOT_TYPES: readonly ShotType[] = [
   "wide",
 ];
 
+/** User-facing names for the shot classes — the wire values are internal
+ * snake_case terms and must not appear in UI copy. What they mean (the tips
+ * sheet carries the full explanations): the profiler classifies each scene
+ * by how far the action is from the camera — close_up (subject near the
+ * camera: gentle depth, slight pop-out), standard (mid-distance: balanced
+ * around the screen plane), wide (establishing/far shot: depth behind the
+ * screen like a window), dynamic (the distance CHANGES during the scene, so
+ * the tuning ramps across it). */
+export const SHOT_TYPE_LABELS: Record<ShotType, string> = {
+  close_up: "Close-up",
+  standard: "Standard",
+  dynamic: "Dynamic",
+  wide: "Wide",
+};
+
 export const STEREO_PROFILE_KIND = "stereo-scene-profile";
 
 /** One exported scene row. Everything except `first` and `override` is

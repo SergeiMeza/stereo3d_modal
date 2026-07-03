@@ -171,6 +171,21 @@ export default function WorkspaceScreen({
     probe !== undefined &&
     scenes !== undefined;
 
+  // The Stereo page builds on the Cut page's scenes AND the Depth page's
+  // depth map — it stays locked until both exist (the rail disables the
+  // tab; deep links get an explanatory card instead of the panel).
+  const hasDepthRun = (project.conversions ?? []).some(
+    (c) => c.step === "depth_preview" && c.state === "succeeded",
+  );
+  const stereoLockReason = !ready
+    ? "Stereo unlocks after analysis — scene cuts come first"
+    : !hasDepthRun
+      ? "Run a Depth preview first — Stereo builds on its depth map"
+      : undefined;
+  const locked: Partial<Record<WorkspaceTabId, string>> = stereoLockReason
+    ? { stereo: stereoLockReason }
+    : {};
+
   const analyzingCard = (
     <div
       data-testid="analyzing-state"
@@ -275,7 +290,7 @@ export default function WorkspaceScreen({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <PageTabs active={tab} onChange={setTab} />
+        <PageTabs active={tab} onChange={setTab} locked={locked} />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {tab === "media" ? (
             <MediaTab project={project} onNavigate={setTab} />
@@ -305,6 +320,25 @@ export default function WorkspaceScreen({
             ) : (
               analyzingCard
             )
+          ) : tab === "stereo" && stereoLockReason ? (
+            // Deep links (#tab=stereo) and the number keys can still land
+            // here while locked — explain instead of rendering the panel.
+            <div
+              data-testid="stereo-locked"
+              className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-md border border-edge bg-surface-1 p-6"
+            >
+              <h2 className="text-sm font-semibold">Stereo is locked</h2>
+              <p className="text-sm text-fg-muted">{stereoLockReason}.</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTab(ready ? "depth" : "cut")}
+                >
+                  {ready ? "Go to Depth" : "Go to Cut"}
+                </Button>
+              </div>
+            </div>
           ) : step ? (
             <StepTab
               step={step}

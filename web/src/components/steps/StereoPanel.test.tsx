@@ -2,13 +2,18 @@
  * Stereo page tests: per-scene rows derived from the fixture's REAL cuts
  * (frame ranges + timecodes via frames.ts, never hardcoded), scene_profile
  * seeding + the stale-profile warning, ONLY-changed-rows scene_overrides on
- * the wire (displacement top-level ABSENT), the Deliver-parity output params
- * (resolution preset + MV-HEVC format + inpainted DEFAULT, ×1.6 by default),
- * the ONE-transport review area (the latest output as a follower of the main
- * preview), row-click seeking + active-row highlight, localStorage draft
- * persistence (the store Deliver inherits), per-scene 2D passthrough
- * (exactly {first, passthrough:true} on the wire; draft depth values stashed
- * and restored), and the free shot-profiling action.
+ * the wire (displacement top-level ABSENT; the per-scene numeric
+ * displacement input is deliberately NOT rendered this release — imports
+ * and the draft still carry it), the Deliver-parity output params
+ * (resolution preset + MV-HEVC format; every run is full-quality inpaint,
+ * ×1.6 — the cheap opt-out is not exposed), depth inheritance from the
+ * Depth page (depth_res on the wire → reuse discount; picker when several
+ * resolutions exist; "use pipeline default" escape), the ONE-transport
+ * review area (the latest output — or the Depth run's depth map — as a
+ * follower of the main preview), row-click seeking + active-row highlight,
+ * localStorage draft persistence (the store Deliver inherits), per-scene 2D
+ * passthrough (exactly {first, passthrough:true} on the wire; draft depth
+ * values stashed and restored), and the free shot-profiling action.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -47,7 +52,11 @@ import projectFixture from "../../../fixtures/project.json";
 import sceneProfileFixture from "../../../fixtures/scene_profile.json";
 
 import { DepthPanel } from "./DepthPanel";
-import { STEREO_PROFILE_KIND, type StereoProfileFile } from "./stereoProfile";
+import {
+  SHOT_TYPE_LABELS,
+  STEREO_PROFILE_KIND,
+  type StereoProfileFile,
+} from "./stereoProfile";
 import { loadStereoDraft, saveStereoDraft, stereoDraftKey } from "./stereoStore";
 import { StereoPanel } from "./StereoPanel";
 
@@ -183,7 +192,7 @@ describe("StereoPanel scene rows", () => {
     expect(last.textContent).toContain(`f${CUTS[CUTS.length - 1]}–f${N}`);
   });
 
-  it("seeds Auto defaults from a fresh scene_profile (shot_type + displacement placeholder)", () => {
+  it("seeds Auto defaults from a fresh scene_profile (user-facing shot-type label, no raw enum)", () => {
     renderPanel(withProfile());
 
     expect(screen.queryByTestId("stale-profile-warning")).toBeNull();
@@ -195,13 +204,20 @@ describe("StereoPanel scene rows", () => {
     ) as HTMLSelectElement;
     expect(select.value).toBe("auto");
     expect(select.selectedOptions[0].textContent).toBe(
-      `Auto (${shot0.shot_type})`,
+      `Auto (${SHOT_TYPE_LABELS[shot0.shot_type]})`,
     );
-    const disp = within(sceneRow(0)).getByLabelText(
-      "Scene 1 displacement",
-    ) as HTMLInputElement;
-    expect(disp.value).toBe(""); // auto — nothing sent
-    expect(disp.placeholder).toBe(shot0.displacement.toFixed(4));
+    // the numeric displacement input is deliberately gone this release
+    expect(
+      within(sceneRow(0)).queryByLabelText("Scene 1 displacement"),
+    ).toBeNull();
+    // options show the friendly names, never the snake_case wire values
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      `Auto (${SHOT_TYPE_LABELS[shot0.shot_type]})`,
+      "Close-up",
+      "Standard",
+      "Dynamic",
+      "Wide",
+    ]);
   });
 
   it("warns when the profile was computed against older scene cuts", () => {
@@ -230,10 +246,12 @@ describe("StereoPanel request building", () => {
     const user = userEvent.setup();
     renderPanel(withProfile());
 
-    // scene 1: explicit displacement; scene 2 (starts at the first cut):
-    // shot_type override; every other row stays auto
-    const disp = within(sceneRow(0)).getByLabelText("Scene 1 displacement");
-    fireEvent.change(disp, { target: { value: "0.02" } });
+    // scene 1 and scene 2 (starts at the first cut) get shot_type
+    // overrides; every other row stays auto
+    await user.selectOptions(
+      within(sceneRow(0)).getByLabelText("Scene 1 shot type"),
+      "close_up",
+    );
     await user.selectOptions(
       within(sceneRow(FIRST_CUT)).getByLabelText("Scene 2 shot type"),
       "wide",
@@ -251,7 +269,7 @@ describe("StereoPanel request building", () => {
       formats: ["sbs"],
       inpaint: "propainter",
       scene_overrides: [
-        { first: 0, displacement: 0.02 },
+        { first: 0, shot_type: "close_up" },
         { first: FIRST_CUT, shot_type: "wide" },
       ],
       target_fps: 24,
@@ -259,14 +277,32 @@ describe("StereoPanel request building", () => {
     });
   });
 
+  it("a draft displacement (e.g. imported) still reaches the wire without a UI input", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    saveStereoDraft(FIXTURE.project_id, VERSION, {
+      overrides: { "0": { displacement: 0.02 } },
+      depth_scale: 1,
+    });
+    renderPanel();
+
+    expect(screen.getByTestId("override-chip-0")).toBeDefined();
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].scene_overrides).toEqual([
+      { first: 0, displacement: 0.02 },
+    ]);
+  });
+
   it("a per-row Reset returns the scene to auto (and drops it from the request)", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel();
 
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.02" },
-    });
+    await user.selectOptions(
+      within(sceneRow(0)).getByLabelText("Scene 1 shot type"),
+      "wide",
+    );
     expect(screen.getByTestId("override-chip-0")).toBeDefined();
     await user.click(screen.getByLabelText("Reset scene 1 to auto"));
     expect(screen.queryByTestId("override-chip-0")).toBeNull();
@@ -342,15 +378,13 @@ describe("StereoPanel request building", () => {
 });
 
 describe("StereoPanel quote pricing", () => {
-  it("Inpainted is the DEFAULT (×1.6 on the quote); Splatted is the cheap opt-out", async () => {
+  it("every run is full quality (×1.6 on the quote) — there is no mode choice and no model name in the copy", async () => {
     const user = userEvent.setup();
     renderPanel();
 
-    // default mode: inpainted — the preview matches the deliverable
-    expect(
-      (screen.getByRole("radio", { name: /Inpainted/ }) as HTMLInputElement)
-        .checked,
-    ).toBe(true);
+    // the cheap opt-out is deliberately not exposed this release
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/ProPainter|[Ss]platted/);
 
     await getQuote(user);
     // 149.46 s at $2/min full rate → 499¢ base; the letterboxed 2.39:1
@@ -360,24 +394,22 @@ describe("StereoPanel quote pricing", () => {
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×1.6");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$8.94");
     expect(screen.getByTestId("quote-total").textContent).toBe("$8.44");
-
-    await user.click(screen.getByRole("radio", { name: /Splatted/ }));
-    expect(screen.queryByTestId("quote-breakdown")).toBeNull(); // invalidated
-    await getQuote(user);
-    // 559¢, no multiplier, −50¢ credit = $5.09
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$5.59");
-    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
-    expect(screen.getByTestId("quote-total").textContent).toBe("$5.09");
+    // the breakdown line explains the multiplier without internal terms
+    expect(screen.getByTestId("quote-breakdown").textContent).toContain(
+      "Full-quality edges",
+    );
   });
 
   it("surfaces the gateway's scene_overrides validation errors", async () => {
     const user = userEvent.setup();
+    // 0.05 is outside (0, 0.03]; only a hand-edited draft/import can carry
+    // it now that the numeric input is gone — the gateway still rejects it
+    saveStereoDraft(FIXTURE.project_id, VERSION, {
+      overrides: { "0": { displacement: 0.05 } },
+      depth_scale: 1,
+    });
     renderPanel();
 
-    // 0.05 is outside (0, 0.03] — the mock rejects like the gateway
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.05" },
-    });
     await user.click(screen.getByRole("button", { name: "Get quote" }));
     expect(
       await screen.findByText(
@@ -513,9 +545,10 @@ describe("StereoPanel draft persistence", () => {
     const user = userEvent.setup();
     const { view } = renderPanel();
 
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.02" },
-    });
+    await user.selectOptions(
+      within(sceneRow(0)).getByLabelText("Scene 1 shot type"),
+      "wide",
+    );
     await user.selectOptions(
       within(sceneRow(FIRST_CUT)).getByLabelText("Scene 2 shot type"),
       "close_up",
@@ -525,7 +558,7 @@ describe("StereoPanel draft persistence", () => {
     const key = stereoDraftKey(FIXTURE.project_id, VERSION);
     await waitFor(() => {
       const draft = loadStereoDraft(FIXTURE.project_id, VERSION);
-      expect(draft.overrides["0"]).toEqual({ displacement: 0.02 });
+      expect(draft.overrides["0"]).toEqual({ shot_type: "wide" });
       expect(draft.overrides[String(FIRST_CUT)]).toEqual({ shot_type: "close_up" });
       expect(draft.depth_scale).toBeCloseTo(1.05, 5);
     });
@@ -535,9 +568,9 @@ describe("StereoPanel draft persistence", () => {
     view.unmount();
     renderPanel();
     expect(
-      (within(sceneRow(0)).getByLabelText("Scene 1 displacement") as HTMLInputElement)
+      (within(sceneRow(0)).getByLabelText("Scene 1 shot type") as HTMLSelectElement)
         .value,
-    ).toBe("0.02");
+    ).toBe("wide");
     expect(
       (within(sceneRow(FIRST_CUT)).getByLabelText("Scene 2 shot type") as HTMLSelectElement)
         .value,
@@ -560,27 +593,24 @@ describe("StereoPanel 2D passthrough", () => {
     expect(toggle(FIRST_CUT, 2).checked).toBe(true);
   });
 
-  it("unchecking disables the row's depth controls, mutes the row, and emits EXACTLY {first, passthrough: true} — the stashed displacement stays OFF the wire", async () => {
+  it("unchecking disables the row's depth controls, mutes the row, and emits EXACTLY {first, passthrough: true} — the stashed depth tweak stays OFF the wire", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
+    // stash a depth tweak first (draft-seeded — no numeric input anymore):
+    // it must survive in the DRAFT but be dropped from the request while
+    // passthrough is on
+    saveStereoDraft(FIXTURE.project_id, VERSION, {
+      overrides: { "0": { displacement: 0.02 } },
+      depth_scale: 1,
+    });
     renderPanel();
 
-    // stash a depth tweak first — it must survive in the DRAFT but be
-    // dropped from the request while passthrough is on
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.02" },
-    });
     await user.click(toggle(0, 1));
 
     const shot = within(sceneRow(0)).getByLabelText(
       "Scene 1 shot type",
     ) as HTMLSelectElement;
-    const disp = within(sceneRow(0)).getByLabelText(
-      "Scene 1 displacement",
-    ) as HTMLInputElement;
     expect(shot.disabled).toBe(true);
-    expect(disp.disabled).toBe(true);
-    expect(disp.value).toBe("0.02"); // kept in the UI, just disabled
     expect(sceneRow(0).className).toContain("opacity-60");
     expect(screen.getByTestId("passthrough-note-0").textContent).toBe(
       "2D passthrough — shipped as-is (both eyes identical)",
@@ -599,19 +629,19 @@ describe("StereoPanel 2D passthrough", () => {
   it("toggling back to 3D re-enables the controls and restores the draft's depth values on the wire", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
+    saveStereoDraft(FIXTURE.project_id, VERSION, {
+      overrides: { "0": { displacement: 0.02 } },
+      depth_scale: 1,
+    });
     renderPanel();
 
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.02" },
-    });
     await user.click(toggle(0, 1)); // off → passthrough
     await user.click(toggle(0, 1)); // back on
 
-    const disp = within(sceneRow(0)).getByLabelText(
-      "Scene 1 displacement",
-    ) as HTMLInputElement;
-    expect(disp.disabled).toBe(false);
-    expect(disp.value).toBe("0.02");
+    const shot = within(sceneRow(0)).getByLabelText(
+      "Scene 1 shot type",
+    ) as HTMLSelectElement;
+    expect(shot.disabled).toBe(false);
     expect(screen.queryByTestId("passthrough-note-0")).toBeNull();
 
     await getQuote(user);
@@ -643,6 +673,178 @@ describe("StereoPanel 2D passthrough", () => {
         .disabled,
     ).toBe(true);
     expect(toggle(FIRST_CUT, 2).checked).toBe(true); // only scene 1 flagged
+  });
+});
+
+/** A succeeded depth run seeded into BOTH the mock db (so /downloads and
+ * the reuse lookup work) and the returned conversion. target_fps matches
+ * the panel's explicit full-rate request so the depth artifact key aligns. */
+function seededDepthRun(
+  projectId: string,
+  overrides: Partial<Conversion> = {},
+): Conversion {
+  const conv: Conversion = {
+    conversion_id: "priordepth001",
+    state: "succeeded",
+    kind: "video",
+    project_id: projectId,
+    step: "depth_preview",
+    params: {
+      preset: "draft",
+      formats: ["anaglyph"],
+      inpaint: "none",
+      depth_res: 980,
+      target_fps: 24,
+    },
+    quote: { amount_cents: 50, currency: "usd" },
+    progress: 1,
+    outputs: ["anaglyph", "depth", "depth_vis"],
+    created_at: "2026-07-01T08:00:00Z",
+    updated_at: "2026-07-01T08:05:00Z",
+    ...overrides,
+  };
+  mockDb.conversions.set(conv.conversion_id, structuredClone(conv));
+  return conv;
+}
+
+describe("StereoPanel depth inheritance & reuse", () => {
+  it("sends the Depth run's depth_res and the quote discounts the reused depth stage", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    project.conversions = [seededDepthRun(project.project_id)];
+    renderPanel(project);
+
+    expect(screen.getByTestId("stereo-chip-depth").textContent).toContain(
+      "Depth map 980 px",
+    );
+
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].depth_res).toBe(980);
+    // subtotal 894¢ (propainter default); depth share 0.35 reused →
+    // −313¢ = 581¢ − 50¢ credit = $5.31
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+    expect(screen.getByTestId("quote-reuse-discount").textContent).toBe(
+      "−$3.13",
+    );
+    expect(screen.getByTestId("quote-total").textContent).toBe("$5.31");
+  });
+
+  it("the “use pipeline default” escape drops depth_res (and the discount) from the request", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    // 1442 ≠ the 1080p preset default (980), so dropping the inheritance
+    // genuinely misses the depth artifact key — no reuse discount
+    project.conversions = [
+      seededDepthRun(project.project_id, {
+        params: {
+          preset: "draft",
+          formats: ["anaglyph"],
+          inpaint: "none",
+          depth_res: 1442,
+          target_fps: 24,
+        },
+      }),
+    ];
+    renderPanel(project);
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Use pipeline default depth resolution",
+      }),
+    );
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].depth_res).toBeUndefined();
+    expect(screen.queryByTestId("quote-reuse-stages")).toBeNull();
+  });
+
+  it("shows a picker when several depth resolutions exist and sends the picked one", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    const run980 = seededDepthRun(project.project_id);
+    const run1442 = seededDepthRun(project.project_id, {
+      conversion_id: "priordepth002",
+      params: {
+        preset: "draft",
+        formats: ["anaglyph"],
+        inpaint: "none",
+        depth_res: 1442,
+        target_fps: 24,
+      },
+      created_at: "2026-07-02T09:00:00Z",
+    });
+    project.conversions = [run980, run1442];
+    renderPanel(project);
+
+    // newest run's resolution is preselected; both are offered
+    const picker = screen.getByLabelText(
+      "Depth map to reuse",
+    ) as HTMLSelectElement;
+    expect(picker.value).toBe(run1442.conversion_id);
+    expect([...picker.options].map((o) => o.textContent)).toEqual([
+      expect.stringContaining("1442 px"),
+      expect.stringContaining("980 px"),
+    ]);
+    expect(screen.queryByTestId("stereo-chip-depth")).toBeNull();
+
+    await user.selectOptions(picker, run980.conversion_id);
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].depth_res).toBe(980);
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+  });
+
+  it("explains itself when no depth run exists yet", () => {
+    renderPanel();
+    expect(screen.getByTestId("stereo-chip-depth-none").textContent).toContain(
+      "No depth run yet",
+    );
+  });
+});
+
+describe("StereoPanel depth-map compare slot", () => {
+  it("shows the Depth run's depth map beside the source when no stereo output exists yet", async () => {
+    const project = fixtureProject();
+    project.conversions = [seededDepthRun(project.project_id)];
+    renderPanel(project);
+
+    const depth = (await screen.findByTestId(
+      "stereo-depth-video",
+    )) as HTMLVideoElement;
+    expect(depth.getAttribute("src")).toBe(
+      (downloadsFixture.downloads as Record<string, string>).depth_vis,
+    );
+    expect(screen.getByTestId("stereo-depth-video-badge").textContent).toBe(
+      "depth map",
+    );
+    // no toggle without an output — just the explanatory note
+    expect(screen.queryByTestId("stereo-compare-toggle")).toBeNull();
+  });
+
+  it("offers a toggle between the 3D output (default) and the depth map when both exist", async () => {
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    project.conversions = [
+      seededDepthRun(project.project_id),
+      seededStereoRun(project.project_id),
+    ];
+    renderPanel(project);
+
+    // output leads
+    await screen.findByTestId("stereo-output-video");
+    const toggleGroup = screen.getByTestId("stereo-compare-toggle");
+    expect(screen.queryByTestId("stereo-depth-video")).toBeNull();
+
+    await user.click(within(toggleGroup).getByRole("button", { name: "Depth map" }));
+    await screen.findByTestId("stereo-depth-video");
+    expect(screen.queryByTestId("stereo-output-video")).toBeNull();
+
+    await user.click(within(toggleGroup).getByRole("button", { name: "3D output" }));
+    await screen.findByTestId("stereo-output-video");
   });
 });
 
@@ -727,10 +929,8 @@ describe("StereoPanel scene-profile import/export", () => {
     );
 
     // rows and the master slider show the imported draft, and it persisted
-    expect(
-      (within(sceneRow(0)).getByLabelText("Scene 1 displacement") as HTMLInputElement)
-        .value,
-    ).toBe("0.015");
+    // (the displacement override has no input anymore — the chip marks it)
+    expect(screen.getByTestId("override-chip-0")).toBeDefined();
     expect(
       (within(sceneRow(FIRST_CUT)).getByLabelText("Scene 2 shot type") as HTMLSelectElement)
         .value,
@@ -753,10 +953,12 @@ describe("StereoPanel scene-profile import/export", () => {
   });
 
   it("surfaces parse/validation errors inline and leaves the draft untouched", async () => {
+    const user = userEvent.setup();
     renderPanel();
-    fireEvent.change(within(sceneRow(0)).getByLabelText("Scene 1 displacement"), {
-      target: { value: "0.02" },
-    });
+    await user.selectOptions(
+      within(sceneRow(0)).getByLabelText("Scene 1 shot type"),
+      "wide",
+    );
 
     const file = new File(
       [
@@ -781,9 +983,9 @@ describe("StereoPanel scene-profile import/export", () => {
     expect(screen.queryByTestId("import-profile-dialog")).toBeNull();
     // the existing tweak survived
     expect(
-      (within(sceneRow(0)).getByLabelText("Scene 1 displacement") as HTMLInputElement)
+      (within(sceneRow(0)).getByLabelText("Scene 1 shot type") as HTMLSelectElement)
         .value,
-    ).toBe("0.02");
+    ).toBe("wide");
   });
 });
 
@@ -841,16 +1043,12 @@ describe("StereoPanel free shot profiling", () => {
     // the 50 ms poll issues project GET #2 → succeeded + scene_profile
     await waitFor(() => expect(screen.queryByTestId("profile-running")).toBeNull());
 
-    // rows re-seeded from the profiled shots (mock bucket 0 = standard,
-    // displacement 0.01) — and the action is gone (profile now fresh)
+    // rows re-seeded from the profiled shots (mock bucket 0 = standard) —
+    // and the action is gone (profile now fresh)
     const shot = within(sceneRow(0)).getByLabelText(
       "Scene 1 shot type",
     ) as HTMLSelectElement;
-    expect(shot.selectedOptions[0].textContent).toBe("Auto (standard)");
-    const disp = within(sceneRow(0)).getByLabelText(
-      "Scene 1 displacement",
-    ) as HTMLInputElement;
-    expect(disp.placeholder).toBe("0.0100");
+    expect(shot.selectedOptions[0].textContent).toBe("Auto (Standard)");
     expect(screen.queryByTestId("profile-action")).toBeNull();
     expect(screen.queryByTestId("stale-profile-warning")).toBeNull();
 

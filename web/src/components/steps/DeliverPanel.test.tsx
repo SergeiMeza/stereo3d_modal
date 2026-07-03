@@ -207,7 +207,7 @@ describe("DeliverPanel inheritance", () => {
 });
 
 describe("DeliverPanel controls", () => {
-  it("offers presets, 4 formats (no TB) and the inpaint select — no fps control", () => {
+  it("offers presets and 4 formats (no TB) — no edge-quality choice, no fps control", () => {
     renderPanel();
 
     const preset = document.getElementById("production-preset") as HTMLSelectElement;
@@ -235,9 +235,10 @@ describe("DeliverPanel controls", () => {
         .checked,
     ).toBe(true);
 
-    const inpaint = document.getElementById("production-inpaint") as HTMLSelectElement;
-    expect(inpaint.value).toBe("propainter");
-    expect([...inpaint.options].map((o) => o.value)).toEqual(["propainter", "none"]);
+    // no edge-quality choice this release — every run is full quality
+    // (inpaint=propainter on the wire), and internal terms never render
+    expect(document.getElementById("production-inpaint")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/ProPainter|[Ss]platted/);
 
     // no frame-rate control in this version — production runs at the
     // source rate (the gateway default when target_fps is absent)

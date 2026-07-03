@@ -24,9 +24,18 @@
  * is 0 or an exact cuts value — never a timestamp.
  *
  * Output params match the Deliver page (shared outputOptions): the SAME
- * resolution presets and the SAME format set (MV-HEVC included), and
- * inpainted (ProPainter) is the DEFAULT mode — the preview should look like
- * the deliverable; splatted is the cheap opt-OUT for judging depth only.
+ * resolution presets and the SAME format set (MV-HEVC included). Every run
+ * is inpaint=propainter — "full quality" in user terms; model names and the
+ * internal "splatted" term never appear in copy, and the cheap inpaint=none
+ * opt-out is deliberately NOT exposed this release (the preview must look
+ * like the deliverable).
+ *
+ * Depth inheritance (the Depth page's whole point): the request carries the
+ * last succeeded depth run's depth_res, so the pipeline REUSES that depth
+ * artifact instead of recomputing it — the quote shows the reused stage and
+ * its discount. A "use pipeline default" escape drops it. The same run's
+ * depth_vis is also offered in the compare slot (toggle beside the output)
+ * so the user can review the depth map they are building stereo from.
  *
  * Draft edits (row overrides + master depth_scale) persist in localStorage
  * (stereoStore) keyed by project + scenes_version; the Deliver page reads
@@ -72,7 +81,6 @@ import { useScrollActiveSceneToTop } from "@/components/workspace/SceneList";
 import type {
   Conversion,
   Format,
-  Inpaint,
   Preset,
   ProfileShot,
   Project,
@@ -90,12 +98,18 @@ import {
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
-import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptions";
+import {
+  FORMAT_LABELS,
+  INPAINT_LABELS,
+  OUTPUT_FORMATS,
+  RESOLUTION_PRESETS,
+} from "./outputOptions";
 import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
 import {
   exportStereoProfile,
   parseStereoProfile,
+  SHOT_TYPE_LABELS,
   SHOT_TYPES,
 } from "./stereoProfile";
 import {
@@ -124,11 +138,12 @@ export function StereoPanel({
   // Convert-to-3D toggle flips the same draft rows.
   const [draft, setDraft] = useStereoDraft(project.project_id, scenesVersion);
 
-  // Inpainted is the DEFAULT: the preview should look like the deliverable
-  // (Deliver also defaults to ProPainter); splatted is the cheap opt-out.
-  const [inpaint, setInpaint] = useState<Inpaint>("propainter");
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
+  // "use pipeline default" escape for the inherited depth resolution.
+  const [depthDefault, setDepthDefault] = useState(false);
+  // Compare-slot pick when BOTH the run output and the depth map exist.
+  const [compare, setCompare] = useState<"output" | "depth">("output");
 
   // Scene-profile import/export (the Cut tab's cuts-CSV pattern): the file
   // input feeds the parser; a parsed-but-unconfirmed draft holds the confirm
@@ -170,6 +185,25 @@ export function StereoPanel({
     | Conversion
     | undefined;
   const output = bestPlayable(useRunDownloads(lastSucceeded));
+
+  // The Depth page's succeeded runs, one reuse choice per RESOLUTION (the
+  // newest run wins its resolution — that is the axis the user actually
+  // picked on the Depth page). The selected run's depth_res rides the
+  // request (artifact reuse) and its depth_vis feeds the compare slot; a
+  // picker appears when more than one resolution is available.
+  const depthRunChoices = (project.conversions ?? [])
+    .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    .filter(
+      (c, i, arr) =>
+        arr.findIndex((d) => d.params.depth_res === c.params.depth_res) === i,
+    );
+  const [depthChoiceId, setDepthChoiceId] = useState<string | null>(null);
+  const selectedDepthRun: Conversion | undefined =
+    depthRunChoices.find((c) => c.conversion_id === depthChoiceId) ??
+    depthRunChoices[0];
+  const depthVis = useRunDownloads(selectedDepthRun)?.depth_vis ?? null;
+  const inheritedDepthRes = selectedDepthRun?.params.depth_res;
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
@@ -268,18 +302,50 @@ export function StereoPanel({
   }
 
   const sceneOverrides = draftToSceneOverrides(draft, [0, ...scenes.cuts]);
+  const sendDepthRes = !depthDefault && inheritedDepthRes !== undefined;
   const request: StepConversionRequest = {
     step: "stereo_preview",
     preset,
     formats,
-    inpaint,
+    // Always full quality (propainter) — the preview must look like the
+    // deliverable. Sent EXPLICITLY because the gateway defaults
+    // stereo_preview to inpaint=none; the cheap "splatted" opt-out is
+    // deliberately not exposed in the UI this release.
+    inpaint: "propainter",
+    // The Depth page's resolution, so the pipeline REUSES that depth
+    // artifact (and the quote discounts the depth stage) instead of
+    // recomputing at the preset default.
+    ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
     ...(draft.depth_scale !== 1 ? { depth_scale: draft.depth_scale } : {}),
     ...(sceneOverrides.length > 0 ? { scene_overrides: sceneOverrides } : {}),
     // Full source rate, sent EXPLICITLY: an absent target_fps makes the
-    // gateway decimate previews to half rate.
+    // gateway decimate previews to half rate (and depth reuse keys on fps).
     target_fps: defaultPreviewFPS(sourceFps).value,
     platform: "web",
   };
+
+  // Compare slot: the run output leads; the Depth page's depth map stands
+  // in while there is no output yet, and a toggle switches between the two
+  // when both exist.
+  const showDepth = depthVis !== null && (output === null || compare === "depth");
+  const follower =
+    showDepth && depthVis !== null
+      ? {
+          url: depthVis,
+          label: "depth map",
+          title:
+            "The depth map from your Depth run — stereo is built from this",
+          testId: "stereo-depth-video",
+        }
+      : output !== null
+        ? {
+            url: output.url,
+            label: output.name,
+            title:
+              "The latest run's stereo output, synced to the source transport",
+            testId: "stereo-output-video",
+          }
+        : null;
 
   const profileSection = needsProfile ? (
     profileRunning ? (
@@ -326,9 +392,43 @@ export function StereoPanel({
         sourceFps={sourceFps}
         heading="Stereo preview"
         headingExtras={
-          output === null ? (
+          output !== null && depthVis !== null ? (
+            <span
+              data-testid="stereo-compare-toggle"
+              className="flex items-center gap-1 rounded-md border border-edge bg-surface-2 p-0.5 text-[11px]"
+            >
+              {(
+                [
+                  ["output", "3D output"],
+                  ["depth", "Depth map"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={compare === value}
+                  onClick={(e) => {
+                    blurAfterMouseClick(e);
+                    setCompare(value);
+                  }}
+                  className={`rounded px-1.5 py-0.5 ${
+                    compare === value
+                      ? "bg-surface-1 text-fg"
+                      : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          ) : output === null && depthVis === null ? (
             <span className="text-[11px] text-fg-muted">
               Run a stereo preview to see the 3D output beside the source.
+            </span>
+          ) : output === null ? (
+            <span className="text-[11px] text-fg-muted">
+              Showing the Depth run&apos;s depth map — run a stereo preview to
+              see the 3D output here.
             </span>
           ) : null
         }
@@ -370,17 +470,7 @@ export function StereoPanel({
             </Button>
           </>
         }
-        follower={
-          output !== null
-            ? {
-                url: output.url,
-                label: output.name,
-                title:
-                  "The latest run's stereo output, synced to the source transport",
-                testId: "stereo-output-video",
-              }
-            : null
-        }
+        follower={follower}
       >
         {({ playhead, scrub }) => (
           <>
@@ -427,6 +517,65 @@ export function StereoPanel({
 
       <Card>
         <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {inheritedDepthRes !== undefined ? (
+              <>
+                {depthRunChoices.length > 1 ? (
+                  // Several depth resolutions have been run — let the user
+                  // pick which artifact this run reuses.
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <span className="text-fg-muted">Depth map to reuse</span>
+                    <select
+                      aria-label="Depth map to reuse"
+                      value={selectedDepthRun!.conversion_id}
+                      disabled={depthDefault}
+                      onChange={(e) => {
+                        setDepthChoiceId(e.target.value);
+                        ck.invalidate();
+                      }}
+                      className={`${selectClass} w-auto py-1 disabled:opacity-50`}
+                    >
+                      {depthRunChoices.map((c) => (
+                        <option key={c.conversion_id} value={c.conversion_id}>
+                          {c.params.depth_res} px ·{" "}
+                          {new Date(c.created_at).toLocaleDateString()}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <span
+                    data-testid="stereo-chip-depth"
+                    className={`rounded-full border px-2 py-0.5 text-xs ${
+                      depthDefault
+                        ? "border-edge bg-surface-2 text-fg-muted line-through"
+                        : "border-primary/30 bg-primary/10 text-primary"
+                    }`}
+                  >
+                    Depth map {inheritedDepthRes} px (from Depth page — reused,
+                    not recomputed)
+                  </span>
+                )}
+                <CheckboxChip
+                  label="Use pipeline default depth resolution"
+                  checked={depthDefault}
+                  onChange={() => {
+                    setDepthDefault((v) => !v);
+                    ck.invalidate();
+                  }}
+                />
+              </>
+            ) : (
+              <span
+                data-testid="stereo-chip-depth-none"
+                className="text-xs text-fg-muted"
+              >
+                No depth run yet — this run computes its own depth map at the
+                preset&apos;s default resolution.
+              </span>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-fg-muted">
               Overall 3D strength (depth scale):{" "}
@@ -449,42 +598,6 @@ export function StereoPanel({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <fieldset className="flex flex-col gap-1">
-              <legend className="text-xs font-medium text-fg-muted">Mode</legend>
-              <div className="flex gap-2">
-                <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
-                  <input
-                    type="radio"
-                    name="stereo-mode"
-                    checked={inpaint === "propainter"}
-                    onChange={() => {
-                      setInpaint("propainter");
-                      ck.invalidate();
-                    }}
-                    className="accent-primary"
-                  />
-                  <span className="text-xs">Inpainted (ProPainter)</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
-                  <input
-                    type="radio"
-                    name="stereo-mode"
-                    checked={inpaint === "none"}
-                    onChange={() => {
-                      setInpaint("none");
-                      ck.invalidate();
-                    }}
-                    className="accent-primary"
-                  />
-                  <span className="text-xs">Splatted (fast)</span>
-                </label>
-              </div>
-              <p className="text-xs text-fg-muted">
-                Inpainted (the default, ×1.6) previews the deliverable edge
-                quality. Splatted skips inpainting — judge depth separation
-                cheaply.
-              </p>
-            </fieldset>
             <Field
               id="stereo-preset"
               label="Resolution preset"
@@ -568,7 +681,7 @@ export function StereoPanel({
           [
             c.params.preset,
             c.params.formats.join("+"),
-            c.params.inpaint,
+            c.params.inpaint ? INPAINT_LABELS[c.params.inpaint].toLowerCase() : null,
             c.params.depth_scale !== undefined
               ? `depth_scale ${c.params.depth_scale}`
               : null,
@@ -752,30 +865,24 @@ function SceneRow({
         }
         className={`${selectClass} py-1 text-xs disabled:opacity-50`}
       >
-        <option value="auto">Auto{shot ? ` (${shot.shot_type})` : ""}</option>
+        <option value="auto">
+          Auto{shot ? ` (${SHOT_TYPE_LABELS[shot.shot_type]})` : ""}
+        </option>
         {SHOT_TYPES.map((t) => (
           <option key={t} value={t}>
-            {t}
+            {SHOT_TYPE_LABELS[t]}
           </option>
         ))}
       </select>
-      <input
-        aria-label={`Scene ${n} displacement`}
-        type="number"
-        step={0.001}
-        min={0.001}
-        max={0.03}
-        value={override?.displacement ?? ""}
-        placeholder={shot ? shot.displacement.toFixed(4) : "auto"}
-        disabled={passthrough}
-        onChange={(e) =>
-          onPatch({
-            displacement:
-              e.target.value === "" ? undefined : Number(e.target.value),
-          })
-        }
-        className="w-24 rounded-md border border-edge bg-surface-2 px-2 py-1 font-mono text-xs disabled:opacity-50"
-      />
+      {/* No numeric displacement input this release: displacement is the
+          maximum horizontal shift between the two eyes' images as a FRACTION
+          OF FRAME WIDTH ((0, 0.03]; 0.010 = 1% of width) — the raw strength
+          knob behind each shot class. Auto values come from the profiler's
+          depth-based ramp (app/stages/video_depth_models.py, SHOT_PARAMS /
+          DISPLACEMENT_RAMP_ANCHORS). It confused users without an
+          explanation, so per-scene values are now set only via shot type,
+          the global depth-scale slider, or Import profile… — the draft,
+          wire format, and export/import all still carry displacement. */}
       {passthrough ? (
         <span
           data-testid={`passthrough-note-${start}`}

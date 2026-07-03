@@ -77,7 +77,7 @@ export const WORKSPACE_TABS: readonly TabDef[] = [
   {
     id: "stereo",
     label: "Stereo",
-    hint: "Stereo — per-scene 3D strength & shot type, splatted or inpainted",
+    hint: "Stereo — per-scene 3D strength & shot type, preview what you deliver",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <circle cx="7" cy="13" r="3.5" />
@@ -121,9 +121,17 @@ export function isWorkspaceTabId(v: unknown): v is WorkspaceTabId {
 export interface PageTabsProps {
   active: WorkspaceTabId;
   onChange: (tab: WorkspaceTabId) => void;
+  /** Tabs unavailable right now, mapped to the human reason (shown as the
+   * tooltip in place of the hint). A locked tab renders disabled — clicks
+   * are ignored; the number-key shortcut is guarded in WorkspaceScreen. */
+  locked?: Partial<Record<WorkspaceTabId, string>>;
 }
 
-export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
+export function PageTabs({
+  active,
+  onChange,
+  locked = {},
+}: PageTabsProps): JSX.Element {
   return (
     <div
       role="tablist"
@@ -132,17 +140,27 @@ export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
     >
       {WORKSPACE_TABS.map((tab, i) => {
         const selected = tab.id === active;
+        const lockReason = locked[tab.id];
         return (
           <Tooltip key={tab.id}>
             <TooltipTrigger asChild>
+              {/* Locked tabs stay aria-disabled (NOT disabled) so the
+                  explanatory tooltip still fires; the click is a no-op. */}
               <button
                 type="button"
                 role="tab"
                 aria-selected={selected}
+                aria-disabled={lockReason !== undefined || undefined}
                 data-testid={`tab-${tab.id}`}
-                onClick={() => onChange(tab.id)}
+                onClick={() => {
+                  if (lockReason === undefined) onChange(tab.id);
+                }}
                 className={`relative flex w-16 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
-                  selected ? "text-primary" : "text-fg-muted hover:text-fg"
+                  selected
+                    ? "text-primary"
+                    : lockReason !== undefined
+                      ? "cursor-not-allowed text-fg-muted/40"
+                      : "text-fg-muted hover:text-fg"
                 }`}
               >
                 {/* active indicator, Resolve-style thin bar on the tab edge */}
@@ -157,8 +175,12 @@ export function PageTabs({ active, onChange }: PageTabsProps): JSX.Element {
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="flex items-center gap-1.5">
-              {tab.hint}
-              <kbd>{i + 1}</kbd>
+              {lockReason ?? (
+                <>
+                  {tab.hint}
+                  <kbd>{i + 1}</kbd>
+                </>
+              )}
             </TooltipContent>
           </Tooltip>
         );

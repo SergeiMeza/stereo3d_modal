@@ -7,7 +7,7 @@
  * do not add them back here.
  */
 
-import type { Format, Preset } from "@/lib/api/types";
+import type { Format, Inpaint, Preset } from "@/lib/api/types";
 
 /** Resolution presets (the resulting output resolution). depth_preview
  * ignores preset (always draft); Stereo and Deliver share this list. */
@@ -27,4 +27,15 @@ export const FORMAT_LABELS: Record<(typeof OUTPUT_FORMATS)[number], string> = {
   half_sbs: "Half-SBS",
   anaglyph: "Anaglyph",
   mvhevc: "MV-HEVC",
+};
+
+/** User-facing names for the API's inpaint modes. The wire values are
+ * internal terms — a model name and a renderer detail — and must never
+ * appear in UI copy: "propainter" fills the thin gaps that open along
+ * object edges when the frame is shifted for each eye (the deliverable
+ * look); "none" skips that fill ("splatted" internally) — cheaper, with
+ * rough edges, fine for judging depth. */
+export const INPAINT_LABELS: Record<Inpaint, string> = {
+  propainter: "Full quality",
+  none: "Quick",
 };

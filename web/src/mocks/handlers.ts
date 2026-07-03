@@ -370,13 +370,28 @@ function quoteFor(
   // price the optional ProPainter pass explicitly.
   const inpaintMult = step === "stereo_preview" && inpaint === "propainter" ? 1.6 : 1;
   subtotal = Math.round(subtotal * inpaintMult);
-  // reuse: production only, when a prior succeeded conversion exists
+  // reuse: production, when a prior succeeded conversion exists; and
+  // stereo_preview, when a prior succeeded DEPTH run matches the depth
+  // artifact key (depth_res + fps) — mirrors the gateway's Modal lookup.
   const reuseStages: string[] = [];
   if (step === "production" && !req.from_scratch) {
     const hasPrior = [...mockDb.conversions.values()].some(
       (c) => c.project_id === project.project_id && c.state === "succeeded",
     );
     if (hasPrior) reuseStages.push("depth", "preprocess");
+  }
+  if (step === "stereo_preview" && !req.from_scratch) {
+    const effTargetFPS =
+      req.target_fps ?? Math.round((probe.fps / 2) * 100) / 100;
+    const depthMatch = [...mockDb.conversions.values()].some(
+      (c) =>
+        c.project_id === project.project_id &&
+        c.step === "depth_preview" &&
+        c.state === "succeeded" &&
+        c.params.depth_res === depthRes &&
+        c.params.target_fps === effTargetFPS,
+    );
+    if (depthMatch) reuseStages.push("depth");
   }
   const share = reuseStages.reduce(
     (s, st) => s + (RATES.stageShares[st as keyof typeof RATES.stageShares] ?? 0),

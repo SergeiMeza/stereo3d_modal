@@ -29,7 +29,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import type {
   Conversion,
   Format,
-  Inpaint,
   Preset,
   Project,
   StepConversionRequest,
@@ -37,7 +36,12 @@ import type {
 import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
-import { FORMAT_LABELS, OUTPUT_FORMATS, RESOLUTION_PRESETS } from "./outputOptions";
+import {
+  FORMAT_LABELS,
+  INPAINT_LABELS,
+  OUTPUT_FORMATS,
+  RESOLUTION_PRESETS,
+} from "./outputOptions";
 import { PriorRuns } from "./PriorRuns";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
@@ -56,7 +60,6 @@ export function DeliverPanel({
 
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
-  const [inpaint, setInpaint] = useState<Inpaint>("propainter");
   const [fromScratch, setFromScratch] = useState(false);
   // "use pipeline default" escapes for the inherited settings
   const [depthDefault, setDepthDefault] = useState(false);
@@ -108,7 +111,10 @@ export function DeliverPanel({
       step: "production",
       preset,
       ...(formats.length > 0 ? { formats } : {}),
-      inpaint,
+      // Always full quality (propainter, also the gateway's production
+      // default) — the cheap "splatted" opt-out is deliberately not
+      // exposed in the UI this release.
+      inpaint: "propainter",
       ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
       ...(sendStereo && stereoDraft.depth_scale !== 1
         ? { depth_scale: stereoDraft.depth_scale }
@@ -239,20 +245,6 @@ export function DeliverPanel({
             ))}
           </select>
         </Field>
-        <Field id="production-inpaint" label="Inpainting">
-          <select
-            id="production-inpaint"
-            value={inpaint}
-            onChange={(e) => {
-              setInpaint(e.target.value as Inpaint);
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            <option value="propainter">ProPainter (full quality)</option>
-            <option value="none">None (splatted edges)</option>
-          </select>
-        </Field>
       </div>
 
       <fieldset className="flex flex-col gap-2">
@@ -304,7 +296,7 @@ export function DeliverPanel({
             c.params.preset,
             c.params.formats.join("+"),
             c.params.depth_res !== undefined ? `depth ${c.params.depth_res}` : null,
-            c.params.inpaint,
+            c.params.inpaint ? INPAINT_LABELS[c.params.inpaint].toLowerCase() : null,
           ]
             .filter(Boolean)
             .join(" · ")

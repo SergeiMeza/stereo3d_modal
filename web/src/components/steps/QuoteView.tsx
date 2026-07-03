@@ -82,7 +82,7 @@ export function QuoteView({
       ) : null}
       {hasInpaintMult ? (
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-fg-muted">Inpainting (ProPainter)</dt>
+          <dt className="text-fg-muted">Full-quality edges</dt>
           <dd data-testid="quote-inpaint-multiplier" className="font-mono">
             ×{b.inpaint_multiplier!.toFixed(1)}
           </dd>

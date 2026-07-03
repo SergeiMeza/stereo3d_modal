@@ -80,7 +80,7 @@ const GUIDE: readonly {
     n: 3,
     title: "Stereo",
     blurb:
-      "Per-scene 3D strength and shot type, seeded from the profiler — splatted or inpainted preview.",
+      "Per-scene 3D strength and shot type, seeded from the profiler — preview what you deliver.",
     price: "Paid",
   },
   {

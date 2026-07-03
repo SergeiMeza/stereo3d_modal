@@ -674,11 +674,14 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	if berr != nil {
 		return nil, nil, berr
 	}
-	// Reuse discount (production, unless from-scratch): ask Modal's
-	// content-addressed cache whether prior artifacts match these params.
+	// Reuse discount (production + stereo_preview, unless from-scratch): ask
+	// Modal's content-addressed cache whether prior artifacts match these
+	// params. Stereo previews reuse the Depth page's artifact exactly like
+	// production does (the web sends the depth run's depth_res), so their
+	// quotes discount it too — the pipeline genuinely skips that compute.
 	// Non-nil so reuse_stages serializes as [] (never null) in responses.
 	reuseStages := []string{}
-	if step == store.StepProduction && !params.SkipReuse {
+	if (step == store.StepProduction || step == store.StepStereoPreview) && !params.SkipReuse {
 		lookup, err := s.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
 		if err != nil {
 			httpx.Log(ctx).Warn("reuse lookup failed (quoting full price)", "project_id", p.ID, "err", err)

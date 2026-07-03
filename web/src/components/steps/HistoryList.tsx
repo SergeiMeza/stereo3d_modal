@@ -15,6 +15,7 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList } from "./DownloadsList";
 import { formatCents } from "./money";
+import { INPAINT_LABELS } from "./outputOptions";
 import { StateChip } from "./StateChip";
 
 const STEP_LABELS: Record<string, string> = {
@@ -31,7 +32,9 @@ export function paramsSummary(c: Conversion): string {
     p.preset,
     p.formats?.length ? p.formats.join("+") : null,
     p.depth_res !== undefined ? `depth ${p.depth_res}` : null,
-    p.inpaint,
+    // wire values ("propainter"/"none") are internal terms — show the
+    // user-facing mode names instead
+    p.inpaint ? INPAINT_LABELS[p.inpaint].toLowerCase() : null,
     p.depth_scale !== undefined ? `depth_scale ${p.depth_scale}` : null,
     p.scene_overrides?.length
       ? `${p.scene_overrides.length} scene override${p.scene_overrides.length === 1 ? "" : "s"}`

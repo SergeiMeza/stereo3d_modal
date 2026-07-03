@@ -132,13 +132,14 @@ describe("HistoryList", () => {
     renderWithHistory([SUCCEEDED, FAILED]);
 
     const [first, second] = screen.getAllByRole("listitem");
-    // the production run carries the full per-scene parameter set
+    // the production run carries the full per-scene parameter set; the
+    // inpaint wire value renders as its user-facing name, never the model
     expect(within(first).getByTestId("history-params").textContent).toBe(
-      "1080p · mvhevc+half_sbs · depth 1442 · propainter · depth_scale 1.1 · 3 scene overrides",
+      "1080p · mvhevc+half_sbs · depth 1442 · full quality · depth_scale 1.1 · 3 scene overrides",
     );
     // the depth run: no scene params, but resolution/fps/inpaint
     expect(within(second).getByTestId("history-params").textContent).toBe(
-      "draft · anaglyph · depth 980 · none · 12 fps",
+      "draft · anaglyph · depth 980 · quick · 12 fps",
     );
   });
 

@@ -332,9 +332,9 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 // inpaint=propainter multiplies a stereo_preview subtotal by
 // inpaint_multiplier (production rates already include inpainting).
 // ReuseStages lists the stage shares to discount (artifacts confirmed cached
-// — production only); CreditCents is the project's analyze credit if this is
-// its first paid conversion. Every adjustment is an explicit breakdown line
-// so support can reconstruct any charge.
+// — production and stereo_preview); CreditCents is the project's analyze
+// credit if this is its first paid conversion. Every adjustment is an
+// explicit breakdown line so support can reconstruct any charge.
 func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) {
 	rates := s.Rates(ctx)
 	var perMin int64
@@ -376,7 +376,7 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	}
 
 	reuseDiscount := int64(0)
-	if in.Step == "production" {
+	if in.Step == "production" || in.Step == "stereo_preview" {
 		share := 0.0
 		for _, stage := range in.ReuseStages {
 			share += rates.StageShares[stage]

@@ -156,12 +156,26 @@ func TestQuoteStepProductionReuseDiscount(t *testing.T) {
 	}
 }
 
-func TestQuoteStepReuseIgnoredForPreviews(t *testing.T) {
+func TestQuoteStepStereoPreviewReuseDiscount(t *testing.T) {
+	// Stereo previews reuse the Depth page's artifact like production does:
+	// 5 min × 200¢ = 1000¢; depth share 0.35 → −350¢ = 650¢
+	q := quoteStep(t, StepInputs{
+		Step: "stereo_preview", Preset: "1080p", BillableS: 300, ReuseStages: []string{"depth"},
+	})
+	if q.AmountCents != 650 {
+		t.Errorf("want 650, got %d", q.AmountCents)
+	}
+	if q.Breakdown["reuse_discount_cents"].(int64) != 350 {
+		t.Errorf("want reuse discount 350, got %v", q.Breakdown["reuse_discount_cents"])
+	}
+}
+
+func TestQuoteStepReuseIgnoredForDepthPreview(t *testing.T) {
 	q := quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 300, ReuseStages: []string{"depth"},
 	})
 	if q.Breakdown["reuse_discount_cents"].(int64) != 0 {
-		t.Errorf("previews must not get reuse discounts, got %v", q.Breakdown["reuse_discount_cents"])
+		t.Errorf("depth_preview must not get reuse discounts, got %v", q.Breakdown["reuse_discount_cents"])
 	}
 }
 
