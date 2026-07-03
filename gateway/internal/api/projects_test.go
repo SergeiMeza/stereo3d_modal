@@ -138,11 +138,12 @@ func TestResolveProductionTemplate(t *testing.T) {
 	if p.TargetFPS != 0 { // full source fps
 		t.Errorf("target_fps: want 0 (source), got %v", p.TargetFPS)
 	}
-	// production accepts everything
+	// production accepts everything (depth_res 2100 fits the 16:9 source's
+	// aspect ceiling ~2184; 2520 would now be rejected — see the ceiling test).
 	p = resolveOK(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Inpaint: "none",
-		DepthRes: 2520, DepthScale: 0.3,
+		DepthRes: 2100, DepthScale: 0.3,
 		SceneOverrides: []sceneOverrideReq{{First: 240, Displacement: 0.03}}})
-	if p.Preset != "4k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
+	if p.Preset != "4k" || p.Inpaint != "none" || p.DepthRes != 2100 || p.DepthScale != 0.3 {
 		t.Errorf("production overrides not applied: %+v", p)
 	}
 }
@@ -154,7 +155,10 @@ func TestResolveUnknownStep(t *testing.T) {
 // -------------------------------------------------------- field validation
 
 func TestResolveDepthResValidation(t *testing.T) {
-	ok := []int{0, 140, 154, 980, 2520}
+	// proProject() is 1920×1080 (1.78:1); its aspect ceiling is ~2184, so the
+	// old top-of-rail 2520 is now rejected on THIS source (see the aspect test
+	// below). Keep the ok set within the 16:9 ceiling.
+	ok := []int{0, 140, 154, 980, 2100}
 	for _, v := range ok {
 		p := resolveOK(t, &stepConvReq{Step: store.StepProduction, DepthRes: v})
 		if p.DepthRes != v {
@@ -164,6 +168,46 @@ func TestResolveDepthResValidation(t *testing.T) {
 	bad := []int{-14, 13, 126, 139, 141, 979, 2534}
 	for _, v := range bad {
 		resolveErr(t, &stepConvReq{Step: store.StepProduction, DepthRes: v}, "multiple of 14")
+	}
+}
+
+// TestResolveDepthResAspectCeiling guards the working-megapixel VRAM ceiling:
+// depth_res² × elongation must fit the B200 tier, so a wide source caps out at
+// a lower depth_res than the flat [140,2520] rail. This is the bug where a
+// 2.39:1 4K source at depth_res 2156 (11.11 MP) sailed past the gateway and
+// only failed mid-job in Modal.
+func TestResolveDepthResAspectCeiling(t *testing.T) {
+	// maxDepthResForAspect: sqrt(8.5e6/elongation) floored to ×14.
+	for _, tc := range []struct {
+		w, h, want int
+	}{
+		{1920, 1080, 2184}, // 16:9  → sqrt(8.5e6/1.7778)=2186 → 2184
+		{3840, 1608, 1876}, // 2.39:1 → sqrt(8.5e6/2.3881)=1885 → 1876
+		{1080, 1080, 2520}, // 1:1   → sqrt(8.5e6)=2915, clamped to the 2520 rail
+	} {
+		if got := maxDepthResForAspect(tc.w, tc.h); got != tc.want {
+			t.Errorf("maxDepthResForAspect(%d,%d) = %d, want %d", tc.w, tc.h, got, tc.want)
+		}
+	}
+	if maxDepthResForAspect(0, 0) != 0 {
+		t.Error("maxDepthResForAspect(0,0): want 0 (unknown dims skip the check)")
+	}
+
+	// Wide 2.39:1 4K source: the reported failing value must now be rejected
+	// at submit with an actionable max, while a value under the ceiling passes.
+	wide := &store.Project{
+		Probe:  &store.Probe{FPS: 24, NumFrames: 2400, Width: 3840, Height: 1608},
+		Scenes: &store.Scenes{Version: 3, Cuts: []int{240}},
+	}
+	if _, err := resolveStepParams(&stepConvReq{Step: store.StepProduction, DepthRes: 2156}, wide); err == nil {
+		t.Fatal("depth_res 2156 on a 2.39:1 source: want VRAM-ceiling rejection, got nil")
+	} else if !strings.Contains(err.Message, "VRAM ceiling") || !strings.Contains(err.Message, "1876") {
+		t.Errorf("want error naming the ceiling and max 1876, got %q", err.Message)
+	}
+	if p, err := resolveStepParams(&stepConvReq{Step: store.StepProduction, DepthRes: 1876}, wide); err != nil {
+		t.Errorf("depth_res 1876 (at the ceiling) on a 2.39:1 source: unexpected error %q", err.Message)
+	} else if p.DepthRes != 1876 {
+		t.Errorf("depth_res 1876: not applied, got %d", p.DepthRes)
 	}
 }
 

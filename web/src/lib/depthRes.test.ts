@@ -5,13 +5,15 @@ import {
   DEFAULT_DEPTH_RES,
   depthResChoices,
   depthResLabel,
+  maxDepthResForAspect,
 } from "./depthRes";
 
 describe("depthResChoices", () => {
-  it("offers all presets for a large source and a source-native ceiling", () => {
-    // 3840×2160 → short side 2160; the 2520 preset exceeds it and is dropped;
-    // source-native = ⌊2160/14⌋·14 = 2156 is added as the ceiling.
-    const c = depthResChoices(2160);
+  it("offers all presets for a large near-square source and a source-native ceiling", () => {
+    // 2160×2160 (1:1) → short side 2160, aspect ceiling ⌊√8.5e6⌋→2520 (no bind);
+    // the 2520 preset exceeds the short side and is dropped; source-native =
+    // ⌊2160/14⌋·14 = 2156 is added as the ceiling.
+    const c = depthResChoices(2160, 2160);
     expect(c.map((x) => x.value)).toEqual([
       518, 700, 980, 1148, 1442, 2100, 2156,
     ]);
@@ -37,9 +39,44 @@ describe("depthResChoices", () => {
 
   it("never returns a value below the gateway minimum", () => {
     // a tiny source floors to the gateway min (140), not below.
-    const c = depthResChoices(100);
+    const c = depthResChoices(100, 100);
     expect(c.every((x) => x.value >= 140)).toBe(true);
     expect(c[0].value).toBe(140);
+  });
+
+  it("caps a wide 4K source below its short side at the aspect VRAM ceiling", () => {
+    // 5162×2160 (2.39:1) 4K: short side 2160 (→2156), but the B200 ceiling binds
+    // first at ⌊√(8.5e6/2.3898)⌋→1876. This is the reported bug — before the
+    // aspect cap the source-native 2156 (11.11 MP) was offered and Modal
+    // rejected it mid-job.
+    const c = depthResChoices(5162, 2160);
+    expect(c.map((x) => x.value)).toEqual([518, 700, 980, 1148, 1442, 1876]);
+    expect(c[c.length - 1]).toMatchObject({ value: 1876, name: "source native" });
+    expect(c.every((x) => x.value <= 1876)).toBe(true);
+  });
+
+  it("defaults height to width (square) when only the short side is passed", () => {
+    // single-arg call = 1:1, ceiling never binds below the short side.
+    expect(depthResChoices(980)).toEqual(depthResChoices(980, 980));
+  });
+});
+
+describe("maxDepthResForAspect", () => {
+  it("is aspect-aware and orientation-agnostic, floored to ×14", () => {
+    // working_mp = depth_res² × elongation ≤ 8.5; res = ⌊√(8.5e6/elong)⌋ to ×14.
+    expect(maxDepthResForAspect(1920, 1080)).toBe(2184); // 16:9  → √(8.5e6/1.778)=2186
+    expect(maxDepthResForAspect(3840, 1608)).toBe(1876); // 2.39:1 → √(8.5e6/2.388)=1885
+    expect(maxDepthResForAspect(2160, 2160)).toBe(2520); // 1:1   → √8.5e6=2915, clamped to rail
+    // orientation-agnostic: portrait gives the same cap as landscape.
+    expect(maxDepthResForAspect(1608, 3840)).toBe(maxDepthResForAspect(3840, 1608));
+  });
+
+  it("the returned max is always runnable (working MP ≤ ceiling)", () => {
+    for (const [w, h] of [[3840, 1608], [1920, 1080], [4096, 1716]]) {
+      const res = maxDepthResForAspect(w, h);
+      const workMP = (res * res * Math.max(w, h)) / Math.min(w, h) / 1e6;
+      expect(workMP).toBeLessThanOrEqual(8.5);
+    }
   });
 });
 
