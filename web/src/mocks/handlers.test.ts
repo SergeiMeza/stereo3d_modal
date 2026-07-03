@@ -211,14 +211,19 @@ describe("mock gateway validation", () => {
 });
 
 describe("mock gateway quote math + params echo", () => {
-  it("depth_preview: the WHOLE subtotal scales with the depth_res factor, clamped to [0.5, 4.0]", async () => {
-    // base = ceil(149.458/60 × 10¢) = 25¢
+  it("depth_preview: the WHOLE subtotal scales with the aspect-aware depth factor, clamped to [0.5, 5.0]", async () => {
+    // absent target_fps → half rate (12/24 = fps factor 0.5):
+    // base = ceil(149.458/60 × 125¢ × 0.5) = 156¢. The fixture is
+    // letterboxed 2.39:1 (crop 3840:1606), so factors are elongation-aware:
+    // factor = depth_res² × 2.391 / (980² × 16⁄9).
+    // Absent depth_res = the draft preset's input_size 518 → 0.376 → 0.5.
     const std = (await (await quote({ step: "depth_preview" })).json()) as StepQuoteResponse;
     expect(std.quote.breakdown).toMatchObject({
-      base_cents: 25,
-      depth_res: 980, // preset default when absent
-      depth_res_factor: 1,
-      subtotal_cents: 25,
+      base_cents: 156,
+      fps_factor: 0.5,
+      depth_res: 518, // the draft preset's input_size when absent
+      depth_res_factor: 0.5,
+      subtotal_cents: 78,
     });
     expect(std.quote.breakdown!.inpaint_multiplier).toBeUndefined();
 
@@ -226,13 +231,13 @@ describe("mock gateway quote math + params echo", () => {
       await quote({ step: "depth_preview", depth_res: 1442 })
     ).json()) as StepQuoteResponse;
     expect(hi.quote.breakdown).toMatchObject({
-      base_cents: 25,
+      base_cents: 156,
       depth_res: 1442,
-      depth_res_factor: 2.1651, // (1442/980)², 4 dp
-      subtotal_cents: 54, // round(25 × 2.16510…)
+      depth_res_factor: 2.912, // 1442²×2.391 / (980²×16⁄9), 4 dp
+      subtotal_cents: 454, // round(156 × 2.91197…)
     });
 
-    // clamps: 518 → 0.5, 2520 → 4.0
+    // clamps: 518 → 0.5, 2520 (8.89× the base MP) → the 5.0 ceiling
     const lo = (await (
       await quote({ step: "depth_preview", depth_res: 518 })
     ).json()) as StepQuoteResponse;
@@ -240,32 +245,36 @@ describe("mock gateway quote math + params echo", () => {
     const max = (await (
       await quote({ step: "depth_preview", depth_res: 2520 })
     ).json()) as StepQuoteResponse;
-    expect(max.quote.breakdown!.depth_res_factor).toBe(4);
+    expect(max.quote.breakdown!.depth_res_factor).toBe(5);
   });
 
   it("stereo/production apply the factor to 0.35 of the base; stereo+propainter adds ×1.6", async () => {
-    // stereo base = ceil(149.458/60 × 25¢) = 63¢
+    // stereo base = ceil(149.458/60 × 200¢ × 0.5 half-rate) = 250¢
     const stereo = (await (
       await quote({ step: "stereo_preview", depth_res: 1442 })
     ).json()) as StepQuoteResponse;
-    // 63 × (1 + 0.35 × 1.16510…) = 88.69… → 89
-    expect(stereo.quote.breakdown!.subtotal_cents).toBe(89);
+    // 250 × (1 + 0.35 × 1.91197…) = 417.30… → 417
+    expect(stereo.quote.breakdown!.subtotal_cents).toBe(417);
 
     const inpainted = (await (
       await quote({ step: "stereo_preview", inpaint: "propainter" })
     ).json()) as StepQuoteResponse;
+    // absent depth_res → 1080p preset's 980 → aspect factor 1.34496 on the
+    // 0.35 share → 280¢, then ×1.6
     expect(inpainted.quote.breakdown).toMatchObject({
-      base_cents: 63,
+      base_cents: 250,
       inpaint_multiplier: 1.6,
-      subtotal_cents: 101, // round(63 × 1.6)
+      subtotal_cents: 448, // round(round(250 × 1.12074) × 1.6)
     });
 
-    // production propainter is the default and NOT multiplied
+    // production propainter is the default and NOT multiplied; full source
+    // rate (fps factor 1): base = ceil(149.458/60 × 250¢) = 623¢
     const prod = (await (
       await quote({ step: "production", inpaint: "propainter" })
     ).json()) as StepQuoteResponse;
     expect(prod.quote.breakdown!.inpaint_multiplier).toBeUndefined();
-    expect(prod.quote.breakdown!.subtotal_cents).toBe(250);
+    expect(prod.quote.breakdown!.fps_factor).toBe(1);
+    expect(prod.quote.breakdown!.subtotal_cents).toBe(698); // round(623 × 1.12074)
   });
 
   it("echoes depth_res/depth_scale/inpaint/scene_overrides in params, with step defaults", async () => {

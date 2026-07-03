@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
@@ -282,7 +283,10 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			httpx.WriteErr(ctx, w, berr)
 			return
 		}
-		q, err := s.Pricing.QuoteVideo(ctx, req.Preset, billable)
+		q, err := s.Pricing.QuoteVideo(ctx, pricing.VideoInputs{
+			Preset: req.Preset, BillableS: billable,
+			Width: media.Width, Height: media.Height, FPS: media.FPS,
+		})
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
 			return

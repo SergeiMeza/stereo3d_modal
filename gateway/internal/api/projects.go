@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -690,7 +691,10 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 			}
 		}
 	}
-	q, err := s.Pricing.QuoteStep(ctx, step, params.Preset, billable, params.DepthRes, params.Inpaint, reuseStages, creditCents)
+	in := s.stepQuoteInputs(p, params, step, billable)
+	in.ReuseStages = reuseStages
+	in.CreditCents = creditCents
+	q, err := s.Pricing.QuoteStep(ctx, in)
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())
 	}
@@ -698,6 +702,32 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		AmountCents: q.AmountCents, Currency: q.Currency,
 		RateVersion: q.RateVersion, Breakdown: q.Breakdown,
 	}, reuseStages, nil
+}
+
+// stepQuoteInputs assembles the shape-knobs QuoteStep/EstimateStepETA price
+// on: POST-CROP content dims (the depth stage works on the bar-removed
+// frame, so a letterboxed 2.39:1 film prices at 2.39:1 — same dims the VRAM
+// rail validates) and the effective frame rate the job renders at
+// (target_fps, else the source rate).
+func (s *Service) stepQuoteInputs(p *store.Project, params store.Params, step string, billable float64) pricing.StepInputs {
+	in := pricing.StepInputs{
+		Step:      step,
+		Preset:    params.Preset,
+		BillableS: billable,
+		DepthRes:  params.DepthRes,
+		Inpaint:   params.Inpaint,
+	}
+	if in.DepthRes == 0 {
+		in.DepthRes = pricing.PresetInputSize[params.Preset] // 0 stays 0 for unknown presets
+	}
+	if w, h, _ := depthContentDims(p); w > 0 && h > 0 {
+		in.ContentWidth, in.ContentHeight = w, h
+	}
+	in.EffectiveFPS = params.TargetFPS
+	if in.EffectiveFPS <= 0 && p.Probe != nil {
+		in.EffectiveFPS = p.Probe.FPS
+	}
+	return in
 }
 
 // reuseLookupBody mirrors modalBody's key-affecting fields for /v1/reuse/lookup.
@@ -772,8 +802,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	}
 	// Pre-run wall-clock estimate for the same knobs the quote priced.
 	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
-		resp["eta_seconds"] = s.Pricing.EstimateStepETA(ctx,
-			req.Step, params.Preset, billable, params.DepthRes, params.Inpaint, reuseStages)
+		in := s.stepQuoteInputs(p, params, req.Step, billable)
+		in.ReuseStages = reuseStages
+		resp["eta_seconds"] = s.Pricing.EstimateStepETA(ctx, in)
 	}
 	httpx.WriteOK(w, resp)
 }

@@ -30,7 +30,9 @@ export function QuoteView({
       ? (b.billable_seconds / 60).toFixed(2)
       : null;
   // Adjustment lines between base and subtotal. Base is only worth a line
-  // of its own when an adjustment actually moved it.
+  // of its own when an adjustment actually moved it. The fps factor is
+  // already inside base_cents (it scales the rate, not the subtotal), so it
+  // annotates the rate hint rather than earning an adjustment line.
   const hasDepthFactor =
     b.depth_res_factor !== undefined && b.depth_res_factor !== 1;
   const hasInpaintMult =
@@ -39,10 +41,17 @@ export function QuoteView({
     b.base_cents !== undefined &&
     b.base_cents !== subtotal &&
     (hasDepthFactor || hasInpaintMult);
+  const fpsHint =
+    b.fps_factor !== undefined && b.fps_factor !== 1 ? (
+      <span data-testid="quote-fps-factor" className="ml-1 text-xs">
+        × {b.fps_factor} fps
+      </span>
+    ) : null;
   const rateHint =
     minutes !== null && b.cents_per_minute !== undefined ? (
       <span className="ml-2 text-xs">
         {minutes} min × {formatCents(b.cents_per_minute)}/min
+        {fpsHint}
       </span>
     ) : null;
   return (

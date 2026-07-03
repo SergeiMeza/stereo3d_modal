@@ -32,18 +32,24 @@ import type {
   StepConversionRequest,
   UnpaidCharge,
 } from "@/lib/api/types";
+import { depthContentDims } from "@/lib/depthRes";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
 // Default rates — keep in sync with gateway/internal/pricing/pricing.go.
+// Mirrors gateway pricing defaults (2026-07-03: calibrated to ≈2× the raw
+// Modal cost of a measured run — see gateway/internal/pricing/pricing.go).
 const RATES = {
-  centsPerMinute: { draft: 25, "1080p": 100, qhd: 150, "3k": 200, "4k": 300 },
-  stepCentsPerMinute: { depth_preview: 10, stereo_preview: 25 },
+  centsPerMinute: { draft: 200, "1080p": 250, qhd: 350, "3k": 400, "4k": 500 },
+  stepCentsPerMinute: { depth_preview: 125, stereo_preview: 200 },
   minimumCents: 50,
   discountThresholdCents: 1000,
   discountPct: 0.1,
   stageShares: { depth: 0.35, preprocess: 0.05 },
   analyzeCreditCents: 50,
+  depthResBase: 980,
+  depthFactorCeiling: 5.0,
+  fpsBase: 24,
 };
 
 /** Pay-as-you-go billing state, mirroring the gateway's GET /v1/billing.
@@ -302,7 +308,7 @@ const ANALYZE_STAGES: readonly {
 /** Coarse wall-clock estimate for a quoted step — mirrors the gateway's
  * "billable duration × per-step throughput" shape, floored at 20 s. */
 function etaForStep(step: Step, billableSeconds: number): number {
-  const perSecond = { depth_preview: 0.8, stereo_preview: 1.2, production: 3 };
+  const perSecond = { depth_preview: 2.5, stereo_preview: 3.5, production: 4 };
   return Math.max(20, Math.round(billableSeconds * perSecond[step]));
 }
 
@@ -324,12 +330,36 @@ function quoteFor(
     step === "production"
       ? RATES.centsPerMinute[preset as keyof typeof RATES.centsPerMinute]
       : RATES.stepCentsPerMinute[step];
-  const base = Math.ceil((billable / 60) * perMin);
-  // depth-resolution factor on the depth share: the WHOLE base is depth work
-  // on depth_preview; 0.35 of it on the other steps. Absent depth_res =
-  // preset default (the mock uses the 980 standard for every preset).
-  const depthRes = req.depth_res ?? 980;
-  const depthFactor = clamp((depthRes / 980) ** 2, 0.5, 4.0);
+  // fps factor: frames are what cost, so the effective render rate scales
+  // the base linearly, normalized to 24 fps and clamped to [0.5, 2.5].
+  // Previews default to HALF the source rate, production to the full rate.
+  const effFPS =
+    req.target_fps ?? (step === "production" ? probe.fps : probe.fps / 2);
+  const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
+  const base = Math.ceil((billable / 60) * perMin * fpsFactor);
+  // depth factor on the depth share: LINEAR in working megapixels
+  // (depth_res² × elongation, POST-CROP dims) relative to 980² × 16:9 —
+  // equals the legacy (res/980)² quadratic on a 16:9 source. The WHOLE base
+  // is depth work on depth_preview; 0.35 of it on the other steps. Absent
+  // depth_res = the PRESET's input_size (what the job actually runs —
+  // mirrors presetInputSize in the gateway / PRESETS in the pipeline).
+  const presetInputSize: Record<string, number> = {
+    draft: 518,
+    "1080p": 980,
+    qhd: 1148,
+    "3k": 1148,
+    "4k": 1442,
+  };
+  const depthRes = req.depth_res ?? presetInputSize[preset] ?? 980;
+  const dims = depthContentDims(probe, project.crop) ?? {
+    width: 16,
+    height: 9,
+  };
+  const elongation =
+    Math.max(dims.width, dims.height) / Math.min(dims.width, dims.height);
+  const workMP = (depthRes * depthRes * elongation) / 1e6;
+  const baseMP = (RATES.depthResBase ** 2 * (16 / 9)) / 1e6;
+  const depthFactor = clamp(workMP / baseMP, 0.5, RATES.depthFactorCeiling);
   const depthShare = step === "depth_preview" ? 1 : RATES.stageShares.depth;
   let subtotal = Math.round(base * (1 + depthShare * (depthFactor - 1)));
   const inpaint =
@@ -370,6 +400,7 @@ function quoteFor(
         preset,
         billable_seconds: Math.round(billable * 100) / 100,
         cents_per_minute: perMin,
+        fps_factor: Math.round(fpsFactor * 10000) / 10000,
         base_cents: base,
         depth_res: depthRes,
         depth_res_factor: Math.round(depthFactor * 10000) / 10000,

@@ -353,19 +353,21 @@ describe("StereoPanel quote pricing", () => {
     ).toBe(true);
 
     await getQuote(user);
-    // 149.46 s at 25¢/min → 63¢ base × 1.6 = 101¢ − 50¢ credit = 51¢
-    expect(screen.getByTestId("quote-base").textContent).toBe("$0.63");
+    // 149.46 s at $2/min full rate → 499¢ base; the letterboxed 2.39:1
+    // fixture prices the default 980 depth at ×1.345 on the 0.35 share →
+    // 559¢; ×1.6 propainter = 894¢ − 50¢ credit = $8.44
+    expect(screen.getByTestId("quote-base").textContent).toBe("$4.99");
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×1.6");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$1.01");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$0.51");
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$8.94");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$8.44");
 
     await user.click(screen.getByRole("radio", { name: /Splatted/ }));
     expect(screen.queryByTestId("quote-breakdown")).toBeNull(); // invalidated
     await getQuote(user);
-    // 63¢, no multiplier, −50¢ credit → 50¢ floor
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$0.63");
+    // 559¢, no multiplier, −50¢ credit = $5.09
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$5.59");
     expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
-    expect(screen.getByTestId("quote-total").textContent).toBe("$0.50");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$5.09");
   });
 
   it("surfaces the gateway's scene_overrides validation errors", async () => {

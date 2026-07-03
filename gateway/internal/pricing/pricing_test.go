@@ -6,12 +6,13 @@ import (
 )
 
 // quoteWith runs QuoteVideo against code defaults (nil Firestore client is
-// never dereferenced because the cache is primed).
+// never dereferenced because the cache is primed). No dims/fps → 16:9
+// assumed, no fps scaling.
 func quoteWith(t *testing.T, preset string, billableS float64) *Quote {
 	t.Helper()
 	s := &Service{cached: defaults()}
 	s.fetchedAt = maxTime()
-	q, err := s.QuoteVideo(context.Background(), preset, billableS)
+	q, err := s.QuoteVideo(context.Background(), VideoInputs{Preset: preset, BillableS: billableS})
 	if err != nil {
 		t.Fatalf("QuoteVideo(%s, %v): %v", preset, billableS, err)
 	}
@@ -19,109 +20,69 @@ func quoteWith(t *testing.T, preset string, billableS float64) *Quote {
 }
 
 func TestQuoteVideoMinimumCharge(t *testing.T) {
-	q := quoteWith(t, "draft", 10) // 10s draft ≈ 5¢ → floor at 50¢
+	q := quoteWith(t, "draft", 10) // 10s draft ≈ 34¢ → floor at 50¢
 	if q.AmountCents != 50 {
 		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteVideoPerMinute(t *testing.T) {
-	q := quoteWith(t, "1080p", 300) // 5 min × $1.00
-	if q.AmountCents != 500 {
-		t.Errorf("want 500, got %d", q.AmountCents)
+	// 5 min × $2.50 = 1250¢ → over $10 → 10% off = 1125¢
+	q := quoteWith(t, "1080p", 300)
+	if q.AmountCents != 1125 {
+		t.Errorf("want 1125, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteVideoDiscountOverTenDollars(t *testing.T) {
-	q := quoteWith(t, "4k", 300) // 5 min × $3.00 = 1500¢ → 10% off = 1350¢
-	if q.AmountCents != 1350 {
-		t.Errorf("want 1350, got %d", q.AmountCents)
+	// 5 min × $5.00 = 2500¢ base; the 4k preset runs depth at input_size
+	// 1442 → factor 2.1651 on the 0.35 share → 3519¢ → 10% off = 3167¢
+	q := quoteWith(t, "4k", 300)
+	if q.AmountCents != 3167 {
+		t.Errorf("want 3167, got %d", q.AmountCents)
 	}
-	if q.Breakdown["discount_cents"].(int64) != 150 {
-		t.Errorf("want discount 150, got %v", q.Breakdown["discount_cents"])
+	if q.Breakdown["discount_cents"].(int64) != 352 {
+		t.Errorf("want discount 352, got %v", q.Breakdown["discount_cents"])
+	}
+}
+
+func TestQuoteVideoLegacyParityWithProductionPhysics(t *testing.T) {
+	// The legacy mobile flow runs the same pipeline as pro production, so
+	// its quote carries the same fps + aspect-aware depth factors: a 60 fps
+	// 2.39:1 upload prices its real frame count and depth work.
+	s := &Service{cached: defaults()}
+	s.fetchedAt = maxTime()
+	q, err := s.QuoteVideo(context.Background(), VideoInputs{
+		Preset: "1080p", BillableS: 300, Width: 2390, Height: 1000, FPS: 60,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// base = ceil(5 × 250 × 2.5) = 3125; depth 980@2.39:1 → factor 1.3444
+	// → 3125 + round(3125×0.35×0.3444) = 3502 → −350 bulk = 3152
+	if q.AmountCents != 3152 {
+		t.Errorf("want 3152, got %d", q.AmountCents)
+	}
+	if got := q.Breakdown["fps_factor"].(float64); got != 2.5 {
+		t.Errorf("want fps_factor 2.5, got %v", got)
+	}
+	if got := q.Breakdown["depth_res_factor"].(float64); got != 1.3444 {
+		t.Errorf("want depth_res_factor 1.3444, got %v", got)
 	}
 }
 
 func TestQuoteVideoRoundsUpPartialMinutes(t *testing.T) {
-	q := quoteWith(t, "1080p", 61) // 1.0167 min → 102¢ (ceil)
-	if q.AmountCents != 102 {
-		t.Errorf("want 102, got %d", q.AmountCents)
+	q := quoteWith(t, "1080p", 61) // 1.0167 min × 250 = 254.2 → 255¢ (ceil)
+	if q.AmountCents != 255 {
+		t.Errorf("want 255, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteVideoUnknownPreset(t *testing.T) {
 	s := &Service{cached: defaults()}
 	s.fetchedAt = maxTime()
-	if _, err := s.QuoteVideo(context.Background(), "8k", 60); err == nil {
+	if _, err := s.QuoteVideo(context.Background(), VideoInputs{Preset: "8k", BillableS: 60}); err == nil {
 		t.Error("want error for unknown preset")
-	}
-}
-
-func TestQuoteStepPreviewRates(t *testing.T) {
-	s := &Service{cached: defaults()}
-	s.fetchedAt = maxTime()
-	q, err := s.QuoteStep(context.Background(), "depth_preview", "draft", 300, 0, "", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 50 { // 5 min × 10¢ = 50¢
-		t.Errorf("depth_preview want 50, got %d", q.AmountCents)
-	}
-	q, err = s.QuoteStep(context.Background(), "stereo_preview", "1080p", 600, 0, "", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 250 { // 10 min × 25¢
-		t.Errorf("stereo_preview want 250, got %d", q.AmountCents)
-	}
-}
-
-func TestQuoteStepProductionReuseDiscount(t *testing.T) {
-	s := &Service{cached: defaults()}
-	s.fetchedAt = maxTime()
-	// 5 min 1080p = 500¢; depth share 0.35 → −175¢ = 325¢
-	q, err := s.QuoteStep(context.Background(), "production", "1080p", 300, 0, "", []string{"depth"}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 325 {
-		t.Errorf("want 325, got %d", q.AmountCents)
-	}
-	if q.Breakdown["reuse_discount_cents"].(int64) != 175 {
-		t.Errorf("want reuse discount 175, got %v", q.Breakdown["reuse_discount_cents"])
-	}
-}
-
-func TestQuoteStepReuseIgnoredForPreviews(t *testing.T) {
-	s := &Service{cached: defaults()}
-	s.fetchedAt = maxTime()
-	q, err := s.QuoteStep(context.Background(), "depth_preview", "draft", 300, 0, "", []string{"depth"}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.Breakdown["reuse_discount_cents"].(int64) != 0 {
-		t.Errorf("previews must not get reuse discounts, got %v", q.Breakdown["reuse_discount_cents"])
-	}
-}
-
-func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
-	s := &Service{cached: defaults()}
-	s.fetchedAt = maxTime()
-	// 2 min 1080p = 200¢ − 50¢ credit = 150¢
-	q, err := s.QuoteStep(context.Background(), "production", "1080p", 120, 0, "", nil, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 150 {
-		t.Errorf("want 150, got %d", q.AmountCents)
-	}
-	// credit larger than the subtotal still floors at minimum_cents
-	q, err = s.QuoteStep(context.Background(), "depth_preview", "draft", 60, 0, "", nil, 5000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 50 {
-		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}
 }
 
@@ -133,25 +94,114 @@ func stepSvc() *Service {
 	return s
 }
 
-func TestQuoteStepDepthResFactorDepthPreview(t *testing.T) {
+func quoteStep(t *testing.T, in StepInputs) *Quote {
+	t.Helper()
+	q, err := stepSvc().QuoteStep(context.Background(), in)
+	if err != nil {
+		t.Fatalf("QuoteStep(%+v): %v", in, err)
+	}
+	return q
+}
+
+func TestQuoteStepPreviewRates(t *testing.T) {
+	// depth_preview 5 min × 125¢ = 625¢ (no fps given → factor 1)
+	q := quoteStep(t, StepInputs{Step: "depth_preview", Preset: "draft", BillableS: 300})
+	if q.AmountCents != 625 {
+		t.Errorf("depth_preview want 625, got %d", q.AmountCents)
+	}
+	// stereo_preview 10 min × 200¢ = 2000¢ → over $10 → 10% off = 1800¢
+	q = quoteStep(t, StepInputs{Step: "stereo_preview", Preset: "1080p", BillableS: 600})
+	if q.AmountCents != 1800 {
+		t.Errorf("stereo_preview want 1800, got %d", q.AmountCents)
+	}
+}
+
+func TestQuoteStepFPSFactor(t *testing.T) {
+	// Frames are what cost: the effective fps scales the base linearly,
+	// normalized to 24 fps and clamped to [0.5, 2.5].
+	cases := []struct {
+		fps       float64
+		wantCents int64
+		wantF     float64
+	}{
+		{24, 625, 1.0},  // the calibration anchor
+		{60, 1407, 2.5}, // 60 fps source: 625×2.5 = 1563 → −10% bulk = 1407
+		{12, 313, 0.5},  // half-rate previews
+		{6, 313, 0.5},   // floor: fixed per-job overhead doesn't halve forever
+		{0, 625, 1.0},   // unknown → no scaling
+	}
+	for _, c := range cases {
+		q := quoteStep(t, StepInputs{
+			Step: "depth_preview", Preset: "draft", BillableS: 300, EffectiveFPS: c.fps,
+		})
+		if q.AmountCents != c.wantCents {
+			t.Errorf("fps=%v: want %d, got %d", c.fps, c.wantCents, q.AmountCents)
+		}
+		if got := q.Breakdown["fps_factor"].(float64); got != c.wantF {
+			t.Errorf("fps=%v: want factor %v, got %v", c.fps, c.wantF, got)
+		}
+	}
+}
+
+func TestQuoteStepProductionReuseDiscount(t *testing.T) {
+	// 5 min 1080p = 1250¢; depth share 0.35 → −438¢ = 812¢ (under $10, no bulk)
+	q := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 300, ReuseStages: []string{"depth"},
+	})
+	if q.AmountCents != 812 {
+		t.Errorf("want 812, got %d", q.AmountCents)
+	}
+	if q.Breakdown["reuse_discount_cents"].(int64) != 438 {
+		t.Errorf("want reuse discount 438, got %v", q.Breakdown["reuse_discount_cents"])
+	}
+}
+
+func TestQuoteStepReuseIgnoredForPreviews(t *testing.T) {
+	q := quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 300, ReuseStages: []string{"depth"},
+	})
+	if q.Breakdown["reuse_discount_cents"].(int64) != 0 {
+		t.Errorf("previews must not get reuse discounts, got %v", q.Breakdown["reuse_discount_cents"])
+	}
+}
+
+func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
+	// 2 min 1080p = 500¢ − 50¢ credit = 450¢
+	q := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 120, CreditCents: 50,
+	})
+	if q.AmountCents != 450 {
+		t.Errorf("want 450, got %d", q.AmountCents)
+	}
+	// credit larger than the subtotal still floors at minimum_cents
+	q = quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 60, CreditCents: 5000,
+	})
+	if q.AmountCents != 50 {
+		t.Errorf("want minimum 50, got %d", q.AmountCents)
+	}
+}
+
+func TestQuoteStepDepthFactorDepthPreview(t *testing.T) {
 	// depth_preview is 100% depth work: the factor scales the whole step.
-	// 20 min draft depth = 200¢ base.
+	// 20 min × 125¢ = 2500¢ base; on 16:9 dims the working-MP factor equals
+	// the legacy (res/980)² quadratic. Bulk 10% applies over $10.
 	cases := []struct {
 		depthRes   int
 		wantCents  int64
 		wantFactor float64
 	}{
-		{980, 200, 1.0},  // base resolution → 1×
-		{140, 100, 0.5},  // (140/980)² ≈ 0.02 → clamped to the 0.5 floor
-		{1960, 800, 4.0}, // (1960/980)² = 4 exactly
-		{2520, 800, 4.0}, // (2520/980)² ≈ 6.6 → clamped to the 4.0 cap
-		{0, 200, 1.0},    // absent → preset default, no factor
+		{980, 2250, 1.0},   // base resolution → 1× (2500 − 10% bulk)
+		{140, 1125, 0.5},   // tiny → clamped to the 0.5 floor (1250 − 125)
+		{1960, 9000, 4.0},  // (1960/980)² = 4 → 10000 − 1000
+		{2520, 11250, 5.0}, // 6.6× → clamped to the 5.0 ceiling (B200 range)
+		{0, 2250, 1.0},     // absent → preset default, no factor
 	}
 	for _, c := range cases {
-		q, err := stepSvc().QuoteStep(context.Background(), "depth_preview", "draft", 1200, c.depthRes, "", nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		q := quoteStep(t, StepInputs{
+			Step: "depth_preview", Preset: "draft", BillableS: 1200,
+			DepthRes: c.depthRes, ContentWidth: 1920, ContentHeight: 1080,
+		})
 		if q.AmountCents != c.wantCents {
 			t.Errorf("depth_res=%d: want %d, got %d", c.depthRes, c.wantCents, q.AmountCents)
 		}
@@ -161,80 +211,111 @@ func TestQuoteStepDepthResFactorDepthPreview(t *testing.T) {
 	}
 }
 
-func TestQuoteStepDepthResFactorUsesDepthShare(t *testing.T) {
+func TestQuoteStepDepthFactorIsAspectAware(t *testing.T) {
+	// The factor is linear in WORKING MP (res² × elongation), so a wide
+	// source prices its real extra work: at 2.39:1 even the base 980 costs
+	// 2.39/1.7̄8 = 1.3444× the 16:9 anchor. Unknown dims fall back to 16:9.
+	q := quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 1200,
+		DepthRes: 980, ContentWidth: 2390, ContentHeight: 1000,
+	})
+	if got := q.Breakdown["depth_res_factor"].(float64); got != 1.3444 {
+		t.Errorf("2.39:1 factor: want 1.3444, got %v", got)
+	}
+	// 2500 + round(2500×0.3444) = 3361 → −336 bulk = 3025
+	if q.AmountCents != 3025 {
+		t.Errorf("want 3025, got %d", q.AmountCents)
+	}
+	// orientation-agnostic: portrait prices like landscape
+	portrait := quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 1200,
+		DepthRes: 980, ContentWidth: 1000, ContentHeight: 2390,
+	})
+	if portrait.AmountCents != q.AmountCents {
+		t.Errorf("portrait %d != landscape %d", portrait.AmountCents, q.AmountCents)
+	}
+	// dims unknown → 16:9 assumed → legacy quadratic (factor 1 at base)
+	unknown := quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 1200, DepthRes: 980,
+	})
+	if got := unknown.Breakdown["depth_res_factor"].(float64); got != 1.0 {
+		t.Errorf("unknown dims factor: want 1.0, got %v", got)
+	}
+}
+
+func TestQuoteStepDepthFactorUsesDepthShare(t *testing.T) {
 	// stereo_preview / production scale only the depth share (0.35 default).
-	// stereo: 10 min = 250¢; factor 4 → 250 + round(250·0.35·3) = 513
-	q, err := stepSvc().QuoteStep(context.Background(), "stereo_preview", "1080p", 600, 1960, "", nil, 0)
-	if err != nil {
-		t.Fatal(err)
+	// stereo: 10 min × 200 = 2000¢; factor 4 → 2000 + round(2000·0.35·3) =
+	// 4100 → −410 bulk = 3690
+	q := quoteStep(t, StepInputs{
+		Step: "stereo_preview", Preset: "1080p", BillableS: 600, DepthRes: 1960,
+	})
+	if q.AmountCents != 3690 {
+		t.Errorf("stereo_preview want 3690, got %d", q.AmountCents)
 	}
-	if q.AmountCents != 513 {
-		t.Errorf("stereo_preview want 513, got %d", q.AmountCents)
-	}
-	// production: 2 min 1080p = 200¢; factor 4 → 200 + round(200·0.35·3) = 410
-	q, err = stepSvc().QuoteStep(context.Background(), "production", "1080p", 120, 1960, "propainter", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 410 { // and no inpaint multiplier on production
-		t.Errorf("production want 410, got %d", q.AmountCents)
+	// production: 2 min 1080p = 500¢; factor 4 → 500 + round(500·0.35·3) =
+	// 1025 → −103 bulk = 922 (and no inpaint multiplier on production)
+	q = quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 120, DepthRes: 1960,
+		Inpaint: "propainter",
+	})
+	if q.AmountCents != 922 {
+		t.Errorf("production want 922, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteStepInpaintMultiplier(t *testing.T) {
-	// stereo_preview 10 min = 250¢; propainter ×1.6 = 400¢
-	q, err := stepSvc().QuoteStep(context.Background(), "stereo_preview", "1080p", 600, 0, "propainter", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 400 {
-		t.Errorf("want 400, got %d", q.AmountCents)
+	// stereo_preview 10 min = 2000¢; propainter ×1.6 = 3200 → −320 = 2880
+	q := quoteStep(t, StepInputs{
+		Step: "stereo_preview", Preset: "1080p", BillableS: 600, Inpaint: "propainter",
+	})
+	if q.AmountCents != 2880 {
+		t.Errorf("want 2880, got %d", q.AmountCents)
 	}
 	if got := q.Breakdown["inpaint_multiplier"].(float64); got != 1.6 {
 		t.Errorf("want inpaint_multiplier 1.6, got %v", got)
 	}
-	// inpaint=none → no multiplier
-	q, err = stepSvc().QuoteStep(context.Background(), "stereo_preview", "1080p", 600, 0, "none", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 250 {
-		t.Errorf("want 250, got %d", q.AmountCents)
+	// inpaint=none → no multiplier: 2000 → −200 = 1800
+	q = quoteStep(t, StepInputs{
+		Step: "stereo_preview", Preset: "1080p", BillableS: 600, Inpaint: "none",
+	})
+	if q.AmountCents != 1800 {
+		t.Errorf("want 1800, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteStepDepthResThenInpaintOrder(t *testing.T) {
-	// stereo 10 min 250¢; depth_res 140 → 250 − round(250·0.35·0.5) = 206;
-	// then propainter ×1.6 → 330.
-	q, err := stepSvc().QuoteStep(context.Background(), "stereo_preview", "1080p", 600, 140, "propainter", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.AmountCents != 330 {
-		t.Errorf("want 330, got %d", q.AmountCents)
+	// stereo 10 min 2000¢; depth 140 → 2000 − round(2000·0.35·0.5) = 1650;
+	// then propainter ×1.6 = 2640 → −264 bulk = 2376.
+	q := quoteStep(t, StepInputs{
+		Step: "stereo_preview", Preset: "1080p", BillableS: 600, DepthRes: 140,
+		Inpaint: "propainter",
+	})
+	if q.AmountCents != 2376 {
+		t.Errorf("want 2376, got %d", q.AmountCents)
 	}
 }
 
 func TestQuoteStepReuseDiscountOnAdjustedSubtotal(t *testing.T) {
-	// production 4 min = 400¢; factor 4 → 820¢; depth reuse −round(820·0.35)=287
-	q, err := stepSvc().QuoteStep(context.Background(), "production", "1080p", 240, 1960, "propainter", []string{"depth"}, 0)
-	if err != nil {
-		t.Fatal(err)
+	// production 4 min = 1000¢; factor 4 → 2050¢; depth reuse −round(2050·0.35)=718
+	// → 1332 → −133 bulk = 1199
+	q := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 240, DepthRes: 1960,
+		Inpaint: "propainter", ReuseStages: []string{"depth"},
+	})
+	if q.AmountCents != 1199 {
+		t.Errorf("want 1199, got %d", q.AmountCents)
 	}
-	if q.AmountCents != 533 {
-		t.Errorf("want 533, got %d", q.AmountCents)
-	}
-	if got := q.Breakdown["reuse_discount_cents"].(int64); got != 287 {
-		t.Errorf("want reuse discount 287, got %v", got)
+	if got := q.Breakdown["reuse_discount_cents"].(int64); got != 718 {
+		t.Errorf("want reuse discount 718, got %v", got)
 	}
 }
 
 func TestQuoteStepDepthResMinimumStillApplies(t *testing.T) {
-	// 1 min depth_preview = 10¢; factor 0.5 → 5¢ → floors at 50¢.
-	q, err := stepSvc().QuoteStep(context.Background(), "depth_preview", "draft", 60, 140, "", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// 20s depth_preview = 42¢; factor 0.5 → 21¢ → floors at 50¢.
+	q := quoteStep(t, StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 20, DepthRes: 140,
+	})
 	if q.AmountCents != 50 {
 		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}
@@ -243,8 +324,30 @@ func TestQuoteStepDepthResMinimumStillApplies(t *testing.T) {
 func TestQuoteStepUnknownStep(t *testing.T) {
 	s := &Service{cached: defaults()}
 	s.fetchedAt = maxTime()
-	if _, err := s.QuoteStep(context.Background(), "mystery", "1080p", 60, 0, "", nil, 0); err == nil {
+	if _, err := s.QuoteStep(context.Background(), StepInputs{Step: "mystery", Preset: "1080p", BillableS: 60}); err == nil {
 		t.Error("want error for unknown step")
+	}
+}
+
+// The calibration anchor: job 4cd27aa0aaee (2026-07-03) — 149.46s 4K 2.39:1
+// letterboxed source (content 3840×1606) @24fps, depth_res 1596 — cost
+// $5.59 raw and took 1584s wall. The model must price ≈2× raw and estimate
+// the wall clock within ~15%.
+func TestCalibrationAnchorMeasuredRun(t *testing.T) {
+	in := StepInputs{
+		Step: "depth_preview", Preset: "draft", BillableS: 149.458333,
+		DepthRes: 1596, ContentWidth: 3840, ContentHeight: 1606,
+		EffectiveFPS: 24,
+	}
+	q := quoteStep(t, in)
+	// raw $5.59 → 2× ≈ $11.17; accept a ±15% calibration band
+	if q.AmountCents < 950 || q.AmountCents > 1285 {
+		t.Errorf("calibration run: want ≈1117¢ (2× raw $5.59), got %d", q.AmountCents)
+	}
+	s := stepSvc()
+	eta := s.EstimateStepETA(context.Background(), in)
+	if eta < 1350 || eta > 1800 {
+		t.Errorf("calibration run: want eta ≈1584s ±15%%, got %d", eta)
 	}
 }
 

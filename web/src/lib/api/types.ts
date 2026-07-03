@@ -173,11 +173,16 @@ export interface QuoteBreakdown {
   preset?: string;
   billable_seconds?: number;
   cents_per_minute?: number;
-  /** minutes × rate, before the depth-resolution factor */
+  /** clamp(effective_fps/24, 0.5, 2.5) — frames are what cost, so the
+   * render rate scales the base (previews run at half the source rate) */
+  fps_factor?: number;
+  /** minutes × rate × fps factor, before the depth-resolution factor */
   base_cents?: number;
   depth_res?: number;
-  /** clamp((depth_res/980)^2, 0.5, 4.0), applied to the depth share of the
-   * base (the whole subtotal on depth_preview, 0.35 of it elsewhere) */
+  /** working-megapixel depth factor: clamp(depth_res² × elongation /
+   * (980² × 16⁄9), 0.5, 5.0) — equals (depth_res/980)² on a 16:9 source,
+   * aspect-aware (post-crop dims) elsewhere; applied to the depth share of
+   * the base (the whole subtotal on depth_preview, 0.35 of it elsewhere) */
   depth_res_factor?: number;
   /** 1.6 on stereo_preview + propainter only */
   inpaint_multiplier?: number;
