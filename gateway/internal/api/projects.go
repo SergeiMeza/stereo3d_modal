@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"path"
 	"slices"
@@ -420,6 +421,25 @@ const (
 	maxPlacement  = 1.5
 )
 
+// depthB200MaxMP mirrors B200_MAX_MP in app/pipelines/video.py. Modal routes
+// the depth GPU by WORKING MEGAPIXELS — depth_res² × elongation (elongation =
+// long_side / short_side ≥ 1) — and FAILS FAST above the B200 (largest) tier.
+// The flat [140, 2520] rail is only valid on near-square aspects; a wide source
+// blows past this ceiling at a depth_res the rail otherwise allows (e.g. a
+// 2.39:1 source at depth_res 2156 → 11.11 MP). We reject that here so the user
+// gets an actionable 4xx instead of an opaque failure from Modal mid-job.
+const depthB200MaxMP = 8.5
+
+// depthWorkMP is the depth model's working megapixels for a given depth_res and
+// source aspect: depth_res² × (long/short) / 1e6. Keep in lockstep with
+// _route_depth_gpu in app/pipelines/video.py.
+func depthWorkMP(depthRes, width, height int) float64 {
+	long := max(width, height)
+	short := max(min(width, height), 1)
+	elongation := float64(long) / float64(short)
+	return float64(depthRes) * float64(depthRes) * elongation / 1e6
+}
+
 // resolveStepParams clamps the request into a step template. Only fields
 // validated here reach Modal (via modalBody). All pro steps run the adaptive
 // per-shot profiler upstream (modalBody sets adaptive=true); scene_overrides
@@ -470,6 +490,22 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		if req.DepthRes < minDepthRes || req.DepthRes > maxDepthRes || req.DepthRes%14 != 0 {
 			return params, httpx.ErrInvalid(fmt.Sprintf(
 				"depth_res %d invalid: must be a multiple of 14 in [%d, %d]", req.DepthRes, minDepthRes, maxDepthRes))
+		}
+		// Aspect-aware VRAM ceiling: mirror Modal's work_mp = depth_res² ×
+		// elongation ≤ B200_MAX_MP. The flat rail above passes wide-aspect
+		// values Modal cannot fit; reject them here with the largest depth_res
+		// this source's aspect actually allows.
+		if p.Probe != nil && p.Probe.Width > 0 && p.Probe.Height > 0 {
+			if mp := depthWorkMP(req.DepthRes, p.Probe.Width, p.Probe.Height); mp > depthB200MaxMP {
+				long := max(p.Probe.Width, p.Probe.Height)
+				short := max(min(p.Probe.Width, p.Probe.Height), 1)
+				elongation := float64(long) / float64(short)
+				// max depth_res = floor(sqrt(ceiling / elongation)) rounded down to ×14
+				maxRes := int(math.Sqrt(depthB200MaxMP*1e6/elongation)) / 14 * 14
+				return params, httpx.ErrInvalid(fmt.Sprintf(
+					"depth_res %d too high for this source: %.2f MP/frame (%.2f:1 aspect) exceeds the GPU VRAM ceiling (~%.1f MP). Lower depth_res to at most %d.",
+					req.DepthRes, mp, elongation, depthB200MaxMP, maxRes))
+			}
 		}
 		params.DepthRes = req.DepthRes
 	}

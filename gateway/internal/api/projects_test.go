@@ -17,24 +17,45 @@ func proProject() *store.Project {
 	}
 }
 
-func resolveOK(t *testing.T, req *stepConvReq) store.Params {
+// squareProbeProject is a 1:1 source (elongation 1). Its depth aspect cap is
+// √(8.5e6) ≈ 2915 → 2912, above the whole [140, 2520] rail — so depth_res
+// format/range tests exercise their own rail without the VRAM ceiling
+// interfering. Use proProject() (16:9) when the aspect ceiling itself is under
+// test.
+func squareProbeProject() *store.Project {
+	p := proProject()
+	p.Probe.Width, p.Probe.Height = 2160, 2160
+	return p
+}
+
+func resolveOKP(t *testing.T, req *stepConvReq, p *store.Project) store.Params {
 	t.Helper()
-	params, err := resolveStepParams(req, proProject())
+	params, err := resolveStepParams(req, p)
 	if err != nil {
 		t.Fatalf("resolveStepParams(%+v): unexpected error %q", req, err.Message)
 	}
 	return params
 }
 
-func resolveErr(t *testing.T, req *stepConvReq, wantSub string) {
+func resolveOK(t *testing.T, req *stepConvReq) store.Params {
 	t.Helper()
-	_, err := resolveStepParams(req, proProject())
+	return resolveOKP(t, req, proProject())
+}
+
+func resolveErrP(t *testing.T, req *stepConvReq, p *store.Project, wantSub string) {
+	t.Helper()
+	_, err := resolveStepParams(req, p)
 	if err == nil {
 		t.Fatalf("resolveStepParams(%+v): want error containing %q, got nil", req, wantSub)
 	}
 	if !strings.Contains(err.Message, wantSub) {
 		t.Fatalf("resolveStepParams(%+v): want error containing %q, got %q", req, wantSub, err.Message)
 	}
+}
+
+func resolveErr(t *testing.T, req *stepConvReq, wantSub string) {
+	t.Helper()
+	resolveErrP(t, req, proProject(), wantSub)
 }
 
 // ------------------------------------------------------------ step templates
@@ -138,10 +159,12 @@ func TestResolveProductionTemplate(t *testing.T) {
 	if p.TargetFPS != 0 { // full source fps
 		t.Errorf("target_fps: want 0 (source), got %v", p.TargetFPS)
 	}
-	// production accepts everything
-	p = resolveOK(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Inpaint: "none",
+	// production accepts everything (square source so depth_res 2520 clears the
+	// aspect-aware VRAM ceiling — a 16:9 source would reject 2520; see
+	// TestResolveDepthResAspectCeiling).
+	p = resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Inpaint: "none",
 		DepthRes: 2520, DepthScale: 0.3,
-		SceneOverrides: []sceneOverrideReq{{First: 240, Displacement: 0.03}}})
+		SceneOverrides: []sceneOverrideReq{{First: 240, Displacement: 0.03}}}, squareProbeProject())
 	if p.Preset != "4k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
 		t.Errorf("production overrides not applied: %+v", p)
 	}
@@ -154,16 +177,47 @@ func TestResolveUnknownStep(t *testing.T) {
 // -------------------------------------------------------- field validation
 
 func TestResolveDepthResValidation(t *testing.T) {
+	// Square source: the aspect-aware VRAM ceiling clears the whole rail, so
+	// this test exercises only the format/range rail (multiple of 14 in [140,
+	// 2520]). The aspect ceiling has its own test below.
+	sq := squareProbeProject()
 	ok := []int{0, 140, 154, 980, 2520}
 	for _, v := range ok {
-		p := resolveOK(t, &stepConvReq{Step: store.StepProduction, DepthRes: v})
+		p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: v}, sq)
 		if p.DepthRes != v {
 			t.Errorf("depth_res=%d: not applied, got %d", v, p.DepthRes)
 		}
 	}
 	bad := []int{-14, 13, 126, 139, 141, 979, 2534}
 	for _, v := range bad {
-		resolveErr(t, &stepConvReq{Step: store.StepProduction, DepthRes: v}, "multiple of 14")
+		resolveErrP(t, &stepConvReq{Step: store.StepProduction, DepthRes: v}, sq, "multiple of 14")
+	}
+}
+
+// The bug this guards: the flat [140, 2520] rail passes wide-aspect depth_res
+// values Modal's B200 VRAM ceiling (work_mp = depth_res² × elongation ≤ 8.5)
+// cannot fit, so the job failed deep inside Modal. The gateway now rejects them
+// up front with the largest depth_res the source aspect allows.
+func TestResolveDepthResAspectCeiling(t *testing.T) {
+	// 2.39:1 source (5120×2142): the offending real-world case. depth_res 2156
+	// → 2156² × 2.390 / 1e6 = 11.11 MP, well over the 8.5 ceiling → rejected.
+	wide := proProject()
+	wide.Probe.Width, wide.Probe.Height = 5120, 2142
+	resolveErrP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2156}, wide, "exceeds the GPU VRAM ceiling")
+	// The aspect cap on this source is 1876 (⌊√(8.5e6/2.390)⌋ → ×14); a value at
+	// or below it is accepted.
+	p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 1876}, wide)
+	if p.DepthRes != 1876 {
+		t.Errorf("depth_res 1876 must clear the 2.39:1 ceiling, got %d", p.DepthRes)
+	}
+	// A 16:9 source rejects even the rail-max 2520 (11.3 MP > 8.5).
+	resolveErr(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2520}, "exceeds the GPU VRAM ceiling")
+	// With no probe (dimensions unknown) the aspect check is skipped — the flat
+	// rail still applies, so a rail-valid value is accepted.
+	noProbe := proProject()
+	noProbe.Probe = nil
+	if p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2520}, noProbe); p.DepthRes != 2520 {
+		t.Errorf("no-probe depth_res 2520 must pass the flat rail, got %d", p.DepthRes)
 	}
 }
 

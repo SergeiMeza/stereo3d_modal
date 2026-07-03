@@ -18,6 +18,13 @@
  *      orientation-aware — so the old 16:9-only "· L40S/H200" label was
  *      wrong for portrait/square/ultra-wide sources. Cost/quality is the
  *      user's axis; which GPU runs it is the backend's business.
+ *   3. The backend also FAILS FAST above the largest GPU tier's VRAM ceiling
+ *      (B200_MAX_MP in app/pipelines/video.py). Because working MP scales with
+ *      the aspect (input_size² × elongation), a WIDE source hits that ceiling
+ *      at a depth_res the flat [140, 2520] rail otherwise allows — e.g. a
+ *      2.39:1 source can only reach depth_res ~1876, not 2520. We cap the
+ *      offered choices by this aspect-aware ceiling so the UI never offers a
+ *      value Modal would reject mid-job.
  */
 
 /** The depth model's patch size — every depth_res must be a multiple of it. */
@@ -25,6 +32,28 @@ export const DEPTH_RES_STEP = 14;
 /** Gateway rails, mirrored so the UI never offers a rejectable value. */
 export const DEPTH_RES_MIN = 140;
 export const DEPTH_RES_MAX = 2520;
+
+/**
+ * Largest GPU tier's VRAM ceiling in working megapixels. Mirrors B200_MAX_MP in
+ * app/pipelines/video.py and depthB200MaxMP in the gateway. work_mp =
+ * depth_res² × elongation must stay ≤ this or Modal fails fast.
+ */
+export const DEPTH_MAX_WORK_MP = 8.5;
+
+/**
+ * The largest depth_res this source's aspect can use before the depth model's
+ * working megapixels (depth_res² × elongation) exceed the GPU VRAM ceiling,
+ * floored to a multiple of 14. elongation = long / short ≥ 1, so a wider source
+ * yields a lower cap. Returns DEPTH_RES_MAX when dimensions are unknown.
+ */
+export function maxDepthResForAspect(width: number, height: number): number {
+  if (!width || !height) return DEPTH_RES_MAX;
+  const long = Math.max(width, height);
+  const short = Math.max(Math.min(width, height), 1);
+  const elongation = long / short;
+  const raw = Math.sqrt((DEPTH_MAX_WORK_MP * 1e6) / elongation);
+  return Math.floor(raw / DEPTH_RES_STEP) * DEPTH_RES_STEP;
+}
 
 /** depth_res that prices at 1× (gateway depth_res_base) and the app default. */
 export const DEFAULT_DEPTH_RES = 980;
@@ -53,25 +82,32 @@ function floorToStep(n: number): number {
 }
 
 /**
- * The depth-res choices offered for a given source, ascending. Presets above
- * the source short side are dropped; a "source native" choice at the source
- * short side (floored to ×14) is added so the maximum always equals the real
- * source, whatever the aspect. De-duplicated when a preset already lands on
- * the source-native value.
+ * The depth-res choices offered for a given source, ascending. The ceiling is
+ * the MIN of two rails: the source short side (can't invent resolution) and the
+ * aspect-aware VRAM cap (wide sources hit the GPU ceiling sooner). Presets above
+ * the ceiling are dropped; a synthetic choice at the ceiling (floored to ×14) is
+ * added so the max always equals what the backend can actually run. It's named
+ * "source native" when the source short side is the binding rail, or "aspect max"
+ * when the VRAM ceiling binds first (a wide source below its native resolution).
  */
 export function depthResChoices(
-  sourceShortSide: number,
+  sourceWidth: number,
+  sourceHeight: number,
 ): DepthResChoice[] {
-  const native = floorToStep(sourceShortSide);
-  const kept = PRESET_CHOICES.filter((c) => c.value <= native);
-  // Add the source-native choice unless a preset already sits exactly there.
-  if (!kept.some((c) => c.value === native)) {
-    kept.push({ value: native, name: "source native" });
+  const shortSide = Math.min(sourceWidth, sourceHeight);
+  const sourceCap = floorToStep(shortSide);
+  const aspectCap = maxDepthResForAspect(sourceWidth, sourceHeight);
+  const ceiling = Math.min(sourceCap, aspectCap);
+  // Name the synthetic top choice for whichever rail binds. When the aspect
+  // cap is strictly the lower one, the ceiling is a VRAM limit, not the source.
+  const topName = aspectCap < sourceCap ? "aspect max" : "source native";
+
+  const kept = PRESET_CHOICES.filter((c) => c.value <= ceiling);
+  if (!kept.some((c) => c.value === ceiling)) {
+    kept.push({ value: ceiling, name: topName });
   } else {
-    // Mark the preset that lands on the source ceiling so the label reads
-    // "… — source native" (it IS the source's native short side).
-    const i = kept.findIndex((c) => c.value === native);
-    kept[i] = { value: native, name: "source native" };
+    const i = kept.findIndex((c) => c.value === ceiling);
+    kept[i] = { value: ceiling, name: topName };
   }
   return kept.sort((a, b) => a.value - b.value);
 }
