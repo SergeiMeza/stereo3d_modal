@@ -17,6 +17,7 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList } from "./DownloadsList";
 import { POLL_INTERVAL_MS } from "./polling";
+import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
@@ -148,7 +149,9 @@ export function ConversionTracker({
         <div className="flex flex-wrap items-center gap-2">
           <StateChip state={conv.state} />
           {!terminal && conv.stage ? (
-            <span className="text-xs text-fg-muted">{conv.stage}</span>
+            // raw stage strings carry internal worker/model details
+            // ("video_stereo[propainter]") — always render the mapped label
+            <span className="text-xs text-fg-muted">{stageLabel(conv.stage)}</span>
           ) : null}
           {!terminal &&
           typeof conv.eta_seconds === "number" &&

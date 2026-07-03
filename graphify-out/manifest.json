@@ -1150,8 +1150,8 @@
     "semantic_hash": "fbef888fd6bcc658b13adda9cc19d2ba"
   },
   "web/src/components/steps/ConversionTracker.tsx": {
-    "mtime": 1783053929.4564137,
-    "ast_hash": "cb3c9e364774ddafd96d349692b1cd38",
+    "mtime": 1783067494.6181607,
+    "ast_hash": "2c4a1280aeea9d3e3626fbfd740dc2e6",
     "semantic_hash": ""
   },
   "web/src/components/steps/DeliverPanel.test.tsx": {
@@ -2137,6 +2137,16 @@
   "web/src/components/steps/checkoutStore.ts": {
     "mtime": 1783053929.4575963,
     "ast_hash": "0ba90ef47801eb9a855a844156651b3f",
+    "semantic_hash": ""
+  },
+  "web/src/components/steps/stageLabels.test.ts": {
+    "mtime": 1783067510.9110055,
+    "ast_hash": "f346d7dd150e13b89e83d5d9594958fe",
+    "semantic_hash": ""
+  },
+  "web/src/components/steps/stageLabels.ts": {
+    "mtime": 1783067473.1561737,
+    "ast_hash": "3274445ed24edcd2ea3dd00b89d61cc6",
     "semantic_hash": ""
   }
 }
