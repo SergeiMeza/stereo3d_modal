@@ -548,6 +548,30 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if c.Error != nil {
 		resp["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage}
 	}
+	// Auto-billed conversions surface how the money went so the client can
+	// react without touching Stripe ids: a pending 3DS challenge on the hold
+	// (auto_hold, state=created) carries the client_secret for the saved-card
+	// confirm; succeeded runs report the charge/capture outcome.
+	switch c.Stripe.Mode {
+	case store.BillingModeAuto, store.BillingModeAutoHold:
+		if c.State == store.StateCreated && c.Stripe.ClientSecret != "" {
+			resp["billing"] = map[string]any{
+				"status":          "requires_action",
+				"client_secret":   c.Stripe.ClientSecret,
+				"publishable_key": s.Stripe.PublishableKey,
+			}
+		}
+		if c.State == store.StateSucceeded {
+			switch c.Stripe.PIStatus {
+			case store.PISucceeded:
+				resp["billing"] = map[string]any{"status": "charged", "charged_cents": c.Stripe.CapturedCents}
+			case store.PIChargeFailed, store.PICaptureFailed:
+				resp["billing"] = map[string]any{"status": "charge_failed"}
+			default:
+				resp["billing"] = map[string]any{"status": "charge_pending"}
+			}
+		}
+	}
 	if sheet != nil {
 		resp["payment"] = sheet
 	}

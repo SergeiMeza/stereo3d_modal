@@ -71,6 +71,35 @@ func (s *Store) PutCustomer(ctx context.Context, uid string, c *Customer) error 
 	return err
 }
 
+// UpdateCustomer applies a transactional patch to the uid → customer mapping
+// (card cache refresh). ErrNotFound when the mapping does not exist yet.
+func (s *Store) UpdateCustomer(ctx context.Context, uid string, mutate func(c *Customer) error) (*Customer, error) {
+	doc := s.fs.Collection(customersCol(s.env)).Doc(uid)
+	var result *Customer
+	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(doc)
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		var c Customer
+		if err := snap.DataTo(&c); err != nil {
+			return err
+		}
+		if err := mutate(&c); err != nil {
+			return err
+		}
+		result = &c
+		return tx.Set(doc, &c)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // ------------------------------------------------------------ conversions
 
 func (s *Store) convDoc(id string) *firestore.DocumentRef {
@@ -132,6 +161,15 @@ func (s *Store) ListByState(ctx context.Context, state string, limit int) ([]*Co
 // (reconciler settle sweeps). Equality-only filter — no composite index.
 func (s *Store) ListByPIStatus(ctx context.Context, piStatus string, limit int) ([]*Conversion, error) {
 	return s.collect(s.fs.Collection(conversionsCol(s.env)).
+		Where("stripe.pi_status", "==", piStatus).Limit(limit).Documents(ctx))
+}
+
+// ListUserByPIStatus scopes ListByPIStatus to one user — the delinquency
+// probe (charge_failed conversions block new paid steps). Equality-only
+// filters — no composite index.
+func (s *Store) ListUserByPIStatus(ctx context.Context, uid, piStatus string, limit int) ([]*Conversion, error) {
+	return s.collect(s.fs.Collection(conversionsCol(s.env)).
+		Where("uid", "==", uid).
 		Where("stripe.pi_status", "==", piStatus).Limit(limit).Documents(ctx))
 }
 

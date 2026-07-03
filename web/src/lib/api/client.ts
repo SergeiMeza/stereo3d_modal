@@ -6,6 +6,9 @@
 
 import type {
   APIErrorBody,
+  BillingSettleResult,
+  BillingSetupTicket,
+  BillingStatus,
   Conversion,
   CreateProjectRequest,
   Downloads,
@@ -86,6 +89,24 @@ export class GatewayClient {
     return this.request("POST", "/v1/billing/portal", {
       return_url: returnUrl,
     });
+  }
+
+  // ------------------------------------------------------------- billing
+
+  /** Pay-as-you-go billing status — also ensures the billing profile and
+   * heals the default payment method after onboarding / a portal edit. */
+  getBilling(): Promise<BillingStatus> {
+    return this.request("GET", "/v1/billing");
+  }
+
+  /** SetupIntent material for the onboarding card capture. */
+  createBillingSetupIntent(): Promise<BillingSetupTicket> {
+    return this.request("POST", "/v1/billing/setup-intent", {});
+  }
+
+  /** Retry the outstanding automatic charges on the current default card. */
+  settleBilling(): Promise<BillingSettleResult> {
+    return this.request("POST", "/v1/billing/settle", {});
   }
 
   // ------------------------------------------------------------ uploads

@@ -1,15 +1,23 @@
-// Package stripex wraps the Stripe SDK for the auth-then-capture flow.
+// Package stripex wraps the Stripe SDK for the gateway's two billing modes.
 //
-// One PaymentIntent per conversion, capture_method=manual:
-//   - hold at creation (app confirms via PaymentSheet / Apple Pay)
+// Legacy mobile flow (POST /v1/conversions) — auth-then-capture:
+//   - one manual-capture PaymentIntent per conversion, held at creation
+//     (app confirms via PaymentSheet / Apple Pay)
 //   - capture the full quoted amount on job success
 //   - cancel the hold on failure/cancel/expiry — user never charged
+//
+// Pro step flow (web) — pay-as-you-go with a saved card:
+//   - onboarding saves a default payment method via a SetupIntent
+//   - nothing is held up front; on job success the quoted amount is charged
+//     off-session against the saved card (one PaymentIntent per conversion,
+//     deterministic idempotency key so a crash-retry can never double-charge)
 //
 // Every PaymentIntent carries {conversion_id, user_id, env} metadata so the
 // Stripe dashboard links straight back to the job record for support.
 package stripex
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/stripe/stripe-go/v78"
@@ -17,6 +25,8 @@ import (
 	"github.com/stripe/stripe-go/v78/customer"
 	"github.com/stripe/stripe-go/v78/ephemeralkey"
 	"github.com/stripe/stripe-go/v78/paymentintent"
+	"github.com/stripe/stripe-go/v78/paymentmethod"
+	"github.com/stripe/stripe-go/v78/setupintent"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
 
@@ -169,6 +179,197 @@ func (c *Client) CancelHold(paymentIntentID string) error {
 		}
 	}
 	return err
+}
+
+// ------------------------------------------------------- pay-as-you-go
+
+// SetupSheet is what the web onboarding page needs to save a card.
+type SetupSheet struct {
+	ClientSecret   string `json:"client_secret"`
+	CustomerID     string `json:"customer_id"`
+	PublishableKey string `json:"publishable_key"`
+}
+
+// CreateSetupIntent starts saving a payment method for off-session charges
+// (the onboarding flow). Card only: every off-session charge and the 3DS
+// fallback assume a card-shaped payment method (wallets tokenize as cards).
+func (c *Client) CreateSetupIntent(customerID, uid string) (*SetupSheet, error) {
+	params := &stripe.SetupIntentParams{
+		Customer:           stripe.String(customerID),
+		Usage:              stripe.String(string(stripe.SetupIntentUsageOffSession)),
+		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
+	}
+	params.AddMetadata("firebase_uid", uid)
+	params.AddMetadata("env", c.env)
+	si, err := setupintent.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("create setup intent: %w", err)
+	}
+	return &SetupSheet{
+		ClientSecret:   si.ClientSecret,
+		CustomerID:     customerID,
+		PublishableKey: c.PublishableKey,
+	}, nil
+}
+
+// CardInfo describes the customer's default (chargeable) payment method.
+type CardInfo struct {
+	PaymentMethodID string
+	Brand           string
+	Last4           string
+	ExpMonth        int64
+	ExpYear         int64
+}
+
+// DefaultCard resolves the customer's default payment method, promoting the
+// newest saved card to default when none is set (a SetupIntent attaches the
+// card but does not make it the default — this read-through heals that, and
+// also picks up cards added or removed in the billing portal). nil, nil when
+// the customer has no saved card.
+func (c *Client) DefaultCard(customerID string) (*CardInfo, error) {
+	cust, err := customer.Get(customerID, &stripe.CustomerParams{
+		Params: stripe.Params{Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get customer: %w", err)
+	}
+	if pm := cust.InvoiceSettings.DefaultPaymentMethod; pm != nil && pm.Card != nil {
+		return cardInfo(pm), nil
+	}
+	iter := paymentmethod.List(&stripe.PaymentMethodListParams{
+		Customer: stripe.String(customerID),
+		Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
+	})
+	if !iter.Next() { // newest first — the card just saved by onboarding
+		return nil, iter.Err()
+	}
+	pm := iter.PaymentMethod()
+	if _, err := customer.Update(customerID, &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: stripe.String(pm.ID),
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("promote default payment method: %w", err)
+	}
+	return cardInfo(pm), nil
+}
+
+func cardInfo(pm *stripe.PaymentMethod) *CardInfo {
+	info := &CardInfo{PaymentMethodID: pm.ID}
+	if pm.Card != nil {
+		info.Brand = string(pm.Card.Brand)
+		info.Last4 = pm.Card.Last4
+		info.ExpMonth = pm.Card.ExpMonth
+		info.ExpYear = pm.Card.ExpYear
+	}
+	return info
+}
+
+// CreateOffSessionHold places a manual-capture hold on the saved payment
+// method with no client interaction (the auto_hold mode for expensive
+// runs): the bank re-approves the quote BEFORE the job runs, and success
+// captures this same PI. A 3DS demand surfaces as authentication_required
+// with the PI attached — the web client completes it via confirmCardPayment
+// and the amount_capturable_updated webhook takes over. Deterministic
+// idempotency key: one hold per conversion, ever.
+func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amountCents int64, currency, conversionID, uid string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(currency),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+		CaptureMethod: stripe.String(string(stripe.PaymentIntentCaptureMethodManual)),
+	}
+	params.AddMetadata("conversion_id", conversionID)
+	params.AddMetadata("user_id", uid)
+	params.AddMetadata("env", c.env)
+	params.SetIdempotencyKey("hold_" + c.env + "_" + conversionID)
+	return paymentintent.New(params)
+}
+
+// ChargeSaved charges the saved payment method off-session (automatic
+// capture) for a succeeded conversion. The deterministic idempotency key
+// makes the create safe to retry after a crash — the same conversion can
+// never mint two PaymentIntents.
+func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int64, currency, conversionID, uid string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(currency),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	params.AddMetadata("conversion_id", conversionID)
+	params.AddMetadata("user_id", uid)
+	params.AddMetadata("env", c.env)
+	params.SetIdempotencyKey("charge_" + c.env + "_" + conversionID)
+	return paymentintent.New(params)
+}
+
+// ConfirmSavedCharge retries an existing charge PaymentIntent (decline or
+// 3DS follow-up) against the customer's CURRENT default payment method —
+// one PI per conversion, however many attempts it takes.
+func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentConfirmParams{OffSession: stripe.Bool(true)}
+	if paymentMethodID != "" {
+		params.PaymentMethod = stripe.String(paymentMethodID)
+	}
+	pi, err := paymentintent.Confirm(paymentIntentID, params)
+	if err != nil && stripeErrCode(err) == "payment_intent_unexpected_state" {
+		// Already settled (webhook or a concurrent sweep won the race).
+		if got, gerr := paymentintent.Get(paymentIntentID, nil); gerr == nil && got.Status == stripe.PaymentIntentStatusSucceeded {
+			return got, nil
+		}
+	}
+	return pi, err
+}
+
+// GetPaymentIntent fetches a PI (client_secret for the web 3DS fallback,
+// status probes).
+func (c *Client) GetPaymentIntent(id string) (*stripe.PaymentIntent, error) {
+	return paymentintent.Get(id, nil)
+}
+
+// ChargeFailure classifies a failed off-session charge for the settlement
+// state machine.
+type ChargeFailure struct {
+	// PaymentIntentID is set when Stripe minted (or kept) a PI for the
+	// attempt — retries must Confirm it rather than create a new one.
+	PaymentIntentID string
+	Code            string
+	// NeedsAction: the bank wants 3DS — the web client can complete it
+	// on-session with the saved card (confirmCardPayment fallback).
+	NeedsAction bool
+	// Transient: infrastructure trouble, not a card decision — safe for the
+	// reconciler to retry automatically without involving the user.
+	Transient bool
+	Message   string
+}
+
+// ClassifyChargeError maps a Stripe error from ChargeSaved/ConfirmSavedCharge
+// onto the retry policy. Unknown errors default to transient (retry) — a
+// user should only be marked delinquent on an explicit card decision.
+func ClassifyChargeError(err error) ChargeFailure {
+	var serr *stripe.Error
+	if !errors.As(err, &serr) {
+		return ChargeFailure{Transient: true, Message: err.Error()}
+	}
+	f := ChargeFailure{Code: string(serr.Code), Message: serr.Msg}
+	if serr.PaymentIntent != nil {
+		f.PaymentIntentID = serr.PaymentIntent.ID
+	}
+	switch {
+	case serr.Code == stripe.ErrorCodeAuthenticationRequired:
+		f.NeedsAction = true
+	case serr.Type == stripe.ErrorTypeCard, serr.Type == stripe.ErrorTypeInvalidRequest:
+		// decline / unusable payment method — needs the user
+	default:
+		f.Transient = true
+	}
+	return f
 }
 
 // VerifyWebhook checks the Stripe signature and returns the event.

@@ -274,37 +274,57 @@ describe("DepthPanel quotes", () => {
   });
 });
 
-describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
-  it("surfaces the gateway's error when the billing profile is missing (regression: shipped to staging unnoticed)", async () => {
-    mockDb.billingProfile = false;
+describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
+  it("blocks with the onboarding notice when no payment method is saved (gateway 402 no_payment_method)", async () => {
+    mockDb.billing.hasPaymentMethod = false;
     const user = userEvent.setup();
     renderPanel();
     await getQuote(user);
 
     await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
 
-    expect(
-      await screen.findByText("no billing profile; call POST /v1/customers first"),
-    ).toBeDefined();
-    expect(screen.queryByTestId("mock-checkout")).toBeNull();
+    const notice = await screen.findByTestId("billing-block");
+    expect(notice.textContent).toContain("payment method");
+    const link = within(notice).getByRole("link", { name: /Set up billing/ });
+    expect(link.getAttribute("href")).toBe("/onboarding");
+    expect(mockDb.conversions.size).toBe(0);
   });
 
-  it("runs create → pay → poll to succeeded; the tracker reports state WITHOUT a downloads list (the review area owns the outputs)", async () => {
+  it("blocks with the settle notice when an automatic charge is outstanding (gateway 402 billing_overdue)", async () => {
+    mockDb.billing.unpaid.push({
+      conversion_id: "m0cdeadbeef1",
+      amount_cents: 120,
+      currency: "usd",
+      needs_action: false,
+    });
+    const user = userEvent.setup();
+    renderPanel();
+    await getQuote(user);
+
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+
+    const notice = await screen.findByTestId("billing-block");
+    expect(notice.textContent).toContain("automatic payment failed");
+    expect(mockDb.conversions.size).toBe(0);
+  });
+
+  it("runs convert → poll to succeeded with NO payment step; the tracker reports state WITHOUT a downloads list (the review area owns the outputs)", async () => {
     const user = userEvent.setup();
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
 
     await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
-    const checkout = await screen.findByTestId("mock-checkout");
-    expect(checkout.textContent).toContain("$0.50");
-
-    await user.click(
-      within(checkout).getByRole("button", { name: "Pay (test)" }),
-    );
 
     await screen.findByText("processing", undefined, { timeout: 3000 });
     await screen.findByText("succeeded", undefined, { timeout: 3000 });
     await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(1));
+
+    // the automatic charge landed
+    const conv = [...mockDb.conversions.values()][0];
+    expect(conv.billing).toEqual({
+      status: "charged",
+      charged_cents: conv.quote.amount_cents,
+    });
 
     // NO download links/players inside the tracker on the Depth tab — the
     // side-by-side depth view + Export replaced that surface
@@ -321,6 +341,56 @@ describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
     expect(project.scene_profile!.scenes_version).toBe(project.scenes!.version);
   });
 
+  it("surfaces a failed automatic charge on the tracker after success", async () => {
+    mockDb.billing.nextChargeFails = true;
+    const user = userEvent.setup();
+    renderPanel();
+    await getQuote(user);
+
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+
+    await screen.findByText("succeeded", undefined, { timeout: 3000 });
+    const warning = await screen.findByTestId("charge-failed");
+    expect(warning.textContent).toContain("automatic payment");
+    expect(mockDb.billing.unpaid).toHaveLength(1);
+  });
+
+  it("places an up-front hold on expensive runs and completes a 3DS challenge with the saved card", async () => {
+    mockDb.billing.holdThresholdCents = 50; // the 50¢ quote now holds
+    mockDb.billing.nextHoldRequiresAction = true;
+    const user = userEvent.setup();
+    renderPanel();
+    await getQuote(user);
+
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+
+    // completeChargeAction auto-confirms; the mock flips created→paid and
+    // the run proceeds to success with the hold captured
+    await screen.findByText("succeeded", undefined, { timeout: 3000 });
+    const conv = [...mockDb.conversions.values()][0];
+    expect(conv.billing).toEqual({
+      status: "charged",
+      charged_cents: conv.quote.amount_cents,
+    });
+  });
+
+  it("blocks with the declined-card notice when the up-front hold is declined (402 card_declined)", async () => {
+    mockDb.billing.holdThresholdCents = 50;
+    mockDb.billing.nextHoldFails = true;
+    const user = userEvent.setup();
+    renderPanel();
+    await getQuote(user);
+
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+
+    const notice = await screen.findByTestId("billing-block");
+    expect(notice.textContent).toContain("declined");
+    expect(
+      within(notice).getByRole("link", { name: /Update your card/ }).getAttribute("href"),
+    ).toBe("/account");
+    expect(mockDb.conversions.size).toBe(0);
+  });
+
   it("reuses the Idempotency-Key on double-submit — no second conversion", async () => {
     const user = userEvent.setup();
     renderPanel();
@@ -328,7 +398,7 @@ describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
 
     const convert = screen.getByRole("button", { name: "Convert · $0.50" });
     await user.click(convert);
-    await screen.findByTestId("mock-checkout");
+    await screen.findByTestId("conversion-tracker");
     await user.click(convert); // same attempt, second submit
 
     await waitFor(() => expect(mockDb.idem.size).toBe(1));
@@ -341,10 +411,6 @@ describe("DepthPanel checkout lifecycle (shared useStepCheckout)", () => {
     await getQuote(user);
 
     await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
-    const checkout = await screen.findByTestId("mock-checkout");
-    await user.click(
-      within(checkout).getByRole("button", { name: "Pay (test)" }),
-    );
 
     await screen.findByText("processing", undefined, { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

@@ -10,12 +10,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import Home from "@/app/page";
 import AccountScreen from "@/components/auth/AccountScreen";
-import {
-  RequireAuth,
-  resetEnsuredBillingProfiles,
-} from "@/components/auth/RequireAuth";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import SignInScreen from "@/components/auth/SignInScreen";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -40,12 +38,15 @@ afterEach(() => {
   replace.mockClear();
   server.resetHandlers();
   mockDb.reset();
-  resetEnsuredBillingProfiles();
 });
 afterAll(() => server.close());
 
 function renderWithAuth(ui: React.ReactElement) {
-  return render(<AuthProvider>{ui}</AuthProvider>);
+  return render(
+    <AuthProvider>
+      <BillingProvider>{ui}</BillingProvider>
+    </AuthProvider>,
+  );
 }
 
 describe("landing page", () => {
@@ -91,14 +92,14 @@ describe("RequireAuth (mock mode)", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("ensures the billing profile on sign-in (POST /v1/customers) — conversions hard-fail without it", async () => {
-    mockDb.billingProfile = false;
-    renderWithAuth(
-      <RequireAuth>
-        <p>guarded content</p>
-      </RequireAuth>,
-    );
-    await waitFor(() => expect(mockDb.billingProfile).toBe(true));
+});
+
+describe("AccountScreen billing card (mock mode)", () => {
+  it("shows the saved card from GET /v1/billing", async () => {
+    renderWithAuth(<AccountScreen />);
+    const card = await screen.findByTestId("card-on-file");
+    expect(card.textContent).toContain("4242");
+    expect(card.textContent?.toLowerCase()).toContain("visa");
   });
 });
 

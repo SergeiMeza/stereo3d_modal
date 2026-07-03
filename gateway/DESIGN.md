@@ -19,18 +19,56 @@ Replaces, with no backward compatibility (old system is retired):
 3. **Containment** — the Modal API's ~40-parameter research surface is not
    exposed; the gateway forwards a clamped, whitelisted subset.
 
-## Billing model: auth-then-capture
+## Billing models
 
-One Stripe PaymentIntent per conversion, `capture_method: manual`:
+Both share the invariants: price computed server-side from ffprobe'd media
+(never from client-supplied numbers; rates in Firestore `config/pricing`),
+one PaymentIntent per conversion carrying
+`metadata: {conversion_id, user_id, env}`, and the user is never charged for
+a failed or canceled run.
 
-- **Quote** — price computed server-side from ffprobe'd media (never from
-  client-supplied numbers). Rates live in Firestore `config/pricing`.
-- **Hold** — PaymentIntent created at submission with
-  `metadata: {conversion_id, user_id, env}`; app confirms via Apple Pay /
+### Pro steps (web): pay-as-you-go on the saved card
+
+Onboarding saves a card via a SetupIntent (`usage: off_session` — Stripe
+runs the Google-style $0 verification + 3DS at save time); the gateway
+caches the default payment method on the uid → customer mapping and heals
+it from Stripe on every `GET /v1/billing` (so cards added or removed in the
+billing portal are picked up).
+
+- **Gate** — `POST /v1/projects/{id}/conversions` 402s
+  (`no_payment_method` / `billing_overdue`) unless a card is on file and no
+  automatic charge is outstanding. No checkout UI in any path.
+- **Threshold hybrid** (`holdThresholdCents`, code constant in
+  api/billing.go, currently $5):
+  - **Quote ≥ threshold: off-session hold, capture on success.** A
+    manual-capture PI is confirmed against the saved card at creation
+    (idempotency key `hold_{env}_{id}`) — the bank re-approves the money
+    BEFORE GPU spend. Declines 402 as `card_declined` and nothing starts; a
+    3DS demand parks the conversion at `created` with the PI client_secret
+    on the response (`billing.requires_action`) — the web client confirms
+    with the saved card and the `amount_capturable_updated` webhook flips
+    it to paid and submits. Success captures the hold; failure/cancel
+    releases it.
+  - **Quote < threshold: charge on success, no hold.** The conversion
+    enters at `paid` and is submitted immediately; after outputs are
+    published the quoted amount is charged off-session (idempotency key
+    `charge_{env}_{id}`; retries `Confirm` the same PI). Cheap previews
+    never leave pending lines on the user's statement.
+- **Charge failure** (below-threshold path) — transient errors stay
+  `charge_pending` (reconciler retries); card decisions become
+  `charge_failed`: the account is delinquent, new paid steps are blocked,
+  and `POST /v1/billing/settle` retries against the current default card. A
+  3DS challenge (`authentication_required`) surfaces the PI's client_secret
+  so the web client completes it on-session with the saved card.
+
+### Legacy mobile flow: auth-then-capture
+
+One manual-capture PaymentIntent per `POST /v1/conversions`:
+
+- **Hold** — created at submission; app confirms via Apple Pay /
   PaymentSheet. Funds authorized, not captured.
 - **Capture on success** — full quoted amount, after outputs are published.
-- **Cancel on failure/cancel/expiry** — hold released, user never charged.
-  No refund handling, no "charged for a failed job" tickets.
+- **Cancel on failure/cancel/expiry** — hold released.
 
 Stripe holds are valid ~7 days; jobs run minutes-to-hours. A reconciler
 sweep cancels holds for conversions stuck > 24 h as a safety net.
@@ -38,17 +76,18 @@ sweep cancels holds for conversions stuck > 24 h as a safety net.
 ## Conversion state machine
 
 ```
+                        (legacy hold mode enters here)
 created ──payment confirmed (webhook)──▶ paid ──submitted to Modal──▶ processing
-   │                                      │                             │
-   │ (hold fails/expires)                 │ (Modal submit fails         ├──▶ succeeded → capture PI
-   ▼                                      ▼   after retries)            ├──▶ failed    → cancel PI
- expired                                failed → cancel PI              └──▶ canceled  → cancel PI + DELETE Modal job
+   │                                      ▲                             │
+   │ (hold fails/expires)                 │ (pro steps enter at paid;   ├──▶ succeeded → capture hold / charge saved card
+   ▼                                      │  billing verified up front) ├──▶ failed    → cancel PI (hold) / no charge
+ expired                                  │                             └──▶ canceled  → cancel PI + DELETE Modal job
 ```
 
 State only advances via the gateway (webhook, reconciler, or user cancel) —
 the client is a pure observer. Transitions are idempotent: every mutation
-checks current state first, and Stripe capture/cancel calls are themselves
-idempotent per PaymentIntent.
+checks current state first, and Stripe capture/cancel/charge calls are
+themselves idempotent per conversion.
 
 ## HTTP surface
 
@@ -57,6 +96,10 @@ Client-facing (Firebase ID token in `Authorization: Bearer`):
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/v1/customers` | Ensure Stripe customer for the Firebase user (on sign-in) |
+| GET | `/v1/billing` | Pay-as-you-go status: saved card, delinquency, outstanding charges (ensures the profile + heals the default payment method) |
+| POST | `/v1/billing/setup-intent` | SetupIntent for the web onboarding card capture |
+| POST | `/v1/billing/settle` | Retry outstanding automatic charges on the current default card (returns 3DS client_secret when the bank requires action) |
+| POST | `/v1/billing/portal` | Stripe customer-portal session (manage cards, receipts) |
 | POST | `/v1/uploads` | Signed GCS PUT URL for source media |
 | POST | `/v1/quotes` | Probe uploaded media, return price quote (also returned by create) |
 | POST | `/v1/conversions` | Create conversion: probe → quote → PaymentIntent (manual capture) → Firestore record. Returns payment sheet params. Idempotent via `Idempotency-Key` header. |
@@ -70,7 +113,7 @@ Machine-facing:
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/webhooks/stripe` | Stripe signature | `payment_intent.amount_capturable_updated` → submit to Modal; `payment_intent.canceled` / `payment_failed` → mark expired |
+| POST | `/webhooks/stripe` | Stripe signature | hold mode: `payment_intent.amount_capturable_updated` → submit to Modal, `payment_intent.canceled` → mark expired. auto mode: `payment_intent.succeeded` → fold the charge in (3DS fallback lands here), `payment_intent.payment_failed` → mark the account delinquent |
 | POST | `/internal/reconcile` | Cloud Scheduler OIDC | Poll Modal for active conversions, settle terminal states, expire stale holds |
 
 Request params accepted on `/v1/conversions` (everything else is server-set):

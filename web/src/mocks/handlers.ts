@@ -21,6 +21,7 @@ import downloadsFixture from "../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type {
+  BillingCard,
   Conversion,
   ProfileShot,
   Project,
@@ -29,6 +30,7 @@ import type {
   ShotType,
   Step,
   StepConversionRequest,
+  UnpaidCharge,
 } from "@/lib/api/types";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
@@ -44,21 +46,46 @@ const RATES = {
   analyzeCreditCents: 50,
 };
 
+/** Pay-as-you-go billing state, mirroring the gateway's GET /v1/billing.
+ * Seeded WITH a card for tests (an already-onboarded user); the browser
+ * worker boots without one so local dev exercises the onboarding flow. */
+interface MockBilling {
+  hasPaymentMethod: boolean;
+  card?: BillingCard;
+  /** succeeded conversions whose automatic charge failed (delinquency) */
+  unpaid: UnpaidCharge[];
+  /** what the next POST /v1/billing/settle attempt does (tests) */
+  settleOutcome: "success" | "requires_action" | "declined";
+  /** when true, the NEXT conversion success fails its automatic charge —
+   * exercising the delinquency banner/settle flow end-to-end */
+  nextChargeFails: boolean;
+  /** quotes at/above this get an up-front hold, mirroring the gateway's
+   * holdThresholdCents (api/billing.go). Tests lower it to force the hold
+   * path on cheap fixtures. */
+  holdThresholdCents: number;
+  /** the NEXT hold demands 3DS: conversion returns state=created +
+   * requires_action; __mock__/complete-3ds flips it to paid */
+  nextHoldRequiresAction: boolean;
+  /** the NEXT hold is declined: create 402s with card_declined */
+  nextHoldFails: boolean;
+}
+
+const MOCK_CARD: BillingCard = {
+  brand: "visa",
+  last4: "4242",
+  exp_month: 12,
+  exp_year: 2034,
+};
+
 interface DB {
   projects: Map<string, Project>;
   conversions: Map<string, Conversion>;
-  /** conversions that received a mock payment confirmation */
-  paid: Set<string>;
   idem: Map<string, string>; // Idempotency-Key → conversion_id
   /** per-project analyze lifecycle position (one stage per GET poll) */
   analyzeTicks: Map<string, number>;
   /** per-project free-profile lifecycle position (advances per GET poll) */
   profileTicks: Map<string, number>;
-  /** Whether POST /v1/customers ran — the real gateway REJECTS conversion
-   * creation without it ("no billing profile"), and the mock mirrors that.
-   * Seeded true for tests (an already-ensured user); the browser worker
-   * boots it to false so local dev exercises the ensure flow end-to-end. */
-  billingProfile: boolean;
+  billing: MockBilling;
 }
 
 function seed(): DB {
@@ -69,11 +96,19 @@ function seed(): DB {
   return {
     projects: new Map([[project.project_id, project]]),
     conversions: new Map(),
-    paid: new Set(),
     idem: new Map(),
     analyzeTicks: new Map(),
     profileTicks: new Map(),
-    billingProfile: true,
+    billing: {
+      hasPaymentMethod: true,
+      card: { ...MOCK_CARD },
+      unpaid: [],
+      settleOutcome: "success",
+      nextChargeFails: false,
+      holdThresholdCents: 500,
+      nextHoldRequiresAction: false,
+      nextHoldFails: false,
+    },
   };
 }
 
@@ -83,11 +118,10 @@ export const mockDb = {
     const fresh = seed();
     this.projects = fresh.projects;
     this.conversions = fresh.conversions;
-    this.paid = fresh.paid;
     this.idem = fresh.idem;
     this.analyzeTicks = fresh.analyzeTicks;
     this.profileTicks = fresh.profileTicks;
-    this.billingProfile = fresh.billingProfile;
+    this.billing = fresh.billing;
   },
   setConversionState(id: string, state: Conversion["state"]) {
     const c = this.conversions.get(id);
@@ -97,6 +131,19 @@ export const mockDb = {
       c.progress = 1;
       succeed(c);
     }
+  },
+  /** Fail a succeeded conversion's automatic charge (delinquency setup). */
+  failCharge(id: string) {
+    const c = this.conversions.get(id);
+    if (!c) throw new Error(`no mock conversion ${id}`);
+    c.billing = { status: "charge_failed" };
+    this.billing.unpaid.push({
+      conversion_id: c.conversion_id,
+      step: c.step,
+      amount_cents: c.quote.amount_cents,
+      currency: c.quote.currency,
+      needs_action: false,
+    });
   },
 };
 
@@ -356,19 +403,20 @@ function quoteFor(
   };
 }
 
-/** payment material is only returned on create, like the gateway */
-function stripPayment(c: Conversion): Omit<Conversion, "payment"> {
-  const clone = { ...c };
-  delete clone.payment;
-  return clone;
-}
-
 /** Success side effects, like the real pipeline's: the run's outputs gain
- * the depth artifacts (depth + the browser-playable depth_vis), and a pro
- * video conversion stamps the project's scene_profile (the adaptive
- * profiler's per-shot parameters) with the CURRENT scenes version. */
+ * the depth artifacts (depth + the browser-playable depth_vis), the saved
+ * card is charged automatically (or fails, when a test armed
+ * nextChargeFails), and a pro video conversion stamps the project's
+ * scene_profile (the adaptive profiler's per-shot parameters) with the
+ * CURRENT scenes version. */
 function succeed(c: Conversion) {
   c.outputs = [...(c.params.formats ?? []), "depth", "depth_vis"];
+  if (mockDb.billing.nextChargeFails) {
+    mockDb.billing.nextChargeFails = false;
+    mockDb.failCharge(c.conversion_id);
+  } else if (!c.billing) {
+    c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+  }
   const p = c.project_id ? mockDb.projects.get(c.project_id) : undefined;
   if (p && c.step) {
     const profile = structuredClone(
@@ -447,10 +495,11 @@ function projectDetail(p: Project) {
   return { ...p, conversions };
 }
 
-/** One poll = one lifecycle tick (paid→processing→succeeded). */
+/** One poll = one lifecycle tick (paid→processing→succeeded). Pro
+ * conversions enter at "paid" (billing verified up front) — there is no
+ * client payment confirmation step anymore. */
 function tick(c: Conversion) {
-  if (c.state === "created" && mockDb.paid.has(c.conversion_id)) c.state = "paid";
-  else if (c.state === "paid") {
+  if (c.state === "paid") {
     c.state = "processing";
     c.progress = 0.1;
     c.stage = "preprocess";
@@ -465,16 +514,103 @@ function tick(c: Conversion) {
   }
 }
 
+/** The gateway's GET /v1/billing response shape. */
+function billingStatus() {
+  const b = mockDb.billing;
+  return {
+    has_payment_method: b.hasPaymentMethod,
+    ...(b.hasPaymentMethod && b.card ? { card: b.card } : {}),
+    delinquent: b.unpaid.length > 0,
+    unpaid: b.unpaid,
+    publishable_key: "pk_test_mock",
+  };
+}
+
 export const handlers = [
   http.post(`${GATEWAY}/v1/customers`, () => {
-    mockDb.billingProfile = true;
     return HttpResponse.json({ customer_id: "cus_mock" });
   }),
 
+  // ------------------------------------------------------------- billing
+
+  // Pay-as-you-go status — also ensures the billing profile, like the
+  // gateway (so the BillingProvider's first fetch is the ensure call).
+  http.get(`${GATEWAY}/v1/billing`, () => {
+    return HttpResponse.json(billingStatus());
+  }),
+
+  // SetupIntent material for the onboarding Payment Element.
+  http.post(`${GATEWAY}/v1/billing/setup-intent`, () => {
+    return HttpResponse.json({
+      client_secret: "seti_mock_secret",
+      customer_id: "cus_mock",
+      publishable_key: "pk_test_mock",
+    });
+  }),
+
+  /** What the MockSetupPanel calls in place of stripe.confirmSetup — the
+   * card is saved and becomes the default on the next status read. */
+  http.post(`${GATEWAY}/__mock__/confirm-setup`, () => {
+    mockDb.billing.hasPaymentMethod = true;
+    mockDb.billing.card = { ...MOCK_CARD };
+    return HttpResponse.json({ ok: true });
+  }),
+
+  // Retry outstanding charges on the current default card.
+  http.post(`${GATEWAY}/v1/billing/settle`, () => {
+    const b = mockDb.billing;
+    if (b.settleOutcome === "requires_action" && b.unpaid.length > 0) {
+      return HttpResponse.json({
+        settled: false,
+        requires_action: true,
+        client_secret: `pi_mock_3ds_${b.unpaid[0].conversion_id}`,
+        publishable_key: "pk_test_mock",
+      });
+    }
+    if (b.settleOutcome === "declined" && b.unpaid.length > 0) {
+      return HttpResponse.json({
+        settled: false,
+        publishable_key: "pk_test_mock",
+        message:
+          "The charge was declined again. Update your card in the billing portal, then retry.",
+      });
+    }
+    for (const u of b.unpaid) {
+      const c = mockDb.conversions.get(u.conversion_id);
+      if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
+    }
+    b.unpaid = [];
+    return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
+  }),
+
+  /** What completeChargeAction calls in place of confirmCardPayment: the
+   * 3DS challenge succeeds. A pending HOLD (conversion parked at created)
+   * clears and the run starts; outstanding post-success charges settle. */
+  http.post(`${GATEWAY}/__mock__/complete-3ds`, async ({ request }) => {
+    const { client_secret } = (await request.json()) as {
+      client_secret?: string;
+    };
+    for (const c of mockDb.conversions.values()) {
+      if (
+        c.state === "created" &&
+        c.billing?.status === "requires_action" &&
+        c.billing.client_secret === client_secret
+      ) {
+        c.state = "paid";
+        delete c.billing; // success stamps "charged" like any hold capture
+      }
+    }
+    for (const u of mockDb.billing.unpaid) {
+      const c = mockDb.conversions.get(u.conversion_id);
+      if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
+    }
+    mockDb.billing.unpaid = [];
+    mockDb.billing.settleOutcome = "success";
+    return HttpResponse.json({ ok: true });
+  }),
+
   // Stripe customer-portal session (the /account "Manage billing" button).
-  // The real gateway ensures the billing profile inline, so mirror that.
   http.post(`${GATEWAY}/v1/billing/portal`, () => {
-    mockDb.billingProfile = true;
     return HttpResponse.json({
       url: "https://billing.stripe.com/p/session/mock",
     });
@@ -690,19 +826,42 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown>;
     const invalid = validateStepRequest(p, body);
     if (invalid) return invalid;
-    // The real gateway rejects paid conversions without a billing profile
-    // (api/handlers.go createPaidConversion) — enforce it here too so the
-    // ensure-customer flow can't silently regress against the mock.
-    if (!mockDb.billingProfile) {
-      return err(400, "invalid_request", "no billing profile; call POST /v1/customers first");
+    // The real gateway's pay-as-you-go billing gate (402s, api/billing.go
+    // requireBillable) — enforce it here too so the onboarding/settle flows
+    // can't silently regress against the mock.
+    if (!mockDb.billing.hasPaymentMethod) {
+      return err(402, "no_payment_method", "add a payment method before starting a conversion");
+    }
+    if (mockDb.billing.unpaid.length > 0) {
+      return err(
+        402,
+        "billing_overdue",
+        `the automatic payment for conversion ${mockDb.billing.unpaid[0].conversion_id} failed — settle it before starting new work`,
+      );
     }
     const req = body as unknown as StepConversionRequest;
     const { quote, params: resolved } = quoteFor(p, req);
+    // Threshold hybrid, mirroring the gateway: expensive runs place an
+    // up-front hold (which can be declined or demand 3DS); cheap runs skip
+    // it and charge on success.
+    const holds = quote.amount_cents >= mockDb.billing.holdThresholdCents;
+    if (holds && mockDb.billing.nextHoldFails) {
+      mockDb.billing.nextHoldFails = false;
+      return err(
+        402,
+        "card_declined",
+        "your card declined the payment hold — update your payment method and retry",
+      );
+    }
     if (p.analyze.credit_available) p.analyze.credit_available = false;
     const id = newId();
+    // Enters at "paid" (billing verified / hold in place), except a hold
+    // demanding 3DS, which parks at "created" until __mock__/complete-3ds.
+    const needs3ds = holds && mockDb.billing.nextHoldRequiresAction;
+    if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
     const conv: Conversion = {
       conversion_id: id,
-      state: "created",
+      state: needs3ds ? "created" : "paid",
       kind: "video",
       project_id: p.project_id,
       step: req.step,
@@ -714,27 +873,19 @@ export const handlers = [
       eta_seconds: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      payment: {
-        payment_intent_client_secret: `pi_mock_secret_${id}`,
-        ephemeral_key_secret: "ek_mock",
-        customer_id: "cus_mock",
-        publishable_key: "pk_test_mock",
-      },
+      ...(needs3ds
+        ? {
+            billing: {
+              status: "requires_action" as const,
+              client_secret: `pi_mock_hold_${id}`,
+              publishable_key: "pk_test_mock",
+            },
+          }
+        : {}),
     };
     mockDb.conversions.set(id, conv);
     if (idem) mockDb.idem.set(idem, id);
     return HttpResponse.json(conv);
-  }),
-
-  /** Mock payment confirmation — what the MockCheckout component calls in
-   * place of stripe.confirmPayment. Flips created→paid on the next poll. */
-  http.post(`${GATEWAY}/__mock__/confirm-payment`, async ({ request }) => {
-    const { conversion_id } = (await request.json()) as { conversion_id: string };
-    if (!mockDb.conversions.has(conversion_id)) {
-      return err(404, "not_found", "conversion not found");
-    }
-    mockDb.paid.add(conversion_id);
-    return HttpResponse.json({ ok: true });
   }),
 
   http.get(`${GATEWAY}/v1/conversions/:id`, ({ params }) => {
@@ -742,7 +893,7 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     tick(c);
     c.updated_at = new Date().toISOString();
-    return HttpResponse.json(stripPayment(c));
+    return HttpResponse.json(c);
   }),
 
   http.delete(`${GATEWAY}/v1/conversions/:id`, ({ params }) => {
@@ -751,7 +902,7 @@ export const handlers = [
     if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
       c.state = "canceled";
     }
-    return HttpResponse.json(stripPayment(c));
+    return HttpResponse.json(c);
   }),
 
   http.get(`${GATEWAY}/v1/conversions/:id/downloads`, ({ params }) => {

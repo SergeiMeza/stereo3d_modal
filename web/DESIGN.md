@@ -6,9 +6,14 @@ project, iterated through preview passes toward a production conversion, with
 granular step-by-step control and per-conversion billing.
 
 Stack (decided 2026-07-02): **Next.js on Vercel**, code in `web/` in this
-repo. Auth: Firebase (same project as mobile). Payments: Stripe **Payment
-Element** (web) against the same gateway PaymentIntents. All backend traffic
-goes through the gateway (`gateway/`) — the web client never talks to Modal.
+repo. Auth: Firebase (same project as mobile). Payments (reworked
+2026-07-03): **pay-as-you-go on a saved card** — onboarding captures a card
+via a Stripe SetupIntent (Payment Element) before the user reaches
+/projects; paid steps then bill automatically (expensive runs place an
+off-session hold first, captured on success; cheap runs charge on success)
+with no checkout UI. See gateway/DESIGN.md "Billing models". All backend
+traffic goes through the gateway (`gateway/`) — the web client never talks
+to Modal.
 
 ## Product model
 
@@ -19,7 +24,8 @@ Project (1 source video)
 ├── artifacts     registry of reusable outputs from past conversions
 │                   depth  (job_id, depth_res, target_fps)
 │                   preprocess (job_id, trim/crop/fps meta)
-└── conversions   N paid runs, each with its own auth-then-capture PaymentIntent
+└── conversions   N paid runs, billed automatically to the saved card
+      (hold+capture above the price threshold, charge-on-success below)
       kinds: depth_preview | stereo_preview | production
 ```
 
@@ -48,9 +54,9 @@ Rules, applied everywhere (API, storage, UI state):
 
 ## Step pipeline
 
-Steps are explicit checkpoints; each paid step is a normal gateway conversion
-(auth-then-capture), so billing, support trails, and Slack alerts are
-identical to mobile.
+Steps are explicit checkpoints; each paid step is a normal gateway
+conversion billed to the saved card (see gateway/DESIGN.md), so support
+trails and Slack alerts are identical to mobile.
 
 | step | what runs | artifacts | price |
 |---|---|---|---|
@@ -146,9 +152,11 @@ Next.js (App Router, TypeScript). Key screens:
      (anaglyph mode), displacement slider (server-clamped range);
    - conversion history table: every run with params, quote vs captured,
      state, conversion_id (click-to-copy for support), downloads.
-3. **Checkout** — Stripe Payment Element bound to the gateway's PaymentIntent
-   client_secret (same auth-then-capture; wallet buttons included).
-4. **Account** — Firebase sign-in, payment methods, receipts.
+3. **Onboarding** — one-time card capture (Stripe Payment Element bound to a
+   gateway SetupIntent) gating /projects; after that, steps bill the saved
+   card automatically — no checkout screen. Billing failures surface as a
+   banner with retry / 3DS-confirm / portal actions.
+4. **Account** — Firebase sign-in, saved card summary, Stripe billing portal.
 
 State/polling: SWR against `GET /v1/conversions/{id}` (the gateway's
 read-through poll keeps it fresh); no client-side Modal access, no client-side

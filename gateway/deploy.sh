@@ -44,7 +44,7 @@ URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$RE
 echo "Deployed: $URL"
 echo
 echo "Reminders:"
-echo "  - Stripe webhook endpoint: ${URL}/webhooks/stripe (event: payment_intent.amount_capturable_updated, payment_intent.canceled, payment_intent.payment_failed)"
+echo "  - Stripe webhook endpoint: ${URL}/webhooks/stripe (events: payment_intent.amount_capturable_updated, payment_intent.canceled, payment_intent.payment_failed, payment_intent.succeeded)"
 echo "  - Scheduler: gcloud scheduler jobs create http ${SERVICE}-reconcile --schedule='* * * * *' \\"
 echo "      --uri='${URL}/internal/reconcile' --http-method=POST \\"
 echo "      --headers='X-Reconcile-Token=<value of reconcile-token-${ENV}>'"

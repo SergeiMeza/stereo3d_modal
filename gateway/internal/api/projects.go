@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stripe/stripe-go/v78"
+
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 // Pro step pipeline (web/DESIGN.md): 1 video = 1 project, N paid step
@@ -697,6 +700,10 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 }
 
 // POST /v1/projects/{id}/conversions — create a paid step conversion.
+// Pay-as-you-go: billing is verified up front (402 with no_payment_method /
+// billing_overdue otherwise), the job starts immediately, and the saved card
+// is charged the quoted amount only when the conversion succeeds. There is
+// no client-side payment confirmation step.
 func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	p, err := s.ownedProject(ctx, user, id)
@@ -712,13 +719,9 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if ferr == nil {
-			var sheet any
-			if prior.State == store.StateCreated {
-				if ps, perr := s.Stripe.PaymentSheetFor(prior.Stripe.CustomerID, prior.Stripe.PaymentIntentID); perr == nil {
-					sheet = ps
-				}
-			}
-			httpx.WriteOK(w, s.conversionResponse(prior, sheet))
+			// Replays of a hold still awaiting 3DS re-serve the same billing
+			// material (client_secret is stored on the record).
+			httpx.WriteOK(w, s.conversionResponse(prior, nil))
 			return
 		}
 	}
@@ -733,6 +736,13 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, perr)
 		return
 	}
+	// Billing gate BEFORE any commitment: a saved card and no outstanding
+	// failed charge, or the step never starts.
+	cust, berr := s.requireBillable(ctx, user)
+	if berr != nil {
+		httpx.WriteErr(ctx, w, berr)
+		return
+	}
 	rates := s.Pricing.Rates(ctx)
 	if n, cerr := s.Store.CountActiveForUser(ctx, user.UID); cerr != nil {
 		httpx.WriteErr(ctx, w, cerr)
@@ -744,7 +754,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 
 	convID := store.NewID()
 	// Consume the analyze credit atomically for THIS conversion; every
-	// failure path from here (including createPaidConversion's) restores it.
+	// failure path from here restores it.
 	credit, cerr := s.Store.ConsumeAnalyzeCredit(ctx, p.ID, convID)
 	if cerr != nil {
 		httpx.WriteErr(ctx, w, cerr)
@@ -770,12 +780,88 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	conv.Quote = *quote
-	sheet, cerr2 := s.createPaidConversion(ctx, user, conv)
-	if cerr2 != nil {
-		httpx.WriteErr(ctx, w, cerr2)
+
+	// Threshold hybrid: expensive runs get an off-session hold up front (the
+	// bank re-approves the money BEFORE GPU spend; capture on success), cheap
+	// runs skip the hold and charge the saved card on success.
+	if quote.AmountCents >= holdThresholdCents {
+		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
+		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
+			quote.AmountCents, quote.Currency, conv.ID, user.UID)
+		if herr != nil {
+			fail := stripex.ClassifyChargeError(herr)
+			if fail.NeedsAction && fail.PaymentIntentID != "" {
+				// Bank wants 3DS. Persist the record at "created" carrying the
+				// PI; the client confirms with the saved card and the
+				// amount_capturable_updated webhook flips it to paid.
+				conv.State = store.StateCreated
+				conv.Stripe.PaymentIntentID = fail.PaymentIntentID
+				if got, gerr := s.Stripe.GetPaymentIntent(fail.PaymentIntentID); gerr == nil {
+					conv.Stripe.ClientSecret = got.ClientSecret
+				}
+				if err := s.Store.CreateConversion(ctx, conv); err != nil {
+					_ = s.Stripe.CancelHold(fail.PaymentIntentID)
+					s.restoreCredit(ctx, conv)
+					httpx.WriteErr(ctx, w, err)
+					return
+				}
+				httpx.Log(ctx).Info("hold requires authentication",
+					"conversion_id", conv.ID, "uid", user.UID, "payment_intent", fail.PaymentIntentID)
+				httpx.WriteOK(w, s.conversionResponse(conv, nil))
+				return
+			}
+			s.restoreCredit(ctx, conv)
+			if fail.Transient {
+				httpx.Log(ctx).Error("stripe hold failed", "conversion_id", conv.ID, "err", herr)
+				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error",
+					"could not reserve the payment; try again"))
+				return
+			}
+			httpx.Log(ctx).Info("hold declined",
+				"conversion_id", conv.ID, "uid", user.UID, "code", fail.Code)
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusPaymentRequired, "card_declined",
+				"your card declined the payment hold — update your payment method and retry"))
+			return
+		}
+		if pi.Status == stripe.PaymentIntentStatusRequiresAction ||
+			pi.Status == stripe.PaymentIntentStatusRequiresConfirmation {
+			// Defensive: some flows return the PI in requires_action without
+			// raising authentication_required.
+			conv.State = store.StateCreated
+			conv.Stripe.PaymentIntentID = pi.ID
+			conv.Stripe.ClientSecret = pi.ClientSecret
+		} else {
+			conv.State = store.StatePaid
+			conv.Stripe.PaymentIntentID = pi.ID
+			conv.Stripe.PIStatus = string(pi.Status)
+		}
+	} else {
+		// Enters at "paid": billing verified, cleared for submission (no
+		// client payment confirmation step in auto mode).
+		conv.State = store.StatePaid
+		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAuto}
+	}
+	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+		if conv.Stripe.PaymentIntentID != "" {
+			_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
+		}
+		s.restoreCredit(ctx, conv)
+		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	httpx.WriteOK(w, s.conversionResponse(conv, sheet))
+	httpx.Log(ctx).Info("conversion created",
+		"conversion_id", conv.ID, "uid", user.UID, "kind", conv.Kind,
+		"step", conv.Step, "project_id", conv.ProjectID, "billing_mode", conv.Stripe.Mode,
+		"amount_cents", conv.Quote.AmountCents, "payment_intent", conv.Stripe.PaymentIntentID)
+	// Submit inline for latency; on failure the reconciler re-drives paid
+	// conversions until paidTTL.
+	if serr := s.submitToModal(ctx, conv.ID); serr != nil {
+		httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
+			"conversion_id", conv.ID, "err", serr)
+	} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {
+		conv = fresh // reflect processing state in the response
+	}
+	httpx.WriteOK(w, s.conversionResponse(conv, nil))
 }
 
 // ---------------------------------------------------------------- helpers

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { UserMenu } from "@/components/auth/UserMenu";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import { MswProvider } from "@/mocks/MswProvider";
 
 import "./globals.css";
@@ -58,7 +59,11 @@ export default function RootLayout({
               (max-w-7xl list pages) still center themselves inside it. The
               workspace stays viewport-height (Resolve-style) within it. */}
           <main className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col">
-            <MswProvider>{children}</MswProvider>
+            {/* BillingProvider sits inside MswProvider so its first
+                GET /v1/billing waits for the mock worker in mock mode. */}
+            <MswProvider>
+              <BillingProvider>{children}</BillingProvider>
+            </MswProvider>
           </main>
         </AuthProvider>
       </body>

@@ -12,9 +12,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import Link from "next/link";
+
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
+import { useBilling } from "@/lib/billing";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "google.com": "Google",
@@ -47,6 +50,7 @@ export default function AccountScreen({
 }: AccountScreenProps = {}) {
   const { user, signOutUser, updateDisplayName, deleteAccount } = useAuth();
   const gateway = useGateway();
+  const billing = useBilling();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? "");
@@ -199,12 +203,30 @@ export default function AccountScreen({
 
       <CardShell title="Billing">
         <p className="text-fg-muted">
-          Billing is pay-per-conversion. Your card is charged only when a
-          conversion succeeds — authorization holds are released automatically
-          if a run fails or is cancelled. Card details are collected securely
-          at checkout; saved payment methods and receipts live in the Stripe
-          billing portal.
+          Billing is pay-as-you-go: each conversion step shows its price up
+          front and your saved card is charged automatically only when the
+          run succeeds — failed or cancelled runs are never charged. Saved
+          payment methods, invoices, and receipts live in the Stripe billing
+          portal.
         </p>
+        {billing.status?.card ? (
+          <p className="text-fg" data-testid="card-on-file">
+            Card on file:{" "}
+            <span className="capitalize">{billing.status.card.brand}</span> ••••{" "}
+            {billing.status.card.last4} · expires{" "}
+            {String(billing.status.card.exp_month).padStart(2, "0")}/
+            {billing.status.card.exp_year}
+          </p>
+        ) : billing.status !== null &&
+          !billing.status.has_payment_method ? (
+          <p className="text-fg">
+            No payment method saved yet —{" "}
+            <Link href="/onboarding" className="text-primary hover:underline">
+              set up billing
+            </Link>
+            .
+          </p>
+        ) : null}
         <button
           type="button"
           disabled={billingPending}

@@ -122,6 +122,18 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Auto-billing charge sweep: committed charges whose Stripe call didn't
+	// land (crash, transient Stripe/network error). Card declines flip to
+	// charge_failed inside chargeConversion and leave this sweep.
+	if pending, err := s.Store.ListByPIStatus(ctx, store.PIChargePending, 100); err == nil {
+		for _, conv := range pending {
+			if _, cerr := s.chargeConversion(ctx, conv); cerr != nil {
+				log.Warn("charge sweep failed", "conversion_id", conv.ID, "err", cerr)
+			} else {
+				stats["charge_swept"]++
+			}
+		}
+	}
 	if pending, err := s.Store.ListByPIStatus(ctx, store.PICancelPending, 100); err == nil {
 		for _, conv := range pending {
 			if store.IsTerminal(conv.State) {

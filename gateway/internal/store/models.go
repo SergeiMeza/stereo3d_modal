@@ -7,13 +7,18 @@ import "time"
 
 // Conversion states. State only advances server-side (webhook, reconciler,
 // or user cancel); the client is a pure observer.
+//
+// Legacy hold-mode conversions (mobile PaymentSheet) enter at "created" and
+// need a payment confirmation to reach "paid". Auto-billed pro steps
+// (Stripe.Mode == BillingModeAuto) enter directly at "paid" — billing was
+// verified up front and the charge happens after success.
 const (
-	StateCreated    = "created"    // record + PaymentIntent exist; awaiting payment confirmation
-	StatePaid       = "paid"       // funds held; awaiting Modal submission
+	StateCreated    = "created"    // hold mode only: PaymentIntent exists; awaiting payment confirmation
+	StatePaid       = "paid"       // cleared for submission (hold in place / billing verified)
 	StateProcessing = "processing" // Modal job running
-	StateSucceeded  = "succeeded"  // outputs published; hold captured
-	StateFailed     = "failed"     // pipeline failed; hold canceled
-	StateCanceled   = "canceled"   // user canceled; hold canceled
+	StateSucceeded  = "succeeded"  // outputs published; money captured or charged
+	StateFailed     = "failed"     // pipeline failed; user not charged
+	StateCanceled   = "canceled"   // user canceled; user not charged
 	StateExpired    = "expired"    // never paid (or hold lapsed); terminal
 )
 
@@ -30,6 +35,25 @@ const (
 	PICanceled       = "canceled"
 	PICaptureFailed  = "capture_failed" // uncapturable; Slack-flagged for manual follow-up
 	PICancelFailed   = "cancel_failed"  // already captured; Slack-flagged for manual refund
+
+	// Auto-billing (pay-as-you-go) statuses. charge_pending is the committed
+	// intent to charge after success (reconciler sweeps it); charge_failed is
+	// a card decision that needs the user — it makes the account delinquent
+	// (ListUserByPIStatus) and blocks new paid steps until settled.
+	PIChargePending = "charge_pending"
+	PIChargeFailed  = "charge_failed"
+)
+
+// Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
+// the field).
+const (
+	BillingModeHold = "" // manual-capture hold confirmed by the client (mobile PaymentSheet)
+	BillingModeAuto = "auto" // no hold; charge the saved default card on success
+	// BillingModeAutoHold: pay-as-you-go for expensive runs — an off-session
+	// manual-capture hold on the saved card at creation (no checkout UI),
+	// captured on success. 3DS at creation surfaces as state=created +
+	// billing requires_action until the client confirms.
+	BillingModeAutoHold = "auto_hold"
 )
 
 func IsTerminal(state string) bool {
@@ -108,14 +132,23 @@ type Quote struct {
 }
 
 type Stripe struct {
-	CustomerID      string     `firestore:"customer_id" json:"customer_id"`
-	PaymentIntentID string     `firestore:"payment_intent_id" json:"payment_intent_id"`
+	CustomerID string `firestore:"customer_id" json:"customer_id"`
+	// Mode selects the settlement path: BillingModeHold (legacy PaymentSheet
+	// hold) or BillingModeAuto (charge the saved card on success).
+	Mode string `firestore:"mode,omitempty" json:"mode,omitempty"`
+	// PaymentIntentID: hold modes mint it at creation; auto mode at the first
+	// charge attempt (one PI per conversion across every retry).
+	PaymentIntentID string `firestore:"payment_intent_id,omitempty" json:"payment_intent_id"`
+	// ClientSecret of the hold PI (auto_hold only) — served on the conversion
+	// while state=created so the web client can complete a 3DS challenge with
+	// the saved card. Never in JSON; conversionResponse decides exposure.
+	ClientSecret string     `firestore:"client_secret,omitempty" json:"-"`
 	PIStatus        string     `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
 	CapturedCents   int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
 	CapturedAt      *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
 	CanceledAt      *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
-	// SettleError records a capture/cancel failure for support follow-up
-	// (e.g. hold expired before capture). Never blocks the job result.
+	// SettleError records a capture/cancel/charge failure for support
+	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
 }
 
@@ -160,9 +193,19 @@ type Conversion struct {
 }
 
 type Customer struct {
-	StripeCustomerID string    `firestore:"stripe_customer_id"`
-	Email            string    `firestore:"email,omitempty"`
-	CreatedAt        time.Time `firestore:"created_at"`
+	StripeCustomerID string `firestore:"stripe_customer_id"`
+	Email            string `firestore:"email,omitempty"`
+	// Cached default payment method (refreshed from Stripe by GET
+	// /v1/billing). The conversion-create gate reads this cache — a stale
+	// "has card" is caught by the post-success charge, whose failure blocks
+	// further paid steps.
+	DefaultPaymentMethod string    `firestore:"default_payment_method,omitempty"`
+	CardBrand            string    `firestore:"card_brand,omitempty"`
+	CardLast4            string    `firestore:"card_last4,omitempty"`
+	CardExpMonth         int64     `firestore:"card_exp_month,omitempty"`
+	CardExpYear          int64     `firestore:"card_exp_year,omitempty"`
+	CardUpdatedAt        time.Time `firestore:"card_updated_at,omitempty"`
+	CreatedAt            time.Time `firestore:"created_at"`
 }
 
 // ---------------------------------------------------------------- projects

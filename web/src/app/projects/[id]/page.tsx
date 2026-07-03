@@ -1,4 +1,5 @@
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireBilling } from "@/components/billing/RequireBilling";
 import WorkspaceScreen from "@/screens/WorkspaceScreen";
 
 export default async function ProjectWorkspacePage({
@@ -9,7 +10,9 @@ export default async function ProjectWorkspacePage({
   const { id } = await params;
   return (
     <RequireAuth>
-      <WorkspaceScreen projectId={id} />
+      <RequireBilling>
+        <WorkspaceScreen projectId={id} />
+      </RequireBilling>
     </RequireAuth>
   );
 }

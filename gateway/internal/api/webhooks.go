@@ -13,8 +13,13 @@ import (
 
 // POST /webhooks/stripe — payment lifecycle drives the state machine.
 //
-// amount_capturable_updated (hold confirmed) → created→paid → submit to Modal.
-// canceled / payment_failed → created→expired.
+// Legacy hold mode (mobile PaymentSheet):
+//   amount_capturable_updated (hold confirmed) → created→paid → submit.
+//   canceled → created|paid→expired. payment_failed → log only (retryable).
+//
+// Auto mode (pay-as-you-go pro steps; the PI exists only after success):
+//   succeeded → finalize the charge (3DS fallback lands here).
+//   payment_failed → charge_failed (delinquent; blocks new paid steps).
 //
 // Always 200s on events we don't care about; 4xx only on bad signatures so
 // Stripe retries real delivery failures but not irrelevant events.
@@ -32,9 +37,10 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pi struct {
-		ID       string            `json:"id"`
-		Status   string            `json:"status"`
-		Metadata map[string]string `json:"metadata"`
+		ID             string            `json:"id"`
+		Status         string            `json:"status"`
+		AmountReceived int64             `json:"amount_received"`
+		Metadata       map[string]string `json:"metadata"`
 	}
 	if err := json.Unmarshal(event.Data.Raw, &pi); err != nil {
 		httpx.WriteOK(w, map[string]bool{"received": true})
@@ -69,12 +75,56 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+	case "payment_intent.succeeded":
+		// Auto mode: the charge landed — possibly via the web 3DS fallback
+		// (confirmCardPayment), which settles outside chargeConversion. Fold
+		// the money in and clear the settle error; hold-mode captures already
+		// record this in captureHold (their transition conflicts here on
+		// pi_status and no-ops).
+		now := time.Now().UTC()
+		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if c.Stripe.Mode != store.BillingModeAuto || c.Stripe.PIStatus == store.PISucceeded {
+				return store.ErrStateConflict // legacy capture or already folded
+			}
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = pi.AmountReceived
+			c.Stripe.CapturedAt = &now
+			c.Stripe.SettleError = ""
+			return nil
+		})
+		if err == nil {
+			log.Info("charge settled via webhook", "amount_cents", pi.AmountReceived)
+		} else if !errors.Is(err, store.ErrStateConflict) && !errors.Is(err, store.ErrNotFound) {
+			log.Error("webhook charge settle failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+			return
+		}
+
 	case "payment_intent.payment_failed":
-		// A failed confirmation (card decline) is RETRYABLE — the PI returns
-		// to requires_payment_method and the user can try another card in the
-		// same sheet. Terminal-izing here would strand a later-authorized
-		// hold with no owner. Log only; expiry is createTTL's job.
-		log.Info("payment attempt failed (retryable)", "pi_status", pi.Status)
+		// Hold mode: a failed confirmation (card decline) is RETRYABLE — the
+		// PI returns to requires_payment_method and the user can try another
+		// card in the same sheet; terminal-izing here would strand a
+		// later-authorized hold. Log only; expiry is createTTL's job.
+		// Auto mode: the off-session (or 3DS-fallback) charge attempt died —
+		// commit charge_failed so the account reads delinquent.
+		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if c.Stripe.Mode != store.BillingModeAuto ||
+				(c.Stripe.PIStatus != store.PIChargePending && c.Stripe.PIStatus != store.PIChargeFailed) {
+				return store.ErrStateConflict
+			}
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIChargeFailed
+			if c.Stripe.SettleError == "" {
+				c.Stripe.SettleError = "charge: payment_failed webhook (pi " + pi.Status + ")"
+			}
+			return nil
+		})
+		if err == nil {
+			log.Info("charge attempt failed (webhook); account delinquent", "pi_status", pi.Status)
+		} else {
+			log.Info("payment attempt failed (retryable)", "pi_status", pi.Status)
+		}
 
 	case "payment_intent.canceled":
 		// Stripe-side cancellation is final (our own cancel, or the ~7-day

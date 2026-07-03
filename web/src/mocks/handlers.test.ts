@@ -428,7 +428,8 @@ describe("mock gateway free profile endpoint", () => {
 
 describe("mock gateway success side effects", () => {
   it("a succeeded conversion stamps scene_profile (current scenes version) and exposes depth_vis", async () => {
-    // create → confirm payment → poll to succeeded (one tick per poll)
+    // create (enters at "paid" — billing verified, no payment step) → poll
+    // to succeeded (one tick per poll)
     const createRes = await fetch(`${GATEWAY}/v1/projects/${PID}/conversions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -436,12 +437,8 @@ describe("mock gateway success side effects", () => {
     });
     expect(createRes.status).toBe(200);
     const conv = (await createRes.json()) as Conversion;
-    await fetch(`${GATEWAY}/__mock__/confirm-payment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversion_id: conv.conversion_id }),
-    });
-    let state = "created";
+    expect(conv.state).toBe("paid");
+    let state: string = conv.state;
     for (let i = 0; i < 10 && state !== "succeeded"; i++) {
       const poll = (await (
         await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}`)

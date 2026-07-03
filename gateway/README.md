@@ -1,10 +1,36 @@
 # stereo3d gateway
 
 Production wrapper for the stereo3d Modal API — Go on Cloud Run. Owns client
-auth (Firebase), billing (Stripe auth-then-capture), signed storage URLs, job
+auth (Firebase), billing (Stripe pay-as-you-go for the web pro flow,
+auth-then-capture for the legacy mobile flow), signed storage URLs, job
 history, and support tooling. Architecture and rationale: [DESIGN.md](DESIGN.md).
 
-## Client flow
+## Billing (web pro flow): pay-as-you-go
+
+```
+GET  /v1/billing                      status: saved card, delinquency, unpaid charges
+                                      (ensures the Stripe customer; heals the default card)
+POST /v1/billing/setup-intent         → SetupIntent client_secret for onboarding card capture
+POST /v1/billing/settle               retry outstanding automatic charges on the current card
+POST /v1/billing/portal               Stripe customer portal (manage cards, receipts)
+```
+
+Onboarding saves a card once (SetupIntent, off-session usage — Stripe's $0
+card verification runs at save time). Paid steps 402 (`no_payment_method` /
+`billing_overdue`) unless a card is on file and nothing is owed. Threshold
+hybrid (`holdThresholdCents` constant, $5): quotes at/above it place an
+off-session HOLD on the saved card before the job runs (declines 402 as
+`card_declined`; 3DS parks the conversion at `created` until the web client
+confirms) and capture it on success; smaller quotes skip the hold and charge
+the card only when the conversion SUCCEEDS. The user is never charged for a
+failed run in either path. A failed post-success charge marks the account
+delinquent — results stay available, new paid steps are blocked until
+`/v1/billing/settle` (3DS challenges return the PI client_secret for the web
+confirmCardPayment fallback). The default card is cached on
+`customers_{env}` (Firestore) and refreshed from Stripe on every
+`GET /v1/billing`.
+
+## Legacy client flow (mobile, auth-then-capture)
 
 ```
 POST /v1/customers                    once per sign-in (ensures Stripe customer)
@@ -37,7 +63,9 @@ POST  /v1/projects/{id}/profile        FREE standalone shot profiling (adaptive
                                        state on project.profile
 POST  /v1/projects/{id}/quotes         price a step {step, preset, ...} — no commitment
 POST  /v1/projects/{id}/conversions    paid step conversion (depth_preview |
-                                       stereo_preview | production); same PI flow
+                                       stereo_preview | production); billing gate
+                                       up front (402), starts immediately, saved
+                                       card charged on success
 DELETE /v1/projects/{id}               archive + cancel active conversions
 ```
 
@@ -140,7 +168,8 @@ GCP_PROJECT_ID=... MODAL_WORKSPACE=stereo-crafter-test ./deploy.sh test
 
 # Stripe webhook (dashboard → Developers → Webhooks): <service-url>/webhooks/stripe
 #   events: payment_intent.amount_capturable_updated,
-#           payment_intent.canceled, payment_intent.payment_failed
+#           payment_intent.canceled, payment_intent.payment_failed,
+#           payment_intent.succeeded          # pay-as-you-go charge settlement
 
 # Reconciler (Cloud Scheduler, every minute)
 gcloud scheduler jobs create http stereo3d-gateway-$ENV-reconcile \

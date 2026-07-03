@@ -194,7 +194,6 @@ describe("ProjectsScreen upload", () => {
   });
 
   it("ensures the billing profile (POST /v1/customers) before creating the project", async () => {
-    mockDb.billingProfile = false;
     stubUploadFile();
     const order: string[] = [];
     server.events.on("request:start", ({ request }) => {
@@ -217,7 +216,6 @@ describe("ProjectsScreen upload", () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     expect(order).toEqual(["/v1/customers", "/v1/projects"]);
-    expect(mockDb.billingProfile).toBe(true);
   });
 
   it("rejects files that are not .mp4/.mov/.m4v", async () => {

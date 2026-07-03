@@ -16,6 +16,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/stripe/stripe-go/v78"
+
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
@@ -233,7 +235,8 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 }
 
 // settleSuccess: claim processing→succeeded (with outputs) FIRST, then
-// capture. A concurrent user cancel can no longer race the capture — once
+// settle the money (capture the hold, or charge the saved card in auto
+// mode). A concurrent user cancel can no longer race the settlement — once
 // succeeded is committed, cancel conflicts and returns the terminal state.
 func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job *modalapi.Job) (*store.Conversion, error) {
 	outputs := s.collectOutputs(ctx, conv.ID, job)
@@ -245,7 +248,11 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		c.Modal.Stage = ""
 		c.Modal.CostUSD = job.CostSummary.TotalUSD
 		c.Modal.LastPolledAt = &now
-		c.Stripe.PIStatus = store.PICapturePending
+		if c.Stripe.Mode == store.BillingModeAuto {
+			c.Stripe.PIStatus = store.PIChargePending
+		} else {
+			c.Stripe.PIStatus = store.PICapturePending
+		}
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {
@@ -258,6 +265,9 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		"conversion_id", conv.ID, "uid", conv.UID, "modal_cost_usd", job.CostSummary.TotalUSD)
 	if updated.ProjectID != "" && updated.Kind == "video" {
 		s.foldSceneProfile(ctx, updated, job)
+	}
+	if updated.Stripe.Mode == store.BillingModeAuto {
+		return s.chargeConversion(ctx, updated)
 	}
 	return s.captureHold(ctx, updated)
 }
@@ -388,14 +398,131 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 	return updated, err
 }
 
+// chargeConversion collects the money for a succeeded auto-billed
+// conversion (pi_status=charge_pending): one off-session PaymentIntent per
+// conversion (deterministic idempotency key on create; retries Confirm the
+// same PI), confirmed against the saved default card. Transient failures
+// stay charge_pending for the reconciler sweep; card decisions become
+// charge_failed — the account is then delinquent and new paid steps are
+// blocked until POST /v1/billing/settle (or the web 3DS fallback) clears it.
+func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
+	if conv.State != store.StateSucceeded || conv.Stripe.Mode != store.BillingModeAuto ||
+		conv.Stripe.PIStatus != store.PIChargePending {
+		return conv, nil
+	}
+	cust, err := s.Store.GetCustomer(ctx, conv.UID)
+	if err != nil {
+		return conv, err
+	}
+
+	var pi *stripe.PaymentIntent
+	var chErr error
+	switch {
+	case conv.Stripe.PaymentIntentID != "":
+		pi, chErr = s.Stripe.ConfirmSavedCharge(conv.Stripe.PaymentIntentID, cust.DefaultPaymentMethod)
+	case cust.DefaultPaymentMethod == "":
+		// Card removed between the gate and success — needs the user.
+		return s.recordChargeFailure(ctx, conv, stripex.ChargeFailure{
+			Code: "no_payment_method", Message: "no default payment method on file",
+		})
+	default:
+		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
+			conv.Quote.AmountCents, conv.Quote.Currency, conv.ID, conv.UID)
+	}
+
+	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||
+		pi.Status == stripe.PaymentIntentStatusProcessing) {
+		now := time.Now().UTC()
+		charged := pi.AmountReceived
+		if charged == 0 {
+			charged = pi.Amount // processing: nothing received yet
+		}
+		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = charged
+			c.Stripe.CapturedAt = &now
+			c.Stripe.SettleError = ""
+			return nil
+		})
+		if errors.Is(terr, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID)
+		}
+		slog.InfoContext(ctx, "conversion charged",
+			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
+		return updated, terr
+	}
+
+	var fail stripex.ChargeFailure
+	if chErr != nil {
+		fail = stripex.ClassifyChargeError(chErr)
+	} else {
+		// Confirm "succeeded" but the PI needs more (3DS after a settle
+		// retry, or a stale payment method) — a card decision either way.
+		fail = stripex.ChargeFailure{
+			PaymentIntentID: pi.ID,
+			Code:            string(pi.Status),
+			NeedsAction:     pi.Status == stripe.PaymentIntentStatusRequiresAction,
+			Message:         "payment intent is " + string(pi.Status),
+		}
+	}
+	slog.ErrorContext(ctx, "stripe charge failed",
+		"conversion_id", conv.ID, "uid", conv.UID, "code", fail.Code,
+		"transient", fail.Transient, "needs_action", fail.NeedsAction, "err", fail.Message)
+	return s.recordChargeFailure(ctx, conv, fail)
+}
+
+// recordChargeFailure commits a failed charge attempt. Transient failures
+// keep charge_pending (auto-retried); card decisions become charge_failed
+// and are Slack-flagged once — result already delivered, revenue needs the
+// user (or support).
+func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversion, fail stripex.ChargeFailure) (*store.Conversion, error) {
+	firstFailure := conv.Stripe.SettleError == ""
+	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+		if fail.PaymentIntentID != "" {
+			c.Stripe.PaymentIntentID = fail.PaymentIntentID
+		}
+		c.Stripe.SettleError = "charge: " + fail.Message
+		if !fail.Transient {
+			c.Stripe.PIStatus = store.PIChargeFailed
+		}
+		return nil
+	})
+	if !fail.Transient && firstFailure {
+		s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "charge",
+			fmt.Errorf("%s (%s)", fail.Message, fail.Code))
+	}
+	if errors.Is(err, store.ErrStateConflict) {
+		return s.Store.GetConversion(ctx, conv.ID)
+	}
+	return updated, err
+}
+
 // releaseHold cancels the PaymentIntent for a conversion already committed to
 // a terminal state with pi_status=cancel_pending. Retried by the reconciler
 // sweep. If the PI was already captured (should be impossible under the state
 // machine, but money code assumes nothing), it flags Slack for a manual
 // refund instead of retrying forever.
+//
+// Auto-billed conversions reach here from the shared cancel/failure paths
+// with NO PaymentIntent (nothing is held before success) — finalized with no
+// Stripe call.
 func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
 	if conv.Stripe.PIStatus != store.PICancelPending {
 		return conv, nil
+	}
+	if conv.Stripe.PaymentIntentID == "" {
+		now := time.Now().UTC()
+		updated, err := s.Store.Transition(ctx, conv.ID, []string{conv.State}, func(c *store.Conversion) error {
+			c.Stripe.PIStatus = store.PICanceled
+			c.Stripe.CanceledAt = &now
+			return nil
+		})
+		s.restoreCredit(ctx, conv)
+		if errors.Is(err, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID)
+		}
+		return updated, err
 	}
 	cancelErr := s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
 	now := time.Now().UTC()

@@ -150,6 +150,12 @@ export function ConversionTracker({
           </Button>
         ) : null}
       </div>
+      {conv.state === "created" ? (
+        <p className="mt-3 text-sm text-fg-muted" data-testid="hold-confirming">
+          Confirming the payment hold with your bank — the run starts
+          automatically once it clears.
+        </p>
+      ) : null}
       {!terminal ? <Progress value={pct} className="mt-3 h-1.5" /> : null}
       {conv.state === "succeeded" && showDownloads ? (
         <div className="mt-3">
@@ -161,12 +167,18 @@ export function ConversionTracker({
           )}
         </div>
       ) : null}
+      {conv.state === "succeeded" && conv.billing?.status === "charge_failed" ? (
+        <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
+          The automatic payment for this conversion failed — your results are
+          ready, but settle it (banner above) before starting new work.
+        </p>
+      ) : null}
       {conv.state === "failed" && conv.error ? (
         <p className="mt-3 text-sm text-red-400">{conv.error.message}</p>
       ) : null}
       {conv.state === "canceled" ? (
         <p className="mt-3 text-sm text-fg-muted">
-          Conversion canceled — the payment hold is released.
+          Conversion canceled — you were not charged.
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}

@@ -10,8 +10,8 @@
  */
 
 export type ConversionState =
-  | "created" // record + PaymentIntent exist; awaiting payment confirmation
-  | "paid" // funds held; awaiting Modal submission
+  | "created" // legacy hold flow only; pro steps never surface it
+  | "paid" // billing verified; awaiting Modal submission
   | "processing"
   | "succeeded"
   | "failed"
@@ -200,11 +200,17 @@ export interface ConversionError {
   message: string; // user-safe; always contains the conversion_id for support
 }
 
-export interface PaymentSheet {
-  payment_intent_client_secret: string;
-  ephemeral_key_secret: string;
-  customer_id: string;
-  publishable_key: string;
+/** Automatic-billing state of a pro-step conversion.
+ * requires_action (state=created, expensive runs only): the up-front hold
+ * needs 3DS — complete it with confirmCardPayment(client_secret) and the
+ * webhook starts the job. charge_failed (state=succeeded) means the account
+ * is delinquent — new paid steps 402 with billing_overdue until
+ * POST /v1/billing/settle clears the debt. */
+export interface ConversionBilling {
+  status: "requires_action" | "charge_pending" | "charged" | "charge_failed";
+  charged_cents?: number; // status === "charged"
+  client_secret?: string; // status === "requires_action"
+  publishable_key?: string; // status === "requires_action"
 }
 
 export interface Conversion {
@@ -221,7 +227,8 @@ export interface Conversion {
   eta_seconds?: number;
   outputs?: string[]; // names only (state=succeeded); URLs via /downloads
   error?: ConversionError;
-  payment?: PaymentSheet; // only on create (and idempotent replays while payable)
+  /** how the automatic charge went — succeeded pro-step conversions only */
+  billing?: ConversionBilling;
   created_at: string;
   updated_at: string;
 }
@@ -252,9 +259,65 @@ export interface Downloads {
 
 export interface APIErrorBody {
   success: false;
-  error: string; // machine code: invalid_request | invalid_token | conflict | not_found | payment_error | upstream_error | server_error
+  /** machine code: invalid_request | invalid_token | conflict | not_found |
+   * payment_error | upstream_error | server_error, plus the 402 billing
+   * gates: no_payment_method (onboarding needed) | billing_overdue (an
+   * automatic charge failed — settle before new paid work) | card_declined
+   * (the up-front hold on an expensive run was declined) */
+  error: string;
   message: string;
   details?: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------- billing
+
+/** The saved default card, as cached by the gateway. */
+export interface BillingCard {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+}
+
+/** One succeeded conversion whose automatic charge failed. needs_action
+ * means the bank wants 3DS — confirmCardPayment(client_secret) completes it
+ * with the saved card. */
+export interface UnpaidCharge {
+  conversion_id: string;
+  step?: Step;
+  amount_cents: number;
+  currency: string;
+  needs_action: boolean;
+  client_secret?: string;
+}
+
+/** GET /v1/billing — the pay-as-you-go gate the app routes on: no
+ * has_payment_method → onboarding; delinquent → settle before new paid
+ * steps. */
+export interface BillingStatus {
+  has_payment_method: boolean;
+  card?: BillingCard;
+  delinquent: boolean;
+  unpaid: UnpaidCharge[];
+  publishable_key: string;
+}
+
+/** POST /v1/billing/setup-intent — material for the onboarding Payment
+ * Element (SetupIntent, card saved for off-session charges). */
+export interface BillingSetupTicket {
+  client_secret: string;
+  customer_id: string;
+  publishable_key: string;
+}
+
+/** POST /v1/billing/settle — retries outstanding charges on the current
+ * default card. requires_action carries the 3DS client_secret. */
+export interface BillingSettleResult {
+  settled: boolean;
+  publishable_key: string;
+  requires_action?: boolean;
+  client_secret?: string;
+  message?: string;
 }
 
 // ---------------------------------------------------------------- requests

@@ -18,14 +18,20 @@ Two independent mode switches (`.env.local`, see `.env.local.example`):
 
 | env                       | values                        | what it does                                                                                                                                       |
 | ------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_MOCK`    | `1` / unset                   | `1` = MSW mock gateway in the browser (fixtures from `fixtures/`, fake checkout). Unset = real gateway.                                            |
+| `NEXT_PUBLIC_API_MOCK`    | `1` / unset                   | `1` = MSW mock gateway in the browser (fixtures from `fixtures/`, fake card setup/billing). Unset = real gateway.                                  |
 | `NEXT_PUBLIC_AUTH_MODE`   | `mock` (default) / `firebase` | `mock` = fixed dev user, token `mock-token`. `firebase` = real Firebase auth (Google / email+password) against the `spatial-video-studio` project. |
 | `NEXT_PUBLIC_GATEWAY_URL` | URL                           | gateway base; default `http://localhost:8787`                                                                                                      |
 
 The Firebase web config is hardcoded (public by design) in
 `src/lib/firebase.ts`; `NEXT_PUBLIC_FIREBASE_*` envs only override it.
-Stripe's publishable key arrives per-conversion from the gateway
-(`payment.publishable_key`) — the client needs no Stripe env at all.
+Stripe's publishable key arrives at runtime from the gateway
+(`GET /v1/billing`, the onboarding SetupIntent, and 3DS fallbacks all carry
+it) — the client needs no Stripe env at all.
+
+Billing is pay-as-you-go: `/onboarding` captures a card (gateway
+SetupIntent) before `/projects` is reachable; paid steps then bill the
+saved card automatically — expensive runs hold-then-capture, cheap runs
+charge on success — with failures surfaced in-app (banner + 3DS confirm).
 
 ## Environments
 
