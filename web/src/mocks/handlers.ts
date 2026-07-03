@@ -111,7 +111,7 @@ function seed(): DB {
       unpaid: [],
       settleOutcome: "success",
       nextChargeFails: false,
-      holdThresholdCents: 500,
+      holdThresholdCents: 10000,
       nextHoldRequiresAction: false,
       nextHoldFails: false,
     },

@@ -26,10 +26,11 @@ const unpaidLimit = 10
 
 // holdThresholdCents: quotes at or above this place an off-session hold on
 // the saved card BEFORE the job runs (captured on success); below it the
-// card is charged only on success with no hold — cheap previews don't leave
-// pending charges on statements. Code constant by design (revisit alongside
-// the estimate-accuracy work).
-const holdThresholdCents = 500
+// card is charged only on success with no hold — everyday runs don't leave
+// pending charges on statements. Raised $5 → $100 with the 2026-07-03
+// pricing recalibration (quotes grew ~10×; at $5 nearly every run held).
+// Code constant by design.
+const holdThresholdCents = 10000
 
 // refreshCardCache reads the live default payment method from Stripe and
 // folds it into the uid → customer cache the conversion-create gate reads.

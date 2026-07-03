@@ -18,7 +18,7 @@ POST /v1/billing/portal               Stripe customer portal (manage cards, rece
 Onboarding saves a card once (SetupIntent, off-session usage — Stripe's $0
 card verification runs at save time). Paid steps 402 (`no_payment_method` /
 `billing_overdue`) unless a card is on file and nothing is owed. Threshold
-hybrid (`holdThresholdCents` constant, $5): quotes at/above it place an
+hybrid (`holdThresholdCents` constant, $100): quotes at/above it place an
 off-session HOLD on the saved card before the job runs (declines 402 as
 `card_declined`; 3DS parks the conversion at `created` until the web client
 confirms) and capture it on success; smaller quotes skip the hold and charge
