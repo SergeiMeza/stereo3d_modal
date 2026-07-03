@@ -27,10 +27,13 @@ type Rates struct {
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
 
-	// Pro step pipeline (web/DESIGN.md): preview passes are flat per-minute
-	// (they run at draft tiers / reduced fps upstream, so GPU cost is low).
-	DepthPreviewCentsPerMinute  int64 `firestore:"depth_preview_cents_per_minute"`
-	StereoPreviewCentsPerMinute int64 `firestore:"stereo_preview_cents_per_minute"`
+	// Pro step pipeline (web/DESIGN.md). Depth previews are flat per-minute
+	// (the depth factor carries the resolution scaling); stereo previews
+	// are PER-PRESET like production — the preview does the same
+	// splat/inpaint work as production at that preset, so a flat rate
+	// underpriced 4k by ~2× (and overcharged draft).
+	DepthPreviewCentsPerMinute  int64            `firestore:"depth_preview_cents_per_minute"`
+	StereoPreviewCentsPerMinute map[string]int64 `firestore:"stereo_preview_cents_per_minute"`
 	// AnalyzeCreditCents: the free analyze step's cost, credited back as a
 	// discount on the project's first paid conversion.
 	AnalyzeCreditCents int64 `firestore:"analyze_credit_cents"`
@@ -86,20 +89,26 @@ func defaults() *Rates {
 		CentsPerMinute: map[string]int64{
 			"draft": 200, "1080p": 250, "qhd": 350, "3k": 400, "4k": 500,
 		},
-		ImageCents:                  50,
-		MinimumCents:                50, // Stripe practical minimum
-		DiscountThresholdCents:      1000,
-		DiscountPct:                 0.10,
-		DepthPreviewCentsPerMinute:  125,
-		StereoPreviewCentsPerMinute: 200,
-		AnalyzeCreditCents:          50,
-		StageShares:                 map[string]float64{"depth": 0.35, "preprocess": 0.05},
-		DepthResBase:                980,
-		DepthFactorCeiling:          5.0,
-		InpaintMultiplier:           1.6,
-		MaxDurationS:                30 * 60,
-		MaxSourceBytes:              8 << 30,
-		MaxActivePerUser:            3,
+		ImageCents:                 50,
+		MinimumCents:               50, // Stripe practical minimum
+		DiscountThresholdCents:     1000,
+		DiscountPct:                0.10,
+		DepthPreviewCentsPerMinute: 125,
+		// Per-preset stereo preview rates (splatted baseline; the ×1.6
+		// inpaint multiplier applies on top for propainter). 1080p keeps
+		// the original 200¢ anchor; the higher presets scale with the
+		// measured splat/inpaint cost of their output resolution.
+		StereoPreviewCentsPerMinute: map[string]int64{
+			"draft": 150, "1080p": 200, "qhd": 280, "3k": 320, "4k": 400,
+		},
+		AnalyzeCreditCents: 50,
+		StageShares:        map[string]float64{"depth": 0.35, "preprocess": 0.05},
+		DepthResBase:       980,
+		DepthFactorCeiling: 5.0,
+		InpaintMultiplier:  1.6,
+		MaxDurationS:       30 * 60,
+		MaxSourceBytes:     8 << 30,
+		MaxActivePerUser:   3,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,
 		},
@@ -361,7 +370,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	case "depth_preview":
 		perMin = rates.DepthPreviewCentsPerMinute
 	case "stereo_preview":
-		perMin = rates.StereoPreviewCentsPerMinute
+		var ok bool
+		if perMin, ok = rates.StereoPreviewCentsPerMinute[in.Preset]; !ok {
+			return nil, fmt.Errorf("no stereo_preview rate for preset %q", in.Preset)
+		}
 	case "production":
 		var ok bool
 		if perMin, ok = rates.CentsPerMinute[in.Preset]; !ok {

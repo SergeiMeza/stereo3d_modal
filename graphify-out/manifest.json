@@ -190,9 +190,9 @@
     "semantic_hash": "87b3eea08d0f989d15f388d12583009f"
   },
   "app/stages/video_stereo.py": {
-    "mtime": 1782974020.0840485,
-    "ast_hash": "4d3fe20eaa28818bb70164f78936c6ba",
-    "semantic_hash": "4d3fe20eaa28818bb70164f78936c6ba"
+    "mtime": 1783071069.04035,
+    "ast_hash": "2c2b78c8db9efbbb32d102b4749eae4c",
+    "semantic_hash": ""
   },
   "app/stages/video_stereo_m2svid.py": {
     "mtime": 1782974040.600914,
@@ -830,13 +830,13 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1783068418.7781706,
-    "ast_hash": "b12808bf8fd9aaeb9a4a17ab825031ea",
+    "mtime": 1783068856.6959333,
+    "ast_hash": "34d6b36694d5ba8ccd3bbf3d5046a467",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
-    "mtime": 1783068418.7654076,
-    "ast_hash": "7731f36c979930979ebfaeb84ebcfb5e",
+    "mtime": 1783068856.6836557,
+    "ast_hash": "f178c1f1e3741b6742ae16ec8f01237f",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/testhelper_test.go": {
@@ -1510,8 +1510,8 @@
     "semantic_hash": ""
   },
   "web/src/mocks/handlers.ts": {
-    "mtime": 1783064050.8926039,
-    "ast_hash": "cbb6dac94cc749431421837030387402",
+    "mtime": 1783068850.4164906,
+    "ast_hash": "0d55c97bc7ec6ff91c9879b65122e9d0",
     "semantic_hash": ""
   },
   "web/src/mocks/server.ts": {
@@ -2147,6 +2147,11 @@
   "web/src/components/steps/stageLabels.ts": {
     "mtime": 1783067473.1561737,
     "ast_hash": "3274445ed24edcd2ea3dd00b89d61cc6",
+    "semantic_hash": ""
+  },
+  "tests/test_stereo_batch.py": {
+    "mtime": 1783071084.496163,
+    "ast_hash": "cd9a9f80e458f5e84a9039965b95a4c8",
     "semantic_hash": ""
   }
 }

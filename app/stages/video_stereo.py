@@ -39,13 +39,28 @@ with stereo_image.imports():
     from app.stages.splat import BOTH, DEFAULT_PLACEMENT, LEFT, RIGHT, DepthSplatter
 
 
-def _pick_batch_size(num_frames: int) -> int:
-    """Largest n in [20, 30] such that the final batch is not a single
-    frame (a 1-frame ProPainter window has no flow to work with)."""
-    for n in range(30, 19, -1):
+# ProPainter's VRAM working set scales with WINDOW FRAMES × INPAINT-RES
+# PIXELS. The proven-safe operating point is 30 frames at ~1.24 MP (the
+# @720-tier benchmarks, which also fit a 48 GB L40S); 30 frames at 2.79 MP
+# — the 4k preset on a 2.39:1 source, inpaint short side 1080 — OOMed a
+# 140 GB H200 at ~120 GB resident (job c51480d2c0aa, 2026-07-03). Budget
+# window × MP to the proven point and shrink the window as the inpaint res
+# grows. Smaller windows trade a little temporal fill context for actually
+# finishing.
+_PROPAINTER_MP_FRAMES_BUDGET = 30 * 1.24  # ≈37 MP·frames
+
+
+def _pick_batch_size(num_frames: int, work_mp: float = 0.9) -> int:
+    """Largest ProPainter window n in [8, 30] whose working set fits the
+    budget (n × work_mp ≤ _PROPAINTER_MP_FRAMES_BUDGET, see above), such
+    that the final batch is not a single frame (a 1-frame ProPainter
+    window has no flow to work with). ``work_mp``: inpaint working
+    resolution in megapixels."""
+    cap = max(8, min(30, int(_PROPAINTER_MP_FRAMES_BUDGET / max(work_mp, 0.1))))
+    for n in range(cap, 7, -1):
         if num_frames % n != 1:
             return n
-    return 20
+    return 8
 
 
 # target segment length in frames (~10s @ 24fps); each segment is an
@@ -279,7 +294,9 @@ class VideoStereoWorker:
         )
 
         if batch_size is None:
-            batch_size = _pick_batch_size(num_frames)
+            batch_size = _pick_batch_size(
+                num_frames, work_height * work_width / 1e6
+            )
         seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
         range_start, range_end = frame_range or (0, num_frames)
         logger.info(

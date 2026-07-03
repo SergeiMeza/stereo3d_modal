@@ -41,7 +41,16 @@ const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 // Modal cost of a measured run — see gateway/internal/pricing/pricing.go).
 const RATES = {
   centsPerMinute: { draft: 200, "1080p": 250, qhd: 350, "3k": 400, "4k": 500 },
-  stepCentsPerMinute: { depth_preview: 125, stereo_preview: 200 },
+  stepCentsPerMinute: { depth_preview: 125 },
+  // per-preset stereo preview rates (splatted baseline; ×1.6 inpaint on
+  // top) — mirrors the gateway's StereoPreviewCentsPerMinute map
+  stereoPreviewCentsPerMinute: {
+    draft: 150,
+    "1080p": 200,
+    qhd: 280,
+    "3k": 320,
+    "4k": 400,
+  } as Record<string, number>,
   minimumCents: 50,
   discountThresholdCents: 1000,
   discountPct: 0.1,
@@ -352,7 +361,9 @@ function quoteFor(
   const perMin =
     step === "production"
       ? RATES.centsPerMinute[preset as keyof typeof RATES.centsPerMinute]
-      : RATES.stepCentsPerMinute[step];
+      : step === "stereo_preview"
+        ? RATES.stereoPreviewCentsPerMinute[preset]
+        : RATES.stepCentsPerMinute[step];
   // Uploaded depth map: the depth stage is skipped (no resolution factor,
   // unconditional depth-share reuse discount) and the run is forced to the
   // FULL source rate — the upload is frame-exact against the source.
