@@ -64,6 +64,9 @@ export function DeliverPanel({
   // "use pipeline default" escapes for the inherited settings
   const [depthDefault, setDepthDefault] = useState(false);
   const [stereoDefault, setStereoDefault] = useState(false);
+  // explicit opt-in: run against the project's uploaded depth map instead
+  // of the inherited depth run (skips the depth stage entirely)
+  const [useUploadedDepth, setUseUploadedDepth] = useState(false);
 
   const productionRuns = (project.conversions ?? []).filter(
     (c) => c.step === "production",
@@ -97,12 +100,16 @@ export function DeliverPanel({
     .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
   const inheritedDepthRes = lastDepthRun?.params.depth_res;
+  const depthUpload = project.depth_upload;
   const stereoDraft = loadStereoDraft(project.project_id, scenes.version);
   const sceneOverrides = draftToSceneOverrides(stereoDraft, [0, ...scenes.cuts]);
   const hasStereoTweaks =
     sceneOverrides.length > 0 || stereoDraft.depth_scale !== 1;
 
-  const sendDepthRes = !depthDefault && inheritedDepthRes !== undefined;
+  // The uploaded depth map (explicit opt-in) beats the inherited depth run.
+  const sendUpload = useUploadedDepth && depthUpload !== undefined;
+  const sendDepthRes =
+    !sendUpload && !depthDefault && inheritedDepthRes !== undefined;
   const sendStereo = !stereoDefault && hasStereoTweaks;
 
   function buildRequest(over: { fromScratch?: boolean } = {}): StepConversionRequest {
@@ -115,6 +122,7 @@ export function DeliverPanel({
       // default) — the cheap "splatted" opt-out is deliberately not
       // exposed in the UI this release.
       inpaint: "propainter",
+      ...(sendUpload ? { use_uploaded_depth: true } : {}),
       ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
       ...(sendStereo && stereoDraft.depth_scale !== 1
         ? { depth_scale: stereoDraft.depth_scale }
@@ -192,6 +200,29 @@ export function DeliverPanel({
             </span>
           )}
         </div>
+        {depthUpload !== undefined ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              data-testid="deliver-chip-depth-upload"
+              className={`rounded-full border px-2 py-0.5 text-xs ${
+                sendUpload
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-edge bg-surface-2 text-fg-muted"
+              }`}
+            >
+              Uploaded depth map
+              {depthUpload.name ? ` — ${depthUpload.name}` : ""}
+            </span>
+            <CheckboxChip
+              label="Use uploaded depth map (skips the depth stage)"
+              checked={useUploadedDepth}
+              onChange={() => {
+                setUseUploadedDepth((v) => !v);
+                ck.invalidate();
+              }}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           {hasStereoTweaks ? (
             <>

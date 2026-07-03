@@ -47,7 +47,7 @@ const (
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
 // the field).
 const (
-	BillingModeHold = "" // manual-capture hold confirmed by the client (mobile PaymentSheet)
+	BillingModeHold = ""     // manual-capture hold confirmed by the client (mobile PaymentSheet)
 	BillingModeAuto = "auto" // no hold; charge the saved default card on success
 	// BillingModeAutoHold: pay-as-you-go for expensive runs — an off-session
 	// manual-capture hold on the saved card at creation (no checkout UI),
@@ -101,6 +101,11 @@ type Params struct {
 	SceneCuts      []int           `firestore:"scene_cuts,omitempty" json:"scene_cuts,omitempty"`
 	SceneOverrides []SceneOverride `firestore:"scene_overrides,omitempty" json:"scene_overrides,omitempty"`
 	SkipReuse      bool            `firestore:"skip_reuse,omitempty" json:"skip_reuse,omitempty"` // from-scratch: bypass content-addressed reuse
+	// DepthSource is the bucket key of the project's USER-UPLOADED depth
+	// video (resolved server-side from use_uploaded_depth — never taken
+	// from the client). When set, Modal skips the depth stage and uses
+	// this file; quotes discount the depth share unconditionally.
+	DepthSource string `firestore:"depth_source,omitempty" json:"depth_source,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -142,11 +147,11 @@ type Stripe struct {
 	// ClientSecret of the hold PI (auto_hold only) — served on the conversion
 	// while state=created so the web client can complete a 3DS challenge with
 	// the saved card. Never in JSON; conversionResponse decides exposure.
-	ClientSecret string     `firestore:"client_secret,omitempty" json:"-"`
-	PIStatus        string     `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
-	CapturedCents   int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
-	CapturedAt      *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
-	CanceledAt      *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
+	ClientSecret  string     `firestore:"client_secret,omitempty" json:"-"`
+	PIStatus      string     `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
+	CapturedCents int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
+	CapturedAt    *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
+	CanceledAt    *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
 	// SettleError records a capture/cancel/charge failure for support
 	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
@@ -299,6 +304,24 @@ type ProfileShot struct {
 	Placement    []float64 `firestore:"placement,omitempty" json:"placement,omitempty"`
 }
 
+// DepthUpload is a user-provided depth video registered on the project
+// (POST /v1/projects/{id}/depth-map): a bucket key from the standard
+// signed-PUT upload flow, ffprobe-validated to be frame-exact against the
+// source (frames == probe.num_frames — the pipeline re-verifies against
+// the actual preprocess). Conversions created with use_uploaded_depth run
+// against this file instead of computing depth.
+type DepthUpload struct {
+	// GCSKey stays server-side (json:"-"): clients reference the upload via
+	// use_uploaded_depth, never by key.
+	GCSKey    string    `firestore:"gcs_key" json:"-"`
+	Name      string    `firestore:"name,omitempty" json:"name,omitempty"`
+	Frames    int       `firestore:"frames" json:"frames"`
+	Width     int       `firestore:"width" json:"width"`
+	Height    int       `firestore:"height" json:"height"`
+	Bytes     int64     `firestore:"bytes" json:"bytes"`
+	CreatedAt time.Time `firestore:"created_at" json:"created_at"`
+}
+
 type Project struct {
 	ID           string        `firestore:"-" json:"project_id"`
 	UID          string        `firestore:"uid" json:"-"`
@@ -310,6 +333,7 @@ type Project struct {
 	Scenes       *Scenes       `firestore:"scenes,omitempty" json:"scenes,omitempty"`
 	SceneProfile *SceneProfile `firestore:"scene_profile,omitempty" json:"scene_profile,omitempty"`
 	Profile      *ProfileJob   `firestore:"profile,omitempty" json:"profile,omitempty"`
+	DepthUpload  *DepthUpload  `firestore:"depth_upload,omitempty" json:"depth_upload,omitempty"`
 	Crop         string        `firestore:"crop,omitempty" json:"crop,omitempty"`
 	PreviewURL   string        `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
 	StripThumbs  []Thumb       `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`

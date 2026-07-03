@@ -427,3 +427,66 @@ func TestResolvePassthroughExclusiveWithDepthKnobs(t *testing.T) {
 		SceneOverrides: []sceneOverrideReq{{First: 240, Passthrough: true, Displacement: 0.01}}},
 		"cannot be combined")
 }
+
+// ------------------------------------------------------------- depth upload
+
+// uploadProject is proProject with a registered depth-map upload.
+func uploadProject() *store.Project {
+	p := proProject()
+	p.DepthUpload = &store.DepthUpload{
+		GCSKey: "uploads/users/u1/dm1.mp4", Name: "my-depth.mp4",
+		Frames: 2400, Width: 1920, Height: 1080, Bytes: 1 << 20,
+	}
+	return p
+}
+
+func TestResolveUseUploadedDepth(t *testing.T) {
+	p := resolveOKP(t, &stepConvReq{Step: store.StepStereoPreview, UseUploadedDepth: true,
+		TargetFPS: 12}, uploadProject())
+	if p.DepthSource != "uploads/users/u1/dm1.mp4" {
+		t.Errorf("want DepthSource resolved from the project, got %q", p.DepthSource)
+	}
+	// the upload is frame-exact against the FULL source, so the half-rate
+	// preview default (and any explicit decimation) is cleared
+	if p.TargetFPS != 0 {
+		t.Errorf("want TargetFPS cleared to 0 (full source rate), got %v", p.TargetFPS)
+	}
+	if p.DepthRes != 0 {
+		t.Errorf("want DepthRes 0 with an uploaded depth, got %d", p.DepthRes)
+	}
+}
+
+func TestResolveUseUploadedDepthRejections(t *testing.T) {
+	// no upload registered on the project
+	resolveErr(t, &stepConvReq{Step: store.StepStereoPreview, UseUploadedDepth: true},
+		"no uploaded depth map")
+	// meaningless on the depth step
+	resolveErrP(t, &stepConvReq{Step: store.StepDepthPreview, UseUploadedDepth: true},
+		uploadProject(), "stereo_preview and production")
+	// mutually exclusive with depth_res
+	resolveErrP(t, &stepConvReq{Step: store.StepProduction, UseUploadedDepth: true,
+		DepthRes: 980}, uploadProject(), "mutually exclusive")
+	// trims cannot match a full-length frame-exact depth file
+	resolveErrP(t, &stepConvReq{Step: store.StepProduction, UseUploadedDepth: true,
+		FromFrame: 10, ToFrame: 100}, uploadProject(), "does not support trimming")
+}
+
+func TestStepQuoteInputsUploadedDepthSkipsFactor(t *testing.T) {
+	svc := &Service{}
+	p := uploadProject()
+	params := resolveOKP(t, &stepConvReq{Step: store.StepStereoPreview,
+		UseUploadedDepth: true}, p)
+	in := svc.stepQuoteInputs(p, params, store.StepStereoPreview, 100)
+	if in.DepthRes != 0 {
+		t.Errorf("uploaded depth must not carry a depth_res factor, got %d", in.DepthRes)
+	}
+	if in.EffectiveFPS != 24 {
+		t.Errorf("uploaded depth runs at the source rate; want EffectiveFPS 24, got %v", in.EffectiveFPS)
+	}
+	// without the upload the preset default applies (regression guard)
+	params2 := resolveOKP(t, &stepConvReq{Step: store.StepStereoPreview}, p)
+	in2 := svc.stepQuoteInputs(p, params2, store.StepStereoPreview, 100)
+	if in2.DepthRes != 980 {
+		t.Errorf("want preset-default depth_res 980, got %d", in2.DepthRes)
+	}
+}

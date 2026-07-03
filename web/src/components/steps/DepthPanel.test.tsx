@@ -758,12 +758,12 @@ describe("DepthPanel depth-map export / import", () => {
     expect(link.getAttribute("download")).not.toBeNull();
   });
 
-  it("imports a local depth video into the compare slot (object URL, review-only) and clears back to the run's depth_vis", async () => {
+  it("uploads a local depth video: compare-slot preview immediately, then registered on the project (signed PUT + depth-map POST)", async () => {
     const createObjectURL = vi.fn(() => "blob:imported-depth");
     const revokeObjectURL = vi.fn();
     Object.assign(URL, { createObjectURL, revokeObjectURL });
 
-    const { depth } = await renderWithDepth();
+    const { depth, onProjectChanged } = await renderWithDepth();
     expect(depth.getAttribute("src")).toBe(REAL_DOWNLOADS.depth_vis);
 
     const user = userEvent.setup();
@@ -776,12 +776,18 @@ describe("DepthPanel depth-map export / import", () => {
     expect(screen.getByTestId("depth-video-badge").textContent).toBe(
       "imported depth",
     );
-    // the note names the file and that nothing is uploaded
     const note = screen.getByTestId("imported-depth-note");
     expect(note.textContent).toContain("my-depth.mp4");
-    expect(note.textContent).toContain("local review only");
 
-    // clearing reverts to the run's depth_vis and revokes the object URL
+    // the SAME file registers on the project (ticket → PUT → depth-map):
+    // the mock stamps depth_upload and the panel asks for a refetch
+    await waitFor(() => expect(onProjectChanged).toHaveBeenCalled());
+    const stored = mockDb.projects.get(FIXTURE.project_id)!;
+    expect(stored.depth_upload?.name).toBe("my-depth.mp4");
+    expect(stored.depth_upload?.frames).toBe(FIXTURE.probe!.num_frames);
+
+    // clearing the LOCAL preview reverts to the run's depth_vis and revokes
+    // the object URL (the registration itself stays)
     fireEvent.click(screen.getByLabelText("Clear imported depth map"));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:imported-depth");
     expect(
@@ -790,7 +796,7 @@ describe("DepthPanel depth-map export / import", () => {
     expect(screen.getByTestId("depth-video-badge").textContent).toBe("depth_vis");
   });
 
-  it("import works with NO depth run — an external depth map previews beside the source", async () => {
+  it("upload works with NO depth run — an external depth map previews beside the source", async () => {
     const createObjectURL = vi.fn(() => "blob:external-depth");
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
 
@@ -806,5 +812,46 @@ describe("DepthPanel depth-map export / import", () => {
     expect(screen.getByTestId("depth-video-badge").textContent).toBe(
       "imported depth",
     );
+  });
+
+  it("surfaces the gateway's frame-exactness rejection inline", async () => {
+    Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:bad"),
+      revokeObjectURL: vi.fn(),
+    });
+    renderPanel();
+
+    const user = userEvent.setup();
+    // the mock 400s keys/names containing "badframes", mirroring the
+    // gateway's ffprobe frame-count validation
+    const file = new File(["x"], "badframes.mp4", { type: "video/mp4" });
+    await user.upload(screen.getByLabelText("Depth map file"), file);
+
+    const errNote = await screen.findByTestId("depth-upload-error");
+    expect(errNote.textContent).toContain("must be frame-exact");
+    expect(mockDb.projects.get(FIXTURE.project_id)!.depth_upload).toBeUndefined();
+  });
+
+  it("shows the on-file chip for a registered depth map and removes it via DELETE", async () => {
+    const project = fixtureProject({
+      depth_upload: {
+        name: "graded-depth.mp4",
+        frames: FIXTURE.probe!.num_frames,
+        width: FIXTURE.probe!.width,
+        height: FIXTURE.probe!.height,
+        bytes: 1 << 20,
+        created_at: "2026-07-03T08:00:00Z",
+      },
+    });
+    mockDb.projects.get(FIXTURE.project_id)!.depth_upload =
+      project.depth_upload;
+    const { onProjectChanged } = renderPanel(project);
+
+    const chip = screen.getByTestId("depth-upload-chip");
+    expect(chip.textContent).toContain("graded-depth.mp4");
+
+    fireEvent.click(screen.getByLabelText("Remove uploaded depth map"));
+    await waitFor(() => expect(onProjectChanged).toHaveBeenCalled());
+    expect(mockDb.projects.get(FIXTURE.project_id)!.depth_upload).toBeUndefined();
   });
 });

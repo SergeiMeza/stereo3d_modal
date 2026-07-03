@@ -9,6 +9,7 @@ artifacts).
 from app.common import reuse
 from app.pipelines.video import (
     PRESETS,
+    depth_lookup_keys,
     normalize_video_request,
     reuse_request_keys,
 )
@@ -91,9 +92,13 @@ def test_shared_derivation_differs_from_the_old_raw_paths():
     # pipeline's (preset target_height=1080)
     assert old_endpoint_pp != pp_key
     # and the old pipeline's depth key hashed the preset's input_size, not
-    # the request's depth_res — both diverge from the shared derivation
-    assert d_key == reuse.depth_key(pp_key, "vda", 1960, "vitl")
-    assert d_key != reuse.depth_key(pp_key, "vda", old_pipeline_input_size, "vitl")
+    # the request's depth_res — both diverge from the shared derivation.
+    # (The depth key hangs off the output-res-independent SOURCE identity,
+    # not pp_key — see the preset-independence section below.)
+    src_key = reuse.depth_source_key(
+        _GATEWAY_BODY["input_path"], True, _GATEWAY_BODY["target_fps"], None)
+    assert d_key == reuse.depth_key(src_key, "vda", 1960, "vitl")
+    assert d_key != reuse.depth_key(src_key, "vda", old_pipeline_input_size, "vitl")
 
 
 def test_trim_fields_feed_the_preprocess_key():
@@ -169,3 +174,56 @@ def test_request_passthrough_overrides_reach_the_depth_key():
     styled = reuse_request_keys({**base, "scene_overrides": [
         {"first": 100, "displacement": 0.02}]})
     assert styled[1] == plain[1]
+
+
+# --------------------------------------------- preset-independent depth identity
+
+def test_depth_key_is_preset_independent():
+    # THE fb003da4da11 bug: the Depth page books preset draft
+    # (target_height 1080); a 4k stereo/production run (target_height 2160)
+    # must still reuse its depth artifact — the model resizes to input_size
+    # either way and the stereo stage rescales depth to any work dims.
+    common = {"input_path": "u/p1/source.mp4", "depth_res": 1596,
+              "target_fps": 24, "scene_cuts": [266, 314]}
+    draft = reuse_request_keys({**common, "preset": "draft"})
+    four_k = reuse_request_keys({**common, "preset": "4k"})
+    ten80 = reuse_request_keys({**common, "preset": "1080p"})
+    # different work files (preprocess keys differ where target_height does)…
+    assert draft[0] != four_k[0]
+    # …but ONE depth artifact across every preset
+    assert draft[1] == four_k[1] == ten80[1]
+
+
+def test_depth_key_still_tracks_frame_content_and_count():
+    common = {"input_path": "u/p1/source.mp4", "preset": "draft",
+              "depth_res": 1596, "target_fps": 24}
+    base = reuse_request_keys(dict(common))
+    # fps decimation changes the frame COUNT → different depth
+    assert reuse_request_keys({**common, "target_fps": 12})[1] != base[1]
+    # crop changes the frame CONTENT → different depth
+    assert reuse_request_keys({**common, "crop": "3840:1606:0:277"})[1] != base[1]
+    # trim changes the frame set → different depth
+    assert reuse_request_keys({**common, "from_frame": 10, "to_frame": 99})[1] != base[1]
+    # resolution knob is still identity
+    assert reuse_request_keys({**common, "depth_res": 980})[1] != base[1]
+
+
+# ------------------------------------------------- passthrough lookup fallback
+
+def test_depth_lookup_keys_fall_back_to_the_base_artifact():
+    # a FULL depth artifact serves ANY passthrough set (the stereo stage
+    # never reads passthrough scenes' depth), so the lookup tries the
+    # exact key first and then the no-passthrough base key
+    base = {**_GATEWAY_BODY, "scene_cuts": [100, 400]}
+    plain_d = reuse_request_keys(dict(base))[1]
+    pt_req = {**base, "scene_overrides": [{"first": 100, "passthrough": True}]}
+    keys = depth_lookup_keys(pt_req)
+    assert keys == [reuse_request_keys(pt_req)[1], plain_d]
+    assert keys[0] != keys[1]
+
+
+def test_depth_lookup_keys_without_passthrough_is_exact_only():
+    # no widening in the other direction: a black-segmented artifact must
+    # never serve a run that wants those scenes in 3D
+    base = {**_GATEWAY_BODY, "scene_cuts": [100, 400]}
+    assert depth_lookup_keys(dict(base)) == [reuse_request_keys(dict(base))[1]]

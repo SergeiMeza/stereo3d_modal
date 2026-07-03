@@ -171,16 +171,19 @@ export default function WorkspaceScreen({
     probe !== undefined &&
     scenes !== undefined;
 
-  // The Stereo page builds on the Cut page's scenes AND the Depth page's
-  // depth map — it stays locked until both exist (the rail disables the
-  // tab; deep links get an explanatory card instead of the panel).
-  const hasDepthRun = (project.conversions ?? []).some(
-    (c) => c.step === "depth_preview" && c.state === "succeeded",
-  );
+  // The Stereo page builds on the Cut page's scenes AND a depth map — a
+  // succeeded Depth run or an uploaded one. It stays locked until both
+  // exist (the rail disables the tab; deep links get an explanatory card
+  // instead of the panel).
+  const hasDepthMap =
+    project.depth_upload !== undefined ||
+    (project.conversions ?? []).some(
+      (c) => c.step === "depth_preview" && c.state === "succeeded",
+    );
   const stereoLockReason = !ready
     ? "Stereo unlocks after analysis — scene cuts come first"
-    : !hasDepthRun
-      ? "Run a Depth preview first — Stereo builds on its depth map"
+    : !hasDepthMap
+      ? "Run a Depth preview (or upload a depth map) first — Stereo builds on it"
       : undefined;
   const locked: Partial<Record<WorkspaceTabId, string>> = stereoLockReason
     ? { stereo: stereoLockReason }

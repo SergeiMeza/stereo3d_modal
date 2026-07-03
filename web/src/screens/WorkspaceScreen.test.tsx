@@ -1263,7 +1263,7 @@ describe("Stereo tab gating", () => {
     // the panel is replaced by the lock card pointing at the Depth page
     fireEvent.keyDown(window, { key: "4" });
     const lock = await screen.findByTestId("stereo-locked");
-    expect(lock.textContent).toContain("Run a Depth preview first");
+    expect(lock.textContent).toContain("Run a Depth preview");
     expect(screen.queryByTestId("step-card-stereo_preview")).toBeNull();
     fireEvent.click(within(lock).getByRole("button", { name: "Go to Depth" }));
     expect(screen.getByTestId("step-card-depth_preview")).toBeTruthy();
@@ -1280,5 +1280,24 @@ describe("Stereo tab gating", () => {
       await screen.findByTestId("step-card-stereo_preview"),
     ).toBeTruthy();
     expect(screen.queryByTestId("stereo-locked")).toBeNull();
+  });
+
+  it("an uploaded depth map also unlocks Stereo (no depth run needed)", async () => {
+    mockDb.projects.get(PID)!.depth_upload = {
+      name: "graded-depth.mp4",
+      frames: PROBE.num_frames,
+      width: PROBE.width,
+      height: PROBE.height,
+      bytes: 1 << 20,
+      created_at: "2026-07-03T08:00:00Z",
+    };
+    await renderWorkspace();
+
+    const tab = screen.getByTestId("tab-stereo");
+    expect(tab.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(tab);
+    expect(
+      await screen.findByTestId("step-card-stereo_preview"),
+    ).toBeTruthy();
   });
 });

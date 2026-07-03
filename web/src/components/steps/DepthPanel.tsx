@@ -21,11 +21,14 @@
  * runs at its own fps — frame doctrine applies only to the source proxy,
  * never derived outputs).
  *
- * Depth-map export/import (the Cut tab's cuts-CSV pattern, applied to the
+ * Depth-map export/upload (the Cut tab's cuts-CSV pattern, applied to the
  * depth artifact): Export downloads the run's RAW full-precision depth file
  * (the `depth` output the later steps consume — an explanatory dialog makes
- * clear it is NOT the 8-bit depth_vis preview); Import loads a local depth
- * video into the compare slot as a review aid (nothing is uploaded).
+ * clear it is NOT the 8-bit depth_vis preview); Upload loads a local depth
+ * video into the compare slot AND registers it on the project (signed-PUT
+ * upload + POST .../depth-map, gateway-validated frame-exact against the
+ * source) so Stereo/Deliver runs can use it in place of the depth stage
+ * (use_uploaded_depth).
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -43,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { useScrollActiveSceneToTop } from "@/components/workspace/SceneList";
 import type { Conversion, Project, StepConversionRequest } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
 import {
   clampDepthRes,
   DEFAULT_DEPTH_RES,
@@ -159,6 +163,7 @@ export function DepthPanel({
         lastSucceeded={lastSucceeded}
         draft={draft}
         setDraft={setDraft}
+        onProjectChanged={onProjectChanged}
       />
 
       <Card>
@@ -226,22 +231,30 @@ function DepthReview({
   lastSucceeded,
   draft,
   setDraft,
+  onProjectChanged,
 }: {
   project: Project;
   sourceFps: RationalFPS;
   lastSucceeded: Conversion | undefined;
   draft: ReturnType<typeof useStereoDraft>[0];
   setDraft: ReturnType<typeof useStereoDraft>[1];
+  onProjectChanged: () => void;
 }): JSX.Element {
+  const client = useGateway();
   const downloads = useRunDownloads(lastSucceeded);
   const depthVis = downloads?.depth_vis ?? null;
   const exportUrl = downloads?.depth ?? null;
 
-  // Locally imported depth video (object URL) — overrides the run's
-  // depth_vis in the compare slot. Review aid only; nothing is uploaded.
+  // Locally picked depth video (object URL) — overrides the run's
+  // depth_vis in the compare slot for review while the SAME file uploads
+  // to the project in the background (uploadDepthFile).
   const [imported, setImported] = useState<{ name: string; url: string } | null>(
     null,
   );
+  // Upload lifecycle: progress fraction while PUTting, error inline, and
+  // project.depth_upload as the durable "on file" truth after refetch.
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const importedRef = useRef(imported);
   useEffect(() => {
     importedRef.current = imported;
@@ -260,12 +273,44 @@ function DepthReview({
       if (prev) URL.revokeObjectURL(prev.url);
       return { name: file.name, url };
     });
+    void uploadDepthFile(file);
   }
   function clearImported(): void {
     setImported((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
     });
+  }
+
+  /** Upload the picked depth video and register it on the project (signed
+   * PUT + POST .../depth-map). On success project.depth_upload appears via
+   * the refetch; a frame-count mismatch surfaces the gateway's 400 inline. */
+  async function uploadDepthFile(file: File): Promise<void> {
+    setUploading(0);
+    setUploadError(null);
+    try {
+      const ticket = await client.createUpload(file.name, file.type || "video/mp4");
+      await client.uploadFile(ticket, file, setUploading);
+      await client.setProjectDepthMap(project.project_id, {
+        gcs_key: ticket.gcs_key,
+        name: file.name,
+      });
+      onProjectChanged(); // pick up project.depth_upload
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "upload failed");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function removeUploadedDepth(): Promise<void> {
+    setUploadError(null);
+    try {
+      await client.deleteProjectDepthMap(project.project_id);
+      onProjectChanged();
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "request failed");
+    }
   }
 
   const depthUrl = imported?.url ?? depthVis;
@@ -281,31 +326,66 @@ function DepthReview({
         sourceFps={sourceFps}
         heading="Depth map"
         headingExtras={
-          imported ? (
-            <span
-              data-testid="imported-depth-note"
-              className="flex items-center gap-1 text-[11px] text-fg-muted"
-            >
-              <span className="max-w-48 truncate font-mono">{imported.name}</span>
-              (local review only)
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Clear imported depth map"
-                className="text-fg-muted hover:text-fg"
-                onClick={(e) => {
-                  blurAfterMouseClick(e);
-                  clearImported();
-                }}
+          <>
+            {imported ? (
+              <span
+                data-testid="imported-depth-note"
+                className="flex items-center gap-1 text-[11px] text-fg-muted"
               >
-                ×
-              </Button>
-            </span>
-          ) : depthUrl === null && !runWithoutVis ? (
-            <span className="text-[11px] text-fg-muted">
-              Run a depth preview to see the depth map beside the source.
-            </span>
-          ) : null
+                <span className="max-w-48 truncate font-mono">{imported.name}</span>
+                (preview)
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Clear imported depth map"
+                  className="text-fg-muted hover:text-fg"
+                  onClick={(e) => {
+                    blurAfterMouseClick(e);
+                    clearImported();
+                  }}
+                >
+                  ×
+                </Button>
+              </span>
+            ) : depthUrl === null && !runWithoutVis ? (
+              <span className="text-[11px] text-fg-muted">
+                Run a depth preview to see the depth map beside the source.
+              </span>
+            ) : null}
+            {uploading !== null ? (
+              <span
+                data-testid="depth-upload-progress"
+                className="text-[11px] text-fg-muted"
+              >
+                Uploading… {Math.round(uploading * 100)}%
+              </span>
+            ) : uploadError !== null ? (
+              <span data-testid="depth-upload-error" className="text-[11px] text-red-400">
+                Upload failed — {uploadError}
+              </span>
+            ) : project.depth_upload ? (
+              <span
+                data-testid="depth-upload-chip"
+                className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+              >
+                <span className="max-w-48 truncate">
+                  On file: {project.depth_upload.name || "uploaded depth map"}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Remove uploaded depth map"
+                  className="text-primary hover:text-fg"
+                  onClick={(e) => {
+                    blurAfterMouseClick(e);
+                    void removeUploadedDepth();
+                  }}
+                >
+                  ×
+                </Button>
+              </span>
+            ) : null}
+          </>
         }
         toolbar={
           <>
@@ -324,13 +404,13 @@ function DepthReview({
             <Button
               variant="outline"
               size="sm"
-              title="Preview a local depth video beside the source (review aid — nothing is uploaded)"
+              title="Preview a local depth video beside the source AND register it on the project — Stereo/Deliver runs can then use it instead of computing depth. Must be frame-exact (full length, source frame rate), like the export."
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 fileInputRef.current?.click();
               }}
             >
-              Import depth map…
+              Upload depth map…
             </Button>
             <Button
               variant="outline"
@@ -356,7 +436,7 @@ function DepthReview({
                 url: depthUrl,
                 label: imported ? "imported depth" : "depth_vis",
                 title: imported
-                  ? `Local file ${imported.name} — shown for review only, nothing is uploaded`
+                  ? `Local preview of ${imported.name} — the same file uploads to the project for Stereo/Deliver runs`
                   : "The run's 8-bit depth visualization — Export gives the raw full-precision file",
                 testId: "depth-video",
               }

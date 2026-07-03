@@ -283,6 +283,29 @@ function validateStepRequest(
   if (body.inpaint !== undefined && !["none", "propainter"].includes(body.inpaint as string)) {
     return err(400, "invalid_request", "inpaint must be none|propainter");
   }
+  if (body.use_uploaded_depth === true) {
+    if (step === "depth_preview") {
+      return err(
+        400,
+        "invalid_request",
+        "use_uploaded_depth applies to stereo_preview and production (depth_preview computes the depth map)",
+      );
+    }
+    if (depthRes !== undefined) {
+      return err(
+        400,
+        "invalid_request",
+        "use_uploaded_depth and depth_res are mutually exclusive — the uploaded depth map replaces the depth pass",
+      );
+    }
+    if (p.depth_upload === undefined) {
+      return err(
+        400,
+        "invalid_request",
+        "no uploaded depth map on this project; upload one via POST /v1/projects/{id}/depth-map first",
+      );
+    }
+  }
   if ((typeof body.target_fps === "number" ? body.target_fps : 0) > p.probe!.fps * 1.001) {
     return err(400, "invalid_request", "target_fps cannot exceed the source frame rate");
   }
@@ -330,11 +353,17 @@ function quoteFor(
     step === "production"
       ? RATES.centsPerMinute[preset as keyof typeof RATES.centsPerMinute]
       : RATES.stepCentsPerMinute[step];
+  // Uploaded depth map: the depth stage is skipped (no resolution factor,
+  // unconditional depth-share reuse discount) and the run is forced to the
+  // FULL source rate — the upload is frame-exact against the source.
+  const uploadedDepth =
+    req.use_uploaded_depth === true && project.depth_upload !== undefined;
   // fps factor: frames are what cost, so the effective render rate scales
   // the base linearly, normalized to 24 fps and clamped to [0.5, 2.5].
   // Previews default to HALF the source rate, production to the full rate.
-  const effFPS =
-    req.target_fps ?? (step === "production" ? probe.fps : probe.fps / 2);
+  const effFPS = uploadedDepth
+    ? probe.fps
+    : (req.target_fps ?? (step === "production" ? probe.fps : probe.fps / 2));
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
   const base = Math.ceil((billable / 60) * perMin * fpsFactor);
   // depth factor on the depth share: LINEAR in working megapixels
@@ -350,7 +379,7 @@ function quoteFor(
     "3k": 1148,
     "4k": 1442,
   };
-  const depthRes = req.depth_res ?? presetInputSize[preset] ?? 980;
+  const depthRes = uploadedDepth ? 0 : (req.depth_res ?? presetInputSize[preset] ?? 980);
   const dims = depthContentDims(probe, project.crop) ?? {
     width: 16,
     height: 9,
@@ -359,7 +388,10 @@ function quoteFor(
     Math.max(dims.width, dims.height) / Math.min(dims.width, dims.height);
   const workMP = (depthRes * depthRes * elongation) / 1e6;
   const baseMP = (RATES.depthResBase ** 2 * (16 / 9)) / 1e6;
-  const depthFactor = clamp(workMP / baseMP, 0.5, RATES.depthFactorCeiling);
+  // depthRes 0 (uploaded depth) = no inference, factor 1 — mirrors the
+  // gateway's depthFactor guard
+  const depthFactor =
+    depthRes > 0 ? clamp(workMP / baseMP, 0.5, RATES.depthFactorCeiling) : 1;
   const depthShare = step === "depth_preview" ? 1 : RATES.stageShares.depth;
   let subtotal = Math.round(base * (1 + depthShare * (depthFactor - 1)));
   const inpaint =
@@ -370,17 +402,25 @@ function quoteFor(
   // price the optional ProPainter pass explicitly.
   const inpaintMult = step === "stereo_preview" && inpaint === "propainter" ? 1.6 : 1;
   subtotal = Math.round(subtotal * inpaintMult);
-  // reuse: production, when a prior succeeded conversion exists; and
-  // stereo_preview, when a prior succeeded DEPTH run matches the depth
-  // artifact key (depth_res + fps) — mirrors the gateway's Modal lookup.
+  // reuse: an uploaded depth map skips the depth stage outright (both
+  // steps, unconditional); otherwise production discounts when a prior
+  // succeeded conversion exists, and stereo_preview when a prior succeeded
+  // DEPTH run matches the depth artifact key (depth_res + fps) — mirrors
+  // the gateway's Modal lookup.
   const reuseStages: string[] = [];
+  if (uploadedDepth && step !== "depth_preview" && !req.from_scratch) {
+    reuseStages.push("depth");
+  }
   if (step === "production" && !req.from_scratch) {
     const hasPrior = [...mockDb.conversions.values()].some(
       (c) => c.project_id === project.project_id && c.state === "succeeded",
     );
-    if (hasPrior) reuseStages.push("depth", "preprocess");
+    if (hasPrior) {
+      if (!uploadedDepth) reuseStages.push("depth");
+      reuseStages.push("preprocess");
+    }
   }
-  if (step === "stereo_preview" && !req.from_scratch) {
+  if (step === "stereo_preview" && !uploadedDepth && !req.from_scratch) {
     const effTargetFPS =
       req.target_fps ?? Math.round((probe.fps / 2) * 100) / 100;
     const depthMatch = [...mockDb.conversions.values()].some(
@@ -438,15 +478,18 @@ function quoteFor(
           : (req.formats ??
             (step === "production" ? ["mvhevc", "half_sbs"] : ["sbs"])),
       inpaint,
-      depth_res: depthRes,
+      // uploaded depth: no inference resolution, and the run is pinned to
+      // the full source rate (target_fps absent) — mirrors the gateway
+      ...(uploadedDepth ? { depth_source: "uploads/mock-depth.mp4" } : { depth_res: depthRes }),
       ...(req.depth_scale !== undefined ? { depth_scale: req.depth_scale } : {}),
       ...(req.scene_overrides?.length ? { scene_overrides: req.scene_overrides } : {}),
       // previews default to HALF the source rate; never above source
-      target_fps:
-        req.target_fps ||
-        (step === "production"
-          ? undefined
-          : Math.round((probe.fps / 2) * 100) / 100),
+      target_fps: uploadedDepth
+        ? undefined
+        : req.target_fps ||
+          (step === "production"
+            ? undefined
+            : Math.round((probe.fps / 2) * 100) / 100),
       from_frame: req.from_frame || undefined,
       to_frame: req.to_frame || undefined,
       scene_cuts: project.scenes?.cuts,
@@ -753,6 +796,49 @@ export const handlers = [
       }
     }
     tickProfile(p);
+    return HttpResponse.json(projectDetail(p));
+  }),
+
+  /** Register an uploaded depth video on the project. The real gateway
+   * ffprobe-validates frame-exactness; the mock stamps the source's frame
+   * count, except when the key/name contains "badframes" — that simulates
+   * the mismatch 400 so tests can exercise the error surface. */
+  http.post(`${GATEWAY}/v1/projects/:id/depth-map`, async ({ params, request }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p) return err(404, "not_found", "project not found");
+    if (!p.probe) {
+      return err(
+        409,
+        "conflict",
+        "analysis has not completed yet — the depth map is validated against the source frame count",
+      );
+    }
+    const body = (await request.json()) as { gcs_key?: string; name?: string };
+    if (!body.gcs_key) {
+      return err(400, "invalid_request", "gcs_key is required (from POST /v1/uploads)");
+    }
+    if (`${body.gcs_key}${body.name ?? ""}`.includes("badframes")) {
+      return err(
+        400,
+        "invalid_request",
+        `depth map has ${p.probe.num_frames - 7} frames but the source has ${p.probe.num_frames} — it must be frame-exact (full length, source frame rate), like the Depth page's export`,
+      );
+    }
+    p.depth_upload = {
+      name: body.name?.trim() || undefined,
+      frames: p.probe.num_frames,
+      width: p.probe.width,
+      height: p.probe.height,
+      bytes: 1 << 20,
+      created_at: new Date().toISOString(),
+    };
+    return HttpResponse.json(projectDetail(p));
+  }),
+
+  http.delete(`${GATEWAY}/v1/projects/:id/depth-map`, ({ params }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p) return err(404, "not_found", "project not found");
+    delete p.depth_upload;
     return HttpResponse.json(projectDetail(p));
   }),
 

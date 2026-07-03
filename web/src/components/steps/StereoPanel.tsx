@@ -126,6 +126,10 @@ export interface StereoPanelProps {
   onProjectChanged: () => void;
 }
 
+/** Sentinel picker value for the project's UPLOADED depth map — depth-run
+ * choices use their conversion ids. */
+const UPLOAD_CHOICE = "__uploaded_depth__";
+
 export function StereoPanel({
   project,
   onProjectChanged,
@@ -188,9 +192,12 @@ export function StereoPanel({
 
   // The Depth page's succeeded runs, one reuse choice per RESOLUTION (the
   // newest run wins its resolution — that is the axis the user actually
-  // picked on the Depth page). The selected run's depth_res rides the
-  // request (artifact reuse) and its depth_vis feeds the compare slot; a
-  // picker appears when more than one resolution is available.
+  // picked on the Depth page), plus the project's UPLOADED depth map when
+  // one is registered. The selected run's depth_res rides the request
+  // (artifact reuse) and its depth_vis feeds the compare slot; picking the
+  // upload sends use_uploaded_depth instead (the gateway resolves the file
+  // — no key crosses the client). A picker appears when more than one
+  // source is available.
   const depthRunChoices = (project.conversions ?? [])
     .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
@@ -198,12 +205,20 @@ export function StereoPanel({
       (c, i, arr) =>
         arr.findIndex((d) => d.params.depth_res === c.params.depth_res) === i,
     );
+  const depthUpload = project.depth_upload;
   const [depthChoiceId, setDepthChoiceId] = useState<string | null>(null);
-  const selectedDepthRun: Conversion | undefined =
-    depthRunChoices.find((c) => c.conversion_id === depthChoiceId) ??
-    depthRunChoices[0];
+  const choiceId =
+    depthChoiceId ??
+    depthRunChoices[0]?.conversion_id ??
+    (depthUpload !== undefined ? UPLOAD_CHOICE : null);
+  const useUpload = choiceId === UPLOAD_CHOICE && depthUpload !== undefined;
+  const selectedDepthRun: Conversion | undefined = useUpload
+    ? undefined
+    : (depthRunChoices.find((c) => c.conversion_id === choiceId) ??
+      depthRunChoices[0]);
   const depthVis = useRunDownloads(selectedDepthRun)?.depth_vis ?? null;
   const inheritedDepthRes = selectedDepthRun?.params.depth_res;
+  const depthChoiceCount = depthRunChoices.length + (depthUpload !== undefined ? 1 : 0);
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
@@ -302,7 +317,9 @@ export function StereoPanel({
   }
 
   const sceneOverrides = draftToSceneOverrides(draft, [0, ...scenes.cuts]);
-  const sendDepthRes = !depthDefault && inheritedDepthRes !== undefined;
+  const sendUpload = !depthDefault && useUpload;
+  const sendDepthRes =
+    !depthDefault && !useUpload && inheritedDepthRes !== undefined;
   const request: StepConversionRequest = {
     step: "stereo_preview",
     preset,
@@ -314,13 +331,17 @@ export function StereoPanel({
     inpaint: "propainter",
     // The Depth page's resolution, so the pipeline REUSES that depth
     // artifact (and the quote discounts the depth stage) instead of
-    // recomputing at the preset default.
+    // recomputing at the preset default — or the project's uploaded depth
+    // map, which skips the depth stage entirely.
+    ...(sendUpload ? { use_uploaded_depth: true } : {}),
     ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
     ...(draft.depth_scale !== 1 ? { depth_scale: draft.depth_scale } : {}),
     ...(sceneOverrides.length > 0 ? { scene_overrides: sceneOverrides } : {}),
     // Full source rate, sent EXPLICITLY: an absent target_fps makes the
     // gateway decimate previews to half rate (and depth reuse keys on fps).
-    target_fps: defaultPreviewFPS(sourceFps).value,
+    // With the uploaded depth the gateway pins the run to the full source
+    // rate itself (the upload is frame-exact), so target_fps stays home.
+    ...(sendUpload ? {} : { target_fps: defaultPreviewFPS(sourceFps).value }),
     platform: "web",
   };
 
@@ -518,16 +539,17 @@ export function StereoPanel({
       <Card>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            {inheritedDepthRes !== undefined ? (
+            {depthChoiceCount > 0 ? (
               <>
-                {depthRunChoices.length > 1 ? (
-                  // Several depth resolutions have been run — let the user
-                  // pick which artifact this run reuses.
+                {depthChoiceCount > 1 ? (
+                  // Several depth sources exist (runs at different
+                  // resolutions and/or the uploaded map) — let the user
+                  // pick which one this run uses.
                   <label className="flex items-center gap-1.5 text-xs">
                     <span className="text-fg-muted">Depth map to reuse</span>
                     <select
                       aria-label="Depth map to reuse"
-                      value={selectedDepthRun!.conversion_id}
+                      value={choiceId ?? ""}
                       disabled={depthDefault}
                       onChange={(e) => {
                         setDepthChoiceId(e.target.value);
@@ -541,8 +563,26 @@ export function StereoPanel({
                           {new Date(c.created_at).toLocaleDateString()}
                         </option>
                       ))}
+                      {depthUpload !== undefined ? (
+                        <option value={UPLOAD_CHOICE}>
+                          Uploaded — {depthUpload.name || "depth map"}
+                        </option>
+                      ) : null}
                     </select>
                   </label>
+                ) : useUpload ? (
+                  <span
+                    data-testid="stereo-chip-depth-upload"
+                    className={`rounded-full border px-2 py-0.5 text-xs ${
+                      depthDefault
+                        ? "border-edge bg-surface-2 text-fg-muted line-through"
+                        : "border-primary/30 bg-primary/10 text-primary"
+                    }`}
+                  >
+                    Uploaded depth map
+                    {depthUpload?.name ? ` — ${depthUpload.name}` : ""} (used
+                    as-is, no depth compute)
+                  </span>
                 ) : (
                   <span
                     data-testid="stereo-chip-depth"

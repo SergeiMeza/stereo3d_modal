@@ -124,6 +124,19 @@ export interface ProfileJobInfo {
   updated_at: string;
 }
 
+/** A user-provided depth video registered on the project (POST
+ * /v1/projects/{id}/depth-map) — frame-exact against the source (the
+ * gateway validated frames == probe.num_frames). Conversions opt in with
+ * use_uploaded_depth. */
+export interface DepthUpload {
+  name?: string;
+  frames: number;
+  width: number;
+  height: number;
+  bytes: number;
+  created_at: string;
+}
+
 export interface Project {
   project_id: string;
   name?: string;
@@ -131,6 +144,8 @@ export interface Project {
   analyze: AnalyzeInfo;
   probe?: Probe; // present once analyze succeeded
   scenes?: Scenes;
+  /** user-uploaded depth map registered on the project */
+  depth_upload?: DepthUpload;
   crop?: string; // "W:H:X:Y" black-bar geometry, if detected
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
@@ -162,6 +177,9 @@ export interface Params {
   to_frame?: number;
   inpaint?: Inpaint; // absent = pipeline default (propainter)
   depth_res?: number; // multiple of 14 in [140, 2520]
+  /** bucket key of the user-uploaded depth map the run used (set when the
+   * request carried use_uploaded_depth) */
+  depth_source?: string;
   depth_scale?: number; // [0.3, 1.5] — scales every scene's displacement
   scene_overrides?: SceneOverride[];
   scene_cuts?: number[];
@@ -355,6 +373,10 @@ export interface StepConversionRequest {
   preset?: Preset; // ignored for depth_preview (always draft)
   formats?: Format[]; // stereo_preview + production (depth_preview ignores)
   depth_res?: number; // ALL steps; multiple of 14 in [140, 2520]; absent = preset default
+  /** run against the project's uploaded depth map instead of computing
+   * depth (stereo_preview + production; mutually exclusive with depth_res;
+   * forces the full source rate — the upload is frame-exact) */
+  use_uploaded_depth?: boolean;
   depth_scale?: number; // stereo_preview + production only; [0.3, 1.5]
   inpaint?: Inpaint; // stereo_preview (default none) + production (default propainter)
   scene_overrides?: SceneOverride[]; // stereo_preview + production only

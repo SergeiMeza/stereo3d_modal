@@ -16,6 +16,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -377,6 +378,109 @@ func (s *Service) HandleUpdateScenes(w http.ResponseWriter, r *http.Request, use
 	httpx.WriteOK(w, map[string]any{"scenes": updated.Scenes})
 }
 
+// ------------------------------------------------------------- depth upload
+
+// HandleSetProjectDepthMap — POST /v1/projects/{id}/depth-map
+// {gcs_key, name?}: register a USER-PROVIDED depth video on the project.
+// The file arrives via the standard signed-PUT upload flow (POST
+// /v1/uploads); here it is ownership-checked and ffprobe-validated to be
+// frame-exact against the source (frames == probe.num_frames — required
+// because the pipeline maps depth frame n to source frame n; Modal
+// re-verifies against the actual preprocess). Conversions opt in with
+// use_uploaded_depth; the depth stage is then skipped and its share
+// discounted.
+func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
+	ctx := r.Context()
+	p, err := s.ownedProject(ctx, user, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if p.Probe == nil {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict(
+			"analysis has not completed yet — the depth map is validated against the source frame count"))
+		return
+	}
+	var req struct {
+		GCSKey string `json:"gcs_key"`
+		Name   string `json:"name"`
+	}
+	if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	if req.GCSKey == "" {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("gcs_key is required (from POST /v1/uploads)"))
+		return
+	}
+	if !s.GCS.InPrefix(req.GCSKey) || !strings.Contains(req.GCSKey, "/users/"+user.UID+"/") {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("gcs_key is not one of your uploads"))
+		return
+	}
+	size, serr := s.GCS.Stat(ctx, req.GCSKey)
+	if serr != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("upload not found; PUT the file to the signed URL first"))
+		return
+	}
+	probeURL, uerr := s.GCS.SignedGetURL(req.GCSKey, 10*time.Minute)
+	if uerr != nil {
+		httpx.WriteErr(ctx, w, uerr)
+		return
+	}
+	media, perr := probe.Video(ctx, probeURL)
+	if perr != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("the uploaded depth map is not a decodable video"))
+		return
+	}
+	if media.Frames != p.Probe.NumFrames {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid(fmt.Sprintf(
+			"depth map has %d frames but the source has %d — it must be frame-exact "+
+				"(full length, source frame rate), like the Depth page's export",
+			media.Frames, p.Probe.NumFrames)))
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if len(name) > 120 {
+		name = name[:120]
+	}
+	updated, err := s.Store.UpdateProject(ctx, id, func(p *store.Project) error {
+		p.DepthUpload = &store.DepthUpload{
+			GCSKey: req.GCSKey, Name: name,
+			Frames: media.Frames, Width: media.Width, Height: media.Height,
+			Bytes: size, CreatedAt: time.Now().UTC(),
+		}
+		return nil
+	})
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	httpx.Log(ctx).Info("depth map registered", "project_id", id, "uid", user.UID,
+		"gcs_key", req.GCSKey, "frames", media.Frames, "bytes", size)
+	httpx.WriteOK(w, s.projectResponse(updated, nil))
+}
+
+// HandleDeleteProjectDepthMap — DELETE /v1/projects/{id}/depth-map: forget
+// the registered upload (the object itself ages out with the uploads
+// bucket lifecycle; nothing references it once unregistered).
+func (s *Service) HandleDeleteProjectDepthMap(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
+	ctx := r.Context()
+	if _, err := s.ownedProject(ctx, user, id); err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	updated, err := s.Store.UpdateProject(ctx, id, func(p *store.Project) error {
+		p.DepthUpload = nil
+		return nil
+	})
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	httpx.Log(ctx).Info("depth map unregistered", "project_id", id, "uid", user.UID)
+	httpx.WriteOK(w, s.projectResponse(updated, nil))
+}
+
 // ------------------------------------------------------- quotes/conversions
 
 type stepConvReq struct {
@@ -392,8 +496,12 @@ type stepConvReq struct {
 	Inpaint        string             `json:"inpaint"`     // none | propainter (stereo_preview + production)
 	SceneOverrides []sceneOverrideReq `json:"scene_overrides"`
 	FromScratch    bool               `json:"from_scratch"` // bypass content-addressed reuse
-	AppVersion     string             `json:"app_version"`
-	Platform       string             `json:"platform"`
+	// UseUploadedDepth runs against the project's registered depth-map
+	// upload (POST .../depth-map) instead of computing depth. Mutually
+	// exclusive with depth_res; stereo_preview + production only.
+	UseUploadedDepth bool   `json:"use_uploaded_depth"`
+	AppVersion       string `json:"app_version"`
+	Platform         string `json:"platform"`
 }
 
 // sceneOverrideReq is a per-scene stereo tweak; `first` is the scene's first
@@ -598,6 +706,30 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 	if p.Scenes != nil {
 		params.SceneCuts = p.Scenes.Cuts
 	}
+	if req.UseUploadedDepth {
+		if req.Step == store.StepDepthPreview {
+			return params, httpx.ErrInvalid(
+				"use_uploaded_depth applies to stereo_preview and production (depth_preview computes the depth map)")
+		}
+		if req.DepthRes != 0 {
+			return params, httpx.ErrInvalid(
+				"use_uploaded_depth and depth_res are mutually exclusive — the uploaded depth map replaces the depth pass")
+		}
+		if p.DepthUpload == nil {
+			return params, httpx.ErrInvalid(
+				"no uploaded depth map on this project; upload one via POST /v1/projects/{id}/depth-map first")
+		}
+		if params.FromFrame != 0 || params.ToFrame != 0 {
+			return params, httpx.ErrInvalid(
+				"use_uploaded_depth does not support trimming — the uploaded depth map is frame-exact against the full source")
+		}
+		// The upload was validated frame-exact against the FULL source frame
+		// count, so the run must render every source frame: clear the preview
+		// half-rate default (0 = no decimation, Modal runs at the source
+		// rate). The quote prices the full rate via EffectiveFPS.
+		params.TargetFPS = 0
+		params.DepthSource = p.DepthUpload.GCSKey
+	}
 	return params, nil
 }
 
@@ -679,14 +811,19 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	// params. Stereo previews reuse the Depth page's artifact exactly like
 	// production does (the web sends the depth run's depth_res), so their
 	// quotes discount it too — the pipeline genuinely skips that compute.
+	// A USER-UPLOADED depth map (params.DepthSource) skips the depth stage
+	// outright, so its depth discount is unconditional — no lookup needed.
 	// Non-nil so reuse_stages serializes as [] (never null) in responses.
 	reuseStages := []string{}
 	if (step == store.StepProduction || step == store.StepStereoPreview) && !params.SkipReuse {
+		if params.DepthSource != "" {
+			reuseStages = append(reuseStages, "depth")
+		}
 		lookup, err := s.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
 		if err != nil {
 			httpx.Log(ctx).Warn("reuse lookup failed (quoting full price)", "project_id", p.ID, "err", err)
 		} else {
-			if lookup.Depth.Cached {
+			if lookup.Depth.Cached && params.DepthSource == "" {
 				reuseStages = append(reuseStages, "depth")
 			}
 			if lookup.Preprocess.Cached {
@@ -720,7 +857,11 @@ func (s *Service) stepQuoteInputs(p *store.Project, params store.Params, step st
 		DepthRes:  params.DepthRes,
 		Inpaint:   params.Inpaint,
 	}
-	if in.DepthRes == 0 {
+	if params.DepthSource != "" {
+		// user-uploaded depth: no depth inference runs, so no resolution
+		// factor applies (the depth-share discount rides ReuseStages)
+		in.DepthRes = 0
+	} else if in.DepthRes == 0 {
 		in.DepthRes = pricing.PresetInputSize[params.Preset] // 0 stays 0 for unknown presets
 	}
 	if w, h, _ := depthContentDims(p); w > 0 && h > 0 {
@@ -1038,6 +1179,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	}
 	if p.SceneProfile != nil {
 		resp["scene_profile"] = p.SceneProfile
+	}
+	if p.DepthUpload != nil {
+		resp["depth_upload"] = p.DepthUpload
 	}
 	if p.Profile != nil {
 		resp["profile"] = p.Profile

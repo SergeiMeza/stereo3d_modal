@@ -10,9 +10,12 @@ change its output:
 
 - preprocess: (input_path, remove_black_bars, output spec, target_fps, trim)
   → the work file is byte-identical for an identical key.
-- depth: (preprocess_key, depth_model, input_size, encoder, scene-boundary
-  identity) → depth is a function of the exact frames AND the depth
-  settings AND where per-scene normalization resets.
+- depth: (depth_source_key — the OUTPUT-RESOLUTION-INDEPENDENT source
+  identity — plus depth_model, input_size, encoder, scene-boundary
+  identity) → depth is a function of the frames' content/count AND the
+  depth settings AND where per-scene normalization resets; the preset's
+  output spec deliberately does NOT fragment it (the model resizes to
+  input_size, the stereo stage rescales the artifact to any work dims).
 - scenes: (preprocess_key) → scene cuts depend only on the work file.
 
 Safety: a key match means the artifact is *interchangeable*. The lookup
@@ -82,11 +85,44 @@ def preprocess_key(
     })
 
 
-def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
+def depth_source_key(
+    input_path: str,
+    remove_black_bars: bool,
+    target_fps,
+    trim,
+    crop_override=None,
+) -> str:
+    """SOURCE identity for the depth stage — like preprocess_key but
+    WITHOUT the output-resolution spec (target_short_side/target_height).
+
+    Depth is deliberately preset-independent: the model resizes its input
+    frames to ``input_size`` regardless of the work file's resolution, and
+    the stereo stage rescales the depth map to each run's own work dims —
+    so the depth map computed under the Depth page's draft preset is the
+    SAME artifact a 4k production run needs. Keying depth on the full
+    preprocess key silently fragmented the cache by preset (draft and
+    1080p shared target_height 1080 and reused; qhd/3k/4k never hit).
+    Everything that changes frame CONTENT or COUNT stays in the key:
+    crop, fps decimation, trim."""
+    return compute_key(PREPROCESS, {
+        "input_path": str(input_path),
+        "remove_black_bars": bool(remove_black_bars),
+        "depth_source_identity": True,  # marker: never collides with a real pp_key
+        "target_fps": target_fps,
+        "trim": list(trim) if trim else None,
+        "crop_override": str(crop_override).removeprefix("crop=") if crop_override else None,
+    })
+
+
+def depth_key(src_key: str, depth_model: str, input_size: int, encoder,
               scene_cuts=None, passthrough=None) -> str:
-    """Key for a depth map: the EXACT preprocessed frames (pp_key) plus the
-    depth model + resolution + encoder + the SCENE-BOUNDARY identity. A
-    different input_size is a different depth map, so it MUST be in the key.
+    """Key for a depth map: the depth SOURCE identity (depth_source_key —
+    output-resolution-independent) plus the depth model + resolution +
+    encoder + the SCENE-BOUNDARY identity. Earlier revisions passed the
+    full preprocess key here, which fragmented the cache by preset; the
+    switch to depth_source_key orphaned those entries — intended, they
+    recompute once. A different input_size is a different depth map, so
+    it MUST be in the key.
     Scene boundaries too: per-scene depth alignment/normalization resets at
     cuts, so the same frames rendered under user cuts [100, 400] are NOT the
     artifact for cuts [250]. scene_cuts is the request's raw SOURCE-frame
@@ -102,7 +138,7 @@ def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
     set is a different depth artifact. Only keyed when non-empty so every
     pre-existing no-passthrough artifact stays reusable."""
     material = {
-        "preprocess_key": pp_key,
+        "preprocess_key": src_key,
         "depth_model": depth_model,
         "input_size": int(input_size),
         "encoder": encoder,

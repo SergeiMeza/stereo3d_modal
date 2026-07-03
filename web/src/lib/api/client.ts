@@ -171,6 +171,22 @@ export class GatewayClient {
     return this.request("PATCH", `/v1/projects/${id}/scenes`, req);
   }
 
+  /** Register an uploaded depth video on the project (gcs_key from
+   * createUpload + uploadFile). The gateway ffprobe-validates it as
+   * frame-exact against the source; 400s carry the actionable reason.
+   * Returns the updated project (depth_upload set). */
+  setProjectDepthMap(
+    id: string,
+    req: { gcs_key: string; name?: string },
+  ): Promise<Project> {
+    return this.request("POST", `/v1/projects/${id}/depth-map`, req);
+  }
+
+  /** Forget the registered depth-map upload. */
+  deleteProjectDepthMap(id: string): Promise<Project> {
+    return this.request("DELETE", `/v1/projects/${id}/depth-map`);
+  }
+
   /** Free standalone shot profiling (empty JSON body). Returns the full
    * project; poll GET /v1/projects/{id} while project.profile is running.
    * 409 conflict when a profile is already running. */

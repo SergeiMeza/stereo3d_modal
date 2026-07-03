@@ -804,6 +804,63 @@ describe("StereoPanel depth inheritance & reuse", () => {
       "No depth run yet",
     );
   });
+
+  /** Register an uploaded depth map on BOTH the prop project and the mock
+   * db (quotes validate against the db's copy). */
+  function withUpload(project: Project): Project {
+    project.depth_upload = {
+      name: "graded-depth.mp4",
+      frames: FIXTURE.probe!.num_frames,
+      width: FIXTURE.probe!.width,
+      height: FIXTURE.probe!.height,
+      bytes: 1 << 20,
+      created_at: "2026-07-03T08:00:00Z",
+    };
+    mockDb.projects.get(FIXTURE.project_id)!.depth_upload =
+      project.depth_upload;
+    return project;
+  }
+
+  it("an uploaded depth map (no runs) sends use_uploaded_depth — no depth_res, no target_fps, depth share discounted", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel(withUpload(fixtureProject()));
+
+    expect(
+      screen.getByTestId("stereo-chip-depth-upload").textContent,
+    ).toContain("graded-depth.mp4");
+
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].use_uploaded_depth).toBe(true);
+    expect(bodies[0].depth_res).toBeUndefined();
+    // the gateway pins uploaded-depth runs to the full source rate itself
+    expect(bodies[0].target_fps).toBeUndefined();
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+  });
+
+  it("the picker lists depth runs AND the upload; picking the upload switches the request", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    const project = withUpload(fixtureProject());
+    project.conversions = [seededDepthRun(project.project_id)];
+    renderPanel(project);
+
+    // newest RUN stays the default; the upload is one choice among them
+    const picker = screen.getByLabelText(
+      "Depth map to reuse",
+    ) as HTMLSelectElement;
+    expect([...picker.options].map((o) => o.textContent)).toEqual([
+      expect.stringContaining("980 px"),
+      expect.stringContaining("Uploaded — graded-depth.mp4"),
+    ]);
+
+    await user.selectOptions(picker, "__uploaded_depth__");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].use_uploaded_depth).toBe(true);
+    expect(bodies[0].depth_res).toBeUndefined();
+  });
 });
 
 describe("StereoPanel depth-map compare slot", () => {

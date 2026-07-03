@@ -899,6 +899,70 @@ def probe_depth_reuse(job_id: str, source_job_id: str, expected_frames: int) -> 
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
+    # ffprobe frame-count check + byte copy of the uploaded depth — I/O
+    # bound, 1 core; mem max 8G (read_bytes loads the file to copy it).
+    cpu=1,
+    memory=(512, 8 * 1024),
+    timeout=1800,
+)
+def probe_depth_upload(job_id: str, depth_source: str, expected_frames: int) -> dict:
+    """Use a USER-PROVIDED depth video (``depth_source``: a bucket key the
+    gateway validated and uploaded, e.g. ``uploads/<uid>/<id>.mp4``) in
+    place of the depth stage entirely.
+
+    Same contract as :func:`probe_depth_reuse`: the file must decode to
+    EXACTLY this run's preprocessed frame count (else audio would desync /
+    scenes would smear across the wrong frames) — the gateway pre-validates
+    against the source probe, but the count here is post-trim/decimation
+    truth, so re-verify. Dimensions may differ from the work file (the
+    stereo stage rescales depth per frame); pixel format may be anything
+    ffmpeg decodes — gray16le (our own exported ``depth`` output) keeps
+    full precision, 8-bit grayscale/color degrade gracefully to their
+    luma. The file is copied into THIS job's cache dir so segment naming,
+    concat, and the depth publish work unchanged.
+
+    NEVER registered for content-addressed reuse: the depth key describes
+    AI-computed depth, and registering a user file under it would serve
+    that file to unrelated runs.
+    """
+    from app.common.debug import job_logger
+    from app.common.ffmpeg_utils import count_frames
+    from app.common.storage import bucket_path
+
+    jlog = job_logger(job_id)
+    src = bucket_path(depth_source)
+    if not src.exists():
+        raise FileNotFoundError(
+            f"depth_source={depth_source}: no such object under the bucket "
+            f"mount — the upload may have expired or the key is wrong"
+        )
+    frames = count_frames(src)
+    if frames != expected_frames:
+        raise RuntimeError(
+            f"depth_source={depth_source}: depth has {frames} frames but this "
+            f"source preprocessed to {expected_frames} — the uploaded depth "
+            f"must be frame-exact for this video at this frame rate"
+        )
+    probe = probe_video(src)
+    dst = job_cache_dir(job_id) / "depth.mp4"
+    dst.write_bytes(src.read_bytes())
+    cache_volume.commit()
+    jlog.info(
+        f"🎞  user depth {depth_source}: {frames}f at "
+        f"{probe['width']}x{probe['height']} — depth stage skipped"
+    )
+    return {
+        "depth_path": str(dst),
+        "num_frames": frames,
+        "depth_shape": [probe["height"], probe["width"]],
+        "scene_cuts": [],
+    }
+
+
+@app.function(
+    image=media_image,
+    volumes=PIPELINE_VOLUMES,
+    secrets=[slack_secret],
     retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
     # lossless concat (STREAM COPY, no re-encode) — I/O bound, not CPU.
     # Dropped cpu 4→2; mem min 2G→1G (ffmpeg demux/remux buffers only).

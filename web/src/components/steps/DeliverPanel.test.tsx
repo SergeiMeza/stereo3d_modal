@@ -195,6 +195,39 @@ describe("DeliverPanel inheritance", () => {
     expect(bodies[0].scene_overrides).toBeUndefined();
   });
 
+  it("the uploaded depth map is an explicit opt-in that beats the inherited depth run", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    project.conversions = [seededDepthRun(project.project_id)];
+    project.depth_upload = {
+      name: "graded-depth.mp4",
+      frames: project.probe!.num_frames,
+      width: project.probe!.width,
+      height: project.probe!.height,
+      bytes: 1 << 20,
+      created_at: "2026-07-03T08:00:00Z",
+    };
+    mockDb.projects.get(project.project_id)!.depth_upload = project.depth_upload;
+    renderPanel(project);
+
+    expect(
+      screen.getByTestId("deliver-chip-depth-upload").textContent,
+    ).toContain("graded-depth.mp4");
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Use uploaded depth map (skips the depth stage)",
+      }),
+    );
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].use_uploaded_depth).toBe(true);
+    expect(bodies[0].depth_res).toBeUndefined(); // beats the inherited 1442
+    const stages = screen.getByTestId("quote-reuse-stages");
+    expect(stages.textContent).toContain("depth");
+  });
+
   it("states the fallbacks when there is nothing to inherit", () => {
     renderPanel(); // no conversions, no stereo draft
     expect(screen.getByTestId("deliver-chip-depth-none").textContent).toMatch(

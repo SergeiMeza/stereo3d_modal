@@ -246,6 +246,19 @@ async def submit_video(body: dict) -> dict:
     for arg in ("reuse_depth_from", "reuse_preprocess_from"):
         if arg in body and body[arg] is not None and not isinstance(body[arg], str):
             raise HTTPException(status_code=400, detail=f"{arg} must be a job-id string")
+    # user-provided depth video (pro step pipeline): a bucket key under the
+    # app prefix (the gateway uploads + validates it). Replaces the depth
+    # stage entirely, so it conflicts with an explicit depth reuse pointer.
+    depth_source = body.get("depth_source")
+    if depth_source is not None:
+        if not isinstance(depth_source, str) or not depth_source.strip():
+            raise HTTPException(status_code=400, detail="depth_source must be a bucket key string")
+        if body.get("reuse_depth_from"):
+            raise HTTPException(
+                status_code=400,
+                detail="depth_source and reuse_depth_from are mutually exclusive "
+                       "(both replace the depth stage)",
+            )
     if body.get("preprocess_meta") is not None and not isinstance(body["preprocess_meta"], dict):
         raise HTTPException(status_code=400, detail="preprocess_meta must be an object")
     # explicit crop override "W:H:X:Y" (ffmpeg crop geometry) — forces a crop,
@@ -549,10 +562,11 @@ async def reuse_lookup(body: dict) -> dict:
     so passing the exact submit body here yields the keys the job will
     use — a raw-body derivation could never match a preset run."""
     from app.common import reuse
-    from app.pipelines.video import reuse_request_keys
+    from app.pipelines.video import depth_lookup_keys, reuse_request_keys
 
     _require(body, "input_path")
-    pp_key, d_key, s_key = reuse_request_keys(body)
+    # (the depth key from this triple is depth_lookup_keys(body)[0])
+    pp_key, _d_key, s_key = reuse_request_keys(body)
 
     def _entry(key):
         e = reuse.peek(key)
@@ -564,7 +578,16 @@ async def reuse_lookup(body: dict) -> dict:
             "meta": e.get("meta", {}),
         }
 
-    pp, depth, scenes = _entry(pp_key), _entry(d_key), _entry(s_key)
+    # depth: same candidate order the pipeline uses — the exact key, then
+    # (with passthrough scenes) the no-passthrough BASE key, so this
+    # endpoint predicts exactly what the job will reuse and the gateway's
+    # quote discount matches the actual compute.
+    depth = None
+    for candidate in depth_lookup_keys(body):
+        depth = _entry(candidate)
+        if depth["cached"]:
+            break
+    pp, scenes = _entry(pp_key), _entry(s_key)
     return {
         "env": APP_ENV,
         "preprocess": pp,

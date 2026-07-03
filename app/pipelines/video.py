@@ -104,7 +104,7 @@ def reuse_request_keys(request: dict) -> tuple[str, str, str]:
         if ov.get("passthrough")
     )
     d_key = reuse.depth_key(
-        pp_key,
+        _depth_source_key(req),
         req.get("depth_model", "vda"),
         int(req.get("input_size", 980)),
         req.get("encoder", "vitl"),
@@ -112,6 +112,49 @@ def reuse_request_keys(request: dict) -> tuple[str, str, str]:
         passthrough=passthrough or None,
     )
     return pp_key, d_key, reuse.scenes_key(pp_key)
+
+
+def _depth_source_key(req: dict) -> str:
+    """The depth stage's source identity — OUTPUT-RESOLUTION-INDEPENDENT
+    (see reuse.depth_source_key): a Depth-page draft artifact is the same
+    depth a 4k production run needs. ``req`` must already be normalized."""
+    return reuse.depth_source_key(
+        req["input_path"],
+        req.get("remove_black_bars", True),
+        req.get("target_fps"),
+        _trim_spec(req),
+        crop_override=req.get("crop"),
+    )
+
+
+def depth_lookup_keys(request: dict) -> list[str]:
+    """Depth-cache candidates in LOOKUP order: the exact key first, then —
+    when the request has passthrough scenes — the BASE (no-passthrough)
+    key. A FULL depth artifact is output-equivalent for ANY passthrough
+    set: the stereo stage ships passthrough scenes as untouched source
+    both eyes and never reads their depth, so the black segments were only
+    ever a compute-skip. The reverse does NOT hold (a black-segmented
+    artifact is wrong for a run that wants those scenes in 3D), so
+    registration stays under the exact key and only the lookup widens."""
+    req = normalize_video_request(request)
+    passthrough = sorted(
+        int(ov["first"]) for ov in (req.get("scene_overrides") or [])
+        if ov.get("passthrough")
+    )
+    src_key = _depth_source_key(req)
+    args = (
+        req.get("depth_model", "vda"),
+        int(req.get("input_size", 980)),
+        req.get("encoder", "vitl"),
+    )
+    keys = [reuse.depth_key(*((src_key,) + args),
+                            scene_cuts=req.get("scene_cuts"),
+                            passthrough=passthrough or None)]
+    if passthrough:
+        keys.append(reuse.depth_key(*((src_key,) + args),
+                                    scene_cuts=req.get("scene_cuts"),
+                                    passthrough=None))
+    return keys
 
 
 @app.function(
@@ -457,27 +500,66 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # addressed auto-reuse looks up the depth key (preprocess + model +
         # input_size + encoder + scene-boundary identity, computed above)
         # and reuses the matching published depth.
-        reuse_from = request.get("reuse_depth_from")
-        if not reuse_from and not request.get("skip_reuse_depth"):
-            hit = reuse.lookup(d_key)
-            if hit:
+        # User-provided depth (depth_source: a gateway-validated bucket key)
+        # WINS over everything — no reuse lookup, no depth compute, and the
+        # file is never registered under the AI-depth content key below.
+        depth_source = request.get("depth_source")
+        reuse_from = None if depth_source else request.get("reuse_depth_from")
+        explicit_reuse = bool(reuse_from)
+        if not depth_source and not reuse_from and not request.get("skip_reuse_depth"):
+            # exact key first, then the no-passthrough BASE key (a full
+            # depth artifact serves any passthrough set — see
+            # depth_lookup_keys)
+            for candidate in depth_lookup_keys(request):
+                hit = reuse.lookup(candidate)
+                if not hit:
+                    continue
                 from app.common.notify import notify_slack
 
                 reuse_from = hit["job_id"]
-                jlog.info(f"♻️  depth auto-reuse HIT ({d_key}) ← job {reuse_from}")
+                jlog.info(f"♻️  depth auto-reuse HIT ({candidate}) ← job {reuse_from}")
                 notify_slack(
                     f"♻️ *depth reuse* job `{job_id}` reused depth from "
-                    f"`{reuse_from}` (key `{d_key}`)"
+                    f"`{reuse_from}` (key `{candidate}`)"
                 )
-        if reuse_from:
-            from app.stages.media import probe_depth_reuse
+                break
+        depth = None
+        if depth_source:
+            from app.stages.media import probe_depth_upload
 
-            depth = probe_depth_reuse.remote(job_id, reuse_from, pre["probe"]["num_frames"])
-            check_worker_result(depth, "video_depth(reuse)")
+            depth = probe_depth_upload.remote(
+                job_id, depth_source, pre["probe"]["num_frames"]
+            )
+            check_worker_result(depth, "video_depth(upload)")
             jlog.info(
-                f"♻️  reusing depth from job {reuse_from}: "
+                f"🎞  user-provided depth {depth_source}: "
                 f"{depth['num_frames']}f at {depth['depth_shape']}"
             )
+        elif reuse_from:
+            from app.stages.media import probe_depth_reuse
+
+            try:
+                depth = probe_depth_reuse.remote(job_id, reuse_from, pre["probe"]["num_frames"])
+                check_worker_result(depth, "video_depth(reuse)")
+                jlog.info(
+                    f"♻️  reusing depth from job {reuse_from}: "
+                    f"{depth['num_frames']}f at {depth['depth_shape']}"
+                )
+            except Exception:
+                # An EXPLICIT pointer must fail loudly — the caller asked
+                # for THIS depth. An AUTO hit that fails validation (stale
+                # file, frame-count edge like the dual-res phantom-tail
+                # pin) degrades to a recompute instead of killing the job.
+                if explicit_reuse:
+                    raise
+                jlog.warning(
+                    f"♻️  depth auto-reuse from job {reuse_from} failed "
+                    f"validation — recomputing depth", exc_info=True,
+                )
+                depth = None
+                reuse_from = None
+        if depth is not None:
+            pass  # reused or user-provided — skip the compute branches
         elif depth_model == "vda":
             depth_gpu, work_mp, elongation = _route_depth_gpu(input_size, probe)
             worker_cls = (
@@ -709,8 +791,10 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # register this depth for content-addressed auto-reuse (only
             # when freshly computed — reusing then re-registering the same
             # key is a harmless no-op, but skip it to keep the pointer at the
-            # original producer). depth published at outputs/<job>/depth.mp4.
-            if not reuse_from:
+            # original producer; a USER-PROVIDED depth must never be
+            # registered under the AI-depth key or unrelated runs would be
+            # served the user's file). depth published at outputs/<job>/depth.mp4.
+            if not reuse_from and not depth_source:
                 try:
                     reuse.register(d_key, job_id, f"outputs/{job_id}/depth.mp4",
                                    meta={"depth_shape": depth.get("depth_shape")})

@@ -142,6 +142,11 @@ func (s *Service) modalBody(c *store.Conversion) map[string]any {
 	if c.Params.DepthRes > 0 {
 		body["depth_res"] = c.Params.DepthRes
 	}
+	if c.Params.DepthSource != "" {
+		// user-uploaded depth map: Modal skips the depth stage and warps
+		// against this file (frame-exactness re-verified pipeline-side)
+		body["depth_source"] = c.Params.DepthSource
+	}
 	if c.Params.DepthScale > 0 {
 		body["depth_scale"] = c.Params.DepthScale
 	}
