@@ -294,21 +294,21 @@ describe("DeliverPanel controls", () => {
     renderPanel(project);
 
     await getQuote(user);
-    // 1080p production at $2.50/min full rate: 623¢ base; the letterboxed
-    // 2.39:1 fixture prices the preset-default 980 depth at ×1.345 on the
-    // 0.35 share → $6.98 subtotal; −40% (depth 35% + preprocess 5%) reuse
-    // discount = 419¢; −50¢ analyze credit → $3.69
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$6.98");
+    // 1080p production at 150¢ cost × 3 margin full rate: 1121¢ base; the
+    // letterboxed 2.39:1 fixture prices the preset-default 980 depth at
+    // ×1.345 on the 0.35 share → $12.56 subtotal; −40% (depth 35% +
+    // preprocess 5%) reuse discount = 502¢; −50¢ analyze credit → $7.04
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$12.56");
     const stages = screen.getByTestId("quote-reuse-stages");
     expect(stages.textContent).toContain("depth");
     expect(stages.textContent).toContain("preprocess");
-    expect(screen.getByTestId("quote-reuse-discount").textContent).toBe("−$2.79");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$3.69");
+    expect(screen.getByTestId("quote-reuse-discount").textContent).toBe("−$5.02");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$7.04");
 
     // from-scratch toggle re-quotes without the reuse discount
     await user.click(screen.getByLabelText(/Start from scratch/));
     await waitFor(() =>
-      expect(screen.getByTestId("quote-total").textContent).toBe("$6.48"),
+      expect(screen.getByTestId("quote-total").textContent).toBe("$10.80"),
     );
     expect(screen.queryByTestId("quote-reuse-discount")).toBeNull();
     expect(screen.queryByTestId("quote-reuse-stages")).toBeNull();
@@ -321,13 +321,13 @@ describe("DeliverPanel controls", () => {
     renderPanel(project);
 
     await getQuote(user);
-    // base $6.23; aspect factor 1442²×2.391/(980²×16⁄9) = 2.912 on 35% of
-    // the base → 623 × (1 + 0.35 × 1.912) = 1040¢; reuse −40% → 624¢;
-    // −50¢ credit → $5.74
-    expect(screen.getByTestId("quote-base").textContent).toBe("$6.23");
+    // base $11.21; aspect factor 1442²×2.391/(980²×16⁄9) = 2.912 on 35% of
+    // the base → 1121 × (1 + 0.35 × 1.912) = 1871¢; reuse −748 → 1123;
+    // −112 bulk − 50¢ credit → $9.61
+    expect(screen.getByTestId("quote-base").textContent).toBe("$11.21");
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×2.91");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$10.40");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$5.74");
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$18.71");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$9.61");
   });
 });
 

@@ -37,19 +37,21 @@ import { depthContentDims } from "@/lib/depthRes";
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
 // Default rates — keep in sync with gateway/internal/pricing/pricing.go.
-// Mirrors gateway pricing defaults (2026-07-03: calibrated to ≈2× the raw
-// Modal cost of a measured run — see gateway/internal/pricing/pricing.go).
+// The per-minute tables are ≈1× BILLED Modal cost; every quote multiplies
+// by costMarginMultiplier (the ONE margin knob — 3× so failed/canceled
+// runs, which are never charged, don't eat the margin).
 const RATES = {
-  centsPerMinute: { draft: 200, "1080p": 250, qhd: 350, "3k": 400, "4k": 500 },
-  stepCentsPerMinute: { depth_preview: 125 },
-  // per-preset stereo preview rates (splatted baseline; ×1.6 inpaint on
+  costMarginMultiplier: 3,
+  centsPerMinute: { draft: 120, "1080p": 150, qhd: 210, "3k": 240, "4k": 300 },
+  stepCentsPerMinute: { depth_preview: 75 },
+  // per-preset stereo preview COST (splatted baseline; ×1.6 inpaint on
   // top) — mirrors the gateway's StereoPreviewCentsPerMinute map
   stereoPreviewCentsPerMinute: {
-    draft: 150,
-    "1080p": 200,
-    qhd: 320,
-    "3k": 400,
-    "4k": 500,
+    draft: 90,
+    "1080p": 120,
+    qhd: 160,
+    "3k": 200,
+    "4k": 250,
   } as Record<string, number>,
   minimumCents: 50,
   discountThresholdCents: 1000,
@@ -358,12 +360,14 @@ function quoteFor(
   const billable = (to - from) / probe.fps;
   const step = req.step as Step;
   const preset = step === "depth_preview" ? "draft" : (req.preset ?? "1080p");
-  const perMin =
+  const costPerMin =
     step === "production"
       ? RATES.centsPerMinute[preset as keyof typeof RATES.centsPerMinute]
       : step === "stereo_preview"
         ? RATES.stereoPreviewCentsPerMinute[preset]
         : RATES.stepCentsPerMinute[step];
+  // price = cost rate × margin (the ONE margin knob)
+  const perMin = costPerMin * RATES.costMarginMultiplier;
   // Uploaded depth map: the depth stage is skipped (no resolution factor,
   // unconditional depth-share reuse discount) and the run is forced to the
   // FULL source rate — the upload is frame-exact against the source.

@@ -18,8 +18,13 @@ import (
 type Rates struct {
 	RateVersion string `firestore:"rate_version"`
 	Currency    string `firestore:"currency"`
-	// Per-preset video price. Old app charged ~$1/min ($0.0556/frame @30fps);
-	// defaults keep that anchor for 1080p and scale by GPU cost of the preset.
+	// CostMarginMultiplier: every per-minute rate below is ~1× BILLED
+	// Modal cost; quotes multiply by this margin. 3× by default: failed
+	// and canceled jobs are never charged, so successful runs must carry
+	// that risk (plus retries, cold starts, and support time). Tune in
+	// Firestore without touching the cost tables.
+	CostMarginMultiplier float64 `firestore:"cost_margin_multiplier"`
+	// Per-preset video COST (~1× billed), production + legacy mobile flow.
 	CentsPerMinute map[string]int64 `firestore:"cents_per_minute"`
 	ImageCents     int64            `firestore:"image_cents"`
 	MinimumCents   int64            `firestore:"minimum_cents"`
@@ -27,11 +32,11 @@ type Rates struct {
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
 
-	// Pro step pipeline (web/DESIGN.md). Depth previews are flat per-minute
-	// (the depth factor carries the resolution scaling); stereo previews
-	// are PER-PRESET like production — the preview does the same
-	// splat/inpaint work as production at that preset, so a flat rate
-	// underpriced 4k by ~2× (and overcharged draft).
+	// Pro step pipeline (web/DESIGN.md), COST basis (~1× billed) like
+	// CentsPerMinute. Depth previews are flat per-minute (the depth factor
+	// carries the resolution scaling); stereo previews are PER-PRESET like
+	// production — the preview does the same splat/inpaint work as
+	// production at that preset, so a flat rate underpriced 4k by ~2×.
 	DepthPreviewCentsPerMinute  int64            `firestore:"depth_preview_cents_per_minute"`
 	StereoPreviewCentsPerMinute map[string]int64 `firestore:"stereo_preview_cents_per_minute"`
 	// AnalyzeCreditCents: the free analyze step's cost, credited back as a
@@ -75,36 +80,34 @@ type Rates struct {
 	EtaFactor      map[string]float64 `firestore:"eta_factor"`
 }
 
-// Defaults are calibrated to ≈2× the raw Modal cost estimate (our margin),
-// anchored on a MEASURED run (job 4cd27aa0aaee, 2026-07-03): 149.5s 4K
-// 2.39:1 source @24fps, depth_res 1596 → $5.59 raw. Under this model that
-// run quotes 2.49 min × 125¢ × depth factor 3.57 ≈ $11.11 ≈ 2.0×. The
-// production/stereo anchors extrapolate the same 2× rule from
-// docs/PRICING.md's per-frame tables (e.g. 4K propainter ≈ $2.7/min raw
-// at 24fps → 500¢/min). Tune in Firestore as more real runs accumulate.
+// Defaults: the per-minute tables are ≈1× BILLED Modal cost (billed runs
+// ~1.2× the in-source per-stage estimates — cold-start + idle, PRICING.md
+// "Estimate vs billed"), and CostMarginMultiplier is the ONE margin knob
+// applied to every quote. Cost anchors, both measured 2026-07-03:
+//   - depth: job 4cd27aa0aaee — 149.5s 4K 2.39:1 @24fps, depth_res 1596
+//     (factor 3.57) → $5.59 estimated ≈ $6.7 billed → 75¢/min × 3.57.
+//   - 4k stereo: job c51480d2c0aa — billed $14.31 to 78% incl. OOM
+//     retries; a clean run projects $11–13 billed for 2.5 min of footage
+//     → 250¢/min × 1.6 inpaint ≈ $10 cost per 2.5 min.
+//
+// Tune the tables in Firestore as clean billed/estimate pairs accumulate.
 func defaults() *Rates {
 	return &Rates{
-		RateVersion: "2026-07-03.defaults",
-		Currency:    "usd",
+		RateVersion:          "2026-07-03.v2-cost-margin",
+		Currency:             "usd",
+		CostMarginMultiplier: 3.0,
 		CentsPerMinute: map[string]int64{
-			"draft": 200, "1080p": 250, "qhd": 350, "3k": 400, "4k": 500,
+			"draft": 120, "1080p": 150, "qhd": 210, "3k": 240, "4k": 300,
 		},
 		ImageCents:                 50,
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,
 		DiscountPct:                0.10,
-		DepthPreviewCentsPerMinute: 125,
-		// Per-preset stereo preview rates (splatted baseline; the ×1.6
-		// inpaint multiplier applies on top for propainter). 1080p keeps
-		// the original 200¢ anchor. The high presets are calibrated to
-		// ~2× BILLED cost, not 2× the in-source estimate: Modal bills
-		// ~1.2× the per-stage estimates steady-state (cold-start + idle;
-		// PRICING.md "Estimate vs billed", plus the 2026-07-03 4k run
-		// that billed $14.31 against a ~$11.2 estimate). A clean 4k
-		// propainter stereo run projects to $11–13 billed for 2.5 min of
-		// footage → 500¢/min quotes ≈ 2× that after the ×1.6.
+		DepthPreviewCentsPerMinute: 75,
+		// Splatted-baseline COST per preset; the ×1.6 inpaint multiplier
+		// applies on top for propainter.
 		StereoPreviewCentsPerMinute: map[string]int64{
-			"draft": 150, "1080p": 200, "qhd": 320, "3k": 400, "4k": 500,
+			"draft": 90, "1080p": 120, "qhd": 160, "3k": 200, "4k": 250,
 		},
 		AnalyzeCreditCents: 50,
 		StageShares:        map[string]float64{"depth": 0.35, "preprocess": 0.05},
@@ -138,6 +141,15 @@ func defaults() *Rates {
 			"production": 6.0,
 		},
 	}
+}
+
+// margin returns the cost→price multiplier (CostMarginMultiplier), with a
+// hard fallback so a zeroed/missing Firestore field can never sell at cost.
+func (r *Rates) margin() float64 {
+	if r.CostMarginMultiplier > 0 {
+		return r.CostMarginMultiplier
+	}
+	return 3.0
 }
 
 // fpsBase is the frame rate the per-minute anchors are calibrated at. Cost
@@ -323,8 +335,10 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 	if !ok {
 		return nil, fmt.Errorf("no rate for preset %q", in.Preset)
 	}
+	// price = cost rate × margin (see CostMarginMultiplier)
+	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.FPS)
-	baseCents := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	baseCents := int64(math.Ceil(in.BillableS / 60 * rateCents * fpsF))
 	subtotal := baseCents
 	depthResFactor := 1.0
 	depthRes := PresetInputSize[in.Preset]
@@ -347,13 +361,15 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 		Breakdown: map[string]any{
 			"preset":           in.Preset,
 			"billable_seconds": math.Round(in.BillableS*100) / 100,
-			"cents_per_minute": perMin,
-			"fps_factor":       round4(fpsF),
-			"base_cents":       baseCents,
-			"depth_res":        depthRes,
-			"depth_res_factor": round4(depthResFactor),
-			"subtotal_cents":   subtotal,
-			"discount_cents":   discount,
+			// the PRICE rate (cost × margin) — what the rate hint shows
+			"cents_per_minute":       int64(math.Round(rateCents)),
+			"cost_margin_multiplier": rates.margin(),
+			"fps_factor":             round4(fpsF),
+			"base_cents":             baseCents,
+			"depth_res":              depthRes,
+			"depth_res_factor":       round4(depthResFactor),
+			"subtotal_cents":         subtotal,
+			"discount_cents":         discount,
 		},
 	}, nil
 }
@@ -387,8 +403,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	default:
 		return nil, fmt.Errorf("unknown step %q", in.Step)
 	}
+	// price = cost rate × margin (see CostMarginMultiplier)
+	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.EffectiveFPS)
-	baseCents := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	baseCents := int64(math.Ceil(in.BillableS / 60 * rateCents * fpsF))
 	subtotal := baseCents
 
 	// depth factor on the DEPTH share of the step. depth_preview is 100%
@@ -437,20 +455,22 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
 		Breakdown: map[string]any{
-			"step":                 in.Step,
-			"preset":               in.Preset,
-			"billable_seconds":     math.Round(in.BillableS*100) / 100,
-			"cents_per_minute":     perMin,
-			"fps_factor":           round4(fpsF),
-			"base_cents":           baseCents, // after fps, before depth/inpaint multipliers
-			"depth_res":            in.DepthRes,
-			"depth_res_factor":     round4(depthResFactor),
-			"inpaint_multiplier":   inpaintMultiplier,
-			"subtotal_cents":       subtotal, // after multipliers; discounts apply to this
-			"reuse_stages":         in.ReuseStages,
-			"reuse_discount_cents": reuseDiscount,
-			"discount_cents":       bulkDiscount,
-			"analyze_credit_cents": in.CreditCents,
+			"step":             in.Step,
+			"preset":           in.Preset,
+			"billable_seconds": math.Round(in.BillableS*100) / 100,
+			// the PRICE rate (cost × margin) — what the rate hint shows
+			"cents_per_minute":       int64(math.Round(rateCents)),
+			"cost_margin_multiplier": rates.margin(),
+			"fps_factor":             round4(fpsF),
+			"base_cents":             baseCents, // after fps, before depth/inpaint multipliers
+			"depth_res":              in.DepthRes,
+			"depth_res_factor":       round4(depthResFactor),
+			"inpaint_multiplier":     inpaintMultiplier,
+			"subtotal_cents":         subtotal, // after multipliers; discounts apply to this
+			"reuse_stages":           in.ReuseStages,
+			"reuse_discount_cents":   reuseDiscount,
+			"discount_cents":         bulkDiscount,
+			"analyze_credit_cents":   in.CreditCents,
 		},
 	}, nil
 }

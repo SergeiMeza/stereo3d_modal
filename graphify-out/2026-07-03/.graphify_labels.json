@@ -205,6 +205,7 @@
   "203": "Web Src Screens (2)",
   "204": "Web Src Screens (3)",
   "205": "QKVAttentionLegacy",
+  "206": "video_depth.py",
   "207": "CLAUDE.md",
   "208": "COMPARISON.md",
   "209": "README.md",
@@ -319,9 +320,15 @@
   "318": "Firebase auth (Google/email)",
   "319": "Mode switches (API_MOCK / AUTH_MODE)",
   "320": "Stereo3D Studio web client README",
+  "321": ".write_depth_video",
+  "322": "DeliverPanel.test.tsx",
   "323": "distributions.py",
+  "324": "DropPath",
+  "325": "ResidualConvUnit",
+  "326": "__init__.py",
   "327": "DiagonalGaussianDistribution",
   "328": "EDMSampler",
   "329": "Resize",
+  "330": "load_video_depth_model",
   "331": "FrozenOpenCLIPImageEmbedder"
 }

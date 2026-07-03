@@ -387,13 +387,13 @@ describe("StereoPanel quote pricing", () => {
     expect(document.body.textContent).not.toMatch(/ProPainter|[Ss]platted/);
 
     await getQuote(user);
-    // 149.46 s at $2/min full rate → 499¢ base; the letterboxed 2.39:1
+    // 149.46 s at 120¢ cost × 3 margin full rate → 897¢ base; the letterboxed 2.39:1
     // fixture prices the default 980 depth at ×1.345 on the 0.35 share →
-    // 559¢; ×1.6 propainter = 894¢ − 50¢ credit = $8.44
-    expect(screen.getByTestId("quote-base").textContent).toBe("$4.99");
+    // 1005¢; ×1.6 propainter = 1608¢ → −161 bulk − 50¢ credit = $13.97
+    expect(screen.getByTestId("quote-base").textContent).toBe("$8.97");
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×1.6");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$8.94");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$8.44");
+    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.08");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$13.97");
     // the breakdown line explains the multiplier without internal terms
     expect(screen.getByTestId("quote-breakdown").textContent).toContain(
       "Full-quality edges",
@@ -722,13 +722,13 @@ describe("StereoPanel depth inheritance & reuse", () => {
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0].depth_res).toBe(980);
-    // subtotal 894¢ (propainter default); depth share 0.35 reused →
-    // −313¢ = 581¢ − 50¢ credit = $5.31
+    // subtotal 1608¢ (propainter default); depth share 0.35 reused →
+    // −563¢ = 1045¢ → −105 bulk − 50¢ credit = $8.90
     expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
     expect(screen.getByTestId("quote-reuse-discount").textContent).toBe(
-      "−$3.13",
+      "−$5.63",
     );
-    expect(screen.getByTestId("quote-total").textContent).toBe("$5.31");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$8.90");
   });
 
   it("the “use pipeline default” escape drops depth_res (and the discount) from the request", async () => {

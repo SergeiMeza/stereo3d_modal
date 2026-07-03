@@ -213,17 +213,17 @@ describe("mock gateway validation", () => {
 describe("mock gateway quote math + params echo", () => {
   it("depth_preview: the WHOLE subtotal scales with the aspect-aware depth factor, clamped to [0.5, 5.0]", async () => {
     // absent target_fps → half rate (12/24 = fps factor 0.5):
-    // base = ceil(149.458/60 × 125¢ × 0.5) = 156¢. The fixture is
+    // base = ceil(149.458/60 × 75¢ cost × 3 margin × 0.5) = 281¢. The fixture is
     // letterboxed 2.39:1 (crop 3840:1606), so factors are elongation-aware:
     // factor = depth_res² × 2.391 / (980² × 16⁄9).
     // Absent depth_res = the draft preset's input_size 518 → 0.376 → 0.5.
     const std = (await (await quote({ step: "depth_preview" })).json()) as StepQuoteResponse;
     expect(std.quote.breakdown).toMatchObject({
-      base_cents: 156,
+      base_cents: 281,
       fps_factor: 0.5,
       depth_res: 518, // the draft preset's input_size when absent
       depth_res_factor: 0.5,
-      subtotal_cents: 78,
+      subtotal_cents: 141,
     });
     expect(std.quote.breakdown!.inpaint_multiplier).toBeUndefined();
 
@@ -231,10 +231,10 @@ describe("mock gateway quote math + params echo", () => {
       await quote({ step: "depth_preview", depth_res: 1442 })
     ).json()) as StepQuoteResponse;
     expect(hi.quote.breakdown).toMatchObject({
-      base_cents: 156,
+      base_cents: 281,
       depth_res: 1442,
       depth_res_factor: 2.912, // 1442²×2.391 / (980²×16⁄9), 4 dp
-      subtotal_cents: 454, // round(156 × 2.91197…)
+      subtotal_cents: 818, // round(281 × 2.91197…)
     });
 
     // clamps: 518 → 0.5, 2520 (8.89× the base MP) → the 5.0 ceiling
@@ -249,12 +249,12 @@ describe("mock gateway quote math + params echo", () => {
   });
 
   it("stereo/production apply the factor to 0.35 of the base; stereo+propainter adds ×1.6", async () => {
-    // stereo base = ceil(149.458/60 × 200¢ × 0.5 half-rate) = 250¢
+    // stereo base = ceil(149.458/60 × 120¢ × 3 × 0.5 half-rate) = 449¢
     const stereo = (await (
       await quote({ step: "stereo_preview", depth_res: 1442 })
     ).json()) as StepQuoteResponse;
-    // 250 × (1 + 0.35 × 1.91197…) = 417.30… → 417
-    expect(stereo.quote.breakdown!.subtotal_cents).toBe(417);
+    // 449 × (1 + 0.35 × 1.91197…) = 749.47… → 749
+    expect(stereo.quote.breakdown!.subtotal_cents).toBe(749);
 
     const inpainted = (await (
       await quote({ step: "stereo_preview", inpaint: "propainter" })
@@ -262,19 +262,19 @@ describe("mock gateway quote math + params echo", () => {
     // absent depth_res → 1080p preset's 980 → aspect factor 1.34496 on the
     // 0.35 share → 280¢, then ×1.6
     expect(inpainted.quote.breakdown).toMatchObject({
-      base_cents: 250,
+      base_cents: 449,
       inpaint_multiplier: 1.6,
-      subtotal_cents: 448, // round(round(250 × 1.12074) × 1.6)
+      subtotal_cents: 805, // round(round(449 × 1.12074) × 1.6)
     });
 
     // production propainter is the default and NOT multiplied; full source
-    // rate (fps factor 1): base = ceil(149.458/60 × 250¢) = 623¢
+    // rate (fps factor 1): base = ceil(149.458/60 × 450¢) = 1121¢
     const prod = (await (
       await quote({ step: "production", inpaint: "propainter" })
     ).json()) as StepQuoteResponse;
     expect(prod.quote.breakdown!.inpaint_multiplier).toBeUndefined();
     expect(prod.quote.breakdown!.fps_factor).toBe(1);
-    expect(prod.quote.breakdown!.subtotal_cents).toBe(698); // round(623 × 1.12074)
+    expect(prod.quote.breakdown!.subtotal_cents).toBe(1256); // round(1121 × 1.12074)
   });
 
   it("echoes depth_res/depth_scale/inpaint/scene_overrides in params, with step defaults", async () => {
