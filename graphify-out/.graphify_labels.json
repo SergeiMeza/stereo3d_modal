@@ -320,10 +320,12 @@
   "318": "Firebase auth (Google/email)",
   "319": "Mode switches (API_MOCK / AUTH_MODE)",
   "320": "Stereo3D Studio web client README",
+  "321": "DepthPanel.test.tsx",
   "322": "DeliverPanel.test.tsx",
   "323": "distributions.py",
   "324": "DropPath",
   "325": "ResidualConvUnit",
+  "326": "_make_infer",
   "327": "DiagonalGaussianDistribution",
   "328": "EDMSampler",
   "329": "Resize",
@@ -332,6 +334,8 @@
   "332": "scale_module",
   "333": "SiLU",
   "334": "TimeMixSequential",
+  "335": "DeliverPanel.test.tsx",
   "336": "Config",
+  "337": "ResizeObserverStub",
   "338": "encodeSceneOverrides"
 }

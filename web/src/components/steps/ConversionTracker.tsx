@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import type { Conversion, ConversionState, Downloads } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
-import { DownloadsList } from "./DownloadsList";
+import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { POLL_INTERVAL_MS } from "./polling";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
@@ -183,7 +183,9 @@ export function ConversionTracker({
         <div className="mt-3">
           <p className="mb-2 text-xs font-medium text-fg-muted">Downloads</p>
           {downloads ? (
-            <DownloadsList downloads={downloads.downloads} />
+            <DownloadsList
+              downloads={stepDownloads(conv.step, downloads.downloads)}
+            />
           ) : (
             <p className="text-xs text-fg-muted">Fetching download links…</p>
           )}

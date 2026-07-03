@@ -172,13 +172,15 @@ describe("HistoryList", () => {
     );
     expect(screen.getByRole("link", { name: "half_sbs" })).toBeDefined();
     expect(screen.getByRole("link", { name: "depth" })).toBeDefined();
-    expect(screen.getByRole("link", { name: "depth_vis" })).toBeDefined();
+    // depth_vis is an in-app playback artifact, never a download —
+    // users mistake the 8-bit visualization for the real 16-bit map
+    expect(screen.queryByRole("link", { name: "depth_vis" })).toBeNull();
 
-    // anaglyph + half_sbs + the 8-bit depth_vis get inline players; the raw
-    // 16-bit depth stays a plain link
+    // anaglyph + half_sbs get inline players; the raw 16-bit depth stays
+    // a plain link
     expect(screen.getByTestId("preview-anaglyph").tagName).toBe("VIDEO");
     expect(screen.getByTestId("preview-half_sbs").tagName).toBe("VIDEO");
-    expect(screen.getByTestId("preview-depth_vis").tagName).toBe("VIDEO");
+    expect(screen.queryByTestId("preview-depth_vis")).toBeNull();
     expect(screen.queryByTestId("preview-depth")).toBeNull();
   });
 });

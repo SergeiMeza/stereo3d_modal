@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import type { Conversion, Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
-import { DownloadsList } from "./DownloadsList";
+import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
 import { INPAINT_LABELS } from "./outputOptions";
 import { StateChip } from "./StateChip";
@@ -148,7 +148,9 @@ function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element 
           {open ? (
             downloads !== null ? (
               <div className="mt-2">
-                <DownloadsList downloads={downloads} />
+                {/* cross-step audit table: full deliverable scope (step
+                    undefined), which still keeps depth_vis un-downloadable */}
+                <DownloadsList downloads={stepDownloads(undefined, downloads)} />
               </div>
             ) : error !== null ? (
               <p className="mt-2 text-xs text-red-400">{error}</p>

@@ -3,8 +3,9 @@
 /**
  * Compact list of a step's prior conversions (newest first): state, a
  * step-specific params summary from the caller, quoted price, time, and —
- * for succeeded runs — a downloads expander with inline players (depth_vis
- * included via DownloadsList). The full cross-step table lives on History.
+ * for succeeded runs — a downloads expander with inline players, scoped to
+ * the run's step (stepDownloads). The full cross-step table lives on
+ * History.
  */
 
 import { useState } from "react";
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import type { Conversion } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
-import { DownloadsList } from "./DownloadsList";
+import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
 import { StateChip } from "./StateChip";
 
@@ -100,7 +101,7 @@ function PriorRunRow({
           {open ? (
             downloads !== null ? (
               <div className="mt-2">
-                <DownloadsList downloads={downloads} />
+                <DownloadsList downloads={stepDownloads(c.step, downloads)} />
               </div>
             ) : error !== null ? (
               <p className="mt-2 text-xs text-red-400">{error}</p>
