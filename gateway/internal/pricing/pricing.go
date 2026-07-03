@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -60,12 +61,13 @@ type Rates struct {
 	MaxActivePerUser int     `firestore:"max_active_per_user"`
 
 	// Pre-run wall-clock estimate model (shown next to quotes; the live
-	// number always comes from the running Modal job). eta = base +
-	// factor × billable seconds, with the depth share scaled by the same
-	// depth_res factor as pricing, the inpaint multiplier applied on
-	// stereo_preview, and reused stage shares subtracted. Production
-	// factors are keyed "production_<preset>" with a "production"
-	// fallback.
+	// number always comes from the running Modal job). ADDITIVE:
+	// eta = base + depth term + preset-keyed stereo/encode residual —
+	// see EstimateStepETA. EtaFactor keys: "depth" (the inference term,
+	// scaled by the same depth_res factor as pricing; zeroed when the
+	// artifact is reused or user-provided) and "<step>_<preset>" residuals
+	// with a bare "<step>" fallback; the stereo_preview residual is
+	// multiplied by inpaint_multiplier.
 	EtaBaseSeconds map[string]float64 `firestore:"eta_base_seconds"`
 	EtaFactor      map[string]float64 `firestore:"eta_factor"`
 }
@@ -98,17 +100,28 @@ func defaults() *Rates {
 		MaxDurationS:                30 * 60,
 		MaxSourceBytes:              8 << 30,
 		MaxActivePerUser:            3,
-		// ETA anchors from the same measured run: 1584s wall for 149.5s
-		// billable at depth factor 3.57 → (60 + 2.5×149.5) × 3.57 ≈ 1547s.
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,
 		},
+		// Additive ETA components (see EstimateStepETA), per billable
+		// second. "depth" is the inference term at depth factor 1.0
+		// (980 px on 16:9) — anchored on job 4cd27aa0aaee (2026-07-03):
+		// 60 + 2.8 × 149.5 × 3.57 ≈ 1552s vs 1584s measured. The
+		// stereo/encode residuals are preset-keyed; stereo_preview_4k is
+		// anchored on job c51480d2c0aa (2026-07-03): the 4k propainter
+		// stereo stage ran ≈45 min for 149.5s billable → 11 × 1.6 ≈ 17.6
+		// s/s. The rest interpolate by output pixel area — tune in
+		// Firestore as more runs accumulate.
 		EtaFactor: map[string]float64{
-			"depth_preview":    2.5,
-			"stereo_preview":   3.5,
-			"production_draft": 3.0, "production_1080p": 4.0,
-			"production_qhd": 5.0, "production_3k": 6.5, "production_4k": 8.0,
-			"production": 4.0,
+			"depth": 2.8,
+			// stereo_preview residuals (×1.6 inpaint applies on top)
+			"stereo_preview":     3.5, // 1080p / fallback
+			"stereo_preview_qhd": 5.0, "stereo_preview_3k": 6.0,
+			"stereo_preview_4k": 11.0,
+			// production residuals (inpainting included)
+			"production_draft": 2.0, "production_1080p": 6.0,
+			"production_qhd": 8.0, "production_3k": 9.5, "production_4k": 12.0,
+			"production": 6.0,
 		},
 	}
 }
@@ -180,42 +193,48 @@ type StepInputs struct {
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
-// Same shape-knobs as QuoteStep so the estimate tracks what the user picked;
-// deliberately coarse — the running job reports the live ETA.
+// ADDITIVE per-stage model: base + a depth-inference term + a preset-keyed
+// stereo/encode residual. The earlier multiplicative model scaled the WHOLE
+// estimate by the depth factor and then unwound reuse multiplicatively —
+// reuse-heavy quotes only landed near the truth when the two errors
+// cancelled — and its stereo_preview factor was preset-blind (a 4k preview
+// does ~2× the wall of the 1080p runs it was calibrated on). Here, a reused
+// or user-provided depth simply ZEROES the depth term, and the residual
+// scales with the output preset. Deliberately coarse — the running job
+// reports the live ETA (measured frames/s).
 func (s *Service) EstimateStepETA(ctx context.Context, in StepInputs) int64 {
 	rates := s.Rates(ctx)
-	key := in.Step
-	if in.Step == "production" {
-		if _, ok := rates.EtaFactor["production_"+in.Preset]; ok {
-			key = "production_" + in.Preset
-		}
-	}
-	factor := rates.EtaFactor[key]
-	if factor <= 0 {
-		factor = 4.0
-	}
-	// wall time scales with frames: fps rides the billable term, not the base
-	eta := rates.EtaBaseSeconds[in.Step] + factor*in.BillableS*fpsFactor(in.EffectiveFPS)
+	eta := rates.EtaBaseSeconds[in.Step]
+	// wall time scales with frames: fps rides the work terms, not the base
+	fps := fpsFactor(in.EffectiveFPS)
 
-	if in.DepthRes > 0 {
-		df := depthFactor(rates, in.DepthRes, in.ContentWidth, in.ContentHeight)
-		depthShare := 1.0
-		if in.Step != "depth_preview" {
-			depthShare = rates.StageShares["depth"]
+	// Depth inference: scales with the working-MP factor. Skipped entirely
+	// when the artifact is reused or user-provided (DepthRes 0) — the
+	// stage does not run at all.
+	if in.DepthRes > 0 && !slices.Contains(in.ReuseStages, "depth") {
+		eta += rates.EtaFactor["depth"] * in.BillableS * fps *
+			depthFactor(rates, in.DepthRes, in.ContentWidth, in.ContentHeight)
+	}
+
+	// Stereo + encode residual: keyed by preset (output resolution drives
+	// the splat/inpaint/encode wall time), with the inpaint multiplier on
+	// stereo_preview (production factors already include inpainting).
+	// depth_preview has no residual — its base covers publish/encode.
+	if in.Step != "depth_preview" {
+		factor := rates.EtaFactor[in.Step+"_"+in.Preset]
+		if factor <= 0 {
+			factor = rates.EtaFactor[in.Step]
 		}
-		eta *= 1 + depthShare*(df-1)
+		if factor <= 0 {
+			factor = 4.0
+		}
+		residual := factor * in.BillableS * fps
+		if in.Step == "stereo_preview" && in.Inpaint == "propainter" && rates.InpaintMultiplier > 0 {
+			residual *= rates.InpaintMultiplier
+		}
+		eta += residual
 	}
-	if in.Step == "stereo_preview" && in.Inpaint == "propainter" && rates.InpaintMultiplier > 0 {
-		eta *= rates.InpaintMultiplier
-	}
-	reusedShare := 0.0
-	for _, stage := range in.ReuseStages {
-		reusedShare += rates.StageShares[stage]
-	}
-	if reusedShare > 0.9 {
-		reusedShare = 0.9
-	}
-	eta *= 1 - reusedShare
+	// A reused preprocess saves seconds, not minutes — deliberately ignored.
 	return int64(math.Round(eta))
 }
 

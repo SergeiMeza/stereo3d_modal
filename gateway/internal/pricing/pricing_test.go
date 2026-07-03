@@ -376,3 +376,56 @@ func TestQuoteImage(t *testing.T) {
 		t.Errorf("want 50, got %d", q.AmountCents)
 	}
 }
+
+// --------------------------------------------------------------- ETA model
+
+// The ETA model is additive: base + depth term + preset-keyed residual.
+// The 4k anchor: job c51480d2c0aa (2026-07-03) — depth reused, 4k
+// propainter stereo ran ≈45 min for 149.46s billable.
+func TestETAStereoPreviewScalesByPreset(t *testing.T) {
+	s := stepSvc()
+	base := StepInputs{
+		Step: "stereo_preview", BillableS: 149.458333, EffectiveFPS: 24,
+		Inpaint: "propainter", ReuseStages: []string{"depth"},
+	}
+	in1080 := base
+	in1080.Preset = "1080p"
+	in4k := base
+	in4k.Preset = "4k"
+	eta1080 := s.EstimateStepETA(context.Background(), in1080)
+	eta4k := s.EstimateStepETA(context.Background(), in4k)
+	// 4k: 90 + 11 × 149.46 × 1.6 ≈ 2720s ≈ 45 min (the measured anchor);
+	// 1080p: 90 + 3.5 × 149.46 × 1.6 ≈ 927s
+	if eta4k < 2300 || eta4k > 3200 {
+		t.Errorf("4k stereo preview: want ≈2720s (measured ≈45 min), got %d", eta4k)
+	}
+	if eta4k < 2*eta1080 {
+		t.Errorf("4k must estimate ≥2× the 1080p wall (got %d vs %d)", eta4k, eta1080)
+	}
+}
+
+func TestETADepthTermZeroedOnReuseAndUpload(t *testing.T) {
+	s := stepSvc()
+	fresh := StepInputs{
+		Step: "stereo_preview", Preset: "4k", BillableS: 149.458333,
+		EffectiveFPS: 24, Inpaint: "propainter",
+		DepthRes: 1596, ContentWidth: 3840, ContentHeight: 1606,
+	}
+	reused := fresh
+	reused.ReuseStages = []string{"depth"}
+	uploaded := fresh
+	uploaded.DepthRes = 0 // user-provided depth map: no inference at all
+
+	etaFresh := s.EstimateStepETA(context.Background(), fresh)
+	etaReused := s.EstimateStepETA(context.Background(), reused)
+	etaUploaded := s.EstimateStepETA(context.Background(), uploaded)
+	// fresh adds the depth term: 2.8 × 149.46 × 3.57 ≈ 1493s on top
+	if diff := etaFresh - etaReused; diff < 1200 || diff > 1800 {
+		t.Errorf("fresh−reused: want the ≈1493s depth term, got %d (%d vs %d)",
+			diff, etaFresh, etaReused)
+	}
+	if etaReused != etaUploaded {
+		t.Errorf("reused (%d) and user-provided (%d) depth must estimate the same",
+			etaReused, etaUploaded)
+	}
+}

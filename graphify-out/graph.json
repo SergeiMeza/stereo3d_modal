@@ -213,7 +213,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "app_api_main_validate_scene_overrides",
-      "community": 4,
+      "community": 51,
       "norm_label": "_validate_scene_overrides()"
     },
     {
@@ -393,7 +393,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "app_api_main_rationale_44",
-      "community": 4,
+      "community": 51,
       "norm_label": "validate the ``scene_overrides`` request field (422 on any problem \u2014     a malfo"
     },
     {
@@ -733,7 +733,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "app_common_debug_job_logger",
-      "community": 118,
+      "community": 2,
       "norm_label": "job_logger()"
     },
     {
@@ -793,7 +793,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "app_common_debug_rationale_31",
-      "community": 118,
+      "community": 2,
       "norm_label": "logger that prefixes every line with the job id, so one job can     be traced ac"
     },
     {
@@ -973,7 +973,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "app_common_jobs_update_job",
-      "community": 3,
+      "community": 40,
       "norm_label": "update_job()"
     },
     {
@@ -1023,7 +1023,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "app_common_jobs_report_progress",
-      "community": 3,
+      "community": 40,
       "norm_label": "report_progress()"
     },
     {
@@ -1033,7 +1033,7 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "app_common_jobs_stage_timer",
-      "community": 3,
+      "community": 40,
       "norm_label": "stage_timer"
     },
     {
@@ -1043,7 +1043,7 @@
       "source_location": "L262",
       "_origin": "ast",
       "id": "app_common_jobs_stage_timer_init",
-      "community": 3,
+      "community": 40,
       "norm_label": ".__init__()"
     },
     {
@@ -1053,7 +1053,7 @@
       "source_location": "L271",
       "_origin": "ast",
       "id": "app_common_jobs_stage_timer_enter",
-      "community": 3,
+      "community": 40,
       "norm_label": ".__enter__()"
     },
     {
@@ -1063,7 +1063,7 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "app_common_jobs_stage_timer_exit",
-      "community": 3,
+      "community": 40,
       "norm_label": ".__exit__()"
     },
     {
@@ -1123,7 +1123,7 @@
       "source_location": "L209",
       "_origin": "ast",
       "id": "app_common_jobs_rationale_209",
-      "community": 3,
+      "community": 40,
       "norm_label": "structured progress for client apps polling get /v1/jobs/{id}.      ``band`` map"
     },
     {
@@ -1133,7 +1133,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "app_common_jobs_rationale_254",
-      "community": 3,
+      "community": 40,
       "norm_label": "context manager: times a stage, records it on the job, sets the     job's curren"
     },
     {
@@ -1293,7 +1293,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_common_reuse",
-      "community": 71,
+      "community": 65,
       "norm_label": "reuse.py"
     },
     {
@@ -1303,7 +1303,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "app_common_reuse_canonical",
-      "community": 71,
+      "community": 65,
       "norm_label": "_canonical()"
     },
     {
@@ -1313,7 +1313,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "app_common_reuse_compute_key",
-      "community": 71,
+      "community": 65,
       "norm_label": "compute_key()"
     },
     {
@@ -1323,7 +1323,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "app_common_reuse_preprocess_key",
-      "community": 71,
+      "community": 65,
       "norm_label": "preprocess_key()"
     },
     {
@@ -1333,7 +1333,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "app_common_reuse_depth_source_key",
-      "community": 71,
+      "community": 65,
       "norm_label": "depth_source_key()"
     },
     {
@@ -1343,7 +1343,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "app_common_reuse_depth_key",
-      "community": 71,
+      "community": 65,
       "norm_label": "depth_key()"
     },
     {
@@ -1353,7 +1353,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "app_common_reuse_scenes_key",
-      "community": 71,
+      "community": 65,
       "norm_label": "scenes_key()"
     },
     {
@@ -1363,7 +1363,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "app_common_reuse_register",
-      "community": 71,
+      "community": 65,
       "norm_label": "register()"
     },
     {
@@ -1373,7 +1373,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "app_common_reuse_register_value",
-      "community": 71,
+      "community": 65,
       "norm_label": "register_value()"
     },
     {
@@ -1383,7 +1383,7 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "app_common_reuse_lookup_value",
-      "community": 71,
+      "community": 65,
       "norm_label": "lookup_value()"
     },
     {
@@ -1393,7 +1393,7 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "app_common_reuse_lookup",
-      "community": 71,
+      "community": 65,
       "norm_label": "lookup()"
     },
     {
@@ -1403,7 +1403,7 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "app_common_reuse_peek",
-      "community": 71,
+      "community": 65,
       "norm_label": "peek()"
     },
     {
@@ -1413,7 +1413,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_1",
-      "community": 71,
+      "community": 65,
       "norm_label": "content-addressed artifact reuse (preprocess / depth / scenes).  instead of pass"
     },
     {
@@ -1423,7 +1423,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_49",
-      "community": 71,
+      "community": 65,
       "norm_label": "stable json of a dict for hashing \u2014 sorted keys, no whitespace, so     the same"
     },
     {
@@ -1433,7 +1433,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_55",
-      "community": 71,
+      "community": 65,
       "norm_label": "deterministic cache key for ``stage`` from its ``inputs`` dict.     include ever"
     },
     {
@@ -1443,7 +1443,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_71",
-      "community": 71,
+      "community": 65,
       "norm_label": "key for a preprocess result. trim is the resolved (first, last) or     none; tar"
     },
     {
@@ -1453,7 +1453,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_95",
-      "community": 71,
+      "community": 65,
       "norm_label": "source identity for the depth stage \u2014 like preprocess_key but     without the ou"
     },
     {
@@ -1463,7 +1463,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_119",
-      "community": 71,
+      "community": 65,
       "norm_label": "key for a depth map: the depth source identity (depth_source_key \u2014     output-re"
     },
     {
@@ -1473,7 +1473,7 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_156",
-      "community": 71,
+      "community": 65,
       "norm_label": "scene cuts depend only on the work file."
     },
     {
@@ -1483,7 +1483,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_161",
-      "community": 71,
+      "community": 65,
       "norm_label": "record that ``key``'s artifact is published at ``gcs_relpath`` (a     bucket-rel"
     },
     {
@@ -1493,7 +1493,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_173",
-      "community": 71,
+      "community": 65,
       "norm_label": "cache a small inline result (no gcs file) directly in the registry \u2014     e.g. sc"
     },
     {
@@ -1503,7 +1503,7 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_184",
-      "community": 71,
+      "community": 65,
       "norm_label": "return the inline cached value for ``key`` (register_value), or none.     no fil"
     },
     {
@@ -1513,7 +1513,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_193",
-      "community": 71,
+      "community": 65,
       "norm_label": "return the registry entry for ``key`` if its published gcs artifact     still ex"
     },
     {
@@ -1523,7 +1523,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "app_common_reuse_rationale_208",
-      "community": 71,
+      "community": 65,
       "norm_label": "return the raw registry entry for ``key`` (or none) without the gcs     file-exi"
     },
     {
@@ -1563,7 +1563,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "app_common_storage_bucket_path",
-      "community": 118,
+      "community": 2,
       "norm_label": "bucket_path()"
     },
     {
@@ -1573,7 +1573,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_common_storage_py_path",
-      "community": 118,
+      "community": 2,
       "norm_label": "path"
     },
     {
@@ -1583,7 +1583,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "app_common_storage_public_url",
-      "community": 118,
+      "community": 2,
       "norm_label": "public_url()"
     },
     {
@@ -1593,7 +1593,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "app_common_storage_job_cache_dir",
-      "community": 2,
+      "community": 3,
       "norm_label": "job_cache_dir()"
     },
     {
@@ -1603,7 +1603,7 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "app_common_storage_job_output_dir",
-      "community": 118,
+      "community": 2,
       "norm_label": "job_output_dir()"
     },
     {
@@ -1633,7 +1633,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "app_common_storage_rationale_93",
-      "community": 118,
+      "community": 2,
       "norm_label": "translate an api input path to the mounted filesystem path.      accepts ``gs://"
     },
     {
@@ -1643,7 +1643,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "app_common_storage_rationale_111",
-      "community": 118,
+      "community": 2,
       "norm_label": "public https url for a file under the bucket mount."
     },
     {
@@ -2273,7 +2273,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "app_pipelines_analyze_process_profile_job",
-      "community": 118,
+      "community": 2,
       "norm_label": "process_profile_job()"
     },
     {
@@ -2333,7 +2333,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "app_pipelines_analyze_rationale_242",
-      "community": 118,
+      "community": 2,
       "norm_label": "standalone shot-profiling job (no paid conversion needed): run the     adaptive"
     },
     {
@@ -2413,7 +2413,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "app_pipelines_video_depth_source_key",
-      "community": 12,
+      "community": 65,
       "norm_label": "_depth_source_key()"
     },
     {
@@ -2533,7 +2533,7 @@
       "source_location": "L1248",
       "_origin": "ast",
       "id": "app_pipelines_video_apply_scene_overrides",
-      "community": 4,
+      "community": 32,
       "norm_label": "_apply_scene_overrides()"
     },
     {
@@ -2643,7 +2643,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "app_pipelines_video_rationale_118",
-      "community": 12,
+      "community": 65,
       "norm_label": "the depth stage's source identity \u2014 output-resolution-independent     (see reuse"
     },
     {
@@ -2763,7 +2763,7 @@
       "source_location": "L1249",
       "_origin": "ast",
       "id": "app_pipelines_video_rationale_1249",
-      "community": 4,
+      "community": 32,
       "norm_label": "apply resolved scene_overrides onto the final depth script in place.      user o"
     },
     {
@@ -2833,7 +2833,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_stages_depth_processor",
-      "community": 32,
+      "community": 31,
       "norm_label": "depth_processor.py"
     },
     {
@@ -2843,7 +2843,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_stages_depth_processor_load_video_depth_model",
-      "community": 32,
+      "community": 31,
       "norm_label": "load_video_depth_model()"
     },
     {
@@ -2863,7 +2863,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_stages_depth_processor_py_encoder",
-      "community": 32,
+      "community": 31,
       "norm_label": "encoder"
     },
     {
@@ -2873,7 +2873,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "videodepthanything",
-      "community": 32,
+      "community": 31,
       "norm_label": "videodepthanything"
     },
     {
@@ -2883,7 +2883,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "app_stages_depth_processor_depthresult",
-      "community": 32,
+      "community": 31,
       "norm_label": "depthresult"
     },
     {
@@ -3013,7 +3013,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_stages_depth_processor_rationale_1",
-      "community": 32,
+      "community": 31,
       "norm_label": "scene-aware streaming video depth estimation.  migrated from scene_video_depth.d"
     },
     {
@@ -3023,7 +3023,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "app_stages_depth_processor_rationale_71",
-      "community": 32,
+      "community": 31,
       "norm_label": "metadata returned after a full depth pass."
     },
     {
@@ -3563,7 +3563,7 @@
       "source_location": "L704",
       "_origin": "ast",
       "id": "app_stages_media_publish_file",
-      "community": 118,
+      "community": 2,
       "norm_label": "publish_file()"
     },
     {
@@ -3573,7 +3573,7 @@
       "source_location": "L726",
       "_origin": "ast",
       "id": "app_stages_media_depth_vis_filter",
-      "community": 2,
+      "community": 136,
       "norm_label": "_depth_vis_filter()"
     },
     {
@@ -3603,7 +3603,7 @@
       "source_location": "L807",
       "_origin": "ast",
       "id": "app_stages_media_publish_text",
-      "community": 118,
+      "community": 2,
       "norm_label": "publish_text()"
     },
     {
@@ -3773,7 +3773,7 @@
       "source_location": "L705",
       "_origin": "ast",
       "id": "app_stages_media_rationale_705",
-      "community": 118,
+      "community": 2,
       "norm_label": "copy a cache-volume artifact (e.g. the depth video) to the     job's bucket outp"
     },
     {
@@ -3783,7 +3783,7 @@
       "source_location": "L727",
       "_origin": "ast",
       "id": "app_stages_media_rationale_727",
-      "community": 2,
+      "community": 136,
       "norm_label": "ffmpeg -vf chain turning a gray16le depth video into a browser-     playable 8-b"
     },
     {
@@ -3813,7 +3813,7 @@
       "source_location": "L808",
       "_origin": "ast",
       "id": "app_stages_media_rationale_808",
-      "community": 118,
+      "community": 2,
       "norm_label": "write an in-memory text sidecar (e.g. depth_script.yaml) to the     job's bucket"
     },
     {
@@ -3863,7 +3863,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "app_stages_mvhevc_container_cpus",
-      "community": 118,
+      "community": 2,
       "norm_label": "_container_cpus()"
     },
     {
@@ -3873,7 +3873,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "app_stages_mvhevc_encode_mvhevc",
-      "community": 118,
+      "community": 2,
       "norm_label": "encode_mvhevc()"
     },
     {
@@ -3883,7 +3883,7 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "app_stages_mvhevc_encode_mvhevc_x265",
-      "community": 118,
+      "community": 2,
       "norm_label": "encode_mvhevc_x265()"
     },
     {
@@ -3903,7 +3903,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "app_stages_mvhevc_rationale_42",
-      "community": 118,
+      "community": 2,
       "norm_label": "cores actually allocated to this container (the modal cpu= request),     for siz"
     },
     {
@@ -3913,7 +3913,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "app_stages_mvhevc_rationale_92",
-      "community": 118,
+      "community": 2,
       "norm_label": "encode a full-width sbs video into apple spatial video:     mv-hevc (nvenc) \u2192 mp"
     },
     {
@@ -3923,7 +3923,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "app_stages_mvhevc_rationale_260",
-      "community": 118,
+      "community": 2,
       "norm_label": "apple-recognized spatial video via x265 mv-hevc (cpu).      x265 is the only lin"
     },
     {
@@ -4373,7 +4373,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "app_stages_video_depth_videodepthworker",
-      "community": 12,
+      "community": 3,
       "norm_label": "videodepthworker"
     },
     {
@@ -4383,7 +4383,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "app_stages_video_depth_videodepthworker_load",
-      "community": 32,
+      "community": 31,
       "norm_label": ".load()"
     },
     {
@@ -4393,7 +4393,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "app_stages_video_depth_videodepthworker_flush",
-      "community": 12,
+      "community": 3,
       "norm_label": ".flush()"
     },
     {
@@ -4403,7 +4403,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "app_stages_video_depth_videodepthworker_generate",
-      "community": 12,
+      "community": 3,
       "norm_label": ".generate()"
     },
     {
@@ -4413,7 +4413,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "app_stages_video_depth_videodepthworker_generate_scenes",
-      "community": 12,
+      "community": 3,
       "norm_label": ".generate_scenes()"
     },
     {
@@ -4433,7 +4433,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "app_stages_video_depth_rationale_76",
-      "community": 12,
+      "community": 3,
       "norm_label": "compute a depth video for ``input_path`` (a path inside the         cache volume"
     },
     {
@@ -4443,7 +4443,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "app_stages_video_depth_rationale_147",
-      "community": 12,
+      "community": 3,
       "norm_label": "long-video fan-out: depth for an explicit subset of scenes.         writes per-s"
     },
     {
@@ -4463,7 +4463,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_sample_keyframes",
-      "community": 41,
+      "community": 33,
       "norm_label": "_sample_keyframes()"
     },
     {
@@ -4603,7 +4603,7 @@
       "source_location": "L800",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_percentile",
-      "community": 41,
+      "community": 33,
       "norm_label": "_percentile()"
     },
     {
@@ -4613,7 +4613,7 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_auto_comfort_scale",
-      "community": 41,
+      "community": 33,
       "norm_label": "_auto_comfort_scale()"
     },
     {
@@ -4623,7 +4623,7 @@
       "source_location": "L840",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_apply_auto_comfort",
-      "community": 41,
+      "community": 33,
       "norm_label": "_apply_auto_comfort()"
     },
     {
@@ -4663,7 +4663,7 @@
       "source_location": "L932",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_resize_shape",
-      "community": 333,
+      "community": 41,
       "norm_label": "_resize_shape()"
     },
     {
@@ -4683,7 +4683,7 @@
       "source_location": "L990",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_make_infer",
-      "community": 333,
+      "community": 41,
       "norm_label": "_make_infer()"
     },
     {
@@ -4693,7 +4693,7 @@
       "source_location": "L1022",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_infer_da2",
-      "community": 333,
+      "community": 41,
       "norm_label": "_infer_da2()"
     },
     {
@@ -4703,7 +4703,7 @@
       "source_location": "L1030",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_infer_da3",
-      "community": 333,
+      "community": 41,
       "norm_label": "_infer_da3()"
     },
     {
@@ -4713,7 +4713,7 @@
       "source_location": "L1043",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_infer_depth_pro",
-      "community": 333,
+      "community": 41,
       "norm_label": "_infer_depth_pro()"
     },
     {
@@ -4763,7 +4763,7 @@
       "source_location": "L1263",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_framedepthworker_make_infer",
-      "community": 41,
+      "community": 33,
       "norm_label": "._make_infer()"
     },
     {
@@ -4813,7 +4813,7 @@
       "source_location": "L1393",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_shotprofiler",
-      "community": 41,
+      "community": 33,
       "norm_label": "shotprofiler"
     },
     {
@@ -4833,7 +4833,7 @@
       "source_location": "L1420",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_shotprofiler_flush",
-      "community": 41,
+      "community": 33,
       "norm_label": ".flush()"
     },
     {
@@ -4843,7 +4843,7 @@
       "source_location": "L1426",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_shotprofiler_make_infer",
-      "community": 41,
+      "community": 33,
       "norm_label": "._make_infer()"
     },
     {
@@ -4853,7 +4853,7 @@
       "source_location": "L1437",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_shotprofiler_profile_scenes",
-      "community": 41,
+      "community": 33,
       "norm_label": ".profile_scenes()"
     },
     {
@@ -4873,7 +4873,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_164",
-      "community": 41,
+      "community": 33,
       "norm_label": "pick keyframe indices within a shot [first, last) at ~one every     profile_keyf"
     },
     {
@@ -5013,7 +5013,7 @@
       "source_location": "L801",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_801",
-      "community": 41,
+      "community": 33,
       "norm_label": "linear-interpolation percentile (numpy default) of an already     sorted, non-em"
     },
     {
@@ -5023,7 +5023,7 @@
       "source_location": "L816",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_816",
-      "community": 41,
+      "community": 33,
       "norm_label": "scale that brings the clip's peak salient screen disparity within     ``comfort_"
     },
     {
@@ -5033,7 +5033,7 @@
       "source_location": "L845",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_845",
-      "community": 41,
+      "community": 33,
       "norm_label": "build the depth script, applying auto-comfort when requested.     returns ``(scr"
     },
     {
@@ -5063,7 +5063,7 @@
       "source_location": "L933",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_933",
-      "community": 333,
+      "community": 41,
       "norm_label": "working resolution: short side = input_size, both multiples of     14 (same rule"
     },
     {
@@ -5083,7 +5083,7 @@
       "source_location": "L992",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_992",
-      "community": 333,
+      "community": 41,
       "norm_label": "bind a ``(t, c, h, w) uint8 cpu -> (t, h, w) float32 cpu raw     depth`` functio"
     },
     {
@@ -5093,7 +5093,7 @@
       "source_location": "L1023",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1023",
-      "community": 333,
+      "community": 41,
       "norm_label": "transformers da2-metric: returns depth in meters at the     working resolution."
     },
     {
@@ -5103,7 +5103,7 @@
       "source_location": "L1031",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1031",
-      "community": 333,
+      "community": 41,
       "norm_label": "da3 api: its inputprocessor handles resize (short side =     input_size via lowe"
     },
     {
@@ -5113,7 +5113,7 @@
       "source_location": "L1044",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1044",
-      "community": 333,
+      "community": 41,
       "norm_label": "apple depth pro: absolute metric depth in meters at the     working resolution,"
     },
     {
@@ -5133,7 +5133,7 @@
       "source_location": "L1264",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1264",
-      "community": 41,
+      "community": 33,
       "norm_label": "delegate to the shared module-level ``_make_infer`` (same         binding for bo"
     },
     {
@@ -5183,7 +5183,7 @@
       "source_location": "L1394",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1394",
-      "community": 41,
+      "community": 33,
       "norm_label": "adaptive shot profiler \u2014 the bounded 3-keyframe-per-shot pass that     chooses p"
     },
     {
@@ -5193,7 +5193,7 @@
       "source_location": "L1427",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1427",
-      "community": 41,
+      "community": 33,
       "norm_label": "delegate to the shared module-level ``_make_infer`` (same         binding for bo"
     },
     {
@@ -5203,7 +5203,7 @@
       "source_location": "L1447",
       "_origin": "ast",
       "id": "app_stages_video_depth_models_rationale_1447",
-      "community": 41,
+      "community": 33,
       "norm_label": "adaptive per-shot depth script (r&d prototype): analyze 3         keyframes (fir"
     },
     {
@@ -5243,7 +5243,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "app_stages_video_stereo_passthrough_lookup",
-      "community": 4,
+      "community": 32,
       "norm_label": "_passthrough_lookup()"
     },
     {
@@ -5253,7 +5253,7 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "app_stages_video_stereo_split_passthrough_runs",
-      "community": 4,
+      "community": 32,
       "norm_label": "_split_passthrough_runs()"
     },
     {
@@ -5393,7 +5393,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "app_stages_video_stereo_rationale_127",
-      "community": 4,
+      "community": 32,
       "norm_label": "``index -> bool`` predicate over shots flagged ``passthrough: true``     (ship a"
     },
     {
@@ -5403,7 +5403,7 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "app_stages_video_stereo_rationale_146",
-      "community": 4,
+      "community": 32,
       "norm_label": "split [start, end) into maximal runs of constant passthrough-ness so     a batch"
     },
     {
@@ -5473,7 +5473,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_round64",
-      "community": 30,
+      "community": 32,
       "norm_label": "_round64()"
     },
     {
@@ -5483,7 +5483,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker",
-      "community": 30,
+      "community": 12,
       "norm_label": "m2svidstereoworker"
     },
     {
@@ -5503,7 +5503,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker_flush",
-      "community": 30,
+      "community": 12,
       "norm_label": ".flush()"
     },
     {
@@ -5513,7 +5513,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker_generate",
-      "community": 30,
+      "community": 32,
       "norm_label": ".generate()"
     },
     {
@@ -5523,7 +5523,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker_segment_writer",
-      "community": 30,
+      "community": 32,
       "norm_label": "._segment_writer()"
     },
     {
@@ -5533,7 +5533,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_py_path",
-      "community": 30,
+      "community": 32,
       "norm_label": "path"
     },
     {
@@ -5543,7 +5543,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker_fill_eye",
-      "community": 30,
+      "community": 12,
       "norm_label": "._fill_eye()"
     },
     {
@@ -5553,7 +5553,7 @@
       "source_location": "L378",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_m2svidstereoworker_write_inpainted",
-      "community": 30,
+      "community": 12,
       "norm_label": "._write_inpainted()"
     },
     {
@@ -5573,7 +5573,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_rationale_73",
-      "community": 30,
+      "community": 32,
       "norm_label": "nearest multiple of 64, at least 64 (model dim constraint)."
     },
     {
@@ -5583,7 +5583,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_rationale_133",
-      "community": 30,
+      "community": 32,
       "norm_label": "produce a full-width sbs video (left = source, right =         warped + m2svid-f"
     },
     {
@@ -5593,7 +5593,7 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_rationale_362",
-      "community": 30,
+      "community": 12,
       "norm_label": "run m2svid on one eye. mirror=true flips inputs/outputs         horizontally (le"
     },
     {
@@ -5603,7 +5603,7 @@
       "source_location": "L382",
       "_origin": "ast",
       "id": "app_stages_video_stereo_m2svid_rationale_382",
-      "community": 30,
+      "community": 12,
       "norm_label": "splat the right eye at source resolution and full         displacement, run m2sv"
     },
     {
@@ -6341,7 +6341,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init",
-      "community": 35,
+      "community": 184,
       "norm_label": "__init__.py"
     },
     {
@@ -6351,7 +6351,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init_rationale_1",
-      "community": 35,
+      "community": 184,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6361,7 +6361,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr",
-      "community": 35,
+      "community": 184,
       "norm_label": "psnr.py"
     },
     {
@@ -6371,7 +6371,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_psnr",
-      "community": 35,
+      "community": 184,
       "norm_label": "psnr()"
     },
     {
@@ -6381,7 +6381,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_rationale_1",
-      "community": 35,
+      "community": 184,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6461,7 +6461,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model",
-      "community": 35,
+      "community": 67,
       "norm_label": "m2svid_model.py"
     },
     {
@@ -6471,7 +6471,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_get_state_dict",
-      "community": 35,
+      "community": 67,
       "norm_label": "get_state_dict()"
     },
     {
@@ -6481,7 +6481,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_load_state_dict",
-      "community": 35,
+      "community": 67,
       "norm_label": "load_state_dict()"
     },
     {
@@ -6491,7 +6491,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm",
-      "community": 35,
+      "community": 67,
       "norm_label": "videoldm"
     },
     {
@@ -6501,7 +6501,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_init",
-      "community": 35,
+      "community": 67,
       "norm_label": ".__init__()"
     },
     {
@@ -6511,7 +6511,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_init_from_ckpt",
-      "community": 35,
+      "community": 67,
       "norm_label": ".init_from_ckpt()"
     },
     {
@@ -6521,7 +6521,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_init_first_stage",
-      "community": 66,
+      "community": 129,
       "norm_label": "._init_first_stage()"
     },
     {
@@ -6531,7 +6531,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_configure_optimizers",
-      "community": 35,
+      "community": 129,
       "norm_label": ".configure_optimizers()"
     },
     {
@@ -6541,7 +6541,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_add_custom_cond",
-      "community": 35,
+      "community": 67,
       "norm_label": ".add_custom_cond()"
     },
     {
@@ -6551,7 +6551,7 @@
       "source_location": "L225",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_forward",
-      "community": 35,
+      "community": 67,
       "norm_label": ".forward()"
     },
     {
@@ -6561,7 +6561,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_shared_step",
-      "community": 35,
+      "community": 67,
       "norm_label": ".shared_step()"
     },
     {
@@ -6571,7 +6571,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_py_any",
-      "community": 35,
+      "community": 67,
       "norm_label": "any"
     },
     {
@@ -6581,7 +6581,7 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_generate",
-      "community": 35,
+      "community": 67,
       "norm_label": ".generate()"
     },
     {
@@ -6591,7 +6591,7 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_test_step",
-      "community": 35,
+      "community": 67,
       "norm_label": ".test_step()"
     },
     {
@@ -6601,7 +6601,7 @@
       "source_location": "L384",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_test_epoch_end",
-      "community": 35,
+      "community": 67,
       "norm_label": ".test_epoch_end()"
     },
     {
@@ -6611,7 +6611,7 @@
       "source_location": "L401",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_validation_step",
-      "community": 35,
+      "community": 67,
       "norm_label": ".validation_step()"
     },
     {
@@ -6621,7 +6621,7 @@
       "source_location": "L404",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_validation_epoch_end",
-      "community": 35,
+      "community": 67,
       "norm_label": ".validation_epoch_end()"
     },
     {
@@ -6631,7 +6631,7 @@
       "source_location": "L408",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_log_images",
-      "community": 35,
+      "community": 67,
       "norm_label": ".log_images()"
     },
     {
@@ -6641,7 +6641,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_rationale_1",
-      "community": 35,
+      "community": 67,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6721,7 +6721,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_init",
-      "community": 66,
+      "community": 75,
       "norm_label": "__init__.py"
     },
     {
@@ -6731,7 +6731,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_init",
-      "community": 66,
+      "community": 75,
       "norm_label": "__init__.py"
     },
     {
@@ -6741,7 +6741,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder",
-      "community": 52,
+      "community": 71,
       "norm_label": "autoencoder.py"
     },
     {
@@ -6751,7 +6751,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder",
-      "community": 52,
+      "community": 76,
       "norm_label": "abstractautoencoder"
     },
     {
@@ -6761,7 +6761,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_init",
-      "community": 66,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -6771,7 +6771,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_apply_ckpt",
-      "community": 52,
+      "community": 129,
       "norm_label": ".apply_ckpt()"
     },
     {
@@ -6781,7 +6781,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_get_input",
-      "community": 52,
+      "community": 76,
       "norm_label": ".get_input()"
     },
     {
@@ -6791,7 +6791,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_py_any",
-      "community": 52,
+      "community": 76,
       "norm_label": "any"
     },
     {
@@ -6801,7 +6801,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_on_train_batch_end",
-      "community": 52,
+      "community": 76,
       "norm_label": ".on_train_batch_end()"
     },
     {
@@ -6811,7 +6811,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_ema_scope",
-      "community": 52,
+      "community": 76,
       "norm_label": ".ema_scope()"
     },
     {
@@ -6821,7 +6821,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_encode",
-      "community": 52,
+      "community": 76,
       "norm_label": ".encode()"
     },
     {
@@ -6861,7 +6861,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_configure_optimizers",
-      "community": 52,
+      "community": 76,
       "norm_label": ".configure_optimizers()"
     },
     {
@@ -6881,7 +6881,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_init",
-      "community": 52,
+      "community": 129,
       "norm_label": ".__init__()"
     },
     {
@@ -6981,7 +6981,7 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_validation_step",
-      "community": 52,
+      "community": 76,
       "norm_label": ".validation_step()"
     },
     {
@@ -7021,7 +7021,7 @@
       "source_location": "L395",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_log_images",
-      "community": 52,
+      "community": 76,
       "norm_label": ".log_images()"
     },
     {
@@ -7031,7 +7031,7 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy",
-      "community": 52,
+      "community": 71,
       "norm_label": "autoencodingenginelegacy"
     },
     {
@@ -7041,7 +7041,7 @@
       "source_location": "L438",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_init",
-      "community": 52,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -7051,7 +7051,7 @@
       "source_location": "L464",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_get_autoencoder_params",
-      "community": 52,
+      "community": 71,
       "norm_label": ".get_autoencoder_params()"
     },
     {
@@ -7061,7 +7061,7 @@
       "source_location": "L468",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_encode",
-      "community": 52,
+      "community": 71,
       "norm_label": ".encode()"
     },
     {
@@ -7071,7 +7071,7 @@
       "source_location": "L490",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_decode",
-      "community": 52,
+      "community": 71,
       "norm_label": ".decode()"
     },
     {
@@ -7081,7 +7081,7 @@
       "source_location": "L508",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderkl",
-      "community": 52,
+      "community": 71,
       "norm_label": "autoencoderkl"
     },
     {
@@ -7091,7 +7091,7 @@
       "source_location": "L509",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderkl_init",
-      "community": 52,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -7101,7 +7101,7 @@
       "source_location": "L523",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderlegacyvq",
-      "community": 52,
+      "community": 71,
       "norm_label": "autoencoderlegacyvq"
     },
     {
@@ -7111,7 +7111,7 @@
       "source_location": "L524",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderlegacyvq_init",
-      "community": 52,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -7121,7 +7121,7 @@
       "source_location": "L549",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage",
-      "community": 52,
+      "community": 76,
       "norm_label": "identityfirststage"
     },
     {
@@ -7131,7 +7131,7 @@
       "source_location": "L550",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_init",
-      "community": 52,
+      "community": 76,
       "norm_label": ".__init__()"
     },
     {
@@ -7141,7 +7141,7 @@
       "source_location": "L555",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_get_input",
-      "community": 52,
+      "community": 76,
       "norm_label": ".get_input()"
     },
     {
@@ -7151,7 +7151,7 @@
       "source_location": "L558",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_encode",
-      "community": 52,
+      "community": 76,
       "norm_label": ".encode()"
     },
     {
@@ -7161,7 +7161,7 @@
       "source_location": "L562",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_decode",
-      "community": 52,
+      "community": 76,
       "norm_label": ".decode()"
     },
     {
@@ -7181,7 +7181,7 @@
       "source_location": "L568",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_aeintegerwrapper_init",
-      "community": 52,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -7191,7 +7191,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_py_module",
-      "community": 52,
+      "community": 71,
       "norm_label": "module"
     },
     {
@@ -7221,7 +7221,7 @@
       "source_location": "L606",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderklmodeonly",
-      "community": 52,
+      "community": 71,
       "norm_label": "autoencoderklmodeonly"
     },
     {
@@ -7231,7 +7231,7 @@
       "source_location": "L607",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderklmodeonly_init",
-      "community": 52,
+      "community": 71,
       "norm_label": ".__init__()"
     },
     {
@@ -7241,7 +7241,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_rationale_23",
-      "community": 52,
+      "community": 76,
       "norm_label": "this is the base class for all autoencoders, including image autoencoders, image"
     },
     {
@@ -7271,7 +7271,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine",
-      "community": 66,
+      "community": 56,
       "norm_label": "diffusionengine"
     },
     {
@@ -7321,7 +7321,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_init_first_stage",
-      "community": 66,
+      "community": 129,
       "norm_label": "._init_first_stage()"
     },
     {
@@ -7331,7 +7331,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_get_input",
-      "community": 66,
+      "community": 56,
       "norm_label": ".get_input()"
     },
     {
@@ -7341,7 +7341,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_decode_first_stage",
-      "community": 66,
+      "community": 56,
       "norm_label": ".decode_first_stage()"
     },
     {
@@ -7351,7 +7351,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_encode_first_stage",
-      "community": 66,
+      "community": 56,
       "norm_label": ".encode_first_stage()"
     },
     {
@@ -7361,7 +7361,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_forward",
-      "community": 66,
+      "community": 56,
       "norm_label": ".forward()"
     },
     {
@@ -7371,7 +7371,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_shared_step",
-      "community": 66,
+      "community": 56,
       "norm_label": ".shared_step()"
     },
     {
@@ -7381,7 +7381,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_py_any",
-      "community": 66,
+      "community": 56,
       "norm_label": "any"
     },
     {
@@ -7391,7 +7391,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_training_step",
-      "community": 66,
+      "community": 56,
       "norm_label": ".training_step()"
     },
     {
@@ -7401,7 +7401,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_on_train_start",
-      "community": 66,
+      "community": 56,
       "norm_label": ".on_train_start()"
     },
     {
@@ -7411,7 +7411,7 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_on_train_batch_end",
-      "community": 66,
+      "community": 56,
       "norm_label": ".on_train_batch_end()"
     },
     {
@@ -7421,7 +7421,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_ema_scope",
-      "community": 66,
+      "community": 56,
       "norm_label": ".ema_scope()"
     },
     {
@@ -7431,7 +7431,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_instantiate_optimizer_from_config",
-      "community": 66,
+      "community": 56,
       "norm_label": ".instantiate_optimizer_from_config()"
     },
     {
@@ -7441,7 +7441,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_configure_optimizers",
-      "community": 66,
+      "community": 56,
       "norm_label": ".configure_optimizers()"
     },
     {
@@ -7451,7 +7451,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_sample",
-      "community": 66,
+      "community": 56,
       "norm_label": ".sample()"
     },
     {
@@ -7461,7 +7461,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_log_conditionings",
-      "community": 66,
+      "community": 56,
       "norm_label": ".log_conditionings()"
     },
     {
@@ -7471,7 +7471,7 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_log_images",
-      "community": 66,
+      "community": 56,
       "norm_label": ".log_images()"
     },
     {
@@ -7481,7 +7481,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_rationale_270",
-      "community": 66,
+      "community": 56,
       "norm_label": "defines heuristics to log different conditionings.         these can be lists of"
     },
     {
@@ -7821,7 +7821,7 @@
       "source_location": "L527",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_basictransformerblock_forward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".forward()"
     },
     {
@@ -8731,7 +8731,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_denoiser_init",
-      "community": 66,
+      "community": 129,
       "norm_label": ".__init__()"
     },
     {
@@ -8801,7 +8801,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_discretedenoiser_init",
-      "community": 66,
+      "community": 129,
       "norm_label": ".__init__()"
     },
     {
@@ -8991,7 +8991,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer",
-      "community": 79,
+      "community": 100,
       "norm_label": "discretizer.py"
     },
     {
@@ -9001,7 +9001,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_generate_roughly_equally_spaced_steps",
-      "community": 79,
+      "community": 100,
       "norm_label": "generate_roughly_equally_spaced_steps()"
     },
     {
@@ -9011,7 +9011,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_py_ndarray",
-      "community": 79,
+      "community": 100,
       "norm_label": "ndarray"
     },
     {
@@ -9021,7 +9021,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization",
-      "community": 79,
+      "community": 100,
       "norm_label": "discretization"
     },
     {
@@ -9031,7 +9031,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization_call",
-      "community": 79,
+      "community": 100,
       "norm_label": ".__call__()"
     },
     {
@@ -9041,7 +9041,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization_get_sigmas",
-      "community": 79,
+      "community": 100,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -9051,7 +9051,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization",
-      "community": 79,
+      "community": 100,
       "norm_label": "edmdiscretization"
     },
     {
@@ -9061,7 +9061,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization_init",
-      "community": 79,
+      "community": 100,
       "norm_label": ".__init__()"
     },
     {
@@ -9071,7 +9071,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization_get_sigmas",
-      "community": 79,
+      "community": 100,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -9081,7 +9081,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization",
-      "community": 79,
+      "community": 100,
       "norm_label": "legacyddpmdiscretization"
     },
     {
@@ -9091,7 +9091,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization_init",
-      "community": 79,
+      "community": 100,
       "norm_label": ".__init__()"
     },
     {
@@ -9101,7 +9101,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization_get_sigmas",
-      "community": 79,
+      "community": 100,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -9271,7 +9271,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model",
-      "community": 28,
+      "community": 330,
       "norm_label": "model.py"
     },
     {
@@ -9281,7 +9281,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_get_timestep_embedding",
-      "community": 28,
+      "community": 330,
       "norm_label": "get_timestep_embedding()"
     },
     {
@@ -9291,7 +9291,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_nonlinearity",
-      "community": 28,
+      "community": 330,
       "norm_label": "nonlinearity()"
     },
     {
@@ -9391,7 +9391,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_resnetblock_forward",
-      "community": 28,
+      "community": 330,
       "norm_label": ".forward()"
     },
     {
@@ -9421,7 +9421,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_attnblock",
-      "community": 141,
+      "community": 20,
       "norm_label": "attnblock"
     },
     {
@@ -9511,7 +9511,7 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_memoryefficientcrossattentionwrapper",
-      "community": 28,
+      "community": 330,
       "norm_label": "memoryefficientcrossattentionwrapper"
     },
     {
@@ -9521,7 +9521,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_memoryefficientcrossattentionwrapper_forward",
-      "community": 28,
+      "community": 330,
       "norm_label": ".forward()"
     },
     {
@@ -9541,7 +9541,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model",
-      "community": 28,
+      "community": 330,
       "norm_label": "model"
     },
     {
@@ -9561,7 +9561,7 @@
       "source_location": "L434",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model_forward",
-      "community": 28,
+      "community": 330,
       "norm_label": ".forward()"
     },
     {
@@ -9571,7 +9571,7 @@
       "source_location": "L483",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model_get_last_layer",
-      "community": 28,
+      "community": 330,
       "norm_label": ".get_last_layer()"
     },
     {
@@ -9581,7 +9581,7 @@
       "source_location": "L487",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_encoder",
-      "community": 28,
+      "community": 330,
       "norm_label": "encoder"
     },
     {
@@ -9601,7 +9601,7 @@
       "source_location": "L576",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_encoder_forward",
-      "community": 28,
+      "community": 330,
       "norm_label": ".forward()"
     },
     {
@@ -9611,7 +9611,7 @@
       "source_location": "L604",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_decoder",
-      "community": 28,
+      "community": 20,
       "norm_label": "decoder"
     },
     {
@@ -9661,7 +9661,7 @@
       "source_location": "L712",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_decoder_get_last_layer",
-      "community": 28,
+      "community": 20,
       "norm_label": ".get_last_layer()"
     },
     {
@@ -9671,7 +9671,7 @@
       "source_location": "L715",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_decoder_forward",
-      "community": 28,
+      "community": 330,
       "norm_label": ".forward()"
     },
     {
@@ -9681,7 +9681,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_rationale_27",
-      "community": 28,
+      "community": 330,
       "norm_label": "this matches the implementation in denoising diffusion probabilistic models:"
     },
     {
@@ -9721,7 +9721,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d",
-      "community": 14,
+      "community": 22,
       "norm_label": "attentionpool2d"
     },
     {
@@ -9731,7 +9731,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d_init",
-      "community": 14,
+      "community": 22,
       "norm_label": ".__init__()"
     },
     {
@@ -9741,7 +9741,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d_forward",
-      "community": 14,
+      "community": 22,
       "norm_label": ".forward()"
     },
     {
@@ -9881,7 +9881,7 @@
       "source_location": "L319",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_resblock_forward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".forward()"
     },
     {
@@ -9921,7 +9921,7 @@
       "source_location": "L408",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattentionlegacy",
-      "community": 14,
+      "community": 205,
       "norm_label": "qkvattentionlegacy"
     },
     {
@@ -9931,7 +9931,7 @@
       "source_location": "L413",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattentionlegacy_init",
-      "community": 14,
+      "community": 205,
       "norm_label": ".__init__()"
     },
     {
@@ -9941,7 +9941,7 @@
       "source_location": "L417",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattentionlegacy_forward",
-      "community": 22,
+      "community": 205,
       "norm_label": ".forward()"
     },
     {
@@ -9951,7 +9951,7 @@
       "source_location": "L436",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattention",
-      "community": 14,
+      "community": 22,
       "norm_label": "qkvattention"
     },
     {
@@ -9961,7 +9961,7 @@
       "source_location": "L441",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattention_init",
-      "community": 14,
+      "community": 22,
       "norm_label": ".__init__()"
     },
     {
@@ -10041,7 +10041,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_23",
-      "community": 14,
+      "community": 22,
       "norm_label": "adapted from clip: https://github.com/openai/clip/blob/main/clip/model.py"
     },
     {
@@ -10111,7 +10111,7 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_320",
-      "community": 22,
+      "community": 101,
       "norm_label": "apply the block to a tensor, conditioned on a timestep embedding.         :param"
     },
     {
@@ -10131,7 +10131,7 @@
       "source_location": "L409",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_409",
-      "community": 14,
+      "community": 205,
       "norm_label": "a module which performs qkv attention. matches legacy qkvattention + input/ouput"
     },
     {
@@ -10141,7 +10141,7 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_418",
-      "community": 22,
+      "community": 205,
       "norm_label": "apply qkv attention.         :param qkv: an [n x (h * 3 * c) x t] tensor of qs,"
     },
     {
@@ -10151,7 +10151,7 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_437",
-      "community": 14,
+      "community": 22,
       "norm_label": "a module which performs qkv attention and splits in a different order."
     },
     {
@@ -10661,7 +10661,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_make_beta_schedule",
-      "community": 79,
+      "community": 100,
       "norm_label": "make_beta_schedule()"
     },
     {
@@ -10721,7 +10721,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpoint",
-      "community": 22,
+      "community": 101,
       "norm_label": "checkpoint()"
     },
     {
@@ -10731,7 +10731,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction",
-      "community": 22,
+      "community": 101,
       "norm_label": "checkpointfunction"
     },
     {
@@ -10741,7 +10741,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction_forward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".forward()"
     },
     {
@@ -10751,7 +10751,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction_backward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".backward()"
     },
     {
@@ -10781,7 +10781,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_scale_module",
-      "community": 14,
+      "community": 321,
       "norm_label": "scale_module()"
     },
     {
@@ -10791,7 +10791,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_mean_flat",
-      "community": 14,
+      "community": 206,
       "norm_label": "mean_flat()"
     },
     {
@@ -10811,7 +10811,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_silu",
-      "community": 14,
+      "community": 322,
       "norm_label": "silu"
     },
     {
@@ -10821,7 +10821,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_silu_forward",
-      "community": 14,
+      "community": 322,
       "norm_label": ".forward()"
     },
     {
@@ -10831,7 +10831,7 @@
       "source_location": "L274",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_groupnorm32",
-      "community": 14,
+      "community": 140,
       "norm_label": "groupnorm32"
     },
     {
@@ -10841,7 +10841,7 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_groupnorm32_forward",
-      "community": 14,
+      "community": 140,
       "norm_label": ".forward()"
     },
     {
@@ -10891,7 +10891,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_init",
-      "community": 14,
+      "community": 140,
       "norm_label": ".__init__()"
     },
     {
@@ -10901,7 +10901,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_get_alpha",
-      "community": 14,
+      "community": 140,
       "norm_label": ".get_alpha()"
     },
     {
@@ -10911,7 +10911,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_py_tensor",
-      "community": 14,
+      "community": 140,
       "norm_label": "tensor"
     },
     {
@@ -10921,7 +10921,7 @@
       "source_location": "L360",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_forward",
-      "community": 14,
+      "community": 140,
       "norm_label": ".forward()"
     },
     {
@@ -10951,7 +10951,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_rationale_155",
-      "community": 22,
+      "community": 101,
       "norm_label": "evaluate a function without caching intermediate activations, allowing for     r"
     },
     {
@@ -10981,7 +10981,7 @@
       "source_location": "L244",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_rationale_244",
-      "community": 14,
+      "community": 321,
       "norm_label": "scale the parameters of a module and return it."
     },
     {
@@ -10991,7 +10991,7 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_rationale_253",
-      "community": 14,
+      "community": 206,
       "norm_label": "take the mean over all non-batch dimensions."
     },
     {
@@ -11611,7 +11611,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3",
-      "community": 8,
+      "community": 60,
       "norm_label": "inceptionv3"
     },
     {
@@ -11621,7 +11621,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -11631,7 +11631,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3_forward",
-      "community": 8,
+      "community": 60,
       "norm_label": ".forward()"
     },
     {
@@ -11741,7 +11741,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -11791,7 +11791,7 @@
       "source_location": "L294",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenbyt5embedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -11841,7 +11841,7 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -11891,7 +11891,7 @@
       "source_location": "L403",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipembedder2_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -11971,7 +11971,7 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipembedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -12031,7 +12031,7 @@
       "source_location": "L570",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder",
-      "community": 8,
+      "community": 60,
       "norm_label": "frozenopenclipimageembedder"
     },
     {
@@ -12041,7 +12041,7 @@
       "source_location": "L575",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -12051,7 +12051,7 @@
       "source_location": "L620",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_preprocess",
-      "community": 8,
+      "community": 60,
       "norm_label": ".preprocess()"
     },
     {
@@ -12061,7 +12061,7 @@
       "source_location": "L634",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_freeze",
-      "community": 8,
+      "community": 60,
       "norm_label": ".freeze()"
     },
     {
@@ -12071,7 +12071,7 @@
       "source_location": "L640",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_forward",
-      "community": 8,
+      "community": 60,
       "norm_label": ".forward()"
     },
     {
@@ -12081,7 +12081,7 @@
       "source_location": "L693",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_encode_with_vision_transformer",
-      "community": 8,
+      "community": 60,
       "norm_label": ".encode_with_vision_transformer()"
     },
     {
@@ -12091,7 +12091,7 @@
       "source_location": "L727",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_encode",
-      "community": 8,
+      "community": 60,
       "norm_label": ".encode()"
     },
     {
@@ -12141,7 +12141,7 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler",
-      "community": 8,
+      "community": 92,
       "norm_label": "spatialrescaler"
     },
     {
@@ -12151,7 +12151,7 @@
       "source_location": "L760",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_init",
-      "community": 8,
+      "community": 92,
       "norm_label": ".__init__()"
     },
     {
@@ -12161,7 +12161,7 @@
       "source_location": "L799",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_forward",
-      "community": 8,
+      "community": 92,
       "norm_label": ".forward()"
     },
     {
@@ -12171,7 +12171,7 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_encode",
-      "community": 8,
+      "community": 92,
       "norm_label": ".encode()"
     },
     {
@@ -12311,7 +12311,7 @@
       "source_location": "L951",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder",
-      "community": 8,
+      "community": 92,
       "norm_label": "videopredictionembedderwithencoder"
     },
     {
@@ -12321,7 +12321,7 @@
       "source_location": "L952",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder_init",
-      "community": 8,
+      "community": 92,
       "norm_label": ".__init__()"
     },
     {
@@ -12331,7 +12331,7 @@
       "source_location": "L984",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder_forward",
-      "community": 8,
+      "community": 92,
       "norm_label": ".forward()"
     },
     {
@@ -12351,7 +12351,7 @@
       "source_location": "L1030",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimagepredictionembedder_init",
-      "community": 8,
+      "community": 60,
       "norm_label": ".__init__()"
     },
     {
@@ -12371,7 +12371,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_188",
-      "community": 8,
+      "community": 60,
       "norm_label": "wrapper around the https://github.com/mseitzer/pytorch-fid inception     port wi"
     },
     {
@@ -12421,7 +12421,7 @@
       "source_location": "L571",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_571",
-      "community": 8,
+      "community": 60,
       "norm_label": "uses the openclip vision transformer encoder for images"
     },
     {
@@ -12451,7 +12451,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_timemixsequential",
-      "community": 14,
+      "community": 324,
       "norm_label": "timemixsequential"
     },
     {
@@ -12461,7 +12461,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_timemixsequential_forward",
-      "community": 14,
+      "community": 324,
       "norm_label": ".forward()"
     },
     {
@@ -12491,7 +12491,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_videotransformerblock_forward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".forward()"
     },
     {
@@ -12501,7 +12501,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_py_tensor",
-      "community": 22,
+      "community": 101,
       "norm_label": "tensor"
     },
     {
@@ -12521,7 +12521,7 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_selected_attn",
-      "community": 22,
+      "community": 101,
       "norm_label": "selected_attn()"
     },
     {
@@ -12551,7 +12551,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_spatialvideotransformer_forward",
-      "community": 22,
+      "community": 101,
       "norm_label": ".forward()"
     },
     {
@@ -12561,7 +12561,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util",
-      "community": 66,
+      "community": 75,
       "norm_label": "util.py"
     },
     {
@@ -12571,7 +12571,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_disabled_train",
-      "community": 66,
+      "community": 129,
       "norm_label": "disabled_train()"
     },
     {
@@ -12581,7 +12581,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_string_from_tuple",
-      "community": 66,
+      "community": 75,
       "norm_label": "get_string_from_tuple()"
     },
     {
@@ -12591,7 +12591,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_is_power_of_two",
-      "community": 66,
+      "community": 75,
       "norm_label": "is_power_of_two()"
     },
     {
@@ -12601,7 +12601,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_autocast",
-      "community": 66,
+      "community": 75,
       "norm_label": "autocast()"
     },
     {
@@ -12621,7 +12621,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_log_txt_as_img",
-      "community": 66,
+      "community": 56,
       "norm_label": "log_txt_as_img()"
     },
     {
@@ -12641,7 +12641,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_make_path_absolute",
-      "community": 66,
+      "community": 75,
       "norm_label": "make_path_absolute()"
     },
     {
@@ -12651,7 +12651,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_ismap",
-      "community": 66,
+      "community": 75,
       "norm_label": "ismap()"
     },
     {
@@ -12661,7 +12661,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isimage",
-      "community": 66,
+      "community": 75,
       "norm_label": "isimage()"
     },
     {
@@ -12671,7 +12671,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isheatmap",
-      "community": 66,
+      "community": 75,
       "norm_label": "isheatmap()"
     },
     {
@@ -12681,7 +12681,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isneighbors",
-      "community": 66,
+      "community": 75,
       "norm_label": "isneighbors()"
     },
     {
@@ -12711,7 +12711,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_default",
-      "community": 52,
+      "community": 14,
       "norm_label": "default()"
     },
     {
@@ -12721,7 +12721,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_mean_flat",
-      "community": 66,
+      "community": 75,
       "norm_label": "mean_flat()"
     },
     {
@@ -12741,7 +12741,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_instantiate_from_config",
-      "community": 66,
+      "community": 129,
       "norm_label": "instantiate_from_config()"
     },
     {
@@ -12761,7 +12761,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_append_zero",
-      "community": 79,
+      "community": 100,
       "norm_label": "append_zero()"
     },
     {
@@ -12781,7 +12781,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_load_model_from_config",
-      "community": 66,
+      "community": 129,
       "norm_label": "load_model_from_config()"
     },
     {
@@ -12791,7 +12791,7 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_configs_path",
-      "community": 66,
+      "community": 75,
       "norm_label": "get_configs_path()"
     },
     {
@@ -12801,7 +12801,7 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_nested_attribute",
-      "community": 52,
+      "community": 71,
       "norm_label": "get_nested_attribute()"
     },
     {
@@ -12811,7 +12811,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_15",
-      "community": 66,
+      "community": 129,
       "norm_label": "overwrite model.train with this function to make sure train/eval mode     does n"
     },
     {
@@ -12821,7 +12821,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_37",
-      "community": 66,
+      "community": 75,
       "norm_label": "chat.openai.com/chat     return true if n is a power of 2, otherwise return fals"
     },
     {
@@ -12831,7 +12831,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_154",
-      "community": 66,
+      "community": 75,
       "norm_label": "https://github.com/openai/guided-diffusion/blob/27c20a8fab9cb472df5d6bdd6c8d11c8"
     },
     {
@@ -12851,7 +12851,7 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_234",
-      "community": 66,
+      "community": 75,
       "norm_label": "get the `configs` directory.     for a working copy, this is the one in the root"
     },
     {
@@ -12861,7 +12861,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_252",
-      "community": 52,
+      "community": 71,
       "norm_label": "will return the result of a recursive get attribute call.     e.g.:         a.b."
     },
     {
@@ -17811,7 +17811,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp",
-      "community": 36,
+      "community": 61,
       "norm_label": "mlp.py"
     },
     {
@@ -17821,7 +17821,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp_mlp",
-      "community": 36,
+      "community": 61,
       "norm_label": "mlp"
     },
     {
@@ -17831,7 +17831,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp_mlp_init",
-      "community": 36,
+      "community": 61,
       "norm_label": ".__init__()"
     },
     {
@@ -17841,7 +17841,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp_py_module",
-      "community": 36,
+      "community": 61,
       "norm_label": "module"
     },
     {
@@ -17851,7 +17851,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp_mlp_forward",
-      "community": 36,
+      "community": 61,
       "norm_label": ".forward()"
     },
     {
@@ -17861,7 +17861,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dinov2_layers_mlp_py_tensor",
-      "community": 36,
+      "community": 61,
       "norm_label": "tensor"
     },
     {
@@ -18091,7 +18091,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dpt_dpthead",
-      "community": 62,
+      "community": 112,
       "norm_label": "dpthead"
     },
     {
@@ -18111,7 +18111,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dpt_dpthead_forward",
-      "community": 62,
+      "community": 112,
       "norm_label": ".forward()"
     },
     {
@@ -18121,7 +18121,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dpt_temporal",
-      "community": 62,
+      "community": 112,
       "norm_label": "dpt_temporal.py"
     },
     {
@@ -18141,7 +18141,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dpt_temporal_dptheadtemporal_init",
-      "community": 112,
+      "community": 11,
       "norm_label": ".__init__()"
     },
     {
@@ -19151,7 +19151,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3",
-      "community": 32,
+      "community": 31,
       "norm_label": "video_depth_v3.py"
     },
     {
@@ -19161,7 +19161,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_compute_scale_and_shift",
-      "community": 32,
+      "community": 31,
       "norm_label": "compute_scale_and_shift()"
     },
     {
@@ -19171,7 +19171,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_py_tensor",
-      "community": 32,
+      "community": 31,
       "norm_label": "tensor"
     },
     {
@@ -19181,7 +19181,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_compute_scale",
-      "community": 32,
+      "community": 31,
       "norm_label": "compute_scale()"
     },
     {
@@ -19191,7 +19191,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_compute_scale_and_shift_full",
-      "community": 32,
+      "community": 31,
       "norm_label": "compute_scale_and_shift_full()"
     },
     {
@@ -19201,7 +19201,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_get_interpolate_frames",
-      "community": 32,
+      "community": 31,
       "norm_label": "get_interpolate_frames()"
     },
     {
@@ -19211,7 +19211,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_videodepthanything",
-      "community": 32,
+      "community": 31,
       "norm_label": "videodepthanything"
     },
     {
@@ -19221,7 +19221,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_videodepthanything_init",
-      "community": 32,
+      "community": 112,
       "norm_label": ".__init__()"
     },
     {
@@ -19231,7 +19231,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_videodepthanything_forward",
-      "community": 32,
+      "community": 31,
       "norm_label": ".forward()"
     },
     {
@@ -19241,7 +19241,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_rationale_35",
-      "community": 32,
+      "community": 31,
       "norm_label": "if scale_only is true, returns (scale, 0).     otherwise returns (scale, shift)"
     },
     {
@@ -19251,7 +19251,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_rationale_48",
-      "community": 32,
+      "community": 31,
       "norm_label": "solve for x in: sum(mask * (x * prediction) * prediction) = sum(mask * predictio"
     },
     {
@@ -19261,7 +19261,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_rationale_67",
-      "community": 32,
+      "community": 31,
       "norm_label": "solve for (x0, x1) in the 2\u00d72 linear system:       [a00  a01] [x0] = [b0]"
     },
     {
@@ -19271,7 +19271,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_rationale_105",
-      "community": 32,
+      "community": 31,
       "norm_label": "given two lists of equally many frames (tensors of shape h\u00d7w),     return a list"
     },
     {
@@ -20051,7 +20051,7 @@
       "source_location": "L1146",
       "_origin": "ast",
       "id": "gateway_internal_api_projects_analyzeresponse",
-      "community": 39,
+      "community": 6,
       "norm_label": "analyzeresponse()"
     },
     {
@@ -20581,7 +20581,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_api_service",
-      "community": 60,
+      "community": 1,
       "norm_label": "service.go"
     },
     {
@@ -20661,7 +20661,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "gateway_internal_api_service_encodesceneoverrides",
-      "community": 60,
+      "community": 1,
       "norm_label": "encodesceneoverrides()"
     },
     {
@@ -20671,7 +20671,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_api_service_go_sceneoverride",
-      "community": 60,
+      "community": 1,
       "norm_label": "sceneoverride"
     },
     {
@@ -20711,7 +20711,7 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "gateway_internal_api_service_profileshots",
-      "community": 322,
+      "community": 1,
       "norm_label": "profileshots()"
     },
     {
@@ -20721,7 +20721,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_api_service_go_rawmessage",
-      "community": 322,
+      "community": 1,
       "norm_label": "rawmessage"
     },
     {
@@ -20731,7 +20731,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_api_service_go_profileshot",
-      "community": 322,
+      "community": 1,
       "norm_label": "profileshot"
     },
     {
@@ -20861,7 +20861,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test",
-      "community": 322,
+      "community": 1,
       "norm_label": "service_test.go"
     },
     {
@@ -20871,7 +20871,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_bodyjson",
-      "community": 322,
+      "community": 1,
       "norm_label": "bodyjson()"
     },
     {
@@ -20881,7 +20881,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_go_t",
-      "community": 322,
+      "community": 1,
       "norm_label": "t"
     },
     {
@@ -20891,7 +20891,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_go_conversion",
-      "community": 322,
+      "community": 1,
       "norm_label": "conversion"
     },
     {
@@ -20901,7 +20901,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyprostepexactshape",
-      "community": 322,
+      "community": 1,
       "norm_label": "testmodalbodyprostepexactshape()"
     },
     {
@@ -20911,7 +20911,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyadaptiveforallprosteps",
-      "community": 322,
+      "community": 1,
       "norm_label": "testmodalbodyadaptiveforallprosteps()"
     },
     {
@@ -20921,7 +20921,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyprostepalwayssendscuts",
-      "community": 322,
+      "community": 1,
       "norm_label": "testmodalbodyprostepalwayssendscuts()"
     },
     {
@@ -20931,7 +20931,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodylegacyvideounchanged",
-      "community": 322,
+      "community": 1,
       "norm_label": "testmodalbodylegacyvideounchanged()"
     },
     {
@@ -20941,7 +20941,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyskipsunsetproknobs",
-      "community": 322,
+      "community": 1,
       "norm_label": "testmodalbodyskipsunsetproknobs()"
     },
     {
@@ -20951,7 +20951,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsdefensiveparsing",
-      "community": 322,
+      "community": 1,
       "norm_label": "testprofileshotsdefensiveparsing()"
     },
     {
@@ -20961,7 +20961,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsacceptszeroframes",
-      "community": 322,
+      "community": 1,
       "norm_label": "testprofileshotsacceptszeroframes()"
     },
     {
@@ -20971,7 +20971,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsnoscript",
-      "community": 322,
+      "community": 1,
       "norm_label": "testprofileshotsnoscript()"
     },
     {
@@ -21111,7 +21111,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "auth_errunauthorizedtype",
-      "community": 88,
+      "community": 113,
       "norm_label": "errunauthorizedtype"
     },
     {
@@ -21121,7 +21121,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "auth_errunauthorizedtype_error",
-      "community": 88,
+      "community": 113,
       "norm_label": ".error()"
     },
     {
@@ -21141,7 +21141,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_config_config",
-      "community": 336,
+      "community": 1,
       "norm_label": "config.go"
     },
     {
@@ -21151,7 +21151,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "config_config",
-      "community": 336,
+      "community": 1,
       "norm_label": "config"
     },
     {
@@ -21161,7 +21161,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "gateway_internal_config_config_load",
-      "community": 336,
+      "community": 1,
       "norm_label": "load()"
     },
     {
@@ -21171,7 +21171,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "gateway_internal_config_config_getenv",
-      "community": 336,
+      "community": 1,
       "norm_label": "getenv()"
     },
     {
@@ -21691,7 +21691,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_modalapi_client",
-      "community": 324,
+      "community": 1,
       "norm_label": "client.go"
     },
     {
@@ -21701,7 +21701,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "modalapi_client",
-      "community": 324,
+      "community": 1,
       "norm_label": "client"
     },
     {
@@ -21711,7 +21711,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "gateway_internal_modalapi_client_new",
-      "community": 324,
+      "community": 1,
       "norm_label": "new()"
     },
     {
@@ -21721,7 +21721,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "modalapi_submitresponse",
-      "community": 324,
+      "community": 1,
       "norm_label": "submitresponse"
     },
     {
@@ -21731,7 +21731,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "modalapi_job",
-      "community": 324,
+      "community": 1,
       "norm_label": "job"
     },
     {
@@ -21741,7 +21741,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_modalapi_client_go_rawmessage",
-      "community": 324,
+      "community": 1,
       "norm_label": "rawmessage"
     },
     {
@@ -21751,7 +21751,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "modalapi_client_submitvideo",
-      "community": 324,
+      "community": 1,
       "norm_label": ".submitvideo()"
     },
     {
@@ -21761,7 +21761,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_modalapi_client_go_context",
-      "community": 324,
+      "community": 1,
       "norm_label": "context"
     },
     {
@@ -21771,7 +21771,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "modalapi_client_submitimage",
-      "community": 324,
+      "community": 1,
       "norm_label": ".submitimage()"
     },
     {
@@ -21781,7 +21781,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "modalapi_client_submitanalyze",
-      "community": 324,
+      "community": 1,
       "norm_label": ".submitanalyze()"
     },
     {
@@ -21791,7 +21791,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "modalapi_client_submitprofile",
-      "community": 324,
+      "community": 1,
       "norm_label": ".submitprofile()"
     },
     {
@@ -21801,7 +21801,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "modalapi_analyzemetadata",
-      "community": 324,
+      "community": 1,
       "norm_label": "analyzemetadata"
     },
     {
@@ -21811,7 +21811,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "modalapi_job_decodeanalyzemetadata",
-      "community": 324,
+      "community": 1,
       "norm_label": ".decodeanalyzemetadata()"
     },
     {
@@ -21821,7 +21821,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "modalapi_reuselookup",
-      "community": 324,
+      "community": 1,
       "norm_label": "reuselookup"
     },
     {
@@ -21831,7 +21831,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "modalapi_client_lookupreuse",
-      "community": 324,
+      "community": 1,
       "norm_label": ".lookupreuse()"
     },
     {
@@ -21841,7 +21841,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "modalapi_client_getjob",
-      "community": 324,
+      "community": 1,
       "norm_label": ".getjob()"
     },
     {
@@ -21851,7 +21851,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "modalapi_client_canceljob",
-      "community": 324,
+      "community": 1,
       "norm_label": ".canceljob()"
     },
     {
@@ -21861,7 +21861,7 @@
       "source_location": "L169",
       "_origin": "ast",
       "id": "modalapi_upstreamerror",
-      "community": 324,
+      "community": 1,
       "norm_label": "upstreamerror"
     },
     {
@@ -21871,7 +21871,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "modalapi_upstreamerror_error",
-      "community": 324,
+      "community": 1,
       "norm_label": ".error()"
     },
     {
@@ -21881,7 +21881,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "modalapi_client_do",
-      "community": 324,
+      "community": 1,
       "norm_label": ".do()"
     },
     {
@@ -21891,7 +21891,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_notify_slack",
-      "community": 334,
+      "community": 1,
       "norm_label": "slack.go"
     },
     {
@@ -21901,7 +21901,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "notify_slack",
-      "community": 334,
+      "community": 1,
       "norm_label": "slack"
     },
     {
@@ -21911,7 +21911,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_notify_slack_go_client",
-      "community": 334,
+      "community": 1,
       "norm_label": "client"
     },
     {
@@ -21921,7 +21921,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "gateway_internal_notify_slack_newslack",
-      "community": 334,
+      "community": 1,
       "norm_label": "newslack()"
     },
     {
@@ -21931,7 +21931,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "notify_slack_post",
-      "community": 334,
+      "community": 1,
       "norm_label": ".post()"
     },
     {
@@ -21941,7 +21941,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_notify_slack_go_context",
-      "community": 334,
+      "community": 1,
       "norm_label": "context"
     },
     {
@@ -21951,7 +21951,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "notify_slack_conversionfailed",
-      "community": 334,
+      "community": 1,
       "norm_label": ".conversionfailed()"
     },
     {
@@ -21961,7 +21961,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "notify_slack_settlefailed",
-      "community": 334,
+      "community": 1,
       "norm_label": ".settlefailed()"
     },
     {
@@ -21971,7 +21971,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "gateway_internal_notify_slack_truncate",
-      "community": 334,
+      "community": 1,
       "norm_label": "truncate()"
     },
     {
@@ -21988,7 +21988,7 @@
       "label": "Rates",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L17",
+      "source_location": "L18",
       "_origin": "ast",
       "id": "pricing_rates",
       "community": 16,
@@ -21998,7 +21998,7 @@
       "label": "defaults()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L80",
+      "source_location": "L82",
       "_origin": "ast",
       "id": "gateway_internal_pricing_pricing_defaults",
       "community": 16,
@@ -22008,7 +22008,7 @@
       "label": "fpsFactor()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L126",
+      "source_location": "L139",
       "_origin": "ast",
       "id": "gateway_internal_pricing_pricing_fpsfactor",
       "community": 16,
@@ -22018,7 +22018,7 @@
       "label": "depthFactor()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L139",
+      "source_location": "L152",
       "_origin": "ast",
       "id": "gateway_internal_pricing_pricing_depthfactor",
       "community": 16,
@@ -22028,7 +22028,7 @@
       "label": "round4()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L162",
+      "source_location": "L175",
       "_origin": "ast",
       "id": "gateway_internal_pricing_pricing_round4",
       "community": 16,
@@ -22038,7 +22038,7 @@
       "label": "StepInputs",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L168",
+      "source_location": "L181",
       "_origin": "ast",
       "id": "pricing_stepinputs",
       "community": 16,
@@ -22048,7 +22048,7 @@
       "label": "Service",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L185",
+      "source_location": "L205",
       "_origin": "ast",
       "id": "pricing_service",
       "community": 16,
@@ -22058,7 +22058,7 @@
       "label": ".EstimateStepETA()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L185",
+      "source_location": "L205",
       "_origin": "ast",
       "id": "pricing_service_estimatestepeta",
       "community": 16,
@@ -22078,7 +22078,7 @@
       "label": "Quote",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L222",
+      "source_location": "L241",
       "_origin": "ast",
       "id": "pricing_quote",
       "community": 16,
@@ -22118,7 +22118,7 @@
       "label": "New()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L240",
+      "source_location": "L259",
       "_origin": "ast",
       "id": "gateway_internal_pricing_pricing_new",
       "community": 16,
@@ -22128,7 +22128,7 @@
       "label": ".Rates()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L246",
+      "source_location": "L265",
       "_origin": "ast",
       "id": "pricing_service_rates",
       "community": 16,
@@ -22138,7 +22138,7 @@
       "label": "VideoInputs",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L275",
+      "source_location": "L294",
       "_origin": "ast",
       "id": "pricing_videoinputs",
       "community": 16,
@@ -22148,7 +22148,7 @@
       "label": ".QuoteVideo()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L287",
+      "source_location": "L306",
       "_origin": "ast",
       "id": "pricing_service_quotevideo",
       "community": 16,
@@ -22158,7 +22158,7 @@
       "label": ".QuoteStep()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L338",
+      "source_location": "L357",
       "_origin": "ast",
       "id": "pricing_service_quotestep",
       "community": 16,
@@ -22168,7 +22168,7 @@
       "label": ".QuoteImage()",
       "file_type": "code",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L422",
+      "source_location": "L441",
       "_origin": "ast",
       "id": "pricing_service_quoteimage",
       "community": 16,
@@ -22463,6 +22463,26 @@
       "id": "gateway_internal_pricing_pricing_test_testquoteimage",
       "community": 16,
       "norm_label": "testquoteimage()"
+    },
+    {
+      "label": "TestETAStereoPreviewScalesByPreset()",
+      "file_type": "code",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L385",
+      "_origin": "ast",
+      "id": "gateway_internal_pricing_pricing_test_testetastereopreviewscalesbypreset",
+      "community": 16,
+      "norm_label": "testetastereopreviewscalesbypreset()"
+    },
+    {
+      "label": "TestETADepthTermZeroedOnReuseAndUpload()",
+      "file_type": "code",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L407",
+      "_origin": "ast",
+      "id": "gateway_internal_pricing_pricing_test_testetadepthtermzeroedonreuseandupload",
+      "community": 16,
+      "norm_label": "testetadepthtermzeroedonreuseandupload()"
     },
     {
       "label": "testhelper_test.go",
@@ -24131,7 +24151,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_depth_vis",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_depth_vis.py"
     },
     {
@@ -24141,7 +24161,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_landscape_caps_the_short_side",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_landscape_caps_the_short_side()"
     },
     {
@@ -24151,7 +24171,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_portrait_caps_the_short_side",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_portrait_caps_the_short_side()"
     },
     {
@@ -24161,7 +24181,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_no_upscale_below_the_cap",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_no_upscale_below_the_cap()"
     },
     {
@@ -24171,7 +24191,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_square_above_cap_scales",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_square_above_cap_scales()"
     },
     {
@@ -24181,7 +24201,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_cap_default_matches_constant",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_cap_default_matches_constant()"
     },
     {
@@ -24191,7 +24211,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tests_test_depth_vis_test_cmd_is_a_single_cpu_h264_pass",
-      "community": 2,
+      "community": 136,
       "norm_label": "test_cmd_is_a_single_cpu_h264_pass()"
     },
     {
@@ -24201,7 +24221,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_depth_vis_rationale_1",
-      "community": 2,
+      "community": 136,
       "norm_label": "depth_vis: browser-playable preview of the gray16 depth video \u2014 ffmpeg command c"
     },
     {
@@ -24211,7 +24231,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_passthrough",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_passthrough.py"
     },
     {
@@ -24221,7 +24241,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "tests_test_passthrough_log",
-      "community": 4,
+      "community": 32,
       "norm_label": "_log"
     },
     {
@@ -24231,7 +24251,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "tests_test_passthrough_log_info",
-      "community": 4,
+      "community": 32,
       "norm_label": ".info()"
     },
     {
@@ -24241,7 +24261,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "tests_test_passthrough_log_warning",
-      "community": 4,
+      "community": 32,
       "norm_label": ".warning()"
     },
     {
@@ -24251,7 +24271,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_validate_accepts_passthrough_only_entry",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_validate_accepts_passthrough_only_entry()"
     },
     {
@@ -24261,7 +24281,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_validate_rejects_passthrough_with_depth_knobs",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_validate_rejects_passthrough_with_depth_knobs()"
     },
     {
@@ -24271,7 +24291,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_validate_rejects_non_bool_passthrough",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_validate_rejects_non_bool_passthrough()"
     },
     {
@@ -24281,7 +24301,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "tests_test_passthrough_script",
-      "community": 4,
+      "community": 32,
       "norm_label": "_script()"
     },
     {
@@ -24291,7 +24311,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_apply_marks_passthrough_and_drops_keyframes",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_apply_marks_passthrough_and_drops_keyframes()"
     },
     {
@@ -24301,7 +24321,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_apply_explicit_false_is_a_no_op",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_apply_explicit_false_is_a_no_op()"
     },
     {
@@ -24311,7 +24331,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_apply_false_with_real_override_still_applies_it",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_apply_false_with_real_override_still_applies_it()"
     },
     {
@@ -24321,7 +24341,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_passthrough_lookup_none_when_unflagged",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_passthrough_lookup_none_when_unflagged()"
     },
     {
@@ -24331,7 +24351,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_passthrough_lookup_predicate",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_passthrough_lookup_predicate()"
     },
     {
@@ -24341,7 +24361,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_split_runs_covers_range_exactly",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_split_runs_covers_range_exactly()"
     },
     {
@@ -24351,7 +24371,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "tests_test_passthrough_test_split_runs_constant_batch_is_single_run",
-      "community": 4,
+      "community": 32,
       "norm_label": "test_split_runs_constant_batch_is_single_run()"
     },
     {
@@ -24361,7 +24381,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_passthrough_rationale_1",
-      "community": 4,
+      "community": 32,
       "norm_label": "per-scene passthrough: ship a scene as 2d (both eyes = untouched source, no warp"
     },
     {
@@ -25021,7 +25041,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_scene_overrides_api.py"
     },
     {
@@ -25031,7 +25051,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_rejects",
-      "community": 4,
+      "community": 51,
       "norm_label": "_rejects()"
     },
     {
@@ -25041,7 +25061,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_valid_matrix_passes",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_valid_matrix_passes()"
     },
     {
@@ -25051,7 +25071,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_valid_placement_and_no_scene_cuts",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_valid_placement_and_no_scene_cuts()"
     },
     {
@@ -25061,7 +25081,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_empty_list_is_a_noop",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_empty_list_is_a_noop()"
     },
     {
@@ -25071,7 +25091,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_not_a_list",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_not_a_list()"
     },
     {
@@ -25081,7 +25101,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_unknown_key",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_unknown_key()"
     },
     {
@@ -25091,7 +25111,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_first_required_and_typed",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_first_required_and_typed()"
     },
     {
@@ -25101,7 +25121,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_first_strictly_increasing",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_first_strictly_increasing()"
     },
     {
@@ -25111,7 +25131,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_first_must_be_a_scene_start_when_cuts_given",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_first_must_be_a_scene_start_when_cuts_given()"
     },
     {
@@ -25121,7 +25141,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_empty_entry_needs_an_override_field",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_empty_entry_needs_an_override_field()"
     },
     {
@@ -25131,7 +25151,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_displacement_range",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_displacement_range()"
     },
     {
@@ -25141,7 +25161,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_shot_type_enum",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_shot_type_enum()"
     },
     {
@@ -25151,7 +25171,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_test_placement_shape_and_bounds",
-      "community": 4,
+      "community": 51,
       "norm_label": "test_placement_shape_and_bounds()"
     },
     {
@@ -25161,7 +25181,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_scene_overrides_api_rationale_1",
-      "community": 4,
+      "community": 51,
       "norm_label": "_validate_scene_overrides: submit-time validation of scene_overrides.  frame doc"
     },
     {
@@ -25721,7 +25741,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_eslint_config",
-      "community": 336,
+      "community": 1,
       "norm_label": "eslint.config.mjs"
     },
     {
@@ -25731,7 +25751,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_eslint_config_eslintconfig",
-      "community": 336,
+      "community": 1,
       "norm_label": "eslintconfig"
     },
     {
@@ -26011,7 +26031,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_package_dependencies_firebase",
-      "community": 88,
+      "community": 85,
       "norm_label": "firebase"
     },
     {
@@ -26421,7 +26441,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_layout",
-      "community": 0,
+      "community": 7,
       "norm_label": "layout.tsx"
     },
     {
@@ -26431,7 +26451,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "web_src_app_layout_geistsans",
-      "community": 0,
+      "community": 7,
       "norm_label": "geistsans"
     },
     {
@@ -26441,7 +26461,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "web_src_app_layout_geistmono",
-      "community": 0,
+      "community": 7,
       "norm_label": "geistmono"
     },
     {
@@ -26451,7 +26471,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "web_src_app_layout_metadata",
-      "community": 0,
+      "community": 7,
       "norm_label": "metadata"
     },
     {
@@ -26461,7 +26481,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "web_src_app_layout_rootlayout",
-      "community": 0,
+      "community": 7,
       "norm_label": "rootlayout()"
     },
     {
@@ -26821,7 +26841,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen",
-      "community": 56,
+      "community": 38,
       "norm_label": "onboardingscreen.tsx"
     },
     {
@@ -26831,7 +26851,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_safenext",
-      "community": 56,
+      "community": 38,
       "norm_label": "safenext()"
     },
     {
@@ -26841,7 +26861,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_onboardingscreen",
-      "community": 56,
+      "community": 38,
       "norm_label": "onboardingscreen()"
     },
     {
@@ -26971,7 +26991,7 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "web_src_components_billing_paymentsetup_usebillingsetup",
-      "community": 56,
+      "community": 38,
       "norm_label": "usebillingsetup()"
     },
     {
@@ -27201,7 +27221,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone",
-      "community": 69,
+      "community": 10,
       "norm_label": "uploaddropzone.tsx"
     },
     {
@@ -27211,7 +27231,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_content_types",
-      "community": 69,
+      "community": 10,
       "norm_label": "content_types"
     },
     {
@@ -27221,7 +27241,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_phase",
-      "community": 69,
+      "community": 10,
       "norm_label": "phase"
     },
     {
@@ -27231,7 +27251,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_contenttypefor",
-      "community": 69,
+      "community": 10,
       "norm_label": "contenttypefor()"
     },
     {
@@ -27241,7 +27261,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_stem",
-      "community": 69,
+      "community": 10,
       "norm_label": "stem()"
     },
     {
@@ -27251,7 +27271,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_uploaddropzone",
-      "community": 69,
+      "community": 10,
       "norm_label": "uploaddropzone()"
     },
     {
@@ -27261,7 +27281,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker",
-      "community": 69,
+      "community": 10,
       "norm_label": "conversiontracker.tsx"
     },
     {
@@ -27271,7 +27291,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_terminal_states",
-      "community": 69,
+      "community": 10,
       "norm_label": "terminal_states"
     },
     {
@@ -27281,7 +27301,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_cancelable",
-      "community": 69,
+      "community": 10,
       "norm_label": "cancelable"
     },
     {
@@ -27291,7 +27311,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_formateta",
-      "community": 69,
+      "community": 10,
       "norm_label": "formateta()"
     },
     {
@@ -27301,7 +27321,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_conversiontrackerprops",
-      "community": 69,
+      "community": 10,
       "norm_label": "conversiontrackerprops"
     },
     {
@@ -27311,7 +27331,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_conversiontracker",
-      "community": 69,
+      "community": 10,
       "norm_label": "conversiontracker()"
     },
     {
@@ -27441,7 +27461,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "web_src_components_steps_deliverpanel_deliverpanelprops",
-      "community": 10,
+      "community": 13,
       "norm_label": "deliverpanelprops"
     },
     {
@@ -27621,7 +27641,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthpanelprops",
-      "community": 10,
+      "community": 69,
       "norm_label": "depthpanelprops"
     },
     {
@@ -27651,7 +27671,7 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthreview",
-      "community": 69,
+      "community": 10,
       "norm_label": "depthreview()"
     },
     {
@@ -27671,7 +27691,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_downloadslist",
-      "community": 69,
+      "community": 10,
       "norm_label": "downloadslist.tsx"
     },
     {
@@ -27681,7 +27701,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_components_steps_downloadslist_inline_playable",
-      "community": 69,
+      "community": 10,
       "norm_label": "inline_playable"
     },
     {
@@ -27691,7 +27711,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_components_steps_downloadslist_downloadslist",
-      "community": 69,
+      "community": 10,
       "norm_label": "downloadslist()"
     },
     {
@@ -27741,7 +27761,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_historylist",
-      "community": 69,
+      "community": 10,
       "norm_label": "historylist.tsx"
     },
     {
@@ -27751,7 +27771,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_steps_historylist_step_labels",
-      "community": 69,
+      "community": 10,
       "norm_label": "step_labels"
     },
     {
@@ -27761,7 +27781,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_src_components_steps_historylist_paramssummary",
-      "community": 69,
+      "community": 10,
       "norm_label": "paramssummary()"
     },
     {
@@ -27781,7 +27801,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "web_src_components_steps_historylist_historyrow",
-      "community": 69,
+      "community": 10,
       "norm_label": "historyrow()"
     },
     {
@@ -27821,7 +27841,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns",
-      "community": 69,
+      "community": 10,
       "norm_label": "priorruns.tsx"
     },
     {
@@ -27831,7 +27851,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns_priorrunsprops",
-      "community": 69,
+      "community": 10,
       "norm_label": "priorrunsprops"
     },
     {
@@ -27841,7 +27861,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns_priorruns",
-      "community": 13,
+      "community": 10,
       "norm_label": "priorruns()"
     },
     {
@@ -27851,7 +27871,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns_priorrunrow",
-      "community": 69,
+      "community": 10,
       "norm_label": "priorrunrow()"
     },
     {
@@ -27951,7 +27971,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_statechip",
-      "community": 69,
+      "community": 10,
       "norm_label": "statechip.tsx"
     },
     {
@@ -27961,7 +27981,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_src_components_steps_statechip_styles",
-      "community": 69,
+      "community": 10,
       "norm_label": "styles"
     },
     {
@@ -27971,7 +27991,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_src_components_steps_statechip_statechip",
-      "community": 69,
+      "community": 10,
       "norm_label": "statechip()"
     },
     {
@@ -28261,7 +28281,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_stereopanelprops",
-      "community": 10,
+      "community": 69,
       "norm_label": "stereopanelprops"
     },
     {
@@ -28361,7 +28381,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_resetstepcheckoutstate",
-      "community": 126,
+      "community": 69,
       "norm_label": "resetstepcheckoutstate()"
     },
     {
@@ -28471,7 +28491,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_polling",
-      "community": 69,
+      "community": 10,
       "norm_label": "polling.ts"
     },
     {
@@ -28481,7 +28501,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stagelabels_test",
-      "community": 69,
+      "community": 10,
       "norm_label": "stagelabels.test.ts"
     },
     {
@@ -28491,7 +28511,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stagelabels",
-      "community": 69,
+      "community": 10,
       "norm_label": "stagelabels.ts"
     },
     {
@@ -28501,7 +28521,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_components_steps_stagelabels_stage_labels",
-      "community": 69,
+      "community": 10,
       "norm_label": "stage_labels"
     },
     {
@@ -28511,7 +28531,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_steps_stagelabels_stagelabel",
-      "community": 69,
+      "community": 10,
       "norm_label": "stagelabel()"
     },
     {
@@ -28521,7 +28541,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs",
-      "community": 326,
+      "community": 5,
       "norm_label": "stepdefs.ts"
     },
     {
@@ -28531,7 +28551,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs_stepdef",
-      "community": 326,
+      "community": 5,
       "norm_label": "stepdef"
     },
     {
@@ -28541,7 +28561,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs_step_defs",
-      "community": 326,
+      "community": 5,
       "norm_label": "step_defs"
     },
     {
@@ -28901,7 +28921,7 @@
       "source_location": "L342",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_stepcheckoutsection",
-      "community": 13,
+      "community": 69,
       "norm_label": "stepcheckoutsection()"
     },
     {
@@ -29611,7 +29631,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "web_src_components_workspace_previewviewer_previewviewer",
-      "community": 9,
+      "community": 49,
       "norm_label": "previewviewer()"
     },
     {
@@ -29641,7 +29661,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenecuteditor_scenecuteditor",
-      "community": 9,
+      "community": 49,
       "norm_label": "scenecuteditor()"
     },
     {
@@ -29741,7 +29761,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test",
-      "community": 326,
+      "community": 5,
       "norm_label": "steptab.test.tsx"
     },
     {
@@ -29751,7 +29771,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_fakepanel",
-      "community": 326,
+      "community": 5,
       "norm_label": "fakepanel()"
     },
     {
@@ -29761,7 +29781,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_fixtureproject",
-      "community": 326,
+      "community": 5,
       "norm_label": "fixtureproject()"
     },
     {
@@ -29771,7 +29791,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_runfor",
-      "community": 326,
+      "community": 5,
       "norm_label": "runfor()"
     },
     {
@@ -29781,7 +29801,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_rendertab",
-      "community": 326,
+      "community": 5,
       "norm_label": "rendertab()"
     },
     {
@@ -29791,7 +29811,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_opendrawer",
-      "community": 326,
+      "community": 5,
       "norm_label": "opendrawer()"
     },
     {
@@ -29801,7 +29821,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_expectdrawerclosed",
-      "community": 326,
+      "community": 5,
       "norm_label": "expectdrawerclosed()"
     },
     {
@@ -29821,7 +29841,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_steppanelprops",
-      "community": 10,
+      "community": 5,
       "norm_label": "steppanelprops"
     },
     {
@@ -29861,7 +29881,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_steptab",
-      "community": 326,
+      "community": 5,
       "norm_label": "steptab()"
     },
     {
@@ -30081,7 +30101,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_extractionseektime",
-      "community": 331,
+      "community": 58,
       "norm_label": "extractionseektime()"
     },
     {
@@ -30441,7 +30461,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_seektimeforframe",
-      "community": 331,
+      "community": 58,
       "norm_label": "seektimeforframe()"
     },
     {
@@ -30471,7 +30491,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer",
-      "community": 340,
+      "community": 331,
       "norm_label": "previewplayer"
     },
     {
@@ -30481,7 +30501,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_play",
-      "community": 340,
+      "community": 331,
       "norm_label": ".play()"
     },
     {
@@ -30491,7 +30511,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_pause",
-      "community": 340,
+      "community": 331,
       "norm_label": ".pause()"
     },
     {
@@ -30501,7 +30521,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_toggle",
-      "community": 340,
+      "community": 331,
       "norm_label": ".toggle()"
     },
     {
@@ -30511,7 +30531,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_seektoframe",
-      "community": 340,
+      "community": 331,
       "norm_label": ".seektoframe()"
     },
     {
@@ -30521,7 +30541,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setspeed",
-      "community": 340,
+      "community": 331,
       "norm_label": ".setspeed()"
     },
     {
@@ -30531,7 +30551,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setmuted",
-      "community": 340,
+      "community": 331,
       "norm_label": ".setmuted()"
     },
     {
@@ -30541,7 +30561,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_usepreviewplayer",
-      "community": 45,
+      "community": 331,
       "norm_label": "usepreviewplayer()"
     },
     {
@@ -30621,7 +30641,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "web_src_components_workspace_utils_clampframe",
-      "community": 45,
+      "community": 49,
       "norm_label": "clampframe()"
     },
     {
@@ -30721,7 +30741,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "web_src_components_workspace_utils_plantiles",
-      "community": 58,
+      "community": 49,
       "norm_label": "plantiles()"
     },
     {
@@ -30741,7 +30761,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror",
-      "community": 69,
+      "community": 10,
       "norm_label": "gatewayerror"
     },
     {
@@ -30751,7 +30771,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror_constructor",
-      "community": 69,
+      "community": 10,
       "norm_label": ".constructor()"
     },
     {
@@ -30781,7 +30801,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient",
-      "community": 10,
+      "community": 69,
       "norm_label": "gatewayclient"
     },
     {
@@ -30791,7 +30811,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_constructor",
-      "community": 10,
+      "community": 69,
       "norm_label": ".constructor()"
     },
     {
@@ -30801,7 +30821,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_request",
-      "community": 10,
+      "community": 69,
       "norm_label": ".request()"
     },
     {
@@ -30811,7 +30831,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_ensurecustomer",
-      "community": 10,
+      "community": 69,
       "norm_label": ".ensurecustomer()"
     },
     {
@@ -30821,7 +30841,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createbillingportalsession",
-      "community": 10,
+      "community": 69,
       "norm_label": ".createbillingportalsession()"
     },
     {
@@ -30831,7 +30851,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_getbilling",
-      "community": 10,
+      "community": 69,
       "norm_label": ".getbilling()"
     },
     {
@@ -30841,7 +30861,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createbillingsetupintent",
-      "community": 10,
+      "community": 69,
       "norm_label": ".createbillingsetupintent()"
     },
     {
@@ -30851,7 +30871,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_settlebilling",
-      "community": 10,
+      "community": 69,
       "norm_label": ".settlebilling()"
     },
     {
@@ -30861,7 +30881,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createupload",
-      "community": 10,
+      "community": 69,
       "norm_label": ".createupload()"
     },
     {
@@ -30871,7 +30891,7 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_uploadfile",
-      "community": 10,
+      "community": 69,
       "norm_label": ".uploadfile()"
     },
     {
@@ -30881,7 +30901,7 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createproject",
-      "community": 10,
+      "community": 69,
       "norm_label": ".createproject()"
     },
     {
@@ -30891,7 +30911,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_listprojects",
-      "community": 10,
+      "community": 69,
       "norm_label": ".listprojects()"
     },
     {
@@ -30901,7 +30921,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_getproject",
-      "community": 10,
+      "community": 69,
       "norm_label": ".getproject()"
     },
     {
@@ -30911,7 +30931,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_updateproject",
-      "community": 10,
+      "community": 69,
       "norm_label": ".updateproject()"
     },
     {
@@ -30921,7 +30941,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_archiveproject",
-      "community": 10,
+      "community": 69,
       "norm_label": ".archiveproject()"
     },
     {
@@ -30931,7 +30951,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_updatescenes",
-      "community": 10,
+      "community": 69,
       "norm_label": ".updatescenes()"
     },
     {
@@ -30941,7 +30961,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_setprojectdepthmap",
-      "community": 10,
+      "community": 69,
       "norm_label": ".setprojectdepthmap()"
     },
     {
@@ -30951,7 +30971,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_deleteprojectdepthmap",
-      "community": 10,
+      "community": 69,
       "norm_label": ".deleteprojectdepthmap()"
     },
     {
@@ -30961,7 +30981,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_profileproject",
-      "community": 10,
+      "community": 69,
       "norm_label": ".profileproject()"
     },
     {
@@ -30971,7 +30991,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_quotestep",
-      "community": 10,
+      "community": 69,
       "norm_label": ".quotestep()"
     },
     {
@@ -30981,7 +31001,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createstepconversion",
-      "community": 10,
+      "community": 69,
       "norm_label": ".createstepconversion()"
     },
     {
@@ -30991,7 +31011,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_getconversion",
-      "community": 10,
+      "community": 69,
       "norm_label": ".getconversion()"
     },
     {
@@ -31001,7 +31021,7 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_cancelconversion",
-      "community": 10,
+      "community": 69,
       "norm_label": ".cancelconversion()"
     },
     {
@@ -31011,7 +31031,7 @@
       "source_location": "L223",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_getdownloads",
-      "community": 10,
+      "community": 69,
       "norm_label": ".getdownloads()"
     },
     {
@@ -31031,7 +31051,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionstate",
-      "community": 69,
+      "community": 10,
       "norm_label": "conversionstate"
     },
     {
@@ -31041,7 +31061,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_lib_api_types_step",
-      "community": 326,
+      "community": 5,
       "norm_label": "step"
     },
     {
@@ -31071,7 +31091,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_lib_api_types_inpaint",
-      "community": 69,
+      "community": 13,
       "norm_label": "inpaint"
     },
     {
@@ -31141,7 +31161,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_lib_api_types_sceneoverride",
-      "community": 13,
+      "community": 86,
       "norm_label": "sceneoverride"
     },
     {
@@ -31181,7 +31201,7 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "web_src_lib_api_types_project",
-      "community": 10,
+      "community": 69,
       "norm_label": "project"
     },
     {
@@ -31261,7 +31281,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "web_src_lib_api_types_uploadticket",
-      "community": 10,
+      "community": 69,
       "norm_label": "uploadticket"
     },
     {
@@ -31271,7 +31291,7 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "web_src_lib_api_types_downloads",
-      "community": 69,
+      "community": 10,
       "norm_label": "downloads"
     },
     {
@@ -31381,7 +31401,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_api_usegateway",
-      "community": 69,
+      "community": 10,
       "norm_label": "usegateway.ts"
     },
     {
@@ -31391,7 +31411,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "web_src_lib_api_usegateway_usegateway",
-      "community": 69,
+      "community": 10,
       "norm_label": "usegateway()"
     },
     {
@@ -31711,7 +31731,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test",
-      "community": 9,
+      "community": 49,
       "norm_label": "cutlist.test.ts"
     },
     {
@@ -31721,7 +31741,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_fps24",
-      "community": 9,
+      "community": 49,
       "norm_label": "fps24"
     },
     {
@@ -31731,7 +31751,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_ntsc",
-      "community": 9,
+      "community": 49,
       "norm_label": "ntsc"
     },
     {
@@ -31741,7 +31761,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist",
-      "community": 9,
+      "community": 49,
       "norm_label": "cutlist.ts"
     },
     {
@@ -31751,7 +31771,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_exportcutscsv",
-      "community": 9,
+      "community": 49,
       "norm_label": "exportcutscsv()"
     },
     {
@@ -31761,7 +31781,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parseintstrict",
-      "community": 9,
+      "community": 49,
       "norm_label": "parseintstrict()"
     },
     {
@@ -31771,7 +31791,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_normalizecuts",
-      "community": 9,
+      "community": 49,
       "norm_label": "normalizecuts()"
     },
     {
@@ -31781,7 +31801,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parsecutlist",
-      "community": 9,
+      "community": 49,
       "norm_label": "parsecutlist()"
     },
     {
@@ -31941,7 +31961,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_frames_test",
-      "community": 9,
+      "community": 49,
       "norm_label": "frames.test.ts"
     },
     {
@@ -31951,7 +31971,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "web_src_lib_frames_test_ntsc24",
-      "community": 9,
+      "community": 49,
       "norm_label": "ntsc24"
     },
     {
@@ -31961,7 +31981,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_lib_frames_test_exact24",
-      "community": 9,
+      "community": 49,
       "norm_label": "exact24"
     },
     {
@@ -31971,7 +31991,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_frames",
-      "community": 9,
+      "community": 49,
       "norm_label": "frames.ts"
     },
     {
@@ -31991,7 +32011,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_lib_frames_parserational",
-      "community": 13,
+      "community": 9,
       "norm_label": "parserational()"
     },
     {
@@ -32001,7 +32021,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_lib_frames_frametoseconds",
-      "community": 331,
+      "community": 49,
       "norm_label": "frametoseconds()"
     },
     {
@@ -32031,7 +32051,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_lib_frames_framespertimecodesecond",
-      "community": 9,
+      "community": 49,
       "norm_label": "framespertimecodesecond()"
     },
     {
@@ -32041,7 +32061,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "web_src_lib_frames_frametotimecode",
-      "community": 9,
+      "community": 49,
       "norm_label": "frametotimecode()"
     },
     {
@@ -32051,7 +32071,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "web_src_lib_frames_timecodetoframe",
-      "community": 9,
+      "community": 49,
       "norm_label": "timecodetoframe()"
     },
     {
@@ -32061,7 +32081,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "web_src_lib_frames_framelabel",
-      "community": 9,
+      "community": 49,
       "norm_label": "framelabel()"
     },
     {
@@ -32091,7 +32111,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "web_src_lib_frames_validatecuts",
-      "community": 9,
+      "community": 49,
       "norm_label": "validatecuts()"
     },
     {
@@ -32101,7 +32121,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "web_src_lib_frames_fpsoption",
-      "community": 9,
+      "community": 49,
       "norm_label": "fpsoption"
     },
     {
@@ -32111,7 +32131,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "web_src_lib_frames_fmtrate",
-      "community": 9,
+      "community": 49,
       "norm_label": "fmtrate()"
     },
     {
@@ -32121,7 +32141,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "web_src_lib_frames_fraction_labels",
-      "community": 9,
+      "community": 49,
       "norm_label": "fraction_labels"
     },
     {
@@ -32131,7 +32151,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "web_src_lib_frames_fpsoptions",
-      "community": 9,
+      "community": 49,
       "norm_label": "fpsoptions()"
     },
     {
@@ -32141,7 +32161,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "web_src_lib_frames_defaultpreviewfps",
-      "community": 9,
+      "community": 13,
       "norm_label": "defaultpreviewfps()"
     },
     {
@@ -32201,7 +32221,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs",
-      "community": 126,
+      "community": 331,
       "norm_label": "viewerprefs.ts"
     },
     {
@@ -32211,7 +32231,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs_playbackspeedatom",
-      "community": 126,
+      "community": 331,
       "norm_label": "playbackspeedatom"
     },
     {
@@ -32221,7 +32241,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs_mutedatom",
-      "community": 126,
+      "community": 331,
       "norm_label": "mutedatom"
     },
     {
@@ -32231,7 +32251,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs_timelinezoomindexatom",
-      "community": 126,
+      "community": 331,
       "norm_label": "timelinezoomindexatom"
     },
     {
@@ -32241,7 +32261,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs_compactplayeratom",
-      "community": 126,
+      "community": 331,
       "norm_label": "compactplayeratom"
     },
     {
@@ -32251,7 +32271,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "web_src_lib_viewerprefs_compacttimelineatom",
-      "community": 126,
+      "community": 331,
       "norm_label": "compacttimelineatom"
     },
     {
@@ -32261,7 +32281,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_mocks_mswprovider",
-      "community": 0,
+      "community": 7,
       "norm_label": "mswprovider.tsx"
     },
     {
@@ -32271,7 +32291,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "web_src_mocks_mswprovider_mswprovider",
-      "community": 0,
+      "community": 7,
       "norm_label": "mswprovider()"
     },
     {
@@ -32651,7 +32671,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen",
-      "community": 69,
+      "community": 10,
       "norm_label": "projectsscreen.tsx"
     },
     {
@@ -32661,7 +32681,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen_bynewest",
-      "community": 69,
+      "community": 10,
       "norm_label": "bynewest()"
     },
     {
@@ -32671,7 +32691,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen_projectsscreen",
-      "community": 69,
+      "community": 10,
       "norm_label": "projectsscreen()"
     },
     {
@@ -32681,7 +32701,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test",
-      "community": 51,
+      "community": 49,
       "norm_label": "workspacescreen.test.tsx"
     },
     {
@@ -32691,7 +32711,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_fakepanel",
-      "community": 51,
+      "community": 49,
       "norm_label": "fakepanel()"
     },
     {
@@ -32701,7 +32721,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_fixture",
-      "community": 51,
+      "community": 49,
       "norm_label": "fixture"
     },
     {
@@ -32711,7 +32731,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_fixtureprobe",
-      "community": 51,
+      "community": 49,
       "norm_label": "fixtureprobe()"
     },
     {
@@ -32721,7 +32741,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_probe",
-      "community": 51,
+      "community": 49,
       "norm_label": "probe"
     },
     {
@@ -32731,7 +32751,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_fps",
-      "community": 51,
+      "community": 49,
       "norm_label": "fps"
     },
     {
@@ -32741,7 +32761,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_new_cut",
-      "community": 51,
+      "community": 49,
       "norm_label": "new_cut"
     },
     {
@@ -32751,7 +32771,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_neareststripframe",
-      "community": 51,
+      "community": 49,
       "norm_label": "neareststripframe()"
     },
     {
@@ -32781,7 +32801,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_renderworkspace",
-      "community": 51,
+      "community": 49,
       "norm_label": "renderworkspace()"
     },
     {
@@ -32791,7 +32811,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_zoomtofit",
-      "community": 51,
+      "community": 49,
       "norm_label": "zoomtofit()"
     },
     {
@@ -32801,7 +32821,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_mockstriprect",
-      "community": 51,
+      "community": 49,
       "norm_label": "mockstriprect()"
     },
     {
@@ -32811,7 +32831,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_markerframes",
-      "community": 51,
+      "community": 49,
       "norm_label": "markerframes()"
     },
     {
@@ -32821,7 +32841,7 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_readout",
-      "community": 51,
+      "community": 49,
       "norm_label": "readout()"
     },
     {
@@ -32831,7 +32851,7 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_previewvideo",
-      "community": 51,
+      "community": 49,
       "norm_label": "previewvideo()"
     },
     {
@@ -32841,7 +32861,7 @@
       "source_location": "L210",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_stripwindow",
-      "community": 51,
+      "community": 49,
       "norm_label": "stripwindow()"
     },
     {
@@ -32851,7 +32871,7 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_capturepatchbodies",
-      "community": 51,
+      "community": 49,
       "norm_label": "capturepatchbodies()"
     },
     {
@@ -32861,7 +32881,7 @@
       "source_location": "L235",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_bumpserverscenes",
-      "community": 51,
+      "community": 49,
       "norm_label": "bumpserverscenes()"
     },
     {
@@ -32871,7 +32891,7 @@
       "source_location": "L1232",
       "_origin": "ast",
       "id": "web_src_screens_workspacescreen_test_seedsucceededdepthrun",
-      "community": 51,
+      "community": 49,
       "norm_label": "seedsucceededdepthrun()"
     },
     {
@@ -33131,7 +33151,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_vitest_config",
-      "community": 336,
+      "community": 1,
       "norm_label": "vitest.config.ts"
     },
     {
@@ -33141,7 +33161,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_vitest_setup",
-      "community": 126,
+      "community": 331,
       "norm_label": "vitest.setup.ts"
     },
     {
@@ -65783,7 +65803,7 @@
       "source_location": "L14",
       "weight": 1.0,
       "source": "app_vendor_propainter_raft_datasets",
-      "target": "web_src_components_workspace_utils",
+      "target": "web_src_lib_utils",
       "confidence_score": 1.0
     },
     {
@@ -84011,6 +84031,39 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/auth.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "web_src_lib_auth",
+      "target": "auth_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/auth.tsx",
+      "source_location": "L121",
+      "weight": 1.0,
+      "source": "web_src_lib_auth_settledfirebaseuser",
+      "target": "auth_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/firebase.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "web_src_lib_firebase",
+      "target": "auth_user",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/auth/auth.go",
@@ -84083,39 +84136,6 @@
       "weight": 1.0,
       "source": "auth_errunauthorizedtype",
       "target": "auth_errunauthorizedtype_error",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/auth.tsx",
-      "source_location": "L20",
-      "weight": 1.0,
-      "source": "web_src_lib_auth",
-      "target": "auth_errunauthorizedtype",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/auth.tsx",
-      "source_location": "L121",
-      "weight": 1.0,
-      "source": "web_src_lib_auth_settledfirebaseuser",
-      "target": "auth_errunauthorizedtype",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/firebase.ts",
-      "source_location": "L16",
-      "weight": 1.0,
-      "source": "web_src_lib_firebase",
-      "target": "auth_errunauthorizedtype",
       "confidence_score": 1.0
     },
     {
@@ -85742,7 +85762,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L80",
+      "source_location": "L82",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "gateway_internal_pricing_pricing_defaults",
@@ -85752,7 +85772,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L139",
+      "source_location": "L152",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "gateway_internal_pricing_pricing_depthfactor",
@@ -85762,7 +85782,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L126",
+      "source_location": "L139",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "gateway_internal_pricing_pricing_fpsfactor",
@@ -85772,7 +85792,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L240",
+      "source_location": "L259",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "gateway_internal_pricing_pricing_new",
@@ -85782,7 +85802,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L162",
+      "source_location": "L175",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "gateway_internal_pricing_pricing_round4",
@@ -85792,7 +85812,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L222",
+      "source_location": "L241",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "pricing_quote",
@@ -85802,7 +85822,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "pricing_rates",
@@ -85812,7 +85832,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L229",
+      "source_location": "L248",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "pricing_service",
@@ -85822,7 +85842,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L168",
+      "source_location": "L181",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "pricing_stepinputs",
@@ -85832,7 +85852,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L275",
+      "source_location": "L294",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing",
       "target": "pricing_videoinputs",
@@ -85842,7 +85862,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L80",
+      "source_location": "L82",
       "weight": 1.0,
       "context": "return_type",
       "source": "gateway_internal_pricing_pricing_defaults",
@@ -85853,7 +85873,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L139",
+      "source_location": "L152",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_pricing_pricing_depthfactor",
@@ -85864,7 +85884,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L234",
+      "source_location": "L253",
       "weight": 1.0,
       "context": "field",
       "source": "pricing_service",
@@ -85875,7 +85895,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L246",
+      "source_location": "L265",
       "weight": 1.0,
       "context": "return_type",
       "source": "pricing_service_rates",
@@ -85953,7 +85973,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L252",
+      "source_location": "L271",
       "weight": 1.0,
       "source": "pricing_service_rates",
       "target": "gateway_internal_pricing_pricing_defaults",
@@ -85964,7 +85984,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L198",
+      "source_location": "L209",
       "weight": 1.0,
       "source": "pricing_service_estimatestepeta",
       "target": "gateway_internal_pricing_pricing_fpsfactor",
@@ -85975,7 +85995,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L354",
+      "source_location": "L373",
       "weight": 1.0,
       "source": "pricing_service_quotestep",
       "target": "gateway_internal_pricing_pricing_fpsfactor",
@@ -85986,7 +86006,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L293",
+      "source_location": "L312",
       "weight": 1.0,
       "source": "pricing_service_quotevideo",
       "target": "gateway_internal_pricing_pricing_fpsfactor",
@@ -85997,7 +86017,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L201",
+      "source_location": "L216",
       "weight": 1.0,
       "source": "pricing_service_estimatestepeta",
       "target": "gateway_internal_pricing_pricing_depthfactor",
@@ -86008,7 +86028,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L360",
+      "source_location": "L379",
       "weight": 1.0,
       "source": "pricing_service_quotestep",
       "target": "gateway_internal_pricing_pricing_depthfactor",
@@ -86019,7 +86039,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L299",
+      "source_location": "L318",
       "weight": 1.0,
       "source": "pricing_service_quotevideo",
       "target": "gateway_internal_pricing_pricing_depthfactor",
@@ -86030,7 +86050,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L408",
+      "source_location": "L427",
       "weight": 1.0,
       "source": "pricing_service_quotestep",
       "target": "gateway_internal_pricing_pricing_round4",
@@ -86041,7 +86061,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L318",
+      "source_location": "L337",
       "weight": 1.0,
       "source": "pricing_service_quotevideo",
       "target": "gateway_internal_pricing_pricing_round4",
@@ -86062,7 +86082,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L185",
+      "source_location": "L205",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_estimatestepeta",
@@ -86073,7 +86093,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L338",
+      "source_location": "L357",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_quotestep",
@@ -86084,7 +86104,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L240",
+      "source_location": "L259",
       "weight": 1.0,
       "context": "return_type",
       "source": "gateway_internal_pricing_pricing_new",
@@ -86095,7 +86115,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L230",
+      "source_location": "L249",
       "weight": 1.0,
       "context": "field",
       "source": "pricing_service",
@@ -86106,7 +86126,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L235",
+      "source_location": "L254",
       "weight": 1.0,
       "context": "field",
       "source": "pricing_service",
@@ -86117,7 +86137,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L233",
+      "source_location": "L252",
       "weight": 1.0,
       "context": "field",
       "source": "pricing_service",
@@ -86128,7 +86148,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L185",
+      "source_location": "L205",
       "weight": 1.0,
       "source": "pricing_service",
       "target": "pricing_service_estimatestepeta",
@@ -86138,7 +86158,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L422",
+      "source_location": "L441",
       "weight": 1.0,
       "source": "pricing_service",
       "target": "pricing_service_quoteimage",
@@ -86148,7 +86168,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L338",
+      "source_location": "L357",
       "weight": 1.0,
       "source": "pricing_service",
       "target": "pricing_service_quotestep",
@@ -86158,7 +86178,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L287",
+      "source_location": "L306",
       "weight": 1.0,
       "source": "pricing_service",
       "target": "pricing_service_quotevideo",
@@ -86168,7 +86188,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L246",
+      "source_location": "L265",
       "weight": 1.0,
       "source": "pricing_service",
       "target": "pricing_service_rates",
@@ -86178,7 +86198,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L185",
+      "source_location": "L205",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_estimatestepeta",
@@ -86190,7 +86210,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L186",
+      "source_location": "L206",
       "weight": 1.0,
       "source": "pricing_service_estimatestepeta",
       "target": "pricing_service_rates",
@@ -86200,7 +86220,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L422",
+      "source_location": "L441",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_quoteimage",
@@ -86211,7 +86231,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L338",
+      "source_location": "L357",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_quotestep",
@@ -86222,7 +86242,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L287",
+      "source_location": "L306",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_quotevideo",
@@ -86233,7 +86253,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L246",
+      "source_location": "L265",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_rates",
@@ -86244,7 +86264,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L422",
+      "source_location": "L441",
       "weight": 1.0,
       "context": "return_type",
       "source": "pricing_service_quoteimage",
@@ -86255,7 +86275,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L338",
+      "source_location": "L357",
       "weight": 1.0,
       "context": "return_type",
       "source": "pricing_service_quotestep",
@@ -86266,7 +86286,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L287",
+      "source_location": "L306",
       "weight": 1.0,
       "context": "return_type",
       "source": "pricing_service_quotevideo",
@@ -86277,7 +86297,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L240",
+      "source_location": "L259",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_pricing_pricing_new",
@@ -86289,7 +86309,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L423",
+      "source_location": "L442",
       "weight": 1.0,
       "source": "pricing_service_quoteimage",
       "target": "pricing_service_rates",
@@ -86300,7 +86320,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L339",
+      "source_location": "L358",
       "weight": 1.0,
       "source": "pricing_service_quotestep",
       "target": "pricing_service_rates",
@@ -86311,7 +86331,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L288",
+      "source_location": "L307",
       "weight": 1.0,
       "source": "pricing_service_quotevideo",
       "target": "pricing_service_rates",
@@ -86321,7 +86341,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing.go",
-      "source_location": "L287",
+      "source_location": "L306",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "pricing_service_quotevideo",
@@ -86366,6 +86386,26 @@
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing_test",
       "target": "gateway_internal_pricing_pricing_test_testcalibrationanchormeasuredrun",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L407",
+      "weight": 1.0,
+      "source": "gateway_internal_pricing_pricing_test",
+      "target": "gateway_internal_pricing_pricing_test_testetadepthtermzeroedonreuseandupload",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L385",
+      "weight": 1.0,
+      "source": "gateway_internal_pricing_pricing_test",
+      "target": "gateway_internal_pricing_pricing_test_testetastereopreviewscalesbypreset",
       "confidence_score": 1.0
     },
     {
@@ -86681,6 +86721,28 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L407",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "source": "gateway_internal_pricing_pricing_test_testetadepthtermzeroedonreuseandupload",
+      "target": "gateway_internal_pricing_pricing_test_go_t",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L385",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "source": "gateway_internal_pricing_pricing_test_testetastereopreviewscalesbypreset",
+      "target": "gateway_internal_pricing_pricing_test_go_t",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
       "source_location": "L368",
       "weight": 1.0,
       "context": "parameter_type",
@@ -86982,6 +87044,28 @@
       "source_location": "L361",
       "weight": 1.0,
       "source": "gateway_internal_pricing_pricing_test_testcalibrationanchormeasuredrun",
+      "target": "gateway_internal_pricing_pricing_test_stepsvc",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L408",
+      "weight": 1.0,
+      "source": "gateway_internal_pricing_pricing_test_testetadepthtermzeroedonreuseandupload",
+      "target": "gateway_internal_pricing_pricing_test_stepsvc",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "gateway/internal/pricing/pricing_test.go",
+      "source_location": "L386",
+      "weight": 1.0,
+      "source": "gateway_internal_pricing_pricing_test_testetastereopreviewscalesbypreset",
       "target": "gateway_internal_pricing_pricing_test_stepsvc",
       "confidence_score": 1.0
     },
@@ -115315,5 +115399,5 @@
       "source_file": "previews/full_batch_v3/K9_full_v3.yaml"
     }
   ],
-  "built_at_commit": "a4a9c90680c90acee61631286b8ceb39d85018cf"
+  "built_at_commit": "2bb4bc155245ffa494254f1158130c273d08b7b5"
 }
