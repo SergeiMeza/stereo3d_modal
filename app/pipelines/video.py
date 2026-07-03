@@ -712,6 +712,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     job_id, jlog, pre, stereo_kwargs, stereo_cls,
                     max_workers=max_gpu_workers,
                     stall_timeout_s=stall_timeout_s, chunk_cap=stereo_chunk_cap,
+                    vram_gb=140.0 if big_work else 45.0,
                 )
             else:
                 # single worker: coverage relies on Modal's stereo function
@@ -1469,7 +1470,8 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
 
 
 def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
-                     stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=STEREO_CHUNK_FRAMES):
+                     stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=STEREO_CHUNK_FRAMES,
+                     vram_gb=45.0):
     from app.common.errors import check_worker_result
     from app.common.storage import job_cache_dir
     from app.stages.media import concat_cache_segments
@@ -1481,11 +1483,13 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
     # batch_size explicitly to every chunk, so it must apply the same
     # sizing the single-worker path gets from generate()'s default —
     # the resolution-blind call here is exactly what re-OOMed the 4k runs.
+    # The coordinator has no GPU, so the caller passes the VRAM of the
+    # tier it routed stereo_cls to.
     work_mp = (
         stereo_kwargs.get("work_height", 720)
         * stereo_kwargs.get("work_width", 1280) / 1e6
     )
-    batch_size = _pick_batch_size(total, work_mp)
+    batch_size = _pick_batch_size(total, work_mp, vram_gb=vram_gb)
     seg_len = batch_size * max(1, round(SEGMENT_FRAMES / batch_size))
     # chunk size is CAPPED (chunk_cap, default STEREO_CHUNK_FRAMES) so a
     # worker's wall time never grows with total length — long videos spawn

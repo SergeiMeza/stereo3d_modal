@@ -333,5 +333,9 @@
   "331": "FrozenOpenCLIPImageEmbedder",
   "332": "scale_module",
   "333": "SiLU",
-  "334": "TimeMixSequential"
+  "334": "TimeMixSequential",
+  "335": "_make_infer",
+  "336": "Config",
+  "337": "depth_script_to_yaml",
+  "338": "encodeSceneOverrides"
 }

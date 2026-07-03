@@ -775,14 +775,14 @@
     "semantic_hash": "48d9a7f4cf76a883b3a2d310e8fd6f7e"
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1783063720.2074206,
-    "ast_hash": "9c4b528451d2cef37053def8cfd1b188",
+    "mtime": 1783078514.5733008,
+    "ast_hash": "25fcf2dd2f4c618684e591550f48ffe6",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
-    "mtime": 1782954506.4044652,
-    "ast_hash": "0be7e7c1fd0f2b4a966b48f148cbef84",
-    "semantic_hash": "0be7e7c1fd0f2b4a966b48f148cbef84"
+    "mtime": 1783078563.8652148,
+    "ast_hash": "9d9983492d4eeb788d61260ffb484697",
+    "semantic_hash": ""
   },
   "gateway/internal/api/webhooks.go": {
     "mtime": 1783039141.6185908,
@@ -830,13 +830,13 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1783072341.3454938,
-    "ast_hash": "e5f5c40d22ac889ec9053e3845bd581f",
+    "mtime": 1783078486.8362656,
+    "ast_hash": "00c57fae0b2382a89f2925d487157a3a",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
-    "mtime": 1783072333.7280633,
-    "ast_hash": "b50f14d1f90662e9d7517b9394f0dae1",
+    "mtime": 1783078595.5396295,
+    "ast_hash": "9b7c48d7e5df48bdb884e588eb32b4b6",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/testhelper_test.go": {

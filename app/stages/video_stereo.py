@@ -40,23 +40,46 @@ with stereo_image.imports():
 
 
 # ProPainter's VRAM working set scales with WINDOW FRAMES × INPAINT-RES
-# PIXELS. The proven-safe operating point is 30 frames at ~1.24 MP (the
-# @720-tier benchmarks, which also fit a 48 GB L40S); 30 frames at 2.79 MP
-# — the 4k preset on a 2.39:1 source, inpaint short side 1080 — OOMed a
-# 140 GB H200 at ~120 GB resident (job c51480d2c0aa, 2026-07-03). Budget
-# window × MP to the proven point and shrink the window as the inpaint res
-# grows. Smaller windows trade a little temporal fill context for actually
-# finishing.
-_PROPAINTER_MP_FRAMES_BUDGET = 30 * 1.24  # ≈37 MP·frames
+# PIXELS, but the safe budget is PER GPU TIER, not per GB — the L40S
+# proven point (30 frames × 1.24 MP on 48 GB) and the H200 measurements
+# below imply different GB-per-MP·frame slopes, so don't unify them.
+#   L40S: 30 frames at ~1.24 MP (the @720-tier benchmarks) is the proven
+#     ceiling on 48 GB — unchanged.
+#   H200: 30 frames at 2.79 MP OOMed at ~120 GB resident (job
+#     c51480d2c0aa, 2026-07-03); the shrunken 13-frame windows (37
+#     MP·frames) peaked only 50–62 GB across 5 containers AND ~doubled
+#     the propainter GPU-seconds — $25.5 billed vs the ~$12 projected at
+#     30 frames (job 8aadc9e33449, 2026-07-03) — per-window flow/reference
+#     overhead dominates. ~1.7 GB per MP·frame measured ⇒ 65 MP·frames
+#     targets ~110 GB peak: most of the window (and its temporal context)
+#     back, with ~30 GB headroom for spikes.
+# Smaller windows trade temporal fill context AND real money for memory —
+# shrink only as far as the tier requires.
+_PROPAINTER_MP_FRAMES_BUDGET = 30 * 1.24  # ≈37 MP·frames — L40S (48 GB)
+_PROPAINTER_MP_FRAMES_BUDGET_H200 = 65.0  # 140 GB tier
 
 
-def _pick_batch_size(num_frames: int, work_mp: float = 0.9) -> int:
+def _pick_batch_size(
+    num_frames: int, work_mp: float = 0.9, vram_gb: float | None = None
+) -> int:
     """Largest ProPainter window n in [8, 30] whose working set fits the
-    budget (n × work_mp ≤ _PROPAINTER_MP_FRAMES_BUDGET, see above), such
-    that the final batch is not a single frame (a 1-frame ProPainter
-    window has no flow to work with). ``work_mp``: inpaint working
-    resolution in megapixels."""
-    cap = max(8, min(30, int(_PROPAINTER_MP_FRAMES_BUDGET / max(work_mp, 0.1))))
+    GPU tier's budget (n × work_mp ≤ budget, see above), such that the
+    final batch is not a single frame (a 1-frame ProPainter window has no
+    flow to work with). ``work_mp``: inpaint working resolution in
+    megapixels. ``vram_gb``: the worker detects its own card; callers off
+    the GPU (the fan-out coordinator) must pass the tier they routed to —
+    unknown/no-CUDA falls back to the small tier."""
+    if vram_gb is None:
+        try:
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / 2**30
+        except Exception:  # coordinator/tests: no CUDA visible
+            vram_gb = 45.0
+    budget = (
+        _PROPAINTER_MP_FRAMES_BUDGET_H200
+        if vram_gb >= 100
+        else _PROPAINTER_MP_FRAMES_BUDGET
+    )
+    cap = max(8, min(30, int(budget / max(work_mp, 0.1))))
     for n in range(cap, 7, -1):
         if num_frames % n != 1:
             return n

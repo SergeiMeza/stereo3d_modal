@@ -125,8 +125,8 @@
     "semantic_hash": "731bf7d64f5f41e4b49646c844117e39"
   },
   "app/pipelines/video.py": {
-    "mtime": 1783071471.3674128,
-    "ast_hash": "a54e34c3ae1a59d5449a5bb420a47ba8",
+    "mtime": 1783082889.2075238,
+    "ast_hash": "f82d3aa824e52d7f9ed30cbe38e7177d",
     "semantic_hash": ""
   },
   "app/stages/__init__.py": {
@@ -190,8 +190,8 @@
     "semantic_hash": "87b3eea08d0f989d15f388d12583009f"
   },
   "app/stages/video_stereo.py": {
-    "mtime": 1783071069.04035,
-    "ast_hash": "2c2b78c8db9efbbb32d102b4749eae4c",
+    "mtime": 1783082872.9105444,
+    "ast_hash": "3bfa452d155aee5e7995925ce0ecc0c8",
     "semantic_hash": ""
   },
   "app/stages/video_stereo_m2svid.py": {
@@ -2150,8 +2150,13 @@
     "semantic_hash": ""
   },
   "tests/test_stereo_batch.py": {
-    "mtime": 1783071084.496163,
-    "ast_hash": "cd9a9f80e458f5e84a9039965b95a4c8",
+    "mtime": 1783082908.1865752,
+    "ast_hash": "1cce138b9ac189fc46f2b4b6a1e44a36",
+    "semantic_hash": ""
+  },
+  "benchmarks.md": {
+    "mtime": 1783079625.27729,
+    "ast_hash": "b370a6e05cb4bfc99d558b9de3614e35",
     "semantic_hash": ""
   }
 }
