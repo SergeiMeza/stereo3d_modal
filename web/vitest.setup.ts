@@ -12,6 +12,7 @@
 import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
+import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import {
   compactPlayerAtom,
   compactTimelineAtom,
@@ -27,6 +28,9 @@ afterEach(() => {
   store.set(timelineZoomIndexAtom, null);
   store.set(compactPlayerAtom, false);
   store.set(compactTimelineAtom, false);
+  // The per-(project, step) checkout state is likewise module-scoped and
+  // would leak an in-flight tracker into the next test.
+  resetStepCheckoutState();
 });
 
 class ResizeObserverStub {

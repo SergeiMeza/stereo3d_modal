@@ -19,12 +19,15 @@ import { DownloadsList } from "./DownloadsList";
 import { POLL_INTERVAL_MS } from "./polling";
 import { StateChip } from "./StateChip";
 
-const TERMINAL: ReadonlySet<ConversionState> = new Set([
+/** States a conversion never leaves — shared with useStepCheckout, which
+ * must not resume trackers for (or poll) conversions already done. */
+export const TERMINAL_STATES: ReadonlySet<ConversionState> = new Set([
   "succeeded",
   "failed",
   "canceled",
   "expired",
 ]);
+const TERMINAL = TERMINAL_STATES;
 const CANCELABLE: ReadonlySet<ConversionState> = new Set([
   "created",
   "paid",
@@ -43,6 +46,10 @@ export interface ConversionTrackerProps {
   onProjectChanged: () => void;
   /** Fired once, when the conversion reaches a terminal state. */
   onSettled?: (conversion: Conversion) => void;
+  /** Fired on every fresher snapshot (poll response, cancel) so an external
+   * store can stay current — a tracker remounted after tab navigation then
+   * resumes from the latest progress, not the creation response. */
+  onUpdate?: (conversion: Conversion) => void;
   /** Render the downloads list on success (default). The Depth tab passes
    * false — its side-by-side depth view and Export button already surface
    * the outputs, so the tracker just reports the state. */
@@ -53,6 +60,7 @@ export function ConversionTracker({
   conversion,
   onProjectChanged,
   onSettled,
+  onUpdate,
   showDownloads = true,
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
@@ -61,6 +69,12 @@ export function ConversionTracker({
   const [error, setError] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const settledRef = useRef(false);
+  // Latest conv for the in-flight poll race check (a local terminal state,
+  // e.g. from cancel, wins over any poll response still in flight).
+  const convRef = useRef(conv);
+  useEffect(() => {
+    convRef.current = conv;
+  }, [conv]);
 
   const terminal = TERMINAL.has(conv.state);
 
@@ -76,7 +90,10 @@ export function ConversionTracker({
         .getConversion(conv.conversion_id)
         .then((next) => {
           setError(null);
-          setConv((prev) => (TERMINAL.has(prev.state) ? prev : next));
+          if (TERMINAL.has(convRef.current.state)) return;
+          convRef.current = next;
+          setConv(next);
+          onUpdate?.(next);
         })
         .catch((e: unknown) => {
           setError(e instanceof Error ? e.message : "poll failed");
@@ -86,7 +103,7 @@ export function ConversionTracker({
         });
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [client, conv.conversion_id, terminal]);
+  }, [client, conv.conversion_id, terminal, onUpdate]);
 
   // Terminal side effects (once): notify parent; fetch downloads on success.
   useEffect(() => {
@@ -110,7 +127,9 @@ export function ConversionTracker({
     setCanceling(true);
     try {
       const next = await client.cancelConversion(conv.conversion_id);
+      convRef.current = next; // wins over any poll still in flight
       setConv(next);
+      onUpdate?.(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "cancel failed");
     } finally {

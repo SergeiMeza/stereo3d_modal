@@ -52,7 +52,7 @@ export function DeliverPanel({
   project,
   onProjectChanged,
 }: DeliverPanelProps): JSX.Element {
-  const ck = useStepCheckout(project, onProjectChanged);
+  const ck = useStepCheckout(project, "production", onProjectChanged);
 
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);

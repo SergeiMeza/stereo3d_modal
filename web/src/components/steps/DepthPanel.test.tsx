@@ -86,12 +86,12 @@ const REAL_DOWNLOADS = downloadsFixture.downloads as Record<string, string>;
 
 function renderPanel(project: Project = fixtureProject()) {
   const onProjectChanged = vi.fn();
-  render(
+  const utils = render(
     <AuthProvider>
       <DepthPanel project={project} onProjectChanged={onProjectChanged} />
     </AuthProvider>,
   );
-  return { onProjectChanged };
+  return { onProjectChanged, ...utils };
 }
 
 /** Record every quote request body the panel puts on the wire. */
@@ -291,6 +291,55 @@ describe("DepthPanel quotes", () => {
       await screen.findByText("depth_res must be a multiple of 14 in [140, 2520]"),
     ).toBeDefined();
     expect(screen.queryByTestId("quote-breakdown")).toBeNull();
+  });
+});
+
+describe("DepthPanel in-flight state survival (checkoutStore)", () => {
+  it("keeps the in-progress tracker across unmount/remount (tab navigation)", async () => {
+    // The workspace panels unmount on every tab switch; the in-flight run
+    // lives in the shared per-(project, step) store, so coming back must
+    // show the tracker again — NOT a fresh Convert UI for a job that is
+    // still running (and billing).
+    const user = userEvent.setup();
+    const project = fixtureProject();
+    const first = renderPanel(project);
+    await getQuote(user);
+    await user.click(screen.getByRole("button", { name: "Convert · $0.50" }));
+    await screen.findByTestId("conversion-tracker");
+
+    first.unmount();
+    renderPanel(project);
+
+    expect(screen.getByTestId("conversion-tracker")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Convert ·/ })).toBeNull();
+  });
+
+  it("resumes a still-running conversion from the project on a fresh mount (page reload)", async () => {
+    // A reload loses the jotai store, but the gateway persists conversions
+    // (Firestore) and returns them with the project — the panel adopts the
+    // newest still-running step conversion and tracks it.
+    const project = fixtureProject();
+    const running = seededDepthRun(project.project_id, {
+      conversion_id: "runningdepth1",
+      state: "processing",
+      progress: 0.4,
+      outputs: [],
+    });
+    project.conversions = [running];
+    renderPanel(project);
+
+    expect(await screen.findByTestId("conversion-tracker")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Convert ·/ })).toBeNull();
+  });
+
+  it("does NOT resume terminal conversions from the project history", () => {
+    // Prior succeeded/failed runs are history (PriorRuns/review area), not
+    // an in-flight job — a fresh mount must offer the normal quote flow.
+    const project = fixtureProject();
+    project.conversions = [seededDepthRun(project.project_id)]; // succeeded
+    renderPanel(project);
+
+    expect(screen.queryByTestId("conversion-tracker")).toBeNull();
   });
 });
 

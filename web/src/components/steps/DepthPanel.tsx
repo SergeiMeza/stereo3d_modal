@@ -75,7 +75,7 @@ export function DepthPanel({
   project,
   onProjectChanged,
 }: DepthPanelProps): JSX.Element {
-  const ck = useStepCheckout(project, onProjectChanged);
+  const ck = useStepCheckout(project, "depth_preview", onProjectChanged);
   // SAME draft the Stereo page edits (shared localStorage key): the scene
   // grid below flips per-scene 2D passthrough in it.
   const [draft, setDraft] = useStereoDraft(

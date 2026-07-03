@@ -116,7 +116,7 @@ export function StereoPanel({
   project,
   onProjectChanged,
 }: StereoPanelProps): JSX.Element {
-  const ck = useStepCheckout(project, onProjectChanged);
+  const ck = useStepCheckout(project, "stereo_preview", onProjectChanged);
   const client = useGateway();
 
   const scenesVersion = project.scenes?.version ?? 0;

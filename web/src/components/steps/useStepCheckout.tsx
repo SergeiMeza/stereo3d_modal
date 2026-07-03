@@ -18,10 +18,18 @@
  * - a 402 (no_payment_method / billing_overdue / card_declined) surfaces as
  *   a billing notice with the right escape hatch instead of a raw error;
  * - onProjectChanged refetches the workspace after a successful run.
+ *
+ * State lives OUTSIDE the component (jotai, keyed by project+step — see
+ * checkoutStore): the panels unmount on every tab switch, and an in-flight
+ * run must survive that. Across a full page reload the jotai store is gone,
+ * so the hook adopts the newest still-running step conversion from
+ * project.conversions (the gateway persists them in Firestore) — the
+ * in-progress tracker survives refreshes too.
  */
 
+import { useAtom } from "jotai";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { completeChargeAction } from "@/components/billing/settleAction";
@@ -30,13 +38,15 @@ import { GatewayError } from "@/lib/api/client";
 import type {
   Conversion,
   Project,
+  Step,
   StepConversionRequest,
   StepQuoteResponse,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 
-import { ConversionTracker } from "./ConversionTracker";
+import { stepCheckoutAtom } from "./checkoutStore";
+import { ConversionTracker, TERMINAL_STATES } from "./ConversionTracker";
 import { formatCents } from "./money";
 import { QuoteView } from "./QuoteView";
 
@@ -80,29 +90,59 @@ export interface StepCheckout {
   fetchQuote: (req: StepConversionRequest) => Promise<void>;
   convert: (req: StepConversionRequest) => Promise<void>;
   handleSettled: (settled: Conversion) => void;
+  /** Tracker poll snapshots — keeps the shared store current so a remount
+   * mid-run resumes from the latest progress, not the creation response. */
+  handleUpdate: (conversion: Conversion) => void;
   onProjectChanged: () => void;
 }
 
 export function useStepCheckout(
   project: Project,
+  step: Step,
   onProjectChanged: () => void,
 ): StepCheckout {
   const client = useGateway();
   const billing = useBilling();
 
-  const [quote, setQuote] = useState<StepQuoteResponse | null>(null);
+  // Survives tab navigation (module-scoped jotai store, see checkoutStore).
+  const [state, setState] = useAtom(
+    stepCheckoutAtom(project.project_id, step),
+  );
+  const { quote, attemptKey, active, settled } = state;
+  // Transient request feedback — a remount clearing these is fine.
   const [quoting, setQuoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [billingBlock, setBillingBlock] = useState<BillingBlock | null>(null);
-  const [active, setActive] = useState<Conversion | null>(null);
-  const [settled, setSettled] = useState(false);
   // Idempotency-Key, stable per attempt: minted lazily on the first Convert
-  // click and reused on retries so a double-submit can't double-charge.
-  const attemptKeyRef = useRef<string | null>(null);
+  // click and reused on retries so a double-submit can't double-charge. The
+  // ref mirrors the stored key for SYNCHRONOUS dedup (two clicks in the same
+  // render must mint one key); the store carries it across remounts. Every
+  // writer below updates BOTH; the effect only covers external store writes.
+  const attemptKeyRef = useRef(attemptKey);
+  useEffect(() => {
+    attemptKeyRef.current = attemptKey;
+  }, [attemptKey]);
+
+  // Refresh survival: the jotai store dies with the page, but the gateway
+  // persists conversions in Firestore and returns them with the project —
+  // adopt the newest still-running step conversion so a reload shows the
+  // in-progress tracker instead of a fresh Convert UI.
+  const conversions = project.conversions;
+  useEffect(() => {
+    if (active !== null) return;
+    const running = (conversions ?? [])
+      .filter((c) => c.step === step && !TERMINAL_STATES.has(c.state))
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+    if (running !== undefined) {
+      setState((s) =>
+        s.active !== null ? s : { ...s, active: running, settled: false },
+      );
+    }
+  }, [active, conversions, step, setState]);
 
   function invalidate(): void {
-    setQuote(null);
     attemptKeyRef.current = null;
+    setState((s) => ({ ...s, quote: null, attemptKey: null }));
   }
 
   async function fetchQuote(req: StepConversionRequest): Promise<void> {
@@ -111,13 +151,14 @@ export function useStepCheckout(
     setBillingBlock(null);
     try {
       const res = await client.quoteStep(project.project_id, req);
-      setQuote(res);
       attemptKeyRef.current = null; // fresh quote = fresh attempt
-      if (settled) {
-        // clear the finished run's tracker before a new attempt
-        setActive(null);
-        setSettled(false);
-      }
+      setState((s) => ({
+        ...s,
+        quote: res,
+        attemptKey: null,
+        // clear a finished run's tracker before a new attempt
+        ...(s.settled ? { active: null, settled: false } : {}),
+      }));
     } catch (e) {
       setError(messageOf(e));
     } finally {
@@ -126,7 +167,11 @@ export function useStepCheckout(
   }
 
   async function convert(req: StepConversionRequest): Promise<void> {
-    attemptKeyRef.current ??= crypto.randomUUID();
+    if (attemptKeyRef.current === null) {
+      attemptKeyRef.current = crypto.randomUUID();
+      const minted = attemptKeyRef.current;
+      setState((s) => ({ ...s, attemptKey: minted }));
+    }
     setError(null);
     setBillingBlock(null);
     try {
@@ -135,8 +180,7 @@ export function useStepCheckout(
         req,
         attemptKeyRef.current,
       );
-      setActive(conv);
-      setSettled(false);
+      setState((s) => ({ ...s, active: conv, settled: false }));
       // Expensive runs hold the quote up front; a 3DS demand on that hold
       // arrives as requires_action — complete it with the saved card. The
       // gateway webhook then flips created→paid and starts the job (the
@@ -156,8 +200,8 @@ export function useStepCheckout(
               "Payment confirmation failed — the conversion was not started.",
           );
           void client.cancelConversion(conv.conversion_id).catch(() => {});
-          setActive(null);
           attemptKeyRef.current = null; // fresh attempt after a failed confirm
+          setState((s) => ({ ...s, active: null, attemptKey: null }));
         }
       }
     } catch (e) {
@@ -175,16 +219,36 @@ export function useStepCheckout(
 
   function handleSettled(settledConv: Conversion): void {
     attemptKeyRef.current = null;
-    setSettled(true);
-    if (settledConv.state === "succeeded") {
-      setQuote(null); // run complete
+    setState((s) => ({
+      ...s,
+      settled: true,
+      attemptKey: null,
+      // run complete — drop the spent quote
+      ...(settledConv.state === "succeeded" ? { quote: null } : {}),
+    }));
+    if (
+      settledConv.state === "succeeded" &&
+      settledConv.billing &&
+      settledConv.billing.status !== "charged"
+    ) {
       // The automatic charge (or its failure) is now on the conversion —
       // refresh so a charge_failed surfaces in the billing banner.
-      if (settledConv.billing && settledConv.billing.status !== "charged") {
-        void billing.refresh();
-      }
+      void billing.refresh();
     }
   }
+
+  // Stable (setState from useAtom is): the tracker's poll effect lists it
+  // as a dependency and must not restart its interval every render.
+  const handleUpdate = useCallback(
+    (conv: Conversion): void => {
+      setState((s) =>
+        s.active !== null && s.active.conversion_id === conv.conversion_id
+          ? { ...s, active: conv }
+          : s,
+      );
+    },
+    [setState],
+  );
 
   const tracking = active !== null;
   const running = tracking && !settled;
@@ -202,6 +266,7 @@ export function useStepCheckout(
     fetchQuote,
     convert,
     handleSettled,
+    handleUpdate,
     onProjectChanged,
   };
 }
@@ -306,6 +371,7 @@ export function StepCheckoutSection({
           conversion={ck.active}
           onProjectChanged={ck.onProjectChanged}
           onSettled={ck.handleSettled}
+          onUpdate={ck.handleUpdate}
           showDownloads={trackerDownloads}
         />
       ) : null}
