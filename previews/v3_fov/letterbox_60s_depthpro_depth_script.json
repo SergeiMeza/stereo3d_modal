@@ -1,0 +1,689 @@
+[
+ {
+  "first": 0,
+  "last": 68,
+  "shot_type": "wide",
+  "displacement": 0.018,
+  "placement": [
+   -1.0,
+   0.0
+  ],
+  "median": 8.042,
+  "near_fraction": 0.0,
+  "fov_deg": 69.5,
+  "screen_disp_in": -0.01784,
+  "screen_disp_out": -0.01794
+ },
+ {
+  "first": 68,
+  "last": 107,
+  "shot_type": "close_up",
+  "displacement": 0.013,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 1.0129,
+  "near_fraction": 0.0,
+  "fov_deg": 27.7,
+  "screen_disp_in": -0.01365,
+  "screen_disp_out": -0.01273,
+  "adjustments": [
+   "displacement clamped 0.008\u21920.013 (adjacent-shot step)",
+   "placement shifted -0.3000 to match cut at frame 68 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 107,
+  "last": 145,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 2.5833,
+  "near_fraction": 0.0,
+  "fov_deg": 21.2,
+  "screen_disp_in": -0.0094,
+  "screen_disp_out": -0.00974,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 107 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 145,
+  "last": 178,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.034134,
+   0.065866
+  ],
+  "median": 3.0618,
+  "near_fraction": 0.0,
+  "fov_deg": 25.8,
+  "screen_disp_in": -0.00774,
+  "screen_disp_out": -0.00776,
+  "adjustments": [
+   "placement shifted -0.0341 to match cut at frame 145"
+  ]
+ },
+ {
+  "first": 178,
+  "last": 262,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 3.0659,
+  "near_fraction": 0.0,
+  "fov_deg": 28.0,
+  "screen_disp_in": -0.00771,
+  "screen_disp_out": -0.00735
+ },
+ {
+  "first": 262,
+  "last": 334,
+  "shot_type": "dynamic",
+  "displacement": 0.01,
+  "placement": [
+   -1.0,
+   0.3
+  ],
+  "median": 0.2969,
+  "near_fraction": 0.6613,
+  "fov_deg": 53.7,
+  "keyframes": [
+   {
+    "index": 262,
+    "displacement": 0.008,
+    "placement": [
+     -1.3,
+     -0.2
+    ]
+   },
+   {
+    "index": 297,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   },
+   {
+    "index": 333,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   }
+  ],
+  "screen_disp_in": -0.0016,
+  "screen_disp_out": -0.00025,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 262 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 334,
+  "last": 365,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -0.5,
+   0.6
+  ],
+  "median": 2.6965,
+  "near_fraction": 0.0,
+  "fov_deg": 31.0,
+  "screen_disp_in": -0.00338,
+  "screen_disp_out": -0.00335,
+  "adjustments": [
+   "placement shifted +0.5000 to match cut at frame 334 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 365,
+  "last": 386,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -0.778609,
+   0.321391
+  ],
+  "median": 2.0768,
+  "near_fraction": 0.0,
+  "fov_deg": 26.4,
+  "screen_disp_in": -0.00535,
+  "screen_disp_out": -0.00544,
+  "adjustments": [
+   "placement shifted +0.2214 to match cut at frame 365"
+  ]
+ },
+ {
+  "first": 386,
+  "last": 506,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 3.4596,
+  "near_fraction": 0.0,
+  "fov_deg": 34.9,
+  "screen_disp_in": -0.00942,
+  "screen_disp_out": -0.01051,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 386 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 506,
+  "last": 560,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.261996,
+   -0.161996
+  ],
+  "median": 0.9923,
+  "near_fraction": 0.0,
+  "fov_deg": 25.8,
+  "screen_disp_in": -0.00851,
+  "screen_disp_out": -0.00793,
+  "adjustments": [
+   "placement shifted -0.2620 to match cut at frame 506"
+  ]
+ },
+ {
+  "first": 560,
+  "last": 598,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 1.4054,
+  "near_fraction": 0.0,
+  "fov_deg": 27.3,
+  "screen_disp_in": -0.00641,
+  "screen_disp_out": -0.00679
+ },
+ {
+  "first": 598,
+  "last": 634,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 1.0763,
+  "near_fraction": 0.0,
+  "fov_deg": 33.2,
+  "screen_disp_in": -0.00703,
+  "screen_disp_out": -0.00583
+ },
+ {
+  "first": 634,
+  "last": 664,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 3.8265,
+  "near_fraction": 0.0,
+  "fov_deg": 28.4,
+  "screen_disp_in": -0.00769,
+  "screen_disp_out": -0.00747
+ },
+ {
+  "first": 664,
+  "last": 702,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 5.3761,
+  "near_fraction": 0.0,
+  "fov_deg": 40.0,
+  "screen_disp_in": -0.01084,
+  "screen_disp_out": -0.01088,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 664 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 702,
+  "last": 737,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -1.0,
+   0.5
+  ],
+  "median": 3.9456,
+  "near_fraction": 0.0,
+  "fov_deg": 64.2,
+  "screen_disp_in": -0.01178,
+  "screen_disp_out": -0.01164
+ },
+ {
+  "first": 737,
+  "last": 768,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 1.5962,
+  "near_fraction": 0.0,
+  "fov_deg": 32.3,
+  "screen_disp_in": -0.00897,
+  "screen_disp_out": -0.00923,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 737 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 768,
+  "last": 802,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.937713,
+   0.562287
+  ],
+  "median": 4.5155,
+  "near_fraction": 0.0,
+  "fov_deg": 53.4,
+  "screen_disp_in": -0.01123,
+  "screen_disp_out": -0.01103,
+  "adjustments": [
+   "placement shifted +0.0623 to match cut at frame 768"
+  ]
+ },
+ {
+  "first": 802,
+  "last": 841,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 0.9115,
+  "near_fraction": 0.0,
+  "fov_deg": 29.6,
+  "screen_disp_in": -0.00805,
+  "screen_disp_out": -0.00815,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 802 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 841,
+  "last": 860,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 1.6333,
+  "near_fraction": 0.0,
+  "fov_deg": 27.2,
+  "screen_disp_in": -0.00695,
+  "screen_disp_out": -0.00681
+ },
+ {
+  "first": 860,
+  "last": 891,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 1.201,
+  "near_fraction": 0.0,
+  "fov_deg": 30.2,
+  "screen_disp_in": -0.00615,
+  "screen_disp_out": -0.00628
+ },
+ {
+  "first": 891,
+  "last": 909,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 3.4652,
+  "near_fraction": 0.0,
+  "fov_deg": 55.1,
+  "screen_disp_in": -0.01005,
+  "screen_disp_out": -0.01051,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 891 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 909,
+  "last": 934,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 1.1001,
+  "near_fraction": 0.0,
+  "fov_deg": 31.8,
+  "screen_disp_in": -0.00833,
+  "screen_disp_out": -0.0085,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 909 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 934,
+  "last": 954,
+  "shot_type": "dynamic",
+  "displacement": 0.01,
+  "placement": [
+   -1.0,
+   0.3
+  ],
+  "median": 0.4816,
+  "near_fraction": 0.1776,
+  "fov_deg": 52.0,
+  "keyframes": [
+   {
+    "index": 934,
+    "displacement": 0.008,
+    "placement": [
+     -1.3,
+     -0.2
+    ]
+   },
+   {
+    "index": 943,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   },
+   {
+    "index": 953,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   }
+  ],
+  "screen_disp_in": -0.00572,
+  "screen_disp_out": -0.00393,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 934 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 954,
+  "last": 967,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -0.830933,
+   0.269067
+  ],
+  "median": 2.4166,
+  "near_fraction": 0.0,
+  "fov_deg": 26.2,
+  "screen_disp_in": -0.00593,
+  "screen_disp_out": -0.00568,
+  "adjustments": [
+   "placement shifted +0.1691 to match cut at frame 954"
+  ]
+ },
+ {
+  "first": 967,
+  "last": 1042,
+  "shot_type": "dynamic",
+  "displacement": 0.01,
+  "placement": [
+   -1.0,
+   0.3
+  ],
+  "median": 0.509,
+  "near_fraction": 0.1561,
+  "fov_deg": 37.5,
+  "keyframes": [
+   {
+    "index": 967,
+    "displacement": 0.008,
+    "placement": [
+     -1.011583,
+     0.088417
+    ]
+   },
+   {
+    "index": 1004,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   },
+   {
+    "index": 1041,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   }
+  ],
+  "screen_disp_in": -0.00368,
+  "screen_disp_out": -0.00451,
+  "adjustments": [
+   "placement shifted -0.0116 to match cut at frame 967"
+  ]
+ },
+ {
+  "first": 1042,
+  "last": 1091,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 4.3428,
+  "near_fraction": 0.0,
+  "fov_deg": 31.0,
+  "screen_disp_in": -0.01045,
+  "screen_disp_out": -0.01098,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 1042 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1091,
+  "last": 1148,
+  "shot_type": "dynamic",
+  "displacement": 0.01,
+  "placement": [
+   -1.0,
+   0.3
+  ],
+  "median": 0.8798,
+  "near_fraction": 0.0,
+  "fov_deg": 40.3,
+  "keyframes": [
+   {
+    "index": 1091,
+    "displacement": 0.008,
+    "placement": [
+     -1.3,
+     -0.2
+    ]
+   },
+   {
+    "index": 1119,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   },
+   {
+    "index": 1147,
+    "displacement": 0.008,
+    "placement": [
+     -1.0,
+     0.1
+    ]
+   }
+  ],
+  "screen_disp_in": -0.00796,
+  "screen_disp_out": -0.00746,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 1091 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1148,
+  "last": 1211,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 4.1433,
+  "near_fraction": 0.0,
+  "fov_deg": 38.0,
+  "screen_disp_in": -0.01096,
+  "screen_disp_out": -0.01059,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 1148 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1211,
+  "last": 1228,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 0.5042,
+  "near_fraction": 0.0,
+  "fov_deg": 64.9,
+  "screen_disp_in": -0.00595,
+  "screen_disp_out": -0.00585,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 1211 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1228,
+  "last": 1283,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 2.2673,
+  "near_fraction": 0.0,
+  "fov_deg": 50.4,
+  "screen_disp_in": -0.00725,
+  "screen_disp_out": -0.00721
+ },
+ {
+  "first": 1283,
+  "last": 1382,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.0,
+   0.1
+  ],
+  "median": 3.2741,
+  "near_fraction": 0.0,
+  "fov_deg": 19.0,
+  "screen_disp_in": -0.00751,
+  "screen_disp_out": -0.00771
+ },
+ {
+  "first": 1382,
+  "last": 1400,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 6.6016,
+  "near_fraction": 0.0,
+  "fov_deg": 28.3,
+  "screen_disp_in": -0.011,
+  "screen_disp_out": -0.01104,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 1382 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1400,
+  "last": 1434,
+  "shot_type": "close_up",
+  "displacement": 0.008,
+  "placement": [
+   -1.3,
+   -0.2
+  ],
+  "median": 0.427,
+  "near_fraction": 0.0952,
+  "fov_deg": 60.6,
+  "screen_disp_in": -0.00541,
+  "screen_disp_out": -0.00509,
+  "adjustments": [
+   "placement shifted -0.3000 to match cut at frame 1400 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 1434,
+  "last": 1439,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -0.9,
+   0.6
+  ],
+  "median": 5.3045,
+  "near_fraction": 0.0,
+  "fov_deg": 38.8,
+  "screen_disp_in": -0.01088,
+  "screen_disp_out": -0.01082,
+  "adjustments": [
+   "placement shifted +0.1000 to match cut at frame 1434 (shift clamped; residual jump above tolerance)"
+  ]
+ }
+]

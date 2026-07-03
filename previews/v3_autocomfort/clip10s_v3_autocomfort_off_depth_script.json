@@ -1,0 +1,103 @@
+[
+ {
+  "first": 0,
+  "last": 28,
+  "shot_type": "wide",
+  "displacement": 0.018,
+  "placement": [
+   -1.0,
+   0.0
+  ],
+  "median": 15.6247,
+  "near_fraction": 0.0,
+  "fov_deg": 47.6,
+  "screen_disp_in": -0.01578,
+  "screen_disp_out": -0.01652
+ },
+ {
+  "first": 28,
+  "last": 60,
+  "shot_type": "standard",
+  "displacement": 0.013,
+  "placement": [
+   -1.3,
+   0.2
+  ],
+  "median": 8.1277,
+  "near_fraction": 0.0,
+  "fov_deg": 39.4,
+  "screen_disp_in": -0.01176,
+  "screen_disp_out": -0.01187,
+  "adjustments": [
+   "displacement clamped 0.0125\u21920.013 (adjacent-shot step)",
+   "placement shifted -0.3000 to match cut at frame 28 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 60,
+  "last": 132,
+  "shot_type": "wide",
+  "displacement": 0.018,
+  "placement": [
+   -0.860689,
+   0.139311
+  ],
+  "median": 15.6578,
+  "near_fraction": 0.0,
+  "fov_deg": 56.5,
+  "screen_disp_in": -0.01387,
+  "screen_disp_out": -0.01364,
+  "adjustments": [
+   "placement shifted +0.1393 to match cut at frame 60"
+  ]
+ },
+ {
+  "first": 132,
+  "last": 155,
+  "shot_type": "standard",
+  "displacement": 0.013,
+  "placement": [
+   -1.3,
+   0.2
+  ],
+  "median": 5.6636,
+  "near_fraction": 0.0259,
+  "fov_deg": 56.0,
+  "screen_disp_in": -0.00891,
+  "screen_disp_out": -0.00965,
+  "adjustments": [
+   "displacement clamped 0.0125\u21920.013 (adjacent-shot step)",
+   "placement shifted -0.3000 to match cut at frame 132 (shift clamped; residual jump above tolerance)"
+  ]
+ },
+ {
+  "first": 155,
+  "last": 231,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -1.0,
+   0.5
+  ],
+  "median": 8.006,
+  "near_fraction": 0.112,
+  "fov_deg": 58.8,
+  "screen_disp_in": -0.00975,
+  "screen_disp_out": -0.00757
+ },
+ {
+  "first": 231,
+  "last": 240,
+  "shot_type": "standard",
+  "displacement": 0.0125,
+  "placement": [
+   -1.0,
+   0.5
+  ],
+  "median": 6.4938,
+  "near_fraction": 0.0,
+  "fov_deg": 47.4,
+  "screen_disp_in": -0.00602,
+  "screen_disp_out": -0.00614
+ }
+]

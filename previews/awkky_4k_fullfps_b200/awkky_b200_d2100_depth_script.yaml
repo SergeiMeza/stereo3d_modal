@@ -1,0 +1,1098 @@
+# Per-shot depth script — durable sidecar (survives jobs-Dict rotation).
+# 'placement' is [far_plane, near_plane]; far pulled toward 0 = box
+# tightened on a flat-rear (wide) shot. 'time' is informational.
+fps: 23.976
+meta:
+  job_id: 2ff34130c13c
+  input_path: inputs/samples/batch/awkkyBH2zEo.webm
+  depth_res: 2100
+  profiler: depth-pro
+  far_pull_in: 0.55
+shot_count: 146
+shots:
+  - time: "0:00.00–0:03.63"
+    frames: [0, 87]
+    shot_type: close_up
+    median: 2.4627
+    near_fraction: 0.0557
+    placement: [-0.9208, 0.2]
+    displacement: 0.010377
+  - time: "0:03.63–0:05.38"
+    frames: [87, 129]
+    shot_type: standard
+    median: 4.6471
+    near_fraction: 0.0004
+    placement: [-0.9799, 0.1382]
+    displacement: 0.008383
+  - time: "0:05.38–0:06.80"
+    frames: [129, 163]
+    shot_type: standard
+    median: 4.865
+    near_fraction: 0.0
+    placement: [-0.9693, 0.1301]
+    displacement: 0.008316
+  - time: "0:06.80–0:08.22"
+    frames: [163, 197]
+    shot_type: close_up
+    median: 1.9869
+    near_fraction: 0.0
+    placement: [-0.9605, 0.2]
+    displacement: 0.01034
+  - time: "0:08.22–0:09.34"
+    frames: [197, 224]
+    shot_type: standard
+    median: 3.8587
+    near_fraction: 0.0
+    placement: [-0.9649, 0.1678]
+    displacement: 0.009032
+  - time: "0:09.34–0:10.01"
+    frames: [224, 240]
+    shot_type: standard
+    median: 6.1975
+    near_fraction: 0.0
+    placement: [-0.978, 0.0801]
+    displacement: 0.007759
+  - time: "0:10.01–0:11.59"
+    frames: [240, 278]
+    shot_type: close_up
+    median: 2.7577
+    near_fraction: 0.0
+    placement: [-0.9707, 0.2]
+    displacement: 0.009733
+  - time: "0:11.59–0:13.18"
+    frames: [278, 316]
+    shot_type: standard
+    median: 3.3144
+    near_fraction: 0.0
+    placement: [-0.9335, 0.1882]
+    displacement: 0.009665
+  - time: "0:13.18–0:13.81"
+    frames: [316, 331]
+    shot_type: close_up
+    median: 2.8453
+    near_fraction: 0.0
+    placement: [-0.9348, 0.2]
+    displacement: 0.009978
+  - time: "0:13.81–0:14.64"
+    frames: [331, 351]
+    shot_type: close_up
+    median: 2.6312
+    near_fraction: 0.0
+    placement: [-0.9478, 0.2]
+    displacement: 0.010015
+  - time: "0:14.64–0:15.35"
+    frames: [351, 368]
+    shot_type: close_up
+    median: 2.9925
+    near_fraction: 0.0
+    placement: [-0.9475, 0.2]
+    displacement: 0.009765
+  - time: "0:15.35–0:16.02"
+    frames: [368, 384]
+    shot_type: standard
+    median: 3.2507
+    near_fraction: 0.0
+    placement: [-0.9248, 0.1906]
+    displacement: 0.009784
+  - time: "0:16.02–0:18.23"
+    frames: [384, 437]
+    shot_type: close_up
+    median: 1.883
+    near_fraction: 0.0
+    placement: [-0.965156, 0.109144]
+    displacement: 0.011
+  - time: "0:18.23–0:18.89"
+    frames: [437, 453]
+    shot_type: standard
+    median: 3.4132
+    near_fraction: 0.0
+    placement: [-0.9512, 0.1845]
+    displacement: 0.009447
+  - time: "0:18.89–0:19.69"
+    frames: [453, 472]
+    shot_type: standard
+    median: 3.2654
+    near_fraction: 0.017
+    placement: [-0.9266, 0.19]
+    displacement: 0.009758
+  - time: "0:19.69–0:20.60"
+    frames: [472, 494]
+    shot_type: standard
+    median: 3.9958
+    near_fraction: 0.0
+    placement: [-0.9483, 0.1627]
+    displacement: 0.009072
+  - time: "0:20.60–0:21.60"
+    frames: [494, 518]
+    shot_type: standard
+    median: 3.7419
+    near_fraction: 0.0
+    placement: [-0.9581, 0.1722]
+    displacement: 0.009167
+  - time: "0:21.60–0:22.86"
+    frames: [518, 548]
+    shot_type: close_up
+    median: 2.9396
+    near_fraction: 0.0606
+    placement: [-0.9262, 0.2]
+    displacement: 0.009988
+  - time: "0:22.86–0:26.19"
+    frames: [548, 628]
+    shot_type: standard
+    median: 4.3521
+    near_fraction: 0.0
+    placement: [-0.9592, 0.1493]
+    displacement: 0.008742
+  - time: "0:26.19–0:27.94"
+    frames: [628, 670]
+    shot_type: close_up
+    median: 2.8146
+    near_fraction: 0.0
+    placement: [-0.9517, 0.2]
+    displacement: 0.009854
+  - time: "0:27.94–0:29.03"
+    frames: [670, 696]
+    shot_type: standard
+    median: 4.8302
+    near_fraction: 0.0
+    placement: [-0.957, 0.1314]
+    displacement: 0.008434
+  - time: "0:29.03–0:30.82"
+    frames: [696, 739]
+    shot_type: standard
+    median: 3.3982
+    near_fraction: 0.0
+    placement: [-0.9661, 0.1851]
+    displacement: 0.009335
+  - time: "0:30.82–0:32.78"
+    frames: [739, 786]
+    shot_type: dynamic
+    median: 1.948
+    near_fraction: 0.0
+    placement: [-0.9366, 0.2]
+    displacement: 0.010558
+    keyframes:  # 3 (dynamic shot)
+      - {index: 739, displacement: 0.006819, placement: [-0.9774, 0.0075]}
+      - {index: 762, displacement: 0.010914, placement: [-0.8995, 0.2]}
+      - {index: 785, displacement: 0.010591, placement: [-0.933, 0.2]}
+  - time: "0:32.78–0:34.91"
+    frames: [786, 837]
+    shot_type: close_up
+    median: 2.6776
+    near_fraction: 0.0
+    placement: [-0.9411, 0.2]
+    displacement: 0.010041
+  - time: "0:34.91–0:36.24"
+    frames: [837, 869]
+    shot_type: standard
+    median: 3.6756
+    near_fraction: 0.0
+    placement: [-0.946, 0.1747]
+    displacement: 0.009311
+  - time: "0:36.24–0:38.04"
+    frames: [869, 912]
+    shot_type: standard
+    median: 4.8278
+    near_fraction: 0.0
+    placement: [-0.9794, 0.1315]
+    displacement: 0.008265
+  - time: "0:38.04–0:39.29"
+    frames: [912, 942]
+    shot_type: standard
+    median: 3.3335
+    near_fraction: 0.0
+    placement: [-0.9148, 0.1875]
+    displacement: 0.009815
+  - time: "0:39.29–0:40.12"
+    frames: [942, 962]
+    shot_type: dynamic
+    median: 0.8537
+    near_fraction: 0.149
+    placement: [-0.7752, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 942, displacement: 0.011, placement: [-1.090279, -0.133179]}
+      - {index: 952, displacement: 0.011, placement: [-0.7514, 0.2]}
+      - {index: 961, displacement: 0.011, placement: [-0.8172, 0.2]}
+  - time: "0:40.12–0:41.88"
+    frames: [962, 1004]
+    shot_type: close_up
+    median: 2.2697
+    near_fraction: 0.0068
+    placement: [-0.787697, 0.325703]
+    displacement: 0.010584
+  - time: "0:41.88–0:44.67"
+    frames: [1004, 1071]
+    shot_type: dynamic
+    median: 3.9375
+    near_fraction: 0.0605
+    placement: [-0.9075, 0.1648]
+    displacement: 0.009459
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1004, displacement: 0.009207, placement: [-0.9311, 0.1622]}
+      - {index: 1037, displacement: 0.00907, placement: [-0.9535, 0.1648]}
+      - {index: 1070, displacement: 0.011, placement: [-0.8379, 0.2]}
+  - time: "0:44.67–0:45.38"
+    frames: [1071, 1088]
+    shot_type: dynamic
+    median: 1.5127
+    near_fraction: 0.3333
+    placement: [-0.708, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1071, displacement: 0.011, placement: [-0.684524, -0.034524]}
+      - {index: 1079, displacement: 0.011, placement: [-0.8617, 0.2]}
+      - {index: 1087, displacement: 0.011, placement: [-0.8124, 0.2]}
+  - time: "0:45.38–0:46.84"
+    frames: [1088, 1123]
+    shot_type: close_up
+    median: 1.9555
+    near_fraction: 0.0
+    placement: [-0.8399, 0.2]
+    displacement: 0.011
+  - time: "0:46.84–0:48.01"
+    frames: [1123, 1151]
+    shot_type: close_up
+    median: 2.8778
+    near_fraction: 0.0
+    placement: [-0.9053, 0.2]
+    displacement: 0.010222
+  - time: "0:48.01–0:50.18"
+    frames: [1151, 1203]
+    shot_type: close_up
+    median: 2.8633
+    near_fraction: 0.0
+    placement: [-0.9089, 0.2]
+    displacement: 0.010198
+  - time: "0:50.18–0:50.80"
+    frames: [1203, 1218]
+    shot_type: close_up
+    median: 2.5649
+    near_fraction: 0.0
+    placement: [-0.9295, 0.2]
+    displacement: 0.010224
+  - time: "0:50.80–0:51.59"
+    frames: [1218, 1237]
+    shot_type: standard
+    median: 4.8088
+    near_fraction: 0.0
+    placement: [-0.9847, 0.1322]
+    displacement: 0.008238
+  - time: "0:51.59–0:52.39"
+    frames: [1237, 1256]
+    shot_type: close_up
+    median: 2.6058
+    near_fraction: 0.0
+    placement: [-0.9342, 0.2]
+    displacement: 0.010153
+  - time: "0:52.39–0:53.22"
+    frames: [1256, 1276]
+    shot_type: close_up
+    median: 1.6506
+    near_fraction: 0.0
+    placement: [-0.8411, 0.2]
+    displacement: 0.011
+  - time: "0:53.22–0:55.01"
+    frames: [1276, 1319]
+    shot_type: dynamic
+    median: 0.8928
+    near_fraction: 0.3742
+    placement: [-0.6122, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1276, displacement: 0.011, placement: [-0.868997, 0.024203]}
+      - {index: 1297, displacement: 0.011, placement: [-0.6933, 0.2]}
+      - {index: 1318, displacement: 0.011, placement: [-0.45, 0.2]}
+  - time: "0:55.01–0:55.60"
+    frames: [1319, 1333]
+    shot_type: standard
+    median: 10.2498
+    near_fraction: 0.0
+    placement: [-0.3772, 0.6]
+    displacement: 0.006274
+  - time: "0:55.60–0:56.56"
+    frames: [1333, 1356]
+    shot_type: standard
+    median: 6.1242
+    near_fraction: 0.0
+    placement: [-0.614211, 0.446889]
+    displacement: 0.007781
+  - time: "0:56.56–0:57.18"
+    frames: [1356, 1371]
+    shot_type: dynamic
+    median: 0.9041
+    near_fraction: 0.2223
+    placement: [-0.8951, 0.2]
+    displacement: 0.010958
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1356, displacement: 0.010536, placement: [-0.9389, 0.2]}
+      - {index: 1363, displacement: 0.011, placement: [-0.8767, 0.2]}
+      - {index: 1370, displacement: 0.011, placement: [-0.8698, 0.2]}
+  - time: "0:57.18–0:58.10"
+    frames: [1371, 1393]
+    shot_type: standard
+    median: 5.5451
+    near_fraction: 0.0179
+    placement: [-0.65669, 0.42021]
+    displacement: 0.008019
+  - time: "0:58.10–0:58.73"
+    frames: [1393, 1408]
+    shot_type: standard
+    median: 5.4519
+    near_fraction: 0.0
+    placement: [-0.884914, 0.208986]
+    displacement: 0.007951
+  - time: "0:58.73–1:00.06"
+    frames: [1408, 1440]
+    shot_type: dynamic
+    median: 8.2514
+    near_fraction: 0.1187
+    placement: [-0.9309, 0.0234]
+    displacement: 0.007417
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1408, displacement: 0.011, placement: [-1.081383, -0.058083]}
+      - {index: 1424, displacement: 0.007032, placement: [-0.9831, 0.0234]}
+      - {index: 1439, displacement: 0.006988, placement: [-0.9863, 0.022]}
+  - time: "1:00.06–1:01.39"
+    frames: [1440, 1472]
+    shot_type: standard
+    median: 5.309
+    near_fraction: 0.0
+    placement: [-0.9763, 0.1134]
+    displacement: 0.008069
+  - time: "1:01.39–1:02.69"
+    frames: [1472, 1503]
+    shot_type: close_up
+    median: 1.9012
+    near_fraction: 0.0
+    placement: [-0.9318, 0.2]
+    displacement: 0.010603
+  - time: "1:02.69–1:06.19"
+    frames: [1503, 1587]
+    shot_type: standard
+    median: 6.9272
+    near_fraction: 0.0
+    placement: [-0.9839, 0.0527]
+    displacement: 0.007472
+  - time: "1:06.19–1:07.44"
+    frames: [1587, 1617]
+    shot_type: dynamic
+    median: 1.1209
+    near_fraction: 0.1
+    placement: [-0.8617, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1587, displacement: 0.011, placement: [-1.019801, -0.069201]}
+      - {index: 1601, displacement: 0.011, placement: [-0.8499, 0.2]}
+      - {index: 1616, displacement: 0.007888, placement: [-0.9846, 0.1]}
+  - time: "1:07.44–1:08.28"
+    frames: [1617, 1637]
+    shot_type: standard
+    median: 4.6882
+    near_fraction: 0.0196
+    placement: [-0.9696, 0.1367]
+    displacement: 0.008434
+  - time: "1:08.28–1:10.11"
+    frames: [1637, 1681]
+    shot_type: standard
+    median: 7.2517
+    near_fraction: 0.0
+    placement: [-0.9798, 0.0447]
+    displacement: 0.007392
+  - time: "1:10.11–1:11.40"
+    frames: [1681, 1712]
+    shot_type: dynamic
+    median: 1.3669
+    near_fraction: 0.1507
+    placement: [-0.8752, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1681, displacement: 0.011, placement: [-0.8592, 0.2]}
+      - {index: 1696, displacement: 0.010313, placement: [-0.9636, 0.2]}
+      - {index: 1711, displacement: 0.011, placement: [-0.8027, 0.2]}
+  - time: "1:11.40–1:12.16"
+    frames: [1712, 1730]
+    shot_type: standard
+    median: 7.046
+    near_fraction: 0.0
+    placement: [-0.718561, 0.309139]
+    displacement: 0.00747
+  - time: "1:12.16–1:12.82"
+    frames: [1730, 1746]
+    shot_type: standard
+    median: 3.2928
+    near_fraction: 0.0
+    placement: [-0.956, 0.189]
+    displacement: 0.009489
+  - time: "1:12.82–1:14.07"
+    frames: [1746, 1776]
+    shot_type: dynamic
+    median: 5.1293
+    near_fraction: 0.0
+    placement: [-0.9342, 0.1201]
+    displacement: 0.008454
+    keyframes:  # 3 (dynamic shot)
+      - {index: 1746, displacement: 0.007932, placement: [-0.9695, 0.0925]}
+      - {index: 1760, displacement: 0.008139, placement: [-0.975, 0.1201]}
+      - {index: 1775, displacement: 0.011, placement: [-0.8582, 0.2]}
+  - time: "1:14.07–1:14.99"
+    frames: [1776, 1798]
+    shot_type: standard
+    median: 8.9125
+    near_fraction: 0.0
+    placement: [-0.908164, 0.084536]
+    displacement: 0.006809
+  - time: "1:14.99–1:16.95"
+    frames: [1798, 1845]
+    shot_type: close_up
+    median: 2.3277
+    near_fraction: 0.0
+    placement: [-0.958, 0.2]
+    displacement: 0.010137
+  - time: "1:16.95–1:18.87"
+    frames: [1845, 1891]
+    shot_type: standard
+    median: 4.4997
+    near_fraction: 0.0052
+    placement: [-0.9555, 0.1438]
+    displacement: 0.008671
+  - time: "1:18.87–1:19.79"
+    frames: [1891, 1913]
+    shot_type: close_up
+    median: 1.7604
+    near_fraction: 0.0
+    placement: [-0.9798, 0.2]
+    displacement: 0.010171
+  - time: "1:19.79–1:20.33"
+    frames: [1913, 1926]
+    shot_type: standard
+    median: 5.3041
+    near_fraction: 0.0
+    placement: [-1.019863, 0.074337]
+    displacement: 0.008039
+  - time: "1:20.33–1:21.29"
+    frames: [1926, 1949]
+    shot_type: close_up
+    median: 1.8707
+    near_fraction: 0.0
+    placement: [-0.920228, 0.130072]
+    displacement: 0.011
+  - time: "1:21.29–1:22.17"
+    frames: [1949, 1970]
+    shot_type: standard
+    median: 3.9346
+    near_fraction: 0.0
+    placement: [-0.9555, 0.165]
+    displacement: 0.009056
+  - time: "1:22.17–1:23.71"
+    frames: [1970, 2007]
+    shot_type: close_up
+    median: 2.5418
+    near_fraction: 0.0
+    placement: [-0.9377, 0.2]
+    displacement: 0.010167
+  - time: "1:23.71–1:24.38"
+    frames: [2007, 2023]
+    shot_type: close_up
+    median: 1.4903
+    near_fraction: 0.0004
+    placement: [-0.9257, 0.2]
+    displacement: 0.01066
+  - time: "1:24.38–1:25.63"
+    frames: [2023, 2053]
+    shot_type: close_up
+    median: 2.7748
+    near_fraction: 0.0354
+    placement: [-0.8997, 0.2]
+    displacement: 0.010348
+  - time: "1:25.63–1:26.17"
+    frames: [2053, 2066]
+    shot_type: close_up
+    median: 2.2747
+    near_fraction: 0.0
+    placement: [-0.8897, 0.2]
+    displacement: 0.010799
+  - time: "1:26.17–1:26.80"
+    frames: [2066, 2081]
+    shot_type: standard
+    median: 6.5207
+    near_fraction: 0.0
+    placement: [-0.973, 0.068]
+    displacement: 0.007687
+  - time: "1:26.80–1:27.46"
+    frames: [2081, 2097]
+    shot_type: close_up
+    median: 1.5535
+    near_fraction: 0.1271
+    placement: [-0.959253, 0.140147]
+    displacement: 0.010915
+  - time: "1:27.46–1:28.25"
+    frames: [2097, 2116]
+    shot_type: standard
+    median: 4.0358
+    near_fraction: 0.0
+    placement: [-0.9394, 0.1612]
+    displacement: 0.009119
+  - time: "1:28.25–1:29.42"
+    frames: [2116, 2144]
+    shot_type: standard
+    median: 3.6702
+    near_fraction: 0.0429
+    placement: [-0.9269, 0.1749]
+    displacement: 0.009477
+  - time: "1:29.42–1:30.63"
+    frames: [2144, 2173]
+    shot_type: dynamic
+    median: 1.1331
+    near_fraction: 0.3183
+    placement: [-0.8727, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 2144, displacement: 0.01077, placement: [-0.847284, 0.243816]}
+      - {index: 2158, displacement: 0.011, placement: [-0.8604, 0.2]}
+      - {index: 2172, displacement: 0.011, placement: [-0.8665, 0.2]}
+  - time: "1:30.63–1:31.51"
+    frames: [2173, 2194]
+    shot_type: standard
+    median: 4.3238
+    near_fraction: 0.0
+    placement: [-0.51775, 0.57145]
+    displacement: 0.008926
+  - time: "1:31.51–1:32.38"
+    frames: [2194, 2215]
+    shot_type: standard
+    median: 4.3289
+    near_fraction: 0.0
+    placement: [-0.895222, 0.181478]
+    displacement: 0.009024
+  - time: "1:32.38–1:33.64"
+    frames: [2215, 2245]
+    shot_type: standard
+    median: 3.4446
+    near_fraction: 0.0
+    placement: [-0.9391, 0.1833]
+    displacement: 0.009527
+  - time: "1:33.64–1:34.51"
+    frames: [2245, 2266]
+    shot_type: close_up
+    median: 2.0812
+    near_fraction: 0.0
+    placement: [-0.8736, 0.2]
+    displacement: 0.010941
+  - time: "1:34.51–1:35.18"
+    frames: [2266, 2282]
+    shot_type: wide
+    median: 15.5922
+    near_fraction: 0.0
+    placement: [-0.988, -0.1295]
+    displacement: 0.005941
+  - time: "1:35.18–1:40.39"
+    frames: [2282, 2407]
+    shot_type: close_up
+    median: 2.648
+    near_fraction: 0.0
+    placement: [-0.9339, 0.2]
+    displacement: 0.010126
+  - time: "1:40.39–1:41.02"
+    frames: [2407, 2422]
+    shot_type: standard
+    median: 6.7717
+    near_fraction: 0.0
+    placement: [-0.9569, 0.0586]
+    displacement: 0.007723
+  - time: "1:41.02–1:42.10"
+    frames: [2422, 2448]
+    shot_type: standard
+    median: 3.2376
+    near_fraction: 0.0
+    placement: [-0.9323, 0.1911]
+    displacement: 0.009728
+  - time: "1:42.10–1:43.69"
+    frames: [2448, 2486]
+    shot_type: dynamic
+    median: 5.1049
+    near_fraction: 0.0319
+    placement: [-0.92, 0.1211]
+    displacement: 0.008577
+    keyframes:  # 3 (dynamic shot)
+      - {index: 2448, displacement: 0.011, placement: [-0.85498, 0.17092]}
+      - {index: 2466, displacement: 0.007077, placement: [-0.9744, 0.0223]}
+      - {index: 2485, displacement: 0.008261, placement: [-0.9598, 0.1211]}
+  - time: "1:43.69–1:45.15"
+    frames: [2486, 2521]
+    shot_type: standard
+    median: 9.2788
+    near_fraction: 0.0
+    placement: [-0.9628, 0.0016]
+    displacement: 0.006828
+  - time: "1:45.15–1:47.27"
+    frames: [2521, 2572]
+    shot_type: close_up
+    median: 2.1779
+    near_fraction: 0.0974
+    placement: [-0.9368, 0.2]
+    displacement: 0.01043
+  - time: "1:47.27–1:48.32"
+    frames: [2572, 2597]
+    shot_type: standard
+    median: 9.3783
+    near_fraction: 0.0
+    placement: [-1.006631, -0.007731]
+    displacement: 0.006545
+  - time: "1:48.32–1:50.57"
+    frames: [2597, 2651]
+    shot_type: standard
+    median: 6.5195
+    near_fraction: 0.0
+    placement: [-0.9969, 0.068]
+    displacement: 0.007516
+  - time: "1:50.57–1:51.44"
+    frames: [2651, 2672]
+    shot_type: wide
+    median: 57.2939
+    near_fraction: 0.0
+    placement: [-1.161971, -0.362771]
+    displacement: 0.004505
+  - time: "1:51.44–1:52.40"
+    frames: [2672, 2695]
+    shot_type: standard
+    median: 8.6891
+    near_fraction: 0.0
+    placement: [-0.9906, 0.0141]
+    displacement: 0.006833
+  - time: "1:52.40–1:53.32"
+    frames: [2695, 2717]
+    shot_type: standard
+    median: 7.6947
+    near_fraction: 0.0
+    placement: [-0.9665, 0.0352]
+    displacement: 0.00734
+  - time: "1:53.32–1:54.24"
+    frames: [2717, 2739]
+    shot_type: standard
+    median: 9.3867
+    near_fraction: 0.0
+    placement: [-0.9981, -0.0007]
+    displacement: 0.00655
+  - time: "1:54.24–1:55.99"
+    frames: [2739, 2781]
+    shot_type: wide
+    median: 15.0741
+    near_fraction: 0.0
+    placement: [-0.9985, -0.1212]
+    displacement: 0.00533
+  - time: "1:55.99–1:57.20"
+    frames: [2781, 2810]
+    shot_type: standard
+    median: 4.9855
+    near_fraction: 0.0
+    placement: [-0.9979, 0.1255]
+    displacement: 0.008025
+  - time: "1:57.20–1:57.78"
+    frames: [2810, 2824]
+    shot_type: wide
+    median: 11.8065
+    near_fraction: 0.0
+    placement: [-0.9809, -0.0521]
+    displacement: 0.005987
+  - time: "1:57.78–1:59.54"
+    frames: [2824, 2866]
+    shot_type: standard
+    median: 3.5279
+    near_fraction: 0.0
+    placement: [-0.814422, 0.305478]
+    displacement: 0.009465
+  - time: "1:59.54–2:00.16"
+    frames: [2866, 2881]
+    shot_type: wide
+    median: 14.4311
+    near_fraction: 0.0
+    placement: [-0.996, -0.1079]
+    displacement: 0.005452
+  - time: "2:00.16–2:01.16"
+    frames: [2881, 2905]
+    shot_type: standard
+    median: 7.4197
+    near_fraction: 0.0
+    placement: [-0.9856, 0.0411]
+    displacement: 0.007294
+  - time: "2:01.16–2:03.04"
+    frames: [2905, 2950]
+    shot_type: standard
+    median: 5.1846
+    near_fraction: 0.0336
+    placement: [-1.0, 0.1181]
+    displacement: 0.007938
+  - time: "2:03.04–2:03.83"
+    frames: [2950, 2969]
+    shot_type: wide
+    median: 21.5439
+    near_fraction: 0.0
+    placement: [-1.110082, -0.316482]
+    displacement: 0.004536
+  - time: "2:03.83–2:04.58"
+    frames: [2969, 2987]
+    shot_type: close_up
+    median: 2.448
+    near_fraction: 0.0381
+    placement: [-0.9146, 0.2]
+    displacement: 0.009536
+  - time: "2:04.58–2:05.33"
+    frames: [2987, 3005]
+    shot_type: wide
+    median: 29.8124
+    near_fraction: 0.0
+    placement: [-1.24071, -0.44101]
+    displacement: 0.004536
+  - time: "2:05.33–2:08.38"
+    frames: [3005, 3078]
+    shot_type: standard
+    median: 5.4634
+    near_fraction: 0.0
+    placement: [-0.997, 0.1076]
+    displacement: 0.007867
+  - time: "2:08.38–2:09.71"
+    frames: [3078, 3110]
+    shot_type: standard
+    median: 10.1874
+    near_fraction: 0.0
+    placement: [-0.9849, -0.0177]
+    displacement: 0.006369
+  - time: "2:09.71–2:10.76"
+    frames: [3110, 3135]
+    shot_type: standard
+    median: 8.0803
+    near_fraction: 0.0
+    placement: [-0.9829, 0.027]
+    displacement: 0.007091
+  - time: "2:10.76–2:11.97"
+    frames: [3135, 3164]
+    shot_type: dynamic
+    median: 6.3898
+    near_fraction: 0.1437
+    placement: [-0.9377, 0.0729]
+    displacement: 0.008002
+    keyframes:  # 3 (dynamic shot)
+      - {index: 3135, displacement: 0.011, placement: [-1.100116, -0.066916]}
+      - {index: 3149, displacement: 0.007679, placement: [-0.9802, 0.0729]}
+      - {index: 3163, displacement: 0.007478, placement: [-0.9999, 0.0662]}
+  - time: "2:11.97–2:15.80"
+    frames: [3164, 3256]
+    shot_type: standard
+    median: 3.5921
+    near_fraction: 0.0
+    placement: [-0.9865, 0.1778]
+    displacement: 0.009043
+  - time: "2:15.80–2:17.22"
+    frames: [3256, 3290]
+    shot_type: close_up
+    median: 2.7694
+    near_fraction: 0.0
+    placement: [-0.9147, 0.2]
+    displacement: 0.010213
+  - time: "2:17.22–2:18.01"
+    frames: [3290, 3309]
+    shot_type: standard
+    median: 4.2215
+    near_fraction: 0.0
+    placement: [-0.9623, 0.1542]
+    displacement: 0.008807
+  - time: "2:18.01–2:20.18"
+    frames: [3309, 3361]
+    shot_type: close_up
+    median: 2.8101
+    near_fraction: 0.0
+    placement: [-0.9234, 0.2]
+    displacement: 0.010105
+  - time: "2:20.18–2:21.10"
+    frames: [3361, 3383]
+    shot_type: standard
+    median: 6.5383
+    near_fraction: 0.0
+    placement: [-0.9829, 0.0673]
+    displacement: 0.007609
+  - time: "2:21.10–2:22.23"
+    frames: [3383, 3410]
+    shot_type: close_up
+    median: 2.3091
+    near_fraction: 0.0
+    placement: [-0.9191, 0.2]
+    displacement: 0.010502
+  - time: "2:22.23–2:23.31"
+    frames: [3410, 3436]
+    shot_type: close_up
+    median: 2.3926
+    near_fraction: 0.022
+    placement: [-0.8889, 0.2]
+    displacement: 0.010712
+  - time: "2:23.31–2:24.39"
+    frames: [3436, 3462]
+    shot_type: close_up
+    median: 2.6408
+    near_fraction: 0.0
+    placement: [-0.9054, 0.2]
+    displacement: 0.010392
+  - time: "2:24.39–2:26.02"
+    frames: [3462, 3501]
+    shot_type: dynamic
+    median: 6.279
+    near_fraction: 0.3333
+    placement: [-0.8011, 0.077]
+    displacement: 0.008331
+    keyframes:  # 3 (dynamic shot)
+      - {index: 3462, displacement: 0.007792, placement: [-0.9699, 0.077]}
+      - {index: 3481, displacement: 0.007323, placement: [-0.9834, 0.0419]}
+      - {index: 3500, displacement: 0.011, placement: [-0.45, 0.2]}
+  - time: "2:26.02–2:30.69"
+    frames: [3501, 3613]
+    shot_type: standard
+    median: 3.2214
+    near_fraction: 0.0192
+    placement: [-0.4805, 0.6]
+    displacement: 0.010105
+  - time: "2:30.69–2:31.61"
+    frames: [3613, 3635]
+    shot_type: close_up
+    median: 2.1388
+    near_fraction: 0.0
+    placement: [-0.554299, 0.558101]
+    displacement: 0.010687
+  - time: "2:31.61–2:34.65"
+    frames: [3635, 3708]
+    shot_type: standard
+    median: 5.1789
+    near_fraction: 0.0
+    placement: [-0.701733, 0.368467]
+    displacement: 0.008297
+  - time: "2:34.65–2:36.16"
+    frames: [3708, 3744]
+    shot_type: dynamic
+    median: 1.8856
+    near_fraction: 0.0
+    placement: [-0.8063, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 3708, displacement: 0.011, placement: [-0.794041, 0.068459]}
+      - {index: 3726, displacement: 0.011, placement: [-0.8866, 0.2]}
+      - {index: 3743, displacement: 0.010874, placement: [-0.8697, 0.2]}
+  - time: "2:36.16–2:40.95"
+    frames: [3744, 3859]
+    shot_type: standard
+    median: 4.5621
+    near_fraction: 0.0
+    placement: [-0.9593, 0.1414]
+    displacement: 0.008599
+  - time: "2:40.95–2:42.33"
+    frames: [3859, 3892]
+    shot_type: standard
+    median: 6.2895
+    near_fraction: 0.0
+    placement: [-0.9704, 0.0766]
+    displacement: 0.007784
+  - time: "2:42.33–2:43.20"
+    frames: [3892, 3913]
+    shot_type: standard
+    median: 4.3771
+    near_fraction: 0.0
+    placement: [-0.9337, 0.1484]
+    displacement: 0.008931
+  - time: "2:43.20–2:45.29"
+    frames: [3913, 3963]
+    shot_type: standard
+    median: 4.5997
+    near_fraction: 0.0
+    placement: [-0.9293, 0.14]
+    displacement: 0.008814
+  - time: "2:45.29–2:46.42"
+    frames: [3963, 3990]
+    shot_type: dynamic
+    median: 1.1354
+    near_fraction: 0.0613
+    placement: [-0.7915, 0.2]
+    displacement: 0.011
+    keyframes:  # 3 (dynamic shot)
+      - {index: 3963, displacement: 0.008072, placement: [-0.949368, 0.107632]}
+      - {index: 3976, displacement: 0.011, placement: [-0.8054, 0.2]}
+      - {index: 3989, displacement: 0.011, placement: [-0.6108, 0.2]}
+  - time: "2:46.42–2:47.00"
+    frames: [3990, 4004]
+    shot_type: close_up
+    median: 1.4538
+    near_fraction: 0.0
+    placement: [-0.650349, 0.394851]
+    displacement: 0.011
+  - time: "2:47.00–2:49.96"
+    frames: [4004, 4075]
+    shot_type: standard
+    median: 4.2084
+    near_fraction: 0.0
+    placement: [-0.681793, 0.420207]
+    displacement: 0.008936
+  - time: "2:49.96–2:50.84"
+    frames: [4075, 4096]
+    shot_type: close_up
+    median: 1.6471
+    near_fraction: 0.0
+    placement: [-0.8411, 0.2]
+    displacement: 0.011
+  - time: "2:50.84–2:56.22"
+    frames: [4096, 4225]
+    shot_type: standard
+    median: 6.1336
+    near_fraction: 0.0
+    placement: [-0.972489, 0.083511]
+    displacement: 0.007813
+  - time: "2:56.22–2:57.18"
+    frames: [4225, 4248]
+    shot_type: close_up
+    median: 2.1479
+    near_fraction: 0.0
+    placement: [-0.923, 0.2]
+    displacement: 0.01058
+  - time: "2:57.18–2:57.76"
+    frames: [4248, 4262]
+    shot_type: close_up
+    median: 2.2509
+    near_fraction: 0.0183
+    placement: [-0.9333, 0.2]
+    displacement: 0.010412
+  - time: "2:57.76–2:58.76"
+    frames: [4262, 4286]
+    shot_type: standard
+    median: 3.9932
+    near_fraction: 0.0
+    placement: [-0.9668, 0.1628]
+    displacement: 0.008926
+  - time: "2:58.76–2:59.51"
+    frames: [4286, 4304]
+    shot_type: standard
+    median: 3.7588
+    near_fraction: 0.0
+    placement: [-0.957, 0.1715]
+    displacement: 0.009163
+  - time: "2:59.51–3:00.93"
+    frames: [4304, 4338]
+    shot_type: standard
+    median: 5.6342
+    near_fraction: 0.0
+    placement: [-0.9676, 0.1012]
+    displacement: 0.008025
+  - time: "3:00.93–3:01.81"
+    frames: [4338, 4359]
+    shot_type: standard
+    median: 5.6117
+    near_fraction: 0.0
+    placement: [-0.9523, 0.1021]
+    displacement: 0.008149
+  - time: "3:01.81–3:02.77"
+    frames: [4359, 4382]
+    shot_type: standard
+    median: 4.577
+    near_fraction: 0.0
+    placement: [-0.9707, 0.1409]
+    displacement: 0.0085
+  - time: "3:02.77–3:04.52"
+    frames: [4382, 4424]
+    shot_type: standard
+    median: 3.7393
+    near_fraction: 0.0
+    placement: [-0.9633, 0.1723]
+    displacement: 0.009126
+  - time: "3:04.52–3:05.06"
+    frames: [4424, 4437]
+    shot_type: standard
+    median: 5.2306
+    near_fraction: 0.0
+    placement: [-0.9679, 0.1164]
+    displacement: 0.008158
+  - time: "3:05.06–3:07.19"
+    frames: [4437, 4488]
+    shot_type: standard
+    median: 4.8825
+    near_fraction: 0.0
+    placement: [-0.9714, 0.1294]
+    displacement: 0.008288
+  - time: "3:07.19–3:08.10"
+    frames: [4488, 4510]
+    shot_type: standard
+    median: 4.179
+    near_fraction: 0.0
+    placement: [-0.9484, 0.1558]
+    displacement: 0.008946
+  - time: "3:08.10–3:09.61"
+    frames: [4510, 4546]
+    shot_type: standard
+    median: 5.8948
+    near_fraction: 0.0
+    placement: [-0.9672, 0.0914]
+    displacement: 0.007941
+  - time: "3:09.61–3:10.19"
+    frames: [4546, 4560]
+    shot_type: standard
+    median: 5.773
+    near_fraction: 0.0
+    placement: [-0.9726, 0.096]
+    displacement: 0.007941
+  - time: "3:10.19–3:10.94"
+    frames: [4560, 4578]
+    shot_type: standard
+    median: 3.9128
+    near_fraction: 0.0
+    placement: [-0.964, 0.1658]
+    displacement: 0.009003
+  - time: "3:10.94–3:11.65"
+    frames: [4578, 4595]
+    shot_type: standard
+    median: 3.6528
+    near_fraction: 0.0
+    placement: [-0.9679, 0.1755]
+    displacement: 0.009148
+  - time: "3:11.65–3:12.86"
+    frames: [4595, 4624]
+    shot_type: standard
+    median: 4.7129
+    near_fraction: 0.0
+    placement: [-0.9539, 0.1358]
+    displacement: 0.008538
+  - time: "3:12.86–3:14.24"
+    frames: [4624, 4657]
+    shot_type: standard
+    median: 4.8405
+    near_fraction: 0.0
+    placement: [-0.9455, 0.131]
+    displacement: 0.008516
+  - time: "3:14.24–3:14.86"
+    frames: [4657, 4672]
+    shot_type: close_up
+    median: 2.7988
+    near_fraction: 0.0
+    placement: [-0.9289, 0.2]
+    displacement: 0.010063
+  - time: "3:14.86–3:17.82"
+    frames: [4672, 4743]
+    shot_type: standard
+    median: 3.901
+    near_fraction: 0.0
+    placement: [-0.9424, 0.1662]
+    displacement: 0.009187
+  - time: "3:17.82–3:19.20"
+    frames: [4743, 4776]
+    shot_type: standard
+    median: 6.0551
+    near_fraction: 0.0
+    placement: [-0.9712, 0.0854]
+    displacement: 0.007856
+  - time: "3:19.20–3:22.87"
+    frames: [4776, 4864]
+    shot_type: standard
+    median: 4.0549
+    near_fraction: 0.0
+    placement: [-0.9577, 0.1604]
+    displacement: 0.008956
+  - time: "3:22.87–3:26.29"
+    frames: [4864, 4946]
+    shot_type: standard
+    median: 6.114
+    near_fraction: 0.0
+    placement: [-0.9593, 0.0832]
+    displacement: 0.007927

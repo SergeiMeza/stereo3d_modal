@@ -1,0 +1,55 @@
+{
+  "name": "awkky_full_v3",
+  "job_id": "1cf384457862",
+  "status": "failed",
+  "depth_reused": true,
+  "error": "video_stereo stalled: no worker progress for 600s (silent hang) \u2014 cancelled and failed; resubmit",
+  "classifier": {
+    "comfort_scale": null,
+    "shot_count": 0,
+    "class_distribution": {},
+    "shots": []
+  },
+  "timings": [
+    [
+      "preprocess",
+      87.3
+    ],
+    [
+      "profile_scenes",
+      90.1
+    ],
+    [
+      "video_stereo[propainter]",
+      1.3
+    ],
+    [
+      "video_stereo[propainter]",
+      1.5
+    ],
+    [
+      "video_stereo[propainter]",
+      1.8
+    ],
+    [
+      "video_stereo[propainter]",
+      1.7
+    ],
+    [
+      "video_stereo[propainter]",
+      1.7
+    ],
+    [
+      "video_stereo[propainter]",
+      1.5
+    ],
+    [
+      "video_stereo[propainter]",
+      1.8
+    ],
+    [
+      "video_stereo[propainter]",
+      1.7
+    ]
+  ]
+}

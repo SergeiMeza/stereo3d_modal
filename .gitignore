@@ -2,8 +2,12 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
-docs/benchmarks.json
-previews/
+previews/*.mp4
+previews/*.mov
+previews/*.png
+previews/**/*.mp4
+previews/**/*.mov
+previews/**/*.png
 
 # sample videos (samples/videos/*.mp4) are tracked via Git LFS — see
 # .gitattributes; regenerate from sources with scripts/make_samples.py

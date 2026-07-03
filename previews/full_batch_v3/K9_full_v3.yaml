@@ -1,0 +1,51 @@
+{
+  "name": "K9_full_v3",
+  "job_id": "7804ed45d093",
+  "status": "failed",
+  "depth_reused": true,
+  "error": "video_stereo stalled: no worker progress for 600s (silent hang) \u2014 cancelled and failed; resubmit",
+  "classifier": {
+    "comfort_scale": null,
+    "shot_count": 0,
+    "class_distribution": {},
+    "shots": []
+  },
+  "timings": [
+    [
+      "preprocess",
+      84.7
+    ],
+    [
+      "profile_scenes",
+      69.0
+    ],
+    [
+      "video_stereo[propainter]",
+      2.0
+    ],
+    [
+      "video_stereo[propainter]",
+      2.1
+    ],
+    [
+      "video_stereo[propainter]",
+      2.0
+    ],
+    [
+      "video_stereo[propainter]",
+      1.9
+    ],
+    [
+      "video_stereo[propainter]",
+      1.8
+    ],
+    [
+      "video_stereo[propainter]",
+      2.0
+    ],
+    [
+      "video_stereo[propainter]",
+      1.9
+    ]
+  ]
+}

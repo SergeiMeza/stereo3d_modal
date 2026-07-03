@@ -1,0 +1,691 @@
+[
+  {
+    "kind": "video",
+    "input": "videos/clip_1s_480p.mp4",
+    "input_size": 518,
+    "inpaint": "none",
+    "job_id": "159b0d25f592",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.283,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 854,
+          "height": 480,
+          "num_frames": 24,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 7.498,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 518,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[none]",
+        "seconds": 1.537,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 24,
+          "width": 854,
+          "height": 480,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 3.727,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/159b0d25f592/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/159b0d25f592/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/159b0d25f592/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/159b0d25f592/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 13.0,
+    "est_cost_usd": 0.0052
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_1s_480p.mp4",
+    "input_size": 518,
+    "inpaint": "propainter",
+    "job_id": "14a6ee8da86f",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.157,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 854,
+          "height": 480,
+          "num_frames": 24,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 7.545,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 518,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 45.037,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 24,
+          "width": 854,
+          "height": 480,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 3.268,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/14a6ee8da86f/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/14a6ee8da86f/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/14a6ee8da86f/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/14a6ee8da86f/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 56.0,
+    "est_cost_usd": 0.03
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_1s_720p.mp4",
+    "input_size": 700,
+    "inpaint": "propainter",
+    "job_id": "07fd4bb28a36",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.07,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 1280,
+          "height": 720,
+          "num_frames": 24,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 9.823,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 700,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 25.749,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 24,
+          "width": 1280,
+          "height": 720,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 4.492,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/07fd4bb28a36/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/07fd4bb28a36/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/07fd4bb28a36/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/07fd4bb28a36/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 40.1,
+    "est_cost_usd": 0.0203
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_1s_1080p.mp4",
+    "input_size": 980,
+    "inpaint": "propainter",
+    "job_id": "ee2e2bb1f531",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.214,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 1920,
+          "height": 1080,
+          "num_frames": 24,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 15.202,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 980,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 27.464,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 24,
+          "width": 1920,
+          "height": 1080,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 5.818,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ee2e2bb1f531/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ee2e2bb1f531/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ee2e2bb1f531/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ee2e2bb1f531/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 48.7,
+    "est_cost_usd": 0.0244
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_1s_2160p.mp4",
+    "input_size": 980,
+    "inpaint": "propainter",
+    "job_id": "7f44451fd2e7",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.282,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 3840,
+          "height": 2160,
+          "num_frames": 24,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 18.702,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 980,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 64.807,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 24,
+          "width": 3840,
+          "height": 2160,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 10.94,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7f44451fd2e7/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7f44451fd2e7/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7f44451fd2e7/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7f44451fd2e7/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 94.7,
+    "est_cost_usd": 0.0477
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_10s_scenes_480p.mp4",
+    "input_size": 518,
+    "inpaint": "propainter",
+    "job_id": "cec8870c5c8f",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.053,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 854,
+          "height": 480,
+          "num_frames": 240,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 22.422,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 518,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 247.825,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 240,
+          "width": 854,
+          "height": 480,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 9.742,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/cec8870c5c8f/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/cec8870c5c8f/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/cec8870c5c8f/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/cec8870c5c8f/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 280.0,
+    "est_cost_usd": 0.1537
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_10s_scenes_1080p.mp4",
+    "input_size": 980,
+    "inpaint": "propainter",
+    "job_id": "ae0d62449493",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.091,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 1920,
+          "height": 1080,
+          "num_frames": 240,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 81.41,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 980,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 309.363,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 240,
+          "width": 1920,
+          "height": 1080,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 17.987,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ae0d62449493/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ae0d62449493/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ae0d62449493/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/ae0d62449493/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 408.9,
+    "est_cost_usd": 0.2224
+  },
+  {
+    "kind": "video",
+    "input": "videos/clip_10s_scenes_2160p.mp4",
+    "input_size": 980,
+    "inpaint": "propainter",
+    "job_id": "7d0c4b75de9a",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 0.729,
+        "gpu": null,
+        "detail": {
+          "crop": null,
+          "width": 3840,
+          "height": 2160,
+          "num_frames": 240,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 88.443,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 980,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 371.081,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 240,
+          "width": 3840,
+          "height": 2160,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 84.537,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7d0c4b75de9a/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7d0c4b75de9a/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7d0c4b75de9a/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/7d0c4b75de9a/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 544.8,
+    "est_cost_usd": 0.2632
+  },
+  {
+    "kind": "video",
+    "input": "videos/letterbox_10s_1080p.mp4",
+    "input_size": 980,
+    "inpaint": "propainter",
+    "job_id": "6f559b321786",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "preprocess",
+        "seconds": 2.026,
+        "gpu": null,
+        "detail": {
+          "crop": "1920:832:0:124",
+          "width": 1920,
+          "height": 1080,
+          "num_frames": 239,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_depth",
+        "seconds": 93.545,
+        "gpu": "L40S",
+        "detail": {
+          "input_size": 980,
+          "failed": false
+        }
+      },
+      {
+        "stage": "video_stereo[propainter]",
+        "seconds": 312.852,
+        "gpu": "L40S",
+        "detail": {
+          "frames": 239,
+          "width": 1920,
+          "height": 832,
+          "failed": false
+        }
+      },
+      {
+        "stage": "encode_outputs",
+        "seconds": 14.132,
+        "gpu": null,
+        "detail": {
+          "formats": [
+            "sbs",
+            "half_sbs",
+            "anaglyph"
+          ],
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/6f559b321786/sbs.mp4",
+      "half_sbs": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/6f559b321786/half_sbs.mp4",
+      "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/6f559b321786/anaglyph.mp4",
+      "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/6f559b321786/depth.mp4"
+    },
+    "error": null,
+    "total_seconds": 422.6,
+    "est_cost_usd": 0.2312
+  },
+  {
+    "kind": "image-batch",
+    "input": "6 images",
+    "job_id": "dfc0dcce6f03",
+    "status": "completed",
+    "stage": null,
+    "timings": [
+      {
+        "stage": "image[001_Sg3XwuEpybU]",
+        "seconds": 36.266,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      },
+      {
+        "stage": "image[004_qO-PIF84Vxg]",
+        "seconds": 18.579,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      },
+      {
+        "stage": "image[007_5yAhL8ViUVg]",
+        "seconds": 16.845,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      },
+      {
+        "stage": "image[013_5Vr_RVPfbMI]",
+        "seconds": 13.905,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      },
+      {
+        "stage": "image[019_fliwkBbS7oM]",
+        "seconds": 11.013,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      },
+      {
+        "stage": "image[letterbox_frame_2160p]",
+        "seconds": 22.73,
+        "gpu": "A10G",
+        "detail": {
+          "failed": false
+        }
+      }
+    ],
+    "outputs": {
+      "001_Sg3XwuEpybU": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/001_Sg3XwuEpybU_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/001_Sg3XwuEpybU_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/001_Sg3XwuEpybU_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/001_Sg3XwuEpybU_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/001_Sg3XwuEpybU_depth.png"
+      },
+      "004_qO-PIF84Vxg": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/004_qO-PIF84Vxg_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/004_qO-PIF84Vxg_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/004_qO-PIF84Vxg_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/004_qO-PIF84Vxg_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/004_qO-PIF84Vxg_depth.png"
+      },
+      "007_5yAhL8ViUVg": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/007_5yAhL8ViUVg_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/007_5yAhL8ViUVg_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/007_5yAhL8ViUVg_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/007_5yAhL8ViUVg_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/007_5yAhL8ViUVg_depth.png"
+      },
+      "013_5Vr_RVPfbMI": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/013_5Vr_RVPfbMI_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/013_5Vr_RVPfbMI_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/013_5Vr_RVPfbMI_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/013_5Vr_RVPfbMI_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/013_5Vr_RVPfbMI_depth.png"
+      },
+      "019_fliwkBbS7oM": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/019_fliwkBbS7oM_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/019_fliwkBbS7oM_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/019_fliwkBbS7oM_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/019_fliwkBbS7oM_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/019_fliwkBbS7oM_depth.png"
+      },
+      "letterbox_frame_2160p": {
+        "left": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/letterbox_frame_2160p_left.png",
+        "right": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/letterbox_frame_2160p_right.png",
+        "lr": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/letterbox_frame_2160p_lr.png",
+        "anaglyph": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/letterbox_frame_2160p_anaglyph.png",
+        "depth": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/dfc0dcce6f03/letterbox_frame_2160p_depth.png"
+      }
+    },
+    "error": null,
+    "total_seconds": 119.3,
+    "est_cost_usd": 0.0396
+  }
+]
