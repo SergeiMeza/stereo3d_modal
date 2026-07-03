@@ -87,11 +87,12 @@ export function DepthPanel({
       ? parseRational(project.probe.fps_rational)
       : null;
 
-  // depth_res can never exceed the SOURCE short side (see lib/depthRes).
-  const shortSide = project.probe
-    ? Math.min(project.probe.width, project.probe.height)
-    : DEFAULT_DEPTH_RES;
-  const resChoices = depthResChoices(shortSide);
+  // depth_res is capped at min(source short side, B200 working-MP ceiling for
+  // this aspect) — a wide source hits the VRAM ceiling below its short side
+  // (see lib/depthRes). Pass full dims so the aspect ceiling is applied.
+  const resChoices = project.probe
+    ? depthResChoices(project.probe.width, project.probe.height)
+    : depthResChoices(DEFAULT_DEPTH_RES, DEFAULT_DEPTH_RES);
   const [depthRes, setDepthRes] = useState(() =>
     clampDepthRes(DEFAULT_DEPTH_RES, resChoices),
   );
