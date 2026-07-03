@@ -62,7 +62,7 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 		return nil // already submitted (or terminal) — idempotent no-op
 	}
 
-	body := s.modalBody(conv)
+	body := s.modalBody(conv, s.Pricing.Rates(ctx).MaxGPUWorkers)
 	var resp *modalapi.SubmitResponse
 	if conv.Kind == "image" {
 		resp, err = s.Modal.SubmitImage(ctx, body)
@@ -94,8 +94,10 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 }
 
 // modalBody builds the whitelisted request forwarded to Modal. Nothing from
-// the client reaches Modal without being re-encoded here.
-func (s *Service) modalBody(c *store.Conversion) map[string]any {
+// the client reaches Modal without being re-encoded here. maxGPUWorkers is
+// the Firestore-tunable fan-out cap (pricing.Rates); ≤0 omits the field so
+// Modal falls back to its own pipeline default.
+func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	body := map[string]any{
 		"input_path": c.Source.GCSKey, // bucket-prefix-relative is accepted; full key is unambiguous
 		"notify":     true,
@@ -163,6 +165,11 @@ func (s *Service) modalBody(c *store.Conversion) map[string]any {
 		body["skip_reuse_preprocess"] = true
 		body["skip_reuse_depth"] = true
 		body["skip_reuse_scenes"] = true
+	}
+	if maxGPUWorkers > 0 {
+		// clamp to the workspace's 10-GPU ceiling so a fat-fingered
+		// Firestore value can't queue-storm the fleet
+		body["max_gpu_workers"] = min(maxGPUWorkers, 10)
 	}
 	return body
 }

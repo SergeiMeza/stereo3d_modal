@@ -9,10 +9,11 @@ import (
 )
 
 // bodyJSON marshals a modalBody map; encoding/json sorts map keys, so the
-// output is deterministic and tests can assert the EXACT wire shape.
+// output is deterministic and tests can assert the EXACT wire shape. 8 is
+// the pricing default for max_gpu_workers, so this is the production shape.
 func bodyJSON(t *testing.T, conv *store.Conversion) string {
 	t.Helper()
-	raw, err := json.Marshal((&Service{}).modalBody(conv))
+	raw, err := json.Marshal((&Service{}).modalBody(conv, 8))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,6 +42,7 @@ func TestModalBodyProStepExactShape(t *testing.T) {
 		`"from_frame":100,` +
 		`"inpaint":"none",` +
 		`"input_path":"stereo3d/test/users/u1/abc/source.mp4",` +
+		`"max_gpu_workers":8,` +
 		`"notify":true,` +
 		`"preset":"1080p",` +
 		`"scene_cuts":[240,900],` +
@@ -56,7 +58,7 @@ func TestModalBodyAdaptiveForAllProSteps(t *testing.T) {
 	for _, step := range []string{store.StepDepthPreview, store.StepStereoPreview, store.StepProduction} {
 		conv := &store.Conversion{Kind: "video", Step: step,
 			Params: store.Params{Preset: "draft", Formats: []string{"anaglyph"}}}
-		body := (&Service{}).modalBody(conv)
+		body := (&Service{}).modalBody(conv, 8)
 		if body["adaptive"] != true {
 			t.Errorf("%s: adaptive must be true", step)
 		}
@@ -71,7 +73,7 @@ func TestModalBodyProStepAlwaysSendsCuts(t *testing.T) {
 	for _, cuts := range [][]int{nil, {}} {
 		conv := &store.Conversion{Kind: "video", Step: store.StepStereoPreview,
 			Params: store.Params{Preset: "1080p", Formats: []string{"sbs"}, SceneCuts: cuts}}
-		raw, err := json.Marshal((&Service{}).modalBody(conv))
+		raw, err := json.Marshal((&Service{}).modalBody(conv, 8))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -82,7 +84,7 @@ func TestModalBodyProStepAlwaysSendsCuts(t *testing.T) {
 	// Legacy route: empty cuts stay omitted (auto-detect is the contract).
 	legacy := &store.Conversion{Kind: "video",
 		Params: store.Params{Preset: "1080p", Formats: []string{"sbs"}}}
-	if _, present := (&Service{}).modalBody(legacy)["scene_cuts"]; present {
+	if _, present := (&Service{}).modalBody(legacy, 8)["scene_cuts"]; present {
 		t.Error("legacy body must omit empty scene_cuts")
 	}
 }
@@ -91,7 +93,7 @@ func TestModalBodyLegacyVideoUnchanged(t *testing.T) {
 	// Legacy mobile route (no step): displacement still forwards; no pro keys.
 	conv := &store.Conversion{Kind: "video",
 		Params: store.Params{Preset: "1080p", Formats: []string{"mvhevc"}, Displacement: 0.02}}
-	body := (&Service{}).modalBody(conv)
+	body := (&Service{}).modalBody(conv, 8)
 	if body["displacement"] != 0.02 {
 		t.Errorf("displacement must forward for legacy conversions, got %v", body["displacement"])
 	}
@@ -105,11 +107,34 @@ func TestModalBodyLegacyVideoUnchanged(t *testing.T) {
 func TestModalBodySkipsUnsetProKnobs(t *testing.T) {
 	conv := &store.Conversion{Kind: "video", Step: store.StepDepthPreview,
 		Params: store.Params{Preset: "draft", Formats: []string{"anaglyph"}, Inpaint: "none", TargetFPS: 12}}
-	body := (&Service{}).modalBody(conv)
+	body := (&Service{}).modalBody(conv, 8)
 	for _, k := range []string{"depth_res", "depth_scale", "scene_overrides", "displacement"} {
 		if _, present := body[k]; present {
 			t.Errorf("unset knob %q must not be forwarded", k)
 		}
+	}
+}
+
+func TestModalBodyMaxGPUWorkers(t *testing.T) {
+	conv := &store.Conversion{Kind: "video", Step: store.StepProduction,
+		Params: store.Params{Preset: "4k", Formats: []string{"mvhevc"}}}
+	// ≤0 omits the field so the pipeline default applies
+	for _, n := range []int{0, -1} {
+		if _, present := (&Service{}).modalBody(conv, n)["max_gpu_workers"]; present {
+			t.Errorf("workers=%d: field must be omitted", n)
+		}
+	}
+	if got := (&Service{}).modalBody(conv, 8)["max_gpu_workers"]; got != 8 {
+		t.Errorf("want 8 workers forwarded, got %v", got)
+	}
+	// clamped to the workspace's 10-GPU ceiling
+	if got := (&Service{}).modalBody(conv, 64)["max_gpu_workers"]; got != 10 {
+		t.Errorf("want clamp to 10, got %v", got)
+	}
+	// image jobs never fan out — no worker cap on the image body
+	img := &store.Conversion{Kind: "image"}
+	if _, present := (&Service{}).modalBody(img, 8)["max_gpu_workers"]; present {
+		t.Error("image body must not carry max_gpu_workers")
 	}
 }
 

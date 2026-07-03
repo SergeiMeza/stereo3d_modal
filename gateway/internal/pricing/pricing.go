@@ -68,6 +68,13 @@ type Rates struct {
 	MaxSourceBytes   int64   `firestore:"max_source_bytes"`
 	MaxActivePerUser int     `firestore:"max_active_per_user"`
 
+	// MaxGPUWorkers caps the concurrent fan-out containers one video job's
+	// depth/stereo chunks may occupy (app/pipelines/video.py, default 4
+	// there). More workers = same GPU-seconds, less wall-clock; the
+	// workspace concurrency ceiling is 10 GPUs, so this stays below it to
+	// leave room for other jobs. 0 omits the field (pipeline default).
+	MaxGPUWorkers int `firestore:"max_gpu_workers"`
+
 	// Pre-run wall-clock estimate model (shown next to quotes; the live
 	// number always comes from the running Modal job). ADDITIVE:
 	// eta = base + depth term + preset-keyed stereo/encode residual —
@@ -117,6 +124,7 @@ func defaults() *Rates {
 		MaxDurationS:       30 * 60,
 		MaxSourceBytes:     8 << 30,
 		MaxActivePerUser:   3,
+		MaxGPUWorkers:      8,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,
 		},

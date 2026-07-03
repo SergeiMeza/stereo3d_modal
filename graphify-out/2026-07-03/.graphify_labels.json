@@ -330,5 +330,8 @@
   "328": "EDMSampler",
   "329": "Resize",
   "330": "load_video_depth_model",
-  "331": "FrozenOpenCLIPImageEmbedder"
+  "331": "FrozenOpenCLIPImageEmbedder",
+  "332": "scale_module",
+  "333": "SiLU",
+  "334": "TimeMixSequential"
 }

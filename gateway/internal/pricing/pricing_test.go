@@ -446,6 +446,14 @@ func TestQuoteStepStereoPreviewScalesByPreset(t *testing.T) {
 	}
 }
 
+func TestMaxGPUWorkersDefault(t *testing.T) {
+	// The fan-out cap ships at 8 (Firestore-tunable, workspace ceiling 10);
+	// the pipeline's own default is 4, so a zeroed doc must not regress it.
+	if got := defaults().MaxGPUWorkers; got != 8 {
+		t.Errorf("want default max_gpu_workers 8, got %d", got)
+	}
+}
+
 func TestCostMarginMultiplierIsTheOneKnob(t *testing.T) {
 	// Halving the margin halves the base — proves price = cost × margin
 	// and that the knob is honored from the rates config.
