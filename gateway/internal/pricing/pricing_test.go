@@ -431,15 +431,17 @@ func TestETADepthTermZeroedOnReuseAndUpload(t *testing.T) {
 }
 
 func TestQuoteStepStereoPreviewScalesByPreset(t *testing.T) {
-	// A 4k stereo preview does ~2× the splat/inpaint work of 1080p — the
-	// old flat 200¢/min rate underpriced it. 10 min: 1080p 2000¢ vs 4k
-	// 4000¢ (before depth factor / inpaint / discounts).
+	// A 4k stereo preview does ~2.5× the splat/inpaint work of 1080p — the
+	// old flat 200¢/min rate underpriced it (the 2026-07-03 4k run billed
+	// $14.31 against a $9.09 quote). Rates target ~2× BILLED cost (billed
+	// ≈ 1.2× the in-source estimate). 10 min: 1080p 2000¢ vs 4k 5000¢
+	// (before depth factor / inpaint / discounts).
 	q1080 := quoteStep(t, StepInputs{Step: "stereo_preview", Preset: "1080p", BillableS: 600})
 	q4k := quoteStep(t, StepInputs{Step: "stereo_preview", Preset: "4k", BillableS: 600})
 	if q1080.Breakdown["base_cents"].(int64) != 2000 {
 		t.Errorf("1080p base: want 2000, got %v", q1080.Breakdown["base_cents"])
 	}
-	if q4k.Breakdown["base_cents"].(int64) != 4000 {
-		t.Errorf("4k base: want 4000, got %v", q4k.Breakdown["base_cents"])
+	if q4k.Breakdown["base_cents"].(int64) != 5000 {
+		t.Errorf("4k base: want 5000, got %v", q4k.Breakdown["base_cents"])
 	}
 }

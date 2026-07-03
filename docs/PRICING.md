@@ -153,3 +153,10 @@ ProPainter stereo cost (~$0.30/run). See the v6 per-shot far-plane work.
   rate-limited (~2 calls/10s). One A/B run's hour billed $6.92 vs $4.02
   estimate-sum — the gap is cold-start + idle drain + a cancelled attempt.
   scaledown_window is 30s everywhere (cold-start vs idle tradeoff).
+- Second data point (2026-07-03, job c51480d2c0aa — 4k stereo preview,
+  depth reused, OOMed at 78% with chunk retries): dashboard billed
+  **$14.31** vs ~$11.2 estimate-sum (~1.28×; retries inflate it —
+  steady-state is ~1.2×). **Pricing doctrine**: gateway rate defaults
+  target ≈2× BILLED (≈2.4× the in-source estimate), since billed is what
+  we actually pay. High-preset stereo rates were recalibrated against
+  this run; refine per-preset as clean billed/estimate pairs accumulate.

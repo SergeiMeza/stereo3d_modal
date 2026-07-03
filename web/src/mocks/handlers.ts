@@ -47,9 +47,9 @@ const RATES = {
   stereoPreviewCentsPerMinute: {
     draft: 150,
     "1080p": 200,
-    qhd: 280,
-    "3k": 320,
-    "4k": 400,
+    qhd: 320,
+    "3k": 400,
+    "4k": 500,
   } as Record<string, number>,
   minimumCents: 50,
   discountThresholdCents: 1000,

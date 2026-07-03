@@ -96,10 +96,15 @@ func defaults() *Rates {
 		DepthPreviewCentsPerMinute: 125,
 		// Per-preset stereo preview rates (splatted baseline; the ×1.6
 		// inpaint multiplier applies on top for propainter). 1080p keeps
-		// the original 200¢ anchor; the higher presets scale with the
-		// measured splat/inpaint cost of their output resolution.
+		// the original 200¢ anchor. The high presets are calibrated to
+		// ~2× BILLED cost, not 2× the in-source estimate: Modal bills
+		// ~1.2× the per-stage estimates steady-state (cold-start + idle;
+		// PRICING.md "Estimate vs billed", plus the 2026-07-03 4k run
+		// that billed $14.31 against a ~$11.2 estimate). A clean 4k
+		// propainter stereo run projects to $11–13 billed for 2.5 min of
+		// footage → 500¢/min quotes ≈ 2× that after the ×1.6.
 		StereoPreviewCentsPerMinute: map[string]int64{
-			"draft": 150, "1080p": 200, "qhd": 280, "3k": 320, "4k": 400,
+			"draft": 150, "1080p": 200, "qhd": 320, "3k": 400, "4k": 500,
 		},
 		AnalyzeCreditCents: 50,
 		StageShares:        map[string]float64{"depth": 0.35, "preprocess": 0.05},
