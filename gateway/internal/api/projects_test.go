@@ -97,12 +97,34 @@ func TestResolveDepthPreviewIgnoresPresetAndFormats(t *testing.T) {
 func TestResolveDepthPreviewRejectsStereoKnobs(t *testing.T) {
 	resolveErr(t, &stepConvReq{Step: store.StepDepthPreview, Inpaint: "propainter"}, "fixed to none")
 	resolveErr(t, &stepConvReq{Step: store.StepDepthPreview, DepthScale: 1.0}, "stereo_preview and production only")
+	// depth knobs in scene_overrides stay stereo-only on the depth step…
 	resolveErr(t, &stepConvReq{Step: store.StepDepthPreview,
-		SceneOverrides: []sceneOverrideReq{{First: 0, ShotType: "wide"}}}, "stereo_preview and production only")
+		SceneOverrides: []sceneOverrideReq{{First: 0, ShotType: "wide"}}}, "passthrough only")
+	resolveErr(t, &stepConvReq{Step: store.StepDepthPreview,
+		SceneOverrides: []sceneOverrideReq{
+			{First: 0, Passthrough: true},
+			{First: 240, Displacement: 0.02},
+		}}, "passthrough only")
 	// inpaint "none" matches the forced value — accepted as a no-op
 	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Inpaint: "none"})
 	if p.Inpaint != "none" {
 		t.Errorf("inpaint: want none, got %s", p.Inpaint)
+	}
+}
+
+func TestResolveDepthPreviewAcceptsPassthroughOverrides(t *testing.T) {
+	// passthrough-ONLY overrides are the depth step's scene input: Modal
+	// skips the AI depth pass for those scenes and writes black depth.
+	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview,
+		SceneOverrides: []sceneOverrideReq{
+			{First: 0, Passthrough: true},
+			{First: 900, Passthrough: true},
+		}})
+	if len(p.SceneOverrides) != 2 || !p.SceneOverrides[0].Passthrough || !p.SceneOverrides[1].Passthrough {
+		t.Errorf("passthrough overrides not applied: %+v", p.SceneOverrides)
+	}
+	if p.SceneOverrides[1].First != 900 {
+		t.Errorf("first: want 900, got %d", p.SceneOverrides[1].First)
 	}
 }
 

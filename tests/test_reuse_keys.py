@@ -133,3 +133,39 @@ def test_request_scene_cuts_reach_the_depth_key():
     assert with_cuts[0] == plain[0] and with_cuts[2] == plain[2]
     # …but a different depth key (normalization boundaries differ)
     assert with_cuts[1] != plain[1]
+
+
+# ------------------------------------------------ passthrough depth identity
+
+def test_depth_key_carries_the_passthrough_set():
+    # passthrough scenes get BLACK depth (the AI pass is skipped), so a
+    # different passthrough set is a different depth artifact
+    plain = reuse.depth_key("pp:abc", "vda", 980, "vitl", scene_cuts=[100, 400])
+    pt = reuse.depth_key("pp:abc", "vda", 980, "vitl", scene_cuts=[100, 400],
+                         passthrough=[100])
+    other = reuse.depth_key("pp:abc", "vda", 980, "vitl", scene_cuts=[100, 400],
+                            passthrough=[400])
+    assert plain != pt and pt != other
+
+
+def test_depth_key_empty_passthrough_keeps_the_legacy_key():
+    # no passthrough must hash identically to a pre-feature key so every
+    # existing cached depth artifact stays reusable
+    legacy = reuse.depth_key("pp:abc", "vda", 980, "vitl", scene_cuts=[100, 400])
+    empty = reuse.depth_key("pp:abc", "vda", 980, "vitl", scene_cuts=[100, 400],
+                            passthrough=None)
+    assert legacy == empty
+
+
+def test_request_passthrough_overrides_reach_the_depth_key():
+    base = {**_GATEWAY_BODY, "scene_cuts": [100, 400]}
+    plain = reuse_request_keys(dict(base))
+    pt = reuse_request_keys({**base, "scene_overrides": [
+        {"first": 100, "passthrough": True}]})
+    # passthrough changes ONLY the depth artifact, not the work file
+    assert pt[0] == plain[0] and pt[2] == plain[2]
+    assert pt[1] != plain[1]
+    # non-passthrough overrides (stereo styling) do NOT touch the depth key
+    styled = reuse_request_keys({**base, "scene_overrides": [
+        {"first": 100, "displacement": 0.02}]})
+    assert styled[1] == plain[1]

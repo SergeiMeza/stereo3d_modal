@@ -83,7 +83,7 @@ def preprocess_key(
 
 
 def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
-              scene_cuts=None) -> str:
+              scene_cuts=None, passthrough=None) -> str:
     """Key for a depth map: the EXACT preprocessed frames (pp_key) plus the
     depth model + resolution + encoder + the SCENE-BOUNDARY identity. A
     different input_size is a different depth map, so it MUST be in the key.
@@ -95,8 +95,13 @@ def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
     detection is deterministic for the same preprocessed content, so "auto"
     alone identifies it. Adding this material invalidated entries registered
     before it existed — intended: those keys were ambiguous across cut
-    lists, so a recompute is the correct degradation."""
-    return compute_key(DEPTH, {
+    lists, so a recompute is the correct degradation.
+
+    ``passthrough``: SOURCE-frame scene starts whose depth is BLACK (the
+    scene ships as 2D, the AI pass is skipped) — a different passthrough
+    set is a different depth artifact. Only keyed when non-empty so every
+    pre-existing no-passthrough artifact stays reusable."""
+    material = {
         "preprocess_key": pp_key,
         "depth_model": depth_model,
         "input_size": int(input_size),
@@ -105,7 +110,10 @@ def depth_key(pp_key: str, depth_model: str, input_size: int, encoder,
             ["user", [int(c) for c in scene_cuts]] if scene_cuts is not None
             else ["auto"]
         ),
-    })
+    }
+    if passthrough:
+        material["passthrough"] = sorted(int(f) for f in passthrough)
+    return compute_key(DEPTH, material)
 
 
 def scenes_key(pp_key: str) -> str:

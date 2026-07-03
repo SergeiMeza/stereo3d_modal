@@ -97,12 +97,19 @@ def reuse_request_keys(request: dict) -> tuple[str, str, str]:
         _trim_spec(req),
         crop_override=req.get("crop"),
     )
+    # passthrough scenes get BLACK depth (no AI pass), so the passthrough
+    # set is part of the depth artifact's identity
+    passthrough = sorted(
+        int(ov["first"]) for ov in (req.get("scene_overrides") or [])
+        if ov.get("passthrough")
+    )
     d_key = reuse.depth_key(
         pp_key,
         req.get("depth_model", "vda"),
         int(req.get("input_size", 980)),
         req.get("encoder", "vitl"),
         scene_cuts=req.get("scene_cuts"),
+        passthrough=passthrough or None,
     )
     return pp_key, d_key, reuse.scenes_key(pp_key)
 
@@ -270,6 +277,12 @@ def process_video_job(job_id: str, request: dict) -> dict:
                       "(flat displacement)")
             adaptive = False
         depth_script: list[dict] | None = None
+        # Work-space scene starts flagged passthrough (2D) by the user's
+        # scene_overrides. Those scenes ship both eyes as the untouched
+        # source, so BOTH the profiler and the AI depth pass skip them —
+        # their depth is written black. Resolved in the adaptive /
+        # overrides branches below; empty = no skips.
+        passthrough_firsts: list[int] = []
         if adaptive:
             # adaptive composes with the stereo fan-out: the depth script
             # keys on ABSOLUTE frame index and is passed whole to every
@@ -316,26 +329,61 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # enforces this precedence).
             auto_comfort = bool(request.get("auto_comfort", True))
             comfort_budget = float(request.get("comfort_budget", 0.02))
+            # Resolve user scene_overrides BEFORE profiling: passthrough
+            # shots are excluded from the profiler entirely — no keyframe
+            # inference, no vote in the auto-comfort budget — exactly like
+            # they are excluded from the AI depth pass below.
+            resolved: dict[int, dict] = (
+                _resolve_scene_overrides(request, pre, scene_ranges, jlog)
+                if scene_overrides else {}
+            )
+            passthrough_firsts = sorted(
+                w for w, ov in resolved.items() if ov.get("passthrough")
+            )
+            pt_set = set(passthrough_firsts)
+            profile_ranges = [r for r in scene_ranges if int(r[0]) not in pt_set]
             jlog.info(
-                f"🎛  adaptive: profiling {len(scene_ranges)} shot(s) with "
+                f"🎛  adaptive: profiling {len(profile_ranges)} shot(s) with "
                 f"{profiler} (depth_scale={depth_scale}, "
                 f"auto_comfort={auto_comfort}, comfort_budget={comfort_budget})"
+                + (f" — {len(pt_set)} passthrough shot(s) skipped" if pt_set else "")
             )
-            # single worker: coverage relies on Modal's profiler function
-            # timeout (~10min), not the heartbeat watchdog
-            depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
-                job_id, pre["work_path"], scene_ranges, input_size=518,
-                auto_comfort=auto_comfort, comfort_budget=comfort_budget,
-                depth_scale=depth_scale,
-            )
-            check_worker_result(depth_script, "profile_scenes")
+            if profile_ranges:
+                # single worker: coverage relies on Modal's profiler function
+                # timeout (~10min), not the heartbeat watchdog
+                depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
+                    job_id, pre["work_path"], profile_ranges, input_size=518,
+                    auto_comfort=auto_comfort, comfort_budget=comfort_budget,
+                    depth_scale=depth_scale,
+                )
+                check_worker_result(depth_script, "profile_scenes")
+            else:
+                jlog.info("⏩ every scene is passthrough — profiler skipped")
+                depth_script = []
+            if pt_set:
+                # Neutral placeholder entries keep the script tiling ALL of
+                # scene_ranges — the stereo lookup and the override applier
+                # (which flags them passthrough just below) expect full
+                # coverage. Values are inert: the stereo stage ships these
+                # frames untouched.
+                from app.stages.video_depth_models import DEFAULT_PLACEMENT
+
+                depth_script.extend(
+                    {
+                        "first": int(a), "last": int(b),
+                        "shot_type": "standard", "displacement": 0.0,
+                        "placement": list(DEFAULT_PLACEMENT),
+                        "median": 0.0, "near_fraction": 0.0,
+                    }
+                    for a, b in scene_ranges if int(a) in pt_set
+                )
+                depth_script.sort(key=lambda e: int(e["first"]))
             if scene_overrides:
                 # user overrides are the FINAL word: applied AFTER the
                 # profiler's smoothing/cut-matching/comfort passes, scaled
                 # like the profiler scales (the comfort_scale it chose, or
                 # the explicit depth_scale). Comfort clamps are NOT re-run
                 # over overridden shots.
-                resolved = _resolve_scene_overrides(request, pre, scene_ranges, jlog)
                 applied_scale = (
                     (jobs.get_job(job_id) or {}).get("comfort_scale")
                     or float(request.get("depth_scale", 1.0))
@@ -386,6 +434,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # with both backends' sequential and parallel paths alike).
             ranges = user_boundaries or [(0, pre["probe"]["num_frames"])]
             resolved = _resolve_scene_overrides(request, pre, ranges, jlog)
+            passthrough_firsts = sorted(
+                w for w, ov in resolved.items() if ov.get("passthrough")
+            )
             depth_script = _synthesize_scene_params(
                 ranges, float(request.get("displacement", 0.0125))
             )
@@ -448,6 +499,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     max_workers=max_gpu_workers,
                     stall_timeout_s=stall_timeout_s, chunk_cap=depth_chunk_cap,
                     boundaries=user_boundaries,
+                    passthrough_firsts=passthrough_firsts or None,
                 )
             else:
                 # single worker: coverage relies on Modal's depth function
@@ -459,6 +511,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     fps_rational=fps_rational,
                     band=(0.15, 0.5),
                     scene_ranges=user_boundaries,
+                    passthrough_firsts=passthrough_firsts or None,
                 )
         else:
             # per-frame backends (DA2-metric / DA3 / Depth Pro): single L40S worker
@@ -1263,7 +1316,7 @@ def _chunk_ranges(boundaries: list, total: int, target: int) -> list:
 
 def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rational,
                     max_workers, stall_timeout_s=STALL_TIMEOUT_S, chunk_cap=DEPTH_CHUNK_FRAMES,
-                    boundaries=None):
+                    boundaries=None, passthrough_firsts=None):
     from app.common.errors import check_worker_result
     from app.stages.media import concat_cache_segments, detect_scenes
 
@@ -1293,8 +1346,11 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
     capped = worker_cls.with_options(max_containers=max_workers)
 
     def _spawn(i):
+        # every chunk gets the FULL passthrough list — starts outside its
+        # ranges simply never match (fail-soft, no per-chunk filtering)
         return capped(encoder=encoder).generate_scenes.spawn(
-            job_id, pre["work_path"], chunks[i], input_size, fps_rational
+            job_id, pre["work_path"], chunks[i], input_size, fps_rational,
+            passthrough_firsts=passthrough_firsts,
         )
 
     handles = [_spawn(i) for i in range(len(chunks))]

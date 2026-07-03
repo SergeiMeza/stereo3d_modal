@@ -140,10 +140,12 @@ export function useStepCheckout(
     }
   }, [active, conversions, step, setState]);
 
-  function invalidate(): void {
+  // Stable (setState from useAtom is): panels call this from effects that
+  // watch priced inputs (e.g. the Depth page's passthrough set).
+  const invalidate = useCallback((): void => {
     attemptKeyRef.current = null;
     setState((s) => ({ ...s, quote: null, attemptKey: null }));
-  }
+  }, [setState]);
 
   async function fetchQuote(req: StepConversionRequest): Promise<void> {
     setQuoting(true);

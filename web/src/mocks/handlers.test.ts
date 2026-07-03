@@ -65,15 +65,33 @@ describe("mock gateway validation", () => {
     }
   });
 
-  it("rejects depth_scale and scene_overrides on depth_preview", async () => {
+  it("rejects depth_scale and depth-knob scene_overrides on depth_preview; passthrough-only is accepted", async () => {
     await expectInvalid(
       { step: "depth_preview", depth_scale: 1.1 },
       "depth_scale is not a depth_preview parameter",
     );
+    // depth knobs stay stereo/production-only on this step…
     await expectInvalid(
       { step: "depth_preview", scene_overrides: [{ first: 0, shot_type: "wide" }] },
-      "scene_overrides is not a depth_preview parameter",
+      "scene_overrides[]: depth_preview accepts passthrough only; displacement/shot_type/placement apply to stereo_preview and production",
     );
+    await expectInvalid(
+      {
+        step: "depth_preview",
+        scene_overrides: [
+          { first: 0, passthrough: true },
+          { first: 240, displacement: 0.02 },
+        ],
+      },
+      "scene_overrides[]: depth_preview accepts passthrough only; displacement/shot_type/placement apply to stereo_preview and production",
+    );
+    // …but passthrough-only overrides are the depth step's scene input
+    // (those scenes ship as 2D: black depth, no AI pass)
+    const ok = await quote({
+      step: "depth_preview",
+      scene_overrides: [{ first: 0, passthrough: true }],
+    });
+    expect(ok.status).toBe(200);
   });
 
   it("rejects depth_scale outside [0.3, 1.5]", async () => {

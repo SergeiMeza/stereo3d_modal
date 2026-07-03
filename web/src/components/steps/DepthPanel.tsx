@@ -60,7 +60,11 @@ import {
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { Field, selectClass } from "./controls";
-import { setRowPassthrough, useStereoDraft } from "./stereoStore";
+import {
+  draftToSceneOverrides,
+  setRowPassthrough,
+  useStereoDraft,
+} from "./stereoStore";
 import { StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
@@ -106,6 +110,23 @@ export function DepthPanel({
     | Conversion
     | undefined;
 
+  // The scene grid's 3D toggles (shared draft) are a DEPTH input too: a
+  // passthrough scene skips the AI depth pass entirely (black depth), so
+  // the passthrough set rides the request — and flipping a toggle stales
+  // any fetched quote exactly like changing depth_res does.
+  const validStarts = [0, ...(project.scenes?.cuts ?? [])];
+  const passthroughOverrides = draftToSceneOverrides(draft, validStarts).filter(
+    (o) => o.passthrough === true,
+  );
+  const ptSignature = passthroughOverrides.map((o) => o.first).join(",");
+  const prevPtRef = useRef(ptSignature);
+  const invalidate = ck.invalidate;
+  useEffect(() => {
+    if (prevPtRef.current === ptSignature) return;
+    prevPtRef.current = ptSignature;
+    invalidate();
+  }, [ptSignature, invalidate]);
+
   if (sourceFps === null || !project.probe) {
     return (
       <PanelShell>
@@ -123,6 +144,11 @@ export function DepthPanel({
     depth_res: depthRes,
     target_fps: defaultPreviewFPS(sourceFps).value,
     platform: "web",
+    // passthrough-only (the gateway rejects depth knobs on this step):
+    // these scenes ship as 2D, so their depth is never computed
+    ...(passthroughOverrides.length > 0
+      ? { scene_overrides: passthroughOverrides }
+      : {}),
   };
 
   return (

@@ -71,6 +71,7 @@ class VideoDepthWorker:
         fps_rational: str | None = None,
         band: tuple[float, float] = (0.0, 1.0),
         scene_ranges: list | None = None,
+        passthrough_firsts: list | None = None,
     ) -> dict:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
@@ -80,6 +81,9 @@ class VideoDepthWorker:
         [(first, last), …] — user-edited cuts from the pro step pipeline.
         Skips the internal scene detection; alignment resets at exactly
         these boundaries.
+
+        ``passthrough_firsts`` (optional): scene starts shipping as 2D —
+        their depth is written BLACK with no model inference.
 
         Resumable: scene segments completed before a preemption are
         skipped on the retried call."""
@@ -107,7 +111,8 @@ class VideoDepthWorker:
         with jobs.stage_timer(job_id, "video_depth", gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""), input_size=input_size):
             ranges = [tuple(r) for r in scene_ranges] if scene_ranges else None
             processor = DepthProcessor(src, self.model, input_size=input_size, fp32=fp32,
-                                       scene_ranges=ranges)
+                                       scene_ranges=ranges,
+                                       passthrough_firsts=passthrough_firsts)
             result = processor.write_depth_video(
                 out,
                 fps_rational=fps_rational,
@@ -137,10 +142,14 @@ class VideoDepthWorker:
         scene_ranges: list,
         input_size: int = 980,
         fps_rational: str | None = None,
+        passthrough_firsts: list | None = None,
     ) -> dict:
         """Long-video fan-out: depth for an explicit subset of scenes.
         Writes per-scene segment files (resumable) without concatenating;
-        the orchestrator concats all chunks' segments in order."""
+        the orchestrator concats all chunks' segments in order.
+        ``passthrough_firsts``: scene starts shipping as 2D — black depth,
+        no inference (the full job-wide list; starts outside this chunk's
+        ranges never match)."""
         safe_reload(cache_volume)
         src = Path(input_path)
         if not src.exists():
@@ -153,7 +162,8 @@ class VideoDepthWorker:
             gpu=torch.cuda.get_device_name(0).replace("NVIDIA ", ""), input_size=input_size, scenes=len(ranges),
         ):
             processor = DepthProcessor(
-                src, self.model, input_size=input_size, scene_ranges=ranges
+                src, self.model, input_size=input_size, scene_ranges=ranges,
+                passthrough_firsts=passthrough_firsts,
             )
             last_report = [0.0]
 

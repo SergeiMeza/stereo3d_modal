@@ -556,15 +556,24 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		params.DepthScale = req.DepthScale
 	}
 	if len(req.SceneOverrides) > 0 {
-		if req.Step == store.StepDepthPreview {
-			return params, httpx.ErrInvalid("scene_overrides apply to stereo_preview and production only")
-		}
 		if p.Scenes == nil {
 			return params, httpx.ErrInvalid("scene_overrides need a completed analysis (project has no scene list yet)")
 		}
 		overrides, oerr := validateSceneOverrides(req.SceneOverrides, p.Scenes.Cuts)
 		if oerr != nil {
 			return params, oerr
+		}
+		// depth_preview accepts PASSTHROUGH-ONLY overrides: a passthrough
+		// scene ships as 2D, so Modal skips its AI depth pass and writes
+		// black depth. The depth knobs (displacement/shot_type/placement)
+		// style the stereo warp and are meaningless on the depth step.
+		if req.Step == store.StepDepthPreview {
+			for i, o := range overrides {
+				if !o.Passthrough {
+					return params, httpx.ErrInvalid(fmt.Sprintf(
+						"scene_overrides[%d]: depth_preview accepts passthrough only; displacement/shot_type/placement apply to stereo_preview and production", i))
+				}
+			}
 		}
 		params.SceneOverrides = overrides
 	}
@@ -705,6 +714,13 @@ func (s *Service) reuseLookupBody(p *store.Project, params store.Params) map[str
 		cuts = []int{}
 	}
 	body["scene_cuts"] = cuts
+	// scene_overrides too: the passthrough subset is part of the depth key
+	// (passthrough scenes carry BLACK depth — a different passthrough set
+	// is a different artifact), so omitting it here would misprice the
+	// depth discount whenever any scene is 2D.
+	if len(params.SceneOverrides) > 0 {
+		body["scene_overrides"] = encodeSceneOverrides(params.SceneOverrides)
+	}
 	if params.DepthRes > 0 {
 		body["depth_res"] = params.DepthRes
 	}

@@ -657,7 +657,7 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
     }
   });
 
-  it("unchecking a scene writes passthrough into the SHARED stereo draft and never touches the depth request", async () => {
+  it("unchecking a scene writes passthrough into the SHARED stereo draft AND onto the depth request (black depth, no AI pass)", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel();
@@ -668,8 +668,8 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
     ).toEqual({ passthrough: true });
     expect(screen.getByTestId("depth-scene-0").className).toContain("opacity-60");
 
-    // passthrough affects stereo_preview/production only — the depth quote
-    // request stays EXACTLY the depth_res/fps surface
+    // the passthrough set rides the depth request as passthrough-ONLY
+    // scene_overrides — the backend skips those scenes' AI depth pass
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).toEqual({
@@ -677,13 +677,29 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
       depth_res: 980,
       target_fps: 24,
       platform: "web",
+      scene_overrides: [{ first: 0, passthrough: true }],
     });
 
-    // re-checking clears the flag from the shared draft
+    // re-checking clears the flag from the shared draft — and STALES the
+    // fetched quote (the priced request changed), so Convert disappears
+    // until a re-quote, exactly like changing depth_res
     await user.click(screen.getByLabelText("Scene 1 convert to 3D"));
     expect(
       loadStereoDraft(FIXTURE.project_id, FIXTURE.scenes!.version).overrides["0"],
     ).toBeUndefined();
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Convert ·/ })).toBeNull(),
+    );
+
+    // the fresh quote carries NO scene_overrides again
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({
+      step: "depth_preview",
+      depth_res: 980,
+      target_fps: 24,
+      platform: "web",
+    });
   });
 });
 

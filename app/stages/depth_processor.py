@@ -94,11 +94,17 @@ class DepthProcessor:
         device: str = "cuda",
         fp32: bool = False,
         scene_ranges: list[tuple[int, int]] | None = None,
+        passthrough_firsts: list[int] | None = None,
     ):
         # scene_ranges: explicit (first, last) scene boundaries — used by
         # the long-video fan-out, where scenes are detected once up front
         # and chunks of them are processed on parallel workers.
         self._fixed_ranges = scene_ranges
+        # passthrough_firsts: scene starts (work-frame space) whose depth
+        # is BLACK — the scene ships as 2D (both eyes = source), so model
+        # inference is pure waste there. A start that matches no scene is
+        # simply never triggered (fail-soft).
+        self._passthrough = frozenset(int(f) for f in passthrough_firsts or [])
         if input_size % 14 != 0:
             raise ValueError(f"input_size must be a multiple of 14, got {input_size}")
         self.path = Path(path)
@@ -312,6 +318,13 @@ class DepthProcessor:
             seg = seg_dir / f"depth_{first:08d}_{last:08d}.mp4"
             if seg.exists() and count_frames(seg) == last - first:
                 logger.info(f"⏭  scene [{first}, {last}) already done, skipping")
+            elif first in self._passthrough:
+                # 2D passthrough scene: black depth, no model inference —
+                # the stereo stage ships these frames untouched anyway.
+                logger.info(f"⏩ passthrough scene [{first}, {last}) → black depth (no inference)")
+                write_black_segment(seg, num_frames=last - first, h=h, w=w, fps=fps)
+                if on_progress is not None:
+                    on_progress(num_frames + (last - first), total_frames)
             else:
                 on_window = None
                 if on_progress is not None:
@@ -355,6 +368,20 @@ class DepthProcessor:
         )
 
 
+
+
+def write_black_segment(file: str | Path, num_frames: int, h: int, w: int, fps: float) -> None:
+    """Write ``num_frames`` all-zero gray16le frames — the depth of a 2D
+    passthrough scene. One reused zero buffer keeps memory flat regardless
+    of scene length."""
+    frame = bytes(2 * h * w)  # one gray16le zero frame
+    writer = gray16_video_writer(h=h, w=w, fps=fps, file=file)
+    try:
+        for _ in range(num_frames):
+            writer.stdin.write(frame)
+    finally:
+        writer.stdin.close()
+        writer.wait()
 
 
 def gray16_video_writer(h: int, w: int, fps: float, file: str | Path) -> subprocess.Popen:

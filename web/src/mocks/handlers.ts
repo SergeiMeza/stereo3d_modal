@@ -203,8 +203,14 @@ function validateStepRequest(
   }
   const overrides = body.scene_overrides as SceneOverride[] | undefined;
   if (overrides !== undefined) {
-    if (step === "depth_preview") {
-      return err(400, "invalid_request", "scene_overrides is not a depth_preview parameter");
+    // depth_preview accepts PASSTHROUGH-ONLY overrides (2D scenes skip the
+    // AI depth pass, black depth) — depth knobs stay stereo/production-only.
+    if (step === "depth_preview" && overrides.some((o) => o.passthrough !== true)) {
+      return err(
+        400,
+        "invalid_request",
+        "scene_overrides[]: depth_preview accepts passthrough only; displacement/shot_type/placement apply to stereo_preview and production",
+      );
     }
     const cuts = new Set(p.scenes?.cuts ?? []);
     let prev = -1;
