@@ -58,6 +58,31 @@ export function maxDepthResForAspect(width: number, height: number): number {
 /** depth_res that prices at 1× (gateway depth_res_base) and the app default. */
 export const DEFAULT_DEPTH_RES = 980;
 
+/**
+ * The dimensions the depth stage actually works on. Preprocess removes
+ * letterbox/pillarbox bars before depth runs, and the backend enforces the
+ * VRAM ceiling on that POST-CROP work file — so a 2.39:1 film delivered in a
+ * 16:9 container must be capped at 2.39:1, not the container aspect (which
+ * offers values the backend then rejects mid-job). Analyze reports the
+ * detected crop as "W:H:X:Y"; use its W×H when parseable, else the container
+ * probe. Returns null when dimensions are unknown.
+ */
+export function depthContentDims(
+  probe: { width: number; height: number } | undefined,
+  crop: string | undefined,
+): { width: number; height: number } | null {
+  if (!probe || !probe.width || !probe.height) return null;
+  if (crop) {
+    const m = /^(\d+):(\d+):(\d+):(\d+)$/.exec(crop);
+    if (m) {
+      const w = Number(m[1]);
+      const h = Number(m[2]);
+      if (w > 0 && h > 0) return { width: w, height: h };
+    }
+  }
+  return { width: probe.width, height: probe.height };
+}
+
 export interface DepthResChoice {
   value: number;
   /** Optional quality name ("Standard"); "source native" for the synthetic
@@ -65,14 +90,20 @@ export interface DepthResChoice {
   name?: string;
 }
 
-/** Sold depth resolutions — all multiples of 14, cost/quality only. */
+/** Sold depth resolutions — all multiples of 14, cost/quality only. The
+ * unnamed steps track the Deliver presets' target heights so a depth choice
+ * exists near each delivery size: 1610 ≈ 3k's 1620, 1806 between 3k and 4k
+ * (the proven H200 16:9 maximum), 2156 = ⌊2160/14⌋·14 ≈ 4k. */
 const PRESET_CHOICES: readonly DepthResChoice[] = [
   { value: 518, name: "Draft" },
   { value: 700 },
   { value: 980, name: "Standard" },
   { value: 1148, name: "High" },
   { value: 1442, name: "Very high" },
+  { value: 1610 },
+  { value: 1806 },
   { value: 2100 },
+  { value: 2156 },
   { value: 2520, name: "Maximum" },
 ];
 

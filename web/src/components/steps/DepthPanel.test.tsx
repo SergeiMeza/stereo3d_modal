@@ -157,9 +157,31 @@ async function renderWithDepth(project = fixtureProject()) {
 
 describe("DepthPanel controls", () => {
   it("offers depth resolutions (no GPU tier) capped at source, with a source-native choice, 980 Standard preselected", () => {
-    // fixture source is 3840×2160 → short side 2160; the 2520 preset exceeds
-    // it and is dropped, and a source-native choice at 2156 (⌊2160/14⌋·14) is
-    // added as the ceiling. Labels carry NO GPU tier.
+    // An UNCROPPED 3840×2160 source → short side 2160; the 2520 preset
+    // exceeds it and is dropped, and the 2156 preset (⌊2160/14⌋·14) is the
+    // ceiling, relabeled source native. Labels carry NO GPU tier.
+    renderPanel(fixtureProject({ crop: undefined }));
+    const select = document.getElementById("depth-res") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      "518 — Draft",
+      "700",
+      "980 — Standard",
+      "1148 — High",
+      "1442 — Very high",
+      "1610",
+      "1806",
+      "2100",
+      "2156 — source native",
+    ]);
+    expect(select.value).toBe("980");
+  });
+
+  it("caps the choices at the POST-CROP dims for a letterboxed wide source", () => {
+    // The fixture is a 2.39:1 film in a 16:9 3840×2160 container (crop
+    // 3840:1606:0:276): depth runs on the bar-cropped frames, so the
+    // container options (2100, 2156) must NOT be offered — 2100 would fail
+    // on the backend at 2100² × 2.39 = 10.54 MP, over the 8.5 MP VRAM
+    // ceiling. The cropped short side (⌊1606/14⌋·14 = 1596) is the ceiling.
     renderPanel();
     const select = document.getElementById("depth-res") as HTMLSelectElement;
     expect([...select.options].map((o) => o.textContent)).toEqual([
@@ -168,10 +190,8 @@ describe("DepthPanel controls", () => {
       "980 — Standard",
       "1148 — High",
       "1442 — Very high",
-      "2100",
-      "2156 — source native",
+      "1596 — source native",
     ]);
-    expect(select.value).toBe("980");
   });
 
   it("exposes NO displacement, preset, formats, fps, or anaglyph copy — depth_res only", () => {

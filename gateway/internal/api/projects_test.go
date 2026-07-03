@@ -221,6 +221,48 @@ func TestResolveDepthResAspectCeiling(t *testing.T) {
 	}
 }
 
+// The bug this guards: Modal enforces the VRAM ceiling on the POST-CROP work
+// file (preprocess removes letterbox bars), so a 2.39:1 film in a 16:9
+// 3840×2160 container passed the container-aspect check here (2100² × 1.78 =
+// 7.84 MP ≤ 8.5) and then failed inside Modal at 2100² × 2.39 = 10.54 MP. The
+// gateway must validate at the analyze-detected content crop.
+func TestResolveDepthResCropAwareCeiling(t *testing.T) {
+	letterboxed := proProject()
+	letterboxed.Probe.Width, letterboxed.Probe.Height = 3840, 2160
+	letterboxed.Crop = "3840:1606:0:277" // 2.39:1 content inside the 16:9 container
+
+	// The container aspect alone would accept 2100; the crop must reject it.
+	resolveErrP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2100}, letterboxed,
+		"after black-bar crop")
+	// At or below the cropped-aspect cap (⌊√(8.5e6/2.391)⌋ → ×14 = 1876) passes.
+	if p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 1876}, letterboxed); p.DepthRes != 1876 {
+		t.Errorf("depth_res 1876 must clear the cropped 2.39:1 ceiling, got %d", p.DepthRes)
+	}
+
+	// Same container WITHOUT a crop: 2100 fits the 16:9 ceiling (7.84 MP).
+	uncropped := proProject()
+	uncropped.Probe.Width, uncropped.Probe.Height = 3840, 2160
+	if p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2100}, uncropped); p.DepthRes != 2100 {
+		t.Errorf("uncropped 16:9 depth_res 2100 must pass, got %d", p.DepthRes)
+	}
+
+	// A malformed crop string falls back to the container probe (no crash,
+	// container-aspect validation).
+	malformed := proProject()
+	malformed.Probe.Width, malformed.Probe.Height = 3840, 2160
+	malformed.Crop = "not-a-crop"
+	if p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2100}, malformed); p.DepthRes != 2100 {
+		t.Errorf("malformed crop must fall back to probe dims, got %d", p.DepthRes)
+	}
+	// A full-frame crop (no bars detected) behaves identically to no crop.
+	fullframe := proProject()
+	fullframe.Probe.Width, fullframe.Probe.Height = 3840, 2160
+	fullframe.Crop = "3840:2160:0:0"
+	if p := resolveOKP(t, &stepConvReq{Step: store.StepProduction, DepthRes: 2100}, fullframe); p.DepthRes != 2100 {
+		t.Errorf("full-frame crop depth_res 2100 must pass, got %d", p.DepthRes)
+	}
+}
+
 func TestResolveDepthScaleValidation(t *testing.T) {
 	for _, v := range []float64{0, 0.3, 1.0, 1.5} {
 		p := resolveOK(t, &stepConvReq{Step: store.StepStereoPreview, DepthScale: v})

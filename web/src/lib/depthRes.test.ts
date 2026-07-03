@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   clampDepthRes,
   DEFAULT_DEPTH_RES,
+  depthContentDims,
   depthResChoices,
   depthResLabel,
   maxDepthResForAspect,
@@ -12,10 +13,11 @@ describe("depthResChoices", () => {
   it("offers all presets for a large 16:9 source and a source-native ceiling", () => {
     // 3840×2160 → short side 2160; the 2520 preset exceeds it and is dropped.
     // The 16:9 aspect cap (⌊√(8.5e6/1.78)⌋ ≈ 2184 → 2184) is above the short
-    // side, so the source short side binds: source-native = ⌊2160/14⌋·14 = 2156.
+    // side, so the source short side binds: source-native = ⌊2160/14⌋·14 = 2156,
+    // which coincides with the 2156 preset and is relabeled.
     const c = depthResChoices(3840, 2160);
     expect(c.map((x) => x.value)).toEqual([
-      518, 700, 980, 1148, 1442, 2100, 2156,
+      518, 700, 980, 1148, 1442, 1610, 1806, 2100, 2156,
     ]);
     expect(c[c.length - 1]).toMatchObject({ value: 2156, name: "source native" });
   });
@@ -29,7 +31,9 @@ describe("depthResChoices", () => {
     // the aspect cap binds and the top choice is labeled "aspect max".
     const c = depthResChoices(5120, 2142);
     expect(c.every((x) => x.value <= 1876)).toBe(true);
-    expect(c.map((x) => x.value)).toEqual([518, 700, 980, 1148, 1442, 1876]);
+    expect(c.map((x) => x.value)).toEqual([
+      518, 700, 980, 1148, 1442, 1610, 1806, 1876,
+    ]);
     expect(c[c.length - 1]).toMatchObject({ value: 1876, name: "aspect max" });
     // Every offered value stays within the VRAM ceiling.
     const long = 5120,
@@ -62,6 +66,39 @@ describe("depthResChoices", () => {
     const c = depthResChoices(100, 100);
     expect(c.every((x) => x.value >= 140)).toBe(true);
     expect(c[0].value).toBe(140);
+  });
+});
+
+describe("depthContentDims", () => {
+  const probe = { width: 3840, height: 2160 };
+
+  it("returns the crop W×H for a letterboxed source — the dims depth runs on", () => {
+    // 2.39:1 film in a 16:9 container: preprocess removes the bars, so depth
+    // works on 3840×1606, and the choices must bind at THAT aspect. This is
+    // the exact failure seen in prod: the container aspect offered 2100
+    // (7.84 MP at 16:9), Modal then failed at 2100²×2.39 = 10.54 MP.
+    expect(depthContentDims(probe, "3840:1606:0:277")).toEqual({
+      width: 3840,
+      height: 1606,
+    });
+    const dims = depthContentDims(probe, "3840:1606:0:277")!;
+    const c = depthResChoices(dims.width, dims.height);
+    // cropped short side 1606 → source cap ⌊1606/14⌋·14 = 1596 binds (the
+    // 2.39:1 aspect cap is 1876, higher). 2100 is no longer offered.
+    expect(c.map((x) => x.value)).toEqual([518, 700, 980, 1148, 1442, 1596]);
+    expect(c[c.length - 1]).toMatchObject({ value: 1596, name: "source native" });
+  });
+
+  it("falls back to the probe when the crop is absent or malformed", () => {
+    expect(depthContentDims(probe, undefined)).toEqual(probe);
+    expect(depthContentDims(probe, "")).toEqual(probe);
+    expect(depthContentDims(probe, "not-a-crop")).toEqual(probe);
+    expect(depthContentDims(probe, "3840:0:0:0")).toEqual(probe);
+  });
+
+  it("returns null when the probe is unknown", () => {
+    expect(depthContentDims(undefined, "3840:1606:0:277")).toBeNull();
+    expect(depthContentDims({ width: 0, height: 0 }, undefined)).toBeNull();
   });
 });
 

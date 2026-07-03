@@ -440,6 +440,27 @@ func depthWorkMP(depthRes, width, height int) float64 {
 	return float64(depthRes) * float64(depthRes) * elongation / 1e6
 }
 
+// depthContentDims returns the dimensions the depth stage actually works on.
+// Preprocess removes letterbox/pillarbox bars before depth runs, and Modal
+// enforces the VRAM ceiling on that POST-CROP work file — so a 2.39:1 film
+// delivered in a 16:9 container must be validated at 2.39:1, not at the
+// container aspect (which passes values Modal then rejects mid-job). Analyze
+// stores the detected crop on the project as "W:H:X:Y"; use its W×H when
+// parseable, else fall back to the container probe. cropped reports whether
+// the crop changed the dims (for the error message).
+func depthContentDims(p *store.Project) (width, height int, cropped bool) {
+	if p.Probe == nil || p.Probe.Width <= 0 || p.Probe.Height <= 0 {
+		return 0, 0, false
+	}
+	if p.Crop != "" {
+		var w, h, x, y int
+		if n, err := fmt.Sscanf(p.Crop, "%d:%d:%d:%d", &w, &h, &x, &y); n == 4 && err == nil && w > 0 && h > 0 {
+			return w, h, w != p.Probe.Width || h != p.Probe.Height
+		}
+	}
+	return p.Probe.Width, p.Probe.Height, false
+}
+
 // resolveStepParams clamps the request into a step template. Only fields
 // validated here reach Modal (via modalBody). All pro steps run the adaptive
 // per-shot profiler upstream (modalBody sets adaptive=true); scene_overrides
@@ -494,17 +515,23 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		// Aspect-aware VRAM ceiling: mirror Modal's work_mp = depth_res² ×
 		// elongation ≤ B200_MAX_MP. The flat rail above passes wide-aspect
 		// values Modal cannot fit; reject them here with the largest depth_res
-		// this source's aspect actually allows.
-		if p.Probe != nil && p.Probe.Width > 0 && p.Probe.Height > 0 {
-			if mp := depthWorkMP(req.DepthRes, p.Probe.Width, p.Probe.Height); mp > depthB200MaxMP {
-				long := max(p.Probe.Width, p.Probe.Height)
-				short := max(min(p.Probe.Width, p.Probe.Height), 1)
+		// this source's aspect actually allows. Dims are POST-CROP (see
+		// depthContentDims): Modal checks the ceiling on the bar-removed work
+		// file, so a letterboxed wide film binds at its content aspect.
+		if w, h, cropped := depthContentDims(p); w > 0 && h > 0 {
+			if mp := depthWorkMP(req.DepthRes, w, h); mp > depthB200MaxMP {
+				long := max(w, h)
+				short := max(min(w, h), 1)
 				elongation := float64(long) / float64(short)
 				// max depth_res = floor(sqrt(ceiling / elongation)) rounded down to ×14
 				maxRes := int(math.Sqrt(depthB200MaxMP*1e6/elongation)) / 14 * 14
+				aspect := fmt.Sprintf("%.2f:1 aspect", elongation)
+				if cropped {
+					aspect += " after black-bar crop"
+				}
 				return params, httpx.ErrInvalid(fmt.Sprintf(
-					"depth_res %d too high for this source: %.2f MP/frame (%.2f:1 aspect) exceeds the GPU VRAM ceiling (~%.1f MP). Lower depth_res to at most %d.",
-					req.DepthRes, mp, elongation, depthB200MaxMP, maxRes))
+					"depth_res %d too high for this source: %.2f MP/frame (%s) exceeds the GPU VRAM ceiling (~%.1f MP). Lower depth_res to at most %d.",
+					req.DepthRes, mp, aspect, depthB200MaxMP, maxRes))
 			}
 		}
 		params.DepthRes = req.DepthRes
@@ -947,11 +974,11 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 		"project_id":   p.ID,
 		"name":         p.Name,
 		"source_bytes": p.Source.Bytes,
-		"analyze": analyzeResponse(&p.Analyze),
-		"archived":   p.Archived,
-		"pinned":     p.Pinned,
-		"created_at": p.CreatedAt.Format(time.RFC3339),
-		"updated_at": p.UpdatedAt.Format(time.RFC3339),
+		"analyze":      analyzeResponse(&p.Analyze),
+		"archived":     p.Archived,
+		"pinned":       p.Pinned,
+		"created_at":   p.CreatedAt.Format(time.RFC3339),
+		"updated_at":   p.UpdatedAt.Format(time.RFC3339),
 	}
 	if p.Probe != nil {
 		resp["probe"] = p.Probe

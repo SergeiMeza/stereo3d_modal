@@ -46,6 +46,7 @@ import type { Conversion, Project, StepConversionRequest } from "@/lib/api/types
 import {
   clampDepthRes,
   DEFAULT_DEPTH_RES,
+  depthContentDims,
   depthResChoices,
   depthResLabel,
 } from "@/lib/depthRes";
@@ -87,10 +88,13 @@ export function DepthPanel({
       ? parseRational(project.probe.fps_rational)
       : null;
 
-  // depth_res is capped by the source short side AND the aspect-aware VRAM
-  // ceiling (wide sources hit the GPU limit sooner) — see lib/depthRes.
-  const resChoices = project.probe
-    ? depthResChoices(project.probe.width, project.probe.height)
+  // depth_res is capped by the content short side AND the aspect-aware VRAM
+  // ceiling — both computed on the POST-CROP dims (black bars are removed
+  // before depth runs, so a letterboxed wide film binds at its content
+  // aspect, not the container's) — see lib/depthRes.
+  const contentDims = depthContentDims(project.probe, project.crop);
+  const resChoices = contentDims
+    ? depthResChoices(contentDims.width, contentDims.height)
     : depthResChoices(DEFAULT_DEPTH_RES, DEFAULT_DEPTH_RES);
   const [depthRes, setDepthRes] = useState(() =>
     clampDepthRes(DEFAULT_DEPTH_RES, resChoices),
