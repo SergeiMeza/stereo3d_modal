@@ -12,8 +12,11 @@
 //     off-session against the saved card (one PaymentIntent per conversion,
 //     deterministic idempotency key so a crash-retry can never double-charge)
 //
-// Every PaymentIntent carries {conversion_id, user_id, env} metadata so the
-// Stripe dashboard links straight back to the job record for support.
+// Every PaymentIntent carries {conversion_id, user_id, env, description}
+// metadata so the Stripe dashboard links straight back to the job record for
+// support, plus a user-facing Description and receipt_email — Stripe emails
+// the receipt automatically when the charge settles (live mode only; Stripe
+// never sends receipts for test charges).
 package stripex
 
 import (
@@ -76,6 +79,35 @@ func (c *Client) BillingPortalURL(customerID, returnURL string) (string, error) 
 	return s.URL, nil
 }
 
+// Job ties a PaymentIntent to the conversion it pays for and to what the
+// user sees for it.
+type Job struct {
+	ConversionID string
+	UID          string
+	// Description is user-facing: the Stripe dashboard payment row, the
+	// emailed receipt, and the customer portal all show it. Also copied
+	// into metadata so support sees the job type next to conversion_id.
+	Description string
+	// ReceiptEmail makes Stripe email a receipt when the charge settles.
+	// Empty → no receipt email.
+	ReceiptEmail string
+}
+
+// stamp applies the job's metadata, description, and receipt email to
+// PaymentIntent create params.
+func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
+	params.AddMetadata("conversion_id", job.ConversionID)
+	params.AddMetadata("user_id", job.UID)
+	params.AddMetadata("env", c.env)
+	if job.Description != "" {
+		params.Description = stripe.String(job.Description)
+		params.AddMetadata("description", job.Description)
+	}
+	if job.ReceiptEmail != "" {
+		params.ReceiptEmail = stripe.String(job.ReceiptEmail)
+	}
+}
+
 type PaymentSheet struct {
 	PaymentIntentID     string `json:"-"`
 	ClientSecret        string `json:"payment_intent_client_secret"`
@@ -86,7 +118,7 @@ type PaymentSheet struct {
 
 // CreateHold creates the manual-capture PaymentIntent plus the ephemeral key
 // the mobile PaymentSheet needs.
-func (c *Client) CreateHold(customerID string, amountCents int64, currency, conversionID, uid string) (*PaymentSheet, error) {
+func (c *Client) CreateHold(customerID string, amountCents int64, currency string, job Job) (*PaymentSheet, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
 		Currency:      stripe.String(currency),
@@ -96,9 +128,7 @@ func (c *Client) CreateHold(customerID string, amountCents int64, currency, conv
 			Enabled: stripe.Bool(true),
 		},
 	}
-	params.AddMetadata("conversion_id", conversionID)
-	params.AddMetadata("user_id", uid)
-	params.AddMetadata("env", c.env)
+	c.stamp(params, job)
 	// NO deterministic idempotency key: concurrent creates for the same
 	// upload must get DISTINCT PIs, so a loser canceling its own hold can
 	// never kill the winner's. App-level retry safety comes from the
@@ -272,7 +302,7 @@ func cardInfo(pm *stripe.PaymentMethod) *CardInfo {
 // with the PI attached — the web client completes it via confirmCardPayment
 // and the amount_capturable_updated webhook takes over. Deterministic
 // idempotency key: one hold per conversion, ever.
-func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amountCents int64, currency, conversionID, uid string) (*stripe.PaymentIntent, error) {
+func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
 		Currency:      stripe.String(currency),
@@ -282,10 +312,8 @@ func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amount
 		OffSession:    stripe.Bool(true),
 		CaptureMethod: stripe.String(string(stripe.PaymentIntentCaptureMethodManual)),
 	}
-	params.AddMetadata("conversion_id", conversionID)
-	params.AddMetadata("user_id", uid)
-	params.AddMetadata("env", c.env)
-	params.SetIdempotencyKey("hold_" + c.env + "_" + conversionID)
+	c.stamp(params, job)
+	params.SetIdempotencyKey("hold_" + c.env + "_" + job.ConversionID)
 	return paymentintent.New(params)
 }
 
@@ -293,7 +321,7 @@ func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amount
 // capture) for a succeeded conversion. The deterministic idempotency key
 // makes the create safe to retry after a crash — the same conversion can
 // never mint two PaymentIntents.
-func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int64, currency, conversionID, uid string) (*stripe.PaymentIntent, error) {
+func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
 		Currency:      stripe.String(currency),
@@ -302,20 +330,22 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 		Confirm:       stripe.Bool(true),
 		OffSession:    stripe.Bool(true),
 	}
-	params.AddMetadata("conversion_id", conversionID)
-	params.AddMetadata("user_id", uid)
-	params.AddMetadata("env", c.env)
-	params.SetIdempotencyKey("charge_" + c.env + "_" + conversionID)
+	c.stamp(params, job)
+	params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
 	return paymentintent.New(params)
 }
 
 // ConfirmSavedCharge retries an existing charge PaymentIntent (decline or
 // 3DS follow-up) against the customer's CURRENT default payment method —
-// one PI per conversion, however many attempts it takes.
-func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID string) (*stripe.PaymentIntent, error) {
+// one PI per conversion, however many attempts it takes. receiptEmail
+// backfills the receipt recipient on PIs created before receipts existed.
+func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID, receiptEmail string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentConfirmParams{OffSession: stripe.Bool(true)}
 	if paymentMethodID != "" {
 		params.PaymentMethod = stripe.String(paymentMethodID)
+	}
+	if receiptEmail != "" {
+		params.ReceiptEmail = stripe.String(receiptEmail)
 	}
 	pi, err := paymentintent.Confirm(paymentIntentID, params)
 	if err != nil && stripeErrCode(err) == "payment_intent_unexpected_state" {

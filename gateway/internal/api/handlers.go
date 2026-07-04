@@ -367,7 +367,12 @@ func (s *Service) createPaidConversion(ctx context.Context, user *AuthedUser, co
 		s.restoreCredit(ctx, conv)
 		return nil, err
 	}
-	sheet, err := s.Stripe.CreateHold(cust.StripeCustomerID, conv.Quote.AmountCents, conv.Quote.Currency, conv.ID, user.UID)
+	sheet, err := s.Stripe.CreateHold(cust.StripeCustomerID, conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+		ConversionID: conv.ID,
+		UID:          user.UID,
+		Description:  jobDescription(conv),
+		ReceiptEmail: user.Email,
+	})
 	if err != nil {
 		httpx.Log(ctx).Error("stripe hold failed", "conversion_id", conv.ID, "err", err)
 		s.restoreCredit(ctx, conv)

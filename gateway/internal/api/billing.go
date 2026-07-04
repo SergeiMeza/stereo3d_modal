@@ -32,6 +32,27 @@ const unpaidLimit = 10
 // Code constant by design.
 const holdThresholdCents = 10000
 
+// jobDescription renders a conversion as the user-facing charge description:
+// it appears on the Stripe dashboard payment, the emailed receipt, and is
+// copied into PaymentIntent metadata for support.
+func jobDescription(conv *store.Conversion) string {
+	switch conv.Step {
+	case store.StepDepthPreview:
+		return "Depth preview"
+	case store.StepStereoPreview:
+		if conv.Params.Inpaint != "" && conv.Params.Inpaint != "none" {
+			return "Stereo preview with inpainting"
+		}
+		return "Stereo preview"
+	case store.StepProduction:
+		return "Production 3D render"
+	}
+	if conv.Kind == "image" {
+		return "3D image conversion"
+	}
+	return "3D video conversion"
+}
+
 // refreshCardCache reads the live default payment method from Stripe and
 // folds it into the uid → customer cache the conversion-create gate reads.
 // On a Stripe read error the stale cache is returned — billing status must

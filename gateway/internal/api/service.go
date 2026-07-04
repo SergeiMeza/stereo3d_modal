@@ -431,7 +431,7 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 	var chErr error
 	switch {
 	case conv.Stripe.PaymentIntentID != "":
-		pi, chErr = s.Stripe.ConfirmSavedCharge(conv.Stripe.PaymentIntentID, cust.DefaultPaymentMethod)
+		pi, chErr = s.Stripe.ConfirmSavedCharge(conv.Stripe.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
 	case cust.DefaultPaymentMethod == "":
 		// Card removed between the gate and success — needs the user.
 		return s.recordChargeFailure(ctx, conv, stripex.ChargeFailure{
@@ -439,7 +439,12 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 		})
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
-			conv.Quote.AmountCents, conv.Quote.Currency, conv.ID, conv.UID)
+			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+				ConversionID: conv.ID,
+				UID:          conv.UID,
+				Description:  jobDescription(conv),
+				ReceiptEmail: cust.Email,
+			})
 	}
 
 	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||

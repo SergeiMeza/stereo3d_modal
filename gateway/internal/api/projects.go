@@ -1041,7 +1041,12 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	if quote.AmountCents >= holdThresholdCents {
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
 		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
-			quote.AmountCents, quote.Currency, conv.ID, user.UID)
+			quote.AmountCents, quote.Currency, stripex.Job{
+				ConversionID: conv.ID,
+				UID:          user.UID,
+				Description:  jobDescription(conv),
+				ReceiptEmail: user.Email,
+			})
 		if herr != nil {
 			fail := stripex.ClassifyChargeError(herr)
 			if fail.NeedsAction && fail.PaymentIntentID != "" {
