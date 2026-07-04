@@ -1010,7 +1010,7 @@
     "semantic_hash": "f64110ad6b20c41ba787fb248d1a60cf"
   },
   "web/next-env.d.ts": {
-    "mtime": 1783137042.7458608,
+    "mtime": 1783139145.6021624,
     "ast_hash": "2a74d3909800ca5467fa83b0ab4a4890",
     "semantic_hash": ""
   },
@@ -2170,17 +2170,17 @@
     "semantic_hash": ""
   },
   "web/src/components/landing/BrowserFrame.tsx": {
-    "mtime": 1783132685.09195,
-    "ast_hash": "9d2bf8ce5a4b68c2dccdc814c0256c50",
+    "mtime": 1783139053.7534883,
+    "ast_hash": "887f0b3ab422650d47d7d0d8ed8682bd",
     "semantic_hash": ""
   },
   "web/src/components/landing/WorkflowTabs.tsx": {
-    "mtime": 1783132685.092077,
-    "ast_hash": "9fbfe384c08d4c2099feb1b7e1d5999d",
+    "mtime": 1783139077.497333,
+    "ast_hash": "506bd2837bde971da52a6f5006d2299f",
     "semantic_hash": ""
   },
   "web/docs/LANDING.md": {
-    "mtime": 1783138640.838815,
+    "mtime": 1783138690.792371,
     "ast_hash": "493730edfb4d0dc96aa56d3865b7c5dc",
     "semantic_hash": ""
   },
@@ -2270,7 +2270,7 @@
     "semantic_hash": ""
   },
   "web/src/lib/site.ts": {
-    "mtime": 1783138638.3612309,
+    "mtime": 1783138690.7924936,
     "ast_hash": "b8e4d817752a9e78f9f39501b0e6239d",
     "semantic_hash": ""
   },

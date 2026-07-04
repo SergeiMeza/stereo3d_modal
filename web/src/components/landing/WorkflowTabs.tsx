@@ -26,6 +26,8 @@ interface Tab {
   title: string;
   detail: string;
   image: string;
+  /** Intrinsic size of the webp — the panel shows the full screenshot. */
+  dims: { width: number; height: number };
   alt: string;
 }
 
@@ -38,6 +40,7 @@ const TABS: Tab[] = [
     detail:
       "Resolution, frame rate, duration, scene count — reviewed on a frame-exact player before you spend anything.",
     image: "/landing/media-tab.webp",
+    dims: { width: 1600, height: 1705 },
     alt: "Media page of Stereo3D Studio showing a frame-exact source player, filmstrip and source details",
   },
   {
@@ -48,6 +51,7 @@ const TABS: Tab[] = [
     detail:
       "Cuts are detected automatically and stay fully editable — add, merge, import or export, every boundary exact to the frame. Depth resets exactly where your scenes do.",
     image: "/landing/cut-tab.webp",
+    dims: { width: 1600, height: 1705 },
     alt: "Cut page of Stereo3D Studio showing editable scene-cut markers on a filmstrip and a grid of detected scenes",
   },
   {
@@ -58,6 +62,7 @@ const TABS: Tab[] = [
     detail:
       "AI depth maps rendered side by side with your footage, stable across the whole shot. Pick the quality knob, exclude scenes that should stay 2D, export the map or bring your own.",
     image: "/landing/depth-tab.webp",
+    dims: { width: 1600, height: 1734 },
     alt: "Depth page of Stereo3D Studio showing the source frame next to its computed depth map and per-scene 3D toggles",
   },
   {
@@ -68,6 +73,7 @@ const TABS: Tab[] = [
     detail:
       "Every scene is measured and classified automatically — close-up, standard, wide. Review against the real footage, override the depth strength only where it matters, keep credits and logos flat.",
     image: "/landing/stereo-tab.webp",
+    dims: { width: 1600, height: 1734 },
     alt: "Stereo page of Stereo3D Studio showing per-scene 3D classification with manual overrides next to a live depth preview",
   },
   {
@@ -78,6 +84,7 @@ const TABS: Tab[] = [
     detail:
       "The production render inherits your preview work — approved depth, scene tweaks — and reuses it at a discount. Pick a preset up to 4K and check every format you need.",
     image: "/landing/deliver-tab.webp",
+    dims: { width: 1600, height: 1734 },
     alt: "Deliver page of Stereo3D Studio showing inherited preview settings, a quality preset picker and output format checkboxes",
   },
 ];
@@ -133,7 +140,7 @@ export function WorkflowTabs() {
             {active.detail}
           </p>
         </div>
-        <BrowserFrame src={active.image} alt={active.alt} />
+        <BrowserFrame src={active.image} alt={active.alt} dims={active.dims} />
       </div>
     </div>
   );

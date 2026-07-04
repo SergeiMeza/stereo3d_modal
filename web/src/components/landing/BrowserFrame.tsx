@@ -1,7 +1,10 @@
 /**
  * Faux-browser chrome around landing screenshots: dark card, three window
- * dots, and a fixed aspect crop (the app screenshots are full-page and
- * tall — the top region holds the interesting UI). Pure presentation.
+ * dots. Two display modes: pass `dims` (the asset's intrinsic size) to
+ * show the full screenshot at its natural aspect — used by the workflow
+ * tabs so nothing is cut off — or omit it for a fixed-aspect top crop
+ * (the hero, where a cinematic ratio matters more than completeness).
+ * Pure presentation.
  */
 
 import Image from "next/image";
@@ -12,12 +15,15 @@ export function BrowserFrame({
   priority = false,
   aspect = "aspect-[16/10]",
   sizes = "(max-width: 1024px) 100vw, 960px",
+  dims,
 }: {
   src: string;
   alt: string;
   priority?: boolean;
   aspect?: string;
   sizes?: string;
+  /** Intrinsic asset size; when set, the full image renders uncropped. */
+  dims?: { width: number; height: number };
 }) {
   return (
     <figure className="overflow-hidden rounded-xl border border-edge bg-card shadow-2xl shadow-black/40">
@@ -26,16 +32,28 @@ export function BrowserFrame({
         <span className="size-2.5 rounded-full bg-secondary" />
         <span className="size-2.5 rounded-full bg-secondary" />
       </div>
-      <div className={`relative ${aspect}`}>
+      {dims ? (
         <Image
           src={src}
           alt={alt}
-          fill
+          width={dims.width}
+          height={dims.height}
           priority={priority}
           sizes={sizes}
-          className="object-cover object-top"
+          className="h-auto w-full"
         />
-      </div>
+      ) : (
+        <div className={`relative ${aspect}`}>
+          <Image
+            src={src}
+            alt={alt}
+            fill
+            priority={priority}
+            sizes={sizes}
+            className="object-cover object-top"
+          />
+        </div>
+      )}
     </figure>
   );
 }
