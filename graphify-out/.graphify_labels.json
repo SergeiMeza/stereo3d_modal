@@ -366,5 +366,10 @@
   "364": "SetupIntent Onboarding Card Capture",
   "365": "stage_shares Reuse Discount",
   "366": "Stripe Billing Integration",
-  "367": "Pro web client (1 video, 1 project)"
+  "367": "Pro web client (1 video, 1 project)",
+  "368": "StereoPanel.test.tsx",
+  "369": "discretizer.py",
+  "370": "StepTab.test.tsx",
+  "371": "checkpoint",
+  "372": "DepthPanel.test.tsx"
 }

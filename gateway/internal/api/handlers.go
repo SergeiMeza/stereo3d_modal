@@ -454,6 +454,14 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 	})
 }
 
+// cancelWindow: a job may only be canceled within this long of its Modal
+// submission. Past it the GPU spend is committed — the run settles (and
+// bills) normally. Conversions not yet submitted (payment hold pending)
+// stay cancelable indefinitely so users are never trapped with a hold.
+const cancelWindow = time.Minute
+
+var errCancelWindowClosed = errors.New("cancel window closed")
+
 // DELETE /v1/conversions/{id} — cancel job + release hold.
 func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
@@ -471,11 +479,21 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 	// return the terminal state instead of touching the money. The
 	// cancel_pending marker makes the hold release crash-safe (reconciler
 	// sweeps it), and releaseHold is the one place that touches the PI.
+	// The cancel-window check runs INSIDE the transaction so a submit that
+	// lands between our read and the claim can't be canceled past its window.
 	updated, err := s.Store.Transition(ctx, id, store.ActiveStates, func(c *store.Conversion) error {
+		if c.Modal.SubmittedAt != nil && time.Since(*c.Modal.SubmittedAt) > cancelWindow {
+			return errCancelWindowClosed
+		}
 		c.State = store.StateCanceled
 		c.Stripe.PIStatus = store.PICancelPending
 		return nil
 	})
+	if errors.Is(err, errCancelWindowClosed) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "cancel_window_closed",
+			"this job has been running for over a minute and can no longer be canceled"))
+		return
+	}
 	if errors.Is(err, store.ErrStateConflict) {
 		if current, gerr := s.Store.GetConversion(ctx, id); gerr == nil {
 			httpx.WriteOK(w, s.conversionResponse(current, nil))
@@ -544,6 +562,12 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	resp["progress"] = c.Modal.Progress
 	resp["stage"] = c.Modal.Stage
 	resp["eta_seconds"] = c.Modal.ETASeconds
+	// Once submitted, cancel is only allowed for cancelWindow — tell the
+	// client when the button should disappear. Absent before submission
+	// (always cancelable) and on terminal states (nothing to cancel).
+	if !store.IsTerminal(c.State) && c.Modal.SubmittedAt != nil {
+		resp["cancelable_until"] = c.Modal.SubmittedAt.Add(cancelWindow).Format(time.RFC3339)
+	}
 	resp["created_at"] = c.CreatedAt.Format(time.RFC3339)
 	resp["updated_at"] = c.UpdatedAt.Format(time.RFC3339)
 	if c.State == store.StateSucceeded {

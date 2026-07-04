@@ -248,6 +248,10 @@ export interface Conversion {
   progress: number; // 0..1
   stage?: string; // current pipeline stage while processing
   eta_seconds?: number;
+  /** RFC3339 deadline after which the running job can no longer be
+   * canceled (1 minute after GPU submission). Absent while the job hasn't
+   * started (always cancelable) and on terminal states. */
+  cancelable_until?: string;
   outputs?: string[]; // names only (state=succeeded); URLs via /downloads
   error?: ConversionError;
   /** how the automatic charge went — succeeded pro-step conversions only */
@@ -286,7 +290,8 @@ export interface APIErrorBody {
    * payment_error | upstream_error | server_error, plus the 402 billing
    * gates: no_payment_method (onboarding needed) | billing_overdue (an
    * automatic charge failed — settle before new paid work) | card_declined
-   * (the up-front hold on an expensive run was declined) */
+   * (the up-front hold on an expensive run was declined), plus
+   * cancel_window_closed (409: the job ran past the 1-minute cancel window) */
   error: string;
   message: string;
   details?: Record<string, unknown>;

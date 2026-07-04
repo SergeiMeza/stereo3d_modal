@@ -750,19 +750,19 @@
     "semantic_hash": "beaee8fb40de9e22f98ba46e35b05adc"
   },
   "gateway/internal/api/billing.go": {
-    "mtime": 1783060443.730701,
-    "ast_hash": "7433d850292554210d3db09b965661ad",
-    "semantic_hash": "7433d850292554210d3db09b965661ad"
+    "mtime": 1783128715.8807874,
+    "ast_hash": "8653caf45c70a0c18ea3deff6d68b987",
+    "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1783059642.4366386,
-    "ast_hash": "46b529dca22cd2c4a5eff67a41c8d1c8",
-    "semantic_hash": "46b529dca22cd2c4a5eff67a41c8d1c8"
+    "mtime": 1783128737.8494928,
+    "ast_hash": "30dc819b6b71f2e05cd900b35999387f",
+    "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
-    "mtime": 1783063717.3391607,
-    "ast_hash": "5f76f5cc6418827b9a29957d693227a1",
-    "semantic_hash": "5f76f5cc6418827b9a29957d693227a1"
+    "mtime": 1783128721.0578313,
+    "ast_hash": "7fb3f28e6a3dbd6c997c1e27eefcd812",
+    "semantic_hash": ""
   },
   "gateway/internal/api/projects_test.go": {
     "mtime": 1783063801.6253717,
@@ -775,9 +775,9 @@
     "semantic_hash": "48d9a7f4cf76a883b3a2d310e8fd6f7e"
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1783078514.5733008,
-    "ast_hash": "25fcf2dd2f4c618684e591550f48ffe6",
-    "semantic_hash": "25fcf2dd2f4c618684e591550f48ffe6"
+    "mtime": 1783128727.8725762,
+    "ast_hash": "191b93c06582480371dd058a1f05b986",
+    "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
     "mtime": 1783078563.8652148,
@@ -865,9 +865,9 @@
     "semantic_hash": "f17576bd1a5ddc537e2a3ccb3b445278"
   },
   "gateway/internal/stripex/stripex.go": {
-    "mtime": 1783039141.6191187,
-    "ast_hash": "86fc7520a4e2ce4e5882437e61bf804a",
-    "semantic_hash": "86fc7520a4e2ce4e5882437e61bf804a"
+    "mtime": 1783128696.994434,
+    "ast_hash": "85149cd624a258d9a2a2e027a8bd87b1",
+    "semantic_hash": ""
   },
   "gateway/internal/stripex/stripex_test.go": {
     "mtime": 1783039141.6192172,

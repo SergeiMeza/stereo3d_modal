@@ -35,6 +35,16 @@ const CANCELABLE: ReadonlySet<ConversionState> = new Set([
   "processing",
 ]);
 
+/** A job can be canceled while in an active state, but only until the
+ * gateway's cancel window closes (1 minute after GPU submission —
+ * `cancelable_until`; the gateway enforces this with a 409). Re-evaluated
+ * on every poll tick, so the button disappears within one interval. */
+function cancelable(conv: Conversion): boolean {
+  if (!CANCELABLE.has(conv.state)) return false;
+  if (!conv.cancelable_until) return true; // not yet submitted
+  return Date.now() < Date.parse(conv.cancelable_until);
+}
+
 function formatEta(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const m = Math.floor(seconds / 60);
@@ -161,7 +171,7 @@ export function ConversionTracker({
             </span>
           ) : null}
         </div>
-        {CANCELABLE.has(conv.state) ? (
+        {cancelable(conv) ? (
           <Button
             variant="outline"
             size="xs"
