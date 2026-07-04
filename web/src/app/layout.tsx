@@ -6,6 +6,7 @@ import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
+import { SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
 import "./globals.css";
@@ -20,24 +21,38 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Absolute base for OG/twitter image URLs. Vercel injects the prod
- * domain; NEXT_PUBLIC_SITE_URL can override (e.g. a custom domain). */
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
+const description =
+  "Convert 2D video to true stereoscopic 3D — spatial video for Apple Vision Pro, SBS for Meta Quest and every 3D display. Pay per render with a binding quote.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: "Stereo3D Studio",
-  description:
-    "Studio-grade 2D-to-3D video conversion. Direct the depth scene by scene and deliver spatial video to Apple Vision Pro, Meta Quest, Samsung Galaxy XR and every 3D display — pay per render, with a binding quote up front.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Stereo3D Studio — Convert 2D Video to 3D for VR Headsets",
+    template: "%s — Stereo3D Studio",
+  },
+  description,
+  applicationName: "Stereo3D Studio",
   openGraph: {
+    type: "website",
+    siteName: "Stereo3D Studio",
+    locale: "en_US",
     title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
     description:
       "Upload a video, direct the depth scene by scene, and deliver true stereoscopic 3D to every headset.",
-    images: ["/landing/stereo-tab.webp"],
+    images: [
+      {
+        url: "/landing/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Stereo3D Studio: source footage next to its live depth map, with per-scene 3D controls",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
+    description,
+    images: ["/landing/og.jpg"],
   },
 };
 

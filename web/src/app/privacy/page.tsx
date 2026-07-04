@@ -12,9 +12,10 @@ import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Stereo3D Studio",
+  title: "Privacy Policy",
   description:
     "How Stereo3D Studio collects, uses, stores and protects your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

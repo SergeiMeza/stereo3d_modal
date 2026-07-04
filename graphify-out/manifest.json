@@ -1040,8 +1040,8 @@
     "semantic_hash": "c1e11074c3b710b1b37b934698e2dcb8"
   },
   "web/src/app/layout.tsx": {
-    "mtime": 1783132685.0913312,
-    "ast_hash": "f8ac404a75e6479ef492872316f36f08",
+    "mtime": 1783137926.7997918,
+    "ast_hash": "9022e1d7bbd01845671c0d10e25f465a",
     "semantic_hash": ""
   },
   "web/src/app/onboarding/page.tsx": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": "740f507278af6639b9ef38b7e701e682"
   },
   "web/src/app/page.tsx": {
-    "mtime": 1783137015.6620636,
-    "ast_hash": "0e84331949ffd010a79a5253399dcf32",
+    "mtime": 1783137813.180028,
+    "ast_hash": "9072bca38172838dc53a7f8b0b9ef96a",
     "semantic_hash": ""
   },
   "web/src/app/projects/[id]/page.tsx": {
@@ -2180,8 +2180,8 @@
     "semantic_hash": ""
   },
   "web/docs/LANDING.md": {
-    "mtime": 1783132685.0901258,
-    "ast_hash": "ac5cef990c08ec2a9d9a84cf066a65a2",
+    "mtime": 1783137874.8439553,
+    "ast_hash": "6990521a79268b29eb6ab69ae5779b4e",
     "semantic_hash": ""
   },
   "web/assets/cut_tab.png": {
@@ -2235,23 +2235,48 @@
     "semantic_hash": ""
   },
   "web/src/app/privacy/page.tsx": {
-    "mtime": 1783136986.1632526,
-    "ast_hash": "003f1e94982ebd5915e76411f2a87732",
+    "mtime": 1783137844.8457932,
+    "ast_hash": "ca2366d73d5e65ebba58a8168b4f783a",
     "semantic_hash": ""
   },
   "web/src/app/terms/page.tsx": {
-    "mtime": 1783137004.4517455,
-    "ast_hash": "270bd69669b09d2f5e7a0ccfae260917",
+    "mtime": 1783137846.8569605,
+    "ast_hash": "bee973ff22d379bdc69ab97c6dda3bdb",
     "semantic_hash": ""
   },
   "web/src/components/legal/LegalShell.tsx": {
-    "mtime": 1783136960.1407325,
+    "mtime": 1783137068.305482,
     "ast_hash": "932899df23d4de89abff8e0cb452f0b0",
     "semantic_hash": ""
   },
   "web/src/components/legal/legal.test.tsx": {
     "mtime": 1783133926.3611102,
     "ast_hash": "8bb7a711d8e8f4744ab3123a4934ec52",
+    "semantic_hash": ""
+  },
+  "web/src/app/robots.ts": {
+    "mtime": 1783137835.0726318,
+    "ast_hash": "00030e6e3c13201a5e7df6f641c32ba5",
+    "semantic_hash": ""
+  },
+  "web/src/app/sitemap.ts": {
+    "mtime": 1783137838.2706687,
+    "ast_hash": "c71ad90f87006dc3e34b600a5cb038a5",
+    "semantic_hash": ""
+  },
+  "web/src/components/landing/LandingContent.tsx": {
+    "mtime": 1783137800.924397,
+    "ast_hash": "024f2ff95a9aa63a1ee2dfe5dd4486c7",
+    "semantic_hash": ""
+  },
+  "web/src/lib/site.ts": {
+    "mtime": 1783137724.16502,
+    "ast_hash": "a6b6184ce0383a8c31cfd325f6e8c218",
+    "semantic_hash": ""
+  },
+  "web/public/landing/og.jpg": {
+    "mtime": 1783137743.358701,
+    "ast_hash": "47f124452b94219ca019624182e33f31",
     "semantic_hash": ""
   }
 }

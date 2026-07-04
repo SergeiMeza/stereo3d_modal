@@ -144,12 +144,21 @@ deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
 - No new dependencies; icons from lucide-react (already installed).
 - Existing tests must pass; add/adjust a smoke test if the home page has
   one (CTA renders, tab switching works).
-- SEO: page keeps global metadata; add a landing-specific
-  `description` + OpenGraph image (the stereo screenshot).
+- SEO (implemented 2026-07): canonical domain is **https://stereo3d.studio**
+  (stereo3dstudio.com 301-redirects to it; `src/lib/site.ts` is the single
+  source of truth, `NEXT_PUBLIC_SITE_URL` overrides). The route is a server
+  component (`app/page.tsx`) carrying canonical + JSON-LD
+  (Organization/WebSite/SoftwareApplication); the body is the client
+  `LandingContent`. Site-wide title template + OG/Twitter cards live in
+  `app/layout.tsx` with a dedicated 1200×630 `public/landing/og.jpg`
+  (regenerate from `assets/stereo_tab.png`, cropped below the app header so
+  no account email shows). `robots.ts` disallows the session-gated app
+  routes; `sitemap.ts` lists `/`, `/privacy`, `/terms`. Section headings are
+  real `h2`s (eyebrow labels are `p`), one `h1` in the hero.
 
 ## Out of scope
 
-- Public marketing site separate from the app, custom domains.
+- Public marketing site separate from the app.
 - Video/animated demos (screenshots only for now).
 - Published price list (quote UI is the price).
 - Sign-up changes; CTA reuses the existing /signin flow.

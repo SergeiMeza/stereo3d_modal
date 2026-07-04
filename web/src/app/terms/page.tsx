@@ -12,9 +12,10 @@ import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
-  title: "Terms of Use — Stereo3D Studio",
+  title: "Terms of Use",
   description:
     "The terms that govern your use of Stereo3D Studio, including content ownership, payment and beta conditions.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

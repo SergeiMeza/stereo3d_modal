@@ -6385,7 +6385,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init",
-      "community": 84,
+      "community": 49,
       "norm_label": "__init__.py"
     },
     {
@@ -6395,7 +6395,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init_rationale_1",
-      "community": 84,
+      "community": 49,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6405,7 +6405,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr",
-      "community": 84,
+      "community": 49,
       "norm_label": "psnr.py"
     },
     {
@@ -6415,7 +6415,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_psnr",
-      "community": 84,
+      "community": 49,
       "norm_label": "psnr()"
     },
     {
@@ -6425,7 +6425,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_rationale_1",
-      "community": 84,
+      "community": 49,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6795,7 +6795,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder",
-      "community": 6,
+      "community": 84,
       "norm_label": "abstractautoencoder"
     },
     {
@@ -6825,7 +6825,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_get_input",
-      "community": 6,
+      "community": 84,
       "norm_label": ".get_input()"
     },
     {
@@ -6835,7 +6835,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_py_any",
-      "community": 6,
+      "community": 84,
       "norm_label": "any"
     },
     {
@@ -6845,7 +6845,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_on_train_batch_end",
-      "community": 6,
+      "community": 84,
       "norm_label": ".on_train_batch_end()"
     },
     {
@@ -6865,7 +6865,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_encode",
-      "community": 6,
+      "community": 84,
       "norm_label": ".encode()"
     },
     {
@@ -6885,7 +6885,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_decode",
-      "community": 6,
+      "community": 84,
       "norm_label": ".decode()"
     },
     {
@@ -6905,7 +6905,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_configure_optimizers",
-      "community": 6,
+      "community": 84,
       "norm_label": ".configure_optimizers()"
     },
     {
@@ -7035,7 +7035,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_get_param_groups",
-      "community": 6,
+      "community": 84,
       "norm_label": ".get_param_groups()"
     },
     {
@@ -7095,7 +7095,7 @@
       "source_location": "L464",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_get_autoencoder_params",
-      "community": 62,
+      "community": 6,
       "norm_label": ".get_autoencoder_params()"
     },
     {
@@ -7165,7 +7165,7 @@
       "source_location": "L549",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage",
-      "community": 6,
+      "community": 84,
       "norm_label": "identityfirststage"
     },
     {
@@ -7175,7 +7175,7 @@
       "source_location": "L550",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_init",
-      "community": 6,
+      "community": 84,
       "norm_label": ".__init__()"
     },
     {
@@ -7195,7 +7195,7 @@
       "source_location": "L558",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_encode",
-      "community": 6,
+      "community": 84,
       "norm_label": ".encode()"
     },
     {
@@ -7205,7 +7205,7 @@
       "source_location": "L562",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_decode",
-      "community": 6,
+      "community": 84,
       "norm_label": ".decode()"
     },
     {
@@ -7285,7 +7285,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_rationale_23",
-      "community": 6,
+      "community": 84,
       "norm_label": "this is the base class for all autoencoders, including image autoencoders, image"
     },
     {
@@ -27552,7 +27552,7 @@
       "label": "LegalSection()",
       "file_type": "code",
       "source_file": "web/src/components/legal/LegalShell.tsx",
-      "source_location": "L27",
+      "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_legal_legalshell_legalsection",
       "community": 74,
@@ -27815,7 +27815,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_conversiontrackerprops",
-      "community": 107,
+      "community": 60,
       "norm_label": "conversiontrackerprops"
     },
     {
@@ -27995,7 +27995,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test",
-      "community": 15,
+      "community": 57,
       "norm_label": "depthpanel.test.tsx"
     },
     {
@@ -28025,7 +28025,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_fixtureproject",
-      "community": 15,
+      "community": 57,
       "norm_label": "fixtureproject()"
     },
     {
@@ -28035,7 +28035,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_fixture",
-      "community": 15,
+      "community": 57,
       "norm_label": "fixture"
     },
     {
@@ -28045,7 +28045,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_fps",
-      "community": 15,
+      "community": 57,
       "norm_label": "fps"
     },
     {
@@ -28055,7 +28055,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_ranges",
-      "community": 15,
+      "community": 57,
       "norm_label": "ranges"
     },
     {
@@ -28065,7 +28065,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_real_downloads",
-      "community": 15,
+      "community": 57,
       "norm_label": "real_downloads"
     },
     {
@@ -28075,7 +28075,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_renderpanel",
-      "community": 15,
+      "community": 57,
       "norm_label": "renderpanel()"
     },
     {
@@ -28085,7 +28085,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_capturequotebodies",
-      "community": 15,
+      "community": 57,
       "norm_label": "capturequotebodies()"
     },
     {
@@ -28095,7 +28095,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_getquote",
-      "community": 15,
+      "community": 57,
       "norm_label": "getquote()"
     },
     {
@@ -28105,7 +28105,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_seededdepthrun",
-      "community": 15,
+      "community": 57,
       "norm_label": "seededdepthrun()"
     },
     {
@@ -28115,7 +28115,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_test_renderwithdepth",
-      "community": 15,
+      "community": 57,
       "norm_label": "renderwithdepth()"
     },
     {
@@ -28625,7 +28625,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test",
-      "community": 57,
+      "community": 29,
       "norm_label": "stereopanel.test.tsx"
     },
     {
@@ -28655,7 +28655,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fixture",
-      "community": 57,
+      "community": 29,
       "norm_label": "fixture"
     },
     {
@@ -28665,7 +28665,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_profile",
-      "community": 57,
+      "community": 29,
       "norm_label": "profile"
     },
     {
@@ -28675,7 +28675,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fps",
-      "community": 57,
+      "community": 29,
       "norm_label": "fps"
     },
     {
@@ -28685,7 +28685,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fixtureproject",
-      "community": 57,
+      "community": 29,
       "norm_label": "fixtureproject()"
     },
     {
@@ -28695,7 +28695,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_withprofile",
-      "community": 57,
+      "community": 29,
       "norm_label": "withprofile()"
     },
     {
@@ -28705,7 +28705,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_renderpanel",
-      "community": 57,
+      "community": 29,
       "norm_label": "renderpanel()"
     },
     {
@@ -28715,7 +28715,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_capturequotebodies",
-      "community": 57,
+      "community": 29,
       "norm_label": "capturequotebodies()"
     },
     {
@@ -28725,7 +28725,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_getquote",
-      "community": 57,
+      "community": 29,
       "norm_label": "getquote()"
     },
     {
@@ -28735,7 +28735,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_scenerow",
-      "community": 57,
+      "community": 29,
       "norm_label": "scenerow()"
     },
     {
@@ -28745,7 +28745,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_seededstereorun",
-      "community": 57,
+      "community": 29,
       "norm_label": "seededstereorun()"
     },
     {
@@ -28755,7 +28755,7 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_renderwithoutput",
-      "community": 57,
+      "community": 29,
       "norm_label": "renderwithoutput()"
     },
     {
@@ -28765,7 +28765,7 @@
       "source_location": "L584",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_toggle",
-      "community": 57,
+      "community": 29,
       "norm_label": "toggle()"
     },
     {
@@ -28775,7 +28775,7 @@
       "source_location": "L682",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_seededdepthrun",
-      "community": 57,
+      "community": 29,
       "norm_label": "seededdepthrun()"
     },
     {
@@ -28785,7 +28785,7 @@
       "source_location": "L810",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_withupload",
-      "community": 57,
+      "community": 29,
       "norm_label": "withupload()"
     },
     {
@@ -31285,7 +31285,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_api_client",
-      "community": 107,
+      "community": 60,
       "norm_label": "client.ts"
     },
     {
@@ -31315,7 +31315,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "web_src_lib_api_client_tokenprovider",
-      "community": 107,
+      "community": 60,
       "norm_label": "tokenprovider"
     },
     {
@@ -31325,7 +31325,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "web_src_lib_api_client_clientoptions",
-      "community": 107,
+      "community": 60,
       "norm_label": "clientoptions"
     },
     {
@@ -31685,7 +31685,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "web_src_lib_api_types_sceneprofile",
-      "community": 57,
+      "community": 29,
       "norm_label": "sceneprofile"
     },
     {
@@ -31795,7 +31795,7 @@
       "source_location": "L239",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversion",
-      "community": 107,
+      "community": 60,
       "norm_label": "conversion"
     },
     {
@@ -31835,7 +31835,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "web_src_lib_api_types_apierrorbody",
-      "community": 107,
+      "community": 60,
       "norm_label": "apierrorbody"
     },
     {
@@ -31885,7 +31885,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "web_src_lib_api_types_billingsettleresult",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingsettleresult"
     },
     {
@@ -31895,7 +31895,7 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "web_src_lib_api_types_createprojectrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "createprojectrequest"
     },
     {
@@ -31915,7 +31915,7 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "web_src_lib_api_types_updatescenesrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "updatescenesrequest"
     },
     {
@@ -32945,7 +32945,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_mocks_handlers_db",
-      "community": 107,
+      "community": 60,
       "norm_label": "db"
     },
     {
@@ -67167,7 +67167,7 @@
       "source_location": "L14",
       "weight": 1.0,
       "source": "app_vendor_propainter_raft_datasets",
-      "target": "web_src_components_workspace_utils",
+      "target": "app_vendor_propainter_raft_utils_utils",
       "confidence_score": 1.0
     },
     {
@@ -97875,7 +97875,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/legal/LegalShell.tsx",
-      "source_location": "L27",
+      "source_location": "L28",
       "weight": 1.0,
       "source": "web_src_components_legal_legalshell",
       "target": "web_src_components_legal_legalshell_legalsection",
@@ -117972,5 +117972,5 @@
       "source_file": "previews/full_batch_v3/K9_full_v3.yaml"
     }
   ],
-  "built_at_commit": "01b8865084c98b74456d011b53a06bd47caa38a3"
+  "built_at_commit": "5997084bec9ba6e8e828a3f01eaf8816f9e5aca6"
 }
