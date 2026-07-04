@@ -144,8 +144,9 @@ deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
 - No new dependencies; icons from lucide-react (already installed).
 - Existing tests must pass; add/adjust a smoke test if the home page has
   one (CTA renders, tab switching works).
-- SEO (implemented 2026-07): canonical domain is **https://stereo3d.studio**
-  (stereo3dstudio.com 301-redirects to it; `src/lib/site.ts` is the single
+- SEO (implemented 2026-07): canonical domain is
+  **https://www.stereo3d.studio** (the stereo3d.studio apex and
+  stereo3dstudio.com 301-redirect to it; `src/lib/site.ts` is the single
   source of truth, `NEXT_PUBLIC_SITE_URL` overrides). The route is a server
   component (`app/page.tsx`) carrying canonical + JSON-LD
   (Organization/WebSite/SoftwareApplication); the body is the client
