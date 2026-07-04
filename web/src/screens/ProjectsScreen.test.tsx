@@ -325,7 +325,7 @@ describe("ProjectsScreen management", () => {
     await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
     fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
     expect(
-      await screen.findByText(/Active conversions are canceled/),
+      await screen.findByText(/A project with a running conversion/),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
     await waitFor(() =>

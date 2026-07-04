@@ -204,8 +204,9 @@ export function ProjectCard({
           <DialogHeader>
             <DialogTitle>Archive project</DialogTitle>
             <DialogDescription>
-              Archive this project? Active conversions are canceled and payment
-              holds released. You can restore it later.
+              Archive this project? You can restore it later. A project with a
+              running conversion can&apos;t be archived — wait for it to finish
+              or cancel it first.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>

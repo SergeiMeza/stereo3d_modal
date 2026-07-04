@@ -167,8 +167,11 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	if req.Archived != nil && *req.Archived {
-		// Archiving cancels in-flight work first, exactly like DELETE.
-		s.cancelActiveConversions(ctx, id)
+		// Archiving is blocked while work is in flight, exactly like DELETE.
+		if err := s.requireNoActiveConversions(ctx, id); err != nil {
+			httpx.WriteErr(ctx, w, err)
+			return
+		}
 	}
 	p, err := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
 		if req.Name != nil {
@@ -219,42 +222,33 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 	httpx.WriteOK(w, s.projectResponse(p, convOut))
 }
 
-// cancelActiveConversions cancels every non-terminal conversion of a project
-// (releasing payment holds); errors on individual conversions are tolerated —
-// the reconciler sweeps whatever a concurrent settle left behind.
-func (s *Service) cancelActiveConversions(ctx context.Context, projectID string) {
+// requireNoActiveConversions blocks archiving while any of the project's
+// conversions is still in flight. Archiving never cancels work or touches
+// money — the user must wait for (or cancel) the running conversion first.
+func (s *Service) requireNoActiveConversions(ctx context.Context, projectID string) error {
 	convs, err := s.Store.ListProjectConversions(ctx, projectID, 100)
 	if err != nil {
-		httpx.Log(ctx).Error("archive: list conversions failed", "project_id", projectID, "err", err)
-		return
+		return err
 	}
 	for _, c := range convs {
-		if store.IsTerminal(c.State) {
-			continue
+		if !store.IsTerminal(c.State) {
+			return httpx.ErrConflict("this project has an active conversion — wait for it to finish (or cancel it) before archiving")
 		}
-		canceled, terr := s.Store.Transition(ctx, c.ID, store.ActiveStates, func(cc *store.Conversion) error {
-			cc.State = store.StateCanceled
-			cc.Stripe.PIStatus = store.PICancelPending
-			return nil
-		})
-		if terr != nil {
-			continue // settled concurrently — fine
-		}
-		if canceled.Modal.JobID != "" {
-			_ = s.Modal.CancelJob(ctx, canceled.Modal.JobID)
-		}
-		_, _ = s.releaseHold(ctx, canceled)
 	}
+	return nil
 }
 
-// DELETE /v1/projects/{id} — archive + cancel active conversions.
+// DELETE /v1/projects/{id} — archive (blocked while conversions are active).
 func (s *Service) HandleArchiveProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	if _, err := s.ownedProject(ctx, user, id); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	s.cancelActiveConversions(ctx, id)
+	if err := s.requireNoActiveConversions(ctx, id); err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
 	p, err := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
 		pp.Archived = true
 		return nil
