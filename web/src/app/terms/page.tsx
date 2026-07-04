@@ -22,9 +22,10 @@ export default function TermsPage() {
     <LegalShell title="Terms of Use" effective="July 4, 2026">
       <LegalSection title="1. Agreement">
         <p>
-          These terms are a contract between you and Spatial AI Labs
-          (&ldquo;we&rdquo;, &ldquo;us&rdquo;) governing Stereo3D Studio
-          (the &ldquo;Service&rdquo;). By creating an account or using the
+          These terms are a contract between you and Spatial AI Labs Ltd
+          (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a company registered in
+          England and Wales with its registered office in London, United
+          Kingdom, governing Stereo3D Studio (the &ldquo;Service&rdquo;). By creating an account or using the
           Service you accept them. If you use the Service for an
           organization, you accept on its behalf and confirm you may do so.
         </p>
@@ -175,10 +176,10 @@ export default function TermsPage() {
 
       <LegalSection title="14. Governing law">
         <p>
-          These terms are governed by the laws of Japan, and disputes are
-          subject to the exclusive jurisdiction of the Tokyo District
-          Court, except where the law of your place of residence grants you
-          non-waivable rights or venue.
+          These terms are governed by the laws of England and Wales, and
+          disputes are subject to the exclusive jurisdiction of the courts
+          of England and Wales, except where the law of your place of
+          residence grants you non-waivable rights or venue.
         </p>
       </LegalSection>
 
@@ -193,7 +194,7 @@ export default function TermsPage() {
 
       <LegalSection title="16. Contact">
         <p>
-          Spatial AI Labs ·{" "}
+          Spatial AI Labs Ltd, London, United Kingdom ·{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>
           {" "}· See also our{" "}
           <Link className="text-primary hover:underline" href="/privacy">

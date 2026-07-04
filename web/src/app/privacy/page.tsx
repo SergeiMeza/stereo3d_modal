@@ -23,9 +23,11 @@ export default function PrivacyPage() {
       <LegalSection title="1. Who we are">
         <p>
           Stereo3D Studio (the &ldquo;Service&rdquo;) is a 2D-to-3D video
-          conversion product operated by Spatial AI Labs (&ldquo;we&rdquo;,
-          &ldquo;us&rdquo;). This policy explains what data we collect when
-          you use the Service, why we collect it, and the choices you have.
+          conversion product operated by Spatial AI Labs Ltd
+          (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a company registered in
+          England and Wales with its registered office in London, United
+          Kingdom. This policy explains what data we collect when you use
+          the Service, why we collect it, and the choices you have.
           Questions or requests: <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>.
         </p>
       </LegalSection>
@@ -85,8 +87,12 @@ export default function PrivacyPage() {
       <LegalSection title="4. Where your data lives and who processes it">
         <p>
           Your data is stored and processed on infrastructure in the United
-          States. We use a small set of processors, each only for what it
-          says:
+          States. Because we are a UK company, this means your data is
+          transferred outside the UK; those transfers rely on our
+          processors&rsquo; recognized safeguards (such as the UK
+          extension to the EU&ndash;US Data Privacy Framework and standard
+          contractual clauses). We use a small set of processors, each only
+          for what it says:
         </p>
         <ul>
           <li><strong>Google Cloud / Firebase</strong> — authentication,
@@ -131,8 +137,10 @@ export default function PrivacyPage() {
           us to export or delete your data, or to correct anything we hold
           about you, by emailing{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>.
-          Depending on where you live you may have additional statutory
-          rights (such as under the GDPR or similar laws); we honor
+          Under the UK GDPR (and, where it applies, the EU GDPR) you have
+          rights of access, rectification, erasure, restriction,
+          portability and objection, and the right to complain to the
+          UK Information Commissioner&rsquo;s Office (ICO); we honor
           reasonable requests regardless of jurisdiction.
         </p>
       </LegalSection>
@@ -154,7 +162,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="10. Contact">
         <p>
-          Spatial AI Labs ·{" "}
+          Spatial AI Labs Ltd, London, United Kingdom ·{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>
           {" "}· See also our{" "}
           <Link className="text-primary hover:underline" href="/terms">

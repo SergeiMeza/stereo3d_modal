@@ -1,7 +1,7 @@
 # Graph Report - 2d_to_3d_new  (2026-07-04)
 
 ## Corpus Check
-- 394 files · ~829,793 words
+- 394 files · ~829,893 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `01b88650`
+- Built from commit: `5997084b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -416,8 +416,8 @@ Cohesion: 0.06
 Nodes (30): Denoiser, DiscreteDenoiser, Module, Tensor, DenoiserScaling, EDMScaling, EpsScaling, Tensor (+22 more)
 
 ### Community 6 - "Autoencoder"
-Cohesion: 0.10
-Nodes (9): AbstractAutoencoder, AEIntegerWrapper, AutoencodingEngine, IdentityFirstStage, Any, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL, This is the base class for all autoencoders, including image autoencoders, image (+1 more)
+Cohesion: 0.15
+Nodes (5): AEIntegerWrapper, AutoencodingEngine, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL, Optimizer
 
 ### Community 7 - "Gateway Main & Pricing"
 Cohesion: 0.09
@@ -452,8 +452,8 @@ Cohesion: 0.13
 Nodes (15): dependencies, class-variance-authority, clsx, jotai, lucide-react, next, radix-ui, react (+7 more)
 
 ### Community 15 - "Deliver Panel Tests"
-Cohesion: 0.08
-Nodes (38): DepthPanel(), DepthPanelProps, DepthSceneGrid(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS, renderPanel() (+30 more)
+Cohesion: 0.10
+Nodes (31): DepthPanel(), DepthPanelProps, DepthSceneGrid(), SceneOverrideRows(), SceneList(), useScrollActiveSceneToTop(), exportCutsCSV(), normalizeCuts() (+23 more)
 
 ### Community 16 - "Projects Store Tests"
 Cohesion: 0.17
@@ -508,8 +508,8 @@ Cohesion: 0.11
 Nodes (19): Event, cardInfo(), ClassifyChargeError(), New(), stripeErrCode(), T, TestClassifyChargeErrorAPIOutageIsTransient(), TestClassifyChargeErrorAuthenticationRequired() (+11 more)
 
 ### Community 29 - "Community 29"
-Cohesion: 0.09
-Nodes (41): CheckboxChip(), Field(), DeliverPanel(), FORMAT_LABELS, INPAINT_LABELS, RESOLUTION_PRESETS, PriorRuns(), bestPlayable() (+33 more)
+Cohesion: 0.06
+Nodes (52): CheckboxChip(), Field(), DeliverPanel(), FORMAT_LABELS, INPAINT_LABELS, RESOLUTION_PRESETS, PriorRuns(), bestPlayable() (+44 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.12
@@ -584,8 +584,8 @@ Cohesion: 0.13
 Nodes (16): charbonnier_loss(), create_mask(), edgeLoss(), FlowLoss, FlowSimpleLoss, initialize_RAFT(), Initializes the RAFT model., consider the single flow first     flow shape: [b, c, h, w] (+8 more)
 
 ### Community 49 - "Community 49"
-Cohesion: 0.18
-Nodes (5): get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM
+Cohesion: 0.13
+Nodes (8): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM
 
 ### Community 50 - "Community 50"
 Cohesion: 0.13
@@ -617,7 +617,7 @@ Nodes (7): ConvBlock, DPTHead, _make_fusion_block(), FeatureFusionBlock, _make_s
 
 ### Community 57 - "Community 57"
 Cohesion: 0.04
-Nodes (46): replace, replace, FIXTURE, seedStereoDraft(), HistoryList(), FAILED, SUCCEEDED, FIXTURE (+38 more)
+Nodes (42): replace, replace, FIXTURE, seedStereoDraft(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS (+34 more)
 
 ### Community 58 - "Community 58"
 Cohesion: 0.09
@@ -629,14 +629,14 @@ Nodes (21): video_stereo pipeline stage, ekr2 6fps Inpainter A/B Test Index, Aut
 
 ### Community 60 - "Community 60"
 Cohesion: 0.06
-Nodes (42): atoms, EMPTY_CHECKOUT, resetStepCheckoutState(), stepCheckoutAtom(), StepCheckoutState, CANCELABLE, ConversionTracker(), formatEta() (+34 more)
+Nodes (51): atoms, EMPTY_CHECKOUT, resetStepCheckoutState(), stepCheckoutAtom(), StepCheckoutState, CANCELABLE, ConversionTracker(), ConversionTrackerProps (+43 more)
 
 ### Community 61 - "Community 61"
 Cohesion: 0.22
 Nodes (9): Context, RawMessage, New(), AnalyzeMetadata, Client, Job, ReuseLookup, SubmitResponse (+1 more)
 
 ### Community 62 - "Community 62"
-Cohesion: 0.17
+Cohesion: 0.18
 Nodes (7): AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, AutoencodingEngineLegacy, Module, get_nested_attribute(), Will return the result of a recursive get attribute call.     E.g.:         a.b.
 
 ### Community 63 - "Community 63"
@@ -712,8 +712,8 @@ Cohesion: 0.21
 Nodes (7): forward_warp, forward_warp_max_motion, Adapted from Algorithm 3 in Sanachez et al. 2013 "Computing Inverse Optical Flow, Support interpolation mode with Bilinear and Nearest., forward_warp_rescaled, fowrard warp where input image and warped image are in same value range, Module
 
 ### Community 84 - "Community 84"
-Cohesion: 0.50
-Nodes (3): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the "
+Cohesion: 0.19
+Nodes (4): AbstractAutoencoder, IdentityFirstStage, Any, This is the base class for all autoencoders, including image autoencoders, image
 
 ### Community 85 - "Community 85"
 Cohesion: 0.19
@@ -796,8 +796,8 @@ Cohesion: 0.20
 Nodes (10): Billing (web pro flow): pay-as-you-go, Deployed environments, Development, Legacy client flow (mobile, auth-then-capture), One-time setup (per project/env), Pricing, Pro step pipeline (web client), Step parameters (+2 more)
 
 ### Community 107 - "Community 107"
-Cohesion: 0.11
-Nodes (14): ConversionTrackerProps, DeliverPanelProps, StereoPanelProps, ClientOptions, GatewayClient, TokenProvider, APIErrorBody, BillingSettleResult (+6 more)
+Cohesion: 0.15
+Nodes (5): DeliverPanelProps, StereoPanelProps, GatewayClient, Project, UploadTicket
 
 ### Community 108 - "Community 108"
 Cohesion: 0.28
@@ -988,9 +988,9 @@ Nodes (3): awkky full_batch_v3 Job Record (failed), K9 full_batch_v3 Job Record 
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `update_job()` connect `Community 41` to `Community 27`, `Community 75`, `Debug / Tensor Tracking`?**
-  _High betweenness centrality (0.287) - this node is a cross-community bridge._
+  _High betweenness centrality (0.285) - this node is a cross-community bridge._
 - **Why does `_load_watchdog()` connect `Community 27` to `Community 41`?**
-  _High betweenness centrality (0.287) - this node is a cross-community bridge._
+  _High betweenness centrality (0.284) - this node is a cross-community bridge._
 - **Why does `get_logger()` connect `Debug / Tensor Tracking` to `Community 41`, `Modal Job State`, `Model Weight Downloads`, `Community 25`, `Community 90`?**
   _High betweenness centrality (0.231) - this node is a cross-community bridge._
 - **What connects `HTTP API.  Production endpoints     POST /v1/videos         — full 2D→3D video p`, `Validate the ``scene_overrides`` request field (422 on any problem —     a malfo`, `Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene     detect` to the rest of the system?**

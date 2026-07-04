@@ -17,7 +17,8 @@ export function LegalShell({
     <section className="mx-auto w-full max-w-3xl px-4 py-16">
       <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-3 text-sm text-fg-muted">
-        Effective {effective} · Stereo3D Studio, a Spatial AI Labs product
+        Effective {effective} · Stereo3D Studio, a Spatial AI Labs Ltd
+        product
       </p>
       <div className="mt-10 space-y-10">{children}</div>
     </section>

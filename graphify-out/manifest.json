@@ -1010,8 +1010,8 @@
     "semantic_hash": "f64110ad6b20c41ba787fb248d1a60cf"
   },
   "web/next-env.d.ts": {
-    "mtime": 1783133873.4803262,
-    "ast_hash": "d0f8375ae1199dc7acd3977fc33b78b8",
+    "mtime": 1783137042.7458608,
+    "ast_hash": "2a74d3909800ca5467fa83b0ab4a4890",
     "semantic_hash": ""
   },
   "web/next.config.ts": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": "740f507278af6639b9ef38b7e701e682"
   },
   "web/src/app/page.tsx": {
-    "mtime": 1783133781.147127,
-    "ast_hash": "a8bda4cf402df17ba318ca21e1454f38",
+    "mtime": 1783137015.6620636,
+    "ast_hash": "0e84331949ffd010a79a5253399dcf32",
     "semantic_hash": ""
   },
   "web/src/app/projects/[id]/page.tsx": {
@@ -1080,7 +1080,7 @@
     "semantic_hash": "38c5dbe9927044bdbda67091656f0367"
   },
   "web/src/components/auth/SignInScreen.tsx": {
-    "mtime": 1783133786.8999116,
+    "mtime": 1783133926.3608956,
     "ast_hash": "db22ea4c344eaf71e4dd9f495d61b522",
     "semantic_hash": ""
   },
@@ -2235,22 +2235,22 @@
     "semantic_hash": ""
   },
   "web/src/app/privacy/page.tsx": {
-    "mtime": 1783133736.1840394,
-    "ast_hash": "f972b63480c13da2ec016d038651c4ea",
+    "mtime": 1783136986.1632526,
+    "ast_hash": "003f1e94982ebd5915e76411f2a87732",
     "semantic_hash": ""
   },
   "web/src/app/terms/page.tsx": {
-    "mtime": 1783133772.1209555,
-    "ast_hash": "19968d2551fb78f676400b68a3138f19",
+    "mtime": 1783137004.4517455,
+    "ast_hash": "270bd69669b09d2f5e7a0ccfae260917",
     "semantic_hash": ""
   },
   "web/src/components/legal/LegalShell.tsx": {
-    "mtime": 1783133704.1513424,
-    "ast_hash": "1d1eeeefdc01209fb1bef8edadbe5984",
+    "mtime": 1783136960.1407325,
+    "ast_hash": "932899df23d4de89abff8e0cb452f0b0",
     "semantic_hash": ""
   },
   "web/src/components/legal/legal.test.tsx": {
-    "mtime": 1783133798.118446,
+    "mtime": 1783133926.3611102,
     "ast_hash": "8bb7a711d8e8f4744ab3123a4934ec52",
     "semantic_hash": ""
   }

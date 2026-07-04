@@ -305,7 +305,7 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-xs text-fg-muted">
           <p>
             Stereo3D <span className="text-primary">Studio</span> · a Spatial
-            AI Labs product
+            AI Labs Ltd product
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="transition-colors hover:text-fg">
@@ -321,7 +321,7 @@ export default function Home() {
               {FEEDBACK_EMAIL}
             </a>
           </div>
-          <p>© {new Date().getFullYear()} Spatial AI Labs</p>
+          <p>© {new Date().getFullYear()} Spatial AI Labs Ltd</p>
         </div>
       </footer>
     </div>
