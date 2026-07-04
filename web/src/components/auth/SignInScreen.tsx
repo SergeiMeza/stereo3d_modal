@@ -191,6 +191,18 @@ export default function SignInScreen() {
         </button>
       </form>
 
+      <p className="text-xs text-fg-muted">
+        By continuing, you agree to our{" "}
+        <Link href="/terms" className="text-primary hover:underline">
+          Terms of Use
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-primary hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
       <div className="space-y-1 text-xs text-fg-muted">
         {mode !== "signin" && (
           <p>

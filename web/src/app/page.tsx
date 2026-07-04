@@ -307,12 +307,20 @@ export default function Home() {
             Stereo3D <span className="text-primary">Studio</span> · a Spatial
             AI Labs product
           </p>
-          <a
-            href={`mailto:${FEEDBACK_EMAIL}`}
-            className="transition-colors hover:text-fg"
-          >
-            {FEEDBACK_EMAIL}
-          </a>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="transition-colors hover:text-fg">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-fg">
+              Terms of Use
+            </Link>
+            <a
+              href={`mailto:${FEEDBACK_EMAIL}`}
+              className="transition-colors hover:text-fg"
+            >
+              {FEEDBACK_EMAIL}
+            </a>
+          </div>
           <p>© {new Date().getFullYear()} Spatial AI Labs</p>
         </div>
       </footer>
