@@ -52,21 +52,32 @@ function renderWithAuth(ui: React.ReactElement) {
 describe("landing page", () => {
   it("shows the pitch and an Open studio CTA into /projects (mock user is signed in)", () => {
     renderWithAuth(<Home />);
-    expect(
-      screen.getByText(/Turn any video into immersive stereoscopic 3D/),
-    ).toBeTruthy();
-    const cta = screen.getByRole("link", { name: "Open studio" });
-    expect(cta.getAttribute("href")).toBe("/projects");
-    // the 5-step strip is present
-    for (const step of [
-      "Upload",
-      "Cut scenes",
-      "Tune depth",
-      "Preview stereo",
-      "Deliver",
-    ]) {
-      expect(screen.getByText(step)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+      "VFX-studio 3D",
+    );
+    // hero + beta band both carry the CTA
+    const ctas = screen.getAllByRole("link", { name: "Open studio" });
+    expect(ctas.length).toBeGreaterThan(0);
+    for (const cta of ctas) {
+      expect(cta.getAttribute("href")).toBe("/projects");
     }
+    // the workflow tab strip mirrors the studio's five rooms
+    for (const room of ["Media", "Cut", "Depth", "Stereo", "Deliver"]) {
+      expect(screen.getByRole("tab", { name: new RegExp(room) })).toBeTruthy();
+    }
+  });
+
+  it("switches the workflow panel when a tab is clicked", () => {
+    renderWithAuth(<Home />);
+    // default tab is Cut (the hero already shows the Stereo room)
+    expect(screen.getByText("Scene cuts you can trust")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /Stereo/ }));
+    expect(screen.getByText("3D directed scene by scene")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("tab", { name: /Stereo/ })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
   });
 });
 

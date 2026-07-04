@@ -760,7 +760,7 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
-    "mtime": 1783129793.0379317,
+    "mtime": 1783129847.6748545,
     "ast_hash": "79e5e2cf4516add17f6b0b8f9e264d05",
     "semantic_hash": ""
   },
@@ -775,8 +775,8 @@
     "semantic_hash": "48d9a7f4cf76a883b3a2d310e8fd6f7e"
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1783129054.2773166,
-    "ast_hash": "191b93c06582480371dd058a1f05b986",
+    "mtime": 1783130435.3044348,
+    "ast_hash": "7b8739acab060f108033749f6d7ca5f6",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
@@ -830,9 +830,9 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1783129054.2779994,
-    "ast_hash": "00c57fae0b2382a89f2925d487157a3a",
-    "semantic_hash": "00c57fae0b2382a89f2925d487157a3a"
+    "mtime": 1783130410.8431602,
+    "ast_hash": "2a4cc58ae7e785c53c098e3f5477b218",
+    "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
     "mtime": 1783129054.2783601,
@@ -1040,9 +1040,9 @@
     "semantic_hash": "c1e11074c3b710b1b37b934698e2dcb8"
   },
   "web/src/app/layout.tsx": {
-    "mtime": 1783039141.6196952,
-    "ast_hash": "9095abdbd0505825f42562201b32210c",
-    "semantic_hash": "9095abdbd0505825f42562201b32210c"
+    "mtime": 1783130484.5889404,
+    "ast_hash": "97a936f8a7f5fbcae57f23476edf38aa",
+    "semantic_hash": ""
   },
   "web/src/app/onboarding/page.tsx": {
     "mtime": 1783039141.619823,
@@ -1140,14 +1140,14 @@
     "semantic_hash": "7efd87029f505e1536919181020ebac1"
   },
   "web/src/components/projects/ProjectCard.tsx": {
-    "mtime": 1783129794.870548,
+    "mtime": 1783129847.6895745,
     "ast_hash": "f7969392b3fa29d44866c473f0974115",
     "semantic_hash": ""
   },
   "web/src/components/projects/UploadDropzone.tsx": {
-    "mtime": 1783034888.671826,
-    "ast_hash": "fbef888fd6bcc658b13adda9cc19d2ba",
-    "semantic_hash": "fbef888fd6bcc658b13adda9cc19d2ba"
+    "mtime": 1783130548.1994367,
+    "ast_hash": "b7bc568c5151098651f5c48477679dbb",
+    "semantic_hash": ""
   },
   "web/src/components/steps/ConversionTracker.tsx": {
     "mtime": 1783129680.0065038,
@@ -1520,7 +1520,7 @@
     "semantic_hash": "021c9b5f45cf4a25bc92231cbcd64afd"
   },
   "web/src/screens/ProjectsScreen.test.tsx": {
-    "mtime": 1783129813.474901,
+    "mtime": 1783129847.6897593,
     "ast_hash": "466a9c2e3fad27dd60d3c7b78a94466b",
     "semantic_hash": ""
   },
@@ -2163,5 +2163,10 @@
     "mtime": 1783129054.326567,
     "ast_hash": "b3e0211a529d43ae56536f30e19c8ed7",
     "semantic_hash": "b3e0211a529d43ae56536f30e19c8ed7"
+  },
+  "web/src/components/FeedbackLink.tsx": {
+    "mtime": 1783130467.3133657,
+    "ast_hash": "a8c14168a55b8bc4c3bd5c506694793d",
+    "semantic_hash": ""
   }
 }

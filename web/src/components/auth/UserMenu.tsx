@@ -35,7 +35,7 @@ export function UserMenu() {
       className="ml-auto flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-fg-muted transition-colors hover:text-fg"
     >
       <UserAvatar photoURL={user.photoURL} name={user.displayName ?? user.email} />
-      <span className="max-w-40 truncate text-xs">
+      <span className="hidden max-w-40 truncate text-xs sm:block">
         {user.email ?? user.displayName ?? "Account"}
       </span>
     </Link>
