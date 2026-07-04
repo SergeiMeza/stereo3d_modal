@@ -755,13 +755,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1783129572.1475163,
+    "mtime": 1783129679.9932327,
     "ast_hash": "dd0366627635ee0a60d87018e79a2f3a",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
-    "mtime": 1783129054.276757,
-    "ast_hash": "7fb3f28e6a3dbd6c997c1e27eefcd812",
+    "mtime": 1783129793.0379317,
+    "ast_hash": "79e5e2cf4516add17f6b0b8f9e264d05",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects_test.go": {
@@ -1140,9 +1140,9 @@
     "semantic_hash": "7efd87029f505e1536919181020ebac1"
   },
   "web/src/components/projects/ProjectCard.tsx": {
-    "mtime": 1782969999.7897105,
-    "ast_hash": "c9bd08185870d8c9b124397ff018e4a6",
-    "semantic_hash": "c9bd08185870d8c9b124397ff018e4a6"
+    "mtime": 1783129794.870548,
+    "ast_hash": "f7969392b3fa29d44866c473f0974115",
+    "semantic_hash": ""
   },
   "web/src/components/projects/UploadDropzone.tsx": {
     "mtime": 1783034888.671826,
@@ -1150,7 +1150,7 @@
     "semantic_hash": "fbef888fd6bcc658b13adda9cc19d2ba"
   },
   "web/src/components/steps/ConversionTracker.tsx": {
-    "mtime": 1783129597.547833,
+    "mtime": 1783129680.0065038,
     "ast_hash": "f98731d77afa36ea926802a31c4c2b31",
     "semantic_hash": ""
   },
@@ -1425,7 +1425,7 @@
     "semantic_hash": "5cdc4dd7466f4359a9ffc1fac6ab49a7"
   },
   "web/src/lib/api/types.ts": {
-    "mtime": 1783129592.4227922,
+    "mtime": 1783129680.0066996,
     "ast_hash": "848cc52e7ad304c19f78e80d8323b9f4",
     "semantic_hash": ""
   },
@@ -1520,9 +1520,9 @@
     "semantic_hash": "021c9b5f45cf4a25bc92231cbcd64afd"
   },
   "web/src/screens/ProjectsScreen.test.tsx": {
-    "mtime": 1783039141.6226745,
-    "ast_hash": "0c0f7e423bca11051269fd46aa11a5a6",
-    "semantic_hash": "0c0f7e423bca11051269fd46aa11a5a6"
+    "mtime": 1783129813.474901,
+    "ast_hash": "466a9c2e3fad27dd60d3c7b78a94466b",
+    "semantic_hash": ""
   },
   "web/src/screens/ProjectsScreen.tsx": {
     "mtime": 1782969945.8254457,

@@ -25,7 +25,71 @@ const CONTENT_TYPES: Record<string, string> = {
 
 const ACCEPT = ".mp4,.mov,.m4v";
 
+/** Beta source caps — mirror the gateway's max_source_duration_s /
+ * max_source_pixels (pricing rates). The gateway re-checks after its own
+ * probe; this local check just fails fast before a long upload. */
+const MAX_DURATION_S = 5 * 60;
+const MAX_PIXELS = 3840 * 2160;
+
 type Phase = "idle" | "uploading" | "creating";
+
+interface VideoMeta {
+  duration: number; // seconds
+  width: number;
+  height: number;
+}
+
+/** Read duration/dimensions from the file's container metadata. Resolves
+ * null when the browser can't decode the file (odd codec, jsdom) — the
+ * gateway's probe is the authoritative check, so null just skips the
+ * fast local one. */
+function readVideoMeta(file: File): Promise<VideoMeta | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    // "" = this environment can't decode the type (jsdom always; Chrome
+    // for some .mov flavors) — skip the local check, the gateway decides.
+    if (video.canPlayType(file.type || "video/mp4") === "") {
+      resolve(null);
+      return;
+    }
+    let url: string;
+    try {
+      url = URL.createObjectURL(file);
+    } catch {
+      resolve(null);
+      return;
+    }
+    const done = (meta: VideoMeta | null) => {
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(meta);
+    };
+    // metadata on a local blob loads near-instantly; never let a decoder
+    // stall wedge the dropzone
+    const timer = setTimeout(() => done(null), 5000);
+    video.preload = "metadata";
+    video.onloadedmetadata = () =>
+      done({
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      });
+    video.onerror = () => done(null);
+    video.src = url;
+  });
+}
+
+function betaLimitError(meta: VideoMeta): string | null {
+  if (Number.isFinite(meta.duration) && meta.duration > MAX_DURATION_S) {
+    const m = Math.floor(meta.duration / 60);
+    const s = Math.round(meta.duration % 60);
+    return `This video is ${m}m ${s}s long — during the beta, videos can be at most 5 minutes.`;
+  }
+  if (meta.width * meta.height >= MAX_PIXELS) {
+    return `This video is ${meta.width}×${meta.height} — during the beta, resolution must be below 4K (3840×2160).`;
+  }
+  return null;
+}
 
 function contentTypeFor(filename: string): string | null {
   const dot = filename.lastIndexOf(".");
@@ -56,6 +120,14 @@ export function UploadDropzone() {
     if (contentType === null) {
       setError("Unsupported file type — choose an .mp4, .mov, or .m4v video.");
       return;
+    }
+    const meta = await readVideoMeta(file);
+    if (meta !== null) {
+      const limitError = betaLimitError(meta);
+      if (limitError !== null) {
+        setError(limitError);
+        return;
+      }
     }
     setError(null);
     setFileName(file.name);
@@ -125,7 +197,8 @@ export function UploadDropzone() {
           Drag &amp; drop a video to start a project
         </p>
         <p className="text-xs text-fg-muted">
-          One video per project · .mp4, .mov, or .m4v
+          One video per project · .mp4, .mov, or .m4v · up to 5 minutes ·
+          below 4K
         </p>
         <button
           type="button"

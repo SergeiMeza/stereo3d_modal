@@ -68,6 +68,14 @@ type Rates struct {
 	MaxSourceBytes   int64   `firestore:"max_source_bytes"`
 	MaxActivePerUser int     `firestore:"max_active_per_user"`
 
+	// Beta source caps, enforced when the analyze probe lands (project
+	// creation can't see duration/resolution — only the probe can): videos
+	// longer than MaxSourceDurationS or with a frame area of
+	// MaxSourcePixels or more are rejected before any paid work. 0
+	// disables a cap.
+	MaxSourceDurationS float64 `firestore:"max_source_duration_s"`
+	MaxSourcePixels    int     `firestore:"max_source_pixels"`
+
 	// MaxGPUWorkers caps the concurrent fan-out containers one video job's
 	// depth/stereo chunks may occupy (app/pipelines/video.py, default 4
 	// there). More workers = same GPU-seconds, less wall-clock; the
@@ -124,6 +132,8 @@ func defaults() *Rates {
 		MaxDurationS:       30 * 60,
 		MaxSourceBytes:     8 << 30,
 		MaxActivePerUser:   3,
+		MaxSourceDurationS: 5 * 60,       // beta: 5-minute videos
+		MaxSourcePixels:    3840 * 2160,  // beta: below a 4K UHD frame
 		MaxGPUWorkers:      8,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,

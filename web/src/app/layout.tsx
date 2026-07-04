@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
 import { UserMenu } from "@/components/auth/UserMenu";
+import { FeedbackLink } from "@/components/FeedbackLink";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { MswProvider } from "@/mocks/MswProvider";
@@ -45,12 +46,16 @@ export default function RootLayout({
                 Stereo3D&nbsp;
                 <span className="text-primary">Studio</span>
               </Link>
+              <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                Beta
+              </span>
               <Link
                 href="/projects"
                 className="text-fg-muted transition-colors hover:text-fg"
               >
                 Projects
               </Link>
+              <FeedbackLink />
               <UserMenu />
             </nav>
           </header>

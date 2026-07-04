@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -607,7 +608,23 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		if derr != nil {
 			return s.failAnalyze(ctx, p, "undecodable analyze metadata: "+derr.Error())
 		}
-		credit := s.Pricing.Rates(ctx).AnalyzeCreditCents
+		rates := s.Pricing.Rates(ctx)
+		// Beta source caps: the probe is the first (and only) place the
+		// gateway learns the real duration/resolution. Rejecting here
+		// leaves the project without a probe, which blocks every paid
+		// step. The web client pre-checks the same limits before upload;
+		// this is the authoritative gate.
+		if maxS := rates.MaxSourceDurationS; maxS > 0 && meta.Probe.Duration > maxS {
+			return s.rejectSource(ctx, p, fmt.Sprintf(
+				"this video is %s long — during the beta, videos can be at most %s",
+				formatMinSec(meta.Probe.Duration), formatMinSec(maxS)))
+		}
+		if maxPx := rates.MaxSourcePixels; maxPx > 0 && meta.Probe.Width*meta.Probe.Height >= maxPx {
+			return s.rejectSource(ctx, p, fmt.Sprintf(
+				"this video is %d×%d — during the beta, resolution must be below 4K (3840×2160)",
+				meta.Probe.Width, meta.Probe.Height))
+		}
+		credit := rates.AnalyzeCreditCents
 		now := time.Now().UTC()
 		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
 			if pp.Analyze.State != store.AnalyzeRunning {
@@ -718,6 +735,31 @@ func (s *Service) failProfile(ctx context.Context, p *store.Project, internalErr
 		pp.Profile.UpdatedAt = time.Now().UTC()
 		return nil
 	})
+}
+
+// rejectSource fails the analyze with a specific user-facing message (the
+// beta source caps) — unlike failAnalyze, this is a policy rejection, not
+// an error: no Slack alert, and the copy explains exactly what to change.
+func (s *Service) rejectSource(ctx context.Context, p *store.Project, userMsg string) (*store.Project, error) {
+	slog.InfoContext(ctx, "source rejected by beta caps", "project_id", p.ID, "uid", p.UID, "reason", userMsg)
+	return s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
+		if pp.Analyze.State != store.AnalyzeRunning {
+			return nil
+		}
+		pp.Analyze.State = store.AnalyzeFailed
+		pp.Analyze.Error = userMsg
+		return nil
+	})
+}
+
+// formatMinSec renders seconds as "5m" / "6m 32s" for limit messages.
+func formatMinSec(seconds float64) string {
+	total := int(math.Round(seconds))
+	m, sec := total/60, total%60
+	if sec == 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%dm %ds", m, sec)
 }
 
 func (s *Service) failAnalyze(ctx context.Context, p *store.Project, internalErr string) (*store.Project, error) {
