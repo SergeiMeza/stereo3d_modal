@@ -1,7 +1,7 @@
 # Graph Report - 2d_to_3d_new  (2026-07-05)
 
 ## Corpus Check
-- 405 files · ~836,087 words
+- 405 files · ~836,095 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `823bbb19`
+- Built from commit: `48674f43`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -400,7 +400,7 @@
 
 ### Community 0 - "Conditioning / Embedders"
 Cohesion: 0.04
-Nodes (26): AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenByT5Embedder, FrozenCLIPEmbedder, FrozenCLIPT5Encoder, FrozenOpenCLIPImageEmbedder (+18 more)
+Nodes (27): AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenByT5Embedder, FrozenCLIPEmbedder, FrozenCLIPT5Encoder, FrozenOpenCLIPImageEmbedder (+19 more)
 
 ### Community 1 - "Gateway Auth & Conversion API"
 Cohesion: 0.06
@@ -408,23 +408,23 @@ Nodes (71): AuthedUser, createConversionReq, sceneOverrideReq, main(), Service, 
 
 ### Community 2 - "Spatial Transformer / UNet"
 Cohesion: 0.05
-Nodes (55): Transformer block for image-like data.     First, project the input (aka embeddi, SpatialTransformer, AttentionBlock, AttentionPool2d, Downsample, Tensor, QKVAttention, QKVAttentionLegacy (+47 more)
+Nodes (56): Transformer block for image-like data.     First, project the input (aka embeddi, SpatialTransformer, AttentionBlock, AttentionPool2d, Downsample, Tensor, QKVAttention, QKVAttentionLegacy (+48 more)
 
 ### Community 3 - "Scene Overrides Resolution"
 Cohesion: 0.06
 Nodes (64): Validate the ``scene_overrides`` request field (422 on any problem —     a malfo, _validate_scene_overrides(), _apply_scene_overrides(), Map ``scene_overrides`` (keyed by SOURCE-frame scene start ``first``)     onto W, Apply resolved scene_overrides onto the final depth script IN PLACE.      User o, scene_overrides WITHOUT adaptive: build flat per-scene params     directly — no, _resolve_scene_overrides(), _synthesize_scene_params() (+56 more)
 
 ### Community 4 - "Billing & Charge Orchestration"
-Cohesion: 0.07
-Nodes (34): Config, encodeSceneOverrides(), formatMinSec(), Service, Client, Context, Conversion, ProfileShot (+26 more)
+Cohesion: 0.06
+Nodes (40): User, Verifier, Config, encodeSceneOverrides(), formatMinSec(), Service, Client, Context (+32 more)
 
 ### Community 5 - "Diffusion Guiders"
-Cohesion: 0.18
-Nodes (12): AncestralSampler, DPMPP2SAncestralSampler, EulerAncestralSampler, Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_dif, SingleStepDiffusionSampler, get_ancestral_step(), linear_multistep_coeff(), to_d() (+4 more)
+Cohesion: 0.15
+Nodes (14): AncestralSampler, DPMPP2SAncestralSampler, EulerAncestralSampler, ListConfig, OmegaConf, Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_dif, SingleStepDiffusionSampler, get_ancestral_step() (+6 more)
 
 ### Community 6 - "Autoencoder"
-Cohesion: 0.09
-Nodes (10): AbstractAutoencoder, AEIntegerWrapper, AutoencodingEngine, AutoencodingEngineLegacy, IdentityFirstStage, Any, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL (+2 more)
+Cohesion: 0.07
+Nodes (17): AbstractAutoencoder, AEIntegerWrapper, AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, AutoencodingEngine, AutoencodingEngineLegacy, IdentityFirstStage (+9 more)
 
 ### Community 7 - "Gateway Main & Pricing"
 Cohesion: 0.09
@@ -455,12 +455,12 @@ Cohesion: 0.05
 Nodes (59): AnalyzeBadge(), analyzePercent(), AnalyzeProgress(), analyzeStageLabel(), formatEtaLeft(), ProgressLike, STAGE_LABELS, STEP_DEFS (+51 more)
 
 ### Community 14 - "Web Dependencies"
-Cohesion: 0.14
-Nodes (15): CONTENT_TYPES, Phase, VideoMeta, ClarityClient, ConsentChoice, devLog(), EventParams, gaLogEvent() (+7 more)
+Cohesion: 0.13
+Nodes (16): Analytics(), CONTENT_TYPES, Phase, VideoMeta, ClarityClient, ConsentChoice, devLog(), EventParams (+8 more)
 
 ### Community 15 - "Deliver Panel Tests"
 Cohesion: 0.12
-Nodes (11): firebase, AuthContext, AuthMode, AuthUser, FRIENDLY_BY_CODE, getFirebaseToken(), MOCK_USER, requireFirebaseUser() (+3 more)
+Nodes (12): errUnauthorizedType, firebase, AuthContext, AuthMode, AuthUser, FRIENDLY_BY_CODE, getFirebaseToken(), MOCK_USER (+4 more)
 
 ### Community 16 - "Projects Store Tests"
 Cohesion: 0.17
@@ -475,8 +475,8 @@ Cohesion: 0.36
 Nodes (8): ``count`` evenly spaced frame indices across [0, num_frames),     always includi, _strip_indices(), _strip_indices: evenly spaced filmstrip frame selection., test_count_capped_by_frames(), test_empty_video(), test_includes_first_and_last_frame(), test_single_frame_video(), test_strictly_increasing_and_in_range()
 
 ### Community 19 - "Transformer Blocks"
-Cohesion: 0.15
-Nodes (6): BasicTransformerBlock, BasicTransformerSingleLayerBlock, FeedForward, GEGLU, Normalize(), SpatialSelfAttention
+Cohesion: 0.20
+Nodes (4): BasicTransformerBlock, BasicTransformerSingleLayerBlock, FeedForward, GEGLU
 
 ### Community 20 - "Media & Tabs UI"
 Cohesion: 0.12
@@ -496,7 +496,7 @@ Nodes (37): _annotate_source_spans(), _map_source_to_work(), SOURCE fps for the 
 
 ### Community 24 - "Diffusion Engine"
 Cohesion: 0.05
-Nodes (29): AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, Module, DiffusionEngine, Any, ListConfig, OmegaConf (+21 more)
+Nodes (22): DiffusionEngine, Any, ListConfig, OmegaConf, Defines heuristics to log different conditionings.         These can be lists of, LitEma, Save the current parameters for restoring later.         Args:           paramet, Restore the parameters stored with the `store` method.         Useful to validat (+14 more)
 
 ### Community 25 - "Community 25"
 Cohesion: 0.06
@@ -516,7 +516,7 @@ Nodes (19): Event, cardInfo(), ClassifyChargeError(), New(), stripeErrCode(), T,
 
 ### Community 29 - "Community 29"
 Cohesion: 0.04
-Nodes (82): resetStepCheckoutState(), MuteToggle(), SPEED_CHOICES, SpeedSelect(), FilmstripTimeline(), FilmstripTimelineProps, PreviewViewer(), PreviewViewerProps (+74 more)
+Nodes (87): resetStepCheckoutState(), DepthSceneGrid(), MuteToggle(), SPEED_CHOICES, SpeedSelect(), SceneOverrideRows(), FilmstripTimeline(), FilmstripTimelineProps (+79 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.11
@@ -535,16 +535,16 @@ Cohesion: 0.12
 Nodes (12): flow_warp(), Warp an image or a feature map with optical flow.     Args:         x (Tensor), BidirectionalPropagation, deconv, DeformableAlignment, Encoder, fbConsistencyCheck(), length_sq() (+4 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.17
-Nodes (8): CrossAttention, default(), exists(), MemoryEfficientCrossAttention, Zero out the parameters of a module and return it., # NOTE: workaround for, # TODO: Use this directly in the attention operation, as a bias, zero_module()
+Cohesion: 0.18
+Nodes (6): Normalize(), Zero out the parameters of a module and return it., # NOTE: workaround for, # TODO: Use this directly in the attention operation, as a bias, SpatialSelfAttention, zero_module()
 
 ### Community 36 - "Community 36"
 Cohesion: 0.11
 Nodes (15): AE3DConv, Conv2DWrapper, make_time_attn(), MemoryEfficientVideoBlock, Tensor, VideoBlock, VideoDecoder, VideoResBlock (+7 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.18
-Nodes (12): DATE_FORMAT, ProjectCard(), Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogOverlay() (+4 more)
+Cohesion: 0.12
+Nodes (21): DATE_FORMAT, ProjectCard(), DepthPanelProps, Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader() (+13 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.11
@@ -555,12 +555,12 @@ Cohesion: 0.07
 Nodes (41): Check the content-addressed reuse cache for a given video request,     WITHOUT s, reuse_lookup(), notify_slack(), POST a message to the configured Slack webhook (no-op if unset)., depth_lookup_keys(), _depth_source_key(), normalize_video_request(), process_video_job() (+33 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.24
-Nodes (5): BaseDiffusionSampler, DPMPP2MSampler, LinearMultistepSampler, ListConfig, OmegaConf
+Cohesion: 0.33
+Nodes (3): BaseDiffusionSampler, DPMPP2MSampler, LinearMultistepSampler
 
 ### Community 41 - "Community 41"
-Cohesion: 0.07
-Nodes (58): CheckboxChip(), Field(), DeliverPanel(), DepthPanel(), DepthPanelProps, DepthReview(), DepthSceneGrid(), FORMAT_LABELS (+50 more)
+Cohesion: 0.08
+Nodes (44): CheckboxChip(), Field(), DeliverPanel(), DepthPanel(), DepthReview(), FORMAT_LABELS, INPAINT_LABELS, RESOLUTION_PRESETS (+36 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.13
@@ -699,8 +699,8 @@ Cohesion: 0.14
 Nodes (6): BaseNetwork, FusionFeedForward, initialize network's weights         init_type: normal | xavier | kaiming | orth, Vec2Feat, Discriminator, Discriminator_2D
 
 ### Community 79 - "Community 79"
-Cohesion: 0.09
-Nodes (10): Apply the block to a Tensor, conditioned on a timestep embedding.         :param, checkpoint(), CheckpointFunction, Evaluate a function without caching intermediate activations, allowing for     r, FrozenOpenCLIPEmbedder, FrozenOpenCLIPEmbedder2, Tensor, Uses the OpenCLIP transformer encoder for text (+2 more)
+Cohesion: 0.10
+Nodes (8): Apply the block to a Tensor, conditioned on a timestep embedding.         :param, checkpoint(), CheckpointFunction, Evaluate a function without caching intermediate activations, allowing for     r, FrozenOpenCLIPEmbedder, FrozenOpenCLIPEmbedder2, Uses the OpenCLIP transformer encoder for text, Tensor
 
 ### Community 80 - "Community 80"
 Cohesion: 0.31
@@ -719,8 +719,8 @@ Cohesion: 0.21
 Nodes (7): forward_warp, forward_warp_max_motion, Adapted from Algorithm 3 in Sanachez et al. 2013 "Computing Inverse Optical Flow, Support interpolation mode with Bilinear and Nearest., forward_warp_rescaled, fowrard warp where input image and warped image are in same value range, Module
 
 ### Community 84 - "Community 84"
-Cohesion: 0.24
-Nodes (7): errUnauthorizedType, User, Verifier, Client, Context, Request, New()
+Cohesion: 0.36
+Nodes (4): CrossAttention, default(), exists(), MemoryEfficientCrossAttention
 
 ### Community 85 - "Community 85"
 Cohesion: 0.23
@@ -999,8 +999,8 @@ Cohesion: 0.67
 Nodes (3): awkky full_batch_v3 Job Record (failed), K9 full_batch_v3 Job Record (failed), Silent-Hang Heartbeat Watchdog
 
 ### Community 368 - "firebase.ts"
-Cohesion: 0.21
-Nodes (7): geistMono, geistSans, metadata, Analytics(), FeedbackLink(), Logo(), MswProvider()
+Cohesion: 0.24
+Nodes (6): geistMono, geistSans, metadata, FeedbackLink(), Logo(), MswProvider()
 
 ## Knowledge Gaps
 - **481 isolated node(s):** `install.sh script`, `deploy.sh script`, `spatial-ai-labs/stereo3d-gateway`, `Service`, `Service` (+476 more)
@@ -1019,8 +1019,8 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `HTTP API.  Production endpoints     POST /v1/videos         — full 2D→3D video p`, `Validate the ``scene_overrides`` request field (422 on any problem —     a malfo`, `Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene     detect` to the rest of the system?**
   _947 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Conditioning / Embedders` be split into smaller, more focused modules?**
-  _Cohesion score 0.04203691045796309 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.040822784810126585 - nodes in this community are weakly interconnected._
 - **Should `Gateway Auth & Conversion API` be split into smaller, more focused modules?**
   _Cohesion score 0.06380783966990863 - nodes in this community are weakly interconnected._
 - **Should `Spatial Transformer / UNet` be split into smaller, more focused modules?**
-  _Cohesion score 0.04885057471264368 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04769038701622971 - nodes in this community are weakly interconnected._

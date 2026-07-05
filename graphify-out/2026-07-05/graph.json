@@ -2977,7 +2977,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "app_stages_depth_processor_depthprocessor_process_scene",
-      "community": 85,
+      "community": 30,
       "norm_label": "._process_scene()"
     },
     {
@@ -2987,7 +2987,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_stages_depth_processor_py_tensor",
-      "community": 85,
+      "community": 30,
       "norm_label": "tensor"
     },
     {
@@ -3007,7 +3007,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "app_stages_depth_processor_depthprocessor_compute_scene_depth",
-      "community": 85,
+      "community": 30,
       "norm_label": ".compute_scene_depth()"
     },
     {
@@ -3097,7 +3097,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "app_stages_depth_processor_rationale_186",
-      "community": 85,
+      "community": 30,
       "norm_label": "yield aligned depth tensors (n, 1, h, w) for frames [first, last)."
     },
     {
@@ -3117,7 +3117,7 @@
       "source_location": "L271",
       "_origin": "ast",
       "id": "app_stages_depth_processor_rationale_271",
-      "community": 85,
+      "community": 30,
       "norm_label": "normalized depth (n, 1, h, w) on cpu for one scene.         on_window(done_in_sc"
     },
     {
@@ -6565,7 +6565,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_models_for_sgm_m2svid_model_videoldm_init_first_stage",
-      "community": 53,
+      "community": 24,
       "norm_label": "._init_first_stage()"
     },
     {
@@ -6785,7 +6785,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder",
-      "community": 6,
+      "community": 24,
       "norm_label": "autoencoder.py"
     },
     {
@@ -6805,7 +6805,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -6815,7 +6815,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_apply_ckpt",
-      "community": 6,
+      "community": 24,
       "norm_label": ".apply_ckpt()"
     },
     {
@@ -6895,7 +6895,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_instantiate_optimizer_from_config",
-      "community": 44,
+      "community": 24,
       "norm_label": ".instantiate_optimizer_from_config()"
     },
     {
@@ -6925,7 +6925,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7085,7 +7085,7 @@
       "source_location": "L438",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7125,7 +7125,7 @@
       "source_location": "L508",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderkl",
-      "community": 6,
+      "community": 24,
       "norm_label": "autoencoderkl"
     },
     {
@@ -7135,7 +7135,7 @@
       "source_location": "L509",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderkl_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7145,7 +7145,7 @@
       "source_location": "L523",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderlegacyvq",
-      "community": 6,
+      "community": 24,
       "norm_label": "autoencoderlegacyvq"
     },
     {
@@ -7155,7 +7155,7 @@
       "source_location": "L524",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderlegacyvq_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7225,7 +7225,7 @@
       "source_location": "L568",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_aeintegerwrapper_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7235,7 +7235,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_py_module",
-      "community": 6,
+      "community": 24,
       "norm_label": "module"
     },
     {
@@ -7265,7 +7265,7 @@
       "source_location": "L606",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderklmodeonly",
-      "community": 6,
+      "community": 24,
       "norm_label": "autoencoderklmodeonly"
     },
     {
@@ -7275,7 +7275,7 @@
       "source_location": "L607",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencoderklmodeonly_init",
-      "community": 6,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7305,7 +7305,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion",
-      "community": 44,
+      "community": 24,
       "norm_label": "diffusion.py"
     },
     {
@@ -7325,7 +7325,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_init",
-      "community": 44,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -7335,7 +7335,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_py_listconfig",
-      "community": 44,
+      "community": 24,
       "norm_label": "listconfig"
     },
     {
@@ -7345,7 +7345,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_py_omegaconf",
-      "community": 44,
+      "community": 24,
       "norm_label": "omegaconf"
     },
     {
@@ -7355,7 +7355,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_init_from_ckpt",
-      "community": 44,
+      "community": 24,
       "norm_label": ".init_from_ckpt()"
     },
     {
@@ -7365,7 +7365,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_diffusion_diffusionengine_init_first_stage",
-      "community": 53,
+      "community": 24,
       "norm_label": "._init_first_stage()"
     },
     {
@@ -7535,7 +7535,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_init",
-      "community": 53,
+      "community": 0,
       "norm_label": "__init__.py"
     },
     {
@@ -7545,7 +7545,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention",
-      "community": 19,
+      "community": 34,
       "norm_label": "attention.py"
     },
     {
@@ -7555,7 +7555,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_exists",
-      "community": 19,
+      "community": 34,
       "norm_label": "exists()"
     },
     {
@@ -7565,7 +7565,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_uniq",
-      "community": 19,
+      "community": 34,
       "norm_label": "uniq()"
     },
     {
@@ -7575,7 +7575,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_default",
-      "community": 19,
+      "community": 34,
       "norm_label": "default()"
     },
     {
@@ -7585,7 +7585,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_max_neg_value",
-      "community": 19,
+      "community": 34,
       "norm_label": "max_neg_value()"
     },
     {
@@ -7595,7 +7595,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_init",
-      "community": 19,
+      "community": 34,
       "norm_label": "init_()"
     },
     {
@@ -7665,7 +7665,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_zero_module",
-      "community": 19,
+      "community": 34,
       "norm_label": "zero_module()"
     },
     {
@@ -7685,7 +7685,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_linearattention",
-      "community": 19,
+      "community": 134,
       "norm_label": "linearattention"
     },
     {
@@ -7695,7 +7695,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_linearattention_init",
-      "community": 19,
+      "community": 134,
       "norm_label": ".__init__()"
     },
     {
@@ -7705,7 +7705,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_linearattention_forward",
-      "community": 19,
+      "community": 134,
       "norm_label": ".forward()"
     },
     {
@@ -7715,7 +7715,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_selfattention",
-      "community": 19,
+      "community": 137,
       "norm_label": "selfattention"
     },
     {
@@ -7725,7 +7725,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_selfattention_init",
-      "community": 19,
+      "community": 137,
       "norm_label": ".__init__()"
     },
     {
@@ -7735,7 +7735,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_selfattention_forward",
-      "community": 19,
+      "community": 137,
       "norm_label": ".forward()"
     },
     {
@@ -7745,7 +7745,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_py_tensor",
-      "community": 19,
+      "community": 137,
       "norm_label": "tensor"
     },
     {
@@ -7785,7 +7785,7 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_crossattention",
-      "community": 19,
+      "community": 34,
       "norm_label": "crossattention"
     },
     {
@@ -7795,7 +7795,7 @@
       "source_location": "L256",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_crossattention_init",
-      "community": 19,
+      "community": 34,
       "norm_label": ".__init__()"
     },
     {
@@ -7805,7 +7805,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_crossattention_forward",
-      "community": 19,
+      "community": 34,
       "norm_label": ".forward()"
     },
     {
@@ -7815,7 +7815,7 @@
       "source_location": "L347",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_memoryefficientcrossattention",
-      "community": 32,
+      "community": 34,
       "norm_label": "memoryefficientcrossattention"
     },
     {
@@ -7825,7 +7825,7 @@
       "source_location": "L349",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_memoryefficientcrossattention_init",
-      "community": 19,
+      "community": 34,
       "norm_label": ".__init__()"
     },
     {
@@ -7835,7 +7835,7 @@
       "source_location": "L373",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_memoryefficientcrossattention_forward",
-      "community": 19,
+      "community": 34,
       "norm_label": ".forward()"
     },
     {
@@ -7865,7 +7865,7 @@
       "source_location": "L527",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_basictransformerblock_forward",
-      "community": 34,
+      "community": 19,
       "norm_label": ".forward()"
     },
     {
@@ -7935,7 +7935,7 @@
       "source_location": "L745",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_simpletransformer",
-      "community": 19,
+      "community": 137,
       "norm_label": "simpletransformer"
     },
     {
@@ -7955,7 +7955,7 @@
       "source_location": "L771",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_simpletransformer_forward",
-      "community": 19,
+      "community": 137,
       "norm_label": ".forward()"
     },
     {
@@ -7965,7 +7965,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_rationale_117",
-      "community": 19,
+      "community": 34,
       "norm_label": "zero out the parameters of a module and return it."
     },
     {
@@ -7985,7 +7985,7 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_rationale_418",
-      "community": 19,
+      "community": 34,
       "norm_label": "# note: workaround for"
     },
     {
@@ -7995,7 +7995,7 @@
       "source_location": "L441",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_attention_rationale_441",
-      "community": 19,
+      "community": 34,
       "norm_label": "# todo: use this directly in the attention operation, as a bias"
     },
     {
@@ -8305,7 +8305,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_autoencoding_regularizers_init",
-      "community": 101,
+      "community": 136,
       "norm_label": "__init__.py"
     },
     {
@@ -8315,7 +8315,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_autoencoding_regularizers_init_diagonalgaussianregularizer",
-      "community": 101,
+      "community": 136,
       "norm_label": "diagonalgaussianregularizer"
     },
     {
@@ -8325,7 +8325,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_autoencoding_regularizers_init_diagonalgaussianregularizer_init",
-      "community": 101,
+      "community": 136,
       "norm_label": ".__init__()"
     },
     {
@@ -8335,7 +8335,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_autoencoding_regularizers_init_diagonalgaussianregularizer_get_trainable_parameters",
-      "community": 101,
+      "community": 136,
       "norm_label": ".get_trainable_parameters()"
     },
     {
@@ -8345,7 +8345,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_autoencoding_regularizers_init_py_any",
-      "community": 101,
+      "community": 136,
       "norm_label": "any"
     },
     {
@@ -8755,7 +8755,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser",
-      "community": 126,
+      "community": 65,
       "norm_label": "denoiser.py"
     },
     {
@@ -8765,7 +8765,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_denoiser",
-      "community": 126,
+      "community": 111,
       "norm_label": "denoiser"
     },
     {
@@ -8775,7 +8775,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_denoiser_init",
-      "community": 53,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -8785,7 +8785,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_denoiser_possibly_quantize_sigma",
-      "community": 126,
+      "community": 111,
       "norm_label": ".possibly_quantize_sigma()"
     },
     {
@@ -8805,7 +8805,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_denoiser_possibly_quantize_c_noise",
-      "community": 126,
+      "community": 111,
       "norm_label": ".possibly_quantize_c_noise()"
     },
     {
@@ -8845,7 +8845,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_denoiser_discretedenoiser_init",
-      "community": 53,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -9315,7 +9315,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model",
-      "community": 32,
+      "community": 49,
       "norm_label": "model.py"
     },
     {
@@ -9325,7 +9325,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_get_timestep_embedding",
-      "community": 32,
+      "community": 49,
       "norm_label": "get_timestep_embedding()"
     },
     {
@@ -9335,7 +9335,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_nonlinearity",
-      "community": 32,
+      "community": 49,
       "norm_label": "nonlinearity()"
     },
     {
@@ -9415,7 +9415,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_resnetblock",
-      "community": 32,
+      "community": 36,
       "norm_label": "resnetblock"
     },
     {
@@ -9435,7 +9435,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_resnetblock_forward",
-      "community": 32,
+      "community": 49,
       "norm_label": ".forward()"
     },
     {
@@ -9445,7 +9445,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_linattnblock",
-      "community": 32,
+      "community": 134,
       "norm_label": "linattnblock"
     },
     {
@@ -9455,7 +9455,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_linattnblock_init",
-      "community": 32,
+      "community": 134,
       "norm_label": ".__init__()"
     },
     {
@@ -9465,7 +9465,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_attnblock",
-      "community": 32,
+      "community": 36,
       "norm_label": "attnblock"
     },
     {
@@ -9555,7 +9555,7 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_memoryefficientcrossattentionwrapper",
-      "community": 32,
+      "community": 49,
       "norm_label": "memoryefficientcrossattentionwrapper"
     },
     {
@@ -9565,7 +9565,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_memoryefficientcrossattentionwrapper_forward",
-      "community": 32,
+      "community": 49,
       "norm_label": ".forward()"
     },
     {
@@ -9585,7 +9585,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model",
-      "community": 32,
+      "community": 49,
       "norm_label": "model"
     },
     {
@@ -9605,7 +9605,7 @@
       "source_location": "L434",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model_forward",
-      "community": 32,
+      "community": 49,
       "norm_label": ".forward()"
     },
     {
@@ -9615,7 +9615,7 @@
       "source_location": "L483",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_model_get_last_layer",
-      "community": 32,
+      "community": 49,
       "norm_label": ".get_last_layer()"
     },
     {
@@ -9625,7 +9625,7 @@
       "source_location": "L487",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_encoder",
-      "community": 32,
+      "community": 49,
       "norm_label": "encoder"
     },
     {
@@ -9645,7 +9645,7 @@
       "source_location": "L576",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_encoder_forward",
-      "community": 32,
+      "community": 49,
       "norm_label": ".forward()"
     },
     {
@@ -9715,7 +9715,7 @@
       "source_location": "L715",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_decoder_forward",
-      "community": 32,
+      "community": 49,
       "norm_label": ".forward()"
     },
     {
@@ -9725,7 +9725,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_rationale_27",
-      "community": 32,
+      "community": 49,
       "norm_label": "this matches the implementation in denoising diffusion probabilistic models:"
     },
     {
@@ -9735,7 +9735,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_model_rationale_155",
-      "community": 32,
+      "community": 134,
       "norm_label": "to match attnblock usage"
     },
     {
@@ -9765,7 +9765,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d",
-      "community": 40,
+      "community": 2,
       "norm_label": "attentionpool2d"
     },
     {
@@ -9775,7 +9775,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d_init",
-      "community": 40,
+      "community": 2,
       "norm_label": ".__init__()"
     },
     {
@@ -9785,7 +9785,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionpool2d_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -9795,7 +9795,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_py_tensor",
-      "community": 40,
+      "community": 2,
       "norm_label": "tensor"
     },
     {
@@ -9815,7 +9815,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_timestepblock_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -9865,7 +9865,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_upsample_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -9895,7 +9895,7 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_downsample_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -9925,7 +9925,7 @@
       "source_location": "L319",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_resblock_forward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".forward()"
     },
     {
@@ -9935,7 +9935,7 @@
       "source_location": "L360",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionblock",
-      "community": 34,
+      "community": 2,
       "norm_label": "attentionblock"
     },
     {
@@ -9955,7 +9955,7 @@
       "source_location": "L396",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_attentionblock_forward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".forward()"
     },
     {
@@ -9985,7 +9985,7 @@
       "source_location": "L417",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattentionlegacy_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -9995,7 +9995,7 @@
       "source_location": "L436",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattention",
-      "community": 40,
+      "community": 2,
       "norm_label": "qkvattention"
     },
     {
@@ -10005,7 +10005,7 @@
       "source_location": "L441",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattention_init",
-      "community": 40,
+      "community": 2,
       "norm_label": ".__init__()"
     },
     {
@@ -10015,7 +10015,7 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_qkvattention_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -10045,7 +10045,7 @@
       "source_location": "L471",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_timestep_forward",
-      "community": 36,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -10075,7 +10075,7 @@
       "source_location": "L819",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_unetmodel_forward",
-      "community": 40,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -10085,7 +10085,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_23",
-      "community": 40,
+      "community": 2,
       "norm_label": "adapted from clip: https://github.com/openai/clip/blob/main/clip/model.py"
     },
     {
@@ -10105,7 +10105,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_61",
-      "community": 40,
+      "community": 2,
       "norm_label": "apply the module to `x` given `emb` timestep embeddings."
     },
     {
@@ -10155,7 +10155,7 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_320",
-      "community": 34,
+      "community": 79,
       "norm_label": "apply the block to a tensor, conditioned on a timestep embedding.         :param"
     },
     {
@@ -10165,7 +10165,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_361",
-      "community": 34,
+      "community": 2,
       "norm_label": "an attention block that allows spatial positions to attend to each other.     or"
     },
     {
@@ -10185,7 +10185,7 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_418",
-      "community": 40,
+      "community": 2,
       "norm_label": "apply qkv attention.         :param qkv: an [n x (h * 3 * c) x t] tensor of qs,"
     },
     {
@@ -10195,7 +10195,7 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_437",
-      "community": 40,
+      "community": 2,
       "norm_label": "a module which performs qkv attention and splits in a different order."
     },
     {
@@ -10205,7 +10205,7 @@
       "source_location": "L446",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_446",
-      "community": 40,
+      "community": 2,
       "norm_label": "apply qkv attention.         :param qkv: an [n x (3 * h * c) x t] tensor of qs,"
     },
     {
@@ -10225,7 +10225,7 @@
       "source_location": "L827",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_openaimodel_rationale_827",
-      "community": 40,
+      "community": 2,
       "norm_label": "apply the model to an input batch.         :param x: an [n x c x ...] tensor of"
     },
     {
@@ -10245,7 +10245,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_basediffusionsampler",
-      "community": 5,
+      "community": 40,
       "norm_label": "basediffusionsampler"
     },
     {
@@ -10255,7 +10255,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_basediffusionsampler_init",
-      "community": 5,
+      "community": 40,
       "norm_label": ".__init__()"
     },
     {
@@ -10265,7 +10265,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_py_listconfig",
-      "community": 5,
+      "community": 40,
       "norm_label": "listconfig"
     },
     {
@@ -10275,7 +10275,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_py_omegaconf",
-      "community": 5,
+      "community": 40,
       "norm_label": "omegaconf"
     },
     {
@@ -10285,7 +10285,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_basediffusionsampler_prepare_sampling_loop",
-      "community": 5,
+      "community": 40,
       "norm_label": ".prepare_sampling_loop()"
     },
     {
@@ -10305,7 +10305,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_basediffusionsampler_get_sigma_gen",
-      "community": 5,
+      "community": 40,
       "norm_label": ".get_sigma_gen()"
     },
     {
@@ -10345,7 +10345,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_edmsampler",
-      "community": 5,
+      "community": 108,
       "norm_label": "edmsampler"
     },
     {
@@ -10355,7 +10355,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_edmsampler_init",
-      "community": 5,
+      "community": 108,
       "norm_label": ".__init__()"
     },
     {
@@ -10375,7 +10375,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_edmsampler_step_call",
-      "community": 5,
+      "community": 108,
       "norm_label": ".step_call()"
     },
     {
@@ -10385,7 +10385,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_edmsampler_call",
-      "community": 5,
+      "community": 40,
       "norm_label": ".__call__()"
     },
     {
@@ -10405,7 +10405,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_ancestralsampler_init",
-      "community": 5,
+      "community": 108,
       "norm_label": ".__init__()"
     },
     {
@@ -10435,7 +10435,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_ancestralsampler_call",
-      "community": 5,
+      "community": 40,
       "norm_label": ".__call__()"
     },
     {
@@ -10445,7 +10445,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_linearmultistepsampler",
-      "community": 5,
+      "community": 40,
       "norm_label": "linearmultistepsampler"
     },
     {
@@ -10455,7 +10455,7 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_linearmultistepsampler_init",
-      "community": 5,
+      "community": 108,
       "norm_label": ".__init__()"
     },
     {
@@ -10465,7 +10465,7 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_linearmultistepsampler_call",
-      "community": 5,
+      "community": 40,
       "norm_label": ".__call__()"
     },
     {
@@ -10475,7 +10475,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_euleredmsampler",
-      "community": 5,
+      "community": 108,
       "norm_label": "euleredmsampler"
     },
     {
@@ -10485,7 +10485,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_euleredmsampler_possible_correction_step",
-      "community": 5,
+      "community": 108,
       "norm_label": ".possible_correction_step()"
     },
     {
@@ -10495,7 +10495,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_heunedmsampler",
-      "community": 5,
+      "community": 108,
       "norm_label": "heunedmsampler"
     },
     {
@@ -10575,7 +10575,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_dpmpp2msampler",
-      "community": 5,
+      "community": 40,
       "norm_label": "dpmpp2msampler"
     },
     {
@@ -10585,7 +10585,7 @@
       "source_location": "L318",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_dpmpp2msampler_get_variables",
-      "community": 5,
+      "community": 40,
       "norm_label": ".get_variables()"
     },
     {
@@ -10595,7 +10595,7 @@
       "source_location": "L329",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_dpmpp2msampler_get_mult",
-      "community": 5,
+      "community": 40,
       "norm_label": ".get_mult()"
     },
     {
@@ -10605,7 +10605,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_dpmpp2msampler_sampler_step",
-      "community": 5,
+      "community": 40,
       "norm_label": ".sampler_step()"
     },
     {
@@ -10615,7 +10615,7 @@
       "source_location": "L374",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_sampling_dpmpp2msampler_call",
-      "community": 5,
+      "community": 40,
       "norm_label": ".__call__()"
     },
     {
@@ -10765,7 +10765,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpoint",
-      "community": 34,
+      "community": 79,
       "norm_label": "checkpoint()"
     },
     {
@@ -10775,7 +10775,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction",
-      "community": 34,
+      "community": 79,
       "norm_label": "checkpointfunction"
     },
     {
@@ -10785,7 +10785,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction_forward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".forward()"
     },
     {
@@ -10795,7 +10795,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_checkpointfunction_backward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".backward()"
     },
     {
@@ -10805,7 +10805,7 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_timestep_embedding",
-      "community": 36,
+      "community": 2,
       "norm_label": "timestep_embedding()"
     },
     {
@@ -10885,7 +10885,7 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_groupnorm32_forward",
-      "community": 84,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -10925,7 +10925,7 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender",
-      "community": 84,
+      "community": 2,
       "norm_label": "alphablender"
     },
     {
@@ -10935,7 +10935,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_init",
-      "community": 84,
+      "community": 2,
       "norm_label": ".__init__()"
     },
     {
@@ -10945,7 +10945,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_get_alpha",
-      "community": 84,
+      "community": 2,
       "norm_label": ".get_alpha()"
     },
     {
@@ -10955,7 +10955,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_py_tensor",
-      "community": 84,
+      "community": 2,
       "norm_label": "tensor"
     },
     {
@@ -10965,7 +10965,7 @@
       "source_location": "L360",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_alphablender_forward",
-      "community": 84,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -10995,7 +10995,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_rationale_155",
-      "community": 34,
+      "community": 79,
       "norm_label": "evaluate a function without caching intermediate activations, allowing for     r"
     },
     {
@@ -11005,7 +11005,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_rationale_208",
-      "community": 36,
+      "community": 2,
       "norm_label": "create sinusoidal timestep embeddings.     :param timesteps: a 1-d tensor of n i"
     },
     {
@@ -11115,7 +11115,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_video_model_videoresblock_forward",
-      "community": 84,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -11125,7 +11125,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_video_model_py_tensor",
-      "community": 84,
+      "community": 2,
       "norm_label": "tensor"
     },
     {
@@ -11135,7 +11135,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_video_model_videounet",
-      "community": 84,
+      "community": 2,
       "norm_label": "videounet"
     },
     {
@@ -11155,7 +11155,7 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_video_model_videounet_forward",
-      "community": 84,
+      "community": 2,
       "norm_label": ".forward()"
     },
     {
@@ -11335,7 +11335,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "object",
-      "community": 55,
+      "community": 53,
       "norm_label": "object"
     },
     {
@@ -11415,7 +11415,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema",
-      "community": 44,
+      "community": 24,
       "norm_label": "ema.py"
     },
     {
@@ -11425,7 +11425,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema",
-      "community": 44,
+      "community": 24,
       "norm_label": "litema"
     },
     {
@@ -11435,7 +11435,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_init",
-      "community": 44,
+      "community": 24,
       "norm_label": ".__init__()"
     },
     {
@@ -11445,7 +11445,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_reset_num_updates",
-      "community": 44,
+      "community": 24,
       "norm_label": ".reset_num_updates()"
     },
     {
@@ -11455,7 +11455,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_forward",
-      "community": 44,
+      "community": 24,
       "norm_label": ".forward()"
     },
     {
@@ -11465,7 +11465,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_copy_to",
-      "community": 44,
+      "community": 24,
       "norm_label": ".copy_to()"
     },
     {
@@ -11475,7 +11475,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_store",
-      "community": 44,
+      "community": 24,
       "norm_label": ".store()"
     },
     {
@@ -11485,7 +11485,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_litema_restore",
-      "community": 44,
+      "community": 24,
       "norm_label": ".restore()"
     },
     {
@@ -11495,7 +11495,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_rationale_66",
-      "community": 44,
+      "community": 24,
       "norm_label": "save the current parameters for restoring later.         args:           paramet"
     },
     {
@@ -11505,7 +11505,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_ema_rationale_75",
-      "community": 44,
+      "community": 24,
       "norm_label": "restore the parameters stored with the `store` method.         useful to validat"
     },
     {
@@ -11525,7 +11525,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules",
-      "community": 53,
+      "community": 0,
       "norm_label": "modules.py"
     },
     {
@@ -11595,7 +11595,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_generalconditioner",
-      "community": 53,
+      "community": 0,
       "norm_label": "generalconditioner"
     },
     {
@@ -11605,7 +11605,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_generalconditioner_init",
-      "community": 53,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -11615,7 +11615,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_py_listconfig",
-      "community": 53,
+      "community": 0,
       "norm_label": "listconfig"
     },
     {
@@ -11625,7 +11625,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_generalconditioner_possibly_get_ucg_val",
-      "community": 53,
+      "community": 0,
       "norm_label": ".possibly_get_ucg_val()"
     },
     {
@@ -11635,7 +11635,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_generalconditioner_forward",
-      "community": 53,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -11645,7 +11645,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_generalconditioner_get_unconditional_conditioning",
-      "community": 53,
+      "community": 0,
       "norm_label": ".get_unconditional_conditioning()"
     },
     {
@@ -11655,7 +11655,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3",
-      "community": 49,
+      "community": 0,
       "norm_label": "inceptionv3"
     },
     {
@@ -11665,7 +11665,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -11675,7 +11675,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_inceptionv3_forward",
-      "community": 49,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -11775,7 +11775,7 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder",
-      "community": 62,
+      "community": 0,
       "norm_label": "frozent5embedder"
     },
     {
@@ -11785,7 +11785,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -11795,7 +11795,7 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder_freeze",
-      "community": 62,
+      "community": 0,
       "norm_label": ".freeze()"
     },
     {
@@ -11805,7 +11805,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder_forward",
-      "community": 62,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -11815,7 +11815,7 @@
       "source_location": "L285",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozent5embedder_encode",
-      "community": 62,
+      "community": 0,
       "norm_label": ".encode()"
     },
     {
@@ -11835,7 +11835,7 @@
       "source_location": "L294",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenbyt5embedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -11875,7 +11875,7 @@
       "source_location": "L331",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder",
-      "community": 62,
+      "community": 0,
       "norm_label": "frozenclipembedder"
     },
     {
@@ -11885,7 +11885,7 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -11895,7 +11895,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder_freeze",
-      "community": 62,
+      "community": 0,
       "norm_label": ".freeze()"
     },
     {
@@ -11905,7 +11905,7 @@
       "source_location": "L368",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder_forward",
-      "community": 62,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -11915,7 +11915,7 @@
       "source_location": "L392",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipembedder_encode",
-      "community": 62,
+      "community": 0,
       "norm_label": ".encode()"
     },
     {
@@ -11935,7 +11935,7 @@
       "source_location": "L403",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipembedder2_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12015,7 +12015,7 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipembedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12075,7 +12075,7 @@
       "source_location": "L570",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder",
-      "community": 49,
+      "community": 0,
       "norm_label": "frozenopenclipimageembedder"
     },
     {
@@ -12085,7 +12085,7 @@
       "source_location": "L575",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12095,7 +12095,7 @@
       "source_location": "L620",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_preprocess",
-      "community": 49,
+      "community": 0,
       "norm_label": ".preprocess()"
     },
     {
@@ -12105,7 +12105,7 @@
       "source_location": "L634",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_freeze",
-      "community": 49,
+      "community": 0,
       "norm_label": ".freeze()"
     },
     {
@@ -12115,7 +12115,7 @@
       "source_location": "L640",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_forward",
-      "community": 49,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -12125,7 +12125,7 @@
       "source_location": "L693",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_encode_with_vision_transformer",
-      "community": 49,
+      "community": 0,
       "norm_label": ".encode_with_vision_transformer()"
     },
     {
@@ -12135,7 +12135,7 @@
       "source_location": "L727",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimageembedder_encode",
-      "community": 49,
+      "community": 0,
       "norm_label": ".encode()"
     },
     {
@@ -12145,7 +12145,7 @@
       "source_location": "L731",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipt5encoder",
-      "community": 62,
+      "community": 0,
       "norm_label": "frozenclipt5encoder"
     },
     {
@@ -12155,7 +12155,7 @@
       "source_location": "L732",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipt5encoder_init",
-      "community": 62,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12165,7 +12165,7 @@
       "source_location": "L750",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipt5encoder_encode",
-      "community": 62,
+      "community": 0,
       "norm_label": ".encode()"
     },
     {
@@ -12175,7 +12175,7 @@
       "source_location": "L753",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenclipt5encoder_forward",
-      "community": 50,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -12185,7 +12185,7 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler",
-      "community": 50,
+      "community": 0,
       "norm_label": "spatialrescaler"
     },
     {
@@ -12195,7 +12195,7 @@
       "source_location": "L760",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_init",
-      "community": 50,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12205,7 +12205,7 @@
       "source_location": "L799",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_forward",
-      "community": 50,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -12215,7 +12215,7 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_encode",
-      "community": 50,
+      "community": 0,
       "norm_label": ".encode()"
     },
     {
@@ -12355,7 +12355,7 @@
       "source_location": "L951",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder",
-      "community": 50,
+      "community": 0,
       "norm_label": "videopredictionembedderwithencoder"
     },
     {
@@ -12365,7 +12365,7 @@
       "source_location": "L952",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder_init",
-      "community": 50,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12375,7 +12375,7 @@
       "source_location": "L984",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_videopredictionembedderwithencoder_forward",
-      "community": 50,
+      "community": 0,
       "norm_label": ".forward()"
     },
     {
@@ -12395,7 +12395,7 @@
       "source_location": "L1030",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_frozenopenclipimagepredictionembedder_init",
-      "community": 49,
+      "community": 0,
       "norm_label": ".__init__()"
     },
     {
@@ -12415,7 +12415,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_188",
-      "community": 49,
+      "community": 0,
       "norm_label": "wrapper around the https://github.com/mseitzer/pytorch-fid inception     port wi"
     },
     {
@@ -12425,7 +12425,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_250",
-      "community": 62,
+      "community": 0,
       "norm_label": "uses the t5 transformer encoder for text"
     },
     {
@@ -12445,7 +12445,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_332",
-      "community": 62,
+      "community": 0,
       "norm_label": "uses the clip transformer encoder for text (from huggingface)"
     },
     {
@@ -12465,7 +12465,7 @@
       "source_location": "L571",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_rationale_571",
-      "community": 49,
+      "community": 0,
       "norm_label": "uses the openclip vision transformer encoder for images"
     },
     {
@@ -12535,7 +12535,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_videotransformerblock_forward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".forward()"
     },
     {
@@ -12545,7 +12545,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_py_tensor",
-      "community": 34,
+      "community": 79,
       "norm_label": "tensor"
     },
     {
@@ -12565,7 +12565,7 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_selected_attn",
-      "community": 34,
+      "community": 79,
       "norm_label": "selected_attn()"
     },
     {
@@ -12595,7 +12595,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_video_attention_spatialvideotransformer_forward",
-      "community": 34,
+      "community": 79,
       "norm_label": ".forward()"
     },
     {
@@ -12605,7 +12605,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util",
-      "community": 53,
+      "community": 24,
       "norm_label": "util.py"
     },
     {
@@ -12615,7 +12615,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_disabled_train",
-      "community": 53,
+      "community": 24,
       "norm_label": "disabled_train()"
     },
     {
@@ -12625,7 +12625,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_string_from_tuple",
-      "community": 53,
+      "community": 24,
       "norm_label": "get_string_from_tuple()"
     },
     {
@@ -12635,7 +12635,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_is_power_of_two",
-      "community": 53,
+      "community": 24,
       "norm_label": "is_power_of_two()"
     },
     {
@@ -12645,7 +12645,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_autocast",
-      "community": 53,
+      "community": 24,
       "norm_label": "autocast()"
     },
     {
@@ -12655,7 +12655,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_load_partial_from_config",
-      "community": 44,
+      "community": 24,
       "norm_label": "load_partial_from_config()"
     },
     {
@@ -12685,7 +12685,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_make_path_absolute",
-      "community": 53,
+      "community": 24,
       "norm_label": "make_path_absolute()"
     },
     {
@@ -12695,7 +12695,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_ismap",
-      "community": 53,
+      "community": 24,
       "norm_label": "ismap()"
     },
     {
@@ -12705,7 +12705,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isimage",
-      "community": 53,
+      "community": 24,
       "norm_label": "isimage()"
     },
     {
@@ -12715,7 +12715,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isheatmap",
-      "community": 53,
+      "community": 24,
       "norm_label": "isheatmap()"
     },
     {
@@ -12725,7 +12725,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_isneighbors",
-      "community": 53,
+      "community": 24,
       "norm_label": "isneighbors()"
     },
     {
@@ -12745,7 +12745,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_expand_dims_like",
-      "community": 53,
+      "community": 0,
       "norm_label": "expand_dims_like()"
     },
     {
@@ -12755,7 +12755,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_default",
-      "community": 2,
+      "community": 24,
       "norm_label": "default()"
     },
     {
@@ -12765,7 +12765,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_mean_flat",
-      "community": 53,
+      "community": 24,
       "norm_label": "mean_flat()"
     },
     {
@@ -12775,7 +12775,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_count_params",
-      "community": 53,
+      "community": 0,
       "norm_label": "count_params()"
     },
     {
@@ -12785,7 +12785,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_instantiate_from_config",
-      "community": 53,
+      "community": 24,
       "norm_label": "instantiate_from_config()"
     },
     {
@@ -12795,7 +12795,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_obj_from_str",
-      "community": 44,
+      "community": 24,
       "norm_label": "get_obj_from_str()"
     },
     {
@@ -12825,7 +12825,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_load_model_from_config",
-      "community": 53,
+      "community": 24,
       "norm_label": "load_model_from_config()"
     },
     {
@@ -12845,7 +12845,7 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_get_nested_attribute",
-      "community": 6,
+      "community": 24,
       "norm_label": "get_nested_attribute()"
     },
     {
@@ -12855,7 +12855,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_15",
-      "community": 53,
+      "community": 24,
       "norm_label": "overwrite model.train with this function to make sure train/eval mode     does n"
     },
     {
@@ -12865,7 +12865,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_37",
-      "community": 53,
+      "community": 24,
       "norm_label": "chat.openai.com/chat     return true if n is a power of 2, otherwise return fals"
     },
     {
@@ -12875,7 +12875,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_154",
-      "community": 53,
+      "community": 24,
       "norm_label": "https://github.com/openai/guided-diffusion/blob/27c20a8fab9cb472df5d6bdd6c8d11c8"
     },
     {
@@ -12905,7 +12905,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_rationale_252",
-      "community": 6,
+      "community": 24,
       "norm_label": "will return the result of a recursive get attribute call.     e.g.:         a.b."
     },
     {
@@ -16485,7 +16485,7 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "app_vendor_propainter_model_modules_spectral_norm_spectralnormstatedicthook",
-      "community": 55,
+      "community": 53,
       "norm_label": "spectralnormstatedicthook"
     },
     {
@@ -16495,7 +16495,7 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "app_vendor_propainter_model_modules_spectral_norm_spectralnormstatedicthook_init",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__init__()"
     },
     {
@@ -16505,7 +16505,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "app_vendor_propainter_model_modules_spectral_norm_spectralnormstatedicthook_call",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__call__()"
     },
     {
@@ -18185,7 +18185,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_dpt_temporal_dptheadtemporal_init",
-      "community": 9,
+      "community": 98,
       "norm_label": ".__init__()"
     },
     {
@@ -18925,7 +18925,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform",
-      "community": 55,
+      "community": 53,
       "norm_label": "transform.py"
     },
     {
@@ -18935,7 +18935,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_resize",
-      "community": 55,
+      "community": 109,
       "norm_label": "resize"
     },
     {
@@ -18945,7 +18945,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_resize_init",
-      "community": 55,
+      "community": 109,
       "norm_label": ".__init__()"
     },
     {
@@ -18955,7 +18955,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_resize_constrain_to_multiple_of",
-      "community": 55,
+      "community": 109,
       "norm_label": ".constrain_to_multiple_of()"
     },
     {
@@ -18965,7 +18965,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_resize_get_size",
-      "community": 55,
+      "community": 109,
       "norm_label": ".get_size()"
     },
     {
@@ -18975,7 +18975,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_resize_call",
-      "community": 55,
+      "community": 109,
       "norm_label": ".__call__()"
     },
     {
@@ -18985,7 +18985,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_normalizeimage",
-      "community": 55,
+      "community": 53,
       "norm_label": "normalizeimage"
     },
     {
@@ -18995,7 +18995,7 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_normalizeimage_init",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__init__()"
     },
     {
@@ -19005,7 +19005,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_normalizeimage_call",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__call__()"
     },
     {
@@ -19015,7 +19015,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_preparefornet",
-      "community": 55,
+      "community": 53,
       "norm_label": "preparefornet"
     },
     {
@@ -19025,7 +19025,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_preparefornet_init",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__init__()"
     },
     {
@@ -19035,7 +19035,7 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_preparefornet_call",
-      "community": 55,
+      "community": 53,
       "norm_label": ".__call__()"
     },
     {
@@ -19045,7 +19045,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_rationale_6",
-      "community": 55,
+      "community": 109,
       "norm_label": "resize sample to given size (width, height)."
     },
     {
@@ -19055,7 +19055,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_rationale_19",
-      "community": 55,
+      "community": 109,
       "norm_label": "init.          args:             width (int): desired output width             h"
     },
     {
@@ -19065,7 +19065,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_rationale_126",
-      "community": 55,
+      "community": 53,
       "norm_label": "normlize image by given mean and std."
     },
     {
@@ -19075,7 +19075,7 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_util_transform_rationale_140",
-      "community": 55,
+      "community": 53,
       "norm_label": "prepare sample for usage as network input."
     },
     {
@@ -19195,7 +19195,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3",
-      "community": 47,
+      "community": 85,
       "norm_label": "video_depth_v3.py"
     },
     {
@@ -19255,7 +19255,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_videodepthanything",
-      "community": 30,
+      "community": 85,
       "norm_label": "videodepthanything"
     },
     {
@@ -19265,7 +19265,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "app_vendor_video_depth_anything_video_depth_v3_videodepthanything_init",
-      "community": 30,
+      "community": 85,
       "norm_label": ".__init__()"
     },
     {
@@ -20105,7 +20105,7 @@
       "source_location": "L1145",
       "_origin": "ast",
       "id": "gateway_internal_api_projects_analyzeresponse",
-      "community": 1,
+      "community": 12,
       "norm_label": "analyzeresponse()"
     },
     {
@@ -21125,7 +21125,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth",
-      "community": 4,
+      "community": 84,
       "norm_label": "auth.go"
     },
     {
@@ -21135,7 +21135,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "auth_user",
-      "community": 4,
+      "community": 84,
       "norm_label": "user"
     },
     {
@@ -21145,7 +21145,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "auth_verifier",
-      "community": 4,
+      "community": 84,
       "norm_label": "verifier"
     },
     {
@@ -21155,7 +21155,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth_go_client",
-      "community": 4,
+      "community": 84,
       "norm_label": "client"
     },
     {
@@ -21165,7 +21165,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth_new",
-      "community": 4,
+      "community": 84,
       "norm_label": "new()"
     },
     {
@@ -21175,7 +21175,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth_go_context",
-      "community": 4,
+      "community": 84,
       "norm_label": "context"
     },
     {
@@ -21185,7 +21185,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "auth_verifier_fromrequest",
-      "community": 4,
+      "community": 84,
       "norm_label": ".fromrequest()"
     },
     {
@@ -21195,7 +21195,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth_go_request",
-      "community": 4,
+      "community": 84,
       "norm_label": "request"
     },
     {
@@ -21205,7 +21205,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "auth_errunauthorizedtype",
-      "community": 4,
+      "community": 84,
       "norm_label": "errunauthorizedtype"
     },
     {
@@ -21215,7 +21215,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "auth_errunauthorizedtype_error",
-      "community": 4,
+      "community": 84,
       "norm_label": ".error()"
     },
     {
@@ -21225,7 +21225,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "gateway_internal_auth_auth_isunauthorized",
-      "community": 4,
+      "community": 84,
       "norm_label": "isunauthorized()"
     },
     {
@@ -26295,7 +26295,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "web_package_dependencies_firebase",
-      "community": 14,
+      "community": 15,
       "norm_label": "firebase"
     },
     {
@@ -26685,7 +26685,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_account_page",
-      "community": 119,
+      "community": 62,
       "norm_label": "page.tsx"
     },
     {
@@ -26695,7 +26695,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "web_src_app_account_page_accountpage",
-      "community": 119,
+      "community": 62,
       "norm_label": "accountpage()"
     },
     {
@@ -26705,7 +26705,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_api_geo_route",
-      "community": 57,
+      "community": 139,
       "norm_label": "route.ts"
     },
     {
@@ -26715,7 +26715,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web_src_app_api_geo_route_get",
-      "community": 57,
+      "community": 139,
       "norm_label": "get()"
     },
     {
@@ -26732,7 +26732,7 @@
       "label": "geistSans",
       "file_type": "code",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "_origin": "ast",
       "id": "web_src_app_layout_geistsans",
       "community": 368,
@@ -26742,7 +26742,7 @@
       "label": "geistMono",
       "file_type": "code",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L20",
+      "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_app_layout_geistmono",
       "community": 368,
@@ -26752,7 +26752,7 @@
       "label": "metadata",
       "file_type": "code",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L28",
+      "source_location": "L29",
       "_origin": "ast",
       "id": "web_src_app_layout_metadata",
       "community": 368,
@@ -26762,7 +26762,7 @@
       "label": "RootLayout()",
       "file_type": "code",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L60",
+      "source_location": "L61",
       "_origin": "ast",
       "id": "web_src_app_layout_rootlayout",
       "community": 368,
@@ -26775,7 +26775,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_onboarding_page",
-      "community": 119,
+      "community": 62,
       "norm_label": "page.tsx"
     },
     {
@@ -26785,7 +26785,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "web_src_app_onboarding_page_onboardingpage",
-      "community": 119,
+      "community": 62,
       "norm_label": "onboardingpage()"
     },
     {
@@ -26795,7 +26795,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_page",
-      "community": 112,
+      "community": 72,
       "norm_label": "page.tsx"
     },
     {
@@ -26805,7 +26805,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_app_page_metadata",
-      "community": 112,
+      "community": 72,
       "norm_label": "metadata"
     },
     {
@@ -26815,7 +26815,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_app_page_structureddata",
-      "community": 112,
+      "community": 72,
       "norm_label": "structureddata"
     },
     {
@@ -26825,7 +26825,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "web_src_app_page_home",
-      "community": 112,
+      "community": 72,
       "norm_label": "home()"
     },
     {
@@ -26865,7 +26865,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_projects_id_page",
-      "community": 119,
+      "community": 62,
       "norm_label": "page.tsx"
     },
     {
@@ -26875,7 +26875,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_src_app_projects_id_page_projectworkspacepage",
-      "community": 119,
+      "community": 62,
       "norm_label": "projectworkspacepage()"
     },
     {
@@ -26885,7 +26885,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_projects_page",
-      "community": 60,
+      "community": 62,
       "norm_label": "page.tsx"
     },
     {
@@ -26895,7 +26895,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_src_app_projects_page_projectspage",
-      "community": 60,
+      "community": 62,
       "norm_label": "projectspage()"
     },
     {
@@ -26905,7 +26905,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_robots",
-      "community": 368,
+      "community": 72,
       "norm_label": "robots.ts"
     },
     {
@@ -26915,7 +26915,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_app_robots_robots",
-      "community": 368,
+      "community": 72,
       "norm_label": "robots()"
     },
     {
@@ -26925,7 +26925,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_signin_page",
-      "community": 72,
+      "community": 119,
       "norm_label": "page.tsx"
     },
     {
@@ -26935,7 +26935,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "web_src_app_signin_page_signinpage",
-      "community": 72,
+      "community": 119,
       "norm_label": "signinpage()"
     },
     {
@@ -26945,7 +26945,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_sitemap",
-      "community": 368,
+      "community": 72,
       "norm_label": "sitemap.ts"
     },
     {
@@ -26955,7 +26955,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_app_sitemap_sitemap",
-      "community": 368,
+      "community": 72,
       "norm_label": "sitemap()"
     },
     {
@@ -27049,6 +27049,26 @@
       "norm_label": "feedbacklink()"
     },
     {
+      "label": "Logo.tsx",
+      "file_type": "code",
+      "source_file": "web/src/components/Logo.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "web_src_components_logo",
+      "community": 368,
+      "norm_label": "logo.tsx"
+    },
+    {
+      "label": "Logo()",
+      "file_type": "code",
+      "source_file": "web/src/components/Logo.tsx",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "web_src_components_logo_logo",
+      "community": 368,
+      "norm_label": "logo()"
+    },
+    {
       "label": "AccountScreen.tsx",
       "file_type": "code",
       "source_file": "web/src/components/auth/AccountScreen.tsx",
@@ -27105,7 +27125,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_requireauth",
-      "community": 119,
+      "community": 62,
       "norm_label": "requireauth.tsx"
     },
     {
@@ -27115,7 +27135,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_auth_requireauth_requireauth",
-      "community": 119,
+      "community": 62,
       "norm_label": "requireauth()"
     },
     {
@@ -27125,7 +27145,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen",
-      "community": 72,
+      "community": 119,
       "norm_label": "signinscreen.tsx"
     },
     {
@@ -27135,7 +27155,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen_mode",
-      "community": 72,
+      "community": 119,
       "norm_label": "mode"
     },
     {
@@ -27145,7 +27165,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen_titles",
-      "community": 72,
+      "community": 119,
       "norm_label": "titles"
     },
     {
@@ -27155,7 +27175,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen_submit_labels",
-      "community": 72,
+      "community": 119,
       "norm_label": "submit_labels"
     },
     {
@@ -27165,7 +27185,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen_safenext",
-      "community": 72,
+      "community": 119,
       "norm_label": "safenext()"
     },
     {
@@ -27175,7 +27195,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "web_src_components_auth_signinscreen_signinscreen",
-      "community": 72,
+      "community": 119,
       "norm_label": "signinscreen()"
     },
     {
@@ -27225,7 +27245,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test",
-      "community": 119,
+      "community": 72,
       "norm_label": "auth.test.tsx"
     },
     {
@@ -27235,7 +27255,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test_replace",
-      "community": 119,
+      "community": 72,
       "norm_label": "replace"
     },
     {
@@ -27245,7 +27265,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test_renderwithauth",
-      "community": 119,
+      "community": 72,
       "norm_label": "renderwithauth()"
     },
     {
@@ -27295,7 +27315,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen",
-      "community": 70,
+      "community": 44,
       "norm_label": "onboardingscreen.tsx"
     },
     {
@@ -27305,7 +27325,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_safenext",
-      "community": 70,
+      "community": 44,
       "norm_label": "safenext()"
     },
     {
@@ -27315,7 +27335,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_onboardingscreen",
-      "community": 70,
+      "community": 44,
       "norm_label": "onboardingscreen()"
     },
     {
@@ -27445,7 +27465,7 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "web_src_components_billing_paymentsetup_usebillingsetup",
-      "community": 70,
+      "community": 44,
       "norm_label": "usebillingsetup()"
     },
     {
@@ -27455,7 +27475,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_requirebilling",
-      "community": 60,
+      "community": 62,
       "norm_label": "requirebilling.tsx"
     },
     {
@@ -27465,7 +27485,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "web_src_components_billing_requirebilling_requirebilling",
-      "community": 60,
+      "community": 62,
       "norm_label": "requirebilling()"
     },
     {
@@ -27475,7 +27495,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test",
-      "community": 57,
+      "community": 44,
       "norm_label": "billing.test.tsx"
     },
     {
@@ -27485,7 +27505,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_replace",
-      "community": 57,
+      "community": 44,
       "norm_label": "replace"
     },
     {
@@ -27495,7 +27515,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_renderwithbilling",
-      "community": 57,
+      "community": 44,
       "norm_label": "renderwithbilling()"
     },
     {
@@ -27505,7 +27525,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_seeddebt",
-      "community": 57,
+      "community": 44,
       "norm_label": "seeddebt()"
     },
     {
@@ -27592,7 +27612,7 @@
       "label": "DEVICES",
       "file_type": "code",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L31",
+      "source_location": "L32",
       "_origin": "ast",
       "id": "web_src_components_landing_landingcontent_devices",
       "community": 112,
@@ -27602,7 +27622,7 @@
       "label": "QUALITY",
       "file_type": "code",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L38",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "web_src_components_landing_landingcontent_quality",
       "community": 112,
@@ -27612,7 +27632,7 @@
       "label": "FORMATS",
       "file_type": "code",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L65",
+      "source_location": "L66",
       "_origin": "ast",
       "id": "web_src_components_landing_landingcontent_formats",
       "community": 112,
@@ -27622,7 +27642,7 @@
       "label": "PRICING",
       "file_type": "code",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L91",
+      "source_location": "L92",
       "_origin": "ast",
       "id": "web_src_components_landing_landingcontent_pricing",
       "community": 112,
@@ -27632,7 +27652,7 @@
       "label": "LandingContent()",
       "file_type": "code",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L112",
+      "source_location": "L113",
       "_origin": "ast",
       "id": "web_src_components_landing_landingcontent_landingcontent",
       "community": 112,
@@ -27815,7 +27835,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_components_projects_projectcard_date_format",
-      "community": 29,
+      "community": 37,
       "norm_label": "date_format"
     },
     {
@@ -27825,7 +27845,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "web_src_components_projects_projectcard_projectcard",
-      "community": 29,
+      "community": 37,
       "norm_label": "projectcard()"
     },
     {
@@ -28105,7 +28125,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "web_src_components_steps_deliverpanel_deliverpanelprops",
-      "community": 41,
+      "community": 107,
       "norm_label": "deliverpanelprops"
     },
     {
@@ -28275,7 +28295,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel",
-      "community": 37,
+      "community": 41,
       "norm_label": "depthpanel.tsx"
     },
     {
@@ -28285,7 +28305,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthpanelprops",
-      "community": 37,
+      "community": 41,
       "norm_label": "depthpanelprops"
     },
     {
@@ -28305,7 +28325,7 @@
       "source_location": "L213",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_panelshell",
-      "community": 37,
+      "community": 41,
       "norm_label": "panelshell()"
     },
     {
@@ -28315,7 +28335,7 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthreview",
-      "community": 60,
+      "community": 41,
       "norm_label": "depthreview()"
     },
     {
@@ -28325,7 +28345,7 @@
       "source_location": "L516",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthscenegrid",
-      "community": 37,
+      "community": 41,
       "norm_label": "depthscenegrid()"
     },
     {
@@ -28545,7 +28565,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns_priorruns",
-      "community": 60,
+      "community": 41,
       "norm_label": "priorruns()"
     },
     {
@@ -28565,7 +28585,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_quoteview_test",
-      "community": 107,
+      "community": 60,
       "norm_label": "quoteview.test.tsx"
     },
     {
@@ -28575,7 +28595,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_components_steps_quoteview_test_quoteresponse",
-      "community": 107,
+      "community": 60,
       "norm_label": "quoteresponse()"
     },
     {
@@ -28585,7 +28605,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_quoteview",
-      "community": 107,
+      "community": 60,
       "norm_label": "quoteview.tsx"
     },
     {
@@ -28595,7 +28615,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "web_src_components_steps_quoteview_formatquoteeta",
-      "community": 107,
+      "community": 60,
       "norm_label": "formatquoteeta()"
     },
     {
@@ -28605,7 +28625,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_src_components_steps_quoteview_quoteview",
-      "community": 107,
+      "community": 60,
       "norm_label": "quoteview()"
     },
     {
@@ -28615,7 +28635,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_scenepicker",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenepicker.tsx"
     },
     {
@@ -28625,7 +28645,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_steps_scenepicker_mutetoggle",
-      "community": 37,
+      "community": 29,
       "norm_label": "mutetoggle()"
     },
     {
@@ -28635,7 +28655,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_src_components_steps_scenepicker_speed_choices",
-      "community": 37,
+      "community": 29,
       "norm_label": "speed_choices"
     },
     {
@@ -28645,7 +28665,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "web_src_components_steps_scenepicker_speedselect",
-      "community": 37,
+      "community": 29,
       "norm_label": "speedselect()"
     },
     {
@@ -28715,7 +28735,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_bestplayable",
-      "community": 41,
+      "community": 110,
       "norm_label": "bestplayable()"
     },
     {
@@ -28755,7 +28775,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_stepreviewprops",
-      "community": 37,
+      "community": 110,
       "norm_label": "stepreviewprops"
     },
     {
@@ -28775,7 +28795,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test",
-      "community": 41,
+      "community": 57,
       "norm_label": "stereopanel.test.tsx"
     },
     {
@@ -28805,7 +28825,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fixture",
-      "community": 41,
+      "community": 57,
       "norm_label": "fixture"
     },
     {
@@ -28815,7 +28835,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_profile",
-      "community": 41,
+      "community": 57,
       "norm_label": "profile"
     },
     {
@@ -28825,7 +28845,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fps",
-      "community": 41,
+      "community": 57,
       "norm_label": "fps"
     },
     {
@@ -28835,7 +28855,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_fixtureproject",
-      "community": 41,
+      "community": 57,
       "norm_label": "fixtureproject()"
     },
     {
@@ -28845,7 +28865,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_withprofile",
-      "community": 41,
+      "community": 57,
       "norm_label": "withprofile()"
     },
     {
@@ -28855,7 +28875,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_renderpanel",
-      "community": 41,
+      "community": 57,
       "norm_label": "renderpanel()"
     },
     {
@@ -28865,7 +28885,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_capturequotebodies",
-      "community": 41,
+      "community": 57,
       "norm_label": "capturequotebodies()"
     },
     {
@@ -28875,7 +28895,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_getquote",
-      "community": 41,
+      "community": 57,
       "norm_label": "getquote()"
     },
     {
@@ -28885,7 +28905,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_scenerow",
-      "community": 41,
+      "community": 57,
       "norm_label": "scenerow()"
     },
     {
@@ -28895,7 +28915,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_seededstereorun",
-      "community": 41,
+      "community": 57,
       "norm_label": "seededstereorun()"
     },
     {
@@ -28905,7 +28925,7 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_renderwithoutput",
-      "community": 41,
+      "community": 57,
       "norm_label": "renderwithoutput()"
     },
     {
@@ -28915,7 +28935,7 @@
       "source_location": "L584",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_toggle",
-      "community": 41,
+      "community": 57,
       "norm_label": "toggle()"
     },
     {
@@ -28925,7 +28945,7 @@
       "source_location": "L682",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_seededdepthrun",
-      "community": 41,
+      "community": 57,
       "norm_label": "seededdepthrun()"
     },
     {
@@ -28935,7 +28955,7 @@
       "source_location": "L810",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_withupload",
-      "community": 41,
+      "community": 57,
       "norm_label": "withupload()"
     },
     {
@@ -28945,7 +28965,7 @@
       "source_location": "L1053",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_test_profileharness",
-      "community": 41,
+      "community": 57,
       "norm_label": "profileharness()"
     },
     {
@@ -28995,7 +29015,7 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "web_src_components_steps_stereopanel_sceneoverriderows",
-      "community": 37,
+      "community": 41,
       "norm_label": "sceneoverriderows()"
     },
     {
@@ -29015,7 +29035,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore",
-      "community": 107,
+      "community": 60,
       "norm_label": "checkoutstore.ts"
     },
     {
@@ -29025,7 +29045,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_stepcheckoutstate",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepcheckoutstate"
     },
     {
@@ -29035,7 +29055,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_empty_checkout",
-      "community": 107,
+      "community": 60,
       "norm_label": "empty_checkout"
     },
     {
@@ -29045,7 +29065,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_atoms",
-      "community": 107,
+      "community": 60,
       "norm_label": "atoms"
     },
     {
@@ -29055,7 +29075,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_stepcheckoutatom",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepcheckoutatom()"
     },
     {
@@ -29065,7 +29085,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_resetstepcheckoutstate",
-      "community": 107,
+      "community": 29,
       "norm_label": "resetstepcheckoutstate()"
     },
     {
@@ -29175,7 +29195,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_polling",
-      "community": 60,
+      "community": 41,
       "norm_label": "polling.ts"
     },
     {
@@ -29225,7 +29245,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs",
-      "community": 107,
+      "community": 13,
       "norm_label": "stepdefs.ts"
     },
     {
@@ -29235,7 +29255,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs_stepdef",
-      "community": 107,
+      "community": 13,
       "norm_label": "stepdef"
     },
     {
@@ -29245,7 +29265,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_components_steps_stepdefs_step_defs",
-      "community": 107,
+      "community": 13,
       "norm_label": "step_defs"
     },
     {
@@ -29515,7 +29535,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "web_src_components_steps_stereostore_setrowpassthrough",
-      "community": 37,
+      "community": 41,
       "norm_label": "setrowpassthrough()"
     },
     {
@@ -29525,7 +29545,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout",
-      "community": 107,
+      "community": 60,
       "norm_label": "usestepcheckout.tsx"
     },
     {
@@ -29535,7 +29555,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_messageof",
-      "community": 107,
+      "community": 60,
       "norm_label": "messageof()"
     },
     {
@@ -29545,7 +29565,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_billingblock",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingblock"
     },
     {
@@ -29555,7 +29575,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_billingblockof",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingblockof()"
     },
     {
@@ -29565,7 +29585,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_stepcheckout",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepcheckout"
     },
     {
@@ -29585,7 +29605,7 @@
       "source_location": "L305",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_billingblocknotice",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingblocknotice()"
     },
     {
@@ -29595,7 +29615,7 @@
       "source_location": "L356",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_stepcheckoutsectionprops",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepcheckoutsectionprops"
     },
     {
@@ -29605,7 +29625,7 @@
       "source_location": "L368",
       "_origin": "ast",
       "id": "web_src_components_steps_usestepcheckout_stepcheckoutsection",
-      "community": 60,
+      "community": 41,
       "norm_label": "stepcheckoutsection()"
     },
     {
@@ -29645,7 +29665,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_ui_button",
-      "community": 37,
+      "community": 13,
       "norm_label": "button.tsx"
     },
     {
@@ -29655,7 +29675,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_src_components_ui_button_buttonvariants",
-      "community": 37,
+      "community": 13,
       "norm_label": "buttonvariants"
     },
     {
@@ -29665,7 +29685,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_components_ui_button_button",
-      "community": 37,
+      "community": 13,
       "norm_label": "button()"
     },
     {
@@ -29805,7 +29825,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "web_src_components_ui_dialog_dialogoverlay",
-      "community": 13,
+      "community": 37,
       "norm_label": "dialogoverlay()"
     },
     {
@@ -30095,7 +30115,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "web_src_components_workspace_filmstriptimeline_filmstriptimelineprops",
-      "community": 37,
+      "community": 29,
       "norm_label": "filmstriptimelineprops"
     },
     {
@@ -30245,7 +30265,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "web_src_components_workspace_pagetabs_workspace_tabs",
-      "community": 37,
+      "community": 13,
       "norm_label": "workspace_tabs"
     },
     {
@@ -30295,7 +30315,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_previewviewer",
-      "community": 37,
+      "community": 29,
       "norm_label": "previewviewer.tsx"
     },
     {
@@ -30305,7 +30325,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "web_src_components_workspace_previewviewer_previewviewerprops",
-      "community": 37,
+      "community": 29,
       "norm_label": "previewviewerprops"
     },
     {
@@ -30325,7 +30345,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenecuteditor",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenecuteditor.tsx"
     },
     {
@@ -30335,7 +30355,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenecuteditor_scenecuteditorprops",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenecuteditorprops"
     },
     {
@@ -30355,7 +30375,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenelist",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenelist.tsx"
     },
     {
@@ -30365,7 +30385,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenelist_scenelistprops",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenelistprops"
     },
     {
@@ -30375,7 +30395,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenelist_usescrollactivescenetotop",
-      "community": 37,
+      "community": 41,
       "norm_label": "usescrollactivescenetotop()"
     },
     {
@@ -30385,7 +30405,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenelist_scenelist",
-      "community": 37,
+      "community": 41,
       "norm_label": "scenelist()"
     },
     {
@@ -30435,7 +30455,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_components_workspace_shortcutssheet_shortcutssheet",
-      "community": 37,
+      "community": 13,
       "norm_label": "shortcutssheet()"
     },
     {
@@ -30445,7 +30465,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test",
-      "community": 107,
+      "community": 13,
       "norm_label": "steptab.test.tsx"
     },
     {
@@ -30455,7 +30475,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_fakepanel",
-      "community": 107,
+      "community": 13,
       "norm_label": "fakepanel()"
     },
     {
@@ -30465,7 +30485,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_fixtureproject",
-      "community": 107,
+      "community": 13,
       "norm_label": "fixtureproject()"
     },
     {
@@ -30475,7 +30495,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_runfor",
-      "community": 107,
+      "community": 13,
       "norm_label": "runfor()"
     },
     {
@@ -30485,7 +30505,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_rendertab",
-      "community": 107,
+      "community": 13,
       "norm_label": "rendertab()"
     },
     {
@@ -30495,7 +30515,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_opendrawer",
-      "community": 107,
+      "community": 13,
       "norm_label": "opendrawer()"
     },
     {
@@ -30505,7 +30525,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_test_expectdrawerclosed",
-      "community": 107,
+      "community": 13,
       "norm_label": "expectdrawerclosed()"
     },
     {
@@ -30525,7 +30545,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_steppanelprops",
-      "community": 13,
+      "community": 107,
       "norm_label": "steppanelprops"
     },
     {
@@ -30565,7 +30585,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_steptab",
-      "community": 107,
+      "community": 13,
       "norm_label": "steptab()"
     },
     {
@@ -30575,7 +30595,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_test",
-      "community": 89,
+      "community": 29,
       "norm_label": "useframethumbs.test.ts"
     },
     {
@@ -30585,7 +30605,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_test_fps24",
-      "community": 89,
+      "community": 29,
       "norm_label": "fps24"
     },
     {
@@ -30595,7 +30615,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_test_ntsc",
-      "community": 89,
+      "community": 29,
       "norm_label": "ntsc"
     },
     {
@@ -30655,7 +30675,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_test_renderthumbs",
-      "community": 89,
+      "community": 29,
       "norm_label": "renderthumbs()"
     },
     {
@@ -30665,7 +30685,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs",
-      "community": 89,
+      "community": 29,
       "norm_label": "useframethumbs.ts"
     },
     {
@@ -30675,7 +30695,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru",
-      "community": 89,
+      "community": 120,
       "norm_label": "thumblru"
     },
     {
@@ -30685,7 +30705,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_constructor",
-      "community": 89,
+      "community": 120,
       "norm_label": ".constructor()"
     },
     {
@@ -30695,7 +30715,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_has",
-      "community": 89,
+      "community": 120,
       "norm_label": ".has()"
     },
     {
@@ -30705,7 +30725,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_get",
-      "community": 89,
+      "community": 120,
       "norm_label": ".get()"
     },
     {
@@ -30715,7 +30735,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_set",
-      "community": 89,
+      "community": 120,
       "norm_label": ".set()"
     },
     {
@@ -30725,7 +30745,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_snapshot",
-      "community": 89,
+      "community": 120,
       "norm_label": ".snapshot()"
     },
     {
@@ -30735,7 +30755,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumblru_size",
-      "community": 89,
+      "community": 120,
       "norm_label": ".size()"
     },
     {
@@ -30775,7 +30795,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_extractorfactory",
-      "community": 89,
+      "community": 29,
       "norm_label": "extractorfactory"
     },
     {
@@ -30785,7 +30805,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_extractionseektime",
-      "community": 89,
+      "community": 29,
       "norm_label": "extractionseektime()"
     },
     {
@@ -30795,7 +30815,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_noopextractor",
-      "community": 89,
+      "community": 29,
       "norm_label": "noopextractor"
     },
     {
@@ -30805,7 +30825,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_candecodevideo",
-      "community": 89,
+      "community": 29,
       "norm_label": "candecodevideo()"
     },
     {
@@ -30815,7 +30835,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_createvideoframeextractor",
-      "community": 89,
+      "community": 29,
       "norm_label": "createvideoframeextractor()"
     },
     {
@@ -30825,7 +30845,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_thumbstate",
-      "community": 89,
+      "community": 29,
       "norm_label": "thumbstate"
     },
     {
@@ -30835,7 +30855,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_empty_thumbs",
-      "community": 89,
+      "community": 29,
       "norm_label": "empty_thumbs"
     },
     {
@@ -30845,7 +30865,7 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "web_src_components_workspace_useframethumbs_useframethumbs",
-      "community": 89,
+      "community": 29,
       "norm_label": "useframethumbs()"
     },
     {
@@ -31175,7 +31195,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer",
-      "community": 37,
+      "community": 122,
       "norm_label": "previewplayer"
     },
     {
@@ -31185,7 +31205,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_play",
-      "community": 37,
+      "community": 122,
       "norm_label": ".play()"
     },
     {
@@ -31195,7 +31215,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_pause",
-      "community": 37,
+      "community": 122,
       "norm_label": ".pause()"
     },
     {
@@ -31205,7 +31225,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_toggle",
-      "community": 37,
+      "community": 122,
       "norm_label": ".toggle()"
     },
     {
@@ -31215,7 +31235,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_seektoframe",
-      "community": 37,
+      "community": 122,
       "norm_label": ".seektoframe()"
     },
     {
@@ -31225,7 +31245,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setspeed",
-      "community": 37,
+      "community": 122,
       "norm_label": ".setspeed()"
     },
     {
@@ -31235,7 +31255,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setmuted",
-      "community": 37,
+      "community": 122,
       "norm_label": ".setmuted()"
     },
     {
@@ -31565,7 +31585,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_api_client",
-      "community": 107,
+      "community": 60,
       "norm_label": "client.ts"
     },
     {
@@ -31575,7 +31595,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror",
-      "community": 107,
+      "community": 60,
       "norm_label": "gatewayerror"
     },
     {
@@ -31585,7 +31605,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror_constructor",
-      "community": 107,
+      "community": 60,
       "norm_label": ".constructor()"
     },
     {
@@ -31595,7 +31615,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "web_src_lib_api_client_tokenprovider",
-      "community": 107,
+      "community": 60,
       "norm_label": "tokenprovider"
     },
     {
@@ -31605,7 +31625,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "web_src_lib_api_client_clientoptions",
-      "community": 107,
+      "community": 60,
       "norm_label": "clientoptions"
     },
     {
@@ -31805,7 +31825,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_quotestep",
-      "community": 107,
+      "community": 60,
       "norm_label": ".quotestep()"
     },
     {
@@ -31815,7 +31835,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayclient_createstepconversion",
-      "community": 107,
+      "community": 60,
       "norm_label": ".createstepconversion()"
     },
     {
@@ -31855,7 +31875,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_api_types",
-      "community": 107,
+      "community": 60,
       "norm_label": "types.ts"
     },
     {
@@ -31875,7 +31895,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_lib_api_types_step",
-      "community": 107,
+      "community": 13,
       "norm_label": "step"
     },
     {
@@ -31925,7 +31945,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "web_src_lib_api_types_probe",
-      "community": 37,
+      "community": 29,
       "norm_label": "probe"
     },
     {
@@ -31935,7 +31955,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "web_src_lib_api_types_scenes",
-      "community": 37,
+      "community": 29,
       "norm_label": "scenes"
     },
     {
@@ -31945,7 +31965,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "web_src_lib_api_types_thumb",
-      "community": 37,
+      "community": 29,
       "norm_label": "thumb"
     },
     {
@@ -31965,7 +31985,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "web_src_lib_api_types_sceneprofile",
-      "community": 41,
+      "community": 57,
       "norm_label": "sceneprofile"
     },
     {
@@ -31975,7 +31995,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_lib_api_types_sceneoverride",
-      "community": 57,
+      "community": 41,
       "norm_label": "sceneoverride"
     },
     {
@@ -31985,7 +32005,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_lib_api_types_analyzeinfo",
-      "community": 107,
+      "community": 13,
       "norm_label": "analyzeinfo"
     },
     {
@@ -31995,7 +32015,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "web_src_lib_api_types_profilejobinfo",
-      "community": 107,
+      "community": 60,
       "norm_label": "profilejobinfo"
     },
     {
@@ -32005,7 +32025,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "web_src_lib_api_types_depthupload",
-      "community": 107,
+      "community": 60,
       "norm_label": "depthupload"
     },
     {
@@ -32025,7 +32045,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "web_src_lib_api_types_params",
-      "community": 107,
+      "community": 60,
       "norm_label": "params"
     },
     {
@@ -32035,7 +32055,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "web_src_lib_api_types_quotebreakdown",
-      "community": 107,
+      "community": 60,
       "norm_label": "quotebreakdown"
     },
     {
@@ -32045,7 +32065,7 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "web_src_lib_api_types_quote",
-      "community": 107,
+      "community": 60,
       "norm_label": "quote"
     },
     {
@@ -32055,7 +32075,7 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionerror",
-      "community": 107,
+      "community": 60,
       "norm_label": "conversionerror"
     },
     {
@@ -32065,7 +32085,7 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionbilling",
-      "community": 107,
+      "community": 60,
       "norm_label": "conversionbilling"
     },
     {
@@ -32085,7 +32105,7 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "web_src_lib_api_types_stepquoteresponse",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepquoteresponse"
     },
     {
@@ -32115,7 +32135,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "web_src_lib_api_types_apierrorbody",
-      "community": 107,
+      "community": 60,
       "norm_label": "apierrorbody"
     },
     {
@@ -32145,7 +32165,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "web_src_lib_api_types_billingstatus",
-      "community": 60,
+      "community": 44,
       "norm_label": "billingstatus"
     },
     {
@@ -32155,7 +32175,7 @@
       "source_location": "L335",
       "_origin": "ast",
       "id": "web_src_lib_api_types_billingsetupticket",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingsetupticket"
     },
     {
@@ -32165,7 +32185,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "web_src_lib_api_types_billingsettleresult",
-      "community": 107,
+      "community": 60,
       "norm_label": "billingsettleresult"
     },
     {
@@ -32175,7 +32195,7 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "web_src_lib_api_types_createprojectrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "createprojectrequest"
     },
     {
@@ -32185,7 +32205,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "web_src_lib_api_types_updateprojectrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "updateprojectrequest"
     },
     {
@@ -32195,7 +32215,7 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "web_src_lib_api_types_updatescenesrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "updatescenesrequest"
     },
     {
@@ -32205,7 +32225,7 @@
       "source_location": "L376",
       "_origin": "ast",
       "id": "web_src_lib_api_types_stepconversionrequest",
-      "community": 107,
+      "community": 60,
       "norm_label": "stepconversionrequest"
     },
     {
@@ -32485,7 +32505,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_billing",
-      "community": 60,
+      "community": 44,
       "norm_label": "billing.tsx"
     },
     {
@@ -32495,7 +32515,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "web_src_lib_billing_billingcontextvalue",
-      "community": 60,
+      "community": 44,
       "norm_label": "billingcontextvalue"
     },
     {
@@ -32505,7 +32525,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "web_src_lib_billing_billingcontext",
-      "community": 60,
+      "community": 44,
       "norm_label": "billingcontext"
     },
     {
@@ -32515,7 +32535,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_lib_billing_billingstate",
-      "community": 60,
+      "community": 44,
       "norm_label": "billingstate"
     },
     {
@@ -32525,7 +32545,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "web_src_lib_billing_billingprovider",
-      "community": 119,
+      "community": 44,
       "norm_label": "billingprovider()"
     },
     {
@@ -32545,7 +32565,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test",
-      "community": 37,
+      "community": 29,
       "norm_label": "cutlist.test.ts"
     },
     {
@@ -32555,7 +32575,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_fps24",
-      "community": 37,
+      "community": 29,
       "norm_label": "fps24"
     },
     {
@@ -32565,7 +32585,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_ntsc",
-      "community": 37,
+      "community": 29,
       "norm_label": "ntsc"
     },
     {
@@ -32575,7 +32595,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist",
-      "community": 37,
+      "community": 29,
       "norm_label": "cutlist.ts"
     },
     {
@@ -32585,7 +32605,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_exportcutscsv",
-      "community": 37,
+      "community": 29,
       "norm_label": "exportcutscsv()"
     },
     {
@@ -32595,7 +32615,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parseintstrict",
-      "community": 37,
+      "community": 29,
       "norm_label": "parseintstrict()"
     },
     {
@@ -32605,7 +32625,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_normalizecuts",
-      "community": 37,
+      "community": 29,
       "norm_label": "normalizecuts()"
     },
     {
@@ -32615,7 +32635,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parsecutlist",
-      "community": 37,
+      "community": 29,
       "norm_label": "parsecutlist()"
     },
     {
@@ -32625,7 +32645,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_depthres_test",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthres.test.ts"
     },
     {
@@ -32635,7 +32655,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_depthres",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthres.ts"
     },
     {
@@ -32645,7 +32665,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_src_lib_depthres_maxdepthresforaspect",
-      "community": 57,
+      "community": 41,
       "norm_label": "maxdepthresforaspect()"
     },
     {
@@ -32655,7 +32675,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "web_src_lib_depthres_depthcontentdims",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthcontentdims()"
     },
     {
@@ -32665,7 +32685,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "web_src_lib_depthres_depthreschoice",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthreschoice"
     },
     {
@@ -32675,7 +32695,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_lib_depthres_preset_choices",
-      "community": 57,
+      "community": 41,
       "norm_label": "preset_choices"
     },
     {
@@ -32685,7 +32705,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "web_src_lib_depthres_floortostep",
-      "community": 57,
+      "community": 41,
       "norm_label": "floortostep()"
     },
     {
@@ -32695,7 +32715,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "web_src_lib_depthres_depthreschoices",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthreschoices()"
     },
     {
@@ -32705,7 +32725,7 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "web_src_lib_depthres_clampdepthres",
-      "community": 57,
+      "community": 41,
       "norm_label": "clampdepthres()"
     },
     {
@@ -32715,7 +32735,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "web_src_lib_depthres_depthreslabel",
-      "community": 57,
+      "community": 41,
       "norm_label": "depthreslabel()"
     },
     {
@@ -32725,7 +32745,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_firebase",
-      "community": 14,
+      "community": 15,
       "norm_label": "firebase.ts"
     },
     {
@@ -32735,7 +32755,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_src_lib_firebase_default_config",
-      "community": 14,
+      "community": 15,
       "norm_label": "default_config"
     },
     {
@@ -32745,7 +32765,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "web_src_lib_firebase_firebaseconfig",
-      "community": 14,
+      "community": 15,
       "norm_label": "firebaseconfig()"
     },
     {
@@ -32755,7 +32775,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "web_src_lib_firebase_getfirebaseapp",
-      "community": 14,
+      "community": 15,
       "norm_label": "getfirebaseapp()"
     },
     {
@@ -32825,7 +32845,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_lib_frames_rationalfps",
-      "community": 37,
+      "community": 29,
       "norm_label": "rationalfps"
     },
     {
@@ -32985,7 +33005,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "web_src_lib_frames_defaultpreviewfps",
-      "community": 29,
+      "community": 41,
       "norm_label": "defaultpreviewfps()"
     },
     {
@@ -32995,7 +33015,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "web_src_lib_frames_cutstoranges",
-      "community": 37,
+      "community": 41,
       "norm_label": "cutstoranges()"
     },
     {
@@ -33005,7 +33025,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_geoconsent_test",
-      "community": 57,
+      "community": 139,
       "norm_label": "geoconsent.test.ts"
     },
     {
@@ -33015,7 +33035,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_geoconsent",
-      "community": 57,
+      "community": 139,
       "norm_label": "geoconsent.ts"
     },
     {
@@ -33025,7 +33045,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_src_lib_geoconsent_consent_countries",
-      "community": 57,
+      "community": 139,
       "norm_label": "consent_countries"
     },
     {
@@ -33035,7 +33055,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_lib_geoconsent_requiresanalyticsconsent",
-      "community": 57,
+      "community": 139,
       "norm_label": "requiresanalyticsconsent()"
     },
     {
@@ -33045,7 +33065,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_interactions",
-      "community": 37,
+      "community": 29,
       "norm_label": "interactions.ts"
     },
     {
@@ -33055,7 +33075,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "web_src_lib_interactions_bluraftermouseclick",
-      "community": 37,
+      "community": 29,
       "norm_label": "bluraftermouseclick()"
     },
     {
@@ -33065,7 +33085,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_site",
-      "community": 368,
+      "community": 72,
       "norm_label": "site.ts"
     },
     {
@@ -33285,7 +33305,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_mocks_handlers_db",
-      "community": 60,
+      "community": 57,
       "norm_label": "db"
     },
     {
@@ -49961,7 +49981,7 @@
       "source_location": "L15",
       "weight": 1.0,
       "source": "app_stages_splat",
-      "target": "app_vendor_forward_warp_forward_warp_cuda_forward_warp",
+      "target": "app_vendor_forward_warp_forward_warp_forward_warp",
       "confidence_score": 1.0
     },
     {
@@ -85961,6 +85981,39 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/auth.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "web_src_lib_auth",
+      "target": "auth_verifier_fromrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/auth.tsx",
+      "source_location": "L122",
+      "weight": 1.0,
+      "source": "web_src_lib_auth_settledfirebaseuser",
+      "target": "auth_verifier_fromrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/firebase.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "web_src_lib_firebase",
+      "target": "auth_verifier_fromrequest",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/auth/auth.go",
@@ -96170,7 +96223,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L20",
+      "source_location": "L21",
       "weight": 1.0,
       "source": "web_src_app_layout",
       "target": "web_src_app_layout_geistmono",
@@ -96180,7 +96233,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0,
       "source": "web_src_app_layout",
       "target": "web_src_app_layout_geistsans",
@@ -96190,7 +96243,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L28",
+      "source_location": "L29",
       "weight": 1.0,
       "source": "web_src_app_layout",
       "target": "web_src_app_layout_metadata",
@@ -96200,7 +96253,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L60",
+      "source_location": "L61",
       "weight": 1.0,
       "source": "web_src_app_layout",
       "target": "web_src_app_layout_rootlayout",
@@ -96280,7 +96333,7 @@
       "source_location": "L8",
       "weight": 1.0,
       "source": "web_src_app_layout",
-      "target": "web_src_lib_auth",
+      "target": "web_src_components_logo",
       "confidence_score": 1.0
     },
     {
@@ -96291,7 +96344,7 @@
       "source_location": "L8",
       "weight": 1.0,
       "source": "web_src_app_layout",
-      "target": "web_src_lib_auth_authprovider",
+      "target": "web_src_components_logo_logo",
       "confidence_score": 1.0
     },
     {
@@ -96302,7 +96355,7 @@
       "source_location": "L9",
       "weight": 1.0,
       "source": "web_src_app_layout",
-      "target": "web_src_lib_billing",
+      "target": "web_src_lib_auth",
       "confidence_score": 1.0
     },
     {
@@ -96313,7 +96366,7 @@
       "source_location": "L9",
       "weight": 1.0,
       "source": "web_src_app_layout",
-      "target": "web_src_lib_billing_billingprovider",
+      "target": "web_src_lib_auth_authprovider",
       "confidence_score": 1.0
     },
     {
@@ -96324,7 +96377,18 @@
       "source_location": "L10",
       "weight": 1.0,
       "source": "web_src_app_layout",
-      "target": "web_src_lib_site",
+      "target": "web_src_lib_billing",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/app/layout.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "web_src_app_layout",
+      "target": "web_src_lib_billing_billingprovider",
       "confidence_score": 1.0
     },
     {
@@ -96335,6 +96399,17 @@
       "source_location": "L11",
       "weight": 1.0,
       "source": "web_src_app_layout",
+      "target": "web_src_lib_site",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/app/layout.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "web_src_app_layout",
       "target": "web_src_mocks_mswprovider",
       "confidence_score": 1.0
     },
@@ -96343,7 +96418,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "web/src/app/layout.tsx",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "source": "web_src_app_layout",
       "target": "web_src_mocks_mswprovider_mswprovider",
@@ -96919,28 +96994,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/analytics.ts",
-      "source_location": "L124",
-      "weight": 1.0,
-      "source": "web_src_lib_analytics_galogevent",
-      "target": "web_src_components_analytics",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/firebase.ts",
-      "source_location": "L16",
-      "weight": 1.0,
-      "source": "web_src_lib_firebase",
-      "target": "web_src_components_analytics",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/AnalyticsChoice.tsx",
@@ -96991,6 +97044,38 @@
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_feedbacklink",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/components/landing/LandingContent.tsx",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "web_src_components_landing_landingcontent",
+      "target": "web_src_components_logo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/components/Logo.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "web_src_components_logo",
+      "target": "web_src_components_logo_logo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/components/landing/LandingContent.tsx",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "web_src_components_landing_landingcontent",
+      "target": "web_src_components_logo_logo",
       "confidence_score": 1.0
     },
     {
@@ -98423,7 +98508,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_landing_landingcontent_devices",
@@ -98433,7 +98518,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L65",
+      "source_location": "L66",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_landing_landingcontent_formats",
@@ -98443,7 +98528,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L112",
+      "source_location": "L113",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_landing_landingcontent_landingcontent",
@@ -98453,7 +98538,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L91",
+      "source_location": "L92",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_landing_landingcontent_pricing",
@@ -98463,7 +98548,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_components_landing_landingcontent_quality",
@@ -98496,7 +98581,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L28",
+      "source_location": "L29",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_lib_analytics",
@@ -98507,7 +98592,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L28",
+      "source_location": "L29",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_lib_analytics_track",
@@ -98518,7 +98603,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_lib_auth",
@@ -98529,7 +98614,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent",
       "target": "web_src_lib_auth_useauth",
@@ -98541,7 +98626,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L153",
+      "source_location": "L154",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent_landingcontent",
       "target": "web_src_components_landing_landingcontent_devices"
@@ -98552,7 +98637,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/components/landing/LandingContent.tsx",
-      "source_location": "L113",
+      "source_location": "L114",
       "weight": 1.0,
       "source": "web_src_components_landing_landingcontent_landingcontent",
       "target": "web_src_lib_auth_useauth"
@@ -111521,13 +111606,14 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
+      "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/analytics.ts",
-      "source_location": "L120",
+      "source_location": "L124",
       "weight": 1.0,
-      "source": "web_src_lib_analytics",
-      "target": "web_src_lib_analytics_galogevent",
+      "context": "import",
+      "source": "web_src_lib_analytics_galogevent",
+      "target": "web_src_lib_analytics",
       "confidence_score": 1.0
     },
     {
@@ -113606,17 +113692,6 @@
       "target": "web_src_lib_api_usegateway_usegateway"
     },
     {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "web/src/lib/auth.tsx",
-      "source_location": "L20",
-      "weight": 1.0,
-      "source": "web_src_lib_auth",
-      "target": "web_src_lib_auth",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/auth.tsx",
@@ -113747,14 +113822,13 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports_from",
+      "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/auth.tsx",
-      "source_location": "L122",
+      "source_location": "L119",
       "weight": 1.0,
-      "context": "import",
-      "source": "web_src_lib_auth_settledfirebaseuser",
-      "target": "web_src_lib_auth",
+      "source": "web_src_lib_auth",
+      "target": "web_src_lib_auth_settledfirebaseuser",
       "confidence_score": 1.0
     },
     {

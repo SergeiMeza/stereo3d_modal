@@ -740,9 +740,9 @@
     "semantic_hash": "fa28403f556e8c85ba0640f9a909445e"
   },
   "gateway/deploy.sh": {
-    "mtime": 1783039141.6175992,
-    "ast_hash": "bc18bea24fe9fca56cc957e225c9d1ab",
-    "semantic_hash": "bc18bea24fe9fca56cc957e225c9d1ab"
+    "mtime": 1783258976.2826116,
+    "ast_hash": "d7eba8d21375b20ca916abe2de8e43c9",
+    "semantic_hash": ""
   },
   "gateway/go.mod": {
     "mtime": 1782938324.6940877,
@@ -755,8 +755,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1783129679.9932327,
-    "ast_hash": "dd0366627635ee0a60d87018e79a2f3a",
+    "mtime": 1783259676.8050835,
+    "ast_hash": "7a383f31922eb070d123da7e12f70b3a",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
@@ -830,8 +830,8 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1783130589.3424425,
-    "ast_hash": "2a4cc58ae7e785c53c098e3f5477b218",
+    "mtime": 1783259799.3303854,
+    "ast_hash": "b732761a40974ded65d3fec11120c905",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
@@ -1010,8 +1010,8 @@
     "semantic_hash": "f64110ad6b20c41ba787fb248d1a60cf"
   },
   "web/next-env.d.ts": {
-    "mtime": 1783258064.740676,
-    "ast_hash": "2a74d3909800ca5467fa83b0ab4a4890",
+    "mtime": 1783258191.9625144,
+    "ast_hash": "d0f8375ae1199dc7acd3977fc33b78b8",
     "semantic_hash": ""
   },
   "web/next.config.ts": {
@@ -1145,8 +1145,8 @@
     "semantic_hash": ""
   },
   "web/src/components/projects/UploadDropzone.tsx": {
-    "mtime": 1783257527.8025727,
-    "ast_hash": "d3f93faba26e32ab468d84415548af06",
+    "mtime": 1783259804.4909697,
+    "ast_hash": "b0a92952e82ca7beeab96f95b9c9ae3b",
     "semantic_hash": ""
   },
   "web/src/components/steps/ConversionTracker.tsx": {
@@ -2240,8 +2240,8 @@
     "semantic_hash": ""
   },
   "web/src/app/terms/page.tsx": {
-    "mtime": 1783138033.9182968,
-    "ast_hash": "bee973ff22d379bdc69ab97c6dda3bdb",
+    "mtime": 1783259822.5353553,
+    "ast_hash": "7eddd49d6905a48f381d10042919be6e",
     "semantic_hash": ""
   },
   "web/src/components/legal/LegalShell.tsx": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "web/src/components/landing/LandingContent.tsx": {
-    "mtime": 1783257990.7256572,
-    "ast_hash": "7f36f555b6f74f57b5658eaa87fe20a8",
+    "mtime": 1783259806.0292888,
+    "ast_hash": "4ae3591694de9505289e436fd01ee4d1",
     "semantic_hash": ""
   },
   "web/src/lib/site.ts": {
