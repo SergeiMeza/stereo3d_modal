@@ -36,7 +36,7 @@ export default function TermsPage() {
         <p>
           Stereo3D Studio converts 2D video into stereoscopic 3D. The
           Service is currently in <strong>beta</strong>: source videos are
-          limited (today: up to 10 minutes and below 4K resolution), limits
+          limited (today: up to 10 minutes and up to 4K resolution), limits
           and features may change, and availability is not guaranteed. We
           work hard to keep your projects intact, but during the beta you
           should keep your own copies of source material.

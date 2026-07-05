@@ -70,9 +70,9 @@ type Rates struct {
 
 	// Beta source caps, enforced when the analyze probe lands (project
 	// creation can't see duration/resolution — only the probe can): videos
-	// longer than MaxSourceDurationS or with a frame area of
-	// MaxSourcePixels or more are rejected before any paid work. 0
-	// disables a cap.
+	// longer than MaxSourceDurationS or with a frame area exceeding
+	// MaxSourcePixels are rejected before any paid work. 0 disables a
+	// cap.
 	MaxSourceDurationS float64 `firestore:"max_source_duration_s"`
 	MaxSourcePixels    int     `firestore:"max_source_pixels"`
 
@@ -133,7 +133,7 @@ func defaults() *Rates {
 		MaxSourceBytes:     8 << 30,
 		MaxActivePerUser:   3,
 		MaxSourceDurationS: 10 * 60,      // beta: 10-minute videos
-		MaxSourcePixels:    3840 * 2160,  // beta: below a 4K UHD frame
+		MaxSourcePixels:    3840 * 2160,  // beta: up to a 4K UHD frame (inclusive)
 		MaxGPUWorkers:      8,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,

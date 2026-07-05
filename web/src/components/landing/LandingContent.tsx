@@ -284,8 +284,8 @@ export function LandingContent() {
             In beta — help us shape it
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-fg-muted">
-            During the beta, sources can be up to 10 minutes long and below 4K
-            resolution. Something missing, broken, or worth building? Tell us —
+            During the beta, sources can be up to 10 minutes long and up to
+            4K resolution. Something missing, broken, or worth building? Tell us —
             we read everything.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">

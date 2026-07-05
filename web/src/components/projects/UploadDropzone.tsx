@@ -87,8 +87,8 @@ function betaLimitError(meta: VideoMeta): string | null {
     const s = Math.round(meta.duration % 60);
     return `This video is ${m}m ${s}s long — during the beta, videos can be at most 10 minutes.`;
   }
-  if (meta.width * meta.height >= MAX_PIXELS) {
-    return `This video is ${meta.width}×${meta.height} — during the beta, resolution must be below 4K (3840×2160).`;
+  if (meta.width * meta.height > MAX_PIXELS) {
+    return `This video is ${meta.width}×${meta.height} — during the beta, resolution can be at most 4K (3840×2160).`;
   }
   return null;
 }
@@ -212,7 +212,7 @@ export function UploadDropzone() {
         </p>
         <p className="text-xs text-fg-muted">
           One video per project · .mp4, .mov, .m4v, or .webm · up to 10
-          minutes · below 4K
+          minutes · up to 4K
         </p>
         <button
           type="button"

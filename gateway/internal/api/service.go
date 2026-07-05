@@ -619,9 +619,9 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				"this video is %s long — during the beta, videos can be at most %s",
 				formatMinSec(meta.Probe.Duration), formatMinSec(maxS)))
 		}
-		if maxPx := rates.MaxSourcePixels; maxPx > 0 && meta.Probe.Width*meta.Probe.Height >= maxPx {
+		if maxPx := rates.MaxSourcePixels; maxPx > 0 && meta.Probe.Width*meta.Probe.Height > maxPx {
 			return s.rejectSource(ctx, p, fmt.Sprintf(
-				"this video is %d×%d — during the beta, resolution must be below 4K (3840×2160)",
+				"this video is %d×%d — during the beta, resolution can be at most 4K (3840×2160)",
 				meta.Probe.Width, meta.Probe.Height))
 		}
 		credit := rates.AnalyzeCreditCents
