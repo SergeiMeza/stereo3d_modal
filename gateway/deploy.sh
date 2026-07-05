@@ -24,7 +24,7 @@ MODAL_WORKSPACE="${MODAL_WORKSPACE:?set MODAL_WORKSPACE (e.g. stereo-crafter-tes
 # client's domain; test stays open for localhost dev + Vercel previews.
 if [[ -z "${CORS_ORIGINS:-}" ]]; then
   if [[ "$ENV" == "prod" ]]; then
-    CORS_ORIGINS="https://stereo3d-studio.vercel.app"
+    CORS_ORIGINS="https://www.stereo3d.studio,https://stereo3d.studio,https://stereo3d-studio.vercel.app"
   else
     CORS_ORIGINS="*"
   fi
