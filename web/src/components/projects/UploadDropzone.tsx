@@ -30,7 +30,7 @@ const ACCEPT = ".mp4,.mov,.m4v,.webm";
 /** Beta source caps — mirror the gateway's max_source_duration_s /
  * max_source_pixels (pricing rates). The gateway re-checks after its own
  * probe; this local check just fails fast before a long upload. */
-const MAX_DURATION_S = 5 * 60;
+const MAX_DURATION_S = 10 * 60;
 const MAX_PIXELS = 3840 * 2160;
 
 type Phase = "idle" | "uploading" | "creating";
@@ -85,7 +85,7 @@ function betaLimitError(meta: VideoMeta): string | null {
   if (Number.isFinite(meta.duration) && meta.duration > MAX_DURATION_S) {
     const m = Math.floor(meta.duration / 60);
     const s = Math.round(meta.duration % 60);
-    return `This video is ${m}m ${s}s long — during the beta, videos can be at most 5 minutes.`;
+    return `This video is ${m}m ${s}s long — during the beta, videos can be at most 10 minutes.`;
   }
   if (meta.width * meta.height >= MAX_PIXELS) {
     return `This video is ${meta.width}×${meta.height} — during the beta, resolution must be below 4K (3840×2160).`;
@@ -211,7 +211,7 @@ export function UploadDropzone() {
           Drag &amp; drop a video to start a project
         </p>
         <p className="text-xs text-fg-muted">
-          One video per project · .mp4, .mov, .m4v, or .webm · up to 5
+          One video per project · .mp4, .mov, .m4v, or .webm · up to 10
           minutes · below 4K
         </p>
         <button

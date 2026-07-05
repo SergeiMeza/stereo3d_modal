@@ -132,7 +132,7 @@ func defaults() *Rates {
 		MaxDurationS:       30 * 60,
 		MaxSourceBytes:     8 << 30,
 		MaxActivePerUser:   3,
-		MaxSourceDurationS: 5 * 60,       // beta: 5-minute videos
+		MaxSourceDurationS: 10 * 60,      // beta: 10-minute videos
 		MaxSourcePixels:    3840 * 2160,  // beta: below a 4K UHD frame
 		MaxGPUWorkers:      8,
 		EtaBaseSeconds: map[string]float64{
