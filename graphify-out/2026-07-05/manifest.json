@@ -115,9 +115,9 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "app/pipelines/analyze.py": {
-    "mtime": 1782976272.9507468,
-    "ast_hash": "a315e0339e193689b61c7da07ddb67e7",
-    "semantic_hash": "a315e0339e193689b61c7da07ddb67e7"
+    "mtime": 1783261324.1255903,
+    "ast_hash": "33be17aabe04de2824332d8607a6780c",
+    "semantic_hash": ""
   },
   "app/pipelines/image.py": {
     "mtime": 1781290135.2883859,
@@ -775,8 +775,8 @@
     "semantic_hash": "48d9a7f4cf76a883b3a2d310e8fd6f7e"
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1783130589.3422344,
-    "ast_hash": "7b8739acab060f108033749f6d7ca5f6",
+    "mtime": 1783260496.2918546,
+    "ast_hash": "64fa97cd2f916dda1611939c6666c791",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
@@ -830,8 +830,8 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1783259799.3303854,
-    "ast_hash": "b732761a40974ded65d3fec11120c905",
+    "mtime": 1783260500.821585,
+    "ast_hash": "3152e76f4ef37f4b4abaeb471f0fbf09",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
@@ -1145,8 +1145,8 @@
     "semantic_hash": ""
   },
   "web/src/components/projects/UploadDropzone.tsx": {
-    "mtime": 1783259804.4909697,
-    "ast_hash": "b0a92952e82ca7beeab96f95b9c9ae3b",
+    "mtime": 1783260504.7960496,
+    "ast_hash": "71f818afba91d799f91df1f6a53ca949",
     "semantic_hash": ""
   },
   "web/src/components/steps/ConversionTracker.tsx": {
@@ -2240,8 +2240,8 @@
     "semantic_hash": ""
   },
   "web/src/app/terms/page.tsx": {
-    "mtime": 1783259822.5353553,
-    "ast_hash": "7eddd49d6905a48f381d10042919be6e",
+    "mtime": 1783260521.3668869,
+    "ast_hash": "a01ed131bfac08797a40e046d3a48453",
     "semantic_hash": ""
   },
   "web/src/components/legal/LegalShell.tsx": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "web/src/components/landing/LandingContent.tsx": {
-    "mtime": 1783259806.0292888,
-    "ast_hash": "4ae3591694de9505289e436fd01ee4d1",
+    "mtime": 1783260506.3447769,
+    "ast_hash": "e4cb0459c4e61bc2da1e3accb3160575",
     "semantic_hash": ""
   },
   "web/src/lib/site.ts": {
