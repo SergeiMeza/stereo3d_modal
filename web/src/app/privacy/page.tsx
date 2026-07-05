@@ -8,6 +8,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AnalyticsChoiceReset } from "@/components/AnalyticsChoice";
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" effective="July 4, 2026">
+    <LegalShell title="Privacy Policy" effective="July 5, 2026">
       <LegalSection title="1. Who we are">
         <p>
           Stereo3D Studio (the &ldquo;Service&rdquo;) is a 2D-to-3D video
@@ -58,8 +59,16 @@ export default function PrivacyPage() {
           <strong>Usage and technical data.</strong> Standard server logs
           (IP address, browser type, request timestamps) and job records
           (what was run, how long it took, what it cost). We use these to
-          operate the Service, prevent abuse and debug problems. We use
-          cookies and similar storage only to keep you signed in — not for
+          operate the Service, prevent abuse and debug problems. We also use
+          Google Analytics and Microsoft Clarity to understand how the app
+          is used — pages visited, clicks, scrolling and similar interaction
+          signals, including session replays of your use of the interface
+          (never the content of your videos beyond what is on screen) — so
+          we can find and fix rough edges. In the UK and the European
+          Economic Area these analytics stay off unless you allow them on
+          the consent banner, and you can{" "}
+          <AnalyticsChoiceReset /> at any time. We use cookies and similar
+          storage to keep you signed in and for these analytics — not for
           advertising.
         </p>
       </LegalSection>
@@ -97,7 +106,11 @@ export default function PrivacyPage() {
         </p>
         <ul>
           <li><strong>Google Cloud / Firebase</strong> — authentication,
-            video and artifact storage, and our database.</li>
+            video and artifact storage, our database, and usage analytics
+            (Google Analytics).</li>
+          <li><strong>Microsoft Clarity</strong> — usage analytics and
+            session replay, so we can see where the interface confuses
+            people.</li>
           <li><strong>Stripe</strong> — payment processing and card
             storage.</li>
           <li><strong>Cloud GPU providers</strong> — the compute that runs

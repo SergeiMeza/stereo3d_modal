@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
+import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
+import { Logo } from "@/components/Logo";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { SITE_URL } from "@/lib/site";
@@ -72,10 +74,13 @@ export default function RootLayout({
             <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-3 px-4 sm:gap-6">
               <Link
                 href="/projects"
-                className="shrink-0 font-semibold tracking-tight text-fg"
+                className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-fg"
               >
-                Stereo3D&nbsp;
-                <span className="text-primary">Studio</span>
+                <Logo className="size-5" />
+                <span>
+                  Stereo3D&nbsp;
+                  <span className="text-primary">Studio</span>
+                </span>
               </Link>
               <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
                 Beta
@@ -102,6 +107,7 @@ export default function RootLayout({
             </MswProvider>
           </main>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -8,10 +8,12 @@
  * public by design (Firebase web configs are not secrets) and hardcoding
  * keeps Vercel setup to a single env (NEXT_PUBLIC_AUTH_MODE=firebase).
  * NEXT_PUBLIC_FIREBASE_* envs override individual fields when pointing at
- * another project. Analytics is deliberately not wired (measurementId is
- * carried but unused) to keep the bundle lean.
+ * another project. Analytics (GA4 via measurementId) follows the same rule:
+ * it is only loaded through getFirebaseAnalytics(), which lib/analytics.ts
+ * calls once its production + consent gates pass.
  */
 
+import type { Analytics } from "firebase/analytics";
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
 
@@ -64,4 +66,16 @@ export function getFirebaseAuth(): Promise<Auth> {
     return getAuth(app);
   })();
   return authPromise;
+}
+
+let analyticsPromise: Promise<Analytics | null> | null = null;
+
+/** Resolves null where GA4 can't run (unsupported browser, no cookies). */
+export function getFirebaseAnalytics(): Promise<Analytics | null> {
+  analyticsPromise ??= (async () => {
+    const app = await getFirebaseApp();
+    const { getAnalytics, isSupported } = await import("firebase/analytics");
+    return (await isSupported()) ? getAnalytics(app) : null;
+  })();
+  return analyticsPromise;
 }

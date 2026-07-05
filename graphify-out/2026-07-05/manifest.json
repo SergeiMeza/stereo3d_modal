@@ -1010,7 +1010,7 @@
     "semantic_hash": "f64110ad6b20c41ba787fb248d1a60cf"
   },
   "web/next-env.d.ts": {
-    "mtime": 1783258064.740676,
+    "mtime": 1783139145.6021624,
     "ast_hash": "2a74d3909800ca5467fa83b0ab4a4890",
     "semantic_hash": ""
   },
@@ -1040,8 +1040,8 @@
     "semantic_hash": "c1e11074c3b710b1b37b934698e2dcb8"
   },
   "web/src/app/layout.tsx": {
-    "mtime": 1783257985.8387017,
-    "ast_hash": "1a8d4caf18f57d9cffc3847d0b23b738",
+    "mtime": 1783256723.1512978,
+    "ast_hash": "388c68b42a767e778421b1db9bec8bb8",
     "semantic_hash": ""
   },
   "web/src/app/onboarding/page.tsx": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "web/src/components/landing/LandingContent.tsx": {
-    "mtime": 1783257990.7256572,
-    "ast_hash": "7f36f555b6f74f57b5658eaa87fe20a8",
+    "mtime": 1783257484.3549747,
+    "ast_hash": "193138698f782c573db58a71ba584b85",
     "semantic_hash": ""
   },
   "web/src/lib/site.ts": {
@@ -2307,21 +2307,6 @@
   "web/src/lib/geoConsent.ts": {
     "mtime": 1783257410.093965,
     "ast_hash": "d3f7f9b47decd04c8a50a9dad63dc27f",
-    "semantic_hash": ""
-  },
-  "web/src/components/Logo.tsx": {
-    "mtime": 1783257980.8897836,
-    "ast_hash": "5aa2be05ed21e4652786a21ca75b5f9f",
-    "semantic_hash": ""
-  },
-  "web/src/app/apple-icon.png": {
-    "mtime": 1783258015.1073067,
-    "ast_hash": "1ff444ab90e7400ab4c3f72d5b493e51",
-    "semantic_hash": ""
-  },
-  "web/src/app/icon.svg": {
-    "mtime": 1783258014.6363993,
-    "ast_hash": "08d3b7fa802fa53bed6adb2dd9a71f79",
     "semantic_hash": ""
   }
 }

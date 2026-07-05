@@ -25,6 +25,8 @@ import Link from "next/link";
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { BrowserFrame } from "@/components/landing/BrowserFrame";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
+import { Logo } from "@/components/Logo";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 
 const DEVICES = [
@@ -135,12 +137,14 @@ export function LandingContent() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href={signedIn ? "/projects" : "/signin"}
+              onClick={() => track("lp_cta_hero_click", { signed_in: signedIn })}
               className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             >
               {signedIn ? "Open studio" : "Start converting"}
             </Link>
             <a
               href="#workflow"
+              onClick={() => track("lp_cta_workflow_click")}
               className="rounded-lg border border-edge bg-card px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
             >
               See how it works
@@ -287,12 +291,16 @@ export function LandingContent() {
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
               href={signedIn ? "/projects" : "/signin"}
+              onClick={() =>
+                track("lp_cta_bottom_click", { signed_in: signedIn })
+              }
               className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             >
               {signedIn ? "Open studio" : "Start converting"}
             </Link>
             <a
               href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
+              onClick={() => track("lp_feedback_click")}
               className="flex items-center gap-2 rounded-lg border border-edge bg-background px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
             >
               <MessageSquare aria-hidden className="size-4" />
@@ -305,9 +313,12 @@ export function LandingContent() {
       {/* Footer */}
       <footer className="border-t border-edge">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-xs text-fg-muted">
-          <p>
-            Stereo3D <span className="text-primary">Studio</span> · a Spatial
-            AI Labs Ltd product
+          <p className="flex items-center gap-2">
+            <Logo className="size-4 text-fg" />
+            <span>
+              Stereo3D <span className="text-primary">Studio</span> · a
+              Spatial AI Labs Ltd product
+            </span>
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="transition-colors hover:text-fg">

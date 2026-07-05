@@ -14,6 +14,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
+import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 
@@ -133,6 +134,13 @@ export function UploadDropzone() {
     setFileName(file.name);
     setProgress(0);
     setPhase("uploading");
+    track("upload_started", {
+      content_type: contentType,
+      size_mb: Math.round(file.size / 1_000_000),
+      ...(meta !== null && Number.isFinite(meta.duration)
+        ? { duration_s: Math.round(meta.duration) }
+        : {}),
+    });
     try {
       const ticket = await gateway.createUpload(file.name, contentType);
       await gateway.uploadFile(ticket, file, setProgress);
@@ -146,8 +154,11 @@ export function UploadDropzone() {
         gcs_key: ticket.gcs_key,
         name: stem(file.name),
       });
+      track("project_created");
+      upgradeSession("uploaded-video");
       router.push(`/projects/${project.project_id}`);
     } catch (e) {
+      track("upload_failed");
       setError(
         e instanceof GatewayError ? e.message : "Upload failed — please try again.",
       );

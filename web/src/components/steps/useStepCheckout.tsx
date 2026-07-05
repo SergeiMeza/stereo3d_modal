@@ -34,6 +34,7 @@ import type { JSX } from "react";
 
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
+import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
 import type {
   Conversion,
@@ -153,6 +154,11 @@ export function useStepCheckout(
     setBillingBlock(null);
     try {
       const res = await client.quoteStep(project.project_id, req);
+      track("quote_received", {
+        step,
+        value: res.quote.amount_cents / 100,
+        currency: "USD",
+      });
       attemptKeyRef.current = null; // fresh quote = fresh attempt
       setState((s) => ({
         ...s,
@@ -182,6 +188,13 @@ export function useStepCheckout(
         req,
         attemptKeyRef.current,
       );
+      track("conversion_started", {
+        step,
+        ...(quote !== null
+          ? { value: quote.quote.amount_cents / 100, currency: "USD" }
+          : {}),
+      });
+      upgradeSession("paid-conversion");
       setState((s) => ({ ...s, active: conv, settled: false }));
       // Expensive runs hold the quote up front; a 3DS demand on that hold
       // arrives as requires_action — complete it with the saved card. The
@@ -209,6 +222,7 @@ export function useStepCheckout(
     } catch (e) {
       const block = billingBlockOf(e);
       if (block !== null) {
+        track("billing_blocked", { step, code: block });
         setBillingBlock(block);
         // an overdue charge appeared since the last fetch — resync the
         // banner/status so the settle UI shows up
@@ -220,6 +234,18 @@ export function useStepCheckout(
   }
 
   function handleSettled(settledConv: Conversion): void {
+    if (settledConv.state === "succeeded") {
+      // The card is charged on success — this is the purchase moment.
+      track("purchase", {
+        transaction_id: settledConv.conversion_id,
+        step,
+        ...(quote !== null
+          ? { value: quote.quote.amount_cents / 100, currency: "USD" }
+          : {}),
+      });
+    } else {
+      track("conversion_failed", { step, state: settledConv.state });
+    }
     attemptKeyRef.current = null;
     setState((s) => ({
       ...s,

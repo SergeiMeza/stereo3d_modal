@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { track, upgradeSession } from "@/lib/analytics";
 import { useBilling } from "@/lib/billing";
 
 import { useBillingSetup } from "./PaymentSetup";
@@ -39,6 +40,10 @@ export default function OnboardingScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const doneRef = useRef(false);
 
+  useEffect(() => {
+    track("onboarding_viewed");
+  }, []);
+
   const hasCard = status?.has_payment_method === true;
   useEffect(() => {
     if (hasCard && !doneRef.current) {
@@ -48,6 +53,8 @@ export default function OnboardingScreen(): JSX.Element {
   }, [hasCard, router, next]);
 
   async function onSaved(): Promise<void> {
+    track("add_payment_info");
+    upgradeSession("saved-card");
     setConfirming(true);
     setError(null);
     for (let i = 0; i < CONFIRM_POLLS; i++) {

@@ -27,6 +27,7 @@ import {
   useState,
 } from "react";
 
+import { track, upgradeSession } from "@/lib/analytics";
 import { getFirebaseAuth } from "@/lib/firebase";
 
 export interface AuthUser {
@@ -184,10 +185,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     try {
       const auth = await getFirebaseAuth();
-      const { GoogleAuthProvider, signInWithPopup } = await import(
-        "firebase/auth"
-      );
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const { GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup } =
+        await import("firebase/auth");
+      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
+      track(isNewUser ? "sign_up" : "login", { method: "google" });
+      if (isNewUser) upgradeSession("new-account");
     } catch (e) {
       throw friendlyAuthError(e);
     }
@@ -199,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const auth = await getFirebaseAuth();
         const { signInWithEmailAndPassword } = await import("firebase/auth");
         await signInWithEmailAndPassword(auth, email, password);
+        track("login", { method: "password" });
       } catch (e) {
         throw friendlyAuthError(e);
       }
@@ -214,6 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "firebase/auth"
         );
         await createUserWithEmailAndPassword(auth, email, password);
+        track("sign_up", { method: "password" });
+        upgradeSession("new-account");
       } catch (e) {
         throw friendlyAuthError(e);
       }
