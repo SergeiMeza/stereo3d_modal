@@ -22,9 +22,10 @@ const CONTENT_TYPES: Record<string, string> = {
   mp4: "video/mp4",
   mov: "video/quicktime",
   m4v: "video/x-m4v",
+  webm: "video/webm",
 };
 
-const ACCEPT = ".mp4,.mov,.m4v";
+const ACCEPT = ".mp4,.mov,.m4v,.webm";
 
 /** Beta source caps — mirror the gateway's max_source_duration_s /
  * max_source_pixels (pricing rates). The gateway re-checks after its own
@@ -119,7 +120,9 @@ export function UploadDropzone() {
     if (busy) return;
     const contentType = contentTypeFor(file.name);
     if (contentType === null) {
-      setError("Unsupported file type — choose an .mp4, .mov, or .m4v video.");
+      setError(
+        "Unsupported file type — choose an .mp4, .mov, .m4v, or .webm video.",
+      );
       return;
     }
     const meta = await readVideoMeta(file);
@@ -208,8 +211,8 @@ export function UploadDropzone() {
           Drag &amp; drop a video to start a project
         </p>
         <p className="text-xs text-fg-muted">
-          One video per project · .mp4, .mov, or .m4v · up to 5 minutes ·
-          below 4K
+          One video per project · .mp4, .mov, .m4v, or .webm · up to 5
+          minutes · below 4K
         </p>
         <button
           type="button"

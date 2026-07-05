@@ -20,8 +20,8 @@ import (
 var (
 	allowedPresets = []string{"draft", "1080p", "qhd", "3k", "4k"}
 	allowedFormats = []string{"sbs", "half_sbs", "tb", "half_tb", "anaglyph", "mvhevc"}
-	allowedExts    = []string{".mp4", ".mov", ".m4v", ".png", ".jpg", ".jpeg", ".heic"}
-	videoExts      = []string{".mp4", ".mov", ".m4v"}
+	allowedExts    = []string{".mp4", ".mov", ".m4v", ".webm", ".png", ".jpg", ".jpeg", ".heic"}
+	videoExts      = []string{".mp4", ".mov", ".m4v", ".webm"}
 )
 
 // maxDisplacement is deliberately tighter than the Modal API's (0, 0.1] rail;
