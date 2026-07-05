@@ -52,6 +52,18 @@ describe("mock gateway validation", () => {
     }
   });
 
+  it("rejects an explicit empty formats list (absent still means the step default)", async () => {
+    for (const step of ["stereo_preview", "production"]) {
+      await expectInvalid(
+        { step, formats: [] },
+        "formats cannot be empty: select at least one output format",
+      );
+      expect((await quote({ step })).status).toBe(200); // absent = default
+    }
+    // depth_preview ignores formats entirely (depth-only run)
+    expect((await quote({ step: "depth_preview", formats: [] })).status).toBe(200);
+  });
+
   it("rejects depth_res outside multiples of 14 in [140, 2520]", async () => {
     for (const depth_res of [981, 126, 2534, 14.5]) {
       await expectInvalid(
@@ -296,7 +308,8 @@ describe("mock gateway quote math + params echo", () => {
     const depth = (await (
       await quote({ step: "depth_preview" })
     ).json()) as StepQuoteResponse;
-    expect(depth.params.formats).toEqual(["anaglyph"]);
+    expect(depth.params.formats).toEqual([]); // depth-only: nothing encoded
+    expect(depth.params.depth_only).toBe(true);
     expect(depth.params.inpaint).toBe("none");
 
     const prod = (await (
@@ -487,12 +500,12 @@ describe("mock gateway success side effects", () => {
         .shots,
     );
 
-    // downloads include the browser-playable depth_vis
+    // depth-only run: downloads are the depth artifacts alone (no encoded
+    // stereo output), including the browser-playable depth_vis
     const downloads = (await (
       await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`)
     ).json()) as { downloads: Record<string, string> };
     expect(Object.keys(downloads.downloads).sort()).toEqual([
-      "anaglyph",
       "depth",
       "depth_vis",
     ]);

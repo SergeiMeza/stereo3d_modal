@@ -684,6 +684,9 @@ export function StereoPanel({
             checkout={ck}
             request={request}
             trackerDownloads={false}
+            disabledReason={
+              formats.length === 0 ? "Select at least one format" : undefined
+            }
           />
         </CardContent>
       </Card>

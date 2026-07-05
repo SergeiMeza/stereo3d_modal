@@ -469,7 +469,8 @@ def encode_outputs(
     (the SBS master is always published; "depth" is handled by the
     caller since it lives in a separate file).
     """
-    formats = formats or ["sbs", "half_sbs", "anaglyph"]
+    # VR-first default: no anaglyph unless explicitly requested
+    formats = formats or ["sbs", "half_sbs"]
     cache_volume.reload()
 
     sbs = Path(sbs_path)

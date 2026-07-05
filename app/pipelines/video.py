@@ -188,8 +188,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
+                     # default ["sbs", "half_sbs"]; anaglyph only when
+                     # explicitly requested (VR-first product)
       "include_audio": true,
       "output_depth": true,
+      "depth_only": false,       # stop after the depth stage: publish
+                     # depth + depth_vis and complete (no stereo, no
+                     # encodes). formats ignored. Pro Depth step.
       "adaptive": false,         # per-shot depth script (R&D prototype)
       "profiler": "da3-metric" | "depth-pro",
                      # adaptive only: profiling backend. depth-pro (R&D
@@ -621,6 +626,51 @@ def process_video_job(job_id: str, request: dict) -> dict:
             )
         jlog.info(f"📋 depth done: {depth['num_frames']}f at {depth['depth_shape']}, "
                   f"{len(depth['scene_cuts'])} scene cut(s)")
+
+        if request.get("depth_only"):
+            # Depth page: the product is the depth map itself — publish it
+            # (+ the browser-playable depth_vis) and stop. No stereo warp,
+            # no output encodes. Registration below mirrors the full-run
+            # path so a later stereo/production run reuses this artifact.
+            jobs.update_job(job_id, progress=0.9, stage="publish_depth")
+            outputs = {
+                "depth": publish_file.remote(job_id, depth["depth_path"], "depth.mp4"),
+                "depth_vis": publish_depth_vis.remote(job_id, depth["depth_path"]),
+            }
+            if not reuse_from:  # freshly computed (depth_source is rejected at submit)
+                try:
+                    reuse.register(d_key, job_id, f"outputs/{job_id}/depth.mp4",
+                                   meta={"depth_shape": depth.get("depth_shape")})
+                    jlog.info(f"📌 registered depth for reuse ({d_key})")
+                except Exception:
+                    logger.warning("depth register failed (non-fatal)", exc_info=True)
+            jobs.update_job(
+                job_id,
+                status=jobs.COMPLETED,
+                stage=None,
+                progress=1.0,
+                outputs=outputs,
+                metadata={
+                    "probe": pre["probe"],
+                    "crop": pre["crop"],
+                    "fps_decimation": pre.get("fps_decimation"),
+                    "scene_cuts": depth["scene_cuts"],
+                    "depth_shape": depth["depth_shape"],
+                    **({"depth_script": depth_script} if depth_script is not None else {}),
+                    **(
+                        {"scene_overrides": request["scene_overrides"]}
+                        if request.get("scene_overrides") is not None else {}
+                    ),
+                    **(
+                        {"comfort_scale": (jobs.get_job(job_id) or {}).get("comfort_scale")}
+                        if adaptive else {}
+                    ),
+                    **({"fov_deg": depth["fov_deg"]} if "fov_deg" in depth else {}),
+                },
+            )
+            jlog.info(f"🏁 depth-only job completed: {len(outputs)} output(s) published")
+            return {"job_id": job_id, "status": jobs.COMPLETED, "outputs": outputs}
+
         jobs.update_job(job_id, progress=0.5, stage="video_stereo")
 
         inpaint = request.get("inpaint", "propainter")
@@ -741,7 +791,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             src_fps = pre.get("source_fps") or probe["fps"]
             audio_trim = (pre["trim"][0] / src_fps, pre["trim"][1] / src_fps)
 
-        formats = request.get("formats", ["sbs", "half_sbs", "anaglyph"])
+        # VR-first default: no anaglyph unless explicitly requested
+        formats = request.get("formats", ["sbs", "half_sbs"])
         # SBS-family formats handled by encode_outputs; mvhevc is a separate
         # stage that reads the raw stereo (stereo["sbs_path"]) directly. If
         # the request asks for ONLY mvhevc, the sbs-family list is empty —

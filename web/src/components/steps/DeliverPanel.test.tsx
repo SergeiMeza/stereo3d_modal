@@ -283,6 +283,24 @@ describe("DeliverPanel controls", () => {
     expect(screen.queryByRole("slider")).toBeNull();
   });
 
+  it("blocks checkout while every format is deselected", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    const formats = screen.getByRole("group", { name: "Formats" });
+    await user.click(within(formats).getByRole("checkbox", { name: "MV-HEVC" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Half-SBS" }));
+
+    const quoteBtn = screen.getByRole("button", { name: "Get quote" }) as HTMLButtonElement;
+    expect(quoteBtn.disabled).toBe(true);
+    expect(screen.getByText("Select at least one format")).toBeDefined();
+
+    // re-selecting any format unblocks
+    await user.click(within(formats).getByRole("checkbox", { name: "SBS" }));
+    expect(quoteBtn.disabled).toBe(false);
+    expect(screen.queryByText("Select at least one format")).toBeNull();
+  });
+
   it("shows the reuse discount and drops it when re-quoted from scratch", async () => {
     const user = userEvent.setup();
     const project = fixtureProject();

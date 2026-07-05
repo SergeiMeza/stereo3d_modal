@@ -117,7 +117,10 @@ export function DeliverPanel({
     return {
       step: "production",
       preset,
-      ...(formats.length > 0 ? { formats } : {}),
+      // Always explicit — an empty list is rejected by the gateway (and the
+      // checkout section is disabled before it gets that far), never
+      // silently swapped for the step default.
+      formats,
       // Always full quality (propainter, also the gateway's production
       // default) — the cheap "splatted" opt-out is deliberately not
       // exposed in the UI this release.
@@ -316,7 +319,13 @@ export function DeliverPanel({
         </span>
       </label>
 
-      <StepCheckoutSection checkout={ck} request={buildRequest()} />
+      <StepCheckoutSection
+        checkout={ck}
+        request={buildRequest()}
+        disabledReason={
+          formats.length === 0 ? "Select at least one format" : undefined
+        }
+      />
       </PanelCard>
 
       <PriorRuns

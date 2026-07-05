@@ -57,7 +57,7 @@ func TestModalBodyProStepExactShape(t *testing.T) {
 func TestModalBodyAdaptiveForAllProSteps(t *testing.T) {
 	for _, step := range []string{store.StepDepthPreview, store.StepStereoPreview, store.StepProduction} {
 		conv := &store.Conversion{Kind: "video", Step: step,
-			Params: store.Params{Preset: "draft", Formats: []string{"anaglyph"}}}
+			Params: store.Params{Preset: "draft", Formats: []string{"sbs"}}}
 		body := (&Service{}).modalBody(conv, 8)
 		if body["adaptive"] != true {
 			t.Errorf("%s: adaptive must be true", step)
@@ -106,12 +106,33 @@ func TestModalBodyLegacyVideoUnchanged(t *testing.T) {
 
 func TestModalBodySkipsUnsetProKnobs(t *testing.T) {
 	conv := &store.Conversion{Kind: "video", Step: store.StepDepthPreview,
-		Params: store.Params{Preset: "draft", Formats: []string{"anaglyph"}, Inpaint: "none", TargetFPS: 12}}
+		Params: store.Params{Preset: "draft", DepthOnly: true, Inpaint: "none", TargetFPS: 12}}
 	body := (&Service{}).modalBody(conv, 8)
 	for _, k := range []string{"depth_res", "depth_scale", "scene_overrides", "displacement"} {
 		if _, present := body[k]; present {
 			t.Errorf("unset knob %q must not be forwarded", k)
 		}
+	}
+}
+
+func TestModalBodyDepthOnly(t *testing.T) {
+	// The Depth page stops after the depth stage: depth_only forwards and
+	// formats is OMITTED (nothing is encoded; sending [] would fight the
+	// pipeline's formats default resolution for no reason).
+	conv := &store.Conversion{Kind: "video", Step: store.StepDepthPreview,
+		Params: store.Params{Preset: "draft", DepthOnly: true, Formats: []string{}, Inpaint: "none"}}
+	body := (&Service{}).modalBody(conv, 8)
+	if body["depth_only"] != true {
+		t.Errorf("depth_only must forward, got %v", body["depth_only"])
+	}
+	if _, present := body["formats"]; present {
+		t.Error("depth-only body must omit formats")
+	}
+	// Stereo/production bodies never carry depth_only.
+	stereo := &store.Conversion{Kind: "video", Step: store.StepStereoPreview,
+		Params: store.Params{Preset: "1080p", Formats: []string{"sbs"}}}
+	if _, present := (&Service{}).modalBody(stereo, 8)["depth_only"]; present {
+		t.Error("stereo body must not carry depth_only")
 	}
 }
 

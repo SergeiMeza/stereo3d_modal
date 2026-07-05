@@ -111,7 +111,13 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 		return body
 	}
 	body["preset"] = c.Params.Preset
-	body["formats"] = c.Params.Formats
+	if c.Params.DepthOnly {
+		// Depth page: stop after the depth stage — Modal publishes depth +
+		// depth_vis and completes. No formats: nothing is encoded.
+		body["depth_only"] = true
+	} else {
+		body["formats"] = c.Params.Formats
+	}
 	if c.Params.Displacement > 0 {
 		body["displacement"] = c.Params.Displacement
 	}

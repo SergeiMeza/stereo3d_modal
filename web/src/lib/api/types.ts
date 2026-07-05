@@ -184,6 +184,9 @@ export interface Params {
   scene_overrides?: SceneOverride[];
   scene_cuts?: number[];
   skip_reuse?: boolean;
+  /** depth_preview only: the pipeline stops after the depth stage (no
+   * stereo warp, no encodes) — outputs are depth + depth_vis */
+  depth_only?: boolean;
 }
 
 export interface QuoteBreakdown {

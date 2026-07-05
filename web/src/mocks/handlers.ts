@@ -197,6 +197,20 @@ function validateStepRequest(
       "displacement is not a pro-step parameter; use scene_overrides[].displacement or depth_scale",
     );
   }
+  // Explicit empty formats is a client bug (every format deselected), never
+  // "use the step default" — mirrors resolveStepParams. Absent still
+  // defaults; depth_preview ignores formats (depth-only).
+  if (
+    Array.isArray(body.formats) &&
+    body.formats.length === 0 &&
+    step !== "depth_preview"
+  ) {
+    return err(
+      400,
+      "invalid_request",
+      "formats cannot be empty: select at least one output format",
+    );
+  }
   const depthRes = body.depth_res;
   if (depthRes !== undefined) {
     if (
@@ -485,13 +499,14 @@ function quoteFor(
     reuseStages,
     params: {
       preset,
-      // step defaults: depth_preview always anaglyph; stereo_preview sbs;
-      // production mvhevc+half_sbs
+      // step defaults: depth_preview is depth-only (no formats — nothing is
+      // encoded); stereo_preview sbs; production mvhevc+half_sbs
       formats:
         step === "depth_preview"
-          ? ["anaglyph"]
+          ? []
           : (req.formats ??
             (step === "production" ? ["mvhevc", "half_sbs"] : ["sbs"])),
+      ...(step === "depth_preview" ? { depth_only: true } : {}),
       inpaint,
       // uploaded depth: no inference resolution, and the run is pinned to
       // the full source rate (target_fps absent) — mirrors the gateway

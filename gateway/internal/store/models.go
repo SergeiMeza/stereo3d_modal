@@ -106,6 +106,10 @@ type Params struct {
 	// from the client). When set, Modal skips the depth stage and uses
 	// this file; quotes discount the depth share unconditionally.
 	DepthSource string `firestore:"depth_source,omitempty" json:"depth_source,omitempty"`
+	// DepthOnly stops the pipeline after the depth stage (depth_preview
+	// only): Modal publishes depth + depth_vis and completes — no stereo
+	// warp, no output encodes. Set server-side, never from the client.
+	DepthOnly bool `firestore:"depth_only,omitempty" json:"depth_only,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first

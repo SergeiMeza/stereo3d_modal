@@ -246,10 +246,23 @@ async def submit_video(body: dict) -> dict:
     for arg in ("reuse_depth_from", "reuse_preprocess_from"):
         if arg in body and body[arg] is not None and not isinstance(body[arg], str):
             raise HTTPException(status_code=400, detail=f"{arg} must be a job-id string")
+    # depth_only (pro Depth step): stop after the depth stage — publish
+    # depth.mp4 + depth_vis.mp4 and complete, never running stereo or the
+    # output encodes. formats are ignored. The depth artifact still
+    # registers in the reuse cache, so a later stereo/production run on
+    # the same knobs reuses it.
+    if "depth_only" in body and not isinstance(body["depth_only"], bool):
+        raise HTTPException(status_code=400, detail="depth_only must be a bool")
     # user-provided depth video (pro step pipeline): a bucket key under the
     # app prefix (the gateway uploads + validates it). Replaces the depth
     # stage entirely, so it conflicts with an explicit depth reuse pointer.
     depth_source = body.get("depth_source")
+    if body.get("depth_only") and depth_source is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="depth_only and depth_source are mutually exclusive "
+                   "(depth_only computes the depth map; depth_source supplies one)",
+        )
     if depth_source is not None:
         if not isinstance(depth_source, str) or not depth_source.strip():
             raise HTTPException(status_code=400, detail="depth_source must be a bucket key string")

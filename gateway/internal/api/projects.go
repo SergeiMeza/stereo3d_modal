@@ -618,10 +618,12 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 	switch req.Step {
 	case store.StepDepthPreview:
 		// The Depth page: pick the FINAL depth resolution here — production
-		// reuses the depth artifact when depth_res + fps match. Formats stay
-		// anaglyph (cheap); the UI centers the depth_vis output.
+		// reuses the depth artifact when depth_res + fps match. Depth-only:
+		// Modal stops after the depth stage (no stereo warp, no encodes) and
+		// publishes depth + depth_vis; the UI centers depth_vis.
 		params.Preset = "draft"
-		params.Formats = []string{"anaglyph"}
+		params.DepthOnly = true
+		params.Formats = []string{} // non-nil: serializes as [] (never null)
 		params.Inpaint = "none"
 		params.TargetFPS = halfSourceFPS(p)
 	case store.StepStereoPreview:
@@ -641,6 +643,13 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 			return params, httpx.ErrInvalid("preset must be one of " + strings.Join(allowedPresets, "|"))
 		}
 		params.Preset = req.Preset
+	}
+	// An EXPLICIT empty list is a client bug, not "use the default": the
+	// user deselected every format, and silently quoting/running the step
+	// default would deliver outputs nobody picked. Absent (nil) still means
+	// "step default" for API callers.
+	if req.Formats != nil && len(req.Formats) == 0 && req.Step != store.StepDepthPreview {
+		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
 	}
 	if len(req.Formats) > 0 && req.Step != store.StepDepthPreview {
 		for _, f := range req.Formats {

@@ -21,9 +21,15 @@ class VideoRequest(TypedDict, total=False):
     input_size: int  # depth model resolution, multiple of 14 (default 980)
     encoder: Literal["vits", "vitl"]  # default "vitl"
     remove_black_bars: bool  # default True
-    formats: list[VideoFormat]  # default ["sbs", "half_sbs", "anaglyph"]
+    formats: list[VideoFormat]  # default ["sbs", "half_sbs"] — anaglyph
+    # only when explicitly requested (VR-first product)
     include_audio: bool  # default True
     output_depth: bool  # default True
+    depth_only: bool  # default False; stop after the depth stage —
+    # publish depth.mp4 + depth_vis.mp4 and complete (no stereo warp,
+    # no output encodes; formats ignored). The depth artifact still
+    # registers for content-addressed reuse. Mutually exclusive with
+    # depth_source. Pro Depth step.
     adaptive: bool  # default False; per-shot depth script (R&D prototype,
     # sequential propainter/none path only); decisions appear in
     # metadata["depth_script"]

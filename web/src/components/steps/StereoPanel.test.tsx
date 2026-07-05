@@ -356,6 +356,23 @@ describe("StereoPanel request building", () => {
     expect(bodies[0].formats).toEqual(["sbs", "mvhevc"]);
   });
 
+  it("blocks checkout while every format is deselected", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    const formats = screen.getByRole("group", { name: "Formats" });
+    await user.click(within(formats).getByRole("checkbox", { name: "SBS" })); // sole default off
+
+    const quoteBtn = screen.getByRole("button", { name: "Get quote" }) as HTMLButtonElement;
+    expect(quoteBtn.disabled).toBe(true);
+    expect(screen.getByText("Select at least one format")).toBeDefined();
+
+    // re-selecting any format unblocks
+    await user.click(within(formats).getByRole("checkbox", { name: "Half-SBS" }));
+    expect(quoteBtn.disabled).toBe(false);
+    expect(screen.queryByText("Select at least one format")).toBeNull();
+  });
+
   it("offers the SAME resolution presets as Deliver (1080p default) and sends the pick on the wire", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();

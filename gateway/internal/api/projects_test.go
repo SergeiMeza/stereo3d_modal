@@ -65,8 +65,11 @@ func TestResolveDepthPreviewTemplate(t *testing.T) {
 	if p.Preset != "draft" {
 		t.Errorf("preset: want draft, got %s", p.Preset)
 	}
-	if len(p.Formats) != 1 || p.Formats[0] != "anaglyph" {
-		t.Errorf("formats: want [anaglyph], got %v", p.Formats)
+	if !p.DepthOnly {
+		t.Error("depth_only: want true (the Depth page never runs stereo)")
+	}
+	if len(p.Formats) != 0 || p.Formats == nil {
+		t.Errorf("formats: want non-nil empty (nothing encoded), got %v", p.Formats)
 	}
 	if p.Inpaint != "none" {
 		t.Errorf("inpaint: want none, got %s", p.Inpaint)
@@ -89,8 +92,9 @@ func TestResolveDepthPreviewAcceptsDepthRes(t *testing.T) {
 
 func TestResolveDepthPreviewIgnoresPresetAndFormats(t *testing.T) {
 	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Preset: "4k", Formats: []string{"sbs"}})
-	if p.Preset != "draft" || len(p.Formats) != 1 || p.Formats[0] != "anaglyph" {
-		t.Errorf("depth_preview must stay draft/anaglyph, got %s/%v", p.Preset, p.Formats)
+	if p.Preset != "draft" || len(p.Formats) != 0 || !p.DepthOnly {
+		t.Errorf("depth_preview must stay draft/depth-only with no formats, got %s/%v (depth_only=%v)",
+			p.Preset, p.Formats, p.DepthOnly)
 	}
 }
 
@@ -141,6 +145,19 @@ func TestResolveStereoPreviewTemplate(t *testing.T) {
 	}
 	if p.TargetFPS != 12 {
 		t.Errorf("target_fps: want 12, got %v", p.TargetFPS)
+	}
+}
+
+func TestResolveRejectsExplicitEmptyFormats(t *testing.T) {
+	// Deselecting every format in the UI must not silently fall back to the
+	// step default — reject at the source. Absent (nil) keeps meaning
+	// "step default"; depth_preview ignores formats entirely.
+	for _, step := range []string{store.StepStereoPreview, store.StepProduction} {
+		resolveErr(t, &stepConvReq{Step: step, Formats: []string{}}, "at least one output format")
+	}
+	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Formats: []string{}})
+	if !p.DepthOnly {
+		t.Errorf("depth_preview must ignore an empty formats list, got %+v", p)
 	}
 }
 

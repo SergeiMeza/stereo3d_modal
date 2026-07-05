@@ -361,6 +361,10 @@ export interface StepCheckoutSectionProps {
   /** Show the tracker's downloads list on success (default). Depth passes
    * false — its inline depth view + Export button surface the outputs. */
   trackerDownloads?: boolean;
+  /** When set, the panel's params are not runnable (e.g. every format
+   * deselected): Get quote / Convert are disabled and this reason renders
+   * beside them. */
+  disabledReason?: string;
 }
 
 /** The uniform bottom half of every step panel: Get quote / Convert buttons,
@@ -369,26 +373,31 @@ export function StepCheckoutSection({
   checkout: ck,
   request,
   trackerDownloads = true,
+  disabledReason,
 }: StepCheckoutSectionProps): JSX.Element {
+  const blocked = disabledReason !== undefined;
   return (
     <>
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
           onClick={() => void ck.fetchQuote(request)}
-          disabled={ck.quoting}
+          disabled={ck.quoting || blocked}
         >
           Get quote
         </Button>
-        {ck.quote && !ck.running ? (
+        {ck.quote && !ck.running && !blocked ? (
           <Button onClick={() => void ck.convert(request)}>
             Convert · {formatCents(ck.quote.quote.amount_cents)}
           </Button>
         ) : null}
-        {ck.quote && !ck.running ? (
+        {ck.quote && !ck.running && !blocked ? (
           <span className="text-xs text-fg-muted">
             Billed to your saved card when it succeeds
           </span>
+        ) : null}
+        {blocked ? (
+          <span className="text-xs text-amber-400">{disabledReason}</span>
         ) : null}
       </div>
       {ck.error ? <p className="text-sm text-red-400">{ck.error}</p> : null}
