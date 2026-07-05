@@ -33,6 +33,11 @@ PROXY_SHORT_SIDE = 480    # proxy resolution (short side); also scene-thumb heig
 STRIP_HEIGHT = 90         # filmstrip tile height (timeline scrubber)
 DEFAULT_STRIP_COUNT = 100
 MAX_STRIP_COUNT = 300
+MIN_SCENE_SECONDS = 0.5   # detector floor — avoids sub-second over-segmentation
+MAX_SCENES = 300          # hard cap; shortest scenes merged into predecessors
+SELECT_BATCH = 80         # max eq() terms per select expression — ffmpeg 8's
+                          # expression parser caps recursion at 100 terms
+                          # (verified: 100 OK, 101 fails on the 8.1 build)
 
 
 def _strip_indices(num_frames: int, count: int) -> list[int]:
@@ -70,37 +75,56 @@ def _detect_scenes_inline(path: Path) -> list[dict]:
     from scenedetect import AdaptiveDetector, SceneManager, open_video
 
     video = open_video(str(path))
+    fps = video.frame_rate or 24.0
     manager = SceneManager()
-    manager.add_detector(AdaptiveDetector())
+    # min_scene_len keeps high-motion/noisy footage from over-segmenting
+    # into hundreds of sub-second "scenes" (bad editor UX downstream).
+    manager.add_detector(
+        AdaptiveDetector(min_scene_len=max(2, round(MIN_SCENE_SECONDS * fps)))
+    )
     manager.detect_scenes(video=video)
-    return [
+    scenes = [
         {"start": start.get_frames(), "end": end.get_frames(),
          "start_sec": start.get_seconds(), "end_sec": end.get_seconds()}
         for start, end in manager.get_scene_list()
     ]
+    # Hard cap: merge the shortest scenes into their predecessor until we
+    # fit. Keeps boundaries of the longest (most significant) scenes.
+    while len(scenes) > MAX_SCENES:
+        i = min(range(1, len(scenes)),
+                key=lambda k: scenes[k]["end"] - scenes[k]["start"])
+        scenes[i - 1]["end"] = scenes[i]["end"]
+        scenes[i - 1]["end_sec"] = scenes[i]["end_sec"]
+        del scenes[i]
+    return scenes
 
 
 def _extract_frames(src: Path, indices: list[int], height: int,
                     out_dir: Path, prefix: str) -> list[dict]:
-    """One ffmpeg pass over the proxy: keep exactly the frames in
-    ``indices``, scale to ``height``. Output files number 1..k in ascending
-    frame order (select preserves order), so file n maps to indices[n-1].
+    """ffmpeg passes over the proxy: keep exactly the frames in
+    ``indices``, scale to ``height``. Batched (SELECT_BATCH eq() terms per
+    pass) — one giant select expression overflows ffmpeg's expression
+    parser. Output files number 1..k in ascending frame order (select
+    preserves order), so file n maps to indices[n-1].
     Returns [{"frame", "url"}, …]."""
     from app.common.storage import public_url
 
     if not indices:
         return []
     out_dir.mkdir(parents=True, exist_ok=True)
-    expr = "+".join(f"eq(n\\,{i})" for i in indices)
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-v", "error", "-i", str(src),
-            "-vf", f"select='{expr}',scale=-2:{height}",
-            "-vsync", "0", "-q:v", "4",
-            str(out_dir / f"{prefix}_%05d.jpg"),
-        ],
-        check=True,
-    )
+    for base in range(0, len(indices), SELECT_BATCH):
+        batch = indices[base:base + SELECT_BATCH]
+        expr = "+".join(f"eq(n\\,{i})" for i in batch)
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-v", "error", "-i", str(src),
+                "-vf", f"select='{expr}',scale=-2:{height}",
+                "-vsync", "0", "-q:v", "4",
+                "-start_number", str(base + 1),
+                str(out_dir / f"{prefix}_%05d.jpg"),
+            ],
+            check=True,
+        )
     thumbs = []
     for n, frame in enumerate(indices, start=1):
         f = out_dir / f"{prefix}_{n:05d}.jpg"
