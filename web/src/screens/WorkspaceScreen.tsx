@@ -77,6 +77,8 @@ export default function WorkspaceScreen({
   const [tab, setTabState] = useState<WorkspaceTabId>(initialTab);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const setTab = useCallback((t: WorkspaceTabId) => {
     setTabState(t);
@@ -98,6 +100,25 @@ export default function WorkspaceScreen({
       setLoadError(
         e instanceof GatewayError ? e.message : "Failed to load the project.",
       );
+    }
+  }, [gateway, projectId]);
+
+  // Failed analyses are retryable (transient upstream failures shouldn't
+  // force a re-upload); success flips analyze back to running, which
+  // restarts the poll loop below.
+  const retryAnalyze = useCallback(async () => {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      setProject(await gateway.retryAnalyze(projectId));
+    } catch (e) {
+      setRetryError(
+        e instanceof GatewayError
+          ? e.message
+          : "Could not restart the analysis — please try again.",
+      );
+    } finally {
+      setRetrying(false);
     }
   }, [gateway, projectId]);
 
@@ -248,8 +269,18 @@ export default function WorkspaceScreen({
             ) : null}
           </span>
         ) : project.analyze.state === "failed" ? (
-          <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
-            Analyze failed
+          <span className="flex items-center gap-2">
+            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
+              Analyze failed
+            </span>
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={() => void retryAnalyze()}
+              className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {retrying ? "Retrying…" : "Retry analysis"}
+            </button>
           </span>
         ) : probe ? (
           <span className="text-[11px] text-fg-muted">
@@ -306,6 +337,17 @@ export default function WorkspaceScreen({
                 <p className="font-medium">Analysis failed.</p>
                 {project.analyze.error ? (
                   <p className="mt-1 text-sm">{project.analyze.error}</p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={retrying}
+                  onClick={() => void retryAnalyze()}
+                  className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {retrying ? "Retrying…" : "Retry analysis"}
+                </button>
+                {retryError ? (
+                  <p className="mt-2 text-sm">{retryError}</p>
                 ) : null}
               </div>
             ) : ready ? (

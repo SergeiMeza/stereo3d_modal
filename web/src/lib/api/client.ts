@@ -194,6 +194,13 @@ export class GatewayClient {
     return this.request("POST", `/v1/projects/${id}/profile`, {});
   }
 
+  /** Re-run the free analyze job on a FAILED project (transient failures
+   * shouldn't force a re-upload). 409 unless analyze.state === "failed".
+   * Returns the project with analyze back in "running" — resume polling. */
+  retryAnalyze(id: string): Promise<Project> {
+    return this.request("POST", `/v1/projects/${id}/analyze`, {});
+  }
+
   quoteStep(id: string, req: StepConversionRequest): Promise<StepQuoteResponse> {
     return this.request("POST", `/v1/projects/${id}/quotes`, req);
   }

@@ -112,6 +112,51 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
+// POST /v1/projects/{id}/analyze — re-run the free analyze job on a FAILED
+// project (transient upstream failures shouldn't force a re-upload). The
+// source is still in GCS, so this is exactly the creation-time submit with
+// the same project id. Policy rejections (beta caps) also land in "failed"
+// — retrying those just re-rejects with the same message, which is fine.
+func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
+	ctx := r.Context()
+	p, err := s.ownedProject(ctx, user, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if p.Analyze.State != store.AnalyzeFailed {
+		httpx.WriteErr(ctx, w, httpx.ErrConflict("analysis can only be retried after it failed"))
+		return
+	}
+	resp, merr := s.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
+	if merr != nil {
+		httpx.Log(ctx).Error("analyze retry submit failed", "project_id", id, "err", merr)
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
+			"analysis could not be started; try again"))
+		return
+	}
+	updated, uerr := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
+		if pp.Analyze.State != store.AnalyzeFailed {
+			return store.ErrStateConflict // raced with another retry
+		}
+		pp.Analyze.JobID = resp.JobID
+		pp.Analyze.State = store.AnalyzeRunning
+		pp.Analyze.Error = ""
+		return nil
+	})
+	if uerr != nil {
+		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		if errors.Is(uerr, store.ErrStateConflict) {
+			uerr = httpx.ErrConflict("analysis can only be retried after it failed")
+		}
+		httpx.WriteErr(ctx, w, uerr)
+		return
+	}
+	httpx.Log(ctx).Info("analyze retried",
+		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID)
+	httpx.WriteOK(w, s.projectResponse(updated, nil))
+}
+
 // GET /v1/projects — active projects; ?archived=1 lists archived ones
 // instead (restorable via PATCH {archived: false}).
 func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, user *AuthedUser) {

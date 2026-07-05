@@ -859,6 +859,25 @@ export const handlers = [
 
   /** Free standalone shot profiling (empty JSON body). 409 while one is
    * already running; the job advances/completes on subsequent detail GETs. */
+  http.post(`${GATEWAY}/v1/projects/:id/analyze`, ({ params }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p) return err(404, "not_found", "project not found");
+    if (p.analyze.state !== "failed") {
+      return err(409, "conflict", "analysis can only be retried after it failed");
+    }
+    p.analyze = {
+      state: "running",
+      error: "",
+      credit_cents: 0,
+      credit_available: false,
+      progress: 0.05,
+      stage: "analyze",
+      eta_seconds: 40,
+    };
+    mockDb.analyzeTicks.set(p.project_id, 0);
+    return HttpResponse.json(projectDetail(p));
+  }),
+
   http.post(`${GATEWAY}/v1/projects/:id/profile`, ({ params }) => {
     const p = mockDb.projects.get(params.id as string);
     if (!p) return err(404, "not_found", "project not found");
