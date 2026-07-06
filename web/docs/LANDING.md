@@ -57,7 +57,20 @@ Copy per tab (user-facing vocabulary only):
 - **Deliver** — full-quality render that inherits your preview work and
   reuses it at a discount; pick preset (1080p → 4K) and formats.
 
-### 3. Studio-grade quality (3-4 feature cards)
+### 3. Pipeline ("What happens to your video") — added 2026-07
+Three alternating rows, each a short looping clip (~1-2 MB MP4 in
+`public/landing/steps/`, transcoded from the Spatial Video Studio LP
+assets) beside user-facing copy:
+- **01 · Depth** — every pixel gets a distance, stable across frames
+  (`depth.mp4`: footage beside its animated depth map).
+- **02 · Stereo** — left/right views synthesized, revealed pixels filled
+  by motion-aware inpainting (`stereo.mp4`: red-cyan anaglyph preview).
+- **03 · Deliver** — encoded to spatial video, SBS and more
+  (`delivery.mp4`: playback on a virtual home-theater screen).
+Component: `PipelineSteps.tsx`. Autoplay muted loops, `aria-label`s, no
+new dependencies.
+
+### 4. Studio-grade quality (3-4 feature cards)
 - Temporally stable depth — video-native depth model, no per-frame
   flicker.
 - Scene-aware stereo — depth resets at cuts; per-shot depth script with
@@ -66,7 +79,7 @@ Copy per tab (user-facing vocabulary only):
 - Frame-exact control — cuts, trims and overrides are all integer frame
   indices; what you set is what renders.
 
-### 4. Delivery formats × devices
+### 5. Delivery formats × devices
 Table/cards mapping formats to devices:
 - **Apple spatial video (MV-HEVC .mov)** — Apple Vision Pro (shows up in
   Photos as Spatial Video); also plays on Android XR headsets like
@@ -77,7 +90,7 @@ Table/cards mapping formats to devices:
 - **Anaglyph** — instant red-cyan check on any flat screen.
 Audio is carried through on all formats.
 
-### 5. Pricing ("Pay for renders, not seats")
+### 6. Pricing ("Pay for renders, not seats")
 - No subscription; card on file, pay per job.
 - Binding quote before every paid render — the price you see is the
   price you pay.
@@ -86,12 +99,12 @@ Audio is carried through on all formats.
 - Honesty rule: no concrete dollar amounts on the page (prices are
   quote-based and Firestore-tunable) — the quote UI is the price.
 
-### 6. Beta note
+### 7. Beta note
 - Beta limits stated plainly: videos up to 5 minutes, below 4K input.
 - Feedback CTA (mailto sergei@spatial-ai-labs.com, reuse FeedbackLink
   styling/subject).
 
-### 7. Footer
+### 8. Footer
 - Product name, contact email, © Spatial AI Labs, year.
 
 ## Assets
@@ -160,7 +173,8 @@ deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
 ## Out of scope
 
 - Public marketing site separate from the app.
-- Video/animated demos (screenshots only for now).
+- ~~Video/animated demos~~ (added 2026-07: the pipeline section's three
+  short looping clips; everything else remains screenshots).
 - Published price list (quote UI is the price).
 - Sign-up changes; CTA reuses the existing /signin flow.
 

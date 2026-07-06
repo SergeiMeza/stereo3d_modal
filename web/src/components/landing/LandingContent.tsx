@@ -24,6 +24,7 @@ import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { BrowserFrame } from "@/components/landing/BrowserFrame";
+import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
@@ -189,6 +190,25 @@ export function LandingContent() {
         </p>
         <div className="mt-8">
           <WorkflowTabs />
+        </div>
+      </section>
+
+      {/* Pipeline */}
+      <section className="border-y border-edge bg-card/50">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16">
+          <p className="text-xs font-medium tracking-widest text-primary uppercase">
+            The pipeline
+          </p>
+          <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
+            What happens to your video
+          </h2>
+          <p className="mt-3 max-w-2xl text-fg-muted">
+            The same passes a stereo conversion house runs — automated, and
+            shown here on real footage.
+          </p>
+          <div className="mt-10">
+            <PipelineSteps />
+          </div>
         </div>
       </section>
 

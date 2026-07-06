@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
+
 import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
@@ -108,6 +110,7 @@ export default function RootLayout({
           </main>
         </AuthProvider>
         <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );
