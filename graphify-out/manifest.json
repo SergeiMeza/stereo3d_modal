@@ -1020,8 +1020,8 @@
     "semantic_hash": "9b77af189a21a7a64e4bd7a426f64176"
   },
   "web/package.json": {
-    "mtime": 1783256684.4707186,
-    "ast_hash": "378f31af5b77857c894f07bbd97e9259",
+    "mtime": 1783309582.6450906,
+    "ast_hash": "43b553c6bd908d14473bdfed9b5f1934",
     "semantic_hash": ""
   },
   "web/postcss.config.mjs": {
@@ -1040,8 +1040,8 @@
     "semantic_hash": "c1e11074c3b710b1b37b934698e2dcb8"
   },
   "web/src/app/layout.tsx": {
-    "mtime": 1783257985.8387017,
-    "ast_hash": "1a8d4caf18f57d9cffc3847d0b23b738",
+    "mtime": 1783309601.417662,
+    "ast_hash": "ae30151a542fea2e6bf63216808a0ad6",
     "semantic_hash": ""
   },
   "web/src/app/onboarding/page.tsx": {
@@ -2180,8 +2180,8 @@
     "semantic_hash": ""
   },
   "web/docs/LANDING.md": {
-    "mtime": 1783138690.792371,
-    "ast_hash": "493730edfb4d0dc96aa56d3865b7c5dc",
+    "mtime": 1783310059.2730663,
+    "ast_hash": "31070a00c51b5a0610f424bd17d5f3ed",
     "semantic_hash": ""
   },
   "web/assets/cut_tab.png": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "web/src/components/landing/LandingContent.tsx": {
-    "mtime": 1783260506.3447769,
-    "ast_hash": "e4cb0459c4e61bc2da1e3accb3160575",
+    "mtime": 1783310021.3750699,
+    "ast_hash": "e54530a7973a5642d39b46fe628a64f9",
     "semantic_hash": ""
   },
   "web/src/lib/site.ts": {
@@ -2322,6 +2322,26 @@
   "web/src/app/icon.svg": {
     "mtime": 1783258014.6363993,
     "ast_hash": "08d3b7fa802fa53bed6adb2dd9a71f79",
+    "semantic_hash": ""
+  },
+  "web/src/components/landing/PipelineSteps.tsx": {
+    "mtime": 1783310015.4751718,
+    "ast_hash": "3de3394f82594c6ae1fc88ac34a42331",
+    "semantic_hash": ""
+  },
+  "web/public/landing/steps/delivery.mp4": {
+    "mtime": 1783309990.2946258,
+    "ast_hash": "8ce88da893638edfa83ba954701289f1",
+    "semantic_hash": ""
+  },
+  "web/public/landing/steps/depth.mp4": {
+    "mtime": 1783309987.8029194,
+    "ast_hash": "06f77a897614e71df29d1048470fa9fb",
+    "semantic_hash": ""
+  },
+  "web/public/landing/steps/stereo.mp4": {
+    "mtime": 1783309989.0937784,
+    "ast_hash": "4a678279aafc7e41aadd1d3503d341b9",
     "semantic_hash": ""
   }
 }
