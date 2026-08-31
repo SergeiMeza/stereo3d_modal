@@ -179,7 +179,10 @@ def process_video_job(job_id: str, request: dict) -> dict:
     {
       "input_path": "inputs/samples/clip_1s_1080p.mp4",
       "displacement": 0.0125,
-      "inpaint": "propainter" | "none" | "m2svid",
+      "inpaint": "propainter" | "migan" | "none" | "m2svid",
+                     # migan: per-frame MI-GAN hole fill on the L4 lite
+                     # tier — filled edges at near raw-warp cost, no
+                     # temporal stabilization (see migan_runner.py)
       "warp": "forward" | "backward",
                      # stereo synthesis method (default forward = splat).
                      # backward = gather warp (app-parity kernel), no
@@ -761,15 +764,14 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # splat/composite buffers need H200; the inpaint stays at (wh,ww).
             # Also escalate on a big inpaint work res (legacy behavior).
             big_work = (wh * ww > 1280 * 720) or (splat_px > 2560 * 1440)
-            if warp == "backward":
-                # Stretched edges: a gather warp needs no ProPainter VRAM and
-                # no Forward_Warp — the stage is SBS-encode-bound. The lite
-                # tier (L4 + NVENC) does it for ~1/5 the $/s of L40S and
-                # ~1/25 of the H200 the big_work rule would have picked.
+            if warp == "backward" or inpaint == "migan":
+                # Lite tier (L4 + NVENC): the gather warp needs no models at
+                # all, and MI-GAN is a 30 MB per-frame fill — neither needs
+                # ProPainter VRAM, so both skip the L40S/H200 tiers.
                 stereo_cls = VideoStereoLiteWorker
                 big_work = False
-                jlog.info(f"🖥  stereo GPU: {BACKWARD_WARP_GPU} (lite tier, backward warp; "
-                          f"splat_px={splat_px})")
+                jlog.info(f"🖥  stereo GPU: {BACKWARD_WARP_GPU} (lite tier; warp={warp}, "
+                          f"inpaint={inpaint}, splat_px={splat_px})")
             else:
                 # >720p ProPainter / 4K splat needs ~80+ GB
                 stereo_cls = (

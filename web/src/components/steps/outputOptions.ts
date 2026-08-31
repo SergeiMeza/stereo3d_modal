@@ -37,10 +37,33 @@ export const FORMAT_LABELS: Record<(typeof OUTPUT_FORMATS)[number], string> = {
  * rough edges, fine for judging depth. */
 export const INPAINT_LABELS: Record<Inpaint, string> = {
   propainter: "Full quality",
+  migan: "Fast fill",
   none: "Quick",
 };
 
-/** The Edge handling control's option order — the default first. */
+/** Edge handling: the user-facing choice that drives BOTH wire fields
+ * (warp + inpaint). Values are UI-only — never sent on the wire. */
+export type EdgeMode = "best" | "fast" | "stretched";
+export const EDGE_OPTIONS: readonly EdgeMode[] = ["best", "fast", "stretched"];
+
+export const EDGE_LABELS: Record<EdgeMode, string> = {
+  best: "Filled edges — best",
+  fast: "Filled edges — fast",
+  stretched: "Stretched edges",
+};
+
+export const EDGE_HINT =
+  "How the thin gaps that open along object edges are handled. Best paints them in with motion-aware fill — the deliverable look, slowest. Fast paints each frame independently — nearly as clean, much quicker and cheaper. Stretched pulls the neighbouring pixels across the gaps, the same method as the mobile app: the quickest of all.";
+
+/** The wire fields an edge mode implies. Stretched = the backward warp
+ * (which the gateway forces to inpaint none); the filled modes keep the
+ * default forward warp, so no warp field goes on the wire. */
+export function edgeModeRequest(mode: EdgeMode): { inpaint: Inpaint; warp?: Warp } {
+  if (mode === "stretched") return { inpaint: "none", warp: "backward" };
+  return { inpaint: mode === "fast" ? "migan" : "propainter" };
+}
+
+/** legacy two-option list (kept for history rendering) */
 export const WARP_OPTIONS: readonly Warp[] = ["forward", "backward"];
 
 /** User-facing names for the API's warp methods. The wire values are

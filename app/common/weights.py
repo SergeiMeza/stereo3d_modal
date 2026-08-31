@@ -166,11 +166,29 @@ def ensure_lama() -> Path:
 
 
 def ensure_migan() -> Path:
-    """TorchScript-traced MiGAN inpainting model (fast video fallback)."""
+    """TorchScript-traced MiGAN inpainting model (legacy app trace —
+    unused by the pipeline; see ensure_migan_512 for the OSS checkpoint)."""
     return _hf_download(
         repo_id="SpatialVideoStudio/spatial-video-studio",
         filename="migan_traced.pt",
         subdir="spatial_video_studio",
+    )
+
+
+def ensure_migan_512() -> Path:
+    """Official MI-GAN 512 Places2 checkpoint (Picsart AI Research, MIT;
+    plain state_dict for app.vendor.migan.Generator(resolution=512)).
+    Seeded into each workspace's stereo3d-weights volume by hand
+    (2026-09-01, sha256 prefix logged at upload) because the paper's
+    release lives on Google Drive, not HF — _hf_download returns the
+    volume copy without ever hitting the (nonexistent) HF fallback. If
+    the volume is ever wiped, re-download from the MI-GAN repo's README
+    link and `modal volume put stereo3d-weights migan_512_places2.pt
+    migan/migan_512_places2.pt`."""
+    return _hf_download(
+        repo_id="SpatialVideoStudio/spatial-video-studio",  # fallback only; see docstring
+        filename="migan_512_places2.pt",
+        subdir="migan",
     )
 
 

@@ -318,3 +318,24 @@ def test_video_worker_validation_is_orthogonal_to_inpaint():
         _validate_modes("propainter", "both", WARP_BACKWARD)
     with pytest.raises(ValueError, match="unknown inpaint"):
         _validate_modes("backward", "both", WARP_FORWARD)  # not overloaded onto inpaint
+
+
+def test_migan_mode_validation():
+    # migan is a FORWARD-warp fill: fine with forward, contradiction with
+    # backward (a gather has no holes), unknown values still rejected
+    _validate_modes("migan", "both", WARP_FORWARD)
+    with pytest.raises(ValueError, match="no occlusion masks"):
+        _validate_modes("migan", "both", WARP_BACKWARD)
+    with pytest.raises(ValueError, match="unknown inpaint"):
+        _validate_modes("lama", "both", WARP_FORWARD)
+
+
+def test_migan_tiling_roundtrip():
+    from app.stages.migan_runner import _tile, _untile
+    x = torch.rand(3, 4, 1024, 1024)
+    t = _tile(x)
+    assert t.shape == (12, 4, 512, 512)
+    # row-major tiles: tile 0 is the top-left quadrant
+    assert torch.equal(t[0], x[0, :, :512, :512])
+    assert torch.equal(t[3], x[0, :, 512:, 512:])
+    assert torch.equal(_untile(t, 3), x)

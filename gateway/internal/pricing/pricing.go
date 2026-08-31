@@ -65,6 +65,16 @@ type Rates struct {
 	// InpaintMultiplier scales a stereo_preview subtotal when
 	// inpaint=propainter. Production rates already include inpainting.
 	InpaintMultiplier float64 `firestore:"inpaint_multiplier"`
+	// MiganPreviewMultiplier / MiganProductionMultiplier price the
+	// inpaint="migan" middle ground (per-frame MI-GAN fill on the L4 lite
+	// tier — filled edges at near raw-warp cost, no temporal model):
+	// stereo_preview pays a little over the splatted baseline (×1.15 vs
+	// ProPainter's ×1.6); production discounts to ×0.5 — above backward's
+	// ×0.4, keeping none < migan < propainter in both steps. Cost basis:
+	// the lite tier runs MI-GAN as ~30 MB/frame of extra work over a raw
+	// warp (staging 2026-09-01). 0/missing → defaults, never 1× silently.
+	MiganPreviewMultiplier    float64 `firestore:"migan_preview_multiplier"`
+	MiganProductionMultiplier float64 `firestore:"migan_production_multiplier"`
 	// ProductionNoInpaintMultiplier scales a PRODUCTION subtotal (and its
 	// ETA residual) when inpaint=none — today that means warp=backward
 	// ("Stretched edges": one gather pass, no ProPainter), which the
@@ -147,6 +157,8 @@ func defaults() *Rates {
 		InpaintMultiplier:  1.6,
 		// production with inpaint=none (backward warp): ×0.4, see field doc
 		ProductionNoInpaintMultiplier: 0.4,
+		MiganPreviewMultiplier:        1.15,
+		MiganProductionMultiplier:     0.5,
 		MaxDurationS:                  30 * 60,
 		MaxSourceBytes:                8 << 30,
 		MaxActivePerUser:              3,
@@ -193,14 +205,21 @@ func (r *Rates) margin() float64 {
 // splatted baseline); production gets ×ProductionNoInpaintMultiplier for
 // inpaint=none (its rates bake ProPainter in). Everything else is 1.
 func (r *Rates) inpaintMultiplier(step, inpaint string) float64 {
+	pick := func(v, fallback float64) float64 {
+		if v > 0 {
+			return v
+		}
+		return fallback
+	}
 	switch {
 	case step == "stereo_preview" && inpaint == "propainter" && r.InpaintMultiplier > 0:
 		return r.InpaintMultiplier
+	case step == "stereo_preview" && inpaint == "migan":
+		return pick(r.MiganPreviewMultiplier, 1.15)
+	case step == "production" && inpaint == "migan":
+		return pick(r.MiganProductionMultiplier, 0.5)
 	case step == "production" && inpaint == "none":
-		if r.ProductionNoInpaintMultiplier > 0 {
-			return r.ProductionNoInpaintMultiplier
-		}
-		return 0.4
+		return pick(r.ProductionNoInpaintMultiplier, 0.4)
 	}
 	return 1.0
 }

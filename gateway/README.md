@@ -86,7 +86,7 @@ rejected on pro steps — it remains a legacy `POST /v1/conversions` field.
 |---|---|---|
 | `depth_res` | all | multiple of 14 in [140, 2520]; 0/absent = preset default. THE cost/quality knob of the Depth page — production reuses the depth artifact when depth_res + fps match the preview's. Prices the depth share by `clamp((depth_res/depth_res_base)², 0.5, 4)`. |
 | `depth_scale` | stereo_preview, production | [0.3, 1.5]; globally scales the profiler's depth script |
-| `inpaint` | stereo_preview (default `none`), production (default `propainter`) | `none` = splatted preview, `propainter` = inpainted (stereo_preview pays `inpaint_multiplier`) |
+| `inpaint` | stereo_preview (default `none`), production (default `propainter`) | `none` = splatted, `migan` = per-frame fast fill (preview ×`migan_preview_multiplier`, production ×`migan_production_multiplier`), `propainter` = temporal inpaint (stereo_preview pays `inpaint_multiplier`) |
 | `warp` | stereo_preview, production | stereo synthesis method: `forward` (splat + occlusion masks, pipeline default) or `backward` (gather warp — the mobile app's kernel; no gaps open). `backward` forces `inpaint: none` (so no `inpaint_multiplier`) and is rejected alongside an explicit `inpaint: propainter`; rejected on depth_preview. Forwarded to Modal as `warp` only when set |
 | `scene_overrides` | stereo_preview, production | per-scene `{first, displacement?, shot_type?, placement?, passthrough?}`; `first` must be 0 or a CURRENT scene cut, strictly increasing; displacement (0, 0.03]; shot_type close_up\|standard\|dynamic\|wide; placement `[far, near]` (index 0 = far plane, index 1 = near/pop-out — matches splat semantics), −1.5 ≤ far < near ≤ 1.5; `passthrough: true` ships the scene as 2D (both eyes = source, no warp/inpaint — end credits etc.) and is mutually exclusive with the other keys; ≥ 1 key per entry |
 | `formats` | stereo_preview (default `["sbs"]`), production (default `["mvhevc","half_sbs"]`) | allowlist; depth_preview is fixed to `["anaglyph"]` (the UI centers the `depth_vis` output) |
@@ -215,6 +215,7 @@ old app's ~$1/min at 1080p, scaled by preset GPU cost:
 | `stage_shares` | depth 0.35 · preprocess 0.05 |
 | `depth_res_base` | 980 (the depth_res that prices at 1×) |
 | `inpaint_multiplier` | 1.6 (stereo_preview with inpaint=propainter) |
+| `migan_preview_multiplier` / `migan_production_multiplier` | 1.15 / 0.5 (inpaint=migan — the fast per-frame fill on the L4 lite tier) |
 | `production_no_inpaint_multiplier` | 0.4 (production with inpaint=none, i.e. `warp: backward` — production rates bake ProPainter in and the backward warp runs on the cheap L4/NVENC tier; applies to the whole subtotal and the ETA residual) |
 | `max_duration_s` | 1800 |
 | `max_source_bytes` | 8 GiB |

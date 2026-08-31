@@ -32,20 +32,21 @@ import type {
   Preset,
   Project,
   StepConversionRequest,
-  Warp,
 } from "@/lib/api/types";
 import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
 import {
+  EDGE_HINT,
+  EDGE_LABELS,
+  EDGE_OPTIONS,
+  edgeModeRequest,
   FORMAT_LABELS,
   INPAINT_LABELS,
-  inpaintForWarp,
   OUTPUT_FORMATS,
   RESOLUTION_PRESETS,
-  WARP_HINT,
   WARP_LABELS,
-  WARP_OPTIONS,
+  type EdgeMode,
 } from "./outputOptions";
 import { PriorRuns } from "./PriorRuns";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
@@ -64,8 +65,8 @@ export function DeliverPanel({
   const ck = useStepCheckout(project, "production", onProjectChanged);
 
   const [preset, setPreset] = useState<Preset>("1080p");
-  // Edge handling (see StereoPanel): forward = fill pass, backward = stretch.
-  const [warp, setWarp] = useState<Warp>("forward");
+  // Edge handling (see StereoPanel): best | fast | stretched.
+  const [edge, setEdge] = useState<EdgeMode>("best");
   const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
   const [fromScratch, setFromScratch] = useState(false);
   // "use pipeline default" escapes for the inherited settings
@@ -128,14 +129,11 @@ export function DeliverPanel({
       // checkout section is disabled before it gets that far), never
       // silently swapped for the step default.
       formats,
-      // Full quality (propainter, also the gateway's production default)
-      // with filled edges — the cheap "splatted" opt-out is deliberately
-      // not exposed in the UI this release. Stretched edges (warp
-      // backward) opens no gaps, so it pairs with inpaint none (the
-      // gateway rejects any other pairing); warp only goes on the wire
-      // when non-default.
-      inpaint: inpaintForWarp(warp),
-      ...(warp !== "forward" ? { warp } : {}),
+      // Edge handling drives BOTH wire fields (best = propainter, the
+      // gateway's production default, sent explicitly; fast = migan;
+      // stretched = backward warp + inpaint none — the only pairing the
+      // gateway accepts for it).
+      ...edgeModeRequest(edge),
       ...(sendUpload ? { use_uploaded_depth: true } : {}),
       ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
       ...(sendStereo && stereoDraft.depth_scale !== 1
@@ -290,19 +288,19 @@ export function DeliverPanel({
             ))}
           </select>
         </Field>
-        <Field id="production-warp" label="Edge handling" hint={WARP_HINT}>
+        <Field id="production-edge" label="Edge handling" hint={EDGE_HINT}>
           <select
-            id="production-warp"
-            value={warp}
+            id="production-edge"
+            value={edge}
             onChange={(e) => {
-              setWarp(e.target.value as Warp);
+              setEdge(e.target.value as EdgeMode);
               ck.invalidate();
             }}
             className={selectClass}
           >
-            {WARP_OPTIONS.map((w) => (
-              <option key={w} value={w}>
-                {WARP_LABELS[w]}
+            {EDGE_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {EDGE_LABELS[m]}
               </option>
             ))}
           </select>

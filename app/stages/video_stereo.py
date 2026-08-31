@@ -8,6 +8,9 @@ Inpainting modes:
 - "propainter" — flow-guided video inpainting (best quality, slower).
   Runs at a bounded working resolution then upsamples the filled
   regions back to source resolution.
+- "migan" — per-frame MI-GAN fill of the warp holes (no temporal
+  model, see migan_runner.py). Runs on the L4 lite tier: near
+  raw-warp cost, filled edges. Forward warp only.
 - "none" — raw warp only (no masks, no blurs). Empirically a strong
   baseline and the fastest path.
 
@@ -116,7 +119,7 @@ def _validate_modes(inpaint: str, stereo_mode: str, warp: str) -> None:
     """Pure argument check for ``generate`` (kept out of the Modal method
     so it is unit-testable without a GPU). Rejects unknown values and
     the contradictory backward-warp + inpainting pairing."""
-    if inpaint not in ("propainter", "none"):
+    if inpaint not in ("propainter", "migan", "none"):
         raise ValueError(f"unknown inpaint mode: {inpaint!r}")
     if stereo_mode not in ("both", "left", "right"):
         raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
@@ -311,11 +314,21 @@ class _StereoWorkerBase:
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
         _validate_modes(inpaint, stereo_mode, warp)
-        if self.LITE and (warp != WARP_BACKWARD or inpaint != "none"):
+        if self.LITE and inpaint == "propainter":
             raise ValueError(
-                f"the lite stereo tier only runs warp='backward' + inpaint='none' "
-                f"(got warp={warp!r}, inpaint={inpaint!r}) — route this job to VideoStereoWorker"
+                f"the lite stereo tier has no ProPainter (got warp={warp!r}, "
+                f"inpaint={inpaint!r}) — route this job to VideoStereoWorker"
             )
+        if inpaint == "migan":
+            # lazy: MI-GAN (and, on the lite tier, the splatter it feeds)
+            # loads only when a migan job actually lands on this container,
+            # keeping the backward-warp cold start at ~2 s
+            if self.splatter is None:
+                self.splatter = DepthSplatter().eval()
+            if getattr(self, "migan", None) is None:
+                from app.stages.migan_runner import MiganInpainter
+                self.migan = MiganInpainter()
+                logger.info("🎨 MI-GAN inpainter loaded")
         # the raw-warp writer takes whichever warper the job asked for;
         # the inpainted path is forward-only (enforced above)
         raw_warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
@@ -439,6 +452,12 @@ class _StereoWorkerBase:
                                         frame_start=a, params_at=params_at, warper=raw_warper,
                                         phase=phase,
                                     )
+                                elif inpaint == "migan":
+                                    self._write_raw_warp(
+                                        writer, sub_frames, sub_depths, displacement, stereo_mode,
+                                        frame_start=a, params_at=params_at, warper=self.splatter,
+                                        phase=phase, fill=self.migan.fill,
+                                    )
                                 else:
                                     self._write_inpainted(
                                         writer, sub_frames, sub_depths, displacement,
@@ -545,16 +564,19 @@ class _StereoWorkerBase:
 
     def _write_raw_warp(
         self, writer, frames, depths, displacement, stereo_mode,
-        frame_start: int = 0, params_at=None, warper=None, phase=None,
+        frame_start: int = 0, params_at=None, warper=None, phase=None, fill=None,
     ) -> None:
-        """Raw warp only — no masks, no inpainting. In "left"/"right"
+        """Raw warp (optionally + a PER-FRAME fill). In "left"/"right"
         mode the other eye is the untouched original frame and the
         generated eye gets the FULL displacement (matching the still
         image pipeline's convention).
 
         ``warper``: the splatter (forward, default) or the gatherer
-        (backward) — both share the DepthSplatter call signature and
-        this writer ignores the mask slots either way.
+        (backward) — both share the DepthSplatter call signature.
+
+        ``fill``: optional ``(image_float, occlusion) -> uint8`` hole
+        filler (MI-GAN). None ignores the mask slots entirely (raw warp
+        / backward warp).
 
         ``frame_start`` is the batch's absolute start index, so
         ``params_at`` (adaptive per-shot lookup) can resolve each
@@ -568,12 +590,16 @@ class _StereoWorkerBase:
             )
             frame = frames[k].unsqueeze(0)
             depth = depths[k].unsqueeze(0).float() / 255.0
-            left, right, _, _ = warper(
+            left, right, l_occ, r_occ = warper(
                 image=frame, depthmap=depth, disp=disp_k,
                 stereo_mode=stereo_mode, placement=placement_k,
             )
-            left_u8 = frame if left is None else (left * 255).clamp(0, 255).to(torch.uint8)
-            right_u8 = frame if right is None else (right * 255).clamp(0, 255).to(torch.uint8)
+            if fill is not None:
+                left_u8 = frame if left is None else fill(left, l_occ)
+                right_u8 = frame if right is None else fill(right, r_occ)
+            else:
+                left_u8 = frame if left is None else (left * 255).clamp(0, 255).to(torch.uint8)
+                right_u8 = frame if right is None else (right * 255).clamp(0, 255).to(torch.uint8)
             sbs = torch.cat([left_u8, right_u8], dim=3)
             # .contiguous() before the host copy — see _write_inpainted
             packed = sbs.squeeze(0).permute(1, 2, 0).contiguous().cpu().numpy().tobytes()

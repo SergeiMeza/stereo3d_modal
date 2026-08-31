@@ -11,7 +11,9 @@ from typing import Literal, TypedDict
 StereoMode = Literal["left", "right", "both"]
 ImageFormat = Literal["lr", "tb", "half_lr", "half_tb", "anaglyph"]
 VideoFormat = Literal["sbs", "half_sbs", "tb", "half_tb", "anaglyph"]
-InpaintMode = Literal["propainter", "none"]
+InpaintMode = Literal["propainter", "migan", "none"]
+# "migan": per-frame MI-GAN hole fill (no temporal model) on the L4 lite
+# tier — filled edges at near raw-warp cost. Forward warp only.
 # Stereo synthesis method, orthogonal to InpaintMode. "forward" = scatter
 # splat with occlusion masks (inpaintable); "backward" = gather warp
 # (app-parity kernel, no holes → REQUIRES inpaint "none"; any other

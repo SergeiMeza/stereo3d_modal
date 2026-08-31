@@ -117,7 +117,7 @@ Only `input_path` is required. Everything else defaults as below.
 | `inpaint_res` | int | `720` | inpaint (ProPainter) **short side**, **[360, 2160]**, must be ≤ `output_res`. When smaller than the output, dual-res engages: splat/composite at output res, fill at inpaint res. Both dims rounded to multiples of 8 |
 | `work_height`, `work_width` | int | — | legacy explicit ProPainter working resolution; both must be set to take effect (overrides `inpaint_res`) |
 | `displacement` | float | `0.0125` | max disparity as fraction of width, **(0, 0.1]** |
-| `inpaint` | string | `"propainter"` | `propainter` (best) \| `none` (raw warp, fastest) \| `m2svid` (R&D diffusion fill on A100-80GB; runs at its fixed ~512 model tier — work res knobs don't apply) |
+| `inpaint` | string | `"propainter"` | `propainter` (best) \| `migan` (per-frame MI-GAN fill on the L4 lite tier — filled edges at near raw-warp cost, no temporal stabilization; forward warp only) \| `none` (raw warp, fastest) \| `m2svid` (R&D diffusion fill on A100-80GB; runs at its fixed ~512 model tier — work res knobs don't apply) |
 | `warp` | string | `"forward"` | stereo synthesis method, orthogonal to `inpaint`. `forward` = scatter splat with occlusion masks (the only method an inpaint model can follow) \| `backward` = gather warp (same kernel as the iOS/macOS/visionOS app: one sampling pass, no holes, no inpainting, CPU-capable). `backward` **requires** `inpaint: "none"` — any other pairing is a 400 |
 | `preset` | string | — | resolution/quality bundle, see below. Explicit request fields always win over the preset |
 

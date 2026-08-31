@@ -24,11 +24,11 @@
  * is 0 or an exact cuts value — never a timestamp.
  *
  * Output params match the Deliver page (shared outputOptions): the SAME
- * resolution presets and the SAME format set (MV-HEVC included). Every run
- * is inpaint=propainter — "full quality" in user terms; model names and the
- * internal "splatted" term never appear in copy, and the cheap inpaint=none
- * opt-out is deliberately NOT exposed this release (the preview must look
- * like the deliverable).
+ * resolution presets, format set (MV-HEVC included), and Edge handling
+ * choice (best = ProPainter, fast = per-frame MI-GAN fill, stretched =
+ * backward warp) — the preview must look like the deliverable. Model
+ * names and internal terms ("splatted", warp directions) never appear
+ * in copy.
  *
  * Depth inheritance (the Depth page's whole point): the request carries the
  * last succeeded depth run's depth_res, so the pipeline REUSES that depth
@@ -86,7 +86,6 @@ import type {
   Project,
   ShotType,
   StepConversionRequest,
-  Warp,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import {
@@ -100,14 +99,16 @@ import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
 import {
+  EDGE_HINT,
+  EDGE_LABELS,
+  EDGE_OPTIONS,
+  edgeModeRequest,
   FORMAT_LABELS,
   INPAINT_LABELS,
-  inpaintForWarp,
   OUTPUT_FORMATS,
   RESOLUTION_PRESETS,
-  WARP_HINT,
   WARP_LABELS,
-  WARP_OPTIONS,
+  type EdgeMode,
 } from "./outputOptions";
 import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
@@ -149,10 +150,10 @@ export function StereoPanel({
 
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
-  // Edge handling: forward (fill pass, default) | backward (stretch, the
-  // mobile app's method). Panel-local like preset — not part of the
-  // per-scene draft, which is exported as a profile file.
-  const [warp, setWarp] = useState<Warp>("forward");
+  // Edge handling: best (ProPainter) | fast (per-frame fill) | stretched
+  // (backward warp). Panel-local like preset — not part of the per-scene
+  // draft, which is exported as a profile file.
+  const [edge, setEdge] = useState<EdgeMode>("best");
   // "use pipeline default" escape for the inherited depth resolution.
   const [depthDefault, setDepthDefault] = useState(false);
   // Compare-slot pick when BOTH the run output and the depth map exist.
@@ -333,15 +334,11 @@ export function StereoPanel({
     step: "stereo_preview",
     preset,
     formats,
-    // Full quality (propainter) with filled edges — the preview must look
-    // like the deliverable. Sent EXPLICITLY because the gateway defaults
-    // stereo_preview to inpaint=none; the cheap "splatted" opt-out is
-    // deliberately not exposed in the UI this release. Stretched edges
-    // (warp backward) has no gaps to fill, so it pairs with inpaint none
-    // — the gateway rejects any other pairing. warp is only sent when
-    // non-default, mirroring depth_scale.
-    inpaint: inpaintForWarp(warp),
-    ...(warp !== "forward" ? { warp } : {}),
+    // Edge handling drives BOTH wire fields. inpaint is sent EXPLICITLY
+    // because the gateway defaults stereo_preview to inpaint=none; warp
+    // goes on the wire only for the stretched mode (backward), which the
+    // gateway pairs with inpaint none — any other pairing is rejected.
+    ...edgeModeRequest(edge),
     // The Depth page's resolution, so the pipeline REUSES that depth
     // artifact (and the quote discounts the depth stage) instead of
     // recomputing at the preset default — or the project's uploaded depth
@@ -672,19 +669,19 @@ export function StereoPanel({
                 ))}
               </select>
             </Field>
-            <Field id="stereo-warp" label="Edge handling" hint={WARP_HINT}>
+            <Field id="stereo-edge" label="Edge handling" hint={EDGE_HINT}>
               <select
-                id="stereo-warp"
-                value={warp}
+                id="stereo-edge"
+                value={edge}
                 onChange={(e) => {
-                  setWarp(e.target.value as Warp);
+                  setEdge(e.target.value as EdgeMode);
                   ck.invalidate();
                 }}
                 className={selectClass}
               >
-                {WARP_OPTIONS.map((w) => (
-                  <option key={w} value={w}>
-                    {WARP_LABELS[w]}
+                {EDGE_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {EDGE_LABELS[m]}
                   </option>
                 ))}
               </select>

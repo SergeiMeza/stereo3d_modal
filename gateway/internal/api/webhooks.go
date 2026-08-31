@@ -14,12 +14,14 @@ import (
 // POST /webhooks/stripe — payment lifecycle drives the state machine.
 //
 // Legacy hold mode (mobile PaymentSheet):
-//   amount_capturable_updated (hold confirmed) → created→paid → submit.
-//   canceled → created|paid→expired. payment_failed → log only (retryable).
+//
+//	amount_capturable_updated (hold confirmed) → created→paid → submit.
+//	canceled → created|paid→expired. payment_failed → log only (retryable).
 //
 // Auto mode (pay-as-you-go pro steps; the PI exists only after success):
-//   succeeded → finalize the charge (3DS fallback lands here).
-//   payment_failed → charge_failed (delinquent; blocks new paid steps).
+//
+//	succeeded → finalize the charge (3DS fallback lands here).
+//	payment_failed → charge_failed (delinquent; blocks new paid steps).
 //
 // Always 200s on events we don't care about; 4xx only on bad signatures so
 // Stripe retries real delivery failures but not irrelevant events.

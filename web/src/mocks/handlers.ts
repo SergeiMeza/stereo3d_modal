@@ -305,8 +305,8 @@ function validateStepRequest(
       }
     }
   }
-  if (body.inpaint !== undefined && !["none", "propainter"].includes(body.inpaint as string)) {
-    return err(400, "invalid_request", "inpaint must be none|propainter");
+  if (body.inpaint !== undefined && !["none", "migan", "propainter"].includes(body.inpaint as string)) {
+    return err(400, "invalid_request", "inpaint must be none|migan|propainter");
   }
   if (body.warp !== undefined) {
     if (!["forward", "backward"].includes(body.warp as string)) {
@@ -452,9 +452,13 @@ function quoteFor(
   const inpaintMult =
     step === "stereo_preview" && inpaint === "propainter"
       ? 1.6
-      : step === "production" && inpaint === "none"
-        ? 0.4
-        : 1;
+      : step === "stereo_preview" && inpaint === "migan"
+        ? 1.15
+        : step === "production" && inpaint === "migan"
+          ? 0.5
+          : step === "production" && inpaint === "none"
+            ? 0.4
+            : 1;
   subtotal = Math.round(subtotal * inpaintMult);
   // reuse: an uploaded depth map skips the depth stage outright (both
   // steps, unconditional); otherwise production discounts when a prior

@@ -217,7 +217,7 @@ describe("mock gateway validation", () => {
     );
     await expectInvalid(
       { step: "stereo_preview", inpaint: "lama" },
-      "inpaint must be none|propainter",
+      "inpaint must be none|migan|propainter",
     );
   });
 

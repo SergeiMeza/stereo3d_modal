@@ -197,7 +197,7 @@ async def submit_video(body: dict) -> dict:
 
     _require(body, "input_path")
     inpaint = body.get("inpaint", "propainter")
-    if inpaint not in ("propainter", "none", "m2svid"):
+    if inpaint not in ("propainter", "migan", "none", "m2svid"):
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     if body.get("stereo_mode", "both") not in ("both", "left", "right"):
         raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
@@ -527,7 +527,7 @@ async def stage_video_stereo(body: dict) -> dict:
     video_path = _require(body, "video_path")
     depth_path = _require(body, "depth_path")
     inpaint = body.get("inpaint", "propainter")
-    if inpaint not in ("propainter", "none", "m2svid"):
+    if inpaint not in ("propainter", "migan", "none", "m2svid"):
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     warp = body.get("warp", "forward")
     _check_warp(warp, inpaint)
@@ -540,8 +540,12 @@ async def stage_video_stereo(body: dict) -> dict:
                 depth_path=depth_path,
                 displacement=float(body.get("displacement", 0.0125)),
             )
-        # backward warp → the lite tier (L4 + NVENC), same routing as the pipeline
-        worker = VideoStereoLiteWorker if warp == "backward" else VideoStereoWorker
+        # backward warp / migan → the lite tier (L4 + NVENC), same routing
+        # as the pipeline
+        worker = (
+            VideoStereoLiteWorker if warp == "backward" or inpaint == "migan"
+            else VideoStereoWorker
+        )
         return worker().generate.spawn(
             job_id,
             video_path=video_path,

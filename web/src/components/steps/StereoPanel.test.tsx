@@ -241,18 +241,18 @@ describe("StereoPanel scene rows", () => {
 });
 
 describe("StereoPanel request building", () => {
-  it("Edge handling → Stretched edges sends warp backward WITH inpaint none; the default sends neither warp nor a model name in copy", async () => {
+  it("Edge handling maps to the wire pair: stretched = backward+none, fast = migan, best = propainter (no model names in copy)", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel(withProfile());
 
     const select = screen.getByLabelText("Edge handling") as HTMLSelectElement;
     // user-facing names only — never the renderer terms
-    expect(select.value).toBe("forward");
-    expect(select.selectedOptions[0].textContent).toBe("Filled edges");
-    expect(screen.queryByText(/backward|gather|splat/i)).toBeNull();
+    expect(select.value).toBe("best");
+    expect(select.selectedOptions[0].textContent).toBe("Filled edges — best");
+    expect(screen.queryByText(/backward|gather|splat|propainter|migan/i)).toBeNull();
 
-    await user.selectOptions(select, "backward");
+    await user.selectOptions(select, "stretched");
     expect(select.selectedOptions[0].textContent).toBe("Stretched edges");
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -262,12 +262,19 @@ describe("StereoPanel request building", () => {
       inpaint: "none", // a gather warp has no gaps to fill
     });
 
-    // back to the default: warp absent, full-quality fill restored
-    await user.selectOptions(select, "forward");
+    // fast fill: forward warp (no warp field) + migan
+    await user.selectOptions(select, "fast");
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1]).not.toHaveProperty("warp");
-    expect(bodies[1]).toMatchObject({ inpaint: "propainter" });
+    expect(bodies[1]).toMatchObject({ inpaint: "migan" });
+
+    // back to the default: warp absent, full-quality fill restored
+    await user.selectOptions(select, "best");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).not.toHaveProperty("warp");
+    expect(bodies[2]).toMatchObject({ inpaint: "propainter" });
   });
 
   it("sends ONLY user-changed rows as scene_overrides — auto rows and top-level displacement are ABSENT", async () => {
@@ -442,7 +449,7 @@ describe("StereoPanel quote pricing", () => {
     expect(screen.getByTestId("quote-total").textContent).toBe("$14.47");
     // the breakdown line explains the multiplier without internal terms
     expect(screen.getByTestId("quote-breakdown").textContent).toContain(
-      "Full-quality edges",
+      "Edge handling",
     );
   });
 

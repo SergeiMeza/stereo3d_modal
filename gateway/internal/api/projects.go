@@ -532,7 +532,7 @@ type stepConvReq struct {
 	ToFrame        int                `json:"to_frame"`
 	DepthRes       int                `json:"depth_res"`   // depth inference resolution: multiple of 14 in [140, 2520]
 	DepthScale     float64            `json:"depth_scale"` // global scale on the adaptive depth script: [0.3, 1.5]
-	Inpaint        string             `json:"inpaint"`     // none | propainter (stereo_preview + production)
+	Inpaint        string             `json:"inpaint"`     // none | migan | propainter (stereo_preview + production)
 	Warp           string             `json:"warp"`        // forward | backward (stereo_preview + production); backward forces inpaint none
 	SceneOverrides []sceneOverrideReq `json:"scene_overrides"`
 	FromScratch    bool               `json:"from_scratch"` // bypass content-addressed reuse
@@ -559,7 +559,7 @@ type sceneOverrideReq struct {
 }
 
 var allowedShotTypes = []string{"close_up", "standard", "dynamic", "wide"}
-var allowedInpaint = []string{"none", "propainter"}
+var allowedInpaint = []string{"none", "migan", "propainter"}
 var allowedWarp = []string{"forward", "backward"}
 
 // depth_res rails mirror the Modal API contract exactly.
@@ -697,7 +697,7 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 	}
 	if req.Inpaint != "" {
 		if !slices.Contains(allowedInpaint, req.Inpaint) {
-			return params, httpx.ErrInvalid("inpaint must be none|propainter")
+			return params, httpx.ErrInvalid("inpaint must be none|migan|propainter")
 		}
 		if req.Step == store.StepDepthPreview && req.Inpaint != "none" {
 			return params, httpx.ErrInvalid("inpaint is fixed to none for depth_preview")

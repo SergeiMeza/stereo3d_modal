@@ -82,11 +82,10 @@ export function QuoteView({
       ) : null}
       {hasInpaintMult ? (
         <div className="flex items-baseline justify-between gap-3">
-          {/* >1: a preview paying for the fill pass; <1: a production
-              render skipping it (Stretched edges) — user-facing names only */}
-          <dt className="text-fg-muted">
-            {b.inpaint_multiplier! > 1 ? "Full-quality edges" : "Stretched edges"}
-          </dt>
+          {/* the Edge handling choice's price effect (>1: a preview paying
+              for a fill pass; <1: a production render skipping/lightening
+              it) — one generic label, since three modes share this line */}
+          <dt className="text-fg-muted">Edge handling</dt>
           <dd data-testid="quote-inpaint-multiplier" className="font-mono">
             ×{b.inpaint_multiplier!.toFixed(1)}
           </dd>
