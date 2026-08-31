@@ -30,12 +30,21 @@ from app.common.errors import fail_fast
 from app.common.debug import get_logger, track
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
-from app.images import stereo_image
+from app.images import stereo_image, stereo_lite_image
 from app.modal_app import app
 
 logger = get_logger(__name__)
 
 VIDEO_STEREO_GPU = "L40S"
+# Backward-warp ("Stretched edges") tier. The gather warp is one grid_sample
+# per frame — the stage is bound by SBS encoding, not by the GPU — so it runs
+# on the cheapest NVENC-capable card: no ProPainter (never used, 3 networks
+# of cold start), no Forward_Warp, HEVC NVENC segment encoding instead of
+# libx264 slow on 4 cores (the 4 fps that idled an H200 at $3.95/h, job
+# 73e91a7e50f5 2026-08-31). L4 ($0.80/h): NVENC verified in this repo for
+# MV-HEVC; HEVC NVENC takes up to 8192 px wide (H.264 NVENC caps at 4096,
+# below a 3k/4k SBS frame). H100/H200 have NO NVENC.
+BACKWARD_WARP_GPU = "L4"
 
 with stereo_image.imports():
     import ffmpeg
@@ -219,32 +228,34 @@ def _split_passthrough_runs(start: int, end: int, pass_at) -> list[tuple[int, in
     return runs
 
 
-@app.cls(
-    gpu=VIDEO_STEREO_GPU,
-    image=stereo_image,
-    volumes=GPU_VOLUMES,
-    secrets=[hf_secret, slack_secret],
-    cpu=4,
-    memory=(4 * 1024, 128 * 1024),
-    # Per-WORKER timeout. Fan-out caps a chunk at STEREO_CHUNK_FRAMES
-    # (~1200f ≈ 33 min ProPainter at 0.6 fps); a non-fanned-out
-    # sequential run handles the WHOLE video in one worker, so this
-    # ceiling must cover the longest sequential clip we'd run without
-    # fan-out (≤1500f). 2h leaves wide margin for both + model load.
-    timeout=2 * 3600,
-    scaledown_window=SCALEDOWN_WINDOW,
-    env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
-    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
-)
-class VideoStereoWorker:
+class _StereoWorkerBase:
+    """Shared implementation of both stereo workers (Modal collects the
+    @modal.enter/@modal.method partials through the MRO). ``LITE`` selects
+    the backward-warp tier: no inpaint/splat models, NVENC segments."""
+
+    LITE = False
+
     @modal.enter()
     def load(self) -> None:
         start = time.perf_counter()
         torch.backends.cudnn.benchmark = True
-        self.splatter = DepthSplatter().eval()
         self.gatherer = BackwardWarpStereo().eval()
-        self.propainter = propainter_runner.ProPainterModels()
-        logger.info(f"🚀 stereo worker ready in {time.perf_counter() - start:.1f}s")
+        if self.LITE:
+            # backward-warp tier: nothing else to load. ProPainter alone is
+            # ~30-60 s of GPU cold start per worker that this mode never uses.
+            self.splatter = None
+            self.propainter = None
+            self.segment_codec = "hevc_nvenc" if _nvenc_available() else "libx264"
+            if self.segment_codec != "hevc_nvenc":
+                logger.warning("⚠️  hevc_nvenc unavailable on this worker — falling back to libx264 veryfast")
+        else:
+            self.splatter = DepthSplatter().eval()
+            self.propainter = propainter_runner.ProPainterModels()
+            self.segment_codec = "libx264"
+        logger.info(
+            f"🚀 stereo worker ready in {time.perf_counter() - start:.1f}s "
+            f"(tier={'lite' if self.LITE else 'full'}, segments={self.segment_codec})"
+        )
 
     @modal.exit()
     def flush(self) -> None:
@@ -300,6 +311,11 @@ class VideoStereoWorker:
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
         _validate_modes(inpaint, stereo_mode, warp)
+        if self.LITE and (warp != WARP_BACKWARD or inpaint != "none"):
+            raise ValueError(
+                f"the lite stereo tier only runs warp='backward' + inpaint='none' "
+                f"(got warp={warp!r}, inpaint={inpaint!r}) — route this job to VideoStereoWorker"
+            )
         # the raw-warp writer takes whichever warper the job asked for;
         # the inpainted path is forward-only (enforced above)
         raw_warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
@@ -379,6 +395,10 @@ class VideoStereoWorker:
                     jlog.info(f"⏩ passthrough shots: {n} (2D, no warp/inpaint)")
             pass_start = time.perf_counter()
             segments: list[Path] = []
+            # per-phase wall accumulators (decode+depth-upscale / warp / pipe
+            # write incl. the encoder back-pressure) — the raw-warp stage is
+            # NOT GPU-bound, so this line is what tells the tiers apart
+            phase = {"decode": 0.0, "warp": 0.0, "write": 0.0}
 
             with torch.no_grad():
                 for s in range(range_start, range_end, seg_len):
@@ -393,11 +413,14 @@ class VideoStereoWorker:
                     try:
                         for i in range(s, e, batch_size):
                             j = min(i + batch_size, e)
+                            t_dec = time.perf_counter()
                             frames = decoder[i:j].cuda()  # (T, 3, H, W) uint8
                             depths = depth_decoder[i:j].cuda()  # (T, C, h, w) uint8
                             if depths.shape[1] > 1:
                                 depths = depths[:, :1]
                             depths = to_source(depths)
+                            torch.cuda.synchronize()
+                            phase["decode"] += time.perf_counter() - t_dec
 
                             runs = (
                                 _split_passthrough_runs(i, j, pass_at)
@@ -414,6 +437,7 @@ class VideoStereoWorker:
                                     self._write_raw_warp(
                                         writer, sub_frames, sub_depths, displacement, stereo_mode,
                                         frame_start=a, params_at=params_at, warper=raw_warper,
+                                        phase=phase,
                                     )
                                 else:
                                     self._write_inpainted(
@@ -427,7 +451,9 @@ class VideoStereoWorker:
                             elapsed = time.perf_counter() - pass_start
                             jlog.info(
                                 f"🎬 stereo[{inpaint}] {j}/{num_frames} frames "
-                                f"({j / num_frames:.0%}, {j / elapsed:.1f} fps)"
+                                f"({j / num_frames:.0%}, {j / elapsed:.1f} fps) "
+                                f"⏱ decode {phase['decode']:.1f}s warp {phase['warp']:.1f}s "
+                                f"write {phase['write']:.1f}s"
                             )
                             if frame_range is not None:
                                 jobs.report_progress(
@@ -477,25 +503,33 @@ class VideoStereoWorker:
             "warp": warp,
         }
 
-    @staticmethod
-    def _segment_writer(path: Path, width: int, height: int, fps):
-        return (
-            ffmpeg.input(
-                "pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width * 2}x{height}", r=fps
-            )
-            .output(
-                str(path),
-                pix_fmt="yuv420p",
-                vcodec="libx264",
-                preset="slow",
-                vsync="cfr",
-                r=fps,
-                crf=16,
-            )
-            .global_args("-loglevel", "error")
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
+    def _segment_writer(self, path: Path, width: int, height: int, fps):
+        """SBS segment encoder. Full tier: libx264 slow crf 16 (unchanged).
+        Lite tier: HEVC NVENC (p5/hq, cq 19 — visually lossless for an
+        intermediate that every deliverable re-encodes from; concat is a
+        stream copy so all segments of a job share the codec). The lite
+        image runs ffmpeg 8 (static build), so it uses the non-deprecated
+        ``fps_mode``; the full image keeps its ``vsync``."""
+        src = ffmpeg.input(
+            "pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width * 2}x{height}", r=fps
         )
+        codec = getattr(self, "segment_codec", "libx264")
+        if codec == "hevc_nvenc":
+            out = src.output(
+                str(path), pix_fmt="yuv420p", vcodec="hevc_nvenc", preset="p5", tune="hq",
+                rc="vbr", cq=19, fps_mode="cfr", r=fps, **{"b:v": 0},
+            )
+        elif self.LITE:  # nvenc fallback: keep the tier cheap on CPU too
+            out = src.output(
+                str(path), pix_fmt="yuv420p", vcodec="libx264", preset="veryfast",
+                fps_mode="cfr", r=fps, crf=16,
+            )
+        else:
+            out = src.output(
+                str(path), pix_fmt="yuv420p", vcodec="libx264", preset="slow",
+                vsync="cfr", r=fps, crf=16,
+            )
+        return out.global_args("-loglevel", "error").overwrite_output().run_async(pipe_stdin=True)
 
     # ------------------------------------------------------------ modes
 
@@ -511,7 +545,7 @@ class VideoStereoWorker:
 
     def _write_raw_warp(
         self, writer, frames, depths, displacement, stereo_mode,
-        frame_start: int = 0, params_at=None, warper=None,
+        frame_start: int = 0, params_at=None, warper=None, phase=None,
     ) -> None:
         """Raw warp only — no masks, no inpainting. In "left"/"right"
         mode the other eye is the untouched original frame and the
@@ -527,6 +561,7 @@ class VideoStereoWorker:
         frame's shot even when a batch straddles a scene cut."""
         warper = self.splatter if warper is None else warper
         for k in range(frames.shape[0]):
+            t_frame = time.perf_counter()
             disp_k, placement_k = (
                 params_at(frame_start + k) if params_at is not None
                 else (displacement, DEFAULT_PLACEMENT)
@@ -540,7 +575,15 @@ class VideoStereoWorker:
             left_u8 = frame if left is None else (left * 255).clamp(0, 255).to(torch.uint8)
             right_u8 = frame if right is None else (right * 255).clamp(0, 255).to(torch.uint8)
             sbs = torch.cat([left_u8, right_u8], dim=3)
-            writer.stdin.write(sbs.squeeze(0).permute(1, 2, 0).cpu().numpy().tobytes())
+            # .contiguous() before the host copy — see _write_inpainted
+            packed = sbs.squeeze(0).permute(1, 2, 0).contiguous().cpu().numpy().tobytes()
+            if phase is not None:
+                t_now = time.perf_counter()
+                phase["warp"] += t_now - t_frame
+                t_frame = t_now
+            writer.stdin.write(packed)
+            if phase is not None:
+                phase["write"] += time.perf_counter() - t_frame
 
     def _write_inpainted(
         self, writer, frames, depths, displacement, to_work, to_source, stereo_mode,
@@ -612,7 +655,10 @@ class VideoStereoWorker:
                 right = originals[k].cuda()
             sbs = torch.cat([left, right], dim=3)
             writer.stdin.write(
-                sbs.squeeze(0).permute(1, 2, 0).to(torch.uint8).cpu().numpy().tobytes()
+                # .contiguous() BEFORE the host copy: numpy's tobytes() on a
+                # strided view is an element-wise CPU copy (~150 ms/frame at 3k —
+                # it was the whole stereo stage's bottleneck, measured 2026-08-31)
+                sbs.squeeze(0).permute(1, 2, 0).to(torch.uint8).contiguous().cpu().numpy().tobytes()
             )
 
     @staticmethod
@@ -624,3 +670,61 @@ class VideoStereoWorker:
         warp = warp_hires.cuda()
         mask = mask_hires.cuda()
         return torch.where(mask, filled, warp)
+
+
+def _nvenc_available() -> bool:
+    """True when this container's ffmpeg can drive HEVC NVENC (encoder
+    compiled in AND a usable NVENC session on this GPU)."""
+    import subprocess
+    try:
+        probe = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=256x256:r=24",
+             "-frames:v", "2", "-c:v", "hevc_nvenc", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=60,
+        )
+        return probe.returncode == 0
+    except Exception:  # missing binary, timeout — treat as unavailable
+        return False
+
+
+@app.cls(
+    gpu=VIDEO_STEREO_GPU,
+    image=stereo_image,
+    volumes=GPU_VOLUMES,
+    secrets=[hf_secret, slack_secret],
+    cpu=4,
+    memory=(4 * 1024, 128 * 1024),
+    # Per-WORKER timeout. Fan-out caps a chunk at STEREO_CHUNK_FRAMES
+    # (~1200f ≈ 33 min ProPainter at 0.6 fps); a non-fanned-out
+    # sequential run handles the WHOLE video in one worker, so this
+    # ceiling must cover the longest sequential clip we'd run without
+    # fan-out (≤1500f). 2h leaves wide margin for both + model load.
+    timeout=2 * 3600,
+    scaledown_window=SCALEDOWN_WINDOW,
+    env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
+)
+class VideoStereoWorker(_StereoWorkerBase):
+    """Full tier (L40S/H200): forward warp + ProPainter, and the historical
+    behavior for every mode — including backward warp when a caller
+    bypasses the routing."""
+
+
+@app.cls(
+    gpu=BACKWARD_WARP_GPU,
+    image=stereo_lite_image,
+    volumes=GPU_VOLUMES,
+    secrets=[hf_secret, slack_secret],
+    cpu=4,
+    memory=(4 * 1024, 32 * 1024),
+    # a lite chunk is encode-bound at >100 fps; 1h is generous
+    timeout=3600,
+    scaledown_window=SCALEDOWN_WINDOW,
+    env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
+    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
+)
+class VideoStereoLiteWorker(_StereoWorkerBase):
+    """Backward-warp tier (see BACKWARD_WARP_GPU). Accepts ONLY
+    warp='backward' + inpaint='none'."""
+
+    LITE = True

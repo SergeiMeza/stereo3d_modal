@@ -521,7 +521,7 @@ async def stage_video_depth(body: dict) -> dict:
 
 @web_app.post("/v1/stages/video-stereo")
 async def stage_video_stereo(body: dict) -> dict:
-    from app.stages.video_stereo import VideoStereoWorker
+    from app.stages.video_stereo import VideoStereoLiteWorker, VideoStereoWorker
     from app.stages.video_stereo_m2svid import M2SVidStereoWorker
 
     video_path = _require(body, "video_path")
@@ -540,7 +540,9 @@ async def stage_video_stereo(body: dict) -> dict:
                 depth_path=depth_path,
                 displacement=float(body.get("displacement", 0.0125)),
             )
-        return VideoStereoWorker().generate.spawn(
+        # backward warp → the lite tier (L4 + NVENC), same routing as the pipeline
+        worker = VideoStereoLiteWorker if warp == "backward" else VideoStereoWorker
+        return worker().generate.spawn(
             job_id,
             video_path=video_path,
             depth_path=depth_path,

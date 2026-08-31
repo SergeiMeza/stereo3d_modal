@@ -169,8 +169,15 @@ anchored on), so its stereo-stage cost is a small fraction of the
 inpainted one — ProPainter is ~$0.0008/frame of a 1080p production's
 ~$0.00104/frame (lever #2 above). Pricing: `stereo_preview` already
 bills the splatted baseline (no ×1.6); `production` applies
-`production_no_inpaint_multiplier` (default ×0.6, Firestore-tunable) to
+`production_no_inpaint_multiplier` (default ×0.4, Firestore-tunable) to
 the whole subtotal and the ETA residual whenever `inpaint=none`, which
-`warp: backward` forces. 0.6 mirrors the preview's ×1.6 and is
-conservative against the measured 25–45% cost ratio; lower it as billed
-backward-warp runs accumulate.
+`warp: backward` forces.
+
+Why 0.4 (2026-08-31, job 73e91a7e50f5 — 3k stretched edges, 4436 f):
+routed like an inpainted job it billed **$2.10** on Modal for a $10.82
+quote — 7 H200 chunks at ~4 fps, i.e. libx264 `slow` on 4 cores with the
+GPU idle, plus ~$0.6 of cold-start loading ProPainter networks the mode
+never runs. The backward warp now has its own tier (`VideoStereoLiteWorker`:
+L4, no ProPainter/Forward_Warp, HEVC NVENC segments — H100/H200 have no
+NVENC) that projects the same job to ~$0.25, so 0.4 is still ~10× cost at
+3k; tune down as billed lite-tier runs accumulate.

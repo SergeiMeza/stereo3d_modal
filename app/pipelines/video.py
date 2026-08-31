@@ -235,7 +235,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
     # normalize_video_request for the precedence rules
     request = normalize_video_request(request)
     from app.stages.video_depth import VideoDepthWorker
-    from app.stages.video_stereo import VideoStereoWorker
+    from app.stages.video_stereo import BACKWARD_WARP_GPU, VideoStereoLiteWorker, VideoStereoWorker
 
     jlog = job_logger(job_id)
 
@@ -761,12 +761,22 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # splat/composite buffers need H200; the inpaint stays at (wh,ww).
             # Also escalate on a big inpaint work res (legacy behavior).
             big_work = (wh * ww > 1280 * 720) or (splat_px > 2560 * 1440)
-            # >720p ProPainter / 4K splat needs ~80+ GB
-            stereo_cls = (
-                VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
-            )
-            jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'} "
-                      f"(splat_px={splat_px}, work={ww}x{wh})")
+            if warp == "backward":
+                # Stretched edges: a gather warp needs no ProPainter VRAM and
+                # no Forward_Warp — the stage is SBS-encode-bound. The lite
+                # tier (L4 + NVENC) does it for ~1/5 the $/s of L40S and
+                # ~1/25 of the H200 the big_work rule would have picked.
+                stereo_cls = VideoStereoLiteWorker
+                big_work = False
+                jlog.info(f"🖥  stereo GPU: {BACKWARD_WARP_GPU} (lite tier, backward warp; "
+                          f"splat_px={splat_px})")
+            else:
+                # >720p ProPainter / 4K splat needs ~80+ GB
+                stereo_cls = (
+                    VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
+                )
+                jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'} "
+                          f"(splat_px={splat_px}, work={ww}x{wh})")
             if parallel:
                 stereo = _parallel_stereo(
                     job_id, jlog, pre, stereo_kwargs, stereo_cls,

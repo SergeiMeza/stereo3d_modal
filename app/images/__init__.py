@@ -126,6 +126,28 @@ FFMPEG8_URL = (
     "ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz"
 )
 
+# ------------------------------------------- stereo lite (backward warp)
+# The "Stretched edges" tier (VideoStereoLiteWorker, L4): the same torch +
+# Forward_Warp stack as stereo_image (video_stereo.py imports splat.py in
+# both), plus the ffmpeg 8.1 static build so SBS segments can be encoded
+# with hevc_nvenc instead of libx264 on 4 cores. Kept SEPARATE from
+# stereo_image so the full tier's ffmpeg binary and behavior stay
+# untouched. The static build ships no shared libs, so torchcodec keeps
+# decoding through the distro libav* it was built against.
+stereo_lite_image = (
+    with_forward_warp(cuda_torch_base().uv_pip_install("matplotlib==3.10.3"))
+    .apt_install("curl", "xz-utils")
+    .run_commands(
+        f"curl -L --retry 5 --retry-all-errors --retry-delay 3 {FFMPEG8_URL} -o /tmp/ff.tar.xz",
+        "mkdir -p /opt/ffmpeg && tar -xJf /tmp/ff.tar.xz -C /opt/ffmpeg --strip-components=1",
+        "ln -sf /opt/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg",
+        "ln -sf /opt/ffmpeg/bin/ffprobe /usr/local/bin/ffprobe",
+        "rm /tmp/ff.tar.xz",
+    )
+    .env(_env_layer)
+    .add_local_python_source("app")
+)
+
 # Bento4 mp4edit splices the Apple vexu/hfov spatial-metadata blobs
 # (and patches stco chunk offsets automatically).
 BENTO4_URL = "https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip"

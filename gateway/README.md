@@ -215,7 +215,7 @@ old app's ~$1/min at 1080p, scaled by preset GPU cost:
 | `stage_shares` | depth 0.35 · preprocess 0.05 |
 | `depth_res_base` | 980 (the depth_res that prices at 1×) |
 | `inpaint_multiplier` | 1.6 (stereo_preview with inpaint=propainter) |
-| `production_no_inpaint_multiplier` | 0.6 (production with inpaint=none, i.e. `warp: backward` — production rates bake ProPainter in; applies to the whole subtotal and the ETA residual) |
+| `production_no_inpaint_multiplier` | 0.4 (production with inpaint=none, i.e. `warp: backward` — production rates bake ProPainter in and the backward warp runs on the cheap L4/NVENC tier; applies to the whole subtotal and the ETA residual) |
 | `max_duration_s` | 1800 |
 | `max_source_bytes` | 8 GiB |
 | `max_active_per_user` | 3 |

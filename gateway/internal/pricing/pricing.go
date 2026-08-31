@@ -72,10 +72,11 @@ type Rates struct {
 	// so without this a backward-warp render billed the full inpainted rate
 	// for seconds of GPU. Applied to the WHOLE subtotal like the preview
 	// knob (simple, explainable; the depth share is slightly over-
-	// discounted). 0.6 mirrors the preview's ×1.6 and stays well above the
-	// measured cost (ProPainter is ~$0.0008/frame of a 1080p production's
-	// ~$0.00104/frame → no-inpaint ≈ 25–45% of the inpainted cost,
-	// docs/PRICING.md). 0/missing → the default, never 1× silently.
+	// discounted). 0.4 (was 0.6 for a day): the backward-warp tier runs on an
+	// L4 with NVENC — job 73e91a7e50f5 (3k, 2026-08-31) billed $2.10 on the
+	// old H200 routing and projects to ~$0.25 on the lite tier, so even 0.4
+	// is ~10× cost at 3k; revisit against billed lite-tier runs
+	// (docs/PRICING.md). 0/missing → the default, never 1× silently.
 	ProductionNoInpaintMultiplier float64 `firestore:"production_no_inpaint_multiplier"`
 
 	// Abuse caps enforced at conversion create.
@@ -144,8 +145,8 @@ func defaults() *Rates {
 		DepthResBase:       980,
 		DepthFactorCeiling: 5.0,
 		InpaintMultiplier:  1.6,
-		// production with inpaint=none (backward warp): ×0.6, see field doc
-		ProductionNoInpaintMultiplier: 0.6,
+		// production with inpaint=none (backward warp): ×0.4, see field doc
+		ProductionNoInpaintMultiplier: 0.4,
 		MaxDurationS:                  30 * 60,
 		MaxSourceBytes:                8 << 30,
 		MaxActivePerUser:              3,
@@ -199,7 +200,7 @@ func (r *Rates) inpaintMultiplier(step, inpaint string) float64 {
 		if r.ProductionNoInpaintMultiplier > 0 {
 			return r.ProductionNoInpaintMultiplier
 		}
-		return 0.6
+		return 0.4
 	}
 	return 1.0
 }
