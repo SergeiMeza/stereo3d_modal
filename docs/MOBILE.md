@@ -57,8 +57,9 @@ string.
 - `warp: backward` / `forward` on video: **SHIPPED** (backward runs on
   the cheap L4 tier).
 - `inpaint: migan` on video: **SHIPPED**.
-- `warp` on images: implemented server-side; being staged-tested as part
-  of this work since only video has run in production so far.
+- `warp` on images: **SHIPPED + staging-tested** (backward, migan and
+  lama stills all verified end-to-end on the staging pipeline,
+  2026-09-01).
 - `inpaint` on images: **SHIPPED** — `"lama"` (default, today's
   behavior) | `"migan"` | `"none"` (raw splat) | implicit none with `backward`. MI-GAN runs
   per-still exactly like the app's local path, so cloud and local stills
