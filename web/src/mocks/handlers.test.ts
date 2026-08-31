@@ -232,12 +232,20 @@ describe("mock gateway validation", () => {
       "warp backward cannot be combined with inpaint propainter (a gather warp has no gaps to fill; use inpaint none)",
     );
     // backward forces inpaint none — production's propainter default
-    // included — and the quote carries no inpaint multiplier
-    for (const step of ["stereo_preview", "production"]) {
-      const res = (await (await quote({ step, warp: "backward" })).json()) as StepQuoteResponse;
-      expect(res.params).toMatchObject({ warp: "backward", inpaint: "none" });
-      expect(res.quote.breakdown!.inpaint_multiplier).toBeUndefined();
-    }
+    // included. A preview then simply pays the splatted baseline (no
+    // multiplier line); a production render is CHEAPER: ×0.6 on the
+    // subtotal, since its rates bake the fill pass in.
+    const prev = (await (await quote({ step: "stereo_preview", warp: "backward" })).json()) as StepQuoteResponse;
+    expect(prev.params).toMatchObject({ warp: "backward", inpaint: "none" });
+    expect(prev.quote.breakdown!.inpaint_multiplier).toBeUndefined();
+    const prodFull = (await (await quote({ step: "production" })).json()) as StepQuoteResponse;
+    const prodBwd = (await (await quote({ step: "production", warp: "backward" })).json()) as StepQuoteResponse;
+    expect(prodBwd.params).toMatchObject({ warp: "backward", inpaint: "none" });
+    expect(prodBwd.quote.breakdown!.inpaint_multiplier).toBe(0.6);
+    expect(prodBwd.quote.breakdown!.subtotal_cents).toBe(
+      Math.round(prodFull.quote.breakdown!.subtotal_cents! * 0.6),
+    );
+    expect(prodBwd.quote.amount_cents).toBeLessThan(prodFull.quote.amount_cents);
     // forward keeps the step's inpaint default and is echoed as sent
     const fwd = (await (await quote({ step: "production", warp: "forward" })).json()) as StepQuoteResponse;
     expect(fwd.params).toMatchObject({ warp: "forward", inpaint: "propainter" });

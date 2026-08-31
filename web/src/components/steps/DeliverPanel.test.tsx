@@ -301,6 +301,30 @@ describe("DeliverPanel controls", () => {
     expect(screen.queryByText("Select at least one format")).toBeNull();
   });
 
+  it("Stretched edges prices a production render at ×0.6 with a user-facing breakdown line", async () => {
+    const user = userEvent.setup();
+    const bodies = captureQuoteBodies();
+    renderPanel();
+
+    await getQuote(user);
+    const fullSubtotal = screen.getByTestId("quote-subtotal").textContent;
+    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
+
+    await user.selectOptions(screen.getByLabelText("Edge handling"), "backward");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toMatchObject({ warp: "backward", inpaint: "none" });
+    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×0.6");
+    // explained in the user's terms — never the renderer/model names
+    const breakdown = screen.getByTestId("quote-breakdown").textContent!;
+    expect(breakdown).toContain("Stretched edges");
+    expect(breakdown).not.toMatch(/backward|gather|ProPainter|inpaint/i);
+    const cents = (s: string | null) => Math.round(parseFloat(s!.replace(/[^0-9.]/g, "")) * 100);
+    expect(cents(screen.getByTestId("quote-subtotal").textContent)).toBe(
+      Math.round(cents(fullSubtotal) * 0.6),
+    );
+  });
+
   it("shows the reuse discount and drops it when re-quoted from scratch", async () => {
     const user = userEvent.setup();
     const project = fixtureProject();

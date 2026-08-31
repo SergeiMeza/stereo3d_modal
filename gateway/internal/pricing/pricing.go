@@ -62,6 +62,18 @@ type Rates struct {
 	// InpaintMultiplier scales a stereo_preview subtotal when
 	// inpaint=propainter. Production rates already include inpainting.
 	InpaintMultiplier float64 `firestore:"inpaint_multiplier"`
+	// ProductionNoInpaintMultiplier scales a PRODUCTION subtotal (and its
+	// ETA residual) when inpaint=none — today that means warp=backward
+	// ("Stretched edges": one gather pass, no ProPainter), which the
+	// gateway forces to inpaint none. Production rates bake ProPainter in,
+	// so without this a backward-warp render billed the full inpainted rate
+	// for seconds of GPU. Applied to the WHOLE subtotal like the preview
+	// knob (simple, explainable; the depth share is slightly over-
+	// discounted). 0.6 mirrors the preview's ×1.6 and stays well above the
+	// measured cost (ProPainter is ~$0.0008/frame of a 1080p production's
+	// ~$0.00104/frame → no-inpaint ≈ 25–45% of the inpainted cost,
+	// docs/PRICING.md). 0/missing → the default, never 1× silently.
+	ProductionNoInpaintMultiplier float64 `firestore:"production_no_inpaint_multiplier"`
 
 	// Abuse caps enforced at conversion create.
 	MaxDurationS     float64 `firestore:"max_duration_s"`
@@ -129,12 +141,14 @@ func defaults() *Rates {
 		DepthResBase:       980,
 		DepthFactorCeiling: 5.0,
 		InpaintMultiplier:  1.6,
-		MaxDurationS:       30 * 60,
-		MaxSourceBytes:     8 << 30,
-		MaxActivePerUser:   3,
-		MaxSourceDurationS: 10 * 60,      // beta: 10-minute videos
-		MaxSourcePixels:    3840 * 2160,  // beta: up to a 4K UHD frame (inclusive)
-		MaxGPUWorkers:      8,
+		// production with inpaint=none (backward warp): ×0.6, see field doc
+		ProductionNoInpaintMultiplier: 0.6,
+		MaxDurationS:                  30 * 60,
+		MaxSourceBytes:                8 << 30,
+		MaxActivePerUser:              3,
+		MaxSourceDurationS:            10 * 60,     // beta: 10-minute videos
+		MaxSourcePixels:               3840 * 2160, // beta: up to a 4K UHD frame (inclusive)
+		MaxGPUWorkers:                 8,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,
 		},
@@ -168,6 +182,23 @@ func (r *Rates) margin() float64 {
 		return r.CostMarginMultiplier
 	}
 	return 3.0
+}
+
+// inpaintMultiplier is the ONE inpaint price/ETA adjustment for a step:
+// stereo_preview pays ×InpaintMultiplier for propainter (its rates are a
+// splatted baseline); production gets ×ProductionNoInpaintMultiplier for
+// inpaint=none (its rates bake ProPainter in). Everything else is 1.
+func (r *Rates) inpaintMultiplier(step, inpaint string) float64 {
+	switch {
+	case step == "stereo_preview" && inpaint == "propainter" && r.InpaintMultiplier > 0:
+		return r.InpaintMultiplier
+	case step == "production" && inpaint == "none":
+		if r.ProductionNoInpaintMultiplier > 0 {
+			return r.ProductionNoInpaintMultiplier
+		}
+		return 0.6
+	}
+	return 1.0
 }
 
 // fpsBase is the frame rate the per-minute anchors are calibrated at. Cost
@@ -261,9 +292,10 @@ func (s *Service) EstimateStepETA(ctx context.Context, in StepInputs) int64 {
 	}
 
 	// Stereo + encode residual: keyed by preset (output resolution drives
-	// the splat/inpaint/encode wall time), with the inpaint multiplier on
-	// stereo_preview (production factors already include inpainting).
-	// depth_preview has no residual — its base covers publish/encode.
+	// the splat/inpaint/encode wall time), with the inpaint adjustment:
+	// ×1.6 on a propainter stereo_preview, ×0.6 on a no-inpaint (backward
+	// warp) production — see Rates.inpaintMultiplier. depth_preview has no
+	// residual — its base covers publish/encode.
 	if in.Step != "depth_preview" {
 		factor := rates.EtaFactor[in.Step+"_"+in.Preset]
 		if factor <= 0 {
@@ -272,11 +304,7 @@ func (s *Service) EstimateStepETA(ctx context.Context, in StepInputs) int64 {
 		if factor <= 0 {
 			factor = 4.0
 		}
-		residual := factor * in.BillableS * fps
-		if in.Step == "stereo_preview" && in.Inpaint == "propainter" && rates.InpaintMultiplier > 0 {
-			residual *= rates.InpaintMultiplier
-		}
-		eta += residual
+		eta += factor * in.BillableS * fps * rates.inpaintMultiplier(in.Step, in.Inpaint)
 	}
 	// A reused preprocess saves seconds, not minutes — deliberately ignored.
 	return int64(math.Round(eta))
@@ -397,7 +425,9 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 // source prices 2.5× a 24 fps one); DepthRes > 0 then scales the depth share
 // by the aspect-aware working-MP factor (see depthFactor);
 // inpaint=propainter multiplies a stereo_preview subtotal by
-// inpaint_multiplier (production rates already include inpainting).
+// inpaint_multiplier (production rates already include inpainting), and
+// inpaint=none (backward warp) multiplies a production subtotal by
+// production_no_inpaint_multiplier.
 // ReuseStages lists the stage shares to discount (artifacts confirmed cached
 // — production and stereo_preview); CreditCents is the project's analyze
 // credit if this is its first paid conversion. Every adjustment is an
@@ -438,12 +468,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 		subtotal += int64(math.Round(float64(subtotal) * depthShare * (depthResFactor - 1)))
 	}
 
-	// stereo_preview pays extra for optional inpainting.
-	inpaintMultiplier := 1.0
-	if in.Step == "stereo_preview" && in.Inpaint == "propainter" {
-		if rates.InpaintMultiplier > 0 {
-			inpaintMultiplier = rates.InpaintMultiplier
-		}
+	// stereo_preview pays extra for optional inpainting; production pays
+	// LESS without it (backward warp) — its rates bake ProPainter in.
+	inpaintMultiplier := rates.inpaintMultiplier(in.Step, in.Inpaint)
+	if inpaintMultiplier != 1.0 {
 		subtotal = int64(math.Round(float64(subtotal) * inpaintMultiplier))
 	}
 

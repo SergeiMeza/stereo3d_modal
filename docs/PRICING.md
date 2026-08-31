@@ -160,3 +160,17 @@ ProPainter stereo cost (~$0.30/run). See the v6 per-shot far-plane work.
   target ≈2× BILLED (≈2.4× the in-source estimate), since billed is what
   we actually pay. High-preset stereo rates were recalibrated against
   this run; refine per-preset as clean billed/estimate pairs accumulate.
+
+## Backward warp (`warp: backward`, 2026-08-31)
+
+The gather warp runs no ProPainter pass (staging: 4.2 s stereo stage on a
+1 s clip vs. the ~45 min 4k ProPainter run the production rates were
+anchored on), so its stereo-stage cost is a small fraction of the
+inpainted one — ProPainter is ~$0.0008/frame of a 1080p production's
+~$0.00104/frame (lever #2 above). Pricing: `stereo_preview` already
+bills the splatted baseline (no ×1.6); `production` applies
+`production_no_inpaint_multiplier` (default ×0.6, Firestore-tunable) to
+the whole subtotal and the ETA residual whenever `inpaint=none`, which
+`warp: backward` forces. 0.6 mirrors the preview's ×1.6 and is
+conservative against the measured 25–45% cost ratio; lower it as billed
+backward-warp runs accumulate.

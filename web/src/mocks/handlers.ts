@@ -446,7 +446,15 @@ function quoteFor(
       : (req.inpaint ?? (step === "production" ? "propainter" : "none"));
   // production preset rates already include inpainting; stereo previews
   // price the optional ProPainter pass explicitly.
-  const inpaintMult = step === "stereo_preview" && inpaint === "propainter" ? 1.6 : 1;
+  // ... and production is CHEAPER without it (warp backward ⇒ inpaint
+  // none): its rates bake ProPainter in — mirrors the gateway's
+  // production_no_inpaint_multiplier (0.6, whole subtotal).
+  const inpaintMult =
+    step === "stereo_preview" && inpaint === "propainter"
+      ? 1.6
+      : step === "production" && inpaint === "none"
+        ? 0.6
+        : 1;
   subtotal = Math.round(subtotal * inpaintMult);
   // reuse: an uploaded depth map skips the depth stage outright (both
   // steps, unconditional); otherwise production discounts when a prior

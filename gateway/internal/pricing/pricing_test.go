@@ -298,6 +298,59 @@ func TestQuoteStepInpaintMultiplier(t *testing.T) {
 	}
 }
 
+func TestQuoteStepProductionNoInpaintIsCheaper(t *testing.T) {
+	// production 1080p 2 min = 900¢ with propainter (rates bake it in)
+	full := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "propainter",
+	})
+	if full.AmountCents != 900 || full.Breakdown["inpaint_multiplier"].(float64) != 1.0 {
+		t.Errorf("propainter production: want 900¢ ×1.0, got %d ×%v",
+			full.AmountCents, full.Breakdown["inpaint_multiplier"])
+	}
+	// inpaint=none (warp backward) → ×0.6 on the whole subtotal = 540¢
+	none := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "none",
+	})
+	if none.AmountCents != 540 || none.Breakdown["inpaint_multiplier"].(float64) != 0.6 {
+		t.Errorf("no-inpaint production: want 540¢ ×0.6, got %d ×%v",
+			none.AmountCents, none.Breakdown["inpaint_multiplier"])
+	}
+	// 4k 2.5 min: 2250¢ → 1350¢ before bulk; −10% bulk → 2025 vs 1215
+	full4k := quoteStep(t, StepInputs{Step: "production", Preset: "4k", BillableS: 150, Inpaint: "propainter"})
+	none4k := quoteStep(t, StepInputs{Step: "production", Preset: "4k", BillableS: 150, Inpaint: "none"})
+	if full4k.AmountCents != 2025 || none4k.AmountCents != 1215 {
+		t.Errorf("4k: want 2025 vs 1215, got %d vs %d", full4k.AmountCents, none4k.AmountCents)
+	}
+	// depth-reuse still stacks on top (35% of the discounted subtotal)
+	reused := quoteStep(t, StepInputs{
+		Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "none", ReuseStages: []string{"depth"},
+	})
+	if reused.AmountCents != 540-189 {
+		t.Errorf("reused depth + no inpaint: want 351, got %d", reused.AmountCents)
+	}
+	// the ETA residual drops by the same factor (base 120 s untouched):
+	// 120 + 6.0×120 = 840 vs 120 + 6.0×120×0.6 = 552
+	s := stepSvc()
+	etaFull := s.EstimateStepETA(context.Background(), StepInputs{Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "propainter"})
+	etaNone := s.EstimateStepETA(context.Background(), StepInputs{Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "none"})
+	if etaFull != 840 || etaNone != 552 {
+		t.Errorf("eta: want 840 vs 552, got %d vs %d", etaFull, etaNone)
+	}
+	// a zeroed Firestore field falls back to the default, never to 1×
+	zeroed := defaults()
+	zeroed.ProductionNoInpaintMultiplier = 0
+	if got := zeroed.inpaintMultiplier("production", "none"); got != 0.6 {
+		t.Errorf("zeroed field: want 0.6 fallback, got %v", got)
+	}
+	// and it never touches previews or an unset/blank inpaint
+	if got := zeroed.inpaintMultiplier("stereo_preview", "none"); got != 1.0 {
+		t.Errorf("preview none: want 1.0, got %v", got)
+	}
+	if got := zeroed.inpaintMultiplier("production", ""); got != 1.0 {
+		t.Errorf("production blank inpaint: want 1.0, got %v", got)
+	}
+}
+
 func TestQuoteStepDepthResThenInpaintOrder(t *testing.T) {
 	// stereo 10 min 3600¢; depth 140 → 3600 − round(3600·0.35·0.5) = 2970;
 	// then propainter ×1.6 = 4752 → −475 bulk = 4277.

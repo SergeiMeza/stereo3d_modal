@@ -227,3 +227,17 @@ def test_depth_lookup_keys_without_passthrough_is_exact_only():
     # never serve a run that wants those scenes in 3D
     base = {**_GATEWAY_BODY, "scene_cuts": [100, 400]}
     assert depth_lookup_keys(dict(base)) == [reuse_request_keys(dict(base))[1]]
+
+
+def test_warp_and_inpaint_never_touch_the_reuse_keys():
+    # the stereo synthesis method (warp) and the fill pass (inpaint) change
+    # only the SBS render, never the preprocess/depth/scenes artifacts — a
+    # backward-warp production must hit the depth map a filled-edges
+    # preview produced (and vice versa), or the depth discount never fires
+    base = reuse_request_keys(dict(_GATEWAY_BODY))
+    for extra in (
+        {"warp": "backward", "inpaint": "none"},
+        {"warp": "forward", "inpaint": "propainter"},
+        {"inpaint": "none"},
+    ):
+        assert reuse_request_keys({**_GATEWAY_BODY, **extra}) == base, extra
