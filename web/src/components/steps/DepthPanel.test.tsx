@@ -11,7 +11,7 @@
  * 3587 frames @ 24 fps = 149.46 s → base 561¢ at $2.25/min (75¢ cost × 3
  * margin, full-rate fps factor 1); the letterboxed 2.39:1 content (crop
  * 3840:1606) prices the depth work at ×1.345 even at the 980 base → 755¢
- * subtotal − 50¢ analyze credit = $7.05.
+ * subtotal = $7.55 (no analyze credit — analysis is free outright).
  */
 
 import {
@@ -239,8 +239,9 @@ describe("DepthPanel quotes", () => {
 
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$5.61");
     expect(screen.getByText(/2\.49 min × \$2\.25\/min/)).toBeDefined();
-    expect(screen.getByTestId("quote-analyze-credit").textContent).toBe("−$0.50");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$5.11");
+    // no analyze-credit line: analysis is free outright, nothing is credited back
+    expect(screen.queryByTestId("quote-analyze-credit")).toBeNull();
+    expect(screen.getByTestId("quote-total").textContent).toBe("$5.61");
     expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
     expect(screen.queryByTestId("quote-base")).toBeNull();
 
@@ -260,7 +261,7 @@ describe("DepthPanel quotes", () => {
     expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×1.34");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$7.55");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$7.05");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$7.55");
   });
 
   it("renders the depth_res_factor line for a higher resolution and invalidates the quote on change", async () => {
@@ -282,7 +283,7 @@ describe("DepthPanel quotes", () => {
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×2.91");
     expect(screen.getByText("1442 px")).toBeDefined();
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.34");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$14.21");
+    expect(screen.getByTestId("quote-total").textContent).toBe("$14.71");
   });
 
   it("surfaces the gateway's 400 invalid_request message on the panel", async () => {
@@ -323,7 +324,7 @@ describe("DepthPanel in-flight state survival (checkoutStore)", () => {
     const project = fixtureProject();
     const first = renderPanel(project);
     await getQuote(user);
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
     await screen.findByTestId("conversion-tracker");
 
     first.unmount();
@@ -369,7 +370,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("payment method");
@@ -389,7 +390,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("automatic payment failed");
@@ -401,7 +402,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     await screen.findByText("processing", undefined, { timeout: 3000 });
     await screen.findByText("succeeded", undefined, { timeout: 3000 });
@@ -435,7 +436,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     await screen.findByText("succeeded", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
@@ -444,13 +445,13 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
   });
 
   it("places an up-front hold on expensive runs and completes a 3DS challenge with the saved card", async () => {
-    mockDb.billing.holdThresholdCents = 50; // the $7.05 quote now holds
+    mockDb.billing.holdThresholdCents = 50; // the $7.55 quote now holds
     mockDb.billing.nextHoldRequiresAction = true;
     const user = userEvent.setup();
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     // completeChargeAction auto-confirms; the mock flips created→paid and
     // the run proceeds to success with the hold captured
@@ -469,7 +470,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("declined");
@@ -484,7 +485,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    const convert = screen.getByRole("button", { name: "Convert · $7.05" });
+    const convert = screen.getByRole("button", { name: "Convert · $7.55" });
     await user.click(convert);
     await screen.findByTestId("conversion-tracker");
     await user.click(convert); // same attempt, second submit
@@ -498,7 +499,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.05" }));
+    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     await screen.findByText("processing", undefined, { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

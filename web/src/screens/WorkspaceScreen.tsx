@@ -21,7 +21,6 @@ import {
   formatEtaLeft,
 } from "@/components/projects/AnalyzeBadge";
 import { HistoryList } from "@/components/steps/HistoryList";
-import { formatCents } from "@/components/steps/money";
 import { MediaTab } from "@/components/workspace/MediaTab";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
@@ -34,7 +33,6 @@ import { SceneCutEditor } from "@/components/workspace/SceneCutEditor";
 import { ShortcutsSheet } from "@/components/workspace/ShortcutsSheet";
 import { StepTab } from "@/components/workspace/StepTab";
 import { isTypingTarget } from "@/components/workspace/usePlayerShortcuts";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -289,22 +287,6 @@ export default function WorkspaceScreen({
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-2">
-          {project.analyze.credit_available ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                >
-                  {formatCents(project.analyze.credit_cents)} credit
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Free analysis — credited on this project&apos;s first paid
-                conversion
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
           <Tooltip>
             <TooltipTrigger asChild>
               <button

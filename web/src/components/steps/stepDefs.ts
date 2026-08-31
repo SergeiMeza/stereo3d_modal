@@ -68,7 +68,6 @@ export const STEP_DEFS: readonly StepDef[] = [
       "The summary chips show exactly what production inherits from the Depth and Stereo pages — each has a “use pipeline default” escape.",
       "Reuse is the default: compatible preview artifacts (depth, preprocess) are discounted automatically — the quote shows each reused stage.",
       "Pick “Start from scratch” to recompute everything, e.g. to raise quality beyond what previews ran at.",
-      "Your free Analyze credit is applied to the project's first paid conversion.",
     ],
   },
 ];

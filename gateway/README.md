@@ -69,9 +69,10 @@ POST  /v1/projects/{id}/conversions    paid step conversion (depth_preview |
 DELETE /v1/projects/{id}               archive + cancel active conversions
 ```
 
-The analyze step is free; its cost (`analyze_credit_cents`) is applied as a
-discount on the project's first paid conversion and restored if that
-conversion ends without a capture. Production quotes check Modal's
+The analyze step is free outright. (`analyze_credit_cents`, default 0 since
+2026-08-31, can re-enable the legacy credit-back: a discount on the
+project's first paid conversion, restored if that conversion ends without a
+capture.) Production quotes check Modal's
 content-addressed reuse cache and discount by `stage_shares` for cached
 stages; `from_scratch: true` bypasses reuse (and its discount) entirely.
 
@@ -210,7 +211,7 @@ old app's ~$1/min at 1080p, scaled by preset GPU cost:
 | `minimum_cents` | 50 |
 | `discount_threshold_cents` / `discount_pct` | 1000 / 0.10 |
 | `depth_preview_cents_per_minute` / `stereo_preview_cents_per_minute` | 10 / 25 |
-| `analyze_credit_cents` | 50 |
+| `analyze_credit_cents` | 0 (legacy first-conversion credit; analysis is free outright) |
 | `stage_shares` | depth 0.35 · preprocess 0.05 |
 | `depth_res_base` | 980 (the depth_res that prices at 1×) |
 | `inpaint_multiplier` | 1.6 (stereo_preview with inpaint=propainter) |

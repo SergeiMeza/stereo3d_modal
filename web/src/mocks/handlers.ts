@@ -57,7 +57,7 @@ const RATES = {
   discountThresholdCents: 1000,
   discountPct: 0.1,
   stageShares: { depth: 0.35, preprocess: 0.05 },
-  analyzeCreditCents: 50,
+  analyzeCreditCents: 0, // analysis is free outright (gateway default 0 since 2026-08-31)
   depthResBase: 980,
   depthFactorCeiling: 5.0,
   fpsBase: 24,

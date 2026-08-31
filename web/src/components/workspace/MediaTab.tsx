@@ -3,8 +3,8 @@
 /**
  * Media page — the project's source at a glance: frame-exact preview
  * player, a READ-ONLY filmstrip timeline (scrub + zoom only — no cut
- * markers; cut furniture belongs to the Cut page), probe metadata and the
- * analyze credit. The "how this pipeline works" guide lives in the shared
+ * markers; cut furniture belongs to the Cut page) and probe metadata.
+ * The "how this pipeline works" guide lives in the shared
  * ⓘ Guide drawer (shadcn Drawer/vaul, same as the step pages' Tips) and
  * deep-links into the other pages.
  *
@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
-import { formatCents } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -340,20 +339,6 @@ export function MediaTab({ project, onNavigate }: MediaTabProps): JSX.Element {
           </CardContent>
         </Card>
 
-        {project.analyze.credit_available ? (
-          <Card
-            size="sm"
-            className="bg-emerald-500/10 text-xs text-emerald-300 ring-emerald-500/30"
-          >
-            <CardContent>
-              <span className="font-medium">
-                {formatCents(project.analyze.credit_cents)} analyze credit
-              </span>{" "}
-              — the free analysis is credited against this project&apos;s
-              first paid conversion.
-            </CardContent>
-          </Card>
-        ) : null}
       </div>
     </div>
   );

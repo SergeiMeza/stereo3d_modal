@@ -135,17 +135,8 @@ export function QuoteView({
           </dd>
         </div>
       ) : null}
-      {(b.analyze_credit_cents ?? 0) > 0 ? (
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-fg-muted">Analyze credit</dt>
-          <dd
-            data-testid="quote-analyze-credit"
-            className="font-mono text-emerald-300"
-          >
-            {formatCents(-(b.analyze_credit_cents ?? 0))}
-          </dd>
-        </div>
-      ) : null}
+      {/* analyze_credit_cents is not rendered: analysis is free outright
+          (the gateway's credit defaults to 0 since 2026-08-31) */}
       <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-edge pt-2">
         <dt className="font-medium">Total</dt>
         <dd

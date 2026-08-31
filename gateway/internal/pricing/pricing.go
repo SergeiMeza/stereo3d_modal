@@ -39,8 +39,11 @@ type Rates struct {
 	// production at that preset, so a flat rate underpriced 4k by ~2×.
 	DepthPreviewCentsPerMinute  int64            `firestore:"depth_preview_cents_per_minute"`
 	StereoPreviewCentsPerMinute map[string]int64 `firestore:"stereo_preview_cents_per_minute"`
-	// AnalyzeCreditCents: the free analyze step's cost, credited back as a
-	// discount on the project's first paid conversion.
+	// AnalyzeCreditCents: an optional discount on the project's first paid
+	// conversion, historically "the free analyze step's cost credited
+	// back". 0 since 2026-08-31: analysis is simply free — no credit line
+	// in quotes, no credit chip in the UI. The consume/restore plumbing
+	// stays (a >0 Firestore override re-enables it end to end).
 	AnalyzeCreditCents int64 `firestore:"analyze_credit_cents"`
 	// StageShares: fraction of a production run's price attributable to a
 	// stage — the reuse discount when that stage's artifact is cached. The
@@ -136,7 +139,7 @@ func defaults() *Rates {
 		StereoPreviewCentsPerMinute: map[string]int64{
 			"draft": 90, "1080p": 120, "qhd": 160, "3k": 200, "4k": 250,
 		},
-		AnalyzeCreditCents: 50,
+		AnalyzeCreditCents: 0, // analysis is free outright; no credit-back
 		StageShares:        map[string]float64{"depth": 0.35, "preprocess": 0.05},
 		DepthResBase:       980,
 		DepthFactorCeiling: 5.0,
