@@ -373,8 +373,5 @@
   "371": "distributions.py",
   "372": "usePlayerShortcuts",
   "373": ".__init__",
-  "374": "PatchEmbed",
-  "375": "ResidualConvUnit",
-  "376": "Resize",
-  "377": "FrozenOpenCLIPImageEmbedder"
+  "374": "PatchEmbed"
 }
