@@ -10,8 +10,8 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "app/api/main.py": {
-    "mtime": 1788172223.3808613,
-    "ast_hash": "b3ac961edc8f261f23c8a0cb309cc18c",
+    "mtime": 1788184980.42563,
+    "ast_hash": "31a8a4ac64fd328c08f5aa2224b5bc9d",
     "semantic_hash": ""
   },
   "app/api/schemas.py": {
@@ -85,9 +85,9 @@
     "semantic_hash": "3bb5870db9bfd98c81ee6d2ed10d6d2f"
   },
   "app/images/__init__.py": {
-    "mtime": 1782971103.3481193,
-    "ast_hash": "350e3c697438c0088ba7a84367943430",
-    "semantic_hash": "350e3c697438c0088ba7a84367943430"
+    "mtime": 1788184968.8903058,
+    "ast_hash": "6479778723bdff6be5b80510ebf2942c",
+    "semantic_hash": ""
   },
   "app/images/common.py": {
     "mtime": 1781516548.7984118,
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "app/pipelines/video.py": {
-    "mtime": 1788172224.4491622,
-    "ast_hash": "84f8c7798d957154bb8aba5f45f7ef13",
+    "mtime": 1788184975.8194184,
+    "ast_hash": "7d7ca4c014c3f5487b09216601bfe2d5",
     "semantic_hash": ""
   },
   "app/stages/__init__.py": {
@@ -190,8 +190,8 @@
     "semantic_hash": "87b3eea08d0f989d15f388d12583009f"
   },
   "app/stages/video_stereo.py": {
-    "mtime": 1788172222.3508089,
-    "ast_hash": "8e16d373b4ddc3994388e23db4f9a8ae",
+    "mtime": 1788187099.1414347,
+    "ast_hash": "dea1f4b47e964eb95e36f75def36ed04",
     "semantic_hash": ""
   },
   "app/stages/video_stereo_m2svid.py": {
@@ -830,13 +830,13 @@
     "semantic_hash": "fb2041a510e426b659b02ce36163b0da"
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1788181362.540314,
-    "ast_hash": "52b08424a129927118a2916f1f317a72",
+    "mtime": 1788185002.4735243,
+    "ast_hash": "68fcb308b25302b0ee9036881361f20c",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
-    "mtime": 1788179640.376492,
-    "ast_hash": "e397718783300c8fae85fecda84ba9df",
+    "mtime": 1788185002.4740183,
+    "ast_hash": "d7e074eec13c0a201c4bbc9fa960c8c0",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/testhelper_test.go": {
@@ -1155,8 +1155,8 @@
     "semantic_hash": ""
   },
   "web/src/components/steps/DeliverPanel.test.tsx": {
-    "mtime": 1788181394.9852812,
-    "ast_hash": "ae880e57fc672662153ec310800c65ba",
+    "mtime": 1788185002.47671,
+    "ast_hash": "10777c887b3f5b39377e99313ed88510",
     "semantic_hash": ""
   },
   "web/src/components/steps/DeliverPanel.tsx": {
@@ -1505,13 +1505,13 @@
     "semantic_hash": "9036987ea929d4eeda14c01b8babc709"
   },
   "web/src/mocks/handlers.test.ts": {
-    "mtime": 1788179674.0604665,
-    "ast_hash": "a11e11f4ebd1ce58fa05990df17032e9",
+    "mtime": 1788185002.4762118,
+    "ast_hash": "0cd1c20b3a5e48ae3f5620e1175fab10",
     "semantic_hash": ""
   },
   "web/src/mocks/handlers.ts": {
-    "mtime": 1788181375.8109047,
-    "ast_hash": "cb8ef253afc7b27d9e879c2618318c3f",
+    "mtime": 1788185002.475641,
+    "ast_hash": "84f8fe7b2803a2e1e1ade7f935bb6e95",
     "semantic_hash": ""
   },
   "web/src/mocks/server.ts": {
@@ -1585,8 +1585,8 @@
     "semantic_hash": "c5d1088c013fc295725d488070d1a1c3"
   },
   "docs/PRICING.md": {
-    "mtime": 1788179646.491096,
-    "ast_hash": "ed12c1886c4ce731009a636bdd80fc72",
+    "mtime": 1788185002.474898,
+    "ast_hash": "02281e973727fc745a3f94371d6fa1d6",
     "semantic_hash": ""
   },
   "docs/V7_DUALRES_SPLAT.md": {
@@ -1600,8 +1600,8 @@
     "semantic_hash": ""
   },
   "gateway/README.md": {
-    "mtime": 1788181379.657347,
-    "ast_hash": "777b7883afa1cbb3a538943fd36c5eb8",
+    "mtime": 1788185002.474332,
+    "ast_hash": "2f28eed0409d4d2159dc9bb16b604379",
     "semantic_hash": ""
   },
   "web/.vercel/README.txt": {
@@ -2362,6 +2362,11 @@
   "tests/test_web_container_imports.py": {
     "mtime": 1788175955.7504103,
     "ast_hash": "19d76dcf8d9a151f5e59b2000609a626",
+    "semantic_hash": ""
+  },
+  "scripts/bench_depth.py": {
+    "mtime": 1788185753.0113642,
+    "ast_hash": "f49e849ecca93240dcaafe53a0942e7e",
     "semantic_hash": ""
   }
 }
