@@ -255,6 +255,37 @@ describe("mock gateway validation", () => {
   });
 });
 
+describe("mock gateway downloads payment gate", () => {
+  it("402s downloads for a succeeded run whose charge failed; settle unlocks", async () => {
+    const p = mockDb.projects.get(PID)!;
+    const conv: Conversion = {
+      conversion_id: "lockedrun001",
+      state: "succeeded",
+      kind: "video",
+      project_id: p.project_id,
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 500, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs"],
+      created_at: "2026-09-01T00:00:00Z",
+      updated_at: "2026-09-01T00:01:00Z",
+    };
+    mockDb.conversions.set(conv.conversion_id, conv);
+    mockDb.failCharge(conv.conversion_id);
+
+    const locked = await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`);
+    expect(locked.status).toBe(402);
+    const body = (await locked.json()) as { error: string; message: string };
+    expect(body.error).toBe("billing_overdue");
+
+    // settle clears the debt → downloads unlock
+    conv.billing = { status: "charged", charged_cents: 500 };
+    const ok = await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`);
+    expect(ok.status).toBe(200);
+  });
+});
+
 describe("mock gateway quote math + params echo", () => {
   it("depth_preview: the WHOLE subtotal scales with the aspect-aware depth factor, clamped to [0.5, 5.0]", async () => {
     // absent target_fps → half rate (12/24 = fps factor 0.5):

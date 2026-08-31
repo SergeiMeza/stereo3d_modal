@@ -31,14 +31,45 @@ import type { RationalFPS } from "@/lib/frames";
 
 import { PlayerBadge, videoDims, type VideoDims } from "./PlayerBadge";
 
+/** True when a succeeded run's automatic charge failed: its outputs are
+ * payment-locked (the gateway's downloads endpoint 402s) until
+ * POST /v1/billing/settle clears the debt. Panels use this to show a
+ * settle notice instead of a silently absent output. */
+export function paymentLocked(conversion: Conversion | undefined): boolean {
+  return (
+    conversion?.state === "succeeded" &&
+    conversion.billing?.status === "charge_failed"
+  );
+}
+
+/** The settle notice a panel shows in place of a payment-locked output.
+ * The full settle ACTION lives on the run's tracker / the billing page —
+ * this is deliberately just the explanation. */
+export function PaymentLockedNotice(): JSX.Element {
+  return (
+    <span
+      data-testid="payment-locked-notice"
+      className="text-[11px] text-amber-400"
+    >
+      The payment for this run failed — settle your balance to unlock the
+      output and downloads.
+    </span>
+  );
+}
+
 /** A run's signed download links (name → URL), fetched once per conversion
- * id; null while loading or when there is no run. Errors resolve to an
- * empty map — the panels degrade to "no playable output" notes. */
+ * id; null while loading, when there is no run, or when the run is
+ * payment-locked (the gateway would 402 — don't even ask). Other errors
+ * resolve to an empty map — the panels degrade to "no playable output"
+ * notes. */
 export function useRunDownloads(
   conversion: Conversion | undefined,
 ): Record<string, string> | null {
   const client = useGateway();
-  const id = conversion?.conversion_id ?? null;
+  const id =
+    conversion !== undefined && !paymentLocked(conversion)
+      ? conversion.conversion_id
+      : null;
   const [fetched, setFetched] = useState<{
     id: string;
     downloads: Record<string, string>;

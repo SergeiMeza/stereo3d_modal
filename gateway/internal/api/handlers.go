@@ -439,6 +439,10 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("conversion has no outputs yet"))
 		return
 	}
+	if gateErr := downloadPaymentGate(conv); gateErr != nil {
+		httpx.WriteErr(ctx, w, gateErr)
+		return
+	}
 	urls := map[string]string{}
 	for name, key := range conv.Outputs {
 		u, err := s.GCS.SignedGetURL(key, downloadTTL)
@@ -452,6 +456,24 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		"downloads":  urls,
 		"expires_in": int(downloadTTL.Seconds()),
 	})
+}
+
+// downloadPaymentGate blocks output downloads for a conversion whose
+// automatic charge FAILED (pi_status charge_failed): the work succeeded but
+// the money never arrived, so the deliverables stay locked until
+// POST /v1/billing/settle clears the debt. Deliberately narrow — the
+// normal post-success states (capture_pending while the reconciler captures
+// a hold, charge_pending while a charge is in flight, succeeded) and
+// legacy/free conversions with no payment intent all pass, so downloads
+// never flicker locked during ordinary settlement. Same 402 machine code
+// the create path uses (billing_overdue), so the web client routes to the
+// existing settle flow.
+func downloadPaymentGate(conv *store.Conversion) *httpx.APIError {
+	if conv.Stripe.PIStatus == store.PIChargeFailed || conv.Stripe.PIStatus == store.PICaptureFailed {
+		return httpx.Err(http.StatusPaymentRequired, "billing_overdue",
+			"the payment for this conversion failed — settle your balance before downloading")
+	}
+	return nil
 }
 
 // cancelWindow: a job may only be canceled within this long of its Modal

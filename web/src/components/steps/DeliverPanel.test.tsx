@@ -333,6 +333,33 @@ describe("DeliverPanel controls", () => {
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×0.5");
   });
 
+  it("a payment-locked run shows the settle notice and never mounts its output", async () => {
+    const project = fixtureProject();
+    const prior: Conversion = {
+      conversion_id: "lockedprod01",
+      state: "succeeded",
+      kind: "video",
+      project_id: project.project_id,
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 500, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs"],
+      billing: { status: "charge_failed" },
+      created_at: "2026-09-01T00:00:00Z",
+      updated_at: "2026-09-01T00:01:00Z",
+    };
+    mockDb.conversions.set(prior.conversion_id, structuredClone(prior));
+    project.conversions = [prior];
+    renderPanel(project);
+
+    expect(screen.getByTestId("payment-locked-notice").textContent).toContain(
+      "settle your balance",
+    );
+    // the hook never fetches (the gateway would 402) → no follower video
+    expect(screen.queryByTestId("deliver-output-video")).toBeNull();
+  });
+
   it("shows the reuse discount and drops it when re-quoted from scratch", async () => {
     const user = userEvent.setup();
     const project = fixtureProject();

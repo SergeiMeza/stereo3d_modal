@@ -1126,6 +1126,15 @@ export const handlers = [
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "conversion not found");
     if (c.state !== "succeeded") return err(409, "conflict", "conversion has no outputs yet");
+    // payment-locked (mirrors the gateway's downloadPaymentGate): a failed
+    // automatic charge keeps the deliverables locked until settle
+    if (c.billing?.status === "charge_failed") {
+      return err(
+        402,
+        "billing_overdue",
+        "the payment for this conversion failed — settle your balance before downloading",
+      );
+    }
     // REAL published outputs from the captured draft job — the preview
     // players render the actual anaglyph/depth of the sample video.
     const real = downloadsFixture.downloads as Record<string, string>;
