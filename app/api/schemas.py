@@ -78,7 +78,8 @@ class ImageItem(TypedDict, total=False):
     input_path: str  # required
     displacement: float  # default 0.01
     stereo_mode: StereoMode  # default "both"
-    warp: WarpMethod  # default "forward" (splat + LAMA); "backward" skips LAMA
+    warp: WarpMethod  # default "forward" (splat + fill); "backward" skips the fill
+    inpaint: Literal["lama", "migan", "none"]  # forward-warp fill model (default lama)
     formats: list[ImageFormat]  # default ["lr"]
     output_depthmap: bool  # default True
     remove_black_bars: bool  # default True

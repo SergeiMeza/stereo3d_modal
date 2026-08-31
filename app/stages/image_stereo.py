@@ -6,10 +6,15 @@ inpainting, output composition — since each step is fast and shipping
 tensors between containers would dominate runtime.
 
 Warp methods (per-item ``warp``):
-- "forward"  — DepthSplatter scatter + LAMA fill of the disocclusion
-  holes (default, highest quality).
+- "forward"  — DepthSplatter scatter + a fill of the disocclusion holes
+  (default, highest quality).
 - "backward" — BackwardWarpStereo gather (app-parity kernel). No holes,
-  so LAMA never runs; depth edges stretch instead of being filled.
+  so no fill runs; depth edges stretch instead of being filled.
+
+Fill models (per-item ``inpaint``, forward warp only):
+- "lama"  — the traced LAMA fill (default, today's behavior).
+- "migan" — per-still MI-GAN (migan_runner) — matches the mobile app's
+  on-device inpainter, so cloud and local stills agree.
 """
 
 import time
@@ -51,6 +56,7 @@ with image_stereo_image.imports():
     from app.common.weights import ensure_depth_anything_v2, ensure_lama
     from app.stages import stereo_formats
     from app.stages.gather import BackwardWarpStereo
+    from app.stages.migan_runner import MiganInpainter
     from app.stages.splat import BOTH, LEFT, RIGHT, DepthSplatter
 
 # torch-free: the web/coordinator containers import this module too (the
@@ -85,6 +91,7 @@ class ImageStereoWorker:
         )
         self.splatter = DepthSplatter().eval()
         self.gatherer = BackwardWarpStereo().eval()
+        self.migan = None  # lazy: loads on the first migan item (30 MB)
         logger.info(f"🚀 image worker ready in {time.perf_counter() - start:.1f}s")
 
     @modal.method()
@@ -121,6 +128,13 @@ class ImageStereoWorker:
             raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
         warp = item.get("warp", WARP_FORWARD)
         validate_warp(warp)
+        inpaint = item.get("inpaint", "lama")
+        if inpaint not in ("lama", "migan", "none"):
+            raise ValueError(f"unknown image inpaint mode: {inpaint!r}")
+        if warp == WARP_BACKWARD and inpaint not in ("lama", "none"):
+            # "lama" is just the unsent default; an EXPLICIT model with a
+            # gather warp is the same contradiction the video path rejects
+            raise ValueError("warp='backward' produces no holes to fill — omit inpaint")
         formats = item.get("formats", ["lr"])
         unknown = set(formats) - set(stereo_formats.FORMATS)
         if unknown:
@@ -137,7 +151,7 @@ class ImageStereoWorker:
             depth = self._estimate_depth(frame)
             track("depth_normalized", depth, logger)
 
-            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode, warp)
+            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode, warp, inpaint)
 
             out_dir = job_output_dir(job_id)
             outputs: dict[str, str] = {}
@@ -218,14 +232,17 @@ class ImageStereoWorker:
         depth = post(depth).unsqueeze(1).float()
         return (depth - depth.min()) / (depth.max() - depth.min() + 1e-8)
 
-    def _stereo_pair(self, frame, depth, displacement: float, stereo_mode: str, warp: str = WARP_FORWARD):
-        """Warp (+ LAMA-inpaint for the forward warp). Returns (left, right)
+    def _stereo_pair(self, frame, depth, displacement: float, stereo_mode: str,
+                     warp: str = WARP_FORWARD, inpaint: str = "lama"):
+        """Warp (+ a hole fill for the forward warp). Returns (left, right)
         uint8 (1,3,H,W).
 
-        warp="forward": splat, then fill each eye's occlusion mask.
-        warp="backward": gather — the masks come back None (a gather
-        has no holes), so LAMA is skipped entirely, never run over an
-        all-zero mask."""
+        warp="forward": splat, then fill each eye's occlusion mask with
+        LAMA (default) or MI-GAN (``inpaint="migan"`` — the mobile app's
+        on-device model, loaded lazily on first use).
+        warp="backward": gather — the masks come back None (a gather has
+        no holes), so no fill ever runs, never even over an all-zero
+        mask."""
         warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
         warp_left, warp_right, left_occ, right_occ = warper(
             image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
@@ -233,6 +250,13 @@ class ImageStereoWorker:
 
         def finish(image, occlusion):
             if occlusion is None:  # no disocclusion → nothing to inpaint
+                return (image * 255).clamp(0, 255).to(torch.uint8)
+            if inpaint == "migan":
+                if self.migan is None:
+                    self.migan = MiganInpainter()
+                    logger.info("🎨 MI-GAN inpainter loaded")
+                return self.migan.fill(image, occlusion)
+            if inpaint == "none":  # raw splat, holes left as-is
                 return (image * 255).clamp(0, 255).to(torch.uint8)
             return self._inpaint(image, occlusion)
 

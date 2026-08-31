@@ -1104,13 +1104,25 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	conv.Quote = *quote
 
+	s.finalizeAutoBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
+}
+
+// finalizeAutoBilled runs the SHARED tail of every auto-billed conversion
+// create (pro steps AND the mobile one-shot flow): the threshold hybrid —
+// an off-session hold (with its 3DS/decline branches) for quotes at or
+// above holdThresholdCents, plain charge-on-success mode below — then the
+// record write and the inline Modal submit. Writes the HTTP response on
+// every path. “restore“ undoes any resource consumed before billing
+// (the pro flow's analyze credit; a no-op for the one-shot flow).
+func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
+	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func()) {
 	// Threshold hybrid: expensive runs get an off-session hold up front (the
 	// bank re-approves the money BEFORE GPU spend; capture on success), cheap
 	// runs skip the hold and charge the saved card on success.
-	if quote.AmountCents >= holdThresholdCents {
+	if conv.Quote.AmountCents >= holdThresholdCents {
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
 		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
-			quote.AmountCents, quote.Currency, stripex.Job{
+			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
 				ConversionID: conv.ID,
 				UID:          user.UID,
 				Description:  jobDescription(conv),
@@ -1130,7 +1142,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 				}
 				if err := s.Store.CreateConversion(ctx, conv); err != nil {
 					_ = s.Stripe.CancelHold(fail.PaymentIntentID)
-					s.restoreCredit(ctx, conv)
+					restore()
 					httpx.WriteErr(ctx, w, err)
 					return
 				}
@@ -1139,7 +1151,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 				httpx.WriteOK(w, s.conversionResponse(conv, nil))
 				return
 			}
-			s.restoreCredit(ctx, conv)
+			restore()
 			if fail.Transient {
 				httpx.Log(ctx).Error("stripe hold failed", "conversion_id", conv.ID, "err", herr)
 				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error",
@@ -1174,7 +1186,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		if conv.Stripe.PaymentIntentID != "" {
 			_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
 		}
-		s.restoreCredit(ctx, conv)
+		restore()
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -1191,6 +1203,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		conv = fresh // reflect processing state in the response
 	}
 	httpx.WriteOK(w, s.conversionResponse(conv, nil))
+
 }
 
 // ---------------------------------------------------------------- helpers

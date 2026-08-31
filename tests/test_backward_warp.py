@@ -339,3 +339,15 @@ def test_migan_tiling_roundtrip():
     assert torch.equal(t[0], x[0, :, :512, :512])
     assert torch.equal(t[3], x[0, :, 512:, 512:])
     assert torch.equal(_untile(t, 3), x)
+
+
+def test_da2_depth_model_registry():
+    # depth_model="da2": per-frame relative DA2 for mobile/local parity.
+    # It is the one model whose raw output is DISPARITY — listed so the
+    # frame-depth worker skips the 1/depth inversion (a wrong entry here
+    # ships plausible-looking inverted stereo).
+    from app.stages.video_depth_models import DEPTH_MODELS, DISPARITY_MODELS, METRIC_MODELS
+    assert "da2" in DEPTH_MODELS
+    assert "da2" in DISPARITY_MODELS
+    assert "da2" not in METRIC_MODELS
+    assert set(DISPARITY_MODELS) <= set(DEPTH_MODELS)

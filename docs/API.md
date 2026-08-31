@@ -104,7 +104,7 @@ Only `input_path` is required. Everything else defaults as below.
 
 | Param | Type | Default | Description |
 |---|---|---|---|
-| `depth_model` | string | `"vda"` | `vda` \| `da3` \| `da3-metric` \| `depth-pro`. `vda` is the temporally-stable video model; the others run per-frame on a single L40S (no fan-out; metric models need one job-wide normalization pass). `depth-pro` (R&D, apple-amlr weights) additionally reports per-scene mean `fov_deg` in metadata |
+| `depth_model` | string | `"vda"` | `vda` (temporal, the web default) \| `da2` (per-frame relative Depth-Anything-V2-Large — matches the mobile app's on-device model; outputs disparity natively) \| `da3` \| `da3-metric` \| `depth-pro`. `vda` is the temporally-stable video model; the others run per-frame on a single L40S (no fan-out; metric models need one job-wide normalization pass). `depth-pro` (R&D, apple-amlr weights) additionally reports per-scene mean `fov_deg` in metadata |
 | `depth_res` | int | `980` | depth inference resolution (short side). Multiple of 14 in **[140, 2520]**. Client-facing alias of `input_size` — sets it only when `input_size` is absent, and resolves **before** the preset merge, so an explicit `depth_res` overrides a preset's depth resolution (an explicit `input_size` still wins over both). The real VRAM guard is the working-megapixel GPU router (below) |
 | `input_size` | int | `980` | internal name for `depth_res`; same ×14 / [140, 2520] rule |
 | `encoder` | string | `"vitl"` | `vitl` \| `vits` — VDA backbone (vda only) |
@@ -298,6 +298,7 @@ per-item values win):
 | `item_id` | string | filename stem | must be unique across the batch (400 on duplicates) |
 | `displacement` | float | `0.01` | max disparity as fraction of width |
 | `stereo_mode` | string | `"both"` | `both` \| `left` \| `right` |
+| `inpaint` | string | `"lama"` | forward-warp fill model: `lama` \| `migan` (per-still MI-GAN — the mobile app's on-device inpainter) \| `none` (raw splat, holes left) |
 | `warp` | string | `"forward"` | `forward` (splat + LAMA fill of the holes) \| `backward` (gather warp, app-parity kernel; LAMA never runs) |
 | `formats` | list | `["lr"]` | any of `lr`, `tb`, `half_lr`, `half_tb`, `anaglyph` (unknown names fail the item) |
 | `output_depthmap` | bool | `true` | also publish the depth map |

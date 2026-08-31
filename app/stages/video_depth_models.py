@@ -77,8 +77,13 @@ FRAME_DEPTH_GPU = "L40S"
 # exposed in the API; DA2-metric variants stay dormant (indoor/outdoor
 # checkpoint split makes them operationally clumsy — user decision) but
 # the loader still understands them for experiments
-DEPTH_MODELS = ("da3", "da3-metric", "depth-pro")
+DEPTH_MODELS = ("da2", "da3", "da3-metric", "depth-pro")
 METRIC_MODELS = ("da2-metric-indoor", "da2-metric-outdoor", "da3-metric", "depth-pro")
+# Models whose raw output is already DISPARITY (near = large): the
+# normalization must NOT take the reciprocal. Relative DA2 predicts
+# disparity; DA3 predicts relative depth; metric models predict depth.
+# Getting this wrong produces plausible-looking INVERTED stereo.
+DISPARITY_MODELS = ("da2",)
 # Adaptive profiling backends exposed via the "profiler" request field
 # (api/main.py validates; both metric): "da3-metric" is the default,
 # "depth-pro" (v3) profiles in true meters and adds the FOV modifier.
@@ -879,7 +884,7 @@ with depth_models_image.imports():
     import torchvision.transforms.v2 as v2
     from torchcodec.decoders import VideoDecoder
 
-    from app.common.weights import ensure_da2_metric, ensure_da3, ensure_depth_pro
+    from app.common.weights import ensure_da2, ensure_da2_metric, ensure_da3, ensure_depth_pro
 
 
 def _gray16_video_writer(h: int, w: int, fps, file: str | Path):
@@ -957,6 +962,16 @@ def _resize_shape(source_shape: tuple[int, int], input_size: int) -> tuple[int, 
 def _build_model(model_name: str):
     """Construct and return the depth model for ``model_name`` on cuda
     (eval mode). Shared by both worker classes' @modal.enter load()."""
+    if model_name == "da2":
+        from transformers import DepthAnythingForDepthEstimation
+
+        # relative DA2-Large — the mobile app's on-device model; output is
+        # relative disparity (see DISPARITY_MODELS)
+        return (
+            DepthAnythingForDepthEstimation.from_pretrained(str(ensure_da2()))
+            .to("cuda")
+            .eval()
+        )
     if model_name.startswith("da2-metric"):
         from transformers import DepthAnythingForDepthEstimation
 
@@ -993,7 +1008,7 @@ def _make_infer(model, model_name: str, source_shape: tuple[int, int], input_siz
     depth`` function for this call's video geometry. ``fov_samples`` is
     the list the depth-pro path appends one horizontal-FOV value per
     frame to (callers reset it per scene). Shared by both classes."""
-    if model_name.startswith("da2-metric"):
+    if model_name == "da2" or model_name.startswith("da2-metric"):
         resize_shape = _resize_shape(source_shape, input_size)
         # Official DA2 preprocessing: aspect-preserving resize to
         # multiples of 14 + ImageNet stats, no padding (≤7 px of
@@ -1169,9 +1184,13 @@ class FrameDepthWorker:
             jlog_cuts = [first for first, _ in ranges[1:]]
             logger.info(f"🔪 {len(ranges)} scene(s), cuts at {jlog_cuts or 'none'}")
 
+            # DISPARITY_MODELS (relative DA2) already output disparity —
+            # everything else outputs depth and gets inverted
+            invert = self.model_name not in DISPARITY_MODELS
             disp_range: tuple[float, float] | None = None
             if self.metric:
-                disp_range = self._estimate_disparity_range(decoder, total_frames, batch_size, infer)
+                disp_range = self._estimate_disparity_range(
+                    decoder, total_frames, batch_size, infer, invert=invert)
                 logger.info(f"📏 job-wide disparity range (p1, p99) = {disp_range}")
 
             seg_dir = Path(f"{out}.segments")
@@ -1203,6 +1222,7 @@ class FrameDepthWorker:
                         decoder, first, last, batch_size, infer,
                         on_batch=lambda done, base=num_frames: on_progress(base + done, total_frames),
                         align_frames=(disp_range is None),  # relative models only
+                        invert=invert,
                     )
                     if collect_fov:
                         fov = (
@@ -1271,10 +1291,15 @@ class FrameDepthWorker:
 
     def _scene_disparity(
         self, decoder, first: int, last: int, batch_size: int, infer, on_batch,
-        align_frames: bool = False,
+        align_frames: bool = False, invert: bool = True,
     ) -> "torch.Tensor":
-        """Raw disparity 1/depth (N, h, w) float16 on CPU for one scene.
+        """Raw disparity (N, h, w) float16 on CPU for one scene.
         on_batch(done_in_scene) fires per inference batch.
+
+        invert: True when the model outputs DEPTH (disparity = 1/depth,
+        the historical behavior); False for DISPARITY_MODELS (relative
+        DA2), whose raw output already IS disparity — inverting it would
+        flip near and far into plausible-looking inverted stereo.
 
         align_frames (relative models): each frame's disparity is
         affinely aligned (scale+shift least squares, VDA-style) to the
@@ -1288,7 +1313,10 @@ class FrameDepthWorker:
         for b0 in range(first, last, batch_size):
             b1 = min(b0 + batch_size, last)
             depth = infer(decoder[b0:b1])
-            disp = depth.clamp(min=DEPTH_EPS).reciprocal().float()
+            if invert:
+                disp = depth.clamp(min=DEPTH_EPS).reciprocal().float()
+            else:  # already disparity — just floor it for the affine fits
+                disp = depth.clamp(min=0.0).float()
             if align_frames:
                 # Anchor every frame to the scene's FIRST frame: chaining
                 # frame->previous compounds scale errors multiplicatively
@@ -1327,7 +1355,8 @@ class FrameDepthWorker:
         lo, hi = torch.quantile(flat, torch.tensor([0.005, 0.995])).tolist()
         return ((disp - lo) / (hi - lo + 1e-8)).clamp(0.0, 1.0)
 
-    def _estimate_disparity_range(self, decoder, total_frames: int, batch_size: int, infer) -> tuple[float, float]:
+    def _estimate_disparity_range(self, decoder, total_frames: int, batch_size: int, infer,
+                                  invert: bool = True) -> tuple[float, float]:
         """Quick first pass for metric models: p1/p99 of disparity over
         ~RANGE_SAMPLE_FRAMES frames sampled uniformly across the video,
         so one affine mapping holds for the whole job."""
@@ -1337,7 +1366,8 @@ class FrameDepthWorker:
         for b0 in range(0, len(indices), batch_size):
             batch = indices[b0 : b0 + batch_size]
             frames = torch.stack([decoder[i] for i in batch])
-            disp = infer(frames).clamp(min=DEPTH_EPS).reciprocal()
+            raw = infer(frames)
+            disp = raw.clamp(min=DEPTH_EPS).reciprocal() if invert else raw.clamp(min=0.0)
             # subsample pixels: torch.quantile is capped at ~16M elements
             flat = disp.flatten()
             samples.append(flat[:: max(1, flat.numel() // 500_000)])

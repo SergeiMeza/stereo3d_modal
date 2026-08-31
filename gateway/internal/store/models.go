@@ -90,6 +90,12 @@ type Params struct {
 	FromFrame    int      `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
 	ToFrame      int      `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
 	Inpaint      string   `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
+	// DepthModel: video depth backend ("" = pipeline default vda).
+	// Mobile exposes "da2" (per-frame relative DA2 — matches the app's
+	// on-device model); the pro web steps never set it.
+	DepthModel string `firestore:"depth_model,omitempty" json:"depth_model,omitempty"`
+	// StereoMode (images): which eye(s) are synthesized. "" = both.
+	StereoMode string `firestore:"stereo_mode,omitempty" json:"stereo_mode,omitempty"`
 	// Warp is the stereo synthesis method: "forward" (splat + occlusion
 	// masks, the only one an inpaint model can follow) or "backward"
 	// (gather warp — the mobile app's kernel; no holes, so inpaint is forced

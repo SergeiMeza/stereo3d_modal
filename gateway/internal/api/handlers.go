@@ -28,6 +28,16 @@ var (
 // beyond ~0.03 output is uncomfortable, not a user-facing knob worth exposing.
 const maxDisplacement = 0.03
 
+// §6 source rails (docs/MOBILE.md; published via GET /v1/limits): reject
+// only what genuinely breaks decode; oversized-but-decodable input is
+// downscaled by preprocess, over-fps input auto-decimated.
+const (
+	maxSourceWidth  = 7680
+	maxSourceHeight = 4320
+	maxSourceFPS    = 120
+	autoDecimateFPS = 60.0
+)
+
 // ------------------------------------------------------------- customers
 
 // ensureCustomerID returns the caller's Stripe customer id, creating the
@@ -149,11 +159,24 @@ type createConversionReq struct {
 	TargetFPS    float64  `json:"target_fps"`
 	// Frame-exact half-open trim [from_frame, to_frame) — the API takes
 	// frames, never seconds (frame doctrine, web/DESIGN.md).
-	FromFrame  int    `json:"from_frame"`
-	ToFrame    int    `json:"to_frame"`
+	FromFrame int `json:"from_frame"`
+	ToFrame   int `json:"to_frame"`
+	// Mobile contract (docs/MOBILE.md). Video: depth_model vda|da2,
+	// warp, inpaint (none|migan|propainter), depth_res. Images: warp,
+	// inpaint (lama|migan), stereo_mode.
+	DepthModel string `json:"depth_model"`
+	Warp       string `json:"warp"`
+	Inpaint    string `json:"inpaint"`
+	StereoMode string `json:"stereo_mode"`
+	DepthRes   int    `json:"depth_res"`
 	AppVersion string `json:"app_version"`
 	Platform   string `json:"platform"`
 }
+
+var allowedDepthModels = []string{"vda", "da2"} // da3/depth-pro stay R&D-only
+var allowedVideoInpaint = []string{"none", "migan", "propainter"}
+var allowedImageInpaint = []string{"lama", "migan"}
+var allowedStereoModes = []string{"both", "left", "right"}
 
 // validate clamps and whitelists — anything not validated here never reaches
 // Modal (see modalBody).
@@ -194,6 +217,42 @@ func (req *createConversionReq) validate() error {
 	}
 	if req.FromFrame < 0 || req.ToFrame < 0 || (req.ToFrame > 0 && req.ToFrame <= req.FromFrame) {
 		return httpx.ErrInvalid("invalid trim range: need 0 <= from_frame < to_frame")
+	}
+	if req.Warp != "" && !slices.Contains(allowedWarp, req.Warp) {
+		return httpx.ErrInvalid("warp must be forward|backward")
+	}
+	if req.StereoMode != "" && !slices.Contains(allowedStereoModes, req.StereoMode) {
+		return httpx.ErrInvalid("stereo_mode must be both|left|right")
+	}
+	if req.Kind == "video" {
+		if req.DepthModel != "" && !slices.Contains(allowedDepthModels, req.DepthModel) {
+			return httpx.ErrInvalid("depth_model must be vda|da2")
+		}
+		if req.Inpaint != "" && !slices.Contains(allowedVideoInpaint, req.Inpaint) {
+			return httpx.ErrInvalid("inpaint must be none|migan|propainter")
+		}
+		if req.Warp == "backward" {
+			if req.Inpaint != "" && req.Inpaint != "none" {
+				return httpx.ErrInvalid("warp backward cannot be combined with inpaint " + req.Inpaint + " (a gather warp has no gaps to fill)")
+			}
+			req.Inpaint = "none"
+		}
+		if req.DepthRes != 0 && (req.DepthRes < minDepthRes || req.DepthRes > maxDepthRes || req.DepthRes%14 != 0) {
+			return httpx.ErrInvalid("depth_res must be a multiple of 14 in [140, 2520]")
+		}
+		if req.StereoMode != "" {
+			return httpx.ErrInvalid("stereo_mode applies to image conversions only")
+		}
+	} else { // image
+		if req.DepthModel != "" || req.DepthRes != 0 {
+			return httpx.ErrInvalid("depth_model/depth_res apply to video conversions only")
+		}
+		if req.Inpaint != "" && !slices.Contains(allowedImageInpaint, req.Inpaint) {
+			return httpx.ErrInvalid("image inpaint must be lama|migan")
+		}
+		if req.Warp == "backward" && req.Inpaint != "" {
+			return httpx.ErrInvalid("warp backward cannot be combined with an inpaint model (a gather warp has no gaps to fill)")
+		}
 	}
 	return nil
 }
@@ -275,6 +334,21 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			httpx.WriteErr(ctx, w, httpx.ErrInvalid("video exceeds the maximum supported duration"))
 			return
 		}
+		// §6 rails (docs/MOBILE.md): normalize, don't reject — the pipeline
+		// downscales to the preset anyway. Hard limits only where decode
+		// genuinely breaks; >60 fps auto-decimates unless the client asked
+		// for a rate (reported back via params.target_fps).
+		if media.Width > maxSourceWidth || media.Height > maxSourceHeight {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("video resolution exceeds the 8K maximum"))
+			return
+		}
+		if media.FPS > maxSourceFPS {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("frame rate exceeds the 120 fps maximum"))
+			return
+		}
+		if req.TargetFPS == 0 && media.FPS > autoDecimateFPS {
+			req.TargetFPS = media.FPS / 2
+		}
 		src.DurationS, src.Frames, src.FPS = media.DurationS, media.Frames, media.FPS
 		src.Width, src.Height = media.Width, media.Height
 
@@ -286,6 +360,7 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		q, err := s.Pricing.QuoteVideo(ctx, pricing.VideoInputs{
 			Preset: req.Preset, BillableS: billable,
 			Width: media.Width, Height: media.Height, FPS: media.FPS,
+			Inpaint: req.Inpaint,
 		})
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
@@ -326,16 +401,58 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		Params: store.Params{
 			Preset: req.Preset, Formats: req.Formats, Displacement: req.Displacement,
 			TargetFPS: req.TargetFPS, FromFrame: req.FromFrame, ToFrame: req.ToFrame,
+			DepthModel: req.DepthModel, Warp: req.Warp, Inpaint: req.Inpaint,
+			StereoMode: req.StereoMode, DepthRes: req.DepthRes,
 		},
 		Quote:   *quote,
 		IdemKey: idemKey,
 	}
-	sheet, err := s.createPaidConversion(ctx, user, conv)
-	if err != nil {
-		httpx.WriteErr(ctx, w, err)
+
+	// Free-stills tier (docs/MOBILE.md §3): stills within the per-user
+	// daily allowance are free — no card needed, no Stripe object. The
+	// quota slot is consumed here and never refunded.
+	if conv.Kind == "image" && quote.AmountCents > 0 {
+		if _, free, qerr := s.Store.ConsumeDailyImageQuota(ctx, user.UID, rates.FreeImagesPerDay); qerr != nil {
+			httpx.WriteErr(ctx, w, qerr)
+			return
+		} else if free {
+			conv.Quote.AmountCents = 0
+			if conv.Quote.Breakdown == nil {
+				conv.Quote.Breakdown = map[string]any{}
+			}
+			conv.Quote.Breakdown["free_daily_image"] = true
+		}
+	}
+
+	if conv.Quote.AmountCents == 0 {
+		// Nothing to bill: enters at "paid" with no Stripe state at all.
+		conv.State = store.StatePaid
+		if err := s.Store.CreateConversion(ctx, conv); err != nil {
+			httpx.WriteErr(ctx, w, err)
+			return
+		}
+		httpx.Log(ctx).Info("conversion created (free)",
+			"conversion_id", conv.ID, "uid", user.UID, "kind", conv.Kind)
+		if serr := s.submitToModal(ctx, conv.ID); serr != nil {
+			httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
+				"conversion_id", conv.ID, "err", serr)
+		} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {
+			conv = fresh
+		}
+		httpx.WriteOK(w, s.conversionResponse(conv, nil))
 		return
 	}
-	httpx.WriteOK(w, s.conversionResponse(conv, sheet))
+
+	// Paid: the same auto-billing flow as the pro steps — saved card
+	// required, threshold hybrid (hold ≥ $100, else charge on success).
+	// No PaymentSheet in the response; a 402 routes the client to the
+	// SetupIntent onboarding / settle flows.
+	cust, berr := s.requireBillable(ctx, user)
+	if berr != nil {
+		httpx.WriteErr(ctx, w, berr)
+		return
+	}
+	s.finalizeAutoBilled(ctx, w, user, cust, conv, func() {})
 }
 
 // billableSeconds derives the priced duration from frame-exact trim.
@@ -393,6 +510,76 @@ func (s *Service) createPaidConversion(ctx context.Context, user *AuthedUser, co
 		"step", conv.Step, "project_id", conv.ProjectID,
 		"amount_cents", conv.Quote.AmountCents, "payment_intent", sheet.PaymentIntentID)
 	return sheet, nil
+}
+
+// GET /v1/limits — everything a client needs BEFORE uploading anything:
+// hard limits, the user's current usage/allowances, billing standing, and
+// the rate card for a clearly-labeled local estimate (docs/MOBILE.md §5).
+// The authoritative quote is still the server's at submit time.
+func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	rates := s.Pricing.Rates(ctx)
+
+	active, err := s.Store.CountActiveForUser(ctx, user.UID)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	freeImages, err := s.Store.RemainingDailyImageQuota(ctx, user.UID, rates.FreeImagesPerDay)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	hasCard, delinquent := false, false
+	var unpaidCents int64
+	if cust, cerr := s.Store.GetCustomer(ctx, user.UID); cerr == nil {
+		hasCard = cust.DefaultPaymentMethod != ""
+	}
+	if unpaid, uerr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit); uerr == nil {
+		delinquent = len(unpaid) > 0
+		for _, c := range unpaid {
+			unpaidCents += c.Quote.AmountCents
+		}
+	}
+
+	httpx.WriteOK(w, map[string]any{
+		"limits": map[string]any{
+			"max_duration_s":      rates.MaxDurationS,
+			"max_source_bytes":    rates.MaxSourceBytes,
+			"max_active_per_user": rates.MaxActivePerUser,
+			"max_width":           maxSourceWidth,
+			"max_height":          maxSourceHeight,
+			"max_fps":             maxSourceFPS,
+			// above the preset's output height we downscale rather than
+			// reject; above 60 fps we decimate unless target_fps is given
+			"normalize_height":  2160,
+			"auto_decimate_fps": autoDecimateFPS,
+		},
+		"usage": map[string]any{
+			"active_conversions":    active,
+			"free_images_remaining": freeImages,
+		},
+		"billing": map[string]any{
+			"has_payment_method": hasCard,
+			"delinquent":         delinquent,
+			"unpaid_cents":       unpaidCents,
+		},
+		"rates": map[string]any{
+			"rate_version":                     rates.RateVersion,
+			"currency":                         rates.Currency,
+			"cents_per_minute":                 rates.CentsPerMinute,
+			"image_cents":                      rates.ImageCents,
+			"free_images_per_day":              rates.FreeImagesPerDay,
+			"minimum_cents":                    rates.MinimumCents,
+			"cost_margin_multiplier":           rates.CostMarginMultiplier,
+			"discount_threshold_cents":         rates.DiscountThresholdCents,
+			"discount_pct":                     rates.DiscountPct,
+			"inpaint_multiplier":               rates.InpaintMultiplier,
+			"migan_production_multiplier":      rates.MiganProductionMultiplier,
+			"production_no_inpaint_multiplier": rates.ProductionNoInpaintMultiplier,
+			"hold_threshold_cents":             holdThresholdCents,
+		},
+	})
 }
 
 // GET /v1/conversions/{id}

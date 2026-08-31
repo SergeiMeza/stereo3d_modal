@@ -105,8 +105,20 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	}
 	if c.Kind == "image" {
 		body["formats"] = []string{"lr"}
+		if len(c.Params.Formats) > 0 {
+			body["formats"] = c.Params.Formats
+		}
 		if c.Params.Displacement > 0 {
 			body["displacement"] = c.Params.Displacement
+		}
+		if c.Params.StereoMode != "" {
+			body["stereo_mode"] = c.Params.StereoMode
+		}
+		if c.Params.Warp != "" {
+			body["warp"] = c.Params.Warp
+		}
+		if c.Params.Inpaint != "" {
+			body["inpaint"] = c.Params.Inpaint
 		}
 		return body
 	}
@@ -144,6 +156,9 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 		body["scene_cuts"] = cuts
 	} else if len(c.Params.SceneCuts) > 0 {
 		body["scene_cuts"] = c.Params.SceneCuts
+	}
+	if c.Params.DepthModel != "" {
+		body["depth_model"] = c.Params.DepthModel
 	}
 	if c.Params.Inpaint != "" {
 		body["inpaint"] = c.Params.Inpaint

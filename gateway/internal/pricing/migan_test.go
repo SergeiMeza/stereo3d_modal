@@ -29,3 +29,18 @@ func TestQuoteStepMiganMultipliers(t *testing.T) {
 		t.Errorf("zeroed migan fields must fall back to 1.15 / 0.5")
 	}
 }
+
+// The legacy/mobile video quote prices cheap modes like production does.
+func TestQuoteVideoModeMultiplier(t *testing.T) {
+	s := stepSvc()
+	base, _ := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 60})
+	migan, _ := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 60, Inpaint: "migan"})
+	none, _ := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 60, Inpaint: "none"})
+	if !(none.AmountCents < migan.AmountCents && migan.AmountCents < base.AmountCents) {
+		t.Errorf("want none < migan < default, got %d / %d / %d",
+			none.AmountCents, migan.AmountCents, base.AmountCents)
+	}
+	if base.Breakdown["inpaint_multiplier"].(float64) != 1.0 {
+		t.Errorf("default video quote must be ×1.0, got %v", base.Breakdown["inpaint_multiplier"])
+	}
+}

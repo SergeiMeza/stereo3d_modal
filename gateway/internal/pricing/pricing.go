@@ -27,7 +27,11 @@ type Rates struct {
 	// Per-preset video COST (~1× billed), production + legacy mobile flow.
 	CentsPerMinute map[string]int64 `firestore:"cents_per_minute"`
 	ImageCents     int64            `firestore:"image_cents"`
-	MinimumCents   int64            `firestore:"minimum_cents"`
+	// FreeImagesPerDay: stills within this per-user daily allowance are
+	// free (mobile product decision, 2026-09-01); past it, ImageCents
+	// applies. 0 disables the free tier.
+	FreeImagesPerDay int   `firestore:"free_images_per_day"`
+	MinimumCents     int64 `firestore:"minimum_cents"`
 	// 10% off carts over $10, mirroring the old app.
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
@@ -145,6 +149,7 @@ func defaults() *Rates {
 			"draft": 120, "1080p": 150, "qhd": 210, "3k": 240, "4k": 300,
 		},
 		ImageCents:                 50,
+		FreeImagesPerDay:           100,
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,
 		DiscountPct:                0.10,
@@ -426,6 +431,10 @@ type VideoInputs struct {
 	BillableS     float64
 	Width, Height int
 	FPS           float64
+	// Inpaint mode ( = propainter-class, the rates' baseline). The
+	// one-shot mobile flow passes it so cheap modes (none/migan) price
+	// like production does.
+	Inpaint string
 }
 
 // QuoteVideo prices a legacy video conversion with the SAME physics as the
@@ -450,6 +459,13 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 		depthResFactor = depthFactor(rates, depthRes, in.Width, in.Height)
 		subtotal += int64(math.Round(float64(subtotal) * rates.StageShares["depth"] * (depthResFactor - 1)))
 	}
+	// mode multiplier: the legacy per-minute rates are production-class
+	// (ProPainter included), so cheap modes discount exactly like the pro
+	// production step (inpaintMultiplier)
+	modeMult := rates.inpaintMultiplier("production", in.Inpaint)
+	if modeMult != 1.0 {
+		subtotal = int64(math.Round(float64(subtotal) * modeMult))
+	}
 	discount := int64(0)
 	if subtotal > rates.DiscountThresholdCents {
 		discount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
@@ -463,8 +479,9 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
 		Breakdown: map[string]any{
-			"preset":           in.Preset,
-			"billable_seconds": math.Round(in.BillableS*100) / 100,
+			"inpaint_multiplier": modeMult,
+			"preset":             in.Preset,
+			"billable_seconds":   math.Round(in.BillableS*100) / 100,
 			// the PRICE rate (cost × margin) — what the rate hint shows
 			"cents_per_minute":       int64(math.Round(rateCents)),
 			"cost_margin_multiplier": rates.margin(),

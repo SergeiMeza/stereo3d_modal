@@ -17,6 +17,7 @@ import (
 // Collections are per-env so test and prod never mix.
 func conversionsCol(env string) string { return "conversions_" + env }
 func customersCol(env string) string   { return "customers_" + env }
+func imageQuotaCol(env string) string  { return "image_quota_" + env }
 
 var ErrNotFound = errors.New("not found")
 var ErrStateConflict = errors.New("state conflict")
@@ -195,6 +196,74 @@ func (s *Store) collect(iter *firestore.DocumentIterator) ([]*Conversion, error)
 		}
 		out = append(out, c)
 	}
+}
+
+// ConsumeDailyImageQuota transactionally increments the user's free-image
+// counter for the current UTC day and reports whether this conversion is
+// within the free allowance (cap). The counter is consumed at SUBMIT and
+// never refunded — a failed conversion still spent the quota slot, which
+// is the abuse-safe reading of "100 free stills per day". cap <= 0
+// disables the free tier (always returns free=false without writing).
+func (s *Store) ConsumeDailyImageQuota(ctx context.Context, uid string, cap int) (used int, free bool, err error) {
+	if cap <= 0 {
+		return 0, false, nil
+	}
+	day := time.Now().UTC().Format("2006-01-02")
+	ref := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid)
+	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		var rec struct {
+			Day   string `firestore:"day"`
+			Count int    `firestore:"count"`
+		}
+		snap, gerr := tx.Get(ref)
+		if gerr == nil {
+			if derr := snap.DataTo(&rec); derr != nil {
+				return derr
+			}
+		} else if status.Code(gerr) != codes.NotFound {
+			return gerr
+		}
+		if rec.Day != day { // new UTC day resets the counter
+			rec.Day, rec.Count = day, 0
+		}
+		free = rec.Count < cap
+		if free {
+			rec.Count++
+		}
+		used = rec.Count
+		return tx.Set(ref, map[string]any{"day": rec.Day, "count": rec.Count})
+	})
+	return used, free, err
+}
+
+// RemainingDailyImageQuota reads (without consuming) how many free stills
+// the user has left today. cap <= 0 → 0.
+func (s *Store) RemainingDailyImageQuota(ctx context.Context, uid string, cap int) (int, error) {
+	if cap <= 0 {
+		return 0, nil
+	}
+	day := time.Now().UTC().Format("2006-01-02")
+	snap, err := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return cap, nil
+		}
+		return 0, err
+	}
+	var rec struct {
+		Day   string `firestore:"day"`
+		Count int    `firestore:"count"`
+	}
+	if derr := snap.DataTo(&rec); derr != nil {
+		return 0, derr
+	}
+	if rec.Day != day {
+		return cap, nil
+	}
+	if rec.Count >= cap {
+		return 0, nil
+	}
+	return cap - rec.Count, nil
 }
 
 func (s *Store) CountActiveForUser(ctx context.Context, uid string) (int, error) {

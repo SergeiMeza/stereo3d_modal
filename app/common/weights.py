@@ -89,6 +89,20 @@ def _hf_snapshot(repo_id: str, subdir: str, allow_patterns: list[str] | None = N
     return dest
 
 
+def ensure_da2() -> Path:
+    """Depth-Anything-V2-Large RELATIVE checkpoint (transformers format)
+    for per-frame video depth (depth_model="da2" — the mobile app's
+    local model, exposed in the cloud so both agree). Outputs relative
+    DISPARITY (near = large), unlike the metric variants below and
+    unlike DA3's relative depth — the frame-depth worker must NOT
+    invert it. Same license caveat as ensure_da2_metric."""
+    return _hf_snapshot(
+        repo_id="depth-anything/Depth-Anything-V2-Large-hf",
+        subdir="da2_relative",
+        allow_patterns=["*.json", "*.safetensors"],
+    )
+
+
 def ensure_da2_metric(variant: str = "indoor") -> Path:
     """Depth-Anything-V2 metric checkpoint (transformers format).
 
