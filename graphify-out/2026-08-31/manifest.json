@@ -140,8 +140,8 @@
     "semantic_hash": "39ad0a6ac1a34c8b89bad18a3b9d2437"
   },
   "app/stages/image_stereo.py": {
-    "mtime": 1788172132.5499015,
-    "ast_hash": "8b465e0a3d11974f41de77760c50433c",
+    "mtime": 1788175934.0174084,
+    "ast_hash": "619511a4372f4903a46c9d3df27a60bd",
     "semantic_hash": ""
   },
   "app/stages/m2svid_runner.py": {
@@ -1595,14 +1595,14 @@
     "semantic_hash": "238bbc5b8b3e78e2f5ac9786ef22e5ff"
   },
   "gateway/DESIGN.md": {
-    "mtime": 1783039141.6170974,
-    "ast_hash": "631f027293d8a86b7044866f6808eb50",
-    "semantic_hash": "631f027293d8a86b7044866f6808eb50"
+    "mtime": 1788175094.9002936,
+    "ast_hash": "931c9a773fadf9695ca9f5330b7e7652",
+    "semantic_hash": ""
   },
   "gateway/README.md": {
-    "mtime": 1783060443.73047,
-    "ast_hash": "9133fcb68aeb885f2c4047bb7fce81b0",
-    "semantic_hash": "9133fcb68aeb885f2c4047bb7fce81b0"
+    "mtime": 1788175094.8999155,
+    "ast_hash": "7b3905e24311f224261b88218bfeca58",
+    "semantic_hash": ""
   },
   "web/.vercel/README.txt": {
     "mtime": 1782971357.8939703,
@@ -2357,6 +2357,11 @@
   "tests/test_backward_warp.py": {
     "mtime": 1788172344.4702983,
     "ast_hash": "d0da65c274889bd3c7080788a3c0b3ce",
+    "semantic_hash": ""
+  },
+  "tests/test_web_container_imports.py": {
+    "mtime": 1788175955.7504103,
+    "ast_hash": "19d76dcf8d9a151f5e59b2000609a626",
     "semantic_hash": ""
   }
 }
