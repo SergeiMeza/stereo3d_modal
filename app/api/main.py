@@ -34,6 +34,17 @@ def _require(body: dict, key: str) -> object:
     return value
 
 
+def _check_warp(warp: str, inpaint: str) -> None:
+    """400 on an unknown ``warp`` or on warp="backward" paired with any
+    inpainting model (a gather warp has no holes to fill)."""
+    from app.stages.warp_modes import validate_warp
+
+    try:
+        validate_warp(warp, inpaint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 # scene_overrides entry contract (POST /v1/videos). Frame doctrine
 # (web/DESIGN.md): "first" is a SOURCE-frame scene start — the user's exact
 # number, validated hard at submit time and never coerced downstream.
@@ -190,6 +201,7 @@ async def submit_video(body: dict) -> dict:
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
     if body.get("stereo_mode", "both") not in ("both", "left", "right"):
         raise HTTPException(status_code=400, detail="stereo_mode must be both|left|right")
+    _check_warp(body.get("warp", "forward"), inpaint)
     from app.stages.video_depth_models import DEPTH_MODELS, PROFILER_MODELS
 
     depth_model = body.get("depth_model", "vda")
@@ -517,6 +529,8 @@ async def stage_video_stereo(body: dict) -> dict:
     inpaint = body.get("inpaint", "propainter")
     if inpaint not in ("propainter", "none", "m2svid"):
         raise HTTPException(status_code=400, detail=f"invalid inpaint mode: {inpaint}")
+    warp = body.get("warp", "forward")
+    _check_warp(warp, inpaint)
 
     def spawn(job_id: str):
         if inpaint == "m2svid":
@@ -532,6 +546,7 @@ async def stage_video_stereo(body: dict) -> dict:
             depth_path=depth_path,
             displacement=float(body.get("displacement", 0.0125)),
             inpaint=inpaint,
+            warp=warp,
         )
 
     return _submit("stage:video-stereo", body, spawn)

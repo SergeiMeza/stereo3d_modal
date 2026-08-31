@@ -32,6 +32,12 @@ export type Format =
 
 export type Inpaint = "none" | "propainter";
 
+/** Stereo synthesis method. "forward" = splat with occlusion masks (the
+ * only method an inpaint pass can follow); "backward" = gather warp — the
+ * mobile app's kernel: no gaps open, so the gateway forces inpaint "none"
+ * and rejects an explicit "propainter" with it. */
+export type Warp = "forward" | "backward";
+
 /** Adaptive profiler shot classes (SHOT_PARAMS buckets). */
 export type ShotType = "close_up" | "standard" | "dynamic" | "wide";
 
@@ -176,6 +182,7 @@ export interface Params {
   from_frame?: number;
   to_frame?: number;
   inpaint?: Inpaint; // absent = pipeline default (propainter)
+  warp?: Warp; // absent = pipeline default (forward)
   depth_res?: number; // multiple of 14 in [140, 2520]
   /** bucket key of the user-uploaded depth map the run used (set when the
    * request carried use_uploaded_depth) */
@@ -387,6 +394,7 @@ export interface StepConversionRequest {
   use_uploaded_depth?: boolean;
   depth_scale?: number; // stereo_preview + production only; [0.3, 1.5]
   inpaint?: Inpaint; // stereo_preview (default none) + production (default propainter)
+  warp?: Warp; // stereo_preview + production; "backward" forces inpaint none
   scene_overrides?: SceneOverride[]; // stereo_preview + production only
   target_fps?: number; // capped at the source frame rate
   from_frame?: number; // half-open [from_frame, to_frame)

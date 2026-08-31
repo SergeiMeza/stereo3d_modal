@@ -326,6 +326,33 @@ func TestResolveInpaintValidation(t *testing.T) {
 	}
 }
 
+func TestResolveWarpValidation(t *testing.T) {
+	resolveErr(t, &stepConvReq{Step: store.StepStereoPreview, Warp: "gather"}, "warp must be")
+	resolveErr(t, &stepConvReq{Step: store.StepDepthPreview, Warp: "backward"}, "stereo_preview and production only")
+	// backward + an explicit inpaint model is a contradiction (no holes to fill)
+	resolveErr(t, &stepConvReq{Step: store.StepProduction, Warp: "backward", Inpaint: "propainter"}, "cannot be combined")
+	for _, step := range []string{store.StepStereoPreview, store.StepProduction} {
+		// forward keeps the step's inpaint default / explicit value
+		p := resolveOK(t, &stepConvReq{Step: step, Warp: "forward", Inpaint: "propainter"})
+		if p.Warp != "forward" || p.Inpaint != "propainter" {
+			t.Errorf("%s warp=forward: got warp=%s inpaint=%s", step, p.Warp, p.Inpaint)
+		}
+		// backward forces inpaint none — even on production, whose default
+		// is propainter — and accepts an explicit none
+		for _, inpaint := range []string{"", "none"} {
+			p = resolveOK(t, &stepConvReq{Step: step, Warp: "backward", Inpaint: inpaint})
+			if p.Warp != "backward" || p.Inpaint != "none" {
+				t.Errorf("%s warp=backward inpaint=%q: got warp=%s inpaint=%s", step, inpaint, p.Warp, p.Inpaint)
+			}
+		}
+	}
+	// absent warp: not stored (pipeline default), inpaint untouched
+	p := resolveOK(t, &stepConvReq{Step: store.StepProduction})
+	if p.Warp != "" || p.Inpaint != "propainter" {
+		t.Errorf("no warp: got warp=%q inpaint=%s", p.Warp, p.Inpaint)
+	}
+}
+
 func TestResolveDisplacementRejectedOnProSteps(t *testing.T) {
 	// Global displacement is the legacy mobile knob; pro steps use
 	// scene_overrides / depth_scale.

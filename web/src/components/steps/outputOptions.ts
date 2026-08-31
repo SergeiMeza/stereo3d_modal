@@ -7,7 +7,7 @@
  * do not add them back here.
  */
 
-import type { Format, Inpaint, Preset } from "@/lib/api/types";
+import type { Format, Inpaint, Preset, Warp } from "@/lib/api/types";
 
 /** Resolution presets (the resulting output resolution). depth_preview
  * ignores preset (always draft); Stereo and Deliver share this list. */
@@ -39,3 +39,28 @@ export const INPAINT_LABELS: Record<Inpaint, string> = {
   propainter: "Full quality",
   none: "Quick",
 };
+
+/** The Edge handling control's option order — the default first. */
+export const WARP_OPTIONS: readonly Warp[] = ["forward", "backward"];
+
+/** User-facing names for the API's warp methods. The wire values are
+ * renderer terms ("forward"/"backward" warp, "splat"/"gather") and never
+ * appear in copy. What they mean: shifting the frame for each eye opens
+ * thin gaps along object edges — "forward" leaves them for a fill pass
+ * to paint in (the default deliverable look); "backward" stretches the
+ * neighbouring pixels across them instead — the same method as the mobile
+ * app, one pass, no fill, so the run is quicker. */
+export const WARP_LABELS: Record<Warp, string> = {
+  forward: "Filled edges",
+  backward: "Stretched edges",
+};
+
+export const WARP_HINT =
+  "How the thin gaps that open along object edges are handled. Filled edges paints them in — the deliverable look, slower. Stretched edges pulls the neighbouring pixels across them, the same method as the mobile app: quicker, with no fill pass.";
+
+/** The inpaint value a warp choice implies. The gateway forces this
+ * pairing (backward ⇒ none) and rejects backward + propainter, so the
+ * UI never sends a contradiction. */
+export function inpaintForWarp(warp: Warp): Inpaint {
+  return warp === "backward" ? "none" : "propainter";
+}

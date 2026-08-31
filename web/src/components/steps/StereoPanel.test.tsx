@@ -241,6 +241,35 @@ describe("StereoPanel scene rows", () => {
 });
 
 describe("StereoPanel request building", () => {
+  it("Edge handling → Stretched edges sends warp backward WITH inpaint none; the default sends neither warp nor a model name in copy", async () => {
+    const bodies = captureQuoteBodies();
+    const user = userEvent.setup();
+    renderPanel(withProfile());
+
+    const select = screen.getByLabelText("Edge handling") as HTMLSelectElement;
+    // user-facing names only — never the renderer terms
+    expect(select.value).toBe("forward");
+    expect(select.selectedOptions[0].textContent).toBe("Filled edges");
+    expect(screen.queryByText(/backward|gather|splat/i)).toBeNull();
+
+    await user.selectOptions(select, "backward");
+    expect(select.selectedOptions[0].textContent).toBe("Stretched edges");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      step: "stereo_preview",
+      warp: "backward",
+      inpaint: "none", // a gather warp has no gaps to fill
+    });
+
+    // back to the default: warp absent, full-quality fill restored
+    await user.selectOptions(select, "forward");
+    await getQuote(user);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).not.toHaveProperty("warp");
+    expect(bodies[1]).toMatchObject({ inpaint: "propainter" });
+  });
+
   it("sends ONLY user-changed rows as scene_overrides — auto rows and top-level displacement are ABSENT", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();

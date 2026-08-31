@@ -308,6 +308,23 @@ function validateStepRequest(
   if (body.inpaint !== undefined && !["none", "propainter"].includes(body.inpaint as string)) {
     return err(400, "invalid_request", "inpaint must be none|propainter");
   }
+  if (body.warp !== undefined) {
+    if (!["forward", "backward"].includes(body.warp as string)) {
+      return err(400, "invalid_request", "warp must be forward|backward");
+    }
+    if (step === "depth_preview") {
+      return err(400, "invalid_request", "warp applies to stereo_preview and production only");
+    }
+    // mirrors the gateway: a gather warp has no gaps to fill, so an
+    // explicit inpaint model alongside it is a contradiction
+    if (body.warp === "backward" && body.inpaint !== undefined && body.inpaint !== "none") {
+      return err(
+        400,
+        "invalid_request",
+        `warp backward cannot be combined with inpaint ${body.inpaint} (a gather warp has no gaps to fill; use inpaint none)`,
+      );
+    }
+  }
   if (body.use_uploaded_depth === true) {
     if (step === "depth_preview") {
       return err(
@@ -424,8 +441,8 @@ function quoteFor(
   const depthShare = step === "depth_preview" ? 1 : RATES.stageShares.depth;
   let subtotal = Math.round(base * (1 + depthShare * (depthFactor - 1)));
   const inpaint =
-    step === "depth_preview" // depth_preview never inpaints
-      ? "none"
+    step === "depth_preview" || req.warp === "backward" // depth_preview never
+      ? "none" // inpaints; backward warp forces none (mirrors the gateway)
       : (req.inpaint ?? (step === "production" ? "propainter" : "none"));
   // production preset rates already include inpainting; stereo previews
   // price the optional ProPainter pass explicitly.
@@ -508,6 +525,7 @@ function quoteFor(
             (step === "production" ? ["mvhevc", "half_sbs"] : ["sbs"])),
       ...(step === "depth_preview" ? { depth_only: true } : {}),
       inpaint,
+      ...(req.warp !== undefined ? { warp: req.warp } : {}),
       // uploaded depth: no inference resolution, and the run is pinned to
       // the full source rate (target_fps absent) — mirrors the gateway
       ...(uploadedDepth ? { depth_source: "uploads/mock-depth.mp4" } : { depth_res: depthRes }),

@@ -118,6 +118,7 @@ Only `input_path` is required. Everything else defaults as below.
 | `work_height`, `work_width` | int | — | legacy explicit ProPainter working resolution; both must be set to take effect (overrides `inpaint_res`) |
 | `displacement` | float | `0.0125` | max disparity as fraction of width, **(0, 0.1]** |
 | `inpaint` | string | `"propainter"` | `propainter` (best) \| `none` (raw warp, fastest) \| `m2svid` (R&D diffusion fill on A100-80GB; runs at its fixed ~512 model tier — work res knobs don't apply) |
+| `warp` | string | `"forward"` | stereo synthesis method, orthogonal to `inpaint`. `forward` = scatter splat with occlusion masks (the only method an inpaint model can follow) \| `backward` = gather warp (same kernel as the iOS/macOS/visionOS app: one sampling pass, no holes, no inpainting, CPU-capable). `backward` **requires** `inpaint: "none"` — any other pairing is a 400 |
 | `preset` | string | — | resolution/quality bundle, see below. Explicit request fields always win over the preset |
 
 ### Presets
@@ -297,6 +298,7 @@ per-item values win):
 | `item_id` | string | filename stem | must be unique across the batch (400 on duplicates) |
 | `displacement` | float | `0.01` | max disparity as fraction of width |
 | `stereo_mode` | string | `"both"` | `both` \| `left` \| `right` |
+| `warp` | string | `"forward"` | `forward` (splat + LAMA fill of the holes) \| `backward` (gather warp, app-parity kernel; LAMA never runs) |
 | `formats` | list | `["lr"]` | any of `lr`, `tb`, `half_lr`, `half_tb`, `anaglyph` (unknown names fail the item) |
 | `output_depthmap` | bool | `true` | also publish the depth map |
 | `remove_black_bars` | bool | `true` | auto-crop bars |
@@ -427,7 +429,7 @@ appear in the job's `result` field.
 | Endpoint | Body | Does |
 |---|---|---|
 | `POST /v1/stages/video-depth` | `{input_path, input_size?: 980, encoder?: "vitl", depth_model?: "vda"}` | depth video only (cache path + scene cuts) |
-| `POST /v1/stages/video-stereo` | `{video_path, depth_path, displacement?: 0.0125, inpaint?: "propainter"}` | splat+inpaint from an existing depth video (cache paths from a previous stage) |
+| `POST /v1/stages/video-stereo` | `{video_path, depth_path, displacement?: 0.0125, inpaint?: "propainter", warp?: "forward"}` | splat+inpaint from an existing depth video (cache paths from a previous stage) |
 | `POST /v1/stages/encode-mvhevc` | `{sbs_path, encoder?: "x265", crf?: 23, preset?: "medium", quality?: 28 (nvenc), spatial?}` | spatial MV-HEVC .mov from an existing SBS master |
 | `POST /v1/stages/scene-detect` | `{input_path}` | scene cut list |
 | `POST /v1/stages/crop-detect` | `{input_path}` | black-bar geometry + cropped copy in cache |

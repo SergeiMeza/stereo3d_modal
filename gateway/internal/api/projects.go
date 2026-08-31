@@ -533,6 +533,7 @@ type stepConvReq struct {
 	DepthRes       int                `json:"depth_res"`   // depth inference resolution: multiple of 14 in [140, 2520]
 	DepthScale     float64            `json:"depth_scale"` // global scale on the adaptive depth script: [0.3, 1.5]
 	Inpaint        string             `json:"inpaint"`     // none | propainter (stereo_preview + production)
+	Warp           string             `json:"warp"`        // forward | backward (stereo_preview + production); backward forces inpaint none
 	SceneOverrides []sceneOverrideReq `json:"scene_overrides"`
 	FromScratch    bool               `json:"from_scratch"` // bypass content-addressed reuse
 	// UseUploadedDepth runs against the project's registered depth-map
@@ -559,6 +560,7 @@ type sceneOverrideReq struct {
 
 var allowedShotTypes = []string{"close_up", "standard", "dynamic", "wide"}
 var allowedInpaint = []string{"none", "propainter"}
+var allowedWarp = []string{"forward", "backward"}
 
 // depth_res rails mirror the Modal API contract exactly.
 const (
@@ -701,6 +703,25 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 			return params, httpx.ErrInvalid("inpaint is fixed to none for depth_preview")
 		}
 		params.Inpaint = req.Inpaint
+	}
+	if req.Warp != "" {
+		if !slices.Contains(allowedWarp, req.Warp) {
+			return params, httpx.ErrInvalid("warp must be forward|backward")
+		}
+		if req.Step == store.StepDepthPreview {
+			return params, httpx.ErrInvalid("warp applies to stereo_preview and production only")
+		}
+		if req.Warp == "backward" {
+			// A gather warp opens no disocclusion holes, so there is nothing
+			// for an inpaint pass to fill (Modal rejects the pairing). An
+			// EXPLICIT inpaint=propainter is a contradiction; an absent one
+			// (or the step's propainter default) resolves to none.
+			if req.Inpaint != "" && req.Inpaint != "none" {
+				return params, httpx.ErrInvalid("warp backward cannot be combined with inpaint " + req.Inpaint + " (a gather warp has no gaps to fill; use inpaint none)")
+			}
+			params.Inpaint = "none"
+		}
+		params.Warp = req.Warp
 	}
 	if req.DepthScale != 0 {
 		if req.Step == store.StepDepthPreview {

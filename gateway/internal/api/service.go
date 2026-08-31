@@ -148,6 +148,9 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	if c.Params.Inpaint != "" {
 		body["inpaint"] = c.Params.Inpaint
 	}
+	if c.Params.Warp != "" {
+		body["warp"] = c.Params.Warp
+	}
 	if c.Params.DepthRes > 0 {
 		body["depth_res"] = c.Params.DepthRes
 	}

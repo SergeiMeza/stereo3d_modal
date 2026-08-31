@@ -15,7 +15,7 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
-import { INPAINT_LABELS } from "./outputOptions";
+import { INPAINT_LABELS, WARP_LABELS } from "./outputOptions";
 import { StateChip } from "./StateChip";
 
 const STEP_LABELS: Record<string, string> = {
@@ -35,6 +35,7 @@ export function paramsSummary(c: Conversion): string {
     // wire values ("propainter"/"none") are internal terms — show the
     // user-facing mode names instead
     p.inpaint ? INPAINT_LABELS[p.inpaint].toLowerCase() : null,
+    p.warp ? WARP_LABELS[p.warp].toLowerCase() : null,
     p.depth_scale !== undefined ? `depth_scale ${p.depth_scale}` : null,
     p.scene_overrides?.length
       ? `${p.scene_overrides.length} scene override${p.scene_overrides.length === 1 ? "" : "s"}`

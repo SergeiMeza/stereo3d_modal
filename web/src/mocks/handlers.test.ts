@@ -220,6 +220,31 @@ describe("mock gateway validation", () => {
       "inpaint must be none|propainter",
     );
   });
+
+  it("validates warp: forward|backward, pro steps only, backward never with an inpaint model", async () => {
+    await expectInvalid({ step: "stereo_preview", warp: "gather" }, "warp must be forward|backward");
+    await expectInvalid(
+      { step: "depth_preview", warp: "backward" },
+      "warp applies to stereo_preview and production only",
+    );
+    await expectInvalid(
+      { step: "production", warp: "backward", inpaint: "propainter" },
+      "warp backward cannot be combined with inpaint propainter (a gather warp has no gaps to fill; use inpaint none)",
+    );
+    // backward forces inpaint none — production's propainter default
+    // included — and the quote carries no inpaint multiplier
+    for (const step of ["stereo_preview", "production"]) {
+      const res = (await (await quote({ step, warp: "backward" })).json()) as StepQuoteResponse;
+      expect(res.params).toMatchObject({ warp: "backward", inpaint: "none" });
+      expect(res.quote.breakdown!.inpaint_multiplier).toBeUndefined();
+    }
+    // forward keeps the step's inpaint default and is echoed as sent
+    const fwd = (await (await quote({ step: "production", warp: "forward" })).json()) as StepQuoteResponse;
+    expect(fwd.params).toMatchObject({ warp: "forward", inpaint: "propainter" });
+    // absent: not echoed (pipeline default)
+    const none = (await (await quote({ step: "production" })).json()) as StepQuoteResponse;
+    expect(none.params.warp).toBeUndefined();
+  });
 });
 
 describe("mock gateway quote math + params echo", () => {

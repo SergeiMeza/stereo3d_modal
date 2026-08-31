@@ -169,7 +169,7 @@ uid, env, state, kind, created_at, updated_at
 client:  {app_version, platform}
 source:  {gcs_key, bytes, duration_s, frames, fps, width, height}   # from ffprobe
 params:  {preset, formats, displacement, target_fps, from_frame, to_frame,   # as forwarded
-          inpaint, depth_res, depth_scale, scene_cuts, scene_overrides, skip_reuse}
+          inpaint, warp, depth_res, depth_scale, scene_cuts, scene_overrides, skip_reuse}
 quote:   {amount_cents, currency, rate_version, breakdown}
 stripe:  {customer_id, payment_intent_id, pi_status, captured_cents, capture_at, canceled_at}
 modal:   {job_id, submitted_at, last_polled_at, progress, stage, eta_seconds,

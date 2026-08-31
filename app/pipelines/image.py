@@ -26,6 +26,9 @@ def process_image_job(job_id: str, request: dict) -> dict:
       # per-item options (also accepted top-level as defaults):
       "displacement": 0.01,
       "stereo_mode": "both" | "left" | "right",
+      "warp": "forward" | "backward",   # forward = splat + LAMA fill
+                                        # (default); backward = gather,
+                                        # no inpainting
       "formats": ["lr", "tb", "half_lr", "half_tb", "anaglyph"],
       "output_depthmap": true,
       "remove_black_bars": true
@@ -39,7 +42,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
 
     defaults = {
         k: request[k]
-        for k in ("displacement", "stereo_mode", "formats", "output_depthmap", "remove_black_bars")
+        for k in ("displacement", "stereo_mode", "warp", "formats", "output_depthmap", "remove_black_bars")
         if k in request
     }
     items = [{**defaults, **item} for item in request["items"]]

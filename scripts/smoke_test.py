@@ -55,6 +55,8 @@ def main() -> int:
     parser.add_argument("--video", default="videos/clip_1s_480p.mp4")
     parser.add_argument("--image", default="images/004_qO-PIF84Vxg.jpg")
     parser.add_argument("--inpaint", default="propainter", choices=["propainter", "none"])
+    parser.add_argument("--warp", default="forward", choices=["forward", "backward"],
+                        help="stereo warp method; backward requires --inpaint none")
     parser.add_argument("--input-size", type=int, default=518)
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
@@ -93,6 +95,7 @@ def main() -> int:
         job_id = submit(base, "/v1/videos", {
             "input_path": f"inputs/samples/{args.video}",
             "inpaint": args.inpaint,
+            "warp": args.warp,
             "input_size": args.input_size,
             "formats": ["sbs", "half_sbs", "anaglyph"],
         })

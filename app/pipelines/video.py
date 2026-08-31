@@ -180,6 +180,10 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "input_path": "inputs/samples/clip_1s_1080p.mp4",
       "displacement": 0.0125,
       "inpaint": "propainter" | "none" | "m2svid",
+      "warp": "forward" | "backward",
+                     # stereo synthesis method (default forward = splat).
+                     # backward = gather warp (app-parity kernel), no
+                     # occlusion masks → only valid with inpaint "none"
       "input_size": 980,            # depth model resolution
       "depth_model": "vda" | "da2-metric-indoor" | "da2-metric-outdoor"
                      | "da3" | "da3-metric" | "depth-pro",
@@ -674,6 +678,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
         jobs.update_job(job_id, progress=0.5, stage="video_stereo")
 
         inpaint = request.get("inpaint", "propainter")
+        warp = request.get("warp", "forward")
+        # fail here (not deep inside a GPU worker) on backward + any
+        # fill model: a gather warp has no holes to inpaint
+        from app.stages.warp_modes import validate_warp
+        validate_warp(warp, inpaint)
         if inpaint == "m2svid":
             from app.stages.video_stereo_m2svid import M2SVID_STEREO_GPU, M2SVidStereoWorker
 
@@ -718,6 +727,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 depth_path=depth["depth_path"],
                 displacement=float(request.get("displacement", 0.0125)),
                 inpaint=inpaint,
+                warp=warp,
                 stereo_mode=request.get("stereo_mode", "both"),
                 fps_rational=fps_rational,
                 scene_params=depth_script,  # None unless adaptive

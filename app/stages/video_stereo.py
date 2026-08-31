@@ -8,8 +8,16 @@ Inpainting modes:
 - "propainter" — flow-guided video inpainting (best quality, slower).
   Runs at a bounded working resolution then upsamples the filled
   regions back to source resolution.
-- "none" — raw forward warp only (no masks, no blurs). Empirically a
-  strong baseline and the fastest path.
+- "none" — raw warp only (no masks, no blurs). Empirically a strong
+  baseline and the fastest path.
+
+Warp methods (``warp``, orthogonal to ``inpaint``):
+- "forward" — DepthSplatter scatter (default). The only method that
+  yields occlusion masks, so the only one ``inpaint="propainter"``
+  can follow.
+- "backward" — BackwardWarpStereo gather (app-parity kernel, see
+  gather.py). No holes → requires ``inpaint="none"``; the pairing with
+  "propainter" is rejected up front rather than silently ignored.
 """
 
 import time
@@ -36,7 +44,11 @@ with stereo_image.imports():
     from torchcodec.decoders import VideoDecoder
 
     from app.stages import propainter_runner
+    from app.stages.gather import BackwardWarpStereo
     from app.stages.splat import BOTH, DEFAULT_PLACEMENT, LEFT, RIGHT, DepthSplatter
+
+# torch-free (coordinator + tests import this module without a GPU stack)
+from app.stages.warp_modes import WARP_BACKWARD, WARP_FORWARD, validate_warp
 
 
 # ProPainter's VRAM working set scales with WINDOW FRAMES × INPAINT-RES
@@ -89,6 +101,17 @@ def _pick_batch_size(
 # target segment length in frames (~10s @ 24fps); each segment is an
 # independently written, resumable checkpoint
 SEGMENT_FRAMES = 240
+
+
+def _validate_modes(inpaint: str, stereo_mode: str, warp: str) -> None:
+    """Pure argument check for ``generate`` (kept out of the Modal method
+    so it is unit-testable without a GPU). Rejects unknown values and
+    the contradictory backward-warp + inpainting pairing."""
+    if inpaint not in ("propainter", "none"):
+        raise ValueError(f"unknown inpaint mode: {inpaint!r}")
+    if stereo_mode not in ("both", "left", "right"):
+        raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
+    validate_warp(warp, inpaint)
 
 
 def _scene_param_lookup(
@@ -219,6 +242,7 @@ class VideoStereoWorker:
         start = time.perf_counter()
         torch.backends.cudnn.benchmark = True
         self.splatter = DepthSplatter().eval()
+        self.gatherer = BackwardWarpStereo().eval()
         self.propainter = propainter_runner.ProPainterModels()
         logger.info(f"🚀 stereo worker ready in {time.perf_counter() - start:.1f}s")
 
@@ -247,9 +271,15 @@ class VideoStereoWorker:
         concat: bool = True,
         scene_params: list[dict] | None = None,
         splat_video_path: str | None = None,
+        warp: str = WARP_FORWARD,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
+
+        ``warp``: "forward" (splat; default) or "backward" (gather, see
+        gather.py). "backward" only combines with ``inpaint="none"`` —
+        it produces no occlusion masks, so there is nothing for
+        ProPainter to fill and the pairing raises ValueError.
 
         Written in ~SEGMENT_FRAMES checkpoints (aligned to ProPainter
         batch boundaries, so segmentation never changes results); on a
@@ -269,10 +299,10 @@ class VideoStereoWorker:
         """
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
-        if inpaint not in ("propainter", "none"):
-            raise ValueError(f"unknown inpaint mode: {inpaint!r}")
-        if stereo_mode not in ("both", "left", "right"):
-            raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
+        _validate_modes(inpaint, stereo_mode, warp)
+        # the raw-warp writer takes whichever warper the job asked for;
+        # the inpainted path is forward-only (enforced above)
+        raw_warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
 
         safe_reload(cache_volume)
         # DUAL-RES (v7): when splat_video_path is given, the SPLAT + composite
@@ -324,7 +354,7 @@ class VideoStereoWorker:
         range_start, range_end = frame_range or (0, num_frames)
         logger.info(
             f"🎬 SBS pass: {num_frames} frames @ {width}x{height}, "
-            f"batch={batch_size}, segment={seg_len}, inpaint={inpaint}"
+            f"batch={batch_size}, segment={seg_len}, inpaint={inpaint}, warp={warp}"
         )
 
         with jobs.stage_timer(
@@ -383,7 +413,7 @@ class VideoStereoWorker:
                                 if inpaint == "none":
                                     self._write_raw_warp(
                                         writer, sub_frames, sub_depths, displacement, stereo_mode,
-                                        frame_start=a, params_at=params_at,
+                                        frame_start=a, params_at=params_at, warper=raw_warper,
                                     )
                                 else:
                                     self._write_inpainted(
@@ -425,6 +455,7 @@ class VideoStereoWorker:
                     "width": width * 2,
                     "height": height,
                     "inpaint": inpaint,
+                    "warp": warp,
                 }
             concat_segments(segments, out)
             written = count_frames(out)
@@ -443,6 +474,7 @@ class VideoStereoWorker:
             "width": width * 2,
             "height": height,
             "inpaint": inpaint,
+            "warp": warp,
         }
 
     @staticmethod
@@ -479,16 +511,21 @@ class VideoStereoWorker:
 
     def _write_raw_warp(
         self, writer, frames, depths, displacement, stereo_mode,
-        frame_start: int = 0, params_at=None,
+        frame_start: int = 0, params_at=None, warper=None,
     ) -> None:
-        """Forward warp only — no masks, no inpainting. In "left"/"right"
+        """Raw warp only — no masks, no inpainting. In "left"/"right"
         mode the other eye is the untouched original frame and the
         generated eye gets the FULL displacement (matching the still
         image pipeline's convention).
 
+        ``warper``: the splatter (forward, default) or the gatherer
+        (backward) — both share the DepthSplatter call signature and
+        this writer ignores the mask slots either way.
+
         ``frame_start`` is the batch's absolute start index, so
         ``params_at`` (adaptive per-shot lookup) can resolve each
         frame's shot even when a batch straddles a scene cut."""
+        warper = self.splatter if warper is None else warper
         for k in range(frames.shape[0]):
             disp_k, placement_k = (
                 params_at(frame_start + k) if params_at is not None
@@ -496,7 +533,7 @@ class VideoStereoWorker:
             )
             frame = frames[k].unsqueeze(0)
             depth = depths[k].unsqueeze(0).float() / 255.0
-            left, right, _, _ = self.splatter(
+            left, right, _, _ = warper(
                 image=frame, depthmap=depth, disp=disp_k,
                 stereo_mode=stereo_mode, placement=placement_k,
             )

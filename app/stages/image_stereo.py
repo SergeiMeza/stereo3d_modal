@@ -1,9 +1,15 @@
 """Still-image stereo worker (GPU, A10G).
 
 One container runs the whole image pipeline — black-bar crop, depth
-(TorchScript Depth-Anything-V2-Large fp16), forward-warp splatting,
-LAMA inpainting, output composition — since each step is fast and
-shipping tensors between containers would dominate runtime.
+(TorchScript Depth-Anything-V2-Large fp16), stereo warp, LAMA
+inpainting, output composition — since each step is fast and shipping
+tensors between containers would dominate runtime.
+
+Warp methods (per-item ``warp``):
+- "forward"  — DepthSplatter scatter + LAMA fill of the disocclusion
+  holes (default, highest quality).
+- "backward" — BackwardWarpStereo gather (app-parity kernel). No holes,
+  so LAMA never runs; depth edges stretch instead of being filled.
 """
 
 import time
@@ -44,7 +50,14 @@ with image_stereo_image.imports():
 
     from app.common.weights import ensure_depth_anything_v2, ensure_lama
     from app.stages import stereo_formats
+    from app.stages.gather import BackwardWarpStereo
     from app.stages.splat import BOTH, LEFT, RIGHT, DepthSplatter
+
+# torch-free: the web/coordinator containers import this module too (the
+# imports() block above silently fails there), and WARP_FORWARD is a
+# method DEFAULT ARGUMENT — evaluated at class-definition time, so it must
+# resolve outside the GPU-only block or the API container crash-loops.
+from app.stages.warp_modes import WARP_BACKWARD, WARP_FORWARD, validate_warp
 
 
 @app.cls(
@@ -71,6 +84,7 @@ class ImageStereoWorker:
             torch.jit.load(str(ensure_lama()), map_location="cuda")
         )
         self.splatter = DepthSplatter().eval()
+        self.gatherer = BackwardWarpStereo().eval()
         logger.info(f"🚀 image worker ready in {time.perf_counter() - start:.1f}s")
 
     @modal.method()
@@ -78,7 +92,7 @@ class ImageStereoWorker:
     def process_batch(self, job_id: str, items: list[dict]) -> dict:
         """Process a batch of images sequentially in this container.
         Each item: {"item_id", "input_path", "displacement", "stereo_mode",
-        "formats", "output_depthmap", "remove_black_bars"}."""
+        "warp", "formats", "output_depthmap", "remove_black_bars"}."""
         results: dict[str, dict] = {}
         completed = failed = 0
         for item in items:
@@ -103,6 +117,10 @@ class ImageStereoWorker:
         item_id = item["item_id"]
         displacement = float(item.get("displacement", 0.01))
         stereo_mode = item.get("stereo_mode", BOTH)
+        if stereo_mode not in (BOTH, LEFT, RIGHT):
+            raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
+        warp = item.get("warp", WARP_FORWARD)
+        validate_warp(warp)
         formats = item.get("formats", ["lr"])
         unknown = set(formats) - set(stereo_formats.FORMATS)
         if unknown:
@@ -119,7 +137,7 @@ class ImageStereoWorker:
             depth = self._estimate_depth(frame)
             track("depth_normalized", depth, logger)
 
-            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode)
+            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode, warp)
 
             out_dir = job_output_dir(job_id)
             outputs: dict[str, str] = {}
@@ -200,17 +218,29 @@ class ImageStereoWorker:
         depth = post(depth).unsqueeze(1).float()
         return (depth - depth.min()) / (depth.max() - depth.min() + 1e-8)
 
-    def _stereo_pair(self, frame, depth, displacement: float, stereo_mode: str):
-        """Splat + LAMA-inpaint. Returns (left, right) uint8 (1,3,H,W)."""
-        splat_left, splat_right, left_occ, right_occ = self.splatter(
+    def _stereo_pair(self, frame, depth, displacement: float, stereo_mode: str, warp: str = WARP_FORWARD):
+        """Warp (+ LAMA-inpaint for the forward warp). Returns (left, right)
+        uint8 (1,3,H,W).
+
+        warp="forward": splat, then fill each eye's occlusion mask.
+        warp="backward": gather — the masks come back None (a gather
+        has no holes), so LAMA is skipped entirely, never run over an
+        all-zero mask."""
+        warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
+        warp_left, warp_right, left_occ, right_occ = warper(
             image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
         )
 
+        def finish(image, occlusion):
+            if occlusion is None:  # no disocclusion → nothing to inpaint
+                return (image * 255).clamp(0, 255).to(torch.uint8)
+            return self._inpaint(image, occlusion)
+
         left = right = None
         if stereo_mode in (BOTH, LEFT):
-            left = self._inpaint(splat_left, left_occ)
+            left = finish(warp_left, left_occ)
         if stereo_mode in (BOTH, RIGHT):
-            right = self._inpaint(splat_right, right_occ)
+            right = finish(warp_right, right_occ)
         if stereo_mode == LEFT:
             right = frame
         if stereo_mode == RIGHT:

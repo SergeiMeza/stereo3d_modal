@@ -12,12 +12,18 @@ StereoMode = Literal["left", "right", "both"]
 ImageFormat = Literal["lr", "tb", "half_lr", "half_tb", "anaglyph"]
 VideoFormat = Literal["sbs", "half_sbs", "tb", "half_tb", "anaglyph"]
 InpaintMode = Literal["propainter", "none"]
+# Stereo synthesis method, orthogonal to InpaintMode. "forward" = scatter
+# splat with occlusion masks (inpaintable); "backward" = gather warp
+# (app-parity kernel, no holes → REQUIRES inpaint "none"; any other
+# inpaint value with "backward" is rejected as contradictory).
+WarpMethod = Literal["forward", "backward"]
 
 
 class VideoRequest(TypedDict, total=False):
     input_path: str  # required; bucket-relative, e.g. "inputs/samples/clip.mp4"
     displacement: float  # max disparity as fraction of width (default 0.0125)
     inpaint: InpaintMode  # default "propainter"
+    warp: WarpMethod  # default "forward"; "backward" needs inpaint "none"
     input_size: int  # depth model resolution, multiple of 14 (default 980)
     encoder: Literal["vits", "vitl"]  # default "vitl"
     remove_black_bars: bool  # default True
@@ -70,6 +76,7 @@ class ImageItem(TypedDict, total=False):
     input_path: str  # required
     displacement: float  # default 0.01
     stereo_mode: StereoMode  # default "both"
+    warp: WarpMethod  # default "forward" (splat + LAMA); "backward" skips LAMA
     formats: list[ImageFormat]  # default ["lr"]
     output_depthmap: bool  # default True
     remove_black_bars: bool  # default True

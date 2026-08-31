@@ -75,6 +75,11 @@ Models migrated from the old project (latest variants):
 - **ProPainter** for video inpainting, **LAMA** for image inpainting
 - **Forward-Warp** CUDA splatting — raw warp, no blurs/masks
   (`"inpaint": "none"` gives the pure-warp output)
+- **Backward (gather) warp** — `"warp": "backward"`: the app's
+  `depthWarpFilterV5` kernel ported to `grid_sample` (`app/stages/gather.py`).
+  One sampling pass, no CUDA extension, no holes → no inpainting
+  (requires `"inpaint": "none"`). Same `displacement`/`placement`
+  semantics as the splat, so `SHOT_PARAMS` apply unchanged
 
 > **Inpainter decision (2026-06-13, device-confirmed): ProPainter is
 > the default and preferred backend.** Headset comparison on the 60s

@@ -90,6 +90,11 @@ type Params struct {
 	FromFrame    int      `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
 	ToFrame      int      `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
 	Inpaint      string   `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
+	// Warp is the stereo synthesis method: "forward" (splat + occlusion
+	// masks, the only one an inpaint model can follow) or "backward"
+	// (gather warp — the mobile app's kernel; no holes, so inpaint is forced
+	// to "none"). "" = pipeline default (forward).
+	Warp string `firestore:"warp,omitempty" json:"warp,omitempty"`
 	// DepthRes is the depth-map inference resolution (multiple of 14 in
 	// [140, 2520]); 0 = the preset's default. The depth artifact is reused
 	// across steps when depth_res + fps match, so the Depth page's pick is

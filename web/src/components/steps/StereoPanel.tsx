@@ -86,6 +86,7 @@ import type {
   Project,
   ShotType,
   StepConversionRequest,
+  Warp,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import {
@@ -101,8 +102,12 @@ import { CheckboxChip, Field, selectClass } from "./controls";
 import {
   FORMAT_LABELS,
   INPAINT_LABELS,
+  inpaintForWarp,
   OUTPUT_FORMATS,
   RESOLUTION_PRESETS,
+  WARP_HINT,
+  WARP_LABELS,
+  WARP_OPTIONS,
 } from "./outputOptions";
 import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
@@ -144,6 +149,10 @@ export function StereoPanel({
 
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
+  // Edge handling: forward (fill pass, default) | backward (stretch, the
+  // mobile app's method). Panel-local like preset — not part of the
+  // per-scene draft, which is exported as a profile file.
+  const [warp, setWarp] = useState<Warp>("forward");
   // "use pipeline default" escape for the inherited depth resolution.
   const [depthDefault, setDepthDefault] = useState(false);
   // Compare-slot pick when BOTH the run output and the depth map exist.
@@ -324,11 +333,15 @@ export function StereoPanel({
     step: "stereo_preview",
     preset,
     formats,
-    // Always full quality (propainter) — the preview must look like the
-    // deliverable. Sent EXPLICITLY because the gateway defaults
+    // Full quality (propainter) with filled edges — the preview must look
+    // like the deliverable. Sent EXPLICITLY because the gateway defaults
     // stereo_preview to inpaint=none; the cheap "splatted" opt-out is
-    // deliberately not exposed in the UI this release.
-    inpaint: "propainter",
+    // deliberately not exposed in the UI this release. Stretched edges
+    // (warp backward) has no gaps to fill, so it pairs with inpaint none
+    // — the gateway rejects any other pairing. warp is only sent when
+    // non-default, mirroring depth_scale.
+    inpaint: inpaintForWarp(warp),
+    ...(warp !== "forward" ? { warp } : {}),
     // The Depth page's resolution, so the pipeline REUSES that depth
     // artifact (and the quote discounts the depth stage) instead of
     // recomputing at the preset default — or the project's uploaded depth
@@ -659,6 +672,23 @@ export function StereoPanel({
                 ))}
               </select>
             </Field>
+            <Field id="stereo-warp" label="Edge handling" hint={WARP_HINT}>
+              <select
+                id="stereo-warp"
+                value={warp}
+                onChange={(e) => {
+                  setWarp(e.target.value as Warp);
+                  ck.invalidate();
+                }}
+                className={selectClass}
+              >
+                {WARP_OPTIONS.map((w) => (
+                  <option key={w} value={w}>
+                    {WARP_LABELS[w]}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
 
           <fieldset className="flex flex-col gap-2">
@@ -725,6 +755,7 @@ export function StereoPanel({
             c.params.preset,
             c.params.formats.join("+"),
             c.params.inpaint ? INPAINT_LABELS[c.params.inpaint].toLowerCase() : null,
+            c.params.warp ? WARP_LABELS[c.params.warp].toLowerCase() : null,
             c.params.depth_scale !== undefined
               ? `depth_scale ${c.params.depth_scale}`
               : null,

@@ -97,10 +97,23 @@ func TestModalBodyLegacyVideoUnchanged(t *testing.T) {
 	if body["displacement"] != 0.02 {
 		t.Errorf("displacement must forward for legacy conversions, got %v", body["displacement"])
 	}
-	for _, k := range []string{"adaptive", "depth_res", "depth_scale", "scene_overrides", "inpaint"} {
+	for _, k := range []string{"adaptive", "depth_res", "depth_scale", "scene_overrides", "inpaint", "warp"} {
 		if _, present := body[k]; present {
 			t.Errorf("legacy body must not carry %q", k)
 		}
+	}
+}
+
+func TestModalBodyForwardsWarp(t *testing.T) {
+	conv := &store.Conversion{Kind: "video", Step: store.StepStereoPreview,
+		Params: store.Params{Preset: "1080p", Formats: []string{"sbs"}, Inpaint: "none", Warp: "backward"}}
+	body := (&Service{}).modalBody(conv, 8)
+	if body["warp"] != "backward" || body["inpaint"] != "none" {
+		t.Errorf("warp/inpaint not forwarded: %v / %v", body["warp"], body["inpaint"])
+	}
+	conv.Params.Warp = ""
+	if _, present := (&Service{}).modalBody(conv, 8)["warp"]; present {
+		t.Errorf("unset warp must not be sent (pipeline default)")
 	}
 }
 
