@@ -373,5 +373,14 @@
   "371": "distributions.py",
   "372": "usePlayerShortcuts",
   "373": ".__init__",
-  "374": "PatchEmbed"
+  "374": "PatchEmbed",
+  "375": "ThumbLRU",
+  "376": "LinearAttention",
+  "377": "_TimedDecoder",
+  "378": "mean_flat",
+  "379": ".forward",
+  "380": ".forward",
+  "381": "TemporalModule",
+  "382": "scale_module",
+  "383": "SiLU"
 }
