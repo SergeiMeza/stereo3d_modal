@@ -17,7 +17,7 @@ func TestQuoteStepMiganMultipliers(t *testing.T) {
 	if prod.AmountCents != 450 || prod.Breakdown["inpaint_multiplier"].(float64) != 0.5 {
 		t.Errorf("production migan: want 450¢ ×0.5, got %d ×%v", prod.AmountCents, prod.Breakdown["inpaint_multiplier"])
 	}
-	// ETA residual scales the same way: 120 + 6.0×120×0.5 = 480
+	// ETA residual uses the measured migan wall scale: 120 + 6.0×120×0.5 = 480
 	s := stepSvc()
 	if eta := s.EstimateStepETA(context.Background(), StepInputs{Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "migan"}); eta != 480 {
 		t.Errorf("eta: want 480, got %d", eta)

@@ -216,6 +216,7 @@ old app's ~$1/min at 1080p, scaled by preset GPU cost:
 | `depth_res_base` | 980 (the depth_res that prices at 1×) |
 | `inpaint_multiplier` | 1.6 (stereo_preview with inpaint=propainter) |
 | `migan_preview_multiplier` / `migan_production_multiplier` | 1.15 / 0.5 (inpaint=migan — the fast per-frame fill on the L4 lite tier) |
+| `eta_migan_scale` / `eta_raw_warp_scale` | 0.5 / 0.35 — WALL-time scales on the stereo/encode ETA residual for the lite-tier modes (decoupled from the price multipliers; anchored on docs/RUNLOG.md 2026-09-01) |
 | `production_no_inpaint_multiplier` | 0.4 (production with inpaint=none, i.e. `warp: backward` — production rates bake ProPainter in and the backward warp runs on the cheap L4/NVENC tier; applies to the whole subtotal and the ETA residual) |
 | `max_duration_s` | 1800 |
 | `max_source_bytes` | 8 GiB |

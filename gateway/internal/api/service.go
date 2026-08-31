@@ -453,6 +453,7 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 				ConversionID: conv.ID,
 				UID:          conv.UID,
 				Description:  jobDescription(conv),
+				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: cust.Email,
 			})
 	}

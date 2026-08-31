@@ -38,10 +38,10 @@ type SubmitResponse struct {
 // Job mirrors the fields of GET /v1/jobs/{id} the gateway consumes
 // (docs/API.md documents the full shape).
 type Job struct {
-	JobID          string             `json:"job_id"`
-	Status         string             `json:"status"` // pending | in_progress | completed | failed
-	Stage          string             `json:"stage"`
-	Progress       float64            `json:"progress"`
+	JobID          string  `json:"job_id"`
+	Status         string  `json:"status"` // pending | in_progress | completed | failed
+	Stage          string  `json:"stage"`
+	Progress       float64 `json:"progress"`
 	ProgressDetail struct {
 		ETASeconds int64 `json:"eta_seconds"`
 	} `json:"progress_detail"`
@@ -50,8 +50,8 @@ type Job struct {
 	Outputs map[string]json.RawMessage `json:"outputs"`
 	// Metadata is job-kind-specific (analyze jobs carry probe/scenes/thumbs;
 	// video jobs carry probe/crop/av_sync/...). Decode per use.
-	Metadata json.RawMessage `json:"metadata"`
-	Error    string          `json:"error"`
+	Metadata    json.RawMessage `json:"metadata"`
+	Error       string          `json:"error"`
 	CostSummary struct {
 		TotalUSD float64 `json:"total_usd"`
 	} `json:"cost_summary"`
@@ -108,7 +108,7 @@ type AnalyzeMetadata struct {
 		URL       string `json:"url"`
 		ShortSide int    `json:"short_side"`
 	} `json:"preview"`
-	SceneCuts []int `json:"scene_cuts"`
+	SceneCuts  []int `json:"scene_cuts"`
 	Thumbnails struct {
 		Strip []struct {
 			Frame int    `json:"frame"`

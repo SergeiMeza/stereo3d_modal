@@ -10,6 +10,8 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"strconv"
+	"strings"
 )
 
 // Pay-as-you-go billing endpoints (web pro flow).
@@ -35,6 +37,123 @@ const holdThresholdCents = 10000
 // jobDescription renders a conversion as the user-facing charge description:
 // it appears on the Stripe dashboard payment, the emailed receipt, and is
 // copied into PaymentIntent metadata for support.
+// presetOutputHeight mirrors PRESETS in app/pipelines/video.py (the output
+// short side each preset renders at) for the payment metadata below. Keep in
+// sync when presets change — an unknown preset just omits the field.
+var presetOutputHeight = map[string]int{
+	"draft": 1080, "1080p": 1080, "qhd": 1440, "3k": 1620, "4k": 2160,
+}
+
+// jobMetadataFromConversion builds the support-facing PaymentIntent
+// metadata from the conversion alone: the full configuration (preset,
+// inpaint, warp, formats, fps, depth knobs, per-scene overrides) plus the
+// quote's billable length and the stages the run REUSED instead of
+// computing. Pure — the project's source-video facts are layered on by
+// Service.jobMetadata. Values are short strings well inside Stripe's
+// 50-key / 500-char metadata limits.
+func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
+	m := map[string]string{}
+	put := func(k, v string) {
+		if v != "" {
+			m[k] = v
+		}
+	}
+	num := func(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+	pa := conv.Params
+	put("kind", conv.Kind)
+	put("step", conv.Step)
+	put("preset", pa.Preset)
+	if pa.Inpaint != "" || pa.Warp != "" {
+		inpaint := pa.Inpaint
+		if inpaint == "" {
+			inpaint = "propainter" // the pipeline default
+		}
+		warp := pa.Warp
+		if warp == "" {
+			warp = "forward"
+		}
+		put("inpaint", inpaint)
+		put("warp", warp)
+	}
+	put("formats", strings.Join(pa.Formats, ","))
+	if pa.TargetFPS > 0 {
+		put("target_fps", num(pa.TargetFPS))
+	}
+	if pa.DepthRes > 0 {
+		put("depth_res", strconv.Itoa(pa.DepthRes))
+	}
+	if pa.DepthScale > 0 {
+		put("depth_scale", num(pa.DepthScale))
+	}
+	if pa.DepthOnly {
+		put("depth_only", "true")
+	}
+	if pa.DepthSource != "" {
+		put("depth_source", "uploaded")
+	}
+	if n := len(pa.SceneOverrides); n > 0 {
+		put("scene_overrides", strconv.Itoa(n))
+		pass := 0
+		for _, ov := range pa.SceneOverrides {
+			if ov.Passthrough {
+				pass++
+			}
+		}
+		if pass > 0 {
+			put("passthrough_scenes", strconv.Itoa(pass))
+		}
+	}
+	if b := conv.Quote.Breakdown; b != nil {
+		switch v := b["billable_seconds"].(type) {
+		case float64:
+			put("billable_seconds", num(v))
+		case int64:
+			put("billable_seconds", strconv.FormatInt(v, 10))
+		}
+		// []string before the Firestore round-trip, []any after it
+		switch v := b["reuse_stages"].(type) {
+		case []string:
+			put("reused_stages", strings.Join(v, ","))
+		case []any:
+			parts := make([]string, 0, len(v))
+			for _, x := range v {
+				if s, ok := x.(string); ok {
+					parts = append(parts, s)
+				}
+			}
+			put("reused_stages", strings.Join(parts, ","))
+		}
+	}
+	if h := presetOutputHeight[pa.Preset]; h > 0 {
+		put("output_height", strconv.Itoa(h))
+	}
+	return m
+}
+
+// jobMetadata = jobMetadataFromConversion + the project's source-video
+// facts (resolution, fps, duration, frame and scene counts). The project
+// read is best-effort: a metadata miss must never block money movement.
+func (s *Service) jobMetadata(ctx context.Context, conv *store.Conversion) map[string]string {
+	m := jobMetadataFromConversion(conv)
+	if conv.ProjectID == "" {
+		return m
+	}
+	p, err := s.Store.GetProject(ctx, conv.ProjectID)
+	if err != nil || p == nil {
+		return m
+	}
+	if p.Probe != nil {
+		m["source_res"] = strconv.Itoa(p.Probe.Width) + "x" + strconv.Itoa(p.Probe.Height)
+		m["source_fps"] = strconv.FormatFloat(p.Probe.FPS, 'f', 3, 64)
+		m["video_duration_s"] = strconv.FormatFloat(p.Probe.DurationS, 'f', 2, 64)
+		m["video_frames"] = strconv.Itoa(p.Probe.NumFrames)
+	}
+	if p.Scenes != nil {
+		m["scene_cuts"] = strconv.Itoa(len(p.Scenes.Cuts))
+	}
+	return m
+}
+
 func jobDescription(conv *store.Conversion) string {
 	switch conv.Step {
 	case store.StepDepthPreview:

@@ -333,8 +333,8 @@ func TestQuoteStepProductionNoInpaintIsCheaper(t *testing.T) {
 	s := stepSvc()
 	etaFull := s.EstimateStepETA(context.Background(), StepInputs{Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "propainter"})
 	etaNone := s.EstimateStepETA(context.Background(), StepInputs{Step: "production", Preset: "1080p", BillableS: 120, Inpaint: "none"})
-	if etaFull != 840 || etaNone != 408 {
-		t.Errorf("eta: want 840 vs 408, got %d vs %d", etaFull, etaNone)
+	if etaFull != 840 || etaNone != 372 {
+		t.Errorf("eta: want 840 vs 372, got %d vs %d", etaFull, etaNone)
 	}
 	// a zeroed Firestore field falls back to the default, never to 1×
 	zeroed := defaults()

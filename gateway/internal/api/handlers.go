@@ -371,6 +371,7 @@ func (s *Service) createPaidConversion(ctx context.Context, user *AuthedUser, co
 		ConversionID: conv.ID,
 		UID:          user.UID,
 		Description:  jobDescription(conv),
+		Metadata:     s.jobMetadata(ctx, conv),
 		ReceiptEmail: user.Email,
 	})
 	if err != nil {

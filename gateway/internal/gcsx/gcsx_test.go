@@ -29,11 +29,11 @@ func TestKeyFromPublicURLWrongBucket(t *testing.T) {
 func TestInPrefix(t *testing.T) {
 	c := testClient()
 	cases := map[string]bool{
-		"stereo3d/test/users/u1/abc/source.mp4":       true,
-		"stereo3d/prod/users/u1/abc/source.mp4":       false, // other env
-		"stereo3d/test/../../secrets.txt":             false, // traversal
-		"users/u1/abc/source.mp4":                     false, // bucket root (production user data)
-		"stereo3d/test/users/u1/../../../root.mp4":    false,
+		"stereo3d/test/users/u1/abc/source.mp4":    true,
+		"stereo3d/prod/users/u1/abc/source.mp4":    false, // other env
+		"stereo3d/test/../../secrets.txt":          false, // traversal
+		"users/u1/abc/source.mp4":                  false, // bucket root (production user data)
+		"stereo3d/test/users/u1/../../../root.mp4": false,
 	}
 	for key, want := range cases {
 		if got := c.InPrefix(key); got != want {

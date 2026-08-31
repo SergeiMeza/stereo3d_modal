@@ -34,9 +34,9 @@ import (
 )
 
 type Client struct {
-	env             string
-	webhookSecret   string
-	PublishableKey  string
+	env            string
+	webhookSecret  string
+	PublishableKey string
 	// PaymentSheet pins a Stripe API version for the ephemeral key.
 	ephemeralAPIVer string
 }
@@ -91,6 +91,10 @@ type Job struct {
 	// ReceiptEmail makes Stripe email a receipt when the charge settles.
 	// Empty → no receipt email.
 	ReceiptEmail string
+	// Metadata: extra support-facing facts (configuration, source video,
+	// reused stages — api.jobMetadata). Reserved keys (conversion_id,
+	// user_id, env, description) are stamped separately and skipped here.
+	Metadata map[string]string
 }
 
 // stamp applies the job's metadata, description, and receipt email to
@@ -106,14 +110,23 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	if job.ReceiptEmail != "" {
 		params.ReceiptEmail = stripe.String(job.ReceiptEmail)
 	}
+	for k, v := range job.Metadata {
+		switch k {
+		case "conversion_id", "user_id", "env", "description":
+			continue // reserved — never let extras clobber the support keys
+		}
+		if v != "" {
+			params.AddMetadata(k, v)
+		}
+	}
 }
 
 type PaymentSheet struct {
-	PaymentIntentID     string `json:"-"`
-	ClientSecret        string `json:"payment_intent_client_secret"`
-	EphemeralKeySecret  string `json:"ephemeral_key_secret"`
-	CustomerID          string `json:"customer_id"`
-	PublishableKey      string `json:"publishable_key"`
+	PaymentIntentID    string `json:"-"`
+	ClientSecret       string `json:"payment_intent_client_secret"`
+	EphemeralKeySecret string `json:"ephemeral_key_secret"`
+	CustomerID         string `json:"customer_id"`
+	PublishableKey     string `json:"publishable_key"`
 }
 
 // CreateHold creates the manual-capture PaymentIntent plus the ephemeral key

@@ -1114,6 +1114,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 				ConversionID: conv.ID,
 				UID:          user.UID,
 				Description:  jobDescription(conv),
+				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: user.Email,
 			})
 		if herr != nil {

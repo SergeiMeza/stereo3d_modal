@@ -117,8 +117,12 @@ type Rates struct {
 	// artifact is reused or user-provided) and "<step>_<preset>" residuals
 	// with a bare "<step>" fallback; the stereo_preview residual is
 	// multiplied by inpaint_multiplier.
-	EtaBaseSeconds map[string]float64 `firestore:"eta_base_seconds"`
-	EtaFactor      map[string]float64 `firestore:"eta_factor"`
+	// ETA residual scales for the lite-tier inpaint modes — see
+	// etaResidualScale (wall-time anchors, decoupled from price).
+	EtaMiganScale   float64            `firestore:"eta_migan_scale"`
+	EtaRawWarpScale float64            `firestore:"eta_raw_warp_scale"`
+	EtaBaseSeconds  map[string]float64 `firestore:"eta_base_seconds"`
+	EtaFactor       map[string]float64 `firestore:"eta_factor"`
 }
 
 // Defaults: the per-minute tables are ≈1× BILLED Modal cost (billed runs
@@ -165,6 +169,8 @@ func defaults() *Rates {
 		MaxSourceDurationS:            10 * 60,     // beta: 10-minute videos
 		MaxSourcePixels:               3840 * 2160, // beta: up to a 4K UHD frame (inclusive)
 		MaxGPUWorkers:                 8,
+		EtaMiganScale:                 0.5,
+		EtaRawWarpScale:               0.35,
 		EtaBaseSeconds: map[string]float64{
 			"depth_preview": 60, "stereo_preview": 90, "production": 120,
 		},
@@ -189,6 +195,31 @@ func defaults() *Rates {
 			"production": 6.0,
 		},
 	}
+}
+
+// etaResidualScale converts an inpaint mode into a WALL-TIME scale on the
+// stereo/encode ETA residual. Anchors (docs/RUNLOG.md, 3k 185 s billable,
+// depth reused): migan wall 12.1 min vs the residual's 18.5 → ~0.5; a
+// post-host-copy-fix raw warp (stretched, and forward inpaint=none)
+// projects ~7 min → ~0.35. Firestore-tunable via eta_migan_scale /
+// eta_raw_warp_scale; 0/missing falls back to the measured defaults.
+func (r *Rates) etaResidualScale(step, inpaint string) float64 {
+	pick := func(v, fallback float64) float64 {
+		if v > 0 {
+			return v
+		}
+		return fallback
+	}
+	switch inpaint {
+	case "migan":
+		return pick(r.EtaMiganScale, 0.5)
+	case "none":
+		return pick(r.EtaRawWarpScale, 0.35)
+	}
+	if step == "stereo_preview" && r.InpaintMultiplier > 0 { // propainter preview
+		return r.InpaintMultiplier
+	}
+	return 1.0
 }
 
 // margin returns the cost→price multiplier (CostMarginMultiplier), with a
@@ -315,10 +346,14 @@ func (s *Service) EstimateStepETA(ctx context.Context, in StepInputs) int64 {
 	}
 
 	// Stereo + encode residual: keyed by preset (output resolution drives
-	// the splat/inpaint/encode wall time), with the inpaint adjustment:
-	// ×1.6 on a propainter stereo_preview, ×0.6 on a no-inpaint (backward
-	// warp) production — see Rates.inpaintMultiplier. depth_preview has no
-	// residual — its base covers publish/encode.
+	// the splat/inpaint/encode wall time). The inpaint mode then scales the
+	// residual by its MEASURED speed, NOT by its price multiplier (which
+	// mispredicted migan by 1.9×, job 4a1bca4762d1 2026-09-01): propainter
+	// keeps the anchored behavior (×1.6 on previews — the anchors were
+	// splat-baseline runs — ×1 on production, whose anchors included it),
+	// while migan/none run on the lite tier at a fraction of the anchored
+	// wall — see Rates.etaResidualScale. depth_preview has no residual —
+	// its base covers publish/encode.
 	if in.Step != "depth_preview" {
 		factor := rates.EtaFactor[in.Step+"_"+in.Preset]
 		if factor <= 0 {
@@ -327,7 +362,7 @@ func (s *Service) EstimateStepETA(ctx context.Context, in StepInputs) int64 {
 		if factor <= 0 {
 			factor = 4.0
 		}
-		eta += factor * in.BillableS * fps * rates.inpaintMultiplier(in.Step, in.Inpaint)
+		eta += factor * in.BillableS * fps * rates.etaResidualScale(in.Step, in.Inpaint)
 	}
 	// A reused preprocess saves seconds, not minutes — deliberately ignored.
 	return int64(math.Round(eta))
