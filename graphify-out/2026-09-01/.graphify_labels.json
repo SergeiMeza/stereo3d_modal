@@ -376,14 +376,5 @@
   "374": "PatchEmbed",
   "375": "ResidualConvUnit",
   "376": "Resize",
-  "377": "FrozenOpenCLIPImageEmbedder",
-  "378": "QKVAttentionLegacy",
-  "379": "MixedCheckpointFunction",
-  "380": "attention.py",
-  "381": "_TimedDecoder",
-  "382": ".forward",
-  "383": "mean_flat",
-  "384": "scale_module",
-  "385": "SiLU",
-  "386": "TimeMixSequential"
+  "377": "FrozenOpenCLIPImageEmbedder"
 }
