@@ -362,6 +362,12 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 // → settle flow).
 func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store.Customer, error) {
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
+	if err == nil && cust.DefaultPaymentMethod == "" && cust.StripeCustomerID != "" {
+		// The card cache may be cold right after a SetupIntent confirm
+		// (only /v1/billing's read path heals it) — refresh before 402ing
+		// a user whose card IS on file at Stripe. See HandleLimits.
+		cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
+	}
 	if errors.Is(err, store.ErrNotFound) || (err == nil && cust.DefaultPaymentMethod == "") {
 		return nil, httpx.Err(http.StatusPaymentRequired, "no_payment_method",
 			"add a payment method before starting a conversion")

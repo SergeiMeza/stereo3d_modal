@@ -533,6 +533,17 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 	hasCard, delinquent := false, false
 	var unpaidCents int64
 	if cust, cerr := s.Store.GetCustomer(ctx, user.UID); cerr == nil {
+		// DefaultPaymentMethod is a cache only /v1/billing's read path
+		// heals. An empty value right after a SetupIntent confirm is the
+		// one state that yields a false negative (mobile gates on this
+		// field), so refresh from Stripe just for that case; a populated
+		// cache going stale merely fails the eventual charge, which the
+		// billing_overdue path already handles. No Stripe call on the
+		// steady-state (card-on-file) read, and a missing customer record
+		// means no SetupIntent ever ran — don't mint one here.
+		if cust.DefaultPaymentMethod == "" && cust.StripeCustomerID != "" {
+			cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
+		}
 		hasCard = cust.DefaultPaymentMethod != ""
 	}
 	if unpaid, uerr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit); uerr == nil {
