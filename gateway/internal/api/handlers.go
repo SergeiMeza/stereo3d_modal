@@ -169,6 +169,9 @@ type createConversionReq struct {
 	Inpaint    string `json:"inpaint"`
 	StereoMode string `json:"stereo_mode"`
 	DepthRes   int    `json:"depth_res"`
+	// OutputDepthmap (images): include a colorized depth PNG in the
+	// outputs. Pointer so "unset" keeps the pipeline default (true).
+	OutputDepthmap *bool `json:"output_depthmap"`
 	AppVersion string `json:"app_version"`
 	Platform   string `json:"platform"`
 }
@@ -202,11 +205,20 @@ func (req *createConversionReq) validate() error {
 		return httpx.ErrInvalid("preset must be one of " + strings.Join(allowedPresets, "|"))
 	}
 	if len(req.Formats) == 0 {
-		req.Formats = []string{"mvhevc", "half_sbs"}
+		if req.Kind == "image" {
+			req.Formats = []string{"sbs"}
+		} else {
+			req.Formats = []string{"mvhevc", "half_sbs"}
+		}
 	}
 	for _, f := range req.Formats {
 		if !slices.Contains(allowedFormats, f) {
 			return httpx.ErrInvalid("unsupported format " + f)
+		}
+		// The still pipeline composes sbs|half_sbs|tb|half_tb|anaglyph;
+		// there is no spatial-photo (MV-HEVC) output for images yet.
+		if req.Kind == "image" && f == "mvhevc" {
+			return httpx.ErrInvalid("format mvhevc applies to video conversions only")
 		}
 	}
 	if req.Displacement < 0 || req.Displacement > maxDisplacement {
@@ -242,6 +254,9 @@ func (req *createConversionReq) validate() error {
 		}
 		if req.StereoMode != "" {
 			return httpx.ErrInvalid("stereo_mode applies to image conversions only")
+		}
+		if req.OutputDepthmap != nil {
+			return httpx.ErrInvalid("output_depthmap applies to image conversions only")
 		}
 	} else { // image
 		if req.DepthModel != "" || req.DepthRes != 0 {
@@ -403,6 +418,7 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			TargetFPS: req.TargetFPS, FromFrame: req.FromFrame, ToFrame: req.ToFrame,
 			DepthModel: req.DepthModel, Warp: req.Warp, Inpaint: req.Inpaint,
 			StereoMode: req.StereoMode, DepthRes: req.DepthRes,
+			OutputDepthmap: req.OutputDepthmap,
 		},
 		Quote:   *quote,
 		IdemKey: idemKey,

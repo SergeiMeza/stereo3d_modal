@@ -63,13 +63,21 @@ def process_image_job(job_id: str, request: dict) -> dict:
         status = jobs.COMPLETED if result["failed"] == 0 else (
             jobs.COMPLETED if result["completed"] > 0 else jobs.FAILED
         )
+        # The job-level error must carry the real reason, not just a count:
+        # it is all the gateway (internal_message) and support ever see.
+        error = None
+        if result["failed"] > 0:
+            item_errors = [r["error"] for r in result["results"].values() if r.get("error")]
+            error = f"{result['failed']} item(s) failed"
+            if item_errors:
+                error += f": {item_errors[0]}"
         jobs.update_job(
             job_id,
             status=status,
             stage=None,
             progress=1.0,
             outputs={k: v.get("outputs", {}) for k, v in result["results"].items()},
-            error=None if result["failed"] == 0 else f"{result['failed']} item(s) failed",
+            error=error,
         )
         jlog.info(f"🏁 job {status}")
         return {"job_id": job_id, "status": status, **result}

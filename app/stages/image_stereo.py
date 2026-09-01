@@ -136,7 +136,7 @@ class ImageStereoWorker:
             # gather warp is the same contradiction the video path rejects
             raise ValueError("warp='backward' produces no holes to fill — omit inpaint")
         formats = item.get("formats", ["lr"])
-        unknown = set(formats) - set(stereo_formats.FORMATS)
+        unknown = set(formats) - set(stereo_formats.FORMATS) - set(stereo_formats.ALIASES)
         if unknown:
             raise ValueError(f"unknown formats: {sorted(unknown)}")
 

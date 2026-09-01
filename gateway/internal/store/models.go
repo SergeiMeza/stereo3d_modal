@@ -96,6 +96,9 @@ type Params struct {
 	DepthModel string `firestore:"depth_model,omitempty" json:"depth_model,omitempty"`
 	// StereoMode (images): which eye(s) are synthesized. "" = both.
 	StereoMode string `firestore:"stereo_mode,omitempty" json:"stereo_mode,omitempty"`
+	// OutputDepthmap (images): include a colorized depth PNG in the
+	// outputs. nil = pipeline default (true).
+	OutputDepthmap *bool `firestore:"output_depthmap,omitempty" json:"output_depthmap,omitempty"`
 	// Warp is the stereo synthesis method: "forward" (splat + occlusion
 	// masks, the only one an inpaint model can follow) or "backward"
 	// (gather warp — the mobile app's kernel; no holes, so inpaint is forced

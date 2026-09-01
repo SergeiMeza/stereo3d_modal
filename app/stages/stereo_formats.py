@@ -10,6 +10,11 @@ import torch
 import torchvision.transforms.v2 as v2
 
 FORMATS = ("lr", "tb", "half_lr", "half_tb", "anaglyph")
+# The gateway's public vocabulary calls side-by-side "sbs" (the video
+# pipeline's name for the same layout). Accept it as an alias so one
+# format vocabulary works across video and image conversions; outputs
+# keep the name the caller asked for.
+ALIASES = {"sbs": "lr", "half_sbs": "half_lr"}
 
 # Dubois optimization matrices minimize ghosting for red-cyan glasses.
 _DUBOIS_LEFT = torch.tensor(
@@ -28,6 +33,8 @@ def compose_stereo(left: torch.Tensor, right: torch.Tensor, output_format: str) 
         right = right.unsqueeze(0)
     if left.shape != right.shape:
         raise ValueError(f"left {tuple(left.shape)} != right {tuple(right.shape)}")
+
+    output_format = ALIASES.get(output_format, output_format)
 
     if output_format == "lr":
         return torch.cat((left, right), dim=3)

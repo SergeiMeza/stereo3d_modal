@@ -29,7 +29,14 @@ versioning).
 - **Params (image)**: `displacement`, `stereo_mode`, `warp`, `inpaint`
   (§2), `formats`, `output_depthmap`.
 - `formats: ["mvhevc"]` alone is supported and skips the SBS deliverable
-  encodes — confirmed.
+  encodes — confirmed. **Video only**: stills have no spatial-photo
+  output yet, so `mvhevc` on an image 400s.
+- **Image formats** (fixed 2026-09-02, was the first mobile-still
+  failure): allowlist `sbs | half_sbs | tb | half_tb | anaglyph`;
+  omitted ⇒ `["sbs"]`. Still downloads are keyed
+  `<stem>/<format>` (the upload is stored as `source.jpg`, so
+  `source/sbs`, …) plus always `source/left` + `source/right`, and
+  `source/depth` unless `output_depthmap: false`.
 
 ## §1 DA2 on video — yes, shipping it
 

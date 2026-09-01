@@ -120,6 +120,9 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 		if c.Params.Inpaint != "" {
 			body["inpaint"] = c.Params.Inpaint
 		}
+		if c.Params.OutputDepthmap != nil {
+			body["output_depthmap"] = *c.Params.OutputDepthmap
+		}
 		return body
 	}
 	body["preset"] = c.Params.Preset
