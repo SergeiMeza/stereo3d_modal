@@ -42,6 +42,10 @@ const (
 	// (ListUserByPIStatus) and blocks new paid steps until settled.
 	PIChargePending = "charge_pending"
 	PIChargeFailed  = "charge_failed"
+	// PIBatched: the conversion's price sits in the user's open billing
+	// batch (Stripe.BatchID); the batch's charge settles it to succeeded
+	// or, on a card decision, flips it to charge_failed.
+	PIBatched = "batched"
 )
 
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
@@ -165,8 +169,11 @@ type Stripe struct {
 	// ClientSecret of the hold PI (auto_hold only) — served on the conversion
 	// while state=created so the web client can complete a 3DS challenge with
 	// the saved card. Never in JSON; conversionResponse decides exposure.
-	ClientSecret  string     `firestore:"client_secret,omitempty" json:"-"`
-	PIStatus      string     `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
+	ClientSecret string `firestore:"client_secret,omitempty" json:"-"`
+	PIStatus     string `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
+	// BatchID: the billing batch this auto-mode conversion was folded into
+	// (pi_status batched → succeeded/charge_failed follow the batch).
+	BatchID       string     `firestore:"batch_id,omitempty" json:"batch_id,omitempty"`
 	CapturedCents int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
 	CapturedAt    *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
 	CanceledAt    *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
@@ -229,6 +236,69 @@ type Customer struct {
 	CardExpYear          int64     `firestore:"card_exp_year,omitempty"`
 	CardUpdatedAt        time.Time `firestore:"card_updated_at,omitempty"`
 	CreatedAt            time.Time `firestore:"created_at"`
+	// OpenBatchID points at the user's currently accumulating billing
+	// batch ("" = none). Owned by the batch transactions in batches.go.
+	OpenBatchID string `firestore:"open_batch_id,omitempty"`
+	// LifetimePaidCents is the money actually collected from this user
+	// (batch charges, hold captures, legacy per-step charges). It picks the
+	// batch tier: users with a proven payment history accumulate more
+	// before a charge. Seeded once from historical succeeded charges
+	// (LifetimePaidSeeded) for accounts that predate batching.
+	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
+	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+}
+
+// ----------------------------------------------------------------- batches
+
+// Billing batch states. A batch is the user's running tab: succeeded
+// auto-mode conversions append to the open batch instead of charging one
+// by one (a burst of small same-merchant charges is what issuers flag as
+// fraud). It closes — and becomes ONE off-session charge — when its window
+// elapses, its total reaches the user's tier cap, or the user pays now.
+const (
+	BatchOpen     = "open"     // accumulating
+	BatchCharging = "charging" // closed; the charge is committed (reconciler sweeps until Stripe answers)
+	BatchPaid     = "paid"     // charged; terminal
+	BatchFailed   = "failed"   // card decision; account delinquent until settled (re-armed to charging)
+)
+
+// Batch close reasons (Batch.CloseReason).
+const (
+	BatchCloseWindow = "window"
+	BatchCloseCap    = "cap"
+	BatchClosePayNow = "pay_now"
+)
+
+type BatchItem struct {
+	ConversionID string    `firestore:"conversion_id" json:"conversion_id"`
+	ProjectID    string    `firestore:"project_id,omitempty" json:"project_id,omitempty"`
+	Step         string    `firestore:"step,omitempty" json:"step,omitempty"`
+	Kind         string    `firestore:"kind" json:"kind"`
+	Description  string    `firestore:"description" json:"description"`
+	AmountCents  int64     `firestore:"amount_cents" json:"amount_cents"`
+	AddedAt      time.Time `firestore:"added_at" json:"added_at"`
+}
+
+type Batch struct {
+	ID          string      `firestore:"-" json:"batch_id"`
+	UID         string      `firestore:"uid" json:"-"`
+	Env         string      `firestore:"env" json:"-"`
+	State       string      `firestore:"state" json:"state"`
+	Currency    string      `firestore:"currency" json:"currency"`
+	Items       []BatchItem `firestore:"items" json:"items"`
+	TotalCents  int64       `firestore:"total_cents" json:"total_cents"`
+	CapCents    int64       `firestore:"cap_cents" json:"cap_cents"` // tier cap when opened
+	OpenedAt    time.Time   `firestore:"opened_at" json:"opened_at"`
+	DueAt       time.Time   `firestore:"due_at" json:"due_at"` // window close
+	ClosedAt    *time.Time  `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
+	CloseReason string      `firestore:"close_reason,omitempty" json:"close_reason,omitempty"`
+	// Stripe settlement: one PaymentIntent per batch across every retry.
+	PaymentIntentID string     `firestore:"payment_intent_id,omitempty" json:"-"`
+	ChargedCents    int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
+	ChargedAt       *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
+	SettleError     string     `firestore:"settle_error,omitempty" json:"-"`
+	CreatedAt       time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects

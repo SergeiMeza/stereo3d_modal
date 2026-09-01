@@ -109,6 +109,12 @@ export class GatewayClient {
     return this.request("POST", "/v1/billing/settle", {});
   }
 
+  /** Charge the pending balance (open batch) now instead of waiting for
+   * the window or the cap. */
+  payBillingNow(): Promise<BillingSettleResult> {
+    return this.request("POST", "/v1/billing/pay-now", {});
+  }
+
   // ------------------------------------------------------------ uploads
 
   createUpload(filename: string, contentType: string): Promise<UploadTicket> {

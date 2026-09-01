@@ -242,8 +242,14 @@ export interface ConversionError {
  * is delinquent — new paid steps 402 with billing_overdue until
  * POST /v1/billing/settle clears the debt. */
 export interface ConversionBilling {
-  status: "requires_action" | "charge_pending" | "charged" | "charge_failed";
+  status:
+    | "requires_action"
+    | "charge_pending"
+    | "batched"
+    | "charged"
+    | "charge_failed";
   charged_cents?: number; // status === "charged"
+  batch_id?: string; // status === "batched": on the account's pending balance
   client_secret?: string; // status === "requires_action"
   publishable_key?: string; // status === "requires_action"
 }
@@ -319,16 +325,55 @@ export interface BillingCard {
   exp_year: number;
 }
 
-/** One succeeded conversion whose automatic charge failed. needs_action
- * means the bank wants 3DS — confirmCardPayment(client_secret) completes it
- * with the saved card. */
-export interface UnpaidCharge {
+/** One line of a billing batch (a succeeded step waiting to be charged
+ * with the account's other steps). */
+export interface BatchItem {
   conversion_id: string;
+  project_id?: string;
+  step?: Step;
+  kind: "video" | "image";
+  description: string;
+  amount_cents: number;
+  added_at: string;
+}
+
+/** One outstanding automatic charge that failed: either a whole batch
+ * (batch_id + items) or, for charges that predate batching, a single
+ * conversion (conversion_id). needs_action means the bank wants 3DS —
+ * confirmCardPayment(client_secret) completes it with the saved card. */
+export interface UnpaidCharge {
+  conversion_id?: string;
+  batch_id?: string;
+  items?: BatchItem[];
   step?: Step;
   amount_cents: number;
   currency: string;
   needs_action: boolean;
   client_secret?: string;
+}
+
+/** The account's open billing batch: succeeded steps accumulate here and
+ * are charged as ONE payment when the window closes (due_at), the total
+ * reaches cap_cents, or the user pays now. */
+export interface PendingBatch {
+  batch_id: string;
+  amount_cents: number;
+  currency: string;
+  cap_cents: number;
+  opened_at: string;
+  due_at: string;
+  items: BatchItem[];
+}
+
+/** The account's batch tier: how much accumulates before an automatic
+ * charge, grown by lifetime collected spend. hold_threshold_cents is the
+ * quote at/above which a run is held up front instead of batched. */
+export interface BillingTier {
+  cap_cents: number;
+  window_hours: number;
+  lifetime_paid_cents: number;
+  hold_threshold_cents: number;
+  next_tier?: { min_paid_cents: number; cap_cents: number };
 }
 
 /** GET /v1/billing — the pay-as-you-go gate the app routes on: no
@@ -339,6 +384,9 @@ export interface BillingStatus {
   card?: BillingCard;
   delinquent: boolean;
   unpaid: UnpaidCharge[];
+  /** the open batch, when any step is waiting to be charged */
+  pending?: PendingBatch;
+  tier?: BillingTier;
   publishable_key: string;
 }
 
@@ -351,7 +399,9 @@ export interface BillingSetupTicket {
 }
 
 /** POST /v1/billing/settle — retries outstanding charges on the current
- * default card. requires_action carries the 3DS client_secret. */
+ * default card. requires_action carries the 3DS client_secret. The same
+ * shape comes back from POST /v1/billing/pay-now (charge the open batch
+ * now). */
 export interface BillingSettleResult {
   settled: boolean;
   publishable_key: string;

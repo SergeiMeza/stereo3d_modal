@@ -109,6 +109,15 @@ requires a card on file. Submitting still counts against
   many small pre-auths, and failed charges gate future work + downloads:
   a succeeded conversion whose charge failed 402s on
   `/downloads` until settled).
+- **Batched billing (web first, 2026-09-02)**: the web now groups cheap
+  successful steps into one charge per account (4 h window or a tiered
+  cap; see gateway/DESIGN.md). Mobile one-shot conversions still charge
+  per conversion until the server flag `batch_one_shot` is switched on.
+  When it is, a succeeded conversion reports
+  `billing.status = "batched"` (+ `batch_id`) instead of `"charged"`,
+  `/v1/limits.billing.pending_cents` carries the running balance, and
+  `POST /v1/billing/pay-now` charges it immediately — build for both
+  statuses now so the flip needs no app release.
 - **`POST /v1/customers`**: skip it. `setup-intent` (and every billing
   route) ensures the Stripe customer implicitly. The endpoint stays for
   the web but is not part of the mobile contract.
@@ -127,7 +136,9 @@ requires a card on file. Submitting still counts against
     "max_fps": 120                            // hard reject above; >60 auto-decimated
   },
   "usage": { "active_conversions": 1, "free_images_remaining": 97 },
-  "billing": { "has_payment_method": true, "delinquent": false, "unpaid_cents": 0 },
+  "billing": { "has_payment_method": true, "delinquent": false, "unpaid_cents": 0,
+               "pending_cents": 0, "tier": { "cap_cents": 5000, "window_hours": 4,
+                                             "hold_threshold_cents": 10000, ... } },
   "rates": { "cents_per_minute": {...}, "image_cents": 50, "minimum_cents": 50,
              "cost_margin_multiplier": 3, "inpaint_multiplier": 1.6,
              "migan_production_multiplier": 0.5, "production_no_inpaint_multiplier": 0.4,

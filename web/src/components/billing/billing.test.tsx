@@ -24,6 +24,7 @@ import {
 } from "vitest";
 
 import OnboardingScreen from "@/components/billing/OnboardingScreen";
+import { PendingBalance } from "@/components/billing/PendingBalance";
 import { RequireBilling } from "@/components/billing/RequireBilling";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -202,5 +203,38 @@ describe("BillingBanner settle flows", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("billing-banner")).toBeTruthy();
     expect(mockDb.billing.unpaid).toHaveLength(1);
+  });
+});
+
+describe("PendingBalance (batched billing)", () => {
+  it("shows the open batch and Pay now charges it", async () => {
+    mockDb.billing.pending = {
+      batch_id: "mb0000000001",
+      amount_cents: 1230,
+      currency: "usd",
+      cap_cents: 5000,
+      opened_at: new Date().toISOString(),
+      due_at: new Date(Date.now() + 3600_000).toISOString(),
+      items: [
+        {
+          conversion_id: "m0cdeadbeef1",
+          step: "depth_preview",
+          kind: "video",
+          description: "Depth preview",
+          amount_cents: 1230,
+          added_at: new Date().toISOString(),
+        },
+      ],
+    };
+    renderWithBilling(<PendingBalance />);
+    expect((await screen.findByTestId("pending-amount")).textContent).toBe(
+      "$12.30",
+    );
+    expect(screen.getByTestId("tier-line").textContent).toContain("$50.00");
+    fireEvent.click(screen.getByTestId("pay-now"));
+    await waitFor(() =>
+      expect(screen.getByText("No pending balance.")).toBeTruthy(),
+    );
+    expect(mockDb.billing.pending).toBeNull();
   });
 });

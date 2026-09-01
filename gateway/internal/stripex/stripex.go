@@ -82,7 +82,10 @@ func (c *Client) BillingPortalURL(customerID, returnURL string) (string, error) 
 // Job ties a PaymentIntent to the conversion it pays for and to what the
 // user sees for it.
 type Job struct {
+	// ConversionID stamps metadata.conversion_id (the webhook's routing
+	// key). Empty for a batch charge, which routes on BatchID instead.
 	ConversionID string
+	BatchID      string
 	UID          string
 	// Description is user-facing: the Stripe dashboard payment row, the
 	// emailed receipt, and the customer portal all show it. Also copied
@@ -100,7 +103,12 @@ type Job struct {
 // stamp applies the job's metadata, description, and receipt email to
 // PaymentIntent create params.
 func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
-	params.AddMetadata("conversion_id", job.ConversionID)
+	if job.ConversionID != "" {
+		params.AddMetadata("conversion_id", job.ConversionID)
+	}
+	if job.BatchID != "" {
+		params.AddMetadata("batch_id", job.BatchID)
+	}
 	params.AddMetadata("user_id", job.UID)
 	params.AddMetadata("env", c.env)
 	if job.Description != "" {
@@ -112,7 +120,7 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	for k, v := range job.Metadata {
 		switch k {
-		case "conversion_id", "user_id", "env", "description":
+		case "conversion_id", "batch_id", "user_id", "env", "description":
 			continue // reserved — never let extras clobber the support keys
 		}
 		if v != "" {
@@ -344,7 +352,11 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
+	if job.BatchID != "" {
+		params.SetIdempotencyKey("batch_" + c.env + "_" + job.BatchID)
+	} else {
+		params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
+	}
 	return paymentintent.New(params)
 }
 

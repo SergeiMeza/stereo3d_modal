@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 // POST /webhooks/stripe — payment lifecycle drives the state machine.
@@ -48,8 +50,16 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteOK(w, map[string]bool{"received": true})
 		return
 	}
+	if pi.Metadata["env"] != s.Cfg.Env {
+		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
+		return
+	}
+	if batchID := pi.Metadata["batch_id"]; batchID != "" {
+		s.handleBatchWebhook(ctx, w, string(event.Type), batchID, pi.ID, pi.Status, pi.AmountReceived)
+		return
+	}
 	conversionID := pi.Metadata["conversion_id"]
-	if conversionID == "" || pi.Metadata["env"] != s.Cfg.Env {
+	if conversionID == "" {
 		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
 		return
 	}
@@ -143,6 +153,47 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			log.Info("payment intent canceled; conversion expired")
 			s.restoreCredit(ctx, expired)
 		}
+	}
+	httpx.WriteOK(w, map[string]bool{"received": true})
+}
+
+// handleBatchWebhook: a batch PaymentIntent settled outside chargeBatch (the
+// web 3DS fallback confirms it on-session) or died after a retry.
+func (s *Service) handleBatchWebhook(ctx context.Context, w http.ResponseWriter, eventType, batchID, piID, piStatus string, amountReceived int64) {
+	log := httpx.Log(ctx).With("batch_id", batchID, "event", eventType)
+	b, err := s.Store.GetBatch(ctx, batchID)
+	if errors.Is(err, store.ErrNotFound) {
+		httpx.WriteOK(w, map[string]bool{"received": true})
+		return
+	}
+	if err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+		return
+	}
+	switch eventType {
+	case "payment_intent.succeeded":
+		if b.State == store.BatchPaid {
+			break
+		}
+		if _, err := s.finalizeBatchPaid(ctx, b, piID, amountReceived); err != nil {
+			log.Error("webhook batch settle failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		log.Info("batch charge settled via webhook", "amount_cents", amountReceived)
+	case "payment_intent.payment_failed":
+		if b.State != store.BatchCharging {
+			break
+		}
+		if _, err := s.recordBatchFailure(ctx, b, stripex.ChargeFailure{
+			PaymentIntentID: piID, Code: "payment_failed",
+			Message: "payment_failed webhook (pi " + piStatus + ")",
+		}); err != nil && !errors.Is(err, store.ErrStateConflict) {
+			log.Error("webhook batch failure record failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		log.Info("batch charge failed (webhook); account delinquent")
 	}
 	httpx.WriteOK(w, map[string]bool{"received": true})
 }

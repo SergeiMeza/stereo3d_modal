@@ -54,6 +54,14 @@ func (s *Slack) SettleFailed(ctx context.Context, conversionID, uid, action stri
 		s.env, action, conversionID, uid, err))
 }
 
+// BatchChargeFailed: a batched charge hit a card decision — the account is
+// delinquent with several steps' worth of delivered work behind it.
+func (s *Slack) BatchChargeFailed(ctx context.Context, batchID, uid string, items int, cents int64, err error) {
+	s.post(ctx, fmt.Sprintf(
+		":money_with_wings: [gateway/%s] batched charge FAILED for batch `%s` (%d step(s), %d cents) — account delinquent\nuser: `%s`\n```%v```",
+		s.env, batchID, items, cents, uid, err))
+}
+
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s

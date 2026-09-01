@@ -307,7 +307,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		s.foldSceneProfile(ctx, updated, job)
 	}
 	if updated.Stripe.Mode == store.BillingModeAuto {
-		return s.chargeConversion(ctx, updated)
+		return s.settleAutoCharge(ctx, updated)
 	}
 	return s.captureHold(ctx, updated)
 }
@@ -431,6 +431,8 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 	if capErr != nil {
 		slog.ErrorContext(ctx, "stripe capture failed",
 			"conversion_id", conv.ID, "payment_intent", conv.Stripe.PaymentIntentID, "err", capErr)
+	} else {
+		s.creditLifetime(ctx, conv.UID, captured)
 	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)
@@ -496,6 +498,7 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 		}
 		slog.InfoContext(ctx, "conversion charged",
 			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
+		s.creditLifetime(ctx, conv.UID, charged)
 		return updated, terr
 	}
 

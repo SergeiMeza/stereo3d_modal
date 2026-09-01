@@ -32,6 +32,16 @@ type Rates struct {
 	// applies. 0 disables the free tier.
 	FreeImagesPerDay int   `firestore:"free_images_per_day"`
 	MinimumCents     int64 `firestore:"minimum_cents"`
+	// Batched billing (charge-on-success steps accumulate into one charge
+	// per account — a burst of small same-merchant charges is what issuer
+	// fraud rules block). BatchWindowHours bounds how long a batch stays
+	// open; BatchTiers picks the per-batch cap from the user's lifetime
+	// collected spend (a proven card earns a longer tab). Fractional hours
+	// are fine (test envs). BatchOneShot extends batching to the mobile
+	// one-shot flow (off until the mobile contract catches up).
+	BatchWindowHours float64     `firestore:"batch_window_hours"`
+	BatchTiers       []BatchTier `firestore:"batch_tiers"`
+	BatchOneShot     bool        `firestore:"batch_one_shot"`
 	// 10% off carts over $10, mirroring the old app.
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
@@ -140,6 +150,53 @@ type Rates struct {
 //     → 250¢/min × 1.6 inpaint ≈ $10 cost per 2.5 min.
 //
 // Tune the tables in Firestore as clean billed/estimate pairs accumulate.
+// BatchTier: users whose lifetime collected spend is at least MinPaidCents
+// accumulate up to CapCents per batch before an automatic charge. The
+// highest qualifying tier wins.
+type BatchTier struct {
+	MinPaidCents int64 `firestore:"min_paid_cents" json:"min_paid_cents"`
+	CapCents     int64 `firestore:"cap_cents" json:"cap_cents"`
+}
+
+// BatchCap returns the batch cap for a user with lifetimePaid cents
+// collected so far: the highest tier whose threshold is met. Never below
+// the base tier.
+func (r *Rates) BatchCap(lifetimePaid int64) int64 {
+	cap := int64(0)
+	for _, t := range r.BatchTiers {
+		if lifetimePaid >= t.MinPaidCents && t.CapCents > cap {
+			cap = t.CapCents
+		}
+	}
+	if cap <= 0 {
+		cap = defaults().BatchTiers[0].CapCents
+	}
+	return cap
+}
+
+// NextBatchTier returns the next tier above the user's current cap, or
+// nil at the top tier — for the "spend $X more to unlock" hint.
+func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
+	current := r.BatchCap(lifetimePaid)
+	var next *BatchTier
+	for i := range r.BatchTiers {
+		t := &r.BatchTiers[i]
+		if t.CapCents > current && lifetimePaid < t.MinPaidCents && (next == nil || t.MinPaidCents < next.MinPaidCents) {
+			next = t
+		}
+	}
+	return next
+}
+
+// BatchWindow is the batch's maximum open time.
+func (r *Rates) BatchWindow() time.Duration {
+	h := r.BatchWindowHours
+	if h <= 0 {
+		h = defaults().BatchWindowHours
+	}
+	return time.Duration(h * float64(time.Hour))
+}
+
 func defaults() *Rates {
 	return &Rates{
 		RateVersion:          "2026-07-03.v2-cost-margin",
@@ -148,8 +205,17 @@ func defaults() *Rates {
 		CentsPerMinute: map[string]int64{
 			"draft": 120, "1080p": 150, "qhd": 210, "3k": 240, "4k": 300,
 		},
-		ImageCents:                 50,
-		FreeImagesPerDay:           100,
+		ImageCents:       50,
+		FreeImagesPerDay: 100,
+		BatchWindowHours: 4,
+		// Exposure per batch ≈ cap + one step (the closing step lands in
+		// the same charge); the tiers grow it with collected revenue.
+		BatchTiers: []BatchTier{
+			{MinPaidCents: 0, CapCents: 5000},        // new accounts: $50
+			{MinPaidCents: 20000, CapCents: 15000},   // $200 collected: $150
+			{MinPaidCents: 100000, CapCents: 40000},  // $1,000 collected: $400
+			{MinPaidCents: 500000, CapCents: 100000}, // $5,000 collected: $1,000
+		},
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,
 		DiscountPct:                0.10,

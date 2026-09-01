@@ -201,6 +201,12 @@ export function ConversionTracker({
           )}
         </div>
       ) : null}
+      {conv.state === "succeeded" && conv.billing?.status === "batched" ? (
+        <p className="mt-3 text-xs text-fg-muted" data-testid="batched-note">
+          Added to your pending balance — charged together with your other
+          steps.
+        </p>
+      ) : null}
       {conv.state === "succeeded" && conv.billing?.status === "charge_failed" ? (
         <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
           The automatic payment for this conversion failed — your results are

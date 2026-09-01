@@ -31,6 +31,7 @@ import type {
   Step,
   StepConversionRequest,
   UnpaidCharge,
+  PendingBatch,
 } from "@/lib/api/types";
 import { depthContentDims } from "@/lib/depthRes";
 
@@ -85,6 +86,11 @@ interface MockBilling {
   nextHoldRequiresAction: boolean;
   /** the NEXT hold is declined: create 402s with card_declined */
   nextHoldFails: boolean;
+  /** the open billing batch (succeeded cheap steps accumulate here and
+   * are charged as one payment at the cap or via pay-now) */
+  pending: PendingBatch | null;
+  /** batch cap for this account, mirroring the gateway's base tier */
+  batchCapCents: number;
 }
 
 const MOCK_CARD: BillingCard = {
@@ -125,6 +131,8 @@ function seed(): DB {
       holdThresholdCents: 10000,
       nextHoldRequiresAction: false,
       nextHoldFails: false,
+      pending: null,
+      batchCapCents: 5000,
     },
   };
 }
@@ -570,7 +578,12 @@ function succeed(c: Conversion) {
     mockDb.billing.nextChargeFails = false;
     mockDb.failCharge(c.conversion_id);
   } else if (!c.billing) {
-    c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+    if (c.quote.amount_cents >= mockDb.billing.holdThresholdCents) {
+      // held up front → captured on success
+      c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+    } else {
+      batchCharge(c);
+    }
   }
   const p = c.project_id ? mockDb.projects.get(c.project_id) : undefined;
   if (p && c.step) {
@@ -584,6 +597,48 @@ function succeed(c: Conversion) {
       updated_at: new Date().toISOString(),
     };
   }
+}
+
+/** Batched billing, like the gateway: a cheap succeeded step joins the
+ * open batch (pi_status batched); reaching the cap charges the whole batch
+ * at once. */
+function batchCharge(c: Conversion) {
+  const b = mockDb.billing;
+  if (!b.pending) {
+    const now = new Date();
+    b.pending = {
+      batch_id: `mb${String(nextId++).padStart(10, "0")}`,
+      amount_cents: 0,
+      currency: c.quote.currency,
+      cap_cents: b.batchCapCents,
+      opened_at: now.toISOString(),
+      due_at: new Date(now.getTime() + 4 * 3600 * 1000).toISOString(),
+      items: [],
+    };
+  }
+  b.pending.items.push({
+    conversion_id: c.conversion_id,
+    project_id: c.project_id,
+    step: c.step,
+    kind: c.kind,
+    description: c.step ?? "3D conversion",
+    amount_cents: c.quote.amount_cents,
+    added_at: new Date().toISOString(),
+  });
+  b.pending.amount_cents += c.quote.amount_cents;
+  c.billing = { status: "batched", batch_id: b.pending.batch_id };
+  if (b.pending.amount_cents >= b.pending.cap_cents) settlePending();
+}
+
+/** Charge the open batch: every batched conversion reads charged. */
+function settlePending() {
+  const b = mockDb.billing;
+  if (!b.pending) return;
+  for (const it of b.pending.items) {
+    const c = mockDb.conversions.get(it.conversion_id);
+    if (c) c.billing = { status: "charged", charged_cents: it.amount_cents };
+  }
+  b.pending = null;
 }
 
 /** Plausible SHOT_PARAMS-bucket values the mock profiler cycles across the
@@ -677,6 +732,14 @@ function billingStatus() {
     ...(b.hasPaymentMethod && b.card ? { card: b.card } : {}),
     delinquent: b.unpaid.length > 0,
     unpaid: b.unpaid,
+    ...(b.pending ? { pending: b.pending } : {}),
+    tier: {
+      cap_cents: b.batchCapCents,
+      window_hours: 4,
+      lifetime_paid_cents: 0,
+      hold_threshold_cents: b.holdThresholdCents,
+      next_tier: { min_paid_cents: 20000, cap_cents: 15000 },
+    },
     publishable_key: "pk_test_mock",
   };
 }
@@ -731,10 +794,18 @@ export const handlers = [
       });
     }
     for (const u of b.unpaid) {
-      const c = mockDb.conversions.get(u.conversion_id);
+      const c = u.conversion_id
+        ? mockDb.conversions.get(u.conversion_id)
+        : undefined;
       if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
     }
     b.unpaid = [];
+    return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
+  }),
+
+  // Charge the pending balance now.
+  http.post(`${GATEWAY}/v1/billing/pay-now`, () => {
+    settlePending();
     return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
   }),
 
@@ -756,7 +827,9 @@ export const handlers = [
       }
     }
     for (const u of mockDb.billing.unpaid) {
-      const c = mockDb.conversions.get(u.conversion_id);
+      const c = u.conversion_id
+        ? mockDb.conversions.get(u.conversion_id)
+        : undefined;
       if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
     }
     mockDb.billing.unpaid = [];

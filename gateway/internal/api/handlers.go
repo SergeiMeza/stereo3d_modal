@@ -171,9 +171,9 @@ type createConversionReq struct {
 	DepthRes   int    `json:"depth_res"`
 	// OutputDepthmap (images): include a colorized depth PNG in the
 	// outputs. Pointer so "unset" keeps the pipeline default (true).
-	OutputDepthmap *bool `json:"output_depthmap"`
-	AppVersion string `json:"app_version"`
-	Platform   string `json:"platform"`
+	OutputDepthmap *bool  `json:"output_depthmap"`
+	AppVersion     string `json:"app_version"`
+	Platform       string `json:"platform"`
 }
 
 var allowedDepthModels = []string{"vda", "da2"} // da3/depth-pro stay R&D-only
@@ -547,7 +547,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 		return
 	}
 	hasCard, delinquent := false, false
-	var unpaidCents int64
+	var unpaidCents, pendingCents int64
+	var tier map[string]any
 	if cust, cerr := s.Store.GetCustomer(ctx, user.UID); cerr == nil {
 		// DefaultPaymentMethod is a cache only /v1/billing's read path
 		// heals. An empty value right after a SetupIntent confirm is the
@@ -561,6 +562,13 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
 		}
 		hasCard = cust.DefaultPaymentMethod != ""
+		tier = s.tierEntry(ctx, cust)
+		if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
+			pendingCents = open.TotalCents
+		}
+	}
+	if tier == nil {
+		tier = s.tierEntry(ctx, nil)
 	}
 	if unpaid, uerr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit); uerr == nil {
 		delinquent = len(unpaid) > 0
@@ -590,6 +598,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"has_payment_method": hasCard,
 			"delinquent":         delinquent,
 			"unpaid_cents":       unpaidCents,
+			"pending_cents":      pendingCents,
+			"tier":               tier,
 		},
 		"rates": map[string]any{
 			"rate_version":                     rates.RateVersion,
@@ -604,7 +614,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"inpaint_multiplier":               rates.InpaintMultiplier,
 			"migan_production_multiplier":      rates.MiganProductionMultiplier,
 			"production_no_inpaint_multiplier": rates.ProductionNoInpaintMultiplier,
-			"hold_threshold_cents":             holdThresholdCents,
+			"hold_threshold_cents":             tier["hold_threshold_cents"],
 		},
 	})
 }
@@ -837,6 +847,10 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 				resp["billing"] = map[string]any{"status": "charged", "charged_cents": c.Stripe.CapturedCents}
 			case store.PIChargeFailed, store.PICaptureFailed:
 				resp["billing"] = map[string]any{"status": "charge_failed"}
+			case store.PIBatched:
+				// On the account's running tab — charged with the user's
+				// other steps when the batch closes (GET /v1/billing.pending).
+				resp["billing"] = map[string]any{"status": "batched", "batch_id": c.Stripe.BatchID}
 			default:
 				resp["billing"] = map[string]any{"status": "charge_pending"}
 			}

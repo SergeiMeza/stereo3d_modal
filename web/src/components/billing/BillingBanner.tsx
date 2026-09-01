@@ -37,6 +37,10 @@ export function BillingBanner(): JSX.Element | null {
 
   const totalCents = status.unpaid.reduce((s, u) => s + u.amount_cents, 0);
   const currency = status.unpaid[0]?.currency ?? "usd";
+  const unpaidSteps = status.unpaid.reduce(
+    (n, u) => n + (u.items?.length ?? 1),
+    0,
+  );
 
   async function retry(): Promise<void> {
     setBusy(true);
@@ -95,10 +99,7 @@ export function BillingBanner(): JSX.Element | null {
           <p className="text-xs text-red-200/70">
             Your results stay available, but new conversions are paused until
             the payment goes through
-            {status.unpaid[0]
-              ? ` (conversion ${status.unpaid[0].conversion_id})`
-              : ""}
-            .
+            {unpaidSteps > 1 ? ` (${unpaidSteps} steps)` : ""}.
           </p>
           {message ? (
             <p className="mt-1 text-xs text-red-300">{message}</p>

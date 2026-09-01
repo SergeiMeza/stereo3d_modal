@@ -1119,7 +1119,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 	// Threshold hybrid: expensive runs get an off-session hold up front (the
 	// bank re-approves the money BEFORE GPU spend; capture on success), cheap
 	// runs skip the hold and charge the saved card on success.
-	if conv.Quote.AmountCents >= holdThresholdCents {
+	if conv.Quote.AmountCents >= s.holdThreshold(ctx, cust) {
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
 		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{

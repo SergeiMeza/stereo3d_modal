@@ -233,12 +233,25 @@ func (s *Service) unpaidEntry(ctx context.Context, conv *store.Conversion) map[s
 }
 
 func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *store.Customer) (map[string]any, error) {
+	cust = s.ensureLifetimeSeeded(ctx, user.UID, cust)
 	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]map[string]any, 0, len(unpaid))
+	// Failed batches are listed once (as a batch); their conversions also
+	// read charge_failed, so skip those here.
+	failedBatches, err := s.Store.ListUserBatchesByState(ctx, user.UID, store.BatchFailed, unpaidLimit)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]map[string]any, 0, len(unpaid)+len(failedBatches))
+	for _, b := range failedBatches {
+		entries = append(entries, s.failedBatchEntry(ctx, b))
+	}
 	for _, conv := range unpaid {
+		if conv.Stripe.BatchID != "" {
+			continue
+		}
 		entries = append(entries, s.unpaidEntry(ctx, conv))
 	}
 	resp := map[string]any{
@@ -246,6 +259,12 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		"delinquent":         len(entries) > 0,
 		"unpaid":             entries,
 		"publishable_key":    s.Stripe.PublishableKey,
+		"tier":               s.tierEntry(ctx, cust),
+	}
+	if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
+		resp["pending"] = pendingEntry(open)
+	} else if oerr != nil {
+		httpx.Log(ctx).Warn("open batch lookup failed", "uid", user.UID, "err", oerr)
 	}
 	if cust.DefaultPaymentMethod != "" {
 		resp["card"] = map[string]any{
@@ -309,12 +328,24 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	s.refreshCardCache(ctx, user.UID, customerID)
+	// Failed batches first: re-arm and charge (their conversions flip back
+	// to batched, so the per-conversion loop below never double-charges).
+	if failedBatches, berr := s.Store.ListUserBatchesByState(ctx, user.UID, store.BatchFailed, unpaidLimit); berr == nil {
+		for _, b := range failedBatches {
+			if _, cerr := s.rearmBatch(ctx, b); cerr != nil {
+				httpx.Log(ctx).Warn("settle batch charge failed", "batch_id", b.ID, "err", cerr)
+			}
+		}
+	}
 	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	for _, conv := range unpaid {
+		if conv.Stripe.BatchID != "" {
+			continue // settled with its batch above
+		}
 		// Re-arm the charge (charge_failed → charge_pending) and run the
 		// standard settlement path. A conflict means a concurrent settle
 		// already claimed it — skip.
@@ -338,11 +369,23 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	stillFailed, _ := s.Store.ListUserBatchesByState(ctx, user.UID, store.BatchFailed, unpaidLimit)
 	resp := map[string]any{
-		"settled":         len(remaining) == 0,
+		"settled":         len(remaining) == 0 && len(stillFailed) == 0,
 		"publishable_key": s.Stripe.PublishableKey,
 	}
+	for _, b := range stillFailed {
+		entry := s.failedBatchEntry(ctx, b)
+		if entry["needs_action"] == true {
+			resp["requires_action"] = true
+			resp["client_secret"] = entry["client_secret"]
+			break
+		}
+	}
 	for _, conv := range remaining {
+		if resp["requires_action"] == true {
+			break
+		}
 		entry := s.unpaidEntry(ctx, conv)
 		if entry["needs_action"] == true {
 			resp["requires_action"] = true
@@ -350,7 +393,7 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 			break
 		}
 	}
-	if len(remaining) > 0 && resp["requires_action"] != true {
+	if len(remaining)+len(stillFailed) > 0 && resp["requires_action"] != true {
 		resp["message"] = "The charge was declined again. Update your card in the billing portal, then retry."
 	}
 	httpx.WriteOK(w, resp)
@@ -381,7 +424,7 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 	}
 	if len(unpaid) > 0 {
 		return nil, httpx.Err(http.StatusPaymentRequired, "billing_overdue",
-			"the automatic payment for conversion "+unpaid[0].ID+" failed — settle it before starting new work")
+			"an automatic payment failed — settle your balance before starting new work")
 	}
-	return cust, nil
+	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
 }

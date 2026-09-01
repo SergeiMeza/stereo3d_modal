@@ -127,10 +127,34 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	// charge_failed inside chargeConversion and leave this sweep.
 	if pending, err := s.Store.ListByPIStatus(ctx, store.PIChargePending, 100); err == nil {
 		for _, conv := range pending {
-			if _, cerr := s.chargeConversion(ctx, conv); cerr != nil {
+			if _, cerr := s.settleAutoCharge(ctx, conv); cerr != nil {
 				log.Warn("charge sweep failed", "conversion_id", conv.ID, "err", cerr)
 			} else {
 				stats["charge_swept"]++
+			}
+		}
+	}
+	// Batched billing: close batches whose window elapsed, then collect
+	// every batch committed to charging whose Stripe call didn't land.
+	if open, err := s.Store.ListBatchesByState(ctx, store.BatchOpen, 200); err == nil {
+		now := time.Now().UTC()
+		for _, b := range open {
+			if b.DueAt.After(now) {
+				continue
+			}
+			if _, cerr := s.closeAndCharge(ctx, b.ID, store.BatchCloseWindow); cerr != nil {
+				log.Warn("batch window close failed", "batch_id", b.ID, "err", cerr)
+			} else {
+				stats["batch_window_closed"]++
+			}
+		}
+	}
+	if charging, err := s.Store.ListBatchesByState(ctx, store.BatchCharging, 100); err == nil {
+		for _, b := range charging {
+			if _, cerr := s.chargeBatch(ctx, b); cerr != nil {
+				log.Warn("batch charge sweep failed", "batch_id", b.ID, "err", cerr)
+			} else {
+				stats["batch_charge_swept"]++
 			}
 		}
 	}

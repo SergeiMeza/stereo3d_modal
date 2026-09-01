@@ -408,12 +408,13 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await screen.findByText("succeeded", undefined, { timeout: 3000 });
     await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(1));
 
-    // the automatic charge landed
+    // the step joined the account's pending balance (batched billing)
     const conv = [...mockDb.conversions.values()][0];
     expect(conv.billing).toEqual({
-      status: "charged",
-      charged_cents: conv.quote.amount_cents,
+      status: "batched",
+      batch_id: mockDb.billing.pending!.batch_id,
     });
+    expect(mockDb.billing.pending!.amount_cents).toBe(conv.quote.amount_cents);
 
     // NO download links/players inside the tracker on the Depth tab — the
     // side-by-side depth view + Export replaced that surface

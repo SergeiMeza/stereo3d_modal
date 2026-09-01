@@ -54,12 +54,49 @@ billing portal are picked up).
     published the quoted amount is charged off-session (idempotency key
     `charge_{env}_{id}`; retries `Confirm` the same PI). Cheap previews
     never leave pending lines on the user's statement.
-- **Charge failure** (below-threshold path) — transient errors stay
-  `charge_pending` (reconciler retries); card decisions become
-  `charge_failed`: the account is delinquent, new paid steps are blocked,
-  and `POST /v1/billing/settle` retries against the current default card. A
-  3DS challenge (`authentication_required`) surfaces the PI's client_secret
-  so the web client completes it on-session with the saved card.
+- **Batched charging (2026-09-02).** Below-threshold steps no longer
+  charge one by one — a session of previews is a burst of small
+  same-merchant charges, which is exactly the velocity pattern issuer
+  fraud rules block (it locked the developer's own card). On success the
+  conversion becomes `pi_status=batched` and its price appends to the
+  account's OPEN batch (`billing_batches_{env}`, pointer
+  `customers.open_batch_id`; one Firestore transaction across customer,
+  batch and conversion — api/batches.go, store/batches.go). The batch
+  closes and becomes ONE off-session PI (idempotency key
+  `batch_{env}_{batch_id}`, metadata `batch_id` + `conversion_ids`) when:
+  its window elapses (`batch_window_hours`, default 4 — the reconciler
+  closes due batches every minute), its total reaches the account's cap
+  (checked on append; the closing step rides in the same charge), or the
+  user calls `POST /v1/billing/pay-now`. Free items never enter a batch.
+  - **Tiered cap** (`batch_tiers`, Firestore-tunable): the cap grows with
+    `customers.lifetime_paid_cents` (money actually collected — batch
+    charges, hold captures, legacy charges; seeded once from historical
+    succeeded charges). Defaults: $50 → $150 after $200 collected → $400
+    after $1,000 → $1,000 after $5,000. Exposure per account ≈ cap + one
+    step, bounded by the window.
+  - The hold threshold is lifted to the tier cap (`max($100, cap)`), so a
+    trusted account batches the runs it is trusted for and holds only
+    above its cap.
+  - **Settlement**: a paid batch settles every conversion in it to
+    `succeeded` (shared PI, own share) in the same transaction and credits
+    lifetime spend. A card decision fails the batch AND flips its
+    conversions to `charge_failed`, so the existing gates (requireBillable,
+    downloadPaymentGate, `/v1/limits.unpaid_cents`) apply unchanged;
+    `/v1/billing` lists the batch once (`unpaid[].batch_id` + `items`),
+    `settle` re-arms it (conversions back to `batched`) and charges. The
+    webhook routes PIs carrying `batch_id` to the batch (3DS fallback
+    lands there). Transient errors leave it `charging` for the sweep.
+  - `GET /v1/billing` exposes `pending` (the open batch) and `tier`
+    (cap, window, lifetime spend, hold threshold, next tier). The mobile
+    one-shot flow keeps per-conversion charging until `batch_one_shot`
+    is switched on (mobile contract not yet updated).
+- **Charge failure** (legacy per-conversion path, still used by the mobile
+  one-shot flow) — transient errors stay `charge_pending` (reconciler
+  retries); card decisions become `charge_failed`: the account is
+  delinquent, new paid steps are blocked, and `POST /v1/billing/settle`
+  retries against the current default card. A 3DS challenge
+  (`authentication_required`) surfaces the PI's client_secret so the web
+  client completes it on-session with the saved card.
 
 ### Legacy mobile flow: auth-then-capture
 

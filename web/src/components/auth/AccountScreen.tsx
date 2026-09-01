@@ -15,6 +15,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { UserAvatar } from "@/components/auth/UserAvatar";
+import { PendingBalance } from "@/components/billing/PendingBalance";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
@@ -204,11 +205,13 @@ export default function AccountScreen({
       <CardShell title="Billing">
         <p className="text-fg-muted">
           Billing is pay-as-you-go: each conversion step shows its price up
-          front and your saved card is charged automatically only when the
-          run succeeds — failed or cancelled runs are never charged. Saved
-          payment methods, invoices, and receipts live in the Stripe billing
-          portal.
+          front, and only runs that succeed are ever billed — failed or
+          cancelled runs cost nothing. Successful steps are grouped into a
+          single payment on your saved card instead of one charge per step.
+          Saved payment methods, invoices, and receipts live in the Stripe
+          billing portal.
         </p>
+        <PendingBalance />
         {billing.status?.card ? (
           <p className="text-fg" data-testid="card-on-file">
             Card on file:{" "}

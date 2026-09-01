@@ -10,8 +10,10 @@ repo. Auth: Firebase (same project as mobile). Payments (reworked
 2026-07-03): **pay-as-you-go on a saved card** — onboarding captures a card
 via a Stripe SetupIntent (Payment Element) before the user reaches
 /projects; paid steps then bill automatically (expensive runs place an
-off-session hold first, captured on success; cheap runs charge on success)
-with no checkout UI. See gateway/DESIGN.md "Billing models". All backend
+off-session hold first, captured on success; cheap runs join the account's
+pending balance and are charged as ONE payment per 4-hour window / tiered
+cap — batched billing, 2026-09-02) with no checkout UI. See
+gateway/DESIGN.md "Billing models". All backend
 traffic goes through the gateway (`gateway/`) — the web client never talks
 to Modal.
 
@@ -156,7 +158,9 @@ Next.js (App Router, TypeScript). Key screens:
    gateway SetupIntent) gating /projects; after that, steps bill the saved
    card automatically — no checkout screen. Billing failures surface as a
    banner with retry / 3DS-confirm / portal actions.
-4. **Account** — Firebase sign-in, saved card summary, Stripe billing portal.
+4. **Account** — Firebase sign-in, saved card summary, pending balance
+   (open batch: total, when it charges, Pay now) + tier line, Stripe
+   billing portal.
 
 State/polling: SWR against `GET /v1/conversions/{id}` (the gateway's
 read-through poll keeps it fresh); no client-side Modal access, no client-side
