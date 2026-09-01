@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "app/pipelines/image.py": {
-    "mtime": 1788199578.7158754,
-    "ast_hash": "fb18071f8d7163fff2e233fc04ac7f15",
+    "mtime": 1788297956.4770432,
+    "ast_hash": "d14aad02c278eaf56a83526c37c9b4b8",
     "semantic_hash": ""
   },
   "app/pipelines/video.py": {
@@ -140,8 +140,8 @@
     "semantic_hash": "39ad0a6ac1a34c8b89bad18a3b9d2437"
   },
   "app/stages/image_stereo.py": {
-    "mtime": 1788199578.7149806,
-    "ast_hash": "cb5963b2cd435791733304fa52f21850",
+    "mtime": 1788297951.8929057,
+    "ast_hash": "e75f6086f04e1664b100544247fae549",
     "semantic_hash": ""
   },
   "app/stages/m2svid_runner.py": {
@@ -170,9 +170,9 @@
     "semantic_hash": "89343869c450c2ad8212780232396d90"
   },
   "app/stages/stereo_formats.py": {
-    "mtime": 1781283779.6825652,
-    "ast_hash": "53f7f31bda0341bcad93a8b34430f398",
-    "semantic_hash": "53f7f31bda0341bcad93a8b34430f398"
+    "mtime": 1788297947.696388,
+    "ast_hash": "8be1c61c10814231648573fbef158f79",
+    "semantic_hash": ""
   },
   "app/stages/vexu.py": {
     "mtime": 1781291207.2437603,
@@ -755,8 +755,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1788293339.1489205,
-    "ast_hash": "652f9528f734a741ebb2a87de073abd3",
+    "mtime": 1788297984.7936108,
+    "ast_hash": "e9cfeba78786a6118c7963c9e050fbf6",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
@@ -775,8 +775,8 @@
     "semantic_hash": "48d9a7f4cf76a883b3a2d310e8fd6f7e"
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1788199742.661318,
-    "ast_hash": "395772a11ca03d4b175f62e31ea80b32",
+    "mtime": 1788297989.5523374,
+    "ast_hash": "707fe50c78ba3a1b4377b5fc84c297e5",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/store/models.go": {
-    "mtime": 1788199622.7368476,
-    "ast_hash": "c409b6bbb5e22647954a0a2de52adabb",
+    "mtime": 1788297987.7512157,
+    "ast_hash": "f2a6ff57e79730c687f638dd4a8aafa1",
     "semantic_hash": ""
   },
   "gateway/internal/store/projects.go": {
@@ -2410,8 +2410,8 @@
     "semantic_hash": ""
   },
   "docs/MOBILE.md": {
-    "mtime": 1788200790.0173905,
-    "ast_hash": "0c637dac8dc8b174ab2e2336d110f913",
+    "mtime": 1788298026.546228,
+    "ast_hash": "d49708563883b86bdf7dd625a2873e4d",
     "semantic_hash": ""
   }
 }
