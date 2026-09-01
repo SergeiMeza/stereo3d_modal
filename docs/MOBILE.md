@@ -109,15 +109,33 @@ requires a card on file. Submitting still counts against
   many small pre-auths, and failed charges gate future work + downloads:
   a succeeded conversion whose charge failed 402s on
   `/downloads` until settled).
-- **Batched billing (web first, 2026-09-02)**: the web now groups cheap
-  successful steps into one charge per account (4 h window or a tiered
-  cap; see gateway/DESIGN.md). Mobile one-shot conversions still charge
-  per conversion until the server flag `batch_one_shot` is switched on.
-  When it is, a succeeded conversion reports
-  `billing.status = "batched"` (+ `batch_id`) instead of `"charged"`,
-  `/v1/limits.billing.pending_cents` carries the running balance, and
-  `POST /v1/billing/pay-now` charges it immediately — build for both
-  statuses now so the flip needs no app release.
+- **Batched billing (SHIPPED for mobile 2026-09-02, same system as
+  the web)**: successful conversions below the hold threshold are no
+  longer charged one by one. They join the ACCOUNT's open batch (shared
+  with the user's web steps) and are charged as ONE payment when the
+  batch window elapses (4 h), the total reaches the account's tier cap,
+  or the user pays now. Tier caps grow with lifetime collected spend:
+  $50 → $150 (after $200) → $400 (after $1,000) → $1,000 (after
+  $5,000); the hold threshold is `max($100, cap)`, so read it from
+  `/v1/limits` rather than assuming $100. Contract:
+  - a succeeded conversion reports `billing.status = "batched"` +
+    `batch_id` (later `"charged"` once the batch settles, or
+    `"charge_failed"` if the batch's card charge is declined — same
+    402/settle handling as before);
+  - `GET /v1/limits.billing` carries `pending_cents` and `tier`
+    (`cap_cents`, `window_hours`, `lifetime_paid_cents`,
+    `hold_threshold_cents`, optional `next_tier {min_paid_cents,
+    cap_cents}`);
+  - `GET /v1/billing` carries the full open batch as `pending`
+    (`batch_id, amount_cents, currency, cap_cents, opened_at, due_at,
+    items[{conversion_id, kind, description, amount_cents, added_at}]`)
+    and the same `tier`; a failed batch appears in `unpaid[]` with
+    `batch_id` + `items` (legacy entries keep `conversion_id`);
+  - `POST /v1/billing/pay-now` charges the open batch immediately —
+    returns `{settled}` or `requires_action + client_secret`
+    (STPPaymentHandler) or `message` on decline, exactly like `settle`.
+  - Free stills never enter a batch; `/downloads` stays available while
+    the batch is open or charging (locked only after a decline).
 - **`POST /v1/customers`**: skip it. `setup-intent` (and every billing
   route) ensures the Stripe customer implicitly. The endpoint stays for
   the web but is not part of the mobile contract.
