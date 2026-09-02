@@ -1,16 +1,16 @@
 # Graph Report - 2d_to_3d_new  (2026-09-02)
 
 ## Corpus Check
-- 425 files · ~862,585 words
+- 427 files · ~864,480 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4075 nodes · 8199 edges · 382 communities (197 shown, 185 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 496 edges (avg confidence: 0.69)
+- 4092 nodes · 8233 edges · 386 communities (203 shown, 183 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 502 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `88b674d3`
+- Built from commit: `07188ccf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -366,14 +366,16 @@
 - [[_COMMUNITY_LinearAttention|LinearAttention]]
 - [[_COMMUNITY_service.go|service.go]]
 - [[_COMMUNITY_.forward|.forward]]
+- [[_COMMUNITY_depth_script_to_yaml|depth_script_to_yaml]]
+- [[_COMMUNITY_.ConsumePhotoCredit|.ConsumePhotoCredit]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `Project` - 39 edges
-2. `cn()` - 37 edges
-3. `WriteErr()` - 36 edges
+2. `WriteErr()` - 37 edges
+3. `cn()` - 37 edges
 4. `useGateway()` - 36 edges
-5. `WriteOK()` - 34 edges
-6. `AuthedUser` - 33 edges
+5. `AuthedUser` - 34 edges
+6. `WriteOK()` - 34 edges
 7. `job_logger()` - 30 edges
 8. `process_video_job()` - 29 edges
 9. `Log()` - 28 edges
@@ -382,18 +384,19 @@
 ## Surprising Connections (you probably didn't know these)
 - `_load_watchdog()` --indirect_call--> `update_job()`  [INFERRED]
   tests/test_watchdog_selfheal.py → app/common/jobs.py
-- `_TimedDecoder` --uses--> `DepthProcessor`  [INFERRED]
-  scripts/bench_depth.py → app/stages/depth_processor.py
-- `_TimedModel` --uses--> `DepthProcessor`  [INFERRED]
-  scripts/bench_depth.py → app/stages/depth_processor.py
-- `test_cmd_is_a_single_cpu_h264_pass()` --calls--> `_depth_vis_cmd()`  [EXTRACTED]
-  tests/test_depth_vis.py → app/stages/media.py
 - `_read_gray16()` --calls--> `VideoDecoder`  [INFERRED]
   scripts/bench_depth.py → app/vendor/m2svid/sgm/modules/autoencoding/temporal_ae.py
+- `dance_full_v2 Job Record` --references--> `video_stereo pipeline stage`  [INFERRED]
+  previews/full_batch_v2/dance_full_v2.yaml → docs/BENCHMARKS.md
+- `test_validate_accepts_passthrough_only_entry()` --calls--> `_validate_scene_overrides()`  [EXTRACTED]
+  tests/test_passthrough.py → app/api/main.py
+- `test_validate_rejects_non_bool_passthrough()` --calls--> `_validate_scene_overrides()`  [EXTRACTED]
+  tests/test_passthrough.py → app/api/main.py
 
 ## Import Cycles
-- 1-file cycle: `web/src/lib/analytics.ts -> web/src/lib/analytics.ts`
 - 1-file cycle: `web/src/mocks/browser.ts -> web/src/mocks/browser.ts`
+- 2-file cycle: `web/src/components/Analytics.tsx -> web/src/lib/analytics.ts -> web/src/components/Analytics.tsx`
+- 3-file cycle: `web/src/components/Analytics.tsx -> web/src/lib/analytics.ts -> web/src/lib/firebase.ts -> web/src/components/Analytics.tsx`
 
 ## Hyperedges (group relationships)
 - **Working-MP Depth GPU Routing** — docs_pricing_route_depth_gpu, docs_pricing_working_megapixels, docs_pricing_l40s, docs_pricing_h200, docs_pricing_b200 [EXTRACTED 1.00]
@@ -411,75 +414,75 @@
 - **Displacement/Placement Tuning Evolution v3 -> v4 -> v5** — previews_full_batch_v3_dance_full_v3_class_based_displacement, previews_full_batch_v4_readme_continuous_displacement_ramp, previews_full_batch_v5_k9_full_v5_near_plane_placement [INFERRED 0.85]
 - **video_stereo Silent-Hang Failure Mode and Watchdog Response** — previews_full_batch_v3_k9_full_v3_job_record, previews_full_batch_v3_awkky_full_v3_job_record, previews_v3_fov_readme_heartbeat_watchdog [INFERRED 0.85]
 
-## Communities (382 total, 185 thin omitted)
+## Communities (386 total, 183 thin omitted)
 
 ### Community 0 - "Conditioning / Embedders"
-Cohesion: 0.15
-Nodes (12): FIXTURE, fixtureProject(), FPS, PROFILE, ProfileHarness(), renderPanel(), renderWithOutput(), sceneRow() (+4 more)
+Cohesion: 0.07
+Nodes (37): FIXTURE, fixtureProject(), FPS, PROFILE, ProfileHarness(), renderPanel(), renderWithOutput(), sceneRow() (+29 more)
 
 ### Community 1 - "Gateway Auth & Conversion API"
-Cohesion: 0.07
-Nodes (64): AuthedUser, createConversionReq, main(), Request, Service, Context, Conversion, Request (+56 more)
+Cohesion: 0.05
+Nodes (84): AuthedUser, createConversionReq, sceneOverrideReq, stepConvReq, main(), Service, Context, Conversion (+76 more)
 
 ### Community 2 - "Spatial Transformer / UNet"
 Cohesion: 0.06
-Nodes (49): Transformer block for image-like data.     First, project the input (aka embeddi, SpatialTransformer, AttentionBlock, Downsample, QKVAttention, QKVAttentionLegacy, An upsampling layer with an optional convolution.     :param channels: channels, A downsampling layer with an optional convolution.     :param channels: channels (+41 more)
+Nodes (49): Transformer block for image-like data.     First, project the input (aka embeddi, SpatialTransformer, Downsample, QKVAttention, QKVAttentionLegacy, An upsampling layer with an optional convolution.     :param channels: channels, A downsampling layer with an optional convolution.     :param channels: channels, A residual block that can optionally change the number of channels.     :param c (+41 more)
 
 ### Community 3 - "Scene Overrides Resolution"
 Cohesion: 0.06
 Nodes (62): Validate the ``scene_overrides`` request field (422 on any problem —     a malfo, _validate_scene_overrides(), _apply_scene_overrides(), Map ``scene_overrides`` (keyed by SOURCE-frame scene start ``first``)     onto W, Apply resolved scene_overrides onto the final depth script IN PLACE.      User o, scene_overrides WITHOUT adaptive: build flat per-scene params     directly — no, _resolve_scene_overrides(), _synthesize_scene_params() (+54 more)
 
 ### Community 4 - "Billing & Charge Orchestration"
-Cohesion: 0.24
-Nodes (7): Service, Client, Context, Conversion, Project, Job, Store
+Cohesion: 0.05
+Nodes (43): errUnauthorizedType, User, Verifier, Config, encodeSceneOverrides(), formatMinSec(), Service, Client (+35 more)
 
 ### Community 5 - "Diffusion Guiders"
-Cohesion: 0.19
-Nodes (8): DPMPP2SAncestralSampler, get_ancestral_step(), linear_multistep_coeff(), to_d(), to_neg_log_sigma(), to_sigma(), append_dims(), Appends dimensions to the end of a tensor until it has target_dims dimensions.
+Cohesion: 0.18
+Nodes (12): AncestralSampler, DPMPP2SAncestralSampler, EulerAncestralSampler, Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_dif, SingleStepDiffusionSampler, get_ancestral_step(), linear_multistep_coeff(), to_d() (+4 more)
 
 ### Community 6 - "Autoencoder"
-Cohesion: 0.07
-Nodes (17): AbstractAutoencoder, AEIntegerWrapper, AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, AutoencodingEngine, AutoencodingEngineLegacy, IdentityFirstStage (+9 more)
+Cohesion: 0.15
+Nodes (5): AEIntegerWrapper, AutoencodingEngine, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL, Optimizer
 
 ### Community 7 - "Gateway Main & Pricing"
 Cohesion: 0.07
-Nodes (59): T, TestBatchCapTiers(), TestBatchWindow(), TestNextBatchTier(), T, TestQuoteStepMiganMultipliers(), TestQuoteVideoModeMultiplier(), defaults() (+51 more)
+Nodes (60): T, TestBatchCapTiers(), TestBatchWindow(), TestNextBatchTier(), TestQuoteVideoOneMinuteFloor(), T, TestQuoteStepMiganMultipliers(), TestQuoteVideoModeMultiplier() (+52 more)
 
 ### Community 8 - "Depth Script Builder"
-Cohesion: 0.09
-Nodes (21): _affine_to_ref(), _detect_scene_ranges(), _gray16_video_writer(), _infer_da2(), _infer_da3(), _infer_depth_pro(), _make_infer(), Path (+13 more)
+Cohesion: 0.07
+Nodes (24): _affine_to_ref(), _detect_scene_ranges(), FrameDepthWorker, _gray16_video_writer(), _infer_da2(), _infer_da3(), _infer_depth_pro(), _make_infer() (+16 more)
 
 ### Community 9 - "Attention & RoPE"
-Cohesion: 0.14
-Nodes (9): apply_rotary_emb(), ApproximateGELU, GEGLU, GELU, Tensor, r"""     GELU activation function, r"""     A variant of the gated linear unit activation function from https://arx, The approximate form of Gaussian Error Linear Unit (GELU)      For more details, (+1 more)
+Cohesion: 0.07
+Nodes (21): apply_rotary_emb(), ApproximateGELU, CrossAttention, FeedForward, GEGLU, GELU, precompute_freqs_cis(), Tensor (+13 more)
 
 ### Community 10 - "Model Weights / M2SVid"
-Cohesion: 0.06
-Nodes (20): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM (+12 more)
+Cohesion: 0.12
+Nodes (12): LPIPS, NetLinLayer, normalize_tensor(), Stripped version of https://github.com/richzhang/PerceptualSimilarity/tree/maste, A single linear layer which does a 1x1 conv, ScalingLayer, spatial_average(), vgg16 (+4 more)
 
 ### Community 11 - "Modal Job State"
-Cohesion: 0.07
-Nodes (42): check_worker_result(), Raise if a fail_fast worker returned an error envelope., _default_clear_chunk_progress(), _default_read_chunk_progress(), _default_read_updated_at(), _fail_all(), gather_with_heartbeat(), _modal_not_ready_exc() (+34 more)
+Cohesion: 0.27
+Nodes (10): _default_clear_chunk_progress(), _default_read_chunk_progress(), _default_read_updated_at(), _fail_all(), gather_with_heartbeat(), _modal_not_ready_exc(), Orchestrator-side heartbeat watchdog for fan-out GPU workers.  A GPU worker can, Cancel every pending handle, mark the job failed, and raise — the     terminal p (+2 more)
 
 ### Community 12 - "Firestore Projects Store"
-Cohesion: 0.05
-Nodes (41): BatchItem, batchDescription(), batchItemsJSON(), batchMetadata(), Service, Context, Conversion, ResponseWriter (+33 more)
+Cohesion: 0.17
+Nodes (12): conversionsCol(), customersCol(), Client, Context, Conversion, DocumentIterator, DocumentRef, DocumentSnapshot (+4 more)
 
 ### Community 13 - "Web UI Primitives"
-Cohesion: 0.08
-Nodes (33): STEP_DEFS, stepDef, Badge(), badgeVariants, CardAction(), CardDescription(), CardFooter(), CardHeader() (+25 more)
+Cohesion: 0.10
+Nodes (30): Badge(), badgeVariants, Card(), CardAction(), CardContent(), CardDescription(), CardFooter(), CardHeader() (+22 more)
 
 ### Community 14 - "Web Dependencies"
 Cohesion: 0.08
-Nodes (12): AttentionPool2d, Tensor, Adapted from CLIP: https://github.com/openai/CLIP/blob/main/clip/model.py, Apply the block to a Tensor, conditioned on a timestep embedding.         :param, Apply QKV attention.         :param qkv: an [N x (H * 3 * C) x T] tensor of Qs,, Apply QKV attention.         :param qkv: an [N x (3 * H * C) x T] tensor of Qs,, Apply the module to `x` given `emb` timestep embeddings., Apply the model to an input batch.         :param x: an [N x C x ...] Tensor of (+4 more)
+Nodes (13): AttentionBlock, AttentionPool2d, Tensor, Adapted from CLIP: https://github.com/openai/CLIP/blob/main/clip/model.py, Apply the block to a Tensor, conditioned on a timestep embedding.         :param, An attention block that allows spatial positions to attend to each other.     Or, Apply QKV attention.         :param qkv: an [N x (H * 3 * C) x T] tensor of Qs,, Apply QKV attention.         :param qkv: an [N x (3 * H * C) x T] tensor of Qs, (+5 more)
 
 ### Community 15 - "Deliver Panel Tests"
-Cohesion: 0.07
-Nodes (40): backward_warp(), BackwardWarpStereo, Tensor, Backward-warp (gather) stereo synthesis.  The second of the pipeline's two stere, Gather-warp ``image`` (B, C, H, W) float by a signed horizontal     disparity ma, depthmap [0, 1] -> left/right gathered views. Drop-in for     ``DepthSplatter``:, Pure argument check for ``generate`` (kept out of the Modal method     so it is, _validate_modes() (+32 more)
+Cohesion: 0.06
+Nodes (48): backward_warp(), BackwardWarpStereo, Tensor, Backward-warp (gather) stereo synthesis.  The second of the pipeline's two stere, Gather-warp ``image`` (B, C, H, W) float by a signed horizontal     disparity ma, depthmap [0, 1] -> left/right gathered views. Drop-in for     ``DepthSplatter``:, Tensor, (B, C, 1024, 1024) -> (B*4, C, 512, 512), row-major tiles. (+40 more)
 
 ### Community 16 - "Projects Store Tests"
-Cohesion: 0.10
-Nodes (59): sceneOverrideReq, stepConvReq, depthContentDims(), depthWorkMP(), Conversion, Project, SceneOverride, halfSourceFPS() (+51 more)
+Cohesion: 0.16
+Nodes (42): Params, Project, T, proProject(), resolveErr(), resolveErrP(), resolveOK(), resolveOKP() (+34 more)
 
 ### Community 17 - "Gateway HTTP Handlers"
 Cohesion: 0.47
@@ -491,7 +494,7 @@ Nodes (8): ``count`` evenly spaced frame indices across [0, num_frames),     alw
 
 ### Community 19 - "Transformer Blocks"
 Cohesion: 0.08
-Nodes (17): BasicTransformerBlock, BasicTransformerSingleLayerBlock, CrossAttention, default(), exists(), FeedForward, GEGLU, MemoryEfficientCrossAttention (+9 more)
+Nodes (17): BasicTransformerBlock, BasicTransformerSingleLayerBlock, CrossAttention, default(), exists(), FeedForward, GEGLU, LinearAttention (+9 more)
 
 ### Community 20 - "Media & Tabs UI"
 Cohesion: 0.11
@@ -499,23 +502,23 @@ Nodes (17): 1. Hero, 2. Workflow ("Your video, directed by you"), 3. Pipeline ("
 
 ### Community 21 - "Debug / Tensor Tracking"
 Cohesion: 0.05
-Nodes (56): get_logger(), _JobAdapter, Logger, Logging + tensor shape tracking.  Conventions: - module loggers via ``get_logger, Log shape/dtype/device/range of a tensor (or pass-through None)., track(), fail_fast(), Fail-fast error policy for workers.  Modal's ``retries=`` re-runs a function on (+48 more)
+Nodes (60): get_logger(), _JobAdapter, Logger, Logging + tensor shape tracking.  Conventions: - module loggers via ``get_logger, Log shape/dtype/device/range of a tensor (or pass-through None)., track(), fail_fast(), Fail-fast error policy for workers.  Modal's ``retries=`` re-runs a function on (+52 more)
 
 ### Community 22 - "Model Weight Downloads"
-Cohesion: 0.11
-Nodes (29): _download_url(), ensure_da2(), ensure_da2_metric(), ensure_da3(), ensure_depth_anything_v2(), ensure_depth_pro(), ensure_lama(), ensure_m2svid() (+21 more)
+Cohesion: 0.10
+Nodes (32): _download_url(), ensure_da2(), ensure_da2_metric(), ensure_da3(), ensure_depth_anything_v2(), ensure_depth_pro(), ensure_lama(), ensure_m2svid() (+24 more)
 
 ### Community 23 - "Source→Work Frame Mapping"
 Cohesion: 0.13
 Nodes (37): _annotate_source_spans(), _map_source_to_work(), SOURCE fps for the non-divisor resample mapping — NO fallback to     pre["probe", SOURCE-frame index → WORK-frame index under trim + fps decimation.      This is, Inverse of _map_source_to_work for KEPT work frames: the source     frame that w, Map user-edited ``scene_cuts`` (SOURCE-frame indices, each the first     frame o, Attach ``first_src``/``last_src`` (SOURCE-frame scene span,     half-open) to ev, _resample_source_fps() (+29 more)
 
 ### Community 24 - "Diffusion Engine"
-Cohesion: 0.06
-Nodes (22): DiffusionEngine, Any, ListConfig, OmegaConf, Defines heuristics to log different conditionings.         These can be lists of, LitEma, Save the current parameters for restoring later.         Args:           paramet, Restore the parameters stored with the `store` method.         Useful to validat (+14 more)
+Cohesion: 0.13
+Nodes (7): ListConfig, OmegaConf, LitEma, Save the current parameters for restoring later.         Args:           paramet, Restore the parameters stored with the `store` method.         Useful to validat, get_obj_from_str(), load_partial_from_config()
 
 ### Community 25 - "Community 25"
-Cohesion: 0.07
-Nodes (60): job_logger(), Logger that prefixes every line with the job id, so one job can     be traced ac, count_frames(), Exact frame count by counting packets (fast, no decode)., bucket_path(), job_cache_dir(), job_output_dir(), public_url() (+52 more)
+Cohesion: 0.05
+Nodes (88): job_logger(), Logger that prefixes every line with the job id, so one job can     be traced ac, check_worker_result(), Raise if a fail_fast worker returned an error envelope., count_frames(), Exact frame count by counting packets (fast, no decode)., bucket_path(), job_cache_dir() (+80 more)
 
 ### Community 26 - "Community 26"
 Cohesion: 0.10
@@ -534,72 +537,72 @@ Cohesion: 0.10
 Nodes (14): canDecodeVideo(), createVideoFrameExtractor(), EMPTY_THUMBS, extractionSeekTime(), ExtractorFactory, FrameExtractor, noopExtractor, FakeExtractor (+6 more)
 
 ### Community 30 - "Community 30"
-Cohesion: 0.13
-Nodes (16): DepthProcessor, DepthResult, gray16_video_writer(), Path, Tensor, Detect scene cuts on CPU concurrently with GPU inference., Yield aligned depth tensors (N, 1, h, w) for frames [first, last)., Iterate scene boundaries (first, last) as detection produces them. (+8 more)
+Cohesion: 0.05
+Nodes (51): DepthProcessor, DepthResult, gray16_video_writer(), load_video_depth_model(), Encoder, Path, Tensor, Scene-aware streaming video depth estimation.  Migrated from scene_video_depth.D (+43 more)
 
 ### Community 31 - "Community 31"
 Cohesion: 0.12
 Nodes (12): fetch_dataloader(), FlowDataset, FlyingChairs, FlyingThings3D, HD1K, KITTI, MpiSintel, Create the data loader for the corresponding trainign set (+4 more)
 
 ### Community 32 - "Community 32"
-Cohesion: 0.12
-Nodes (12): Decoder, Downsample, Encoder, get_timestep_embedding(), make_attn(), MemoryEfficientCrossAttentionWrapper, Model, nonlinearity() (+4 more)
+Cohesion: 0.10
+Nodes (16): MemoryEfficientCrossAttention, AttnBlock, Decoder, Downsample, Encoder, get_timestep_embedding(), LinAttnBlock, make_attn() (+8 more)
 
 ### Community 33 - "Community 33"
 Cohesion: 0.12
 Nodes (12): flow_warp(), Warp an image or a feature map with optical flow.     Args:         x (Tensor), BidirectionalPropagation, deconv, DeformableAlignment, Encoder, fbConsistencyCheck(), length_sq() (+4 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.27
-Nodes (6): compactPlayerAtom, compactTimelineAtom, mutedAtom, playbackSpeedAtom, timelineZoomIndexAtom, ResizeObserverStub
+Cohesion: 0.24
+Nodes (7): resetStepCheckoutState(), compactPlayerAtom, compactTimelineAtom, mutedAtom, playbackSpeedAtom, timelineZoomIndexAtom, ResizeObserverStub
 
 ### Community 36 - "Community 36"
-Cohesion: 0.14
-Nodes (10): AE3DConv, Conv2DWrapper, make_time_attn(), MemoryEfficientVideoBlock, Tensor, VideoBlock, VideoDecoder, VideoResBlock (+2 more)
+Cohesion: 0.11
+Nodes (13): AE3DConv, Conv2DWrapper, make_time_attn(), MemoryEfficientVideoBlock, Tensor, VideoBlock, VideoDecoder, VideoResBlock (+5 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.07
-Nodes (38): atoms, EMPTY_CHECKOUT, resetStepCheckoutState(), stepCheckoutAtom(), StepCheckoutState, CANCELABLE, ConversionTracker(), ConversionTrackerProps (+30 more)
+Cohesion: 0.06
+Nodes (49): atoms, EMPTY_CHECKOUT, stepCheckoutAtom(), StepCheckoutState, CANCELABLE, ConversionTracker(), ConversionTrackerProps, formatEta() (+41 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.17
-Nodes (20): AnalyzeBadge(), analyzePercent(), AnalyzeProgress(), analyzeStageLabel(), formatEtaLeft(), ProgressLike, STAGE_LABELS, Tooltip() (+12 more)
+Cohesion: 0.16
+Nodes (21): AnalyzeBadge(), analyzePercent(), AnalyzeProgress(), analyzeStageLabel(), formatEtaLeft(), ProgressLike, STAGE_LABELS, Tooltip() (+13 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.11
-Nodes (26): Check the content-addressed reuse cache for a given video request,     WITHOUT s, reuse_lookup(), depth_lookup_keys(), _depth_source_key(), normalize_video_request(), The depth stage's source identity — OUTPUT-RESOLUTION-INDEPENDENT     (see reuse, Depth-cache candidates in LOOKUP order: the exact key first, then —     when the, Resolve the preset merge + client-facing aliases into the EFFECTIVE     request (+18 more)
+Nodes (26): depth_lookup_keys(), _depth_source_key(), normalize_video_request(), Pull trim fields out of the request into a spec dict (or None).     Accepts from, The depth stage's source identity — OUTPUT-RESOLUTION-INDEPENDENT     (see reuse, Depth-cache candidates in LOOKUP order: the exact key first, then —     when the, Resolve the preset merge + client-facing aliases into the EFFECTIVE     request, Compute the (preprocess, depth, scenes) reuse keys for a video     request. The (+18 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.09
-Nodes (29): BillingCard, PendingBatch, SceneOverride, UnpaidCharge, clampDepthRes(), depthContentDims(), DepthResChoice, depthResChoices() (+21 more)
+Cohesion: 0.11
+Nodes (20): BillingCard, PendingBatch, UnpaidCharge, ANALYZE_STAGES, batchCharge(), clamp(), err(), MOCK_CARD (+12 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.08
-Nodes (51): CheckboxChip(), Field(), DeliverPanel(), DepthPanel(), DepthReview(), EDGE_LABELS, EDGE_OPTIONS, EdgeMode (+43 more)
+Cohesion: 0.14
+Nodes (24): CheckboxChip(), Field(), DeliverPanel(), DepthReview(), EDGE_LABELS, EDGE_OPTIONS, EdgeMode, edgeModeRequest() (+16 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.13
 Nodes (9): constant_init(), ModulatedDeformConv2d, BidirectionalPropagation, deconv, EdgeDetection, P3DBlock, Second-order deformable alignment module., x shape : [b, t, c, h, w]         return [b, t, c, h, w] (+1 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.06
-Nodes (35): _apply_auto_comfort(), _apply_comfort_budget(), _auto_comfort_scale(), _boundary_params(), _build_depth_script(), _classify_keyframe(), _far_plane(), _keyframe_params() (+27 more)
+Cohesion: 0.08
+Nodes (31): _apply_auto_comfort(), _apply_comfort_budget(), _auto_comfort_scale(), _boundary_params(), _build_depth_script(), _classify_keyframe(), _far_plane(), _keyframe_params() (+23 more)
 
 ### Community 44 - "Community 44"
-Cohesion: 0.31
-Nodes (6): User, Verifier, Client, Context, Request, New()
+Cohesion: 0.17
+Nodes (14): batchDescription(), batchItemsJSON(), batchMetadata(), Service, Context, Conversion, Request, ResponseWriter (+6 more)
 
 ### Community 45 - "Community 45"
-Cohesion: 0.16
-Nodes (22): _cancel_call(), cancel_job(), _check_warp(), job_status(), HTTP API.  Production endpoints     POST /v1/videos         — full 2D→3D video p, Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene     detect, Standalone shot-profiling job: run the adaptive ShotProfiler over a     frame-ex, 400 on an unknown ``warp`` or on warp="backward" paired with any     inpainting (+14 more)
+Cohesion: 0.15
+Nodes (24): _cancel_call(), cancel_job(), _check_warp(), job_status(), HTTP API.  Production endpoints     POST /v1/videos         — full 2D→3D video p, Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene     detect, Standalone shot-profiling job: run the adaptive ShotProfiler over a     frame-ex, 400 on an unknown ``warp`` or on warp="backward" paired with any     inpainting (+16 more)
 
 ### Community 46 - "Community 46"
-Cohesion: 0.14
-Nodes (27): PlayerBadge(), videoDims, bestPlayable(), PLAYABLE_PREFERENCE, StepReview(), StepReviewContext, StepReviewFollower, useFollowerVideo() (+19 more)
+Cohesion: 0.10
+Nodes (24): FilmstripTimeline(), PreviewViewer(), clampFrame(), CropRect, FilmstripTile, frameToWindowPosition(), FrameWindow, isExtractionZoom() (+16 more)
 
 ### Community 47 - "Community 47"
-Cohesion: 0.14
-Nodes (14): Attention, add_residual(), drop_add_residual_stochastic_depth(), drop_add_residual_stochastic_depth_list(), get_attn_bias_and_cat(), get_branges_scales(), NestedTensorBlock, Any (+6 more)
+Cohesion: 0.18
+Nodes (12): add_residual(), drop_add_residual_stochastic_depth(), drop_add_residual_stochastic_depth_list(), get_attn_bias_and_cat(), get_branges_scales(), NestedTensorBlock, Any, Tensor (+4 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.13
@@ -610,8 +613,8 @@ Cohesion: 0.31
 Nodes (8): _cost_suffix(), _flatten_links(), job_event(), notify_slack(), Slack notifications for pipeline lifecycle events.  The webhook URL lives in the, POST a message to the configured Slack webhook (no-op if unset)., Emit Slack messages for meaningful job transitions. Called from     jobs.update_, `, ~$0.18 est.` for the completion line — None if no cost summary     (e.g. all
 
 ### Community 50 - "Community 50"
-Cohesion: 0.09
-Nodes (11): FrameWindow, exportCutsCSV(), normalizeCuts(), parseCutList(), parseIntStrict(), FPS24, NTSC, FIXTURE (+3 more)
+Cohesion: 0.39
+Nodes (6): exportCutsCSV(), normalizeCuts(), parseCutList(), parseIntStrict(), FPS24, NTSC
 
 ### Community 51 - "Community 51"
 Cohesion: 0.16
@@ -627,15 +630,15 @@ Nodes (14): hole_mask(), inpaint_chunk(), load_m2svid(), _morph(), Tensor, M2SVi
 
 ### Community 54 - "Community 54"
 Cohesion: 0.14
-Nodes (11): DepthSplatter, depthmap [0, 1] -> left/right warped views + occlusion masks., M2SVidStereoWorker, Path, Produce a full-width SBS video (left = source, right =         warped + M2SVid-f, Run M2SVid on one eye. mirror=True flips inputs/outputs         horizontally (le, Splat the right eye at source resolution and FULL         displacement, run M2SV, Nearest multiple of 64, at least 64 (model dim constraint). (+3 more)
+Nodes (11): concat_segments(), Path, Small ffmpeg/ffprobe helpers shared across stages.  Pure subprocess — no torch,, Lossless stream-copy concat of mp4 segments in order., M2SVidStereoWorker, Path, Produce a full-width SBS video (left = source, right =         warped + M2SVid-f, Run M2SVid on one eye. mirror=True flips inputs/outputs         horizontally (le (+3 more)
 
 ### Community 55 - "Community 55"
 Cohesion: 0.18
 Nodes (8): Spectral Normalization from https://arxiv.org/abs/1802.05957, r"""Applies spectral normalization to a parameter in the given module.      .. m, r"""Removes the spectral normalization reparameterization from a module.      Ar, remove_spectral_norm(), spectral_norm(), SpectralNorm, SpectralNormLoadStateDictPreHook, use_spectral_norm()
 
 ### Community 56 - "Community 56"
-Cohesion: 0.20
-Nodes (7): ConvBlock, DPTHead, _make_fusion_block(), FeatureFusionBlock, _make_scratch(), Forward pass.          Returns:             tensor: output, Feature fusion block.
+Cohesion: 0.12
+Nodes (12): ConvBlock, DPTHead, _make_fusion_block(), FeatureFusionBlock, _make_scratch(), Init.          Args:             features (int): number of features, Forward pass.          Returns:             tensor: output, Residual convolution module. (+4 more)
 
 ### Community 57 - "Community 57"
 Cohesion: 0.60
@@ -651,15 +654,15 @@ Nodes (21): video_stereo pipeline stage, ekr2 6fps Inpainter A/B Test Index, Aut
 
 ### Community 60 - "Community 60"
 Cohesion: 0.13
-Nodes (19): ensure_video_depth_anything(), VideoDepthAnything checkpoint (vits|vitl), Depth-Anything-V2 based., load_video_depth_model(), Encoder, _bench_encode(), _bench_forward(), _delta(), delta_l40s() (+11 more)
+Nodes (8): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM
 
 ### Community 61 - "Community 61"
 Cohesion: 0.22
 Nodes (9): Context, RawMessage, New(), AnalyzeMetadata, Client, Job, ReuseLookup, SubmitResponse (+1 more)
 
 ### Community 62 - "Community 62"
-Cohesion: 0.05
-Nodes (34): errUnauthorizedType, firebase, Analytics(), Mode, safeNext(), SignInScreen(), SUBMIT_LABELS, TITLES (+26 more)
+Cohesion: 0.18
+Nodes (14): firebase, ClarityClient, ConsentChoice, devLog(), EventParams, gaLogEvent(), startAnalytics(), storeConsent() (+6 more)
 
 ### Community 63 - "Community 63"
 Cohesion: 0.10
@@ -670,44 +673,44 @@ Cohesion: 0.13
 Nodes (12): Tensor, r"""Compute the Sobel operator and returns the magnitude per channel.      .. im, r"""Compute the first order image derivative in both x and y using a Sobel opera, r"""Compute the first and second order volume derivative in x, y and d using a d, r"""Compute the Sobel operator and returns the magnitude per channel.      Args:, r"""Compute the first and second order volume derivative in x, y and d using a d, r"""Compute the first order image derivative in both x and y using a Sobel opera, sobel() (+4 more)
 
 ### Community 65 - "Community 65"
-Cohesion: 0.21
-Nodes (6): DenoiserScaling, EDMScaling, EpsScaling, Tensor, VScaling, VScalingWithEDMcNoise
+Cohesion: 0.20
+Nodes (7): ABC, DenoiserScaling, EDMScaling, EpsScaling, Tensor, VScaling, VScalingWithEDMcNoise
 
 ### Community 66 - "Community 66"
-Cohesion: 0.09
-Nodes (25): _canonical(), compute_key(), depth_key(), depth_source_key(), lookup(), lookup_value(), peek(), preprocess_key() (+17 more)
+Cohesion: 0.10
+Nodes (23): _canonical(), compute_key(), depth_key(), depth_source_key(), lookup(), lookup_value(), peek(), preprocess_key() (+15 more)
 
 ### Community 67 - "Community 67"
 Cohesion: 0.18
 Nodes (5): BasicMotionEncoder, ConvGRU, FlowHead, SepConvGRU, SmallMotionEncoder
 
 ### Community 68 - "Community 68"
-Cohesion: 0.28
-Nodes (5): Module, Tensor, SwiGLUFFN, SwiGLUFFNFused, SwiGLU
+Cohesion: 0.13
+Nodes (10): BlockChunk, Mlp, Module, Tensor, Module, Tensor, SwiGLUFFN, SwiGLUFFNFused (+2 more)
 
 ### Community 69 - "m2svid_runner.py"
-Cohesion: 0.17
-Nodes (13): DPTHeadTemporal, compute_scale(), compute_scale_and_shift(), compute_scale_and_shift_full(), get_interpolate_frames(), Tensor, Given two lists of equally many frames (tensors of shape H×W),     return a list, If scale_only is True, returns (scale, 0).     Otherwise returns (scale, shift) (+5 more)
+Cohesion: 0.21
+Nodes (10): BatchItem, batchesCol(), Context, Conversion, DocumentIterator, DocumentRef, DocumentSnapshot, Duration (+2 more)
 
 ### Community 70 - "Community 70"
-Cohesion: 0.56
-Nodes (8): DINOv2(), MemEffAttention, Block, Close to ViT-giant, with embed-dim 1536 and 24 heads => embed-dim per head 64, vit_base(), vit_giant2(), vit_large(), vit_small()
+Cohesion: 0.28
+Nodes (10): DINOv2(), Attention, MemEffAttention, Tensor, Block, Close to ViT-giant, with embed-dim 1536 and 24 heads => embed-dim per head 64, vit_base(), vit_giant2() (+2 more)
 
 ### Community 71 - "Community 71"
 Cohesion: 0.04
-Nodes (26): AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenByT5Embedder, FrozenCLIPEmbedder, FrozenCLIPT5Encoder, FrozenOpenCLIPImageEmbedder (+18 more)
+Nodes (28): extract_into_tensor(), AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenByT5Embedder, FrozenCLIPEmbedder, FrozenCLIPT5Encoder (+20 more)
 
 ### Community 72 - "Community 72"
-Cohesion: 0.19
-Nodes (6): ABC, Guider, IdentityGuider, LinearPredictionGuider, Tensor, VanillaCFG
+Cohesion: 0.20
+Nodes (5): Guider, IdentityGuider, LinearPredictionGuider, Tensor, VanillaCFG
 
 ### Community 73 - "Community 73"
 Cohesion: 0.18
 Nodes (6): CorrBlock, CorrLayer, Flow is represented as difference between two coordinate grids flow = coords1 -, bilinear_sampler(), coords_grid(), Wrapper for grid_sample, uses pixel coordinates
 
 ### Community 74 - "Community 74"
-Cohesion: 0.06
-Nodes (23): replace, FIXTURE, seedStereoDraft(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS, renderPanel() (+15 more)
+Cohesion: 0.05
+Nodes (32): replace, FIXTURE, seedStereoDraft(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS, renderPanel() (+24 more)
 
 ### Community 75 - "Community 75"
 Cohesion: 0.08
@@ -730,7 +733,7 @@ Cohesion: 0.17
 Nodes (4): FrozenOpenCLIPEmbedder, FrozenOpenCLIPEmbedder2, Tensor, Uses the OpenCLIP transformer encoder for text
 
 ### Community 80 - "GEGLU"
-Cohesion: 0.08
+Cohesion: 0.09
 Nodes (15): MI-GAN inference generator, vendored from https://github.com/Picsart-AI-Research, Downsample2d, Encoder, EncoderBlock, Generator, lrelu_agc, Args:             oc_n: output channel number, Args:             x: 4 channel rgb+mask (+7 more)
 
 ### Community 81 - "Community 81"
@@ -738,7 +741,7 @@ Cohesion: 0.12
 Nodes (16): A/V sync guarantees, Architecture, Black bars, Content-addressed reuse (`app/common/reuse.py`), Depth GPU routing — working megapixels (`_route_depth_gpu`), Dual resolution (v7): depth_res / inpaint_res / output_res, Goals (and the mistakes they fix), Heartbeat watchdog (`app/common/watchdog.py`) (+8 more)
 
 ### Community 82 - "Community 82"
-Cohesion: 0.25
+Cohesion: 0.24
 Nodes (5): BaseDiffusionSampler, DPMPP2MSampler, LinearMultistepSampler, ListConfig, OmegaConf
 
 ### Community 83 - "Community 83"
@@ -746,11 +749,11 @@ Cohesion: 0.21
 Nodes (7): forward_warp, forward_warp_max_motion, Adapted from Algorithm 3 in Sanachez et al. 2013 "Computing Inverse Optical Flow, Support interpolation mode with Bilinear and Nearest., forward_warp_rescaled, fowrard warp where input image and warped image are in same value range, Module
 
 ### Community 84 - "Community 84"
-Cohesion: 0.07
-Nodes (32): AccountScreen(), AccountScreenProps, PROVIDER_LABELS, RequireAuth(), UserAvatar(), UserMenu(), replace, BillingBanner() (+24 more)
+Cohesion: 0.10
+Nodes (22): AccountScreen(), AccountScreenProps, PROVIDER_LABELS, RequireAuth(), UserAvatar(), UserMenu(), replace, BillingBanner() (+14 more)
 
 ### Community 85 - "Community 85"
-Cohesion: 0.31
+Cohesion: 0.38
 Nodes (4): Denoiser, DiscreteDenoiser, Module, Tensor
 
 ### Community 86 - "Community 86"
@@ -758,8 +761,8 @@ Cohesion: 0.20
 Nodes (4): BasicEncoder, BottleneckBlock, ResidualBlock, SmallEncoder
 
 ### Community 89 - "billing.tsx"
-Cohesion: 0.13
-Nodes (16): DepthSceneGrid(), MuteToggle(), SPEED_CHOICES, SpeedSelect(), StepReviewProps, SceneOverrideRows(), FilmstripTimelineProps, PreviewViewerProps (+8 more)
+Cohesion: 0.12
+Nodes (18): DepthSceneGrid(), MuteToggle(), SPEED_CHOICES, SpeedSelect(), SceneOverrideRows(), FilmstripTimelineProps, PreviewViewerProps, SceneCutEditorProps (+10 more)
 
 ### Community 90 - "Community 90"
 Cohesion: 0.12
@@ -794,8 +797,8 @@ Cohesion: 0.23
 Nodes (8): demo(), load_image(), load_image_list(), RAFT_infer(), viz(), RAFT, InputPadder, Pads images such that dimensions are divisible by 8
 
 ### Community 98 - "Community 98"
-Cohesion: 0.31
-Nodes (6): compute_scale(), compute_scale_and_shift(), compute_scale_and_shift_full(), get_interpolate_frames(), Tensor, VideoDepthAnything
+Cohesion: 0.24
+Nodes (7): DPTHeadTemporal, compute_scale(), compute_scale_and_shift(), compute_scale_and_shift_full(), get_interpolate_frames(), Tensor, VideoDepthAnything
 
 ### Community 99 - "__init__.py"
 Cohesion: 0.27
@@ -806,12 +809,12 @@ Cohesion: 0.15
 Nodes (12): image-batch: 6 images (-, depth -), Per-stage timings, Pipeline benchmarks, video: videos/clip_10s_scenes_1080p.mp4 (propainter, depth 980), video: videos/clip_10s_scenes_2160p.mp4 (propainter, depth 980), video: videos/clip_10s_scenes_480p.mp4 (propainter, depth 518), video: videos/clip_1s_1080p.mp4 (propainter, depth 980), video: videos/clip_1s_2160p.mp4 (propainter, depth 980) (+4 more)
 
 ### Community 101 - "Community 101"
-Cohesion: 0.14
-Nodes (24): SceneCutEditor(), currentTimeToFrame(), mediaTimeToFrame(), PreviewFrameMetadata, seekTimeForFrame(), FPS24, FrameCallback, NTSC (+16 more)
+Cohesion: 0.13
+Nodes (26): formatBytes(), MediaTab(), SceneCutEditor(), currentTimeToFrame(), mediaTimeToFrame(), PreviewFrameMetadata, seekTimeForFrame(), FPS24 (+18 more)
 
 ### Community 102 - "Community 102"
-Cohesion: 0.13
-Nodes (9): Discretization, EDMDiscretization, generate_roughly_equally_spaced_steps(), LegacyDDPMDiscretization, ndarray, extract_into_tensor(), make_beta_schedule(), LowScaleEncoder (+1 more)
+Cohesion: 0.21
+Nodes (7): Discretization, EDMDiscretization, generate_roughly_equally_spaced_steps(), LegacyDDPMDiscretization, ndarray, make_beta_schedule(), append_zero()
 
 ### Community 103 - "Community 103"
 Cohesion: 0.18
@@ -831,7 +834,7 @@ Nodes (10): Billing (web pro flow): pay-as-you-go, Deployed environments, Develo
 
 ### Community 107 - "Community 107"
 Cohesion: 0.07
-Nodes (29): DeliverPanelProps, DepthPanelProps, StereoPanelProps, ClientOptions, GatewayClient, GatewayError, TokenProvider, AnalyzeInfo (+21 more)
+Nodes (20): CONTENT_TYPES, Phase, UploadDropzone(), VideoMeta, DeliverPanelProps, DepthPanelProps, StereoPanelProps, ClientOptions (+12 more)
 
 ### Community 108 - ".init_weights"
 Cohesion: 0.17
@@ -842,16 +845,16 @@ Cohesion: 0.14
 Nodes (6): BaseNetwork, FusionFeedForward, initialize network's weights         init_type: normal | xavier | kaiming | orth, Vec2Feat, Discriminator, Discriminator_2D
 
 ### Community 110 - "Community 110"
-Cohesion: 0.15
-Nodes (17): DATE_FORMAT, ProjectCard(), Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogOverlay() (+9 more)
+Cohesion: 0.13
+Nodes (23): DATE_FORMAT, ProjectCard(), DepthPanel(), Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader() (+15 more)
 
 ### Community 112 - "Community 112"
 Cohesion: 0.47
 Nodes (5): Conversion, T, mobileConv(), TestCreateConversionReqValidate(), TestModalBodyMobileParams()
 
 ### Community 113 - "__init__.py"
-Cohesion: 0.08
-Nodes (20): geistMono, geistSans, metadata, Home(), metadata, structuredData, FeedbackLink(), BrowserFrame() (+12 more)
+Cohesion: 0.20
+Nodes (11): BrowserFrame(), DEVICES, FORMATS, LandingContent(), PRICING, QUALITY, PipelineSteps(), STEPS (+3 more)
 
 ### Community 114 - "DropPath"
 Cohesion: 0.23
@@ -874,16 +877,16 @@ Cohesion: 0.18
 Nodes (10): 1a — depth_res=714, output_res=1440 (`d3d6c96d6105`), 1b — depth_res=714, output_res=2160 (`80ff1d22b6fd`), 2a — depth_res=1078, output_res=1440 (`1db0e65ed980`), 2b — depth_res=1078, output_res=2160 (`969b9585a147`), 3a — depth_res=1442, output_res=1440 (`ec772a2a1f1c`), 3b — depth_res=1442, output_res=2160 (`3899ba34a1b9`), 4a — depth_res=1806, output_res=1440 (`5139d4d32a25`), 4b — depth_res=1806, output_res=1800 (`19f085bac6b8`) (+2 more)
 
 ### Community 120 - "UploadDropzone.tsx"
-Cohesion: 0.17
-Nodes (10): FeedForward, precompute_freqs_cis(), r"""     A feed-forward layer.      Parameters:         dim (`int`): The number, PositionalEncoding, TemporalAttention, TemporalModule, TemporalTransformer3DModel, TemporalTransformerBlock (+2 more)
+Cohesion: 0.18
+Nodes (4): DiffusionEngine, Any, Defines heuristics to log different conditionings.         These can be lists of, log_txt_as_img()
 
 ### Community 121 - "Community 121"
 Cohesion: 0.33
 Nodes (9): _box(), build_hfov(), build_vexu(), _full_box(), Apple spatial-video metadata (vexu/hfov) blob builder.  Builds the VisualSampleE, vexu box bytes. hero: "left" | "right" | None (omit hero box).      projection:, hfov box bytes (plain box, no version/flags)., Verify against the reference hex of Apple's spec layout     (iPhone-15-Pro-like (+1 more)
 
 ### Community 122 - "mean_flat"
-Cohesion: 0.18
-Nodes (6): Module, drop_path(), DropPath, Drop paths (Stochastic Depth) per sample (when applied in main path of residual, LayerScale, Tensor
+Cohesion: 0.29
+Nodes (4): Module, drop_path(), DropPath, Drop paths (Stochastic Depth) per sample (when applied in main path of residual
 
 ### Community 123 - "Community 123"
 Cohesion: 0.13
@@ -902,8 +905,8 @@ Cohesion: 0.29
 Nodes (4): make_2tuple(), PatchEmbed, Tensor, 2D image to patch embedding: (B,C,H,W) -> (B,N,D)      Args:         img_size: I
 
 ### Community 127 - "Community 127"
-Cohesion: 0.21
-Nodes (7): AncestralSampler, EDMSampler, EulerAncestralSampler, EulerEDMSampler, HeunEDMSampler, Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_dif, SingleStepDiffusionSampler
+Cohesion: 0.25
+Nodes (3): EDMSampler, EulerEDMSampler, HeunEDMSampler
 
 ### Community 128 - "Community 128"
 Cohesion: 0.22
@@ -922,8 +925,8 @@ Cohesion: 0.42
 Nodes (8): activeClientIds, getResponse(), handleRequest(), IS_MOCKED_RESPONSE, resolveMainClient(), respondWithMock(), sendToClient(), serializeRequest()
 
 ### Community 134 - "LinearAttention"
-Cohesion: 0.20
-Nodes (17): ProfileShot, RawMessage, profileShots(), bodyJSON(), Conversion, T, TestModalBodyAdaptiveForAllProSteps(), TestModalBodyDepthOnly() (+9 more)
+Cohesion: 0.25
+Nodes (7): Context, Conversion, DocumentRef, Project, Store, projectsCol(), isIterDone()
 
 ### Community 135 - "Community 135"
 Cohesion: 0.39
@@ -934,8 +937,8 @@ Cohesion: 0.17
 Nodes (6): SpectralNormStateDictHook, NormalizeImage, PrepareForNet, Normlize image by given mean and std., Prepare sample for usage as network input., object
 
 ### Community 137 - "DiscreteDenoiser"
-Cohesion: 0.08
-Nodes (28): MiganInpainter, Tensor, MI-GAN occlusion fill — the fast, per-frame inpainter.  The ``inpaint="migan"``, (B, C, 1024, 1024) -> (B*4, C, 512, 512), row-major tiles., Inverse of _tile: (B*4, C, 512, 512) -> (B, C, 1024, 1024)., Fill the occluded pixels of a warped eye.          image: (B, 3, H, W) float [0,, _tile(), _untile() (+20 more)
+Cohesion: 0.31
+Nodes (10): _pick_batch_size(), Largest ProPainter window n in [8, 30] whose working set fits the     GPU tier's, ProPainter window sizing: the VRAM working set scales with window frames × inpai, test_720p_tier_keeps_the_full_window(), test_floor_is_eight_frames(), test_h200_tier_runs_a_wide_window_at_4k(), test_h200_tier_still_ceilinged_at_30(), test_high_res_inpaint_shrinks_the_window_on_the_small_tier() (+2 more)
 
 ### Community 138 - "Community 138"
 Cohesion: 0.22
@@ -952,6 +955,10 @@ Nodes (5): insert_bn(), Forward function.          Args:             x (Tensor):
 ### Community 141 - "Community 141"
 Cohesion: 0.39
 Nodes (7): flow_to_image(), _make_colorwheel(), _normalized_flow_to_image(), Tensor, Converts a batch of normalized flow to an RGB image.      Args:         normaliz, Generates a color wheel for optical flow visualization as presented in:     Bake, Converts a flow to an RGB image.      Args:         flow (Tensor): Flow of shape
+
+### Community 142 - "CrossAttention"
+Cohesion: 0.14
+Nodes (11): appearance, BillingSetupContext, BillingSetupImplementation, BillingSetupPanelProps, mockBillingSetup, stripeBillingSetup, StripeSetupPanel(), completeChargeAction() (+3 more)
 
 ### Community 143 - "Community 143"
 Cohesion: 0.54
@@ -978,8 +985,8 @@ Cohesion: 0.33
 Nodes (3): IdentityWrapper, OpenAIWrapper, Tensor
 
 ### Community 149 - "test_depth_vis.py"
-Cohesion: 0.29
-Nodes (8): _depth_vis_filter(), ffmpeg -vf chain turning a gray16le depth video into a browser-     playable 8-b, depth_vis: browser-playable preview of the gray16 depth video — ffmpeg command c, test_cmd_is_a_single_cpu_h264_pass(), test_landscape_caps_the_short_side(), test_no_upscale_below_the_cap(), test_portrait_caps_the_short_side(), test_square_above_cap_scales()
+Cohesion: 0.24
+Nodes (10): _depth_vis_cmd(), _depth_vis_filter(), ffmpeg -vf chain turning a gray16le depth video into a browser-     playable 8-b, The single-pass CPU transcode command for the depth preview:     H.264 yuv420p,, depth_vis: browser-playable preview of the gray16 depth video — ffmpeg command c, test_cmd_is_a_single_cpu_h264_pass(), test_landscape_caps_the_short_side(), test_no_upscale_below_the_cap() (+2 more)
 
 ### Community 151 - "Community 151"
 Cohesion: 0.29
@@ -1034,68 +1041,80 @@ Cohesion: 0.67
 Nodes (3): awkky full_batch_v3 Job Record (failed), K9 full_batch_v3 Job Record (failed), Silent-Hang Heartbeat Watchdog
 
 ### Community 368 - "Slack"
-Cohesion: 0.38
-Nodes (5): Client, Context, NewSlack(), truncate(), Slack
+Cohesion: 0.13
+Nodes (7): autocast(), get_configs_path(), is_power_of_two(), mean_flat(), https://github.com/openai/guided-diffusion/blob/27c20a8fab9cb472df5d6bdd6c8d11c8, Get the `configs` directory.     For a working copy, this is the one in the root, chat.openai.com/chat     Return True if n is a power of 2, otherwise return Fals
 
 ### Community 369 - "DropPath"
-Cohesion: 0.25
-Nodes (6): BlockChunk, init_weights_vit_timm(), named_apply(), Module, ViT weight initialization, original timm impl (for reproducibility), Args:             img_size (int, tuple): input image size             patch_size
+Cohesion: 0.50
+Nodes (4): init_weights_vit_timm(), named_apply(), Module, ViT weight initialization, original timm impl (for reproducibility)
 
 ### Community 370 - "MemoryEfficientAttnBlock"
-Cohesion: 0.32
-Nodes (4): AttnBlock, MemoryEfficientAttnBlock, Tensor, Uses xformers efficient implementation,     see https://github.com/MatthieuTPHR/
+Cohesion: 0.18
+Nodes (7): AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, AutoencodingEngineLegacy, Module, get_nested_attribute(), Will return the result of a recursive get attribute call.     E.g.:         a.b.
 
 ### Community 371 - "distributions.py"
 Cohesion: 0.17
 Nodes (4): DiagonalGaussianRegularizer, Any, Tensor, DiagonalGaussianDistribution
 
 ### Community 372 - "ResidualConvUnit"
-Cohesion: 0.29
-Nodes (5): Init.          Args:             features (int): number of features, Residual convolution module., Init.          Args:             features (int): number of features, Forward pass.          Args:             x (tensor): input          Returns:, ResidualConvUnit
+Cohesion: 0.19
+Nodes (4): AbstractAutoencoder, IdentityFirstStage, Any, This is the base class for all autoencoders, including image autoencoders, image
 
 ### Community 373 - "Resize"
 Cohesion: 0.38
 Nodes (3): Init.          Args:             width (int): desired output width             h, Resize sample to given size (width, height)., Resize
 
 ### Community 375 - "Config"
-Cohesion: 0.38
-Nodes (4): Config, getenv(), Load(), eslintConfig
+Cohesion: 0.21
+Nodes (7): geistMono, geistSans, metadata, Analytics(), FeedbackLink(), Logo(), MswProvider()
 
 ### Community 376 - "ClassifyChargeError"
 Cohesion: 0.57
 Nodes (6): ClassifyChargeError(), T, TestClassifyChargeErrorAPIOutageIsTransient(), TestClassifyChargeErrorAuthenticationRequired(), TestClassifyChargeErrorCardDeclined(), TestClassifyChargeErrorNonStripeIsTransient()
 
+### Community 377 - "_TimedDecoder"
+Cohesion: 0.26
+Nodes (4): STEP_DEFS, stepDef, StepTab(), Step
+
 ### Community 378 - "usePlayerShortcuts"
-Cohesion: 0.48
-Nodes (4): isTypingTarget(), PlayerShortcuts, Harness(), usePlayerShortcuts()
+Cohesion: 0.20
+Nodes (11): PlayerBadge(), videoDims, StepReview(), StepReviewContext, StepReviewFollower, StepReviewProps, useFollowerVideo(), isTypingTarget() (+3 more)
 
 ### Community 379 - "LinearAttention"
-Cohesion: 0.33
-Nodes (3): LinearAttention, LinAttnBlock, to match AttnBlock usage
+Cohesion: 0.24
+Nodes (4): disabled_train(), instantiate_from_config(), load_model_from_config(), Overwrite model.train with this function to make sure train/eval mode     does n
 
 ### Community 380 - "service.go"
+Cohesion: 0.22
+Nodes (3): Home(), metadata, structuredData
+
+### Community 381 - ".forward"
+Cohesion: 0.29
+Nodes (5): Mode, safeNext(), SignInScreen(), SUBMIT_LABELS, TITLES
+
+### Community 382 - "depth_script_to_yaml"
 Cohesion: 0.50
-Nodes (3): encodeSceneOverrides(), formatMinSec(), SceneOverride
+Nodes (4): depth_script_to_yaml(), Frame index → m:ss.cc timestamp (for the human-readable sidecar)., Render a depth_script (list of per-shot dicts) as readable YAML with     a wall-, _ts()
 
 ## Knowledge Gaps
 - **497 isolated node(s):** `install.sh script`, `deploy.sh script`, `spatial-ai-labs/stereo3d-gateway`, `Service`, `ctxKey` (+492 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **185 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **183 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `update_job()` connect `Debug / Tensor Tracking` to `Community 27`, `Community 49`, `Community 75`?**
-  _High betweenness centrality (0.290) - this node is a cross-community bridge._
+  _High betweenness centrality (0.307) - this node is a cross-community bridge._
 - **Why does `_load_watchdog()` connect `Community 27` to `Debug / Tensor Tracking`?**
-  _High betweenness centrality (0.290) - this node is a cross-community bridge._
-- **Why does `get_logger()` connect `Debug / Tensor Tracking` to `Modal Job State`, `Community 49`, `Community 53`, `Model Weight Downloads`, `Community 25`, `Community 90`?**
-  _High betweenness centrality (0.204) - this node is a cross-community bridge._
-- **Are the 30 inferred relationships involving `WriteErr()` (e.g. with `.finalizeAutoBilled()` and `.HandleArchiveProject()`) actually correct?**
-  _`WriteErr()` has 30 INFERRED edges - model-reasoned connections that need verification._
+  _High betweenness centrality (0.307) - this node is a cross-community bridge._
+- **Why does `get_logger()` connect `Debug / Tensor Tracking` to `Modal Job State`, `Community 49`, `Community 53`, `Model Weight Downloads`, `Community 25`, `Community 90`, `Community 30`?**
+  _High betweenness centrality (0.220) - this node is a cross-community bridge._
+- **Are the 31 inferred relationships involving `WriteErr()` (e.g. with `.finalizeAutoBilled()` and `.HandleArchiveProject()`) actually correct?**
+  _`WriteErr()` has 31 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `HTTP API.  Production endpoints     POST /v1/videos         — full 2D→3D video p`, `400 on an unknown ``warp`` or on warp="backward" paired with any     inpainting`, `Validate the ``scene_overrides`` request field (422 on any problem —     a malfo` to the rest of the system?**
   _1000 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Conditioning / Embedders` be split into smaller, more focused modules?**
-  _Cohesion score 0.14705882352941177 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07373737373737374 - nodes in this community are weakly interconnected._
 - **Should `Gateway Auth & Conversion API` be split into smaller, more focused modules?**
-  _Cohesion score 0.0658709106984969 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05169578622816033 - nodes in this community are weakly interconnected._

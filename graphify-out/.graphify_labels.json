@@ -380,5 +380,9 @@
   "378": "usePlayerShortcuts",
   "379": "LinearAttention",
   "380": "service.go",
-  "381": ".forward"
+  "381": ".forward",
+  "382": "depth_script_to_yaml",
+  "383": ".ConsumePhotoCredit",
+  "384": "photocredits.go",
+  "385": "photocredits.go"
 }

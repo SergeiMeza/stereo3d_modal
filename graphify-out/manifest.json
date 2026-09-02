@@ -735,8 +735,8 @@
     "semantic_hash": "852d08e4a258800c42cb0fdcbf78b5a8"
   },
   "gateway/cmd/gateway/main.go": {
-    "mtime": 1788301555.3056655,
-    "ast_hash": "0ab973197da180867a7ae3612ba88bd1",
+    "mtime": 1788339855.2495456,
+    "ast_hash": "00478167edcad02fbc1972c941159cbe",
     "semantic_hash": ""
   },
   "gateway/deploy.sh": {
@@ -750,13 +750,13 @@
     "semantic_hash": "beaee8fb40de9e22f98ba46e35b05adc"
   },
   "gateway/internal/api/billing.go": {
-    "mtime": 1788301587.1945372,
-    "ast_hash": "b723ae5e3b6bcc0dfe1439992277c077",
+    "mtime": 1788339855.2486918,
+    "ast_hash": "a4883171b9d6ffd2193bb4785e595779",
     "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1788301560.6650186,
-    "ast_hash": "c40ed54b12d5c7a88afc4c304b338264",
+    "mtime": 1788339855.247214,
+    "ast_hash": "24b56b258b8d25af478fb991bb4c1905",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
@@ -770,13 +770,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/reconcile.go": {
-    "mtime": 1788301555.3037522,
-    "ast_hash": "5dceb44d652175a6a9deeec8e9709ea5",
+    "mtime": 1788339855.2481935,
+    "ast_hash": "c032980860170fe2ef582e9d80cbd95f",
     "semantic_hash": ""
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1788301555.3030434,
-    "ast_hash": "633aeeeafd8de094a622290cc82dfaaa",
+    "mtime": 1788329969.893245,
+    "ast_hash": "03ba11400dbb0358b42b913504227c8e",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
@@ -785,7 +785,7 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/webhooks.go": {
-    "mtime": 1788301560.6554968,
+    "mtime": 1788339855.2490463,
     "ast_hash": "4b578b9000d5c5208f63de516cad47c7",
     "semantic_hash": ""
   },
@@ -830,13 +830,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing.go": {
-    "mtime": 1788301406.1885083,
-    "ast_hash": "75fc5b7aac979774ec5cb01d806a1895",
+    "mtime": 1788339855.2462902,
+    "ast_hash": "3083fdc25b17a88e056e616716ce7726",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/pricing_test.go": {
-    "mtime": 1788196766.2243311,
-    "ast_hash": "42548da5755d82f7c3a5312676554ae5",
+    "mtime": 1788339880.8687365,
+    "ast_hash": "431fb438f1f8736f81f08c3ba5faa761",
     "semantic_hash": ""
   },
   "gateway/internal/pricing/testhelper_test.go": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/store/models.go": {
-    "mtime": 1788301377.483831,
-    "ast_hash": "8f45439792be34ea1eddadc91bfacc20",
+    "mtime": 1788339855.2499177,
+    "ast_hash": "e3e1ba7a39f99224b18950f6488b6533",
     "semantic_hash": ""
   },
   "gateway/internal/store/projects.go": {
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/stripex/stripex.go": {
-    "mtime": 1788301406.180682,
-    "ast_hash": "cdf8bf23465382b8861b87a356f132b3",
+    "mtime": 1788339855.2493935,
+    "ast_hash": "ddc155d1268609ee230e01995f22ad39",
     "semantic_hash": ""
   },
   "gateway/internal/stripex/stripex_test.go": {
@@ -1595,13 +1595,13 @@
     "semantic_hash": "238bbc5b8b3e78e2f5ac9786ef22e5ff"
   },
   "gateway/DESIGN.md": {
-    "mtime": 1788302074.8626366,
-    "ast_hash": "c196bf169db5afa992abd765b4d11108",
+    "mtime": 1788340067.5753121,
+    "ast_hash": "c09979578cfca978ef9b41af1fb48745",
     "semantic_hash": ""
   },
   "gateway/README.md": {
-    "mtime": 1788199948.1653435,
-    "ast_hash": "d06a3431e8af7972432e9860fa7d77fe",
+    "mtime": 1788340067.5747435,
+    "ast_hash": "1bba88a2f31bf4503ed161c892883885",
     "semantic_hash": ""
   },
   "web/.vercel/README.txt": {
@@ -2410,13 +2410,13 @@
     "semantic_hash": ""
   },
   "docs/MOBILE.md": {
-    "mtime": 1788302074.8632529,
-    "ast_hash": "e577d0be5171c9a788706049c8ccca28",
+    "mtime": 1788340067.574126,
+    "ast_hash": "669aafe5c3805eb63b8772c7c80a7211",
     "semantic_hash": ""
   },
   "gateway/internal/api/batches.go": {
-    "mtime": 1788301555.3032684,
-    "ast_hash": "3dfc59858fa43109ab37cf0a6351919e",
+    "mtime": 1788339855.2477367,
+    "ast_hash": "775eb5bc2915e14cc32f1e93f1002dd2",
     "semantic_hash": ""
   },
   "gateway/internal/api/batches_test.go": {
@@ -2425,18 +2425,28 @@
     "semantic_hash": ""
   },
   "gateway/internal/pricing/batch_test.go": {
-    "mtime": 1788301587.1988568,
-    "ast_hash": "4cc6bd428ea7fe6192945b9241fc23d0",
+    "mtime": 1788319685.4643674,
+    "ast_hash": "e97387bba0baf0f6901441cc41a65c10",
     "semantic_hash": ""
   },
   "gateway/internal/store/batches.go": {
-    "mtime": 1788301377.4876037,
-    "ast_hash": "5a63b9938054f6ed0311a41ba1728d2e",
+    "mtime": 1788339863.6411796,
+    "ast_hash": "f9b8f4aeceaeb6e2b03d7e3876999750",
     "semantic_hash": ""
   },
   "web/src/components/billing/PendingBalance.tsx": {
     "mtime": 1788301681.5532413,
     "ast_hash": "8c5d77baec4010d3b0e7fed83c56d52c",
+    "semantic_hash": ""
+  },
+  "gateway/internal/api/photocredits.go": {
+    "mtime": 1788339855.2500646,
+    "ast_hash": "4710191abf7d322613c212c31de74519",
+    "semantic_hash": ""
+  },
+  "gateway/internal/store/photocredits.go": {
+    "mtime": 1788339855.2501514,
+    "ast_hash": "0291e2bc3661153408d6aa06d1a86e9d",
     "semantic_hash": ""
   }
 }
