@@ -158,6 +158,8 @@ requires a card on file. Submitting still counts against
                "pending_cents": 0, "tier": { "cap_cents": 5000, "window_hours": 4,
                                              "hold_threshold_cents": 10000, ... } },
   "rates": { "cents_per_minute": {...}, "image_cents": 50, "minimum_cents": 50,
+             "min_billable_seconds": 60,   // one-shot video floor: clips shorter than
+                                           // this are priced as this long (2026-09-02)
              "cost_margin_multiplier": 3, "inpaint_multiplier": 1.6,
              "migan_production_multiplier": 0.5, "production_no_inpaint_multiplier": 0.4,
              "hold_threshold_cents": 10000, "rate_version": "..." }
@@ -166,7 +168,15 @@ requires a card on file. Submitting still counts against
 
 Pre-upload price: show a **local estimate from `rates`, labeled as an
 estimate**; the authoritative quote is still the server's at submit.
-That is the supported pattern.
+That is the supported pattern. The one-shot video formula (mirror it for
+the estimate): `billed_s = max(duration_s, min_billable_seconds)`;
+`base = billed_s / 60 × cents_per_minute[preset] × cost_margin_multiplier
+× clamp(fps / 24, 0.5, 2.5)`; then a depth-resolution adjustment on 35%
+of the base (1× at 1080p on 16:9), the mode multiplier
+(`inpaint: none` ×`production_no_inpaint_multiplier`, `migan`
+×`migan_production_multiplier`, `propainter` ×1), 10% off over $10, and
+`minimum_cents`. The quote's `breakdown` echoes every factor
+(`billable_seconds` actual, `billed_seconds` after the floor).
 
 ## §6 resolution / fps
 

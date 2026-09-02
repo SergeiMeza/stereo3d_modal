@@ -1,6 +1,7 @@
 package pricing
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -48,5 +49,28 @@ func TestBatchWindow(t *testing.T) {
 	}
 	if w := (&Rates{BatchWindowHours: -1}).BatchWindow(); w != 4*time.Hour {
 		t.Errorf("negative window should fall back, got %v", w)
+	}
+}
+
+func TestQuoteVideoOneMinuteFloor(t *testing.T) {
+	r := defaults()
+	s := &Service{cached: r, fetchedAt: time.Now()}
+	short, err := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 3, FPS: 24, Width: 1920, Height: 1080, Inpaint: "migan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	minute, _ := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 60, FPS: 24, Width: 1920, Height: 1080, Inpaint: "migan"})
+	if short.AmountCents != minute.AmountCents {
+		t.Errorf("3s clip %d¢ should price like a 60s clip %d¢", short.AmountCents, minute.AmountCents)
+	}
+	if short.AmountCents != 225 {
+		t.Errorf("1080p migan minute = %d¢, want 225", short.AmountCents)
+	}
+	if short.Breakdown["billed_seconds"] != 60.0 || short.Breakdown["billable_seconds"] != 3.0 {
+		t.Errorf("breakdown %v", short.Breakdown)
+	}
+	two, _ := s.QuoteVideo(context.Background(), VideoInputs{Preset: "1080p", BillableS: 120, FPS: 24, Width: 1920, Height: 1080, Inpaint: "migan"})
+	if two.AmountCents != 450 {
+		t.Errorf("2 min above the floor = %d¢, want 450", two.AmountCents)
 	}
 }

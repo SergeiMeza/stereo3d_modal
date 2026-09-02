@@ -608,6 +608,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"image_cents":                      rates.ImageCents,
 			"free_images_per_day":              rates.FreeImagesPerDay,
 			"minimum_cents":                    rates.MinimumCents,
+			"min_billable_seconds":             rates.MinBillableSeconds,
 			"cost_margin_multiplier":           rates.CostMarginMultiplier,
 			"discount_threshold_cents":         rates.DiscountThresholdCents,
 			"discount_pct":                     rates.DiscountPct,

@@ -20,7 +20,18 @@ func quoteWith(t *testing.T, preset string, billableS float64) *Quote {
 }
 
 func TestQuoteVideoMinimumCharge(t *testing.T) {
-	q := quoteWith(t, "draft", 5) // 5s draft ≈ 30¢ → floor at 50¢
+	// With the 1-minute billable floor a 5s draft clip prices as a full
+	// minute (297¢); the 50¢ cent floor only shows once that is disabled.
+	if q := quoteWith(t, "draft", 5); q.AmountCents != 297 {
+		t.Errorf("5s draft with the minute floor: want 297, got %d", q.AmountCents)
+	}
+	r := defaults()
+	r.MinBillableSeconds = 0
+	s := &Service{cached: r, fetchedAt: maxTime()}
+	q, err := s.QuoteVideo(context.Background(), VideoInputs{Preset: "draft", BillableS: 5}) // ≈ 30¢ → floor at 50¢
+	if err != nil {
+		t.Fatal(err)
+	}
 	if q.AmountCents != 50 {
 		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}

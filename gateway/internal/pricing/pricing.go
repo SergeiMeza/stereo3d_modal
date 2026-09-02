@@ -42,6 +42,12 @@ type Rates struct {
 	BatchWindowHours float64     `firestore:"batch_window_hours"`
 	BatchTiers       []BatchTier `firestore:"batch_tiers"`
 	BatchOneShot     bool        `firestore:"batch_one_shot"`
+	// MinBillableSeconds floors the one-shot (mobile) video quote: a clip
+	// shorter than this is priced as this long (product decision
+	// 2026-09-02 — short clips were pricing at the 50¢ floor, and a
+	// conversion's real cost is dominated by the fixed per-job work). The
+	// pro steps keep exact billable seconds. 0 disables.
+	MinBillableSeconds float64 `firestore:"min_billable_seconds"`
 	// 10% off carts over $10, mirroring the old app.
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
@@ -205,9 +211,10 @@ func defaults() *Rates {
 		CentsPerMinute: map[string]int64{
 			"draft": 120, "1080p": 150, "qhd": 210, "3k": 240, "4k": 300,
 		},
-		ImageCents:       50,
-		FreeImagesPerDay: 100,
-		BatchWindowHours: 4,
+		ImageCents:         50,
+		FreeImagesPerDay:   100,
+		BatchWindowHours:   4,
+		MinBillableSeconds: 60,
 		// Exposure per batch ≈ cap + one step (the closing step lands in
 		// the same charge); the tiers grow it with collected revenue.
 		BatchTiers: []BatchTier{
@@ -517,7 +524,8 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 	// price = cost rate × margin (see CostMarginMultiplier)
 	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.FPS)
-	baseCents := int64(math.Ceil(in.BillableS / 60 * rateCents * fpsF))
+	billedS := math.Max(in.BillableS, rates.MinBillableSeconds)
+	baseCents := int64(math.Ceil(billedS / 60 * rateCents * fpsF))
 	subtotal := baseCents
 	depthResFactor := 1.0
 	depthRes := PresetInputSize[in.Preset]
@@ -545,9 +553,11 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
 		Breakdown: map[string]any{
-			"inpaint_multiplier": modeMult,
-			"preset":             in.Preset,
-			"billable_seconds":   math.Round(in.BillableS*100) / 100,
+			"inpaint_multiplier":   modeMult,
+			"preset":               in.Preset,
+			"billable_seconds":     math.Round(in.BillableS*100) / 100,
+			"billed_seconds":       math.Round(billedS*100) / 100, // after the 1-minute floor
+			"min_billable_seconds": rates.MinBillableSeconds,
 			// the PRICE rate (cost × margin) — what the rate hint shows
 			"cents_per_minute":       int64(math.Round(rateCents)),
 			"cost_margin_multiplier": rates.margin(),
