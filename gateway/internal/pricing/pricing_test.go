@@ -437,8 +437,13 @@ func TestQuoteImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.AmountCents != 50 {
-		t.Errorf("want 50, got %d", q.AmountCents)
+	// Exactly image_cents, no minimum_cents floor: a paid still is never
+	// charged alone — it joins the batch (a sub-minimum batch rolls over).
+	if q.AmountCents != 5 {
+		t.Errorf("want 5, got %d", q.AmountCents)
+	}
+	if q.Breakdown["free_image"] != false {
+		t.Errorf("want breakdown.free_image=false, got %v", q.Breakdown["free_image"])
 	}
 }
 

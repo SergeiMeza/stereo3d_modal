@@ -26,7 +26,14 @@ type Rates struct {
 	CostMarginMultiplier float64 `firestore:"cost_margin_multiplier"`
 	// Per-preset video COST (~1× billed), production + legacy mobile flow.
 	CentsPerMinute map[string]int64 `firestore:"cents_per_minute"`
-	ImageCents     int64            `firestore:"image_cents"`
+	// ImageCents: price of one still past the free daily allowance. Paid
+	// stills are metered like video — they join the account's batch and
+	// are charged after the fact (App Review treats prepaid credits as a
+	// consumable IAP, so the 2026-09-02 photo packs were withdrawn the
+	// same day; 5¢ keeps the pack's effective per-photo price). A single
+	// still is far below Stripe's minimum charge, which is why it is
+	// never charged on its own (see MinimumCents and the batch rollover).
+	ImageCents int64 `firestore:"image_cents"`
 	// FreeImagesPerDay: stills within this per-user daily allowance are
 	// free (mobile product decision, 2026-09-01); past it, ImageCents
 	// applies. 0 disables the free tier.
@@ -48,13 +55,6 @@ type Rates struct {
 	// conversion's real cost is dominated by the fixed per-job work). The
 	// pro steps keep exact billable seconds. 0 disables.
 	MinBillableSeconds float64 `firestore:"min_billable_seconds"`
-	// Photo packs (product decision 2026-09-02): past the free daily
-	// allowance, stills are paid for in packs of PhotoPackSize conversions
-	// at PhotoPackCents, tracked as customers.photo_credits. ImageCents is
-	// no longer charged per still (kept for the rate hint until the web
-	// catches up).
-	PhotoPackSize  int   `firestore:"photo_pack_size"`
-	PhotoPackCents int64 `firestore:"photo_pack_cents"`
 	// 10% off carts over $10, mirroring the old app.
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
@@ -201,19 +201,6 @@ func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
 	return next
 }
 
-// PhotoPack returns the pack size and price, never zero (a config doc
-// that omits them falls back to the code defaults).
-func (r *Rates) PhotoPack() (size int, cents int64) {
-	size, cents = r.PhotoPackSize, r.PhotoPackCents
-	if size <= 0 {
-		size = defaults().PhotoPackSize
-	}
-	if cents <= 0 {
-		cents = defaults().PhotoPackCents
-	}
-	return size, cents
-}
-
 // BatchWindow is the batch's maximum open time.
 func (r *Rates) BatchWindow() time.Duration {
 	h := r.BatchWindowHours
@@ -231,12 +218,10 @@ func defaults() *Rates {
 		CentsPerMinute: map[string]int64{
 			"draft": 120, "1080p": 150, "qhd": 210, "3k": 240, "4k": 300,
 		},
-		ImageCents:         50,
+		ImageCents:         5,
 		FreeImagesPerDay:   100,
 		BatchWindowHours:   4,
 		MinBillableSeconds: 60,
-		PhotoPackSize:      100,
-		PhotoPackCents:     499,
 		// Exposure per batch ≈ cap + one step (the closing step lands in
 		// the same charge); the tiers grow it with collected revenue.
 		BatchTiers: []BatchTier{
@@ -694,16 +679,16 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	}, nil
 }
 
+// QuoteImage prices one paid still at exactly ImageCents. No MinimumCents
+// floor: a still is never charged on its own — it joins the account's
+// batch, and a batch under the Stripe minimum rolls over (see
+// Rates.MinimumCents / the reconciler) rather than rounding the user up.
 func (s *Service) QuoteImage(ctx context.Context) (*Quote, error) {
 	rates := s.Rates(ctx)
-	total := rates.ImageCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
-	}
 	return &Quote{
-		AmountCents: total,
+		AmountCents: rates.ImageCents,
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
-		Breakdown:   map[string]any{"image_cents": rates.ImageCents},
+		Breakdown:   map[string]any{"image_cents": rates.ImageCents, "free_image": false},
 	}, nil
 }

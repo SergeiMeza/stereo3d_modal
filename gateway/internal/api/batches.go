@@ -83,11 +83,13 @@ func (s *Service) holdThreshold(ctx context.Context, cust *store.Customer) int64
 }
 
 // settleAutoCharge is the post-success money step for auto-mode
-// conversions (pi_status charge_pending): pro steps join the batch; the
-// mobile one-shot flow keeps charging per conversion until the mobile
-// contract adopts batching (rates.batch_one_shot).
+// conversions (pi_status charge_pending): pro steps and paid stills join
+// the batch; the mobile one-shot VIDEO flow charges per conversion only
+// while rates.batch_one_shot is off. A still is always batched — at
+// image_cents it is far below the Stripe minimum and must never be
+// charged on its own.
 func (s *Service) settleAutoCharge(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
-	if conv.ProjectID == "" && !s.Pricing.Rates(ctx).BatchOneShot {
+	if conv.ProjectID == "" && conv.Kind != "image" && !s.Pricing.Rates(ctx).BatchOneShot {
 		return s.chargeConversion(ctx, conv)
 	}
 	return s.batchConversion(ctx, conv)
@@ -129,6 +131,14 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		}
 	}
 	return s.Store.GetConversion(ctx, conv.ID)
+}
+
+// belowChargeMinimum reports whether a batch's tab is too small for one
+// Stripe charge (a handful of 5¢ stills). Such a batch is not closed on
+// window elapse; it rolls over another window and collects with the
+// user's next conversions. Pay-now refuses it for the same reason.
+func (s *Service) belowChargeMinimum(ctx context.Context, b *store.Batch) bool {
+	return b.TotalCents > 0 && b.TotalCents < s.Pricing.Rates(ctx).MinimumCents
 }
 
 // closeAndCharge closes an open batch for reason and charges it. A
@@ -453,6 +463,13 @@ func (s *Service) HandlePayNow(w http.ResponseWriter, r *http.Request, user *Aut
 	resp := map[string]any{"settled": true, "publishable_key": s.Stripe.PublishableKey}
 	if open == nil {
 		httpx.WriteOK(w, resp)
+		return
+	}
+	if s.belowChargeMinimum(ctx, open) {
+		e := httpx.Err(http.StatusBadRequest, "below_minimum_charge",
+			"this balance is below the minimum card charge; it will be collected with your next conversions")
+		e.Details = map[string]any{"amount_cents": open.TotalCents, "minimum_cents": s.Pricing.Rates(ctx).MinimumCents}
+		httpx.WriteErr(ctx, w, e)
 		return
 	}
 	b, err := s.closeAndCharge(ctx, open.ID, store.BatchClosePayNow)

@@ -208,7 +208,7 @@ old app's ~$1/min at 1080p, scaled by preset GPU cost:
 | field | default |
 |---|---|
 | `cents_per_minute` | draft 25 · 1080p 100 · qhd 150 · 3k 200 · 4k 300 |
-| `image_cents` | 50 |
+| `image_cents` | 5 (per paid still past `free_images_per_day`; always batched, never charged alone) |
 | `minimum_cents` | 50 |
 | `discount_threshold_cents` / `discount_pct` | 1000 / 0.10 |
 | `depth_preview_cents_per_minute` / `stereo_preview_cents_per_minute` | 10 / 25 |

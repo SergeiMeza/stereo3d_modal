@@ -81,32 +81,40 @@ UTC day** (`free_images_per_day`, Firestore-tunable; remaining allowance
 in §5 as `usage.free_images_remaining`). Submitting still counts against
 `max_active_per_user`.
 
-**Photo packs (SHIPPED 2026-09-02, replaces per-photo pricing).** Past
-the free allowance, stills consume purchased credits bought in packs of
-`rates.photo_pack.size` (100) at `rates.photo_pack.price_cents` (499,
-Firestore-tunable `photo_pack_size` / `photo_pack_cents`; never
-hardcode). Credits never expire and are shared across web and mobile.
-`rates.image_cents` is no longer charged — ignore it.
+**Paid photos are metered and batched (SHIPPED 2026-09-02; photo packs
+withdrawn the same day).** Past the free allowance a still is billed
+exactly like a video: quoted at `rates.image_cents` (**5**,
+Firestore-tunable; never hardcode), charged **after the fact** through
+the account's open batch (§4). Prepaid credits consumed in-app are a
+consumable IAP under App Review Guideline 3.1.1, which is why the packs
+went away; metered pay-after billing is the model that has already
+passed review.
 
 - Ordering at image create: free daily allowance first
-  (`breakdown.free_daily_image: true`), then one credit
-  (`breakdown.photo_credit: true`), else **402 `no_photo_credits`** with
-  `details: {pack_size, pack_price_cents}` — offer the pack before
-  uploading anything else. Credited stills are `amount_cents: 0`: no card
-  needed, never batched.
-- A credited run that fails or is canceled **refunds the credit** (the
-  free slot is never refunded).
-- Balance: `usage.photo_credits` in `/v1/limits`; `photo_credits` +
-  `photo_pack` in `/v1/billing`.
-- **`POST /v1/billing/photo-pack`** (authed, empty JSON body, send an
-  `Idempotency-Key` — a retried tap returns the original purchase, never
-  a second charge). Charges the saved card **immediately** (a pack is a
-  purchase, not usage — not batched) and grants `size` credits on
-  success. Response, the `settle` shape: `{settled: true, photo_credits,
-  pack_id}` | `{settled: false, requires_action: true, client_secret,
-  publishable_key}` (STPPaymentHandler; the webhook grants the credits) |
-  `{settled: false, message}` on decline. 402 `no_payment_method` /
-  `billing_overdue` apply as for any paid work.
+  (`amount_cents: 0`, `breakdown.free_image: true`), then any leftover
+  pack credit (`breakdown.photo_credit: true`, `amount_cents: 0`,
+  refunded if the run never delivers), else a **paid still**:
+  `quote.amount_cents = image_cents`, `breakdown.free_image: false`,
+  card required (402 `no_payment_method`), refused while a batch charge
+  is outstanding (402 `billing_overdue`), and on success it joins the
+  open batch (`billing.status: "batched"`, `batch_id`; the batch item
+  carries `kind: "image"`). A failed or canceled paid still is simply
+  not billed. The up-front hold path never applies to a still (5¢ is
+  far under `hold_threshold_cents`).
+- **Small tabs roll over.** A batch whose total is under
+  `rates.minimum_cents` (50) when its window elapses — a few paid stills
+  and nothing else — is not charged; its `due_at` moves out another
+  window and it collects with the next conversions. `pay-now` on such a
+  batch returns **400 `below_minimum_charge`** with
+  `details: {amount_cents, minimum_cents}`.
+- **Photo packs are withdrawn.** `POST /v1/billing/photo-pack` returns
+  **410 `photo_packs_withdrawn`**; `rates.photo_pack` is gone from
+  `/v1/limits` and `/v1/billing`; 402 `no_photo_credits` is never
+  emitted. `usage.photo_credits` / `billing.photo_credits` appear only
+  while a leftover balance exists (nobody bought one through the app;
+  purely defensive) and are spent before a still is charged.
+- Estimate line (the supported pattern): "97 free today · 3 more at
+  $0.05 each, charged with your other conversions."
 
 ## §4 payments for a native Stripe client
 
@@ -158,8 +166,9 @@ hardcode). Credits never expire and are shared across web and mobile.
   - `POST /v1/billing/pay-now` charges the open batch immediately —
     returns `{settled}` or `requires_action + client_secret`
     (STPPaymentHandler) or `message` on decline, exactly like `settle`.
-  - Free stills never enter a batch; `/downloads` stays available while
-    the batch is open or charging (locked only after a decline).
+  - Free stills never enter a batch; paid stills (§3) do, at
+    `image_cents` each. `/downloads` stays available while the batch is
+    open or charging (locked only after a decline).
 - **`POST /v1/customers`**: skip it. `setup-intent` (and every billing
   route) ensures the Stripe customer implicitly. The endpoint stays for
   the web but is not part of the mobile contract.
@@ -177,14 +186,15 @@ hardcode). Credits never expire and are shared across web and mobile.
     "normalize_height": 2160,                 // above this we downscale, not reject
     "max_fps": 120                            // hard reject above; >60 auto-decimated
   },
-  "usage": { "active_conversions": 1, "free_images_remaining": 97, "photo_credits": 137 },
+  "usage": { "active_conversions": 1, "free_images_remaining": 97 }, // + photo_credits only while a leftover pack balance exists
   "billing": { "has_payment_method": true, "delinquent": false, "unpaid_cents": 0,
                "pending_cents": 0, "tier": { "cap_cents": 5000, "window_hours": 4,
                                              "hold_threshold_cents": 10000, ... } },
-  "rates": { "cents_per_minute": {...}, "image_cents": 50, "minimum_cents": 50,
+  "rates": { "cents_per_minute": {...},
+             "image_cents": 5,             // per paid still past the free allowance, batched (§3)
+             "minimum_cents": 50,          // smallest card charge; smaller batches roll over
              "min_billable_seconds": 60,   // one-shot video floor: clips shorter than
                                            // this are priced as this long (2026-09-02)
-             "photo_pack": { "size": 100, "price_cents": 499, "currency": "usd" },
              "cost_margin_multiplier": 3, "inpaint_multiplier": 1.6,
              "migan_production_multiplier": 0.5, "production_no_inpaint_multiplier": 0.4,
              "hold_threshold_cents": 10000, "rate_version": "..." }

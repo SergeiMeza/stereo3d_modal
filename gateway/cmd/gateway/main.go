@@ -113,7 +113,7 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))
 	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettleBilling))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
-	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandleBuyPhotoPack))
+	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))

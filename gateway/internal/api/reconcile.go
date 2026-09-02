@@ -142,20 +142,20 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			if b.DueAt.After(now) {
 				continue
 			}
+			if s.belowChargeMinimum(ctx, b) {
+				// A few paid stills only: too small for a card charge.
+				// Roll the tab over; it collects with the next window.
+				if _, xerr := s.Store.ExtendBatchDue(ctx, b.ID, s.Pricing.Rates(ctx).BatchWindow()); xerr != nil {
+					log.Warn("batch rollover failed", "batch_id", b.ID, "err", xerr)
+				} else {
+					stats["batch_rolled_over"]++
+				}
+				continue
+			}
 			if _, cerr := s.closeAndCharge(ctx, b.ID, store.BatchCloseWindow); cerr != nil {
 				log.Warn("batch window close failed", "batch_id", b.ID, "err", cerr)
 			} else {
 				stats["batch_window_closed"]++
-			}
-		}
-	}
-	// Photo pack purchases whose charge hit transient trouble.
-	if charging, err := s.Store.ListPhotoPacksByState(ctx, store.PackCharging, 50); err == nil {
-		for _, p := range charging {
-			if _, cerr := s.chargePhotoPack(ctx, p); cerr != nil {
-				log.Warn("photo pack sweep failed", "pack_id", p.ID, "err", cerr)
-			} else {
-				stats["photo_pack_swept"]++
 			}
 		}
 	}

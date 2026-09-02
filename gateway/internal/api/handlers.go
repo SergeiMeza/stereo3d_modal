@@ -425,9 +425,12 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Stills (docs/MOBILE.md §3): free daily allowance first (the quota
-	// slot is consumed here and never refunded), then one purchased photo
-	// credit (refunded if the run never delivers), else 402 with the pack
-	// offer. Stills are never charged per unit and never enter a batch.
+	// slot is consumed here and never refunded), then a leftover photo-pack
+	// credit (packs were withdrawn 2026-09-02; balances are honored and
+	// refunded if the run never delivers), else the still is a paid,
+	// metered conversion at image_cents that joins the account's batch
+	// exactly like a video — card required, same overdue gate, charged
+	// after the fact, never on its own.
 	if conv.Kind == "image" && quote.AmountCents > 0 {
 		if conv.Quote.Breakdown == nil {
 			conv.Quote.Breakdown = map[string]any{}
@@ -438,20 +441,20 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		if free {
+			conv.Quote.Breakdown["free_image"] = true
 			conv.Quote.Breakdown["free_daily_image"] = true
+			conv.Quote.AmountCents = 0
 		} else {
 			_, ok, cerr := s.Store.ConsumePhotoCredit(ctx, user.UID)
 			if cerr != nil {
 				httpx.WriteErr(ctx, w, cerr)
 				return
 			}
-			if !ok {
-				httpx.WriteErr(ctx, w, s.errNoPhotoCredits(ctx))
-				return
+			if ok {
+				conv.Quote.Breakdown["photo_credit"] = true
+				conv.Quote.AmountCents = 0
 			}
-			conv.Quote.Breakdown["photo_credit"] = true
 		}
-		conv.Quote.AmountCents = 0
 	}
 
 	if conv.Quote.AmountCents == 0 {
@@ -604,11 +607,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"normalize_height":  2160,
 			"auto_decimate_fps": autoDecimateFPS,
 		},
-		"usage": map[string]any{
-			"active_conversions":    active,
-			"free_images_remaining": freeImages,
-			"photo_credits":         s.photoCreditsFor(ctx, user.UID),
-		},
+		"usage": s.usageEntry(ctx, user.UID, active, freeImages),
 		"billing": map[string]any{
 			"has_payment_method": hasCard,
 			"delinquent":         delinquent,
@@ -624,7 +623,6 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"free_images_per_day":              rates.FreeImagesPerDay,
 			"minimum_cents":                    rates.MinimumCents,
 			"min_billable_seconds":             rates.MinBillableSeconds,
-			"photo_pack":                       s.photoPackEntry(ctx),
 			"cost_margin_multiplier":           rates.CostMarginMultiplier,
 			"discount_threshold_cents":         rates.DiscountThresholdCents,
 			"discount_pct":                     rates.DiscountPct,

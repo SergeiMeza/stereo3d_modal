@@ -234,6 +234,38 @@ func (s *Store) CloseBatch(ctx context.Context, id, reason string) (*Batch, erro
 	return result, nil
 }
 
+// ExtendBatchDue pushes an OPEN batch's window out by another window from
+// now (a tab below the Stripe minimum rolls over instead of closing).
+// ErrStateConflict when the batch is no longer open.
+func (s *Store) ExtendBatchDue(ctx context.Context, id string, window time.Duration) (*Batch, error) {
+	var result *Batch
+	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(s.batchDoc(id))
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		b, err := snapToBatch(snap)
+		if err != nil {
+			return err
+		}
+		if b.State != BatchOpen {
+			return fmt.Errorf("%w: batch %s is %s", ErrStateConflict, id, b.State)
+		}
+		now := time.Now().UTC()
+		b.DueAt = now.Add(window)
+		b.UpdatedAt = now
+		result = b
+		return tx.Set(s.batchDoc(id), b)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // TransitionBatch atomically mutates a batch that is in one of fromStates,
 // and applies convMutate to EVERY conversion in the batch in the same
 // transaction (nil to leave them alone) — a batch settling to paid or

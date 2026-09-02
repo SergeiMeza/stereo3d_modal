@@ -224,7 +224,9 @@ the user writes in.
 
 `config/pricing` (per-env doc, hot-reloaded with a TTL cache; code defaults
 if missing): `rate_version`, `currency`, per-preset `cents_per_minute`,
-`image_cents`, `minimum_cents`, `discount_threshold_cents`, `discount_pct`,
+`image_cents` (per paid still past the free daily allowance — always batched,
+never charged alone; a sub-minimum batch rolls over), `minimum_cents`,
+`discount_threshold_cents`, `discount_pct`,
 `max_duration_s`, `max_source_bytes`, `max_active_per_user`.
 
 ## Storage

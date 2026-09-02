@@ -260,8 +260,9 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		"unpaid":             entries,
 		"publishable_key":    s.Stripe.PublishableKey,
 		"tier":               s.tierEntry(ctx, cust),
-		"photo_credits":      cust.PhotoCredits,
-		"photo_pack":         s.photoPackEntry(ctx),
+	}
+	if cust.PhotoCredits > 0 {
+		resp["photo_credits"] = cust.PhotoCredits // leftover pack balance, honored until spent
 	}
 	if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
 		resp["pending"] = pendingEntry(open)
