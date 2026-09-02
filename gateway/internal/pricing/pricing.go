@@ -48,6 +48,13 @@ type Rates struct {
 	// conversion's real cost is dominated by the fixed per-job work). The
 	// pro steps keep exact billable seconds. 0 disables.
 	MinBillableSeconds float64 `firestore:"min_billable_seconds"`
+	// Photo packs (product decision 2026-09-02): past the free daily
+	// allowance, stills are paid for in packs of PhotoPackSize conversions
+	// at PhotoPackCents, tracked as customers.photo_credits. ImageCents is
+	// no longer charged per still (kept for the rate hint until the web
+	// catches up).
+	PhotoPackSize  int   `firestore:"photo_pack_size"`
+	PhotoPackCents int64 `firestore:"photo_pack_cents"`
 	// 10% off carts over $10, mirroring the old app.
 	DiscountThresholdCents int64   `firestore:"discount_threshold_cents"`
 	DiscountPct            float64 `firestore:"discount_pct"`
@@ -194,6 +201,19 @@ func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
 	return next
 }
 
+// PhotoPack returns the pack size and price, never zero (a config doc
+// that omits them falls back to the code defaults).
+func (r *Rates) PhotoPack() (size int, cents int64) {
+	size, cents = r.PhotoPackSize, r.PhotoPackCents
+	if size <= 0 {
+		size = defaults().PhotoPackSize
+	}
+	if cents <= 0 {
+		cents = defaults().PhotoPackCents
+	}
+	return size, cents
+}
+
 // BatchWindow is the batch's maximum open time.
 func (r *Rates) BatchWindow() time.Duration {
 	h := r.BatchWindowHours
@@ -215,6 +235,8 @@ func defaults() *Rates {
 		FreeImagesPerDay:   100,
 		BatchWindowHours:   4,
 		MinBillableSeconds: 60,
+		PhotoPackSize:      100,
+		PhotoPackCents:     499,
 		// Exposure per batch ≈ cap + one step (the closing step lands in
 		// the same charge); the tiers grow it with collected revenue.
 		BatchTiers: []BatchTier{

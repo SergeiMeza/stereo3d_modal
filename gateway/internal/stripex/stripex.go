@@ -86,6 +86,7 @@ type Job struct {
 	// key). Empty for a batch charge, which routes on BatchID instead.
 	ConversionID string
 	BatchID      string
+	PackID       string // photo pack purchase (routes on metadata.pack_id)
 	UID          string
 	// Description is user-facing: the Stripe dashboard payment row, the
 	// emailed receipt, and the customer portal all show it. Also copied
@@ -109,6 +110,9 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	if job.BatchID != "" {
 		params.AddMetadata("batch_id", job.BatchID)
 	}
+	if job.PackID != "" {
+		params.AddMetadata("pack_id", job.PackID)
+	}
 	params.AddMetadata("user_id", job.UID)
 	params.AddMetadata("env", c.env)
 	if job.Description != "" {
@@ -120,7 +124,7 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	for k, v := range job.Metadata {
 		switch k {
-		case "conversion_id", "batch_id", "user_id", "env", "description":
+		case "conversion_id", "batch_id", "pack_id", "user_id", "env", "description":
 			continue // reserved — never let extras clobber the support keys
 		}
 		if v != "" {
@@ -352,9 +356,12 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	if job.BatchID != "" {
+	switch {
+	case job.BatchID != "":
 		params.SetIdempotencyKey("batch_" + c.env + "_" + job.BatchID)
-	} else {
+	case job.PackID != "":
+		params.SetIdempotencyKey("pack_" + c.env + "_" + job.PackID)
+	default:
 		params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
 	}
 	return paymentintent.New(params)

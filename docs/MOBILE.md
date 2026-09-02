@@ -77,12 +77,36 @@ string.
 ## §3 free photos — free with a daily cap
 
 **SHIPPED.** Image conversions are **free up to 100 stills per user per
-UTC day**, then `image_cents` (50¢) applies. Applies to all clients (the
-web has no stills UI, so blast radius ≈ 0). The cap is Firestore-tunable
-(`free_images_per_day`); remaining allowance is in the §5 response as
-`usage.free_images_remaining`, and a priced still past the cap still
-requires a card on file. Submitting still counts against
+UTC day** (`free_images_per_day`, Firestore-tunable; remaining allowance
+in §5 as `usage.free_images_remaining`). Submitting still counts against
 `max_active_per_user`.
+
+**Photo packs (SHIPPED 2026-09-02, replaces per-photo pricing).** Past
+the free allowance, stills consume purchased credits bought in packs of
+`rates.photo_pack.size` (100) at `rates.photo_pack.price_cents` (499,
+Firestore-tunable `photo_pack_size` / `photo_pack_cents`; never
+hardcode). Credits never expire and are shared across web and mobile.
+`rates.image_cents` is no longer charged — ignore it.
+
+- Ordering at image create: free daily allowance first
+  (`breakdown.free_daily_image: true`), then one credit
+  (`breakdown.photo_credit: true`), else **402 `no_photo_credits`** with
+  `details: {pack_size, pack_price_cents}` — offer the pack before
+  uploading anything else. Credited stills are `amount_cents: 0`: no card
+  needed, never batched.
+- A credited run that fails or is canceled **refunds the credit** (the
+  free slot is never refunded).
+- Balance: `usage.photo_credits` in `/v1/limits`; `photo_credits` +
+  `photo_pack` in `/v1/billing`.
+- **`POST /v1/billing/photo-pack`** (authed, empty JSON body, send an
+  `Idempotency-Key` — a retried tap returns the original purchase, never
+  a second charge). Charges the saved card **immediately** (a pack is a
+  purchase, not usage — not batched) and grants `size` credits on
+  success. Response, the `settle` shape: `{settled: true, photo_credits,
+  pack_id}` | `{settled: false, requires_action: true, client_secret,
+  publishable_key}` (STPPaymentHandler; the webhook grants the credits) |
+  `{settled: false, message}` on decline. 402 `no_payment_method` /
+  `billing_overdue` apply as for any paid work.
 
 ## §4 payments for a native Stripe client
 
@@ -153,13 +177,14 @@ requires a card on file. Submitting still counts against
     "normalize_height": 2160,                 // above this we downscale, not reject
     "max_fps": 120                            // hard reject above; >60 auto-decimated
   },
-  "usage": { "active_conversions": 1, "free_images_remaining": 97 },
+  "usage": { "active_conversions": 1, "free_images_remaining": 97, "photo_credits": 137 },
   "billing": { "has_payment_method": true, "delinquent": false, "unpaid_cents": 0,
                "pending_cents": 0, "tier": { "cap_cents": 5000, "window_hours": 4,
                                              "hold_threshold_cents": 10000, ... } },
   "rates": { "cents_per_minute": {...}, "image_cents": 50, "minimum_cents": 50,
              "min_billable_seconds": 60,   // one-shot video floor: clips shorter than
                                            // this are priced as this long (2026-09-02)
+             "photo_pack": { "size": 100, "price_cents": 499, "currency": "usd" },
              "cost_margin_multiplier": 3, "inpaint_multiplier": 1.6,
              "migan_production_multiplier": 0.5, "production_no_inpaint_multiplier": 0.4,
              "hold_threshold_cents": 10000, "rate_version": "..." }

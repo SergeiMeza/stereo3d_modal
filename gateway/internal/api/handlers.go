@@ -424,20 +424,34 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		IdemKey: idemKey,
 	}
 
-	// Free-stills tier (docs/MOBILE.md §3): stills within the per-user
-	// daily allowance are free — no card needed, no Stripe object. The
-	// quota slot is consumed here and never refunded.
+	// Stills (docs/MOBILE.md §3): free daily allowance first (the quota
+	// slot is consumed here and never refunded), then one purchased photo
+	// credit (refunded if the run never delivers), else 402 with the pack
+	// offer. Stills are never charged per unit and never enter a batch.
 	if conv.Kind == "image" && quote.AmountCents > 0 {
-		if _, free, qerr := s.Store.ConsumeDailyImageQuota(ctx, user.UID, rates.FreeImagesPerDay); qerr != nil {
+		if conv.Quote.Breakdown == nil {
+			conv.Quote.Breakdown = map[string]any{}
+		}
+		_, free, qerr := s.Store.ConsumeDailyImageQuota(ctx, user.UID, rates.FreeImagesPerDay)
+		if qerr != nil {
 			httpx.WriteErr(ctx, w, qerr)
 			return
-		} else if free {
-			conv.Quote.AmountCents = 0
-			if conv.Quote.Breakdown == nil {
-				conv.Quote.Breakdown = map[string]any{}
-			}
-			conv.Quote.Breakdown["free_daily_image"] = true
 		}
+		if free {
+			conv.Quote.Breakdown["free_daily_image"] = true
+		} else {
+			_, ok, cerr := s.Store.ConsumePhotoCredit(ctx, user.UID)
+			if cerr != nil {
+				httpx.WriteErr(ctx, w, cerr)
+				return
+			}
+			if !ok {
+				httpx.WriteErr(ctx, w, s.errNoPhotoCredits(ctx))
+				return
+			}
+			conv.Quote.Breakdown["photo_credit"] = true
+		}
+		conv.Quote.AmountCents = 0
 	}
 
 	if conv.Quote.AmountCents == 0 {
@@ -593,6 +607,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 		"usage": map[string]any{
 			"active_conversions":    active,
 			"free_images_remaining": freeImages,
+			"photo_credits":         s.photoCreditsFor(ctx, user.UID),
 		},
 		"billing": map[string]any{
 			"has_payment_method": hasCard,
@@ -609,6 +624,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"free_images_per_day":              rates.FreeImagesPerDay,
 			"minimum_cents":                    rates.MinimumCents,
 			"min_billable_seconds":             rates.MinBillableSeconds,
+			"photo_pack":                       s.photoPackEntry(ctx),
 			"cost_margin_multiplier":           rates.CostMarginMultiplier,
 			"discount_threshold_cents":         rates.DiscountThresholdCents,
 			"discount_pct":                     rates.DiscountPct,

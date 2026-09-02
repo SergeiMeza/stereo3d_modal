@@ -568,6 +568,9 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 			return nil
 		})
 		s.restoreCredit(ctx, conv)
+		if err == nil {
+			s.refundPhotoCredit(ctx, conv)
+		}
 		if errors.Is(err, store.ErrStateConflict) {
 			return s.Store.GetConversion(ctx, conv.ID)
 		}

@@ -54,6 +54,10 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
 		return
 	}
+	if packID := pi.Metadata["pack_id"]; packID != "" {
+		s.handlePackWebhook(ctx, w, string(event.Type), packID, pi.ID, pi.Status)
+		return
+	}
 	if batchID := pi.Metadata["batch_id"]; batchID != "" {
 		s.handleBatchWebhook(ctx, w, string(event.Type), batchID, pi.ID, pi.Status, pi.AmountReceived)
 		return

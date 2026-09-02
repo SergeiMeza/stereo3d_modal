@@ -246,6 +246,37 @@ type Customer struct {
 	// (LifetimePaidSeeded) for accounts that predate batching.
 	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
 	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+	// PhotoCredits: purchased photo conversions remaining (photo packs,
+	// docs/MOBILE.md §3). Consumed after the free daily allowance, refunded
+	// when a credited run fails or is canceled. Never expires.
+	PhotoCredits int64 `firestore:"photo_credits"`
+}
+
+// -------------------------------------------------------------- photo packs
+
+// Photo pack purchase states. A pack is a purchase, not usage: it is
+// charged immediately (never batched) and credits land the moment the
+// charge succeeds.
+const (
+	PackCharging = "charging"
+	PackPaid     = "paid"
+	PackFailed   = "failed"
+)
+
+type PhotoPack struct {
+	ID              string     `firestore:"-" json:"pack_id"`
+	UID             string     `firestore:"uid" json:"-"`
+	Env             string     `firestore:"env" json:"-"`
+	State           string     `firestore:"state" json:"state"`
+	Size            int        `firestore:"size" json:"size"`
+	AmountCents     int64      `firestore:"amount_cents" json:"amount_cents"`
+	Currency        string     `firestore:"currency" json:"currency"`
+	IdemKey         string     `firestore:"idem_key,omitempty" json:"-"`
+	PaymentIntentID string     `firestore:"payment_intent_id,omitempty" json:"-"`
+	ChargedAt       *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
+	SettleError     string     `firestore:"settle_error,omitempty" json:"-"`
+	CreatedAt       time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // ----------------------------------------------------------------- batches

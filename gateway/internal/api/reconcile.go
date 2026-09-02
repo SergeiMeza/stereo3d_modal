@@ -149,6 +149,16 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Photo pack purchases whose charge hit transient trouble.
+	if charging, err := s.Store.ListPhotoPacksByState(ctx, store.PackCharging, 50); err == nil {
+		for _, p := range charging {
+			if _, cerr := s.chargePhotoPack(ctx, p); cerr != nil {
+				log.Warn("photo pack sweep failed", "pack_id", p.ID, "err", cerr)
+			} else {
+				stats["photo_pack_swept"]++
+			}
+		}
+	}
 	if charging, err := s.Store.ListBatchesByState(ctx, store.BatchCharging, 100); err == nil {
 		for _, b := range charging {
 			if _, cerr := s.chargeBatch(ctx, b); cerr != nil {
