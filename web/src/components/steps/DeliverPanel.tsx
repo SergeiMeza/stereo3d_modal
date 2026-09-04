@@ -110,7 +110,7 @@ export function DeliverPanel({
   const inheritedDepthRes = lastDepthRun?.params.depth_res;
   const depthUpload = project.depth_upload;
   const stereoDraft = loadStereoDraft(project.project_id, scenes.version);
-  const sceneOverrides = draftToSceneOverrides(stereoDraft, [0, ...scenes.cuts]);
+  const sceneOverrides = draftToSceneOverrides(stereoDraft, [0, ...(scenes.cuts ?? [])]);
   const hasStereoTweaks =
     sceneOverrides.length > 0 || stereoDraft.depth_scale !== 1;
 

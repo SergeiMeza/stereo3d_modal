@@ -244,7 +244,7 @@ export function StereoPanel({
   const probe = project.probe!;
   const scenes = project.scenes!;
   const sourceFps = parseRational(probe.fps_rational);
-  const ranges = cutsToRanges(scenes.cuts, probe.num_frames);
+  const ranges = cutsToRanges(scenes.cuts ?? [], probe.num_frames);
 
   const profile = project.scene_profile;
   const profileStale =
@@ -289,7 +289,7 @@ export function StereoPanel({
     try {
       const parsed = parseStereoProfile(
         await file.text(),
-        [0, ...scenes.cuts],
+        [0, ...(scenes.cuts ?? [])],
         scenes.version,
       );
       setImportPending(parsed);
@@ -326,7 +326,7 @@ export function StereoPanel({
     ck.invalidate();
   }
 
-  const sceneOverrides = draftToSceneOverrides(draft, [0, ...scenes.cuts]);
+  const sceneOverrides = draftToSceneOverrides(draft, [0, ...(scenes.cuts ?? [])]);
   const sendUpload = !depthDefault && useUpload;
   const sendDepthRes =
     !depthDefault && !useUpload && inheritedDepthRes !== undefined;

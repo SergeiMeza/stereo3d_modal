@@ -54,7 +54,10 @@ export interface Probe {
 
 export interface Scenes {
   version: number; // optimistic concurrency token for PATCH .../scenes
-  cuts: number[]; // source-frame indices, strictly increasing, each the first frame of a new scene
+  /** source-frame indices, strictly increasing, each the first frame of a
+   * new scene. Empty ([]) for a single-shot source. Gateways before
+   * 2026-09-05 sent null there, so readers still guard with `?? []`. */
+  cuts: number[];
   edited: boolean; // false = auto-detected, untouched
   updated_at: string;
 }

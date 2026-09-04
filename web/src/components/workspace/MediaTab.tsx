@@ -323,7 +323,7 @@ export function MediaTab({ project, onNavigate }: MediaTabProps): JSX.Element {
               ) : null}
               {scenes ? (
                 <Row label="Scene cuts">
-                  {scenes.cuts.length}{" "}
+                  {(scenes.cuts ?? []).length}{" "}
                   <span className="text-fg-muted">
                     ({scenes.edited ? "edited" : "auto"} · v{scenes.version})
                   </span>

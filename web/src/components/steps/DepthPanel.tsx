@@ -459,7 +459,7 @@ function DepthReview({
         {({ playhead, scrub }) =>
           project.scenes ? (
             <DepthSceneGrid
-              cuts={project.scenes.cuts}
+              cuts={project.scenes.cuts ?? []}
               numFrames={project.probe!.num_frames}
               fps={sourceFps}
               sceneThumbs={project.scene_thumbs ?? []}

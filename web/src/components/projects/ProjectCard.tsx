@@ -55,7 +55,7 @@ export function ProjectCard({
       ? frameToTimecode(probe.num_frames, parseRational(probe.fps_rational))
       : null;
   const sceneCount =
-    project.scenes !== undefined ? project.scenes.cuts.length + 1 : null;
+    project.scenes !== undefined ? (project.scenes.cuts ?? []).length + 1 : null;
 
   const run = async (req: UpdateProjectRequest) => {
     if (onUpdate === undefined) return;

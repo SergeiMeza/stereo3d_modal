@@ -674,7 +674,11 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			}
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL
-			pp.Scenes = &store.Scenes{Version: 1, Cuts: meta.SceneCuts, UpdatedAt: now}
+			cuts := meta.SceneCuts
+			if cuts == nil {
+				cuts = []int{} // single-shot source: an empty list, never null
+			}
+			pp.Scenes = &store.Scenes{Version: 1, Cuts: cuts, UpdatedAt: now}
 			pp.StripThumbs = make([]store.Thumb, 0, len(meta.Thumbnails.Strip))
 			for _, t := range meta.Thumbnails.Strip {
 				pp.StripThumbs = append(pp.StripThumbs, store.Thumb{Frame: t.Frame, URL: t.URL})

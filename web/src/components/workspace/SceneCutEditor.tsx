@@ -98,7 +98,7 @@ export function SceneCutEditor({
   /** Frames in one timecode second — the Shift-arrow step (exact rational). */
   const secondFrames = Math.max(1, Math.round(fps.num / fps.den));
 
-  const serverCuts = scenes.cuts;
+  const serverCuts = scenes.cuts ?? [];
   const [cuts, setCuts] = useState<number[]>(serverCuts);
   const [snapshot, setSnapshot] = useState<number[]>(serverCuts);
   // Adopt server changes when the local list has no unsaved edits

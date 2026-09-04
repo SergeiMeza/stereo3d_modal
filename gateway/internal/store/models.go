@@ -3,7 +3,10 @@
 // document traces a ticket end-to-end (params ↔ Stripe ↔ Modal ↔ error).
 package store
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Conversion states. State only advances server-side (webhook, reconciler,
 // or user cancel); the client is a pure observer.
@@ -367,6 +370,18 @@ type Scenes struct {
 	Cuts      []int     `firestore:"cuts" json:"cuts"`
 	Edited    bool      `firestore:"edited" json:"edited"` // false = auto-detected, untouched
 	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
+}
+
+// MarshalJSON always emits cuts as an array. A single-shot source has no
+// cuts, and older docs stored that as null; the client contract types cuts
+// as number[] and reads .length on it, so null must never reach the wire.
+func (sc Scenes) MarshalJSON() ([]byte, error) {
+	type alias Scenes
+	a := alias(sc)
+	if a.Cuts == nil {
+		a.Cuts = []int{}
+	}
+	return json.Marshal(a)
 }
 
 type Thumb struct {
