@@ -214,7 +214,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                      # the scale that lands p95 salient disparity within
                      # comfort_budget; only tones down. Chosen scale ->
                      # metadata["comfort_scale"]
-      "comfort_budget": 0.02     # adaptive only (0, 0.05]: target peak
+      "comfort_budget": 0.025    # adaptive only (0, 0.05]: target peak
                      # salient screen disparity for auto_comfort
     }
 
@@ -383,7 +383,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # budget. An explicit depth_scale overrides it (the worker
             # enforces this precedence).
             auto_comfort = bool(request.get("auto_comfort", True))
-            comfort_budget = float(request.get("comfort_budget", 0.02))
+            comfort_budget = float(request.get("comfort_budget", 0.025))
             # Resolve user scene_overrides BEFORE profiling: passthrough
             # shots are excluded from the profiler entirely — no keyframe
             # inference, no vote in the auto-comfort budget — exactly like

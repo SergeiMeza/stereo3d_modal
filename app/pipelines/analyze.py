@@ -304,7 +304,7 @@ def process_profile_job(job_id: str, request: dict) -> dict:
         profiler = request.get("profiler", "da3-metric")
         depth_scale = float(request.get("depth_scale", 1.0))
         auto_comfort = bool(request.get("auto_comfort", True))
-        comfort_budget = float(request.get("comfort_budget", 0.02))
+        comfort_budget = float(request.get("comfort_budget", 0.025))
         jlog.info(
             f"🎛  profile-only: {len(scene_ranges)} shot(s) with {profiler} "
             f"(depth_scale={depth_scale}, auto_comfort={auto_comfort})"

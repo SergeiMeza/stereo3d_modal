@@ -57,9 +57,10 @@ class VideoRequest(TypedDict, total=False):
     # comfort_budget — only ever tones DOWN (never amplifies). Skipped
     # when an explicit depth_scale is given. The chosen scale appears in
     # job metadata as "comfort_scale".
-    comfort_budget: float  # default 0.02, range (0, 0.05]; adaptive only.
+    comfort_budget: float  # default 0.025, range (0, 0.05]; adaptive only.
     # Target peak salient screen disparity (fraction of width) for
-    # auto_comfort; 0.02 = broadcast background-divergence bracket.
+    # auto_comfort; 0.025 = the broadcast background-divergence bracket
+    # (0.02) lifted 25% with the v7 displacement tables.
     from_frame: int  # trim: keep [from_frame, to_frame) — frame-exact,
     to_frame: int    # canonical. Half-open. Omit start⇒0, end⇒end.
     from_sec: float  # convenience: converted to frames via source fps

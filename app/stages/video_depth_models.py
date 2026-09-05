@@ -147,7 +147,7 @@ PROFILE_DYNAMIC_DISP_SPREAD = 0.30
 PROFILE_DYNAMIC_NEAR_SPREAD = 0.25
 # Depth continuity: adjacent shots may differ by at most this much
 # displacement, so the eye never gets yanked across a cut.
-PROFILE_MAX_DISPLACEMENT_STEP = 0.005
+PROFILE_MAX_DISPLACEMENT_STEP = 0.00625  # v7: +25% with SHOT_PARAMS
 # Pixels kept per keyframe for the profiling statistics (medians and
 # fractions converge long before this; keeps memory flat per scene).
 PROFILE_PIXEL_SAMPLES = 200_000
@@ -194,7 +194,7 @@ CUT_DISPARITY_TOLERANCE = 0.002
 # Comfort budget: background divergence (behind-screen disparity of the
 # farthest content) ≤ 2% of width — roughly the broadcast divergence
 # limit; pop-out (in-front-of-screen disparity) ≤ 0.8% of width.
-MAX_BACKGROUND_DISPARITY = 0.02
+MAX_BACKGROUND_DISPARITY = 0.025  # v7 (2026-09-05): +25% with SHOT_PARAMS
 MAX_POPOUT_DISPARITY = 0.008
 # Bounds for cut-matching placement shifts: the far plane may never be
 # pushed below −1.3 × max_disp nor the near plane above +0.6 × max_disp
@@ -239,10 +239,15 @@ SHOT_PARAMS: dict[str, dict] = {
     # v3 (2026-06-14): gentle ~25% bump up from v2 — v2 read slightly
     # flat, so a touch more depth, still well short of the too-strong
     # original. close_up kept (on point); wide stays behind-screen.
-    "close_up": {"displacement": 0.008, "placement": (-1.0, 0.1)},
-    "standard": {"displacement": 0.010, "placement": (-1.0, 0.3)},
-    "dynamic":  {"displacement": 0.009, "placement": (-1.0, 0.1)},
-    "wide":     {"displacement": 0.0085, "placement": (-1.0, -0.2)},
+    # v7 (2026-09-05): another uniform +25% across every class — the web
+    # default still read as toned down on device. Placement (plane
+    # positions) unchanged; only the disparity budget grows. Comfort
+    # budget lifted in step (0.02 → 0.025) so auto-comfort does not
+    # quietly claw this back on busier clips.
+    "close_up": {"displacement": 0.010, "placement": (-1.0, 0.1)},
+    "standard": {"displacement": 0.0125, "placement": (-1.0, 0.3)},
+    "dynamic":  {"displacement": 0.01125, "placement": (-1.0, 0.1)},
+    "wide":     {"displacement": 0.010625, "placement": (-1.0, -0.2)},
 }
 
 # v4 (2026-06-14, device-confirmed): displacement is now a CONTINUOUS
@@ -268,7 +273,9 @@ SHOT_PARAMS: dict[str, dict] = {
 #   5 m → 0.0088, 11 m → 0.0068, 20 m → 0.0052. Kept MODERATE because this
 # is the disocclusion-hole lever (the v4 cut was to stop smeared far walls);
 # ProPainter fills this amount cleanly, but pushing it harder reopens that.
-DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.010), (5.0, 0.0088), (11.0, 0.0068), (20.0, 0.0052)]
+# v7 (2026-09-05): +25% at every anchor, in step with SHOT_PARAMS:
+#   2 m → 0.0125, 5 m → 0.011, 11 m → 0.0085, 20 m → 0.0065.
+DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.0125), (5.0, 0.011), (11.0, 0.0085), (20.0, 0.0065)]
 
 
 def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
@@ -1489,7 +1496,7 @@ class ShotProfiler:
         explicit ``depth_scale`` (i.e. it is left at 1.0), build the
         script at scale 1.0, measure the p95 of |screen_disp_in/out|
         across shots, and if that exceeds ``comfort_budget`` (default
-        MAX_BACKGROUND_DISPARITY = 0.02, the broadcast background-
+        MAX_BACKGROUND_DISPARITY = 0.025, the broadcast background-
         divergence bracket) REBUILD the script at the toned-down scale
         so cut-matching and comfort recompute proportionally. It only
         ever tones DOWN (scale clamped to [0.3, 1.0]). An explicit
