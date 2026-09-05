@@ -388,5 +388,6 @@
   "386": "mean_flat",
   "387": "_TimedDecoder",
   "388": ".forward",
-  "389": "TestScenesMarshalNilCutsAsEmptyArray"
+  "389": "TestScenesMarshalNilCutsAsEmptyArray",
+  "390": "LowScaleEncoder"
 }

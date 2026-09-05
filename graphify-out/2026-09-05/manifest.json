@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "app/pipelines/video.py": {
-    "mtime": 1788597280.9319172,
-    "ast_hash": "d3b3ffc7a4f3604e9b81630d5e8ec840",
+    "mtime": 1788597833.9223878,
+    "ast_hash": "4f9c7a2710a4099a382c350fbd3f2c45",
     "semantic_hash": ""
   },
   "app/stages/__init__.py": {
@@ -775,13 +775,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1788597298.0827742,
-    "ast_hash": "2266057550f652360e19ace805dfefa6",
+    "mtime": 1788597812.2950153,
+    "ast_hash": "5c593343bec7347025341b6e9f1b6b25",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
-    "mtime": 1788597298.0834591,
-    "ast_hash": "fc0af9811da4db2e8b54a14a84b766c3",
+    "mtime": 1788597812.2954917,
+    "ast_hash": "276867eb8dfe35145904e36d89e6a212",
     "semantic_hash": ""
   },
   "gateway/internal/api/webhooks.go": {
@@ -2410,8 +2410,8 @@
     "semantic_hash": ""
   },
   "docs/MOBILE.md": {
-    "mtime": 1788597341.4555113,
-    "ast_hash": "ee04bafe1fa66eda3dcd22d7c3e457fe",
+    "mtime": 1788597856.3073416,
+    "ast_hash": "3690f2d5e0d895267b921e881c2dec9d",
     "semantic_hash": ""
   },
   "gateway/internal/api/batches.go": {

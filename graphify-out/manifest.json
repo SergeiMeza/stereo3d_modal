@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "app/pipelines/video.py": {
-    "mtime": 1788597833.9223878,
-    "ast_hash": "4f9c7a2710a4099a382c350fbd3f2c45",
+    "mtime": 1788598332.0982761,
+    "ast_hash": "3785d56e969bf9e7947e155a67b73531",
     "semantic_hash": ""
   },
   "app/stages/__init__.py": {
@@ -2410,8 +2410,8 @@
     "semantic_hash": ""
   },
   "docs/MOBILE.md": {
-    "mtime": 1788597856.3073416,
-    "ast_hash": "3690f2d5e0d895267b921e881c2dec9d",
+    "mtime": 1788598332.0986319,
+    "ast_hash": "eb88b7f2d8bc4de64cbb74aff22f541b",
     "semantic_hash": ""
   },
   "gateway/internal/api/batches.go": {

@@ -1,16 +1,16 @@
 # Graph Report - 2d_to_3d_new  (2026-09-05)
 
 ## Corpus Check
-- 428 files · ~865,699 words
+- 428 files · ~866,037 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4100 nodes · 8242 edges · 390 communities (201 shown, 189 thin omitted)
+- 4100 nodes · 8244 edges · 391 communities (202 shown, 189 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 502 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `73547900`
+- Built from commit: `8e35eac8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -363,6 +363,7 @@
 - [[_COMMUNITY_Timestep|Timestep]]
 - [[_COMMUNITY_usePlayerShortcuts|usePlayerShortcuts]]
 - [[_COMMUNITY_usePlayerShortcuts|usePlayerShortcuts]]
+- [[_COMMUNITY_site.ts|site.ts]]
 - [[_COMMUNITY__cancel_call|_cancel_call]]
 - [[_COMMUNITY__reconcile_with_call|_reconcile_with_call]]
 - [[_COMMUNITY_depth_script_to_yaml|depth_script_to_yaml]]
@@ -371,6 +372,7 @@
 - [[_COMMUNITY__TimedDecoder|_TimedDecoder]]
 - [[_COMMUNITY_.forward|.forward]]
 - [[_COMMUNITY_TestScenesMarshalNilCutsAsEmptyArray|TestScenesMarshalNilCutsAsEmptyArray]]
+- [[_COMMUNITY_LowScaleEncoder|LowScaleEncoder]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `Project` - 39 edges
@@ -397,8 +399,9 @@
   tests/test_passthrough.py → app/api/main.py
 
 ## Import Cycles
-- 1-file cycle: `web/src/lib/analytics.ts -> web/src/lib/analytics.ts`
 - 1-file cycle: `web/src/mocks/browser.ts -> web/src/mocks/browser.ts`
+- 2-file cycle: `web/src/components/Analytics.tsx -> web/src/lib/analytics.ts -> web/src/components/Analytics.tsx`
+- 3-file cycle: `web/src/components/Analytics.tsx -> web/src/lib/analytics.ts -> web/src/lib/firebase.ts -> web/src/components/Analytics.tsx`
 
 ## Hyperedges (group relationships)
 - **Working-MP Depth GPU Routing** — docs_pricing_route_depth_gpu, docs_pricing_working_megapixels, docs_pricing_l40s, docs_pricing_h200, docs_pricing_b200 [EXTRACTED 1.00]
@@ -416,7 +419,7 @@
 - **Displacement/Placement Tuning Evolution v3 -> v4 -> v5** — previews_full_batch_v3_dance_full_v3_class_based_displacement, previews_full_batch_v4_readme_continuous_displacement_ramp, previews_full_batch_v5_k9_full_v5_near_plane_placement [INFERRED 0.85]
 - **video_stereo Silent-Hang Failure Mode and Watchdog Response** — previews_full_batch_v3_k9_full_v3_job_record, previews_full_batch_v3_awkky_full_v3_job_record, previews_v3_fov_readme_heartbeat_watchdog [INFERRED 0.85]
 
-## Communities (390 total, 189 thin omitted)
+## Communities (391 total, 189 thin omitted)
 
 ### Community 0 - "Conditioning / Embedders"
 Cohesion: 0.15
@@ -443,8 +446,8 @@ Cohesion: 0.18
 Nodes (12): AncestralSampler, DPMPP2SAncestralSampler, EulerAncestralSampler, Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_dif, SingleStepDiffusionSampler, get_ancestral_step(), linear_multistep_coeff(), to_d() (+4 more)
 
 ### Community 6 - "Autoencoder"
-Cohesion: 0.10
-Nodes (9): AbstractAutoencoder, AEIntegerWrapper, AutoencodingEngine, IdentityFirstStage, Any, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL, This is the base class for all autoencoders, including image autoencoders, image (+1 more)
+Cohesion: 0.15
+Nodes (5): AEIntegerWrapper, AutoencodingEngine, Tensor, Base class for all image autoencoders that we train, like VQGAN or AutoencoderKL, Optimizer
 
 ### Community 7 - "Gateway Main & Pricing"
 Cohesion: 0.07
@@ -463,8 +466,8 @@ Cohesion: 0.12
 Nodes (12): LPIPS, NetLinLayer, normalize_tensor(), Stripped version of https://github.com/richzhang/PerceptualSimilarity/tree/maste, A single linear layer which does a 1x1 conv, ScalingLayer, spatial_average(), vgg16 (+4 more)
 
 ### Community 11 - "Modal Job State"
-Cohesion: 0.18
-Nodes (5): get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM
+Cohesion: 0.13
+Nodes (8): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", get_state_dict(), load_state_dict(), Any, Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", VideoLDM
 
 ### Community 12 - "Firestore Projects Store"
 Cohesion: 0.20
@@ -472,7 +475,7 @@ Nodes (11): conversionsCol(), Client, Context, Conversion, DocumentIterator, Doc
 
 ### Community 13 - "Web UI Primitives"
 Cohesion: 0.05
-Nodes (60): AnalyzeBadge(), analyzePercent(), AnalyzeProgress(), analyzeStageLabel(), formatEtaLeft(), ProgressLike, STAGE_LABELS, STYLES (+52 more)
+Nodes (62): UserAvatar(), AnalyzeBadge(), analyzePercent(), AnalyzeProgress(), analyzeStageLabel(), formatEtaLeft(), ProgressLike, STAGE_LABELS (+54 more)
 
 ### Community 14 - "Web Dependencies"
 Cohesion: 0.09
@@ -535,8 +538,8 @@ Cohesion: 0.11
 Nodes (19): Event, cardInfo(), ClassifyChargeError(), New(), stripeErrCode(), T, TestClassifyChargeErrorAPIOutageIsTransient(), TestClassifyChargeErrorAuthenticationRequired() (+11 more)
 
 ### Community 29 - "Community 29"
-Cohesion: 0.05
-Nodes (68): FilmstripTimeline(), SceneCutEditor(), canDecodeVideo(), createVideoFrameExtractor(), EMPTY_THUMBS, extractionSeekTime(), ExtractorFactory, noopExtractor (+60 more)
+Cohesion: 0.04
+Nodes (62): resetStepCheckoutState(), FilmstripTimeline(), PreviewViewer(), canDecodeVideo(), createVideoFrameExtractor(), EMPTY_THUMBS, extractionSeekTime(), ExtractorFactory (+54 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.05
@@ -559,11 +562,11 @@ Cohesion: 0.15
 Nodes (13): AE3DConv, Conv2DWrapper, make_time_attn(), MemoryEfficientVideoBlock, Tensor, VideoBlock, VideoDecoder, VideoResBlock (+5 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.05
-Nodes (45): UploadDropzone(), atoms, EMPTY_CHECKOUT, resetStepCheckoutState(), stepCheckoutAtom(), StepCheckoutState, ConversionTrackerProps, TERMINAL_STATES (+37 more)
+Cohesion: 0.06
+Nodes (29): atoms, EMPTY_CHECKOUT, stepCheckoutAtom(), StepCheckoutState, DeliverPanelProps, DepthPanelProps, formatQuoteEta(), QuoteView() (+21 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.17
+Cohesion: 0.18
 Nodes (7): AutoencoderKL, AutoencoderKLModeOnly, AutoencoderLegacyVQ, AutoencodingEngineLegacy, Module, get_nested_attribute(), Will return the result of a recursive get attribute call.     E.g.:         a.b.
 
 ### Community 39 - "Community 39"
@@ -572,11 +575,11 @@ Nodes (22): depth_lookup_keys(), normalize_video_request(), Depth-cache candidat
 
 ### Community 40 - "Community 40"
 Cohesion: 0.04
-Nodes (55): replace, FIXTURE, seedStereoDraft(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS, renderPanel() (+47 more)
+Nodes (54): replace, FIXTURE, seedStereoDraft(), FIXTURE, FPS, RANGES, REAL_DOWNLOADS, renderPanel() (+46 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.08
-Nodes (51): CheckboxChip(), Field(), DeliverPanel(), DepthPanel(), DepthReview(), EDGE_LABELS, EDGE_OPTIONS, EdgeMode (+43 more)
+Cohesion: 0.06
+Nodes (61): CheckboxChip(), Field(), DeliverPanel(), DepthPanel(), EDGE_LABELS, EDGE_OPTIONS, EdgeMode, edgeModeRequest() (+53 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.13
@@ -671,8 +674,8 @@ Cohesion: 0.13
 Nodes (12): Tensor, r"""Compute the Sobel operator and returns the magnitude per channel.      .. im, r"""Compute the first order image derivative in both x and y using a Sobel opera, r"""Compute the first and second order volume derivative in x, y and d using a d, r"""Compute the Sobel operator and returns the magnitude per channel.      Args:, r"""Compute the first and second order volume derivative in x, y and d using a d, r"""Compute the first order image derivative in both x and y using a Sobel opera, sobel() (+4 more)
 
 ### Community 65 - "Community 65"
-Cohesion: 0.20
-Nodes (7): ABC, DenoiserScaling, EDMScaling, EpsScaling, Tensor, VScaling, VScalingWithEDMcNoise
+Cohesion: 0.11
+Nodes (14): ABC, DenoiserScaling, EDMScaling, EpsScaling, Tensor, VScaling, VScalingWithEDMcNoise, Discretization (+6 more)
 
 ### Community 66 - "Community 66"
 Cohesion: 0.16
@@ -695,8 +698,8 @@ Cohesion: 0.28
 Nodes (10): DINOv2(), Attention, MemEffAttention, Tensor, Block, Close to ViT-giant, with embed-dim 1536 and 24 heads => embed-dim per head 64, vit_base(), vit_giant2() (+2 more)
 
 ### Community 71 - "Community 71"
-Cohesion: 0.05
-Nodes (23): extract_into_tensor(), AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenCLIPEmbedder, FrozenCLIPT5Encoder, FrozenOpenCLIPImagePredictionEmbedder (+15 more)
+Cohesion: 0.06
+Nodes (20): AbstractEmbModel, ClassEmbedder, ClassEmbedderForMultiCond, ConcatTimestepEmbedderND, FrozenCLIPEmbedder, FrozenCLIPT5Encoder, FrozenOpenCLIPImagePredictionEmbedder, FrozenT5Embedder (+12 more)
 
 ### Community 72 - "Community 72"
 Cohesion: 0.07
@@ -707,8 +710,8 @@ Cohesion: 0.18
 Nodes (6): CorrBlock, CorrLayer, Flow is represented as difference between two coordinate grids flow = coords1 -, bilinear_sampler(), coords_grid(), Wrapper for grid_sample, uses pixel coordinates
 
 ### Community 74 - "Community 74"
-Cohesion: 0.21
-Nodes (7): geistMono, geistSans, metadata, Analytics(), FeedbackLink(), Logo(), MswProvider()
+Cohesion: 0.15
+Nodes (6): geistMono, geistSans, metadata, FeedbackLink(), Logo(), MswProvider()
 
 ### Community 75 - "Community 75"
 Cohesion: 0.08
@@ -748,7 +751,7 @@ Nodes (7): forward_warp, forward_warp_max_motion, Adapted from Algorithm 3 in Sa
 
 ### Community 84 - "Community 84"
 Cohesion: 0.05
-Nodes (49): AccountScreen(), AccountScreenProps, PROVIDER_LABELS, RequireAuth(), UserAvatar(), UserMenu(), replace, BillingBanner() (+41 more)
+Nodes (46): BillingBanner(), appearance, BillingSetupContext, BillingSetupImplementation, BillingSetupPanelProps, mockBillingSetup, stripeBillingSetup, StripeSetupPanel() (+38 more)
 
 ### Community 85 - "Community 85"
 Cohesion: 0.38
@@ -759,8 +762,8 @@ Cohesion: 0.20
 Nodes (4): BasicEncoder, BottleneckBlock, ResidualBlock, SmallEncoder
 
 ### Community 89 - "billing.tsx"
-Cohesion: 0.05
-Nodes (55): DATE_FORMAT, ProjectCard(), DepthPanelProps, DepthSceneGrid(), PlayerBadge(), videoDims, MuteToggle(), SPEED_CHOICES (+47 more)
+Cohesion: 0.07
+Nodes (47): DATE_FORMAT, ProjectCard(), DepthSceneGrid(), MuteToggle(), SPEED_CHOICES, SpeedSelect(), StepReviewProps, SceneOverrideRows() (+39 more)
 
 ### Community 90 - "Community 90"
 Cohesion: 0.12
@@ -807,8 +810,8 @@ Cohesion: 0.15
 Nodes (12): image-batch: 6 images (-, depth -), Per-stage timings, Pipeline benchmarks, video: videos/clip_10s_scenes_1080p.mp4 (propainter, depth 980), video: videos/clip_10s_scenes_2160p.mp4 (propainter, depth 980), video: videos/clip_10s_scenes_480p.mp4 (propainter, depth 518), video: videos/clip_1s_1080p.mp4 (propainter, depth 980), video: videos/clip_1s_2160p.mp4 (propainter, depth 980) (+4 more)
 
 ### Community 101 - "Community 101"
-Cohesion: 0.21
-Nodes (7): Discretization, EDMDiscretization, generate_roughly_equally_spaced_steps(), LegacyDDPMDiscretization, ndarray, make_beta_schedule(), append_zero()
+Cohesion: 0.12
+Nodes (11): Home(), metadata, structuredData, AccountScreen(), AccountScreenProps, PROVIDER_LABELS, replace, RequireAuth() (+3 more)
 
 ### Community 102 - "Community 102"
 Cohesion: 0.25
@@ -851,8 +854,8 @@ Cohesion: 0.43
 Nodes (6): Conversion, T, mobileConv(), TestCreateConversionReqRejectsBadPlacement(), TestCreateConversionReqValidate(), TestModalBodyMobileParams()
 
 ### Community 113 - "__init__.py"
-Cohesion: 0.15
-Nodes (14): Home(), metadata, structuredData, BrowserFrame(), DEVICES, FORMATS, LandingContent(), PRICING (+6 more)
+Cohesion: 0.20
+Nodes (11): BrowserFrame(), DEVICES, FORMATS, LandingContent(), PRICING, QUALITY, PipelineSteps(), STEPS (+3 more)
 
 ### Community 114 - "DropPath"
 Cohesion: 0.23
@@ -1027,8 +1030,8 @@ Cohesion: 0.70
 Nodes (4): main(), report(), submit(), wait()
 
 ### Community 164 - "Community 164"
-Cohesion: 0.50
-Nodes (3): Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the ", psnr(), Copyright 2026 Google LLC  Licensed under the Apache License, Version 2.0 (the "
+Cohesion: 0.20
+Nodes (11): PlayerBadge(), videoDims, PLAYABLE_PREFERENCE, StepReview(), StepReviewContext, StepReviewFollower, useFollowerVideo(), isTypingTarget() (+3 more)
 
 ### Community 165 - "distributions.py"
 Cohesion: 0.22
@@ -1055,8 +1058,8 @@ Cohesion: 0.17
 Nodes (4): DiagonalGaussianRegularizer, Any, Tensor, DiagonalGaussianDistribution
 
 ### Community 372 - "ResidualConvUnit"
-Cohesion: 0.14
-Nodes (15): CONTENT_TYPES, Phase, VideoMeta, ClarityClient, ConsentChoice, devLog(), EventParams, gaLogEvent() (+7 more)
+Cohesion: 0.12
+Nodes (19): Analytics(), OnboardingScreen(), safeNext(), useBillingSetup(), CONTENT_TYPES, Phase, VideoMeta, ClarityClient (+11 more)
 
 ### Community 373 - "Resize"
 Cohesion: 0.38
@@ -1074,6 +1077,10 @@ Nodes (3): QKVAttentionLegacy, A module which performs QKV attention. Matches le
 Cohesion: 0.10
 Nodes (18): add_timing(), Structured progress for client apps polling GET /v1/jobs/{id}.      ``band`` map, Context manager: times a stage, records it on the job, sets the     job's curren, (cpu_cores, mem_gib) reserved for a stage, by name prefix. Returns     (None, No, report_progress(), stage_resources(), stage_timer, update_job() (+10 more)
 
+### Community 379 - "site.ts"
+Cohesion: 0.19
+Nodes (4): AbstractAutoencoder, IdentityFirstStage, Any, This is the base class for all autoencoders, including image autoencoders, image
+
 ### Community 380 - "_cancel_call"
 Cohesion: 0.67
 Nodes (3): _cancel_call(), cancel_job(), Best-effort cancel of one FunctionCall. A child may have already     finished or
@@ -1085,6 +1092,10 @@ Nodes (3): job_status(), Stage jobs spawn a worker directly; pull its result int
 ### Community 383 - ".ConsumePhotoCredit"
 Cohesion: 0.25
 Nodes (5): Conversion, Context, Store, customersCol(), Customer
+
+### Community 390 - "LowScaleEncoder"
+Cohesion: 0.22
+Nodes (3): extract_into_tensor(), LowScaleEncoder, SpatialRescaler
 
 ## Knowledge Gaps
 - **497 isolated node(s):** `install.sh script`, `deploy.sh script`, `spatial-ai-labs/stereo3d-gateway`, `Service`, `ctxKey` (+492 more)
