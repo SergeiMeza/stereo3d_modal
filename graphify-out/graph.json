@@ -2564,7 +2564,7 @@
       "label": "_reuse_or_preprocess()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L931",
+      "source_location": "L951",
       "_origin": "ast",
       "id": "app_pipelines_video_reuse_or_preprocess",
       "community": 49,
@@ -2574,7 +2574,7 @@
       "label": "_route_depth_gpu()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1107",
+      "source_location": "L1127",
       "_origin": "ast",
       "id": "app_pipelines_video_route_depth_gpu",
       "community": 49,
@@ -2584,7 +2584,7 @@
       "label": "_propainter_work_res()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1130",
+      "source_location": "L1150",
       "_origin": "ast",
       "id": "app_pipelines_video_propainter_work_res",
       "community": 49,
@@ -2594,7 +2594,7 @@
       "label": "_trim_spec()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1160",
+      "source_location": "L1180",
       "_origin": "ast",
       "id": "app_pipelines_video_trim_spec",
       "community": 49,
@@ -2604,7 +2604,7 @@
       "label": "_resample_source_fps()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1170",
+      "source_location": "L1190",
       "_origin": "ast",
       "id": "app_pipelines_video_resample_source_fps",
       "community": 23,
@@ -2614,7 +2614,7 @@
       "label": "_map_source_to_work()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1189",
+      "source_location": "L1209",
       "_origin": "ast",
       "id": "app_pipelines_video_map_source_to_work",
       "community": 23,
@@ -2624,7 +2624,7 @@
       "label": "_work_to_source_frame()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1217",
+      "source_location": "L1237",
       "_origin": "ast",
       "id": "app_pipelines_video_work_to_source_frame",
       "community": 23,
@@ -2634,7 +2634,7 @@
       "label": "_user_scene_boundaries()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1235",
+      "source_location": "L1255",
       "_origin": "ast",
       "id": "app_pipelines_video_user_scene_boundaries",
       "community": 23,
@@ -2644,7 +2644,7 @@
       "label": "_resolve_scene_overrides()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1256",
+      "source_location": "L1276",
       "_origin": "ast",
       "id": "app_pipelines_video_resolve_scene_overrides",
       "community": 3,
@@ -2654,7 +2654,7 @@
       "label": "_apply_scene_overrides()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1330",
+      "source_location": "L1350",
       "_origin": "ast",
       "id": "app_pipelines_video_apply_scene_overrides",
       "community": 3,
@@ -2664,7 +2664,7 @@
       "label": "_synthesize_scene_params()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1396",
+      "source_location": "L1416",
       "_origin": "ast",
       "id": "app_pipelines_video_synthesize_scene_params",
       "community": 3,
@@ -2674,7 +2674,7 @@
       "label": "_annotate_source_spans()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1421",
+      "source_location": "L1441",
       "_origin": "ast",
       "id": "app_pipelines_video_annotate_source_spans",
       "community": 23,
@@ -2684,7 +2684,7 @@
       "label": "_align_up()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1466",
+      "source_location": "L1486",
       "_origin": "ast",
       "id": "app_pipelines_video_align_up",
       "community": 49,
@@ -2694,7 +2694,7 @@
       "label": "_chunk_ranges()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1472",
+      "source_location": "L1492",
       "_origin": "ast",
       "id": "app_pipelines_video_chunk_ranges",
       "community": 49,
@@ -2704,7 +2704,7 @@
       "label": "_parallel_depth()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1486",
+      "source_location": "L1506",
       "_origin": "ast",
       "id": "app_pipelines_video_parallel_depth",
       "community": 49,
@@ -2714,7 +2714,7 @@
       "label": "_parallel_stereo()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1556",
+      "source_location": "L1576",
       "_origin": "ast",
       "id": "app_pipelines_video_parallel_stereo",
       "community": 49,
@@ -2724,7 +2724,7 @@
       "label": "_parallel_stereo_m2svid()",
       "file_type": "code",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1634",
+      "source_location": "L1654",
       "_origin": "ast",
       "id": "app_pipelines_video_parallel_stereo_m2svid",
       "community": 49,
@@ -2794,9 +2794,9 @@
       "label": "Auto-reuse a published preprocess work file if one matches pp_key,     else run",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L933",
+      "source_location": "L953",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_933",
+      "id": "app_pipelines_video_rationale_953",
       "community": 49,
       "norm_label": "auto-reuse a published preprocess work file if one matches pp_key,     else run"
     },
@@ -2804,9 +2804,9 @@
       "label": "Pick the depth GPU by WORKING MEGAPIXELS (input_size\u00b2 \u00d7 elongation),     aspect-",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1108",
+      "source_location": "L1128",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1108",
+      "id": "app_pipelines_video_rationale_1128",
       "community": 49,
       "norm_label": "pick the depth gpu by working megapixels (input_size2 \u00d7 elongation),     aspect-"
     },
@@ -2814,9 +2814,9 @@
       "label": "ProPainter (height, width) working resolution, ORIENTATION-AGNOSTIC.      Preced",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1131",
+      "source_location": "L1151",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1131",
+      "id": "app_pipelines_video_rationale_1151",
       "community": 49,
       "norm_label": "propainter (height, width) working resolution, orientation-agnostic.      preced"
     },
@@ -2824,9 +2824,9 @@
       "label": "Pull trim fields out of the request into a spec dict (or None).     Accepts from",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1161",
+      "source_location": "L1181",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1161",
+      "id": "app_pipelines_video_rationale_1181",
       "community": 49,
       "norm_label": "pull trim fields out of the request into a spec dict (or none).     accepts from"
     },
@@ -2834,9 +2834,9 @@
       "label": "SOURCE fps for the non-divisor resample mapping \u2014 NO fallback to     pre[\"probe\"",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1171",
+      "source_location": "L1191",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1171",
+      "id": "app_pipelines_video_rationale_1191",
       "community": 23,
       "norm_label": "source fps for the non-divisor resample mapping \u2014 no fallback to     pre[\"probe\""
     },
@@ -2844,9 +2844,9 @@
       "label": "SOURCE-frame index \u2192 WORK-frame index under trim + fps decimation.      This is",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1190",
+      "source_location": "L1210",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1190",
+      "id": "app_pipelines_video_rationale_1210",
       "community": 23,
       "norm_label": "source-frame index \u2192 work-frame index under trim + fps decimation.      this is"
     },
@@ -2854,9 +2854,9 @@
       "label": "Inverse of _map_source_to_work for KEPT work frames: the source     frame that w",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1218",
+      "source_location": "L1238",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1218",
+      "id": "app_pipelines_video_rationale_1238",
       "community": 23,
       "norm_label": "inverse of _map_source_to_work for kept work frames: the source     frame that w"
     },
@@ -2864,9 +2864,9 @@
       "label": "Map user-edited ``scene_cuts`` (SOURCE-frame indices, each the first     frame o",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1236",
+      "source_location": "L1256",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1236",
+      "id": "app_pipelines_video_rationale_1256",
       "community": 23,
       "norm_label": "map user-edited ``scene_cuts`` (source-frame indices, each the first     frame o"
     },
@@ -2874,9 +2874,9 @@
       "label": "Map ``scene_overrides`` (keyed by SOURCE-frame scene start ``first``)     onto W",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1257",
+      "source_location": "L1277",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1257",
+      "id": "app_pipelines_video_rationale_1277",
       "community": 3,
       "norm_label": "map ``scene_overrides`` (keyed by source-frame scene start ``first``)     onto w"
     },
@@ -2884,9 +2884,9 @@
       "label": "Apply resolved scene_overrides onto the final depth script IN PLACE.      User o",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1331",
+      "source_location": "L1351",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1331",
+      "id": "app_pipelines_video_rationale_1351",
       "community": 3,
       "norm_label": "apply resolved scene_overrides onto the final depth script in place.      user o"
     },
@@ -2894,9 +2894,9 @@
       "label": "scene_overrides WITHOUT adaptive: build flat per-scene params     directly \u2014 no",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1399",
+      "source_location": "L1419",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1399",
+      "id": "app_pipelines_video_rationale_1419",
       "community": 3,
       "norm_label": "scene_overrides without adaptive: build flat per-scene params     directly \u2014 no"
     },
@@ -2904,9 +2904,9 @@
       "label": "Attach ``first_src``/``last_src`` (SOURCE-frame scene span,     half-open) to ev",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1422",
+      "source_location": "L1442",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1422",
+      "id": "app_pipelines_video_rationale_1442",
       "community": 23,
       "norm_label": "attach ``first_src``/``last_src`` (source-frame scene span,     half-open) to ev"
     },
@@ -2914,9 +2914,9 @@
       "label": "Round n up to the nearest multiple of ``multiple`` (segment len),     so chunk b",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1467",
+      "source_location": "L1487",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1467",
+      "id": "app_pipelines_video_rationale_1487",
       "community": 49,
       "norm_label": "round n up to the nearest multiple of ``multiple`` (segment len),     so chunk b"
     },
@@ -2924,9 +2924,9 @@
       "label": "Group scene ranges into chunks of ~target frames.",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1473",
+      "source_location": "L1493",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1473",
+      "id": "app_pipelines_video_rationale_1493",
       "community": 49,
       "norm_label": "group scene ranges into chunks of ~target frames."
     },
@@ -2934,9 +2934,9 @@
       "label": "Same fan-out as _parallel_stereo, but chunks align to the fixed     25-frame M2S",
       "file_type": "rationale",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1636",
+      "source_location": "L1656",
       "_origin": "ast",
-      "id": "app_pipelines_video_rationale_1636",
+      "id": "app_pipelines_video_rationale_1656",
       "community": 49,
       "norm_label": "same fan-out as _parallel_stereo, but chunks align to the fixed     25-frame m2s"
     },
@@ -6795,7 +6795,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init",
-      "community": 164,
+      "community": 11,
       "norm_label": "__init__.py"
     },
     {
@@ -6805,7 +6805,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_init_rationale_1",
-      "community": 164,
+      "community": 11,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -6815,7 +6815,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr",
-      "community": 164,
+      "community": 11,
       "norm_label": "psnr.py"
     },
     {
@@ -6825,7 +6825,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_psnr",
-      "community": 164,
+      "community": 11,
       "norm_label": "psnr()"
     },
     {
@@ -6835,7 +6835,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_m2svid_metrics_psnr_rationale_1",
-      "community": 164,
+      "community": 11,
       "norm_label": "copyright 2026 google llc  licensed under the apache license, version 2.0 (the \""
     },
     {
@@ -7205,7 +7205,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder",
-      "community": 6,
+      "community": 379,
       "norm_label": "abstractautoencoder"
     },
     {
@@ -7235,7 +7235,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_get_input",
-      "community": 6,
+      "community": 379,
       "norm_label": ".get_input()"
     },
     {
@@ -7245,7 +7245,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_py_any",
-      "community": 6,
+      "community": 379,
       "norm_label": "any"
     },
     {
@@ -7255,7 +7255,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_on_train_batch_end",
-      "community": 6,
+      "community": 379,
       "norm_label": ".on_train_batch_end()"
     },
     {
@@ -7275,7 +7275,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_encode",
-      "community": 6,
+      "community": 379,
       "norm_label": ".encode()"
     },
     {
@@ -7295,7 +7295,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_decode",
-      "community": 6,
+      "community": 379,
       "norm_label": ".decode()"
     },
     {
@@ -7315,7 +7315,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_abstractautoencoder_configure_optimizers",
-      "community": 6,
+      "community": 379,
       "norm_label": ".configure_optimizers()"
     },
     {
@@ -7445,7 +7445,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingengine_get_param_groups",
-      "community": 6,
+      "community": 379,
       "norm_label": ".get_param_groups()"
     },
     {
@@ -7505,7 +7505,7 @@
       "source_location": "L464",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_autoencodingenginelegacy_get_autoencoder_params",
-      "community": 38,
+      "community": 6,
       "norm_label": ".get_autoencoder_params()"
     },
     {
@@ -7575,7 +7575,7 @@
       "source_location": "L549",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage",
-      "community": 6,
+      "community": 379,
       "norm_label": "identityfirststage"
     },
     {
@@ -7585,7 +7585,7 @@
       "source_location": "L550",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_init",
-      "community": 6,
+      "community": 379,
       "norm_label": ".__init__()"
     },
     {
@@ -7605,7 +7605,7 @@
       "source_location": "L558",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_encode",
-      "community": 6,
+      "community": 379,
       "norm_label": ".encode()"
     },
     {
@@ -7615,7 +7615,7 @@
       "source_location": "L562",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_identityfirststage_decode",
-      "community": 6,
+      "community": 379,
       "norm_label": ".decode()"
     },
     {
@@ -7695,7 +7695,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_models_autoencoder_rationale_23",
-      "community": 6,
+      "community": 379,
       "norm_label": "this is the base class for all autoencoders, including image autoencoders, image"
     },
     {
@@ -9445,7 +9445,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer",
-      "community": 101,
+      "community": 65,
       "norm_label": "discretizer.py"
     },
     {
@@ -9455,7 +9455,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_generate_roughly_equally_spaced_steps",
-      "community": 101,
+      "community": 65,
       "norm_label": "generate_roughly_equally_spaced_steps()"
     },
     {
@@ -9465,7 +9465,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_py_ndarray",
-      "community": 101,
+      "community": 65,
       "norm_label": "ndarray"
     },
     {
@@ -9475,7 +9475,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization",
-      "community": 101,
+      "community": 65,
       "norm_label": "discretization"
     },
     {
@@ -9485,7 +9485,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization_call",
-      "community": 101,
+      "community": 65,
       "norm_label": ".__call__()"
     },
     {
@@ -9495,7 +9495,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_discretization_get_sigmas",
-      "community": 101,
+      "community": 65,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -9505,7 +9505,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization",
-      "community": 101,
+      "community": 65,
       "norm_label": "edmdiscretization"
     },
     {
@@ -9515,7 +9515,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization_init",
-      "community": 101,
+      "community": 65,
       "norm_label": ".__init__()"
     },
     {
@@ -9525,7 +9525,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_edmdiscretization_get_sigmas",
-      "community": 101,
+      "community": 65,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -9535,7 +9535,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization",
-      "community": 101,
+      "community": 65,
       "norm_label": "legacyddpmdiscretization"
     },
     {
@@ -9545,7 +9545,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization_init",
-      "community": 101,
+      "community": 65,
       "norm_label": ".__init__()"
     },
     {
@@ -9555,7 +9555,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_discretizer_legacyddpmdiscretization_get_sigmas",
-      "community": 101,
+      "community": 65,
       "norm_label": ".get_sigmas()"
     },
     {
@@ -11115,7 +11115,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_make_beta_schedule",
-      "community": 101,
+      "community": 65,
       "norm_label": "make_beta_schedule()"
     },
     {
@@ -11125,7 +11125,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_diffusionmodules_util_extract_into_tensor",
-      "community": 71,
+      "community": 390,
       "norm_label": "extract_into_tensor()"
     },
     {
@@ -12595,7 +12595,7 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler",
-      "community": 71,
+      "community": 390,
       "norm_label": "spatialrescaler"
     },
     {
@@ -12605,7 +12605,7 @@
       "source_location": "L760",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_init",
-      "community": 71,
+      "community": 390,
       "norm_label": ".__init__()"
     },
     {
@@ -12615,7 +12615,7 @@
       "source_location": "L799",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_forward",
-      "community": 71,
+      "community": 390,
       "norm_label": ".forward()"
     },
     {
@@ -12625,7 +12625,7 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_spatialrescaler_encode",
-      "community": 71,
+      "community": 390,
       "norm_label": ".encode()"
     },
     {
@@ -12635,7 +12635,7 @@
       "source_location": "L819",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder",
-      "community": 71,
+      "community": 390,
       "norm_label": "lowscaleencoder"
     },
     {
@@ -12645,7 +12645,7 @@
       "source_location": "L820",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder_init",
-      "community": 71,
+      "community": 390,
       "norm_label": ".__init__()"
     },
     {
@@ -12655,7 +12655,7 @@
       "source_location": "L839",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder_register_schedule",
-      "community": 71,
+      "community": 390,
       "norm_label": ".register_schedule()"
     },
     {
@@ -12665,7 +12665,7 @@
       "source_location": "L887",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder_q_sample",
-      "community": 71,
+      "community": 390,
       "norm_label": ".q_sample()"
     },
     {
@@ -12675,7 +12675,7 @@
       "source_location": "L895",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder_forward",
-      "community": 71,
+      "community": 390,
       "norm_label": ".forward()"
     },
     {
@@ -12685,7 +12685,7 @@
       "source_location": "L908",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_modules_encoders_modules_lowscaleencoder_decode",
-      "community": 71,
+      "community": 390,
       "norm_label": ".decode()"
     },
     {
@@ -13215,7 +13215,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "app_vendor_m2svid_sgm_util_append_zero",
-      "community": 101,
+      "community": 65,
       "norm_label": "append_zero()"
     },
     {
@@ -22082,7 +22082,7 @@
       "label": "encodeSceneOverrides()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L213",
+      "source_location": "L215",
       "_origin": "ast",
       "id": "gateway_internal_api_service_encodesceneoverrides",
       "community": 4,
@@ -22102,7 +22102,7 @@
       "label": ".refreshFromModal()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L240",
+      "source_location": "L242",
       "_origin": "ast",
       "id": "api_service_refreshfrommodal",
       "community": 4,
@@ -22112,7 +22112,7 @@
       "label": ".settleSuccess()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L287",
+      "source_location": "L289",
       "_origin": "ast",
       "id": "api_service_settlesuccess",
       "community": 4,
@@ -22132,7 +22132,7 @@
       "label": ".foldSceneProfile()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L326",
+      "source_location": "L328",
       "_origin": "ast",
       "id": "api_service_foldsceneprofile",
       "community": 4,
@@ -22142,7 +22142,7 @@
       "label": "profileShots()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L354",
+      "source_location": "L356",
       "_origin": "ast",
       "id": "gateway_internal_api_service_profileshots",
       "community": 4,
@@ -22172,7 +22172,7 @@
       "label": ".settleFailure()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L386",
+      "source_location": "L388",
       "_origin": "ast",
       "id": "api_service_settlefailure",
       "community": 4,
@@ -22182,7 +22182,7 @@
       "label": ".captureHold()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L413",
+      "source_location": "L415",
       "_origin": "ast",
       "id": "api_service_capturehold",
       "community": 4,
@@ -22192,7 +22192,7 @@
       "label": ".chargeConversion()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L456",
+      "source_location": "L458",
       "_origin": "ast",
       "id": "api_service_chargeconversion",
       "community": 4,
@@ -22202,7 +22202,7 @@
       "label": ".recordChargeFailure()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L534",
+      "source_location": "L536",
       "_origin": "ast",
       "id": "api_service_recordchargefailure",
       "community": 4,
@@ -22212,7 +22212,7 @@
       "label": ".releaseHold()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L565",
+      "source_location": "L567",
       "_origin": "ast",
       "id": "api_service_releasehold",
       "community": 4,
@@ -22222,7 +22222,7 @@
       "label": ".restoreCredit()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L617",
+      "source_location": "L619",
       "_origin": "ast",
       "id": "api_service_restorecredit",
       "community": 4,
@@ -22232,7 +22232,7 @@
       "label": ".refreshAnalyze()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L632",
+      "source_location": "L634",
       "_origin": "ast",
       "id": "api_service_refreshanalyze",
       "community": 4,
@@ -22252,7 +22252,7 @@
       "label": ".refreshProfile()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L720",
+      "source_location": "L722",
       "_origin": "ast",
       "id": "api_service_refreshprofile",
       "community": 4,
@@ -22262,7 +22262,7 @@
       "label": ".failProfile()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L771",
+      "source_location": "L773",
       "_origin": "ast",
       "id": "api_service_failprofile",
       "community": 4,
@@ -22272,7 +22272,7 @@
       "label": ".rejectSource()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L787",
+      "source_location": "L789",
       "_origin": "ast",
       "id": "api_service_rejectsource",
       "community": 4,
@@ -22282,7 +22282,7 @@
       "label": "formatMinSec()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L800",
+      "source_location": "L802",
       "_origin": "ast",
       "id": "gateway_internal_api_service_formatminsec",
       "community": 4,
@@ -22292,7 +22292,7 @@
       "label": ".failAnalyze()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L809",
+      "source_location": "L811",
       "_origin": "ast",
       "id": "api_service_failanalyze",
       "community": 4,
@@ -22302,7 +22302,7 @@
       "label": ".collectOutputs()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L826",
+      "source_location": "L828",
       "_origin": "ast",
       "id": "api_service_collectoutputs",
       "community": 4,
@@ -22392,7 +22392,7 @@
       "label": "TestModalBodyForwardsWarp()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L107",
+      "source_location": "L111",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyforwardswarp",
       "community": 4,
@@ -22402,7 +22402,7 @@
       "label": "TestModalBodySkipsUnsetProKnobs()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L120",
+      "source_location": "L124",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyskipsunsetproknobs",
       "community": 4,
@@ -22412,7 +22412,7 @@
       "label": "TestModalBodyForwardsPlacementOneShot()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L131",
+      "source_location": "L135",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodyforwardsplacementoneshot",
       "community": 4,
@@ -22422,7 +22422,7 @@
       "label": "TestModalBodyDepthOnly()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L148",
+      "source_location": "L152",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodydepthonly",
       "community": 4,
@@ -22432,7 +22432,7 @@
       "label": "TestModalBodyMaxGPUWorkers()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L169",
+      "source_location": "L173",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testmodalbodymaxgpuworkers",
       "community": 4,
@@ -22442,7 +22442,7 @@
       "label": "TestProfileShotsDefensiveParsing()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L194",
+      "source_location": "L198",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsdefensiveparsing",
       "community": 4,
@@ -22452,7 +22452,7 @@
       "label": "TestProfileShotsAcceptsZeroFrames()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L220",
+      "source_location": "L224",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsacceptszeroframes",
       "community": 4,
@@ -22462,7 +22462,7 @@
       "label": "TestProfileShotsNoScript()",
       "file_type": "code",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L229",
+      "source_location": "L233",
       "_origin": "ast",
       "id": "gateway_internal_api_service_test_testprofileshotsnoscript",
       "community": 4,
@@ -29275,7 +29275,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_account_page",
-      "community": 84,
+      "community": 101,
       "norm_label": "page.tsx"
     },
     {
@@ -29285,7 +29285,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "web_src_app_account_page_accountpage",
-      "community": 84,
+      "community": 101,
       "norm_label": "accountpage()"
     },
     {
@@ -29365,7 +29365,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_onboarding_page",
-      "community": 84,
+      "community": 101,
       "norm_label": "page.tsx"
     },
     {
@@ -29375,7 +29375,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "web_src_app_onboarding_page_onboardingpage",
-      "community": 84,
+      "community": 101,
       "norm_label": "onboardingpage()"
     },
     {
@@ -29385,7 +29385,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_page",
-      "community": 113,
+      "community": 101,
       "norm_label": "page.tsx"
     },
     {
@@ -29395,7 +29395,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_app_page_metadata",
-      "community": 113,
+      "community": 101,
       "norm_label": "metadata"
     },
     {
@@ -29405,7 +29405,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_src_app_page_structureddata",
-      "community": 113,
+      "community": 101,
       "norm_label": "structureddata"
     },
     {
@@ -29415,7 +29415,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "web_src_app_page_home",
-      "community": 113,
+      "community": 101,
       "norm_label": "home()"
     },
     {
@@ -29475,7 +29475,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_projects_page",
-      "community": 84,
+      "community": 101,
       "norm_label": "page.tsx"
     },
     {
@@ -29485,7 +29485,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_src_app_projects_page_projectspage",
-      "community": 84,
+      "community": 101,
       "norm_label": "projectspage()"
     },
     {
@@ -29495,7 +29495,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_robots",
-      "community": 379,
+      "community": 74,
       "norm_label": "robots.ts"
     },
     {
@@ -29505,7 +29505,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_app_robots_robots",
-      "community": 379,
+      "community": 74,
       "norm_label": "robots()"
     },
     {
@@ -29535,7 +29535,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_app_sitemap",
-      "community": 379,
+      "community": 74,
       "norm_label": "sitemap.ts"
     },
     {
@@ -29545,7 +29545,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "web_src_app_sitemap_sitemap",
-      "community": 379,
+      "community": 74,
       "norm_label": "sitemap()"
     },
     {
@@ -29595,7 +29595,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_analytics_analytics",
-      "community": 74,
+      "community": 372,
       "norm_label": "analytics()"
     },
     {
@@ -29665,7 +29665,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_accountscreen",
-      "community": 84,
+      "community": 101,
       "norm_label": "accountscreen.tsx"
     },
     {
@@ -29675,7 +29675,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_auth_accountscreen_provider_labels",
-      "community": 84,
+      "community": 101,
       "norm_label": "provider_labels"
     },
     {
@@ -29685,7 +29685,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_auth_accountscreen_cardshell",
-      "community": 84,
+      "community": 101,
       "norm_label": "cardshell()"
     },
     {
@@ -29695,7 +29695,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "web_src_components_auth_accountscreen_accountscreenprops",
-      "community": 84,
+      "community": 101,
       "norm_label": "accountscreenprops"
     },
     {
@@ -29705,7 +29705,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_src_components_auth_accountscreen_accountscreen",
-      "community": 84,
+      "community": 101,
       "norm_label": "accountscreen()"
     },
     {
@@ -29715,7 +29715,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_requireauth",
-      "community": 84,
+      "community": 101,
       "norm_label": "requireauth.tsx"
     },
     {
@@ -29725,7 +29725,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_auth_requireauth_requireauth",
-      "community": 84,
+      "community": 101,
       "norm_label": "requireauth()"
     },
     {
@@ -29795,7 +29795,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_useravatar",
-      "community": 84,
+      "community": 13,
       "norm_label": "useravatar.tsx"
     },
     {
@@ -29805,7 +29805,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "web_src_components_auth_useravatar_useravatar",
-      "community": 84,
+      "community": 13,
       "norm_label": "useravatar()"
     },
     {
@@ -29815,7 +29815,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_usermenu",
-      "community": 84,
+      "community": 101,
       "norm_label": "usermenu.tsx"
     },
     {
@@ -29825,7 +29825,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_src_components_auth_usermenu_usermenu",
-      "community": 84,
+      "community": 101,
       "norm_label": "usermenu()"
     },
     {
@@ -29835,7 +29835,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test",
-      "community": 40,
+      "community": 101,
       "norm_label": "auth.test.tsx"
     },
     {
@@ -29845,7 +29845,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test_replace",
-      "community": 40,
+      "community": 101,
       "norm_label": "replace"
     },
     {
@@ -29855,7 +29855,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_components_auth_auth_test_renderwithauth",
-      "community": 40,
+      "community": 101,
       "norm_label": "renderwithauth()"
     },
     {
@@ -29905,7 +29905,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen",
-      "community": 84,
+      "community": 372,
       "norm_label": "onboardingscreen.tsx"
     },
     {
@@ -29915,7 +29915,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_safenext",
-      "community": 84,
+      "community": 372,
       "norm_label": "safenext()"
     },
     {
@@ -29925,7 +29925,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_components_billing_onboardingscreen_onboardingscreen",
-      "community": 84,
+      "community": 372,
       "norm_label": "onboardingscreen()"
     },
     {
@@ -30055,7 +30055,7 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "web_src_components_billing_paymentsetup_usebillingsetup",
-      "community": 84,
+      "community": 372,
       "norm_label": "usebillingsetup()"
     },
     {
@@ -30115,7 +30115,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test",
-      "community": 84,
+      "community": 40,
       "norm_label": "billing.test.tsx"
     },
     {
@@ -30125,7 +30125,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_replace",
-      "community": 84,
+      "community": 40,
       "norm_label": "replace"
     },
     {
@@ -30135,7 +30135,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_renderwithbilling",
-      "community": 84,
+      "community": 40,
       "norm_label": "renderwithbilling()"
     },
     {
@@ -30145,7 +30145,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "web_src_components_billing_billing_test_seeddebt",
-      "community": 84,
+      "community": 40,
       "norm_label": "seeddebt()"
     },
     {
@@ -30585,7 +30585,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "web_src_components_projects_uploaddropzone_uploaddropzone",
-      "community": 37,
+      "community": 84,
       "norm_label": "uploaddropzone()"
     },
     {
@@ -30605,7 +30605,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_terminal_states",
-      "community": 37,
+      "community": 84,
       "norm_label": "terminal_states"
     },
     {
@@ -30635,7 +30635,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "web_src_components_steps_conversiontracker_conversiontrackerprops",
-      "community": 37,
+      "community": 84,
       "norm_label": "conversiontrackerprops"
     },
     {
@@ -30955,7 +30955,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthpanelprops",
-      "community": 89,
+      "community": 37,
       "norm_label": "depthpanelprops"
     },
     {
@@ -30985,7 +30985,7 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "web_src_components_steps_depthpanel_depthreview",
-      "community": 41,
+      "community": 84,
       "norm_label": "depthreview()"
     },
     {
@@ -31165,7 +31165,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_playerbadge",
-      "community": 89,
+      "community": 164,
       "norm_label": "playerbadge.tsx"
     },
     {
@@ -31175,7 +31175,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "web_src_components_steps_playerbadge_videodims",
-      "community": 89,
+      "community": 164,
       "norm_label": "videodims"
     },
     {
@@ -31185,7 +31185,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "web_src_components_steps_playerbadge_playerbadge",
-      "community": 89,
+      "community": 164,
       "norm_label": "playerbadge()"
     },
     {
@@ -31205,7 +31205,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "web_src_components_steps_priorruns_priorrunsprops",
-      "community": 37,
+      "community": 84,
       "norm_label": "priorrunsprops"
     },
     {
@@ -31325,7 +31325,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_statechip",
-      "community": 13,
+      "community": 84,
       "norm_label": "statechip.tsx"
     },
     {
@@ -31335,7 +31335,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_src_components_steps_statechip_styles",
-      "community": 13,
+      "community": 84,
       "norm_label": "styles"
     },
     {
@@ -31355,7 +31355,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview",
-      "community": 89,
+      "community": 164,
       "norm_label": "stepreview.tsx"
     },
     {
@@ -31395,7 +31395,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_playable_preference",
-      "community": 89,
+      "community": 164,
       "norm_label": "playable_preference"
     },
     {
@@ -31415,7 +31415,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_usefollowervideo",
-      "community": 89,
+      "community": 164,
       "norm_label": "usefollowervideo()"
     },
     {
@@ -31425,7 +31425,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_stepreviewcontext",
-      "community": 89,
+      "community": 164,
       "norm_label": "stepreviewcontext"
     },
     {
@@ -31435,7 +31435,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_stepreviewfollower",
-      "community": 89,
+      "community": 164,
       "norm_label": "stepreviewfollower"
     },
     {
@@ -31455,7 +31455,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "web_src_components_steps_stepreview_stepreview",
-      "community": 89,
+      "community": 164,
       "norm_label": "stepreview()"
     },
     {
@@ -31755,7 +31755,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "web_src_components_steps_checkoutstore_resetstepcheckoutstate",
-      "community": 37,
+      "community": 29,
       "norm_label": "resetstepcheckoutstate()"
     },
     {
@@ -32405,7 +32405,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_ui_button",
-      "community": 13,
+      "community": 89,
       "norm_label": "button.tsx"
     },
     {
@@ -32415,7 +32415,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_src_components_ui_button_buttonvariants",
-      "community": 13,
+      "community": 89,
       "norm_label": "buttonvariants"
     },
     {
@@ -32425,7 +32425,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_src_components_ui_button_button",
-      "community": 13,
+      "community": 89,
       "norm_label": "button()"
     },
     {
@@ -32565,7 +32565,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "web_src_components_ui_dialog_dialogoverlay",
-      "community": 89,
+      "community": 13,
       "norm_label": "dialogoverlay()"
     },
     {
@@ -33075,7 +33075,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "web_src_components_workspace_previewviewer_previewviewer",
-      "community": 89,
+      "community": 29,
       "norm_label": "previewviewer()"
     },
     {
@@ -33105,7 +33105,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "web_src_components_workspace_scenecuteditor_scenecuteditor",
-      "community": 29,
+      "community": 13,
       "norm_label": "scenecuteditor()"
     },
     {
@@ -33285,7 +33285,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "web_src_components_workspace_steptab_steppanelprops",
-      "community": 37,
+      "community": 13,
       "norm_label": "steppanelprops"
     },
     {
@@ -33615,7 +33615,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_test",
-      "community": 89,
+      "community": 164,
       "norm_label": "useplayershortcuts.test.tsx"
     },
     {
@@ -33625,7 +33625,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_test_harness",
-      "community": 89,
+      "community": 164,
       "norm_label": "harness()"
     },
     {
@@ -33635,7 +33635,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_test_renderharness",
-      "community": 89,
+      "community": 164,
       "norm_label": "renderharness()"
     },
     {
@@ -33645,7 +33645,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts",
-      "community": 89,
+      "community": 164,
       "norm_label": "useplayershortcuts.ts"
     },
     {
@@ -33655,7 +33655,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_istypingtarget",
-      "community": 89,
+      "community": 164,
       "norm_label": "istypingtarget()"
     },
     {
@@ -33665,7 +33665,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_playershortcuts",
-      "community": 89,
+      "community": 164,
       "norm_label": "playershortcuts"
     },
     {
@@ -33675,7 +33675,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "web_src_components_workspace_useplayershortcuts_useplayershortcuts",
-      "community": 89,
+      "community": 164,
       "norm_label": "useplayershortcuts()"
     },
     {
@@ -33935,7 +33935,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer",
-      "community": 89,
+      "community": 29,
       "norm_label": "previewplayer"
     },
     {
@@ -33945,7 +33945,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_play",
-      "community": 89,
+      "community": 29,
       "norm_label": ".play()"
     },
     {
@@ -33955,7 +33955,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_pause",
-      "community": 89,
+      "community": 29,
       "norm_label": ".pause()"
     },
     {
@@ -33965,7 +33965,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_toggle",
-      "community": 89,
+      "community": 29,
       "norm_label": ".toggle()"
     },
     {
@@ -33975,7 +33975,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_seektoframe",
-      "community": 89,
+      "community": 29,
       "norm_label": ".seektoframe()"
     },
     {
@@ -33985,7 +33985,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setspeed",
-      "community": 89,
+      "community": 29,
       "norm_label": ".setspeed()"
     },
     {
@@ -33995,7 +33995,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_previewplayer_setmuted",
-      "community": 89,
+      "community": 29,
       "norm_label": ".setmuted()"
     },
     {
@@ -34005,7 +34005,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "web_src_components_workspace_usepreviewplayer_usepreviewplayer",
-      "community": 29,
+      "community": 13,
       "norm_label": "usepreviewplayer()"
     },
     {
@@ -34055,7 +34055,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "web_src_components_workspace_utils_parsecrop",
-      "community": 89,
+      "community": 29,
       "norm_label": "parsecrop()"
     },
     {
@@ -34335,7 +34335,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror",
-      "community": 13,
+      "community": 37,
       "norm_label": "gatewayerror"
     },
     {
@@ -34345,7 +34345,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_api_client_gatewayerror_constructor",
-      "community": 13,
+      "community": 37,
       "norm_label": ".constructor()"
     },
     {
@@ -34635,7 +34635,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_api_types",
-      "community": 37,
+      "community": 41,
       "norm_label": "types.ts"
     },
     {
@@ -34645,7 +34645,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionstate",
-      "community": 13,
+      "community": 84,
       "norm_label": "conversionstate"
     },
     {
@@ -34685,7 +34685,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "web_src_lib_api_types_inpaint",
-      "community": 37,
+      "community": 41,
       "norm_label": "inpaint"
     },
     {
@@ -34695,7 +34695,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "web_src_lib_api_types_warp",
-      "community": 37,
+      "community": 41,
       "norm_label": "warp"
     },
     {
@@ -34785,7 +34785,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "web_src_lib_api_types_profilejobinfo",
-      "community": 37,
+      "community": 41,
       "norm_label": "profilejobinfo"
     },
     {
@@ -34795,7 +34795,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "web_src_lib_api_types_depthupload",
-      "community": 37,
+      "community": 41,
       "norm_label": "depthupload"
     },
     {
@@ -34815,7 +34815,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "web_src_lib_api_types_params",
-      "community": 37,
+      "community": 41,
       "norm_label": "params"
     },
     {
@@ -34835,7 +34835,7 @@
       "source_location": "L229",
       "_origin": "ast",
       "id": "web_src_lib_api_types_quote",
-      "community": 37,
+      "community": 41,
       "norm_label": "quote"
     },
     {
@@ -34845,7 +34845,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionerror",
-      "community": 37,
+      "community": 41,
       "norm_label": "conversionerror"
     },
     {
@@ -34855,7 +34855,7 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "web_src_lib_api_types_conversionbilling",
-      "community": 37,
+      "community": 41,
       "norm_label": "conversionbilling"
     },
     {
@@ -34925,7 +34925,7 @@
       "source_location": "L333",
       "_origin": "ast",
       "id": "web_src_lib_api_types_batchitem",
-      "community": 37,
+      "community": 41,
       "norm_label": "batchitem"
     },
     {
@@ -34955,7 +34955,7 @@
       "source_location": "L374",
       "_origin": "ast",
       "id": "web_src_lib_api_types_billingtier",
-      "community": 37,
+      "community": 41,
       "norm_label": "billingtier"
     },
     {
@@ -35295,7 +35295,7 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "web_src_lib_auth_useauth",
-      "community": 84,
+      "community": 101,
       "norm_label": "useauth()"
     },
     {
@@ -35345,7 +35345,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "web_src_lib_billing_billingprovider",
-      "community": 84,
+      "community": 101,
       "norm_label": "billingprovider()"
     },
     {
@@ -35365,7 +35365,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test",
-      "community": 29,
+      "community": 89,
       "norm_label": "cutlist.test.ts"
     },
     {
@@ -35375,7 +35375,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_fps24",
-      "community": 29,
+      "community": 89,
       "norm_label": "fps24"
     },
     {
@@ -35385,7 +35385,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_test_ntsc",
-      "community": 29,
+      "community": 89,
       "norm_label": "ntsc"
     },
     {
@@ -35395,7 +35395,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_cutlist",
-      "community": 29,
+      "community": 89,
       "norm_label": "cutlist.ts"
     },
     {
@@ -35405,7 +35405,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_exportcutscsv",
-      "community": 29,
+      "community": 89,
       "norm_label": "exportcutscsv()"
     },
     {
@@ -35415,7 +35415,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parseintstrict",
-      "community": 29,
+      "community": 89,
       "norm_label": "parseintstrict()"
     },
     {
@@ -35425,7 +35425,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_normalizecuts",
-      "community": 29,
+      "community": 89,
       "norm_label": "normalizecuts()"
     },
     {
@@ -35435,7 +35435,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "web_src_lib_cutlist_parsecutlist",
-      "community": 29,
+      "community": 89,
       "norm_label": "parsecutlist()"
     },
     {
@@ -35705,7 +35705,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "web_src_lib_frames_frametotimecode",
-      "community": 29,
+      "community": 13,
       "norm_label": "frametotimecode()"
     },
     {
@@ -35725,7 +35725,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "web_src_lib_frames_framelabel",
-      "community": 29,
+      "community": 13,
       "norm_label": "framelabel()"
     },
     {
@@ -35805,7 +35805,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "web_src_lib_frames_defaultpreviewfps",
-      "community": 29,
+      "community": 41,
       "norm_label": "defaultpreviewfps()"
     },
     {
@@ -35885,7 +35885,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_lib_site",
-      "community": 379,
+      "community": 74,
       "norm_label": "site.ts"
     },
     {
@@ -36345,7 +36345,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen_test_push",
-      "community": 40,
+      "community": 29,
       "norm_label": "push"
     },
     {
@@ -36385,7 +36385,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen",
-      "community": 37,
+      "community": 84,
       "norm_label": "projectsscreen.tsx"
     },
     {
@@ -36395,7 +36395,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen_bynewest",
-      "community": 37,
+      "community": 84,
       "norm_label": "bynewest()"
     },
     {
@@ -36405,7 +36405,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "web_src_screens_projectsscreen_projectsscreen",
-      "community": 37,
+      "community": 84,
       "norm_label": "projectsscreen()"
     },
     {
@@ -37812,7 +37812,7 @@
       "label": "\u00a71 DA2 on video \u2014 yes, shipping it",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L51",
+      "source_location": "L65",
       "_origin": "ast",
       "id": "docs_mobile_1_da2_on_video_yes_shipping_it",
       "community": 78,
@@ -37822,7 +37822,7 @@
       "label": "\u00a72 warp + inpainting",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L72",
+      "source_location": "L86",
       "_origin": "ast",
       "id": "docs_mobile_2_warp_inpainting",
       "community": 78,
@@ -37832,7 +37832,7 @@
       "label": "\u00a73 free photos \u2014 free with a daily cap",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L87",
+      "source_location": "L101",
       "_origin": "ast",
       "id": "docs_mobile_3_free_photos_free_with_a_daily_cap",
       "community": 78,
@@ -37842,7 +37842,7 @@
       "label": "\u00a74 payments for a native Stripe client",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L129",
+      "source_location": "L143",
       "_origin": "ast",
       "id": "docs_mobile_4_payments_for_a_native_stripe_client",
       "community": 78,
@@ -37852,7 +37852,7 @@
       "label": "\u00a75 `GET /v1/limits` \u2014 pre-upload limits/usage/rates",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L186",
+      "source_location": "L200",
       "_origin": "ast",
       "id": "docs_mobile_5_get_v1_limits_pre_upload_limits_usage_rates",
       "community": 78,
@@ -37862,7 +37862,7 @@
       "label": "\u00a76 resolution / fps",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L226",
+      "source_location": "L240",
       "_origin": "ast",
       "id": "docs_mobile_6_resolution_fps",
       "community": 78,
@@ -37872,7 +37872,7 @@
       "label": "Backend work list (priority order)",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L240",
+      "source_location": "L254",
       "_origin": "ast",
       "id": "docs_mobile_backend_work_list_priority_order",
       "community": 78,
@@ -37882,7 +37882,7 @@
       "label": "What the app should NOT rely on",
       "file_type": "document",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L253",
+      "source_location": "L267",
       "_origin": "ast",
       "id": "docs_mobile_what_the_app_should_not_rely_on",
       "community": 78,
@@ -44454,7 +44454,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1540",
+      "source_location": "L1560",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_depth",
       "target": "app_common_errors_check_worker_result",
@@ -44465,7 +44465,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1616",
+      "source_location": "L1636",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo",
       "target": "app_common_errors_check_worker_result",
@@ -44476,7 +44476,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1680",
+      "source_location": "L1700",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo_m2svid",
       "target": "app_common_errors_check_worker_result",
@@ -44488,7 +44488,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L419",
+      "source_location": "L439",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_common_errors_check_worker_result"
@@ -45347,7 +45347,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L535",
+      "source_location": "L555",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_common_notify_notify_slack",
@@ -45359,7 +45359,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L539",
+      "source_location": "L559",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_common_notify_notify_slack"
@@ -45369,7 +45369,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L987",
+      "source_location": "L1007",
       "weight": 1.0,
       "source": "app_pipelines_video_reuse_or_preprocess",
       "target": "app_common_notify_notify_slack",
@@ -46299,7 +46299,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L955",
+      "source_location": "L975",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_common_storage_bucket_path",
@@ -46310,7 +46310,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L970",
+      "source_location": "L990",
       "weight": 1.0,
       "source": "app_pipelines_video_reuse_or_preprocess",
       "target": "app_common_storage_bucket_path",
@@ -46628,7 +46628,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1544",
+      "source_location": "L1564",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_common_storage_job_cache_dir",
@@ -46639,7 +46639,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1546",
+      "source_location": "L1566",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_depth",
       "target": "app_common_storage_job_cache_dir",
@@ -46650,7 +46650,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1621",
+      "source_location": "L1641",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo",
       "target": "app_common_storage_job_cache_dir",
@@ -46661,7 +46661,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1684",
+      "source_location": "L1704",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo_m2svid",
       "target": "app_common_storage_job_cache_dir",
@@ -47147,7 +47147,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1531",
+      "source_location": "L1551",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_depth",
       "target": "app_common_watchdog_gather_with_heartbeat",
@@ -47158,7 +47158,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1607",
+      "source_location": "L1627",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo",
       "target": "app_common_watchdog_gather_with_heartbeat",
@@ -47169,7 +47169,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1670",
+      "source_location": "L1690",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo_m2svid",
       "target": "app_common_watchdog_gather_with_heartbeat",
@@ -49028,7 +49028,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1466",
+      "source_location": "L1486",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_align_up",
@@ -49038,7 +49038,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1421",
+      "source_location": "L1441",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_annotate_source_spans",
@@ -49048,7 +49048,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1330",
+      "source_location": "L1350",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_apply_scene_overrides",
@@ -49058,7 +49058,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1472",
+      "source_location": "L1492",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_chunk_ranges",
@@ -49088,7 +49088,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1189",
+      "source_location": "L1209",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_map_source_to_work",
@@ -49108,7 +49108,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1486",
+      "source_location": "L1506",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_parallel_depth",
@@ -49118,7 +49118,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1556",
+      "source_location": "L1576",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_parallel_stereo",
@@ -49128,7 +49128,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1634",
+      "source_location": "L1654",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_parallel_stereo_m2svid",
@@ -49148,7 +49148,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1130",
+      "source_location": "L1150",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_propainter_work_res",
@@ -49158,7 +49158,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1170",
+      "source_location": "L1190",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_resample_source_fps",
@@ -49168,7 +49168,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1256",
+      "source_location": "L1276",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_resolve_scene_overrides",
@@ -49178,7 +49178,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L931",
+      "source_location": "L951",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_reuse_or_preprocess",
@@ -49198,7 +49198,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1107",
+      "source_location": "L1127",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_route_depth_gpu",
@@ -49208,7 +49208,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1396",
+      "source_location": "L1416",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_synthesize_scene_params",
@@ -49218,7 +49218,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1160",
+      "source_location": "L1180",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_trim_spec",
@@ -49228,7 +49228,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1235",
+      "source_location": "L1255",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_user_scene_boundaries",
@@ -49238,7 +49238,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1217",
+      "source_location": "L1237",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_pipelines_video_work_to_source_frame",
@@ -49249,7 +49249,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1490",
+      "source_location": "L1510",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_media_concat_cache_segments",
@@ -49282,7 +49282,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L953",
+      "source_location": "L973",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_media_fetch_preprocess_reuse",
@@ -49304,7 +49304,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L557",
+      "source_location": "L577",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_media_probe_depth_reuse",
@@ -49315,7 +49315,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L546",
+      "source_location": "L566",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_media_probe_depth_upload",
@@ -49359,7 +49359,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L849",
+      "source_location": "L869",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_mvhevc_encode_mvhevc",
@@ -49370,7 +49370,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L849",
+      "source_location": "L869",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_mvhevc_encode_mvhevc_x265",
@@ -49381,7 +49381,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L464",
+      "source_location": "L484",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_video_depth_models_depth_script_to_yaml",
@@ -49392,7 +49392,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L621",
+      "source_location": "L641",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_video_depth_models_framedepthworker",
@@ -49425,7 +49425,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L696",
+      "source_location": "L716",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_video_stereo_m2svid_m2svidstereoworker",
@@ -49436,7 +49436,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1562",
+      "source_location": "L1582",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_video_stereo_pick_batch_size",
@@ -49469,7 +49469,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L693",
+      "source_location": "L713",
       "weight": 1.0,
       "source": "app_pipelines_video",
       "target": "app_stages_warp_modes_validate_warp",
@@ -49861,7 +49861,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L531",
+      "source_location": "L551",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_depth_lookup_keys",
@@ -49915,7 +49915,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L454",
+      "source_location": "L474",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_annotate_source_spans",
@@ -49926,7 +49926,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L451",
+      "source_location": "L471",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_apply_scene_overrides",
@@ -49937,7 +49937,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L597",
+      "source_location": "L617",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_parallel_depth",
@@ -49948,7 +49948,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L791",
+      "source_location": "L811",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_parallel_stereo",
@@ -49959,7 +49959,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L723",
+      "source_location": "L743",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_parallel_stereo_m2svid",
@@ -49970,7 +49970,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L753",
+      "source_location": "L773",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_propainter_work_res",
@@ -49981,7 +49981,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L397",
+      "source_location": "L417",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_resolve_scene_overrides",
@@ -50003,7 +50003,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L582",
+      "source_location": "L602",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_route_depth_gpu",
@@ -50014,7 +50014,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L500",
+      "source_location": "L520",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_pipelines_video_synthesize_scene_params",
@@ -50048,7 +50048,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L467",
+      "source_location": "L487",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_depth_models_depth_script_to_yaml"
@@ -50059,7 +50059,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L626",
+      "source_location": "L646",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_depth_models_framedepthworker"
@@ -50070,7 +50070,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L414",
+      "source_location": "L434",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_depth_models_shotprofiler"
@@ -50081,7 +50081,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L585",
+      "source_location": "L605",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_depth_videodepthworker"
@@ -50092,7 +50092,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L731",
+      "source_location": "L751",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_stereo_m2svid_m2svidstereoworker"
@@ -50103,7 +50103,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L779",
+      "source_location": "L799",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_stereo_videostereoliteworker"
@@ -50114,7 +50114,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L786",
+      "source_location": "L806",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_video_stereo_videostereoworker"
@@ -50125,7 +50125,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L694",
+      "source_location": "L714",
       "weight": 1.0,
       "source": "app_pipelines_video_process_video_job",
       "target": "app_stages_warp_modes_validate_warp"
@@ -50144,9 +50144,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L933",
+      "source_location": "L953",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_933",
+      "source": "app_pipelines_video_rationale_953",
       "target": "app_pipelines_video_reuse_or_preprocess",
       "confidence_score": 1.0
     },
@@ -50154,9 +50154,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1108",
+      "source_location": "L1128",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1108",
+      "source": "app_pipelines_video_rationale_1128",
       "target": "app_pipelines_video_route_depth_gpu",
       "confidence_score": 1.0
     },
@@ -50164,9 +50164,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1131",
+      "source_location": "L1151",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1131",
+      "source": "app_pipelines_video_rationale_1151",
       "target": "app_pipelines_video_propainter_work_res",
       "confidence_score": 1.0
     },
@@ -50174,9 +50174,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1161",
+      "source_location": "L1181",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1161",
+      "source": "app_pipelines_video_rationale_1181",
       "target": "app_pipelines_video_trim_spec",
       "confidence_score": 1.0
     },
@@ -50185,7 +50185,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1214",
+      "source_location": "L1234",
       "weight": 1.0,
       "source": "app_pipelines_video_map_source_to_work",
       "target": "app_pipelines_video_resample_source_fps",
@@ -50195,9 +50195,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1171",
+      "source_location": "L1191",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1171",
+      "source": "app_pipelines_video_rationale_1191",
       "target": "app_pipelines_video_resample_source_fps",
       "confidence_score": 1.0
     },
@@ -50206,7 +50206,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1232",
+      "source_location": "L1252",
       "weight": 1.0,
       "source": "app_pipelines_video_work_to_source_frame",
       "target": "app_pipelines_video_resample_source_fps",
@@ -50217,7 +50217,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1458",
+      "source_location": "L1478",
       "weight": 1.0,
       "source": "app_pipelines_video_annotate_source_spans",
       "target": "app_pipelines_video_map_source_to_work",
@@ -50227,9 +50227,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1190",
+      "source_location": "L1210",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1190",
+      "source": "app_pipelines_video_rationale_1210",
       "target": "app_pipelines_video_map_source_to_work",
       "confidence_score": 1.0
     },
@@ -50238,7 +50238,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1292",
+      "source_location": "L1312",
       "weight": 1.0,
       "source": "app_pipelines_video_resolve_scene_overrides",
       "target": "app_pipelines_video_map_source_to_work",
@@ -50249,7 +50249,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1249",
+      "source_location": "L1269",
       "weight": 1.0,
       "source": "app_pipelines_video_user_scene_boundaries",
       "target": "app_pipelines_video_map_source_to_work",
@@ -50293,7 +50293,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1446",
+      "source_location": "L1466",
       "weight": 1.0,
       "source": "app_pipelines_video_annotate_source_spans",
       "target": "app_pipelines_video_work_to_source_frame",
@@ -50303,9 +50303,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1218",
+      "source_location": "L1238",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1218",
+      "source": "app_pipelines_video_rationale_1238",
       "target": "app_pipelines_video_work_to_source_frame",
       "confidence_score": 1.0
     },
@@ -50368,9 +50368,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1236",
+      "source_location": "L1256",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1236",
+      "source": "app_pipelines_video_rationale_1256",
       "target": "app_pipelines_video_user_scene_boundaries",
       "confidence_score": 1.0
     },
@@ -50543,9 +50543,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1257",
+      "source_location": "L1277",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1257",
+      "source": "app_pipelines_video_rationale_1277",
       "target": "app_pipelines_video_resolve_scene_overrides",
       "confidence_score": 1.0
     },
@@ -50586,9 +50586,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1331",
+      "source_location": "L1351",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1331",
+      "source": "app_pipelines_video_rationale_1351",
       "target": "app_pipelines_video_apply_scene_overrides",
       "confidence_score": 1.0
     },
@@ -50728,9 +50728,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1399",
+      "source_location": "L1419",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1399",
+      "source": "app_pipelines_video_rationale_1419",
       "target": "app_pipelines_video_synthesize_scene_params",
       "confidence_score": 1.0
     },
@@ -50771,9 +50771,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1422",
+      "source_location": "L1442",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1422",
+      "source": "app_pipelines_video_rationale_1442",
       "target": "app_pipelines_video_annotate_source_spans",
       "confidence_score": 1.0
     },
@@ -50881,7 +50881,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1582",
+      "source_location": "L1602",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo",
       "target": "app_pipelines_video_align_up",
@@ -50892,7 +50892,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1650",
+      "source_location": "L1670",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo_m2svid",
       "target": "app_pipelines_video_align_up",
@@ -50902,9 +50902,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1467",
+      "source_location": "L1487",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1467",
+      "source": "app_pipelines_video_rationale_1487",
       "target": "app_pipelines_video_align_up",
       "confidence_score": 1.0
     },
@@ -50913,7 +50913,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1501",
+      "source_location": "L1521",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_depth",
       "target": "app_pipelines_video_chunk_ranges",
@@ -50923,9 +50923,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1473",
+      "source_location": "L1493",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1473",
+      "source": "app_pipelines_video_rationale_1493",
       "target": "app_pipelines_video_chunk_ranges",
       "confidence_score": 1.0
     },
@@ -50934,7 +50934,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1576",
+      "source_location": "L1596",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo",
       "target": "app_stages_video_stereo_pick_batch_size",
@@ -50946,7 +50946,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1659",
+      "source_location": "L1679",
       "weight": 1.0,
       "source": "app_pipelines_video_parallel_stereo_m2svid",
       "target": "app_stages_video_stereo_m2svid_m2svidstereoworker"
@@ -50955,9 +50955,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "app/pipelines/video.py",
-      "source_location": "L1636",
+      "source_location": "L1656",
       "weight": 1.0,
-      "source": "app_pipelines_video_rationale_1636",
+      "source": "app_pipelines_video_rationale_1656",
       "target": "app_pipelines_video_parallel_stereo_m2svid",
       "confidence_score": 1.0
     },
@@ -85321,7 +85321,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L481",
+      "source_location": "L483",
       "weight": 1.0,
       "source": "api_service_chargeconversion",
       "target": "gateway_internal_api_billing_jobdescription"
@@ -91575,7 +91575,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L213",
+      "source_location": "L215",
       "weight": 1.0,
       "source": "gateway_internal_api_service",
       "target": "gateway_internal_api_service_encodesceneoverrides",
@@ -91585,7 +91585,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L800",
+      "source_location": "L802",
       "weight": 1.0,
       "source": "gateway_internal_api_service",
       "target": "gateway_internal_api_service_formatminsec",
@@ -91605,7 +91605,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L354",
+      "source_location": "L356",
       "weight": 1.0,
       "source": "gateway_internal_api_service",
       "target": "gateway_internal_api_service_profileshots",
@@ -91615,7 +91615,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L413",
+      "source_location": "L415",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_capturehold",
@@ -91625,7 +91625,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L456",
+      "source_location": "L458",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_chargeconversion",
@@ -91635,7 +91635,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L826",
+      "source_location": "L828",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_collectoutputs",
@@ -91645,7 +91645,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L809",
+      "source_location": "L811",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_failanalyze",
@@ -91655,7 +91655,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L771",
+      "source_location": "L773",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_failprofile",
@@ -91665,7 +91665,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L326",
+      "source_location": "L328",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_foldsceneprofile",
@@ -91685,7 +91685,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L534",
+      "source_location": "L536",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_recordchargefailure",
@@ -91695,7 +91695,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L632",
+      "source_location": "L634",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_refreshanalyze",
@@ -91705,7 +91705,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L240",
+      "source_location": "L242",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_refreshfrommodal",
@@ -91715,7 +91715,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L720",
+      "source_location": "L722",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_refreshprofile",
@@ -91725,7 +91725,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_rejectsource",
@@ -91735,7 +91735,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L565",
+      "source_location": "L567",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_releasehold",
@@ -91745,7 +91745,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L617",
+      "source_location": "L619",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_restorecredit",
@@ -91755,7 +91755,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L386",
+      "source_location": "L388",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_settlefailure",
@@ -91765,7 +91765,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L287",
+      "source_location": "L289",
       "weight": 1.0,
       "source": "gateway_internal_api_service_go_api_service",
       "target": "api_service_settlesuccess",
@@ -91862,7 +91862,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L413",
+      "source_location": "L415",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_capturehold",
@@ -91873,7 +91873,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L456",
+      "source_location": "L458",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_chargeconversion",
@@ -91884,7 +91884,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L826",
+      "source_location": "L828",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_collectoutputs",
@@ -91895,7 +91895,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L809",
+      "source_location": "L811",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_failanalyze",
@@ -91906,7 +91906,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L771",
+      "source_location": "L773",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_failprofile",
@@ -91917,7 +91917,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L326",
+      "source_location": "L328",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_foldsceneprofile",
@@ -91928,7 +91928,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L534",
+      "source_location": "L536",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_recordchargefailure",
@@ -91939,7 +91939,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L632",
+      "source_location": "L634",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_refreshanalyze",
@@ -91950,7 +91950,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L240",
+      "source_location": "L242",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_refreshfrommodal",
@@ -91961,7 +91961,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L720",
+      "source_location": "L722",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_refreshprofile",
@@ -91972,7 +91972,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_rejectsource",
@@ -91983,7 +91983,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L565",
+      "source_location": "L567",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_releasehold",
@@ -91994,7 +91994,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L617",
+      "source_location": "L619",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_restorecredit",
@@ -92005,7 +92005,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L386",
+      "source_location": "L388",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_settlefailure",
@@ -92016,7 +92016,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L287",
+      "source_location": "L289",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_settlesuccess",
@@ -92049,7 +92049,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L413",
+      "source_location": "L415",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_capturehold",
@@ -92060,7 +92060,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L456",
+      "source_location": "L458",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_chargeconversion",
@@ -92071,7 +92071,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L326",
+      "source_location": "L328",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_foldsceneprofile",
@@ -92082,7 +92082,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L534",
+      "source_location": "L536",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_recordchargefailure",
@@ -92093,7 +92093,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L240",
+      "source_location": "L242",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_refreshfrommodal",
@@ -92104,7 +92104,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L565",
+      "source_location": "L567",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_releasehold",
@@ -92115,7 +92115,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L617",
+      "source_location": "L619",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_restorecredit",
@@ -92126,7 +92126,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L386",
+      "source_location": "L388",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_settlefailure",
@@ -92137,7 +92137,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L287",
+      "source_location": "L289",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_settlesuccess",
@@ -92148,7 +92148,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L213",
+      "source_location": "L215",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_encodesceneoverrides",
@@ -92160,7 +92160,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L250",
+      "source_location": "L252",
       "weight": 1.0,
       "source": "api_service_refreshfrommodal",
       "target": "api_service_settlefailure",
@@ -92171,7 +92171,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L262",
+      "source_location": "L264",
       "weight": 1.0,
       "source": "api_service_refreshfrommodal",
       "target": "api_service_settlesuccess",
@@ -92182,7 +92182,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L318",
+      "source_location": "L320",
       "weight": 1.0,
       "source": "api_service_settlesuccess",
       "target": "api_service_capturehold",
@@ -92193,7 +92193,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L288",
+      "source_location": "L290",
       "weight": 1.0,
       "source": "api_service_settlesuccess",
       "target": "api_service_collectoutputs",
@@ -92204,7 +92204,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L313",
+      "source_location": "L315",
       "weight": 1.0,
       "source": "api_service_settlesuccess",
       "target": "api_service_foldsceneprofile",
@@ -92214,7 +92214,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L287",
+      "source_location": "L289",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_settlesuccess",
@@ -92225,7 +92225,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L826",
+      "source_location": "L828",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_collectoutputs",
@@ -92236,7 +92236,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L326",
+      "source_location": "L328",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_foldsceneprofile",
@@ -92248,7 +92248,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L327",
+      "source_location": "L329",
       "weight": 1.0,
       "source": "api_service_foldsceneprofile",
       "target": "gateway_internal_api_service_profileshots",
@@ -92259,7 +92259,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L735",
+      "source_location": "L737",
       "weight": 1.0,
       "source": "api_service_refreshprofile",
       "target": "gateway_internal_api_service_profileshots",
@@ -92269,7 +92269,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L354",
+      "source_location": "L356",
       "weight": 1.0,
       "context": "return_type",
       "source": "gateway_internal_api_service_profileshots",
@@ -92280,7 +92280,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L354",
+      "source_location": "L356",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_profileshots",
@@ -92293,7 +92293,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L223",
+      "source_location": "L227",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test_testprofileshotsacceptszeroframes",
       "target": "gateway_internal_api_service_profileshots"
@@ -92304,7 +92304,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L207",
+      "source_location": "L211",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test_testprofileshotsdefensiveparsing",
       "target": "gateway_internal_api_service_profileshots"
@@ -92315,7 +92315,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L239",
+      "source_location": "L243",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test_testprofileshotsnoscript",
       "target": "gateway_internal_api_service_profileshots"
@@ -92325,7 +92325,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L406",
+      "source_location": "L408",
       "weight": 1.0,
       "source": "api_service_settlefailure",
       "target": "api_service_releasehold",
@@ -92336,7 +92336,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L473",
+      "source_location": "L475",
       "weight": 1.0,
       "source": "api_service_chargeconversion",
       "target": "api_service_recordchargefailure",
@@ -92348,7 +92348,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L513",
+      "source_location": "L515",
       "weight": 1.0,
       "source": "api_service_chargeconversion",
       "target": "gateway_internal_stripex_stripex_classifychargeerror"
@@ -92357,7 +92357,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L534",
+      "source_location": "L536",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "api_service_recordchargefailure",
@@ -92369,7 +92369,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L576",
+      "source_location": "L578",
       "weight": 1.0,
       "source": "api_service_releasehold",
       "target": "api_service_restorecredit",
@@ -92380,7 +92380,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L640",
+      "source_location": "L642",
       "weight": 1.0,
       "source": "api_service_refreshanalyze",
       "target": "api_service_failanalyze",
@@ -92391,7 +92391,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L658",
+      "source_location": "L660",
       "weight": 1.0,
       "source": "api_service_refreshanalyze",
       "target": "api_service_rejectsource",
@@ -92402,7 +92402,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L660",
+      "source_location": "L662",
       "weight": 1.0,
       "source": "api_service_refreshanalyze",
       "target": "gateway_internal_api_service_formatminsec",
@@ -92412,7 +92412,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L632",
+      "source_location": "L634",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_refreshanalyze",
@@ -92423,7 +92423,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L809",
+      "source_location": "L811",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_failanalyze",
@@ -92434,7 +92434,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L771",
+      "source_location": "L773",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_failprofile",
@@ -92445,7 +92445,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L720",
+      "source_location": "L722",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_refreshprofile",
@@ -92456,7 +92456,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "context": "return_type",
       "source": "api_service_rejectsource",
@@ -92468,7 +92468,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service.go",
-      "source_location": "L728",
+      "source_location": "L730",
       "weight": 1.0,
       "source": "api_service_refreshprofile",
       "target": "api_service_failprofile",
@@ -92498,7 +92498,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L148",
+      "source_location": "L152",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testmodalbodydepthonly",
@@ -92508,7 +92508,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L131",
+      "source_location": "L135",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testmodalbodyforwardsplacementoneshot",
@@ -92518,7 +92518,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L107",
+      "source_location": "L111",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testmodalbodyforwardswarp",
@@ -92538,7 +92538,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L169",
+      "source_location": "L173",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testmodalbodymaxgpuworkers",
@@ -92568,7 +92568,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L120",
+      "source_location": "L124",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testmodalbodyskipsunsetproknobs",
@@ -92578,7 +92578,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L220",
+      "source_location": "L224",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testprofileshotsacceptszeroframes",
@@ -92588,7 +92588,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L194",
+      "source_location": "L198",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testprofileshotsdefensiveparsing",
@@ -92598,7 +92598,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L229",
+      "source_location": "L233",
       "weight": 1.0,
       "source": "gateway_internal_api_service_test",
       "target": "gateway_internal_api_service_test_testprofileshotsnoscript",
@@ -92652,7 +92652,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L148",
+      "source_location": "L152",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testmodalbodydepthonly",
@@ -92663,7 +92663,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L131",
+      "source_location": "L135",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testmodalbodyforwardsplacementoneshot",
@@ -92674,7 +92674,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L107",
+      "source_location": "L111",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testmodalbodyforwardswarp",
@@ -92696,7 +92696,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L169",
+      "source_location": "L173",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testmodalbodymaxgpuworkers",
@@ -92729,7 +92729,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L120",
+      "source_location": "L124",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testmodalbodyskipsunsetproknobs",
@@ -92740,7 +92740,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L220",
+      "source_location": "L224",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testprofileshotsacceptszeroframes",
@@ -92751,7 +92751,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L194",
+      "source_location": "L198",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testprofileshotsdefensiveparsing",
@@ -92762,7 +92762,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "gateway/internal/api/service_test.go",
-      "source_location": "L229",
+      "source_location": "L233",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "gateway_internal_api_service_test_testprofileshotsnoscript",
@@ -106275,6 +106275,28 @@
       "weight": 1.0,
       "source": "web_src_components_analytics",
       "target": "web_src_lib_analytics_storedconsent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/analytics.ts",
+      "source_location": "L124",
+      "weight": 1.0,
+      "source": "web_src_lib_analytics_galogevent",
+      "target": "web_src_components_analytics",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "web/src/lib/firebase.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "web_src_lib_firebase",
+      "target": "web_src_components_analytics",
       "confidence_score": 1.0
     },
     {
@@ -121372,14 +121394,13 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports_from",
+      "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/analytics.ts",
-      "source_location": "L124",
+      "source_location": "L120",
       "weight": 1.0,
-      "context": "import",
-      "source": "web_src_lib_analytics_galogevent",
-      "target": "web_src_lib_analytics",
+      "source": "web_src_lib_analytics",
+      "target": "web_src_lib_analytics_galogevent",
       "confidence_score": 1.0
     },
     {
@@ -127086,7 +127107,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L51",
+      "source_location": "L65",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_1_da2_on_video_yes_shipping_it",
@@ -127096,7 +127117,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L72",
+      "source_location": "L86",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_2_warp_inpainting",
@@ -127106,7 +127127,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L87",
+      "source_location": "L101",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_3_free_photos_free_with_a_daily_cap",
@@ -127116,7 +127137,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L129",
+      "source_location": "L143",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_4_payments_for_a_native_stripe_client",
@@ -127126,7 +127147,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L186",
+      "source_location": "L200",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_5_get_v1_limits_pre_upload_limits_usage_rates",
@@ -127136,7 +127157,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L226",
+      "source_location": "L240",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_6_resolution_fps",
@@ -127156,7 +127177,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L240",
+      "source_location": "L254",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_backend_work_list_priority_order",
@@ -127166,7 +127187,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MOBILE.md",
-      "source_location": "L253",
+      "source_location": "L267",
       "weight": 1.0,
       "source": "docs_mobile_mobile_ios_macos_visionos_backend_contract_answers_plan",
       "target": "docs_mobile_what_the_app_should_not_rely_on",
@@ -129219,5 +129240,5 @@
       "source_file": "previews/full_batch_v3/K9_full_v3.yaml"
     }
   ],
-  "built_at_commit": "73547900cffcdd2fad2078035f42679fe235fa11"
+  "built_at_commit": "8e35eac8f0d984e373fae547acea614dcef188b0"
 }
