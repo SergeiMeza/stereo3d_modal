@@ -389,14 +389,18 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 # profiler that number is the STANDARD-class anchor the
                 # whole per-shot script scales from — slider at the
                 # standard value ⇒ scale 1.0 (auto-comfort stays on);
-                # any other position is a manual scale (comfort skipped,
-                # like the web's explicit depth_scale). Clamped to the
-                # depth_scale rail. Pro steps never send displacement.
+                # any other position is a manual scale (auto-comfort
+                # skipped, like the web's explicit depth_scale; the HARD
+                # per-shot divergence/pop-out caps in _build_depth_script
+                # still apply at any scale). Clamped so the app's label
+                # stays honest up to the gateway's 0.03 displacement rail
+                # (≈2.6× standard), not the web slider's 1.5. Pro steps
+                # never send displacement.
                 from app.stages.video_depth_models import SHOT_PARAMS
 
                 anchor = float(SHOT_PARAMS["standard"]["displacement"])
                 derived = float(request["displacement"]) / anchor
-                depth_scale = round(min(max(derived, 0.3), 1.5), 4)
+                depth_scale = round(min(max(derived, 0.3), 0.03 / anchor), 4)
                 if abs(depth_scale - 1.0) < 0.02:
                     depth_scale = 1.0  # slider at the anchor: keep auto-comfort
                 jlog.info(

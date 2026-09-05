@@ -46,7 +46,9 @@ versioning).
   `displacement` is the STANDARD-class anchor the whole script scales
   from: sending the standard value (0.0115) means scale 1.0 with
   auto-comfort on; any other slider position is a manual scale
-  (`displacement / 0.0115`, clamped to [0.3, 1.5], comfort clamp off).
+  (`displacement / 0.0115`, clamped to [0.3, ≈2.6] — i.e. up to the 0.03
+  displacement rail — with auto-comfort off; the hard per-shot
+  divergence/pop-out caps still apply at any scale).
   The app's `placement` is the fallback plane pair only; per-shot planes
   come from the class table, and `standard` == the app's `[-1.0, 0.3]`.
   Adds a profiling stage (`profile_scenes`) before depth; typically tens
