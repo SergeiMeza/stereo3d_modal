@@ -775,8 +775,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1788329969.893245,
-    "ast_hash": "03ba11400dbb0358b42b913504227c8e",
+    "mtime": 1788538209.4161558,
+    "ast_hash": "1adce6535c3f6100ac4c001aaedccbb5",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/store/models.go": {
-    "mtime": 1788339855.2499177,
-    "ast_hash": "e3e1ba7a39f99224b18950f6488b6533",
+    "mtime": 1788538214.3759456,
+    "ast_hash": "1b96e4e9ecb7d72a5760204b38192e6f",
     "semantic_hash": ""
   },
   "gateway/internal/store/projects.go": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": "7efd87029f505e1536919181020ebac1"
   },
   "web/src/components/projects/ProjectCard.tsx": {
-    "mtime": 1783129847.6895745,
-    "ast_hash": "f7969392b3fa29d44866c473f0974115",
+    "mtime": 1788538229.5613241,
+    "ast_hash": "6561357f3758e17aa742c54448ae86af",
     "semantic_hash": ""
   },
   "web/src/components/projects/UploadDropzone.tsx": {
@@ -1160,8 +1160,8 @@
     "semantic_hash": ""
   },
   "web/src/components/steps/DeliverPanel.tsx": {
-    "mtime": 1788196429.7365136,
-    "ast_hash": "366be4f94ebc9b427cea4dfa6ffbfa64",
+    "mtime": 1788538229.5645528,
+    "ast_hash": "3fd5699b1ab3c49ee1fb2e80de2aa1f0",
     "semantic_hash": ""
   },
   "web/src/components/steps/DepthPanel.test.tsx": {
@@ -1170,9 +1170,9 @@
     "semantic_hash": ""
   },
   "web/src/components/steps/DepthPanel.tsx": {
-    "mtime": 1783129054.326291,
-    "ast_hash": "77d986485e290231ce41784977f84f5c",
-    "semantic_hash": "77d986485e290231ce41784977f84f5c"
+    "mtime": 1788538229.5639353,
+    "ast_hash": "e45c1c2431433f05c7a7ca2929e3d6b6",
+    "semantic_hash": ""
   },
   "web/src/components/steps/DownloadsList.tsx": {
     "mtime": 1783129054.3269336,
@@ -1230,8 +1230,8 @@
     "semantic_hash": ""
   },
   "web/src/components/steps/StereoPanel.tsx": {
-    "mtime": 1788196429.7373283,
-    "ast_hash": "7ca5bd0f9f664928f6aa01a0c2aa523f",
+    "mtime": 1788538229.5651405,
+    "ast_hash": "ef8c7d9279276573072195b44cbbf383",
     "semantic_hash": ""
   },
   "web/src/components/steps/controls.tsx": {
@@ -1335,8 +1335,8 @@
     "semantic_hash": "4bdbc86ece916c8d5086a8d06d02d579"
   },
   "web/src/components/workspace/MediaTab.tsx": {
-    "mtime": 1788181394.9841769,
-    "ast_hash": "a95cc259cef6faf0d06a3fc8e4babe9b",
+    "mtime": 1788538229.5622497,
+    "ast_hash": "de954692f6f0c79458694750580bcb30",
     "semantic_hash": ""
   },
   "web/src/components/workspace/PageHeader.tsx": {
@@ -1355,9 +1355,9 @@
     "semantic_hash": "edfe0801344a5f0ecfda8706af2beab8"
   },
   "web/src/components/workspace/SceneCutEditor.tsx": {
-    "mtime": 1782974368.1307652,
-    "ast_hash": "a5ddd69a006fc2fb7e5d05b4490316ae",
-    "semantic_hash": "a5ddd69a006fc2fb7e5d05b4490316ae"
+    "mtime": 1788538229.5631652,
+    "ast_hash": "a9f9a2e16965c9cb2fd6ffc4aeab5e26",
+    "semantic_hash": ""
   },
   "web/src/components/workspace/SceneList.tsx": {
     "mtime": 1783029169.2604992,
@@ -1425,8 +1425,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/api/types.ts": {
-    "mtime": 1788301681.5517113,
-    "ast_hash": "8533c3f4d9f76a96e86271c12459b8b8",
+    "mtime": 1788538579.9184122,
+    "ast_hash": "53a9115ad71b015f6e5e490bbfa26f9c",
     "semantic_hash": ""
   },
   "web/src/lib/api/useGateway.ts": {
@@ -2447,6 +2447,11 @@
   "gateway/internal/store/photocredits.go": {
     "mtime": 1788339855.2501514,
     "ast_hash": "0291e2bc3661153408d6aa06d1a86e9d",
+    "semantic_hash": ""
+  },
+  "gateway/internal/store/scenes_test.go": {
+    "mtime": 1788538848.4660974,
+    "ast_hash": "14ac3a6d2aa01cde2da832e2a63e31c9",
     "semantic_hash": ""
   }
 }
