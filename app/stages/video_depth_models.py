@@ -147,7 +147,7 @@ PROFILE_DYNAMIC_DISP_SPREAD = 0.30
 PROFILE_DYNAMIC_NEAR_SPREAD = 0.25
 # Depth continuity: adjacent shots may differ by at most this much
 # displacement, so the eye never gets yanked across a cut.
-PROFILE_MAX_DISPLACEMENT_STEP = 0.00625  # v7: +25% with SHOT_PARAMS
+PROFILE_MAX_DISPLACEMENT_STEP = 0.00575  # v7.2: +15% with SHOT_PARAMS
 # Pixels kept per keyframe for the profiling statistics (medians and
 # fractions converge long before this; keeps memory flat per scene).
 PROFILE_PIXEL_SAMPLES = 200_000
@@ -239,23 +239,25 @@ SHOT_PARAMS: dict[str, dict] = {
     # v3 (2026-06-14): gentle ~25% bump up from v2 — v2 read slightly
     # flat, so a touch more depth, still well short of the too-strong
     # original. close_up kept (on point); wide stays behind-screen.
-    # v7 (2026-09-05): another uniform +25% across every class — the web
-    # default still read as toned down on device. Placement (plane
-    # positions) unchanged; only the disparity budget grows. Comfort
-    # budget lifted in step (0.02 → 0.025) so auto-comfort does not
-    # quietly claw this back on busier clips.
+    # v7 (2026-09-05): uniform +25% across every class — the web default
+    # still read as toned down on device. Comfort budget lifted in step
+    # (0.02 → 0.025) so auto-comfort does not quietly claw this back.
+    # v7.2 (2026-09-05): settled at +15% over v3 (close_up 0.0092,
+    # standard 0.0115, dynamic 0.01035, wide 0.009775) — with the v7.1
+    # near planes doing the pop-out work, +25% displacement read as
+    # more than needed. Comfort budget stays at 0.025.
     # v7.1 (2026-09-05): near planes for the NON-meters bucket path (the
     # da3-metric production default) raised to mirror the meters ramp —
     # the v5/v6.1 close-up pop-out restore only ever reached the
     # depth-pro path, so web close-ups sat at +0.1 all along. close_up
     # +0.4 (= the 3 m NEAR_PLANE_RAMP anchor), dynamic +0.25 (spans close
     # and mid). Pop-out is foreground parallax: no disocclusion cost, and
-    # 0.010 × 0.4 = 0.004 stays half the MAX_POPOUT_DISPARITY cap.
+    # 0.0092 × 0.4 ≈ 0.0037 stays well under the MAX_POPOUT_DISPARITY cap.
     # standard/wide unchanged (wides stay windowed).
-    "close_up": {"displacement": 0.010, "placement": (-1.0, 0.4)},
-    "standard": {"displacement": 0.0125, "placement": (-1.0, 0.3)},
-    "dynamic":  {"displacement": 0.01125, "placement": (-1.0, 0.25)},
-    "wide":     {"displacement": 0.010625, "placement": (-1.0, -0.2)},
+    "close_up": {"displacement": 0.0092, "placement": (-1.0, 0.4)},
+    "standard": {"displacement": 0.0115, "placement": (-1.0, 0.3)},
+    "dynamic":  {"displacement": 0.01035, "placement": (-1.0, 0.25)},
+    "wide":     {"displacement": 0.009775, "placement": (-1.0, -0.2)},
 }
 
 # v4 (2026-06-14, device-confirmed): displacement is now a CONTINUOUS
@@ -281,9 +283,9 @@ SHOT_PARAMS: dict[str, dict] = {
 #   5 m → 0.0088, 11 m → 0.0068, 20 m → 0.0052. Kept MODERATE because this
 # is the disocclusion-hole lever (the v4 cut was to stop smeared far walls);
 # ProPainter fills this amount cleanly, but pushing it harder reopens that.
-# v7 (2026-09-05): +25% at every anchor, in step with SHOT_PARAMS:
-#   2 m → 0.0125, 5 m → 0.011, 11 m → 0.0085, 20 m → 0.0065.
-DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.0125), (5.0, 0.011), (11.0, 0.0085), (20.0, 0.0065)]
+# v7.2 (2026-09-05): +15% at every anchor over v6.1, in step with
+# SHOT_PARAMS: 2 m → 0.0115, 5 m → 0.01012, 11 m → 0.00782, 20 m → 0.00598.
+DISPLACEMENT_RAMP_ANCHORS = [(2.0, 0.0115), (5.0, 0.01012), (11.0, 0.00782), (20.0, 0.00598)]
 
 
 def _ramp_displacement(median_depth: float, units: str = "meters") -> float:
