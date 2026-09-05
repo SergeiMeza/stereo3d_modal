@@ -244,9 +244,17 @@ SHOT_PARAMS: dict[str, dict] = {
     # positions) unchanged; only the disparity budget grows. Comfort
     # budget lifted in step (0.02 → 0.025) so auto-comfort does not
     # quietly claw this back on busier clips.
-    "close_up": {"displacement": 0.010, "placement": (-1.0, 0.1)},
+    # v7.1 (2026-09-05): near planes for the NON-meters bucket path (the
+    # da3-metric production default) raised to mirror the meters ramp —
+    # the v5/v6.1 close-up pop-out restore only ever reached the
+    # depth-pro path, so web close-ups sat at +0.1 all along. close_up
+    # +0.4 (= the 3 m NEAR_PLANE_RAMP anchor), dynamic +0.25 (spans close
+    # and mid). Pop-out is foreground parallax: no disocclusion cost, and
+    # 0.010 × 0.4 = 0.004 stays half the MAX_POPOUT_DISPARITY cap.
+    # standard/wide unchanged (wides stay windowed).
+    "close_up": {"displacement": 0.010, "placement": (-1.0, 0.4)},
     "standard": {"displacement": 0.0125, "placement": (-1.0, 0.3)},
-    "dynamic":  {"displacement": 0.01125, "placement": (-1.0, 0.1)},
+    "dynamic":  {"displacement": 0.01125, "placement": (-1.0, 0.25)},
     "wide":     {"displacement": 0.010625, "placement": (-1.0, -0.2)},
 }
 
