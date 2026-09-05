@@ -90,14 +90,18 @@ func TestModalBodyProStepAlwaysSendsCuts(t *testing.T) {
 }
 
 func TestModalBodyLegacyVideoUnchanged(t *testing.T) {
-	// Legacy mobile route (no step): displacement still forwards; no pro keys.
+	// Mobile one-shot route (no step): displacement still forwards; the
+	// adaptive profiler runs (free, hidden) but no pro keys leak.
 	conv := &store.Conversion{Kind: "video",
 		Params: store.Params{Preset: "1080p", Formats: []string{"mvhevc"}, Displacement: 0.02}}
 	body := (&Service{}).modalBody(conv, 8)
 	if body["displacement"] != 0.02 {
 		t.Errorf("displacement must forward for legacy conversions, got %v", body["displacement"])
 	}
-	for _, k := range []string{"adaptive", "depth_res", "depth_scale", "scene_overrides", "inpaint", "warp"} {
+	if body["adaptive"] != true {
+		t.Errorf("one-shot video must run the adaptive profiler, got %v", body["adaptive"])
+	}
+	for _, k := range []string{"depth_res", "depth_scale", "scene_overrides", "inpaint", "warp"} {
 		if _, present := body[k]; present {
 			t.Errorf("legacy body must not carry %q", k)
 		}

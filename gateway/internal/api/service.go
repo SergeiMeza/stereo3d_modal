@@ -189,12 +189,14 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	if len(c.Params.SceneOverrides) > 0 {
 		body["scene_overrides"] = encodeSceneOverrides(c.Params.SceneOverrides)
 	}
-	if c.Step != "" {
-		// Pro steps always run the adaptive per-shot profiler (product
-		// default); its depth_script is folded back into project.scene_profile
-		// on success. Legacy mobile conversions keep the non-adaptive path.
-		body["adaptive"] = true
-	}
+	// Every video runs the adaptive per-shot profiler. Pro steps: product
+	// default, its depth_script is folded back into project.scene_profile
+	// on success. Mobile one-shot (since 2026-09-05): free and hidden — not
+	// in the quote or the app's params; Modal treats the app's global
+	// displacement as the standard-class anchor it scales the script from
+	// (depth_scale = displacement / standard), and the app's placement as
+	// the fallback plane pair. Images have no profiler.
+	body["adaptive"] = true
 	if c.Params.SkipReuse { // from-scratch: nothing stale picked up silently
 		body["skip_reuse_preprocess"] = true
 		body["skip_reuse_depth"] = true

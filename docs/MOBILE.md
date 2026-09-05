@@ -38,6 +38,20 @@ versioning).
   displacement × (depth × (near − far) + far), halved per eye in dual-eye
   mode. Send the on-device values so cloud output matches the preview.
   Rejected with 400 `invalid_request` when malformed.
+- **Per-shot profiling on one-shot video (2026-09-05, free, hidden)**:
+  every cloud video conversion now runs the same adaptive shot profiler
+  as the web pro steps (scene detection + per-shot class: close_up,
+  standard, dynamic, wide → the web table's displacement and planes).
+  Not in the quote, not in the price, not echoed in `params`. The app's
+  `displacement` is the STANDARD-class anchor the whole script scales
+  from: sending the standard value (0.0115) means scale 1.0 with
+  auto-comfort on; any other slider position is a manual scale
+  (`displacement / 0.0115`, clamped to [0.3, 1.5], comfort clamp off).
+  The app's `placement` is the fallback plane pair only; per-shot planes
+  come from the class table, and `standard` == the app's `[-1.0, 0.3]`.
+  Adds a profiling stage (`profile_scenes`) before depth; typically tens
+  of seconds on a short clip. Photos are single shots and are NOT
+  profiled: they use `displacement` + `placement` as sent.
 - `formats: ["mvhevc"]` alone is supported and skips the SBS deliverable
   encodes — confirmed. **Video only**: stills have no spatial-photo
   output yet, so `mvhevc` on an image 400s.

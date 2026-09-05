@@ -383,6 +383,26 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # uniform multiplier on every shot's displacement — tone the
             # whole effect down/up without touching the script structure
             depth_scale = float(request.get("depth_scale", 1.0))
+            if "depth_scale" not in request and "displacement" in request:
+                # Mobile one-shot (2026-09-05): the app has one global
+                # strength slider, sent as ``displacement``. Under the
+                # profiler that number is the STANDARD-class anchor the
+                # whole per-shot script scales from — slider at the
+                # standard value ⇒ scale 1.0 (auto-comfort stays on);
+                # any other position is a manual scale (comfort skipped,
+                # like the web's explicit depth_scale). Clamped to the
+                # depth_scale rail. Pro steps never send displacement.
+                from app.stages.video_depth_models import SHOT_PARAMS
+
+                anchor = float(SHOT_PARAMS["standard"]["displacement"])
+                derived = float(request["displacement"]) / anchor
+                depth_scale = round(min(max(derived, 0.3), 1.5), 4)
+                if abs(depth_scale - 1.0) < 0.02:
+                    depth_scale = 1.0  # slider at the anchor: keep auto-comfort
+                jlog.info(
+                    f"🎚  displacement {float(request['displacement']):.4f} → "
+                    f"depth_scale {depth_scale} (standard anchor {anchor})"
+                )
             # auto_comfort (default ON): let the profiler pick the scale
             # that lands the clip's salient disparities inside the comfort
             # budget. An explicit depth_scale overrides it (the worker
@@ -446,7 +466,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 # over overridden shots.
                 applied_scale = (
                     (jobs.get_job(job_id) or {}).get("comfort_scale")
-                    or float(request.get("depth_scale", 1.0))
+                    or depth_scale
                 )
                 _apply_scene_overrides(depth_script, resolved, applied_scale, jlog)
             # source-frame spans for the web client (frame doctrine): the
