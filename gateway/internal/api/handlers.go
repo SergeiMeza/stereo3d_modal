@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"path"
 	"slices"
@@ -156,7 +157,11 @@ type createConversionReq struct {
 	Preset       string   `json:"preset"`
 	Formats      []string `json:"formats"`
 	Displacement float64  `json:"displacement"`
-	TargetFPS    float64  `json:"target_fps"`
+	// Placement (optional, video + image): job-wide [far, near] planes as
+	// fractions of displacement, so the app's cloud output can match its
+	// on-device kernel. Absent = pipeline default (-1.0, +0.5).
+	Placement []float64 `json:"placement"`
+	TargetFPS float64   `json:"target_fps"`
 	// Frame-exact half-open trim [from_frame, to_frame) — the API takes
 	// frames, never seconds (frame doctrine, web/DESIGN.md).
 	FromFrame int `json:"from_frame"`
@@ -223,6 +228,13 @@ func (req *createConversionReq) validate() error {
 	}
 	if req.Displacement < 0 || req.Displacement > maxDisplacement {
 		return httpx.ErrInvalid("displacement must be in (0, 0.03]")
+	}
+	if req.Placement != nil {
+		if len(req.Placement) != 2 || req.Placement[0] >= req.Placement[1] ||
+			req.Placement[0] < -maxPlacement || req.Placement[1] > maxPlacement {
+			return httpx.ErrInvalid(fmt.Sprintf(
+				"placement invalid: need [far, near] with -%g <= far < near <= %g", maxPlacement, maxPlacement))
+		}
 	}
 	if req.TargetFPS < 0 || req.TargetFPS > 120 {
 		return httpx.ErrInvalid("target_fps must be in (0, 120]")
@@ -415,6 +427,7 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		Source: src,
 		Params: store.Params{
 			Preset: req.Preset, Formats: req.Formats, Displacement: req.Displacement,
+			Placement: req.Placement,
 			TargetFPS: req.TargetFPS, FromFrame: req.FromFrame, ToFrame: req.ToFrame,
 			DepthModel: req.DepthModel, Warp: req.Warp, Inpaint: req.Inpaint,
 			StereoMode: req.StereoMode, DepthRes: req.DepthRes,

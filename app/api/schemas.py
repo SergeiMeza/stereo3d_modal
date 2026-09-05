@@ -24,6 +24,9 @@ WarpMethod = Literal["forward", "backward"]
 class VideoRequest(TypedDict, total=False):
     input_path: str  # required; bucket-relative, e.g. "inputs/samples/clip.mp4"
     displacement: float  # max disparity as fraction of width (default 0.0125)
+    placement: list[float]  # optional [far, near] planes as fractions of
+                            # displacement, [-1.5, 1.5], far < near (default
+                            # [-1.0, 0.5]); non-adaptive renders only
     inpaint: InpaintMode  # default "propainter"
     warp: WarpMethod  # default "forward"; "backward" needs inpaint "none"
     input_size: int  # depth model resolution, multiple of 14 (default 980)
@@ -78,6 +81,7 @@ class ImageItem(TypedDict, total=False):
     item_id: str  # default derived from filename
     input_path: str  # required
     displacement: float  # default 0.01
+    placement: list[float]  # optional [far, near], same rail as video (default [-1.0, 0.5])
     stereo_mode: StereoMode  # default "both"
     warp: WarpMethod  # default "forward" (splat + fill); "backward" skips the fill
     inpaint: Literal["lama", "migan", "none"]  # forward-warp fill model (default lama)

@@ -80,7 +80,12 @@ stages; `from_scratch: true` bypasses reuse (and its discount) entirely.
 
 Every pro step runs Modal's adaptive per-shot profiler (the gateway always
 sends `adaptive: true`); the knobs below shape it. Global `displacement` is
-rejected on pro steps — it remains a legacy `POST /v1/conversions` field.
+rejected on pro steps and a top-level `placement` is not a pro-step field
+(use `scene_overrides[].placement`) — both remain `POST /v1/conversions`
+(mobile one-shot) fields: `displacement` (0, 0.03], `placement: [far, near]`
+with −1.5 ≤ far < near ≤ 1.5 (default `[-1.0, 0.5]`), forwarded to Modal
+for video and image alike so cloud output can match the app's on-device
+kernel.
 
 | param | steps | rails |
 |---|---|---|

@@ -45,6 +45,25 @@ def _check_warp(warp: str, inpaint: str) -> None:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _validate_placement(body: dict, where: str = "placement") -> None:
+    """Optional job-wide ``placement: [far, near]`` (POST /v1/videos and
+    /v1/images): two floats in [-1.5, 1.5] with far < near — the same
+    rail as scene_overrides[].placement. Absent/None = DEFAULT_PLACEMENT."""
+    p = body.get("placement")
+    if p is None:
+        return
+    ok = (
+        isinstance(p, (list, tuple)) and len(p) == 2
+        and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in p)
+        and -1.5 <= float(p[0]) < float(p[1]) <= 1.5
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{where} must be [far, near] floats in [-1.5, 1.5] with far < near",
+        )
+
+
 # scene_overrides entry contract (POST /v1/videos). Frame doctrine
 # (web/DESIGN.md): "first" is a SOURCE-frame scene start — the user's exact
 # number, validated hard at submit time and never coerced downstream.
@@ -221,6 +240,7 @@ async def submit_video(body: dict) -> dict:
     displacement = float(body.get("displacement", 0.0125))
     if not (0.0 < displacement <= 0.1):
         raise HTTPException(status_code=400, detail="displacement must be in (0, 0.1]")
+    _validate_placement(body)
     # target_fps (v7): decimate to fewer fps (cap at source applied in
     # preprocess once the source fps is probed; here just sanity-bound it).
     target_fps = body.get("target_fps")
@@ -397,6 +417,9 @@ async def submit_images(body: dict) -> dict:
     ids = [item["item_id"] for item in items]
     if len(set(ids)) != len(ids):
         raise HTTPException(status_code=400, detail="duplicate item_id in items")
+    _validate_placement(body)
+    for i, item in enumerate(items):
+        _validate_placement(item, f"items[{i}].placement")
 
     return _submit("image", body, lambda job_id: process_image_job.spawn(job_id, body))
 

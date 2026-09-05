@@ -23,11 +23,21 @@ versioning).
   success**. The response no longer carries PaymentSheet material; a 402
   with `no_payment_method` / `billing_overdue` routes the app to §4.
 - **Params (video)**: `preset`, `formats`, `depth_model` (§1), `warp`,
-  `inpaint`, `depth_res`, `target_fps`, `from_frame`/`to_frame`. Same
-  validation rules as the pro steps (`backward` ⇒ `inpaint: none`,
-  `migan` ⇒ forward warp).
-- **Params (image)**: `displacement`, `stereo_mode`, `warp`, `inpaint`
-  (§2), `formats`, `output_depthmap`.
+  `inpaint`, `depth_res`, `target_fps`, `from_frame`/`to_frame`,
+  `displacement`, `placement`. Same validation rules as the pro steps
+  (`backward` ⇒ `inpaint: none`, `migan` ⇒ forward warp).
+- **Params (image)**: `displacement`, `placement`, `stereo_mode`, `warp`,
+  `inpaint` (§2), `formats`, `output_depthmap`.
+- **Stereo strength (video + image, added 2026-09-05)**: `displacement`
+  is the total parallax budget as a fraction of frame width, (0, 0.03];
+  backend default 0.0125 for video, 0.01 for photos when omitted.
+  `placement: [far, near]` positions the scene against the screen plane
+  as fractions of that budget (far ≤ 0 behind the screen, near > 0
+  pop-out); both in [−1.5, 1.5] with far < near; omitted = `[-1.0, 0.5]`.
+  Same mapping as the app's on-device kernel: signed disparity =
+  displacement × (depth × (near − far) + far), halved per eye in dual-eye
+  mode. Send the on-device values so cloud output matches the preview.
+  Rejected with 400 `invalid_request` when malformed.
 - `formats: ["mvhevc"]` alone is supported and skips the SBS deliverable
   encodes — confirmed. **Video only**: stills have no spatial-photo
   output yet, so `mvhevc` on an image 400s.

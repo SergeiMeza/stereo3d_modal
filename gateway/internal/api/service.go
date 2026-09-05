@@ -111,6 +111,9 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 		if c.Params.Displacement > 0 {
 			body["displacement"] = c.Params.Displacement
 		}
+		if len(c.Params.Placement) == 2 {
+			body["placement"] = c.Params.Placement
+		}
 		if c.Params.StereoMode != "" {
 			body["stereo_mode"] = c.Params.StereoMode
 		}
@@ -135,6 +138,9 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	}
 	if c.Params.Displacement > 0 {
 		body["displacement"] = c.Params.Displacement
+	}
+	if len(c.Params.Placement) == 2 {
+		body["placement"] = c.Params.Placement
 	}
 	if c.Params.TargetFPS > 0 {
 		body["target_fps"] = c.Params.TargetFPS

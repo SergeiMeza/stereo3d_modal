@@ -121,9 +121,26 @@ func TestModalBodySkipsUnsetProKnobs(t *testing.T) {
 	conv := &store.Conversion{Kind: "video", Step: store.StepDepthPreview,
 		Params: store.Params{Preset: "draft", DepthOnly: true, Inpaint: "none", TargetFPS: 12}}
 	body := (&Service{}).modalBody(conv, 8)
-	for _, k := range []string{"depth_res", "depth_scale", "scene_overrides", "displacement"} {
+	for _, k := range []string{"depth_res", "depth_scale", "scene_overrides", "displacement", "placement"} {
 		if _, present := body[k]; present {
 			t.Errorf("unset knob %q must not be forwarded", k)
+		}
+	}
+}
+
+func TestModalBodyForwardsPlacementOneShot(t *testing.T) {
+	// Mobile one-shot parity: placement forwards for both kinds, omitted when unset.
+	for _, kind := range []string{"video", "image"} {
+		conv := &store.Conversion{Kind: kind,
+			Params: store.Params{Preset: "1080p", Formats: []string{"sbs"}, Displacement: 0.0115, Placement: []float64{-1, 0.3}}}
+		body := (&Service{}).modalBody(conv, 8)
+		got, _ := body["placement"].([]float64)
+		if len(got) != 2 || got[0] != -1 || got[1] != 0.3 {
+			t.Errorf("%s: placement not forwarded: %v", kind, body["placement"])
+		}
+		conv.Params.Placement = nil
+		if _, present := (&Service{}).modalBody(conv, 8)["placement"]; present {
+			t.Errorf("%s: unset placement must not be sent", kind)
 		}
 	}
 }

@@ -93,10 +93,14 @@ type Params struct {
 	Preset       string   `firestore:"preset" json:"preset"`
 	Formats      []string `firestore:"formats" json:"formats"`
 	Displacement float64  `firestore:"displacement,omitempty" json:"displacement,omitempty"` // legacy global knob (POST /v1/conversions only)
-	TargetFPS    float64  `firestore:"target_fps,omitempty" json:"target_fps,omitempty"`
-	FromFrame    int      `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
-	ToFrame      int      `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
-	Inpaint      string   `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
+	// Placement: optional job-wide [far, near] planes (POST /v1/conversions
+	// only; fractions of displacement, -1.5 <= far < near <= 1.5). nil =
+	// pipeline default (-1.0, +0.5). Pro steps use scene_overrides instead.
+	Placement []float64 `firestore:"placement,omitempty" json:"placement,omitempty"`
+	TargetFPS float64   `firestore:"target_fps,omitempty" json:"target_fps,omitempty"`
+	FromFrame int       `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
+	ToFrame   int       `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
+	Inpaint   string    `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
 	// DepthModel: video depth backend ("" = pipeline default vda).
 	// Mobile exposes "da2" (per-frame relative DA2 — matches the app's
 	// on-device model); the pro web steps never set it.

@@ -25,6 +25,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
       "items": [{"item_id": "img1", "input_path": "inputs/samples/x.jpg", ...}],
       # per-item options (also accepted top-level as defaults):
       "displacement": 0.01,
+      "placement": [-1.0, 0.5],   # optional (far, near) planes, fractions of displacement
       "stereo_mode": "both" | "left" | "right",
       "warp": "forward" | "backward",   # forward = splat + fill
                                         # (default); backward = gather,
@@ -45,7 +46,7 @@ def process_image_job(job_id: str, request: dict) -> dict:
 
     defaults = {
         k: request[k]
-        for k in ("displacement", "stereo_mode", "warp", "inpaint", "formats", "output_depthmap", "remove_black_bars")
+        for k in ("displacement", "placement", "stereo_mode", "warp", "inpaint", "formats", "output_depthmap", "remove_black_bars")
         if k in request
     }
     items = [{**defaults, **item} for item in request["items"]]

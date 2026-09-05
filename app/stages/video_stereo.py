@@ -286,6 +286,7 @@ class _StereoWorkerBase:
         scene_params: list[dict] | None = None,
         splat_video_path: str | None = None,
         warp: str = WARP_FORWARD,
+        placement: tuple[float, float] | None = None,
     ) -> dict:
         """Produce a full-width SBS video. Paths are inside the cache
         volume / bucket mount. Returns the cache path of the SBS file.
@@ -310,6 +311,11 @@ class _StereoWorkerBase:
         None, behavior is byte-identical to before: the
         ``displacement`` argument and the default placement apply to
         every frame.
+
+        ``placement`` (optional, mobile one-shot parity): the job-wide
+        ``(far, near)`` plane pair applied to every frame when there is
+        no per-shot script, and the fallback for frames a script does
+        not cover. None = DEFAULT_PLACEMENT.
         """
         from app.common.ffmpeg_utils import concat_segments, count_frames
 
@@ -399,13 +405,18 @@ class _StereoWorkerBase:
             jlog = job_logger(job_id)
             params_at = None
             pass_at = None
+            base_placement = tuple(float(v) for v in placement) if placement else DEFAULT_PLACEMENT
             if scene_params:
-                params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
+                params_at = _scene_param_lookup(scene_params, displacement, base_placement)
                 jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
                 pass_at = _passthrough_lookup(scene_params)
                 if pass_at is not None:
                     n = sum(1 for sp in scene_params if sp.get("passthrough"))
                     jlog.info(f"⏩ passthrough shots: {n} (2D, no warp/inpaint)")
+            elif placement:
+                # job-wide placement with no script: constant per-frame lookup
+                params_at = lambda _idx, _p=(displacement, base_placement): _p  # noqa: E731
+                jlog.info(f"🎛  job-wide placement {base_placement}")
             pass_start = time.perf_counter()
             segments: list[Path] = []
             # per-phase wall accumulators (decode+depth-upscale / warp / pipe

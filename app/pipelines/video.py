@@ -179,6 +179,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
     {
       "input_path": "inputs/samples/clip_1s_1080p.mp4",
       "displacement": 0.0125,
+      "placement": [-1.0, 0.5],  # optional job-wide (far, near) planes as
+                     # fractions of displacement; mobile one-shot parity
+                     # with the app's on-device kernel. Non-adaptive
+                     # renders and scene_overrides synthesis use it;
+                     # adaptive keeps the profiler's per-shot planes
       "inpaint": "propainter" | "migan" | "none" | "m2svid",
                      # migan: per-frame MI-GAN hole fill on the L4 lite
                      # tier — filled edges at near raw-warp cost, no
@@ -493,7 +498,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 w for w, ov in resolved.items() if ov.get("passthrough")
             )
             depth_script = _synthesize_scene_params(
-                ranges, float(request.get("displacement", 0.0125))
+                ranges, float(request.get("displacement", 0.0125)),
+                request.get("placement"),
             )
             _apply_scene_overrides(depth_script, resolved, 1.0, jlog)
             _annotate_source_spans(depth_script, request, pre)
@@ -702,6 +708,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 video_path=pre["work_path"],
                 depth_path=depth["depth_path"],
                 displacement=float(request.get("displacement", 0.0125)),
+                placement=request.get("placement"),  # None = DEFAULT_PLACEMENT
                 fps_rational=fps_rational,
                 scene_params=depth_script,  # None unless adaptive
             )
@@ -729,6 +736,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 video_path=pre["work_path"],
                 depth_path=depth["depth_path"],
                 displacement=float(request.get("displacement", 0.0125)),
+                placement=request.get("placement"),  # None = DEFAULT_PLACEMENT
                 inpaint=inpaint,
                 warp=warp,
                 stereo_mode=request.get("stereo_mode", "both"),
@@ -1385,7 +1393,9 @@ def _apply_scene_overrides(script: list, resolved: dict, depth_scale: float, jlo
         )
 
 
-def _synthesize_scene_params(ranges: list, displacement: float) -> list:
+def _synthesize_scene_params(
+    ranges: list, displacement: float, placement=None,
+) -> list:
     """scene_overrides WITHOUT adaptive: build flat per-scene params
     directly — no profiler, no extra GPU. Every scene starts from EXACTLY
     what a plain non-adaptive render uses — the request's displacement and
@@ -1396,12 +1406,13 @@ def _synthesize_scene_params(ranges: list, displacement: float) -> list:
     contract the stereo stage's scene_params lookup consumes."""
     from app.stages.video_depth_models import DEFAULT_PLACEMENT
 
+    base = [float(v) for v in placement] if placement else list(DEFAULT_PLACEMENT)
     return [
         {
             "first": int(a),
             "last": int(b),
             "displacement": float(displacement),
-            "placement": list(DEFAULT_PLACEMENT),
+            "placement": list(base),
         }
         for a, b in ranges
     ]

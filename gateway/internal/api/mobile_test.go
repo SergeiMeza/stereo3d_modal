@@ -26,6 +26,8 @@ func TestCreateConversionReqValidate(t *testing.T) {
 		video(func(r *createConversionReq) { r.Warp = "backward"; r.Inpaint = "none" }),
 		image(func(r *createConversionReq) { r.Inpaint = "migan"; r.StereoMode = "left" }),
 		image(func(r *createConversionReq) { r.Warp = "backward" }),
+		video(func(r *createConversionReq) { r.Placement = []float64{-1, 0.3} }),
+		image(func(r *createConversionReq) { r.Placement = []float64{-1.5, 1.5} }),
 	}
 	for i, r := range ok {
 		if err := r.validate(); err != nil {
@@ -89,5 +91,15 @@ func TestModalBodyMobileParams(t *testing.T) {
 	}
 	if got := ib["formats"].([]string); len(got) != 1 || got[0] != "lr" {
 		t.Errorf("image formats: want [lr], got %v", got)
+	}
+}
+
+func TestCreateConversionReqRejectsBadPlacement(t *testing.T) {
+	bad := [][]float64{{0.3}, {-1, 0.3, 0}, {0.3, -1}, {0.5, 0.5}, {-1.6, 0}, {-1, 1.6}}
+	for _, p := range bad {
+		r := &createConversionReq{GCSKey: "stereo3d/test/users/u1/abc/in.mp4", Placement: p}
+		if err := r.validate(); err == nil {
+			t.Errorf("placement %v must be rejected", p)
+		}
 	}
 }

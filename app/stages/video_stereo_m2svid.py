@@ -113,6 +113,7 @@ class M2SVidStereoWorker:
         depth_path: str,
         displacement: float = 0.0125,
         stereo_mode: str = "right",
+        placement: tuple[float, float] | None = None,
         # MODEL CONSTRAINT, not a quality/VRAM tuning knob (unlike
         # ProPainter's work_height/work_width). M2SVid is a diffusion model
         # TRAINED at the ~512-tall tier; running far off it pushes the fill
@@ -227,8 +228,9 @@ class M2SVidStereoWorker:
             jlog = job_logger(job_id)
             params_at = None
             pass_at = None
+            base_placement = tuple(float(v) for v in placement) if placement else DEFAULT_PLACEMENT
             if scene_params:
-                params_at = _scene_param_lookup(scene_params, displacement, DEFAULT_PLACEMENT)
+                params_at = _scene_param_lookup(scene_params, displacement, base_placement)
                 jlog.info(f"🎛  adaptive per-shot params active: {len(scene_params)} shot(s)")
                 from app.stages.video_stereo import _passthrough_lookup
 
@@ -236,6 +238,9 @@ class M2SVidStereoWorker:
                 if pass_at is not None:
                     n = sum(1 for sp in scene_params if sp.get("passthrough"))
                     jlog.info(f"⏩ passthrough shots: {n} (2D, no warp/inpaint)")
+            elif placement:
+                params_at = lambda _idx, _p=(displacement, base_placement): _p  # noqa: E731
+                jlog.info(f"🎛  job-wide placement {base_placement}")
             pass_start = time.perf_counter()
             segments: list[Path] = []
 

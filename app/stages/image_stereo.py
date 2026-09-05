@@ -123,6 +123,8 @@ class ImageStereoWorker:
     def _process_one(self, job_id: str, item: dict) -> dict:
         item_id = item["item_id"]
         displacement = float(item.get("displacement", 0.01))
+        placement = item.get("placement")
+        placement = tuple(float(v) for v in placement) if placement else None
         stereo_mode = item.get("stereo_mode", BOTH)
         if stereo_mode not in (BOTH, LEFT, RIGHT):
             raise ValueError(f"unknown stereo_mode: {stereo_mode!r}")
@@ -151,7 +153,7 @@ class ImageStereoWorker:
             depth = self._estimate_depth(frame)
             track("depth_normalized", depth, logger)
 
-            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode, warp, inpaint)
+            left, right = self._stereo_pair(frame, depth, displacement, stereo_mode, warp, inpaint, placement)
 
             out_dir = job_output_dir(job_id)
             outputs: dict[str, str] = {}
@@ -233,7 +235,8 @@ class ImageStereoWorker:
         return (depth - depth.min()) / (depth.max() - depth.min() + 1e-8)
 
     def _stereo_pair(self, frame, depth, displacement: float, stereo_mode: str,
-                     warp: str = WARP_FORWARD, inpaint: str = "lama"):
+                     warp: str = WARP_FORWARD, inpaint: str = "lama",
+                     placement: tuple[float, float] | None = None):
         """Warp (+ a hole fill for the forward warp). Returns (left, right)
         uint8 (1,3,H,W).
 
@@ -244,8 +247,9 @@ class ImageStereoWorker:
         no holes), so no fill ever runs, never even over an all-zero
         mask."""
         warper = self.gatherer if warp == WARP_BACKWARD else self.splatter
+        extra = {"placement": placement} if placement is not None else {}
         warp_left, warp_right, left_occ, right_occ = warper(
-            image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode
+            image=frame, depthmap=depth, disp=displacement, stereo_mode=stereo_mode, **extra
         )
 
         def finish(image, occlusion):
