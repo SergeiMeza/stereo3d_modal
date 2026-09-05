@@ -10,13 +10,13 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "app/api/main.py": {
-    "mtime": 1788191848.378903,
-    "ast_hash": "345ba666f544b53cb247e1dd2e9520bc",
+    "mtime": 1788597280.933032,
+    "ast_hash": "db15573f9fc94caaefe73909ab203c65",
     "semantic_hash": ""
   },
   "app/api/schemas.py": {
-    "mtime": 1788574834.2475603,
-    "ast_hash": "11408669b126ef03c0ee6f0a00351500",
+    "mtime": 1788597280.9332955,
+    "ast_hash": "1e7fbe87b13e3ba7136e3f0581439b09",
     "semantic_hash": ""
   },
   "app/common/__init__.py": {
@@ -120,13 +120,13 @@
     "semantic_hash": ""
   },
   "app/pipelines/image.py": {
-    "mtime": 1788297956.4770432,
-    "ast_hash": "d14aad02c278eaf56a83526c37c9b4b8",
+    "mtime": 1788597280.9323378,
+    "ast_hash": "280da24db4684debc607f87bb2c9ced6",
     "semantic_hash": ""
   },
   "app/pipelines/video.py": {
-    "mtime": 1788574829.5963924,
-    "ast_hash": "42069385ba79854256a5fd5a3407ed17",
+    "mtime": 1788597280.9319172,
+    "ast_hash": "d3b3ffc7a4f3604e9b81630d5e8ec840",
     "semantic_hash": ""
   },
   "app/stages/__init__.py": {
@@ -140,8 +140,8 @@
     "semantic_hash": "39ad0a6ac1a34c8b89bad18a3b9d2437"
   },
   "app/stages/image_stereo.py": {
-    "mtime": 1788297951.8929057,
-    "ast_hash": "e75f6086f04e1664b100544247fae549",
+    "mtime": 1788597280.9326837,
+    "ast_hash": "02ced69b8de780988c392d8528933f08",
     "semantic_hash": ""
   },
   "app/stages/m2svid_runner.py": {
@@ -190,14 +190,14 @@
     "semantic_hash": ""
   },
   "app/stages/video_stereo.py": {
-    "mtime": 1788191848.3775582,
-    "ast_hash": "9c94e2db017f12b2555a23960372ed71",
+    "mtime": 1788597280.931123,
+    "ast_hash": "4448cd7a1190b17a13b363878da7bae8",
     "semantic_hash": ""
   },
   "app/stages/video_stereo_m2svid.py": {
-    "mtime": 1782974040.600914,
-    "ast_hash": "ace940ad787398ecde7c70f639db6239",
-    "semantic_hash": "ace940ad787398ecde7c70f639db6239"
+    "mtime": 1788597280.9314308,
+    "ast_hash": "13e4150e6a17c1f853f0e170aaa772e2",
+    "semantic_hash": ""
   },
   "app/vendor/__init__.py": {
     "mtime": 1781283261.0492346,
@@ -755,8 +755,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/handlers.go": {
-    "mtime": 1788339855.247214,
-    "ast_hash": "24b56b258b8d25af478fb991bb4c1905",
+    "mtime": 1788597312.389605,
+    "ast_hash": "6bd884f02c99d7c1279aae8fcbc91917",
     "semantic_hash": ""
   },
   "gateway/internal/api/projects.go": {
@@ -775,13 +775,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/service.go": {
-    "mtime": 1788538209.4161558,
-    "ast_hash": "1adce6535c3f6100ac4c001aaedccbb5",
+    "mtime": 1788597298.0827742,
+    "ast_hash": "2266057550f652360e19ace805dfefa6",
     "semantic_hash": ""
   },
   "gateway/internal/api/service_test.go": {
-    "mtime": 1788174939.9450858,
-    "ast_hash": "228cc7c2c4def8d9960a5faf3d99f6c2",
+    "mtime": 1788597298.0834591,
+    "ast_hash": "fc0af9811da4db2e8b54a14a84b766c3",
     "semantic_hash": ""
   },
   "gateway/internal/api/webhooks.go": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "gateway/internal/store/models.go": {
-    "mtime": 1788538214.3759456,
-    "ast_hash": "1b96e4e9ecb7d72a5760204b38192e6f",
+    "mtime": 1788597312.393617,
+    "ast_hash": "5a30421c63b2fd85644d4da434407562",
     "semantic_hash": ""
   },
   "gateway/internal/store/projects.go": {
@@ -1600,8 +1600,8 @@
     "semantic_hash": ""
   },
   "gateway/README.md": {
-    "mtime": 1788340067.5747435,
-    "ast_hash": "1bba88a2f31bf4503ed161c892883885",
+    "mtime": 1788597349.8235273,
+    "ast_hash": "5d436fcafe830af280d7fb18bf7bf1b7",
     "semantic_hash": ""
   },
   "web/.vercel/README.txt": {
@@ -2405,13 +2405,13 @@
     "semantic_hash": ""
   },
   "gateway/internal/api/mobile_test.go": {
-    "mtime": 1788199842.9311845,
-    "ast_hash": "be10ed7086709b89e74ac675da38df0f",
+    "mtime": 1788597312.471593,
+    "ast_hash": "6ea13c2949e58ae1e0f6a4d56684cfd2",
     "semantic_hash": ""
   },
   "docs/MOBILE.md": {
-    "mtime": 1788340067.574126,
-    "ast_hash": "669aafe5c3805eb63b8772c7c80a7211",
+    "mtime": 1788597341.4555113,
+    "ast_hash": "ee04bafe1fa66eda3dcd22d7c3e457fe",
     "semantic_hash": ""
   },
   "gateway/internal/api/batches.go": {
