@@ -254,8 +254,14 @@ SHOT_PARAMS: dict[str, dict] = {
     # and mid). Pop-out is foreground parallax: no disocclusion cost, and
     # 0.0092 × 0.4 ≈ 0.0037 stays well under the MAX_POPOUT_DISPARITY cap.
     # standard/wide unchanged (wides stay windowed).
+    # v7.3 (2026-09-28, owner): standard → 0.0125, the default everywhere.
+    # The app's 10.4.0 slider midpoint is 1.25% disparity on the device and
+    # in the cloud, and the mobile one-shot path derives depth_scale from
+    # this value (displacement / standard), so the app's default lands on
+    # 1.0 and auto-comfort stays on. The 10.x device engine carries this
+    # depth cleanly. close_up, dynamic, wide and the metres ramp keep v7.2.
     "close_up": {"displacement": 0.0092, "placement": (-1.0, 0.4)},
-    "standard": {"displacement": 0.0115, "placement": (-1.0, 0.3)},
+    "standard": {"displacement": 0.0125, "placement": (-1.0, 0.3)},
     "dynamic":  {"displacement": 0.01035, "placement": (-1.0, 0.25)},
     "wide":     {"displacement": 0.009775, "placement": (-1.0, -0.2)},
 }
