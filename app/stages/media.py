@@ -20,7 +20,6 @@ from app.common.storage import (
     job_cache_dir,
     job_output_dir,
     public_url,
-    safe_reload,
 )
 from app.images import media_image
 from app.modal_app import app
@@ -476,9 +475,11 @@ def detect_scenes(input_path: str) -> dict:
     # its retries: 90 min x 4 tries = 6 h, plus queueing.
     timeout=7 * 3600,
 )
-# Several jobs per container: it only waits on encode_one_format, and one
-# waiting container per video adds to the workspace's container ceiling.
-@modal.concurrent(max_inputs=20)
+# One job per container, unlike the pipeline coordinators: it must see the
+# master another container just wrote, and a volume reload is refused while
+# any other input here holds a file open (it probes audio), so a shared
+# container failed a job with FileNotFoundError on the test burst
+# (2026-10-03).
 def encode_outputs(
     job_id: str,
     sbs_path: str,
@@ -496,7 +497,7 @@ def encode_outputs(
     """
     # VR-first default: no anaglyph unless explicitly requested
     formats = formats or ["sbs", "half_sbs"]
-    safe_reload(cache_volume)  # other inputs on this container may hold files open
+    cache_volume.reload()
 
     sbs = Path(sbs_path)
     if not sbs.exists():
