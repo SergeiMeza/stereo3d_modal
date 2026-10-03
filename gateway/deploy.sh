@@ -36,7 +36,7 @@ gcloud run deploy "$SERVICE" \
   --service-account "$SA" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 10 \
-  --memory 512Mi --cpu 1 --timeout 3600 \
+  --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
   --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}" \
   --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest"
 

@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -26,6 +28,22 @@ var ErrAlreadyExists = errors.New("already exists")
 type Store struct {
 	fs  *firestore.Client
 	env string
+
+	// userLocks serialise one user's read-modify-write transactions (the
+	// daily photo quota, photo credits) inside this instance. A batch sent
+	// all at once ran a hundred transactions on the same document; Firestore
+	// aborted them for contention and the rest ran out of time (2026-10-03).
+	// Striped by uid so the set stays fixed in size.
+	userLocks [64]sync.Mutex
+}
+
+// lockUser holds uid's stripe until the returned func is called.
+func (s *Store) lockUser(uid string) func() {
+	h := fnv.New32a()
+	h.Write([]byte(uid))
+	m := &s.userLocks[h.Sum32()%uint32(len(s.userLocks))]
+	m.Lock()
+	return m.Unlock
 }
 
 func New(ctx context.Context, projectID, env string) (*Store, error) {
@@ -208,6 +226,7 @@ func (s *Store) ConsumeDailyImageQuota(ctx context.Context, uid string, cap int)
 	if cap <= 0 {
 		return 0, false, nil
 	}
+	defer s.lockUser(uid)()
 	day := time.Now().UTC().Format("2006-01-02")
 	ref := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid)
 	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {

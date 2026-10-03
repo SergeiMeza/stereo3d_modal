@@ -24,8 +24,29 @@ type Result struct {
 
 const timeout = 30 * time.Second
 
+// slots caps the ffprobe processes one instance runs at once. Each request
+// started its own, so a burst of 80 photo creates on one instance was 80
+// processes and ran it out of memory, failing every request it held
+// (2026-10-03). Waiting for a slot counts against the caller's context.
+var slots = make(chan struct{}, 8)
+
+func acquire(ctx context.Context) error {
+	select {
+	case slots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func release() { <-slots }
+
 // Video probes the first video stream of the object behind url.
 func Video(ctx context.Context, url string) (*Result, error) {
+	if err := acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer release()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "ffprobe",
@@ -79,6 +100,10 @@ func Video(ctx context.Context, url string) (*Result, error) {
 
 // Image probes a still image (dimensions only).
 func Image(ctx context.Context, url string) (*Result, error) {
+	if err := acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer release()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "ffprobe",
