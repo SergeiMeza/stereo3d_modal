@@ -1,6 +1,8 @@
 """End-to-end still-image pipeline orchestrator (thin: the GPU worker
 does everything; this wraps job bookkeeping)."""
 
+import modal
+
 from app.common import jobs
 from app.common.debug import get_logger
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
@@ -19,6 +21,11 @@ logger = get_logger(__name__)
     timeout=2 * 3600,
     nonpreemptible=True,
 )
+# One container coordinates many jobs: each input only waits on the GPU
+# worker. One container per job filled the workspace's container ceiling
+# under a 100-photo burst (97 coordinators waiting, 0 GPU workers able to
+# start, nothing finishing for two hours; 2026-10-03).
+@modal.concurrent(max_inputs=100)
 def process_image_job(job_id: str, request: dict) -> dict:
     """request:
     {
