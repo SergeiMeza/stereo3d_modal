@@ -174,6 +174,11 @@ def depth_lookup_keys(request: dict) -> list[str]:
     timeout=8 * 3600,
     nonpreemptible=True,
 )
+# Several jobs per container: the coordinator only waits on other
+# functions (every heavy step is a .remote call), and one container per
+# job let a burst fill the workspace's container ceiling with waiting
+# coordinators so no GPU worker could start (seen with photos, 2026-10-03).
+@modal.concurrent(max_inputs=20)
 def process_video_job(job_id: str, request: dict) -> dict:
     """request (all optional except input_path):
     {
