@@ -55,6 +55,19 @@ type Service struct {
 
 // ---------------------------------------------------------------- submission
 
+// inlineSubmitFloor is the least time a request must have left to submit
+// inline. With less, the submit is left to the reconciler: one that starts
+// with seconds to spare times out while Modal is still answering.
+const inlineSubmitFloor = 15 * time.Second
+
+// submitInline submits from a request handler when its deadline allows.
+func (s *Service) submitInline(ctx context.Context, id string) error {
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) < inlineSubmitFloor {
+		return errors.New("too little request time left; left to the reconciler")
+	}
+	return s.submitToModal(ctx, id)
+}
+
 // submitToModal moves paid → processing. Called from the Stripe webhook and,
 // as a lost-webhook fallback, from the reconciler. The paid-state transaction
 // guard makes double submission impossible.
@@ -68,6 +81,10 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 	}
 
 	body := s.modalBody(conv, s.Pricing.Rates(ctx).MaxGPUWorkers)
+	// Modal returns the job it already started for this ref, so a submit
+	// retried after a timeout (the reconciler's, after an inline one gave
+	// up while Modal was still answering) never runs the GPUs twice.
+	body["client_ref"] = conv.ID
 	var resp *modalapi.SubmitResponse
 	if conv.Kind == "image" {
 		resp, err = s.Modal.SubmitImage(ctx, body)
@@ -462,6 +479,9 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 	}
 	if decision := captureDecision(conv); decision != captureStripe {
 		updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PICapturePending); err != nil {
+				return err
+			}
 			if decision == captureNothing {
 				c.Stripe.PIStatus = ""
 				c.Stripe.SettleError = ""
@@ -485,6 +505,9 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 	captured, capErr := s.Stripe.Capture(conv.Stripe.PaymentIntentID)
 	now := time.Now().UTC()
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+		if err := stillPI(c, store.PICapturePending); err != nil {
+			return err
+		}
 		if capErr == nil {
 			c.Stripe.PIStatus = store.PISucceeded
 			c.Stripe.CapturedCents = captured
@@ -505,7 +528,7 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 	if capErr != nil {
 		slog.ErrorContext(ctx, "stripe capture failed",
 			"conversion_id", conv.ID, "payment_intent", conv.Stripe.PaymentIntentID, "err", capErr)
-	} else {
+	} else if err == nil {
 		s.creditLifetime(ctx, conv.UID, captured)
 	}
 	if errors.Is(err, store.ErrStateConflict) {
@@ -560,6 +583,9 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 			charged = pi.Amount // processing: nothing received yet
 		}
 		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PIChargePending); err != nil {
+				return err
+			}
 			c.Stripe.PaymentIntentID = pi.ID
 			c.Stripe.PIStatus = store.PISucceeded
 			c.Stripe.CapturedCents = charged
@@ -572,7 +598,9 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 		}
 		slog.InfoContext(ctx, "conversion charged",
 			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
-		s.creditLifetime(ctx, conv.UID, charged)
+		if terr == nil {
+			s.creditLifetime(ctx, conv.UID, charged)
+		}
 		return updated, terr
 	}
 
@@ -602,6 +630,9 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversion, fail stripex.ChargeFailure) (*store.Conversion, error) {
 	firstFailure := conv.Stripe.SettleError == ""
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+		if err := stillPI(c, store.PIChargePending); err != nil {
+			return err
+		}
 		if fail.PaymentIntentID != "" {
 			c.Stripe.PaymentIntentID = fail.PaymentIntentID
 		}
@@ -637,6 +668,9 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 	if conv.Stripe.PaymentIntentID == "" {
 		now := time.Now().UTC()
 		updated, err := s.Store.Transition(ctx, conv.ID, []string{conv.State}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PICancelPending); err != nil {
+				return err
+			}
 			c.Stripe.PIStatus = store.PICanceled
 			c.Stripe.CanceledAt = &now
 			return nil
@@ -653,6 +687,9 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 	cancelErr := s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
 	now := time.Now().UTC()
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{conv.State}, func(c *store.Conversion) error {
+		if err := stillPI(c, store.PICancelPending); err != nil {
+			return err
+		}
 		if cancelErr == nil {
 			c.Stripe.PIStatus = store.PICanceled
 			c.Stripe.CanceledAt = &now
@@ -680,6 +717,17 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 		return s.Store.GetConversion(ctx, conv.ID)
 	}
 	return updated, err
+}
+
+// stillPI refuses a settle write when the payment status is no longer the
+// pending one it acts on: two sweeps on two instances can both reach the
+// same conversion, and only the first may record the outcome (and credit the
+// lifetime spend, or refund a photo credit) (audit, 2026-10-03).
+func stillPI(c *store.Conversion, want string) error {
+	if c.Stripe.PIStatus != want {
+		return fmt.Errorf("%w: pi_status is %q, not %q", store.ErrStateConflict, c.Stripe.PIStatus, want)
+	}
+	return nil
 }
 
 func (s *Service) restoreCredit(ctx context.Context, conv *store.Conversion) {

@@ -15,7 +15,11 @@ import (
 // ConsumePhotoCredit takes one leftover credit if any remain. ok=false
 // (no write) when the balance is zero or the customer is unknown.
 func (s *Store) ConsumePhotoCredit(ctx context.Context, uid string) (remaining int64, ok bool, err error) {
-	defer s.lockUser(uid)()
+	unlock, lerr := s.lockUser(ctx, uid)
+	if lerr != nil {
+		return 0, false, lerr
+	}
+	defer unlock()
 	ref := s.fs.Collection(customersCol(s.env)).Doc(uid)
 	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		snap, gerr := tx.Get(ref)

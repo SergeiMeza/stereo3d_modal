@@ -474,12 +474,24 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		// Nothing to bill: enters at "paid" with no Stripe state at all.
 		conv.State = store.StatePaid
 		if err := s.Store.CreateConversion(ctx, conv); err != nil {
+			// The free slot or photo credit was taken above; give it back,
+			// or a failed write (a burst running out the request's time)
+			// spends an allowance on a conversion that never existed.
+			// Detached: the request's own deadline may be what ran out.
+			rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			if conv.Quote.Breakdown["free_daily_image"] == true {
+				if rerr := s.Store.RefundDailyImageQuota(rctx, user.UID); rerr != nil {
+					httpx.Log(ctx).Warn("daily quota refund failed", "uid", user.UID, "err", rerr)
+				}
+			}
+			s.refundPhotoCredit(rctx, conv)
+			cancel()
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
 		httpx.Log(ctx).Info("conversion created (free)",
 			"conversion_id", conv.ID, "uid", user.UID, "kind", conv.Kind)
-		if serr := s.submitToModal(ctx, conv.ID); serr != nil {
+		if serr := s.submitInline(ctx, conv.ID); serr != nil {
 			httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
 				"conversion_id", conv.ID, "err", serr)
 		} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {

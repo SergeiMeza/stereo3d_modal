@@ -150,7 +150,23 @@ def _validate_scene_overrides(overrides: object, scene_cuts: list | None) -> Non
 
 
 def _submit(kind: str, body: dict, spawner) -> dict:
+    """Creates and spawns a job, once per ``client_ref``.
+
+    The gateway sends its conversion id as ``client_ref``. A submit it gave
+    up on (its deadline passed while this one was still answering) is sent
+    again by its reconciler; without the ref that started a second GPU run
+    of the same conversion that nobody read (audit, 2026-10-03). A ref whose
+    job never got recorded (a crash between the two writes) is taken over.
+    """
     job_id = uuid.uuid4().hex[:12]
+    ref = body.get("client_ref")
+    if isinstance(ref, str) and ref:
+        if not jobs.submit_refs.put(ref, job_id, skip_if_exists=True):
+            existing = jobs.submit_refs.get(ref)
+            job = jobs.get_job(existing) if existing else None
+            if job is not None:
+                return {"job_id": existing, "status": job["status"], "status_url": f"/v1/jobs/{existing}"}
+            jobs.submit_refs.put(ref, job_id)
     jobs.create_job(job_id, kind, body)
     call = spawner(job_id)
     jobs.update_job(job_id, call_id=call.object_id)

@@ -1196,7 +1196,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 		"amount_cents", conv.Quote.AmountCents, "payment_intent", conv.Stripe.PaymentIntentID)
 	// Submit inline for latency; on failure the reconciler re-drives paid
 	// conversions until paidTTL.
-	if serr := s.submitToModal(ctx, conv.ID); serr != nil {
+	if serr := s.submitInline(ctx, conv.ID); serr != nil {
 		httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
 			"conversion_id", conv.ID, "err", serr)
 	} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {

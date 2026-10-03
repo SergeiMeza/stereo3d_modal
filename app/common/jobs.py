@@ -17,6 +17,9 @@ import modal
 from app.env import APP_ENV
 
 job_dict = modal.Dict.from_name(f"stereo3d-jobs-{APP_ENV}", create_if_missing=True)
+# client_ref (the gateway's conversion id) → job_id, so a repeated submit of
+# the same conversion returns its job instead of starting another.
+submit_refs = modal.Dict.from_name(f"stereo3d-submit-refs-{APP_ENV}", create_if_missing=True)
 
 # Resources reserved per stage, for cost estimation. Keyed by stage-name
 # PREFIX (the part before "[" — stages fan out as "video_depth[0:240]",

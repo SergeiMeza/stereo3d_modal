@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -33,17 +32,23 @@ type Store struct {
 	// daily photo quota, photo credits) inside this instance. A batch sent
 	// all at once ran a hundred transactions on the same document; Firestore
 	// aborted them for contention and the rest ran out of time (2026-10-03).
-	// Striped by uid so the set stays fixed in size.
-	userLocks [64]sync.Mutex
+	// Striped by uid so the set stays fixed in size; a slot is a 1-buffer
+	// channel so waiting for it gives up with the caller's context.
+	userLocks [64]chan struct{}
 }
 
-// lockUser holds uid's stripe until the returned func is called.
-func (s *Store) lockUser(uid string) func() {
+// lockUser holds uid's stripe until the returned func is called, or fails
+// when ctx ends first.
+func (s *Store) lockUser(ctx context.Context, uid string) (func(), error) {
 	h := fnv.New32a()
 	h.Write([]byte(uid))
-	m := &s.userLocks[h.Sum32()%uint32(len(s.userLocks))]
-	m.Lock()
-	return m.Unlock
+	slot := s.userLocks[h.Sum32()%uint32(len(s.userLocks))]
+	select {
+	case slot <- struct{}{}:
+		return func() { <-slot }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func New(ctx context.Context, projectID, env string) (*Store, error) {
@@ -51,7 +56,11 @@ func New(ctx context.Context, projectID, env string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{fs: fs, env: env}, nil
+	st := &Store{fs: fs, env: env}
+	for i := range st.userLocks {
+		st.userLocks[i] = make(chan struct{}, 1)
+	}
+	return st, nil
 }
 
 func (s *Store) Close() error { return s.fs.Close() }
@@ -226,7 +235,11 @@ func (s *Store) ConsumeDailyImageQuota(ctx context.Context, uid string, cap int)
 	if cap <= 0 {
 		return 0, false, nil
 	}
-	defer s.lockUser(uid)()
+	unlock, lerr := s.lockUser(ctx, uid)
+	if lerr != nil {
+		return 0, false, lerr
+	}
+	defer unlock()
 	day := time.Now().UTC().Format("2006-01-02")
 	ref := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid)
 	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
@@ -253,6 +266,38 @@ func (s *Store) ConsumeDailyImageQuota(ctx context.Context, uid string, cap int)
 		return tx.Set(ref, map[string]any{"day": rec.Day, "count": rec.Count})
 	})
 	return used, free, err
+}
+
+// RefundDailyImageQuota gives back one free still taken today, for a
+// conversion that was never created after its slot was consumed.
+func (s *Store) RefundDailyImageQuota(ctx context.Context, uid string) error {
+	unlock, lerr := s.lockUser(ctx, uid)
+	if lerr != nil {
+		return lerr
+	}
+	defer unlock()
+	day := time.Now().UTC().Format("2006-01-02")
+	ref := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid)
+	return s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(ref)
+		if status.Code(err) == codes.NotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var rec struct {
+			Day   string `firestore:"day"`
+			Count int    `firestore:"count"`
+		}
+		if err := snap.DataTo(&rec); err != nil {
+			return err
+		}
+		if rec.Day != day || rec.Count <= 0 {
+			return nil
+		}
+		return tx.Set(ref, map[string]any{"day": rec.Day, "count": rec.Count - 1})
+	})
 }
 
 // RemainingDailyImageQuota reads (without consuming) how many free stills
