@@ -296,11 +296,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		c.Modal.Stage = ""
 		c.Modal.CostUSD = job.CostSummary.TotalUSD
 		c.Modal.LastPolledAt = &now
-		if c.Stripe.Mode == store.BillingModeAuto {
-			c.Stripe.PIStatus = store.PIChargePending
-		} else {
-			c.Stripe.PIStatus = store.PICapturePending
-		}
+		c.Stripe.PIStatus = settlementAfterSuccess(c)
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {
@@ -408,6 +404,44 @@ func (s *Service) settleFailure(ctx context.Context, conv *store.Conversion, int
 	return s.releaseHold(ctx, updated)
 }
 
+// settlementAfterSuccess is the money still owed once a conversion has
+// succeeded: a charge for an auto-billed one, a capture for one held on a
+// PaymentIntent, and nothing for one that never had Stripe state (a free
+// daily image, a photo credit, any $0 run). Marking a free run
+// capture_pending sent the reconciler to capture an empty PaymentIntent
+// id every minute, forever (2026-10-03, 68 free photos, ~4,000 failed
+// Stripe calls an hour).
+func settlementAfterSuccess(c *store.Conversion) string {
+	switch {
+	case c.Stripe.Mode == store.BillingModeAuto:
+		return store.PIChargePending
+	case c.Stripe.PaymentIntentID != "":
+		return store.PICapturePending
+	default:
+		return c.Stripe.PIStatus
+	}
+}
+
+// Without a PaymentIntent there is nothing to capture. A $0 run was free
+// and is simply done; one with a price but no PaymentIntent is a bug that
+// lost the hold, flagged once and parked as capture_failed rather than
+// retried.
+const (
+	captureNothing = iota // free: clear the pending marker
+	captureLost           // priced but no PaymentIntent: capture_failed + Slack
+	captureStripe         // the normal path
+)
+
+func captureDecision(c *store.Conversion) int {
+	if c.Stripe.PaymentIntentID != "" {
+		return captureStripe
+	}
+	if c.Quote.AmountCents == 0 {
+		return captureNothing
+	}
+	return captureLost
+}
+
 // captureHold settles the money for a conversion whose state is already
 // succeeded with pi_status=capture_pending. Retried by the reconciler sweep
 // until it lands (or the PI turns out to be uncapturable → capture_failed,
@@ -415,6 +449,28 @@ func (s *Service) settleFailure(ctx context.Context, conv *store.Conversion, int
 func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
 	if conv.Stripe.PIStatus != store.PICapturePending {
 		return conv, nil
+	}
+	if decision := captureDecision(conv); decision != captureStripe {
+		updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if decision == captureNothing {
+				c.Stripe.PIStatus = ""
+				c.Stripe.SettleError = ""
+			} else {
+				c.Stripe.PIStatus = store.PICaptureFailed
+				c.Stripe.SettleError = "capture: no payment intent on a priced conversion"
+			}
+			return nil
+		})
+		if decision == captureLost {
+			slog.ErrorContext(ctx, "capture without payment intent", "conversion_id", conv.ID, "amount_cents", conv.Quote.AmountCents)
+			s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "capture", errors.New("no payment intent on a priced conversion"))
+		} else {
+			slog.InfoContext(ctx, "free conversion settled without stripe", "conversion_id", conv.ID)
+		}
+		if errors.Is(err, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID)
+		}
+		return updated, err
 	}
 	captured, capErr := s.Stripe.Capture(conv.Stripe.PaymentIntentID)
 	now := time.Now().UTC()
