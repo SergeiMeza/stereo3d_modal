@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"sync/atomic"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -47,6 +48,9 @@ type Service struct {
 	Modal   *modalapi.Client
 	GCS     *gcsx.Client
 	Slack   *notify.Slack
+
+	// reconciling is set while this instance runs a reconcile sweep.
+	reconciling atomic.Bool
 }
 
 // ---------------------------------------------------------------- submission

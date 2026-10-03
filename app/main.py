@@ -30,7 +30,9 @@ from app.common.storage import slack_secret
 # Prod is reachable only through the gateway (gateway/): proxy auth makes
 # Modal reject requests without a Modal-Key/Modal-Secret proxy-auth token.
 # Test stays open for direct R&D curl workflows.
-@app.function(image=web_image, secrets=[slack_secret], timeout=300)
+# An hour (2026-10-03): a request may wait that long for the API under a
+# burst; the gateway's Modal client allows the same (gateway/internal/modalapi).
+@app.function(image=web_image, secrets=[slack_secret], timeout=3600)
 @modal.concurrent(max_inputs=100)
 @modal.asgi_app(label=API_LABEL, requires_proxy_auth=(APP_ENV == "prod"))
 def fastapi_app():

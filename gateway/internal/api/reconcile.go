@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"net/http"
 	"sync"
@@ -24,6 +25,18 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(ctx, w, httpx.ErrUnauthorized())
 		return
 	}
+	// Only one sweep per instance: with Modal calls allowed an hour, a slow
+	// sweep would otherwise be joined by a new one every minute, each
+	// polling the same jobs and adding to the load that made it slow.
+	if !s.reconciling.CompareAndSwap(false, true) {
+		httpx.WriteOK(w, map[string]any{"skipped": "a sweep is already running"})
+		return
+	}
+	defer s.reconciling.Store(false)
+	// Not cancelled when the scheduler stops waiting (its deadline is 30
+	// min): the sweep finishes its Modal calls, bounded by the hour.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 55*time.Minute)
+	defer cancel()
 	log := httpx.Log(ctx)
 	stats := map[string]int{}
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/api"
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
@@ -21,6 +22,10 @@ import (
 
 	"cloud.google.com/go/firestore"
 )
+
+// appRequestBudget bounds every app-facing request, Modal calls included,
+// under the app's 60 s URLSession timeout.
+const appRequestBudget = 50 * time.Second
 
 func main() {
 	// Cloud Logging parses JSON logs into structured entries; "severity" is
@@ -92,7 +97,12 @@ func main() {
 				httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
 				return
 			}
-			h(w, r, &api.AuthedUser{UID: u.UID, Email: u.Email})
+			// Answer the app inside its 60 s URLSession timeout: a Modal call
+			// still waiting at 50 s gives up here, and the reconciler, which
+			// waits up to an hour, takes the conversion over.
+			ctx, cancel := context.WithTimeout(r.Context(), appRequestBudget)
+			defer cancel()
+			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email})
 		}
 	}
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {

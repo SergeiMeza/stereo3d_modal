@@ -25,7 +25,12 @@ func New(baseURL, tokenID, tokenSecret string) *Client {
 		base:        baseURL,
 		tokenID:     tokenID,
 		tokenSecret: tokenSecret,
-		http:        &http.Client{Timeout: 30 * time.Second},
+		// An hour (owner, 2026-10-03): under a burst the Modal API answered
+		// submits and polls after more than the 30 s this used to allow,
+		// and every one that gave up was a failed photo. App-facing requests
+		// are bounded far below this by their own deadline (cmd/gateway);
+		// the reconciler is the caller that waits the full hour.
+		http: &http.Client{Timeout: time.Hour},
 	}
 }
 
