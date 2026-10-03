@@ -62,6 +62,10 @@ func Video(ctx context.Context, url string) (*Result, error) {
 		if ee, ok := err.(*exec.ExitError); ok {
 			detail = ": " + strings.TrimSpace(string(ee.Stderr))
 		}
+		if ctx.Err() != nil {
+			// Out of time, not a bad file: the caller answers busy.
+			return nil, fmt.Errorf("ffprobe: %w", ctx.Err())
+		}
 		return nil, fmt.Errorf("ffprobe failed%s", detail)
 	}
 
@@ -114,6 +118,9 @@ func Image(ctx context.Context, url string) (*Result, error) {
 		url,
 	).Output()
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ffprobe: %w", ctx.Err())
+		}
 		return nil, fmt.Errorf("ffprobe failed on image")
 	}
 	var parsed struct {

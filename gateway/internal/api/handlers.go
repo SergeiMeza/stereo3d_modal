@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
@@ -336,11 +337,11 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	// Probe the uploaded object (size + streams) — the only trusted price input.
 	size, err := s.GCS.Stat(ctx, req.GCSKey)
 	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("upload not found; PUT the file to the signed URL first"))
+		httpx.WriteErr(ctx, w, uploadStatError(err))
 		return
 	}
 	if size > rates.MaxSourceBytes {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("source file too large"))
+		httpx.WriteErr(ctx, w, httpx.ErrSource("source_too_large", "source file too large"))
 		return
 	}
 	probeURL, err := s.GCS.SignedGetURL(req.GCSKey, 10*time.Minute)
@@ -354,11 +355,11 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	if req.Kind == "video" {
 		media, err := probe.Video(ctx, probeURL)
 		if err != nil {
-			httpx.WriteErr(ctx, w, httpx.ErrInvalid("could not read video metadata: upload a valid video file"))
+			httpx.WriteErr(ctx, w, probeError(err, "could not read video metadata: upload a valid video file"))
 			return
 		}
 		if media.DurationS > rates.MaxDurationS {
-			httpx.WriteErr(ctx, w, httpx.ErrInvalid("video exceeds the maximum supported duration"))
+			httpx.WriteErr(ctx, w, httpx.ErrSource("source_too_long", "video exceeds the maximum supported duration"))
 			return
 		}
 		// §6 rails (docs/MOBILE.md): normalize, don't reject — the pipeline
@@ -366,11 +367,11 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		// genuinely breaks; >60 fps auto-decimates unless the client asked
 		// for a rate (reported back via params.target_fps).
 		if media.Width > maxSourceWidth || media.Height > maxSourceHeight {
-			httpx.WriteErr(ctx, w, httpx.ErrInvalid("video resolution exceeds the 8K maximum"))
+			httpx.WriteErr(ctx, w, httpx.ErrSource("source_too_large_dimensions", "video resolution exceeds the 8K maximum"))
 			return
 		}
 		if media.FPS > maxSourceFPS {
-			httpx.WriteErr(ctx, w, httpx.ErrInvalid("frame rate exceeds the 120 fps maximum"))
+			httpx.WriteErr(ctx, w, httpx.ErrSource("source_fps_too_high", "frame rate exceeds the 120 fps maximum"))
 			return
 		}
 		if req.TargetFPS == 0 && media.FPS > autoDecimateFPS {
@@ -397,7 +398,7 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	} else {
 		media, err := probe.Image(ctx, probeURL)
 		if err != nil {
-			httpx.WriteErr(ctx, w, httpx.ErrInvalid("could not read image metadata: upload a valid image file"))
+			httpx.WriteErr(ctx, w, probeError(err, "could not read image metadata: upload a valid image file"))
 			return
 		}
 		src.Width, src.Height = media.Width, media.Height
@@ -733,10 +734,16 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 // never flicker locked during ordinary settlement. Same 402 machine code
 // the create path uses (billing_overdue), so the web client routes to the
 // existing settle flow.
+//
+// capture_failed is not gated: it means our hold was lost or lapsed, which
+// the user can't settle (neither /limits nor settle counts it), so gating it
+// locked the result for good (audit, 2026-10-03).
 func downloadPaymentGate(conv *store.Conversion) *httpx.APIError {
-	if conv.Stripe.PIStatus == store.PIChargeFailed || conv.Stripe.PIStatus == store.PICaptureFailed {
-		return httpx.Err(http.StatusPaymentRequired, "billing_overdue",
+	if conv.Stripe.PIStatus == store.PIChargeFailed {
+		e := httpx.Err(http.StatusPaymentRequired, "billing_overdue",
 			"the payment for this conversion failed — settle your balance before downloading")
+		e.Details = map[string]any{"unpaid_cents": conv.Quote.AmountCents}
+		return e
 	}
 	return nil
 }
@@ -885,7 +892,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 			switch c.Stripe.PIStatus {
 			case store.PISucceeded:
 				resp["billing"] = map[string]any{"status": "charged", "charged_cents": c.Stripe.CapturedCents}
-			case store.PIChargeFailed, store.PICaptureFailed:
+			// capture_failed is our lapsed hold, not the user's to settle
+			// (support follows it up from Slack): it reads as pending.
+			case store.PIChargeFailed:
 				resp["billing"] = map[string]any{"status": "charge_failed"}
 			case store.PIBatched:
 				// On the account's running tab — charged with the user's
@@ -909,4 +918,22 @@ func uploadIDFromKey(key string) string {
 		return ""
 	}
 	return parts[len(parts)-2]
+}
+
+// uploadStatError tells a missing upload (the client's mistake) from storage
+// failing to answer in time (ours; worth another try).
+func uploadStatError(err error) *httpx.APIError {
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		return httpx.ErrInvalid("upload not found; PUT the file to the signed URL first")
+	}
+	return httpx.ErrServiceBusy()
+}
+
+// probeError tells a file ffprobe can't read from a probe that ran out of
+// time under load, which read as a bad file and failed the item for good.
+func probeError(err error, unreadable string) *httpx.APIError {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return httpx.ErrServiceBusy()
+	}
+	return httpx.ErrSource("source_unsupported", unreadable)
 }

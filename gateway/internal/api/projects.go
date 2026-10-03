@@ -68,7 +68,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 	rates := s.Pricing.Rates(ctx)
 	size, err := s.GCS.Stat(ctx, req.GCSKey)
 	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("upload not found; PUT the file to the signed URL first"))
+		httpx.WriteErr(ctx, w, uploadStatError(err))
 		return
 	}
 	if size > rates.MaxSourceBytes {
@@ -468,6 +468,10 @@ func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Reques
 	}
 	media, perr := probe.Video(ctx, probeURL)
 	if perr != nil {
+		if errors.Is(perr, context.DeadlineExceeded) || errors.Is(perr, context.Canceled) {
+			httpx.WriteErr(ctx, w, httpx.ErrServiceBusy())
+			return
+		}
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("the uploaded depth map is not a decodable video"))
 		return
 	}

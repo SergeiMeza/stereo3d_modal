@@ -421,13 +421,21 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 	if err != nil {
 		return nil, err
 	}
-	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, 1)
+	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)
 	if err != nil {
 		return nil, err
 	}
 	if len(unpaid) > 0 {
-		return nil, httpx.Err(http.StatusPaymentRequired, "billing_overdue",
+		// The app shows the amount from details.unpaid_cents; without it
+		// the settle sheet read "an unpaid balance of $0.00".
+		var cents int64
+		for _, c := range unpaid {
+			cents += c.Quote.AmountCents
+		}
+		e := httpx.Err(http.StatusPaymentRequired, "billing_overdue",
 			"an automatic payment failed — settle your balance before starting new work")
+		e.Details = map[string]any{"unpaid_cents": cents}
+		return nil, e
 	}
 	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
 }

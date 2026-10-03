@@ -42,6 +42,18 @@ func ErrNotFound(resource string) *APIError {
 }
 func ErrConflict(msg string) *APIError { return Err(http.StatusConflict, "conflict", msg) }
 
+// ErrSource rejects an upload the pipeline can't take, with one of the
+// source_* codes the app turns into "this file can't be converted" (a next
+// step for the user) rather than a failure. invalid_request read as a fault.
+func ErrSource(code, msg string) *APIError { return Err(http.StatusBadRequest, code, msg) }
+
+// ErrServiceBusy is a temporary failure on our side (storage or the media
+// probe timing out under load): 503, so the item can be tried again rather
+// than reading as a bad file.
+func ErrServiceBusy() *APIError {
+	return Err(http.StatusServiceUnavailable, "service_busy", "the conversion service is busy; try again in a moment")
+}
+
 // ErrTooManyActive is the per-user concurrency cap. The app knows this code
 // and the limit: it waits and keeps the item ready instead of failing it,
 // which it did for the generic "conflict" this used to send.
