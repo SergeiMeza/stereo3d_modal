@@ -10,7 +10,10 @@ benchmark sample: ``{"stage": ..., "seconds": ..., "gpu": ...,
 "detail": {...}}``.
 """
 
+import threading
 import time
+import uuid
+from contextlib import contextmanager
 
 import modal
 
@@ -20,6 +23,80 @@ job_dict = modal.Dict.from_name(f"stereo3d-jobs-{APP_ENV}", create_if_missing=Tr
 # client_ref (the gateway's conversion id) → job_id, so a repeated submit of
 # the same conversion returns its job instead of starting another.
 submit_refs = modal.Dict.from_name(f"stereo3d-submit-refs-{APP_ENV}", create_if_missing=True)
+
+# One short lock per job around every read-modify-write of its record. The
+# coordinator, the chunk workers' heartbeats, child-call registration and
+# stage timings all rewrite the whole record; without the lock concurrent
+# writers overwrote each other (lost child ids that Cancel needs, lost chunk
+# progress and timings; audit, 2026-10-03). Its own Dict, so nothing that
+# lists jobs sees lock entries.
+job_locks = modal.Dict.from_name(f"stereo3d-job-locks-{APP_ENV}", create_if_missing=True)
+_LOCK_STALE_S = 30.0   # a holder that died is taken over after this
+_LOCK_WAIT_S = 60.0    # past this, write unlocked rather than stall the job
+_held = threading.local()
+
+
+@contextmanager
+def _job_lock(job_id: str):
+    held = getattr(_held, "jobs", None)
+    if held is None:
+        held = _held.jobs = set()
+    if job_id in held:  # re-entrant: report_progress -> update_job
+        yield
+        return
+    token = uuid.uuid4().hex
+    deadline = time.time() + _LOCK_WAIT_S
+    acquired = False
+    while True:
+        if job_locks.put(job_id, {"t": token, "at": time.time()}, skip_if_exists=True):
+            acquired = True
+            break
+        cur = job_locks.get(job_id)
+        if cur is not None and time.time() - cur.get("at", 0) > _LOCK_STALE_S:
+            job_locks.put(job_id, {"t": token, "at": time.time()})
+            if (job_locks.get(job_id) or {}).get("t") == token:
+                acquired = True
+                break
+            continue
+        if time.time() > deadline:
+            break
+        time.sleep(0.05)
+    held.add(job_id)
+    try:
+        yield
+    finally:
+        held.discard(job_id)
+        if acquired and (job_locks.get(job_id) or {}).get("t") == token:
+            job_locks.pop(job_id)
+
+
+# Chunks this container has reported on and not finished: (job_id, key). On
+# preemption or a transient failure the chunk is requeued by Modal while its
+# last chunk_progress value stays; requeue_live_chunks marks it "queued" in
+# chunk_state so the watchdog waits for it instead of judging it stalled.
+_live_chunks: set[tuple[str, str]] = set()
+
+
+def requeue_live_chunks() -> None:
+    """Mark this container's unfinished chunks queued (exit hooks, transient
+    errors). Best effort: an exit hook must never raise."""
+    for job_id, key in list(_live_chunks):
+        try:
+            with _job_lock(job_id):
+                job = job_dict.get(job_id)
+                if job is not None:
+                    states = dict(job.get("chunk_state") or {})
+                    states[key] = "queued"
+                    job["chunk_state"] = states
+                    job_dict[job_id] = job
+        except Exception:  # pragma: no cover - best effort
+            pass
+    _live_chunks.clear()
+
+
+def forget_live_chunks() -> None:
+    """A chunk method returned: nothing of this container's is in flight."""
+    _live_chunks.clear()
 
 # Resources reserved per stage, for cost estimation. Keyed by stage-name
 # PREFIX (the part before "[" — stages fan out as "video_depth[0:240]",
@@ -83,29 +160,30 @@ def get_job(job_id: str) -> dict | None:
 
 
 def update_job(job_id: str, **fields) -> dict | None:
-    job = job_dict.get(job_id)
-    if job is None:
-        return None
-    old = dict(job)
-    job.update(fields)
-    job["updated_at"] = time.time()
+    with _job_lock(job_id):
+        job = job_dict.get(job_id)
+        if job is None:
+            return None
+        old = dict(job)
+        job.update(fields)
+        job["updated_at"] = time.time()
 
-    # On the first transition into COMPLETED, roll up per-stage costs into
-    # a final cost.yaml in GCS and stash the summary on the job so Slack
-    # (and API consumers) can read it without recomputing. Best-effort: a
-    # storage hiccup must not fail the job. Done here (not in notify) so the
-    # yaml is written even when Slack notify is off.
-    if job.get("status") == COMPLETED and old.get("status") != COMPLETED:
-        try:
-            from app.common.cost_report import write_final_cost
+        # On the first transition into COMPLETED, roll up per-stage costs into
+        # a final cost.yaml in GCS and stash the summary on the job so Slack
+        # (and API consumers) can read it without recomputing. Best-effort: a
+        # storage hiccup must not fail the job. Done here (not in notify) so the
+        # yaml is written even when Slack notify is off.
+        if job.get("status") == COMPLETED and old.get("status") != COMPLETED:
+            try:
+                from app.common.cost_report import write_final_cost
 
-            job["cost_summary"] = write_final_cost(job_id, job.get("timings") or [])
-        except Exception as exc:  # pragma: no cover - best effort
-            from app.common.debug import get_logger
+                job["cost_summary"] = write_final_cost(job_id, job.get("timings") or [])
+            except Exception as exc:  # pragma: no cover - best effort
+                from app.common.debug import get_logger
 
-            get_logger(__name__).warning(f"final cost yaml skipped: {exc}")
+                get_logger(__name__).warning(f"final cost yaml skipped: {exc}")
 
-    job_dict[job_id] = job
+        job_dict[job_id] = job
 
     from app.common.notify import job_event
 
@@ -123,58 +201,61 @@ def register_child_calls(job_id: str, call_ids: list[str]) -> None:
     the coordinator. Appends (a job may run depth then stereo fan-outs);
     clear_child_calls resets between stages so we never try to cancel an
     already-finished call."""
-    job = job_dict.get(job_id)
-    if job is None:
-        return
-    existing = list(job.get("child_call_ids") or [])
-    existing.extend(cid for cid in call_ids if cid and cid not in existing)
-    job["child_call_ids"] = existing
-    job["updated_at"] = time.time()
-    job_dict[job_id] = job
+    with _job_lock(job_id):
+        job = job_dict.get(job_id)
+        if job is None:
+            return
+        existing = list(job.get("child_call_ids") or [])
+        existing.extend(cid for cid in call_ids if cid and cid not in existing)
+        job["child_call_ids"] = existing
+        job["updated_at"] = time.time()
+        job_dict[job_id] = job
 
 
 def clear_child_calls(job_id: str) -> None:
     """Drop the recorded child-call ids (e.g. after a fan-out stage's
     gather returns and those workers are no longer running)."""
-    job = job_dict.get(job_id)
-    if job is None:
-        return
-    if job.get("child_call_ids"):
-        job["child_call_ids"] = []
-        job["updated_at"] = time.time()
-        job_dict[job_id] = job
+    with _job_lock(job_id):
+        job = job_dict.get(job_id)
+        if job is None:
+            return
+        if job.get("child_call_ids"):
+            job["child_call_ids"] = []
+            job["updated_at"] = time.time()
+            job_dict[job_id] = job
 
 
 def add_timing(job_id: str, stage: str, seconds: float, gpu: str | None = None, **detail):
-    from app.common.pricing import estimate_cost
+    with _job_lock(job_id):
+        from app.common.pricing import estimate_cost
 
-    job = job_dict.get(job_id)
-    if job is None:
-        return
-    cpu, mem_gib = stage_resources(stage)
-    cost = estimate_cost(seconds, gpu=gpu, cpu=cpu, mem_gib=mem_gib)
-    job["timings"].append(
-        {
-            "stage": stage,
-            "seconds": round(seconds, 3),
-            "gpu": gpu,
-            "cost": cost,
-            "detail": detail,
-        }
-    )
-    job["updated_at"] = time.time()
-    job_dict[job_id] = job
+        job = job_dict.get(job_id)
+        if job is None:
+            return
+        cpu, mem_gib = stage_resources(stage)
+        cost = estimate_cost(seconds, gpu=gpu, cpu=cpu, mem_gib=mem_gib)
+        job["timings"].append(
+            {
+                "stage": stage,
+                "seconds": round(seconds, 3),
+                "gpu": gpu,
+                "cost": cost,
+                "detail": detail,
+            }
+        )
+        job["updated_at"] = time.time()
+        job_dict[job_id] = job
 
-    # Drop a per-stage cost YAML next to this job's outputs (depth/sbs/...).
-    # Best-effort: a storage hiccup must never fail the pipeline.
-    try:
-        from app.common.cost_report import write_stage_cost
+        # Drop a per-stage cost YAML next to this job's outputs (depth/sbs/...).
+        # Best-effort: a storage hiccup must never fail the pipeline.
+        try:
+            from app.common.cost_report import write_stage_cost
 
-        write_stage_cost(job_id, stage, cost, detail)
-    except Exception as exc:  # pragma: no cover - best effort
-        from app.common.debug import get_logger
+            write_stage_cost(job_id, stage, cost, detail)
+        except Exception as exc:  # pragma: no cover - best effort
+            from app.common.debug import get_logger
 
-        get_logger(__name__).warning(f"stage cost yaml skipped ({stage}): {exc}")
+            get_logger(__name__).warning(f"stage cost yaml skipped ({stage}): {exc}")
 
 
 def clear_chunk_progress_key(job_id: str, chunk_key) -> None:
@@ -188,16 +269,21 @@ def clear_chunk_progress_key(job_id: str, chunk_key) -> None:
     value WHILE the resubmitted container is still queued — a resubmit
     death-spiral. Clearing makes 'key not in chunk_progress' true again
     until the fresh worker emits its first real heartbeat."""
-    job = job_dict.get(job_id)
-    if job is None:
-        return
-    cp = job.get("chunk_progress")
-    if cp and str(chunk_key) in cp:
-        cp = dict(cp)
-        del cp[str(chunk_key)]
-        job["chunk_progress"] = cp
-        job["updated_at"] = time.time()
-        job_dict[job_id] = job
+    with _job_lock(job_id):
+        job = job_dict.get(job_id)
+        if job is None:
+            return
+        changed = False
+        for field in ("chunk_progress", "chunk_state"):
+            cp = job.get(field)
+            if cp and str(chunk_key) in cp:
+                cp = dict(cp)
+                del cp[str(chunk_key)]
+                job[field] = cp
+                changed = True
+        if changed:
+            job["updated_at"] = time.time()
+            job_dict[job_id] = job
 
 
 def report_progress(
@@ -222,35 +308,42 @@ def report_progress(
     """
     if total <= 0:
         return
-    extra: dict = {}
-    if chunk is not None:
-        job = job_dict.get(job_id)
-        if job is None:
-            return
-        prefix = stage.split("[")[0]
-        if job.get("agg_stage") != prefix:  # new fan-out stage: reset
-            extra["agg_stage"] = prefix
-            extra["agg_started_at"] = time.time()
-            chunk_progress = {}
-        else:
-            chunk_progress = dict(job.get("chunk_progress") or {})
-        chunk_progress[str(chunk)] = done
-        extra["chunk_progress"] = chunk_progress
-        done = sum(chunk_progress.values())
-        started = extra.get("agg_started_at") or job.get("agg_started_at") or time.time()
-        rate_per_s = done / max(time.time() - started, 1e-6)
-        stage = prefix
-    frac = min(1.0, done / total)
-    detail = {"stage": stage, "done": done, "total": total, "unit": "frames"}
-    if rate_per_s and rate_per_s > 0:
-        detail["rate_per_s"] = round(rate_per_s, 2)
-        detail["eta_seconds"] = round((total - done) / rate_per_s)
-    update_job(
-        job_id,
-        progress=round(band[0] + (band[1] - band[0]) * frac, 3),
-        progress_detail=detail,
-        **extra,
-    )
+    with _job_lock(job_id):
+        extra: dict = {}
+        if chunk is not None:
+            job = job_dict.get(job_id)
+            if job is None:
+                return
+            key = str(chunk)
+            _live_chunks.add((job_id, key))
+            prefix = stage.split("[")[0]
+            if job.get("agg_stage") != prefix:  # new fan-out stage: reset
+                extra["agg_stage"] = prefix
+                extra["agg_started_at"] = time.time()
+                chunk_progress = {}
+                chunk_state = {}
+            else:
+                chunk_progress = dict(job.get("chunk_progress") or {})
+                chunk_state = dict(job.get("chunk_state") or {})
+            chunk_progress[key] = done
+            chunk_state[key] = "running"  # a heartbeat: no longer requeued
+            extra["chunk_progress"] = chunk_progress
+            extra["chunk_state"] = chunk_state
+            done = sum(chunk_progress.values())
+            started = extra.get("agg_started_at") or job.get("agg_started_at") or time.time()
+            rate_per_s = done / max(time.time() - started, 1e-6)
+            stage = prefix
+        frac = min(1.0, done / total)
+        detail = {"stage": stage, "done": done, "total": total, "unit": "frames"}
+        if rate_per_s and rate_per_s > 0:
+            detail["rate_per_s"] = round(rate_per_s, 2)
+            detail["eta_seconds"] = round((total - done) / rate_per_s)
+        update_job(
+            job_id,
+            progress=round(band[0] + (band[1] - band[0]) * frac, 3),
+            progress_detail=detail,
+            **extra,
+        )
 
 
 class stage_timer:

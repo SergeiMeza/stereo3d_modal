@@ -330,3 +330,33 @@ def test_job_never_started_fails_after_queue_timeout():
         pass
     assert jobs._failed is True
     assert _T[0] > 50
+
+
+def test_requeued_chunk_is_not_resubmitted():
+    """A preempted chunk keeps its stale progress value but is marked
+    queued; the watchdog must wait, not resubmit it as stalled."""
+    wd, jobs = _load_watchdog()
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0]
+    respawned = []
+    handles = [_Handle(0, lambda t: t >= 40)]
+
+    def read_cp(job):
+        _T[0] += 1
+        return {"0": 50}  # frozen: the old attempt's last value
+
+    def read_state(job):
+        # running at first, then queued after preemption until t=35
+        return {"0": "running"} if _T[0] < 3 else ({"0": "queued"} if _T[0] < 35 else {"0": "running"})
+
+    res = wd.gather_with_heartbeat(
+        "job", handles, _log(), stall_timeout_s=5, poll_s=0, label="t",
+        chunk_keys=keys, respawn_fn=lambda i: respawned.append(i) or handles[i],
+        register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+        read_chunk_progress_fn=read_cp, read_chunk_state_fn=read_state,
+        read_updated_at_fn=lambda j: _T[0], start_timeout_s=100,
+        not_ready_exc=(_NotReady,))
+    assert [r["key"] for r in res] == [0]
+    assert respawned == []
+    assert jobs._failed is False

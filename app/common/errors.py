@@ -32,11 +32,18 @@ FAILED_KEY = "_worker_failed"
 def fail_fast(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        from app.common import jobs
+
         try:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            jobs.forget_live_chunks()
+            return result
         except TRANSIENT_ERRORS:
+            # Modal requeues the call: its chunk is waiting again, not stalled.
+            jobs.requeue_live_chunks()
             raise  # let Modal's retry policy handle it
         except Exception as exc:
+            jobs.forget_live_chunks()
             logger.exception(f"💥 deterministic failure in {fn.__name__} — not retrying")
             return {
                 FAILED_KEY: True,

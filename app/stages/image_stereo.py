@@ -68,6 +68,10 @@ from app.stages.warp_modes import WARP_BACKWARD, WARP_FORWARD, validate_warp
 
 @app.cls(
     gpu=IMAGE_GPU,
+    # At most 5 GPUs for photos (owner, 2026-10-03): a 100-photo burst asked
+    # for 100 and left nothing for video chunks. Photo jobs queue cheaply
+    # now that their coordinator is shared.
+    max_containers=5,
     image=image_stereo_image,
     volumes=GPU_VOLUMES,
     secrets=[hf_secret, slack_secret],

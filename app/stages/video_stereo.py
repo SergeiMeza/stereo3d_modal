@@ -265,6 +265,9 @@ class _StereoWorkerBase:
         # also runs on preemption (30s grace): persist finished SBS
         # segments so the retried call resumes instead of restarting
         cache_volume.commit()
+        # Preemption: Modal requeues the call, so its chunk is waiting
+        # again, not stalled (the watchdog reads chunk_state).
+        jobs.requeue_live_chunks()
 
     @modal.method()
     @fail_fast

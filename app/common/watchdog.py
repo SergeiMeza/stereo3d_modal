@@ -89,6 +89,7 @@ def gather_with_heartbeat(
     now_fn=time.time,
     read_updated_at_fn=None,
     read_chunk_progress_fn=None,
+    read_chunk_state_fn=None,
     clear_chunk_progress_fn=None,
     not_ready_exc=None,
 ):
@@ -130,6 +131,8 @@ def gather_with_heartbeat(
         read_updated_at_fn = _default_read_updated_at
     if read_chunk_progress_fn is None:
         read_chunk_progress_fn = _default_read_chunk_progress
+    if read_chunk_state_fn is None:
+        read_chunk_state_fn = _default_read_chunk_state
     if clear_chunk_progress_fn is None:
         clear_chunk_progress_fn = _default_clear_chunk_progress
     if not_ready_exc is None:
@@ -165,6 +168,7 @@ def gather_with_heartbeat(
         if per_chunk:
             # ---- per-chunk staleness: judge each pending chunk alone ----
             progress = read_chunk_progress_fn(job_id) or {}
+            states = read_chunk_state_fn(job_id) or {}
             now = now_fn()
             for i, h in enumerate(handles):
                 if done[i]:
@@ -181,6 +185,13 @@ def gather_with_heartbeat(
                 # mark it started while still queued (the death-spiral bug).
                 # The wedged-pool case (nothing advances job-wide) is the
                 # job-global guard below, so the job can't hang forever.
+                # A chunk its container marked "queued" (preempted, or a
+                # transient error Modal will retry) keeps its last progress
+                # value but is waiting for a GPU again: queued, not stalled,
+                # until a fresh heartbeat marks it running.
+                if states.get(key) == "queued":
+                    started[i] = False
+                    continue
                 if key not in progress and not started[i]:
                     continue
                 cur = int(progress.get(key, 0))
@@ -302,6 +313,13 @@ def _default_clear_chunk_progress(job_id, chunk_key):
     from app.common import jobs
 
     jobs.clear_chunk_progress_key(job_id, chunk_key)
+
+
+def _default_read_chunk_state(job_id):
+    from app.common import jobs
+
+    job = jobs.get_job(job_id) or {}
+    return job.get("chunk_state") or {}
 
 
 def _default_read_updated_at(job_id):
