@@ -1437,7 +1437,9 @@ def _affine_to_ref(pred: "torch.Tensor", target: "torch.Tensor", max_px: int = 1
     # therefore a wide margin for legitimate work while still catching a
     # hung profiler in MINUTES — instead of letting it sit for hours under
     # the depth worker's 4h timeout, which was the whole point of the split.
-    timeout=600,  # 10 min — generous for many-shot profiling, tight on hangs
+    # 20 min: 300 scenes (detect_scenes caps there) x up to 12 keyframes
+    # can pass 10 min with a cold model load; still minutes on a hang.
+    timeout=1200,
     scaledown_window=SCALEDOWN_WINDOW,
     # profiling is cheap and idempotent, so a transient hang / preemption
     # should re-run cheaply rather than fail the job

@@ -167,11 +167,13 @@ def depth_lookup_keys(request: dict) -> list[str]:
     # depth + stereo + encode), so its timeout must exceed the slowest
     # end-to-end run. With fan-out the stereo/depth stages are bounded
     # by chunk size, but a non-fanned-out path (≤1500f) or a per-frame
-    # depth experiment on a long clip can be hours. 8h ceiling — a long
-    # multi-minute job should never be dropped mid-flight. (Cheap: a
-    # tiny idle CPU container.) CPU-only functions can opt out of
-    # preemption (3x CPU/mem price on a tiny container).
-    timeout=8 * 3600,
+    # depth experiment on a long clip can be hours. 24 h, Modal's maximum
+    # (8 h before 2026-10-03): the x265 encode alone may take 6 h, after
+    # depth, stereo and the format encodes — a long job should never be
+    # dropped mid-flight. (Cheap: a tiny idle CPU container.) CPU-only
+    # functions can opt out of preemption (3x CPU/mem price on a tiny
+    # container).
+    timeout=24 * 3600,
     nonpreemptible=True,
 )
 # Several jobs per container: the coordinator only waits on other
@@ -306,14 +308,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # job fast if no worker emits progress for this many seconds (a
         # silent hang) instead of stalling until Modal's multi-hour
         # function timeout. Overridable per request.
-        stall_timeout_s = int(request.get("stall_timeout_s", STALL_TIMEOUT_S))
+        # Clamped here as well as at the gateway: 0 divided by zero further
+        # down and a huge value claimed every GPU (audit, 2026-10-03).
+        stall_timeout_s = min(max(int(request.get("stall_timeout_s", STALL_TIMEOUT_S)), 60), 3600)
         # fan-out tuning: max_gpu_workers caps concurrent containers;
         # stereo_chunk_frames/depth_chunk_frames shrink the per-chunk size
         # so more, shorter chunks run in parallel (faster wall-clock when
         # GPUs are plentiful). Defaults preserve prior behavior.
-        max_gpu_workers = int(request.get("max_gpu_workers", 4))
-        stereo_chunk_cap = int(request.get("stereo_chunk_frames", STEREO_CHUNK_FRAMES))
-        depth_chunk_cap = int(request.get("depth_chunk_frames", DEPTH_CHUNK_FRAMES))
+        max_gpu_workers = min(max(int(request.get("max_gpu_workers", 4)), 1), 10)
+        stereo_chunk_cap = max(int(request.get("stereo_chunk_frames", STEREO_CHUNK_FRAMES)), 24)
+        depth_chunk_cap = max(int(request.get("depth_chunk_frames", DEPTH_CHUNK_FRAMES)), 24)
 
         # -------------------------------- adaptive per-shot depth script
         adaptive = bool(request.get("adaptive", False))

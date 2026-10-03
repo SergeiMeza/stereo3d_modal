@@ -281,3 +281,52 @@ def test_legacy_global_path_still_fails_on_total_silence():
         raised = True
     assert raised is True
     assert jobs._failed is True
+
+
+def test_job_queued_past_start_timeout_is_not_failed():
+    """Chunks waiting for a GPU behind other jobs are queued, not hung."""
+    wd, jobs = _load_watchdog()
+    wd.QUEUE_TIMEOUT_S = 50
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0, 100]
+    handles = [_Handle(k, lambda t: t >= 30) for k in keys]
+
+    def read_cp(job):
+        _T[0] += 1
+        # nothing starts until t=25, then both heartbeat
+        return {str(k): _T[0] for k in keys} if _T[0] >= 25 else {}
+
+    res = wd.gather_with_heartbeat(
+        "job", handles, _log(), stall_timeout_s=5, poll_s=0, label="t",
+        chunk_keys=keys, respawn_fn=lambda i: handles[i],
+        register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+        read_chunk_progress_fn=read_cp, read_updated_at_fn=lambda j: _T[0] if _T[0] >= 25 else 0,
+        start_timeout_s=10, not_ready_exc=(_NotReady,))
+    assert sorted(r["key"] for r in res) == keys
+    assert jobs._failed is False
+
+
+def test_job_never_started_fails_after_queue_timeout():
+    wd, jobs = _load_watchdog()
+    wd.QUEUE_TIMEOUT_S = 50
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0]
+    handles = [_Handle(0, lambda t: False)]
+
+    def read_cp(job):
+        _T[0] += 1
+        return {}
+
+    try:
+        wd.gather_with_heartbeat(
+            "job", handles, _log(), stall_timeout_s=5, poll_s=0, label="t",
+            chunk_keys=keys, respawn_fn=lambda i: handles[i],
+            register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+            read_chunk_progress_fn=read_cp, read_updated_at_fn=lambda j: 0,
+            start_timeout_s=10, not_ready_exc=(_NotReady,))
+    except Exception:
+        pass
+    assert jobs._failed is True
+    assert _T[0] > 50

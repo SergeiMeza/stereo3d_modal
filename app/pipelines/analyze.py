@@ -19,6 +19,8 @@ POST /v1/videos.
 """
 
 import subprocess
+import modal
+
 from pathlib import Path
 
 from app.common import jobs
@@ -259,9 +261,15 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
     secrets=[slack_secret],
     cpu=2,
     memory=(2 * 1024, 8 * 1024),
-    timeout=1800,
+    # Waits on the GPU ShotProfiler, whose three tries at 20 min plus
+    # backoff and queueing pass 30 min.
+    timeout=3600,
     nonpreemptible=True,
 )
+# Several jobs per container: it waits on the GPU ShotProfiler, and its only
+# local work is ffprobe and job-record calls, so one waiting container per
+# job only fills the workspace's container ceiling.
+@modal.concurrent(max_inputs=20)
 def process_profile_job(job_id: str, request: dict) -> dict:
     """Standalone shot-profiling job (no paid conversion needed): run the
     adaptive ShotProfiler over the ANALYZE PROXY and return the depth script

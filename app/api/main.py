@@ -173,6 +173,16 @@ def _submit(kind: str, body: dict, spawner) -> dict:
     return {"job_id": job_id, "status": jobs.PENDING, "status_url": f"/v1/jobs/{job_id}"}
 
 
+@web_app.on_event("startup")
+async def _thread_pool() -> None:
+    """Plain-def routes run on anyio's worker threads, 40 by default; the
+    container takes 100 requests at once, so status polls queued behind
+    slow submits. Match the two."""
+    import anyio.to_thread
+
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 100
+
+
 # ------------------------------------------------------------- health
 
 @web_app.get("/health")

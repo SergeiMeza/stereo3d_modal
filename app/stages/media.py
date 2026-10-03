@@ -20,6 +20,7 @@ from app.common.storage import (
     job_cache_dir,
     job_output_dir,
     public_url,
+    safe_reload,
 )
 from app.images import media_image
 from app.modal_app import app
@@ -192,6 +193,12 @@ def _resolve_target_fps(target_fps: float | None, source_fps: float) -> dict | N
         return {"fps": snapped, "divisor": n}
     return {"fps": target_fps, "divisor": None}
 
+
+
+# Scene detection floor and cap, as analyze uses (MIN_SCENE_SECONDS /
+# MAX_SCENES in pipelines/analyze.py).
+SCENE_MIN_SECONDS = 0.5
+SCENE_MAX_COUNT = 300
 
 @app.function(
     image=media_image,
@@ -425,14 +432,27 @@ def detect_scenes(input_path: str) -> dict:
     path = bucket_path(input_path) if not Path(input_path).exists() else Path(input_path)
     logger.info(f"🎯 scene detection: {path.name}")
     video = open_video(str(path))
+    fps = video.frame_rate or 24.0
     manager = SceneManager()
-    manager.add_detector(AdaptiveDetector())
+    # The same floor and cap as analyze (pipelines/analyze.py): the video
+    # path profiles 3-12 keyframes per scene, and an uncapped cut-heavy clip
+    # ran the profiler past its timeout three times and failed the job
+    # (audit, 2026-10-03).
+    manager.add_detector(
+        AdaptiveDetector(min_scene_len=max(2, round(SCENE_MIN_SECONDS * fps)))
+    )
     manager.detect_scenes(video=video)
     scenes = [
         {"start": start.get_frames(), "end": end.get_frames(),
          "start_sec": start.get_seconds(), "end_sec": end.get_seconds()}
         for start, end in manager.get_scene_list()
     ]
+    while len(scenes) > SCENE_MAX_COUNT:
+        i = min(range(1, len(scenes)),
+                key=lambda k: scenes[k]["end"] - scenes[k]["start"])
+        scenes[i - 1]["end"] = scenes[i]["end"]
+        scenes[i - 1]["end_sec"] = scenes[i]["end_sec"]
+        del scenes[i]
     logger.info(
         f"🏁 {len(scenes)} scene(s): cuts at "
         f"{[s['start'] for s in scenes[1:]] or 'none'}"
@@ -444,16 +464,21 @@ def detect_scenes(input_path: str) -> dict:
     image=media_image,
     volumes=PIPELINE_VOLUMES,
     secrets=[slack_secret],
-    retries=modal.Retries(max_retries=3, initial_delay=5.0, backoff_coefficient=2.0),
+    # No retries: a retried orchestrator respawned every format encode while
+    # the first ones were still writing the same output files (audit,
+    # 2026-10-03); the per-format workers retry themselves.
     # ORCHESTRATOR ONLY: spawns one encode_one_format worker per format and
     # awaits them — does no ffmpeg itself, so it needs minimal cpu/mem. The
     # heavy transcode (cpu=4, mem=16G) lives in encode_one_format below.
     cpu=1,
     memory=(512, 2 * 1024),
-    # just dispatch + gather; the per-format 90min timeout bounds the real
-    # work, this only needs to outlast the slowest format + its retries
-    timeout=3 * 3600,
+    # just dispatch + gather; it must outlast the slowest format with all
+    # its retries: 90 min x 4 tries = 6 h, plus queueing.
+    timeout=7 * 3600,
 )
+# Several jobs per container: it only waits on encode_one_format, and one
+# waiting container per video adds to the workspace's container ceiling.
+@modal.concurrent(max_inputs=20)
 def encode_outputs(
     job_id: str,
     sbs_path: str,
@@ -471,7 +496,7 @@ def encode_outputs(
     """
     # VR-first default: no anaglyph unless explicitly requested
     formats = formats or ["sbs", "half_sbs"]
-    cache_volume.reload()
+    safe_reload(cache_volume)  # other inputs on this container may hold files open
 
     sbs = Path(sbs_path)
     if not sbs.exists():

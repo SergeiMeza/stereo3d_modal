@@ -39,6 +39,10 @@ logger = get_logger(__name__)
 # heartbeat). 240s tolerates a cold model reload / brief GCS stall while
 # catching a real hang ~2.5× faster. Overridable per request.
 STALL_TIMEOUT_S = 240
+
+# How long a job may wait with none of its chunks started before the wedged-
+# pool backstop fails it: GPU queueing behind other jobs, not a hang.
+QUEUE_TIMEOUT_S = 4 * 3600
 # A hung chunk is RESUBMITTED (fresh container) up to this many times
 # before the job is failed — a chunk that hangs repeatedly is a real bug,
 # not a transient GPU wedge. Per chunk, not per job.
@@ -235,11 +239,19 @@ def gather_with_heartbeat(
             # stall — normal queueing keeps SOME chunk heartbeating), the
             # pool is stuck. Fail rather than hang forever on queued chunks
             # that will never get a slot.
+            #
+            # Only once one of THIS job's chunks has run: before that, its
+            # chunks are queued behind other jobs' GPU work, which under a
+            # burst of videos lasts longer than start_timeout_s and failed
+            # healthy jobs as "silent hangs" (audit, 2026-10-03). A job that
+            # never started gets QUEUE_TIMEOUT_S, not unbounded patience.
             updated_at = read_updated_at_fn(job_id)
             ref = now if updated_at is None else updated_at
-            if now - ref > start_timeout_s:
+            limit = (start_timeout_s if (any(started) or any(done))
+                     else max(start_timeout_s, QUEUE_TIMEOUT_S))
+            if now - ref > limit:
                 _fail_all(job_id, handles, done, jlog, label, None, None,
-                          silent_for=now - ref, stall_timeout_s=start_timeout_s)
+                          silent_for=now - ref, stall_timeout_s=limit)
             continue
 
         # ---- legacy global heartbeat (no chunk_keys/respawn_fn) ----

@@ -245,7 +245,8 @@ def encode_mvhevc(
     # at qhd. It can't fan out (one contiguous encode), so the timeout
     # must cover the worst case — 6h ceiling for long 4K jobs.
     timeout=6 * 3600,
-    retries=modal.Retries(max_retries=2, initial_delay=10.0, backoff_coefficient=2.0),
+    # No retries: a timed-out encode ran again from the start, up to 18 h of
+    # 32 cores past the coordinator's own limit (audit, 2026-10-03).
 )
 @fail_fast
 def encode_mvhevc_x265(

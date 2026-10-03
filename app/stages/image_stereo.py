@@ -144,7 +144,10 @@ class ImageStereoWorker:
 
         with jobs.stage_timer(job_id, f"image[{item_id}]", gpu=IMAGE_GPU):
             frame = self._load_image(bucket_path(item["input_path"]))
-            if item.get("remove_black_bars", True):
+            # Off unless asked for: a still keeps its frame. Trimming by
+            # default returned eyes smaller than the original, which the app
+            # can't pack into a spatial photo (2026-10-03).
+            if item.get("remove_black_bars", False):
                 frame, crop_box = self._crop_black_bars(frame)
             else:
                 crop_box = None
