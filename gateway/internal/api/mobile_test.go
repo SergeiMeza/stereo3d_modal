@@ -84,7 +84,7 @@ func TestModalBodyMobileParams(t *testing.T) {
 	}
 	img := mobileConv("image")
 	ib := s.modalBody(img, 0)
-	for k, want := range map[string]any{"stereo_mode": "both", "warp": "forward", "inpaint": "migan"} {
+	for k, want := range map[string]any{"stereo_mode": "both", "warp": "forward", "inpaint": "migan", "remove_black_bars": false} {
 		if ib[k] != want {
 			t.Errorf("image body[%s]: want %v, got %v", k, want, ib[k])
 		}

@@ -108,6 +108,12 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 		"notify":     true,
 	}
 	if c.Kind == "image" {
+		// A still keeps its frame. Modal trims black bars by default, which
+		// suits letterboxed video; on a photo it returned eyes smaller than
+		// the original, and the app, which builds the spatial photo against
+		// the original's size, failed it (2026-10-03, a 1357×1920 photo
+		// came back 1357×1551).
+		body["remove_black_bars"] = false
 		body["formats"] = []string{"lr"}
 		if len(c.Params.Formats) > 0 {
 			body["formats"] = c.Params.Formats
