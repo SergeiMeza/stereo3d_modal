@@ -24,6 +24,11 @@ from fastapi import FastAPI, HTTPException
 from app.common import jobs
 from app.env import APP_ENV
 
+# Every route is a plain `def`: they all make blocking Modal calls (Dict
+# reads and writes, spawn, FunctionCall.get), which FastAPI then runs on its
+# worker threads. As `async def` they ran on the event loop, so under an
+# 84-photo burst each call stalled every other request on the container,
+# status polls included, past the gateway's timeout (2026-10-03).
 web_app = FastAPI(title=f"stereo3d ({APP_ENV})", version="1.0")
 
 
@@ -155,14 +160,14 @@ def _submit(kind: str, body: dict, spawner) -> dict:
 # ------------------------------------------------------------- health
 
 @web_app.get("/health")
-async def health() -> dict:
+def health() -> dict:
     return {"status": "ok", "env": APP_ENV}
 
 
 # ---------------------------------------------------------- pipelines
 
 @web_app.post("/v1/analyze")
-async def submit_analyze(body: dict) -> dict:
+def submit_analyze(body: dict) -> dict:
     """Pro step-pipeline entry (web/DESIGN.md): probe + crop detect + scene
     detect + filmstrip thumbnails on the SOURCE file. CPU-only, cheap. All
     frame indices in the result metadata are source-frame space, directly
@@ -182,7 +187,7 @@ async def submit_analyze(body: dict) -> dict:
 
 
 @web_app.post("/v1/profile")
-async def submit_profile(body: dict) -> dict:
+def submit_profile(body: dict) -> dict:
     """Standalone shot-profiling job: run the adaptive ShotProfiler over a
     frame-exact 1:1 proxy (the analyze job's preview) + the CURRENT scene
     cuts, without a paid conversion. Result metadata carries a depth_script
@@ -211,7 +216,7 @@ async def submit_profile(body: dict) -> dict:
 
 
 @web_app.post("/v1/videos")
-async def submit_video(body: dict) -> dict:
+def submit_video(body: dict) -> dict:
     from app.pipelines.video import process_video_job
 
     _require(body, "input_path")
@@ -401,7 +406,7 @@ async def submit_video(body: dict) -> dict:
 
 
 @web_app.post("/v1/images")
-async def submit_images(body: dict) -> dict:
+def submit_images(body: dict) -> dict:
     from app.pipelines.image import process_image_job
 
     items = body.get("items")
@@ -427,7 +432,7 @@ async def submit_images(body: dict) -> dict:
 # --------------------------------------------------------------- jobs
 
 @web_app.get("/v1/jobs/{job_id}")
-async def job_status(job_id: str) -> dict:
+def job_status(job_id: str) -> dict:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
@@ -485,7 +490,7 @@ def _cancel_call(call_id: str) -> bool:
 
 
 @web_app.delete("/v1/jobs/{job_id}")
-async def cancel_job(job_id: str) -> dict:
+def cancel_job(job_id: str) -> dict:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
@@ -514,7 +519,7 @@ async def cancel_job(job_id: str) -> dict:
 # --------------------------------------------- experimental endpoints
 
 @web_app.post("/v1/stages/video-depth")
-async def stage_video_depth(body: dict) -> dict:
+def stage_video_depth(body: dict) -> dict:
     from app.stages.video_depth import VideoDepthWorker
     from app.stages.video_depth_models import DEPTH_MODELS, FrameDepthWorker
 
@@ -543,7 +548,7 @@ async def stage_video_depth(body: dict) -> dict:
 
 
 @web_app.post("/v1/stages/video-stereo")
-async def stage_video_stereo(body: dict) -> dict:
+def stage_video_stereo(body: dict) -> dict:
     from app.stages.video_stereo import VideoStereoLiteWorker, VideoStereoWorker
     from app.stages.video_stereo_m2svid import M2SVidStereoWorker
 
@@ -582,7 +587,7 @@ async def stage_video_stereo(body: dict) -> dict:
 
 
 @web_app.post("/v1/stages/encode-mvhevc")
-async def stage_encode_mvhevc(body: dict) -> dict:
+def stage_encode_mvhevc(body: dict) -> dict:
     from app.stages.mvhevc import encode_mvhevc, encode_mvhevc_x265
 
     sbs_path = _require(body, "sbs_path")
@@ -601,7 +606,7 @@ async def stage_encode_mvhevc(body: dict) -> dict:
 
 
 @web_app.post("/v1/reuse/lookup")
-async def reuse_lookup(body: dict) -> dict:
+def reuse_lookup(body: dict) -> dict:
     """Check the content-addressed reuse cache for a given video request,
     WITHOUT submitting a job. Computes the same preprocess/depth/scenes keys
     the pipeline would, reads the per-env reuse Dict, and reports any cached
@@ -656,7 +661,7 @@ async def reuse_lookup(body: dict) -> dict:
 
 
 @web_app.post("/v1/stages/scene-detect")
-async def stage_scene_detect(body: dict) -> dict:
+def stage_scene_detect(body: dict) -> dict:
     from app.stages.media import detect_scenes
 
     input_path = _require(body, "input_path")
@@ -664,7 +669,7 @@ async def stage_scene_detect(body: dict) -> dict:
 
 
 @web_app.post("/v1/stages/crop-detect")
-async def stage_crop_detect(body: dict) -> dict:
+def stage_crop_detect(body: dict) -> dict:
     from app.stages.media import preprocess_video
 
     input_path = _require(body, "input_path")

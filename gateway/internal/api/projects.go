@@ -1071,7 +1071,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	} else if n >= rates.MaxActivePerUser {
-		httpx.WriteErr(ctx, w, httpx.ErrConflict("too many active conversions; wait for one to finish"))
+		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(rates.MaxActivePerUser))
 		return
 	}
 

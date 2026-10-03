@@ -329,7 +329,7 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 		httpx.WriteErr(ctx, w, err)
 		return
 	} else if n >= rates.MaxActivePerUser {
-		httpx.WriteErr(ctx, w, httpx.ErrConflict("too many active conversions; wait for one to finish"))
+		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(rates.MaxActivePerUser))
 		return
 	}
 

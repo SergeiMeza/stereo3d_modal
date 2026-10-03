@@ -41,6 +41,15 @@ func ErrNotFound(resource string) *APIError {
 	return Err(http.StatusNotFound, "not_found", resource+" not found")
 }
 func ErrConflict(msg string) *APIError { return Err(http.StatusConflict, "conflict", msg) }
+
+// ErrTooManyActive is the per-user concurrency cap. The app knows this code
+// and the limit: it waits and keeps the item ready instead of failing it,
+// which it did for the generic "conflict" this used to send.
+func ErrTooManyActive(limit int) *APIError {
+	e := Err(http.StatusConflict, "too_many_active", "too many active conversions; wait for one to finish")
+	e.Details = map[string]any{"limit": limit}
+	return e
+}
 func ErrUpstream(conversionID string) *APIError {
 	e := Err(http.StatusBadGateway, "upstream_error",
 		"the conversion service returned an error; quote this ID to support")
