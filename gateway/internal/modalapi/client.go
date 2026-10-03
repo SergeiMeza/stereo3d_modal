@@ -205,7 +205,10 @@ func (c *Client) do(ctx context.Context, method, path string, body map[string]an
 		return err
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// 16 MiB: a long video's job record (scene list, per-scene timings,
+	// outputs) can pass 1 MiB, and a cut record decodes as a poll error
+	// until processingTTL fails the conversion.
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &UpstreamError{StatusCode: resp.StatusCode, Body: string(raw)}
 	}

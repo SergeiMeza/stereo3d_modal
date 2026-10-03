@@ -35,6 +35,7 @@ const (
 	createTTL     = 24 * time.Hour   // unpaid conversions expire after this
 	paidTTL       = 2 * time.Hour    // paid but unsubmittable → fail + release hold
 	processingTTL = 24 * time.Hour   // hard ceiling (Modal orchestrator cap is 8h)
+	analyzeTTL    = 3 * time.Hour    // analyze polls failing this long → fail (Modal's cap is 2h)
 	uploadURLTTL  = 15 * time.Minute
 	downloadTTL   = 24 * time.Hour
 )
@@ -315,6 +316,11 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 // succeeded is committed, cancel conflicts and returns the terminal state.
 func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job *modalapi.Job) (*store.Conversion, error) {
 	outputs := s.collectOutputs(ctx, conv.ID, job)
+	if len(outputs) == 0 {
+		// Modal said completed but nothing usable came back: a success here
+		// would bill the user for an empty result (audit, 2026-10-03).
+		return s.settleFailure(ctx, conv, "completed with no usable outputs")
+	}
 	now := time.Now().UTC()
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateProcessing}, func(c *store.Conversion) error {
 		c.State = store.StateSucceeded
@@ -754,6 +760,11 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
 			return s.failAnalyze(ctx, p, "job record lost upstream (404)")
+		}
+		if time.Since(p.UpdatedAt) > analyzeTTL {
+			// Modal's analyze function stops at 2 h; a job that could not be
+			// read for longer than this was retried every minute for ever.
+			return s.failAnalyze(ctx, p, "analyze job unreachable past "+analyzeTTL.String()+": "+err.Error())
 		}
 		slog.WarnContext(ctx, "analyze poll failed", "project_id", p.ID, "err", err)
 		return p, nil

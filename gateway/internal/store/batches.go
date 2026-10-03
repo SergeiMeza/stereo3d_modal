@@ -300,14 +300,20 @@ func (s *Store) TransitionBatch(ctx context.Context, id string, fromStates []str
 		}
 		// All reads before any write (Firestore transaction rule).
 		var convs []*Conversion
-		if convMutate != nil {
+		if convMutate != nil && len(b.Items) > 0 {
+			// One batched read: a 1,000-item batch read one by one ran past
+			// request deadlines on pay-now and settle (audit, 2026-10-03).
+			refs := make([]*firestore.DocumentRef, 0, len(b.Items))
 			for _, it := range b.Items {
-				csnap, gerr := tx.Get(s.convDoc(it.ConversionID))
-				if status.Code(gerr) == codes.NotFound {
+				refs = append(refs, s.convDoc(it.ConversionID))
+			}
+			snaps, gerr := tx.GetAll(refs)
+			if gerr != nil {
+				return gerr
+			}
+			for _, csnap := range snaps {
+				if !csnap.Exists() {
 					continue // support deleted it; the ledger still settles
-				}
-				if gerr != nil {
-					return gerr
 				}
 				c, cerr := snapToConversion(csnap)
 				if cerr != nil {

@@ -22,6 +22,8 @@ package stripex
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/stripe/stripe-go/v78"
 	portalsession "github.com/stripe/stripe-go/v78/billingportal/session"
@@ -43,6 +45,13 @@ type Client struct {
 
 func New(secretKey, webhookSecret, publishableKey, env string) *Client {
 	stripe.Key = secretKey
+	// 15 s per call (stripe-go's own default is 80 s, plus retries): calls on
+	// an app request must finish inside its 50 s budget, and a hung Stripe
+	// call must not hold a reconcile sweep.
+	stripe.SetBackend(stripe.APIBackend, stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{
+		HTTPClient:        &http.Client{Timeout: 15 * time.Second},
+		MaxNetworkRetries: stripe.Int64(1),
+	}))
 	return &Client{
 		env:             env,
 		webhookSecret:   webhookSecret,

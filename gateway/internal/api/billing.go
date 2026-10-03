@@ -10,8 +10,10 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Pay-as-you-go billing endpoints (web pro flow).
@@ -172,18 +174,48 @@ func jobDescription(conv *store.Conversion) string {
 	return "3D video conversion"
 }
 
+// cardRefreshedAt is when this instance last read a user's card from
+// Stripe (uid → time.Time).
+var cardRefreshedAt sync.Map
+
+const cardRefreshWindow = 20 * time.Second
+
+// cardMatches reports whether the cached customer already holds card.
+func cardMatches(c *store.Customer, card *stripex.CardInfo) bool {
+	if card == nil {
+		return c.DefaultPaymentMethod == "" && c.CardLast4 == ""
+	}
+	return c.DefaultPaymentMethod == card.PaymentMethodID && c.CardBrand == card.Brand &&
+		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear
+}
+
 // refreshCardCache reads the live default payment method from Stripe and
 // folds it into the uid → customer cache the conversion-create gate reads.
 // On a Stripe read error the stale cache is returned — billing status must
 // still render during a Stripe blip.
 func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) *store.Customer {
+	// The app reads /v1/limits before every item, so a card-less user's
+	// batch of 100 was 100 Stripe reads and 100 transactions on one customer
+	// document (audit, 2026-10-03). One read per user per 20 s per instance;
+	// short enough that a card added a moment ago still shows.
+	if last, ok := cardRefreshedAt.Load(uid); ok && time.Since(last.(time.Time)) < cardRefreshWindow {
+		if cust, gerr := s.Store.GetCustomer(ctx, uid); gerr == nil {
+			return cust
+		}
+	}
 	card, err := s.Stripe.DefaultCard(customerID)
+	if err == nil {
+		cardRefreshedAt.Store(uid, time.Now())
+	}
 	if err != nil {
 		httpx.Log(ctx).Warn("default card lookup failed (serving cached)", "uid", uid, "err", err)
 		if cust, gerr := s.Store.GetCustomer(ctx, uid); gerr == nil {
 			return cust
 		}
 		return &store.Customer{StripeCustomerID: customerID}
+	}
+	if cached, gerr := s.Store.GetCustomer(ctx, uid); gerr == nil && cardMatches(cached, card) {
+		return cached // nothing changed: no write
 	}
 	cust, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		if card == nil {
@@ -305,6 +337,8 @@ func (s *Service) HandleGetBilling(w http.ResponseWriter, r *http.Request, user 
 // client_secret).
 func (s *Service) HandleCreateSetupIntent(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
+	// A card is about to be added: the next read must go to Stripe.
+	cardRefreshedAt.Delete(user.UID)
 	customerID, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
