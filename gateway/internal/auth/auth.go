@@ -50,6 +50,15 @@ func (v *Verifier) FromRequest(r *http.Request) (*User, error) {
 	return user, nil
 }
 
+// DeleteUser removes the user's sign-in. An already-deleted user is not
+// an error.
+func (v *Verifier) DeleteUser(ctx context.Context, uid string) error {
+	if err := v.client.DeleteUser(ctx, uid); err != nil && !fbauth.IsUserNotFound(err) {
+		return err
+	}
+	return nil
+}
+
 var errUnauthorized = errUnauthorizedType{}
 
 type errUnauthorizedType struct{}

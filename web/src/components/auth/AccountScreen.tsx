@@ -5,8 +5,10 @@
  * is click-to-copy because it's the support identifier: projects and
  * conversions are keyed to it, so "send us your account ID" must be one
  * click. Deleting the account requires typing DELETE (native input — the
- * usual typed confirmation, not a Radix dialog) and surfaces Firebase's
- * requires-recent-login as the friendly re-auth message from lib/auth.
+ * usual typed confirmation, not a Radix dialog). The gateway deletes it:
+ * it charges what is owed first and refuses while a balance is unpaid or a
+ * run is going; a bank's 3DS challenge is completed here and the delete
+ * retried once.
  */
 
 import { useRouter } from "next/navigation";
@@ -16,6 +18,9 @@ import Link from "next/link";
 
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { PendingBalance } from "@/components/billing/PendingBalance";
+import { completeChargeAction } from "@/components/billing/settleAction";
+import { formatCents } from "@/components/steps/money";
+import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
@@ -40,6 +45,19 @@ function CardShell({
   );
 }
 
+function deleteErrorMessage(err: unknown): string {
+  if (err instanceof GatewayError && err.code === "balance_due") {
+    const cents = err.details?.amount_cents;
+    const amount =
+      typeof cents === "number" && cents > 0 ? `of ${formatCents(cents)} ` : "";
+    return `Your unpaid balance ${amount}couldn't be charged. Update your card under Manage billing, then delete your account.`;
+  }
+  if (err instanceof GatewayError && err.code === "active_runs") {
+    return "A run is still going. Cancel it or wait for it to finish, then delete your account.";
+  }
+  return err instanceof Error ? err.message : "Failed to delete account.";
+}
+
 export interface AccountScreenProps {
   /** Full-page redirect — injectable so tests can observe the Stripe
    * billing-portal navigation (jsdom can't navigate). */
@@ -49,7 +67,7 @@ export interface AccountScreenProps {
 export default function AccountScreen({
   navigateExternal = (url) => window.location.assign(url),
 }: AccountScreenProps = {}) {
-  const { user, signOutUser, updateDisplayName, deleteAccount } = useAuth();
+  const { user, signOutUser, updateDisplayName } = useAuth();
   const gateway = useGateway();
   const billing = useBilling();
   const router = useRouter();
@@ -116,13 +134,38 @@ export default function AccountScreen({
     setDeletePending(true);
     setDeleteError(null);
     try {
-      await deleteAccount();
+      await deleteWithChallenge();
+      await signOutUser();
       router.replace("/");
     } catch (err) {
       setDeletePending(false);
-      setDeleteError(
-        err instanceof Error ? err.message : "Failed to delete account.",
+      void billing.refresh();
+      setDeleteError(deleteErrorMessage(err));
+    }
+  }
+
+  /** The bank may ask to confirm the outstanding charge (3DS): confirm it,
+   * then try the delete once more. */
+  async function deleteWithChallenge() {
+    try {
+      await gateway.deleteAccount();
+    } catch (err) {
+      const d = err instanceof GatewayError ? err.details : undefined;
+      if (
+        !(err instanceof GatewayError) ||
+        err.code !== "balance_due" ||
+        d?.requires_action !== true ||
+        typeof d.client_secret !== "string" ||
+        typeof d.publishable_key !== "string"
+      ) {
+        throw err;
+      }
+      const confirmed = await completeChargeAction(
+        d.publishable_key,
+        d.client_secret,
       );
+      if (!confirmed.ok) throw err;
+      await gateway.deleteAccount();
     }
   }
 
@@ -220,8 +263,7 @@ export default function AccountScreen({
             {String(billing.status.card.exp_month).padStart(2, "0")}/
             {billing.status.card.exp_year}
           </p>
-        ) : billing.status !== null &&
-          !billing.status.has_payment_method ? (
+        ) : billing.status !== null && !billing.status.has_payment_method ? (
           <p className="text-fg">
             No payment method saved yet —{" "}
             <Link href="/onboarding" className="text-primary hover:underline">
@@ -285,8 +327,9 @@ export default function AccountScreen({
             <p className="text-xs text-destructive">{deleteError}</p>
           )}
           <p className="text-xs text-fg-muted">
-            Uploaded sources and rendered outputs expire automatically; billing
-            records are retained for support.
+            Any unpaid balance is charged to your saved card first. Uploaded
+            sources and rendered outputs expire automatically; billing records
+            are retained for support.
           </p>
         </div>
       </section>

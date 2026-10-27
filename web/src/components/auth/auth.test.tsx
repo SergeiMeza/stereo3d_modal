@@ -5,8 +5,22 @@
  * mocked /signin, RequireAuth passing through, and the account profile.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import Home from "@/app/page";
 import AccountScreen from "@/components/auth/AccountScreen";
@@ -74,9 +88,7 @@ describe("landing page", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Stereo/ }));
     expect(screen.getByText("3D directed scene by scene")).toBeTruthy();
     expect(
-      screen
-        .getByRole("tab", { name: /Stereo/ })
-        .getAttribute("aria-selected"),
+      screen.getByRole("tab", { name: /Stereo/ }).getAttribute("aria-selected"),
     ).toBe("true");
   });
 });
@@ -102,7 +114,6 @@ describe("RequireAuth (mock mode)", () => {
     expect(screen.getByText("guarded content")).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
-
 });
 
 describe("AccountScreen billing card (mock mode)", () => {
@@ -151,5 +162,44 @@ describe("AccountScreen (mock mode)", () => {
         "https://billing.stripe.com/p/session/mock",
       ),
     );
+  });
+});
+
+describe("AccountScreen delete (mock mode)", () => {
+  function typeDeleteAndConfirm() {
+    fireEvent.change(screen.getByLabelText(/Type DELETE/), {
+      target: { value: "DELETE" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+  }
+
+  function settleAllRuns() {
+    for (const c of mockDb.conversions.values()) {
+      if (["created", "paid", "processing"].includes(c.state))
+        c.state = "canceled";
+    }
+  }
+
+  it("deletes through the gateway and leaves the account", async () => {
+    settleAllRuns();
+    renderWithAuth(<AccountScreen />);
+    typeDeleteAndConfirm();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
+
+  // 2026-10-27: a deleted account kept a $3.33 charge nobody could settle.
+  it("refuses while a charge is unpaid and says how much", async () => {
+    settleAllRuns();
+    mockDb.billing.unpaid.push({
+      conversion_id: "c00000000333",
+      step: "depth_preview",
+      amount_cents: 333,
+      currency: "usd",
+      needs_action: false,
+    });
+    renderWithAuth(<AccountScreen />);
+    typeDeleteAndConfirm();
+    expect(await screen.findByText(/unpaid balance of \$3\.33/)).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

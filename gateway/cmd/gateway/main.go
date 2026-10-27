@@ -125,6 +125,7 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
+	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
 	mux.HandleFunc("POST /v1/conversions", authed(svc.HandleCreateConversion))

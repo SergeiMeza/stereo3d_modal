@@ -91,6 +91,13 @@ export class GatewayClient {
     });
   }
 
+  /** Delete the account. The gateway charges what is owed first and
+   * refuses with 402 balance_due (details: amount_cents, requires_action,
+   * client_secret, publishable_key) or 409 active_runs. */
+  deleteAccount(): Promise<{ deleted: boolean }> {
+    return this.request("POST", "/v1/account/delete", {});
+  }
+
   // ------------------------------------------------------------- billing
 
   /** Pay-as-you-go billing status — also ensures the billing profile and
@@ -143,8 +150,15 @@ export class GatewayClient {
       xhr.onload = () =>
         xhr.status >= 200 && xhr.status < 300
           ? resolve()
-          : reject(new GatewayError("upload_failed", `upload failed (${xhr.status})`, xhr.status));
-      xhr.onerror = () => reject(new GatewayError("upload_failed", "upload network error", 0));
+          : reject(
+              new GatewayError(
+                "upload_failed",
+                `upload failed (${xhr.status})`,
+                xhr.status,
+              ),
+            );
+      xhr.onerror = () =>
+        reject(new GatewayError("upload_failed", "upload network error", 0));
       xhr.send(file);
     });
   }
@@ -158,7 +172,10 @@ export class GatewayClient {
   /** Active (non-archived) projects by default; archived=true lists ONLY
    * the archived ones. */
   listProjects(archived = false): Promise<{ projects: Project[] }> {
-    return this.request("GET", archived ? "/v1/projects?archived=1" : "/v1/projects");
+    return this.request(
+      "GET",
+      archived ? "/v1/projects?archived=1" : "/v1/projects",
+    );
   }
 
   getProject(id: string): Promise<Project> {
@@ -173,7 +190,10 @@ export class GatewayClient {
     return this.request("DELETE", `/v1/projects/${id}`);
   }
 
-  updateScenes(id: string, req: UpdateScenesRequest): Promise<{ scenes: Project["scenes"] }> {
+  updateScenes(
+    id: string,
+    req: UpdateScenesRequest,
+  ): Promise<{ scenes: Project["scenes"] }> {
     return this.request("PATCH", `/v1/projects/${id}/scenes`, req);
   }
 
@@ -207,7 +227,10 @@ export class GatewayClient {
     return this.request("POST", `/v1/projects/${id}/analyze`, {});
   }
 
-  quoteStep(id: string, req: StepConversionRequest): Promise<StepQuoteResponse> {
+  quoteStep(
+    id: string,
+    req: StepConversionRequest,
+  ): Promise<StepQuoteResponse> {
     return this.request("POST", `/v1/projects/${id}/quotes`, req);
   }
 

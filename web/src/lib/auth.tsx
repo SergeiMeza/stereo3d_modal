@@ -48,7 +48,6 @@ export interface AuthContextValue {
   resetPassword(email: string): Promise<void>;
   signOutUser(): Promise<void>;
   updateDisplayName(name: string): Promise<void>;
-  deleteAccount(): Promise<void>;
 }
 
 type AuthMode = "mock" | "firebase";
@@ -83,8 +82,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
     "The sign-in window was closed before finishing. Try again.",
   "auth/popup-blocked":
     "Your browser blocked the sign-in popup — allow popups and try again.",
-  "auth/too-many-requests":
-    "Too many attempts — wait a moment and try again.",
+  "auth/too-many-requests": "Too many attempts — wait a moment and try again.",
   "auth/network-request-failed":
     "Network error — check your connection and try again.",
   "auth/user-disabled": "This account has been disabled.",
@@ -214,9 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string) => {
       try {
         const auth = await getFirebaseAuth();
-        const { createUserWithEmailAndPassword } = await import(
-          "firebase/auth"
-        );
+        const { createUserWithEmailAndPassword } =
+          await import("firebase/auth");
         await createUserWithEmailAndPassword(auth, email, password);
         track("sign_up", { method: "password" });
         upgradeSession("new-account");
@@ -258,15 +255,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const deleteAccount = useCallback(async () => {
-    try {
-      const current = await requireFirebaseUser();
-      await current.delete();
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
   const value = useMemo<AuthContextValue>(
     () =>
       AUTH_MODE === "mock"
@@ -280,7 +268,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             resetPassword: mockNoop,
             signOutUser: mockSignOut,
             updateDisplayName: mockNoop,
-            deleteAccount: mockNoop,
           }
         : {
             user,
@@ -292,7 +279,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             resetPassword,
             signOutUser,
             updateDisplayName,
-            deleteAccount,
           },
     [
       user,
@@ -303,7 +289,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetPassword,
       signOutUser,
       updateDisplayName,
-      deleteAccount,
     ],
   );
 

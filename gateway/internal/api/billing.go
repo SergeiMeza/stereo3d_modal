@@ -365,41 +365,7 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	s.refreshCardCache(ctx, user.UID, customerID)
-	// Failed batches first: re-arm and charge (their conversions flip back
-	// to batched, so the per-conversion loop below never double-charges).
-	if failedBatches, berr := s.Store.ListUserBatchesByState(ctx, user.UID, store.BatchFailed, unpaidLimit); berr == nil {
-		for _, b := range failedBatches {
-			if _, cerr := s.rearmBatch(ctx, b); cerr != nil {
-				httpx.Log(ctx).Warn("settle batch charge failed", "batch_id", b.ID, "err", cerr)
-			}
-		}
-	}
-	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)
-	if err != nil {
-		httpx.WriteErr(ctx, w, err)
-		return
-	}
-	for _, conv := range unpaid {
-		if conv.Stripe.BatchID != "" {
-			continue // settled with its batch above
-		}
-		// Re-arm the charge (charge_failed → charge_pending) and run the
-		// standard settlement path. A conflict means a concurrent settle
-		// already claimed it — skip.
-		armed, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
-			if c.Stripe.PIStatus != store.PIChargeFailed {
-				return store.ErrStateConflict
-			}
-			c.Stripe.PIStatus = store.PIChargePending
-			return nil
-		})
-		if terr != nil {
-			continue
-		}
-		if _, cerr := s.chargeConversion(ctx, armed); cerr != nil {
-			httpx.Log(ctx).Warn("settle charge failed", "conversion_id", conv.ID, "err", cerr)
-		}
-	}
+	s.retryOutstanding(ctx, user.UID)
 
 	remaining, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)
 	if err != nil {
@@ -436,6 +402,47 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 	httpx.WriteOK(w, resp)
 }
 
+// retryOutstanding re-runs the failed automatic charges (failed batches,
+// then single charge_failed conversions) against the current default card.
+// Outcomes land in Firestore; callers read them back.
+func (s *Service) retryOutstanding(ctx context.Context, uid string) {
+	// Failed batches first: re-arm and charge (their conversions flip back
+	// to batched, so the per-conversion loop below never double-charges).
+	if failedBatches, berr := s.Store.ListUserBatchesByState(ctx, uid, store.BatchFailed, unpaidLimit); berr == nil {
+		for _, b := range failedBatches {
+			if _, cerr := s.rearmBatch(ctx, b); cerr != nil {
+				httpx.Log(ctx).Warn("settle batch charge failed", "batch_id", b.ID, "err", cerr)
+			}
+		}
+	}
+	unpaid, err := s.Store.ListUserByPIStatus(ctx, uid, store.PIChargeFailed, unpaidLimit)
+	if err != nil {
+		httpx.Log(ctx).Warn("settle: unpaid lookup failed", "uid", uid, "err", err)
+		return
+	}
+	for _, conv := range unpaid {
+		if conv.Stripe.BatchID != "" {
+			continue // settled with its batch above
+		}
+		// Re-arm the charge (charge_failed → charge_pending) and run the
+		// standard settlement path. A conflict means a concurrent settle
+		// already claimed it — skip.
+		armed, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if c.Stripe.PIStatus != store.PIChargeFailed {
+				return store.ErrStateConflict
+			}
+			c.Stripe.PIStatus = store.PIChargePending
+			return nil
+		})
+		if terr != nil {
+			continue
+		}
+		if _, cerr := s.chargeConversion(ctx, armed); cerr != nil {
+			httpx.Log(ctx).Warn("settle charge failed", "conversion_id", conv.ID, "err", cerr)
+		}
+	}
+}
+
 // requireBillable gates paid pro-step creation: a default card must be on
 // file and no automatic charge may be outstanding. 402s carry machine codes
 // the web client routes on (no_payment_method → onboarding; billing_overdue
@@ -447,6 +454,9 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 		// (only /v1/billing's read path heals it) — refresh before 402ing
 		// a user whose card IS on file at Stripe. See HandleLimits.
 		cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
+	}
+	if err == nil && cust.AccountDeleted {
+		return nil, httpx.Err(http.StatusGone, "account_deleted", "this account has been deleted")
 	}
 	if errors.Is(err, store.ErrNotFound) || (err == nil && cust.DefaultPaymentMethod == "") {
 		return nil, httpx.Err(http.StatusPaymentRequired, "no_payment_method",

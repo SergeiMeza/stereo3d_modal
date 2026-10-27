@@ -258,6 +258,11 @@ type Customer struct {
 	// before a still is charged; refunded when a credited run fails or is
 	// canceled. Never expires; nothing grants new credits.
 	PhotoCredits int64 `firestore:"photo_credits"`
+	// AccountDeleted marks an account deleted through POST
+	// /v1/account/delete. The record stays whole (soft delete); new paid
+	// work is refused.
+	AccountDeleted bool       `firestore:"account_deleted,omitempty"`
+	DeletedAt      *time.Time `firestore:"deleted_at,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches
@@ -276,9 +281,10 @@ const (
 
 // Batch close reasons (Batch.CloseReason).
 const (
-	BatchCloseWindow = "window"
-	BatchCloseCap    = "cap"
-	BatchClosePayNow = "pay_now"
+	BatchCloseWindow        = "window"
+	BatchCloseCap           = "cap"
+	BatchClosePayNow        = "pay_now"
+	BatchCloseAccountDelete = "account_delete" // collected before the account was deleted
 )
 
 type BatchItem struct {

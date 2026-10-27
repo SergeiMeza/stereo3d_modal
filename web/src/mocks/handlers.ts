@@ -196,7 +196,11 @@ function validateStepRequest(
 ): ReturnType<typeof err> | null {
   const step = body.step as Step;
   if (!["depth_preview", "stereo_preview", "production"].includes(step)) {
-    return err(400, "invalid_request", "step must be depth_preview|stereo_preview|production");
+    return err(
+      400,
+      "invalid_request",
+      "step must be depth_preview|stereo_preview|production",
+    );
   }
   if (body.displacement !== undefined) {
     return err(
@@ -228,15 +232,27 @@ function validateStepRequest(
       depthRes < 140 ||
       depthRes > 2520
     ) {
-      return err(400, "invalid_request", "depth_res must be a multiple of 14 in [140, 2520]");
+      return err(
+        400,
+        "invalid_request",
+        "depth_res must be a multiple of 14 in [140, 2520]",
+      );
     }
   }
   const depthScale = body.depth_scale;
   if (depthScale !== undefined) {
     if (step === "depth_preview") {
-      return err(400, "invalid_request", "depth_scale is not a depth_preview parameter");
+      return err(
+        400,
+        "invalid_request",
+        "depth_scale is not a depth_preview parameter",
+      );
     }
-    if (typeof depthScale !== "number" || depthScale < 0.3 || depthScale > 1.5) {
+    if (
+      typeof depthScale !== "number" ||
+      depthScale < 0.3 ||
+      depthScale > 1.5
+    ) {
       return err(400, "invalid_request", "depth_scale must be in [0.3, 1.5]");
     }
   }
@@ -244,7 +260,10 @@ function validateStepRequest(
   if (overrides !== undefined) {
     // depth_preview accepts PASSTHROUGH-ONLY overrides (2D scenes skip the
     // AI depth pass, black depth) — depth knobs stay stereo/production-only.
-    if (step === "depth_preview" && overrides.some((o) => o.passthrough !== true)) {
+    if (
+      step === "depth_preview" &&
+      overrides.some((o) => o.passthrough !== true)
+    ) {
       return err(
         400,
         "invalid_request",
@@ -262,7 +281,11 @@ function validateStepRequest(
         );
       }
       if (o.first <= prev) {
-        return err(400, "invalid_request", "scene_overrides[].first must be strictly increasing");
+        return err(
+          400,
+          "invalid_request",
+          "scene_overrides[].first must be strictly increasing",
+        );
       }
       prev = o.first;
       // passthrough is MUTUALLY EXCLUSIVE with the depth keys: a passthrough
@@ -291,8 +314,15 @@ function validateStepRequest(
           "scene_overrides entries need at least one of shot_type|displacement|placement",
         );
       }
-      if (o.displacement !== undefined && (o.displacement <= 0 || o.displacement > 0.03)) {
-        return err(400, "invalid_request", "scene_overrides[].displacement must be in (0, 0.03]");
+      if (
+        o.displacement !== undefined &&
+        (o.displacement <= 0 || o.displacement > 0.03)
+      ) {
+        return err(
+          400,
+          "invalid_request",
+          "scene_overrides[].displacement must be in (0, 0.03]",
+        );
       }
       if (o.shot_type !== undefined && !SHOT_TYPES.includes(o.shot_type)) {
         return err(
@@ -303,7 +333,10 @@ function validateStepRequest(
       }
       if (o.placement !== undefined) {
         const [near, far] = o.placement;
-        if (o.placement.length !== 2 || !(near >= -1.5 && near < far && far <= 1.5)) {
+        if (
+          o.placement.length !== 2 ||
+          !(near >= -1.5 && near < far && far <= 1.5)
+        ) {
           return err(
             400,
             "invalid_request",
@@ -313,7 +346,10 @@ function validateStepRequest(
       }
     }
   }
-  if (body.inpaint !== undefined && !["none", "migan", "propainter"].includes(body.inpaint as string)) {
+  if (
+    body.inpaint !== undefined &&
+    !["none", "migan", "propainter"].includes(body.inpaint as string)
+  ) {
     return err(400, "invalid_request", "inpaint must be none|migan|propainter");
   }
   if (body.warp !== undefined) {
@@ -321,11 +357,19 @@ function validateStepRequest(
       return err(400, "invalid_request", "warp must be forward|backward");
     }
     if (step === "depth_preview") {
-      return err(400, "invalid_request", "warp applies to stereo_preview and production only");
+      return err(
+        400,
+        "invalid_request",
+        "warp applies to stereo_preview and production only",
+      );
     }
     // mirrors the gateway: a gather warp has no gaps to fill, so an
     // explicit inpaint model alongside it is a contradiction
-    if (body.warp === "backward" && body.inpaint !== undefined && body.inpaint !== "none") {
+    if (
+      body.warp === "backward" &&
+      body.inpaint !== undefined &&
+      body.inpaint !== "none"
+    ) {
       return err(
         400,
         "invalid_request",
@@ -356,13 +400,21 @@ function validateStepRequest(
       );
     }
   }
-  if ((typeof body.target_fps === "number" ? body.target_fps : 0) > p.probe!.fps * 1.001) {
-    return err(400, "invalid_request", "target_fps cannot exceed the source frame rate");
+  if (
+    (typeof body.target_fps === "number" ? body.target_fps : 0) >
+    p.probe!.fps * 1.001
+  ) {
+    return err(
+      400,
+      "invalid_request",
+      "target_fps cannot exceed the source frame rate",
+    );
   }
   return null;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.min(Math.max(v, lo), hi);
 
 /** Analyze lifecycle while running — one stage per detail GET, then the
  * fixture analysis folds in (same shape the gateway's read-through poll
@@ -395,7 +447,10 @@ function quoteFor(
 } {
   const probe = project.probe!;
   const from = req.from_frame ?? 0;
-  const to = req.to_frame && req.to_frame < probe.num_frames ? req.to_frame : probe.num_frames;
+  const to =
+    req.to_frame && req.to_frame < probe.num_frames
+      ? req.to_frame
+      : probe.num_frames;
   const billable = (to - from) / probe.fps;
   const step = req.step as Step;
   const preset = step === "depth_preview" ? "draft" : (req.preset ?? "1080p");
@@ -433,7 +488,9 @@ function quoteFor(
     "3k": 1148,
     "4k": 1442,
   };
-  const depthRes = uploadedDepth ? 0 : (req.depth_res ?? presetInputSize[preset] ?? 980);
+  const depthRes = uploadedDepth
+    ? 0
+    : (req.depth_res ?? presetInputSize[preset] ?? 980);
   const dims = depthContentDims(probe, project.crop) ?? {
     width: 16,
     height: 9,
@@ -500,7 +557,8 @@ function quoteFor(
     if (depthMatch) reuseStages.push("depth");
   }
   const share = reuseStages.reduce(
-    (s, st) => s + (RATES.stageShares[st as keyof typeof RATES.stageShares] ?? 0),
+    (s, st) =>
+      s + (RATES.stageShares[st as keyof typeof RATES.stageShares] ?? 0),
     0,
   );
   const reuseDiscount = Math.round(subtotal * Math.min(share, 0.9));
@@ -509,7 +567,9 @@ function quoteFor(
     afterReuse > RATES.discountThresholdCents
       ? Math.round(afterReuse * RATES.discountPct)
       : 0;
-  const credit = project.analyze.credit_available ? RATES.analyzeCreditCents : 0;
+  const credit = project.analyze.credit_available
+    ? RATES.analyzeCreditCents
+    : 0;
   const total = Math.max(afterReuse - bulk - credit, RATES.minimumCents);
   return {
     quote: {
@@ -548,9 +608,15 @@ function quoteFor(
       ...(req.warp !== undefined ? { warp: req.warp } : {}),
       // uploaded depth: no inference resolution, and the run is pinned to
       // the full source rate (target_fps absent) — mirrors the gateway
-      ...(uploadedDepth ? { depth_source: "uploads/mock-depth.mp4" } : { depth_res: depthRes }),
-      ...(req.depth_scale !== undefined ? { depth_scale: req.depth_scale } : {}),
-      ...(req.scene_overrides?.length ? { scene_overrides: req.scene_overrides } : {}),
+      ...(uploadedDepth
+        ? { depth_source: "uploads/mock-depth.mp4" }
+        : { depth_res: depthRes }),
+      ...(req.depth_scale !== undefined
+        ? { depth_scale: req.depth_scale }
+        : {}),
+      ...(req.scene_overrides?.length
+        ? { scene_overrides: req.scene_overrides }
+        : {}),
       // previews default to HALF the source rate; never above source
       target_fps: uploadedDepth
         ? undefined
@@ -681,11 +747,20 @@ function tickProfile(p: Project) {
   const tick = mockDb.profileTicks.get(p.project_id) ?? 0;
   const now = new Date().toISOString();
   if (tick < 1) {
-    p.profile = { ...p.profile, progress: 0.6, stage: "profiling", updated_at: now };
+    p.profile = {
+      ...p.profile,
+      progress: 0.6,
+      stage: "profiling",
+      updated_at: now,
+    };
     mockDb.profileTicks.set(p.project_id, tick + 1);
   } else {
     const version = p.profile.scenes_version;
-    p.profile = { state: "succeeded", scenes_version: version, updated_at: now };
+    p.profile = {
+      state: "succeeded",
+      scenes_version: version,
+      updated_at: now,
+    };
     p.scene_profile = {
       conversion_id: `profile:${newId()}`,
       scenes_version: version,
@@ -800,13 +875,49 @@ export const handlers = [
       if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
     }
     b.unpaid = [];
-    return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
+    return HttpResponse.json({
+      settled: true,
+      publishable_key: "pk_test_mock",
+    });
   }),
 
   // Charge the pending balance now.
   http.post(`${GATEWAY}/v1/billing/pay-now`, () => {
     settlePending();
-    return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
+    return HttpResponse.json({
+      settled: true,
+      publishable_key: "pk_test_mock",
+    });
+  }),
+
+  // Account deletion: refused while a run is going or a charge failed;
+  // the pending balance is charged first.
+  http.post(`${GATEWAY}/v1/account/delete`, () => {
+    const active = [...mockDb.conversions.values()].filter((c) =>
+      ["created", "paid", "processing"].includes(c.state),
+    ).length;
+    if (active > 0) {
+      return err(
+        409,
+        "active_runs",
+        "cancel or wait for your running jobs before deleting your account",
+      );
+    }
+    const owed = mockDb.billing.unpaid.reduce((n, u) => n + u.amount_cents, 0);
+    if (owed > 0) {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "balance_due",
+          message:
+            "your unpaid balance couldn't be charged — update your card, then delete your account",
+          details: { amount_cents: owed, publishable_key: "pk_test_mock" },
+        },
+        { status: 402 },
+      );
+    }
+    settlePending();
+    return HttpResponse.json({ deleted: true });
   }),
 
   /** What completeChargeAction calls in place of confirmCardPayment: the
@@ -856,10 +967,16 @@ export const handlers = [
       expires_in: 900,
     });
   }),
-  http.put(`${GATEWAY}/__mock__/upload/:id`, () => new HttpResponse(null, { status: 200 })),
+  http.put(
+    `${GATEWAY}/__mock__/upload/:id`,
+    () => new HttpResponse(null, { status: 200 }),
+  ),
 
   http.post(`${GATEWAY}/v1/projects`, async ({ request }) => {
-    const { gcs_key, name } = (await request.json()) as { gcs_key: string; name?: string };
+    const { gcs_key, name } = (await request.json()) as {
+      gcs_key: string;
+      name?: string;
+    };
     if (!gcs_key.includes("/users/dev-user/")) {
       return err(400, "invalid_request", "gcs_key is not one of your uploads");
     }
@@ -936,37 +1053,47 @@ export const handlers = [
    * ffprobe-validates frame-exactness; the mock stamps the source's frame
    * count, except when the key/name contains "badframes" — that simulates
    * the mismatch 400 so tests can exercise the error surface. */
-  http.post(`${GATEWAY}/v1/projects/:id/depth-map`, async ({ params, request }) => {
-    const p = mockDb.projects.get(params.id as string);
-    if (!p) return err(404, "not_found", "project not found");
-    if (!p.probe) {
-      return err(
-        409,
-        "conflict",
-        "analysis has not completed yet — the depth map is validated against the source frame count",
-      );
-    }
-    const body = (await request.json()) as { gcs_key?: string; name?: string };
-    if (!body.gcs_key) {
-      return err(400, "invalid_request", "gcs_key is required (from POST /v1/uploads)");
-    }
-    if (`${body.gcs_key}${body.name ?? ""}`.includes("badframes")) {
-      return err(
-        400,
-        "invalid_request",
-        `depth map has ${p.probe.num_frames - 7} frames but the source has ${p.probe.num_frames} — it must be frame-exact (full length, source frame rate), like the Depth page's export`,
-      );
-    }
-    p.depth_upload = {
-      name: body.name?.trim() || undefined,
-      frames: p.probe.num_frames,
-      width: p.probe.width,
-      height: p.probe.height,
-      bytes: 1 << 20,
-      created_at: new Date().toISOString(),
-    };
-    return HttpResponse.json(projectDetail(p));
-  }),
+  http.post(
+    `${GATEWAY}/v1/projects/:id/depth-map`,
+    async ({ params, request }) => {
+      const p = mockDb.projects.get(params.id as string);
+      if (!p) return err(404, "not_found", "project not found");
+      if (!p.probe) {
+        return err(
+          409,
+          "conflict",
+          "analysis has not completed yet — the depth map is validated against the source frame count",
+        );
+      }
+      const body = (await request.json()) as {
+        gcs_key?: string;
+        name?: string;
+      };
+      if (!body.gcs_key) {
+        return err(
+          400,
+          "invalid_request",
+          "gcs_key is required (from POST /v1/uploads)",
+        );
+      }
+      if (`${body.gcs_key}${body.name ?? ""}`.includes("badframes")) {
+        return err(
+          400,
+          "invalid_request",
+          `depth map has ${p.probe.num_frames - 7} frames but the source has ${p.probe.num_frames} — it must be frame-exact (full length, source frame rate), like the Depth page's export`,
+        );
+      }
+      p.depth_upload = {
+        name: body.name?.trim() || undefined,
+        frames: p.probe.num_frames,
+        width: p.probe.width,
+        height: p.probe.height,
+        bytes: 1 << 20,
+        created_at: new Date().toISOString(),
+      };
+      return HttpResponse.json(projectDetail(p));
+    },
+  ),
 
   http.delete(`${GATEWAY}/v1/projects/:id/depth-map`, ({ params }) => {
     const p = mockDb.projects.get(params.id as string);
@@ -981,7 +1108,11 @@ export const handlers = [
     const p = mockDb.projects.get(params.id as string);
     if (!p) return err(404, "not_found", "project not found");
     if (p.analyze.state !== "failed") {
-      return err(409, "conflict", "analysis can only be retried after it failed");
+      return err(
+        409,
+        "conflict",
+        "analysis can only be retried after it failed",
+      );
     }
     p.analyze = {
       state: "running",
@@ -1054,129 +1185,163 @@ export const handlers = [
     return HttpResponse.json(projectDetail(p));
   }),
 
-  http.patch(`${GATEWAY}/v1/projects/:id/scenes`, async ({ params, request }) => {
-    const p = mockDb.projects.get(params.id as string);
-    if (!p) return err(404, "not_found", "project not found");
-    if (!p.scenes || !p.probe) return err(409, "conflict", "analysis has not completed yet");
-    const { cuts, expect_version } = (await request.json()) as {
-      cuts: number[];
-      expect_version?: number;
-    };
-    for (let i = 0; i < cuts.length; i++) {
-      if (!Number.isInteger(cuts[i]) || cuts[i] <= 0 || cuts[i] >= p.probe.num_frames) {
-        return err(400, "invalid_request", "cuts must be source-frame indices in (0, num_frames)");
+  http.patch(
+    `${GATEWAY}/v1/projects/:id/scenes`,
+    async ({ params, request }) => {
+      const p = mockDb.projects.get(params.id as string);
+      if (!p) return err(404, "not_found", "project not found");
+      if (!p.scenes || !p.probe)
+        return err(409, "conflict", "analysis has not completed yet");
+      const { cuts, expect_version } = (await request.json()) as {
+        cuts: number[];
+        expect_version?: number;
+      };
+      for (let i = 0; i < cuts.length; i++) {
+        if (
+          !Number.isInteger(cuts[i]) ||
+          cuts[i] <= 0 ||
+          cuts[i] >= p.probe.num_frames
+        ) {
+          return err(
+            400,
+            "invalid_request",
+            "cuts must be source-frame indices in (0, num_frames)",
+          );
+        }
+        if (i > 0 && cuts[i] <= cuts[i - 1]) {
+          return err(
+            400,
+            "invalid_request",
+            "cuts must be strictly increasing",
+          );
+        }
       }
-      if (i > 0 && cuts[i] <= cuts[i - 1]) {
-        return err(400, "invalid_request", "cuts must be strictly increasing");
+      if (expect_version !== undefined && expect_version !== p.scenes.version) {
+        return err(
+          409,
+          "conflict",
+          "scene list changed since you loaded it — reload and retry",
+        );
       }
-    }
-    if (expect_version !== undefined && expect_version !== p.scenes.version) {
-      return err(409, "conflict", "scene list changed since you loaded it — reload and retry");
-    }
-    p.scenes = {
-      version: p.scenes.version + 1,
-      cuts,
-      edited: true,
-      updated_at: new Date().toISOString(),
-    };
-    return HttpResponse.json({ scenes: p.scenes });
-  }),
+      p.scenes = {
+        version: p.scenes.version + 1,
+        cuts,
+        edited: true,
+        updated_at: new Date().toISOString(),
+      };
+      return HttpResponse.json({ scenes: p.scenes });
+    },
+  ),
 
-  http.post(`${GATEWAY}/v1/projects/:id/quotes`, async ({ params, request }) => {
-    const p = mockDb.projects.get(params.id as string);
-    if (!p) return err(404, "not_found", "project not found");
-    if (!p.probe) return err(409, "conflict", "analysis has not completed yet");
-    const body = (await request.json()) as Record<string, unknown>;
-    const invalid = validateStepRequest(p, body);
-    if (invalid) return invalid;
-    const req = body as unknown as StepConversionRequest;
-    const { quote, reuseStages, params: resolved } = quoteFor(p, req);
-    return HttpResponse.json({
-      step: req.step,
-      params: resolved,
-      quote,
-      // null when empty, mirroring the Go gateway's nil-slice serialization
-      // (older deployments still send null) — keeps the client guard honest.
-      reuse_stages: reuseStages.length > 0 ? reuseStages : null,
-      eta_seconds: etaForStep(
-        req.step,
-        quote.breakdown?.billable_seconds ?? p.probe!.duration_s,
-      ),
-    });
-  }),
+  http.post(
+    `${GATEWAY}/v1/projects/:id/quotes`,
+    async ({ params, request }) => {
+      const p = mockDb.projects.get(params.id as string);
+      if (!p) return err(404, "not_found", "project not found");
+      if (!p.probe)
+        return err(409, "conflict", "analysis has not completed yet");
+      const body = (await request.json()) as Record<string, unknown>;
+      const invalid = validateStepRequest(p, body);
+      if (invalid) return invalid;
+      const req = body as unknown as StepConversionRequest;
+      const { quote, reuseStages, params: resolved } = quoteFor(p, req);
+      return HttpResponse.json({
+        step: req.step,
+        params: resolved,
+        quote,
+        // null when empty, mirroring the Go gateway's nil-slice serialization
+        // (older deployments still send null) — keeps the client guard honest.
+        reuse_stages: reuseStages.length > 0 ? reuseStages : null,
+        eta_seconds: etaForStep(
+          req.step,
+          quote.breakdown?.billable_seconds ?? p.probe!.duration_s,
+        ),
+      });
+    },
+  ),
 
-  http.post(`${GATEWAY}/v1/projects/:id/conversions`, async ({ params, request }) => {
-    const p = mockDb.projects.get(params.id as string);
-    if (!p) return err(404, "not_found", "project not found");
-    if (!p.probe) return err(409, "conflict", "analysis has not completed yet");
-    const idem = request.headers.get("Idempotency-Key");
-    if (idem && mockDb.idem.has(idem)) {
-      return HttpResponse.json(mockDb.conversions.get(mockDb.idem.get(idem)!));
-    }
-    const body = (await request.json()) as Record<string, unknown>;
-    const invalid = validateStepRequest(p, body);
-    if (invalid) return invalid;
-    // The real gateway's pay-as-you-go billing gate (402s, api/billing.go
-    // requireBillable) — enforce it here too so the onboarding/settle flows
-    // can't silently regress against the mock.
-    if (!mockDb.billing.hasPaymentMethod) {
-      return err(402, "no_payment_method", "add a payment method before starting a conversion");
-    }
-    if (mockDb.billing.unpaid.length > 0) {
-      return err(
-        402,
-        "billing_overdue",
-        `the automatic payment for conversion ${mockDb.billing.unpaid[0].conversion_id} failed — settle it before starting new work`,
-      );
-    }
-    const req = body as unknown as StepConversionRequest;
-    const { quote, params: resolved } = quoteFor(p, req);
-    // Threshold hybrid, mirroring the gateway: expensive runs place an
-    // up-front hold (which can be declined or demand 3DS); cheap runs skip
-    // it and charge on success.
-    const holds = quote.amount_cents >= mockDb.billing.holdThresholdCents;
-    if (holds && mockDb.billing.nextHoldFails) {
-      mockDb.billing.nextHoldFails = false;
-      return err(
-        402,
-        "card_declined",
-        "your card declined the payment hold — update your payment method and retry",
-      );
-    }
-    if (p.analyze.credit_available) p.analyze.credit_available = false;
-    const id = newId();
-    // Enters at "paid" (billing verified / hold in place), except a hold
-    // demanding 3DS, which parks at "created" until __mock__/complete-3ds.
-    const needs3ds = holds && mockDb.billing.nextHoldRequiresAction;
-    if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
-    const conv: Conversion = {
-      conversion_id: id,
-      state: needs3ds ? "created" : "paid",
-      kind: "video",
-      project_id: p.project_id,
-      step: req.step,
-      scenes_version: p.scenes?.version,
-      params: resolved,
-      quote,
-      progress: 0,
-      stage: "",
-      eta_seconds: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...(needs3ds
-        ? {
-            billing: {
-              status: "requires_action" as const,
-              client_secret: `pi_mock_hold_${id}`,
-              publishable_key: "pk_test_mock",
-            },
-          }
-        : {}),
-    };
-    mockDb.conversions.set(id, conv);
-    if (idem) mockDb.idem.set(idem, id);
-    return HttpResponse.json(conv);
-  }),
+  http.post(
+    `${GATEWAY}/v1/projects/:id/conversions`,
+    async ({ params, request }) => {
+      const p = mockDb.projects.get(params.id as string);
+      if (!p) return err(404, "not_found", "project not found");
+      if (!p.probe)
+        return err(409, "conflict", "analysis has not completed yet");
+      const idem = request.headers.get("Idempotency-Key");
+      if (idem && mockDb.idem.has(idem)) {
+        return HttpResponse.json(
+          mockDb.conversions.get(mockDb.idem.get(idem)!),
+        );
+      }
+      const body = (await request.json()) as Record<string, unknown>;
+      const invalid = validateStepRequest(p, body);
+      if (invalid) return invalid;
+      // The real gateway's pay-as-you-go billing gate (402s, api/billing.go
+      // requireBillable) — enforce it here too so the onboarding/settle flows
+      // can't silently regress against the mock.
+      if (!mockDb.billing.hasPaymentMethod) {
+        return err(
+          402,
+          "no_payment_method",
+          "add a payment method before starting a conversion",
+        );
+      }
+      if (mockDb.billing.unpaid.length > 0) {
+        return err(
+          402,
+          "billing_overdue",
+          `the automatic payment for conversion ${mockDb.billing.unpaid[0].conversion_id} failed — settle it before starting new work`,
+        );
+      }
+      const req = body as unknown as StepConversionRequest;
+      const { quote, params: resolved } = quoteFor(p, req);
+      // Threshold hybrid, mirroring the gateway: expensive runs place an
+      // up-front hold (which can be declined or demand 3DS); cheap runs skip
+      // it and charge on success.
+      const holds = quote.amount_cents >= mockDb.billing.holdThresholdCents;
+      if (holds && mockDb.billing.nextHoldFails) {
+        mockDb.billing.nextHoldFails = false;
+        return err(
+          402,
+          "card_declined",
+          "your card declined the payment hold — update your payment method and retry",
+        );
+      }
+      if (p.analyze.credit_available) p.analyze.credit_available = false;
+      const id = newId();
+      // Enters at "paid" (billing verified / hold in place), except a hold
+      // demanding 3DS, which parks at "created" until __mock__/complete-3ds.
+      const needs3ds = holds && mockDb.billing.nextHoldRequiresAction;
+      if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
+      const conv: Conversion = {
+        conversion_id: id,
+        state: needs3ds ? "created" : "paid",
+        kind: "video",
+        project_id: p.project_id,
+        step: req.step,
+        scenes_version: p.scenes?.version,
+        params: resolved,
+        quote,
+        progress: 0,
+        stage: "",
+        eta_seconds: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...(needs3ds
+          ? {
+              billing: {
+                status: "requires_action" as const,
+                client_secret: `pi_mock_hold_${id}`,
+                publishable_key: "pk_test_mock",
+              },
+            }
+          : {}),
+      };
+      mockDb.conversions.set(id, conv);
+      if (idem) mockDb.idem.set(idem, id);
+      return HttpResponse.json(conv);
+    },
+  ),
 
   http.get(`${GATEWAY}/v1/conversions/:id`, ({ params }) => {
     const c = mockDb.conversions.get(params.id as string);
@@ -1198,7 +1363,8 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/conversions/:id/downloads`, ({ params }) => {
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "conversion not found");
-    if (c.state !== "succeeded") return err(409, "conflict", "conversion has no outputs yet");
+    if (c.state !== "succeeded")
+      return err(409, "conflict", "conversion has no outputs yet");
     // payment-locked (mirrors the gateway's downloadPaymentGate): a failed
     // automatic charge keeps the deliverables locked until settle
     if (c.billing?.status === "charge_failed") {
