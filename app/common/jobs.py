@@ -159,6 +159,26 @@ def get_job(job_id: str) -> dict | None:
     return job_dict.get(job_id)
 
 
+def stale_depth_attempt(job_id: str, attempt: str | None) -> str | None:
+    """Why a depth call should not run, or None when it should.
+
+    A depth call outlives its coordinator when the coordinator's container
+    is stopped while the call waits for a GPU (2026-10-27: calls queued for
+    a B200 for hours). The job may since have finished, or a newer
+    coordinator may be computing the same depth files. Calls without a
+    token (stage endpoints, older coordinators) run unless the job is
+    over or a token is on record."""
+    job = job_dict.get(job_id)
+    if job is None:
+        return None
+    if job.get("status") in (COMPLETED, FAILED):
+        return f"job already {job['status']}"
+    current = job.get("depth_attempt")
+    if current and attempt != current:
+        return f"attempt {attempt} superseded by {current}"
+    return None
+
+
 def update_job(job_id: str, **fields) -> dict | None:
     with _job_lock(job_id):
         job = job_dict.get(job_id)

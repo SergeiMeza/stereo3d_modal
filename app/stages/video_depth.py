@@ -11,7 +11,7 @@ from pathlib import Path
 import modal
 
 from app.common import jobs
-from app.common.errors import fail_fast
+from app.common.errors import FAILED_KEY, fail_fast
 from app.common.debug import get_logger
 from app.common.storage import GPU_VOLUMES, cache_volume, hf_secret, slack_secret, job_cache_dir, safe_reload
 from app.env import SCALEDOWN_WINDOW
@@ -75,6 +75,7 @@ class VideoDepthWorker:
         band: tuple[float, float] = (0.0, 1.0),
         scene_ranges: list | None = None,
         passthrough_firsts: list | None = None,
+        attempt: str | None = None,
     ) -> dict:
         """Compute a depth video for ``input_path`` (a path inside the
         cache volume or bucket mount). Returns metadata including the
@@ -89,7 +90,16 @@ class VideoDepthWorker:
         their depth is written BLACK with no model inference.
 
         Resumable: scene segments completed before a preemption are
-        skipped on the retried call."""
+        skipped on the retried call.
+
+        ``attempt``: the coordinator's token for this call, also stored
+        as the job's ``depth_attempt``. A call whose coordinator is gone
+        can still sit in the GPU queue; when it finally runs it must not
+        write the job's depth files under a newer run of the same job."""
+        stale = jobs.stale_depth_attempt(job_id, attempt)
+        if stale:
+            logger.warning(f"[job:{job_id}] ⏭  depth call skipped: {stale}")
+            return {FAILED_KEY: True, "error": f"stale depth call: {stale}"}
         safe_reload(cache_volume)  # pick up files written by upstream stages
         src = Path(input_path)
         if not src.exists():

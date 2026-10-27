@@ -10,6 +10,8 @@ final deliverables are published to the bucket. Every stage records
 its wall time on the job, so completed jobs double as benchmark runs.
 """
 
+import uuid
+
 import modal
 
 from app.common import jobs, reuse
@@ -636,6 +638,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             else:
                 # single worker: coverage relies on Modal's depth function
                 # timeout (2-4h), not the heartbeat watchdog
+                attempt = uuid.uuid4().hex[:12]
+                jobs.update_job(job_id, depth_attempt=attempt)
                 depth = worker_cls(encoder=encoder).generate.remote(
                     job_id,
                     pre["work_path"],
@@ -644,6 +648,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                     band=(0.15, 0.5),
                     scene_ranges=user_boundaries,
                     passthrough_firsts=passthrough_firsts or None,
+                    attempt=attempt,
                 )
         else:
             # per-frame backends (DA2-metric / DA3 / Depth Pro): single L40S worker
