@@ -1,0 +1,95 @@
+name: s3d-kpi
+
+x-app: &app
+  image: s3d-kpi:latest
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  env_file: .env
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kpi
+      POSTGRES_PASSWORD: kpi
+      POSTGRES_DB: kpi
+      # A subfolder: Finder and Spotlight leave files in the mount's root, and initdb wants it empty.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # On the external SSD, not in a Docker volume (a Docker Desktop disk reset deletes volumes).
+      # create_host_path false: with the SSD unplugged the database refuses to start instead of
+      # initialising an empty one on the internal disk.
+      - type: bind
+        source: ${KPI_DATA_DIR:-/Volumes/Dev/Data/s3d-kpi}/postgres
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kpi -d kpi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ingest:
+    <<: *app
+    command: python -m kpi.ingest --loop
+    environment:
+      DATABASE_URL: postgresql://kpi:kpi@db:5432/kpi
+      # Empty FIRESTORE_SA_FILE mounts /dev/null; the Firestore sources then skip instead of failing.
+      FIRESTORE_SA_PATH: /run/secrets/firestore_sa.json
+    volumes:
+      - ${FIRESTORE_SA_FILE:-/dev/null}:/run/secrets/firestore_sa.json:ro
+    restart: unless-stopped
+
+  api:
+    <<: *app
+    command: uvicorn kpi.api:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql://kpi:kpi@db:5432/kpi
+    ports:
+      - "${KPI_BIND:-127.0.0.1}:8003:8000"
+    restart: unless-stopped
+
+  # A pg_dump about once a day beside the data on the SSD, the last KPI_BACKUP_DAYS kept: what a
+  # broken data folder is restored from (make restore).
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: db
+      PGUSER: kpi
+      PGPASSWORD: kpi
+      PGDATABASE: kpi
+      KEEP_DAYS: ${KPI_BACKUP_DAYS:-14}
+    volumes:
+      - type: bind
+        source: ${KPI_DATA_DIR:-/Volumes/Dev/Data/s3d-kpi}/backups
+        target: /backups
+        bind:
+          create_host_path: false
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # An hour in first, so a fresh or restarting database is never what gets dumped; then a
+        # dump whenever the newest is older than 20 hours.
+        sleep 3600
+        while true; do
+          # A dropped SSD leaves the bind mount stale; exit so the restart policy remounts it.
+          ls /backups > /dev/null || { echo "backups folder unreadable; restarting"; exit 1; }
+          if ! find /backups -name 'kpi-*.dump' -mmin -1200 | grep -q .; then
+            f=/backups/kpi-$$(date -u +%Y%m%d-%H%M).dump
+            pg_dump -Fc -f "$$f.tmp" && mv "$$f.tmp" "$$f" && echo "backup written: $$f"
+          fi
+          find /backups -name 'kpi-*.dump' -mtime +$$KEEP_DAYS -delete
+          sleep 3600
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
