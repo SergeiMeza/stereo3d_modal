@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens ------------------------------------------------------------
+   Light: paper white, graphite ink. Dark: cool near-black ground, one cyan-blue
+   accent. Series slots s1..s5 are validated for CVD separation on each surface
+   (dataviz validator, adjacent pairs, both modes PASS). Status colours are
+   reserved for state and never reused as series colours. */
+:root {
+  color-scheme: light;
+  --ground: 247 247 245;
+  --surface: 255 255 255;
+  --surface-2: 242 243 241;
+  --line: 228 229 226;
+  --line-strong: 205 207 203;
+  --ink: 20 23 26;
+  --ink-2: 84 90 96;
+  --ink-3: 137 142 147;
+  --accent: 31 134 201;
+  --accent-ink: 255 255 255;
+  --good: 0 111 0;
+  --warn: 154 103 0;
+  --crit: 192 48 48;
+  --s1: 31 134 201;
+  --s2: 217 96 31;
+  --s3: 21 150 106;
+  --s4: 181 131 0;
+  --s5: 201 64 122;
+  --grid: 232 233 230;
+  --axis: 205 207 203;
+  --shadow: 20 23 26;
+  /* Sequential ramp q1..q7 for the cohort grid (ADR 0079): one blue, light to dark; each
+     step's -ink is the text colour that keeps 4.5:1 on it. */
+  --q1: 205 226 251;
+  --q2: 158 197 244;
+  --q3: 109 167 236;
+  --q4: 57 135 229;
+  --q5: 37 106 191;
+  --q6: 24 79 149;
+  --q7: 13 54 107;
+  --q1-ink: var(--ink);
+  --q2-ink: var(--ink);
+  --q3-ink: var(--ink);
+  --q4-ink: var(--ink);
+  --q5-ink: 255 255 255;
+  --q6-ink: 255 255 255;
+  --q7-ink: 255 255 255;
+}
+
+.dark {
+  color-scheme: dark;
+  --ground: 12 16 20;
+  --surface: 18 23 29;
+  --surface-2: 26 32 39;
+  --line: 36 43 51;
+  --line-strong: 58 66 76;
+  --ink: 236 239 242;
+  --ink-2: 168 176 184;
+  --ink-3: 118 127 136;
+  --accent: 61 159 214;
+  --accent-ink: 8 12 16;
+  --good: 52 199 89;
+  --warn: 250 178 25;
+  --crit: 235 87 87;
+  --s1: 61 159 214;
+  --s2: 217 112 46;
+  --s3: 34 168 120;
+  --s4: 184 133 12;
+  --s5: 208 83 138;
+  --grid: 32 39 47;
+  --axis: 58 66 76;
+  --shadow: 0 0 0;
+  /* the same blue stepped for the dark surface: dark to light */
+  --q1: 22 48 79;
+  --q2: 24 79 149;
+  --q3: 28 92 171;
+  --q4: 37 106 191;
+  --q5: 57 135 229;
+  --q6: 109 167 236;
+  --q7: 158 197 244;
+  --q1-ink: var(--ink);
+  --q2-ink: var(--ink);
+  --q3-ink: var(--ink);
+  --q4-ink: var(--ink);
+  --q5-ink: var(--ink);
+  --q6-ink: 8 12 16;
+  --q7-ink: 8 12 16;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-ground text-ink font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+  * {
+    border-color: rgb(var(--line));
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.25);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Recharts chrome: keep gridlines and axes recessive, tooltips theme-aware. */
+.recharts-cartesian-grid line {
+  stroke: rgb(var(--grid));
+}
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: rgb(var(--axis));
+}
+.recharts-cartesian-axis-tick text,
+.recharts-text {
+  fill: rgb(var(--ink-3));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.recharts-surface:focus {
+  outline: none;
+}
