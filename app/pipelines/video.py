@@ -14,6 +14,7 @@ import modal
 
 from app.common import jobs, reuse
 from app.common.debug import get_logger
+from app.common.modal_options import with_options
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
 from app.common.watchdog import STALL_TIMEOUT_S, gather_with_heartbeat
 from app.images import media_image
@@ -613,10 +614,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             pass  # reused or user-provided — skip the compute branches
         elif depth_model == "vda":
             depth_gpu, work_mp, elongation = _route_depth_gpu(input_size, probe)
-            worker_cls = (
-                VideoDepthWorker if depth_gpu == "L40S"
-                else VideoDepthWorker.with_options(gpu=depth_gpu)
-            )
+            # a variant for every tier, L40S too: see app/common/modal_options
+            worker_cls = with_options(VideoDepthWorker, gpu=depth_gpu)
             jlog.info(
                 f"🖥  depth GPU: {depth_gpu} (input_size={input_size}, "
                 f"working={work_mp:.2f}MP at {elongation:.2f}:1, parallel={parallel})"
@@ -815,8 +814,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                           f"inpaint={inpaint}, splat_px={splat_px})")
             else:
                 # >720p ProPainter / 4K splat needs ~80+ GB
-                stereo_cls = (
-                    VideoStereoWorker.with_options(gpu="H200") if big_work else VideoStereoWorker
+                stereo_cls = with_options(
+                    VideoStereoWorker, gpu="H200" if big_work else "L40S"
                 )
                 jlog.info(f"🖥  stereo GPU: {'H200' if big_work else 'L40S'} "
                           f"(splat_px={splat_px}, work={ww}x{wh})")
@@ -1545,7 +1544,7 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
     # batch (every ~5s via report_progress chunk=ranges[0][0]), so a
     # multi-minute gap = a silent hang. Same watchdog protection as the
     # stereo fan-out.
-    capped = worker_cls.with_options(max_containers=max_workers)
+    capped = with_options(worker_cls, max_containers=max_workers)
 
     def _spawn(i):
         # every chunk gets the FULL passthrough list — starts outside its
@@ -1623,7 +1622,7 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
 
     # cap concurrent containers so chunk count > max_workers queues
     # instead of all firing at once (workspace has a 10-GPU ceiling)
-    cls = stereo_cls.with_options(max_containers=max_workers)
+    cls = with_options(stereo_cls, max_containers=max_workers)
 
     def _spawn(i):
         return cls().generate.spawn(
@@ -1689,7 +1688,7 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
         f"≤{chunk_len}f (≤{max_workers} concurrent)"
     )
 
-    cls = M2SVidStereoWorker.with_options(max_containers=max_workers)
+    cls = with_options(M2SVidStereoWorker, max_containers=max_workers)
 
     def _spawn(i):
         return cls().generate.spawn(
