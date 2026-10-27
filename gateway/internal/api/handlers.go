@@ -862,6 +862,12 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if !store.IsTerminal(c.State) && c.Modal.SubmittedAt != nil {
 		resp["cancelable_until"] = c.Modal.SubmittedAt.Add(cancelWindow).Format(time.RFC3339)
 	}
+	if isOverdue(c, time.Now()) {
+		resp["overdue"] = true // the client offers "Report it"
+	}
+	if n := len(c.Support.Reports); n > 0 {
+		resp["reported_at"] = c.Support.Reports[n-1].At.Format(time.RFC3339)
+	}
 	resp["created_at"] = c.CreatedAt.Format(time.RFC3339)
 	resp["updated_at"] = c.UpdatedAt.Format(time.RFC3339)
 	if c.State == store.StateSucceeded {

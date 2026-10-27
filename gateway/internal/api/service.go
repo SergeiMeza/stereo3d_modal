@@ -296,6 +296,7 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 		if conv.Modal.SubmittedAt != nil && time.Since(*conv.Modal.SubmittedAt) > processingTTL {
 			return s.settleFailure(ctx, conv, fmt.Sprintf("processing exceeded %s (job still %s)", processingTTL, job.Status))
 		}
+		s.alertIfOverdue(ctx, conv)
 		updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateProcessing}, func(c *store.Conversion) error {
 			c.Modal.Progress = job.Progress
 			c.Modal.Stage = job.Stage

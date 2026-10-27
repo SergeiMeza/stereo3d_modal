@@ -1360,6 +1360,15 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
+  http.post(`${GATEWAY}/v1/conversions/:id/report`, ({ params }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "conversion not found");
+    if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
+      c.reported_at = new Date().toISOString();
+    }
+    return HttpResponse.json(c);
+  }),
+
   http.get(`${GATEWAY}/v1/conversions/:id/downloads`, ({ params }) => {
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "conversion not found");

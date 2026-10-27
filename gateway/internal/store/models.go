@@ -225,8 +225,26 @@ type Conversion struct {
 	Outputs   map[string]string `firestore:"outputs,omitempty" json:"-"` // name → gcs key; clients fetch signed URLs
 	Error     *Error            `firestore:"error,omitempty" json:"error,omitempty"`
 	IdemKey   string            `firestore:"idem_key,omitempty" json:"-"`
+	Support   Support           `firestore:"support" json:"-"`
 	CreatedAt time.Time         `firestore:"created_at" json:"created_at"`
 	UpdatedAt time.Time         `firestore:"updated_at" json:"updated_at"`
+}
+
+// Support tracks runs that outlive their estimate. On 2026-10-27 runs sat
+// at "Profiling scenes" for hours and neither we nor the users heard about
+// it until one of them emailed.
+type Support struct {
+	// ExpectedSeconds is the pre-run wall-clock estimate (0 = none).
+	ExpectedSeconds  int64      `firestore:"expected_seconds,omitempty"`
+	OverdueAlertedAt *time.Time `firestore:"overdue_alerted_at,omitempty"`
+	Reports          []Report   `firestore:"reports,omitempty"`
+}
+
+// Report is a user's "this run is stuck" from the web app.
+type Report struct {
+	At    time.Time `firestore:"at"`
+	Note  string    `firestore:"note,omitempty"`
+	Email string    `firestore:"email,omitempty"`
 }
 
 type Customer struct {

@@ -23,12 +23,7 @@ export type Step = "depth_preview" | "stereo_preview" | "production";
 export type Preset = "draft" | "1080p" | "qhd" | "3k" | "4k";
 
 export type Format =
-  | "sbs"
-  | "half_sbs"
-  | "tb"
-  | "half_tb"
-  | "anaglyph"
-  | "mvhevc";
+  "sbs" | "half_sbs" | "tb" | "half_tb" | "anaglyph" | "mvhevc";
 
 export type Inpaint = "none" | "migan" | "propainter";
 // "migan": per-frame fill of the warp gaps (no temporal model) on the cheap
@@ -273,6 +268,11 @@ export interface Conversion {
    * canceled (1 minute after GPU submission). Absent while the job hasn't
    * started (always cancelable) and on terminal states. */
   cancelable_until?: string;
+  /** the run is well past its estimate (gateway-judged); the tracker
+   * offers "Report it" */
+  overdue?: boolean;
+  /** RFC3339 time of the user's latest report on this run */
+  reported_at?: string;
   outputs?: string[]; // names only (state=succeeded); URLs via /downloads
   error?: ConversionError;
   /** how the automatic charge went — succeeded pro-step conversions only */

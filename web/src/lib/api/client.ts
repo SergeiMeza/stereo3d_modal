@@ -256,6 +256,11 @@ export class GatewayClient {
     return this.request("DELETE", `/v1/conversions/${id}`);
   }
 
+  /** Tell us an overdue run looks stuck; the note is optional. */
+  reportConversion(id: string, note: string): Promise<Conversion> {
+    return this.request("POST", `/v1/conversions/${id}/report`, { note });
+  }
+
   getDownloads(id: string): Promise<Downloads> {
     return this.request("GET", `/v1/conversions/${id}/downloads`);
   }

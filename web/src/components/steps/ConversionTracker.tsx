@@ -4,7 +4,9 @@
  * Active conversion tracker: polls GET /v1/conversions/{id} until the
  * conversion reaches a terminal state, showing progress/stage/eta with a
  * cancel button while active. On success it notifies the workspace
- * (onProjectChanged) and fetches the signed download links.
+ * (onProjectChanged) and fetches the signed download links. A run the
+ * gateway marks overdue offers "Report it" instead of an endless bar
+ * (2026-10-27: runs sat at "Profiling scenes" for hours).
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -148,6 +150,14 @@ export function ConversionTracker({
     }
   }
 
+  async function report(note: string): Promise<void> {
+    const next = await client.reportConversion(conv.conversion_id, note);
+    if (TERMINAL.has(convRef.current.state)) return;
+    convRef.current = next;
+    setConv(next);
+    onUpdate?.(next);
+  }
+
   const pct = Math.round(Math.min(Math.max(conv.progress, 0), 1) * 100);
 
   return (
@@ -161,7 +171,9 @@ export function ConversionTracker({
           {!terminal && conv.stage ? (
             // raw stage strings carry internal worker/model details
             // ("video_stereo[propainter]") — always render the mapped label
-            <span className="text-xs text-fg-muted">{stageLabel(conv.stage)}</span>
+            <span className="text-xs text-fg-muted">
+              {stageLabel(conv.stage)}
+            </span>
           ) : null}
           {!terminal &&
           typeof conv.eta_seconds === "number" &&
@@ -189,6 +201,9 @@ export function ConversionTracker({
         </p>
       ) : null}
       {!terminal ? <Progress value={pct} className="mt-3 h-1.5" /> : null}
+      {!terminal && (conv.overdue || conv.reported_at) ? (
+        <OverdueNotice reported={Boolean(conv.reported_at)} onReport={report} />
+      ) : null}
       {conv.state === "succeeded" && showDownloads ? (
         <div className="mt-3">
           <p className="mb-2 text-xs font-medium text-fg-muted">Downloads</p>
@@ -207,7 +222,8 @@ export function ConversionTracker({
           steps.
         </p>
       ) : null}
-      {conv.state === "succeeded" && conv.billing?.status === "charge_failed" ? (
+      {conv.state === "succeeded" &&
+      conv.billing?.status === "charge_failed" ? (
         <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
           The automatic payment for this conversion failed — your results are
           ready, but settle it (banner above) before starting new work.
@@ -222,6 +238,71 @@ export function ConversionTracker({
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
+    </div>
+  );
+}
+
+/** Shown under the bar once a run is well past its estimate. */
+function OverdueNotice({
+  reported,
+  onReport,
+}: {
+  reported: boolean;
+  onReport: (note: string) => Promise<void>;
+}): JSX.Element {
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (reported) {
+    return (
+      <p className="mt-3 text-sm text-fg-muted" data-testid="overdue-reported">
+        Thanks for letting us know. We&apos;re looking into this run and will reply
+        by email.
+      </p>
+    );
+  }
+
+  async function send(): Promise<void> {
+    setSending(true);
+    setFailed(false);
+    try {
+      await onReport(note.trim());
+    } catch {
+      setFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2" data-testid="overdue-notice">
+      <p className="text-sm text-amber-400">
+        This is taking much longer than expected.
+      </p>
+      <p className="text-xs text-fg-muted">
+        Something may be stuck on our side. Report it and we&apos;ll look into it and
+        reply by email.
+      </p>
+      <textarea
+        aria-label="Anything we should know? (optional)"
+        placeholder="Anything we should know? (optional)"
+        value={note}
+        maxLength={2000}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        className="w-full rounded-lg border border-edge bg-surface-1 px-3 py-1.5 text-sm text-fg outline-none focus:border-primary/60"
+      />
+      <div className="flex items-center gap-3">
+        <Button size="xs" onClick={() => void send()} disabled={sending}>
+          {sending ? "Sending…" : "Report it"}
+        </Button>
+        {failed ? (
+          <span className="text-xs text-red-400">
+            Couldn&apos;t send the report. Try again.
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -1100,13 +1100,20 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		IdemKey: idemKey,
 	}
 	stampScenes(conv, p)
-	quote, _, qerr := s.quoteStep(ctx, p, params, req.Step, credit)
+	quote, reuseStages, qerr := s.quoteStep(ctx, p, params, req.Step, credit)
 	if qerr != nil {
 		s.restoreCredit(ctx, conv)
 		httpx.WriteErr(ctx, w, qerr)
 		return
 	}
 	conv.Quote = *quote
+	// The same pre-run estimate the quote showed; overdue runs are judged
+	// against it.
+	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
+		in := s.stepQuoteInputs(p, params, req.Step, billable)
+		in.ReuseStages = reuseStages
+		conv.Support.ExpectedSeconds = s.Pricing.EstimateStepETA(ctx, in)
+	}
 
 	s.finalizeAutoBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
 }

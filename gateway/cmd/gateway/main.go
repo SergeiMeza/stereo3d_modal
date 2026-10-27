@@ -133,6 +133,7 @@ func main() {
 	mux.HandleFunc("GET /v1/conversions/{id}", authed(withID(svc.HandleGetConversion)))
 	mux.HandleFunc("GET /v1/conversions/{id}/downloads", authed(withID(svc.HandleDownloads)))
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
+	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))

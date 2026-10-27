@@ -62,6 +62,24 @@ func (s *Slack) BatchChargeFailed(ctx context.Context, batchID, uid string, item
 		s.env, batchID, items, cents, uid, err))
 }
 
+// ConversionOverdue: a run is well past its estimate and still going.
+func (s *Slack) ConversionOverdue(ctx context.Context, conversionID, uid, stage string, elapsed, expected time.Duration) {
+	s.post(ctx, fmt.Sprintf(
+		":hourglass: [gateway/%s] conversion `%s` OVERDUE: running %s (estimate %s)\nuser: `%s`  stage: `%s`",
+		s.env, conversionID, elapsed.Round(time.Minute), expected.Round(time.Minute), uid, stage))
+}
+
+// ConversionReported: the user pressed "Report it" on a slow run.
+func (s *Slack) ConversionReported(ctx context.Context, conversionID, uid, email, stage string, elapsed time.Duration, note string) {
+	text := fmt.Sprintf(
+		":sos: [gateway/%s] user REPORTED conversion `%s` (running %s)\nuser: `%s` %s  stage: `%s`",
+		s.env, conversionID, elapsed.Round(time.Minute), uid, email, stage)
+	if note != "" {
+		text += fmt.Sprintf("\n```%s```", truncate(note, 1000))
+	}
+	s.post(ctx, text)
+}
+
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
