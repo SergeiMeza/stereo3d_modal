@@ -64,7 +64,8 @@ func (v *Verifier) DeleteUser(ctx context.Context, uid string) error {
 // PasswordResetCode generates a password-reset code for email (the
 // oobCode of the Admin SDK's reset link; the link itself is not used, so
 // the project's action URL and templates stay as they are). found is false,
-// with no error, when no account has that email.
+// with no error, when no account has that email (an error or an empty link,
+// depending on the project's enumeration protection).
 func (v *Verifier) PasswordResetCode(ctx context.Context, email string) (code string, found bool, err error) {
 	link, err := v.client.PasswordResetLink(ctx, email)
 	if fbauth.IsUserNotFound(err) || fbauth.IsEmailNotFound(err) {
@@ -72,6 +73,11 @@ func (v *Verifier) PasswordResetCode(ctx context.Context, email string) (code st
 	}
 	if err != nil {
 		return "", false, err
+	}
+	if link == "" {
+		// With email enumeration protection on, an unknown email gets an
+		// empty answer rather than an error.
+		return "", false, nil
 	}
 	code, err = OOBCode(link)
 	if err != nil {
