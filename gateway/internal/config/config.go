@@ -35,6 +35,17 @@ type Config struct {
 	LBIPs    string
 	RelayIPs string
 
+	// MediaRelayOrigin replaces https://storage.googleapis.com in storage
+	// links answered to browsers that came through the relay (mediahost).
+	// "off" disables the rewrite.
+	MediaRelayOrigin string
+	// ResendAPIKey (send-only) mails the site's own password-reset link to
+	// relay users (identity.SiteReset), from ResetMailFrom, to ResetPageURL.
+	// Without the key, relay resets use the provider's email as before.
+	ResendAPIKey  string
+	ResetMailFrom string
+	ResetPageURL  string
+
 	// CORSOrigins are browser origins allowed to call the API (the web
 	// client). Comma-separated; "*" allows all (bearer auth, no cookies).
 	CORSOrigins []string
@@ -68,6 +79,14 @@ func Load() (*Config, error) {
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),
 		RelayIPs:          getenv("RELAY_IPS", ""),
+
+		MediaRelayOrigin: getenv("MEDIA_RELAY_ORIGIN", "https://cn.media.stereo3d.studio"),
+		ResendAPIKey:     getenv("RESEND_API_KEY", ""),
+		ResetMailFrom:    getenv("RESET_MAIL_FROM", ""),
+		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
+	}
+	if c.MediaRelayOrigin == "off" {
+		c.MediaRelayOrigin = ""
 	}
 	for _, o := range strings.Split(getenv("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimSpace(o); o != "" {

@@ -117,12 +117,20 @@ func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, us
 
 // ------------------------------------------------------------- uploads
 
-// POST /v1/uploads {filename, content_type} → signed PUT URL + gcs_key.
+// POST /v1/uploads {filename, content_type[, resumable]} → upload ticket.
+//
+// By default the ticket is one signed PUT URL for the whole file. With
+// resumable: true (the web app in China mode, whose relay caps a request
+// body at 25 MB) the gateway opens a resumable upload session for the same
+// key and content type and answers its URL with resumable: true; the client
+// PUTs chunks to it with Content-Range. Either way the object lands at
+// gcs_key and the next step Stats it as before.
 func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
 		Filename    string `json:"filename"`
 		ContentType string `json:"content_type"`
+		Resumable   bool   `json:"resumable"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -136,6 +144,23 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 	// The upload id doubles as the conversion id the client passes back.
 	id := store.NewID()
 	key := s.GCS.UploadKey(user.UID, id, ext)
+	if req.Resumable {
+		session, err := s.GCS.StartResumableUpload(ctx, key, req.ContentType, r.Header.Get("Origin"))
+		if err != nil {
+			httpx.Log(ctx).Error("resumable upload session failed", "uid", user.UID, "upload_id", id, "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServiceBusy())
+			return
+		}
+		httpx.WriteOK(w, map[string]any{
+			"upload_id":  id,
+			"gcs_key":    key,
+			"upload_url": session,
+			"resumable":  true,
+			"headers":    map[string]string{},
+			"expires_in": int(resumableSessionTTL.Seconds()),
+		})
+		return
+	}
 	url, err := s.GCS.SignedPutURL(key, req.ContentType, uploadURLTTL)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)

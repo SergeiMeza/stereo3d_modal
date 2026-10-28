@@ -37,7 +37,10 @@ const (
 	processingTTL = 24 * time.Hour   // hard ceiling (Modal orchestrator cap is 8h)
 	analyzeTTL    = 3 * time.Hour    // analyze polls failing this long → fail (Modal's cap is 2h)
 	uploadURLTTL  = 15 * time.Minute
-	downloadTTL   = 24 * time.Hour
+	// resumableSessionTTL is how long storage keeps a resumable upload
+	// session open.
+	resumableSessionTTL = 7 * 24 * time.Hour
+	downloadTTL         = 24 * time.Hour
 )
 
 type Service struct {

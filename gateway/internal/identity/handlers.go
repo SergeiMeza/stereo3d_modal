@@ -1,13 +1,16 @@
 package identity
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 )
 
 // Per-address ceilings per minute. Mobile carriers in China put many users
@@ -18,32 +21,74 @@ const (
 	resetPerMinute   = 10
 	refreshPerMinute = 120
 	profilePerMinute = 30
+	confirmPerMinute = 10
+	// resetMailsPerHour caps the site's reset mails per address, so the
+	// route can't be used to flood someone's inbox.
+	resetMailsPerHour = 5
 
 	maxBodyBytes   = 64 << 10
 	maxEmailLen    = 320
 	maxPasswordLen = 4096
 	maxTokenLen    = 8192
 	maxDisplayName = 120
+	maxOOBCodeLen  = 2048
 )
 
 // Handlers serves /v1/auth/*.
 type Handlers struct {
 	Client *Client
 	IPs    IPPolicy
+	// SiteReset, when set, handles resets that come through the relay.
+	SiteReset *SiteReset
 
-	signIn, signUp, reset, refresh, profile *Limiter
+	signIn, signUp, reset, refresh, profile, confirm *Limiter
+	resetMails                                       *Limiter
 }
 
 func NewHandlers(c *Client, ips IPPolicy) *Handlers {
 	return &Handlers{
-		Client:  c,
-		IPs:     ips,
-		signIn:  NewLimiter(signInPerMinute, time.Minute),
-		signUp:  NewLimiter(signUpPerMinute, time.Minute),
-		reset:   NewLimiter(resetPerMinute, time.Minute),
-		refresh: NewLimiter(refreshPerMinute, time.Minute),
-		profile: NewLimiter(profilePerMinute, time.Minute),
+		Client:     c,
+		IPs:        ips,
+		signIn:     NewLimiter(signInPerMinute, time.Minute),
+		signUp:     NewLimiter(signUpPerMinute, time.Minute),
+		reset:      NewLimiter(resetPerMinute, time.Minute),
+		refresh:    NewLimiter(refreshPerMinute, time.Minute),
+		profile:    NewLimiter(profilePerMinute, time.Minute),
+		confirm:    NewLimiter(confirmPerMinute, time.Minute),
+		resetMails: NewLimiter(resetMailsPerHour, time.Hour),
 	}
+}
+
+// ResetCodes makes password-reset codes (auth.Verifier).
+type ResetCodes interface {
+	PasswordResetCode(ctx context.Context, email string) (code string, found bool, err error)
+}
+
+// Mailer sends one email (mail.Resend).
+type Mailer interface {
+	Configured() bool
+	Send(ctx context.Context, m mail.Message) error
+}
+
+// SiteReset mails a reset link to the site's own page instead of the
+// identity provider's, whose host is blocked in mainland China. The page
+// posts the code and the new password to /v1/auth/reset/confirm.
+type SiteReset struct {
+	Codes ResetCodes
+	Mail  Mailer
+	// PageURL is the site's reset page; the code goes in ?oob=. Fixed by
+	// configuration, never taken from the request, so a reset mail can only
+	// ever point at our own site.
+	PageURL string
+}
+
+func (s *SiteReset) configured() bool {
+	return s != nil && s.Codes != nil && s.Mail != nil && s.Mail.Configured() && s.PageURL != ""
+}
+
+// Link is the page URL carrying code.
+func (s *SiteReset) Link(code string) string {
+	return s.PageURL + "?oob=" + url.QueryEscape(code)
 }
 
 type credentials struct {
@@ -114,11 +159,80 @@ func (h *Handlers) Reset(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(r.Context(), w, mapCode(OpReset, "INVALID_EMAIL"))
 		return
 	}
+	if _, viaRelay := h.IPs.ClientIP(r); viaRelay && h.SiteReset.configured() {
+		h.siteReset(w, r, req.Email)
+		return
+	}
 	if err := h.Client.SendPasswordReset(r.Context(), req.Email); err != nil {
 		h.fail(w, r, OpReset, err)
 		return
 	}
 	httpx.WriteOK(w, map[string]bool{"ok": true})
+}
+
+// siteReset mails the site's reset link. Like the provider's flow it
+// answers ok whether or not an account has the email.
+func (h *Handlers) siteReset(w http.ResponseWriter, r *http.Request, email string) {
+	ctx := r.Context()
+	log := httpx.Log(ctx).With("op", string(OpReset), "via_relay", true)
+	if ok, _ := h.resetMails.Allow(strings.ToLower(email)); !ok {
+		log.Info("reset mail skipped: per-address limit")
+		httpx.WriteOK(w, map[string]bool{"ok": true})
+		return
+	}
+	code, found, err := h.SiteReset.Codes.PasswordResetCode(ctx, email)
+	if err != nil {
+		log.Warn("reset code failed", "err", err.Error())
+		httpx.WriteErr(ctx, w, ErrUnavailable())
+		return
+	}
+	if !found {
+		log.Info("reset for an unknown address")
+		httpx.WriteOK(w, map[string]bool{"ok": true})
+		return
+	}
+	if err := h.SiteReset.Mail.Send(ctx, mail.PasswordReset(email, h.SiteReset.Link(code))); err != nil {
+		log.Warn("reset mail failed", "err", err.Error())
+		httpx.WriteErr(ctx, w, ErrUnavailable())
+		return
+	}
+	log.Info("reset mail sent")
+	httpx.WriteOK(w, map[string]bool{"ok": true})
+}
+
+// ResetConfirm: POST /v1/auth/reset/confirm {oob, new_password} → {ok,
+// email}. Sets the new password with the code from the reset mail.
+func (h *Handlers) ResetConfirm(w http.ResponseWriter, r *http.Request) {
+	if !h.admit(w, r, h.confirm) {
+		return
+	}
+	var req struct {
+		OOB         string `json:"oob"`
+		NewPassword string `json:"new_password"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	req.OOB = strings.TrimSpace(req.OOB)
+	if req.OOB == "" || len(req.OOB) > maxOOBCodeLen {
+		httpx.WriteErr(r.Context(), w, errResetLinkInvalid())
+		return
+	}
+	if req.NewPassword == "" {
+		httpx.WriteErr(r.Context(), w, mapCode(OpResetConfirm, "MISSING_PASSWORD"))
+		return
+	}
+	if len(req.NewPassword) > maxPasswordLen {
+		httpx.WriteErr(r.Context(), w, httpx.ErrInvalid("password is too long"))
+		return
+	}
+	email, err := h.Client.ConfirmPasswordReset(r.Context(), req.OOB, req.NewPassword)
+	if err != nil {
+		h.fail(w, r, OpResetConfirm, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteOK(w, map[string]any{"ok": true, "email": email})
 }
 
 // Profile: POST /v1/auth/profile {display_name}, behind the authed wrapper

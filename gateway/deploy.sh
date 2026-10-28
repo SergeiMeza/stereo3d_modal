@@ -5,7 +5,9 @@
 #
 # One-time per project setup (see README.md):
 #   - secrets in Secret Manager: stripe-secret-key-{env}, stripe-webhook-secret-{env},
-#     modal-token-id, modal-token-secret, reconcile-token-{env}, slack-webhook (optional)
+#     modal-token-id, modal-token-secret, reconcile-token-{env}, slack-webhook (optional),
+#     RESEND_API_KEY (send-only Resend key on spatial-ai-labs.com, shared with
+#     Spatial Video Studio's backend; mails China-mode password resets)
 #   - service account with roles: datastore.user, storage.objectAdmin (bucket-scoped),
 #     iam.serviceAccountTokenCreator (on itself), secretmanager.secretAccessor
 #   - Cloud Scheduler job hitting POST /internal/reconcile every 60s
@@ -43,7 +45,7 @@ gcloud run deploy "$SERVICE" \
   --min-instances 0 --max-instances 10 \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
   --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}@FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}" \
-  --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest"
+  --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
 echo "Deployed: $URL"

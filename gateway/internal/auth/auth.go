@@ -4,7 +4,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	firebase "firebase.google.com/go/v4"
@@ -57,6 +59,38 @@ func (v *Verifier) DeleteUser(ctx context.Context, uid string) error {
 		return err
 	}
 	return nil
+}
+
+// PasswordResetCode generates a password-reset code for email (the
+// oobCode of the Admin SDK's reset link; the link itself is not used, so
+// the project's action URL and templates stay as they are). found is false,
+// with no error, when no account has that email.
+func (v *Verifier) PasswordResetCode(ctx context.Context, email string) (code string, found bool, err error) {
+	link, err := v.client.PasswordResetLink(ctx, email)
+	if fbauth.IsUserNotFound(err) || fbauth.IsEmailNotFound(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	code, err = OOBCode(link)
+	if err != nil {
+		return "", false, err
+	}
+	return code, true, nil
+}
+
+// OOBCode reads the oobCode parameter of an email action link.
+func OOBCode(link string) (string, error) {
+	u, err := url.Parse(link)
+	if err != nil {
+		return "", errors.New("unreadable action link")
+	}
+	code := u.Query().Get("oobCode")
+	if code == "" {
+		return "", errors.New("action link without a code")
+	}
+	return code, nil
 }
 
 var errUnauthorized = errUnauthorizedType{}

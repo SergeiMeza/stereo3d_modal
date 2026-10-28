@@ -56,6 +56,8 @@ const (
 	OpRefresh Op = "refresh"
 	OpReset   Op = "reset"
 	OpProfile Op = "profile"
+	// OpResetConfirm sets the new password with a reset code.
+	OpResetConfirm Op = "reset_confirm"
 )
 
 // Client calls Firebase Auth's REST API with the project's web API key.
@@ -123,6 +125,19 @@ func (c *Client) SendPasswordReset(ctx context.Context, email string) error {
 		return nil
 	}
 	return err
+}
+
+// ConfirmPasswordReset is confirmPasswordReset: it sets newPassword on the
+// account the reset code belongs to (adding a password to an account that
+// only had another sign-in method) and answers that account's email.
+func (c *Client) ConfirmPasswordReset(ctx context.Context, code, newPassword string) (string, error) {
+	body, err := c.postJSON(ctx, OpResetConfirm, "accounts:resetPassword", map[string]any{
+		"oobCode": code, "newPassword": newPassword,
+	})
+	if err != nil {
+		return "", err
+	}
+	return str(body["email"]), nil
 }
 
 // UpdateDisplayName is updateProfile({displayName}) for the user whose ID
@@ -305,6 +320,10 @@ func APIError(err error) *httpx.APIError {
 	return mapCode(fe.op, fe.code)
 }
 
+func errResetLinkInvalid() *httpx.APIError {
+	return httpx.Err(http.StatusBadRequest, "reset_link_invalid", "this reset link is not valid or was already used; ask for a new one")
+}
+
 func ErrUnavailable() *httpx.APIError {
 	return httpx.Err(http.StatusBadGateway, "auth_unavailable", "sign-in is unavailable right now; try again in a moment")
 }
@@ -322,6 +341,10 @@ func mapCode(op Op, code string) *httpx.APIError {
 		}
 	case "EMAIL_EXISTS":
 		return httpx.Err(http.StatusConflict, "email_exists", "an account with that email already exists; sign in instead")
+	case "EXPIRED_OOB_CODE":
+		return httpx.Err(http.StatusBadRequest, "reset_link_expired", "this reset link has expired; ask for a new one")
+	case "INVALID_OOB_CODE", "MISSING_OOB_CODE":
+		return errResetLinkInvalid()
 	case "WEAK_PASSWORD":
 		return httpx.Err(http.StatusBadRequest, "weak_password", "password is too weak; use at least 6 characters")
 	case "INVALID_EMAIL", "MISSING_EMAIL":
@@ -338,6 +361,8 @@ func mapCode(op Op, code string) *httpx.APIError {
 		return expiredSession
 	case "TOKEN_EXPIRED", "USER_NOT_FOUND":
 		switch op {
+		case OpResetConfirm:
+			return errResetLinkInvalid()
 		case OpRefresh:
 			return expiredSession
 		case OpProfile:

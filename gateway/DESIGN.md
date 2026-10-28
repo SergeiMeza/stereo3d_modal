@@ -137,7 +137,7 @@ Client-facing (Firebase ID token in `Authorization: Bearer`):
 | POST | `/v1/billing/setup-intent` | SetupIntent for the web onboarding card capture |
 | POST | `/v1/billing/settle` | Retry outstanding automatic charges on the current default card (returns 3DS client_secret when the bank requires action) |
 | POST | `/v1/billing/portal` | Stripe customer-portal session (manage cards, receipts) |
-| POST | `/v1/uploads` | Signed GCS PUT URL for source media |
+| POST | `/v1/uploads` | Signed GCS PUT URL for source media; `{"resumable": true}` opens a resumable session server-side instead (China-mode web: the relay caps bodies at 25 MB, so the browser PUTs 8 MiB chunks with `Content-Range`) |
 | POST | `/v1/quotes` | Probe uploaded media, return price quote (also returned by create) |
 | POST | `/v1/conversions` | Create conversion: probe → quote → PaymentIntent (manual capture) → Firestore record. Returns payment sheet params. Idempotent via `Idempotency-Key` header. |
 | GET | `/v1/conversions` | List caller's conversions (job history UI + support) |
@@ -145,6 +145,21 @@ Client-facing (Firebase ID token in `Authorization: Bearer`):
 | GET | `/v1/conversions/{id}/downloads` | Signed GCS GET URLs for outputs |
 | DELETE | `/v1/conversions/{id}` | Cancel: cancels Modal job + releases hold |
 | GET | `/health` | Liveness |
+
+China mode (web, through the relay at cn.api.stereo3d.studio; see
+`internal/identity`, `internal/mediahost`):
+
+- `/v1/auth/{signin,signup,refresh,reset}` (no token) and `/v1/auth/profile`
+  sign browsers in through Firebase Auth's REST API. A relay `reset` mails
+  the site's own link (`https://www.stereo3d.studio/reset-password?oob=…`,
+  Resend, `RESEND_API_KEY`) instead of the provider's, whose host is blocked;
+  `/v1/auth/reset/confirm {oob, new_password}` sets the password.
+- Every JSON answer to a browser that came through the relay gets its
+  `https://storage.googleapis.com/<bucket>/stereo3d/<env>/` links rewritten to
+  `https://cn.media.stereo3d.studio/…` (`MEDIA_RELAY_ORIGIN`), one middleware
+  for upload tickets, previews, thumbnails and downloads. The relay keeps
+  `Host: storage.googleapis.com`, so signatures stay valid. Direct requests
+  and the iOS app (no `Origin`) get the answers unchanged.
 
 Machine-facing:
 

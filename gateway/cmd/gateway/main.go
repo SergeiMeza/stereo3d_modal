@@ -15,6 +15,8 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
+	"spatial-ai-labs/stereo3d-gateway/internal/mediahost"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -92,11 +94,20 @@ func main() {
 
 	// Sign-in through the gateway for browsers that can't reach Google
 	// (identity package). Same Firebase uid and tokens as the JS SDK.
-	idh := identity.NewHandlers(identity.New(cfg.FirebaseWebAPIKey), identity.NewIPPolicy(cfg.LBIPs, cfg.RelayIPs))
+	ips := identity.NewIPPolicy(cfg.LBIPs, cfg.RelayIPs)
+	idh := identity.NewHandlers(identity.New(cfg.FirebaseWebAPIKey), ips)
+	// Relay resets mail a link to the site's own reset page: the provider's
+	// email links to a host blocked in mainland China.
+	idh.SiteReset = &identity.SiteReset{
+		Codes:   verifier,
+		Mail:    mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom),
+		PageURL: cfg.ResetPageURL,
+	}
 	mux.HandleFunc("POST /v1/auth/signin", idh.SignIn)
 	mux.HandleFunc("POST /v1/auth/signup", idh.SignUp)
 	mux.HandleFunc("POST /v1/auth/refresh", idh.Refresh)
 	mux.HandleFunc("POST /v1/auth/reset", idh.Reset)
+	mux.HandleFunc("POST /v1/auth/reset/confirm", idh.ResetConfirm)
 
 	// Authenticated client routes.
 	authed := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser)) http.HandlerFunc {
@@ -162,7 +173,13 @@ func main() {
 	mux.HandleFunc("POST /v1/projects/{id}/conversions", authed(withID(svc.HandleCreateStepConversion)))
 
 	slog.Info("gateway listening", "port", cfg.Port, "env", cfg.Env)
-	handler := httpx.WithCORS(cfg.CORSOrigins, httpx.WithRequestID(mux))
+	// Storage links answered to browsers that came through the relay point
+	// at the China media host (mediahost); everyone else's are untouched.
+	media := mediahost.New(cfg.MediaRelayOrigin, cfg.BucketName, cfg.BucketPrefix, func(r *http.Request) bool {
+		_, viaRelay := ips.ClientIP(r)
+		return viaRelay
+	})
+	handler := httpx.WithCORS(cfg.CORSOrigins, httpx.WithRequestID(media.Middleware(mux)))
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)

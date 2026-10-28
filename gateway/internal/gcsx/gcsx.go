@@ -10,6 +10,8 @@ package gcsx
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -18,10 +20,15 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+// SignFunc signs a URL for one object (storage.BucketHandle.SignedURL).
+type SignFunc func(key string, opts *storage.SignedURLOptions) (string, error)
+
 type Client struct {
 	gcs    *storage.Client
 	bucket string
 	prefix string // "stereo3d/{env}/"
+	sign   SignFunc
+	http   *http.Client // starts resumable sessions
 }
 
 func New(ctx context.Context, bucket, prefix string) (*Client, error) {
@@ -29,10 +36,25 @@ func New(ctx context.Context, bucket, prefix string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{gcs: gcs, bucket: bucket, prefix: prefix}, nil
+	return &Client{
+		gcs: gcs, bucket: bucket, prefix: prefix,
+		sign: gcs.Bucket(bucket).SignedURL,
+		http: &http.Client{Timeout: sessionStartTimeout},
+	}, nil
 }
 
-func (c *Client) Close() error { return c.gcs.Close() }
+// NewWithSigner builds a Client without a storage connection, for tests:
+// signing and session starts go through sign and hc; Stat is unavailable.
+func NewWithSigner(bucket, prefix string, sign SignFunc, hc *http.Client) *Client {
+	return &Client{bucket: bucket, prefix: prefix, sign: sign, http: hc}
+}
+
+func (c *Client) Close() error {
+	if c.gcs == nil {
+		return nil
+	}
+	return c.gcs.Close()
+}
 
 // UploadKey builds the canonical source key for a conversion upload.
 func (c *Client) UploadKey(uid, conversionID, ext string) string {
@@ -47,7 +69,7 @@ func (c *Client) InPrefix(key string) bool {
 }
 
 func (c *Client) SignedPutURL(key, contentType string, expires time.Duration) (string, error) {
-	return c.gcs.Bucket(c.bucket).SignedURL(key, &storage.SignedURLOptions{
+	return c.sign(key, &storage.SignedURLOptions{
 		Scheme:      storage.SigningSchemeV4,
 		Method:      "PUT",
 		Expires:     time.Now().Add(expires),
@@ -56,15 +78,68 @@ func (c *Client) SignedPutURL(key, contentType string, expires time.Duration) (s
 }
 
 func (c *Client) SignedGetURL(key string, expires time.Duration) (string, error) {
-	return c.gcs.Bucket(c.bucket).SignedURL(key, &storage.SignedURLOptions{
+	return c.sign(key, &storage.SignedURLOptions{
 		Scheme:  storage.SigningSchemeV4,
 		Method:  "GET",
 		Expires: time.Now().Add(expires),
 	})
 }
 
+const sessionStartTimeout = 15 * time.Second
+
+// StartResumableUpload opens an XML-API resumable upload session for key
+// and returns the session URL (storage.googleapis.com/<bucket>/<key>
+// ?upload_id=…), which the client PUTs chunks to with Content-Range; the
+// upload id is the credential, valid for a week. The session is started
+// here because the bucket's CORS (shared, not ours to change) doesn't let
+// browsers POST. origin is the browser's Origin: a session answers CORS
+// only for the origin that started it, so it is sent along ("" for none).
+func (c *Client) StartResumableUpload(ctx context.Context, key, contentType, origin string) (string, error) {
+	signed, err := c.sign(key, &storage.SignedURLOptions{
+		Scheme:      storage.SigningSchemeV4,
+		Method:      "POST",
+		Expires:     time.Now().Add(sessionStartTimeout + time.Minute),
+		ContentType: contentType,
+		Headers:     []string{"x-goog-resumable:start"},
+	})
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, sessionStartTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, signed, http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("x-goog-resumable", "start")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		// The URL carries a signature; keep it out of the error.
+		return "", fmt.Errorf("start resumable upload for %s: transport failure", key)
+	}
+	defer res.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 64<<10))
+	loc := res.Header.Get("Location")
+	if res.StatusCode != http.StatusCreated || loc == "" {
+		return "", fmt.Errorf("start resumable upload for %s: status %d", key, res.StatusCode)
+	}
+	if u, err := url.Parse(loc); err != nil || u.Scheme != "https" || u.Query().Get("upload_id") == "" {
+		return "", fmt.Errorf("start resumable upload for %s: unexpected session URL", key)
+	}
+	return loc, nil
+}
+
 // Stat returns object size, or an error if the upload doesn't exist yet.
 func (c *Client) Stat(ctx context.Context, key string) (int64, error) {
+	if c.gcs == nil {
+		return 0, fmt.Errorf("stat gs://%s/%s: no storage connection", c.bucket, key)
+	}
 	attrs, err := c.gcs.Bucket(c.bucket).Object(key).Attrs(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("stat gs://%s/%s: %w", c.bucket, key, err)
