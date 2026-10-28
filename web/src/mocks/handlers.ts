@@ -202,6 +202,9 @@ export const mockAuth = {
   refreshTokens: new Map<string, string>(),
   issued: 0,
   resets: [] as string[],
+  /** reset code (the email link's ?oob=) → email; "expired-oob" is always
+   * expired */
+  resetCodes: new Map<string, string>(),
   reset() {
     this.users = new Map([
       [
@@ -217,6 +220,7 @@ export const mockAuth = {
     this.refreshTokens = new Map();
     this.issued = 0;
     this.resets = [];
+    this.resetCodes = new Map();
   },
 };
 mockAuth.reset();
@@ -307,7 +311,43 @@ function authHandlers(base: string) {
         return err(400, "invalid_email", "that email address is not valid");
       }
       mockAuth.resets.push(email);
+      if (mockAuth.users.has(email)) {
+        mockAuth.resetCodes.set(`mock-oob-${mockAuth.resets.length}`, email);
+      }
       return HttpResponse.json({ ok: true });
+    }),
+    http.post(`${base}/v1/auth/reset/confirm`, async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as {
+        oob?: string;
+        new_password?: string;
+      };
+      const oob = (body.oob ?? "").trim();
+      const password = body.new_password ?? "";
+      if (oob === "expired-oob") {
+        return err(
+          400,
+          "reset_link_expired",
+          "this reset link has expired; ask for a new one",
+        );
+      }
+      const email = mockAuth.resetCodes.get(oob);
+      if (!email) {
+        return err(
+          400,
+          "reset_link_invalid",
+          "this reset link is not valid or was already used; ask for a new one",
+        );
+      }
+      if (password.length < 6) {
+        return err(
+          400,
+          "weak_password",
+          "password is too weak; use at least 6 characters",
+        );
+      }
+      mockAuth.resetCodes.delete(oob);
+      mockAuth.users.get(email)!.password = password;
+      return HttpResponse.json({ ok: true, email });
     }),
     http.post(`${base}/v1/auth/profile`, async ({ request }) => {
       const auth = request.headers.get("Authorization") ?? "";
@@ -330,6 +370,73 @@ function authHandlers(base: string) {
 }
 
 let nextId = 1;
+// ------------------------------------------------------- resumable uploads
+
+/** Resumable upload sessions behind the mock POST /v1/uploads
+ * {resumable: true}, answering PUTs like the storage session does:
+ * Content-Range "bytes a-b/*" → 308 with Range, the last chunk
+ * "bytes a-b/total" → 200, an empty "bytes * /total" → where it stands.
+ * failNext makes the next n chunk PUTs fail with 503 (the bytes are
+ * dropped), to exercise the client's retry and resume. */
+interface MockUploadSession {
+  gcsKey: string;
+  bytes: number;
+  total: number | null;
+  done: boolean;
+  chunks: number;
+  statusChecks: number;
+}
+
+export const mockUploads = {
+  sessions: new Map<string, MockUploadSession>(),
+  failNext: 0,
+  reset() {
+    this.sessions = new Map();
+    this.failNext = 0;
+  },
+};
+
+/** Range, exposed to cross-origin readers as the bucket's CORS does. */
+function sessionRange(s: MockUploadSession): Record<string, string> {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Expose-Headers": "Range, Content-Range",
+  };
+  return s.bytes > 0 ? { ...cors, Range: `bytes=0-${s.bytes - 1}` } : cors;
+}
+
+async function resumablePut(request: Request, id: string): Promise<Response> {
+  const s = mockUploads.sessions.get(id);
+  if (!s) return new HttpResponse(null, { status: 404 });
+  const header = request.headers.get("Content-Range") ?? "";
+  const status = /^bytes \*\/(\d+|\*)$/.exec(header);
+  if (status) {
+    s.statusChecks++;
+    if (s.done) return new HttpResponse(null, { status: 200 });
+    return new HttpResponse(null, { status: 308, headers: sessionRange(s) });
+  }
+  const m = /^bytes (\d+)-(\d+)\/(\d+|\*)$/.exec(header);
+  if (!m) return new HttpResponse(null, { status: 400 });
+  const body = await request.arrayBuffer();
+  if (mockUploads.failNext > 0) {
+    mockUploads.failNext--;
+    return new HttpResponse(null, { status: 503 });
+  }
+  const [start, end] = [Number(m[1]), Number(m[2])];
+  if (start !== s.bytes || end - start + 1 !== body.byteLength) {
+    // Out of order or short: keep what it has, say where it stands.
+    return new HttpResponse(null, { status: 308, headers: sessionRange(s) });
+  }
+  s.chunks++;
+  s.bytes = end + 1;
+  if (m[3] !== "*") s.total = Number(m[3]);
+  if (s.total !== null && s.bytes === s.total) {
+    s.done = true;
+    return new HttpResponse(null, { status: 200 });
+  }
+  return new HttpResponse(null, { status: 308, headers: sessionRange(s) });
+}
+
 function newId(): string {
   return `m0c${String(nextId++).padStart(9, "0")}`;
 }
@@ -1109,9 +1216,30 @@ export const handlers = [
   }),
 
   http.post(`${GATEWAY}/v1/uploads`, async ({ request }) => {
-    const { filename } = (await request.json()) as { filename: string };
+    const { filename, resumable } = (await request.json()) as {
+      filename: string;
+      resumable?: boolean;
+    };
     const id = newId();
     const ext = filename.slice(filename.lastIndexOf("."));
+    if (resumable === true) {
+      mockUploads.sessions.set(id, {
+        gcsKey: `stereo3d/test/users/dev-user/${id}/source${ext}`,
+        bytes: 0,
+        total: null,
+        done: false,
+        chunks: 0,
+        statusChecks: 0,
+      });
+      return HttpResponse.json({
+        upload_id: id,
+        gcs_key: `stereo3d/test/users/dev-user/${id}/source${ext}`,
+        upload_url: `${GATEWAY}/__mock__/resumable/${id}?upload_id=mock`,
+        resumable: true,
+        headers: {},
+        expires_in: 604800,
+      });
+    }
     return HttpResponse.json({
       upload_id: id,
       gcs_key: `stereo3d/test/users/dev-user/${id}/source${ext}`,
@@ -1124,6 +1252,25 @@ export const handlers = [
     `${GATEWAY}/__mock__/upload/:id`,
     () => new HttpResponse(null, { status: 200 }),
   ),
+  http.put(`${GATEWAY}/__mock__/resumable/:id`, ({ request, params }) =>
+    resumablePut(request, params.id as string),
+  ),
+  // Whether an upload landed: complete resumable sessions exist; single-PUT
+  // uploads aren't tracked and read as missing.
+  http.post(`${GATEWAY}/v1/uploads/status`, async ({ request }) => {
+    const { gcs_key } = (await request.json()) as { gcs_key: string };
+    if (!gcs_key.includes("/users/dev-user/")) {
+      return err(400, "invalid_request", "gcs_key is not one of your uploads");
+    }
+    const s = [...mockUploads.sessions.values()].find(
+      (x) => x.gcsKey === gcs_key && x.done,
+    );
+    return HttpResponse.json({
+      gcs_key,
+      exists: s !== undefined,
+      bytes: s?.bytes ?? 0,
+    });
+  }),
 
   http.post(`${GATEWAY}/v1/projects`, async ({ request }) => {
     const { gcs_key, name } = (await request.json()) as {

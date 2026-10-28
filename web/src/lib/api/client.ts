@@ -19,6 +19,11 @@ import type {
   UpdateScenesRequest,
   UploadTicket,
 } from "./types";
+import {
+  ResumableUploadError,
+  uploadResumable,
+  type ChunkTransport,
+} from "./resumableUpload";
 
 export class GatewayError extends Error {
   constructor(
@@ -40,6 +45,11 @@ export interface ClientOptions {
   baseUrl: string | (() => string);
   getToken: TokenProvider;
   fetchFn?: typeof fetch; // injectable for tests
+  /** Ask for resumable upload tickets (China mode: the cn. hosts carry at
+   * most 25 MB per request, so files go up in chunks). Read per upload. */
+  resumableUploads?: () => boolean;
+  /** Chunk PUTs (default XHR, for progress); injectable for tests. */
+  chunkTransport?: ChunkTransport;
 }
 
 export class GatewayClient {
@@ -134,15 +144,35 @@ export class GatewayClient {
     return this.request("POST", "/v1/uploads", {
       filename,
       content_type: contentType,
+      ...(this.opts.resumableUploads?.() ? { resumable: true } : {}),
     });
   }
 
-  /** PUT the file to the signed URL (no auth header — the URL is the auth). */
+  /** Upload the file with its ticket (no auth header — the URL is the
+   * auth): one PUT to the signed URL, or 8 MiB chunks with retries when
+   * the ticket is resumable (lib/api/resumableUpload.ts). */
   async uploadFile(
     ticket: UploadTicket,
     file: Blob,
     onProgress?: (fraction: number) => void,
   ): Promise<void> {
+    if (ticket.resumable === true) {
+      try {
+        await uploadResumable(ticket.upload_url, file, onProgress, {
+          transport: this.opts.chunkTransport,
+          verifyComplete: async () => {
+            const st = await this.uploadStatus(ticket.gcs_key);
+            return st.exists && st.bytes === file.size;
+          },
+        });
+      } catch (e) {
+        if (e instanceof ResumableUploadError) {
+          throw new GatewayError("upload_failed", e.message, e.status);
+        }
+        throw e;
+      }
+      return;
+    }
     // XHR (not fetch) for upload progress events.
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -167,6 +197,14 @@ export class GatewayClient {
         reject(new GatewayError("upload_failed", "upload network error", 0));
       xhr.send(file);
     });
+  }
+
+  /** Whether an upload landed, and its size (the browser can't read the
+   * answer to a resumable upload's last chunk). */
+  uploadStatus(
+    gcsKey: string,
+  ): Promise<{ gcs_key: string; exists: boolean; bytes: number }> {
+    return this.request("POST", "/v1/uploads/status", { gcs_key: gcsKey });
   }
 
   // ----------------------------------------------------------- projects

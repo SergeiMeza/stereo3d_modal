@@ -295,7 +295,10 @@ export interface StepQuoteResponse {
 export interface UploadTicket {
   upload_id: string;
   gcs_key: string;
-  upload_url: string; // signed PUT
+  /** signed PUT, or the resumable session URL when resumable is true */
+  upload_url: string;
+  /** chunked upload with Content-Range (asked for in China mode) */
+  resumable?: boolean;
   headers: Record<string, string>;
   expires_in: number;
 }

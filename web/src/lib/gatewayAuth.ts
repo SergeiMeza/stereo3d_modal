@@ -212,6 +212,20 @@ export async function gatewayResetPassword(email: string): Promise<void> {
   await post("/v1/auth/reset", { email });
 }
 
+/** Set a new password with the code from the reset email (the site's own
+ * reset page). Answers the account's email. Refusals: reset_link_expired,
+ * reset_link_invalid, weak_password. */
+export async function gatewayConfirmPasswordReset(
+  oob: string,
+  newPassword: string,
+): Promise<{ email: string | null }> {
+  const answer = await post<{ email?: string }>("/v1/auth/reset/confirm", {
+    oob,
+    new_password: newPassword,
+  });
+  return { email: answer.email || null };
+}
+
 export function gatewaySignOut(): void {
   store(null);
 }
