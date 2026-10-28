@@ -18,9 +18,12 @@
  *   (upload, card saved, paid conversion) in recording priority.
  * - Both SDKs load lazily and failures are swallowed: ad blockers commonly
  *   reject analytics scripts and must never break the product.
+ * - China mode (lib/region.ts) never starts either SDK: they can't load
+ *   there, and the Firebase SDK must stay out of that page entirely.
  */
 
 import { getFirebaseAnalytics } from "@/lib/firebase";
+import { currentRegion } from "@/lib/region";
 
 export const CLARITY_PROJECT_ID =
   process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? "xhpg7k1meg";
@@ -78,7 +81,7 @@ let clarityPromise: Promise<ClarityClient> | null = null;
  * signal — analytics granted, ads denied (we run no ads). Elsewhere the
  * API isn't called and Clarity's regional defaults apply. */
 export function startAnalytics(opts: { consented: boolean }): void {
-  if (!ANALYTICS_ENABLED || started) return;
+  if (!ANALYTICS_ENABLED || started || currentRegion() === "cn") return;
   started = true;
   clarityPromise = import("@microsoft/clarity").then(
     ({ default: Clarity }) => {

@@ -34,8 +34,12 @@ import type {
   PendingBatch,
 } from "@/lib/api/types";
 import { depthContentDims } from "@/lib/depthRes";
+import { deriveCnGatewayUrl } from "@/lib/region";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
+/** China mode's gateway host (lib/region.ts); the auth routes answer on both. */
+const GATEWAY_CN =
+  process.env.NEXT_PUBLIC_GATEWAY_CN_URL ?? deriveCnGatewayUrl(GATEWAY);
 
 // Default rates — keep in sync with gateway/internal/pricing/pricing.go.
 // The per-minute tables are ≈1× BILLED Modal cost; every quote multiplies
@@ -147,6 +151,7 @@ export const mockDb = {
     this.analyzeTicks = fresh.analyzeTicks;
     this.profileTicks = fresh.profileTicks;
     this.billing = fresh.billing;
+    mockAuth.reset();
   },
   setConversionState(id: string, state: Conversion["state"]) {
     const c = this.conversions.get(id);
@@ -177,6 +182,151 @@ function err(status: number, code: string, message: string) {
     { success: false, error: code, message },
     { status },
   );
+}
+
+// ---------------------------------------------------------- gateway auth
+
+/** Accounts behind the mock /v1/auth/* routes (China mode sign-in),
+ * mirroring gateway/internal/identity: same answers, same error codes.
+ * Seeded with dev@example.com / "password". */
+interface MockAuthUser {
+  uid: string;
+  email: string;
+  password: string;
+  displayName: string | null;
+}
+
+export const mockAuth = {
+  users: new Map<string, MockAuthUser>(),
+  /** refresh token → uid; revoke one to exercise a refused refresh */
+  refreshTokens: new Map<string, string>(),
+  issued: 0,
+  resets: [] as string[],
+  reset() {
+    this.users = new Map([
+      [
+        "dev@example.com",
+        {
+          uid: "dev-user",
+          email: "dev@example.com",
+          password: "password",
+          displayName: "Dev User",
+        },
+      ],
+    ]);
+    this.refreshTokens = new Map();
+    this.issued = 0;
+    this.resets = [];
+  },
+};
+mockAuth.reset();
+
+function authSession(u: MockAuthUser) {
+  const n = ++mockAuth.issued;
+  const refreshToken = `mock-refresh-${n}`;
+  mockAuth.refreshTokens.set(refreshToken, u.uid);
+  return {
+    uid: u.uid,
+    email: u.email,
+    display_name: u.displayName ?? "",
+    id_token: `mock-id-${n}`,
+    refresh_token: refreshToken,
+    expires_in: 3600,
+  };
+}
+
+function authHandlers(base: string) {
+  const credentials = async (request: Request) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      email?: string;
+      password?: string;
+    };
+    return {
+      email: (body.email ?? "").trim().toLowerCase(),
+      password: body.password ?? "",
+    };
+  };
+  return [
+    http.post(`${base}/v1/auth/signin`, async ({ request }) => {
+      const { email, password } = await credentials(request);
+      if (!email.includes("@")) {
+        return err(400, "invalid_email", "that email address is not valid");
+      }
+      const u = mockAuth.users.get(email);
+      if (!u || u.password !== password) {
+        return err(401, "invalid_credentials", "incorrect email or password");
+      }
+      return HttpResponse.json(authSession(u));
+    }),
+    http.post(`${base}/v1/auth/signup`, async ({ request }) => {
+      const { email, password } = await credentials(request);
+      if (!email.includes("@")) {
+        return err(400, "invalid_email", "that email address is not valid");
+      }
+      if (mockAuth.users.has(email)) {
+        return err(
+          409,
+          "email_exists",
+          "an account with that email already exists; sign in instead",
+        );
+      }
+      if (password.length < 6) {
+        return err(
+          400,
+          "weak_password",
+          "password is too weak; use at least 6 characters",
+        );
+      }
+      const u = {
+        uid: `mock-uid-${mockAuth.users.size + 1}`,
+        email,
+        password,
+        displayName: null,
+      };
+      mockAuth.users.set(email, u);
+      return HttpResponse.json(authSession(u));
+    }),
+    http.post(`${base}/v1/auth/refresh`, async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as {
+        refresh_token?: string;
+      };
+      const uid = mockAuth.refreshTokens.get(body.refresh_token ?? "");
+      const u = [...mockAuth.users.values()].find((x) => x.uid === uid);
+      if (!u) {
+        return err(
+          401,
+          "invalid_refresh_token",
+          "your session has expired; sign in again",
+        );
+      }
+      return HttpResponse.json(authSession(u));
+    }),
+    http.post(`${base}/v1/auth/reset`, async ({ request }) => {
+      const { email } = await credentials(request);
+      if (!email.includes("@")) {
+        return err(400, "invalid_email", "that email address is not valid");
+      }
+      mockAuth.resets.push(email);
+      return HttpResponse.json({ ok: true });
+    }),
+    http.post(`${base}/v1/auth/profile`, async ({ request }) => {
+      const auth = request.headers.get("Authorization") ?? "";
+      if (!auth.startsWith("Bearer ")) {
+        return err(401, "invalid_token", "invalid or expired authentication token");
+      }
+      const body = (await request.json().catch(() => ({}))) as {
+        display_name?: string;
+      };
+      const name = (body.display_name ?? "").trim();
+      if (!name) {
+        return err(400, "invalid_request", "display_name must be 1–120 characters");
+      }
+      // The mock can't read a uid out of its tokens: the seeded user.
+      const u = mockAuth.users.get("dev@example.com")!;
+      u.displayName = name;
+      return HttpResponse.json(authSession(u));
+    }),
+  ];
 }
 
 let nextId = 1;
@@ -820,6 +970,9 @@ function billingStatus() {
 }
 
 export const handlers = [
+  ...authHandlers(GATEWAY),
+  ...(GATEWAY_CN !== GATEWAY ? authHandlers(GATEWAY_CN) : []),
+
   http.post(`${GATEWAY}/v1/customers`, () => {
     return HttpResponse.json({ customer_id: "cus_mock" });
   }),

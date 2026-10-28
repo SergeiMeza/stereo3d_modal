@@ -1,15 +1,24 @@
 "use client";
 
 /**
- * Auth context. Two implementations behind NEXT_PUBLIC_AUTH_MODE:
+ * Auth context. NEXT_PUBLIC_AUTH_MODE picks mock or live auth, and live
+ * auth has two implementations by region (lib/region.ts):
  *
  * - "mock" (default): fixed dev user + "mock-token", ready immediately,
  *   action methods are no-ops. No network, no Firebase — what local dev
  *   and tests run against (the SDK must stay out of the mock bundle, so
  *   all firebase access goes through the lazy imports in lib/firebase.ts).
- * - "firebase": real Firebase auth (same project as mobile). There is NO
- *   anonymous fallback — the web product requires a real account; getToken
- *   rejects when signed out and RequireAuth routes to /signin.
+ * - "firebase", global: real Firebase auth (same project as mobile). There
+ *   is NO anonymous fallback — the web product requires a real account;
+ *   getToken rejects when signed out and RequireAuth routes to /signin.
+ * - "firebase", China mode: the same Firebase accounts, signed in through
+ *   the gateway's /v1/auth/* routes (lib/gatewayAuth.ts), email only. The
+ *   Firebase SDK is never loaded: every SDK call below sits behind a
+ *   region check made at call time.
+ *
+ * The region is settled only on the client, so until it is (server render,
+ * hydration) live auth reports ready=false, as the SDK did while restoring
+ * its session.
  *
  * getToken is referentially stable across renders: useGateway memoizes the
  * client on it, so a re-created getToken would rebuild the client on every
@@ -29,6 +38,22 @@ import {
 
 import { track, upgradeSession } from "@/lib/analytics";
 import { getFirebaseAuth } from "@/lib/firebase";
+import {
+  gatewayResetPassword,
+  gatewaySession,
+  gatewaySignIn,
+  gatewaySignOut,
+  gatewaySignUp,
+  gatewayUpdateDisplayName,
+  getGatewayToken,
+  refreshGatewaySession,
+  reloadGatewaySession,
+  REFRESH_MARGIN_MS,
+  subscribeGatewaySession,
+} from "@/lib/gatewayAuth";
+import type { GatewaySession } from "@/lib/gatewayAuth";
+import { currentRegion } from "@/lib/region";
+import { useRegion } from "@/lib/useRegion";
 
 export interface AuthUser {
   uid: string;
@@ -88,7 +113,25 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   "auth/user-disabled": "This account has been disabled.",
   "auth/requires-recent-login":
     "For security, this action needs a fresh session — sign out, sign in again, then retry.",
+  // Gateway sign-in (China mode) — the gateway's stable error codes.
+  invalid_credentials: "Incorrect email or password.",
+  invalid_email: "That email address is not valid.",
+  email_exists: "An account with that email already exists — sign in instead.",
+  weak_password: "Password is too weak — use at least 6 characters.",
+  missing_password: "Enter your password.",
+  too_many_attempts: "Too many attempts — wait a moment and try again.",
+  rate_limited: "Too many attempts — wait a moment and try again.",
+  user_disabled: "This account has been disabled.",
+  operation_not_allowed: "Sign in with your email.",
+  invalid_refresh_token: SIGNED_OUT_MESSAGE,
+  invalid_token: SIGNED_OUT_MESSAGE,
+  signed_out: SIGNED_OUT_MESSAGE,
+  network: "Network error — check your connection and try again.",
+  auth_unavailable: "Sign-in is unavailable right now. Try again in a moment.",
 };
+
+/** China mode signs in by email only. */
+const EMAIL_ONLY_MESSAGE = "Sign in with your email.";
 
 function friendlyAuthError(error: unknown): Error {
   const code =
@@ -126,9 +169,36 @@ async function settledFirebaseUser(): Promise<User | null> {
   });
 }
 
+function sessionToAuthUser(s: GatewaySession): AuthUser {
+  return {
+    uid: s.uid,
+    email: s.email,
+    displayName: s.displayName,
+    photoURL: null,
+    providerIds: ["password"],
+  };
+}
+
+/** Live auth goes through the gateway (China mode). Read at call time. */
+function viaGateway(): boolean {
+  return currentRegion() === "cn";
+}
+
 // Stable getToken implementations (never re-created across renders).
 async function getMockToken(): Promise<string> {
   return "mock-token";
+}
+
+/** Live mode: the gateway session in China mode, else the SDK user. */
+async function getLiveToken(): Promise<string> {
+  if (viaGateway()) {
+    try {
+      return await getGatewayToken();
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }
+  return getFirebaseToken();
 }
 
 async function getFirebaseToken(): Promise<string> {
@@ -155,14 +225,26 @@ async function mockSignOut(): Promise<void> {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+type ActiveMode = "mock" | "firebase" | "gateway" | "pending";
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const region = useRegion();
+  const mode: ActiveMode =
+    AUTH_MODE === "mock"
+      ? "mock"
+      : region === null
+        ? "pending"
+        : region === "cn"
+          ? "gateway"
+          : "firebase";
+
   const [user, setUser] = useState<AuthUser | null>(
     AUTH_MODE === "mock" ? MOCK_USER : null,
   );
   const [ready, setReady] = useState(AUTH_MODE === "mock");
 
   useEffect(() => {
-    if (AUTH_MODE !== "firebase") return;
+    if (mode !== "firebase") return;
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     void (async () => {
@@ -178,9 +260,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, []);
+  }, [mode]);
+
+  // China mode: mirror the gateway session, refresh the ID token a few
+  // minutes before it expires, and follow sign-ins/outs in other tabs.
+  useEffect(() => {
+    if (mode !== "gateway") return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const follow = (s: GatewaySession | null) => {
+      setUser(s ? sessionToAuthUser(s) : null);
+      setReady(true);
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+      if (s === null) return;
+      const wait = Math.max(0, s.expiresAt - Date.now() - REFRESH_MARGIN_MS);
+      timer = setTimeout(() => {
+        void refreshGatewaySession().catch(() => {});
+      }, wait);
+    };
+    const unsubscribe = subscribeGatewaySession(follow);
+    follow(gatewaySession());
+    const onStorage = () => reloadGatewaySession();
+    window.addEventListener("storage", onStorage);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("storage", onStorage);
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [mode]);
 
   const signInWithGoogle = useCallback(async () => {
+    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
     try {
       const auth = await getFirebaseAuth();
       const { GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup } =
@@ -197,9 +307,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
       try {
-        const auth = await getFirebaseAuth();
-        const { signInWithEmailAndPassword } = await import("firebase/auth");
-        await signInWithEmailAndPassword(auth, email, password);
+        if (viaGateway()) {
+          await gatewaySignIn(email, password);
+        } else {
+          const auth = await getFirebaseAuth();
+          const { signInWithEmailAndPassword } = await import("firebase/auth");
+          await signInWithEmailAndPassword(auth, email, password);
+        }
         track("login", { method: "password" });
       } catch (e) {
         throw friendlyAuthError(e);
@@ -211,10 +325,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = useCallback(
     async (email: string, password: string) => {
       try {
-        const auth = await getFirebaseAuth();
-        const { createUserWithEmailAndPassword } =
-          await import("firebase/auth");
-        await createUserWithEmailAndPassword(auth, email, password);
+        if (viaGateway()) {
+          await gatewaySignUp(email, password);
+        } else {
+          const auth = await getFirebaseAuth();
+          const { createUserWithEmailAndPassword } =
+            await import("firebase/auth");
+          await createUserWithEmailAndPassword(auth, email, password);
+        }
         track("sign_up", { method: "password" });
         upgradeSession("new-account");
       } catch (e) {
@@ -226,6 +344,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = useCallback(async (email: string) => {
     try {
+      if (viaGateway()) {
+        await gatewayResetPassword(email);
+        return;
+      }
       const auth = await getFirebaseAuth();
       const { sendPasswordResetEmail } = await import("firebase/auth");
       await sendPasswordResetEmail(auth, email);
@@ -235,6 +357,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOutUser = useCallback(async () => {
+    if (viaGateway()) {
+      gatewaySignOut();
+      return;
+    }
     try {
       const auth = await getFirebaseAuth();
       const { signOut } = await import("firebase/auth");
@@ -246,6 +372,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateDisplayName = useCallback(async (name: string) => {
     try {
+      if (viaGateway()) {
+        await gatewayUpdateDisplayName(name);
+        return;
+      }
       const current = await requireFirebaseUser();
       const { updateProfile } = await import("firebase/auth");
       await updateProfile(current, { displayName: name });
@@ -257,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () =>
-      AUTH_MODE === "mock"
+      mode === "mock"
         ? {
             user,
             ready,
@@ -272,7 +402,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : {
             user,
             ready,
-            getToken: getFirebaseToken,
+            getToken: getLiveToken,
             signInWithGoogle,
             signInWithEmail,
             signUpWithEmail,
@@ -281,6 +411,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             updateDisplayName,
           },
     [
+      mode,
       user,
       ready,
       signInWithGoogle,

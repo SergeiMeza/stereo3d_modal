@@ -10,6 +10,10 @@
  * "//...") before it's ever passed to router.replace — anything else would
  * be an open redirect. In mock mode auth is a no-op, so the screen just
  * says so and offers a plain Continue into the studio.
+ *
+ * China mode (lib/region.ts) is email only: no Google button. The screen
+ * renders only in the browser (useSearchParams bails the page out of
+ * prerendering), where the region is already settled, so it never flashes.
  */
 
 import Link from "next/link";
@@ -17,6 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AUTH_MODE, useAuth } from "@/lib/auth";
+import { useRegion } from "@/lib/useRegion";
 
 type Mode = "signin" | "signup" | "reset";
 
@@ -47,6 +52,7 @@ export default function SignInScreen() {
     resetPassword,
   } = useAuth();
   const router = useRouter();
+  const emailOnly = useRegion() === "cn";
   const next = safeNext(useSearchParams().get("next"));
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -123,7 +129,7 @@ export default function SignInScreen() {
         </p>
       </div>
 
-      {mode !== "reset" && (
+      {mode !== "reset" && !emailOnly && (
         <>
           <button
             type="button"

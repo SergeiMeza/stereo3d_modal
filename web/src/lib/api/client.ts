@@ -35,7 +35,9 @@ export class GatewayError extends Error {
 export type TokenProvider = () => Promise<string>;
 
 export interface ClientOptions {
-  baseUrl: string; // e.g. https://stereo3d-gateway-test-....run.app
+  /** e.g. https://api.stereo3d.studio; a function is read per request
+   * (the region, lib/region.ts, is only settled in the browser). */
+  baseUrl: string | (() => string);
   getToken: TokenProvider;
   fetchFn?: typeof fetch; // injectable for tests
 }
@@ -51,7 +53,11 @@ export class GatewayClient {
   ): Promise<T> {
     const f = this.opts.fetchFn ?? fetch;
     const token = await this.opts.getToken();
-    const res = await f(`${this.opts.baseUrl}${path}`, {
+    const base =
+      typeof this.opts.baseUrl === "function"
+        ? this.opts.baseUrl()
+        : this.opts.baseUrl;
+    const res = await f(`${base}${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,

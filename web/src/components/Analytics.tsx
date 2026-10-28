@@ -11,7 +11,8 @@
  *     consent not required  → start silently
  *     consent required      → show the banner; start only on "Allow"
  * A failed geo lookup counts as consent-required — the privacy-safe way
- * around.
+ * around. In China mode (lib/region.ts) nothing runs at all: neither SDK
+ * can load there, so no banner either.
  */
 
 import Link from "next/link";
@@ -24,12 +25,13 @@ import {
   storedConsent,
 } from "@/lib/analytics";
 import type { ConsentChoice } from "@/lib/analytics";
+import { currentRegion } from "@/lib/region";
 
 export function Analytics() {
   const [banner, setBanner] = useState(false);
 
   useEffect(() => {
-    if (!ANALYTICS_ENABLED) return;
+    if (!ANALYTICS_ENABLED || currentRegion() === "cn") return;
     const choice = storedConsent();
     if (choice === "granted") {
       startAnalytics({ consented: true });
