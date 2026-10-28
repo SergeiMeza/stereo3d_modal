@@ -14,6 +14,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -89,6 +90,14 @@ func main() {
 	mux.HandleFunc("POST /webhooks/stripe", svc.HandleStripeWebhook)
 	mux.HandleFunc("POST /internal/reconcile", svc.HandleReconcile)
 
+	// Sign-in through the gateway for browsers that can't reach Google
+	// (identity package). Same Firebase uid and tokens as the JS SDK.
+	idh := identity.NewHandlers(identity.New(cfg.FirebaseWebAPIKey), identity.NewIPPolicy(cfg.LBIPs, cfg.RelayIPs))
+	mux.HandleFunc("POST /v1/auth/signin", idh.SignIn)
+	mux.HandleFunc("POST /v1/auth/signup", idh.SignUp)
+	mux.HandleFunc("POST /v1/auth/refresh", idh.Refresh)
+	mux.HandleFunc("POST /v1/auth/reset", idh.Reset)
+
 	// Authenticated client routes.
 	authed := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +135,9 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
+	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
+		idh.Profile(w, r)
+	}))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
 	mux.HandleFunc("POST /v1/conversions", authed(svc.HandleCreateConversion))

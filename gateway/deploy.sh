@@ -30,6 +30,11 @@ if [[ -z "${CORS_ORIGINS:-}" ]]; then
   fi
 fi
 
+# Public Firebase web API key (web/src/lib/firebase.ts DEFAULT_CONFIG), for
+# the /v1/auth/* routes that sign browsers in on their behalf. Not a secret:
+# Firebase web keys ship in every web and mobile client.
+FIREBASE_WEB_API_KEY="${FIREBASE_WEB_API_KEY:-AIzaSyCZcwCfTeRhsLjmPHXUPMEU7xNUserJESQ}"
+
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
   --source . \
@@ -37,7 +42,7 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 10 \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
-  --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}" \
+  --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}@FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}" \
   --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')

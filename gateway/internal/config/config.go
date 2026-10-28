@@ -26,6 +26,15 @@ type Config struct {
 	SlackWebhookURL string // optional; failure notifications
 	ReconcileToken  string // shared secret for /internal/reconcile
 
+	// FirebaseWebAPIKey is the project's public web API key, for the
+	// /v1/auth/* routes that sign browsers in on their behalf (identity
+	// package). Optional: without it those routes answer auth_unavailable.
+	FirebaseWebAPIKey string
+	// LBIPs / RelayIPs (comma-separated) decide which caller address the
+	// auth rate limit trusts; empty means identity's defaults.
+	LBIPs    string
+	RelayIPs string
+
 	// CORSOrigins are browser origins allowed to call the API (the web
 	// client). Comma-separated; "*" allows all (bearer auth, no cookies).
 	CORSOrigins []string
@@ -55,6 +64,10 @@ func Load() (*Config, error) {
 
 		SlackWebhookURL: getenv("SLACK_WEBHOOK_URL", ""),
 		ReconcileToken:  getenv("RECONCILE_TOKEN", ""),
+
+		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
+		LBIPs:             getenv("LB_IPS", ""),
+		RelayIPs:          getenv("RELAY_IPS", ""),
 	}
 	for _, o := range strings.Split(getenv("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimSpace(o); o != "" {
