@@ -138,6 +138,7 @@ Client-facing (Firebase ID token in `Authorization: Bearer`):
 | POST | `/v1/billing/settle` | Retry outstanding automatic charges on the current default card (returns 3DS client_secret when the bank requires action) |
 | POST | `/v1/billing/portal` | Stripe customer-portal session (manage cards, receipts) |
 | POST | `/v1/uploads` | Signed GCS PUT URL for source media; `{"resumable": true}` opens a resumable session server-side instead (China-mode web: the relay caps bodies at 25 MB, so the browser PUTs 8 MiB chunks with `Content-Range`) |
+| POST | `/v1/uploads/status` | `{gcs_key}` → `{exists, bytes}`: whether an upload landed. Storage answers the last chunk of a resumable upload without CORS headers, so the browser can't read it and asks here |
 | POST | `/v1/quotes` | Probe uploaded media, return price quote (also returned by create) |
 | POST | `/v1/conversions` | Create conversion: probe → quote → PaymentIntent (manual capture) → Firestore record. Returns payment sheet params. Idempotent via `Idempotency-Key` header. |
 | GET | `/v1/conversions` | List caller's conversions (job history UI + support) |

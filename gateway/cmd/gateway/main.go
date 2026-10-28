@@ -151,6 +151,7 @@ func main() {
 	}))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
+	mux.HandleFunc("POST /v1/uploads/status", authed(svc.HandleUploadStatus))
 	mux.HandleFunc("POST /v1/conversions", authed(svc.HandleCreateConversion))
 	mux.HandleFunc("GET /v1/conversions", authed(svc.HandleListConversions))
 	mux.HandleFunc("GET /v1/conversions/{id}", authed(withID(svc.HandleGetConversion)))

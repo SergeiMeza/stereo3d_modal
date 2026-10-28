@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -135,5 +136,38 @@ func TestCreateUploadResumableStartFailureIsBusy(t *testing.T) {
 	s.HandleCreateUpload(w, r.WithContext(context.Background()), &AuthedUser{UID: "u1"})
 	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "service_busy") {
 		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+}
+
+func TestUploadStatus(t *testing.T) {
+	sizes := map[string]int64{"stereo3d/test/users/u1/abc123def456/source.mp4": 27029461}
+	stat := func(_ context.Context, key string) (int64, error) {
+		if n, ok := sizes[key]; ok {
+			return n, nil
+		}
+		return 0, fmt.Errorf("stat gs://b/%s: %w", key, storage.ErrObjectNotExist)
+	}
+	s := &Service{GCS: gcsx.NewWithSigner(testBucket, "stereo3d/test/", nil, nil).WithStat(stat)}
+	call := func(key string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost, "/v1/uploads/status", strings.NewReader(`{"gcs_key":"`+key+`"}`))
+		w := httptest.NewRecorder()
+		s.HandleUploadStatus(w, r, &AuthedUser{UID: "u1"})
+		return w
+	}
+	cases := []struct {
+		key    string
+		status int
+		want   string
+	}{
+		{"stereo3d/test/users/u1/abc123def456/source.mp4", 200, `"bytes":27029461`},
+		{"stereo3d/test/users/u1/000000000000/source.mp4", 200, `"exists":false`},
+		{"stereo3d/test/users/u2/abc123def456/source.mp4", 400, "not one of your uploads"},
+		{"stereo3d/prod/users/u1/abc123def456/source.mp4", 400, "not one of your uploads"},
+	}
+	for _, c := range cases {
+		w := call(c.key)
+		if w.Code != c.status || !strings.Contains(w.Body.String(), c.want) {
+			t.Errorf("%s: got %d %s", c.key, w.Code, w.Body)
+		}
 	}
 }

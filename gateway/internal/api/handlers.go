@@ -175,6 +175,35 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 	})
 }
 
+// POST /v1/uploads/status {gcs_key} → {gcs_key, exists, bytes}: whether the
+// upload has landed, and its size. A browser can't read the answer to the
+// last chunk of a resumable upload (storage sends it without CORS headers),
+// so the web client asks here whether the object is complete.
+func (s *Service) HandleUploadStatus(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	var req struct {
+		GCSKey string `json:"gcs_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	if !s.GCS.InPrefix(req.GCSKey) || !strings.Contains(req.GCSKey, "/users/"+user.UID+"/") {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("gcs_key is not one of your uploads"))
+		return
+	}
+	size, err := s.GCS.Stat(ctx, req.GCSKey)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		httpx.WriteOK(w, map[string]any{"gcs_key": req.GCSKey, "exists": false, "bytes": 0})
+		return
+	}
+	if err != nil {
+		httpx.WriteErr(ctx, w, uploadStatError(err))
+		return
+	}
+	httpx.WriteOK(w, map[string]any{"gcs_key": req.GCSKey, "exists": true, "bytes": size})
+}
+
 // ------------------------------------------------------------- conversions
 
 type createConversionReq struct {

@@ -29,6 +29,7 @@ type Client struct {
 	prefix string // "stereo3d/{env}/"
 	sign   SignFunc
 	http   *http.Client // starts resumable sessions
+	stat   func(ctx context.Context, key string) (int64, error)
 }
 
 func New(ctx context.Context, bucket, prefix string) (*Client, error) {
@@ -44,9 +45,16 @@ func New(ctx context.Context, bucket, prefix string) (*Client, error) {
 }
 
 // NewWithSigner builds a Client without a storage connection, for tests:
-// signing and session starts go through sign and hc; Stat is unavailable.
+// signing and session starts go through sign and hc; Stat answers through
+// WithStat (else it fails).
 func NewWithSigner(bucket, prefix string, sign SignFunc, hc *http.Client) *Client {
 	return &Client{bucket: bucket, prefix: prefix, sign: sign, http: hc}
+}
+
+// WithStat replaces Stat (tests).
+func (c *Client) WithStat(stat func(ctx context.Context, key string) (int64, error)) *Client {
+	c.stat = stat
+	return c
 }
 
 func (c *Client) Close() error {
@@ -137,6 +145,9 @@ func (c *Client) StartResumableUpload(ctx context.Context, key, contentType, ori
 
 // Stat returns object size, or an error if the upload doesn't exist yet.
 func (c *Client) Stat(ctx context.Context, key string) (int64, error) {
+	if c.stat != nil {
+		return c.stat(ctx, key)
+	}
 	if c.gcs == nil {
 		return 0, fmt.Errorf("stat gs://%s/%s: no storage connection", c.bucket, key)
 	}
