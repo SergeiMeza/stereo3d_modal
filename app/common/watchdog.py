@@ -40,19 +40,22 @@ logger = get_logger(__name__)
 # catching a real hang ~2.5× faster. Overridable per request.
 STALL_TIMEOUT_S = 240
 
-# How long a job may wait with none of its chunks started before the wedged-
-# pool backstop fails it: GPU queueing behind other jobs, not a hang.
+# How long a job may wait with none of its chunks RUNNING before the wedged-
+# pool backstop fails it: GPU queueing behind other work, not a hang. Measured
+# from the start of each all-queued stretch, so a job whose first chunks
+# finished and whose rest wait for a GPU gets this, not START_TIMEOUT_S.
 QUEUE_TIMEOUT_S = 4 * 3600
 # A hung chunk is RESUBMITTED (fresh container) up to this many times
 # before the job is failed — a chunk that hangs repeatedly is a real bug,
 # not a transient GPU wedge. Per chunk, not per job.
 MAX_CHUNK_RETRIES = 2
-# Wedged-pool backstop: fail the job only if NO chunk anywhere advances for
-# this long. Must be well above STALL_TIMEOUT_S because with the
-# max_containers cap, late chunks legitimately sit QUEUED for many minutes
-# while earlier ones run — but as long as SOME chunk heartbeats, the job is
-# alive. Only total job-wide silence (a stuck pool) trips this. Generous so
-# normal queueing never mis-fires.
+# Wedged-pool backstop: while at least one chunk RUNS, fail the job only if
+# nothing advances job-wide for this long. Must be well above STALL_TIMEOUT_S.
+# The clock stops whenever none of the job's chunks is running (all pending
+# chunks queued for a GPU): that stretch is bounded by QUEUE_TIMEOUT_S
+# instead. The workspace's GPU limit is shared with other apps, so remaining
+# chunks can wait far longer than this after the first ones finished
+# (2026-11-03).
 START_TIMEOUT_S = 1800
 
 
@@ -92,6 +95,7 @@ def gather_with_heartbeat(
     read_chunk_state_fn=None,
     clear_chunk_progress_fn=None,
     not_ready_exc=None,
+    gpu_wait=None,
 ):
     """Block until all ``handles`` complete, SELF-HEALING a single hung
     chunk instead of failing the whole job.
@@ -123,6 +127,11 @@ def gather_with_heartbeat(
     A real worker exception from ``h.get()`` propagates unchanged (NOT
     masked as a stall). Returns results in handle order on success.
 
+    ``gpu_wait`` (optional, an ``app.common.gpu_wait.GpuWait``) is told
+    on every check whether the job is waiting for a GPU (some chunk pending,
+    none running), which keeps the job's ``waiting_for_gpu`` / ``queued_s``
+    fields current. Per-chunk mode only.
+
     Injectable seams (default to real impls): ``now_fn``,
     ``read_updated_at_fn(job_id)``, ``read_chunk_progress_fn(job_id)`` ->
     the job's ``chunk_progress`` dict, ``not_ready_exc``.
@@ -148,145 +157,176 @@ def gather_with_heartbeat(
     last_advance = [now_fn()] * n  # when that count last increased
     started = [False] * n        # has this chunk emitted a first heartbeat?
     retries = [0] * n            # a queued chunk (not yet started) is NOT hung
-
-    while not all(done):
-        completed_this_sweep = False
-        for i, h in enumerate(handles):
-            if done[i]:
-                continue
-            try:
-                results[i] = h.get(timeout=poll_s)
-                done[i] = True
-                completed_this_sweep = True
-            except not_ready_exc:
-                continue  # not finished yet
-            # any OTHER exception (a real worker error) propagates out.
-
-        if completed_this_sweep:
-            continue  # a handle finished — don't check staleness this round
-
-        if per_chunk:
-            # ---- per-chunk staleness: judge each pending chunk alone ----
-            progress = read_chunk_progress_fn(job_id) or {}
-            states = read_chunk_state_fn(job_id) or {}
-            now = now_fn()
+    # Backstop clocks, exactly one set at a time. running_since:
+    # start of the current stretch with at least one chunk running.
+    # queued_since: start of the current stretch with none running (every
+    # pending chunk queued); the spawn counts as its start.
+    running_since = None
+    queued_since = now_fn()
+    tracking = per_chunk and gpu_wait is not None
+    if tracking:
+        gpu_wait.update(True)  # just spawned: queued until a chunk starts
+    try:
+        while not all(done):
+            completed_this_sweep = False
             for i, h in enumerate(handles):
                 if done[i]:
                     continue
-                key = str(chunk_keys[i])
-                # A chunk appears in chunk_progress only once it STARTS
-                # running and writes a heartbeat. With the max_containers
-                # cap, chunks beyond the first N sit QUEUED (no entry) for
-                # many minutes — NOT a hang; a queued chunk gets UNBOUNDED
-                # patience. This is reliable because on resubmit we CLEAR the
-                # cancelled worker's stale entry (clear_chunk_progress_fn),
-                # so "key not in progress" genuinely means "not running" —
-                # without that clear, a resubmitted chunk's stale key would
-                # mark it started while still queued (the death-spiral bug).
-                # The wedged-pool case (nothing advances job-wide) is the
-                # job-global guard below, so the job can't hang forever.
-                # A chunk its container marked "queued" (preempted, or a
-                # transient error Modal will retry) keeps its last progress
-                # value but is waiting for a GPU again: queued, not stalled,
-                # until a fresh heartbeat marks it running.
-                if states.get(key) == "queued":
-                    started[i] = False
-                    continue
-                if key not in progress and not started[i]:
-                    continue
-                cur = int(progress.get(key, 0))
-                if not started[i]:
-                    # first heartbeat seen → running; start its clock NOW
-                    # (not at spawn, which may have been a long queue ago)
-                    started[i] = True
-                    last_done[i] = cur
-                    last_advance[i] = now
-                    continue
-                if cur > last_done[i]:
-                    last_done[i] = cur
-                    last_advance[i] = now
-                    continue
-                if now - last_advance[i] <= stall_timeout_s:
-                    continue  # this chunk still within its heartbeat window
-                # chunk i is hung (it had started, then went silent)
-                if retries[i] < max_chunk_retries:
-                    retries[i] += 1
-                    jlog.warning(
-                        f"🩹 watchdog: chunk {chunk_keys[i]} silent for "
-                        f"{int(now - last_advance[i])}s in {label} — resubmitting "
-                        f"(retry {retries[i]}/{max_chunk_retries})"
-                    )
-                    try:
-                        h.cancel()  # free the wedged container
-                    except Exception:
-                        logger.warning("watchdog: cancel of hung chunk failed",
-                                       exc_info=True)
-                    # CRITICAL: drop the stale chunk_progress entry the
-                    # cancelled worker left behind. The resubmitted worker
-                    # reuses the SAME key (frame_range); if the stale value
-                    # lingers, `key in progress` stays true, started[] flips
-                    # back to True immediately, and the stall clock runs
-                    # against a frozen value WHILE the fresh container is
-                    # still QUEUED — a resubmit death-spiral (the queued-15min
-                    # then instant-cancel pathology). Clearing makes the
-                    # chunk genuinely "not started" until its fresh worker
-                    # emits a real heartbeat.
-                    clear_chunk_progress_fn(job_id, key)
-                    handles[i] = respawn_fn(i)  # fresh container, same range
-                    # reset so the resubmitted chunk is treated as queued
-                    # (unbounded patience) until its first real heartbeat
-                    started[i] = False
-                    last_done[i] = 0
-                    last_advance[i] = now_fn()
-                    if register_handles_fn is not None:
-                        register_handles_fn(handles)
+                try:
+                    results[i] = h.get(timeout=poll_s)
+                    done[i] = True
+                    completed_this_sweep = True
+                except not_ready_exc:
+                    continue  # not finished yet
+                # any OTHER exception (a real worker error) propagates out.
+
+            if completed_this_sweep:
+                continue  # a handle finished — don't check staleness this round
+
+            if per_chunk:
+                # ---- per-chunk staleness: judge each pending chunk alone ----
+                progress = read_chunk_progress_fn(job_id) or {}
+                states = read_chunk_state_fn(job_id) or {}
+                now = now_fn()
+                for i, h in enumerate(handles):
+                    if done[i]:
+                        continue
+                    key = str(chunk_keys[i])
+                    # A chunk appears in chunk_progress only once it STARTS
+                    # running and writes a heartbeat. With the max_containers
+                    # cap, chunks beyond the first N sit QUEUED (no entry) for
+                    # many minutes — NOT a hang; a queued chunk gets UNBOUNDED
+                    # patience. This is reliable because on resubmit we CLEAR the
+                    # cancelled worker's stale entry (clear_chunk_progress_fn),
+                    # so "key not in progress" genuinely means "not running" —
+                    # without that clear, a resubmitted chunk's stale key would
+                    # mark it started while still queued (the death-spiral bug).
+                    # The wedged-pool case (nothing advances job-wide) is the
+                    # job-global guard below, so the job can't hang forever.
+                    # A chunk its container marked "queued" (preempted, or a
+                    # transient error Modal will retry) keeps its last progress
+                    # value but is waiting for a GPU again: queued, not stalled,
+                    # until a fresh heartbeat marks it running.
+                    if states.get(key) == "queued":
+                        started[i] = False
+                        continue
+                    if key not in progress and not started[i]:
+                        continue
+                    cur = int(progress.get(key, 0))
+                    if not started[i]:
+                        # first heartbeat seen → running; start its clock NOW
+                        # (not at spawn, which may have been a long queue ago)
+                        started[i] = True
+                        last_done[i] = cur
+                        last_advance[i] = now
+                        continue
+                    if cur > last_done[i]:
+                        last_done[i] = cur
+                        last_advance[i] = now
+                        continue
+                    if now - last_advance[i] <= stall_timeout_s:
+                        continue  # this chunk still within its heartbeat window
+                    # chunk i is hung (it had started, then went silent)
+                    if retries[i] < max_chunk_retries:
+                        retries[i] += 1
+                        jlog.warning(
+                            f"🩹 watchdog: chunk {chunk_keys[i]} silent for "
+                            f"{int(now - last_advance[i])}s in {label} — resubmitting "
+                            f"(retry {retries[i]}/{max_chunk_retries})"
+                        )
+                        try:
+                            h.cancel()  # free the wedged container
+                        except Exception:
+                            logger.warning("watchdog: cancel of hung chunk failed",
+                                           exc_info=True)
+                        # CRITICAL: drop the stale chunk_progress entry the
+                        # cancelled worker left behind. The resubmitted worker
+                        # reuses the SAME key (frame_range); if the stale value
+                        # lingers, `key in progress` stays true, started[] flips
+                        # back to True immediately, and the stall clock runs
+                        # against a frozen value WHILE the fresh container is
+                        # still QUEUED — a resubmit death-spiral (the queued-15min
+                        # then instant-cancel pathology). Clearing makes the
+                        # chunk genuinely "not started" until its fresh worker
+                        # emits a real heartbeat.
+                        clear_chunk_progress_fn(job_id, key)
+                        handles[i] = respawn_fn(i)  # fresh container, same range
+                        # reset so the resubmitted chunk is treated as queued
+                        # (unbounded patience) until its first real heartbeat
+                        started[i] = False
+                        last_done[i] = 0
+                        last_advance[i] = now_fn()
+                        if register_handles_fn is not None:
+                            register_handles_fn(handles)
+                    else:
+                        # retries exhausted on this chunk → genuine failure
+                        _fail_all(job_id, handles, done, jlog, label, retries[i],
+                                  chunk_keys[i])
+
+                # wedged-pool backstop. While at least one of THIS job's chunks
+                # RUNS: fail if nothing advanced job-wide (updated_at, the
+                # heartbeat) for start_timeout_s since the later of the last
+                # heartbeat and the start of this running stretch — much looser
+                # than the per-chunk stall, so it only catches a stuck pool.
+                #
+                # While none runs (every pending chunk queued for a GPU, before
+                # the first start or after earlier chunks finished), the clock
+                # above stops: queueing behind other GPU work lasts longer than
+                # start_timeout_s under load and failed healthy jobs as "silent
+                # hangs" (audits 2026-10-03, 2026-11-03). That stretch is
+                # bounded by QUEUE_TIMEOUT_S from its own start instead. It
+                # ignores updated_at, which the waiting_for_gpu writes bump.
+                running = any(started[i] and not done[i] for i in range(len(handles)))
+                if running:
+                    queued_since = None
+                    if running_since is None:
+                        running_since = now
+                    updated_at = read_updated_at_fn(job_id)
+                    ref = running_since
+                    if updated_at is not None and updated_at > ref:
+                        ref = updated_at
+                    limit = start_timeout_s
                 else:
-                    # retries exhausted on this chunk → genuine failure
-                    _fail_all(job_id, handles, done, jlog, label, retries[i],
-                              chunk_keys[i])
+                    running_since = None
+                    if queued_since is None:
+                        queued_since = now
+                    ref = queued_since
+                    limit = max(start_timeout_s, QUEUE_TIMEOUT_S)
+                if tracking:
+                    gpu_wait.update(not running)
+                if now - ref > limit:
+                    _fail_all(job_id, handles, done, jlog, label, None, None,
+                              silent_for=now - ref, stall_timeout_s=limit,
+                              queued=not running)
+                continue
 
-            # wedged-pool backstop: if NO chunk advanced anywhere in the
-            # whole job for start_timeout_s (much looser than the per-chunk
-            # stall — normal queueing keeps SOME chunk heartbeating), the
-            # pool is stuck. Fail rather than hang forever on queued chunks
-            # that will never get a slot.
-            #
-            # Only once one of THIS job's chunks has run: before that, its
-            # chunks are queued behind other jobs' GPU work, which under a
-            # burst of videos lasts longer than start_timeout_s and failed
-            # healthy jobs as "silent hangs" (audit, 2026-10-03). A job that
-            # never started gets QUEUE_TIMEOUT_S, not unbounded patience.
+            # ---- legacy global heartbeat (no chunk_keys/respawn_fn) ----
             updated_at = read_updated_at_fn(job_id)
-            ref = now if updated_at is None else updated_at
-            limit = (start_timeout_s if (any(started) or any(done))
-                     else max(start_timeout_s, QUEUE_TIMEOUT_S))
-            if now - ref > limit:
+            # explicit None check: a real updated_at is a unix timestamp, but
+            # `updated_at or now_fn()` would mis-read a legit 0.0 as "missing"
+            # and never trip — guard against that degenerate case.
+            ref = now_fn() if updated_at is None else updated_at
+            silent_for = now_fn() - ref
+            if silent_for > stall_timeout_s:
                 _fail_all(job_id, handles, done, jlog, label, None, None,
-                          silent_for=now - ref, stall_timeout_s=limit)
-            continue
+                          silent_for=silent_for, stall_timeout_s=stall_timeout_s)
 
-        # ---- legacy global heartbeat (no chunk_keys/respawn_fn) ----
-        updated_at = read_updated_at_fn(job_id)
-        # explicit None check: a real updated_at is a unix timestamp, but
-        # `updated_at or now_fn()` would mis-read a legit 0.0 as "missing"
-        # and never trip — guard against that degenerate case.
-        ref = now_fn() if updated_at is None else updated_at
-        silent_for = now_fn() - ref
-        if silent_for > stall_timeout_s:
-            _fail_all(job_id, handles, done, jlog, label, None, None,
-                      silent_for=silent_for, stall_timeout_s=stall_timeout_s)
-
-    return results
+        return results
+    finally:
+        if tracking:
+            gpu_wait.close()
 
 
 def _fail_all(job_id, handles, done, jlog, label, retries, chunk_key,
-              *, silent_for=None, stall_timeout_s=None):
+              *, silent_for=None, stall_timeout_s=None, queued=False):
     """Cancel every pending handle, mark the job failed, and raise — the
     terminal path when recovery is impossible (no respawn_fn, or a chunk
     exhausted its retries)."""
     pending = [h for i, h in enumerate(handles) if not done[i]]
     if chunk_key is not None:
         reason = (f"chunk {chunk_key} hung and exhausted {retries} resubmit(s)")
+    elif queued:
+        reason = f"no GPU for {int(silent_for or 0)}s (all chunks queued)"
     else:
         reason = (f"no worker progress for {int(silent_for or 0)}s (silent hang)")
     jlog.error(f"🚨 watchdog: {label} — {reason}; cancelling {len(pending)} worker(s)")

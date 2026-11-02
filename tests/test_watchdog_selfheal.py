@@ -360,3 +360,120 @@ def test_requeued_chunk_is_not_resubmitted():
     assert [r["key"] for r in res] == [0]
     assert respawned == []
     assert jobs._failed is False
+
+
+class _WaitLog:
+    """A fake GpuWait: records every waiting/not-waiting call."""
+
+    def __init__(self):
+        self.calls = []
+        self.closed = False
+
+    def update(self, waiting):
+        self.calls.append((_T[0], waiting))
+
+    def close(self):
+        self.closed = True
+        self.calls.append((_T[0], False))
+
+
+def test_queued_tail_after_first_chunks_finish_is_not_failed():
+    """Regression (2026-11-03): the first chunks finish, the rest wait for a
+    GPU far longer than start_timeout_s. The backstop clock must stop while
+    none of the job's chunks runs; updated_at stays frozen meanwhile."""
+    wd, jobs = _load_watchdog()
+    wd.QUEUE_TIMEOUT_S = 1000
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0, 100]
+    handles = [_Handle(0, lambda t: t >= 5), _Handle(100, lambda t: t >= 80)]
+    prog = {}
+    wait = _WaitLog()
+
+    def read_cp(job):
+        _T[0] += 1
+        if _T[0] < 5:
+            prog["0"] = _T[0]
+        if _T[0] >= 70:  # chunk 100 queued from t=5 to t=70, then runs
+            prog["100"] = _T[0] - 69
+        return dict(prog)
+
+    def read_updated(job):
+        return min(_T[0], 5) if _T[0] < 70 else _T[0]
+
+    res = wd.gather_with_heartbeat(
+        "job", handles, _log(), stall_timeout_s=5, start_timeout_s=10,
+        poll_s=0, label="t", chunk_keys=keys, respawn_fn=lambda i: handles[i],
+        register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+        read_chunk_progress_fn=read_cp, read_updated_at_fn=read_updated,
+        not_ready_exc=(_NotReady,), gpu_wait=wait)
+    assert sorted(r["key"] for r in res) == keys
+    assert jobs._failed is False
+    # waiting at spawn, not while chunk 0 ran, waiting again for chunk 100's
+    # GPU, not once it ran; closed at the end
+    states = [w for _, w in wait.calls]
+    assert states[0] is True
+    assert False in states[1:4]
+    assert any(w for t, w in wait.calls if 10 <= t < 70)
+    assert not any(w for t, w in wait.calls if t >= 72)
+    assert wait.closed is True
+
+
+def test_queued_tail_fails_after_queue_timeout_from_stretch_start():
+    """The all-queued stretch after chunks finished is bounded by
+    QUEUE_TIMEOUT_S measured from the stretch's start."""
+    wd, jobs = _load_watchdog()
+    wd.QUEUE_TIMEOUT_S = 40
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0, 100]
+    handles = [_Handle(0, lambda t: t >= 20), _Handle(100, lambda t: False)]
+
+    def read_cp(job):
+        _T[0] += 1
+        return {"0": _T[0]} if _T[0] < 20 else {"0": 20}
+
+    raised = None
+    try:
+        wd.gather_with_heartbeat(
+            "job", handles, _log(), stall_timeout_s=5, start_timeout_s=10,
+            poll_s=0, label="t", chunk_keys=keys, respawn_fn=lambda i: handles[i],
+            register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+            read_chunk_progress_fn=read_cp,
+            read_updated_at_fn=lambda j: min(_T[0], 20),  # frozen after t=20
+            not_ready_exc=(_NotReady,))
+    except RuntimeError as exc:
+        raised = str(exc)
+    assert raised is not None and "no GPU" in raised
+    assert jobs._failed is True
+    # queued stretch began when chunk 0 finished (~t=20), not at spawn
+    assert 60 <= _T[0] <= 64
+
+
+def test_running_job_with_no_progress_still_hits_start_timeout():
+    """While a chunk runs, the backstop still fails a job-wide silence after
+    start_timeout_s (per-chunk stall disabled here by a huge window)."""
+    wd, jobs = _load_watchdog()
+    wd.QUEUE_TIMEOUT_S = 10_000
+    _T[0] = 0
+    _Handle._n = 0
+    keys = [0]
+    handles = [_Handle(0, lambda t: False)]
+
+    def read_cp(job):
+        _T[0] += 1
+        return {"0": 3}  # started, then frozen
+
+    raised = False
+    try:
+        wd.gather_with_heartbeat(
+            "job", handles, _log(), stall_timeout_s=10_000, start_timeout_s=10,
+            poll_s=0, label="t", chunk_keys=keys, respawn_fn=lambda i: handles[i],
+            register_handles_fn=lambda hs: None, now_fn=lambda: _T[0],
+            read_chunk_progress_fn=read_cp, read_updated_at_fn=lambda j: 1,
+            not_ready_exc=(_NotReady,))
+    except RuntimeError:
+        raised = True
+    assert raised is True
+    assert jobs._failed is True
+    assert _T[0] < 20
