@@ -314,6 +314,11 @@ def submit_video(body: dict) -> dict:
     # output encodes. formats are ignored. The depth artifact still
     # registers in the reuse cache, so a later stereo/production run on
     # the same knobs reuses it.
+    mvhevc_crf = body.get("mvhevc_crf")
+    if mvhevc_crf is not None and (
+        isinstance(mvhevc_crf, bool) or not isinstance(mvhevc_crf, int) or not 0 <= mvhevc_crf <= 51
+    ):
+        raise HTTPException(status_code=400, detail="mvhevc_crf must be an integer in [0, 51]")
     if "depth_only" in body and not isinstance(body["depth_only"], bool):
         raise HTTPException(status_code=400, detail="depth_only must be a bool")
     # user-provided depth video (pro step pipeline): a bucket key under the

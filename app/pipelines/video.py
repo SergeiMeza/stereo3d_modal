@@ -210,6 +210,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
       "encoder": "vitl" | "vits",   # vda only
       "remove_black_bars": true,
       "formats": ["sbs", "half_sbs", "anaglyph", "tb", "half_tb"],
+      "mvhevc_crf": 23,  # x265 CRF of the spatial (MV-HEVC) output, 0–51;
+                     # lower = higher bitrate. Default 23 (encode_mvhevc_x265)
                      # default ["sbs", "half_sbs"]; anaglyph only when
                      # explicitly requested (VR-first product)
       "include_audio": true,
@@ -887,15 +889,19 @@ def process_video_job(job_id: str, request: dict) -> dict:
 
             jobs.update_job(job_id, stage="encode_mvhevc", progress=0.92)
             # x265 = Apple spatial badge (default); nvenc = fast, for custom players
-            encoder_fn = (
-                encode_mvhevc if request.get("mvhevc_encoder") == "nvenc" else encode_mvhevc_x265
-            )
+            nvenc = request.get("mvhevc_encoder") == "nvenc"
+            encoder_fn = encode_mvhevc if nvenc else encode_mvhevc_x265
+            # quality knob (x265 only): absent keeps the encoder's default
+            quality = {}
+            if not nvenc and request.get("mvhevc_crf") is not None:
+                quality["crf"] = int(request["mvhevc_crf"])
             mv = encoder_fn.remote(
                 job_id,
                 sbs_path=stereo["sbs_path"],
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,
                 spatial=request.get("spatial"),
                 audio_trim=audio_trim,
+                **quality,
             )
             check_worker_result(mv, "encode_mvhevc")
             outputs["mvhevc"] = mv["mvhevc"]
