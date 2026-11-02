@@ -317,7 +317,10 @@ def process_profile_job(job_id: str, request: dict) -> dict:
             f"🎛  profile-only: {len(scene_ranges)} shot(s) with {profiler} "
             f"(depth_scale={depth_scale}, auto_comfort={auto_comfort})"
         )
-        depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
+        from app.common.gpu_wait import gpu_call
+
+        depth_script = gpu_call(
+            job_id, ShotProfiler(model_name=profiler).profile_scenes,
             job_id, str(src), scene_ranges, input_size=518,
             auto_comfort=auto_comfort, comfort_budget=comfort_budget,
             depth_scale=depth_scale,

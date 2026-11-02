@@ -16,6 +16,7 @@ import modal
 
 from app.common import jobs, reuse
 from app.common.debug import get_logger
+from app.common.gpu_wait import GpuWait, gpu_call
 from app.common.modal_options import with_options
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
 from app.common.watchdog import STALL_TIMEOUT_S, gather_with_heartbeat
@@ -449,7 +450,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             if profile_ranges:
                 # single worker: coverage relies on Modal's profiler function
                 # timeout (~10min), not the heartbeat watchdog
-                depth_script = ShotProfiler(model_name=profiler).profile_scenes.remote(
+                depth_script = gpu_call(
+                    job_id, ShotProfiler(model_name=profiler).profile_scenes,
                     job_id, pre["work_path"], profile_ranges, input_size=518,
                     auto_comfort=auto_comfort, comfort_budget=comfort_budget,
                     depth_scale=depth_scale,
@@ -642,7 +644,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 # timeout (2-4h), not the heartbeat watchdog
                 attempt = uuid.uuid4().hex[:12]
                 jobs.update_job(job_id, depth_attempt=attempt)
-                depth = worker_cls(encoder=encoder).generate.remote(
+                depth = gpu_call(
+                    job_id, worker_cls(encoder=encoder).generate,
                     job_id,
                     pre["work_path"],
                     input_size=input_size,
@@ -662,7 +665,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             jlog.info(f"🖥  depth GPU: L40S (depth_model={depth_model}, input_size={input_size})")
             # single worker: coverage relies on Modal's depth function
             # timeout (2-4h), not the heartbeat watchdog
-            depth = FrameDepthWorker(model_name=depth_model).generate.remote(
+            depth = gpu_call(
+                job_id, FrameDepthWorker(model_name=depth_model).generate,
                 job_id,
                 pre["work_path"],
                 input_size=input_size,
@@ -767,7 +771,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             else:
                 # single worker: coverage relies on Modal's stereo function
                 # timeout, not the heartbeat watchdog
-                stereo = M2SVidStereoWorker().generate.remote(
+                stereo = gpu_call(
+                    job_id, M2SVidStereoWorker().generate,
                     job_id, band=(0.5, 0.85), **m2svid_kwargs
                 )
         else:
@@ -836,7 +841,8 @@ def process_video_job(job_id: str, request: dict) -> dict:
             else:
                 # single worker: coverage relies on Modal's stereo function
                 # timeout, not the heartbeat watchdog
-                stereo = stereo_cls().generate.remote(
+                stereo = gpu_call(
+                    job_id, stereo_cls().generate,
                     job_id, band=(0.5, 0.85), **stereo_kwargs
                 )
         check_worker_result(stereo, "video_stereo")
@@ -895,14 +901,16 @@ def process_video_job(job_id: str, request: dict) -> dict:
             quality = {}
             if not nvenc and request.get("mvhevc_crf") is not None:
                 quality["crf"] = int(request["mvhevc_crf"])
-            mv = encoder_fn.remote(
-                job_id,
+            mv_kwargs = dict(
                 sbs_path=stereo["sbs_path"],
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,
                 spatial=request.get("spatial"),
                 audio_trim=audio_trim,
                 **quality,
             )
+            # NVENC runs on a GPU (wait tracked); x265 is a CPU function
+            mv = (gpu_call(job_id, encoder_fn, job_id, **mv_kwargs) if nvenc
+                  else encoder_fn.remote(job_id, **mv_kwargs))
             check_worker_result(mv, "encode_mvhevc")
             outputs["mvhevc"] = mv["mvhevc"]
         if request.get("output_depth", True):
@@ -1576,6 +1584,7 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
         label="video_depth", chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
+        gpu_wait=GpuWait(job_id),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -1652,6 +1661,7 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
         label="video_stereo", chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
+        gpu_wait=GpuWait(job_id),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -1716,6 +1726,7 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
         chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
+        gpu_wait=GpuWait(job_id),
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0

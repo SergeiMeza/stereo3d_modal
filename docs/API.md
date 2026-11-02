@@ -318,6 +318,8 @@ succeeds (`error` reports the failed count), and `outputs` maps
   "status": "in_progress",                   // pending | in_progress | completed | failed
   "stage": "video_stereo", "progress": 0.62, // overall 0..1
   "created_at": 1751414400.0, "updated_at": 1751414455.2,
+  "waiting_for_gpu": false,                  // a GPU call is queued and none runs
+  "queued_s": 312.4,                         // total seconds spent waiting for a GPU
   "request": { … },                          // the submitted body, echoed back
   "progress_detail": {                       // updated every ~30 frames / 5s
     "stage": "video_stereo", "done": 90, "total": 240, "unit": "frames",
@@ -372,6 +374,11 @@ Notes:
 - experimental stage jobs put the worker's return value in `result`.
 - during a fan-out, `child_call_ids` lists the spawned GPU workers'
   FunctionCall ids (used by cancel; cleared when the stage gathers).
+- `waiting_for_gpu` is true while at least one of the job's GPU calls is
+  queued and none of them runs (GPUs are shared, so a call can wait long);
+  `queued_s` is the total time in that state across stages, refreshed at
+  most every ~30 s while waiting. Both reset/stop when the job finishes or
+  fails. Experimental stage jobs don't track them (always false / 0).
 
 ## DELETE /v1/jobs/{job_id} — cancel
 

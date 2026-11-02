@@ -112,3 +112,5 @@ class JobStatus(TypedDict, total=False):
     error: str | None
     created_at: float
     updated_at: float
+    waiting_for_gpu: bool  # a GPU call is queued and none runs
+    queued_s: float  # total seconds spent waiting for a GPU, across stages

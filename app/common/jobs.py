@@ -150,6 +150,11 @@ def create_job(job_id: str, kind: str, request: dict) -> dict:
         "timings": [],  # per-stage benchmark records
         "outputs": {},  # name -> public URL
         "error": None,
+        # GPU wait (app/common/gpu_wait.py; names shared with the Lifelike
+        # app): true while a GPU call is queued and none runs; total seconds
+        # spent in that state across stages.
+        "waiting_for_gpu": False,
+        "queued_s": 0.0,
     }
     job_dict[job_id] = job
     return job
@@ -187,6 +192,10 @@ def update_job(job_id: str, **fields) -> dict | None:
         old = dict(job)
         job.update(fields)
         job["updated_at"] = time.time()
+        # a finished or failed job waits for nothing (also covers DELETE and
+        # a late GpuWait write racing the failure)
+        if job.get("status") in (COMPLETED, FAILED) and job.get("waiting_for_gpu"):
+            job["waiting_for_gpu"] = False
 
         # On the first transition into COMPLETED, roll up per-stage costs into
         # a final cost.yaml in GCS and stash the summary on the job so Slack
@@ -386,7 +395,12 @@ class stage_timer:
 
     def __enter__(self):
         self.start = time.perf_counter()
-        update_job(self.job_id, stage=self.stage, status=IN_PROGRESS)
+        # stage_starts: the start mark gpu_call reads to tell a running GPU
+        # call from a queued one (app/common/gpu_wait.py)
+        with _job_lock(self.job_id):
+            starts = int((job_dict.get(self.job_id) or {}).get("stage_starts") or 0)
+            update_job(self.job_id, stage=self.stage, status=IN_PROGRESS,
+                       stage_starts=starts + 1)
         self.log.info(f"▶ {self.stage} started ({self.detail or ''})")
         return self
 
