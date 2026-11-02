@@ -242,7 +242,7 @@ chunks on fresh containers instead of failing the job.
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `parallel` | bool | auto | fan out depth + stereo. Auto-enabled above **1500 frames** |
-| `max_gpu_workers` | int | `4` | concurrent GPU containers per fan-out stage (workspace ceiling: 10 GPUs) |
+| `max_gpu_workers` | int | `4` | concurrent GPU containers per fan-out stage (at most 10 and never above the app-wide GPU cap, default 8) |
 | `stereo_chunk_frames` | int | `1200` | max frames per stereo chunk — smaller ⇒ more, shorter chunks |
 | `depth_chunk_frames` | int | `1500` | max frames per depth chunk |
 | `stall_timeout_s` | int | `240` | watchdog: fail/resubmit if no worker emits progress for this long |

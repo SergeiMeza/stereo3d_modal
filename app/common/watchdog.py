@@ -96,6 +96,9 @@ def gather_with_heartbeat(
     clear_chunk_progress_fn=None,
     not_ready_exc=None,
     gpu_wait=None,
+    slots=None,
+    max_in_flight=None,
+    sleep_fn=time.sleep,
 ):
     """Block until all ``handles`` complete, SELF-HEALING a single hung
     chunk instead of failing the whole job.
@@ -132,6 +135,14 @@ def gather_with_heartbeat(
     none running), which keeps the job's ``waiting_for_gpu`` / ``queued_s``
     fields current. Per-chunk mode only.
 
+    ``slots`` (optional, an ``app.common.gpu_slots.GpuSlots``) gates
+    spawning on the app-wide GPU cap: pass ``handles`` as ``[None] * n`` and
+    the chunks are spawned with ``respawn_fn(i)`` as slots free up, at most
+    ``max_in_flight`` of this job at a time. Each spawned chunk holds its
+    slot until it finishes (a resubmit reuses the slot of the call it
+    cancels); every slot is released on return, failure or cancellation.
+    A chunk waiting for a slot is queued, never stalled.
+
     Injectable seams (default to real impls): ``now_fn``,
     ``read_updated_at_fn(job_id)``, ``read_chunk_progress_fn(job_id)`` ->
     the job's ``chunk_progress`` dict, ``not_ready_exc``.
@@ -164,21 +175,64 @@ def gather_with_heartbeat(
     running_since = None
     queued_since = now_fn()
     tracking = per_chunk and gpu_wait is not None
+    gated = slots is not None
+    if gated and not per_chunk:
+        raise ValueError("slots needs chunk_keys and respawn_fn")
+    leases = [None] * n  # the GPU slot each spawned, unfinished chunk holds
+
+    def fill_slots():
+        """Spawn waiting chunks while this job is under max_in_flight and
+        the app has free GPU slots."""
+        in_flight = sum(1 for i in range(n) if handles[i] is not None and not done[i])
+        spawned = False
+        for i in range(n):
+            if done[i] or handles[i] is not None:
+                continue
+            if max_in_flight is not None and in_flight >= max_in_flight:
+                break
+            lease = slots.try_acquire(job_id)
+            if lease is None:
+                break
+            leases[i] = lease
+            handles[i] = respawn_fn(i)
+            slots.attach(lease, handles[i].object_id)
+            started[i] = False
+            last_done[i] = 0
+            last_advance[i] = now_fn()
+            in_flight += 1
+            spawned = True
+        if spawned and register_handles_fn is not None:
+            register_handles_fn([h for h in handles if h is not None])
+
     if tracking:
         gpu_wait.update(True)  # just spawned: queued until a chunk starts
     try:
         while not all(done):
+            if gated:
+                fill_slots()
             completed_this_sweep = False
+            polled = False
             for i, h in enumerate(handles):
-                if done[i]:
+                if done[i] or h is None:
                     continue
+                polled = True
                 try:
                     results[i] = h.get(timeout=poll_s)
                     done[i] = True
                     completed_this_sweep = True
+                    if leases[i] is not None:
+                        slots.release(leases[i])
+                        leases[i] = None
                 except not_ready_exc:
                     continue  # not finished yet
                 # any OTHER exception (a real worker error) propagates out.
+                finally:
+                    if gated:
+                        for lease in leases:
+                            if lease is not None:
+                                slots.renew(lease)  # throttled inside
+            if gated and not polled:
+                sleep_fn(poll_s)  # every pending chunk is waiting for a slot
 
             if completed_this_sweep:
                 continue  # a handle finished — don't check staleness this round
@@ -251,13 +305,17 @@ def gather_with_heartbeat(
                         # emits a real heartbeat.
                         clear_chunk_progress_fn(job_id, key)
                         handles[i] = respawn_fn(i)  # fresh container, same range
+                        if leases[i] is not None:
+                            # the cancelled call's GPU slot passes to its
+                            # replacement
+                            slots.attach(leases[i], handles[i].object_id)
                         # reset so the resubmitted chunk is treated as queued
                         # (unbounded patience) until its first real heartbeat
                         started[i] = False
                         last_done[i] = 0
                         last_advance[i] = now_fn()
                         if register_handles_fn is not None:
-                            register_handles_fn(handles)
+                            register_handles_fn([x for x in handles if x is not None])
                     else:
                         # retries exhausted on this chunk → genuine failure
                         _fail_all(job_id, handles, done, jlog, label, retries[i],
@@ -313,6 +371,10 @@ def gather_with_heartbeat(
 
         return results
     finally:
+        for i, lease in enumerate(leases):
+            if lease is not None:
+                slots.release(lease)
+                leases[i] = None
         if tracking:
             gpu_wait.close()
 
@@ -322,7 +384,7 @@ def _fail_all(job_id, handles, done, jlog, label, retries, chunk_key,
     """Cancel every pending handle, mark the job failed, and raise — the
     terminal path when recovery is impossible (no respawn_fn, or a chunk
     exhausted its retries)."""
-    pending = [h for i, h in enumerate(handles) if not done[i]]
+    pending = [h for i, h in enumerate(handles) if not done[i] and h is not None]
     if chunk_key is not None:
         reason = (f"chunk {chunk_key} hung and exhausted {retries} resubmit(s)")
     elif queued:

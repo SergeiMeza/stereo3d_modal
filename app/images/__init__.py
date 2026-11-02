@@ -17,6 +17,8 @@ One image per pipeline segment instead of a monolith:
                            whole still-image pipeline)
 """
 
+import os
+
 import modal
 
 from app.env import APP_ENV
@@ -36,6 +38,12 @@ from app.images.depth_models import depth_models_image  # noqa: F401
 # (cheap, cache-friendly) but BEFORE add_local_python_source — Modal
 # requires non-copy local mounts to be the final image layers.
 _env_layer = {"APP_ENV": APP_ENV}
+# App-wide GPU cap (app/common/gpu_slots.py), per environment: set
+# STEREO3D_MAX_GPUS at deploy time to bake it in; unset keeps the code
+# default and the image unchanged. A runtime override lives in the slots
+# Dict ("cap" key) and needs no redeploy.
+if os.environ.get("STEREO3D_MAX_GPUS"):
+    _env_layer["STEREO3D_MAX_GPUS"] = os.environ["STEREO3D_MAX_GPUS"]
 
 # ---------------------------------------------------------------- web
 web_image = (

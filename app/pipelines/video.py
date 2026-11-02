@@ -16,6 +16,7 @@ import modal
 
 from app.common import jobs, reuse
 from app.common.debug import get_logger
+from app.common.gpu_slots import GpuSlots
 from app.common.gpu_wait import GpuWait, gpu_call
 from app.common.modal_options import with_options
 from app.common.storage import PIPELINE_VOLUMES, slack_secret
@@ -33,8 +34,8 @@ logger = get_logger(__name__)
 #   M2SVid     ~6 fps    → 1200f ≈ 3 min
 #   VDA depth  ~11 fps   → 3000f ≈ 5 min   (timeout 2h)
 #   per-frame depth ~2 fps (DA3/DepthPro) → 1500f ≈ 12 min
-# A long video simply spawns more chunks (bounded by MAX_GPU_WORKERS,
-# which the caller can raise toward the workspace's 10-GPU ceiling).
+# A long video simply spawns more chunks (bounded by max_gpu_workers per job
+# and the app-wide GPU cap of app/common/gpu_slots.py across jobs).
 STEREO_CHUNK_FRAMES = 1200
 DEPTH_CHUNK_FRAMES = 1500
 # fan out once a video exceeds this (overridable per request via
@@ -321,7 +322,9 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # stereo_chunk_frames/depth_chunk_frames shrink the per-chunk size
         # so more, shorter chunks run in parallel (faster wall-clock when
         # GPUs are plentiful). Defaults preserve prior behavior.
-        max_gpu_workers = min(max(int(request.get("max_gpu_workers", 4)), 1), 10)
+        # also never above the app-wide GPU cap (app/common/gpu_slots.py)
+        max_gpu_workers = min(max(int(request.get("max_gpu_workers", 4)), 1), 10,
+                              GpuSlots().cap())
         stereo_chunk_cap = max(int(request.get("stereo_chunk_frames", STEREO_CHUNK_FRAMES)), 24)
         depth_chunk_cap = max(int(request.get("depth_chunk_frames", DEPTH_CHUNK_FRAMES)), 24)
 
@@ -1573,18 +1576,17 @@ def _parallel_depth(job_id, jlog, worker_cls, encoder, pre, input_size, fps_rati
             passthrough_firsts=passthrough_firsts,
         )
 
-    handles = [_spawn(i) for i in range(len(chunks))]
     # per-chunk heartbeat key = the chunk's first frame (generate_scenes
     # passes chunk=ranges[0][0] to report_progress). A hung depth chunk is
     # resubmitted on a fresh container instead of failing the whole job.
+    # The watchdog spawns the chunks as app-wide GPU slots free up.
     chunk_keys = [c[0][0] for c in chunks]
-    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
-        job_id, handles, jlog, stall_timeout_s=stall_timeout_s,
+        job_id, [None] * len(chunks), jlog, stall_timeout_s=stall_timeout_s,
         label="video_depth", chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
-        gpu_wait=GpuWait(job_id),
+        gpu_wait=GpuWait(job_id), slots=GpuSlots(), max_in_flight=max_workers,
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -1650,18 +1652,17 @@ def _parallel_stereo(job_id, jlog, pre, stereo_kwargs, stereo_cls, max_workers,
             band=(0.5, 0.85), **stereo_kwargs,
         )
 
-    handles = [_spawn(i) for i in range(len(ranges))]
     # per-chunk heartbeat key = the chunk's start frame (workers pass
     # chunk=range_start to report_progress); respawn_fn re-rolls a hung
-    # chunk on a fresh container instead of failing the whole job.
+    # chunk on a fresh container instead of failing the whole job. The
+    # watchdog spawns the chunks as app-wide GPU slots free up.
     chunk_keys = [r[0] for r in ranges]
-    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
-        job_id, handles, jlog, stall_timeout_s=stall_timeout_s,
+        job_id, [None] * len(ranges), jlog, stall_timeout_s=stall_timeout_s,
         label="video_stereo", chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
-        gpu_wait=GpuWait(job_id),
+        gpu_wait=GpuWait(job_id), slots=GpuSlots(), max_in_flight=max_workers,
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0
@@ -1717,16 +1718,14 @@ def _parallel_stereo_m2svid(job_id, jlog, pre, m2svid_kwargs, max_workers,
             band=(0.5, 0.85), **m2svid_kwargs,
         )
 
-    handles = [_spawn(i) for i in range(len(ranges))]
     chunk_keys = [r[0] for r in ranges]
-    jobs.register_child_calls(job_id, [h.object_id for h in handles])
     results = gather_with_heartbeat(
-        job_id, handles, jlog,
+        job_id, [None] * len(ranges), jlog,
         stall_timeout_s=stall_timeout_s, label="video_stereo[m2svid]",
         chunk_keys=chunk_keys, respawn_fn=_spawn,
         register_handles_fn=lambda hs: jobs.register_child_calls(
             job_id, [h.object_id for h in hs]),
-        gpu_wait=GpuWait(job_id),
+        gpu_wait=GpuWait(job_id), slots=GpuSlots(), max_in_flight=max_workers,
     )
     jobs.clear_child_calls(job_id)
     segments, num_frames = [], 0

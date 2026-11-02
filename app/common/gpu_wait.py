@@ -13,10 +13,12 @@ whether the job is waiting; it writes on transitions and at most every
 ``interval_s`` while waiting, never on every poll.
 
 ``gpu_call`` replaces a blocking ``method.remote(...)`` on a GPU worker:
-it spawns the call, registers it for DELETE /v1/jobs/{id}, and polls it
-while tracking the wait. A call counts as running once the job's
-``stage_starts`` counter (bumped by ``jobs.stage_timer.__enter__`` inside
-the worker) moves past its value at spawn; until then it is queued.
+it takes a slot of the app-wide GPU cap (app/common/gpu_slots.py), spawns
+the call, registers it for DELETE /v1/jobs/{id}, and polls it while
+tracking the wait (the slot wait counts as waiting for a GPU). A call
+counts as running once the job's ``stage_starts`` counter (bumped by
+``jobs.stage_timer.__enter__`` inside the worker) moves past its value at
+spawn; until then it is queued.
 """
 
 import time
@@ -106,15 +108,16 @@ class GpuWait:
 
 def gpu_call(job_id, method, *args, **kwargs):
     """``method.remote(*args, **kwargs)`` for a GPU worker, with the wait
-    tracked on the job record and the call cancellable through
-    DELETE /v1/jobs/{id}. Returns the result or raises the worker's
-    exception, like ``.remote()``."""
+    tracked on the job record, a slot of the app-wide GPU cap held for the
+    call's lifetime, and the call cancellable through DELETE /v1/jobs/{id}.
+    Returns the result or raises the worker's exception, like ``.remote()``."""
     return _gpu_call(job_id, method, args, kwargs)
 
 
 def _gpu_call(job_id, method, args, kwargs, *, poll_s=POLL_S, gpu_wait=None,
-              read_starts_fn=None, register_fn=None, clear_fn=None,
-              not_ready_exc=None):
+              slots=None, sleep_fn=time.sleep, read_starts_fn=None,
+              register_fn=None, clear_fn=None, not_ready_exc=None):
+    from app.common.gpu_slots import GpuSlots, acquire
     from app.common.watchdog import _modal_not_ready_exc
 
     if read_starts_fn is None:
@@ -127,27 +130,34 @@ def _gpu_call(job_id, method, args, kwargs, *, poll_s=POLL_S, gpu_wait=None,
         not_ready_exc = _modal_not_ready_exc()
     if gpu_wait is None:
         gpu_wait = GpuWait(job_id)
+    if slots is None:
+        slots = GpuSlots()
 
-    starts0 = _safe_starts(read_starts_fn, job_id)
-    call = method.spawn(*args, **kwargs)
+    gpu_wait.update(True)  # waiting for a slot, then queued until the start mark
+    lease = call = None
     try:
-        register_fn(job_id, [call.object_id])
-    except Exception:
-        logger.warning("gpu call: child-call registration failed", exc_info=True)
-    gpu_wait.update(True)  # queued until the worker marks its start
-    started = False
-    try:
+        lease = acquire(slots, job_id, gpu_wait=gpu_wait, poll_s=poll_s,
+                        sleep_fn=sleep_fn)
+        starts0 = _safe_starts(read_starts_fn, job_id)
+        call = method.spawn(*args, **kwargs)
+        slots.attach(lease, call.object_id)
+        try:
+            register_fn(job_id, [call.object_id])
+        except Exception:
+            logger.warning("gpu call: child-call registration failed", exc_info=True)
+        started = False
         while True:
             try:
                 return call.get(timeout=poll_s)
             except not_ready_exc:
                 pass
+            slots.renew(lease)
             if not started:
                 cur = _safe_starts(read_starts_fn, job_id)
                 started = starts0 is not None and cur is not None and cur > starts0
             gpu_wait.update(not started)
     except BaseException as exc:
-        if not isinstance(exc, Exception):
+        if call is not None and not isinstance(exc, Exception):
             # the coordinator itself is being cancelled or torn down: don't
             # leave its GPU call running
             try:
@@ -156,11 +166,13 @@ def _gpu_call(job_id, method, args, kwargs, *, poll_s=POLL_S, gpu_wait=None,
                 pass
         raise
     finally:
+        slots.release(lease)
         gpu_wait.close()
-        try:
-            clear_fn(job_id)
-        except Exception:
-            logger.warning("gpu call: child-call clear failed", exc_info=True)
+        if call is not None:
+            try:
+                clear_fn(job_id)
+            except Exception:
+                logger.warning("gpu call: child-call clear failed", exc_info=True)
 
 
 def _safe_starts(read_starts_fn, job_id):

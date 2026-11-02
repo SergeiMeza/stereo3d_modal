@@ -538,6 +538,10 @@ def cancel_job(job_id: str) -> dict:
         cancelled += _cancel_call(cid)
     if job.get("call_id"):
         _cancel_call(job["call_id"])
+    # free the job's slots of the app-wide GPU cap now, not at lease expiry
+    from app.common.gpu_slots import GpuSlots
+
+    GpuSlots().release_job(job_id)
     jobs.update_job(
         job_id,
         status=jobs.FAILED,

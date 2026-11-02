@@ -37,8 +37,17 @@
 | MV-HEVC encode | `nvenc_image` | L4 (NVENC path) / none (x265 path, 32 CPU cores) | NVENC is fixed-function; x265 is pure CPU |
 | image pipeline | `image_stereo_image` | A10G | DA2-Large fp16 + LAMA fit comfortably; cheapest adequate GPU |
 
-GPU concurrency is bounded by the workspace limit (10 GPU containers);
-fan-out is further capped per job by `max_gpu_workers` (default 4).
+GPU concurrency is bounded by the workspace limit (10 GPU containers,
+shared with another app). The app holds itself to its own cap across all
+GPU classes and jobs (`app/common/gpu_slots.py`): every GPU call takes a
+lease in the `stereo3d-gpu-slots-<env>` Dict before it is spawned and
+gives it back when the call ends; a dead coordinator's leases expire after
+5 minutes. The cap is `STEREO3D_MAX_GPUS` at deploy time (default 8), or
+the Dict's `cap` key at runtime. Fan-out is further capped per job by
+`max_gpu_workers` (default 4, never above the app cap). Time a job spends
+waiting for a slot or a GPU shows as `waiting_for_gpu` / `queued_s`.
+Experimental `/v1/stages/*` endpoints spawn workers directly and are not
+counted.
 Stages are separate Modal functions, so a long video can have depth and
 stereo running on different containers across jobs, but within one job
 stages are sequential (stereo needs depth).
