@@ -12,7 +12,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { mockDb, mockUploads } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import { GatewayClient, GatewayError } from "./client";
+import {
+  CHUNKED_UPLOAD_THRESHOLD_BYTES,
+  GatewayClient,
+  GatewayError,
+  normalizeDownloads,
+  wantsChunkedUpload,
+} from "./client";
 import { UPLOAD_CHUNK_BYTES, type ChunkTransport } from "./resumableUpload";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
@@ -130,5 +136,64 @@ describe("GatewayClient uploads", () => {
     expect(ticket.upload_url).toContain("/__mock__/upload/");
     await c.uploadFile(ticket, new Blob([new Uint8Array(1024)]));
     expect(mockUploads.sessions.size).toBe(0);
+  });
+
+  it("chunks every file over 100 MB, for everyone, not only in China mode", async () => {
+    expect(CHUNKED_UPLOAD_THRESHOLD_BYTES).toBe(100_000_000);
+    expect(wantsChunkedUpload(100_000_000)).toBe(false);
+    expect(wantsChunkedUpload(100_000_001)).toBe(true);
+    expect(wantsChunkedUpload(1024, true)).toBe(true); // China mode
+    expect(wantsChunkedUpload(undefined)).toBe(false);
+
+    const c = client(false);
+    const big = await c.createUpload("long.mov", "video/quicktime", 2_500_000_000);
+    expect(big.resumable).toBe(true);
+    expect(mockUploads.sessions.has(big.upload_id)).toBe(true);
+    const small = await c.createUpload("short.mp4", "video/mp4", 50_000_000);
+    expect(small.resumable).toBeUndefined();
+  });
+
+  it("resumes an interrupted upload where the session stands", async () => {
+    const c = client(true); // a resumable session (big file or China mode)
+    const file = video();
+    const ticket = await c.createUpload("clip.mp4", "video/mp4", file.size);
+    // The first chunk made it before the connection dropped.
+    await fetchTransport(ticket.upload_url, file.slice(0, UPLOAD_CHUNK_BYTES), {
+      "Content-Range": `bytes 0-${UPLOAD_CHUNK_BYTES - 1}/*`,
+    });
+    const progress: number[] = [];
+    await c.uploadFile(ticket, file, (f) => progress.push(f), { resume: true });
+
+    const session = mockUploads.sessions.get(ticket.upload_id)!;
+    expect(session.done).toBe(true);
+    expect(session.bytes).toBe(file.size);
+    expect(session.chunks).toBe(3); // nothing sent twice
+    expect(session.statusChecks).toBe(1);
+    expect(progress[0]).toBeCloseTo(UPLOAD_CHUNK_BYTES / file.size);
+  });
+});
+
+describe("normalizeDownloads", () => {
+  it("keeps the name → URL map as is", () => {
+    expect(
+      normalizeDownloads({ downloads: { sbs: "u1", mvhevc_part01: "u2" }, expires_in: 60 }),
+    ).toEqual({ downloads: { sbs: "u1", mvhevc_part01: "u2" }, expires_in: 60 });
+  });
+
+  it("folds per-part entries into <name>_partNN keys", () => {
+    expect(
+      normalizeDownloads({
+        downloads: [
+          { name: "mvhevc", part: 1, url: "a", filename: "Clip 3D Part 1.mov" },
+          { name: "mvhevc", part: 2, url: "b", filename: "Clip 3D Part 2.mov" },
+          { name: "sbs", url: "c" },
+        ],
+        expires_in: 60,
+      }).downloads,
+    ).toEqual({ mvhevc_part01: "a", mvhevc_part02: "b", sbs: "c" });
+    expect(
+      normalizeDownloads({ downloads: { mvhevc: { url: "a", part: 3 } } })
+        .downloads,
+    ).toEqual({ mvhevc_part03: "a" });
   });
 });

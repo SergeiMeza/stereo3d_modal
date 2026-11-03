@@ -8,6 +8,7 @@
  */
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -28,7 +29,8 @@ import {
 } from "vitest";
 
 import projectFixture from "../../fixtures/project.json";
-import { GatewayClient } from "@/lib/api/client";
+import { maxDurationFor } from "@/components/projects/UploadDropzone";
+import { GatewayClient, GatewayError } from "@/lib/api/client";
 import type { Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
@@ -167,6 +169,110 @@ describe("ProjectsScreen list", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/** A file that reports a large size without allocating it. */
+function bigFile(name: string, size: number): File {
+  const f = new File(["x"], name, { type: "video/quicktime" });
+  Object.defineProperty(f, "size", { value: size });
+  return f;
+}
+
+describe("ProjectsScreen large uploads (Lifelike)", () => {
+  it("per-method length caps from GET /v1/limits: Lifelike unlimited, old gateways 10 minutes", () => {
+    expect(maxDurationFor(null, "lifelike")).toBeNull();
+    expect(
+      maxDurationFor(
+        { methods: { lifelike: { max_source_duration_s: 0 } } },
+        "lifelike",
+      ),
+    ).toBe(0);
+    expect(maxDurationFor({ limits: { max_duration_s: 600 } }, "lifelike")).toBe(600);
+    expect(maxDurationFor({}, "lifelike")).toBe(600);
+  });
+
+  it("new projects are Lifelike and the dropzone takes videos of any length", async () => {
+    stubUploadFile();
+    renderScreen();
+    expect(await screen.findByText(/any length/)).toBeTruthy();
+    await userEvent.upload(
+      screen.getByLabelText("Upload video"),
+      new File(["x"], "long_film.mov", { type: "video/quicktime" }),
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    const id = (push.mock.calls[0][0] as string).slice("/projects/".length);
+    expect(mockDb.projects.get(id)?.method).toBe("lifelike");
+  });
+
+  it("an older gateway without per-method caps keeps the 10-minute note", async () => {
+    server.use(
+      http.get(`${GATEWAY}/v1/limits`, () =>
+        HttpResponse.json({ limits: { max_duration_s: 600 } }),
+      ),
+    );
+    renderScreen();
+    expect(await screen.findByText(/up to 10 minutes/)).toBeTruthy();
+  });
+
+  it("shows size, progress and time left, and warns before the tab closes", async () => {
+    let report: ((f: number) => void) | undefined;
+    vi.spyOn(GatewayClient.prototype, "uploadFile").mockImplementation(
+      (_t, _f, onProgress) => {
+        report = onProgress;
+        return new Promise(() => {}); // still uploading
+      },
+    );
+    renderScreen();
+    const start = Date.now();
+    await userEvent.upload(
+      screen.getByLabelText("Upload video"),
+      bigFile("trip.mov", 2 * 1024 ** 3),
+    );
+    await waitFor(() => expect(report).toBeDefined());
+    vi.spyOn(Date, "now").mockReturnValue(start + 120_000);
+    act(() => report!(0.5));
+    const detail = await screen.findByTestId("upload-detail");
+    expect(detail.textContent).toContain("1.0 GB of 2.0 GB");
+    expect(detail.textContent).toMatch(/about 2 min left/);
+
+    const ev = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("asks for a resumable ticket over 100 MB and resumes after a dropped connection", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (new URL(request.url).pathname === "/v1/uploads") {
+        bodies.push((await request.clone().json()) as Record<string, unknown>);
+      }
+    });
+    const spy = vi
+      .spyOn(GatewayClient.prototype, "uploadFile")
+      .mockImplementationOnce(async (_t, _f, onProgress) => {
+        onProgress?.(0.4);
+        throw new GatewayError("upload_failed", "upload network error", 0);
+      })
+      .mockImplementationOnce(async (_t, _f, onProgress) => {
+        onProgress?.(1);
+      });
+    renderScreen();
+    await userEvent.upload(
+      screen.getByLabelText("Upload video"),
+      bigFile("trip.mov", 300_000_000),
+    );
+    const resume = await screen.findByRole("button", { name: /Resume upload/ });
+    expect(bodies[0]).toMatchObject({ resumable: true });
+    expect(push).not.toHaveBeenCalled();
+
+    fireEvent.click(resume);
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    expect(spy).toHaveBeenCalledTimes(2);
+    // same ticket, continued where the session stands
+    expect(spy.mock.calls[1][0]).toBe(spy.mock.calls[0][0]);
+    expect(spy.mock.calls[1][3]).toEqual({ resume: true });
+    expect(bodies).toHaveLength(1);
   });
 });
 

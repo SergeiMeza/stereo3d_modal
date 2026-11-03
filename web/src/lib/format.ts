@@ -13,7 +13,7 @@ export function formatBytes(bytes: number): string {
 
 /** "about 3 min left" / "about 40 s left" / "about 1 h 5 min left". */
 export function formatTimeLeft(seconds: number): string {
-  if (seconds < 60) return `about ${Math.max(1, Math.round(seconds / 5) * 5)} s left`;
+  if (seconds < 55) return `about ${Math.max(5, Math.round(seconds / 5) * 5)} s left`;
   const totalMin = Math.round(seconds / 60);
   if (totalMin < 60) return `about ${totalMin} min left`;
   const h = Math.floor(totalMin / 60);
