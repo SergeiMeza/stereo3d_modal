@@ -47,12 +47,16 @@ func runStart(c *store.Conversion) time.Time {
 }
 
 // isOverdue: a paid or processing run past overdueAfter. A run waiting for
-// the user's bank (created) is not ours to be late on.
+// the user's bank (created) is not ours to be late on, nor is the time a
+// run sat waiting for a GPU (queued_s: the app-wide GPU cap held it back).
+// ExpectedSeconds is the run's own estimate, which scales with its method,
+// length and preset (Classic's additive model, Lifelike's GPU model).
 func isOverdue(c *store.Conversion, now time.Time) bool {
 	if c.State != store.StatePaid && c.State != store.StateProcessing {
 		return false
 	}
-	return now.Sub(runStart(c)) > overdueAfter(c.Support.ExpectedSeconds)
+	queued := time.Duration(overdueQueueAllowance(c) * float64(time.Second))
+	return now.Sub(runStart(c)) > overdueAfter(c.Support.ExpectedSeconds)+queued
 }
 
 // alertIfOverdue posts the Slack alert once per run. Called from the

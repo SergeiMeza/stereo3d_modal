@@ -64,6 +64,7 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	pa := conv.Params
 	put("kind", conv.Kind)
 	put("step", conv.Step)
+	put("method", store.MethodOr(conv.Method))
 	put("preset", pa.Preset)
 	if pa.Inpaint != "" || pa.Warp != "" {
 		inpaint := pa.Inpaint
@@ -129,6 +130,9 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	if h := presetOutputHeight[pa.Preset]; h > 0 {
 		put("output_height", strconv.Itoa(h))
 	}
+	if pa.SplitMaxSeconds > 0 {
+		put("split_max_seconds", strconv.Itoa(pa.SplitMaxSeconds))
+	}
 	return m
 }
 
@@ -165,7 +169,12 @@ func jobDescription(conv *store.Conversion) string {
 			return "Stereo preview with inpainting"
 		}
 		return "Stereo preview"
+	case store.StepLifelikePreview:
+		return "Lifelike 3D preview"
 	case store.StepProduction:
+		if conv.Method == store.MethodLifelike {
+			return "Lifelike 3D render"
+		}
 		return "Production 3D render"
 	}
 	if conv.Kind == "image" {

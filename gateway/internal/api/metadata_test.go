@@ -34,6 +34,7 @@ func TestJobMetadataFromConversion(t *testing.T) {
 		"scene_overrides": "2", "passthrough_scenes": "1",
 		"billable_seconds": "184.83", "reused_stages": "depth,preprocess",
 		"output_height": "1620",
+		"method":        "classic", // no method on the record = classic
 	}
 	for k, v := range want {
 		if m[k] != v {
@@ -48,5 +49,15 @@ func TestJobMetadataFromConversion(t *testing.T) {
 	lm := jobMetadataFromConversion(legacy)
 	if lm["inpaint"] != "" || lm["warp"] != "" {
 		t.Errorf("legacy: inpaint/warp must be absent, got %v", lm)
+	}
+	// Lifelike runs name their method and the split request.
+	ll := &store.Conversion{Kind: "video", Step: store.StepProduction, Method: store.MethodLifelike,
+		Params: store.Params{Preset: "4k", Formats: []string{"mvhevc"}, SplitMaxSeconds: 900}}
+	llm := jobMetadataFromConversion(ll)
+	if llm["method"] != "lifelike" || llm["split_max_seconds"] != "900" {
+		t.Errorf("lifelike metadata: %v", llm)
+	}
+	if jobDescription(ll) != "Lifelike 3D render" {
+		t.Errorf("lifelike description: %q", jobDescription(ll))
 	}
 }

@@ -688,6 +688,18 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"auto_decimate_fps": autoDecimateFPS,
 		},
 		"usage": s.usageEntry(ctx, user.UID, active, freeImages),
+		// Per-method source caps (0 = unlimited) and availability.
+		"methods": map[string]any{
+			store.MethodLifelike: map[string]any{
+				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodLifelike),
+				"available":             s.Lifelike != nil,
+			},
+			store.MethodClassic: map[string]any{
+				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
+				"available":             true,
+			},
+		},
+		"default_method": s.defaultMethod(ctx),
 		"billing": map[string]any{
 			"has_payment_method": hasCard,
 			"delinquent":         delinquent,
@@ -710,6 +722,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"migan_production_multiplier":      rates.MiganProductionMultiplier,
 			"production_no_inpaint_multiplier": rates.ProductionNoInpaintMultiplier,
 			"hold_threshold_cents":             tier["hold_threshold_cents"],
+			// pro steps quoted above this are charged before they start
+			"precharge_threshold_cents": rates.PrechargeThreshold(),
 		},
 	})
 }
@@ -763,7 +777,17 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, gateErr)
 		return
 	}
+	// files: one entry per output with a download name; a split output
+	// is one entry per part (part: N, 1-based) named "<project> 3D Part
+	// N.mov". downloads (name → URL) stays as it was for older clients.
+	base := ""
+	if conv.ProjectID != "" {
+		if p, perr := s.Store.GetProject(ctx, conv.ProjectID); perr == nil {
+			base = p.Name
+		}
+	}
 	urls := map[string]string{}
+	files := make([]outputFile, 0, len(conv.Outputs))
 	for name, key := range conv.Outputs {
 		u, err := s.GCS.SignedGetURL(key, downloadTTL)
 		if err != nil {
@@ -771,9 +795,16 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 			return
 		}
 		urls[name] = u
+		format, part := splitOutputName(name)
+		files = append(files, outputFile{
+			Name: name, Format: format, Part: part, URL: u,
+			Filename: downloadFilename(base, name, path.Ext(key)),
+		})
 	}
+	sortOutputFiles(files)
 	httpx.WriteOK(w, map[string]any{
 		"downloads":  urls,
+		"files":      files,
 		"expires_in": int(downloadTTL.Seconds()),
 	})
 }
@@ -810,7 +841,8 @@ const cancelWindow = time.Minute
 
 var errCancelWindowClosed = errors.New("cancel window closed")
 
-// DELETE /v1/conversions/{id} — cancel job + release hold.
+// DELETE /v1/conversions/{id} — cancel job + release hold (or refund a
+// pre-charged run).
 func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	conv, err := s.ownedConversion(ctx, user, id)
@@ -854,8 +886,8 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 	}
 	// Use the POST-transition snapshot: the job may have been submitted
 	// between our read and the transition commit.
-	if updated.Modal.JobID != "" {
-		if err := s.Modal.CancelJob(ctx, updated.Modal.JobID); err != nil {
+	if client := s.modalFor(updated); updated.Modal.JobID != "" && client != nil {
+		if err := client.CancelJob(ctx, updated.Modal.JobID); err != nil {
 			httpx.Log(ctx).Warn("modal cancel failed", "conversion_id", id, "err", err)
 		}
 	}
@@ -897,10 +929,17 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"kind":          c.Kind,
 		"params":        c.Params,
 	}
+	resp["method"] = store.MethodOr(c.Method)
 	if c.ProjectID != "" {
 		resp["project_id"] = c.ProjectID
 		resp["step"] = c.Step
 		resp["scenes_version"] = c.ScenesVer
+		// When the money moves: "before" = charged up front and refunded
+		// if the run fails (pre-charged), "after" = billed on success.
+		resp["charge_timing"] = "after"
+		if c.Stripe.Mode == store.BillingModeAutoPrecharge {
+			resp["charge_timing"] = "before"
+		}
 	}
 	resp["quote"] = map[string]any{
 		"amount_cents": c.Quote.AmountCents,
@@ -910,6 +949,11 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	resp["progress"] = c.Modal.Progress
 	resp["stage"] = c.Modal.Stage
 	resp["eta_seconds"] = c.Modal.ETASeconds
+	resp["waiting_for_gpu"] = c.Modal.WaitingForGPU && !store.IsTerminal(c.State)
+	resp["queued_s"] = c.Modal.QueuedS
+	if len(c.Parts) > 0 {
+		resp["parts"] = c.Parts
+	}
 	// Once submitted, cancel is only allowed for cancelWindow — tell the
 	// client when the button should disappear. Absent before submission
 	// (always cancelable) and on terminal states (nothing to cancel).
@@ -940,6 +984,16 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	// (auto_hold, state=created) carries the client_secret for the saved-card
 	// confirm; succeeded runs report the charge/capture outcome.
 	switch c.Stripe.Mode {
+	case store.BillingModeAutoPrecharge:
+		if b := prechargeBilling(c); b != nil {
+			resp["billing"] = b
+		} else {
+			resp["billing"] = map[string]any{
+				"status":          "requires_action",
+				"client_secret":   c.Stripe.ClientSecret,
+				"publishable_key": s.Stripe.PublishableKey,
+			}
+		}
 	case store.BillingModeAuto, store.BillingModeAutoHold:
 		if c.State == store.StateCreated && c.Stripe.ClientSecret != "" {
 			resp["billing"] = map[string]any{

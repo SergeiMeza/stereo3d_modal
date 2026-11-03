@@ -84,6 +84,10 @@ func main() {
 		GCS:     gcs,
 		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
 	}
+	if cfg.LifelikeBaseURL != "" {
+		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
+	}
+	slog.Info("lifelike", "enabled", svc.Lifelike != nil, "base_url", cfg.LifelikeBaseURL)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {

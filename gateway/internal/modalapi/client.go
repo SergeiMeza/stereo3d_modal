@@ -1,6 +1,8 @@
-// Package modalapi is the typed client for the private stereo3d Modal API.
-// Every request carries Modal proxy-auth headers; the Modal deployment sets
-// requires_proxy_auth=True so nothing else can reach it.
+// Package modalapi is the typed client for the private stereo3d Modal API
+// and, with the same shape, the shared lifelike3d service (ml-sharp-modal
+// docs/LIFELIKE_API.md). Every request carries Modal proxy-auth headers when
+// a token is configured; the prod deployments set requires_proxy_auth=True
+// so nothing else can reach them.
 package modalapi
 
 import (
@@ -44,7 +46,7 @@ type SubmitResponse struct {
 // (docs/API.md documents the full shape).
 type Job struct {
 	JobID          string  `json:"job_id"`
-	Status         string  `json:"status"` // pending | in_progress | completed | failed
+	Status         string  `json:"status"` // pending | in_progress | completed | failed | canceled (lifelike)
 	Stage          string  `json:"stage"`
 	Progress       float64 `json:"progress"`
 	ProgressDetail struct {
@@ -60,6 +62,35 @@ type Job struct {
 	CostSummary struct {
 		TotalUSD float64 `json:"total_usd"`
 	} `json:"cost_summary"`
+	// Both pipelines: a GPU call is queued and none runs; total seconds
+	// spent so. Absent on older records (false / 0).
+	WaitingForGPU bool    `json:"waiting_for_gpu"`
+	QueuedS       float64 `json:"queued_s"`
+}
+
+// Part is one file of a split output (metadata.parts): SOURCE frames, half
+// open; start_s = from_frame / source fps.
+type Part struct {
+	Index     int     `json:"index"`
+	FromFrame int     `json:"from_frame"`
+	ToFrame   int     `json:"to_frame"`
+	StartS    float64 `json:"start_s"`
+	DurationS float64 `json:"duration_s"`
+}
+
+// Parts decodes metadata.parts; nil when the output is not split or the
+// metadata doesn't say (yet).
+func (j *Job) Parts() []Part {
+	if len(j.Metadata) == 0 {
+		return nil
+	}
+	var m struct {
+		Parts []Part `json:"parts"`
+	}
+	if json.Unmarshal(j.Metadata, &m) != nil {
+		return nil
+	}
+	return m.Parts
 }
 
 // SubmitVideo posts the clamped request body to POST /v1/videos.

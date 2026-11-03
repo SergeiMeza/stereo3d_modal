@@ -197,7 +197,7 @@ func (s *Service) reconcileModal(ctx context.Context, log *slog.Logger, stats ma
 					c.Stripe.PIStatus = store.PICancelPending
 					c.Error = &store.Error{
 						Code:            "submit_failed",
-						UserMessage:     "Processing could not be started and you were not charged. Quote this ID to support: " + c.ID,
+						UserMessage:     "Processing could not be started and " + notChargedPhrase(c) + ". Quote this ID to support: " + c.ID,
 						InternalMessage: "modal submit failing since " + conv.UpdatedAt.Format(time.RFC3339),
 					}
 					return nil

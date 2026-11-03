@@ -20,6 +20,10 @@ import (
 //	amount_capturable_updated (hold confirmed) → created→paid → submit.
 //	canceled → created|paid→expired. payment_failed → log only (retryable).
 //
+// Pre-charged pro steps (auto_precharge, charged before the run):
+//
+//	succeeded on a created run (3DS confirmed) → paid → submit.
+//
 // Auto mode (pay-as-you-go pro steps; the PI exists only after success):
 //
 //	succeeded → finalize the charge (3DS fallback lands here).
@@ -88,12 +92,37 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "payment_intent.succeeded":
+		// Pre-charged run whose up-front charge needed 3DS: the client
+		// confirmed it, so the run is paid — mark it, then submit.
+		now := time.Now().UTC()
+		_, perr := s.Store.Transition(ctx, conversionID, []string{store.StateCreated}, func(c *store.Conversion) error {
+			if c.Stripe.Mode != store.BillingModeAutoPrecharge {
+				return store.ErrStateConflict
+			}
+			c.State = store.StatePaid
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = pi.AmountReceived
+			c.Stripe.CapturedAt = &now
+			c.Stripe.ClientSecret = ""
+			return nil
+		})
+		if perr == nil {
+			log.Info("precharge confirmed; submitting", "amount_cents", pi.AmountReceived)
+			if err := s.submitToModal(ctx, conversionID); err != nil {
+				log.Warn("submit failed; reconciler will retry", "err", err)
+			}
+			break
+		} else if !errors.Is(perr, store.ErrStateConflict) && !errors.Is(perr, store.ErrNotFound) {
+			log.Error("webhook precharge transition failed", "err", perr)
+			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+			return
+		}
 		// Auto mode: the charge landed — possibly via the web 3DS fallback
 		// (confirmCardPayment), which settles outside chargeConversion. Fold
 		// the money in and clear the settle error; hold-mode captures already
 		// record this in captureHold (their transition conflicts here on
 		// pi_status and no-ops).
-		now := time.Now().UTC()
 		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
 			if c.Stripe.Mode != store.BillingModeAuto || c.Stripe.PIStatus == store.PISucceeded {
 				return store.ErrStateConflict // legacy capture or already folded

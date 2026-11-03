@@ -49,6 +49,12 @@ const (
 	// batch (Stripe.BatchID); the batch's charge settles it to succeeded
 	// or, on a card decision, flips it to charge_failed.
 	PIBatched = "batched"
+	// Pre-charged runs (BillingModeAutoPrecharge) that end without a
+	// result: cancel_pending is the committed intent to give the money
+	// back; refunded is the outcome, refund_failed a refund Stripe refused
+	// (Slack-flagged for a manual refund, no further retries).
+	PIRefunded     = "refunded"
+	PIRefundFailed = "refund_failed"
 )
 
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
@@ -61,7 +67,30 @@ const (
 	// captured on success. 3DS at creation surfaces as state=created +
 	// billing requires_action until the client confirms.
 	BillingModeAutoHold = "auto_hold"
+	// BillingModeAutoPrecharge: pro steps quoted above the precharge
+	// threshold (owner decision LL-D8, 2026-11-03) — the saved card is
+	// CHARGED (automatic capture) before the job is submitted and refunded
+	// in full if the run fails or is canceled. 3DS at creation parks the
+	// run at state=created like auto_hold; the succeeded webhook submits it.
+	BillingModeAutoPrecharge = "auto_precharge"
 )
+
+// Conversion methods (the project's choice; every run records the one it
+// ran with). Lifelike runs on the shared lifelike3d Modal service
+// (ml-sharp-modal ADR-0019); classic is this repo's depth → warp → inpaint
+// pipeline. Records without a method are classic.
+const (
+	MethodLifelike = "lifelike"
+	MethodClassic  = "classic"
+)
+
+// MethodOr returns m, or classic for records that predate the field.
+func MethodOr(m string) string {
+	if m == "" {
+		return MethodClassic
+	}
+	return m
+}
 
 func IsTerminal(state string) bool {
 	switch state {
@@ -135,6 +164,10 @@ type Params struct {
 	// only): Modal publishes depth + depth_vis and completes — no stereo
 	// warp, no output encodes. Set server-side, never from the client.
 	DepthOnly bool `firestore:"depth_only,omitempty" json:"depth_only,omitempty"`
+	// SplitMaxSeconds cuts the output into files of at most this many
+	// seconds (production; 0 = one file). Lifelike only until the classic
+	// pipeline implements the split contract.
+	SplitMaxSeconds int `firestore:"split_max_seconds,omitempty" json:"split_max_seconds,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -156,6 +189,9 @@ const (
 	StepDepthPreview  = "depth_preview"
 	StepStereoPreview = "stereo_preview"
 	StepProduction    = "production"
+	// StepLifelikePreview: a short (≤ 10 s) Lifelike render of the chosen
+	// span; Lifelike projects have this and production only.
+	StepLifelikePreview = "lifelike_preview"
 )
 
 type Quote struct {
@@ -184,6 +220,9 @@ type Stripe struct {
 	CapturedCents int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
 	CapturedAt    *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
 	CanceledAt    *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
+	// Pre-charged runs that ended without a result (pi_status refunded).
+	RefundedCents int64      `firestore:"refunded_cents,omitempty" json:"refunded_cents,omitempty"`
+	RefundedAt    *time.Time `firestore:"refunded_at,omitempty" json:"refunded_at,omitempty"`
 	// SettleError records a capture/cancel/charge failure for support
 	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
@@ -197,6 +236,21 @@ type Modal struct {
 	Stage        string     `firestore:"stage,omitempty" json:"stage,omitempty"`
 	ETASeconds   int64      `firestore:"eta_seconds,omitempty" json:"eta_seconds,omitempty"`
 	CostUSD      float64    `firestore:"cost_usd,omitempty" json:"-"`
+	// WaitingForGPU / QueuedS are copied from the job record (both
+	// pipelines): a GPU call is queued and none runs / total seconds spent
+	// so. Queued time is not the run's fault, so overdue judging adds it.
+	WaitingForGPU bool    `firestore:"waiting_for_gpu,omitempty" json:"waiting_for_gpu"`
+	QueuedS       float64 `firestore:"queued_s,omitempty" json:"queued_s"`
+}
+
+// Part is one file of a split output (metadata.parts of the job record):
+// SOURCE frames, half open, the same boundaries for every format.
+type Part struct {
+	Index     int     `firestore:"index" json:"index"`
+	FromFrame int     `firestore:"from_frame" json:"from_frame"`
+	ToFrame   int     `firestore:"to_frame" json:"to_frame"`
+	StartS    float64 `firestore:"start_s" json:"start_s"`
+	DurationS float64 `firestore:"duration_s" json:"duration_s"`
 }
 
 type Error struct {
@@ -215,6 +269,7 @@ type Conversion struct {
 	Kind      string            `firestore:"kind" json:"kind"`                                 // "video" | "image"
 	ProjectID string            `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
 	Step      string            `firestore:"step,omitempty" json:"step,omitempty"`
+	Method    string            `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic
 	ScenesVer int               `firestore:"scenes_version,omitempty" json:"scenes_version,omitempty"`
 	Client    Client            `firestore:"client" json:"client,omitempty"`
 	Source    Source            `firestore:"source" json:"source"`
@@ -222,7 +277,8 @@ type Conversion struct {
 	Quote     Quote             `firestore:"quote" json:"quote"`
 	Stripe    Stripe            `firestore:"stripe" json:"-"`
 	Modal     Modal             `firestore:"modal" json:"modal"`
-	Outputs   map[string]string `firestore:"outputs,omitempty" json:"-"` // name → gcs key; clients fetch signed URLs
+	Outputs   map[string]string `firestore:"outputs,omitempty" json:"-"`             // name → gcs key; clients fetch signed URLs
+	Parts     []Part            `firestore:"parts,omitempty" json:"parts,omitempty"` // split outputs only
 	Error     *Error            `firestore:"error,omitempty" json:"error,omitempty"`
 	IdemKey   string            `firestore:"idem_key,omitempty" json:"-"`
 	Support   Support           `firestore:"support" json:"-"`
@@ -463,6 +519,7 @@ type Project struct {
 	UID          string        `firestore:"uid" json:"-"`
 	Env          string        `firestore:"env" json:"-"`
 	Name         string        `firestore:"name,omitempty" json:"name,omitempty"`
+	Method       string        `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
 	Source       Source        `firestore:"source" json:"source"`
 	Probe        *Probe        `firestore:"probe,omitempty" json:"probe,omitempty"`
 	Analyze      Analyze       `firestore:"analyze" json:"analyze"`

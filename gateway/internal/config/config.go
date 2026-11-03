@@ -19,6 +19,18 @@ type Config struct {
 	ModalTokenID     string // Modal proxy-auth token (Modal-Key header)
 	ModalTokenSecret string // Modal proxy-auth token (Modal-Secret header)
 
+	// LifelikeBaseURL is the shared lifelike3d Modal service
+	// (https://<workspace>--lifelike3d-api-<env>.modal.run; ml-sharp-modal
+	// docs/LIFELIKE_API.md). Empty turns the Lifelike method off: new
+	// projects default to classic and Lifelike steps answer
+	// method_unavailable. Test defaults to the test service; prod must be
+	// set explicitly (the prod service is not deployed).
+	LifelikeBaseURL string
+	// Lifelike proxy auth (prod requires it; test is open). Defaults to the
+	// Modal token above: both services live in the same workspace.
+	LifelikeTokenID     string
+	LifelikeTokenSecret string
+
 	StripeSecretKey      string
 	StripeWebhookSecret  string
 	StripePublishableKey string
@@ -69,6 +81,9 @@ func Load() (*Config, error) {
 		ModalTokenID:     getenv("MODAL_TOKEN_ID", ""),
 		ModalTokenSecret: getenv("MODAL_TOKEN_SECRET", ""),
 
+		LifelikeTokenID:     getenv("LIFELIKE_TOKEN_ID", getenv("MODAL_TOKEN_ID", "")),
+		LifelikeTokenSecret: getenv("LIFELIKE_TOKEN_SECRET", getenv("MODAL_TOKEN_SECRET", "")),
+
 		StripeSecretKey:      getenv("STRIPE_SECRET_KEY", ""),
 		StripeWebhookSecret:  getenv("STRIPE_WEBHOOK_SECRET", ""),
 		StripePublishableKey: getenv("STRIPE_PUBLISHABLE_KEY", ""),
@@ -84,6 +99,14 @@ func Load() (*Config, error) {
 		ResendAPIKey:     getenv("RESEND_API_KEY", ""),
 		ResetMailFrom:    getenv("RESET_MAIL_FROM", ""),
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
+	}
+	lifelike := ""
+	if env == "test" {
+		lifelike = defaultLifelikeTestURL
+	}
+	c.LifelikeBaseURL = strings.TrimRight(getenv("LIFELIKE_BASE_URL", lifelike), "/")
+	if c.LifelikeBaseURL == "off" {
+		c.LifelikeBaseURL = ""
 	}
 	if c.MediaRelayOrigin == "off" {
 		c.MediaRelayOrigin = ""
@@ -104,6 +127,8 @@ func Load() (*Config, error) {
 	}
 	return c, nil
 }
+
+const defaultLifelikeTestURL = "https://stereo-crafter-test--lifelike3d-api-test.modal.run"
 
 func getenv(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {

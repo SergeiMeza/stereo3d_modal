@@ -182,9 +182,9 @@ func TestModalBodyMaxGPUWorkers(t *testing.T) {
 	if got := (&Service{}).modalBody(conv, 8)["max_gpu_workers"]; got != 8 {
 		t.Errorf("want 8 workers forwarded, got %v", got)
 	}
-	// clamped to the workspace's 10-GPU ceiling
-	if got := (&Service{}).modalBody(conv, 64)["max_gpu_workers"]; got != 10 {
-		t.Errorf("want clamp to 10, got %v", got)
+	// clamped to the app's 8-GPU ceiling
+	if got := (&Service{}).modalBody(conv, 64)["max_gpu_workers"]; got != 8 {
+		t.Errorf("want clamp to 8, got %v", got)
 	}
 	// image jobs never fan out — no worker cap on the image body
 	img := &store.Conversion{Kind: "image"}

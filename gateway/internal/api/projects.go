@@ -45,15 +45,22 @@ func halfSourceFPS(p *store.Project) float64 {
 
 // ------------------------------------------------------------- create/list
 
-// POST /v1/projects {gcs_key, name?}
+// POST /v1/projects {gcs_key, name?, method?} — method defaults to the
+// configured default (lifelike; classic while Lifelike is unavailable).
 func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
 		GCSKey string `json:"gcs_key"`
 		Name   string `json:"name"`
+		Method string `json:"method"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	method, merr := s.resolveMethod(ctx, req.Method)
+	if merr != nil {
+		httpx.WriteErr(ctx, w, merr)
 		return
 	}
 	ext := strings.ToLower(path.Ext(req.GCSKey))
@@ -99,6 +106,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 	p := &store.Project{
 		ID: id, UID: user.UID, Env: s.Cfg.Env,
 		Name:    strings.TrimSpace(req.Name),
+		Method:  method,
 		Source:  store.Source{GCSKey: req.GCSKey, Bytes: size},
 		Analyze: store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
 	}
@@ -108,7 +116,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	httpx.Log(ctx).Info("project created",
-		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID)
+		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID, "method", method)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -185,12 +193,16 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 	httpx.WriteOK(w, map[string]any{"projects": out})
 }
 
-// PATCH /v1/projects/{id} {name?, pinned?, archived?} — project management
-// metadata. archived:true runs the full archive flow (cancels active
-// conversions, same as DELETE); archived:false restores.
+// PATCH /v1/projects/{id} {name?, pinned?, archived?, method?} — project
+// management metadata. archived:true runs the full archive flow (cancels
+// active conversions, same as DELETE); archived:false restores. method
+// switches the project's conversion method for its NEXT runs (LL-D1; runs
+// in flight keep theirs); switching to classic on a source longer than
+// Classic's cap answers 400 source_too_long_for_method.
 func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
-	if _, err := s.ownedProject(ctx, user, id); err != nil {
+	current, err := s.ownedProject(ctx, user, id)
+	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -198,14 +210,29 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		Name     *string `json:"name"`
 		Pinned   *bool   `json:"pinned"`
 		Archived *bool   `json:"archived"`
+		Method   *string `json:"method"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if req.Name == nil && req.Pinned == nil && req.Archived == nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived"))
+	if req.Name == nil && req.Pinned == nil && req.Archived == nil && req.Method == nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived, method"))
 		return
+	}
+	if req.Method != nil {
+		if *req.Method == "" {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("method must be lifelike|classic"))
+			return
+		}
+		if _, merr := s.resolveMethod(ctx, *req.Method); merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		if serr := methodSourceError(s.Pricing.Rates(ctx), current, *req.Method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
+			return
+		}
 	}
 	if req.Name != nil && len(strings.TrimSpace(*req.Name)) > maxProjectNameLen {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid(fmt.Sprintf("name must be at most %d characters", maxProjectNameLen)))
@@ -228,6 +255,9 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		if req.Archived != nil {
 			pp.Archived = *req.Archived
 		}
+		if req.Method != nil {
+			pp.Method = *req.Method
+		}
 		return nil
 	})
 	if err != nil {
@@ -235,7 +265,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	httpx.Log(ctx).Info("project updated", "project_id", id, "uid", user.UID,
-		"pinned", p.Pinned, "archived", p.Archived)
+		"pinned", p.Pinned, "archived", p.Archived, "method", projectMethod(p))
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -543,9 +573,13 @@ type stepConvReq struct {
 	// UseUploadedDepth runs against the project's registered depth-map
 	// upload (POST .../depth-map) instead of computing depth. Mutually
 	// exclusive with depth_res; stereo_preview + production only.
-	UseUploadedDepth bool   `json:"use_uploaded_depth"`
-	AppVersion       string `json:"app_version"`
-	Platform         string `json:"platform"`
+	UseUploadedDepth bool `json:"use_uploaded_depth"`
+	// SplitMaxSeconds (production): output files of at most this long,
+	// 60-3600 (the web sends 900 when "Split into parts" stays on).
+	// Lifelike only until the classic pipeline implements splitting.
+	SplitMaxSeconds int    `json:"split_max_seconds"`
+	AppVersion      string `json:"app_version"`
+	Platform        string `json:"platform"`
 }
 
 // sceneOverrideReq is a per-scene stereo tweak; `first` is the scene's first
@@ -620,7 +654,16 @@ func depthContentDims(p *store.Project) (width, height int, cropped bool) {
 // per-shot profiler upstream (modalBody sets adaptive=true); scene_overrides
 // and depth_scale are the user's handles on it.
 func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
+	if projectMethod(p) == store.MethodLifelike {
+		return resolveLifelikeParams(req, p)
+	}
 	var params store.Params
+	if req.SplitMaxSeconds != 0 {
+		// The classic pipeline has no split contract yet: refuse rather
+		// than deliver one file the user asked to have in parts.
+		return params, httpx.Err(http.StatusBadRequest, "split_unsupported",
+			"split_max_seconds is not available for classic projects yet")
+	}
 	switch req.Step {
 	case store.StepDepthPreview:
 		// The Depth page: pick the FINAL depth resolution here — production
@@ -642,6 +685,9 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		params.Formats = []string{"mvhevc", "half_sbs"}
 		params.Inpaint = "propainter"
 	default:
+		if req.Step == store.StepLifelikePreview {
+			return params, errStepForMethod(req.Step, store.MethodClassic)
+		}
 		return params, httpx.ErrInvalid("step must be depth_preview|stereo_preview|production")
 	}
 	if req.Preset != "" && req.Step != store.StepDepthPreview {
@@ -879,6 +925,19 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	if berr != nil {
 		return nil, nil, berr
 	}
+	if projectMethod(p) == store.MethodLifelike {
+		// Classic tables, no Classic knobs, nothing reused (pricing.QuoteLifelike).
+		in := s.stepQuoteInputs(p, params, step, billable)
+		in.CreditCents = creditCents
+		q, err := s.Pricing.QuoteLifelike(ctx, in)
+		if err != nil {
+			return nil, nil, httpx.ErrInvalid(err.Error())
+		}
+		return &store.Quote{
+			AmountCents: q.AmountCents, Currency: q.Currency,
+			RateVersion: q.RateVersion, Breakdown: q.Breakdown,
+		}, []string{}, nil
+	}
 	// Reuse discount (production + stereo_preview, unless from-scratch): ask
 	// Modal's content-addressed cache whether prior artifacts match these
 	// params. Stereo previews reuse the Depth page's artifact exactly like
@@ -911,6 +970,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())
 	}
+	q.Breakdown["method"] = store.MethodClassic
 	return &store.Quote{
 		AmountCents: q.AmountCents, Currency: q.Currency,
 		RateVersion: q.RateVersion, Breakdown: q.Breakdown,
@@ -1001,6 +1061,12 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, perr)
 		return
 	}
+	method := projectMethod(p)
+	rates := s.Pricing.Rates(ctx)
+	if serr := methodSourceError(rates, p, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
+		return
+	}
 	// Preview the credit without consuming it.
 	credit := int64(0)
 	if p.Analyze.State == store.AnalyzeSucceeded && p.Analyze.CreditConsumedBy == "" {
@@ -1012,16 +1078,19 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		return
 	}
 	resp := map[string]any{
-		"step":         req.Step,
-		"params":       params,
-		"quote":        quote,
-		"reuse_stages": reuseStages,
+		"step":          req.Step,
+		"method":        method,
+		"params":        params,
+		"quote":         quote,
+		"reuse_stages":  reuseStages,
+		"charge_timing": chargeTiming(rates, quote.AmountCents),
 	}
-	// Pre-run wall-clock estimate for the same knobs the quote priced.
+	// Pre-run wall-clock estimate for the same knobs the quote priced, and
+	// the output's length (Deliver offers "Split into parts" past 15 min).
 	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
-		in := s.stepQuoteInputs(p, params, req.Step, billable)
-		in.ReuseStages = reuseStages
-		resp["eta_seconds"] = s.Pricing.EstimateStepETA(ctx, in)
+		resp["eta_seconds"] = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
+		resp["output_seconds"] = math.Round(billable*100) / 100
+		resp["split_suggested"] = req.Step == store.StepProduction && billable > splitSuggestSeconds
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -1063,6 +1132,15 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, perr)
 		return
 	}
+	method := projectMethod(p)
+	if method == store.MethodLifelike && s.Lifelike == nil {
+		httpx.WriteErr(ctx, w, errMethodUnavailable())
+		return
+	}
+	if serr := methodSourceError(s.Pricing.Rates(ctx), p, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
+		return
+	}
 	// Billing gate BEFORE any commitment: a saved card and no outstanding
 	// failed charge, or the step never starts.
 	cust, berr := s.requireBillable(ctx, user)
@@ -1089,7 +1167,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	conv := &store.Conversion{
 		ID: convID, UID: user.UID, Env: s.Cfg.Env, Kind: "video",
-		ProjectID: p.ID, Step: req.Step,
+		ProjectID: p.ID, Step: req.Step, Method: method,
 		Client: store.Client{AppVersion: req.AppVersion, Platform: req.Platform},
 		Source: store.Source{
 			GCSKey: p.Source.GCSKey, Bytes: p.Source.Bytes,
@@ -1109,13 +1187,9 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	conv.Quote = *quote
 	// The same pre-run estimate the quote showed; overdue runs are judged
 	// against it.
-	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
-		in := s.stepQuoteInputs(p, params, req.Step, billable)
-		in.ReuseStages = reuseStages
-		conv.Support.ExpectedSeconds = s.Pricing.EstimateStepETA(ctx, in)
-	}
+	conv.Support.ExpectedSeconds = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
 
-	s.finalizeAutoBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
+	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
 }
 
 // finalizeAutoBilled runs the SHARED tail of every auto-billed conversion
@@ -1193,17 +1267,27 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 		conv.State = store.StatePaid
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAuto}
 	}
-	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+	s.createAndSubmit(ctx, w, user, conv, func() {
 		if conv.Stripe.PaymentIntentID != "" {
 			_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
 		}
 		restore()
+	})
+}
+
+// createAndSubmit writes the billed conversion record and submits it
+// inline, answering the HTTP request. undo releases whatever billing
+// placed before a failed write.
+func (s *Service) createAndSubmit(ctx context.Context, w http.ResponseWriter,
+	user *AuthedUser, conv *store.Conversion, undo func()) {
+	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+		undo()
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	httpx.Log(ctx).Info("conversion created",
 		"conversion_id", conv.ID, "uid", user.UID, "kind", conv.Kind,
-		"step", conv.Step, "project_id", conv.ProjectID, "billing_mode", conv.Stripe.Mode,
+		"step", conv.Step, "method", conv.Method, "project_id", conv.ProjectID, "billing_mode", conv.Stripe.Mode,
 		"amount_cents", conv.Quote.AmountCents, "payment_intent", conv.Stripe.PaymentIntentID)
 	// Submit inline for latency; on failure the reconciler re-drives paid
 	// conversions until paidTTL.
@@ -1214,7 +1298,6 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 		conv = fresh // reflect processing state in the response
 	}
 	httpx.WriteOK(w, s.conversionResponse(conv, nil))
-
 }
 
 // ---------------------------------------------------------------- helpers
@@ -1263,6 +1346,7 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	resp := map[string]any{
 		"project_id":   p.ID,
 		"name":         p.Name,
+		"method":       projectMethod(p),
 		"source_bytes": p.Source.Bytes,
 		"analyze":      analyzeResponse(&p.Analyze),
 		"archived":     p.Archived,
