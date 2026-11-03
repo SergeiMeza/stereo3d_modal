@@ -263,7 +263,7 @@ export function LifelikeDeliverPanel({
                   Keep one eye as the original
                 </span>
                 <EyePicker value={requiredEye} onChange={(e) => change(() => setRequiredEye(e))} />
-                <span className="w-full pl-6 text-xs text-fg-muted">Always on at this quality.</span>
+                <span className="text-xs text-fg-muted">Always on at this quality</span>
               </div>
             ) : null}
             {foveationOffered ? (

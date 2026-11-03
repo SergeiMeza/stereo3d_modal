@@ -122,6 +122,8 @@ export interface QualityChoice {
   originalEyeRequired?: boolean;
   /** the files this size can make, when the gateway restricts them */
   formats?: Format[];
+  /** 5K-8K (the gateway's `experimental`): shown as our highest quality */
+  top?: boolean;
 }
 
 /** The option text: "4K · 3840×2160 per eye". */
@@ -139,17 +141,33 @@ export function qualityChoices(project: {
   const hint = (w?: number, h?: number) =>
     w && h ? `${w}×${h} per eye` : undefined;
   if (project.qualities && project.qualities.length > 0) {
-    return project.qualities.map((q) => ({
-      preset: q.preset,
-      label: q.label,
-      hint: hint(q.eye_width, q.eye_height),
-      eyeShort:
-        q.eye_width && q.eye_height
+    const probe = project.probe;
+    return project.qualities.map((q) => {
+      const short =
+        q.label_short_side ??
+        (q.eye_width && q.eye_height
           ? Math.min(q.eye_width, q.eye_height)
-          : QUALITY_SHORT_SIDE[q.preset],
-      ...(q.original_eye_required ? { originalEyeRequired: true } : {}),
-      ...(q.formats ? { formats: q.formats } : {}),
-    }));
+          : QUALITY_SHORT_SIDE[q.preset]);
+      // the gateway sends the short side; the size per eye follows the
+      // source's shape
+      const size =
+        q.eye_width && q.eye_height
+          ? { width: q.eye_width, height: q.eye_height }
+          : probe && short
+            ? eyeSize(probe, short)
+            : null;
+      return {
+        preset: q.preset,
+        label:
+          q.label ??
+          (q.id === "full" ? `Full resolution (${short}p)` : qualityName(q.preset)),
+        hint: size ? hint(size.width, size.height) : undefined,
+        eyeShort: short,
+        ...(q.original_eye_required ? { originalEyeRequired: true } : {}),
+        ...(q.formats ? { formats: q.formats } : {}),
+        ...(q.experimental || q.original_eye_required ? { top: true } : {}),
+      };
+    });
   }
   const probe = project.probe;
   return qualitiesFor(probe).map((p) => {

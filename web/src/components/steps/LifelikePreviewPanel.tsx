@@ -21,6 +21,7 @@ import type { JSX, ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
   Conversion,
+  Format,
   Preset,
   Project,
   PublicPricing,
@@ -37,7 +38,7 @@ import {
 } from "@/lib/frames";
 import { qualityChoices, qualityLabelFor } from "@/lib/glossary";
 
-import { LIFELIKE_PREVIEW_SECONDS } from "./methods";
+import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor } from "./methods";
 import { formatCents, formatCentsShort } from "./money";
 import { StateChip } from "./StateChip";
 import {
@@ -131,6 +132,15 @@ export function LifelikePreviewPanel({
   const choice = presets.find((q) => q.preset === preset);
   const cuts = project.scenes?.cuts ?? [];
 
+  // 6K and 8K make no full side-by-side: their previews come as half
+  // side-by-side (the gateway's per-quality formats)
+  const offered = lifelikeFormatsFor(choice ?? { preset });
+  const wanted: Format[] = isHeadset(client)
+    ? HEADSET_PREVIEW_FORMATS[client as Exclude<Client, "desktop">]
+    : ["sbs"];
+  const fits = wanted.filter((f) => offered.includes(f));
+  const previewFormats: Format[] = fits.length > 0 ? fits : ["half_sbs"];
+
   const requestAt = (start: number): StepConversionRequest => {
     const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
     return {
@@ -138,7 +148,7 @@ export function LifelikePreviewPanel({
       preset,
       // side by side plays right here; a headset asks for the file it
       // shows in 3D (S3D-47)
-      formats: isHeadset(client) ? HEADSET_PREVIEW_FORMATS[client as Exclude<Client, "desktop">] : ["sbs"],
+      formats: previewFormats,
       from_frame: from,
       to_frame: to,
       // Quick look: half the frame rate, half the price

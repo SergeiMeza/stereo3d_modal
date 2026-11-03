@@ -635,7 +635,7 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
     renderPanel(<LifelikeDeliverPanel project={listed} onProjectChanged={() => {}} />);
     expect(screen.getByTestId("quality-8k").textContent).toMatch(
-      /^Highest quality8K7680×4320 per eyeOne eye keeps your original picture\./,
+      /^8KHighest quality7680×4320 per eyeOne eye keeps your original picture\./,
     );
     // S3D-11: 5K-8K are marked as the highest quality; 4K is not
     expect(screen.getByTestId("quality-top-5k")).toBeTruthy();
@@ -643,6 +643,29 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
+  });
+
+  it("an 8K preview comes as half side-by-side; the gateway's quality shape names itself", async () => {
+    const quotes = captureBodies("/quotes");
+    mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
+    const project = {
+      ...lifelikeProject({ width: 7680, height: 4320 }),
+      // the gateway's shape: id + label_short_side, no label
+      qualities: [
+        { id: "4k", preset: "4k" as const, label_short_side: 2160, formats: ["mvhevc" as const, "sbs" as const, "half_sbs" as const] },
+        { id: "8k", preset: "8k" as const, label_short_side: 4320, original_eye_required: true, experimental: true, formats: ["mvhevc" as const, "half_sbs" as const] },
+      ],
+    };
+    renderPanel(<LifelikePreviewPanel project={project} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect(quotes.some((q) => q.step === "lifelike_preview" && q.preset === "8k")).toBe(true),
+    );
+    const q8 = quotes.find((q) => q.step === "lifelike_preview" && q.preset === "8k")!;
+    expect(q8.formats).toEqual(["half_sbs"]);
+    expect(qualityChoices(project).map((c) => [c.label, c.hint])).toEqual([
+      ["4K", "3840×2160 per eye"],
+      ["8K", "7680×4320 per eye"],
+    ]);
   });
 
   it("6K and 8K make no full side-by-side file; 5K does", async () => {

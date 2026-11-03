@@ -342,12 +342,6 @@ export function QualityTiles({
               data-testid={`quality-${q.preset}`}
               className={`${tileClass(on)} flex-col gap-1`}
             >
-              {q.originalEyeRequired ? (
-                // S3D-11: 5K, 6K and 8K are our highest quality
-                <span data-testid={`quality-top-${q.preset}`} className="ll-eyebrow text-[10px]">
-                  {HIGHEST_QUALITY_TAG}
-                </span>
-              ) : null}
               <span className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -357,6 +351,18 @@ export function QualityTiles({
                   className="accent-primary"
                 />
                 <span className="font-medium">{q.label}</span>
+                {q.top ? (
+                  // S3D-11: 5K, 6K and 8K (the gateway's `experimental`)
+                  // are our highest quality
+                  <span
+                    data-testid={`quality-top-${q.preset}`}
+                    title={HIGHEST_QUALITY_TAG}
+                    className="ll-chip ml-auto rounded-full px-1.5 py-px text-[10px] leading-4"
+                  >
+                    Highest
+                    <span className="sr-only"> quality</span>
+                  </span>
+                ) : null}
               </span>
               {q.hint ? (
                 <span className="font-mono text-[11px] text-fg-muted">{q.hint}</span>

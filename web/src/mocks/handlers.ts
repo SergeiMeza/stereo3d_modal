@@ -22,6 +22,7 @@ import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type {
   BillingCard,
+  Format,
   SavedMethod,
   Conversion,
   Method,
@@ -192,7 +193,12 @@ interface DB {
   methodAvailable: Record<Method, boolean>;
   /** GET /v1/limits methods.lifelike.foveation (Foveated Detail) */
   lifelikeFoveation: boolean;
+  /** S3D-67: quotes say pro true/false; null = the gateway says nothing */
+  pro: boolean | null;
 }
+
+/** S3D-67: the mock's Pro share (the gateway's config is authoritative). */
+const MOCK_PRO = { pct: 0.2, applies_to: "production" };
 
 function seed(): DB {
   const project = structuredClone(projectFixture) as unknown as Project;
@@ -223,6 +229,7 @@ function seed(): DB {
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     lifelikeFoveation: false,
+    pro: null,
     gpuWaitPolls: 1,
   };
 }
@@ -242,6 +249,7 @@ export const mockDb = {
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     this.methodAvailable = fresh.methodAvailable;
     this.lifelikeFoveation = fresh.lifelikeFoveation;
+    this.pro = fresh.pro;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
@@ -951,35 +959,39 @@ function validateLifelikeRequest(
  * steps at or below its short side; a short side between steps adds "Full
  * resolution (Np)" (sent as the next step, priced like the step below); a
  * source below 1080 gets "Full resolution (Np)" at the 1080p price. */
+/** Full side-by-side stops at 5K (gateway formatsFor). */
+function mockFormatsFor(preset: Preset): Format[] {
+  return preset === "6k" || preset === "8k"
+    ? ["mvhevc", "half_sbs"]
+    : ["mvhevc", "sbs", "half_sbs"];
+}
+
 function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
   if (!p.probe) return [];
-  const { width, height } = p.probe;
-  const short = Math.min(width, height);
-  const steps: [Preset, string, number][] = [
-    ["1080p", "1080p", 1080],
-    ["qhd", "1440p", 1440],
-    ["3k", "3K", 1620],
-    ["4k", "4K", 2160],
-    ["5k", "5K", 2880],
-    ["6k", "6K", 3240],
-    ["8k", "8K", 4320],
+  const short = Math.min(p.probe.width, p.probe.height);
+  const steps: [Preset, number][] = [
+    ["1080p", 1080],
+    ["qhd", 1440],
+    ["3k", 1620],
+    ["4k", 2160],
+    ["5k", 2880],
+    ["6k", 3240],
+    ["8k", 4320],
   ];
-  const size = (target: number) => {
-    const k = Math.min(1, target / short);
-    const even = (v: number) => Math.round((v * k) / 2) * 2;
-    return { eye_width: even(width), eye_height: even(height) };
-  };
   const out: NonNullable<Project["qualities"]> = [];
   let below: Preset | null = null;
   let belowSide = 0;
-  for (const [preset, label, side] of steps) {
+  for (const [preset, side] of steps) {
     if (side <= short) {
+      // the gateway's shape: id + label_short_side, no label or sizes
       out.push({
+        id: preset,
         preset,
-        label,
-        ...size(side),
+        label_short_side: side,
+        price_preset: preset,
+        formats: mockFormatsFor(preset),
         // S3D-65: above 4K one eye keeps the source picture
-        ...(side > 2160 ? { original_eye_required: true } : {}),
+        ...(side > 2160 ? { original_eye_required: true, experimental: true } : {}),
       });
       below = preset;
       belowSide = side;
@@ -990,10 +1002,11 @@ function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
       // between steps (or under 1080): the source's own size
       out.push({
         preset,
-        label: `Full resolution (${short % 2 === 0 ? short : short - 1}p)`,
-        ...size(short),
+        id: "full",
+        label_short_side: short % 2 === 0 ? short : short - 1,
+        formats: mockFormatsFor(preset),
         ...(below !== null ? { price_preset: below } : {}),
-        ...(short > 2160 ? { original_eye_required: true } : {}),
+        ...(short > 2160 ? { original_eye_required: true, experimental: true } : {}),
       });
       break;
     }
@@ -1055,14 +1068,23 @@ function lifelikeQuoteFor(
     subtotal > RATES.discountThresholdCents
       ? Math.round(subtotal * RATES.discountPct)
       : 0;
-  // the $0.50 minimum per run, previews included (S3D-17)
-  const total = Math.max(subtotal - bulk, minimumFor(req.step));
+  // S3D-67: Pro members save on every run
+  // full runs only; previews are never discounted
+  const proCents =
+    mockDb.pro === true && req.step === MOCK_PRO.applies_to
+      ? Math.round((subtotal - bulk) * MOCK_PRO.pct)
+      : 0;
+  // the $1 minimum per run, previews included (S3D-17)
+  const total = Math.max(subtotal - bulk - proCents, minimumFor(req.step));
   return {
     quote: {
       amount_cents: total,
       currency: "usd",
       rate_version: "mock",
       breakdown: {
+        ...(proCents > 0
+          ? { pro_discount_pct: MOCK_PRO.pct, pro_discount_cents: proCents }
+          : {}),
         step: req.step,
         preset,
         billable_seconds: Math.round(outputSeconds * 100) / 100,
@@ -1975,6 +1997,7 @@ export const handlers = [
       preview_minimum_cents: RATES.previewMinimumCents,
       precharge_threshold_cents: mockDb.chargeBeforeCents,
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
+      pro_discount: MOCK_PRO,
     }),
   ),
 
@@ -2403,6 +2426,15 @@ export const handlers = [
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
+          ...(mockDb.pro !== null ? { pro: mockDb.pro } : {}),
+          ...(q.quote.breakdown?.pro_discount_cents
+            ? {
+                pro_discount: {
+                  pct: MOCK_PRO.pct,
+                  cents: q.quote.breakdown.pro_discount_cents,
+                },
+              }
+            : {}),
         });
       }
       const { quote, reuseStages, params: resolved } = quoteFor(priced, req);

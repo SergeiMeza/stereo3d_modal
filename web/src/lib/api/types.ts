@@ -190,10 +190,17 @@ export interface DepthUpload {
  * steps at or below the source's short side, plus "Full resolution (Np)"
  * when the short side falls between steps (priced like the step below). */
 export interface QualityOption {
+  /** the gateway's id: a preset, or "full" (the source's own size) */
+  id?: string;
   /** what the request sends */
   preset: Preset;
-  /** "1440p" / "Full resolution (1606p)" */
-  label: string;
+  /** the output's short side per eye (the gateway's label source) */
+  label_short_side?: number;
+  /** "1440p" / "Full resolution (1606p)"; derived from id and
+   * label_short_side when the gateway doesn't send it */
+  label?: string;
+  /** 5K-8K: the service marks these outputs experimental */
+  experimental?: boolean;
   /** output size per eye */
   eye_width?: number;
   eye_height?: number;
@@ -202,8 +209,8 @@ export interface QualityOption {
   original_eye_required?: boolean;
   /** the price step it is charged at, when not its own */
   price_preset?: Preset;
-  /** the files this size can make, when the gateway restricts them (6K and
-   * 8K: no full side-by-side) */
+  /** the files this size can be delivered in (6K and 8K: no full
+   * side-by-side; asking gets 400 format_unavailable) */
   formats?: Format[];
 }
 
@@ -306,8 +313,7 @@ export interface QuoteBreakdown {
   reuse_discount_cents?: number;
   discount_cents?: number;
   analyze_credit_cents?: number;
-  /** S3D-67: the Pro member discount, as a percent (20) and what it takes
-   * off */
+  /** S3D-67: the Pro share applied (0.2) and what it took off */
   pro_discount_pct?: number;
   pro_discount_cents?: number;
 }
@@ -415,9 +421,12 @@ export interface StepQuoteResponse {
   output_seconds?: number;
   /** the output runs past 15 minutes: offer to split it into parts */
   split_suggested?: boolean;
-  /** S3D-67: the caller is a Pro member (the quote carries the Pro
-   * discount); false = not Pro, absent = the gateway doesn't say */
+  /** S3D-67: the caller holds Pro; false = not Pro, absent = the gateway
+   * doesn't say */
   pro?: boolean;
+  /** S3D-67: the Pro line, when this step gets it (full runs only): pct is
+   * a share (0.2), cents what it takes off */
+  pro_discount?: { pct: number; cents: number };
 }
 
 export interface UploadTicket {
@@ -505,15 +514,13 @@ export interface PublicPricing {
   preview_minimum_cents?: number;
   precharge_threshold_cents: number;
   balance: { window_hours: number; new_account_cap_cents: number };
-  /** S3D-67: Pro membership — its discount on every run and its price */
-  pro?: ProOffer;
+  /** S3D-67: Pro's share off (0.2; 0 = off) and the step it applies to */
+  pro_discount?: ProDiscount;
 }
 
-export interface ProOffer {
-  discount_pct: number;
-  price_cents: number;
-  interval: "month" | "year";
-  currency: string;
+export interface ProDiscount {
+  pct: number;
+  applies_to: string;
 }
 
 export interface APIErrorBody {
