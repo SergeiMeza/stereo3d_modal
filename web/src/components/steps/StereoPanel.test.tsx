@@ -249,7 +249,7 @@ describe("StereoPanel request building", () => {
     const select = screen.getByLabelText("Edge handling") as HTMLSelectElement;
     // user-facing names only — never the renderer terms
     expect(select.value).toBe("best");
-    expect(select.selectedOptions[0].textContent).toBe("Filled edges — best");
+    expect(select.selectedOptions[0].textContent).toBe("Best edges");
     expect(screen.queryByText(/backward|gather|splat|propainter|migan/i)).toBeNull();
 
     await user.selectOptions(select, "stretched");
@@ -377,16 +377,16 @@ describe("StereoPanel request building", () => {
     const formats = screen.getByRole("group", { name: "Formats" });
     const boxes = within(formats).getAllByRole("checkbox");
     expect(boxes).toHaveLength(4);
-    for (const name of ["SBS", "Half-SBS", "Anaglyph", "MV-HEVC"]) {
+    for (const name of ["Side by side", "Side by side (half size)", "Red-cyan", "Vision Pro spatial video"]) {
       expect(within(formats).getByRole("checkbox", { name })).toBeDefined();
     }
     expect(
-      (within(formats).getByRole("checkbox", { name: "SBS" }) as HTMLInputElement)
+      (within(formats).getByRole("checkbox", { name: "Side by side" }) as HTMLInputElement)
         .checked,
     ).toBe(true);
     expect(within(formats).queryByRole("checkbox", { name: "TB" })).toBeNull();
 
-    await user.click(within(formats).getByRole("checkbox", { name: "MV-HEVC" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Vision Pro spatial video" }));
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0].formats).toEqual(["sbs", "mvhevc"]);
@@ -397,14 +397,14 @@ describe("StereoPanel request building", () => {
     renderPanel();
 
     const formats = screen.getByRole("group", { name: "Formats" });
-    await user.click(within(formats).getByRole("checkbox", { name: "SBS" })); // sole default off
+    await user.click(within(formats).getByRole("checkbox", { name: "Side by side" })); // sole default off
 
     const quoteBtn = screen.getByRole("button", { name: "Get quote" }) as HTMLButtonElement;
     expect(quoteBtn.disabled).toBe(true);
     expect(screen.getByText("Select at least one format")).toBeDefined();
 
     // re-selecting any format unblocks
-    await user.click(within(formats).getByRole("checkbox", { name: "Half-SBS" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Side by side (half size)" }));
     expect(quoteBtn.disabled).toBe(false);
     expect(screen.queryByText("Select at least one format")).toBeNull();
   });

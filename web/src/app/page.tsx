@@ -45,7 +45,7 @@ const structuredData = {
       applicationCategory: "MultimediaApplication",
       operatingSystem: "Web",
       description:
-        "Convert 2D video to stereoscopic 3D. Direct the depth scene by scene and deliver spatial video (MV-HEVC) for Apple Vision Pro, side-by-side and top-bottom 3D for Meta Quest, Samsung Galaxy XR and 3D displays.",
+        "Convert 2D videos to 3D: Vision Pro spatial video for Apple Vision Pro, and side by side 3D for Meta Quest, Pico, Samsung Galaxy XR and 3D displays.",
       creator: { "@id": `${SITE_URL}/#organization` },
     },
   ],

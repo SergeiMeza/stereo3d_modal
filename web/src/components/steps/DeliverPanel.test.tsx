@@ -255,16 +255,16 @@ describe("DeliverPanel controls", () => {
     const formats = screen.getByRole("group", { name: "Formats" });
     const boxes = within(formats).getAllByRole("checkbox");
     expect(boxes).toHaveLength(4);
-    for (const name of ["SBS", "Half-SBS", "Anaglyph", "MV-HEVC"]) {
+    for (const name of ["Side by side", "Side by side (half size)", "Red-cyan", "Vision Pro spatial video"]) {
       expect(within(formats).getByRole("checkbox", { name })).toBeDefined();
     }
     expect(within(formats).queryByRole("checkbox", { name: "TB" })).toBeNull();
     expect(
-      (within(formats).getByRole("checkbox", { name: "MV-HEVC" }) as HTMLInputElement)
+      (within(formats).getByRole("checkbox", { name: "Vision Pro spatial video" }) as HTMLInputElement)
         .checked,
     ).toBe(true);
     expect(
-      (within(formats).getByRole("checkbox", { name: "Half-SBS" }) as HTMLInputElement)
+      (within(formats).getByRole("checkbox", { name: "Side by side (half size)" }) as HTMLInputElement)
         .checked,
     ).toBe(true);
 
@@ -288,15 +288,15 @@ describe("DeliverPanel controls", () => {
     renderPanel();
 
     const formats = screen.getByRole("group", { name: "Formats" });
-    await user.click(within(formats).getByRole("checkbox", { name: "MV-HEVC" }));
-    await user.click(within(formats).getByRole("checkbox", { name: "Half-SBS" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Vision Pro spatial video" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Side by side (half size)" }));
 
     const quoteBtn = screen.getByRole("button", { name: "Get quote" }) as HTMLButtonElement;
     expect(quoteBtn.disabled).toBe(true);
     expect(screen.getByText("Select at least one format")).toBeDefined();
 
     // re-selecting any format unblocks
-    await user.click(within(formats).getByRole("checkbox", { name: "SBS" }));
+    await user.click(within(formats).getByRole("checkbox", { name: "Side by side" }));
     expect(quoteBtn.disabled).toBe(false);
     expect(screen.queryByText("Select at least one format")).toBeNull();
   });

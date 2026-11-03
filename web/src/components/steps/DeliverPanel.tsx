@@ -34,6 +34,7 @@ import {
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
+import { qualitiesFor, qualityName, runSummary } from "@/lib/glossary";
 import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -43,10 +44,7 @@ import {
   EDGE_OPTIONS,
   edgeModeRequest,
   FORMAT_LABELS,
-  INPAINT_LABELS,
   OUTPUT_FORMATS,
-  RESOLUTION_PRESETS,
-  WARP_LABELS,
   type EdgeMode,
 } from "./outputOptions";
 import { PriorRuns } from "./PriorRuns";
@@ -285,9 +283,9 @@ export function DeliverPanel({
             }}
             className={selectClass}
           >
-            {RESOLUTION_PRESETS.map((p) => (
+            {qualitiesFor(probe).map((p) => (
               <option key={p} value={p}>
-                {p}
+                {qualityName(p)}
               </option>
             ))}
           </select>
@@ -361,17 +359,7 @@ export function DeliverPanel({
       <PriorRuns
         title="Prior production runs"
         conversions={productionRuns}
-        meta={(c) =>
-          [
-            c.params.preset,
-            c.params.formats.join("+"),
-            c.params.depth_res !== undefined ? `depth ${c.params.depth_res}` : null,
-            c.params.inpaint ? INPAINT_LABELS[c.params.inpaint].toLowerCase() : null,
-            c.params.warp ? WARP_LABELS[c.params.warp].toLowerCase() : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
+        meta={(c) => runSummary(c.params, c.step)}
       />
     </PanelShell>
   );

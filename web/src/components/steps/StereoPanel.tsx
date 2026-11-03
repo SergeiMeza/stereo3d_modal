@@ -88,6 +88,7 @@ import type {
   StepConversionRequest,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { qualitiesFor, qualityName, runSummary } from "@/lib/glossary";
 import {
   cutsToRanges,
   defaultPreviewFPS,
@@ -104,10 +105,7 @@ import {
   EDGE_OPTIONS,
   edgeModeRequest,
   FORMAT_LABELS,
-  INPAINT_LABELS,
   OUTPUT_FORMATS,
-  RESOLUTION_PRESETS,
-  WARP_LABELS,
   type EdgeMode,
 } from "./outputOptions";
 import { PROFILE_POLL_MS } from "./polling";
@@ -664,9 +662,9 @@ export function StereoPanel({
                 }}
                 className={selectClass}
               >
-                {RESOLUTION_PRESETS.map((p) => (
+                {qualitiesFor(probe).map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {qualityName(p)}
                   </option>
                 ))}
               </select>
@@ -749,23 +747,7 @@ export function StereoPanel({
       <PriorRuns
         title="Prior stereo runs"
         conversions={stereoRuns}
-        meta={(c) =>
-          [
-            c.params.preset,
-            c.params.formats.join("+"),
-            c.params.inpaint ? INPAINT_LABELS[c.params.inpaint].toLowerCase() : null,
-            c.params.warp ? WARP_LABELS[c.params.warp].toLowerCase() : null,
-            c.params.depth_scale !== undefined
-              ? `depth_scale ${c.params.depth_scale}`
-              : null,
-            c.params.scene_overrides?.length
-              ? `${c.params.scene_overrides.length} scene overrides`
-              : null,
-            c.params.target_fps !== undefined ? `${c.params.target_fps} fps` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
+        meta={(c) => runSummary(c.params, c.step)}
       />
     </PanelShell>
   );

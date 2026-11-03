@@ -1,5 +1,7 @@
 import type { JSX } from "react";
 
+import { outputName } from "@/lib/glossary";
+
 /**
  * Output name → signed URL list (from GET /v1/conversions/{id}/downloads).
  * Browser-viewable outputs get an inline player in addition to the link:
@@ -20,10 +22,10 @@ export function splitPart(name: string): { base: string; part: number } | null {
   return m ? { base: m[1], part: Number(m[2]) } : null;
 }
 
-/** The link text for an output: split parts read "sbs · Part 2". */
+/** The link text for an output (lib/glossary): split parts read
+ * "Side by side · Part 2". */
 export function downloadLabel(name: string): string {
-  const p = splitPart(name);
-  return p ? `${p.base} · Part ${p.part}` : name;
+  return outputName(name);
 }
 
 /** Format first, then parts in order (Part 2 before Part 10). */

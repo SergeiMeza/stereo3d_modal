@@ -26,6 +26,7 @@ import {
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
+import { formatName, qualitiesFor, qualityName } from "@/lib/glossary";
 import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -33,8 +34,6 @@ import { splitPart } from "./DownloadsList";
 import {
   LIFELIKE_FORMAT_LABELS,
   LIFELIKE_FORMATS,
-  lifelikePresetLabel,
-  lifelikePresetsFor,
   SPLIT_MAX_SECONDS,
 } from "./methods";
 import { PriorRuns } from "./PriorRuns";
@@ -98,7 +97,7 @@ export function LifelikeDeliverPanel({
     );
   }
   const sourceFps = parseRational(project.probe!.fps_rational);
-  const presets = lifelikePresetsFor(project.probe);
+  const presets = qualitiesFor(project.probe);
 
   const splitOffered = ck.quote?.split_suggested === true;
   const request: StepConversionRequest = {
@@ -154,8 +153,8 @@ export function LifelikeDeliverPanel({
               className={selectClass}
             >
               {presets.map((p) => (
-                <option key={p.preset} value={p.preset}>
-                  {p.label}
+                <option key={p} value={p}>
+                  {qualityName(p)}
                 </option>
               ))}
             </select>
@@ -235,14 +234,8 @@ export function LifelikeDeliverPanel({
         conversions={runs}
         meta={(c) =>
           [
-            lifelikePresetLabel(c.params.preset),
-            c.params.formats
-              .map((f) =>
-                f in LIFELIKE_FORMAT_LABELS
-                  ? LIFELIKE_FORMAT_LABELS[f as keyof typeof LIFELIKE_FORMAT_LABELS]
-                  : f,
-              )
-              .join(" + "),
+            qualityName(c.params.preset),
+            c.params.formats.map(formatName).join(" + "),
             c.parts && c.parts.length > 0 ? `${c.parts.length} parts` : null,
           ]
             .filter(Boolean)

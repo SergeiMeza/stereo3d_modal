@@ -8,10 +8,18 @@
  */
 
 import type { Format, Inpaint, Preset, Warp } from "@/lib/api/types";
+import {
+  EDGE_NAMES,
+  FORMAT_NAMES,
+  QUALITIES,
+  type EdgeMode,
+} from "@/lib/glossary";
+
+export type { EdgeMode };
 
 /** Resolution presets (the resulting output resolution). depth_preview
  * ignores preset (always draft); Stereo and Deliver share this list. */
-export const RESOLUTION_PRESETS: readonly Preset[] = ["1080p", "qhd", "3k", "4k"];
+export const RESOLUTION_PRESETS: readonly Preset[] = QUALITIES;
 
 /** Output formats sold in the UI, MV-HEVC included on BOTH steps (preview
  * what you deliver — Vision Pro / spatial players). */
@@ -22,11 +30,12 @@ export const OUTPUT_FORMATS = [
   "mvhevc",
 ] as const satisfies readonly Format[];
 
+/** Customer names (lib/glossary). */
 export const FORMAT_LABELS: Record<(typeof OUTPUT_FORMATS)[number], string> = {
-  sbs: "SBS",
-  half_sbs: "Half-SBS",
-  anaglyph: "Anaglyph",
-  mvhevc: "MV-HEVC",
+  sbs: FORMAT_NAMES.sbs,
+  half_sbs: FORMAT_NAMES.half_sbs,
+  anaglyph: FORMAT_NAMES.anaglyph,
+  mvhevc: FORMAT_NAMES.mvhevc,
 };
 
 /** User-facing names for the API's inpaint modes. The wire values are
@@ -43,13 +52,12 @@ export const INPAINT_LABELS: Record<Inpaint, string> = {
 
 /** Edge handling: the user-facing choice that drives BOTH wire fields
  * (warp + inpaint). Values are UI-only — never sent on the wire. */
-export type EdgeMode = "best" | "fast" | "stretched";
 export const EDGE_OPTIONS: readonly EdgeMode[] = ["best", "fast", "stretched"];
 
 export const EDGE_LABELS: Record<EdgeMode, string> = {
-  best: "Filled edges — best",
-  fast: "Filled edges — fast",
-  stretched: "Stretched edges",
+  best: EDGE_NAMES.best,
+  fast: EDGE_NAMES.fast,
+  stretched: EDGE_NAMES.stretched,
 };
 
 export const EDGE_HINT =

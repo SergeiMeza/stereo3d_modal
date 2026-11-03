@@ -24,13 +24,12 @@ import type {
   Project,
   StepConversionRequest,
 } from "@/lib/api/types";
+import { qualitiesFor, qualityName } from "@/lib/glossary";
 import { frameToTimecode, parseRational, type RationalFPS } from "@/lib/frames";
 
 import { Field, selectClass } from "./controls";
 import {
   LIFELIKE_PREVIEW_SECONDS,
-  lifelikePresetLabel,
-  lifelikePresetsFor,
 } from "./methods";
 import { PriorRuns } from "./PriorRuns";
 import {
@@ -98,7 +97,7 @@ export function LifelikePreviewPanel({
   const sourceFps = parseRational(probe.fps_rational);
   const [from, to] = previewRange(moment, probe.num_frames, sourceFps);
   const tc = (f: number) => frameToTimecode(f, sourceFps);
-  const presets = lifelikePresetsFor(probe);
+  const presets = qualitiesFor(probe);
 
   const request: StepConversionRequest = {
     step: "lifelike_preview",
@@ -164,8 +163,8 @@ export function LifelikePreviewPanel({
               className={selectClass}
             >
               {presets.map((p) => (
-                <option key={p.preset} value={p.preset}>
-                  {p.label}
+                <option key={p} value={p}>
+                  {qualityName(p)}
                 </option>
               ))}
             </select>
@@ -211,7 +210,7 @@ export function LifelikePreviewPanel({
         conversions={runs}
         meta={(c) =>
           [
-            lifelikePresetLabel(c.params.preset),
+            qualityName(c.params.preset),
             c.params.from_frame !== undefined
               ? `from ${tc(c.params.from_frame)}`
               : null,

@@ -29,6 +29,7 @@ import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
+import { FORMAT_NAMES } from "@/lib/glossary";
 
 const DEVICES = [
   "Apple Vision Pro",
@@ -64,27 +65,23 @@ const QUALITY = [
   },
 ];
 
+// Names from the glossary (S3D-37); top-bottom isn't sold (S3D-08).
 const FORMATS = [
   {
-    tag: "MV-HEVC · .mov",
-    title: "Apple spatial video",
+    tag: ".mov",
+    title: FORMAT_NAMES.mvhevc,
     detail:
       "Native spatial video for Apple Vision Pro — it lands in Photos with the Spatial badge. Also plays on Android XR headsets like Samsung Galaxy XR.",
   },
   {
-    tag: "SBS · Half-SBS",
-    title: "Side-by-side",
+    tag: ".mp4",
+    title: `${FORMAT_NAMES.sbs} · ${FORMAT_NAMES.half_sbs}`,
     detail:
-      "The universal VR format: Meta Quest video players, YouTube VR, 3D TVs and projectors.",
+      "The universal VR format: Meta Quest and Pico video players, YouTube VR, 3D TVs and projectors.",
   },
   {
-    tag: "TB · Half-TB",
-    title: "Top-bottom",
-    detail: "For displays and players that expect over-under 3D.",
-  },
-  {
-    tag: "Red-cyan",
-    title: "Anaglyph",
+    tag: "Classic 3D",
+    title: FORMAT_NAMES.anaglyph,
     detail:
       "An instant 3D check on any flat screen with a pair of paper glasses.",
   },
@@ -250,7 +247,7 @@ export function LandingContent() {
           One conversion, every format your audience needs — with the source
           audio carried through.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {FORMATS.map((format) => (
             <div
               key={format.title}

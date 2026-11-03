@@ -19,9 +19,10 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { billingStatusNote } from "./ConversionTracker";
 import { DownloadsList, stepDownloads } from "./DownloadsList";
-import { formatLength, METHOD_LABELS } from "./methods";
+import { runSummary } from "@/lib/glossary";
+
+import { METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
-import { INPAINT_LABELS, WARP_LABELS } from "./outputOptions";
 import { StateChip } from "./StateChip";
 
 const STEP_LABELS: Record<string, string> = {
@@ -31,29 +32,9 @@ const STEP_LABELS: Record<string, string> = {
   production: "Production",
 };
 
-/** One-line params summary for a run — the settings support (and the user)
- * care about when comparing runs. Only fields the run actually carried. */
+/** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion): string {
-  const p = c.params;
-  return [
-    p.preset,
-    p.formats?.length ? p.formats.join("+") : null,
-    p.depth_res !== undefined ? `depth ${p.depth_res}` : null,
-    // wire values ("propainter"/"none") are internal terms — show the
-    // user-facing mode names instead
-    p.inpaint ? INPAINT_LABELS[p.inpaint].toLowerCase() : null,
-    p.warp ? WARP_LABELS[p.warp].toLowerCase() : null,
-    p.depth_scale !== undefined ? `depth_scale ${p.depth_scale}` : null,
-    p.scene_overrides?.length
-      ? `${p.scene_overrides.length} scene override${p.scene_overrides.length === 1 ? "" : "s"}`
-      : null,
-    p.target_fps !== undefined ? `${p.target_fps} fps` : null,
-    p.split_max_seconds !== undefined
-      ? `parts of up to ${formatLength(p.split_max_seconds)}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  return runSummary(c.params, c.step);
 }
 
 export function HistoryList({ project }: { project: Project }): JSX.Element {

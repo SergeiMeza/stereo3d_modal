@@ -135,11 +135,11 @@ describe("HistoryList", () => {
     // the production run carries the full per-scene parameter set; the
     // inpaint wire value renders as its user-facing name, never the model
     expect(within(first).getByTestId("history-params").textContent).toBe(
-      "1080p · mvhevc+half_sbs · depth 1442 · full quality · depth_scale 1.1 · 3 scene overrides",
+      "1080p · Vision Pro spatial video + Side by side (half size) · Best edges · 3D strength ×1.10 · 3 scenes adjusted",
     );
     // the depth run: no scene params, but resolution/fps/inpaint
     expect(within(second).getByTestId("history-params").textContent).toBe(
-      "draft · anaglyph · depth 980 · quick · 12 fps",
+      "Depth preview · 12 fps",
     );
   });
 
@@ -165,16 +165,16 @@ describe("HistoryList", () => {
     expect(buttons).toHaveLength(1);
     await user.click(buttons[0]);
 
-    const anaglyph = await screen.findByRole("link", { name: "anaglyph" });
+    const anaglyph = await screen.findByRole("link", { name: "Red-cyan" });
     // signed/public URL from the /downloads endpoint, straight into href
     expect(anaglyph.getAttribute("href")).toMatch(
       /^https:\/\/storage\.googleapis\.com\/.+\/anaglyph\.mp4$/,
     );
-    expect(screen.getByRole("link", { name: "half_sbs" })).toBeDefined();
-    expect(screen.getByRole("link", { name: "depth" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Side by side (half size)" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Depth video" })).toBeDefined();
     // depth_vis is an in-app playback artifact, never a download —
     // users mistake the 8-bit visualization for the real 16-bit map
-    expect(screen.queryByRole("link", { name: "depth_vis" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Depth video (preview)" })).toBeNull();
 
     // anaglyph + half_sbs get inline players; the raw 16-bit depth stays
     // a plain link

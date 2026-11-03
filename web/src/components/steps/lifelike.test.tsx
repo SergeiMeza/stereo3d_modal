@@ -27,7 +27,9 @@ import projectFixture from "../../../fixtures/project.json";
 import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
-import { lifelikePresetsFor, PRESET_ABOVE_SOURCE } from "./methods";
+import { qualitiesFor, qualityName } from "@/lib/glossary";
+
+import { PRESET_ABOVE_SOURCE } from "./methods";
 import { CHARGE_BEFORE_COPY } from "./QuoteView";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 30 }));
@@ -80,7 +82,7 @@ function renderPanel(el: React.ReactElement) {
 describe("Lifelike qualities", () => {
   it("offers 1080p to 4K at or below the source, and always 1080p", () => {
     const labels = (w: number, h: number) =>
-      lifelikePresetsFor({ width: w, height: h }).map((p) => p.label);
+      qualitiesFor({ width: w, height: h }).map(qualityName);
     expect(labels(3840, 2160)).toEqual(["1080p", "1440p", "3K", "4K"]);
     expect(labels(2560, 1440)).toEqual(["1080p", "1440p"]);
     expect(labels(1080, 1920)).toEqual(["1080p"]); // portrait: short side
@@ -128,8 +130,8 @@ describe("Lifelike Deliver", () => {
     );
     for (const name of [
       "Vision Pro spatial video",
-      "Full side by side",
-      "Half side by side",
+      "Side by side",
+      "Side by side (half size)",
     ]) {
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
@@ -173,9 +175,9 @@ describe("Lifelike Deliver", () => {
     mockDb.gpuWaitPolls = 0;
 
     expect(
-      await screen.findByText("mvhevc · Part 2", {}, { timeout: 5000 }),
+      await screen.findByText("Vision Pro spatial video · Part 2", {}, { timeout: 5000 }),
     ).toBeTruthy();
-    expect(screen.getByText("mvhevc · Part 1")).toBeTruthy();
+    expect(screen.getByText("Vision Pro spatial video · Part 1")).toBeTruthy();
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       step: "production",

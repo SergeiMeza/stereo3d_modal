@@ -8,12 +8,10 @@
  * gets.
  */
 
-import type { Format, Method, Preset } from "@/lib/api/types";
+import type { Format, Method } from "@/lib/api/types";
+import { FORMAT_NAMES, METHOD_NAMES } from "@/lib/glossary";
 
-export const METHOD_LABELS: Record<Method, string> = {
-  lifelike: "Lifelike 3D",
-  classic: "Classic 3D",
-};
+export const METHOD_LABELS: Record<Method, string> = METHOD_NAMES;
 
 export const METHOD_DESCRIPTIONS: Record<Method, string> = {
   lifelike:
@@ -41,9 +39,9 @@ export const LIFELIKE_FORMAT_LABELS: Record<
   (typeof LIFELIKE_FORMATS)[number],
   string
 > = {
-  mvhevc: "Vision Pro spatial video",
-  sbs: "Full side by side",
-  half_sbs: "Half side by side",
+  mvhevc: FORMAT_NAMES.mvhevc,
+  sbs: FORMAT_NAMES.sbs,
+  half_sbs: FORMAT_NAMES.half_sbs,
 };
 
 /** Lifelike preview length: about 5 s of source from the chosen moment
@@ -61,35 +59,6 @@ export function formatLength(seconds: number): string {
   const m = totalMin % 60;
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
-}
-
-/** Lifelike qualities with the short side each renders per eye. No Draft:
- * Lifelike is its own product and starts at 1080p. */
-export const LIFELIKE_PRESETS: readonly {
-  preset: Preset;
-  label: string;
-  shortSide: number;
-}[] = [
-  { preset: "1080p", label: "1080p", shortSide: 1080 },
-  { preset: "qhd", label: "1440p", shortSide: 1440 },
-  { preset: "3k", label: "3K", shortSide: 1620 },
-  { preset: "4k", label: "4K", shortSide: 2160 },
-];
-
-/** The qualities a source can have: Lifelike never upscales (the gateway
- * 400s preset_above_source), so only those at or below the source's short
- * side; a source below 1080 still gets 1080p (rendered at source size). */
-export function lifelikePresetsFor(
-  probe: { width: number; height: number } | undefined,
-): typeof LIFELIKE_PRESETS {
-  const short = probe ? Math.min(probe.width, probe.height) : Infinity;
-  return LIFELIKE_PRESETS.filter(
-    (p) => p.preset === "1080p" || p.shortSide <= short,
-  );
-}
-
-export function lifelikePresetLabel(preset: string | undefined): string {
-  return LIFELIKE_PRESETS.find((p) => p.preset === preset)?.label ?? preset ?? "";
 }
 
 /** What the customer reads for 400 preset_above_source. */
