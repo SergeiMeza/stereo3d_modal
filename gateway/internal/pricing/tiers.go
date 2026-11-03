@@ -9,8 +9,9 @@ import (
 // for TEST 2026-11-03, prod defaults unchanged). With tier_pricing on:
 //
 //   - Lifelike has four explicit price tables per preset, per output
-//     minute at 24 fps: list, Pro (~15% off), Business (~25%), Studio
-//     (~30%); Classic takes tier_pct off its own prices (production).
+//     minute at 24 fps: list, Pro (~15% off), Business (~20%), Studio
+//     (~25%) (owner 2026-11-04); Classic takes tier_pct off its own
+//     prices (production).
 //   - Add-ons ride on top of the run's price, as shares of its base:
 //     Foveated Detail +30%, Master bitrate +20%, Express +50% (included
 //     in Business and Studio).
@@ -55,13 +56,13 @@ func testLifelikeList() map[string]int64 {
 func testLifelikeTiers() map[string]map[string]int64 {
 	return map[string]map[string]int64{
 		TierPro:      {"1080p": 340, "qhd": 470, "3k": 680, "4k": 850, "5k": 1360, "6k": 1700, "8k": 2380},
-		TierBusiness: {"1080p": 300, "qhd": 410, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100},
-		TierStudio:   {"1080p": 280, "qhd": 385, "3k": 560, "4k": 700, "5k": 1120, "6k": 1400, "8k": 1960},
+		TierBusiness: {"1080p": 320, "qhd": 440, "3k": 640, "4k": 800, "5k": 1280, "6k": 1600, "8k": 2240},
+		TierStudio:   {"1080p": 300, "qhd": 410, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100},
 	}
 }
 
 func defaultTierPct() map[string]float64 {
-	return map[string]float64{TierPro: 0.15, TierBusiness: 0.25, TierStudio: 0.30}
+	return map[string]float64{TierPro: 0.15, TierBusiness: 0.20, TierStudio: 0.25} // owner 2026-11-04 (was 25%/30%)
 }
 
 func defaultAddOnPct() map[string]float64 {

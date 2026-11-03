@@ -1135,6 +1135,13 @@ func (s *Service) collectOutputs(ctx context.Context, conversionID string, job *
 // noteScheduling records what a Lifelike job echoed of its scheduling
 // (priority, max_gpu_workers).
 func noteScheduling(c *store.Conversion, job *modalapi.Job) {
+	// The brand intro's facts (BL-25): recorded, never billed.
+	if f := job.Intro(); f.IntroS > 0 || f.VideoFrames > 0 {
+		c.Modal.IntroS, c.Modal.IntroFrames, c.Modal.VideoFrames = f.IntroS, f.IntroFrames, f.VideoFrames
+	}
+	if usd := job.StageUSD("brand_intro"); usd > 0 {
+		c.Modal.BrandIntroUSD = usd
+	}
 	if p, n := job.Scheduling(); p != "" || n > 0 {
 		if p != "" {
 			c.Modal.Priority = p

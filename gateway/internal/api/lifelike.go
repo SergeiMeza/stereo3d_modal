@@ -297,7 +297,7 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 		// "standard"; anything else is a 400).
 		body["priority"] = "express"
 	}
-	if c.Params.IntroS != nil { // BL-25: only when the flag was on at creation
+	if c.Params.IntroS != nil && *c.Params.IntroS > 0 { // BL-25: flag on at creation; an opt-out omits both fields
 		body["intro_s"] = *c.Params.IntroS
 		lang := c.Params.IntroLanguage
 		if lang == "" {

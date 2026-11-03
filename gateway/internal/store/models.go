@@ -341,6 +341,13 @@ type Modal struct {
 	// (metadata.priority "standard"|"express", metadata.max_gpu_workers).
 	// ExpressCostFactor: the GPU cost factor of an Express run (8 vs 4
 	// GPUs, 1.12 measured), set at submit, for cost reporting.
+	// Brand intro (BL-25) as the job reported it: never billed. IntroFrames
+	// are the intro's (part 1 only); VideoFrames the customer's video
+	// (what was quoted); BrandIntroUSD the brand_intro cost stage.
+	IntroS            int     `firestore:"intro_s,omitempty" json:"-"`
+	IntroFrames       int     `firestore:"intro_frames,omitempty" json:"-"`
+	VideoFrames       int     `firestore:"video_frames,omitempty" json:"-"`
+	BrandIntroUSD     float64 `firestore:"brand_intro_usd,omitempty" json:"-"`
 	Priority          string  `firestore:"priority,omitempty" json:"-"`
 	GPUWorkers        int     `firestore:"max_gpu_workers,omitempty" json:"-"`
 	ExpressCostFactor float64 `firestore:"express_cost_factor,omitempty" json:"-"`

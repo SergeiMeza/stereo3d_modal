@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
@@ -67,6 +69,9 @@ func TestLifelikeIntro(t *testing.T) {
 	if *optOut.IntroS != 0 || optOut.IntroLanguage != "ja" {
 		t.Fatalf("opt-out %v %q", *optOut.IntroS, optOut.IntroLanguage)
 	}
+	if b := lifelikeBody(&store.Conversion{Method: store.MethodLifelike, Params: optOut}, 4); b["intro_s"] != nil || b["intro_language"] != nil {
+		t.Fatalf("an opt-out omits the intro fields: %v", b)
+	}
 
 	// Quotes are the customer's own length, intro or not.
 	p := lifelikeProject()
@@ -109,5 +114,53 @@ func TestAccountSettings(t *testing.T) {
 	})
 	if code, out := call("PATCH", `{"lifelike_intro":false,"locale":null}`); code != 200 || out["lifelike_intro"] != false || out["lifelike_intro_editable"] != true || out["locale"] != nil {
 		t.Fatalf("plan %d %v", code, out)
+	}
+}
+
+// The intro is never billed: a job whose output runs 4 s longer than the
+// customer's video (output_duration_s = video + 4, a brand_intro cost
+// stage) settles exactly like the same run without one, and the intro's
+// facts are recorded beside the cost.
+func TestIntroNeverChangesTheCharge(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.GCS = gcsx.NewWithSigner(testBucket, "stereo3d/test/", nil, nil)
+	settle := func(meta string, stages string) (*store.Conversion, *store.Balance) {
+		uid := "u" + store.NewID()
+		s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1"})
+		paidTopup(t, s, uid, 5000)
+		conv := &store.Conversion{ID: store.NewID(), UID: uid, State: store.StatePaid, Kind: "video", Method: store.MethodLifelike,
+			PaymentFlow: store.FlowBalance, Quote: store.Quote{AmountCents: 1000, Currency: "usd"},
+			RunBalance: &store.RunBalance{HoldCents: 1000, State: store.HoldHeld}}
+		conv.Stripe.Mode = store.BillingModeBalance
+		if _, err := s.Store.CreateConversionWithHold(ctx, conv, 0); err != nil {
+			t.Fatal(err)
+		}
+		s.Store.Transition(ctx, conv.ID, []string{store.StatePaid}, func(c *store.Conversion) error { c.State = store.StateProcessing; return nil })
+		job := &modalapi.Job{Status: "completed",
+			Outputs:  map[string]json.RawMessage{"sbs": json.RawMessage(`"https://storage.googleapis.com/` + testBucket + `/stereo3d/test/out/` + conv.ID + `/sbs.mp4"`)},
+			Metadata: json.RawMessage(meta)}
+		json.Unmarshal([]byte(`{"total_usd":0.5,"stages":`+stages+`}`), &job.CostSummary)
+		done, err := s.settleSuccess(ctx, conv, job)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := s.Store.GetBalance(ctx, uid)
+		return done, b
+	}
+	plain, bPlain := settle(`{"frames":1440,"video_frames":1440,"video_duration_s":60.0,"output_frames":1440,"output_duration_s":60.0,"intro":null}`,
+		`[{"stage":"render","total_usd":0.48}]`)
+	intro, bIntro := settle(`{"frames":1440,"video_frames":1440,"video_duration_s":60.0,"output_frames":1536,"output_duration_s":64.0,
+		"intro_s":4,"intro_language":"en","intro":{"seconds":4,"animation":"g1","frames":96,"duration_s":4.0}}`,
+		`[{"stage":"render","total_usd":0.47},{"stage":"brand_intro","total_usd":0.015},{"stage":"some_new_stage","total_usd":0.001}]`)
+	if plain.State != store.StateSucceeded || intro.State != store.StateSucceeded {
+		t.Fatalf("states %s %s", plain.State, intro.State)
+	}
+	if bPlain.BalanceCents != 4000 || bIntro.BalanceCents != bPlain.BalanceCents || intro.RunBalance.SettledCents != plain.RunBalance.SettledCents {
+		t.Fatalf("charged %d vs %d (settled %d vs %d)", 5000-bIntro.BalanceCents, 5000-bPlain.BalanceCents,
+			intro.RunBalance.SettledCents, plain.RunBalance.SettledCents)
+	}
+	if intro.Modal.IntroS != 4 || intro.Modal.IntroFrames != 96 || intro.Modal.VideoFrames != 1440 || intro.Modal.BrandIntroUSD != 0.015 {
+		t.Fatalf("intro facts %+v", intro.Modal)
 	}
 }

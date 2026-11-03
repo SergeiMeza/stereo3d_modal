@@ -66,6 +66,12 @@ type Job struct {
 	CostSummary struct {
 		TotalUSD    float64 `json:"total_usd"`
 		TotalUSDRaw float64 `json:"total_usd_raw"`
+		// Stages: per-stage costs (Lifelike: plan, render, encode_*,
+		// brand_intro, coordinator); unknown stages are fine.
+		Stages []struct {
+			Stage    string  `json:"stage"`
+			TotalUSD float64 `json:"total_usd"`
+		} `json:"stages"`
 	} `json:"cost_summary"`
 	// Both pipelines: a GPU call is queued and none runs; total seconds
 	// spent so. Absent on older records (false / 0).
@@ -282,4 +288,53 @@ func (c *Client) do(ctx context.Context, method, path string, body map[string]an
 		return nil
 	}
 	return json.Unmarshal(raw, out)
+}
+
+// StageUSD is one cost_summary stage's total (0 when absent).
+func (j *Job) StageUSD(stage string) float64 {
+	var n float64
+	for _, st := range j.CostSummary.Stages {
+		if st.Stage == stage {
+			n += st.TotalUSD
+		}
+	}
+	return n
+}
+
+// IntroFacts is what a Lifelike job says of the brand intro and of the
+// lengths: VideoFrames/VideoDurationS are the customer's video only (what
+// is quoted and billed); OutputFrames/OutputDurationS include the intro
+// and are never used for money.
+type IntroFacts struct {
+	IntroS          int
+	IntroFrames     int
+	IntroLanguage   string
+	VideoFrames     int
+	VideoDurationS  float64
+	OutputFrames    int
+	OutputDurationS float64
+}
+
+// Intro decodes them; zero values on older jobs.
+func (j *Job) Intro() IntroFacts {
+	var m struct {
+		IntroS        int    `json:"intro_s"`
+		IntroLanguage string `json:"intro_language"`
+		Intro         *struct {
+			Frames int `json:"frames"`
+		} `json:"intro"`
+		VideoFrames     int     `json:"video_frames"`
+		VideoDurationS  float64 `json:"video_duration_s"`
+		OutputFrames    int     `json:"output_frames"`
+		OutputDurationS float64 `json:"output_duration_s"`
+	}
+	if len(j.Metadata) == 0 || json.Unmarshal(j.Metadata, &m) != nil {
+		return IntroFacts{}
+	}
+	f := IntroFacts{IntroS: m.IntroS, IntroLanguage: m.IntroLanguage, VideoFrames: m.VideoFrames, VideoDurationS: m.VideoDurationS,
+		OutputFrames: m.OutputFrames, OutputDurationS: m.OutputDurationS}
+	if m.Intro != nil {
+		f.IntroFrames = m.Intro.Frames
+	}
+	return f
 }

@@ -26,13 +26,13 @@ func TestTierPricing(t *testing.T) {
 	}{
 		{"list 4k", min1, 1000, ""},
 		{"pro 4k", with(min1, func(i *StepInputs) { i.Tier = TierPro }), 850, "tier"},
-		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 750, "tier"},
-		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 280, "tier"},
+		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 800, "tier"},
+		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 300, "tier"},
 		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 1250, ""},
 		// add-ons on the base: 1000 + 300 + 200 + 500
 		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 2000, ""},
-		// Express included for Business: 750 + 30% foveated
-		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 975, "tier"},
+		// Express included for Business: 800 + 30% foveated
+		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1040, "tier"},
 		// 6 min of 4K list = 6000 > 5000 → bulk 600 → 5400
 		{"bulk", with(min1, func(i *StepInputs) { i.BillableS = 360 }), 5400, "bulk"},
 		// Pro 6 min = 5100 beats bulk 5400: the tier, not both

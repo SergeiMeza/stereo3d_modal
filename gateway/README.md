@@ -581,9 +581,10 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
 - **Tiers**: Studio > Business (web plan) > Pro (SVS Pro entitlement or a
   running pass) > list. Lifelike per output minute at 24 fps (fps factors
   unchanged): list 1080p 400 · 1440p 550 · 3K 800 · 4K 1000 · 5K 1600 · 6K
-  2000 · 8K 2800; Pro 340/470/680/850/1360/1700/2380; Business
-  300/410/600/750/1200/1500/2100; Studio 280/385/560/700/1120/1400/1960.
-  Classic: 15/25/30% off its production prices.
+  2000 · 8K 2800; Pro (15% off) 340/470/680/850/1360/1700/2380; Business
+  (20% off) 320/440/640/800/1280/1600/2240; Studio (25% off)
+  300/410/600/750/1200/1500/2100 (owner 2026-11-04; was 25%/30%).
+  Classic: 15/20/25% off its production prices.
 - **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay
@@ -652,8 +653,13 @@ account's saved `locale`, else the request's `Accept-Language`, else
 `en`, normalised to the language alone except Chinese by script
 (`zh-Hans`, `zh-Hant`) and Portuguese by region (`pt-BR`, `pt-PT`). The
 intro is never billed: quotes, holds and charges use the customer's own
-length. Only an account with an active Business or Studio plan can turn
-it off (`intro_s: 0`); Pro and pay-per-video can't, and a saved opt-out
+length (our probe and quote; the job's `video_frames`/`video_duration_s`
+are recorded as `modal.video_frames`, `output_*` are never used). An
+opt-out omits both fields. The run records the job's echo
+(`modal.intro_s`, `intro_frames`) and the `brand_intro` cost stage
+(`modal.brand_intro_usd`, inside `cost_usd`; other unknown stages are
+ignored) for cost reporting. Only an account with an active Business or Studio plan can turn
+it off (no intro fields sent); Pro and pay-per-video can't, and a saved opt-out
 is ignored without such a plan.
 
 - `GET /v1/account/settings` → `{lifelike_intro: bool, lifelike_intro_editable:
