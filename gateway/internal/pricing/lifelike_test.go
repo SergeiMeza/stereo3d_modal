@@ -30,8 +30,8 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		{"4k", 120, 24, 1530},
 		// 48 fps doubles the frames: 1 min of 1080p = $6 (under the $10 discount)
 		{"1080p", 60, 48, 600},
-		// a 5 s production floors at the $1 pro-step minimum (300 × 5/60 = 25¢)
-		{"1080p", 5, 24, 100},
+		// a 5 s production is billed as a whole minute (rounded up, 2026-11-04)
+		{"1080p", 5, 24, 300},
 	}
 	for _, tc := range cases {
 		for _, step := range []string{"production"} { // previews are flat (TestLifelikePreviewIsFlat)
@@ -58,8 +58,8 @@ func TestQuoteLifelikeConfigAndDraft(t *testing.T) {
 	r := defaults()
 	r.LifelikePriceCentsPerMinute = map[string]int64{"4k": 1200} // partial doc
 	s := defaultsService(r)
-	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 30, EffectiveFPS: 24}); q.AmountCents != 600 {
-		t.Errorf("config price: want 600, got %d", q.AmountCents)
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 30, EffectiveFPS: 24}); q.AmountCents != 1080 {
+		t.Errorf("config price (30 s billed as 1 min = 1200, bulk 10%%): want 1080, got %d", q.AmountCents)
 	}
 	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "qhd", BillableS: 60, EffectiveFPS: 24}); q.AmountCents != 450 {
 		t.Errorf("preset missing from the doc keeps its default: got %d", q.AmountCents)
@@ -182,11 +182,13 @@ func TestPerRunMinimum(t *testing.T) {
 	if (&Rates{}).PreviewMinimum() != 100 {
 		t.Error("preview minimum defaults to 100")
 	}
-	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 100 {
-		t.Errorf("lifelike 5 s production floors at the $1 pro minimum: %d", q.AmountCents)
+	// Production rounds up to whole minutes (2026-11-04), so a short run
+	// costs its first minute; the $1 floor stays under it.
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 300 {
+		t.Errorf("lifelike 5 s production is a whole minute: %d", q.AmountCents)
 	}
-	if q, _ := s.QuoteStep(ctx, StepInputs{Step: "production", Preset: "draft", BillableS: 2, EffectiveFPS: 24}); q.AmountCents != 100 {
-		t.Errorf("classic 2 s production floors at the $1 pro minimum: %d", q.AmountCents)
+	if q, _ := s.QuoteStep(ctx, StepInputs{Step: "production", Preset: "draft", BillableS: 2, EffectiveFPS: 24}); q.AmountCents != 360 {
+		t.Errorf("classic 2 s production is a whole minute: %d", q.AmountCents)
 	}
 	if (&Rates{}).ProMinimum() != 100 {
 		t.Error("pro minimum defaults to 100")

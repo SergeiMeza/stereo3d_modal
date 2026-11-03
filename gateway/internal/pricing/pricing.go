@@ -927,6 +927,10 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 // credit if this is its first paid conversion. Every adjustment is an
 // explicit breakdown line so support can reconstruct any charge.
 func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) {
+	return withBillableMinutes(s.quoteStep(ctx, in))(in)
+}
+
+func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) {
 	rates := s.Rates(ctx)
 	var perMin int64
 	switch in.Step {
@@ -948,7 +952,7 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	// price = cost rate × margin (see CostMarginMultiplier)
 	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.EffectiveFPS)
-	baseCents := int64(math.Ceil(in.BillableS / 60 * rateCents * fpsF))
+	baseCents := int64(math.Ceil(billedMinutes(in.Step, in.BillableS) * rateCents * fpsF))
 	subtotal := baseCents
 
 	// depth factor on the DEPTH share of the step. depth_preview is 100%
@@ -1177,6 +1181,10 @@ func (r *Rates) lifelikePrice(preset string) (int64, bool) {
 // QuoteLifelike prices a Lifelike step. in.Step is lifelike_preview or
 // production; DepthRes, Inpaint and ReuseStages are ignored.
 func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, error) {
+	return withBillableMinutes(s.quoteLifelike(ctx, in))(in)
+}
+
+func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, error) {
 	if in.Step != StepLifelikePreview && in.Step != "production" {
 		return nil, fmt.Errorf("unknown lifelike step %q", in.Step)
 	}
@@ -1226,7 +1234,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
-	base := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS) * float64(perMin) * fpsF))
 	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
 	subtotal := base + fov
 	proDiscount := rates.proDiscountCents(in, subtotal)
@@ -1424,3 +1432,37 @@ func proPct(r *Rates, in StepInputs, cents int64) float64 {
 
 // TaxInclusive: invoices compute VAT inside the sticker price (C7).
 func (r *Rates) TaxInclusive() bool { return r != nil && r.TaxMode == "inclusive" }
+
+// BillableMinutes rounds a run's length up to whole minutes (owner
+// 2026-11-04): ceil(the customer's video in the converted range ÷ 60), on
+// the run's total, so a split run sums its parts first (one range); the
+// brand intro never counts. 2:10 → 3, 3:00 → 3, 0:20 → 1.
+func BillableMinutes(seconds float64) int64 {
+	if seconds <= 0 {
+		return 0
+	}
+	return int64(math.Ceil(seconds/60 - 1e-6)) // a frame-rounded 3:00 stays 3
+}
+
+// billedMinutes is what a step is priced on: production rounds up to
+// whole minutes; previews keep their exact length (not changed yet).
+func billedMinutes(step string, seconds float64) float64 {
+	if step == "production" {
+		return float64(BillableMinutes(seconds))
+	}
+	return seconds / 60
+}
+
+// withBillableMinutes adds billable_minutes to a production quote's
+// breakdown ("3 min (2:10 rounded up)").
+func withBillableMinutes(q *Quote, err error) func(StepInputs) (*Quote, error) {
+	return func(in StepInputs) (*Quote, error) {
+		if err == nil && q != nil && in.Step == "production" {
+			if q.Breakdown == nil {
+				q.Breakdown = map[string]any{}
+			}
+			q.Breakdown["billable_minutes"] = BillableMinutes(in.BillableS)
+		}
+		return q, err
+	}
+}

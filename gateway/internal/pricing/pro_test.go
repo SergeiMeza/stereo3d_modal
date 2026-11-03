@@ -30,14 +30,15 @@ func TestProDiscount(t *testing.T) {
 	if q.AmountCents != 936 {
 		t.Errorf("5k pro: %d %v", q.AmountCents, q.Breakdown)
 	}
-	// Pro brings 1134 under the bulk threshold: 907, no bulk
-	q, _ = svc.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 80, EffectiveFPS: 24, Pro: true})
-	if q.AmountCents != 907 || q.Breakdown["discount_cents"] != int64(0) {
-		t.Errorf("4k 80 s pro: %d %v", q.AmountCents, q.Breakdown)
+	// Pro brings 1200 under the bulk threshold: 960, no bulk
+	q, _ = svc.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 230, EffectiveFPS: 24, Pro: true})
+	if q.AmountCents != 960 || q.Breakdown["discount_cents"] != int64(0) {
+		t.Errorf("1080p 3:50 (4 min) pro: %d %v", q.AmountCents, q.Breakdown)
 	}
 	// floor stays
+	// a 10 s run bills its first minute: 300 → Pro 240
 	q, _ = svc.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 10, EffectiveFPS: 24, Pro: true})
-	if q.AmountCents != 100 {
+	if q.AmountCents != 240 {
 		t.Errorf("floor: %d", q.AmountCents)
 	}
 	// previews: no Pro line

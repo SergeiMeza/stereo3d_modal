@@ -16,6 +16,30 @@ func tierQuoteOf(t *testing.T, in StepInputs) *Quote {
 
 // 2026-11 pricing on test: list and tier tables, add-ons on top, bulk
 // over $50 never stacked with a tier; prod unchanged.
+// Production bills whole minutes, rounded up on the run's total.
+func TestBillableMinutes(t *testing.T) {
+	for secs, want := range map[float64]int64{130: 3, 180: 3, 179.99999999: 3, 20: 1, 460 + 460: 16, 60: 1, 0: 0} {
+		if got := BillableMinutes(secs); got != want {
+			t.Errorf("%gs: %d min, want %d", secs, got, want)
+		}
+	}
+	// 2:10 of 4K list: 3 × 1000; the breakdown says so.
+	q := tierQuoteOf(t, StepInputs{Step: "production", Preset: "4k", BillableS: 130, EffectiveFPS: 24})
+	if q.AmountCents != 3000 || q.Breakdown["billable_minutes"] != int64(3) {
+		t.Fatalf("2:10: %d %v", q.AmountCents, q.Breakdown["billable_minutes"])
+	}
+	// A split run (7:40 + 7:40) is one range: ceil(15:20) = 16, not 8 + 8.
+	q = tierQuoteOf(t, StepInputs{Step: "production", Preset: "1080p", BillableS: 920, EffectiveFPS: 24})
+	if q.Breakdown["billable_minutes"] != int64(16) || q.Breakdown["list_base_cents"] != int64(16*400) {
+		t.Fatalf("split: %v", q.Breakdown)
+	}
+	// Previews keep their exact length (per frame).
+	p := tierQuoteOf(t, StepInputs{Step: StepLifelikePreview, Preset: "4k", BillableS: 5, EffectiveFPS: 24})
+	if _, ok := p.Breakdown["billable_minutes"]; ok {
+		t.Fatal("previews unchanged")
+	}
+}
+
 func TestTierPricing(t *testing.T) {
 	min1 := StepInputs{Step: "production", Preset: "4k", BillableS: 60, EffectiveFPS: 24}
 	cases := []struct {
@@ -39,7 +63,7 @@ func TestTierPricing(t *testing.T) {
 		{"pro beats bulk", with(min1, func(i *StepInputs) { i.BillableS, i.Tier = 360, TierPro }), 5100, "tier"},
 		// 8k list 6 min = 16800 → bulk 15120; Pro 14280 wins
 		{"no stacking", with(min1, func(i *StepInputs) { i.BillableS, i.Preset, i.Tier = 360, "8k", TierPro }), 14280, "tier"},
-		{"minimum", with(min1, func(i *StepInputs) { i.BillableS = 3 }), 100, ""},
+		{"first minute", with(min1, func(i *StepInputs) { i.BillableS = 3 }), 1000, ""}, // rounded up to 1 min
 	}
 	for _, c := range cases {
 		q := tierQuoteOf(t, c.in)

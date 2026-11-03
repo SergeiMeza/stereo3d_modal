@@ -591,6 +591,16 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   (20% off) 320/440/640/800/1280/1600/2240; Studio (25% off)
   300/410/600/750/1200/1500/2100 (owner 2026-11-04; was 25%/30%).
   Classic: 15/20/25% off its production prices.
+- **Whole minutes (owner 2026-11-04)**: production (both methods) is
+  priced on `billable_minutes = ceil(the customer's video in the
+  converted range ÷ 60)`, on the run's total (a split run is one range:
+  7:40 + 7:40 → 16, not 8 + 8; the brand intro never counts); then the
+  per-minute rate, fps factor, tier and add-ons as before. Quotes carry
+  `billable_minutes` beside `billable_seconds` ("3 min (2:10 rounded
+  up)"). Holds and charges are the quote, so a settle never exceeds it.
+  Previews keep their exact length (Lifelike: per frame; Classic
+  depth/stereo previews: per second) and the mobile one-shot is
+  unchanged. The $1 minimum and the bulk threshold are unchanged.
 - **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay

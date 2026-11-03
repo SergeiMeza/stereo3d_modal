@@ -305,7 +305,8 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		bd["free_preview_units"] = in.Units
 	} else {
 		fpsF := fpsFactor(in.EffectiveFPS)
-		base := func(perMin int64) int64 { return int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF)) }
+		minutes := billedMinutes(in.Step, in.BillableS) // production: whole minutes, rounded up
+		base := func(perMin int64) int64 { return int64(math.Ceil(minutes * float64(perMin) * fpsF)) }
 		q = r.composeTier(base(listPerMin), base(tierPerMin), in.Tier, addOns, true)
 		bd["fps_factor"] = round4(fpsF)
 	}
