@@ -119,7 +119,7 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	all := historyRows(batches, settles, convs, topups...)
+	all := s.applyCases(ctx, user.UID, historyRows(batches, settles, convs, topups...))
 	after := r.URL.Query().Get("starting_after")
 	if after == "" {
 		if out := s.outstandingRow(ctx, user.UID, batches, convs); out != nil {

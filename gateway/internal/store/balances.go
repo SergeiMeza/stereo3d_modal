@@ -1182,3 +1182,26 @@ func (s *Store) ListBalancesWithPlanCredit(ctx context.Context, limit int) ([]*B
 		out = append(out, b)
 	}
 }
+
+// RefundedToBalance sums what went back to the balance for a run.
+func (s *Store) RefundedToBalance(ctx context.Context, uid, convID string) (int64, error) {
+	iter := s.balanceDoc(uid).Collection("entries").Where("conversion_id", "==", convID).Documents(ctx)
+	defer iter.Stop()
+	var n int64
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return n, nil
+		}
+		if err != nil {
+			return n, err
+		}
+		var e Entry
+		if err := snap.DataTo(&e); err != nil {
+			return n, err
+		}
+		if e.Kind == EntryRefundToBalance {
+			n += e.Cents
+		}
+	}
+}

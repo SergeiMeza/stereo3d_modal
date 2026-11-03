@@ -841,6 +841,10 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 				httpx.WriteErr(ctx, w, err)
 				return
 			}
+			if conv.DisputeID != "" { // B11: locked while its charge is disputed
+				httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "disputed", "Unavailable while disputed with your bank"))
+				return
+			}
 			project = s.noteProjectUse(ctx, p, false) // downloading is a use
 		}
 		convs, lerr := s.Store.ListProjectConversions(ctx, conv.ProjectID, 100)

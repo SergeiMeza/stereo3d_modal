@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -156,6 +157,47 @@ func main() {
 			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email})
 		}
 	}
+	// Admin console routes (spec M1): its own origin only, the svs_admin
+	// claim, a second factor; money actions check auth_time inside.
+	admin := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+			if o := r.Header.Get("Origin"); o != "" && !slices.Contains(cfg.AdminOrigins, o) {
+				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "origin_not_allowed", "the admin API answers the admin console only"))
+				return
+			}
+			a, err := verifier.AdminFromRequest(r)
+			if err != nil {
+				httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
+				return
+			}
+			if !a.IsAdmin {
+				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "no_access", "This account has no access."))
+				return
+			}
+			if !a.MFA {
+				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "mfa_required", "sign in with your second factor"))
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 55*time.Second)
+			defer cancel()
+			h(w, r.WithContext(ctx), &api.AdminUser{UID: a.UID, Email: a.Email, AuthTime: a.AuthTime})
+		}
+	}
+	adminID := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser, string), key string) func(http.ResponseWriter, *http.Request, *api.AdminUser) {
+		return func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) { h(w, r, a, r.PathValue(key)) }
+	}
+	mux.HandleFunc("GET /v1/admin/cases", admin(svc.HandleAdminCases))
+	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
+	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
+	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
+	mux.HandleFunc("GET /v1/admin/disputes/summary", admin(svc.HandleAdminDisputes))
+	mux.HandleFunc("GET /v1/admin/policy", admin(svc.HandleAdminPolicy))
+	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
+
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
 		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 			id := r.PathValue("id")
@@ -238,7 +280,7 @@ func main() {
 		_, viaRelay := ips.ClientIP(r)
 		return viaRelay
 	})
-	handler := httpx.WithCORS(cfg.CORSOrigins, httpx.WithRequestID(media.Middleware(mux)))
+	handler := httpx.WithSplitCORS(cfg.CORSOrigins, cfg.AdminOrigins, "/v1/admin/", httpx.WithRequestID(media.Middleware(mux)))
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)

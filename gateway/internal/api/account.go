@@ -176,8 +176,17 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 			httpx.WriteErr(ctx, w, e)
 			return
 		}
-		s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` deleted with %s in its balance: refund it (closure case, N8b)",
-			user.UID, money(b.Available())))
+		// N8b: the closure case (manual) refunds the unspent cash top-ups;
+		// the Stripe customer and its methods stay, so it can pay out
+		// after the sign-in is gone.
+		if b.CashCents() > 0 {
+			if cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deleted"); cerr != nil {
+				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` deleted with %s in its balance; case not opened: %v",
+					user.UID, money(b.Available()), cerr))
+			} else {
+				httpx.Log(ctx).Info("closure case opened", "uid", user.UID, "case_id", cs.ID)
+			}
+		}
 	}
 
 	now := time.Now().UTC()

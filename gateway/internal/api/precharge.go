@@ -359,6 +359,9 @@ func (s *Service) refundPrecharge(ctx context.Context, conv *store.Conversion) (
 	} else {
 		slog.InfoContext(ctx, "precharge returned",
 			"conversion_id", conv.ID, "payment_intent", conv.Stripe.PaymentIntentID, "refunded_cents", refunded)
+		if refunded > 0 && err == nil && updated != nil {
+			s.recordAutoRefund(ctx, updated, refunded) // C12: an auto case and the ledger, for the record
+		}
 	}
 	s.restoreCredit(ctx, conv)
 	if errors.Is(err, store.ErrStateConflict) {

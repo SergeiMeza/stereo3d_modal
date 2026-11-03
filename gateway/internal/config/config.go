@@ -72,6 +72,10 @@ type Config struct {
 	OwnerAlertEmail string
 	// SiteURL is the web app's origin, for links in customer mails.
 	SiteURL string
+	// AdminOrigins: the admin console's origins (M1), the only ones
+	// /v1/admin/* answers in a browser (ADMIN_ORIGINS; test also allows
+	// a local console).
+	AdminOrigins []string
 	// RevenueCatKey is SVS's RevenueCat secret v1 key (Secret Manager
 	// RC_API_KEY_V1, shared with the SVS backend): the Pro check (S3D-67).
 	// Empty = nobody gets the Pro discount.
@@ -147,6 +151,15 @@ func Load() (*Config, error) {
 	}
 	if c.MediaRelayOrigin == "off" {
 		c.MediaRelayOrigin = ""
+	}
+	adminDefault := "https://admin.stereo3d.studio"
+	if env == "test" {
+		adminDefault += ",https://admin-test.stereo3d.studio,http://localhost:5174"
+	}
+	for _, o := range strings.Split(getenv("ADMIN_ORIGINS", adminDefault), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			c.AdminOrigins = append(c.AdminOrigins, strings.TrimRight(o, "/"))
+		}
 	}
 	for _, o := range strings.Split(getenv("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimSpace(o); o != "" {
@@ -252,4 +265,12 @@ func ParseWorkspaces(raw string, env func(string) string) ([]Workspace, error) {
 		})
 	}
 	return out, nil
+}
+
+// AdminOrigin is the console's main origin (links in owner notices).
+func (c *Config) AdminOrigin() string {
+	if len(c.AdminOrigins) > 0 {
+		return c.AdminOrigins[0]
+	}
+	return "https://admin.stereo3d.studio"
 }

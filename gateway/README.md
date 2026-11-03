@@ -704,6 +704,100 @@ per line; when the line empties, one "GPU line cleared" mail with the
 longest wait. The throttle lives in `ops_{env}/gpu_line`, so instances
 agree. No address or no Resend key → logged only.
 
+### Refunds, cases, disputes and the admin API (spec v6.1 step 6)
+
+**Policy** (`config/refund_policy_{env}`, optional, cached 60 s; code
+defaults fill every missing key — prod and test use the same defaults):
+
+| key | default |
+|---|---|
+| `reasons.{reason}` | auto: `run_failed_undelivered`, `cancel_undelivered`, `cancelled_by_us`, `deletion_undelivered`, `late_or_duplicate`, `topup_withdrawal`; manual: `partial_failure`, `delivered_run`, `quality_complaint`, `support_request`, `efw`, `dispute`, `refund_failed`, `dashboard_unassigned`, `unpaid_run`, `closure_balance`; unknown reasons are manual |
+| `manual_above_cents` | 5000 (an auto reason over $50 turns manual unless in `cap_exempt`) |
+| `cap_exempt` | the six auto reasons above |
+| `deadline_business_days` | 2 (18:00 in `timezone`) |
+| `reminder_hours` | 48 |
+| `timezone` | Asia/Tokyo |
+| `dispute_alert_pct` | 0.0075 |
+| `notify.slack_channel`, `notify.owner_emails` | empty → the gateway Slack webhook and `OWNER_ALERT_EMAIL` |
+
+**Cases** (`cases_{env}`, ids `CASE-0001…` from `counters_{env}/cases`):
+types `refund | dispute | efw | support | waive | balance_refund`;
+statuses `waiting_for_run | open | waiting_on_customer | decided |
+refund_pending | closed` with `result` (`refunded | denied | waived |
+superseded | duplicate | reclassified | stopped | dispute_won | dispute_lost |
+nothing_left | …`). One open case per `dedupe_key` (a second request
+adds a `request_merged` event); a closed case is final. Every change
+writes `cases_{env}/{id}/events`; evidence snapshots (runs, payments,
+refunds, earlier cases, log and Stripe links) go to `…/evidence`.
+Unfinished runs are cancelled as ours (auto) or wait (`waiting_for_run`,
+reclassified by the sweep when they end); unpaid runs open a `waive`
+case; delivered runs open a manual case.
+
+**Ledger and serialization** (`refunds_{env}/{pi}_{case}_{k}`):
+`ReserveRefund` runs in one transaction on the charge document
+(`charges_{env}`, `refund_seq`): refundable = charge lines − rows that
+count (pending + succeeded + out_of_band), capped by Stripe's remainder
+minus unsent pending rows. The Stripe idempotency key is
+`refund_{env}_{pi}_{case}_{k}`; a transient error leaves the row
+`pending` and the reconciler replays the same key. Dashboard refunds
+(`refund.created/updated`) are matched to a pending row (W1) or recorded
+`source: dashboard` with a `dashboard_unassigned` case. Credit notes are
+written for refunds on invoiced charges (amount only). A refund on a
+disputed charge is refused.
+
+**Disputes / EFW** (webhooks `charge.dispute.*`,
+`radar.early_fraud_warning.created`, `refund.*`): a dispute opens a
+`dispute` case (dedupe `dispute:{id}`, deadline = evidence due),
+supersedes other open cases on the charge, locks the charge's downloads
+(403 `disputed`), puts the account on sheet-only, pauses auto-reload and
+freezes a disputed top-up. Won → unlock/unfreeze; lost → `dispute_loss`
+balance entry, no new debt. An EFW cancels undelivered runs as ours,
+pauses auto-reload and opens a manual `efw` case.
+
+**Balance refunds** (`balance_refund` cases): `topup_withdrawal` within
+14 days of a top-up pays the unspent part back to that top-up's card at
+once (auto) and the held part when the holds end; `closure_balance`
+(account deletion with a cash balance) is manual and pays Σ unspent cash
+top-ups newest first. Plan credit and admin credits never pay out. A
+`cash_refund` entry leaves the balance first; a failed refund puts it
+back.
+
+**History rows** (additive): `status` may be `refunded`,
+`partially_refunded`, `refund_requested`, `refund_failed`, `disputed`;
+`case_id` when a case is open; refund rows (`type: refund`) from the
+ledger.
+
+**Mails**: E6 refunded (card / outside Stripe / to balance / waived),
+E9 under review, E10 denied (templates `delivered`, `outside_terms`,
+`other`), E11 question, E12 refund failed; owner notices O1 (new
+manual case/dispute), O2–O4 reminders/overdue, O5 refund failed.
+
+**Admin API** — only for `ADMIN_ORIGINS` (default
+`https://admin.stereo3d.studio`; test adds
+`https://admin-test.stereo3d.studio`, `http://localhost:5174`), a
+Firebase ID token with custom claim `svs_admin: true` and a second
+factor (`firebase.sign_in_second_factor`). Errors: 403
+`origin_not_allowed`, 401 `invalid_token`, 403 `no_access`, 403
+`mfa_required`; money actions need `auth_time` within 5 minutes (401
+`reauth_required`). Every call is audited in `admin_audit_{env}`;
+responses are `no-store`.
+
+| route | |
+|---|---|
+| `GET /v1/admin/cases?tab=open\|waiting\|decided\|closed\|all&type=&reason=&mode=&cap=over\|under&q=` | `{cases:[{id,type,reason,mode,status,result,opened_at,age_hours,email_masked,requested_cents,max_refundable_cents,deadline_at,deadline_red,dispute_due,last_activity_at}], counts:{open,overdue,due_today}}`; disputes first, then EFW/refund_failed, then oldest |
+| `POST /v1/admin/cases` `{uid, conversion_ids, reason, text, topup_id}` | opens cases (balance reasons need `topup_id` for withdrawals) → `{cases:[page]}` |
+| `GET /v1/admin/cases/{id}` | page: `{case, runs, max_refundable_cents, events, evidence, related_cases, hints, banners, account, refunds, actions}` |
+| `POST /v1/admin/cases/{id}/actions` `{action, items, expected_max_cents, template, text, method, reference}` | actions `note, customer_reply, refresh_evidence, ask, approve, partial, waive, deny, no_refund, mark_out_of_band, assign, stop_run, accept_dispute, counter_dispute, counter_with_refund_proof, close`; 409 `action_unavailable`, 409 `amount_changed` when the maximum moved → the page |
+| `GET /v1/admin/accounts/{uid}` | `{account:{uid,email,deleted,stripe_customer_id,sheet_only,sheet_only_reason,under_review,blocked,owed_cents,lifetime_paid_cents,plan,balance,…}}` |
+| `POST /v1/admin/accounts/{uid}/actions` `{action, cents, case_id, note}` | `clear_review, clear_sheet_only, block, unblock, resend_e2, write_off_owed, adjust_balance` (needs `case_id`); `block` → 403 `account_blocked` on new runs |
+| `GET /v1/admin/disputes/summary?months=1..24&format=csv` | A4: `{months:[{month,charges,disputes_activity,disputed_cents_activity,disputes_by_payment,activity_pct,won,lost,accepted,countered,lost_cents,dispute_fees_cents,efw,efw_cents,efw_refunded,efw_became_disputes}], reference_pct, win_rate, counter_rate, open, by_method, by_flow, by_country, scope, account_wide, denominator, generated_at}` |
+| `GET /v1/admin/policy` | `{policy, edit_in}` |
+| `GET /v1/admin/mail-previews` | rendered E6/E9–E12 samples |
+
+Not built yet: the download log (M8; evidence says "not recorded yet"),
+the `svs-admin` CLI, the nightly M3 check, a dispute fingerprint block
+list, per-line credit notes, and the admin console app itself.
+
 ## Support runbook
 
 A user ticket should quote a `conversion_id` (the app shows it on every

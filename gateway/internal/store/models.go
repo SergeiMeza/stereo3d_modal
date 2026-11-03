@@ -397,6 +397,12 @@ type Conversion struct {
 	// FreePreview: a preview paid with free previews (pricing 2026-11);
 	// given back if it delivers nothing.
 	FreePreview *FreePreview `firestore:"free_preview,omitempty" json:"-"`
+	// CanceledBy: who cancelled it — "" / user, us (support, an early
+	// fraud warning), deletion — for the refund reason (C12).
+	CanceledBy string `firestore:"canceled_by,omitempty" json:"-"`
+	// DisputeID: a dispute is open on the charge that paid it (its files
+	// are locked, 403 disputed).
+	DisputeID string `firestore:"dispute_id,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
@@ -452,6 +458,8 @@ type Customer struct {
 	// before a charge. Seeded once from historical succeeded charges
 	// (LifetimePaidSeeded) for accounts that predate batching.
 	LifetimePaidCents int64 `firestore:"lifetime_paid_cents"`
+	// Blocked: the owner blocked the account (A3); no new paid runs.
+	Blocked bool `firestore:"blocked,omitempty"`
 	// Plan: the web plan (Business, Studio), from Stripe Billing.
 	Plan *Plan `firestore:"plan,omitempty"`
 	// PaidOnce: a payment has gone through (lifts the B14 limits even
@@ -509,6 +517,7 @@ const (
 	BatchCharging = "charging" // closed; the charge is committed (reconciler sweeps until Stripe answers)
 	BatchPaid     = "paid"     // charged; terminal
 	BatchFailed   = "failed"   // card decision; account delinquent until settled (re-armed to charging)
+	BatchWaived   = "waived"   // every run waived (C13): nothing to charge; terminal
 )
 
 // Batch close reasons (Batch.CloseReason).

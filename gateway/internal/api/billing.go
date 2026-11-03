@@ -576,6 +576,9 @@ func (s *Service) requireRunnable(ctx context.Context, user *AuthedUser) (*store
 	if cust.UnderReview {
 		return nil, httpx.Err(http.StatusForbidden, "under_review", "we're checking a payment on your account; contact support to continue")
 	}
+	if cust.Blocked {
+		return nil, httpx.Err(http.StatusForbidden, "account_blocked", "this account can't start new runs; contact support")
+	}
 	if owed := s.owedCents(ctx, user.UID); owed > 0 {
 		e := httpx.Err(http.StatusPaymentRequired, "payment_method_needed",
 			"a payment didn't go through — pay it before starting new work")

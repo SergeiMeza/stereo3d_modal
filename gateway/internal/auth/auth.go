@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	firebase "firebase.google.com/go/v4"
 	fbauth "firebase.google.com/go/v4/auth"
@@ -106,3 +107,42 @@ type errUnauthorizedType struct{}
 func (errUnauthorizedType) Error() string { return "unauthorized" }
 
 func IsUnauthorized(err error) bool { return err == errUnauthorized }
+
+// Admin is a verified admin-console caller (spec M1): the svs_admin
+// custom claim, a second factor at sign-in, and when they signed in.
+type Admin struct {
+	UID      string
+	Email    string
+	IsAdmin  bool
+	MFA      bool
+	AuthTime time.Time
+}
+
+// AdminFromRequest verifies the token (revocation checked) and reads the
+// admin facts; the caller decides what they allow.
+func (v *Verifier) AdminFromRequest(r *http.Request) (*Admin, error) {
+	header := r.Header.Get("Authorization")
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return nil, errUnauthorized
+	}
+	token, err := v.client.VerifyIDTokenAndCheckRevoked(r.Context(), parts[1])
+	if err != nil {
+		return nil, errUnauthorized
+	}
+	return adminOf(token), nil
+}
+
+func adminOf(token *fbauth.Token) *Admin {
+	a := &Admin{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC()}
+	if email, ok := token.Claims["email"].(string); ok {
+		a.Email = email
+	}
+	a.IsAdmin, _ = token.Claims["svs_admin"].(bool)
+	if fb, ok := token.Claims["firebase"].(map[string]any); ok {
+		if f, ok := fb["sign_in_second_factor"].(string); ok && f != "" {
+			a.MFA = true
+		}
+	}
+	return a
+}

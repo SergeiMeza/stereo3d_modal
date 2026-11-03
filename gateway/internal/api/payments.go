@@ -317,15 +317,23 @@ func (s *Service) refundLatePayment(ctx context.Context, conv *store.Conversion,
 	if piID == "" {
 		return
 	}
-	refunded, refused, err := s.Stripe.RefundOrCancel(piID)
-	slog.WarnContext(ctx, "late or duplicate payment refunded",
-		"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", piID, "amount_cents", amount,
-		"refunded_cents", refunded, "why", why, "err", err)
-	if err != nil || refused {
-		s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "late_refund", fmt.Errorf("%s: %v", why, err))
+	reason := ReasonLate
+	if strings.HasPrefix(why, "account deletion") {
+		reason = ReasonDeletion
+	}
+	var related store.CaseRelated
+	switch {
+	case strings.HasPrefix(conv.ID, "topup:"):
+		related.TopupID = strings.TrimPrefix(conv.ID, "topup:")
+	case strings.HasPrefix(conv.ID, "settle:"):
+	default:
+		related.ConversionIDs = []string{conv.ID}
+	}
+	if s.Store == nil {
+		s.Stripe.RefundOrCancel(piID)
 		return
 	}
-	s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "late_payment_refunded", fmt.Errorf("%s: %d cents back", why, refunded))
+	s.refundExtraPayment(ctx, conv.UID, piID, amount, reason, why, related) // C12: an auto case, the ledger
 }
 
 // ---------------------------------------------------------------- E0-3

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -312,4 +313,90 @@ func (s *Service) outstandingRow(ctx context.Context, uid string, batches []*sto
 		}
 	}
 	return r
+}
+
+// applyCases folds the refund ledger and cases into the rows (spec F,
+// C13 customer view): each ledger refund is its own row (replacing the
+// run-derived one), charges read refunded / partially_refunded, a
+// customer-visible open case reads refund_requested (with case_id), an
+// open dispute disputed, an open refund_failed case refund_failed.
+func (s *Service) applyCases(ctx context.Context, uid string, rows []historyRow) []historyRow {
+	if s.Store == nil {
+		return rows
+	}
+	ledger, _ := s.Store.ListUserRefundRows(ctx, uid, 500)
+	cases, _ := s.Store.ListUserCases(ctx, uid, 300)
+	byPI := map[string][]*store.RefundRow{}
+	for _, r := range ledger {
+		if r.Counts() {
+			byPI[r.PI] = append(byPI[r.PI], r)
+		}
+	}
+	var out []historyRow
+	for _, r := range rows {
+		if r.Kind == "refund" && len(byPI[r.pi]) > 0 {
+			continue // the ledger rows below replace it
+		}
+		out = append(out, r)
+	}
+	for i := range out {
+		r := &out[i]
+		if r.Kind != "charge" || r.pi == "" {
+			continue
+		}
+		var back int64
+		for _, lr := range byPI[r.pi] {
+			back += lr.TotalCents
+			st := "refunded"
+			if lr.Status == store.RefundPending {
+				st = "processing"
+			}
+			ref := historyRow{RowID: "refund_" + lr.ID, Kind: "refund", CreatedAt: lr.CreatedAt, AmountCents: -lr.TotalCents,
+				Currency: r.Currency, Status: st, pi: r.pi, chargeID: r.chargeID, CaseID: caseIDIfVisible(cases, lr.CaseID),
+				amounts: map[string]int64{}}
+			for id, c := range lr.Items {
+				if id != store.UnassignedRefund && !strings.HasPrefix(id, "topup_") && id != "payment" {
+					ref.convIDs = append(ref.convIDs, id)
+					ref.amounts[id] = c
+				}
+			}
+			ref.Label = r.Label
+			out = append(out, ref)
+		}
+		switch {
+		case back >= r.AmountCents && back > 0:
+			r.Status = "refunded"
+		case back > 0:
+			r.Status = "partially_refunded"
+		}
+		for _, c := range cases {
+			if !c.Open || !contains(c.Related.PIIDs, r.pi) {
+				continue
+			}
+			switch {
+			case c.Type == store.CaseDispute:
+				r.Status = "disputed"
+			case c.Reason == ReasonRefundFailed:
+				r.Status, r.CaseID = "refund_failed", c.ID
+			case c.CustomerVisible && r.Status != "disputed":
+				r.Status, r.CaseID = "refund_requested", c.ID
+			}
+		}
+	}
+	sort.SliceStable(out, func(a, b int) bool {
+		if !out[a].CreatedAt.Equal(out[b].CreatedAt) {
+			return out[a].CreatedAt.After(out[b].CreatedAt) // newest first
+		}
+		return out[a].RowID > out[b].RowID
+	})
+	return out
+}
+
+func caseIDIfVisible(cases []*store.Case, id string) string {
+	for _, c := range cases {
+		if c.ID == id && c.CustomerVisible {
+			return id
+		}
+	}
+	return ""
 }

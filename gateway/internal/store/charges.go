@@ -228,3 +228,45 @@ func (s *Store) ChargeByInvoice(ctx context.Context, invoiceID string) (*Charge,
 	}
 	return snapToCharge(snap)
 }
+
+// ListUserCharges lists an account's charge records.
+func (s *Store) ListUserCharges(ctx context.Context, uid string, limit int) ([]*Charge, error) {
+	iter := s.fs.Collection(chargesCol(s.env)).Where("uid", "==", uid).Limit(limit).Documents(ctx)
+	defer iter.Stop()
+	var out []*Charge
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		c, err := snapToCharge(snap)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+}
+
+// ListAllCharges pages every charge record (A4's denominators).
+func (s *Store) ListAllCharges(ctx context.Context, limit int) ([]*Charge, error) {
+	iter := s.fs.Collection(chargesCol(s.env)).Limit(limit).Documents(ctx)
+	defer iter.Stop()
+	var out []*Charge
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		c, err := snapToCharge(snap)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+}

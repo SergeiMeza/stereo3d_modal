@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -69,7 +70,9 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(f.pi(strings.TrimPrefix(p, "/v1/payment_intents/")))
 	case p == "/v1/refunds":
 		f.refunds = append(f.refunds, r.Form.Get("payment_intent"))
-		write(map[string]any{"id": "re_" + r.Form.Get("payment_intent"), "object": "refund", "amount": r.Form.Get("amount"), "status": "succeeded"})
+		amt, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
+		write(map[string]any{"id": fmt.Sprintf("re_%s_%d", r.Form.Get("payment_intent"), len(f.refunds)), "object": "refund", "amount": amt,
+			"status": "succeeded", "payment_intent": r.Form.Get("payment_intent")})
 	default:
 		w.WriteHeader(404)
 		write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "unhandled " + p}})
@@ -81,6 +84,9 @@ func (f *fakeStripe) pi(id string) map[string]any {
 	out := map[string]any{"id": id, "object": "payment_intent", "status": pi["status"], "amount_received": pi["amount_received"], "amount": pi["amount_received"]}
 	if pm, ok := pi["payment_method"]; ok {
 		out["payment_method"] = map[string]any{"id": pm, "object": "payment_method"}
+	}
+	if md, ok := pi["metadata"]; ok {
+		out["metadata"] = md
 	}
 	out["latest_charge"] = map[string]any{"id": "ch_" + id, "object": "charge", "amount_refunded": 0}
 	return out

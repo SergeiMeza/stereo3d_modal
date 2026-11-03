@@ -74,6 +74,27 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			s.handlePlanInvoicePaid(ctx, event.Data.Raw) // a plan period's credit
 		}
 		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "dispute":
+		if err := s.handleDisputeEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("dispute event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "radar.early_fraud_warning":
+		if err := s.handleEFW(ctx, event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("efw event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "refund":
+		if err := s.handleRefundEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("refund event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
 	case "subscription":
 		s.handleSubscriptionEvent(ctx, event.Data.Raw)
 		httpx.WriteOK(w, map[string]bool{"received": true})
