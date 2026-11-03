@@ -93,13 +93,13 @@ export function BillingBanner(): JSX.Element | null {
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-red-200">
-            Automatic payment failed — {formatCents(totalCents)}{" "}
-            {currency.toUpperCase()} outstanding
+            A payment didn't go through — {formatCents(totalCents)}{" "}
+            {currency.toUpperCase()} due
           </p>
           <p className="text-xs text-red-200/70">
-            Your results stay available, but new conversions are paused until
-            the payment goes through
-            {unpaidSteps > 1 ? ` (${unpaidSteps} steps)` : ""}.
+            Your files are ready but locked until the payment goes through,
+            and new runs wait until then
+            {unpaidSteps > 1 ? ` (${unpaidSteps} runs)` : ""}.
           </p>
           {message ? (
             <p className="mt-1 text-xs text-red-300">{message}</p>

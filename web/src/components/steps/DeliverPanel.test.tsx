@@ -314,7 +314,7 @@ describe("DeliverPanel controls", () => {
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1]).toMatchObject({ warp: "backward", inpaint: "none" });
-    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×0.4");
+    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("−60%");
     // explained in the user's terms — never the renderer/model names
     const breakdown = screen.getByTestId("quote-breakdown").textContent!;
     expect(breakdown).toContain("Edge handling");
@@ -330,7 +330,7 @@ describe("DeliverPanel controls", () => {
     await waitFor(() => expect(bodies).toHaveLength(3));
     expect(bodies[2]).toMatchObject({ inpaint: "migan" });
     expect(bodies[2]).not.toHaveProperty("warp");
-    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×0.5");
+    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("−50%");
   });
 
   it("a payment-locked run shows the settle notice and never mounts its output", async () => {
@@ -354,7 +354,7 @@ describe("DeliverPanel controls", () => {
     renderPanel(project);
 
     expect(screen.getByTestId("payment-locked-notice").textContent).toContain(
-      "settle your balance",
+      "locked until it does",
     );
     // the hook never fetches (the gateway would 402) → no follower video
     expect(screen.queryByTestId("deliver-output-video")).toBeNull();
@@ -378,7 +378,7 @@ describe("DeliverPanel controls", () => {
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$12.56");
     const stages = screen.getByTestId("quote-reuse-stages");
     expect(stages.textContent).toContain("depth");
-    expect(stages.textContent).toContain("preprocess");
+    expect(stages.textContent).toContain("preparation");
     expect(screen.getByTestId("quote-reuse-discount").textContent).toBe("−$5.02");
     expect(screen.getByTestId("quote-total").textContent).toBe("$7.54");
 
@@ -402,7 +402,7 @@ describe("DeliverPanel controls", () => {
     // the base → 1121 × (1 + 0.35 × 1.912) = 1871¢; reuse −748 → 1123;
     // −112 bulk → $10.11 (no analyze credit)
     expect(screen.getByTestId("quote-base").textContent).toBe("$11.21");
-    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×2.91");
+    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+191%");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$18.71");
     expect(screen.getByTestId("quote-total").textContent).toBe("$10.11");
   });

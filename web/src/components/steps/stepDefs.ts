@@ -20,15 +20,15 @@ export const STEP_DEFS: readonly StepDef[] = [
     step: "depth_preview",
     title: "Depth",
     description:
-      "Define the depth map: pick the depth-map resolution (the cost/quality knob) and a preview frame rate.",
+      "Check how far away everything is before you make 3D: pick the depth detail and see a depth video beside your source. Optional.",
     outputs: [
-      "Browser-playable depth video (depth_vis) compared side-by-side against the source",
-      "Depth artifact registered for reuse — production inherits this resolution, and its quote discounts the whole depth stage when fps + resolution match",
+      "A depth video you can play beside your source, near is bright and far is dark",
+      "Make 3D reuses this depth work, and discounts it, when the depth detail, frame rate, scene cuts and 2D scenes all still match",
     ],
     tips: [
-      "Resolution is the knob that matters: run depth ONCE at the resolution you want production to use and the depth cost is paid once.",
-      "Higher resolutions route to bigger GPUs automatically — pick by the detail you need, capped at the source resolution.",
-      "Half the source frame rate is plenty to judge depth; but reuse keys on fps, so a production run at a different rate re-runs depth.",
+      "Depth detail is the setting that matters: run it at the detail you want for the final video, so Make 3D can reuse the work at a discount.",
+      "Changing scene cuts or which scenes stay 2D means the next run can't reuse this depth work.",
+      "Higher detail costs more; it is capped at your video's own resolution.",
       "Look for stable depth across a scene — flicker between frames shows up as shimmer in 3D.",
     ],
   },
@@ -38,7 +38,7 @@ export const STEP_DEFS: readonly StepDef[] = [
     description:
       "Per-scene 3D: every scene is measured and classified automatically; review each scene against the real video, adjust the ones that need it, and preview what you deliver.",
     outputs: [
-      "Stereo preview in the SAME presets and formats Deliver sells — SBS, half-SBS, anaglyph, MV-HEVC",
+      "A 3D preview in the same qualities and formats Make 3D offers",
       "The per-scene profile computed by the run seeds this page's Auto defaults",
     ],
     tips: [
@@ -49,7 +49,7 @@ export const STEP_DEFS: readonly StepDef[] = [
       "Dynamic — the camera or subject distance changes during the scene (push-ins, walk-aways), so the 3D strength adapts across the shot instead of staying fixed.",
       "Override a scene's shot type when the automatic pick reads wrong — e.g. force Close-up on a tight shot the profiler called Standard to make it pop more.",
       "Overall 3D strength scales EVERY scene at once; a per-scene shot-type override wins for its scene.",
-      "Edges are always finished at full quality: the thin gaps that open along object edges in 3D are filled automatically, so the preview looks exactly like the deliverable.",
+      "Best edges is the default: the thin gaps that open along object edges in 3D are filled for the cleanest result. Faster, cheaper edge modes are under Advanced.",
       "Uncheck “3D” on a scene to ship it as 2D — both eyes identical, no depth (end credits, logos, title cards).",
       "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
       "Your tweaks persist per project and carry to the Deliver page automatically.",
@@ -61,8 +61,8 @@ export const STEP_DEFS: readonly StepDef[] = [
     description:
       "Full-quality conversion — inherits your Depth-page resolution and Stereo-page scene tweaks, reusing compatible artifacts at a discount.",
     outputs: [
-      "Final outputs in every selected format (MV-HEVC for Vision Pro / spatial players, SBS for TVs and headsets, anaglyph for quick checks)",
-      "Full frame rate, full resolution, full-quality edge fill",
+      "Your video in every format you pick: Vision Pro spatial video, side by side for other headsets and 3D TVs, red-cyan for a quick check",
+      "Full frame rate at the quality you pick, with Best edges unless you chose otherwise under Advanced",
     ],
     tips: [
       "The summary chips show exactly what production inherits from the Depth and Stereo pages — each has a “use pipeline default” escape.",
@@ -102,7 +102,7 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     tips: [
       "Vision Pro spatial video is for Apple Vision Pro; side by side plays on most other headsets and 3D TVs.",
       "Half side by side keeps the file small; full side by side keeps every pixel.",
-      "Runs over a set amount are paid when they start and refunded in full if they fail.",
+      "Runs over $25 are charged when they start and refunded in full if they fail; smaller runs go on your balance after they succeed.",
     ],
   },
 ];

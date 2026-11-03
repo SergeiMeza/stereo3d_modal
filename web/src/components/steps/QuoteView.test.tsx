@@ -41,3 +41,62 @@ describe("QuoteView reuse_stages guard", () => {
     );
   });
 });
+
+describe("QuoteView in words (S3D-15/16/17/19)", () => {
+  afterEach(cleanup);
+
+  it("says the frame rate, the 10% off, the minimum and when it's charged", () => {
+    render(
+      <QuoteView
+        result={{
+          step: "production",
+          params: { preset: "1080p", formats: ["sbs"] },
+          quote: {
+            amount_cents: 2531,
+            currency: "usd",
+            breakdown: {
+              billable_seconds: 300,
+              fps_factor: 1.25,
+              base_cents: 2813,
+              subtotal_cents: 2813,
+              discount_cents: 282,
+            },
+          },
+          charge_timing: "before",
+        }}
+      />,
+    );
+    expect(screen.getByText(/Your video: 5 min/).textContent).toBe(
+      "Your video: 5 min at 30 fps (+25%)",
+    );
+    expect(screen.getByText("10% off runs over $10")).toBeTruthy();
+    expect(screen.getByTestId("quote-bulk-discount").textContent).toBe("−$2.82");
+    expect(screen.queryByTestId("quote-minimum")).toBeNull();
+    expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
+      "We charge $25.31 when the run starts and refund it in full if it fails.",
+    );
+  });
+
+  it("names the minimum charge when it applies", () => {
+    render(
+      <QuoteView
+        result={{
+          step: "lifelike_preview",
+          params: { preset: "1080p", formats: ["sbs"] },
+          quote: {
+            amount_cents: 50,
+            currency: "usd",
+            breakdown: { billable_seconds: 5, base_cents: 38, subtotal_cents: 38 },
+          },
+          charge_timing: "after",
+        }}
+        balanceLimitCents={5000}
+      />,
+    );
+    expect(screen.getByTestId("quote-minimum").textContent).toBe("$0.50");
+    expect(screen.getByText("Minimum charge $0.50")).toBeTruthy();
+    expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
+      "We add $0.50 to your balance after it succeeds. Your balance is charged within 4 hours or when it reaches $50.00.",
+    );
+  });
+});

@@ -22,8 +22,10 @@ import { completeChargeAction } from "@/components/billing/settleAction";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLimits } from "@/lib/api/useLimits";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
+import { chargeRule, prechargeThreshold } from "@/lib/billingCopy";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "google.com": "Google",
@@ -70,6 +72,7 @@ export default function AccountScreen({
   const { user, signOutUser, updateDisplayName } = useAuth();
   const gateway = useGateway();
   const billing = useBilling();
+  const limits = useLimits();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? "");
@@ -247,12 +250,9 @@ export default function AccountScreen({
 
       <CardShell title="Billing">
         <p className="text-fg-muted">
-          Billing is pay-as-you-go: each conversion step shows its price up
-          front, and only runs that succeed are ever billed — failed or
-          cancelled runs cost nothing. Successful steps are grouped into a
-          single payment on your saved card instead of one charge per step.
-          Saved payment methods, invoices, and receipts live in the Stripe
-          billing portal.
+          Billing is pay-as-you-go: every run shows its price before it
+          starts. {chargeRule(prechargeThreshold(limits))} Saved payment
+          methods, invoices, and receipts live in the Stripe billing portal.
         </p>
         <PendingBalance />
         {billing.status?.card ? (
@@ -327,9 +327,9 @@ export default function AccountScreen({
             <p className="text-xs text-destructive">{deleteError}</p>
           )}
           <p className="text-xs text-fg-muted">
-            Any unpaid balance is charged to your saved card first. Uploaded
-            sources and rendered outputs expire automatically; billing records
-            are retained for support.
+            Any unpaid balance is charged to your saved card first. Your
+            projects, videos and 3D files are removed from your account at
+            once; billing records are kept for support.
           </p>
         </div>
       </section>

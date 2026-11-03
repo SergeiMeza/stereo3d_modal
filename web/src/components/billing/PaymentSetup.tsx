@@ -84,8 +84,7 @@ function StripeSetupForm({ onSaved }: BillingSetupPanelProps): JSX.Element {
       </button>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       <p className="text-xs text-fg-muted">
-        Nothing is charged now — conversions bill this card only when they
-        succeed.
+        Nothing is charged now. Every run shows its price before it starts.
       </p>
     </div>
   );

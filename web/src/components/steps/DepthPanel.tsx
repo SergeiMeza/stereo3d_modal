@@ -174,9 +174,9 @@ export function DepthPanel({
               label="Depth-map resolution"
               hint={
                 <>
-                  The cost/quality knob. Production inherits it: run depth once
-                  at your final resolution and the production quote discounts
-                  the whole depth stage. Capped at the source resolution.
+                  Higher detail costs more. Make 3D reuses this depth work at a
+                  discount while the detail, scene cuts and 2D scenes still
+                  match. Capped at your video&apos;s resolution.
                 </>
               }
             >
@@ -547,8 +547,8 @@ function DepthSceneGrid({
         Scenes · convert to 3D
       </h3>
       <p className="text-xs text-fg-muted">
-        Unchecked scenes ship as 2D on Stereo and Deliver runs (end credits,
-        logos). Depth previews always render the full depth map regardless.
+        Unchecked scenes stay 2D (end credits, logos): every run skips their
+        depth, including depth previews, and the price stays the same.
       </p>
       <div
         ref={scrollRef}

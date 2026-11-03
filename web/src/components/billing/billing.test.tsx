@@ -230,10 +230,12 @@ describe("PendingBalance (batched billing)", () => {
     expect((await screen.findByTestId("pending-amount")).textContent).toBe(
       "$12.30",
     );
-    expect(screen.getByTestId("tier-line").textContent).toContain("$50.00");
+    // the tier ladder is hidden (S3D-21); the limit is in the due line
+    expect(screen.queryByTestId("tier-line")).toBeNull();
+    expect(screen.getByText(/as soon as it reaches \$50\.00/)).toBeTruthy();
     fireEvent.click(screen.getByTestId("pay-now"));
     await waitFor(() =>
-      expect(screen.getByText("No pending balance.")).toBeTruthy(),
+      expect(screen.getByText("Your balance is $0.00.")).toBeTruthy(),
     );
     expect(mockDb.billing.pending).toBeNull();
   });

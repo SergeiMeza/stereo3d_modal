@@ -339,7 +339,7 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
         className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm"
       >
         <p className="text-red-200">
-          Your card declined the payment hold for this run — nothing was
+          Your card declined the payment for this run — nothing was
           charged.
         </p>
         <Link
@@ -357,8 +357,8 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
       className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm"
     >
       <p className="text-red-200">
-        An earlier conversion&apos;s automatic payment failed. Settle it from
-        the banner above (or update your card there) to start new work.
+        An earlier payment didn&apos;t go through. Pay it from the banner above
+        (or update your card there) to start new runs.
       </p>
     </div>
   );
@@ -387,6 +387,7 @@ export function StepCheckoutSection({
   disabledReason,
 }: StepCheckoutSectionProps): JSX.Element {
   const blocked = disabledReason !== undefined;
+  const balanceLimit = useBilling().status?.tier?.cap_cents;
   return (
     <>
       <div className="flex items-center gap-3">
@@ -415,7 +416,9 @@ export function StepCheckoutSection({
       </div>
       {ck.error ? <p className="text-sm text-red-400">{ck.error}</p> : null}
       {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
-      {ck.quote ? <QuoteView result={ck.quote} /> : null}
+      {ck.quote ? (
+        <QuoteView result={ck.quote} balanceLimitCents={balanceLimit} />
+      ) : null}
       {ck.tracking && ck.active ? (
         <ConversionTracker
           conversion={ck.active}

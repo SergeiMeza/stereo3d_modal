@@ -51,8 +51,8 @@ export function PaymentLockedNotice(): JSX.Element {
       data-testid="payment-locked-notice"
       className="text-[11px] text-amber-400"
     >
-      The payment for this run failed — settle your balance to unlock the
-      output and downloads.
+      The payment for this run didn&apos;t go through. Your files are locked
+      until it does — pay it from the banner above.
     </span>
   );
 }

@@ -444,7 +444,7 @@ describe("StereoPanel quote pricing", () => {
     // fixture prices the default 980 depth at ×1.345 on the 0.35 share →
     // 1005¢; ×1.6 propainter = 1608¢ → −161 bulk = $14.47 (no analyze credit)
     expect(screen.getByTestId("quote-base").textContent).toBe("$8.97");
-    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("×1.6");
+    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("+60%");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.08");
     expect(screen.getByTestId("quote-total").textContent).toBe("$14.47");
     // the breakdown line explains the multiplier without internal terms
@@ -777,7 +777,7 @@ describe("StereoPanel depth inheritance & reuse", () => {
     expect(bodies[0].depth_res).toBe(980);
     // subtotal 1608¢ (propainter default); depth share 0.35 reused →
     // −563¢ = 1045¢ → −105 bulk = $9.40 (no analyze credit)
-    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth work");
     expect(screen.getByTestId("quote-reuse-discount").textContent).toBe(
       "−$5.63",
     );
@@ -848,7 +848,7 @@ describe("StereoPanel depth inheritance & reuse", () => {
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0].depth_res).toBe(980);
-    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth work");
   });
 
   it("explains itself when no depth run exists yet", () => {
@@ -889,7 +889,7 @@ describe("StereoPanel depth inheritance & reuse", () => {
     expect(bodies[0].depth_res).toBeUndefined();
     // the gateway pins uploaded-depth runs to the full source rate itself
     expect(bodies[0].target_fps).toBeUndefined();
-    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth");
+    expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth work");
   });
 
   it("the picker lists depth runs AND the upload; picking the upload switches the request", async () => {

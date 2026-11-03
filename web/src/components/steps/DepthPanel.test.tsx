@@ -238,16 +238,16 @@ describe("DepthPanel quotes", () => {
     await getQuote(user);
 
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$5.61");
-    expect(screen.getByText(/2\.49 min × \$2\.25\/min/)).toBeDefined();
+    expect(screen.getByText(/Your video: 2 min 29 s/)).toBeDefined();
     // no analyze-credit line: analysis is free outright, nothing is credited back
     expect(screen.queryByTestId("quote-analyze-credit")).toBeNull();
     expect(screen.getByTestId("quote-total").textContent).toBe("$5.61");
     expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
-    expect(screen.queryByTestId("quote-base")).toBeNull();
+    expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
 
     // the coarse processing-time estimate, clearly labeled as an estimate
     // (mock: 149.46 s × 2.5 → 374 s → "about 6 min")
-    expect(screen.getByText(/Estimated processing time/)).toBeDefined();
+    expect(screen.getByText(/Estimated time/)).toBeDefined();
     expect(screen.getByTestId("quote-eta").textContent).toBe("about 6 min");
   });
 
@@ -259,7 +259,7 @@ describe("DepthPanel quotes", () => {
     await getQuote(user);
 
     expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
-    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×1.34");
+    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+35%");
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$7.55");
     expect(screen.getByTestId("quote-total").textContent).toBe("$7.55");
   });
@@ -280,8 +280,8 @@ describe("DepthPanel quotes", () => {
     await getQuote(user);
     // base 561¢ × clamp(1442²×2.391 / (980²×16⁄9), 0.5, 5) = ×2.91 → 1634¢
     expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
-    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("×2.91");
-    expect(screen.getByText("1442 px")).toBeDefined();
+    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+191%");
+    expect(screen.getByText(/Depth detail \(1442 px\)/)).toBeDefined();
     expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.34");
     expect(screen.getByTestId("quote-total").textContent).toBe("$14.71");
   });
@@ -393,7 +393,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     const notice = await screen.findByTestId("billing-block");
-    expect(notice.textContent).toContain("automatic payment failed");
+    expect(notice.textContent).toContain("didn't go through");
     expect(mockDb.conversions.size).toBe(0);
   });
 
@@ -441,7 +441,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await screen.findByText("Ready, payment needed", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
-    expect(warning.textContent).toContain("automatic payment");
+    expect(warning.textContent).toContain("didn't go through");
     expect(mockDb.billing.unpaid).toHaveLength(1);
   });
 
@@ -637,7 +637,7 @@ describe("DepthPanel timeline (Cut-style)", () => {
 });
 
 describe("DepthPanel scene grid (shared 2D passthrough)", () => {
-  it("shows one card per scene (number + timecode) with a Convert-to-3D toggle, default checked, and says depth previews are unaffected", () => {
+  it("shows one card per scene (number + timecode) with a Convert-to-3D toggle, default checked, and says unchecked scenes stay 2D on every run", () => {
     renderPanel();
     const strip = screen.getByTestId("depth-scenes");
     const rows = within(strip).getAllByTestId(/^depth-scene-\d/);
@@ -650,7 +650,7 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
     expect(toggle.checked).toBe(true);
     expect(
       screen.getByText(
-        /Depth previews always render the full depth map regardless/,
+        /every run skips their\s+depth, including depth previews/,
       ),
     ).toBeDefined();
   });

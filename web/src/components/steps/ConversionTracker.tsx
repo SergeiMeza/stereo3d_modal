@@ -231,9 +231,8 @@ export function ConversionTracker({
       </div>
       {conv.state === "created" ? (
         <p className="mt-3 text-sm text-fg-muted" data-testid="hold-confirming">
-          {conv.charge_timing === "before"
-            ? "Confirming the payment with your bank — the run starts as soon as it clears."
-            : "Confirming the payment hold with your bank — the run starts automatically once it clears."}
+          Confirming the payment with your bank — the run starts as soon as
+          it clears.
         </p>
       ) : null}
       {waiting ? (
@@ -260,15 +259,15 @@ export function ConversionTracker({
       ) : null}
       {conv.state === "succeeded" && conv.billing?.status === "batched" ? (
         <p className="mt-3 text-xs text-fg-muted" data-testid="batched-note">
-          Added to your pending balance — charged together with your other
-          steps.
+          Added to your balance — charged together with your other runs
+          within 4 hours.
         </p>
       ) : null}
       {conv.state === "succeeded" &&
       conv.billing?.status === "charge_failed" ? (
         <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
-          The automatic payment for this conversion failed — your results are
-          ready, but settle it (banner above) before starting new work.
+          The payment for this run didn&apos;t go through. Your files are ready
+          but locked until it does — pay it from the banner above.
         </p>
       ) : null}
       {conv.state === "failed" && conv.error ? (
@@ -281,7 +280,7 @@ export function ConversionTracker({
       ) : null}
       {conv.state === "canceled" && conv.charge_timing !== "before" ? (
         <p className="mt-3 text-sm text-fg-muted">
-          Conversion canceled — you were not charged.
+          Cancelled — you were not charged.
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}

@@ -16,7 +16,9 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
+import { useLimits } from "@/lib/api/useLimits";
 import { useBilling } from "@/lib/billing";
+import { chargeRule, prechargeThreshold } from "@/lib/billingCopy";
 
 import { useBillingSetup } from "./PaymentSetup";
 
@@ -33,6 +35,7 @@ const CONFIRM_POLL_MS = 1200;
 export default function OnboardingScreen(): JSX.Element {
   const { status, refresh } = useBilling();
   const setup = useBillingSetup();
+  const limits = useLimits();
   const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
 
@@ -75,10 +78,11 @@ export default function OnboardingScreen(): JSX.Element {
           Set up pay-as-you-go billing
         </h1>
         <p className="text-fg-muted">
-          Stereo3D Studio has no subscription. Save a card once; each
-          conversion step shows its exact price up front and bills the card
-          automatically <em>only when it succeeds</em>. Failed runs are never
-          charged.
+          Stereo3D Studio has no subscription. Save a card once; every run
+          shows its exact price before it starts.
+        </p>
+        <p data-testid="charge-rule" className="text-sm text-fg-muted">
+          {chargeRule(prechargeThreshold(limits))}
         </p>
       </header>
       <div className="rounded-lg border border-edge bg-surface-1 p-4">

@@ -162,7 +162,10 @@ describe("Lifelike Deliver", () => {
     const split = within(prompt).getByLabelText("Split into parts") as HTMLInputElement;
     expect(split.checked).toBe(true);
     // a 30-minute run is quoted above the threshold: paid up front
-    expect((await screen.findByTestId("quote-charge-timing")).textContent).toBe(
+    expect((await screen.findByTestId("quote-charge-timing")).textContent).toMatch(
+      /^We charge \$\d+\.\d\d when the run starts and refund it in full if it fails\.$/,
+    );
+    expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
       CHARGE_BEFORE_COPY,
     );
 
@@ -209,9 +212,12 @@ describe("Lifelike Deliver", () => {
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     await screen.findByTestId("quote-breakdown");
     expect(screen.queryByTestId("split-prompt")).toBeNull();
-    expect(screen.queryByTestId("quote-charge-timing")).toBeNull();
+    // a small run goes on the balance after it succeeds (S3D-19)
+    expect(screen.getByTestId("quote-charge-timing").textContent).toMatch(
+      /^We add \$\d+\.\d\d to your balance after it succeeds\. Your balance is charged within 4 hours( or when it reaches \$\d+\.\d\d)?\.$/,
+    );
     expect(screen.getByTestId("charge-timing-hint").textContent).toMatch(
-      /when it succeeds/,
+      /after it succeeds/,
     );
   });
 });

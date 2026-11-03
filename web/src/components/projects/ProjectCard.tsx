@@ -204,9 +204,8 @@ export function ProjectCard({
           <DialogHeader>
             <DialogTitle>Archive project</DialogTitle>
             <DialogDescription>
-              Archive this project? You can restore it later. A project with a
-              running conversion can&apos;t be archived — wait for it to finish
-              or cancel it first.
+              Archive this project? You can restore it later. A run still in
+              progress is cancelled, and you won&apos;t be charged for it.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>

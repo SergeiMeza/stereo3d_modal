@@ -73,16 +73,16 @@ export function PendingBalance(): JSX.Element | null {
       {pending && pending.amount_cents > 0 ? (
         <>
           <p className="text-fg">
-            Pending balance:{" "}
+            Balance:{" "}
             <span className="font-medium" data-testid="pending-amount">
               {formatCents(pending.amount_cents)}
             </span>{" "}
             {pending.currency.toUpperCase()} · {pending.items.length}{" "}
-            {pending.items.length === 1 ? "step" : "steps"}
+            {pending.items.length === 1 ? "run" : "runs"}
           </p>
           <p className="text-xs text-fg-muted">
-            Charged as one payment by {formatDue(pending.due_at)}, or sooner
-            once it reaches {formatCents(pending.cap_cents)}.
+            Charged as one payment by {formatDue(pending.due_at)}, or as soon
+            as it reaches {formatCents(pending.cap_cents)}.
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -100,18 +100,8 @@ export function PendingBalance(): JSX.Element | null {
           </div>
         </>
       ) : (
-        <p className="text-fg-muted">No pending balance.</p>
+        <p className="text-fg-muted">Your balance is $0.00.</p>
       )}
-      {tier ? (
-        <p className="text-xs text-fg-muted" data-testid="tier-line">
-          Steps are grouped into one payment per {tier.window_hours} hours, up
-          to {formatCents(tier.cap_cents)} per payment
-          {tier.next_tier
-            ? ` — rises to ${formatCents(tier.next_tier.cap_cents)} after ${formatCents(tier.next_tier.min_paid_cents)} in total spend`
-            : ""}
-          .
-        </p>
-      ) : null}
     </div>
   );
 }
