@@ -65,6 +65,12 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "invoice":
+		var inv stripex.Invoice
+		if json.Unmarshal(event.Data.Raw, &inv) == nil {
+			s.handleInvoiceEvent(ctx, string(event.Type), &inv)
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
 	case "payment_method":
 		if event.Type == "payment_method.detached" {
 			s.handleMethodDetached(ctx, event.Data.Raw, event.Data.PreviousAttributes)
@@ -187,6 +193,9 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 		})
 		if err == nil {
 			log.Info("charge settled via webhook", "amount_cents", pi.AmountReceived)
+			if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
+				s.recordRunCharge(ctx, c)
+			}
 			if fromProcessing {
 				if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
 					s.creditLifetime(ctx, c.UID, pi.AmountReceived) // P2: credited only now

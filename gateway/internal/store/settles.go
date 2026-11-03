@@ -125,6 +125,27 @@ func (s *Store) LiveSettle(ctx context.Context, uid string) (*Settle, error) {
 	return snapToSettle(snap)
 }
 
+// ListUserSettles lists an account's settles in a state (history).
+func (s *Store) ListUserSettles(ctx context.Context, uid, state string, limit int) ([]*Settle, error) {
+	iter := s.fs.Collection(settlesCol(s.env)).Where("uid", "==", uid).Where("state", "==", state).Limit(limit).Documents(ctx)
+	defer iter.Stop()
+	var out []*Settle
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		st, err := snapToSettle(snap)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, st)
+	}
+}
+
 // ListSettlesByState lists settles (reconciler sweeps).
 func (s *Store) ListSettlesByState(ctx context.Context, state string, limit int) ([]*Settle, error) {
 	iter := s.fs.Collection(settlesCol(s.env)).Where("state", "==", state).Limit(limit).Documents(ctx)

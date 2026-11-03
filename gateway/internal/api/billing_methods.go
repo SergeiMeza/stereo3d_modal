@@ -38,6 +38,12 @@ func methodLabel(m *stripex.CardInfo) string {
 		return strings.TrimSuffix("PayPal · "+maskEmail(m.Email), " · ")
 	case "link":
 		return strings.TrimSuffix("Link · "+maskEmail(m.Email), " · ")
+	case "alipay":
+		return "Alipay"
+	case "wechat_pay":
+		return "WeChat Pay"
+	case "klarna":
+		return "Klarna"
 	}
 	card := strings.TrimSpace(brandName(m.Brand) + " •••• " + m.Last4)
 	switch m.Wallet {

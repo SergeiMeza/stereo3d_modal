@@ -158,7 +158,7 @@ confirmCardPayment fallback). The default card is cached on
 - `POST /v1/billing/settle`: empty body → today's iOS shape `{settled,
   requires_action, client_secret, publishable_key, message}`; `{ui:
   "elements"}` → `{checkout {client_secret, expires_at}, amount_cents, runs,
-  payment_state open|in_progress, settled, more_owed_cents}`.
+  payment_state open|processing|paid, settled, more_owed_cents}`.
 - **Outstanding lock (C10)**: while anything is owed, web project downloads
   answer 402 `payment_needed {amount_cents}` (the live settle's frozen
   amount when one is open). The mobile one-shot keeps `billing_overdue`.
@@ -177,7 +177,7 @@ confirmCardPayment fallback). The default card is cached on
   headset's session; 8-char Crockford code, one per run; E7 mails the
   link). Public, 5 tries/IP/min: `GET /v1/handoff/{code}` (read-only:
   `{label, amount_cents, currency, email_masked, china, expires_at, state
-  waiting|paying|confirming|paid|expired}`) and `POST
+  open|paying|paid|expired, confirming?}`) and `POST
   /v1/handoff/{code}/pay {return_url?, method?}` → `{url}` (hosted session)
   or, China, `{next_action}`. `return_url` must be on `SITE_URL`. The web
   renders the QR code from `url`.
@@ -193,6 +193,47 @@ confirmCardPayment fallback). The default card is cached on
   account owes; it restarts when it clears.
 - `payment_method.detached` (a method removed outside our API) drops it
   from the account facts and the backup order.
+
+### Invoices and purchase history (spec v6.2 C6, F, P10)
+
+- **Charge records** `charges_{env}/{kind}_{id}` (`run_…`, `group_…`,
+  `settle_…`) are written when the money is final: a paid group, a
+  paid-at-start run that succeeded, a paid settle (one line per run), a
+  settle item found paid alone. They hold the invoice job's state
+  (`pending|invoicing|done|failed|skipped`, attempt `n`, lease) and, with
+  the refund layer, `refund_seq`.
+- **Invoice job** (reconciler, every minute): `invoices.create` (key
+  `inv_{env}_{charge_id}_{n}`, `currency` explicit — an invoice otherwise
+  takes the account's GBP and refuses USD items —, `auto_advance=false`,
+  `pending_invoice_items_behavior=exclude`, `effective_at` = paid time,
+  the C3 footer, metadata `env/product/charge_id`; the id is stored at
+  once), one item per run (key `invitem_…_{conversion_id}`, missing lines
+  only), total must equal `amount_received` (else Slack + `failed`, left as
+  a draft), finalize, `attach_payment`, credit notes for refunds made
+  before (`cn_{env}_{re}`, `email_type=none`), then the hosted URL and PDF.
+  A failed step resumes next minute (8 tries, then `failed` + Slack); a
+  voided invoice restarts as `n+1`; refunded in full before invoicing →
+  `skipped`. `tax_mode=inclusive` adds automatic tax (a tax failure
+  finalizes without it and alerts). Hourly void sweep: our open invoices
+  with no payment after 1 h, unless their job holds a live lease.
+  `invoice.finalization_failed` / `invoice.overpaid` → Slack. Verified end
+  to end in Stripe TEST (`stripex/livecheck`, `STRIPE_TEST_KEY`).
+- `GET /v1/billing/invoices?limit=25&starting_after=in_…` → `{invoices:
+  [{invoice_id, number, created_at, amount_cents, currency, pdf_url,
+  hosted_url, credit_notes?: [{id, number, created_at, amount_cents,
+  pdf_url}]}], has_more}` (ours only; drafts and voids left out).
+- `GET /v1/billing/history?limit=25&starting_after={row_id}` keeps
+  `entries`/`next_cursor` for older clients and adds `rows`, `has_more`,
+  `tax off|inclusive`. A row: `{row_id, kind charge|refund|outstanding,
+  created_at, amount_cents (negative for refunds), currency, status
+  paid|processing|payment_needed|refunded|partially_refunded, payment_method
+  {label}, invoice {hosted_invoice_url, invoice_pdf}, receipt_url,
+  credit_note_url, help_ref, items [{conversion_id, project_id,
+  project_name, step, preset, from_frame, to_frame, amount_cents}]}`. One
+  row per statement charge (a settle is one row; the groups and runs it
+  paid aren't repeated), plus one "Payment needed" row on the first page
+  while the account owes. `refund_requested`/`disputed` and `case_id`
+  arrive with the refund layer.
 
 Invariant tests run against the Firestore emulator and a fake Stripe:
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api ./internal/store`

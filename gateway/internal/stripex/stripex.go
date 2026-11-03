@@ -576,6 +576,8 @@ type ChargeInfo struct {
 	CardBrand      string
 	CardLast4      string
 	AmountRefunded int64
+	// Method is what the charge went on, for a history label.
+	Method CardInfo
 }
 
 // ChargeDetails reads the PaymentIntent's latest charge: receipt link and
@@ -594,9 +596,19 @@ func (c *Client) ChargeDetails(paymentIntentID string) (*ChargeInfo, error) {
 	}
 	info.ReceiptURL = ch.ReceiptURL
 	info.AmountRefunded = ch.AmountRefunded
-	if d := ch.PaymentMethodDetails; d != nil && d.Card != nil {
-		info.CardBrand = string(d.Card.Brand)
-		info.CardLast4 = d.Card.Last4
+	if d := ch.PaymentMethodDetails; d != nil {
+		info.Method.Type = string(d.Type)
+		if d.Card != nil {
+			info.CardBrand = string(d.Card.Brand)
+			info.CardLast4 = d.Card.Last4
+			info.Method.Brand, info.Method.Last4 = info.CardBrand, info.CardLast4
+			if d.Card.Wallet != nil {
+				info.Method.Wallet = string(d.Card.Wallet.Type)
+			}
+		}
+		if d.Paypal != nil {
+			info.Method.Email = d.Paypal.PayerEmail
+		}
 	}
 	return info, nil
 }

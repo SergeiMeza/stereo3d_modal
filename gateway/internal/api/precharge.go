@@ -556,6 +556,7 @@ func (s *Service) sweepProcessing(ctx context.Context) int {
 			}
 		case settled:
 			s.creditLifetime(ctx, updated.UID, pi.AmountReceived)
+			s.recordRunCharge(ctx, updated)
 		case updated.State == store.StateExpired:
 			s.restoreCredit(ctx, updated)
 		default:

@@ -32,7 +32,7 @@ import (
 
 const (
 	historyScanLimit   = 500 // per source query; ample for one account
-	historyDefaultPage = 20
+	historyDefaultPage = 25
 	historyMaxPage     = 100
 )
 
@@ -70,7 +70,7 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 		limit = min(v, historyMaxPage)
 	}
 	var batches []*store.Batch
-	for _, state := range []string{store.BatchPaid, store.BatchFailed, store.BatchCharging} {
+	for _, state := range []string{store.BatchPaid, store.BatchFailed, store.BatchCharging, store.BatchSettling} {
 		bs, err := s.Store.ListUserBatchesByState(ctx, user.UID, state, historyScanLimit)
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
@@ -80,7 +80,7 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 	}
 	var convs []*store.Conversion
 	for _, pi := range []string{store.PISucceeded, store.PIRefunded, store.PIRefundFailed,
-		store.PIChargeFailed, store.PICancelPending} {
+		store.PIChargeFailed, store.PICancelPending, store.PIProcessing, store.PISettling} {
 		cs, err := s.Store.ListUserByPIStatus(ctx, user.UID, pi, historyScanLimit)
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
@@ -88,11 +88,48 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 		}
 		convs = append(convs, cs...)
 	}
-	page, next := paginateHistory(historyEntries(batches, convs), r.URL.Query().Get("cursor"), limit)
+	// Older clients: entries + next_cursor (statement entries as before;
+	// runs a settle is collecting aren't listed there).
+	var legacy []*store.Conversion
+	for _, c := range convs {
+		if c.Stripe.PIStatus != store.PIProcessing && c.Stripe.PIStatus != store.PISettling {
+			legacy = append(legacy, c)
+		}
+	}
+	var legacyBatches []*store.Batch
+	for _, b := range batches {
+		if b.State != store.BatchSettling {
+			legacyBatches = append(legacyBatches, b)
+		}
+	}
+	page, next := paginateHistory(historyEntries(legacyBatches, legacy), r.URL.Query().Get("cursor"), limit)
 	s.enrichHistory(ctx, page)
 	resp := map[string]any{"entries": page}
 	if next != "" {
 		resp["next_cursor"] = next
+	}
+	// spec v6 F: rows (+ has_more), paged by starting_after.
+	settles, err := s.Store.ListUserSettles(ctx, user.UID, store.SettlePaid, historyScanLimit)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	all := historyRows(batches, settles, convs)
+	after := r.URL.Query().Get("starting_after")
+	if after == "" {
+		if out := s.outstandingRow(ctx, user.UID, batches, convs); out != nil {
+			all = append([]historyRow{*out}, all...)
+		}
+	}
+	rows, more := pageRows(all, after, limit)
+	s.enrichRows(ctx, rows)
+	if rows == nil {
+		rows = []historyRow{}
+	}
+	resp["rows"], resp["has_more"] = rows, more
+	resp["tax"] = "off"
+	if s.rates(ctx).TaxInclusive() {
+		resp["tax"] = "inclusive"
 	}
 	httpx.WriteOK(w, resp)
 }

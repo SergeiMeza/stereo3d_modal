@@ -424,6 +424,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	case store.BillingModeAutoPrecharge:
 		// Charged before the run; it delivered, so the money is now earned.
 		s.creditLifetime(ctx, updated.UID, updated.Stripe.CapturedCents)
+		s.recordRunCharge(ctx, updated) // C6: a paid-at-start run succeeded
 		return updated, nil
 	}
 	return s.captureHold(ctx, updated)
@@ -643,6 +644,7 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 			"conversion_id", conv.ID, "payment_intent", conv.Stripe.PaymentIntentID, "err", capErr)
 	} else if err == nil {
 		s.creditLifetime(ctx, conv.UID, captured)
+		s.recordRunCharge(ctx, updated)
 	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)
@@ -729,6 +731,7 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
 		if terr == nil {
 			s.creditLifetime(ctx, conv.UID, charged)
+			s.recordRunCharge(ctx, updated)
 			if pi.PaymentMethod != nil {
 				s.noteMethodPaid(ctx, conv.UID, pi.PaymentMethod.ID) // C1 account facts
 			}

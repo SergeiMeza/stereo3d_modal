@@ -345,7 +345,7 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 	outstanding := map[string]any{"amount_cents": owed, "settling": false}
 	if live, lerr := s.Store.LiveSettle(ctx, user.UID); lerr == nil && live != nil {
 		outstanding["amount_cents"], outstanding["settling"], outstanding["runs"] = live.AmountCents, true, live.Runs()
-		outstanding["payment_state"] = live.PaymentState
+		outstanding["payment_state"] = wirePaymentState(live.PaymentState)
 	}
 	if owed > 0 {
 		resp["outstanding"] = outstanding

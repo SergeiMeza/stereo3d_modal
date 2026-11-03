@@ -124,15 +124,19 @@ func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, p
 // out paid (C11 step 3): it is paid, outside the settle.
 func (s *Service) markRunPaidAlone(ctx context.Context, convID string, out stripex.Outcome) {
 	now := time.Now().UTC()
-	if _, err := s.Store.Transition(ctx, convID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+	updated, err := s.Store.Transition(ctx, convID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
 		c.Stripe.PIStatus = store.PISucceeded
 		c.Stripe.PaymentIntentID = out.PaymentIntentID
 		c.Stripe.CapturedCents = out.AmountReceived
 		c.Stripe.CapturedAt = &now
+		c.Stripe.SettleID = "" // paid on its own, invoiced as a run
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		slog.WarnContext(ctx, "paid run not recorded", "conversion_id", convID, "err", err)
+		return
 	}
+	s.recordRunCharge(ctx, updated)
 }
 
 // liveSettleResult answers a trigger that found a live settle (C11 step 1).
@@ -380,6 +384,7 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 			}
 		}
 	}
+	s.recordSettleCharge(ctx, done) // C6: one invoice, a line per run
 	if st.Trigger == settleSoftRety {
 		s.mailDownloadsBack(ctx, "E5_"+settleID, st.UID, out.AmountReceived)
 	}
@@ -492,6 +497,16 @@ func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *Au
 	httpx.WriteOK(w, resp)
 }
 
+// wirePaymentState is a settle's payment state as the web reads it:
+// open | processing | paid (stored as in_progress while Stripe reports a
+// payment in flight).
+func wirePaymentState(state string) string {
+	if state == store.SettleInProgress {
+		return "processing"
+	}
+	return state
+}
+
 // settleSheetResponse is the P2 shape; after a payment, more owed items
 // (failed meanwhile) show as the next amount.
 func (s *Service) settleSheetResponse(ctx context.Context, uid string, res settleResult) map[string]any {
@@ -510,7 +525,7 @@ func (s *Service) settleSheetResponse(ctx context.Context, uid string, res settl
 		if state == "" {
 			state = store.SettleOpen
 		}
-		resp["payment_state"] = state
+		resp["payment_state"] = wirePaymentState(state)
 		resp["settled"] = st.State == store.SettlePaid
 		if cp := st.CurrentPayment; cp != nil && cp.Kind == store.PaymentCheckoutSession && cp.ClientSecret != "" && st.State == store.SettleSettling {
 			ch := map[string]any{"client_secret": cp.ClientSecret}

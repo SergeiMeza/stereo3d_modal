@@ -459,6 +459,7 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 	}
 	slog.InfoContext(ctx, "batch charged", "batch_id", b.ID, "uid", b.UID,
 		"payment_intent", piID, "amount_cents", charged, "items", len(b.Items))
+	s.recordGroupCharge(ctx, updated) // C6
 	return updated, nil
 }
 

@@ -86,3 +86,9 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// Alert posts a one-off operational alert (invoice job, overpaid
+// invoices): kind names it, text explains it.
+func (s *Slack) Alert(ctx context.Context, kind, text string) {
+	s.post(ctx, fmt.Sprintf(":warning: [gateway/%s] %s\n%s", s.env, kind, truncate(text, 800)))
+}

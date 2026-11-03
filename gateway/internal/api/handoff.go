@@ -181,15 +181,17 @@ func (s *Service) handoffRun(ctx context.Context, w http.ResponseWriter, r *http
 	return h, conv, true
 }
 
+// handoffState is open | paying | paid | expired (the web's P8 states);
+// a payment Stripe reports in flight reads paying.
 func handoffState(h *store.Handoff, c *store.Conversion) string {
 	switch {
 	case c.State == store.StateCreated && c.Stripe.PIStatus == store.PIProcessing:
-		return "confirming"
+		return "paying"
 	case c.State == store.StateCreated:
 		if h.State == "paying" {
 			return "paying"
 		}
-		return "waiting"
+		return "open"
 	case c.State == store.StateExpired || c.State == store.StateCanceled:
 		return "expired"
 	}
@@ -207,6 +209,9 @@ func (s *Service) HandleGetHandoff(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
 		"label": s.runLabel(ctx, conv), "amount_cents": conv.Quote.AmountCents, "currency": conv.Quote.Currency,
 		"email_masked": maskEmail(h.Email), "china": conv.PaymentFlow == store.FlowChina, "state": handoffState(h, conv),
+	}
+	if conv.State == store.StateCreated && conv.Stripe.PIStatus == store.PIProcessing {
+		resp["confirming"] = true // "Confirming your payment…"
 	}
 	if conv.ExpiresAt != nil {
 		resp["expires_at"] = conv.ExpiresAt.Format(time.RFC3339)

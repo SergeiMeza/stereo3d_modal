@@ -197,6 +197,9 @@ type Rates struct {
 	// BL-10; empty at launch = never offered). A GB account can take
 	// Klarna only from EEA/CH/UK buyers in their own currency.
 	KlarnaMarkets []string `firestore:"klarna_markets"`
+	// TaxMode (C7, BL-07): "off" (default, launch) | "inclusive" —
+	// invoices get automatic tax, prices unchanged.
+	TaxMode string `firestore:"tax_mode"`
 	// Pro discount (S3D-67): Spatial Video Studio Pro customers get
 	// pro_discount_pct off every paid web run (production, both methods;
 	// not previews), before the bulk discount; the per-run minimum stays.
@@ -1340,3 +1343,6 @@ func proPct(r *Rates, in StepInputs, cents int64) float64 {
 	}
 	return r.ProDiscount()
 }
+
+// TaxInclusive: invoices compute VAT inside the sticker price (C7).
+func (r *Rates) TaxInclusive() bool { return r != nil && r.TaxMode == "inclusive" }
