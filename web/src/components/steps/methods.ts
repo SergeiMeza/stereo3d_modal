@@ -103,6 +103,25 @@ export const LIFELIKE_FORMATS = [
   "half_sbs",
 ] as const satisfies readonly Format[];
 
+/** Sizes that make no full side-by-side file (its frame would be twice
+ * the eye width): half side-by-side and spatial video only. The gateway's
+ * per-quality `formats` wins when it sends one. */
+export const NO_FULL_SBS_PRESETS: readonly Preset[] = ["6k", "8k"];
+
+/** The Lifelike files a quality can make. */
+export function lifelikeFormatsFor(q: {
+  preset: Preset;
+  formats?: readonly Format[];
+}): Format[] {
+  if (q.formats) return LIFELIKE_FORMATS.filter((f) => q.formats!.includes(f));
+  return LIFELIKE_FORMATS.filter(
+    (f) => !(f === "sbs" && NO_FULL_SBS_PRESETS.includes(q.preset)),
+  );
+}
+
+/** The 5K, 6K and 8K tiles carry this tag (S3D-11). */
+export const HIGHEST_QUALITY_TAG = "Highest quality";
+
 export const LIFELIKE_FORMAT_LABELS: Record<
   (typeof LIFELIKE_FORMATS)[number],
   string

@@ -36,6 +36,7 @@ import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
 import {
+  FORMAT_NAMES,
   qualitiesFor,
   qualityChoices,
   qualityChoiceText,
@@ -634,32 +635,57 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
     renderPanel(<LifelikeDeliverPanel project={listed} onProjectChanged={() => {}} />);
     expect(screen.getByTestId("quality-8k").textContent).toMatch(
-      /^8K7680×4320 per eyeOne eye keeps your original picture\./,
+      /^Highest quality8K7680×4320 per eyeOne eye keeps your original picture\./,
     );
+    // S3D-11: 5K-8K are marked as the highest quality; 4K is not
+    expect(screen.getByTestId("quality-top-5k")).toBeTruthy();
+    expect(screen.queryByTestId("quality-top-4k")).toBeNull();
     await waitFor(() =>
       expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
   });
 
-  it("Keep the original picture in one eye sits under Quality, unticked, Left when ticked (S3D-48)", async () => {
+  it("6K and 8K make no full side-by-side file; 5K does", async () => {
+    const quotes = captureBodies("/quotes");
+    mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
+    const project = {
+      ...lifelikeProject({ width: 7680, height: 4320 }),
+      qualities: [
+        { preset: "5k" as const, label: "5K", eye_width: 5120, eye_height: 2880, original_eye_required: true },
+        { preset: "8k" as const, label: "8K", eye_width: 7680, eye_height: 4320, original_eye_required: true },
+      ],
+    };
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    // 8K preselected: spatial and half side-by-side only
+    const files = () => within(screen.getByRole("group", { name: "Files you'll get" }));
+    expect(files().queryByLabelText(FORMAT_NAMES.sbs)).toBeNull();
+    expect(files().getByLabelText(FORMAT_NAMES.half_sbs)).toBeTruthy();
+    await waitFor(() =>
+      expect(quotes.some((q) => q.step === "production" && q.preset === "8k")).toBe(true),
+    );
+    expect(
+      quotes.filter((q) => q.preset === "8k").every((q) => !(q.formats as string[]).includes("sbs")),
+    ).toBe(true);
+    fireEvent.click(within(screen.getByTestId("quality-5k")).getByRole("radio"));
+    expect(files().getByLabelText(FORMAT_NAMES.sbs)).toBeTruthy();
+  });
+
+  it("up to 4K, Keep one eye as the original is an Advanced option, unticked, Left when ticked (S3D-48)", async () => {
     const quotes = captureBodies("/quotes");
     renderPanel(
       <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
-    // under Quality, not in the collapsed Advanced
-    expect(
-      within(screen.getByTestId("lifelike-advanced")).queryByText(/Keep the original picture/),
-    ).toBeNull();
-    const keep = screen.getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
+    const advanced = within(screen.getByTestId("lifelike-advanced"));
+    const keep = advanced.getByLabelText("Keep one eye as the original") as HTMLInputElement;
     expect(keep.checked).toBe(false);
-    expect(screen.getByText("One eye shows your original frames at full resolution.")).toBeTruthy();
+    expect(screen.queryByTestId("original-eye-fixed")).toBeNull();
     expect(screen.queryByRole("radiogroup", { name: "Which eye" })).toBeNull();
     // Foveated Detail is hidden unless the gateway offers it
     expect(screen.queryByText(/Foveated Detail/)).toBeNull();
     fireEvent.click(keep);
     const eye = within(screen.getByRole("radiogroup", { name: "Which eye" }));
-    expect((eye.getByLabelText("Left") as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(eye.getByLabelText("Right"));
+    expect(eye.getByRole("radio", { name: "Left" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(eye.getByRole("radio", { name: "Right" }));
     await waitFor(() =>
       expect(
         quotes.some((q) => q.step === "production" && q.original_eye === "right" && q.preset === "4k"),
@@ -851,12 +877,15 @@ describe("5K and above keep one eye original (S3D-65)", () => {
       "One eye keeps your original picture.",
     );
     expect(screen.getByTestId("quality-4k").textContent).not.toContain("original picture");
-    const keep = screen.getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
+    // shown as fixed under Quality, not in Advanced
+    const fixed = screen.getByTestId("original-eye-fixed");
+    const keep = within(fixed).getByLabelText("Keep one eye as the original") as HTMLInputElement;
     expect(keep.checked).toBe(true);
     expect(keep.disabled).toBe(true);
-    const eye = within(screen.getByRole("radiogroup", { name: "Which eye" }));
-    expect((eye.getByLabelText("Left") as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(eye.getByLabelText("Right"));
+    expect(screen.queryByTestId("original-eye-optional")).toBeNull();
+    const eye = within(within(fixed).getByRole("radiogroup", { name: "Which eye" }));
+    expect(eye.getByRole("radio", { name: "Left" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(eye.getByRole("radio", { name: "Right" }));
     await waitFor(() =>
       expect(
         quotes.some((q) => q.step === "production" && q.preset === "8k" && q.original_eye === "right"),
@@ -865,9 +894,10 @@ describe("5K and above keep one eye original (S3D-65)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
-    // 4K: optional and unticked again
+    // 4K: back to the optional, unticked Advanced option
     fireEvent.click(within(screen.getByTestId("quality-4k")).getByRole("radio"));
-    expect(keep.checked).toBe(false);
-    expect(keep.disabled).toBe(false);
+    expect(screen.queryByTestId("original-eye-fixed")).toBeNull();
+    const optional = within(screen.getByTestId("original-eye-optional"));
+    expect((optional.getByLabelText("Keep one eye as the original") as HTMLInputElement).checked).toBe(false);
   });
 });

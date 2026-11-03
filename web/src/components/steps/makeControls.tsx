@@ -25,6 +25,7 @@ import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
 import type { Client } from "@/lib/headset";
 
+import { HIGHEST_QUALITY_TAG } from "./methods";
 import { formatCents } from "./money";
 
 /** A numbered section card: "1 Where will you watch it?" */
@@ -341,6 +342,12 @@ export function QualityTiles({
               data-testid={`quality-${q.preset}`}
               className={`${tileClass(on)} flex-col gap-1`}
             >
+              {q.originalEyeRequired ? (
+                // S3D-11: 5K, 6K and 8K are our highest quality
+                <span data-testid={`quality-top-${q.preset}`} className="ll-eyebrow text-[10px]">
+                  {HIGHEST_QUALITY_TAG}
+                </span>
+              ) : null}
               <span className="flex items-center gap-2">
                 <input
                   type="radio"

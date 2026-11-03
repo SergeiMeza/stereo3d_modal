@@ -45,7 +45,7 @@ import {
   WatchPicker,
   type Device,
 } from "./makeControls";
-import { LIFELIKE_FORMATS, SPLIT_MAX_SECONDS } from "./methods";
+import { LIFELIKE_FORMATS, lifelikeFormatsFor, SPLIT_MAX_SECONDS } from "./methods";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 
@@ -88,7 +88,7 @@ export function LifelikeDeliverPanel({
   const numFrames = project.probe?.num_frames ?? 0;
   const [trim, setTrim] = useState<[number, number] | null>(null);
   const range: [number, number] = trim ?? [0, numFrames];
-  // S3D-48: under Quality, unticked; Left when ticked
+  // S3D-48: under Advanced up to 4K, unticked; Left when ticked
   const [optionalEye, setOptionalEye] = useState<"left" | "right" | null>(null);
   // S3D-65: 5K, 6K and 8K keep one eye original — ticked and locked there,
   // Left by default; up to 4K it stays optional and unticked
@@ -100,8 +100,6 @@ export function LifelikeDeliverPanel({
   const chosen = choices.find((q) => q.preset === preset);
   const eyeRequired = chosen?.originalEyeRequired === true;
   const originalEye = eyeRequired ? requiredEye : optionalEye;
-  const setEye = (e: "left" | "right") =>
-    eyeRequired ? setRequiredEye(e) : setOptionalEye(e);
   const sourceShort = project.probe
     ? Math.min(project.probe.width, project.probe.height)
     : 0;
@@ -111,10 +109,13 @@ export function LifelikeDeliverPanel({
     chosen?.eyeShort !== undefined &&
     chosen.eyeShort < sourceShort;
 
+  // 6K and 8K make no full side-by-side file (half SBS and spatial are)
+  const offeredFormats = lifelikeFormatsFor(chosen ?? { preset });
+  const sentFormats = formats.filter((f) => offeredFormats.includes(f));
   const base: StepConversionRequest = {
     step: "production",
     preset,
-    formats: formats.length > 0 ? formats : DEFAULT_MAKE_FORMATS,
+    formats: sentFormats.length > 0 ? sentFormats : offeredFormats.slice(0, 1),
     ...trimFields(range, numFrames),
     ...(originalEye ? { original_eye: originalEye } : {}),
     ...bitrateField(bitrate),
@@ -152,7 +153,7 @@ export function LifelikeDeliverPanel({
   const splitOffered = ck.quote?.split_suggested === true;
   const request: StepConversionRequest = {
     ...base,
-    formats,
+    formats: sentFormats,
     ...(splitOffered && split ? { split_max_seconds: SPLIT_MAX_SECONDS } : {}),
   };
   const outputSeconds = ck.quote?.output_seconds ?? probe.duration_s;
@@ -226,7 +227,7 @@ export function LifelikeDeliverPanel({
 
         <MakeSection n={++n} title="Files you'll get" hint="All included in the price.">
           <FileTiles
-            offered={LIFELIKE_FORMATS}
+            offered={offeredFormats}
             formats={formats}
             onToggle={(f) =>
               change(() =>
@@ -252,44 +253,19 @@ export function LifelikeDeliverPanel({
                   : undefined
             }
           />
+          {eyeRequired || foveationOffered ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={originalEye !== null}
-                  disabled={eyeRequired}
-                  onChange={(e) =>
-                    change(() => setOptionalEye(e.target.checked ? "left" : null))
-                  }
-                  className="accent-primary"
-                />
-                Keep the original picture in one eye
-              </label>
-              <p className="pl-6 text-xs text-fg-muted">
-                One eye shows your original frames at full resolution.
-              </p>
-              {originalEye !== null ? (
-                <div
-                  role="radiogroup"
-                  aria-label="Which eye"
-                  className="flex gap-4 pl-6 text-sm"
-                >
-                  {(["left", "right"] as const).map((eye) => (
-                    <label key={eye} className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        name="original-eye"
-                        checked={originalEye === eye}
-                        onChange={() => change(() => setEye(eye))}
-                        className="accent-primary"
-                      />
-                      {eye === "left" ? "Left" : "Right"}
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            {eyeRequired ? (
+              // S3D-65: always on at 5K, 6K and 8K — shown as fixed
+              <div data-testid="original-eye-fixed" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+                <span className="flex items-center gap-2">
+                  <input type="checkbox" checked disabled aria-label="Keep one eye as the original" className="accent-primary" />
+                  Keep one eye as the original
+                </span>
+                <EyePicker value={requiredEye} onChange={(e) => change(() => setRequiredEye(e))} />
+                <span className="w-full pl-6 text-xs text-fg-muted">Always on at this quality.</span>
+              </div>
+            ) : null}
             {foveationOffered ? (
               <div className="flex flex-col gap-1.5">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -305,6 +281,7 @@ export function LifelikeDeliverPanel({
               </div>
             ) : null}
           </div>
+          ) : null}
         </MakeSection>
 
         <MakeSection
@@ -335,7 +312,23 @@ export function LifelikeDeliverPanel({
           <summary className="cursor-pointer text-sm font-medium text-fg-muted">
             Advanced
           </summary>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-col gap-4">
+            {!eyeRequired ? (
+              <div data-testid="original-eye-optional" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={optionalEye !== null}
+                    onChange={(e) => change(() => setOptionalEye(e.target.checked ? "left" : null))}
+                    className="accent-primary"
+                  />
+                  Keep one eye as the original
+                </label>
+                {optionalEye !== null ? (
+                  <EyePicker value={optionalEye} onChange={(e) => change(() => setOptionalEye(e))} />
+                ) : null}
+              </div>
+            ) : null}
             <BitrateControl
               value={bitrate}
               onChange={(b) => change(() => setBitrate(b))}
@@ -352,7 +345,7 @@ export function LifelikeDeliverPanel({
           request={request}
           label="Make 3D"
           disabledReason={
-            formats.length === 0 ? "Pick at least one file" : undefined
+            sentFormats.length === 0 ? "Pick at least one file" : undefined
           }
           heading={
             <div className="flex items-center gap-2">
@@ -373,5 +366,37 @@ export function LifelikeDeliverPanel({
         />
       </aside>
     </div>
+  );
+}
+
+/** Left | Right, as a compact segmented pair. */
+function EyePicker({
+  value,
+  onChange,
+}: {
+  value: "left" | "right";
+  onChange: (e: "left" | "right") => void;
+}): JSX.Element {
+  return (
+    <span
+      role="radiogroup"
+      aria-label="Which eye"
+      className="inline-flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5 text-xs"
+    >
+      {(["left", "right"] as const).map((eye) => (
+        <button
+          key={eye}
+          type="button"
+          role="radio"
+          aria-checked={value === eye}
+          onClick={() => onChange(eye)}
+          className={`rounded px-2.5 py-1 ${
+            value === eye ? "bg-surface-0 text-fg shadow-sm" : "text-fg-muted hover:text-fg"
+          }`}
+        >
+          {eye === "left" ? "Left" : "Right"}
+        </button>
+      ))}
+    </span>
   );
 }

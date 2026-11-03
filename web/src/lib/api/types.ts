@@ -202,6 +202,9 @@ export interface QualityOption {
   original_eye_required?: boolean;
   /** the price step it is charged at, when not its own */
   price_preset?: Preset;
+  /** the files this size can make, when the gateway restricts them (6K and
+   * 8K: no full side-by-side) */
+  formats?: Format[];
 }
 
 export interface Project {
@@ -303,6 +306,10 @@ export interface QuoteBreakdown {
   reuse_discount_cents?: number;
   discount_cents?: number;
   analyze_credit_cents?: number;
+  /** S3D-67: the Pro member discount, as a percent (20) and what it takes
+   * off */
+  pro_discount_pct?: number;
+  pro_discount_cents?: number;
 }
 
 export interface Quote {
@@ -408,6 +415,9 @@ export interface StepQuoteResponse {
   output_seconds?: number;
   /** the output runs past 15 minutes: offer to split it into parts */
   split_suggested?: boolean;
+  /** S3D-67: the caller is a Pro member (the quote carries the Pro
+   * discount); false = not Pro, absent = the gateway doesn't say */
+  pro?: boolean;
 }
 
 export interface UploadTicket {
@@ -495,6 +505,15 @@ export interface PublicPricing {
   preview_minimum_cents?: number;
   precharge_threshold_cents: number;
   balance: { window_hours: number; new_account_cap_cents: number };
+  /** S3D-67: Pro membership — its discount on every run and its price */
+  pro?: ProOffer;
+}
+
+export interface ProOffer {
+  discount_pct: number;
+  price_cents: number;
+  interval: "month" | "year";
+  currency: string;
 }
 
 export interface APIErrorBody {
