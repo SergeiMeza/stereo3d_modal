@@ -204,8 +204,8 @@ export function LandingContent() {
             What happens to your video
           </h2>
           <p className="mt-3 max-w-2xl text-fg-muted">
-            What a 3D conversion house does, done for you — shown here on real
-            footage.
+            What a 3D conversion house does, done for you — shown here on
+            footage we made.
           </p>
           <div className="mt-10">
             <PipelineSteps />

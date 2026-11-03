@@ -79,18 +79,35 @@ Copy per tab (user-facing vocabulary only):
 - **Deliver** — full-quality render that inherits your preview work and
   reuses it at a discount; pick preset (1080p → 4K) and formats.
 
-### 3. Pipeline ("What happens to your video") — added 2026-07
-Three alternating rows, each a short looping clip (~1-2 MB MP4 in
-`public/landing/steps/`, transcoded from the Spatial Video Studio LP
-assets) beside user-facing copy:
-- **01 · Depth** — every pixel gets a distance, stable across frames
-  (`depth.mp4`: footage beside its animated depth map).
-- **02 · Stereo** — left/right views synthesized, revealed pixels filled
-  by motion-aware inpainting (`stereo.mp4`: red-cyan anaglyph preview).
-- **03 · Deliver** — encoded to spatial video, SBS and more
-  (`delivery.mp4`: playback on a virtual home-theater screen).
-Component: `PipelineSteps.tsx`. Autoplay muted loops, `aria-label`s, no
-new dependencies.
+### 3. Pipeline ("What happens to your video") — added 2026-07, clips redone 2026-11
+Three alternating rows, each a looping clip beside user-facing copy. The
+clips (2026-11) are made from our own AI-generated footage (the BytePlus
+concept clips), not the old LP assets, and carry no text — the copy is on
+the page. Each lives in `public/landing/steps/` as `<name>.webm` (VP9),
+`<name>.mp4` (H.264) and `<name>.jpg` (poster), 960×540, 24 fps, 10–12 s,
+≤ 2 MB per file, the tail cross-faded into the head so the loop has no jump:
+- **01 · Depth** — "We understand the shape of every scene"
+  (`depth`: the Seoul street clip plays; a glowing line sweeps across and
+  leaves the scene coloured by distance — near warm, far blue, with slow
+  flowing contour lines — then a second pass brings the picture back).
+- **02 · 3D** — "Two eyes from one camera" (`stereo`: the pool clip seen
+  from a gently swaying viewpoint, rendered from the real 3D scene, ending
+  on the left-eye and right-eye views side by side with matching guide
+  lines). No red-cyan.
+- **03 · Files** — "Plays like it was shot in 3D" (`delivery`: four 3 s
+  scenes — a floating window in a living room, a person in a headset before
+  a big virtual screen, the view through the headset lenses, XR glasses).
+  Room plates are Seedream stills we generated; no product renders, no
+  logos.
+Copy rule (Lifelike team, 2026-11): never "depth map", "splat" or a model
+name on the page; say what the viewer gets ("We understand the shape of
+every scene").
+Component: `PipelineSteps.tsx`. Muted loops with WebM then MP4 sources and
+a poster; a clip plays only while on screen (IntersectionObserver) and
+never under `prefers-reduced-motion: reduce`, where the poster stays.
+`aria-label`s describe each clip. No new dependencies. Sources and build
+scripts: session scratchpad `motion/` (step1_depth.py, step2_stereo.py,
+step3_deliver.py, hero.py, encode.sh).
 
 ### 4. Studio-grade quality (3-4 feature cards)
 - Temporally stable depth — video-native depth model, no per-frame
