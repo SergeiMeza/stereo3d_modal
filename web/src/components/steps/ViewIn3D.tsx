@@ -17,15 +17,40 @@ import {
   detectClient,
   enterFullscreen,
   exitFullscreen,
+  GALAXY_XR,
   HEADSET_HINT,
   isFullscreen,
   playChoice,
   type Client,
 } from "@/lib/headset";
 
-/** This browser's client, read once (the workspace renders client-side). */
+/** This browser's client, read once (the workspace renders client-side).
+ * Chrome's reduced user agent can hide the Galaxy XR model, so an
+ * Android desktop guess asks userAgentData for it. */
 export function useClient(): Client {
-  const [client] = useState<Client>(() => detectClient());
+  const [client, setClient] = useState<Client>(() => detectClient());
+  useEffect(() => {
+    if (client !== "desktop") return;
+    const data = (
+      navigator as Navigator & {
+        userAgentData?: {
+          platform?: string;
+          getHighEntropyValues?: (h: string[]) => Promise<{ model?: string }>;
+        };
+      }
+    ).userAgentData;
+    if (data?.platform !== "Android" || !data.getHighEntropyValues) return;
+    let cancelled = false;
+    data
+      .getHighEntropyValues(["model"])
+      .then((v) => {
+        if (!cancelled && v.model && GALAXY_XR.test(v.model)) setClient("galaxyxr");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
   return client;
 }
 

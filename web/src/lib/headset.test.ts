@@ -17,6 +17,21 @@ describe("headset detection (S3D-47)", () => {
     expect(detectClient({ userAgent: MAC_SAFARI, maxTouchPoints: 5 })).toBe("desktop");
   });
 
+  it("Samsung Galaxy XR by its model or Android XR", () => {
+    expect(
+      detectClient({
+        userAgent:
+          "Mozilla/5.0 (Linux; Android 14; SM-I610) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+      }),
+    ).toBe("galaxyxr");
+    expect(detectClient({ userAgent: "Mozilla/5.0 (Linux; Android XR) Chrome/141" })).toBe("galaxyxr");
+    expect(playChoice("galaxyxr", { sbs: "s", half_sbs: "h" })).toEqual({
+      format: "sbs",
+      url: "s",
+      stereo: true,
+    });
+  });
+
   it("Quest and Pico by their user agent", () => {
     expect(detectClient({ userAgent: QUEST })).toBe("quest");
     expect(detectClient({ userAgent: PICO })).toBe("pico");

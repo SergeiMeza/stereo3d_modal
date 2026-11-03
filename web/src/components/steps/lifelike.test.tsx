@@ -604,7 +604,7 @@ describe("in a headset browser (S3D-47)", () => {
         .getAllByRole("checkbox")
         .filter((c) => (c as HTMLInputElement).checked)
         .map((c) => c.getAttribute("aria-label")),
-    ).toEqual(["Side by side"]);
+    ).toEqual(["Side by side (half size)"]);
   });
 });
 
@@ -674,5 +674,46 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
         quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "1080p"),
       ).toBe(true),
     );
+  });
+});
+
+describe("Where will you watch it? options (S3D-51)", () => {
+  it("lists the devices in order, each picking its files", () => {
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    const watch = within(screen.getByRole("group", { name: "Where will you watch it?" }));
+    expect(watch.getAllByRole("checkbox").map((c) => c.closest("label")!.textContent)).toEqual([
+      "Apple Vision Pro",
+      "Samsung Galaxy XR",
+      "Meta Quest",
+      "Pico",
+      "Steam Frame",
+      "XR glasses (XREAL, VITURE, RayNeo)",
+      "3D TV or projector",
+      "Not sure",
+    ]);
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    const checked = () =>
+      files
+        .getAllByRole("checkbox")
+        .filter((c) => (c as HTMLInputElement).checked)
+        .map((c) => c.getAttribute("aria-label"));
+    const only = (label: string) => {
+      // clear, then pick one
+      for (const c of watch.getAllByRole("checkbox")) {
+        if ((c as HTMLInputElement).checked) fireEvent.click(c);
+      }
+      fireEvent.click(watch.getByLabelText(label));
+      return checked();
+    };
+    expect(only("Apple Vision Pro")).toEqual(["Vision Pro spatial video"]);
+    expect(only("Samsung Galaxy XR")).toEqual(["Side by side"]);
+    expect(only("Meta Quest")).toEqual(["Side by side (half size)"]);
+    expect(only("Pico")).toEqual(["Side by side"]);
+    expect(only("Steam Frame")).toEqual(["Side by side"]);
+    expect(only("XR glasses (XREAL, VITURE, RayNeo)")).toEqual(["Side by side"]);
+    expect(only("3D TV or projector")).toEqual(["Side by side (half size)"]);
+    expect(only("Not sure")).toEqual(["Vision Pro spatial video", "Side by side"]);
   });
 });

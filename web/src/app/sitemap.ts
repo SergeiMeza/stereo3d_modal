@@ -6,6 +6,7 @@
 
 import type { MetadataRoute } from "next";
 
+import { DEVICE_PAGES } from "@/lib/devices";
 import { SITE_URL } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -23,6 +24,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    ...DEVICE_PAGES.map((d) => ({
+      url: `${SITE_URL}/devices/${d.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     {
       url: `${SITE_URL}/privacy`,
       lastModified,

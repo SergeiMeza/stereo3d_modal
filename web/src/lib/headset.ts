@@ -7,7 +7,9 @@
  *   WebXR — so a "Mac" with touch points and navigator.xr is the headset.
  *   It shows Vision Pro spatial video (MV-HEVC) in 3D only in full screen;
  *   inline it plays flat.
- * - Quest and Pico are told apart by their user agent. They show side by
+ * - Quest, Pico and Samsung Galaxy XR are told apart by their user agent
+ *   (Galaxy XR: the model SM-I61x or "Android XR"; Chrome's reduced user
+ *   agent may hide the model, so useClient also asks userAgentData). They show side by
  *   side in 3D once the user picks that mode in the browser's own player
  *   (a page can't switch it): half side by side on Quest (its browser
  *   unsqueezes it), full side by side on Pico.
@@ -19,7 +21,7 @@
 
 import type { Format } from "@/lib/api/types";
 
-export type Client = "vision" | "quest" | "pico" | "desktop";
+export type Client = "vision" | "quest" | "pico" | "galaxyxr" | "desktop";
 
 interface NavigatorLike {
   userAgent?: string;
@@ -27,12 +29,16 @@ interface NavigatorLike {
   xr?: unknown;
 }
 
+/** Samsung Galaxy XR (model SM-I610) or any Android XR browser. */
+export const GALAXY_XR = /SM-I61\d|Galaxy XR|Android XR/i;
+
 /** Which headset browser (if any) this is. */
 export function detectClient(nav: NavigatorLike | undefined = globalThis.navigator): Client {
   if (!nav) return "desktop";
   const ua = nav.userAgent ?? "";
   if (/OculusBrowser|Quest/i.test(ua)) return "quest";
   if (/Pico/i.test(ua)) return "pico";
+  if (GALAXY_XR.test(ua)) return "galaxyxr";
   if (/Macintosh/.test(ua) && (nav.maxTouchPoints ?? 0) > 0 && nav.xr) {
     return "vision";
   }
@@ -48,6 +54,7 @@ export const HEADSET_PREVIEW_FORMATS: Record<Exclude<Client, "desktop">, Format[
   vision: ["mvhevc"],
   quest: ["half_sbs"],
   pico: ["sbs"],
+  galaxyxr: ["sbs"],
 };
 
 /** The formats this client shows in 3D, best first; empty on a desktop. */
@@ -58,6 +65,7 @@ export function stereoFormatsFor(c: Client): Format[] {
     case "quest":
       return ["half_sbs", "sbs"];
     case "pico":
+    case "galaxyxr":
       return ["sbs", "half_sbs"];
     default:
       return [];
@@ -95,6 +103,7 @@ export function playChoice(
 export const HEADSET_HINT: Partial<Record<Client, string>> = {
   quest: "In the player's view options, choose 3D side by side.",
   pico: "In the player's mode menu, choose 3D left and right (side by side).",
+  galaxyxr: "In the player, choose 3D side by side.",
 };
 
 interface FullscreenElement extends HTMLElement {

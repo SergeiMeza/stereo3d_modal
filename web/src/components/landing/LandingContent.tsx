@@ -24,11 +24,10 @@ import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
+import { WORKS_WITH } from "@/lib/devices";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { FORMAT_NAMES } from "@/lib/glossary";
-
-const DEVICES = ["Apple Vision Pro", "Meta Quest", "Pico", "3D TVs"];
 
 const BENEFITS = [
   {
@@ -178,17 +177,27 @@ export function LandingContent() {
         ))}
       </section>
 
-      {/* Devices */}
+      {/* Works with (S3D-51): text only, each linking to its page */}
       <section
-        aria-label="Watch on"
-        className="mx-auto mt-12 flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-9 gap-y-3 px-4 text-sm text-fg-muted"
+        aria-label="Works with"
+        data-testid="works-with"
+        className="mx-auto mt-12 flex w-full max-w-6xl flex-col items-center gap-2 px-4 text-sm text-fg-muted"
       >
-        <span className="text-xs tracking-wider uppercase">Watch on</span>
-        {DEVICES.map((d) => (
-          <span key={d} className="text-fg-muted">
-            {d}
-          </span>
-        ))}
+        <p className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <span className="text-xs tracking-wider uppercase">Works with</span>
+          {WORKS_WITH.map((d) => (
+            <Link key={d.slug} href={`/devices/${d.slug}`} className="hover:text-fg">
+              {d.label}
+            </Link>
+          ))}
+        </p>
+        <p className="text-xs">
+          Ready for{" "}
+          <Link href="/devices/meta-vr-glasses" className="hover:text-fg">
+            Meta VR Glasses
+          </Link>{" "}
+          (spring 2027)
+        </p>
       </section>
 
       {/* Three steps */}

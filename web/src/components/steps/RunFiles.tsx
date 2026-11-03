@@ -46,13 +46,13 @@ export function deviceGroup(format: string, step?: Step | null): DeviceGroupCopy
       return { device: "Apple Vision Pro", how: "AirDrop or Files. Shows in Photos." };
     case "sbs":
       return {
-        device: "Quest, Pico, other headsets",
-        how: "Open in the headset's player, choose 3D side by side.",
+        device: "Galaxy XR, Pico, Steam Frame, XR glasses",
+        how: "Open in the player and choose 3D side by side.",
       };
     case "half_sbs":
       return {
-        device: "3D TVs and projectors",
-        how: "Play it on the TV and choose its side-by-side 3D mode.",
+        device: "Meta Quest, 3D TVs and projectors",
+        how: "Open in the player and choose 3D side by side.",
       };
     case "anaglyph":
       return { device: "Any screen", how: "Watch with red-cyan glasses." };

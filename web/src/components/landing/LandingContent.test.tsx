@@ -42,6 +42,12 @@ describe("Landing hero (mock 12, S3D-46)", () => {
     expect(screen.getByTestId("hero-step-2").textContent).toBe(
       "A few seconds in 3D, from $0.50.",
     );
+    // Works with, text only, each linking to its page (S3D-51)
+    const works = screen.getByTestId("works-with");
+    expect(works.textContent).toContain(
+      "Works withApple Vision ProSamsung Galaxy XRMeta QuestPicoSteam FrameXR glasses",
+    );
+    expect(works.textContent).toContain("Ready for Meta VR Glasses (spring 2027)");
     // no technical words on the page
     expect(document.body.textContent).not.toMatch(
       /splat|gaussian|depth map|warp|inpaint|model/i,

@@ -75,13 +75,24 @@ function tileClass(on: boolean): string {
 
 /* ---------- Where will you watch it? (S3D-07) ---------- */
 
-export type Device = "avp" | "quest" | "pico" | "other" | "tv" | "unsure";
+export type Device =
+  | "avp"
+  | "galaxyxr"
+  | "quest"
+  | "pico"
+  | "steamframe"
+  | "glasses"
+  | "tv"
+  | "unsure";
 
+/** S3D-07/51: the options, in this order. */
 export const DEVICES: readonly { id: Device; label: string }[] = [
   { id: "avp", label: "Apple Vision Pro" },
+  { id: "galaxyxr", label: "Samsung Galaxy XR" },
   { id: "quest", label: "Meta Quest" },
   { id: "pico", label: "Pico" },
-  { id: "other", label: "Other headset" },
+  { id: "steamframe", label: "Steam Frame" },
+  { id: "glasses", label: "XR glasses (XREAL, VITURE, RayNeo)" },
   { id: "tv", label: "3D TV or projector" },
   { id: "unsure", label: "Not sure" },
 ];
@@ -90,9 +101,11 @@ export const DEVICES: readonly { id: Device; label: string }[] = [
  * anywhere. */
 const DEVICE_FORMATS: Record<Device, Format[]> = {
   avp: ["mvhevc"],
-  quest: ["sbs"],
+  galaxyxr: ["sbs"],
+  quest: ["half_sbs"],
   pico: ["sbs"],
-  other: ["sbs"],
+  steamframe: ["sbs"],
+  glasses: ["sbs"],
   tv: ["half_sbs"],
   unsure: ["mvhevc", "sbs"],
 };
@@ -108,7 +121,18 @@ export function formatsForDevices(
 
 /** The device a headset browser is (S3D-47), for preselecting. */
 export function deviceForClient(c: Client): Device | null {
-  return c === "vision" ? "avp" : c === "quest" ? "quest" : c === "pico" ? "pico" : null;
+  switch (c) {
+    case "vision":
+      return "avp";
+    case "quest":
+      return "quest";
+    case "pico":
+      return "pico";
+    case "galaxyxr":
+      return "galaxyxr";
+    default:
+      return null;
+  }
 }
 
 /** The default files before anyone picks a device. */
@@ -153,8 +177,8 @@ export function WatchPicker({
 
 const FORMAT_FOR: Partial<Record<Format, string>> = {
   mvhevc: "For Apple Vision Pro",
-  sbs: "For Meta Quest, Pico and most headsets",
-  half_sbs: "Smaller, for 3D TVs and projectors",
+  sbs: "For Galaxy XR, Pico, Steam Frame and XR glasses",
+  half_sbs: "For Meta Quest, 3D TVs and projectors",
   anaglyph: "Any screen, with red-cyan glasses",
 };
 
