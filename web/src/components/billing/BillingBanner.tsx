@@ -93,7 +93,7 @@ export function BillingBanner(): JSX.Element | null {
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-red-200">
-            A payment didn't go through — {formatCents(totalCents)}{" "}
+            A payment didn&apos;t go through — {formatCents(totalCents)}{" "}
             {currency.toUpperCase()} due
           </p>
           <p className="text-xs text-red-200/70">
