@@ -27,11 +27,22 @@ const DEFAULT_CONFIG = {
   measurementId: "G-JSPE16JSLY",
 } as const;
 
+/** NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, or "self": this site's own host, whose
+ * /__/auth/* next.config.ts proxies to the Firebase handler (BL-15). */
+function authDomain(): string {
+  const v = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  if (v === "self") {
+    return typeof window !== "undefined"
+      ? window.location.host
+      : DEFAULT_CONFIG.authDomain;
+  }
+  return v ?? DEFAULT_CONFIG.authDomain;
+}
+
 export function firebaseConfig() {
   return {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? DEFAULT_CONFIG.apiKey,
-    authDomain:
-      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? DEFAULT_CONFIG.authDomain,
+    authDomain: authDomain(),
     projectId:
       process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? DEFAULT_CONFIG.projectId,
     storageBucket:

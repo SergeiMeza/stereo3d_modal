@@ -20,13 +20,22 @@
  * hydration) live auth reports ready=false, as the SDK did while restoring
  * its session.
  *
+ * Sign-in methods (S3D-70): Apple (behind NEXT_PUBLIC_APPLE_SIGNIN=1 until
+ * the owner configures it, BL-15; popup on desktop, redirect on phones and
+ * headsets), Google (not in China mode), and a one-time email code
+ * (lib/emailCode.ts) — no passwords in the UI; older password accounts sign
+ * in with a code to the same address. One account per email (S3D-69): when
+ * Apple or Google answers that the address already has an account, the
+ * credential waits (pendingLink) while the person confirms with an email
+ * code, then it is linked onto that account.
+ *
  * getToken is referentially stable across renders: useGateway memoizes the
  * client on it, so a re-created getToken would rebuild the client on every
  * user-state change. Firebase error codes are mapped to human messages in
  * one place (friendlyAuthError) so every screen surfaces the same copy.
  */
 
-import type { User } from "firebase/auth";
+import type { AuthCredential, User, UserCredential } from "firebase/auth";
 import {
   createContext,
   useCallback,
@@ -37,8 +46,16 @@ import {
 } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
+import {
+  EmailCodeError,
+  RESEND_AFTER_S,
+  startEmailCode,
+  verifyEmailCode,
+} from "@/lib/emailCode";
+import type { CodeStart } from "@/lib/emailCode";
 import { getFirebaseAuth } from "@/lib/firebase";
 import {
+  gatewayAdoptSession,
   gatewayResetPassword,
   gatewaySession,
   gatewaySignIn,
@@ -52,6 +69,7 @@ import {
   subscribeGatewaySession,
 } from "@/lib/gatewayAuth";
 import type { GatewaySession } from "@/lib/gatewayAuth";
+import { detectClient, isHeadset } from "@/lib/headset";
 import { currentRegion } from "@/lib/region";
 import { useRegion } from "@/lib/useRegion";
 
@@ -63,10 +81,33 @@ export interface AuthUser {
   providerIds: string[];
 }
 
+/** Providers a person can add or remove on the account page. */
+export type LinkableProvider = "apple.com" | "google.com";
+
+/** Apple or Google answered that this address already has an account: the
+ * credential waits until the person confirms with an email code. */
+export interface PendingLink {
+  email: string;
+  providerId: LinkableProvider;
+}
+
 export interface AuthContextValue {
   user: AuthUser | null;
   ready: boolean;
   getToken(): Promise<string>;
+  /** Sign in with Apple is offered (configured, not China mode). */
+  appleEnabled: boolean;
+  signInWithApple(): Promise<void>;
+  /** Mail a one-time code (S3D-70). */
+  sendEmailCode(email: string): Promise<CodeStart>;
+  /** Sign in with the code; links a pendingLink for the same address. */
+  signInWithEmailCode(email: string, code: string): Promise<void>;
+  pendingLink: PendingLink | null;
+  clearPendingLink(): void;
+  /** What a redirect sign-in or link said when it came back here. */
+  redirectError: string | null;
+  linkProvider(id: LinkableProvider): Promise<void>;
+  unlinkProvider(id: string): Promise<void>;
   signInWithGoogle(): Promise<void>;
   signInWithEmail(email: string, password: string): Promise<void>;
   signUpWithEmail(email: string, password: string): Promise<void>;
@@ -79,6 +120,10 @@ type AuthMode = "mock" | "firebase";
 
 export const AUTH_MODE: AuthMode =
   process.env.NEXT_PUBLIC_AUTH_MODE === "firebase" ? "firebase" : "mock";
+
+/** Sign in with Apple on the web lights up once the owner has set up the
+ * Services ID and Firebase's Apple provider (BL-15). */
+export const APPLE_SIGNIN = process.env.NEXT_PUBLIC_APPLE_SIGNIN === "1";
 
 const MOCK_USER: AuthUser = {
   uid: "dev-user",
@@ -128,17 +173,41 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   signed_out: SIGNED_OUT_MESSAGE,
   network: "Network error — check your connection and try again.",
   auth_unavailable: "Sign-in is unavailable right now. Try again in a moment.",
+  // Email codes (S3D-70).
+  code_invalid: "That code isn't right.",
+  code_expired: "That code has expired. Send a new one.",
+  resend_too_soon: "Wait a moment, then send a new code.",
+  too_many_codes: "Too many codes for this email. Try again in an hour.",
+  // Linking (S3D-69).
+  "auth/credential-already-in-use":
+    "That sign-in already has its own account. Sign out, then sign in with it to use that account.",
+  "auth/provider-already-linked": "That's already linked.",
+  "auth/unauthorized-domain": "Sign-in isn't available on this address yet.",
+  "auth/operation-not-allowed": "That sign-in isn't available yet.",
+  "auth/invalid-custom-token": "Sign-in failed. Send a new code.",
+  "auth/no-such-provider": "That sign-in isn't linked.",
 };
 
 /** China mode signs in by email only. */
 const EMAIL_ONLY_MESSAGE = "Sign in with your email.";
 
 function friendlyAuthError(error: unknown): Error {
+  if (error instanceof AccountExistsError) return error;
   const code =
     typeof error === "object" && error !== null && "code" in error
       ? String((error as { code: unknown }).code)
       : "";
   const friendly = FRIENDLY_BY_CODE[code];
+  if (error instanceof EmailCodeError) {
+    // keep retryAfter / attemptsLeft for the code screen
+    return new EmailCodeError(
+      error.code,
+      friendly ?? error.message,
+      error.status,
+      error.retryAfter,
+      error.attemptsLeft,
+    );
+  }
   if (friendly !== undefined) return new Error(friendly);
   if (error instanceof Error && error.message) return error;
   return new Error("Authentication failed. Try again.");
@@ -213,9 +282,139 @@ async function requireFirebaseUser(): Promise<User> {
   return user;
 }
 
+// ------------------------------------------ Apple, linking, redirects
+
+/** Thrown by Apple/Google sign-in when the address already has an account
+ * (S3D-69); the screen asks for an email code, then the link completes. */
+export class AccountExistsError extends Error {
+  constructor(public readonly pending: PendingLink) {
+    super(`You already have an account with ${pending.email}.`);
+    this.name = "AccountExistsError";
+  }
+}
+
+const PENDING_KEY = "s3d-pending-link";
+const REDIRECT_KEY = "s3d-auth-redirect";
+
+/** Redirect on phones and headsets (popups open a new tab or get lost),
+ * popup on desktop. */
+export function prefersRedirect(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isHeadset(detectClient())) return true;
+  const mq = (q: string) => window.matchMedia?.(q).matches === true;
+  return mq("(pointer: coarse)") && !mq("(pointer: fine)");
+}
+
+function errorCode(e: unknown): string {
+  return typeof e === "object" && e !== null && "code" in e
+    ? String((e as { code: unknown }).code)
+    : "";
+}
+
+function session(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+let pendingCredential: AuthCredential | null = null;
+
+function savePending(p: PendingLink, cred: AuthCredential): void {
+  pendingCredential = cred;
+  session()?.setItem(
+    PENDING_KEY,
+    JSON.stringify({ ...p, credential: cred.toJSON() }),
+  );
+}
+
+function readPending(): PendingLink | null {
+  try {
+    const raw = session()?.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<PendingLink>;
+    return typeof v.email === "string" &&
+      (v.providerId === "apple.com" || v.providerId === "google.com")
+      ? { email: v.email, providerId: v.providerId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function pendingCredentialNow(): Promise<AuthCredential | null> {
+  if (pendingCredential) return pendingCredential;
+  try {
+    const raw = session()?.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const { credential } = JSON.parse(raw) as { credential?: object };
+    if (!credential) return null;
+    const { OAuthCredential } = await import("firebase/auth");
+    return OAuthCredential.fromJSON(credential);
+  } catch {
+    return null;
+  }
+}
+
+function dropPending(): void {
+  pendingCredential = null;
+  session()?.removeItem(PENDING_KEY);
+}
+
+/** The address-already-has-an-account refusal, kept for linking. */
+async function capturePending(
+  e: unknown,
+  providerId: LinkableProvider,
+): Promise<PendingLink | null> {
+  if (errorCode(e) !== "auth/account-exists-with-different-credential") {
+    return null;
+  }
+  const { GoogleAuthProvider, OAuthProvider } = await import("firebase/auth");
+  const err = e as Parameters<typeof OAuthProvider.credentialFromError>[0];
+  const email = (err.customData as { email?: string } | undefined)?.email;
+  const cred =
+    providerId === "google.com"
+      ? GoogleAuthProvider.credentialFromError(err)
+      : OAuthProvider.credentialFromError(err);
+  if (!email || !cred) return null;
+  const p = { email, providerId };
+  savePending(p, cred);
+  return p;
+}
+
+async function appleProvider() {
+  const { OAuthProvider } = await import("firebase/auth");
+  const provider = new OAuthProvider("apple.com");
+  provider.addScope("email");
+  provider.addScope("name");
+  return provider;
+}
+
+async function providerFor(id: LinkableProvider) {
+  if (id === "apple.com") return appleProvider();
+  const { GoogleAuthProvider } = await import("firebase/auth");
+  return new GoogleAuthProvider();
+}
+
+function trackSignIn(result: UserCredential | null, method: string): void {
+  if (!result) return;
+  void import("firebase/auth").then(({ getAdditionalUserInfo }) => {
+    const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
+    track(isNewUser ? "sign_up" : "login", { method });
+    if (isNewUser) upgradeSession("new-account");
+  });
+}
+
 // ------------------------------------------------------- mock behaviors
 
 async function mockNoop(): Promise<void> {}
+
+async function mockSendCode(): Promise<CodeStart> {
+  return { resendAfter: RESEND_AFTER_S };
+}
+
+function noop(): void {}
 
 async function mockSignOut(): Promise<void> {
   console.warn("auth: signOut is a no-op in mock mode");
@@ -242,6 +441,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     AUTH_MODE === "mock" ? MOCK_USER : null,
   );
   const [ready, setReady] = useState(AUTH_MODE === "mock");
+  const [pendingLink, setPendingLink] = useState<PendingLink | null>(null);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
+
+  // Back from an Apple redirect (phones, headsets): settle its answer.
+  useEffect(() => {
+    if (mode !== "firebase") return;
+    type Intent = { op: string; providerId: LinkableProvider };
+    let intent: Intent | null = null;
+    try {
+      const raw = session()?.getItem(REDIRECT_KEY);
+      intent = raw ? (JSON.parse(raw) as Intent) : null;
+    } catch {
+      intent = null;
+    }
+    if (intent === null) return;
+    session()?.removeItem(REDIRECT_KEY);
+    const providerId = intent.providerId;
+    const op = intent.op;
+    void (async () => {
+      const auth = await getFirebaseAuth();
+      const { getRedirectResult } = await import("firebase/auth");
+      try {
+        const result = await getRedirectResult(auth);
+        if (op === "signin") trackSignIn(result, providerId);
+        if (result?.user) setUser(toAuthUser(result.user));
+      } catch (e) {
+        const p = await capturePending(e, providerId);
+        if (p) setPendingLink(p);
+        else setRedirectError(friendlyAuthError(e).message);
+      }
+    })();
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== "firebase") return;
@@ -254,6 +485,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe = onAuthStateChanged(auth, (u) => {
         setUser(u ? toAuthUser(u) : null);
         setReady(true);
+        // a link waiting from before a redirect or a reload in this tab
+        setPendingLink((p) => p ?? readPending());
       });
     })();
     return () => {
@@ -299,6 +532,145 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
       track(isNewUser ? "sign_up" : "login", { method: "google" });
       if (isNewUser) upgradeSession("new-account");
+    } catch (e) {
+      const p = await capturePending(e, "google.com");
+      if (p) {
+        setPendingLink(p);
+        throw new AccountExistsError(p);
+      }
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    if (viaGateway() || !APPLE_SIGNIN) throw new Error(EMAIL_ONLY_MESSAGE);
+    try {
+      const auth = await getFirebaseAuth();
+      const provider = await appleProvider();
+      const { signInWithPopup, signInWithRedirect } =
+        await import("firebase/auth");
+      if (prefersRedirect()) {
+        session()?.setItem(
+          REDIRECT_KEY,
+          JSON.stringify({ op: "signin", providerId: "apple.com" }),
+        );
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      trackSignIn(await signInWithPopup(auth, provider), "apple.com");
+    } catch (e) {
+      const p = await capturePending(e, "apple.com");
+      if (p) {
+        setPendingLink(p);
+        throw new AccountExistsError(p);
+      }
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
+  const sendEmailCode = useCallback(async (email: string) => {
+    try {
+      return await startEmailCode(email);
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
+  const signInWithEmailCode = useCallback(
+    async (email: string, code: string) => {
+      try {
+        if (viaGateway()) {
+          const answer = await verifyEmailCode(email, code, true);
+          gatewayAdoptSession(answer);
+          track(answer.is_new_user ? "sign_up" : "login", {
+            method: "email_code",
+          });
+          if (answer.is_new_user) upgradeSession("new-account");
+          return;
+        }
+        const answer = await verifyEmailCode(email, code, false);
+        if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+        const auth = await getFirebaseAuth();
+        const { linkWithCredential, signInWithCustomToken } =
+          await import("firebase/auth");
+        const result = await signInWithCustomToken(auth, answer.custom_token);
+        track(answer.is_new_user ? "sign_up" : "login", {
+          method: "email_code",
+        });
+        if (answer.is_new_user) upgradeSession("new-account");
+        // S3D-69: Apple/Google said this address had an account; now that
+        // the person proved it, link that sign-in onto it.
+        const pending = readPending();
+        if (
+          pending &&
+          pending.email.toLowerCase() === email.trim().toLowerCase()
+        ) {
+          const cred = await pendingCredentialNow();
+          if (cred) {
+            try {
+              await linkWithCredential(result.user, cred);
+              track("link_provider", { method: pending.providerId });
+            } catch (e) {
+              if (errorCode(e) !== "auth/provider-already-linked") {
+                console.warn("auth: pending link failed", errorCode(e));
+              }
+            }
+          }
+          dropPending();
+          setPendingLink(null);
+          await result.user.reload();
+          setUser(toAuthUser(auth.currentUser ?? result.user));
+        }
+      } catch (e) {
+        throw friendlyAuthError(e);
+      }
+    },
+    [],
+  );
+
+  const clearPendingLink = useCallback(() => {
+    dropPending();
+    setPendingLink(null);
+  }, []);
+
+  const linkProvider = useCallback(async (id: LinkableProvider) => {
+    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+    try {
+      const current = await requireFirebaseUser();
+      const provider = await providerFor(id);
+      const { linkWithPopup, linkWithRedirect } = await import("firebase/auth");
+      if (prefersRedirect()) {
+        session()?.setItem(
+          REDIRECT_KEY,
+          JSON.stringify({ op: "link", providerId: id }),
+        );
+        await linkWithRedirect(current, provider);
+        return;
+      }
+      try {
+        await linkWithPopup(current, provider);
+        track("link_provider", { method: id });
+      } catch (e) {
+        if (errorCode(e) !== "auth/provider-already-linked") throw e;
+      }
+      await current.reload();
+      const auth = await getFirebaseAuth();
+      setUser(toAuthUser(auth.currentUser ?? current));
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
+  const unlinkProvider = useCallback(async (id: string) => {
+    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+    try {
+      const current = await requireFirebaseUser();
+      const { unlink } = await import("firebase/auth");
+      await unlink(current, id);
+      track("unlink_provider", { method: id });
+      await current.reload();
+      const auth = await getFirebaseAuth();
+      setUser(toAuthUser(auth.currentUser ?? current));
     } catch (e) {
       throw friendlyAuthError(e);
     }
@@ -392,6 +764,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user,
             ready,
             getToken: getMockToken,
+            appleEnabled: false,
+            signInWithApple: mockNoop,
+            sendEmailCode: mockSendCode,
+            signInWithEmailCode: mockNoop,
+            pendingLink: null,
+            clearPendingLink: noop,
+            redirectError: null,
+            linkProvider: mockNoop,
+            unlinkProvider: mockNoop,
             signInWithGoogle: mockNoop,
             signInWithEmail: mockNoop,
             signUpWithEmail: mockNoop,
@@ -403,6 +784,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user,
             ready,
             getToken: getLiveToken,
+            appleEnabled: APPLE_SIGNIN && mode === "firebase",
+            signInWithApple,
+            sendEmailCode,
+            signInWithEmailCode,
+            pendingLink,
+            clearPendingLink,
+            redirectError,
+            linkProvider,
+            unlinkProvider,
             signInWithGoogle,
             signInWithEmail,
             signUpWithEmail,
@@ -414,6 +804,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mode,
       user,
       ready,
+      signInWithApple,
+      sendEmailCode,
+      signInWithEmailCode,
+      pendingLink,
+      clearPendingLink,
+      redirectError,
+      linkProvider,
+      unlinkProvider,
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,

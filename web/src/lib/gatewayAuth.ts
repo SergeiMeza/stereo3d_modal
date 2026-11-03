@@ -294,3 +294,18 @@ export async function gatewayUpdateDisplayName(
   store({ ...next, displayName: name });
   return gatewaySession() as GatewaySession;
 }
+
+/** Keep a Session the gateway answered elsewhere (the email code's verify
+ * with session:true, lib/emailCode.ts) as the signed-in session. */
+export function gatewayAdoptSession(answer: {
+  uid: string;
+  email?: string;
+  display_name?: string;
+  id_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+}): GatewaySession {
+  const session = sessionFrom(answer);
+  store(session);
+  return session;
+}
