@@ -54,9 +54,11 @@ def test_x265_default_is_crf():
     assert _x265_rate_args(18, None) == ["--crf", "18"]
 
 
-def test_x265_bitrate_in_kbits_and_wins_over_crf():
+def test_x265_bitrate_split_per_view_in_kbits_and_wins_over_crf():
+    # x265 multiview rate-controls each view on its own: a 20 Mbit/s TOTAL
+    # is 10 Mbit/s per view, with the VBV caps split the same way
     args = _x265_rate_args(18, 20_000_000)
-    assert args == ["--bitrate", "20000", "--vbv-maxrate", "30000", "--vbv-bufsize", "40000"]
+    assert args == ["--bitrate", "10000", "--vbv-maxrate", "15000", "--vbv-bufsize", "20000"]
     assert "--crf" not in args
 
 

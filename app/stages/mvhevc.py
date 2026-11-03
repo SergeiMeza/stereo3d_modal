@@ -38,18 +38,24 @@ logger = get_logger(__name__)
 MVHEVC_GPU = "L4"
 
 
+MVHEVC_VIEWS = 2
+
+
 def _x265_rate_args(crf: int, bitrate_bps: int | None = None) -> list[str]:
     """x265 CLI rate control: CRF by default; with a target bitrate (TOTAL
     for the two-view file) average-bitrate mode capped by VBV, in kbit/s.
-    The bitrate wins over the CRF when both are given."""
+    The bitrate wins over the CRF when both are given.
+
+    x265 multiview rate-controls each view on its own: --bitrate 20000 gave
+    a 35.4 Mbit/s two-view file (test job 384ccd9d836c, 2026-11-03), so the
+    total target and its VBV caps are split evenly across the views."""
     if bitrate_bps is None:
         return ["--crf", str(crf)]
     from app.stages.media import bitrate_vbv
 
-    target, maxrate, bufsize = bitrate_vbv(bitrate_bps)
-    return ["--bitrate", str(target // 1000),
-            "--vbv-maxrate", str(maxrate // 1000),
-            "--vbv-bufsize", str(bufsize // 1000)]
+    target, maxrate, bufsize = (v // MVHEVC_VIEWS // 1000 for v in bitrate_vbv(bitrate_bps))
+    return ["--bitrate", str(target), "--vbv-maxrate", str(maxrate),
+            "--vbv-bufsize", str(bufsize)]
 
 
 def _nvenc_rate_args(quality: int, bitrate_bps: int | None = None) -> list[str]:
