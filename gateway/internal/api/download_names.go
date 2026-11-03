@@ -12,7 +12,7 @@ import (
 )
 
 // Download file names (S3D-31): every output downloads as
-// "<original stem>_<resolution>_<layout>[_partN].<ext>", with the layout
+// "<original stem>_<resolution>[_partN]_<layout>.<ext>", with the layout
 // markers the iPhone/Mac app uses — spatial (.mov), SBS, HSBS, TB, HTB
 // (.mp4) — and the resolution as customers see it (1080p, 1440p, 3K, 4K,
 // 5K…; a full-resolution run shows its real size, "1606p"). The name rides
@@ -90,11 +90,11 @@ func baseDownloadName(stem, resolution, outputName, ext string) string {
 	if !ok {
 		marker = format
 	}
-	name := stem + "_" + resolution + "_" + marker
+	name := stem + "_" + resolution
 	if part > 0 {
-		name += fmt.Sprintf("_part%d", part)
+		name += fmt.Sprintf("_part%d", part) // before the layout marker (web contract)
 	}
-	return name + ext
+	return name + "_" + marker + ext
 }
 
 // projectDownloadNames names every output of a project's succeeded runs

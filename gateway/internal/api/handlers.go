@@ -804,7 +804,9 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 	// files: one entry per output with its download name (S3D-31,
 	// download_names.go), which also rides each signed URL as
 	// Content-Disposition for project runs; a split output is one entry
-	// per part (part: N). downloads (name → URL) stays for older clients.
+	// per part (part: N). filename is exactly the Content-Disposition name,
+	// so a run without one (the mobile one-shot, URL unchanged) has none.
+	// downloads (name → URL) stays for older clients.
 	var names map[string]string
 	var project *store.Project
 	if conv.ProjectID != "" {
@@ -825,7 +827,6 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		if filename != "" {
 			u, err = s.GCS.SignedGetURLAs(key, downloadTTL, contentDisposition(filename))
 		} else {
-			filename = baseDownloadName("video", resolutionLabel(conv, nil), name, path.Ext(key))
 			u, err = s.GCS.SignedGetURL(key, downloadTTL) // mobile one-shot: unchanged
 		}
 		if err != nil {

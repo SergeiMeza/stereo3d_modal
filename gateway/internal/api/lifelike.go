@@ -326,7 +326,7 @@ type outputFile struct {
 	Name     string `json:"name"`
 	Format   string `json:"format"`
 	Part     int    `json:"part,omitempty"`
-	Filename string `json:"filename"`
+	Filename string `json:"filename,omitempty"`
 	URL      string `json:"url"`
 	// SizeBytes from the stored object (S3D-31); absent when storage
 	// didn't answer.

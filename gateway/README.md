@@ -201,8 +201,8 @@ before submission or while the run waits in line for a GPU with nothing
 started, then for a minute after it starts (`cancelable`, and
 `cancelable_until` once started); pre-charged runs are refunded in full,
 batched ones never charged. `GET /v1/conversions/{id}/downloads` adds `files`: one entry per
-output (`name`, `format`, `part` for split parts, `filename` like "Trip 3D
-Part 2.mov", `url`); `downloads` (name → URL) is unchanged.
+output (`name`, `format`, `part` for split parts, `filename` like
+"Trip_4K_part2_spatial.mov" for project runs, `url`); `downloads` (name → URL) is unchanged.
 
 Pricing: Lifelike production has its own PRICE table (no margin),
 `lifelike_price_cents_per_minute` per output minute at 24 fps, times the fps
@@ -243,14 +243,14 @@ refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a
 project (409 while a run is active): it and its runs answer 404 and leave
 the lists; the record and files stay for the manual purge. Download `files`
 entries carry `size_bytes`; links are signed afresh on every GET. Project
-runs download as `<original stem>_<resolution>_<layout>[_partN].<ext>`
+runs download as `<original stem>_<resolution>[_partN]_<layout>.<ext>`
 (S3D-31: layout `spatial` .mov, `SBS`/`HSBS`/`TB`/`HTB` .mp4; resolution
 as customers see it — 1080p, 1440p, 3K, 4K…, a full-resolution run its real
 `1606p`; the stem cut to 200 bytes at a character boundary), carried on the
 signed URL as Content-Disposition (ASCII `filename` + UTF-8 `filename*`)
 and as `files[].filename`; a name a project already produced becomes
 `name (2).ext`, oldest run first. The mobile one-shot's links are
-unchanged.
+unchanged and carry no `filename`.
 
 Source files: `POST /v1/uploads` may send `bytes` and `method` to be refused
 up front over that method's cap (`lifelike_max_source_bytes`, 25 GiB;

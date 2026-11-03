@@ -8,7 +8,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// S3D-31: <stem>_<resolution>_<layout>[_partN].<ext>, unique per project.
+// S3D-31: <stem>_<resolution>[_partN]_<layout>.<ext>, unique per project.
 func TestProjectDownloadNames(t *testing.T) {
 	p := lifelikeProject()
 	p.Name = "Holiday 2026.mp4"
@@ -30,7 +30,7 @@ func TestProjectDownloadNames(t *testing.T) {
 	want := map[string]map[string]string{
 		"a": {"mvhevc": "Holiday 2026_4K_spatial.mov", "half_sbs": "Holiday 2026_4K_HSBS.mp4"},
 		"b": {"mvhevc": "Holiday 2026_4K_spatial (2).mov", "sbs": "Holiday 2026_4K_SBS.mp4"},
-		"c": {"mvhevc_part01": "Holiday 2026_1440p_spatial_part1.mov", "mvhevc_part02": "Holiday 2026_1440p_spatial_part2.mov"},
+		"c": {"mvhevc_part01": "Holiday 2026_1440p_part1_spatial.mov", "mvhevc_part02": "Holiday 2026_1440p_part2_spatial.mov"},
 		"d": {"tb": "Holiday 2026_1606p_TB.mp4", "half_tb": "Holiday 2026_1606p_HTB.mp4"},
 	}
 	for id, outs := range want {
