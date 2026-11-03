@@ -57,10 +57,15 @@ type Job struct {
 	Outputs map[string]json.RawMessage `json:"outputs"`
 	// Metadata is job-kind-specific (analyze jobs carry probe/scenes/thumbs;
 	// video jobs carry probe/crop/av_sync/...). Decode per use.
-	Metadata    json.RawMessage `json:"metadata"`
-	Error       string          `json:"error"`
+	Metadata json.RawMessage `json:"metadata"`
+	Error    string          `json:"error"`
+	// CostSummary: the pipeline's bill estimate. Lifelike's total_usd is
+	// the list-price model × its measured billing factor (1.2, ~the real
+	// bill since 2026-11-03); total_usd_raw keeps the model's own figure
+	// (absent on Classic and older Lifelike records).
 	CostSummary struct {
-		TotalUSD float64 `json:"total_usd"`
+		TotalUSD    float64 `json:"total_usd"`
+		TotalUSDRaw float64 `json:"total_usd_raw"`
 	} `json:"cost_summary"`
 	// Both pipelines: a GPU call is queued and none runs; total seconds
 	// spent so. Absent on older records (false / 0).
@@ -91,6 +96,17 @@ func (j *Job) Parts() []Part {
 		return nil
 	}
 	return m.Parts
+}
+
+// Experimental reports metadata.experimental (Lifelike 5K-8K).
+func (j *Job) Experimental() bool {
+	if len(j.Metadata) == 0 {
+		return false
+	}
+	var m struct {
+		Experimental bool `json:"experimental"`
+	}
+	return json.Unmarshal(j.Metadata, &m) == nil && m.Experimental
 }
 
 // SubmitVideo posts the clamped request body to POST /v1/videos.

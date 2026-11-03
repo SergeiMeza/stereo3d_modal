@@ -249,6 +249,12 @@ type Modal struct {
 	Stage        string     `firestore:"stage,omitempty" json:"stage,omitempty"`
 	ETASeconds   int64      `firestore:"eta_seconds,omitempty" json:"eta_seconds,omitempty"`
 	CostUSD      float64    `firestore:"cost_usd,omitempty" json:"-"`
+	// CostUSDRaw: Lifelike's model figure before its billing factor
+	// (cost_summary.total_usd_raw); CostUSD is the bill estimate.
+	CostUSDRaw float64 `firestore:"cost_usd_raw,omitempty" json:"-"`
+	// Experimental: the job says its output is experimental (Lifelike
+	// 5K-8K, metadata.experimental).
+	Experimental bool `firestore:"experimental,omitempty" json:"-"`
 	// WaitingForGPU / QueuedS are copied from the job record (both
 	// pipelines): a GPU call is queued and none runs / total seconds spent
 	// so. Queued time is not the run's fault, so overdue judging adds it.

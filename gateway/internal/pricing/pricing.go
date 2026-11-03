@@ -702,6 +702,19 @@ func NewStatic(r *Rates) *Service {
 // Defaults returns a fresh copy of the code defaults.
 func Defaults() *Rates { return defaults() }
 
+// DefaultsFor is the code defaults of an environment: test switches on
+// what is being tried there before prod — every Lifelike size including
+// 5K-8K, foveation (S3D-50) and the Pro discount (S3D-67). A key in
+// config/pricing_{env} still overrides each.
+func DefaultsFor(env string) *Rates {
+	r := defaults()
+	if env == "test" {
+		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
+		r.FoveationEnabled = true
+	}
+	return r
+}
+
 // Rates returns the current pricing config (60s cache; falls back to code
 // defaults if the Firestore doc is missing or malformed).
 func (s *Service) Rates(ctx context.Context) *Rates {
@@ -710,7 +723,7 @@ func (s *Service) Rates(ctx context.Context) *Rates {
 	if s.cached != nil && time.Since(s.fetchedAt) < cacheTTL {
 		return s.cached
 	}
-	rates := defaults()
+	rates := DefaultsFor(s.env)
 	snap, err := s.fs.Collection("config").Doc("pricing_" + s.env).Get(ctx)
 	if err == nil {
 		loaded := *rates // start from defaults so partial docs stay sane

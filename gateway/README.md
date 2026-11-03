@@ -157,16 +157,25 @@ preset, price_preset}]`; requests send `preset` = an id (`full`, or the
 preset `full` renders); quotes return `output_short_side`. Anything else
 above the source is 400 `preset_above_source`; nothing above 8K is built
 (bigger sources are scaled down, and Lifelike has no pixel cap). Only the
-sizes in `lifelike_enabled_presets` (default 1080p, qhd, 3k, 4k — 5k/6k/8k
-join once the Lifelike service renders them) are offered, quoted or run; a
+sizes in `lifelike_enabled_presets` (default 1080p, qhd, 3k, 4k on prod;
+every size on test, where lifelike3d-test renders 5k/6k/8k) are offered,
+quoted or run; a
 request for another is 400 `preset_unavailable` before any charge. As a
 backstop, a Lifelike 400 at submit fails the run at once with its money
 returned and answers 400 `preset_unavailable` / `submit_rejected`. `original_eye`
 (`left`|`right`|null) passes through on Lifelike steps at the same price;
 above 4K (5k/6k/8k, or a full option above 2160p) it is always on — absent
 or null means `left` — and qualities/quotes mark those
-`original_eye_required: true` (S3D-65). Supersampling is Lifelike's own
-default (S3D-66): nothing to send.
+`original_eye_required: true` and `experimental: true` (S3D-65; runs carry
+`experimental` too, and the job's `metadata.experimental` is kept).
+Up to 4K `original_eye` stays optional and off unless sent (S3D-48).
+Each quality lists its `formats`: full-width `sbs` stops at 5K — at 6K and
+8K (by the preset sent, also for a full option rendering 6k/8k) a run
+asking for `sbs` is 400 `format_unavailable`, and a preview renders
+`half_sbs` instead of `sbs`. Supersampling is Lifelike's own default
+(S3D-66): nothing to send. `output_bitrate_bps` applies to every format.
+Cost: Lifelike's `cost_summary.total_usd` is now ≈ the bill (model ×1.2);
+`modal.cost_usd` keeps it and `modal.cost_usd_raw` the model figure.
 `foveation: "static"` passes through only when the size is below the
 source's, at ×`foveation_price_multiplier` (its own `foveation_cents`
 breakdown line), and only while `foveation_enabled` is on (else 400
@@ -279,8 +288,8 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `preview_minimum_cents` | 100 — previews (lifelike_preview, depth_preview, stereo_preview) |
 | `minimum_cents` | 50 — unchanged: the mobile one-shot's floor and the smallest grouped charge |
 | `lifelike_price_cents_per_minute` | 1080p 300 · qhd 450 · 3k 700 · 4k 850 · 5k 1300 · 6k 1600 · 8k 2200 (S3D-11) |
-| `foveation_enabled` / `foveation_price_multiplier` | false / 1.3 |
-| `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` |
+| `foveation_enabled` / `foveation_price_multiplier` | false (test: true) / 1.3 |
+| `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` (test: all seven) |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |

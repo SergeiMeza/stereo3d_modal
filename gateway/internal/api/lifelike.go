@@ -144,7 +144,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	var params store.Params
 	switch req.Step {
 	case store.StepLifelikePreview:
-		params.Formats = []string{"sbs"}
+		params.Formats = []string{"sbs"} // half_sbs where full width is refused, below
 	case store.StepProduction:
 		params.Formats = []string{"mvhevc", "half_sbs"}
 	default:
@@ -203,6 +203,14 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 			}
 		}
 		params.Formats = req.Formats
+	}
+	if sbsTooWide[q.Preset] && slices.Contains(params.Formats, "sbs") {
+		if req.Step == store.StepLifelikePreview {
+			params.Formats = []string{"half_sbs"} // the preview's look, at a width that works
+		} else {
+			return params, httpx.Err(http.StatusBadRequest, "format_unavailable",
+				"full-width side-by-side isn't available at this size; choose half side-by-side or a smaller quality")
+		}
 	}
 	if req.TargetFPS < 0 || req.TargetFPS > maxTargetFPS(p)*1.001 {
 		return params, httpx.ErrInvalid("target_fps cannot exceed the source frame rate")
@@ -422,9 +430,33 @@ type quality struct {
 	LabelShortSide int `json:"label_short_side"`
 	// OriginalEyeRequired: sizes above 4K always keep the source as one
 	// eye (S3D-65); the tile says so.
-	OriginalEyeRequired bool   `json:"original_eye_required,omitempty"`
-	Preset              string `json:"preset"`       // what Lifelike is asked for
-	PricePreset         string `json:"price_preset"` // the price table row
+	OriginalEyeRequired bool `json:"original_eye_required,omitempty"`
+	// Experimental: the service marks these outputs experimental (5K-8K).
+	Experimental bool   `json:"experimental,omitempty"`
+	Preset       string `json:"preset"`       // what Lifelike is asked for
+	PricePreset  string `json:"price_preset"` // the price table row
+	// Formats this size can be delivered in: full-width SBS stops at 5K
+	// (no video level covers a frame that wide at 6K/8K; half SBS works).
+	Formats []string `json:"formats"`
+}
+
+// sbsTooWide: Lifelike refuses full-width SBS for these presets (400).
+var sbsTooWide = map[string]bool{"6k": true, "8k": true}
+
+// formatsFor lists the Lifelike formats a preset can be delivered in.
+func formatsFor(preset string) []string {
+	if sbsTooWide[preset] {
+		return []string{"mvhevc", "half_sbs"}
+	}
+	return slices.Clone(lifelikeFormats)
+}
+
+// newQuality builds an offered size; above 4K the source is always one
+// eye and the result experimental (S3D-65).
+func newQuality(id string, shortSide int, preset, pricePreset string) quality {
+	above4K := shortSide > originalEyeAboveShortSide
+	return quality{ID: id, LabelShortSide: shortSide, Preset: preset, PricePreset: pricePreset,
+		OriginalEyeRequired: above4K, Experimental: above4K, Formats: formatsFor(preset)}
 }
 
 const qualityFull = "full"
@@ -457,8 +489,7 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 		}
 		h := presetOutputHeight[preset]
 		if short == 0 || h <= short {
-			out = append(out, quality{ID: preset, LabelShortSide: h, Preset: preset, PricePreset: preset,
-				OriginalEyeRequired: h > originalEyeAboveShortSide})
+			out = append(out, newQuality(preset, h, preset, preset))
 			below = preset
 			continue
 		}
@@ -469,8 +500,7 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 			if price == "" {
 				price = pricing.LifelikePresets[0] // below 1080: the 1080p price
 			}
-			out = append(out, quality{ID: qualityFull, LabelShortSide: short, Preset: preset, PricePreset: price,
-				OriginalEyeRequired: short > originalEyeAboveShortSide})
+			out = append(out, newQuality(qualityFull, short, preset, price))
 		}
 		break
 	}
