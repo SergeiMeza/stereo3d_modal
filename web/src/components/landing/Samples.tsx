@@ -39,6 +39,11 @@ function SampleTile({ sample }: { sample: Sample }) {
         {playing ? (
           <video
             key={look}
+            // muted autoplay can still be refused (data saver, background
+            // tab): ask once
+            ref={(v) => {
+              if (v) void Promise.resolve(v.play()).catch(() => undefined);
+            }}
             autoPlay
             loop
             muted
