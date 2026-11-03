@@ -118,12 +118,13 @@ describe("RequireAuth (mock mode)", () => {
   });
 });
 
-describe("AccountScreen billing card (mock mode)", () => {
-  it("shows the saved card from GET /v1/billing", async () => {
+describe("AccountScreen billing (mock mode)", () => {
+  it("points to Billing for the card and purchase history (S3D-57)", () => {
     renderWithAuth(<AccountScreen />);
-    const card = await screen.findByTestId("card-on-file");
-    expect(card.textContent).toContain("4242");
-    expect(card.textContent?.toLowerCase()).toContain("visa");
+    expect(
+      screen.getByRole("link", { name: "Billing" }).getAttribute("href"),
+    ).toBe("/account/billing");
+    expect(screen.queryByTestId("card-on-file")).toBeNull();
   });
 });
 
@@ -153,18 +154,6 @@ describe("AccountScreen (mock mode)", () => {
     expect(await screen.findByText("Copied")).toBeTruthy();
   });
 
-  it("opens the Stripe billing portal from Manage billing", async () => {
-    const navigate = vi.fn();
-    renderWithAuth(<AccountScreen navigateExternal={navigate} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Manage billing" }));
-
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith(
-        "https://billing.stripe.com/p/session/mock",
-      ),
-    );
-  });
 });
 
 describe("AccountScreen delete (mock mode)", () => {

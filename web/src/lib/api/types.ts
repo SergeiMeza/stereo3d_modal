@@ -558,6 +558,35 @@ export function newProjectMethod(_limits?: GatewayLimits | null): Method {
 
 // ---------------------------------------------------------------- billing
 
+/** GET /v1/billing/history (S3D-57): card charges as on the statement,
+ * newest first. One charge may cover several small runs. */
+export interface BillingHistory {
+  charges: BillingCharge[];
+}
+
+export interface BillingCharge {
+  charge_id: string;
+  created_at: string;
+  amount_cents: number;
+  currency: string;
+  card?: { brand: string; last4: string };
+  status: "paid" | "refunded" | "failed";
+  /** Stripe's hosted receipt */
+  receipt_url?: string;
+  items: BillingChargeItem[];
+}
+
+export interface BillingChargeItem {
+  conversion_id: string;
+  project_id: string;
+  project_name?: string;
+  step: Step;
+  preset?: Preset;
+  from_frame?: number;
+  to_frame?: number;
+  amount_cents: number;
+}
+
 /** The saved default card, as cached by the gateway. */
 export interface BillingCard {
   brand: string;

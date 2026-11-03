@@ -1651,6 +1651,72 @@ export const handlers = [
     return HttpResponse.json(billingStatus());
   }),
 
+  // GET /v1/billing/history (S3D-57): card charges, newest first — a
+  // run over the pre-charge threshold alone, smaller runs grouped per day
+  http.get(`${GATEWAY}/v1/billing/history`, () => {
+    const card = mockDb.billing.card
+      ? { brand: mockDb.billing.card.brand, last4: mockDb.billing.card.last4 }
+      : undefined;
+    const runs = [...mockDb.conversions.values()].filter((c) =>
+      ["charged", "refunded", "refund_pending", "charge_failed", "batched"].includes(
+        c.billing?.status ?? "",
+      ),
+    );
+    const item = (c: Conversion) => {
+      const p = mockDb.projects.get(c.project_id ?? "");
+      return {
+        conversion_id: c.conversion_id,
+        project_id: c.project_id ?? "",
+        project_name: p?.name,
+        step: c.step ?? "production",
+        preset: c.params.preset,
+        from_frame: c.params.from_frame,
+        to_frame: c.params.to_frame,
+        amount_cents: c.quote.amount_cents,
+      };
+    };
+    const status = (s: string | undefined) =>
+      s === "refunded" || s === "refund_pending"
+        ? "refunded"
+        : s === "charge_failed"
+          ? "failed"
+          : "paid";
+    const charges: Record<string, unknown>[] = [];
+    const groups = new Map<string, Conversion[]>();
+    for (const c of runs) {
+      if (c.charge_timing === "before" || c.quote.amount_cents > mockDb.chargeBeforeCents) {
+        charges.push({
+          charge_id: `ch_${c.conversion_id}`,
+          created_at: c.updated_at,
+          amount_cents: c.billing?.charged_cents ?? c.quote.amount_cents,
+          currency: "usd",
+          ...(card ? { card } : {}),
+          status: status(c.billing?.status),
+          receipt_url: `https://pay.stripe.com/receipts/mock/${c.conversion_id}`,
+          items: [item(c)],
+        });
+      } else {
+        const day = c.updated_at.slice(0, 10) + (c.billing?.status === "charge_failed" ? ":f" : "");
+        groups.set(day, [...(groups.get(day) ?? []), c]);
+      }
+    }
+    for (const [day, list] of groups) {
+      const failed = day.endsWith(":f");
+      charges.push({
+        charge_id: `ch_${day.replace(/[^0-9a-z]/gi, "")}`,
+        created_at: list[list.length - 1].updated_at,
+        amount_cents: list.reduce((n, c) => n + c.quote.amount_cents, 0),
+        currency: "usd",
+        ...(card ? { card } : {}),
+        status: failed ? "failed" : "paid",
+        ...(failed ? {} : { receipt_url: `https://pay.stripe.com/receipts/mock/${day}` }),
+        items: list.map(item),
+      });
+    }
+    charges.sort((a, b) => ((a.created_at as string) < (b.created_at as string) ? 1 : -1));
+    return HttpResponse.json({ charges });
+  }),
+
   // SetupIntent material for the onboarding Payment Element.
   http.post(`${GATEWAY}/v1/billing/setup-intent`, () => {
     return HttpResponse.json({

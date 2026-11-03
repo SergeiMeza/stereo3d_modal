@@ -8,6 +8,7 @@ import type {
   APIErrorBody,
   BillingSettleResult,
   BillingSetupTicket,
+  BillingHistory,
   BillingStatus,
   Conversion,
   CreateProjectRequest,
@@ -218,6 +219,11 @@ export class GatewayClient {
    * heals the default payment method after onboarding / a portal edit. */
   getBilling(): Promise<BillingStatus> {
     return this.request("GET", "/v1/billing");
+  }
+
+  /** Card charges as on the statement (S3D-57). */
+  getBillingHistory(): Promise<BillingHistory> {
+    return this.request("GET", "/v1/billing/history");
   }
 
   /** SetupIntent material for the onboarding card capture. */

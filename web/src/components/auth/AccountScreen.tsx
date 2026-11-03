@@ -21,10 +21,8 @@ import { completeChargeAction } from "@/components/billing/settleAction";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
-import { useLimits } from "@/lib/api/useLimits";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
-import { chargeRule, prechargeThreshold } from "@/lib/billingCopy";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "google.com": "Google",
@@ -51,7 +49,7 @@ function deleteErrorMessage(err: unknown): string {
     const cents = err.details?.amount_cents;
     const amount =
       typeof cents === "number" && cents > 0 ? ` (${formatCents(cents)})` : "";
-    return `Payment needed${amount}: update your card under Manage billing, then delete your account.`;
+    return `Payment needed${amount}: update your card on Billing, then delete your account.`;
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
     return "A run is still going. Cancel it or wait for it to finish, then delete your account.";
@@ -59,19 +57,10 @@ function deleteErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Failed to delete account.";
 }
 
-export interface AccountScreenProps {
-  /** Full-page redirect — injectable so tests can observe the Stripe
-   * billing-portal navigation (jsdom can't navigate). */
-  navigateExternal?: (url: string) => void;
-}
-
-export default function AccountScreen({
-  navigateExternal = (url) => window.location.assign(url),
-}: AccountScreenProps = {}) {
+export default function AccountScreen() {
   const { user, signOutUser, updateDisplayName } = useAuth();
   const gateway = useGateway();
   const billing = useBilling();
-  const limits = useLimits();
   const router = useRouter();
 
   const [name, setName] = useState(user?.displayName ?? "");
@@ -83,28 +72,8 @@ export default function AccountScreen({
   const [confirmText, setConfirmText] = useState("");
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [billingPending, setBillingPending] = useState(false);
-  const [billingError, setBillingError] = useState<string | null>(null);
 
   if (user === null) return null;
-
-  async function openBillingPortal() {
-    setBillingPending(true);
-    setBillingError(null);
-    try {
-      const { url } = await gateway.createBillingPortalSession(
-        window.location.href,
-      );
-      navigateExternal(url);
-    } catch (err) {
-      setBillingPending(false);
-      setBillingError(
-        err instanceof Error
-          ? err.message
-          : "Could not open the billing portal.",
-      );
-    }
-  }
 
   async function saveName(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -249,38 +218,12 @@ export default function AccountScreen({
 
       <CardShell title="Billing">
         <p className="text-fg-muted">
-          Billing is pay-as-you-go: every run shows its price before it
-          starts. {chargeRule(prechargeThreshold(limits))} Saved payment
-          methods, invoices, and receipts live in the Stripe billing portal.
+          Your card and purchase history are on{" "}
+          <Link href="/account/billing" className="text-primary hover:underline">
+            Billing
+          </Link>
+          .
         </p>
-        {billing.status?.card ? (
-          <p className="text-fg" data-testid="card-on-file">
-            Card on file:{" "}
-            <span className="capitalize">{billing.status.card.brand}</span> ••••{" "}
-            {billing.status.card.last4} · expires{" "}
-            {String(billing.status.card.exp_month).padStart(2, "0")}/
-            {billing.status.card.exp_year}
-          </p>
-        ) : billing.status !== null && !billing.status.has_payment_method ? (
-          <p className="text-fg">
-            No payment method saved yet —{" "}
-            <Link href="/onboarding" className="text-primary hover:underline">
-              set up billing
-            </Link>
-            .
-          </p>
-        ) : null}
-        <button
-          type="button"
-          disabled={billingPending}
-          onClick={() => void openBillingPortal()}
-          className="rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg transition-colors hover:border-primary/60 disabled:opacity-50"
-        >
-          {billingPending ? "Opening…" : "Manage billing"}
-        </button>
-        {billingError !== null && (
-          <p className="text-xs text-destructive">{billingError}</p>
-        )}
       </CardShell>
 
       <CardShell title="Session">
