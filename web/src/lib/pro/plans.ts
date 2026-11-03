@@ -4,13 +4,13 @@
  * SDK. Prices are RevenueCat's formatted strings in the buyer's currency;
  * nothing here hardcodes an amount except the mock plans.
  *
- * No Lifetime on the web (owner, 2026-11-03): the plans are Weekly,
- * Monthly, Yearly and the 3-month pass. A Lifetime package in the offering
- * is skipped. App Store Lifetime owners are still Pro (the gateway reads
- * the `pro` entitlement).
+ * Web Pro is Weekly, Monthly and Yearly only (owner, 2026-11-03): the
+ * $rc_weekly, $rc_monthly and $rc_annual packages. Any other package in
+ * the offering (Lifetime, a pass) is skipped. App Store Lifetime and pass
+ * holders are still Pro when the gateway says so (the `pro` entitlement).
  */
 
-export type PlanKind = "weekly" | "monthly" | "yearly" | "pass";
+export type PlanKind = "weekly" | "monthly" | "yearly";
 
 export interface ProPlan {
   /** RevenueCat package identifier ($rc_monthly…) */
@@ -21,8 +21,6 @@ export interface ProPlan {
   price: string;
   amountMicros: number;
   currency: string;
-  /** a pass's months (3) */
-  months: number | null;
   /** introductory price: "$3.99" for `cycles` periods of `per` */
   intro: { price: string; per: PlanKind | null; cycles: number } | null;
 }
@@ -44,8 +42,6 @@ export interface PackageLike {
   };
 }
 
-const PASS_RE = /_pass_(\d+)m/;
-
 const PERIOD_KIND: Record<string, PlanKind> = {
   P1W: "weekly",
   P7D: "weekly",
@@ -61,18 +57,14 @@ const PACKAGE_KIND: Record<string, PlanKind> = {
 };
 
 /** Order on the page: the app's paywall leads with Weekly (PRC-05). */
-const ORDER: PlanKind[] = ["weekly", "monthly", "yearly", "pass"];
+const ORDER: PlanKind[] = ["weekly", "monthly", "yearly"];
 
 export function planFromPackage(p: PackageLike): ProPlan | null {
   const prod = p.webBillingProduct;
-  const pass = PASS_RE.exec(prod.identifier);
-  let kind: PlanKind | undefined;
-  if (pass) kind = "pass";
-  else if (prod.productType === "subscription") {
-    kind = PERIOD_KIND[prod.normalPeriodDuration ?? ""] ?? PACKAGE_KIND[p.packageType];
-  }
-  // anything else one-time (Lifetime) isn't sold on the web
-  if (!kind) return null;
+  // only the three subscription packages; Lifetime, passes and anything
+  // custom aren't sold on the web
+  const kind = PACKAGE_KIND[p.identifier] ?? PACKAGE_KIND[p.packageType];
+  if (!kind || prod.productType !== "subscription") return null;
   const ip = prod.introPricePhase;
   return {
     id: p.identifier,
@@ -81,7 +73,6 @@ export function planFromPackage(p: PackageLike): ProPlan | null {
     price: prod.currentPrice.formattedPrice,
     amountMicros: prod.currentPrice.amountMicros,
     currency: prod.currentPrice.currency,
-    months: pass ? Number(pass[1]) : null,
     intro:
       ip?.price != null
         ? {
@@ -107,23 +98,21 @@ const NAME: Record<PlanKind, string> = {
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
-  pass: "Pass",
 };
 
-const UNIT: Partial<Record<PlanKind, string>> = {
+const UNIT: Record<PlanKind, string> = {
   weekly: "week",
   monthly: "month",
   yearly: "year",
 };
 
 export function planName(p: ProPlan): string {
-  return p.kind === "pass" ? `${p.months ?? 3} months` : NAME[p.kind];
+  return NAME[p.kind];
 }
 
-/** "/ week"; "once" for a pass. */
+/** "/ week" */
 export function planCadence(p: ProPlan): string {
-  const unit = UNIT[p.kind];
-  return unit ? `/ ${unit}` : "once";
+  return `/ ${UNIT[p.kind]}`;
 }
 
 /** "$3.99 / week for 4 weeks", "$47.99 the first year"; null without one. */
@@ -137,16 +126,15 @@ export function introLine(p: ProPlan): string | null {
 
 /** What the plan's footnote says it does. */
 export function planTerms(p: ProPlan): string {
-  if (p.kind === "pass") return `${p.months ?? 3} months of Pro. Doesn't renew.`;
+  void p;
   return "Renews until you cancel.";
 }
 
-/** Price per month in micros (for "best value"; passes: null). */
-export function monthlyMicros(p: ProPlan): number | null {
+/** Price per month in micros (for "best value"). */
+export function monthlyMicros(p: ProPlan): number {
   if (p.kind === "weekly") return (p.amountMicros * 52) / 12;
   if (p.kind === "monthly") return p.amountMicros;
-  if (p.kind === "yearly") return p.amountMicros / 12;
-  return null;
+  return p.amountMicros / 12;
 }
 
 /** The one-line anchor for the quote's sheet: Monthly when sold, else the
@@ -154,16 +142,12 @@ export function monthlyMicros(p: ProPlan): number | null {
 export function anchorPlan(plans: ProPlan[]): ProPlan | null {
   const monthly = plans.find((p) => p.kind === "monthly");
   if (monthly) return monthly;
-  const recurring = plans
-    .map((p) => [p, monthlyMicros(p)] as const)
-    .filter((x): x is readonly [ProPlan, number] => x[1] !== null)
-    .sort((a, b) => a[1] - b[1]);
+  const recurring = plans.map((p) => [p, monthlyMicros(p)] as const).sort((a, b) => a[1] - b[1]);
   return recurring[0]?.[0] ?? plans[0] ?? null;
 }
 
 export function anchorLine(p: ProPlan): string {
-  const unit = UNIT[p.kind];
-  return unit ? `${p.price} a ${unit}` : `${p.price} once`;
+  return `${p.price} a ${UNIT[p.kind]}`;
 }
 
 /** The approved web price list (S3D-68), for mock mode and the dev preview. */
@@ -175,7 +159,6 @@ export const MOCK_PLANS: ProPlan[] = [
     price: "$5.99",
     amountMicros: 5_990_000,
     currency: "USD",
-    months: null,
     intro: { price: "$3.99", per: "weekly", cycles: 4 },
   },
   {
@@ -185,7 +168,6 @@ export const MOCK_PLANS: ProPlan[] = [
     price: "$8.99",
     amountMicros: 8_990_000,
     currency: "USD",
-    months: null,
     intro: null,
   },
   {
@@ -195,17 +177,6 @@ export const MOCK_PLANS: ProPlan[] = [
     price: "$79.99",
     amountMicros: 79_990_000,
     currency: "USD",
-    months: null,
     intro: { price: "$47.99", per: "yearly", cycles: 1 },
-  },
-  {
-    id: "pass_3m",
-    productId: "web_pro_pass_3m_v1",
-    kind: "pass",
-    price: "$29.99",
-    amountMicros: 29_990_000,
-    currency: "USD",
-    months: 3,
-    intro: null,
   },
 ];

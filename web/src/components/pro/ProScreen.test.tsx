@@ -41,8 +41,9 @@ describe("/pro (mock mode)", () => {
     expect(weekly.getAttribute("aria-checked")).toBe("true");
     expect(weekly.textContent).toContain("$3.99 / week for 4 weeks");
     expect(screen.getByTestId("pro-plan-yearly").textContent).toContain("Save 26%");
-    fireEvent.click(screen.getByTestId("pro-plan-pass"));
-    expect(screen.getByText("3 months of Pro. Doesn't renew.")).toBeTruthy();
+    // Weekly, Monthly and Yearly only: no pass, no Lifetime (owner, 2026-11-03)
+    expect(screen.queryByTestId("pro-plan-pass")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Lifetime|3 months|Doesn't renew/);
   });
 
   it("buys, says welcome, links back to the video and drops stale quotes", async () => {

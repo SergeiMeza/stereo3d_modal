@@ -55,20 +55,18 @@ const PKGS: PackageLike[] = [
 describe("plans from RevenueCat packages", () => {
   it("maps kinds and orders them Weekly first, as the app does", () => {
     const plans = plansFromPackages(PKGS);
-    // no Lifetime on the web, even when the offering carries one
-    expect(plans.map((p) => p.kind)).toEqual(["weekly", "monthly", "yearly", "pass"]);
-    expect(plans.find((p) => p.kind === "pass")?.months).toBe(3);
+    // Weekly, Monthly, Yearly only: no Lifetime and no pass, even when
+    // the offering carries them (owner, 2026-11-03)
+    expect(plans.map((p) => p.id)).toEqual(["$rc_weekly", "$rc_monthly", "$rc_annual"]);
   });
 
   it("labels intro offers, cadence and terms", () => {
-    const [weekly, monthly, yearly, pass] = plansFromPackages(PKGS);
+    const [weekly, monthly, yearly] = plansFromPackages(PKGS);
     expect(introLine(weekly)).toBe("$3.99 / week for 4 weeks");
     expect(introLine(yearly)).toBe("$47.99 the first year");
     expect(introLine(monthly)).toBeNull();
     expect(planCadence(monthly)).toBe("/ month");
-    expect(planCadence(pass)).toBe("once");
-    expect(planName(pass)).toBe("3 months");
-    expect(planTerms(pass)).toBe("3 months of Pro. Doesn't renew.");
+    expect(planName(yearly)).toBe("Yearly");
     expect(planTerms(weekly)).toBe("Renews until you cancel.");
   });
 
@@ -82,7 +80,9 @@ describe("plans from RevenueCat packages", () => {
   });
 
   it("mock plans carry the approved US prices (S3D-68)", () => {
-    expect(MOCK_PLANS.map((p) => p.price)).toEqual(["$5.99", "$8.99", "$79.99", "$29.99"]);
+    expect(MOCK_PLANS.map((p) => p.price)).toEqual(["$5.99", "$8.99", "$79.99"]);
     expect(planFromPackage(PKGS[0])?.kind).toBe("yearly");
+    expect(planFromPackage(PKGS[1])).toBeNull(); // pass_3m
+    expect(planFromPackage(PKGS[3])).toBeNull(); // $rc_lifetime
   });
 });

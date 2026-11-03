@@ -21,7 +21,7 @@ import type { ProPlan } from "@/lib/pro/plans";
 
 export interface ProStatus {
   pro: boolean;
-  /** what makes them Pro: a product id ("pro_subs_1y_v1", "web_pro_pass_3m_v1") */
+  /** what makes them Pro: a product id ("pro_subs_1y_v1"; App Store passes count too) */
   via?: string;
   /** false when RevenueCat couldn't tell */
   known: boolean;
