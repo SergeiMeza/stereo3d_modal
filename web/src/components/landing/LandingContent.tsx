@@ -19,7 +19,7 @@ import { Clock, Layers, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
-import { HeroCompare } from "@/components/landing/HeroCompare";
+import { HeroLoop } from "@/components/landing/HeroLoop";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { Samples } from "@/components/landing/Samples";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
@@ -127,7 +127,7 @@ export function LandingContent() {
             </Link>
           </p>
         </div>
-        <HeroCompare />
+        <HeroLoop />
       </section>
 
       {/* Benefits */}

@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * "What happens to your video" — the three conversion passes, each
  * illustrated with a short looping clip made from our own footage
@@ -9,12 +7,11 @@
  * Copy rules from web/docs/LANDING.md apply: say what it does, no internal
  * pipeline terms.
  *
- * Each clip has a WebM (VP9) and an MP4 (H.264) source and a poster. The
- * video plays only while on screen and never when the viewer asked for
- * reduced motion: then the poster is all they see.
+ * Each clip has a WebM (VP9) and an MP4 (H.264) source and a poster
+ * (LoopVideo: plays only while on screen, poster under reduced motion).
  */
 
-import { useEffect, useRef } from "react";
+import { LoopVideo } from "@/components/landing/LoopVideo";
 
 const STEPS = [
   {
@@ -49,65 +46,6 @@ const STEPS = [
   },
 ];
 
-/** A muted loop that plays only while visible and only if motion is OK. */
-function StepClip({ clip, label }: { clip: string; label: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const video = ref.current;
-    if (!video) return;
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let visible = false;
-    const sync = () => {
-      if (visible && !motion.matches) {
-        // play() is a promise in browsers and missing in some test DOMs
-        Promise.resolve()
-          .then(() => video.play())
-          .catch(() => {});
-      } else {
-        video.pause();
-      }
-    };
-    const observer =
-      typeof IntersectionObserver === "undefined"
-        ? null
-        : new IntersectionObserver(
-            ([entry]) => {
-              visible = entry.isIntersecting;
-              sync();
-            },
-            { rootMargin: "200px" },
-          );
-    if (observer) {
-      observer.observe(video);
-    } else {
-      visible = true;
-      sync();
-    }
-    motion.addEventListener("change", sync);
-    return () => {
-      observer?.disconnect();
-      motion.removeEventListener("change", sync);
-    };
-  }, []);
-
-  return (
-    <video
-      ref={ref}
-      loop
-      muted
-      playsInline
-      preload="none"
-      poster={`${clip}.jpg`}
-      aria-label={label}
-      className="aspect-video w-full rounded-lg border border-edge bg-card object-cover"
-    >
-      <source src={`${clip}.webm`} type="video/webm" />
-      <source src={`${clip}.mp4`} type="video/mp4" />
-    </video>
-  );
-}
-
 export function PipelineSteps() {
   return (
     <div className="space-y-12">
@@ -128,7 +66,11 @@ export function PipelineSteps() {
             </p>
           </div>
           <div className={index % 2 === 1 ? "lg:order-1" : undefined}>
-            <StepClip clip={step.clip} label={step.label} />
+            <LoopVideo
+              base={step.clip}
+              label={step.label}
+              className="aspect-video w-full rounded-lg border border-edge bg-card object-cover"
+            />
           </div>
         </div>
       ))}

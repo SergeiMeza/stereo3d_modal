@@ -53,6 +53,13 @@ internal pipeline names.
 > (`HeroCompare.tsx`): the Mustang sample's 2D frame (cropped to match the
 > 3D result's framing) and the same frame in red-cyan, a range input as
 > the divider. Two WebP stills in `public/landing/samples/`, no video.
+> Later in 2026-11 the hero became a loop (`HeroLoop.tsx`, `LoopVideo.tsx`):
+> `public/landing/hero/diner-2d-3d.{webm,mp4,jpg}`, 7.5 s, 960×540, our
+> diner clip — left of a gliding line the 2D original, right of it the same
+> moment seen from a swaying viewpoint rendered from the real 3D scene (the
+> flat side is aligned to the render so the seam shows only depth). No
+> red-cyan; the poster stays under reduced motion. `HERO_COMPARE` in
+> `samples.ts` and its two WebP stills are no longer used.
 > A **Samples** section (`Samples.tsx`, `src/lib/samples.ts`) follows the
 > three steps: five 15 s clips made with Lifelike 3D (test service,
 > preset 4K, capped at the 1440p source), each with downloads for Vision

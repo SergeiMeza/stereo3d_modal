@@ -69,11 +69,13 @@ describe("Samples (2026-11)", () => {
         <LandingContent />
       </AuthProvider>,
     );
-    // before/after in the hero: a range input over two stills
-    const compare = screen.getByTestId("hero-compare");
+    // the hero's 2D → 3D loop: WebM then MP4, a poster for reduced motion
+    const hero = screen.getByTestId("hero-loop");
+    const video = hero.querySelector("video");
+    expect(video?.getAttribute("poster")).toBe("/landing/hero/diner-2d-3d.jpg");
     expect(
-      compare.querySelector('input[type="range"]')?.getAttribute("aria-label"),
-    ).toBe("Compare your video with Lifelike 3D");
+      [...hero.querySelectorAll("source")].map((s) => s.getAttribute("type")),
+    ).toEqual(["video/webm", "video/mp4"]);
     for (const slug of [
       "mustang-golden-hour",
       "pool-day",
