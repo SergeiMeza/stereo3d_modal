@@ -252,3 +252,69 @@ func TestCountedJitterIsNotVFR(t *testing.T) {
 		t.Fatalf("jitter %v", p.PricingFPS())
 	}
 }
+
+// 3DS VFR guard: the plan-time refusal above 120 fps fails the run on the
+// normal path (hold released, nothing charged) with plain copy; the
+// pipeline's source_vfr lands on the project; the frames check reads the
+// job's video_frames, never the header.
+func TestPipelineVFRFacts(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	jobMeta := map[string]any{}
+	status, jobErr := "failed", "Frame rate above 120 fps is not supported."
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": status, "error": jobErr, "metadata": jobMeta})
+	}))
+	t.Cleanup(srv.Close)
+	s.Lifelike = modalapi.New(srv.URL, "", "")
+
+	p := &store.Project{ID: store.NewID(), UID: "u1", Method: store.MethodLifelike,
+		Probe: &store.Probe{FPS: 30, NumFrames: 3000, DurationS: 100}, Analyze: store.Analyze{State: store.AnalyzeSucceeded}}
+	if err := s.Store.CreateProject(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	run := func(pi string) *store.Conversion {
+		fake.pis[pi] = map[string]any{"status": "requires_capture", "amount_received": int64(0)}
+		now := time.Now()
+		c := &store.Conversion{ID: store.NewID(), UID: "u1", ProjectID: p.ID, Kind: "video", Method: store.MethodLifelike,
+			Step: store.StepProduction, State: store.StateProcessing, Source: store.Source{FPS: 30, Frames: 3000},
+			Params: store.Params{Preset: "1080p"}, Quote: store.Quote{AmountCents: 1200, Currency: "usd", Breakdown: map[string]any{"billable_seconds": 100.0}},
+			Stripe: store.Stripe{PaymentIntentID: pi, PIStatus: "requires_capture"},
+			Modal:  store.Modal{JobID: "j1", SubmittedAt: &now}}
+		if err := s.Store.CreateConversion(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+
+	got, err := s.refreshFromModal(ctx, run("pi_fps"))
+	if err != nil || got.State != store.StateFailed || got.Error == nil || got.Error.Code != "source_fps_too_high" ||
+		got.Error.UserMessage != "This video's frame rate is above 120 fps, which isn't supported." {
+		t.Fatalf("failed run %+v %v", got.Error, err)
+	}
+	if fake.pis["pi_fps"]["status"] != "canceled" || got.Stripe.CapturedCents != 0 {
+		t.Fatalf("hold not released: %v %+v", fake.pis["pi_fps"], got.Stripe)
+	}
+
+	// A VFR source rendered: video_frames is the billed count; the header
+	// (3000 frames) never enters the check.
+	status, jobErr = "in_progress", ""
+	jobMeta = map[string]any{"source_vfr": true, "source_counted_frames": 3120, "video_frames": 3000}
+	c := run("pi_vfr")
+	got, _ = s.refreshFromModal(ctx, c)
+	if got.Modal.VideoFrames != 3000 || got.Modal.SourceVFR == nil || !*got.Modal.SourceVFR {
+		t.Fatalf("modal %+v", got.Modal)
+	}
+	pp, _ := s.Store.GetProject(ctx, p.ID)
+	if pp.Probe.SourceVFR == nil || !*pp.Probe.SourceVFR || pp.Probe.SourceCountedFrames != 3120 || pp.Probe.NumFrames != 3000 {
+		t.Fatalf("project probe %+v", pp.Probe)
+	}
+	got.Modal.VideoFrames = 3000
+	s.checkFramesOverQuote(ctx, got)
+	got.Source.Frames = 9999 // the quote's length counts, not a header claim
+	got.Modal.VideoFrames = 3100
+	s.checkFramesOverQuote(ctx, got)
+	if cs, _ := s.Store.ListCasesByConversion(ctx, got.ID, 5); len(cs) != 1 {
+		t.Fatalf("cases %d", len(cs))
+	}
+}

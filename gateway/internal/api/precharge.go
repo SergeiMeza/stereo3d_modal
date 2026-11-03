@@ -441,6 +441,9 @@ const serversBusyError = "All our servers are busy right now"
 // failureCopy is a failed run's error code and user message. Either way
 // the money comes back (refund) or was never taken; the copy says which.
 func failureCopy(c *store.Conversion, internalErr string) (code, msg string) {
+	if strings.Contains(internalErr, fpsTooHighError) {
+		return "source_fps_too_high", "This video's frame rate is above 120 fps, which isn't supported."
+	}
 	if strings.Contains(internalErr, serversBusyError) {
 		return "servers_busy", "All our servers are busy right now, so this run didn't start and " +
 			notChargedPhrase(c) + ". Please try again later. Quote this ID to support: " + c.ID

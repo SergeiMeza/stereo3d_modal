@@ -315,6 +315,21 @@ type IntroFacts struct {
 	OutputDurationS float64
 }
 
+// SourceVFR is the pipeline's own read of the source (3DS VFR guard,
+// 2026-11-04): whether it's variable-rate (resampled to a constant grid at
+// its measured average rate) and the frames it counted. vfr is nil on
+// jobs that don't report it.
+func (j *Job) SourceVFR() (vfr *bool, counted int) {
+	var m struct {
+		SourceVFR           *bool `json:"source_vfr"`
+		SourceCountedFrames int   `json:"source_counted_frames"`
+	}
+	if len(j.Metadata) == 0 || json.Unmarshal(j.Metadata, &m) != nil {
+		return nil, 0
+	}
+	return m.SourceVFR, m.SourceCountedFrames
+}
+
 // Intro decodes them; zero values on older jobs.
 func (j *Job) Intro() IntroFacts {
 	var m struct {

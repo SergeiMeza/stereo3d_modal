@@ -633,7 +633,18 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   reports `video_frames` more than 1% over the frames it was quoted for
   (length × target or priced rate) still settles at the quote; Slack
   `frames_over_quote` and an owner-only support case
-  (`frames_over_quote`, one per run) record it.
+  (`frames_over_quote`, one per run) record it. The check reads the
+  job's `metadata.video_frames` (the pipeline's billed count, ≈ duration
+  × output fps, final at plan time) against the quote's length × rate,
+  never `nb_frames` or duration × `r_frame_rate`. The pipeline's own
+  read (3DS, 2026-11-04: VFR sources resampled to a constant grid at the
+  measured average) is kept on the run (`modal.source_vfr`,
+  `source_counted_frames`) and the project probe (`source_vfr`,
+  `source_counted_frames`, first run that reports it). Its plan-time
+  refusal "Frame rate above 120 fps is not supported." fails the run on
+  the normal path (hold released or refunded, nothing charged) with code
+  `source_fps_too_high` and "This video's frame rate is above 120 fps,
+  which isn't supported."
 - **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay

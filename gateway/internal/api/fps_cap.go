@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -284,5 +285,28 @@ func (s *Service) checkFramesOverQuote(ctx context.Context, c *store.Conversion)
 		Related: store.CaseRelated{ConversionIDs: []string{c.ID}}, DedupeKey: "frames_over_quote:" + c.ID}
 	if _, err := s.openCase(ctx, cs, "system", text); err != nil {
 		slog.ErrorContext(ctx, "frames over quote case failed", "conversion_id", c.ID, "err", err)
+	}
+}
+
+// fpsTooHighError is the render pipeline's plan-time refusal of a source
+// above 120 fps (before any GPU work); failureCopy maps it to plain copy.
+const fpsTooHighError = "Frame rate above 120 fps is not supported"
+
+// foldSourceVFR copies the pipeline's read of the source (source_vfr,
+// source_counted_frames) onto the project for support cases, once per run.
+func (s *Service) foldSourceVFR(ctx context.Context, conv *store.Conversion, job *modalapi.Job) {
+	vfr, counted := job.SourceVFR()
+	if vfr == nil || conv.ProjectID == "" || conv.Modal.SourceVFR != nil || s.Store == nil {
+		return
+	}
+	_, err := s.Store.UpdateProject(ctx, conv.ProjectID, func(p *store.Project) error {
+		if p.Probe == nil {
+			p.Probe = &store.Probe{}
+		}
+		p.Probe.SourceVFR, p.Probe.SourceCountedFrames = vfr, counted
+		return nil
+	})
+	if err != nil {
+		slog.WarnContext(ctx, "source vfr fold failed", "conversion_id", conv.ID, "project_id", conv.ProjectID, "err", err)
 	}
 }

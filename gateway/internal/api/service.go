@@ -348,6 +348,7 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 		return conv, nil // transient; next poll retries
 	}
 
+	s.foldSourceVFR(ctx, conv, job)
 	now := time.Now().UTC()
 	switch job.Status {
 	case "completed":
@@ -1154,6 +1155,9 @@ func noteScheduling(c *store.Conversion, job *modalapi.Job) {
 	}
 	if usd := job.StageUSD("brand_intro"); usd > 0 {
 		c.Modal.BrandIntroUSD = usd
+	}
+	if vfr, n := job.SourceVFR(); vfr != nil {
+		c.Modal.SourceVFR, c.Modal.SourceCountedFrames = vfr, n
 	}
 	if p, n := job.Scheduling(); p != "" || n > 0 {
 		if p != "" {

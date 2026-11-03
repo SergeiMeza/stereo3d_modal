@@ -350,13 +350,17 @@ type Modal struct {
 	// Brand intro (BL-25) as the job reported it: never billed. IntroFrames
 	// are the intro's (part 1 only); VideoFrames the customer's video
 	// (what was quoted); BrandIntroUSD the brand_intro cost stage.
-	IntroS            int     `firestore:"intro_s,omitempty" json:"-"`
-	IntroFrames       int     `firestore:"intro_frames,omitempty" json:"-"`
-	VideoFrames       int     `firestore:"video_frames,omitempty" json:"-"`
-	BrandIntroUSD     float64 `firestore:"brand_intro_usd,omitempty" json:"-"`
-	Priority          string  `firestore:"priority,omitempty" json:"-"`
-	GPUWorkers        int     `firestore:"max_gpu_workers,omitempty" json:"-"`
-	ExpressCostFactor float64 `firestore:"express_cost_factor,omitempty" json:"-"`
+	IntroS        int     `firestore:"intro_s,omitempty" json:"-"`
+	IntroFrames   int     `firestore:"intro_frames,omitempty" json:"-"`
+	VideoFrames   int     `firestore:"video_frames,omitempty" json:"-"`
+	BrandIntroUSD float64 `firestore:"brand_intro_usd,omitempty" json:"-"`
+	// SourceVFR / SourceCountedFrames: the pipeline's read of the source
+	// (variable-rate, frames it counted); nil on jobs that don't say.
+	SourceVFR           *bool   `firestore:"source_vfr,omitempty" json:"-"`
+	SourceCountedFrames int     `firestore:"source_counted_frames,omitempty" json:"-"`
+	Priority            string  `firestore:"priority,omitempty" json:"-"`
+	GPUWorkers          int     `firestore:"max_gpu_workers,omitempty" json:"-"`
+	ExpressCostFactor   float64 `firestore:"express_cost_factor,omitempty" json:"-"`
 }
 
 // Part is one file of a split output (metadata.parts of the job record):
@@ -635,6 +639,10 @@ type Probe struct {
 	CountedFrames int `firestore:"counted_frames,omitempty" json:"counted_frames,omitempty"`
 	// VFR: the counted rate is above the stated one (more than 1%).
 	VFR bool `firestore:"vfr,omitempty" json:"vfr,omitempty"`
+	// SourceVFR / SourceCountedFrames: the render pipeline's own read of
+	// the source, from the first run that reports it (for support cases).
+	SourceVFR           *bool `firestore:"source_vfr,omitempty" json:"source_vfr,omitempty"`
+	SourceCountedFrames int   `firestore:"source_counted_frames,omitempty" json:"source_counted_frames,omitempty"`
 }
 
 // CountedFPS is the counted frames over the duration (0 = not counted).
