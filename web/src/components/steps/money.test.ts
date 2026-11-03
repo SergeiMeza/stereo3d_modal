@@ -8,7 +8,7 @@ describe("formatCents", () => {
     expect(formatCents(5)).toBe("$0.05");
     expect(formatCents(50)).toBe("$0.50");
     expect(formatCents(1234)).toBe("$12.34");
-    expect(formatCents(100000)).toBe("$1000.00");
+    expect(formatCents(100000)).toBe("$1,000.00");
   });
 
   it("formats negatives (discount lines) with a minus sign", () => {

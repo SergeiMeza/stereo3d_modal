@@ -275,7 +275,9 @@ function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string)
 
 /** spec v6: one open payment (a run's, or the settle's). */
 interface MockCheckout {
-  kind: "run" | "settle" | "setup" | "topup";
+  kind: "run" | "settle" | "setup" | "topup" | "plan";
+  /** kind "plan": business | studio */
+  plan?: "business" | "studio";
   conversion_id?: string;
   amount_cents: number;
   state: "open" | "paid" | "expired";
@@ -2049,6 +2051,8 @@ function billingStatus() {
     ...(b.pending ? { pending: b.pending } : {}),
     // spec v7: the prepaid balance (the batch pill's old field is gone)
     balance: prepaidSummary(),
+    // pricing 2026-11: Business / Studio
+    ...(b.plan ? { plan: b.plan } : {}),
     tier: {
       cap_cents: b.batchCapCents,
       window_hours: 1,
@@ -2639,6 +2643,33 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
+  // pricing 2026-11: Business / Studio subscription checkout
+  http.post(`${GATEWAY}/v1/billing/plan`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { plan?: string; ui?: string };
+    if (body.plan !== "business" && body.plan !== "studio") {
+      return err(400, "unknown_plan", "plan must be business or studio");
+    }
+    if (mockDb.billing.plan?.active) return err(409, "plan_active", "you already have a plan; cancel it before choosing another");
+    const secret = `cs_mock_plan_${body.plan}_${Math.random().toString(36).slice(2, 8)}`;
+    const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    mockDb.billing.checkouts.set(secret, {
+      kind: "plan",
+      plan: body.plan,
+      amount_cents: TIERS.plans[body.plan].monthly_cents,
+      state: "open",
+      expires_at,
+    });
+    return HttpResponse.json({ plan: body.plan, publishable_key: "pk_test_mock", checkout: { client_secret: secret, expires_at } });
+  }),
+
+  http.post(`${GATEWAY}/v1/billing/plan/cancel`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { resume?: boolean };
+    const plan = mockDb.billing.plan;
+    if (!plan?.active) return err(404, "no_plan", "you don't have a plan");
+    plan.cancel_at_period_end = !body.resume;
+    return HttpResponse.json(plan);
+  }),
+
   // spec v6: what our sheet's confirm does in the mock (in place of the
   // processor): paid / declined / processing / too_many
   http.post(`${GATEWAY}/__mock__/checkout/:secret/confirm`, ({ params }) => {
@@ -2647,6 +2678,29 @@ export const handlers = [
     if (!ch) return err(404, "not_found", "no such payment");
     if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    if (ch.kind === "plan" && ch.plan) {
+      ch.state = "paid";
+      const def = TIERS.plans[ch.plan];
+      const end = new Date();
+      end.setUTCMonth(end.getUTCMonth() + 1);
+      b.plan = {
+        plan: ch.plan,
+        name: def.name,
+        status: "active",
+        active: true,
+        monthly_cents: def.monthly_cents,
+        credit_cents: def.credit_cents,
+        credit_left_cents: def.credit_cents,
+        current_period_end: end.toISOString(),
+        cancel_at_period_end: false,
+      };
+      b.hasPaymentMethod = true;
+      if (b.methods.length === 0) {
+        b.card = { ...MOCK_CARD };
+        b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
+      }
+      return HttpResponse.json({ result: "paid" });
+    }
     if (ch.kind === "topup") {
       const pp = b.prepaid;
       const outcome = pp.nextTopup;

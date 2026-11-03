@@ -22,6 +22,8 @@ import { useAuth } from "@/lib/auth";
 import { CHARGED_AFTER } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 
+import { PlansSection } from "./PlansSection";
+
 /** Per-eye size of a quality for a 16:9 video. */
 function size169(p: Preset): string {
   const h = QUALITY_SHORT_SIDE[p];
@@ -39,10 +41,12 @@ function MethodPrices({
 }): JSX.Element | null {
   const m = pricing.methods[method];
   if (!m) return null;
-  const rows = m.presets.filter(
-    (p) => typeof m.production_cents_per_minute[p] === "number",
-  );
-  const from = Math.min(...rows.map((p) => m.production_cents_per_minute[p]!));
+  // pricing 2026-11: the list table, with the Pro price beside it
+  const tiers = method === "lifelike" ? pricing.tiers?.lifelike_cents_per_minute : undefined;
+  const list = tiers?.list ?? m.production_cents_per_minute;
+  const pro = tiers?.pro;
+  const rows = m.presets.filter((p) => typeof list[p] === "number");
+  const from = Math.min(...rows.map((p) => list[p]!));
   return (
     <section
       data-testid={`pricing-${method}`}
@@ -73,6 +77,7 @@ function MethodPrices({
             <th className="py-1.5 text-right font-normal">
               Per minute, {pricing.fps.base} fps
             </th>
+            {pro ? <th className="py-1.5 pl-4 text-right font-normal text-primary">With Pro</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -84,9 +89,12 @@ function MethodPrices({
                   {size169(p)}
                 </span>
               </td>
-              <td className="py-2 text-right font-mono">
-                {formatCents(m.production_cents_per_minute[p]!)}
-              </td>
+              <td className="py-2 text-right font-mono">{formatCents(list[p]!)}</td>
+              {pro ? (
+                <td data-testid={`pro-${p}`} className="py-2 pl-4 text-right font-mono text-primary">
+                  {pro[p] !== undefined ? formatCents(pro[p]!) : "–"}
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -102,6 +110,68 @@ function MethodPrices({
   );
 }
 
+/** Add-ons, free previews and top-ups: three small cards (pricing 2026-11). */
+function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
+  const a = pricing.addons ?? {};
+  const fp = pricing.free_previews;
+  const pct = (v?: number) => (v ? `+${Math.round(v * 100)}%` : "");
+  const addons: [string, string, string][] = [
+    ...(a.foveated ? ([["Foveated Detail", pct(a.foveated.pct), "More detail where you look"]] as [string, string, string][]) : []),
+    ...(a.master ? ([["Master bitrate", pct(a.master.pct), "Higher-bitrate files"]] as [string, string, string][]) : []),
+    ...(a.express ? ([["Express", pct(a.express.pct), "Up to about 2× faster on longer videos"]] as [string, string, string][]) : []),
+  ];
+  const card = "flex flex-col gap-3 rounded-xl border border-edge bg-card p-5";
+  return (
+    <div className="mx-auto mt-6 grid max-w-4xl gap-4 sm:grid-cols-3">
+      {addons.length > 0 ? (
+        <section data-testid="pricing-addons" className={card}>
+          <h2 className="text-sm font-semibold">Add-ons</h2>
+          <ul className="flex flex-col gap-2.5 text-sm">
+            {addons.map(([name, p, what]) => (
+              <li key={name} className="flex flex-col">
+                <span className="flex justify-between gap-2">
+                  {name}
+                  <span className="font-mono text-fg-muted">{p}</span>
+                </span>
+                <span className="text-xs text-fg-muted">{what}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {fp ? (
+        <section data-testid="pricing-free-previews" className={card}>
+          <h2 className="text-sm font-semibold">Free previews</h2>
+          <ul className="flex flex-col gap-2 text-sm">
+            <li className="flex justify-between gap-2">
+              Pro <span className="text-fg-muted tabular-nums">{fp.allowances.pro_monthly ?? 0} a month</span>
+            </li>
+            {pricing.plans?.business ? (
+              <li className="flex justify-between gap-2">
+                Business <span className="text-fg-muted tabular-nums">{pricing.plans.business.free_previews_per_period} a month</span>
+              </li>
+            ) : null}
+            {pricing.plans?.studio ? (
+              <li className="flex justify-between gap-2">
+                Studio <span className="text-fg-muted tabular-nums">{pricing.plans.studio.free_previews_per_period} a month</span>
+              </li>
+            ) : null}
+          </ul>
+          <p className="text-xs text-fg-muted">
+            {(fp.allowances.intro ?? 0) > 0 ? "Your first preview is free. " : ""}
+            {fp.unit_seconds} s each{fp.rollover ? "" : ", no rollover"}.
+          </p>
+        </section>
+      ) : null}
+      <section data-testid="pricing-topups" className={card}>
+        <h2 className="text-sm font-semibold">Balance</h2>
+        <p className="text-sm">Add funds from $10 and pay runs from your balance.</p>
+        <p className="text-xs text-fg-muted">Unspent funds can be refunded within 14 days.</p>
+      </section>
+    </div>
+  );
+}
+
 export function PricingScreen(): JSX.Element {
   const pricing = usePricing();
   const { user } = useAuth();
@@ -110,7 +180,9 @@ export function PricingScreen(): JSX.Element {
     <section className="mx-auto w-full max-w-4xl px-4 py-10">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Prices</h1>
-        <p className="mt-2 text-fg-muted">Pay per video. No subscription.</p>
+        <p className="mt-2 text-fg-muted">
+          {pricing?.plans ? "Pay per video, or save with a plan." : "Pay per video. No subscription."}
+        </p>
       </div>
       {pricing === null ? (
         <p className="mt-10 text-center text-fg-muted">Loading prices…</p>
@@ -121,6 +193,7 @@ export function PricingScreen(): JSX.Element {
           <div className="mx-auto mt-8 max-w-md">
             <MethodPrices pricing={pricing} method="lifelike" />
           </div>
+          {pricing.pricing_model === "tiers" ? <Extras pricing={pricing} /> : null}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center">
             <p data-testid="pricing-charge-line" className="text-fg-muted">
               {CHARGED_AFTER} Runs over{" "}
@@ -169,6 +242,11 @@ export function PricingScreen(): JSX.Element {
           </div>
         </>
       )}
+      {pricing?.plans ? (
+        <div className="mt-12">
+          <PlansSection pricing={pricing} />
+        </div>
+      ) : null}
       <div className="mt-8 flex justify-center">
         <Link
           href={user ? "/projects" : "/signin"}

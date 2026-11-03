@@ -24,6 +24,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    {
+      url: `${SITE_URL}/plans`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
     ...DEVICE_PAGES.map((d) => ({
       url: `${SITE_URL}/devices/${d.slug}`,
       lastModified,

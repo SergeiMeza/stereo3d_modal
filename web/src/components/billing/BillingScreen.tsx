@@ -23,6 +23,7 @@ import type { JSX } from "react";
 
 import { supportMailto } from "@/components/billing/BillingBanner";
 import { BalanceCard } from "@/components/billing/BalanceCard";
+import { PlanCard } from "@/components/billing/PlanCard";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
@@ -635,6 +636,7 @@ export function BillingScreen(): JSX.Element {
       ) : null}
 
       <BalanceCard />
+      <PlanCard />
 
       <MethodsSection />
       <CompanySection />

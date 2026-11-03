@@ -5,6 +5,7 @@
  */
 
 import type {
+  AccountPlan,
   BalanceEntry,
   BalanceSettings,
   BalanceSummary,
@@ -327,6 +328,26 @@ export class GatewayClient {
 
   getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
     return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  /** pricing 2026-11: start a Business or Studio plan (409 plan_active) */
+  startPlan(plan: "business" | "studio"): Promise<{
+    plan: string;
+    publishable_key?: string;
+    checkout: { client_secret: string; expires_at: string };
+    url?: string;
+  }> {
+    return this.request("POST", "/v1/billing/plan", { plan, ui: "elements" });
+  }
+
+  /** cancels at the period's end, or resumes */
+  cancelPlan(resume = false): Promise<AccountPlan> {
+    return this.request("POST", "/v1/billing/plan/cancel", resume ? { resume: true } : {});
+  }
+
+  /** 00081: a play of View in 3D or a preview (fire-and-forget) */
+  logPlay(conversionId: string, file: string, kind: "view_in_3d" | "preview"): void {
+    void this.request("POST", `/v1/conversions/${encodeURIComponent(conversionId)}/plays`, { file, kind }).catch(() => {});
   }
 
   /** N9: pay what's owed from the balance */

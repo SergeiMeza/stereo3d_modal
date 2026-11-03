@@ -1,0 +1,165 @@
+"use client";
+
+/**
+ * Starting a Business or Studio plan (pricing 2026-11): the gateway opens
+ * a subscription payment (POST /v1/billing/plan {plan, ui: elements}) and
+ * this sheet takes it in our own form, like every other payment.
+ */
+
+import { LockIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { JSX } from "react";
+
+import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { Button } from "@/components/ui/button";
+import { GatewayError } from "@/lib/api/client";
+import type { PlanDef } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
+import { useBilling } from "@/lib/billing";
+
+import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
+import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { CHARGED_IN_USD, DECLINED, PAYING, TOO_MANY } from "./payCopy";
+import { SheetFrame, useSheetFrame } from "./SheetFrame";
+
+type Phase =
+  | { kind: "loading" }
+  | { kind: "ready"; secret: string; publishableKey?: string; notice?: string }
+  | { kind: "paying"; secret: string; publishableKey?: string }
+  | { kind: "done" }
+  | { kind: "error"; text: string };
+
+/** "Business is on. $400 of usage is ready." */
+export function planStarted(def: PlanDef): string {
+  return `${def.name} is on. ${formatCentsShort(def.credit_cents)} of usage is ready.`;
+}
+
+export function PlanSheet({
+  plan,
+  def,
+  onClose,
+}: {
+  plan: "business" | "studio";
+  def: PlanDef;
+  onClose: (started: boolean) => void;
+}): JSX.Element {
+  const gateway = useGateway();
+  const billing = useBilling();
+  const big = useSheetFrame() === "headset";
+  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    gateway.startPlan(plan).then(
+      (r) => live && setPhase({ kind: "ready", secret: r.checkout.client_secret, publishableKey: r.publishable_key }),
+      (e: unknown) => {
+        if (!live) return;
+        const code = e instanceof GatewayError ? e.code : "";
+        setPhase({
+          kind: "error",
+          text:
+            code === "plan_active"
+              ? "You already have a plan. Cancel it in Billing before choosing another."
+              : code === "under_review"
+                ? "We're checking a payment on your account. Contact support to continue."
+                : "Plans aren't available right now. Try again later.",
+        });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [gateway, plan]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  function handle(r: ConfirmResult, s: { secret: string; publishableKey?: string }): void {
+    if (r === "paid" || r === "already_paid" || r === "processing") {
+      setPhase({ kind: "done" });
+      void billing.refresh();
+      timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
+      return;
+    }
+    if (r === "redirect") return;
+    setPhase({ kind: "ready", ...s, notice: r === "too_many" ? TOO_MANY : DECLINED });
+  }
+
+  const title = `${def.name} · ${formatCentsShort(def.monthly_cents)} a month`;
+  const subtitle = `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time`;
+
+  if (phase.kind === "ready" || phase.kind === "paying") {
+    const s = { secret: phase.secret, publishableKey: phase.publishableKey };
+    const paying = phase.kind === "paying";
+    return (
+      <CheckoutPane clientSecret={s.secret} publishableKey={s.publishableKey} big={big} returnQuery={`plan=${plan}`}>
+        {(form, body) => (
+          <SheetFrame
+            open
+            onClose={() => onClose(false)}
+            locked={paying}
+            testId="plan-sheet"
+            title={title}
+            subtitle={subtitle}
+            footer={
+              <MainButtonArea
+                big={big}
+                lines={[CHARGED_IN_USD, "Renews monthly until you cancel."]}
+                button={
+                  <Button
+                    size="lg"
+                    data-testid="plan-main"
+                    className={`w-full tabular-nums ${big ? "h-14 text-xl" : "h-12 text-base"}`}
+                    disabled={!form.ready || paying}
+                    onClick={async () => {
+                      setPhase({ kind: "paying", ...s });
+                      handle(await form.confirm(), s);
+                    }}
+                  >
+                    {paying ? (
+                      PAYING
+                    ) : (
+                      <>
+                        <LockIcon className="size-4" aria-hidden />
+                        Start {def.name} · {formatCents(def.monthly_cents)}
+                      </>
+                    )}
+                  </Button>
+                }
+              />
+            }
+          >
+            <div className={`flex flex-col gap-4 ${paying ? "pointer-events-none opacity-60" : ""}`}>
+              {body}
+              {phase.kind === "ready" && phase.notice ? (
+                <p data-testid="pay-error" className="text-sm text-red-400">
+                  {form.message ?? phase.notice}
+                </p>
+              ) : null}
+            </div>
+          </SheetFrame>
+        )}
+      </CheckoutPane>
+    );
+  }
+
+  return (
+    <SheetFrame open onClose={() => onClose(phase.kind === "done")} testId="plan-sheet" title={title}>
+      {phase.kind === "done" ? (
+        <Success text={planStarted(def)} />
+      ) : phase.kind === "error" ? (
+        <StateLine testId="plan-error" text={phase.text} />
+      ) : (
+        <div data-testid="pay-skeleton" className="flex animate-pulse flex-col gap-3">
+          <div className="h-12 rounded-lg bg-surface-2" />
+          <div className="h-11 rounded-lg bg-surface-2" />
+        </div>
+      )}
+    </SheetFrame>
+  );
+}
