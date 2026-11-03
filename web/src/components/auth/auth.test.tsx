@@ -71,8 +71,8 @@ describe("landing page", () => {
     );
     const cta = screen.getByRole("link", { name: "Make your first 3D video" });
     expect(cta.getAttribute("href")).toBe("/projects");
-    // the workflow tab strip mirrors the studio's five rooms
-    for (const room of ["Overview", "Scenes", "Depth", "3D look", "Make 3D"]) {
+    // the workflow tab strip mirrors a new (Lifelike) project's rooms
+    for (const room of ["Overview", "Scenes", "Make 3D"]) {
       expect(screen.getByRole("tab", { name: new RegExp(room) })).toBeTruthy();
     }
   });
@@ -81,11 +81,13 @@ describe("landing page", () => {
     renderWithAuth(<Home />);
     // default tab is Cut (the hero already shows the Stereo room)
     expect(screen.getByText("Scene changes you can trust")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /3D look/ }));
-    expect(screen.getByText("3D directed scene by scene (Classic 3D)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /Make 3D/ }));
+    expect(screen.getByText("One run, every format")).toBeTruthy();
     expect(
-      screen.getByRole("tab", { name: /3D look/ }).getAttribute("aria-selected"),
+      screen.getByRole("tab", { name: /Make 3D/ }).getAttribute("aria-selected"),
     ).toBe("true");
+    // S3D-01: the landing never offers Classic
+    expect(document.body.textContent).not.toMatch(/Classic/);
     // no technical terms on the landing page (S3D-36), no top-bottom (S3D-08)
     expect(document.body.textContent).not.toMatch(
       /inpainting|video-native model|depth map|top-bottom/i,

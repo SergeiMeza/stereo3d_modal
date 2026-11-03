@@ -37,11 +37,13 @@ export function usePricing(): PublicPricing | null {
   return pricing;
 }
 
-/** The lowest per-minute price across both methods. */
+/** Lifelike's lowest per-minute price ("from $3.82 a minute", S3D-11),
+ * over the qualities the gateway enables. */
 export function fromPerMinute(p: PublicPricing): number | null {
-  const all = [
-    ...Object.values(p.methods.lifelike?.production_cents_per_minute ?? {}),
-    ...Object.values(p.methods.classic?.production_cents_per_minute ?? {}),
-  ].filter((v): v is number => typeof v === "number" && v > 0);
+  const m = p.methods.lifelike;
+  if (!m) return null;
+  const all = m.presets
+    .map((q) => m.production_cents_per_minute[q])
+    .filter((v): v is number => typeof v === "number" && v > 0);
   return all.length > 0 ? Math.min(...all) : null;
 }

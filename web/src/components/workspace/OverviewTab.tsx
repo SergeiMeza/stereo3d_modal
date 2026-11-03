@@ -3,9 +3,11 @@
 /**
  * Overview (screen 03, S3D-25/45): the project summary first — the video
  * at a glance, its method, what you'll get and this video's price and
- * time — with ONE main button, then the steps in a line, then the method
- * chooser (S3D-01, open until the first paid run) or, for a Classic
- * project after that, the one-way offer to move to Lifelike (S3D-44).
+ * time — with ONE main button, then the steps in a line. There is no
+ * method chooser (S3D-01): new projects are Lifelike and never mention
+ * Classic; an existing Classic project carries its "Older method" tag
+ * and the one-way offer to move to Lifelike with this video's Lifelike
+ * price and time (S3D-44).
  *
  * Every amount is a gateway quote; nothing is priced here. Summary labels
  * never name Red-cyan (owner note): it is a Make 3D format option only.
@@ -15,7 +17,7 @@ import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
-import { LIFELIKE_PREVIEW_SECONDS, METHOD_ORDER } from "@/components/steps/methods";
+import { LIFELIKE_PREVIEW_SECONDS, METHOD_TAGS } from "@/components/steps/methods";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +32,6 @@ import { parseRational } from "@/lib/frames";
 import { METHOD_NAMES, qualityChoices, videoFacts } from "@/lib/glossary";
 
 import {
-  MethodChooser,
   MoveToLifelikeOffer,
   priceAndTime,
   useMethodQuotes,
@@ -128,6 +129,9 @@ function MethodChip({ method }: { method: Method }): JSX.Element {
         />
       ) : null}
       {METHOD_NAMES[method]}
+      {METHOD_TAGS[method] ? (
+        <span className="text-[10px] text-fg-muted/80">· {METHOD_TAGS[method]}</span>
+      ) : null}
     </span>
   );
 }
@@ -146,8 +150,7 @@ export function OverviewTab({
   onProjectChanged,
 }: OverviewTabProps): JSX.Element {
   const method = methodOf(project);
-  const chooserOpen = onProjectChanged !== undefined && !hasPaidRun(project);
-  const quotes = useMethodQuotes(project, chooserOpen ? METHOD_ORDER : [method]);
+  const quotes = useMethodQuotes(project, [method]);
   const previewQuote = usePreviewQuote(project, method === "lifelike");
   const probe = project.probe;
   const analyzed = project.analyze.state === "succeeded" && !!probe;
@@ -314,15 +317,7 @@ export function OverviewTab({
         ))}
       </nav>
 
-      {onProjectChanged === undefined ? null : chooserOpen ? (
-        analyzed ? (
-          <MethodChooser
-            project={project}
-            onChanged={onProjectChanged}
-            quotes={quotes}
-          />
-        ) : null
-      ) : method === "classic" ? (
+      {onProjectChanged !== undefined && method === "classic" && analyzed ? (
         <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />
       ) : null}
     </div>

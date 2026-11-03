@@ -28,7 +28,6 @@ import { useEffect, useRef, useState } from "react";
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
 import {
-  methodAvailable,
   newProjectMethod,
   type GatewayLimits,
   type Method,
@@ -38,7 +37,7 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { useLimits } from "@/lib/api/useLimits";
 import { usePricing } from "@/lib/api/usePricing";
-import { limitsStatement, methodLimitText } from "@/components/steps/methods";
+import { methodLimitText } from "@/components/steps/methods";
 import { METHOD_NAMES } from "@/lib/glossary";
 import { formatBytes, formatTimeLeft } from "@/lib/format";
 
@@ -70,17 +69,14 @@ export function maxDurationFor(
   return limits.limits?.max_duration_s ?? LEGACY_MAX_DURATION_S;
 }
 
-/** "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up
- * to 4K." (S3D-05), from GET /v1/limits and /v1/pricing; one method only
- * when the other isn't available. */
+/** "Lifelike 3D: any length, up to 8K" (S3D-05): new projects are always
+ * Lifelike (S3D-01), so the upload box states its limits only, from GET
+ * /v1/limits and /v1/pricing. */
 export function lengthLimits(
   limits: GatewayLimits | null,
   pricing: PublicPricing | null = null,
 ): string {
-  if (limits !== null && !methodAvailable(limits, "lifelike")) {
-    return `${METHOD_NAMES.classic}: ${methodLimitText("classic", limits, pricing)}.`;
-  }
-  return limitsStatement(limits, pricing);
+  return `${METHOD_NAMES.lifelike}: ${methodLimitText("lifelike", limits, pricing)}`;
 }
 
 /** Only after this much progress is a time-left estimate shown. */

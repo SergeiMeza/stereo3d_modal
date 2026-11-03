@@ -62,12 +62,6 @@ const FORMATS = [
     detail:
       "The universal VR format: Meta Quest and Pico video players, YouTube VR, 3D TVs and projectors.",
   },
-  {
-    tag: "Classic 3D",
-    title: FORMAT_NAMES.anaglyph,
-    detail:
-      "An instant 3D check on any flat screen with a pair of paper glasses.",
-  },
 ];
 
 /** true when the viewer asked for less motion: the hero clip then waits
@@ -281,7 +275,7 @@ export function LandingContent() {
           One conversion, every format your audience needs — with the source
           audio carried through.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {FORMATS.map((format) => (
             <div
               key={format.title}

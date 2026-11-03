@@ -10,7 +10,7 @@ import { PricingScreen } from "@/components/pricing/PricingScreen";
 export const metadata: Metadata = {
   title: "Prices",
   description:
-    "Stereo3D Studio prices: pay per minute of video, no subscription. Lifelike 3D and Classic 3D, 1080p to 4K.",
+    "Stereo3D Studio prices: pay per minute of video, no subscription. Lifelike 3D, 1080p to 8K.",
   alternates: { canonical: "/pricing" },
 };
 

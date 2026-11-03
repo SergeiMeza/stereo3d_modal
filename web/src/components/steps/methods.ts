@@ -40,7 +40,7 @@ export const METHOD_TAGS: Partial<Record<Method, string>> = {
 
 /** Defaults until /v1/limits and /v1/pricing answer (S3D-05). */
 const DEFAULT_MAX_SECONDS: Record<Method, number> = { lifelike: 0, classic: 600 };
-const DEFAULT_TOP_PRESET: Record<Method, Preset> = { lifelike: "8k", classic: "4k" };
+const DEFAULT_TOP_PRESET: Record<Method, Preset> = { lifelike: "8k", classic: "3k" };
 
 /** "any length, up to 8K" / "up to 10 minutes, up to 4K" for one method
  * (S3D-05): the length from /v1/limits (or /v1/pricing), the top size
@@ -84,11 +84,7 @@ export const METHOD_ORDER: readonly Method[] = ["lifelike", "classic"];
 
 export const RECOMMENDED_METHOD: Method = "lifelike";
 
-export const CHOOSER_TITLE = "How should we make it 3D?";
 /** S3D-01/14: chosen before the first run; Lifelike never moves back. */
-export const CHOOSER_SUBTITLE =
-  "You can change this freely until your first preview or 3D run. After that, a Classic project can still move to Lifelike, but not back.";
-
 /** S3D-30: the one move there is, Classic → Lifelike. */
 export const MOVE_TO_LIFELIKE_TITLE = "Move this project to Lifelike 3D?";
 export const MOVE_TO_LIFELIKE_BODY =
@@ -133,10 +129,12 @@ export function methodErrorCopy(code: string): string | null {
   switch (code) {
     case "preset_above_source":
       return PRESET_ABOVE_SOURCE;
+    case "preset_unavailable":
+      return "Classic 3D goes up to 3K. Move to Lifelike 3D for 4K and above.";
     case "method_unavailable":
-      return "This 3D method isn't available right now. Please try again later, or switch methods at the top of the page.";
+      return "This 3D method isn't available right now. Please try again later.";
     case "source_too_long_for_method":
-      return "This video is too long for Classic 3D. Switch to Lifelike 3D at the top of the page — it works with videos of any length.";
+      return "This video is too long for Classic 3D. Move to Lifelike 3D at the top of the page. It works with videos of any length.";
     case "step_not_supported_for_method":
       return "This project's 3D method has changed. Reload the page to continue.";
     case "method_switch_not_allowed":

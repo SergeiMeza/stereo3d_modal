@@ -243,12 +243,12 @@ describe("DeliverPanel controls", () => {
   it("offers presets and 4 formats (no TB) — no edge-quality choice, no fps control", () => {
     renderPanel();
 
+    // Classic stops at 3K (S3D-12)
     const preset = document.getElementById("production-preset") as HTMLSelectElement;
     expect([...preset.options].map((o) => o.value)).toEqual([
       "1080p",
       "qhd",
       "3k",
-      "4k",
     ]);
     expect(preset.value).toBe("1080p");
 

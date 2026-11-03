@@ -93,7 +93,9 @@ describe("ProjectsScreen list", () => {
     });
     expect(card.getAttribute("href")).toBe(`/projects/${FIXTURE_ID}`);
     expect(within(card).getByText("2:29")).toBeTruthy();
-    expect(within(card).getByTestId("card-method").textContent).toBe("Classic 3D");
+    expect(within(card).getByTestId("card-method").textContent).toBe(
+      "Classic 3D · Older method",
+    );
     const box = screen.getByTestId("project-card");
     expect(within(box).getByTestId("card-state").textContent).toBe("Ready for 3D");
     expect(within(box).getByTestId("card-spent").textContent).toBe(
@@ -255,14 +257,13 @@ describe("ProjectsScreen large uploads (Lifelike)", () => {
     expect(mockDb.projects.get(id)?.method).toBe("lifelike");
   });
 
-  it("an older gateway without per-method caps keeps the 10-minute note", async () => {
-    server.use(
-      http.get(`${GATEWAY}/v1/limits`, () =>
-        HttpResponse.json({ limits: { max_duration_s: 600 } }),
-      ),
-    );
+  it("states Lifelike's limits only: new projects are Lifelike (S3D-01, S3D-05)", async () => {
     renderScreen();
-    expect(await screen.findByText(/up to 10 minutes/)).toBeTruthy();
+    const limits = await screen.findByTestId("upload-limits");
+    await waitFor(() =>
+      expect(limits.textContent).toContain("Lifelike 3D: any length, up to 8K"),
+    );
+    expect(limits.textContent).not.toMatch(/Classic/);
   });
 
   it("shows size, progress and time left, and warns before the tab closes", async () => {

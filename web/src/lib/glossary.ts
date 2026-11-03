@@ -82,15 +82,18 @@ export function qualityName(p: string | undefined): string {
   return QUALITY_NAMES[p as Preset] ?? p;
 }
 
+/** Classic stops at 3K (S3D-12); 4K and above are Lifelike only. */
+export const CLASSIC_QUALITIES: readonly Preset[] = ["1080p", "qhd", "3k"];
+
 /** Qualities a source can have (S3D-04): at or below its short side; a
- * source below 1080 still gets 1080p. Both methods. */
+ * source below 1080 still gets 1080p. Classic stops at 3K. */
 export function qualitiesFor(
   probe: { width: number; height: number } | undefined,
+  method: "lifelike" | "classic" = "lifelike",
 ): Preset[] {
   const short = probe ? Math.min(probe.width, probe.height) : Infinity;
-  return QUALITIES.filter(
-    (p) => p === "1080p" || QUALITY_SHORT_SIDE[p] <= short,
-  );
+  const list = method === "classic" ? CLASSIC_QUALITIES : QUALITIES;
+  return list.filter((p) => p === "1080p" || QUALITY_SHORT_SIDE[p] <= short);
 }
 
 /** Per-eye output size of a step for a source, keeping its shape (even

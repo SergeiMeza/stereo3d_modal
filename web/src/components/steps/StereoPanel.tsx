@@ -668,7 +668,7 @@ export function StereoPanel({
                 }}
                 className={selectClass}
               >
-                {qualitiesFor(probe).map((p) => (
+                {qualitiesFor(probe, "classic").map((p) => (
                   <option key={p} value={p}>
                     {qualityName(p)}
                   </option>

@@ -75,15 +75,15 @@ const RATES = {
  * edge or reuse factors; the bulk discount and the minimum still apply.
  * lifelike_preview is priced from the same table. */
 const LIFELIKE = {
-  // 5k/6k/8k: mock numbers only (S3D-48; the gateway's table is authoritative)
+  // S3D-11 final owner prices (the gateway's table is authoritative)
   priceCentsPerMinute: {
-    "1080p": 450,
-    qhd: 650,
-    "3k": 800,
-    "4k": 1000,
-    "5k": 1400,
-    "6k": 1800,
-    "8k": 2600,
+    "1080p": 300,
+    qhd: 450,
+    "3k": 700,
+    "4k": 850,
+    "5k": 1300,
+    "6k": 1600,
+    "8k": 2200,
   } as Record<
     string,
     number
@@ -565,6 +565,13 @@ function validateStepRequest(
       "lifelike_preview is a Lifelike 3D step",
     );
   }
+  // S3D-12: Classic stops at 3K; 4K and above are Lifelike only
+  if (
+    typeof body.preset === "string" &&
+    ["4k", "5k", "6k", "8k"].includes(body.preset)
+  ) {
+    return err(400, "preset_unavailable", "Classic 3D goes up to 3K");
+  }
   if (!["depth_preview", "stereo_preview", "production"].includes(step)) {
     return err(
       400,
@@ -913,10 +920,15 @@ function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
   };
   const out: NonNullable<Project["qualities"]> = [];
   let below: Preset | null = null;
+  let belowSide = 0;
   for (const [preset, label, side] of steps) {
     if (side <= short) {
       out.push({ preset, label, ...size(side) });
       below = preset;
+      belowSide = side;
+    } else if (short <= belowSide) {
+      // the source sits exactly on a step: nothing in between
+      break;
     } else {
       // between steps (or under 1080): the source's own size
       out.push({
@@ -1523,7 +1535,6 @@ const CLASSIC_STANDARD_CENTS_PER_MINUTE: Record<string, number> = {
   "1080p": 450,
   qhd: 712,
   "3k": 814,
-  "4k": 2746,
 };
 
 /** A plausible stored size for an output (S3D-31). */
@@ -1765,7 +1776,7 @@ export const handlers = [
           max_source_bytes: 25 * 1024 ** 3,
         },
         classic: {
-          presets: ["1080p", "qhd", "3k", "4k"],
+          presets: ["1080p", "qhd", "3k"],
           // per minute at the standard depth detail and Best edges, 16:9
           production_cents_per_minute: CLASSIC_STANDARD_CENTS_PER_MINUTE,
           stereo_preview_cents_per_minute: Object.fromEntries(

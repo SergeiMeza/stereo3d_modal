@@ -411,19 +411,19 @@ describe("StereoPanel request building", () => {
     const user = userEvent.setup();
     renderPanel();
 
+    // Classic stops at 3K (S3D-12)
     const preset = document.getElementById("stereo-preset") as HTMLSelectElement;
     expect([...preset.options].map((o) => o.value)).toEqual([
       "1080p",
       "qhd",
       "3k",
-      "4k",
     ]);
     expect(preset.value).toBe("1080p");
 
-    await user.selectOptions(preset, "4k");
+    await user.selectOptions(preset, "3k");
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0].preset).toBe("4k");
+    expect(bodies[0].preset).toBe("3k");
   });
 });
 

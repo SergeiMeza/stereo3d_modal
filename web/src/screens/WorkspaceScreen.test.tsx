@@ -1112,7 +1112,9 @@ describe("WorkspaceScreen — pages", () => {
     expect(screen.getByTestId("overview-facts").textContent).toMatch(
       /^\d+ min \d+ s · .+ · [\d.]+ fps · \d+ scenes?$/,
     );
-    expect(screen.getByTestId("overview-method").textContent).toBe("Classic 3D");
+    expect(screen.getByTestId("overview-method").textContent).toBe(
+      "Classic 3D· Older method",
+    );
     expect(screen.getByTestId("overview-you-get").textContent).toBe(
       "Vision Pro spatial video + Side by side",
     );

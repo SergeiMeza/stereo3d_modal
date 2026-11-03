@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * /pricing — public, concise, reference-only (S3D-18, S3D-45): "from $X a
- * minute" per method, one compact table each with the size per eye, the
+ * /pricing — public, concise, reference-only (S3D-18, S3D-45): Lifelike
+ * 3D only (S3D-01: new projects are Lifelike), "from $X a minute", one
+ * compact table with the size per eye for the qualities the gateway
+ * enables, the
  * preview's "from" price, one charging line and a "How pricing works"
  * popover. Every number comes from GET /v1/pricing.
  */
@@ -51,12 +53,7 @@ function MethodPrices({
           {method === "lifelike" ? "Lifelike 3D" : "Classic 3D"}
         </h2>
         {method === "lifelike" ? (
-          <Badge
-            variant="outline"
-            className="border-primary/30 bg-primary/10 text-primary"
-          >
-            Recommended
-          </Badge>
+          <span className="ll-tag-new">New</span>
         ) : (
           <Badge variant="outline" className="text-fg-muted">
             Older method
@@ -64,7 +61,7 @@ function MethodPrices({
         )}
       </div>
       <p className="mt-2 text-2xl font-semibold">
-        from {formatCents(from)}{" "}
+        from {formatCentsShort(from)}{" "}
         <span className="text-sm font-normal text-fg-muted">a minute</span>
       </p>
       <table className="mt-3 w-full text-sm">
@@ -106,9 +103,10 @@ export function PricingScreen(): JSX.Element {
         <p className="mt-10 text-center text-fg-muted">Loading prices…</p>
       ) : (
         <>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {/* S3D-01: new projects are Lifelike; Classic's prices live on
+              its existing projects' own pages */}
+          <div className="mx-auto mt-8 max-w-md">
             <MethodPrices pricing={pricing} method="lifelike" />
-            <MethodPrices pricing={pricing} method="classic" />
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center">
             <p data-testid="pricing-charge-line" className="text-fg-muted">

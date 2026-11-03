@@ -100,7 +100,7 @@ import { limitsStatement, methodLimitText } from "./methods";
 describe("limits copy (S3D-05)", () => {
   it("states both methods from /v1/limits and /v1/pricing, with defaults", () => {
     expect(limitsStatement(null, null)).toBe(
-      "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up to 4K.",
+      "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up to 3K.",
     );
     expect(
       methodLimitText(
@@ -108,6 +108,6 @@ describe("limits copy (S3D-05)", () => {
         { methods: { classic: { max_source_duration_s: 1200 } } },
         null,
       ),
-    ).toBe("up to 20 minutes, up to 4K");
+    ).toBe("up to 20 minutes, up to 3K");
   });
 });

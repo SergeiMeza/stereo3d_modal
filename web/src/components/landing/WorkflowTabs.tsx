@@ -1,20 +1,13 @@
 "use client";
 
 /**
- * Landing-page workflow explorer: the app's five rooms (Media, Cut,
- * Depth, Stereo, Deliver) as an interactive tab strip over real product
+ * Landing-page workflow explorer: the app's rooms a new (Lifelike)
+ * project has — Overview, Scenes, Make 3D — as a tab strip over real product
  * screenshots. Mirrors the studio's own left-nav order and icons so the
  * landing is a preview of the actual UI, not a stylized mockup.
  */
 
-import {
-  Clapperboard,
-  Glasses,
-  Layers,
-  Scissors,
-  Upload,
-  type LucideIcon,
-} from "lucide-react";
+import { Clapperboard, Scissors, Upload, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 import { BrowserFrame } from "@/components/landing/BrowserFrame";
@@ -53,28 +46,6 @@ const TABS: Tab[] = [
     image: "/landing/cut-tab.webp",
     dims: { width: 1600, height: 1705 },
     alt: "Scenes page of Stereo3D Studio showing editable scene markers on a filmstrip and a grid of scenes",
-  },
-  {
-    id: "depth",
-    label: "Depth",
-    icon: Layers,
-    title: "See the depth before the 3D (Classic 3D)",
-    detail:
-      "See how far away everything is, side by side with your footage and steady across the shot. Keep titles and logos 2D.",
-    image: "/landing/depth-tab.webp",
-    dims: { width: 1600, height: 1734 },
-    alt: "Depth page of Stereo3D Studio showing a frame next to its depth and per-scene 3D toggles",
-  },
-  {
-    id: "stereo",
-    label: "3D look",
-    icon: Glasses,
-    title: "3D directed scene by scene (Classic 3D)",
-    detail:
-      "Every scene is measured and classified automatically — close-up, standard, wide. Adjust the 3D strength only where it matters, keep end titles and logos flat.",
-    image: "/landing/stereo-tab.webp",
-    dims: { width: 1600, height: 1734 },
-    alt: "3D look page of Stereo3D Studio showing per-scene 3D settings next to a live preview",
   },
   {
     id: "deliver",

@@ -134,95 +134,63 @@ describe("tabs per method", () => {
   });
 });
 
-describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
-  it("Overview shows both methods with this video's price and time, Lifelike preselected and recommended", async () => {
+describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
+  it("a Lifelike project shows its summary and never names Classic", async () => {
     setMethod("lifelike");
     await renderWorkspace();
-    const chooser = await screen.findByTestId("method-chooser");
-    expect(within(chooser).getByText("How should we make it 3D?")).toBeTruthy();
-    expect(within(chooser).queryByText(/Same price either way/)).toBeNull();
-    const lifelike = within(screen.getByTestId("method-card-lifelike"));
-    expect((lifelike.getByRole("radio") as HTMLInputElement).checked).toBe(true);
-    expect(lifelike.getByText("Recommended")).toBeTruthy();
-    // S3D-46: the newest 3D technology
-    expect(lifelike.getByTestId("method-tag-new").textContent).toBe("New");
-    expect(lifelike.getByTestId("method-eyebrow").textContent).toBe(
-      "Our newest 3D technology",
-    );
-    expect(
-      lifelike.getByText(
-        "Rebuilds every moment of your video as a real 3D scene, then films it again for each eye. The most natural depth and clean edges, in a fraction of the time.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByTestId("method-card-lifelike").className).toContain(
-      "ll-edge",
-    );
-    expect(screen.getByTestId("method-card-classic").className).not.toContain(
-      "ll-edge",
-    );
-    const classic = within(screen.getByTestId("method-card-classic"));
-    expect(classic.getByText("Classic 3D")).toBeTruthy();
-    expect(classic.getByTestId("method-tag-classic").textContent).toBe("Older method");
-    expect(
-      classic.getByText("Adds depth to your footage, with manual control over each step."),
-    ).toBeTruthy();
-    expect(classic.queryByText("Recommended")).toBeNull();
-    expect(classic.queryByTestId("method-tag-new")).toBeNull();
-    // both prices for this video, at the best quality each method reaches
+    await screen.findByTestId("overview-summary");
+    expect(screen.queryByTestId("method-chooser")).toBeNull();
+    expect(screen.queryByTestId("move-to-lifelike-offer")).toBeNull();
+    expect(screen.getByTestId("overview-method").textContent).toBe("Lifelike 3D");
     await waitFor(() =>
-      expect(screen.getByTestId("method-price-lifelike").textContent).toMatch(
-        /^\$\d+\.\d\d· about .+ · any length, up to 8K$/,
+      expect(screen.getByTestId("overview-price").textContent).toMatch(
+        /^\$\d+\.\d\d · about /,
       ),
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("method-price-classic").textContent).toMatch(
-        /^\$\d+\.\d\d· about .+ · up to 10 minutes, up to 4K$/,
-      ),
-    );
-    // the summary prices the project's own method at its best quality and
-    // never names Red-cyan
-    expect(screen.getByTestId("overview-price").textContent).toBe(
-      screen
-        .getByTestId("method-price-lifelike")
-        .textContent!.replace(/ · any length, up to 8K$/, "")
-        .replace("·", " ·"),
-    );
-    expect(screen.getByTestId("overview-summary").textContent).not.toMatch(
-      /Red-cyan/,
     );
     await waitFor(() =>
       expect(screen.getByTestId("overview-main").textContent).toMatch(
         /^Preview a moment · \$\d+\.\d\d$/,
       ),
     );
-    expect(screen.getByTestId("method-price-lifelike").textContent).not.toBe(
-      screen.getByTestId("method-price-classic").textContent,
-    );
-  });
-
-  it("a Lifelike project never moves back: the gateway's refusal reads as a sentence", async () => {
-    setMethod("lifelike");
-    await renderWorkspace();
+    expect(document.body.textContent).not.toMatch(/Classic|Older method|Red-cyan/);
     expect(
       within(screen.getByTestId("method-badge")).queryByText("Move to Lifelike 3D"),
     ).toBeNull();
-    fireEvent.click(
-      within(screen.getByTestId("method-card-classic")).getByRole("radio"),
-    );
-    expect(
-      await within(screen.getByTestId("method-chooser")).findByText(
-        /can't move back to Classic 3D/,
-      ),
-    ).toBeTruthy();
-    expect(mockDb.projects.get(PID)!.method).toBe("lifelike");
-    expect(railIds()).toContain("preview");
   });
 
-  it("Classic → Lifelike asks first, then moves the project and swaps the rail", async () => {
+  it("a Classic project keeps its Older method tag and offers the one-way move with both prices", async () => {
+    const quotes: Record<string, unknown>[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "POST" && new URL(request.url).pathname.endsWith("/quotes")) {
+        quotes.push((await request.clone().json()) as Record<string, unknown>);
+      }
+    });
     await renderWorkspace(); // fixture: Classic, no runs
-    fireEvent.click(
-      within(screen.getByTestId("method-card-lifelike")).getByRole("radio"),
+    expect(screen.getByTestId("overview-method").textContent).toBe(
+      "Classic 3D· Older method",
     );
+    const offer = await screen.findByTestId("move-to-lifelike-offer");
+    await waitFor(() =>
+      expect(offer.textContent).toMatch(
+        /^✦Move to Lifelike 3D: \$\d+\.\d\d, about .+ for this video\./,
+      ),
+    );
+    // a fair comparison: Lifelike priced at Classic's own quality, its
+    // higher size on a second line
+    const classicQuote = quotes.find((q) => q.method === "classic");
+    expect(
+      quotes.some((q) => q.method === "lifelike" && q.preset === classicQuote?.preset),
+    ).toBe(true);
+    await waitFor(() =>
+      expect(screen.getByTestId("move-offer-higher").textContent).toMatch(
+        /^or .+ for \$\d+\.\d\d$/,
+      ),
+    );
+    // beside its own Classic price
+    await waitFor(() =>
+      expect(screen.getByTestId("overview-price").textContent).toMatch(/^\$\d+\.\d\d/),
+    );
+    fireEvent.click(within(offer).getByRole("button", { name: "Move" }));
     const dialog = await screen.findByTestId("move-to-lifelike-dialog");
     expect(within(dialog).getByText("Move this project to Lifelike 3D?")).toBeTruthy();
     expect(
@@ -230,22 +198,24 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
         "Your Classic files stay in Files. You can't move back to Classic.",
       ),
     ).toBeTruthy();
-    // this video's price and time under both methods
     await waitFor(() =>
       expect(within(dialog).getByTestId("move-lifelike-price").textContent).toMatch(
         /^\$\d+\.\d\d$/,
       ),
     );
-    expect(within(dialog).getByTestId("move-classic-price").textContent).toMatch(
-      /^\$\d+\.\d\d$/,
+    await waitFor(() =>
+      expect(within(dialog).getByTestId("move-classic-price").textContent).toMatch(
+        /^\$\d+\.\d\d$/,
+      ),
     );
     expect(mockDb.projects.get(PID)!.method).toBeUndefined(); // not yet
     fireEvent.click(within(dialog).getByRole("button", { name: "Move to Lifelike 3D" }));
     await waitFor(() => expect(railIds()).toContain("preview"));
     expect(mockDb.projects.get(PID)!.method).toBe("lifelike");
+    await waitFor(() => expect(screen.queryByTestId("move-to-lifelike-offer")).toBeNull());
   });
 
-  it("a Classic project with runs gets the one-line offer, and the header move", async () => {
+  it("a Classic project with runs gets the offer and the header move", async () => {
     mockDb.conversions.set("c0000000run1", {
       conversion_id: "c0000000run1",
       state: "succeeded",
@@ -260,13 +230,8 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
       updated_at: "2026-10-01T00:00:00Z",
     });
     await renderWorkspace();
-    expect(screen.queryByTestId("method-chooser")).toBeNull();
-    const offer = await screen.findByTestId("move-to-lifelike-offer");
-    await waitFor(() =>
-      expect(offer.textContent).toMatch(
-        /Move to Lifelike 3DNew\$\d+\.\d\d, about .+ for this video\.Move$/,
-      ),
-    );
+    expect(await screen.findByTestId("move-to-lifelike-offer")).toBeTruthy();
+    expect(within(screen.getByTestId("method-badge")).getByText("Older method")).toBeTruthy();
     fireEvent.click(
       within(screen.getByTestId("method-badge")).getByRole("button", {
         name: "Move to Lifelike 3D",
@@ -275,12 +240,11 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     expect(await screen.findByTestId("move-to-lifelike-dialog")).toBeTruthy();
   });
 
-  it("Classic can't price a video past its length cap", async () => {
-    setMethod("lifelike");
+  it("a Classic project past Classic's length cap says so in its price", async () => {
     mockDb.methodMaxDurationS.classic = 60; // the fixture runs ~149 s
     await renderWorkspace();
     await waitFor(() =>
-      expect(screen.getByTestId("method-price-classic").textContent).toBe(
+      expect(screen.getByTestId("overview-price").textContent).toBe(
         "This video is longer than Classic 3D can take.",
       ),
     );
@@ -288,7 +252,7 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
 });
 
 describe("method availability", () => {
-  it("hides the chooser and the move when Lifelike isn't available", async () => {
+  it("hides the move when Lifelike isn't available", async () => {
     mockDb.methodAvailable.lifelike = false;
     await renderWorkspace();
     await waitFor(() =>

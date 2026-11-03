@@ -21,21 +21,23 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe("Pricing page (S3D-18, S3D-45)", () => {
-  it("shows both tables from GET /v1/pricing, concise, with one charging line", async () => {
+  it("shows Lifelike's table from GET /v1/pricing, concise, with one charging line (S3D-01, S3D-11)", async () => {
     render(
       <AuthProvider>
         <PricingScreen />
       </AuthProvider>,
     );
     const lifelike = await screen.findByTestId("pricing-lifelike");
-    expect(within(lifelike).getByText("Recommended")).toBeTruthy();
-    expect(lifelike.textContent).toContain("from $4.50 a minute");
-    expect(lifelike.textContent).toContain("4K3840×2160 per eye$10.00");
+    expect(within(lifelike).getByText("New")).toBeTruthy();
+    // headline in whole dollars, table in cents
+    expect(lifelike.textContent).toContain("from $3 a minute");
+    expect(lifelike.textContent).toContain("1080p1920×1080 per eye$3.00");
+    expect(lifelike.textContent).toContain("4K3840×2160 per eye$8.50");
+    expect(lifelike.textContent).toContain("8K7680×4320 per eye$22.00");
     expect(lifelike.textContent).toContain("Any length, up to 8K · previews from $0.50");
-    const classic = screen.getByTestId("pricing-classic");
-    expect(within(classic).getByText("Older method")).toBeTruthy();
-    expect(classic.textContent).toContain("$27.46");
-    expect(classic.textContent).toContain("Up to 10 minutes, up to 4K");
+    // no Classic on the public page
+    expect(screen.queryByTestId("pricing-classic")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Classic/);
     expect(screen.getByTestId("pricing-charge-line").textContent).toBe(
       "Charged after it's done. Runs over $25 are charged when they start and refunded if they fail.",
     );

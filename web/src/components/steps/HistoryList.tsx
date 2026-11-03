@@ -26,6 +26,7 @@ import {
 import { track } from "@/lib/analytics";
 import {
   conversionMethod,
+  methodOf,
   type Conversion,
   type Project,
 } from "@/lib/api/types";
@@ -117,12 +118,15 @@ function HistoryRow({
         <span className="text-sm font-semibold text-fg">
           {STEP_NAMES[c.step ?? "production"] ?? "Run"}
         </span>
-        <span
-          data-testid="history-method"
-          className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
-        >
-          {METHOD_LABELS[conversionMethod(c)]}
-        </span>
+        {/* a Lifelike project never names Classic (S3D-01) */}
+        {methodOf(project) === "classic" ? (
+          <span
+            data-testid="history-method"
+            className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
+          >
+            {METHOD_LABELS[conversionMethod(c)]}
+          </span>
+        ) : null}
         <span data-testid="history-params" className="text-xs text-fg-muted">
           {runMeta(project, c)}
         </span>

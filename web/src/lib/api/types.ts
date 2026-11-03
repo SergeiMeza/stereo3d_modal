@@ -546,11 +546,10 @@ export function methodAvailable(
 /** The method a new project gets: the gateway's default when it is
  * available, Lifelike otherwise when available, else Classic. Unknown
  * limits (not loaded, or failed) mean Lifelike — the gateway decides. */
-export function newProjectMethod(limits: GatewayLimits | null): Method {
-  if (limits === null) return "lifelike";
-  const preferred = limits?.default_method ?? "lifelike";
-  if (methodAvailable(limits, preferred)) return preferred;
-  return methodAvailable(limits, "lifelike") ? "lifelike" : "classic";
+export function newProjectMethod(_limits?: GatewayLimits | null): Method {
+  // S3D-01: every new project is Lifelike (sent explicitly)
+  void _limits;
+  return "lifelike";
 }
 
 // ---------------------------------------------------------------- billing

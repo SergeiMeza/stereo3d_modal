@@ -189,10 +189,11 @@ export function ProjectCard({
               className={
                 method === "lifelike"
                   ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-violet-400/30 bg-violet-400/10 text-violet-300"
+                  : "border-edge bg-surface-2 text-fg-muted"
               }
             >
               {METHOD_NAMES[method]}
+              {method === "classic" ? " · Older method" : ""}
             </Badge>
           </span>
         </div>
