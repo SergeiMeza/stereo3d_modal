@@ -104,9 +104,9 @@ describe("tier pricing on the quote", () => {
     render(
       <QuoteView
         result={lifelike(
-          { tier: "business", tier_label: "Business", discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 }, pro: true },
-          { subtotal_cents: 2000, express: true, express_included: true, discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 } },
-          1500,
+          { tier: "business", tier_label: "Business", discount: { kind: "tier", tier: "business", cents: 400, pct: 0.2 }, pro: true },
+          { subtotal_cents: 2000, express: true, express_included: true, discount: { kind: "tier", tier: "business", cents: 400, pct: 0.2 } },
+          1600,
         )}
       />,
     );

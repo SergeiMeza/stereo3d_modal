@@ -115,11 +115,11 @@ describe("Business and Studio include Pro (owner, 2026-11)", () => {
             tier: "business",
             tier_label: "Business",
             pro: false,
-            discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 },
+            discount: { kind: "tier", tier: "business", cents: 400, pct: 0.2 },
             quote: {
-              amount_cents: 1500,
+              amount_cents: 1600,
               currency: "usd",
-              breakdown: { subtotal_cents: 2000, list_base_cents: 2000, addons: {}, discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 } },
+              breakdown: { subtotal_cents: 2000, list_base_cents: 2000, addons: {}, discount: { kind: "tier", tier: "business", cents: 400, pct: 0.2 } },
             },
             reuse_stages: null,
           }}

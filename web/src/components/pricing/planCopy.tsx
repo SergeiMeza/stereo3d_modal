@@ -3,26 +3,32 @@ import type { JSX } from "react";
 
 import type { PublicPricing } from "@/lib/api/types";
 
-/** "15–30%": what Pro, Business and Studio save, from GET /v1/pricing
- * (owner copy 2026-11; the 2026-11 rates until the gateway answers). */
-export function planSaveRange(pricing: PublicPricing | null): string {
+/** "15–25%": what Pro, Business and Studio save, from GET /v1/pricing
+ * (owner copy 2026-11); null until it answers, so no number is guessed. */
+export function planSaveRange(pricing: PublicPricing | null): string | null {
   const pcts = Object.values(pricing?.tiers?.classic_pct ?? {}).filter(
     (v): v is number => typeof v === "number" && v > 0,
   );
-  const lo = pcts.length > 0 ? Math.round(Math.min(...pcts) * 100) : 15;
-  const hi = pcts.length > 0 ? Math.round(Math.max(...pcts) * 100) : 30;
+  if (pcts.length === 0) return null;
+  const lo = Math.round(Math.min(...pcts) * 100);
+  const hi = Math.round(Math.max(...pcts) * 100);
   return lo === hi ? `${lo}%` : `${lo}–${hi}%`;
 }
 
-/** "Pay per video. Plans save 15–30%." with Plans linking to /plans. */
+/** "Pay per video. Plans save 15–25%." with Plans linking to /plans;
+ * "Pay per video, or save with a plan." until /v1/pricing answers. */
 export function PayPerVideoLine({ pricing }: { pricing: PublicPricing | null }): JSX.Element {
-  return (
+  const range = planSaveRange(pricing);
+  const plans = (
+    <Link href="/plans" className="text-primary hover:underline">
+      {range ? "Plans" : "plan"}
+    </Link>
+  );
+  return range ? (
     <>
-      Pay per video.{" "}
-      <Link href="/plans" className="text-primary hover:underline">
-        Plans
-      </Link>{" "}
-      save {planSaveRange(pricing)}.
+      Pay per video. {plans} save {range}.
     </>
+  ) : (
+    <>Pay per video, or save with a {plans}.</>
   );
 }

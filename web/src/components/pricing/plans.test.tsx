@@ -60,7 +60,8 @@ describe("Pricing 2026-11", () => {
     expect(addons.textContent).toContain("Up to about 2× faster on longer videos");
     expect(screen.getByTestId("pricing-free-previews").textContent).toContain("Your first preview is free.");
     expect(screen.getByTestId("pricing-topups").textContent).toContain("from $10");
-    expect(screen.getByTestId("pricing-subtitle").textContent).toBe("Pay per video. Plans save 15–30%.");
+    // the range is GET /v1/pricing's tier shares (Pro 15%, Business 20%, Studio 25%)
+    expect(screen.getByTestId("pricing-subtitle").textContent).toBe("Pay per video. Plans save 15–25%.");
     expect(within(screen.getByTestId("pricing-subtitle")).getByRole("link", { name: "Plans" }).getAttribute("href")).toBe("/plans");
     expect(lifelike.textContent).toContain("With Pro (−15%)");
     expect(document.body.textContent).not.toMatch(/Lifetime|depth map|splat|inpaint|Gaussian|no subscription/i);
@@ -71,7 +72,8 @@ describe("Pricing 2026-11", () => {
     const biz = await screen.findByTestId("plan-business");
     expect(biz.textContent).toContain("$299 a month");
     expect(biz.textContent).toContain("$400 of usage every month");
-    expect(biz.textContent).toContain("25% off every run");
+    expect(biz.textContent).toContain("20% off every run");
+    expect(screen.getByTestId("plan-studio").textContent).toContain("25% off every run");
     expect(biz.textContent).toContain("50 free previews a month");
     expect(biz.textContent).toContain("Express included");
     expect(screen.getByTestId("plan-studio").textContent).toContain("$999 a month");
@@ -103,8 +105,8 @@ describe("Pricing 2026-11", () => {
     expect(
       planLines(
         { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true },
-        0.3,
+        0.25,
       ),
-    ).toEqual(["$1,500 of usage every month", "30% off every run", "200 free previews a month", "Express included", "10 people · invoices"]);
+    ).toEqual(["$1,500 of usage every month", "25% off every run", "200 free previews a month", "Express included", "10 people · invoices"]);
   });
 });
