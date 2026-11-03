@@ -5,7 +5,17 @@
  * values ("mvhevc", "qhd", "propainter").
  */
 
-import type { Format, Inpaint, Method, Params, Preset, Step, Warp } from "@/lib/api/types";
+import type {
+  Format,
+  Inpaint,
+  Method,
+  Params,
+  Preset,
+  Probe,
+  QualityOption,
+  Step,
+  Warp,
+} from "@/lib/api/types";
 
 /** Output formats (S3D-08: top-bottom isn't sold; the names stay for old
  * runs that have it). */
@@ -73,6 +83,74 @@ export function qualitiesFor(
   return QUALITIES.filter(
     (p) => p === "1080p" || QUALITY_SHORT_SIDE[p] <= short,
   );
+}
+
+/** Per-eye output size of a step for a source, keeping its shape (even
+ * pixels, never above the source). */
+export function eyeSize(
+  probe: { width: number; height: number },
+  shortSide: number,
+): { width: number; height: number } {
+  const srcShort = Math.min(probe.width, probe.height);
+  const k = Math.min(1, shortSide / srcShort);
+  const even = (v: number) => Math.max(2, Math.round((v * k) / 2) * 2);
+  return { width: even(probe.width), height: even(probe.height) };
+}
+
+/** A quality option with its per-eye size hint. Copy rule (S3D-04): name
+ * only the size ("4K · 3840×2160 per eye") — never "more detail" or
+ * "sharper" between steps, nothing above 4K. */
+export interface QualityChoice {
+  preset: Preset;
+  label: string;
+  /** "3840×1606 per eye" */
+  hint?: string;
+}
+
+/** The option text: "4K · 3840×2160 per eye". */
+export function qualityChoiceText(q: QualityChoice): string {
+  return q.hint ? `${q.label} · ${q.hint}` : q.label;
+}
+
+/** Lifelike's quality options for a project (S3D-04): the gateway's list
+ * when it sends one; otherwise the steps the source reaches, with a source
+ * below 1080 offered as "Full resolution (720p)" at the 1080p price. */
+export function qualityChoices(project: {
+  qualities?: QualityOption[];
+  probe?: Probe;
+}): QualityChoice[] {
+  const hint = (w?: number, h?: number) =>
+    w && h ? `${w}×${h} per eye` : undefined;
+  if (project.qualities && project.qualities.length > 0) {
+    return project.qualities.map((q) => ({
+      preset: q.preset,
+      label: q.label,
+      hint: hint(q.eye_width, q.eye_height),
+    }));
+  }
+  const probe = project.probe;
+  return qualitiesFor(probe).map((p) => {
+    if (!probe) return { preset: p, label: qualityName(p) };
+    const size = eyeSize(probe, QUALITY_SHORT_SIDE[p]);
+    const short = Math.min(size.width, size.height);
+    return {
+      preset: p,
+      label:
+        short < QUALITY_SHORT_SIDE[p]
+          ? `Full resolution (${short}p)`
+          : qualityName(p),
+      hint: hint(size.width, size.height),
+    };
+  });
+}
+
+/** The name of a quality a project's run used (labels from its options). */
+export function qualityLabelFor(
+  project: { qualities?: QualityOption[]; probe?: Probe },
+  preset: string | undefined,
+): string {
+  const c = qualityChoices(project).find((q) => q.preset === preset);
+  return c?.label ?? qualityName(preset);
 }
 
 export const METHOD_NAMES: Record<Method, string> = {

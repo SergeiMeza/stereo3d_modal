@@ -24,6 +24,7 @@ import type {
   BillingCard,
   Conversion,
   Method,
+  Preset,
   ProfileShot,
   Project,
   SceneOverride,
@@ -793,8 +794,7 @@ function validateLifelikeRequest(
   if (LIFELIKE.priceCentsPerMinute[preset] === undefined) {
     return err(400, "invalid_request", "preset must be 1080p|qhd|3k|4k");
   }
-  const short = Math.min(p.probe!.width, p.probe!.height);
-  if (preset !== "1080p" && LIFELIKE.presetShortSide[preset] > short) {
+  if (!lifelikeQualities(p).some((q) => q.preset === preset)) {
     return err(
       400,
       "preset_above_source",
@@ -851,6 +851,45 @@ function validateLifelikeRequest(
   return null;
 }
 
+/** The Lifelike qualities of a source (S3D-04, the gateway's `qualities`):
+ * steps at or below its short side; a short side between steps adds "Full
+ * resolution (Np)" (sent as the next step, priced like the step below); a
+ * source below 1080 gets "Full resolution (Np)" at the 1080p price. */
+function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
+  if (!p.probe) return [];
+  const { width, height } = p.probe;
+  const short = Math.min(width, height);
+  const steps: [Preset, string, number][] = [
+    ["1080p", "1080p", 1080],
+    ["qhd", "1440p", 1440],
+    ["3k", "3K", 1620],
+    ["4k", "4K", 2160],
+  ];
+  const size = (target: number) => {
+    const k = Math.min(1, target / short);
+    const even = (v: number) => Math.round((v * k) / 2) * 2;
+    return { eye_width: even(width), eye_height: even(height) };
+  };
+  const out: NonNullable<Project["qualities"]> = [];
+  let below: Preset | null = null;
+  for (const [preset, label, side] of steps) {
+    if (side <= short) {
+      out.push({ preset, label, ...size(side) });
+      below = preset;
+    } else {
+      // between steps (or under 1080): the source's own size
+      out.push({
+        preset,
+        label: `Full resolution (${short % 2 === 0 ? short : short - 1}p)`,
+        ...size(short),
+        ...(below !== null ? { price_preset: below } : {}),
+      });
+      break;
+    }
+  }
+  return out;
+}
+
 /** Lifelike ETA model (contract): (530 × output minutes) / gpus + encode
  * tail + 45, tail frames capped at 7,200. */
 function lifelikeEta(outputSeconds: number, fps: number, preset: string): number {
@@ -883,7 +922,11 @@ function lifelikeQuoteFor(
       : probe.num_frames;
   const outputSeconds = (to - from) / probe.fps;
   const preset = req.preset ?? "1080p";
-  const perMin = LIFELIKE.priceCentsPerMinute[preset];
+  // "Full resolution" between steps is priced like the step below
+  const priced =
+    lifelikeQualities(project).find((q) => q.preset === preset)?.price_preset ??
+    preset;
+  const perMin = LIFELIKE.priceCentsPerMinute[priced];
   const effFPS = req.target_fps ?? probe.fps;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
   const subtotal = Math.ceil((outputSeconds / 60) * perMin * fpsFactor);
@@ -891,7 +934,8 @@ function lifelikeQuoteFor(
     subtotal > RATES.discountThresholdCents
       ? Math.round(subtotal * RATES.discountPct)
       : 0;
-  const total = Math.max(subtotal - bulk, RATES.minimumCents);
+  // no per-run minimum (S3D-17): the $0.50 floor applies to the balance
+  const total = subtotal - bulk;
   return {
     quote: {
       amount_cents: total,
@@ -1087,7 +1131,8 @@ function quoteFor(
   const credit = project.analyze.credit_available
     ? RATES.analyzeCreditCents
     : 0;
-  const total = Math.max(afterReuse - bulk - credit, RATES.minimumCents);
+  // no per-run minimum (S3D-17)
+  const total = Math.max(afterReuse - bulk - credit, 0);
   return {
     quote: {
       amount_cents: total,
@@ -1319,7 +1364,12 @@ function projectDetail(p: Project) {
   const conversions = [...mockDb.conversions.values()]
     .filter((c) => c.project_id === p.project_id)
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  return { ...p, method: projectMethod(p), conversions };
+  return {
+    ...p,
+    method: projectMethod(p),
+    ...(p.probe ? { qualities: lifelikeQualities(p) } : {}),
+    conversions,
+  };
 }
 
 /** One poll = one lifecycle tick (paid→processing→succeeded). Pro

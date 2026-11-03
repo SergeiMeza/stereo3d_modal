@@ -5,7 +5,14 @@
  * tracker, and the Preview page's ~5 s request from the chosen moment.
  */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   afterAll,
   afterEach,
@@ -27,7 +34,12 @@ import projectFixture from "../../../fixtures/project.json";
 import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
-import { qualitiesFor, qualityName } from "@/lib/glossary";
+import {
+  qualitiesFor,
+  qualityChoices,
+  qualityChoiceText,
+  qualityName,
+} from "@/lib/glossary";
 
 import { PRESET_ABOVE_SOURCE } from "./methods";
 import { CHARGE_BEFORE_COPY } from "./QuoteView";
@@ -96,9 +108,42 @@ describe("Lifelike qualities", () => {
     );
     const select = screen.getByLabelText("Quality") as HTMLSelectElement;
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      "1080p",
-      "1440p",
+      "1080p · 1920×1080 per eye",
+      "1440p · 2560×1440 per eye",
     ]);
+  });
+
+  it("names the real size: Full resolution between steps and below 1080 (S3D-04)", () => {
+    // a 720p source: one option, its own size, at the 1080p price
+    expect(
+      qualityChoices({ probe: { ...FIXTURE.probe!, width: 1280, height: 720 } }).map(
+        qualityChoiceText,
+      ),
+    ).toEqual(["Full resolution (720p) · 1280×720 per eye"]);
+    // the gateway's list wins (a 2.39:1 4K source)
+    expect(
+      qualityChoices({
+        qualities: [
+          { preset: "1080p", label: "1080p", eye_width: 2582, eye_height: 1080 },
+          { preset: "qhd", label: "1440p", eye_width: 3442, eye_height: 1440 },
+          {
+            preset: "3k",
+            label: "Full resolution (1606p)",
+            eye_width: 3840,
+            eye_height: 1606,
+            price_preset: "qhd",
+          },
+        ],
+      }).map(qualityChoiceText),
+    ).toEqual([
+      "1080p · 2582×1080 per eye",
+      "1440p · 3442×1440 per eye",
+      "Full resolution (1606p) · 3840×1606 per eye",
+    ]);
+    // copy rule: sizes only, nothing above 4K
+    for (const q of qualityChoices({ probe: FIXTURE.probe })) {
+      expect(qualityChoiceText(q)).not.toMatch(/detail|sharp|8K|6K/i);
+    }
   });
 
   it("a preset above the source reads as a friendly message", async () => {
@@ -237,15 +282,29 @@ describe("Lifelike Preview", () => {
       <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    // a 5-second 1080p preview is at the $0.50 minimum
-    expect((await screen.findByTestId("quote-total")).textContent).toBe("$0.50");
+    // priced per frame like the final, no minimum: 5 s at 1080p 24 fps
+    expect((await screen.findByTestId("quote-total")).textContent).toBe("$0.38");
+    // Quick look: half the frame rate, half the price
+    fireEvent.click(screen.getByLabelText(/Quick look/));
+    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("quote-total").textContent).toBe("$0.19"),
+    );
+    expect(quotes[1]).toMatchObject({ target_fps: 12 });
+    fireEvent.click(screen.getByLabelText(/Quick look/));
+    // 2–10 s, 5 by default
+    const length = screen.getByLabelText("Length") as HTMLSelectElement;
+    expect(length.value).toBe("5");
+    expect([...length.options].map((o) => o.value)).toEqual(
+      ["2", "3", "4", "5", "6", "7", "8", "9", "10"],
+    );
     fireEvent.change(screen.getByLabelText("Quality"), {
       target: { value: "qhd" },
     });
     expect(screen.queryByTestId("quote-total")).toBeNull(); // re-quote needed
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     await screen.findByTestId("quote-total");
-    expect(quotes[1]).toMatchObject({
+    expect(quotes[2]).toMatchObject({
       step: "lifelike_preview",
       preset: "qhd",
       formats: ["sbs"],

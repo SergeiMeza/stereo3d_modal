@@ -2,8 +2,10 @@
 
 /**
  * Lifelike Preview page (step lifelike_preview): the customer picks a
- * moment on the timeline and gets about 5 seconds of it in 3D, in the
- * quality they choose — quote first, then the run, like every paid step.
+ * moment on the timeline and gets 2–10 seconds of it in 3D (5 s by
+ * default), in the quality they choose, priced per frame like the final
+ * (S3D-13). "Quick look" renders half the frame rate for half the price.
+ * Quote first, then the run, like every paid step.
  *
  * The shared StepReview supplies the frame-exact source player and the
  * timeline; "Preview from here" fixes the moment at the playhead. The
@@ -24,7 +26,11 @@ import type {
   Project,
   StepConversionRequest,
 } from "@/lib/api/types";
-import { qualitiesFor, qualityName } from "@/lib/glossary";
+import {
+  qualityChoices,
+  qualityChoiceText,
+  qualityLabelFor,
+} from "@/lib/glossary";
 import { frameToTimecode, parseRational, type RationalFPS } from "@/lib/frames";
 
 import { Field, selectClass } from "./controls";
@@ -47,15 +53,16 @@ export function previewRange(
   start: number,
   numFrames: number,
   fps: RationalFPS,
+  seconds: number = LIFELIKE_PREVIEW_SECONDS,
 ): [number, number] {
-  const span = Math.max(
-    1,
-    Math.round((LIFELIKE_PREVIEW_SECONDS * fps.num) / fps.den),
-  );
+  const span = Math.max(1, Math.round((seconds * fps.num) / fps.den));
   const to = Math.min(Math.max(0, start) + span, numFrames);
   const from = Math.max(0, to - span);
   return [from, to];
 }
+
+/** Preview lengths offered (S3D-13). */
+export const PREVIEW_LENGTHS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 export interface LifelikePreviewPanelProps {
   project: Project;
@@ -69,6 +76,8 @@ export function LifelikePreviewPanel({
   const ck = useStepCheckout(project, "lifelike_preview", onProjectChanged);
   const [preset, setPreset] = useState<Preset>("1080p");
   const [moment, setMoment] = useState(0);
+  const [seconds, setSeconds] = useState(LIFELIKE_PREVIEW_SECONDS);
+  const [quickLook, setQuickLook] = useState(false);
 
   const runs = (project.conversions ?? []).filter(
     (c) => c.step === "lifelike_preview",
@@ -95,9 +104,15 @@ export function LifelikePreviewPanel({
   }
   const probe = project.probe!;
   const sourceFps = parseRational(probe.fps_rational);
-  const [from, to] = previewRange(moment, probe.num_frames, sourceFps);
+  const [from, to] = previewRange(
+    moment,
+    probe.num_frames,
+    sourceFps,
+    seconds,
+  );
+  const halfRate = Math.round((sourceFps.num / sourceFps.den / 2) * 100) / 100;
   const tc = (f: number) => frameToTimecode(f, sourceFps);
-  const presets = qualitiesFor(probe);
+  const presets = qualityChoices(project);
 
   const request: StepConversionRequest = {
     step: "lifelike_preview",
@@ -105,6 +120,8 @@ export function LifelikePreviewPanel({
     formats: ["sbs"], // side by side: plays right here
     from_frame: from,
     to_frame: to,
+    // Quick look: half the frame rate, half the price
+    ...(quickLook ? { target_fps: halfRate } : {}),
     platform: "web",
   };
 
@@ -116,8 +133,7 @@ export function LifelikePreviewPanel({
         heading="Pick a moment"
         headingExtras={
           <span className="text-[11px] text-fg-muted">
-            Scrub the timeline, then preview about {LIFELIKE_PREVIEW_SECONDS}{" "}
-            seconds from there.
+            Scrub the timeline, then preview {seconds} seconds from there.
           </span>
         }
       >
@@ -162,14 +178,46 @@ export function LifelikePreviewPanel({
               }}
               className={selectClass}
             >
-              {presets.map((p) => (
-                <option key={p} value={p}>
-                  {qualityName(p)}
+              {presets.map((q) => (
+                <option key={q.preset} value={q.preset}>
+                  {qualityChoiceText(q)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="lifelike-preview-length" label="Length">
+            <select
+              id="lifelike-preview-length"
+              value={seconds}
+              onChange={(e) => {
+                setSeconds(Number(e.target.value));
+                ck.invalidate();
+              }}
+              className={selectClass}
+            >
+              {PREVIEW_LENGTHS.map((n) => (
+                <option key={n} value={n}>
+                  {n} seconds
                 </option>
               ))}
             </select>
           </Field>
         </div>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={quickLook}
+            onChange={(e) => {
+              setQuickLook(e.target.checked);
+              ck.invalidate();
+            }}
+            className="accent-primary"
+          />
+          Quick look{" "}
+          <span className="text-fg-muted">
+            (half the frame rate, half the price)
+          </span>
+        </label>
         <StepCheckoutSection
           checkout={ck}
           request={request}
@@ -210,7 +258,7 @@ export function LifelikePreviewPanel({
         conversions={runs}
         meta={(c) =>
           [
-            qualityName(c.params.preset),
+            qualityLabelFor(project, c.params.preset),
             c.params.from_frame !== undefined
               ? `from ${tc(c.params.from_frame)}`
               : null,

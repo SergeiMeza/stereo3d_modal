@@ -26,7 +26,12 @@ import {
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
-import { formatName, qualitiesFor, qualityName } from "@/lib/glossary";
+import {
+  formatName,
+  qualityChoices,
+  qualityChoiceText,
+  qualityLabelFor,
+} from "@/lib/glossary";
 import { parseRational } from "@/lib/frames";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -97,7 +102,7 @@ export function LifelikeDeliverPanel({
     );
   }
   const sourceFps = parseRational(project.probe!.fps_rational);
-  const presets = qualitiesFor(project.probe);
+  const presets = qualityChoices(project);
 
   const splitOffered = ck.quote?.split_suggested === true;
   const request: StepConversionRequest = {
@@ -152,9 +157,9 @@ export function LifelikeDeliverPanel({
               }}
               className={selectClass}
             >
-              {presets.map((p) => (
-                <option key={p} value={p}>
-                  {qualityName(p)}
+              {presets.map((q) => (
+                <option key={q.preset} value={q.preset}>
+                  {qualityChoiceText(q)}
                 </option>
               ))}
             </select>
@@ -234,7 +239,7 @@ export function LifelikeDeliverPanel({
         conversions={runs}
         meta={(c) =>
           [
-            qualityName(c.params.preset),
+            qualityLabelFor(project, c.params.preset),
             c.params.formats.map(formatName).join(" + "),
             c.parts && c.parts.length > 0 ? `${c.parts.length} parts` : null,
           ]

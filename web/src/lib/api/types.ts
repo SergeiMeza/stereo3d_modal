@@ -175,9 +175,27 @@ export interface DepthUpload {
   created_at: string;
 }
 
+/** One quality a Lifelike source can have (S3D-04), from the gateway:
+ * steps at or below the source's short side, plus "Full resolution (Np)"
+ * when the short side falls between steps (priced like the step below). */
+export interface QualityOption {
+  /** what the request sends */
+  preset: Preset;
+  /** "1440p" / "Full resolution (1606p)" */
+  label: string;
+  /** output size per eye */
+  eye_width?: number;
+  eye_height?: number;
+  /** the price step it is charged at, when not its own */
+  price_preset?: Preset;
+}
+
 export interface Project {
   project_id: string;
   name?: string;
+  /** Lifelike qualities for this source; absent on older gateways (the
+   * web then derives them from the probe) */
+  qualities?: QualityOption[];
   /** always sent by current gateways; absent = classic (methodOf) */
   method?: Method;
   source_bytes: number;
