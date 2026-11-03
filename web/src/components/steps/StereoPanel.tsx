@@ -160,10 +160,10 @@ export function StereoPanel({
       ? HEADSET_PREVIEW_FORMATS[viewer as Exclude<Client, "desktop">]
       : ["sbs"],
   );
-  // Edge style (S3D-29): filled (default) | stretched
+  // Edge style (S3D-29): stretched (default) | filled
   // (backward warp). Panel-local like preset — not part of the per-scene
   // draft, which is exported as a profile file.
-  const [edge, setEdge] = useState<EdgeMode>("filled");
+  const [edge, setEdge] = useState<EdgeMode>("stretched");
   // "use pipeline default" escape for the inherited depth resolution.
   const [depthDefault, setDepthDefault] = useState(false);
   // Compare-slot pick when BOTH the run output and the depth map exist.

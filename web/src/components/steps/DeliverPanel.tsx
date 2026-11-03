@@ -85,8 +85,8 @@ export function DeliverPanel({
   const [formats, setFormats] = useState<Format[]>(() =>
     devices.length > 0 ? formatsForDevices(devices, CLASSIC_FORMATS) : DEFAULT_MAKE_FORMATS,
   );
-  // S3D-29: two equal edge styles, Filled preselected
-  const [edge, setEdge] = useState<EdgeMode>("filled");
+  // S3D-29: two equal edge styles, Stretched first and preselected
+  const [edge, setEdge] = useState<EdgeMode>("stretched");
   const [fromScratch, setFromScratch] = useState(false);
   // S3D-56: no price change
   const [bitrate, setBitrate] = useState<Bitrate>("auto");

@@ -162,10 +162,10 @@ describe("Classic Make 3D (screen 10)", () => {
     await priced();
     expect(screen.getByTestId("checkout-main").textContent).toMatch(/^Make 3D · \$\d+\.\d\d$/);
     expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
-    expect(screen.getByText("With filled edges. You can change this under Advanced.")).toBeTruthy();
+    expect(screen.getByText("With stretched edges. You can change this under Advanced.")).toBeTruthy();
   });
 
-  it("Advanced: edges Stretched then Filled, each priced, Filled preselected; the pairs on the wire", async () => {
+  it("Advanced: edges Stretched then Filled, each priced, Stretched preselected; the pairs on the wire", async () => {
     const bodies = captureQuoteBodies();
     renderPanel();
     openAdvanced();
@@ -174,19 +174,20 @@ describe("Classic Make 3D (screen 10)", () => {
       "Stretched",
       "Filled",
     ]);
-    expect((edges.getAllByRole("radio")[1] as HTMLInputElement).checked).toBe(true);
+    expect((edges.getAllByRole("radio")[0] as HTMLInputElement).checked).toBe(true);
     await waitFor(() =>
       expect(screen.getByTestId("edge-price-stretched").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
     expect(screen.getByTestId("edge-price-filled").textContent).toMatch(/^\$\d+\.\d\d$/);
     expect(document.body.textContent).not.toMatch(/visible stretching|propainter|backward/i);
-    fireEvent.click(edges.getAllByRole("radio")[0]);
+    expect(document.body.textContent).not.toMatch(/MI-GAN|migan|fast fill/i);
+    fireEvent.click(edges.getAllByRole("radio")[1]);
     await waitFor(() =>
       expect(
-        bodies.some((b) => b.warp === "backward" && b.inpaint === "none" && b.step === "production"),
+        bodies.some((b) => b.warp === undefined && b.inpaint === "propainter" && b.step === "production"),
       ).toBe(true),
     );
-    expect(screen.getByText("With stretched edges. You can change this under Advanced.")).toBeTruthy();
+    expect(screen.getByText("With filled edges. You can change this under Advanced.")).toBeTruthy();
   });
 
   it("production sends THE SAME depth_res, scene_overrides and depth_scale the previews set", async () => {
@@ -208,7 +209,8 @@ describe("Classic Make 3D (screen 10)", () => {
         step: "production",
         preset: "1080p",
         formats: ["mvhevc", "sbs"],
-        inpaint: "propainter",
+        inpaint: "none",
+        warp: "backward",
         depth_res: 1442,
         depth_scale: 1.1,
         scene_overrides: [

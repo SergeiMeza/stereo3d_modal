@@ -241,7 +241,7 @@ describe("StereoPanel scene rows", () => {
 });
 
 describe("StereoPanel request building", () => {
-  it("Edge style (S3D-29): Stretched and Filled, in that order, Filled preselected — filled = propainter, stretched = backward+none; the per-frame fill is gone (no model names in copy)", async () => {
+  it("Edge style (S3D-29): Stretched and Filled, in that order, Stretched preselected — filled = propainter, stretched = backward+none; the per-frame fill is gone (no model names in copy)", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel(withProfile());
@@ -252,12 +252,11 @@ describe("StereoPanel request building", () => {
       "Stretched",
       "Filled",
     ]);
-    expect(select.value).toBe("filled");
+    expect(select.value).toBe("stretched");
     expect(document.body.textContent).not.toMatch(/visible stretching|Fast fill/i);
     expect(screen.queryByText(/backward|gather|splat|propainter|migan/i)).toBeNull();
 
-    await user.selectOptions(select, "stretched");
-    expect(select.selectedOptions[0].textContent).toBe("Stretched");
+    // the default: backward warp, no fill
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).toMatchObject({
@@ -266,8 +265,9 @@ describe("StereoPanel request building", () => {
       inpaint: "none", // a gather warp has no gaps to fill
     });
 
-    // back to the default: warp absent, video fill restored
+    // Filled: warp absent, video fill
     await user.selectOptions(select, "filled");
+    expect(select.selectedOptions[0].textContent).toBe("Filled");
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1]).not.toHaveProperty("warp");
@@ -300,7 +300,8 @@ describe("StereoPanel request building", () => {
       step: "stereo_preview",
       preset: "1080p",
       formats: ["sbs"],
-      inpaint: "propainter",
+      inpaint: "none",
+      warp: "backward",
       scene_overrides: [
         { first: 0, shot_type: "close_up" },
         { first: FIRST_CUT, shot_type: "wide" },

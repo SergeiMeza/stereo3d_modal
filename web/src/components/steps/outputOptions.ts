@@ -52,8 +52,8 @@ export const INPAINT_LABELS: Record<Inpaint, string> = {
 
 /** Edge style (S3D-29): the user-facing choice that drives BOTH wire
  * fields (warp + inpaint). Two equal options in this order — Stretched,
- * then Filled (Filled stays preselected); which looks better is a matter of taste, so the
- * copy never ranks them. The per-frame fill ("migan") is no longer offered
+ * then Filled, with Stretched preselected; which looks better is a matter
+ * of taste, so the copy never ranks them. The per-frame fill ("migan") is no longer offered
  * (the API still accepts it). Values are UI-only — never on the wire. */
 export const EDGE_OPTIONS: readonly EdgeMode[] = ["stretched", "filled"];
 
