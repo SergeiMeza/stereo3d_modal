@@ -148,10 +148,10 @@ export function StereoPanel({
 
   const [preset, setPreset] = useState<Preset>("1080p");
   const [formats, setFormats] = useState<Format[]>(["sbs"]);
-  // Edge handling: best (ProPainter) | fast (per-frame fill) | stretched
+  // Edge style (S3D-29): filled (default) | stretched
   // (backward warp). Panel-local like preset — not part of the per-scene
   // draft, which is exported as a profile file.
-  const [edge, setEdge] = useState<EdgeMode>("best");
+  const [edge, setEdge] = useState<EdgeMode>("filled");
   // "use pipeline default" escape for the inherited depth resolution.
   const [depthDefault, setDepthDefault] = useState(false);
   // Compare-slot pick when BOTH the run output and the depth map exist.
@@ -667,7 +667,7 @@ export function StereoPanel({
                 ))}
               </select>
             </Field>
-            <Field id="stereo-edge" label="Edge handling" hint={EDGE_HINT}>
+            <Field id="stereo-edge" label="Edge style" hint={EDGE_HINT}>
               <select
                 id="stereo-edge"
                 value={edge}

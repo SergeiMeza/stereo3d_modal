@@ -64,8 +64,8 @@ export function DeliverPanel({
   const ck = useStepCheckout(project, "production", onProjectChanged);
 
   const [preset, setPreset] = useState<Preset>("1080p");
-  // Edge handling (see StereoPanel): best | fast | stretched.
-  const [edge, setEdge] = useState<EdgeMode>("best");
+  // Edge style (see StereoPanel): filled | stretched.
+  const [edge, setEdge] = useState<EdgeMode>("filled");
   const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
   const [fromScratch, setFromScratch] = useState(false);
   // "use pipeline default" escapes for the inherited settings
@@ -129,10 +129,10 @@ export function DeliverPanel({
       // checkout section is disabled before it gets that far), never
       // silently swapped for the step default.
       formats,
-      // Edge handling drives BOTH wire fields (best = propainter, the
-      // gateway's production default, sent explicitly; fast = migan;
-      // stretched = backward warp + inpaint none — the only pairing the
-      // gateway accepts for it).
+      // Edge style drives BOTH wire fields (filled = propainter, the
+      // gateway's production default, sent explicitly; stretched =
+      // backward warp + inpaint none — the only pairing the gateway
+      // accepts for it).
       ...edgeModeRequest(edge),
       ...(sendUpload ? { use_uploaded_depth: true } : {}),
       ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
@@ -288,7 +288,7 @@ export function DeliverPanel({
             ))}
           </select>
         </Field>
-        <Field id="production-edge" label="Edge handling" hint={EDGE_HINT}>
+        <Field id="production-edge" label="Edge style" hint={EDGE_HINT}>
           <select
             id="production-edge"
             value={edge}

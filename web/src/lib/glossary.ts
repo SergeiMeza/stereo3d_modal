@@ -167,14 +167,22 @@ export const STEP_NAMES: Record<Step, string> = {
   production: "Full video",
 };
 
-/** Classic edge handling (S3D-29: Best is the default; the others live
- * under Advanced). */
-export type EdgeMode = "best" | "fast" | "stretched";
+/** Classic edge style (S3D-29): two equal options, Filled (the default)
+ * and Stretched — a matter of taste, never ranked. The old per-frame fill
+ * is no longer offered; old runs that used it keep a name. */
+export type EdgeMode = "filled" | "stretched";
 
-export const EDGE_NAMES: Record<EdgeMode | "none", string> = {
-  best: "Best edges",
-  fast: "Fast edges",
+/** Option labels on the pages. */
+export const EDGE_STYLE_NAMES: Record<EdgeMode, string> = {
+  filled: "Filled",
+  stretched: "Stretched",
+};
+
+/** Names in run summaries (History, Files). */
+export const EDGE_NAMES: Record<EdgeMode | "fast" | "none", string> = {
+  filled: "Filled edges",
   stretched: "Stretched edges",
+  fast: "Fast fill (no longer offered)",
   none: "Unfilled edges",
 };
 
@@ -182,16 +190,16 @@ export const EDGE_NAMES: Record<EdgeMode | "none", string> = {
 export function edgeModeOf(p: {
   inpaint?: Inpaint;
   warp?: Warp;
-}): EdgeMode | "none" | null {
+}): EdgeMode | "fast" | "none" | null {
   if (p.warp === "backward") return "stretched";
-  if (p.inpaint === "propainter") return "best";
+  if (p.inpaint === "propainter") return "filled";
   if (p.inpaint === "migan") return "fast";
   if (p.inpaint === "none") return "none";
   return null;
 }
 
 /** A run's settings in words: "4K · Vision Pro spatial video + Side by
- * side · Best edges". Classic knobs only when the run carried them. */
+ * side · Filled edges". Classic knobs only when the run carried them. */
 export function runSummary(p: Params, step?: Step): string {
   // a depth preview makes a depth video: its formats/edges are defaults
   // it never used

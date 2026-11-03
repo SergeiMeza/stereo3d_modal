@@ -59,7 +59,8 @@ export type Format =
 
 export type Inpaint = "none" | "migan" | "propainter";
 // "migan": per-frame fill of the warp gaps (no temporal model) on the cheap
-// GPU tier — the "Filled edges — fast" option; propainter stays "best".
+// GPU tier. No longer offered on the web (S3D-29); old runs read "Fast fill
+// (no longer offered)". propainter = "Filled", backward warp = "Stretched".
 
 /** Stereo synthesis method. "forward" = splat with occlusion masks (the
  * only method an inpaint pass can follow); "backward" = gather warp — the

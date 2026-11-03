@@ -49,7 +49,7 @@ export const STEP_DEFS: readonly StepDef[] = [
       "Dynamic — the camera or subject distance changes during the scene (push-ins, walk-aways), so the 3D strength adapts across the shot instead of staying fixed.",
       "Override a scene's shot type when the automatic pick reads wrong — e.g. force Close-up on a tight shot the profiler called Standard to make it pop more.",
       "Overall 3D strength scales EVERY scene at once; a per-scene shot-type override wins for its scene.",
-      "Best edges is the default: the thin gaps that open along object edges in 3D are filled for the cleanest result. Faster, cheaper edge modes are under Advanced.",
+      "Edges are Filled by default: the thin gaps that open along object edges in 3D are painted in. The other edge style, Stretched, is under Advanced.",
       "Uncheck “3D” on a scene to ship it as 2D — both eyes identical, no depth (end credits, logos, title cards).",
       "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
       "Your tweaks persist per project and carry to Make 3D automatically.",
@@ -62,7 +62,7 @@ export const STEP_DEFS: readonly StepDef[] = [
       "The whole video (or the part you pick) in 3D. It uses your Depth and 3D look settings and reuses earlier depth work at a discount.",
     outputs: [
       "Your video in every format you pick: Vision Pro spatial video, side by side for other headsets and 3D TVs, red-cyan for a quick check",
-      "Full frame rate at the quality you pick, with Best edges unless you chose otherwise under Advanced",
+      "Full frame rate at the quality you pick, with Filled edges unless you chose Stretched under Advanced",
     ],
     tips: [
       "The summary shows which Depth and 3D look settings this run uses — each can be switched back to automatic.",

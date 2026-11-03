@@ -135,7 +135,7 @@ describe("HistoryList", () => {
     // the production run carries the full per-scene parameter set; the
     // inpaint wire value renders as its user-facing name, never the model
     expect(within(first).getByTestId("history-params").textContent).toBe(
-      "1080p · Vision Pro spatial video + Side by side (half size) · Best edges · 3D strength ×1.10 · 3 scenes adjusted",
+      "1080p · Vision Pro spatial video + Side by side (half size) · Filled edges · 3D strength ×1.10 · 3 scenes adjusted",
     );
     // the depth run: no scene params, but resolution/fps/inpaint
     expect(within(second).getByTestId("history-params").textContent).toBe(

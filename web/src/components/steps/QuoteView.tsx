@@ -29,7 +29,7 @@ const STANDARD_DEPTH_DETAIL: Record<string, number> = {
   "4k": 1442,
 };
 
-/** The edge multiplier of each step's default (Best edges). */
+/** The edge multiplier of each step's default (Filled edges). */
 const DEFAULT_EDGE_MULTIPLIER: Record<string, number> = {
   stereo_preview: 1.6,
   production: 1,
@@ -118,7 +118,7 @@ export function QuoteView({
   const hasInpaintMult =
     b.inpaint_multiplier !== undefined && b.inpaint_multiplier !== 1;
   // S3D-12: Classic's per-minute prices include the standard depth detail
-  // and Best edges, so those factors fold into the video line; the factor
+  // and Filled edges, so those factors fold into the video line; the factor
   // lines appear only when an Advanced setting changed them (the Depth
   // page always shows its own detail).
   const step = b.step ?? result.step;
@@ -164,7 +164,7 @@ export function QuoteView({
             ) : null}
             {hasInpaintMult ? (
               <Line
-                label="Edge handling"
+                label="Edge style"
                 value={percent(b.inpaint_multiplier!)}
                 testId="quote-inpaint-multiplier"
               />

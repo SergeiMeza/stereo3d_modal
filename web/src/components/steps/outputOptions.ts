@@ -9,7 +9,7 @@
 
 import type { Format, Inpaint, Preset, Warp } from "@/lib/api/types";
 import {
-  EDGE_NAMES,
+  EDGE_STYLE_NAMES,
   FORMAT_NAMES,
   QUALITIES,
   type EdgeMode,
@@ -46,29 +46,28 @@ export const FORMAT_LABELS: Record<(typeof OUTPUT_FORMATS)[number], string> = {
  * rough edges, fine for judging depth. */
 export const INPAINT_LABELS: Record<Inpaint, string> = {
   propainter: "Full quality",
-  migan: "Fast fill",
+  migan: "Fast fill (no longer offered)",
   none: "Quick",
 };
 
-/** Edge handling: the user-facing choice that drives BOTH wire fields
- * (warp + inpaint). Values are UI-only — never sent on the wire. */
-export const EDGE_OPTIONS: readonly EdgeMode[] = ["best", "fast", "stretched"];
+/** Edge style (S3D-29): the user-facing choice that drives BOTH wire
+ * fields (warp + inpaint). Two equal options in this order — Filled (the
+ * default) and Stretched; which looks better is a matter of taste, so the
+ * copy never ranks them. The per-frame fill ("migan") is no longer offered
+ * (the API still accepts it). Values are UI-only — never on the wire. */
+export const EDGE_OPTIONS: readonly EdgeMode[] = ["filled", "stretched"];
 
-export const EDGE_LABELS: Record<EdgeMode, string> = {
-  best: EDGE_NAMES.best,
-  fast: EDGE_NAMES.fast,
-  stretched: EDGE_NAMES.stretched,
-};
+export const EDGE_LABELS: Record<EdgeMode, string> = EDGE_STYLE_NAMES;
 
 export const EDGE_HINT =
-  "How the thin gaps that open along object edges are handled. Best paints them in with motion-aware fill — the deliverable look, slowest. Fast paints each frame independently — nearly as clean, much quicker and cheaper. Stretched pulls the neighbouring pixels across the gaps, the same method as the mobile app: the quickest of all.";
+  "Shifting the picture for each eye opens thin gaps along object edges. Filled paints them in; Stretched pulls the neighbouring pixels across them. Two different looks: pick the one you like.";
 
-/** The wire fields an edge mode implies. Stretched = the backward warp
- * (which the gateway forces to inpaint none); the filled modes keep the
- * default forward warp, so no warp field goes on the wire. */
+/** The wire fields an edge style implies. Stretched = the backward warp
+ * with no fill; Filled keeps the default forward warp (no warp field on
+ * the wire) with the video fill. */
 export function edgeModeRequest(mode: EdgeMode): { inpaint: Inpaint; warp?: Warp } {
   if (mode === "stretched") return { inpaint: "none", warp: "backward" };
-  return { inpaint: mode === "fast" ? "migan" : "propainter" };
+  return { inpaint: "propainter" };
 }
 
 /** legacy two-option list (kept for history rendering) */
@@ -87,7 +86,7 @@ export const WARP_LABELS: Record<Warp, string> = {
 };
 
 export const WARP_HINT =
-  "How the thin gaps that open along object edges are handled. Filled edges paints them in — the deliverable look, slower. Stretched edges pulls the neighbouring pixels across them, the same method as the mobile app: quicker, with no fill pass.";
+  "Shifting the picture for each eye opens thin gaps along object edges. Filled paints them in; Stretched pulls the neighbouring pixels across them. Two different looks: pick the one you like.";
 
 /** The inpaint value a warp choice implies. The gateway forces this
  * pairing (backward ⇒ none) and rejects backward + propainter, so the
