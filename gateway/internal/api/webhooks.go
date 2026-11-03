@@ -82,6 +82,9 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		if event.Type == "invoice.paid" {
 			s.handlePlanInvoicePaid(ctx, event.Data.Raw) // a plan period's credit
 		}
+		if event.Type == "invoice.created" {
+			s.handlePlanInvoiceCreated(ctx, event.Data.Raw) // the web's statement line
+		}
 		httpx.WriteOK(w, map[string]bool{"received": true})
 	case "dispute":
 		if err := s.handleDisputeEvent(ctx, string(event.Type), event.Data.Raw); err != nil {

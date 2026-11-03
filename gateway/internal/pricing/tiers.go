@@ -79,7 +79,8 @@ func defaultAddOnPct() map[string]float64 {
 	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50}
 }
 
-// Stripe TEST prices (products "Spatial Video Studio Business" / "Studio",
+// Stripe TEST prices (products "Spatial Video Studio Business plan" /
+// "Spatial Video Studio Studio plan",
 // made 2026-11-03 in test mode only).
 func testPlans() map[string]PlanDef {
 	return map[string]PlanDef{

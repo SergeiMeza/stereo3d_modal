@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -270,4 +271,47 @@ func (s *Service) planCreditSweep(ctx context.Context) int {
 		}
 	}
 	return n
+}
+
+// handlePlanInvoiceCreated (invoice.created): a Business or Studio
+// subscription invoice still in draft gets the web's statement line
+// ("SPATIAL AI* SV STUDIO"); Checkout in subscription mode takes no
+// suffix, so plan charges otherwise showed the account's default.
+// Idempotent: a draft that already has it, or an invoice past draft (the
+// first one, which Checkout finalizes at once), is left alone.
+func (s *Service) handlePlanInvoiceCreated(ctx context.Context, raw json.RawMessage) {
+	var inv struct {
+		ID                  string `json:"id"`
+		Status              string `json:"status"`
+		StatementDescriptor string `json:"statement_descriptor"`
+		Subscription        string `json:"subscription"`
+		Parent              struct {
+			SubscriptionDetails struct {
+				Subscription string            `json:"subscription"`
+				Metadata     map[string]string `json:"metadata"`
+			} `json:"subscription_details"`
+		} `json:"parent"`
+	}
+	if json.Unmarshal(raw, &inv) != nil || inv.Status != "draft" || inv.StatementDescriptor == stripex.WebStatementDescriptor {
+		return
+	}
+	md := inv.Parent.SubscriptionDetails.Metadata
+	subID := cmp.Or(inv.Subscription, inv.Parent.SubscriptionDetails.Subscription)
+	if subID == "" {
+		return
+	}
+	if md["product"] == "" {
+		sub, err := s.Stripe.GetSubscription(subID)
+		if err != nil {
+			slog.WarnContext(ctx, "plan invoice: subscription unreadable", "invoice", inv.ID, "err", err)
+			return
+		}
+		md = sub.Metadata
+	}
+	if md["product"] != "svs-web" || md["env"] != s.Cfg.Env || md["plan"] == "" {
+		return
+	}
+	if err := s.Stripe.SetInvoiceDescriptor(inv.ID, stripex.WebStatementDescriptor); err != nil {
+		slog.WarnContext(ctx, "plan invoice descriptor not set", "invoice", inv.ID, "err", err)
+	}
 }

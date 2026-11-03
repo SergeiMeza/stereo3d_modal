@@ -61,9 +61,12 @@ confirmCardPayment fallback). The default card is cached on
   renamed Spatial Video Studio, owner 2026-11-04: "SPATIAL AI* SV STUDIO",
   21 of 22; "SPATIALVIDEO" would make 24), `SVS CLOUD` (the app's cloud
   runs); the account prefix is `SPATIAL AI` (account settings are never
-  changed: the account is shared). Plan subscriptions carry no suffix
-  (Checkout in subscription mode takes none) and show the account's
-  default descriptor.
+  changed: the account is shared). Plan subscriptions take no suffix
+  (Checkout in subscription mode has none), so `invoice.created` sets the
+  whole line `statement_descriptor = "SPATIAL AI* SV STUDIO"` on a
+  Business/Studio invoice while it's a draft (renewals; idempotent). The
+  first invoice, which Checkout finalizes at once, keeps the account's
+  default. The webhook endpoint must send `invoice.created`.
 - **P5** Customer creation carries the key `customer_{env}_{uid}`.
 - **P6** "payment method", never "card", in messages.
 - **P7** `DefaultMethod`: any reusable type (card, Link, PayPal); an

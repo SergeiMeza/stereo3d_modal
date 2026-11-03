@@ -9,6 +9,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 func TestPlanMonths(t *testing.T) {
@@ -122,5 +123,46 @@ func TestStudioYearly(t *testing.T) {
 	if st.Interval != "year" || st.PriceCents != 1198800 || st.CreditCents != 150000 || st.CreditInterval != "month" ||
 		out.Plans["business"].Interval != "month" || out.Plans["business"].PriceCents != 29900 {
 		t.Fatalf("pricing %s", rec.Body.String()[:min(400, rec.Body.Len())])
+	}
+}
+
+// invoice.created on a plan's draft invoice sets the web's statement line
+// once; other products' invoices, other envs and finalized invoices are
+// left alone.
+func TestPlanInvoiceDescriptor(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	if stripex.WebStatementDescriptor != "SPATIAL AI* SV STUDIO" || len(stripex.WebStatementDescriptor) > 22 {
+		t.Fatalf("descriptor %q", stripex.WebStatementDescriptor)
+	}
+	fake.subs["sub_d1"] = map[string]any{"id": "sub_d1", "status": "active", "customer": "cus_1",
+		"metadata": map[string]string{"product": "svs-web", "env": "test", "user_id": "u1", "plan": "studio", "kind": "plan"}}
+	fake.subs["sub_other"] = map[string]any{"id": "sub_other", "status": "active", "metadata": map[string]string{"product": "other-app"}}
+	fake.invs["in_draft"] = map[string]any{"id": "in_draft", "status": "draft"}
+	fake.invs["in_open"] = map[string]any{"id": "in_open", "status": "open"}
+	fake.invs["in_other"] = map[string]any{"id": "in_other", "status": "draft"}
+	fake.invs["in_md"] = map[string]any{"id": "in_md", "status": "draft"}
+
+	event := func(id, status, sub string) json.RawMessage {
+		b, _ := json.Marshal(map[string]any{"id": id, "status": status, "statement_descriptor": fake.invs[id]["statement_descriptor"],
+			"parent": map[string]any{"subscription_details": map[string]any{"subscription": sub}}})
+		return b
+	}
+	s.handlePlanInvoiceCreated(ctx, event("in_draft", "draft", "sub_d1"))
+	if fake.invs["in_draft"]["statement_descriptor"] != "SPATIAL AI* SV STUDIO" || fake.descriptorSets != 1 {
+		t.Fatalf("draft %v sets=%d", fake.invs["in_draft"], fake.descriptorSets)
+	}
+	s.handlePlanInvoiceCreated(ctx, event("in_draft", "draft", "sub_d1")) // redelivered: already set
+	s.handlePlanInvoiceCreated(ctx, event("in_open", "open", "sub_d1"))   // the first invoice, finalized by Checkout
+	s.handlePlanInvoiceCreated(ctx, event("in_other", "draft", "sub_other"))
+	if fake.descriptorSets != 1 || fake.invs["in_other"]["statement_descriptor"] != nil {
+		t.Fatalf("sets=%d other=%v", fake.descriptorSets, fake.invs["in_other"])
+	}
+	// The invoice's own copy of the subscription metadata is enough.
+	b, _ := json.Marshal(map[string]any{"id": "in_md", "status": "draft", "parent": map[string]any{"subscription_details": map[string]any{
+		"subscription": "sub_gone", "metadata": map[string]string{"product": "svs-web", "env": "test", "plan": "business"}}}})
+	s.handlePlanInvoiceCreated(ctx, b)
+	if fake.invs["in_md"]["statement_descriptor"] != "SPATIAL AI* SV STUDIO" {
+		t.Fatalf("metadata path %v", fake.invs["in_md"])
 	}
 }

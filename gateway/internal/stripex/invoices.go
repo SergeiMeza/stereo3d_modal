@@ -166,6 +166,13 @@ func (c *Client) AttachPayment(invoiceID, paymentIntentID string) (*Invoice, err
 	return &inv, nil
 }
 
+// SetInvoiceDescriptor sets a draft invoice's statement_descriptor (the
+// whole line, at most 22 characters).
+func (c *Client) SetInvoiceDescriptor(id, descriptor string) error {
+	var out map[string]any
+	return webCall(http.MethodPost, "/v1/invoices/"+url.PathEscape(id), url.Values{"statement_descriptor": {descriptor}}, "", &out)
+}
+
 // VoidInvoice voids an open invoice.
 func (c *Client) VoidInvoice(id string) error {
 	var out map[string]any

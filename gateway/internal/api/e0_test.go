@@ -24,16 +24,17 @@ import (
 // fakeStripe answers the PaymentIntent, Checkout Session and Refund calls
 // the payment layer makes, from in-memory objects.
 type fakeStripe struct {
-	mu       sync.Mutex
-	pis      map[string]map[string]any // id → {status, amount_received, payment_method}
-	sessions map[string]map[string]any // id → {status, payment_status, payment_intent, expires_at}
-	refunds  []string                  // payment_intent ids refunded
-	pmPrints map[string]string         // payment method id → card fingerprint
-	subs     map[string]map[string]any // subscription id → object
-	invPays  map[string]string         // payment intent → invoice id
-	invs     map[string]map[string]any // invoice id → object
-	expired  []string
-	created  int
+	mu             sync.Mutex
+	pis            map[string]map[string]any // id → {status, amount_received, payment_method}
+	sessions       map[string]map[string]any // id → {status, payment_status, payment_intent, expires_at}
+	refunds        []string                  // payment_intent ids refunded
+	pmPrints       map[string]string         // payment method id → card fingerprint
+	subs           map[string]map[string]any // subscription id → object
+	invPays        map[string]string         // payment intent → invoice id
+	invs           map[string]map[string]any // invoice id → object
+	descriptorSets int                       // POSTs that set an invoice statement_descriptor
+	expired        []string
+	created        int
 }
 
 func newFakeStripe() *fakeStripe {
@@ -82,7 +83,19 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		write(map[string]any{"data": data})
 	case strings.HasPrefix(p, "/v1/invoices/") && f.invs[strings.TrimPrefix(p, "/v1/invoices/")] != nil:
-		write(f.invs[strings.TrimPrefix(p, "/v1/invoices/")])
+		inv := f.invs[strings.TrimPrefix(p, "/v1/invoices/")]
+		if r.Method == http.MethodPost {
+			if d := r.Form.Get("statement_descriptor"); d != "" {
+				if inv["status"] != "draft" {
+					w.WriteHeader(400)
+					write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "not a draft"}})
+					return
+				}
+				inv["statement_descriptor"] = d
+				f.descriptorSets++
+			}
+		}
+		write(inv)
 	case p == "/v1/payment_intents/search":
 		var data []map[string]any
 		for id, pi := range f.pis {

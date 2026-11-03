@@ -127,9 +127,15 @@ type Job struct {
 // per payment; the account's own name and descriptor are never changed
 // (the account is shared with other products).
 const (
+	DescriptorPrefix    = "SPATIAL AI" // the account's; read, never set here
 	DescriptorSuffixWeb = "SV STUDIO"
 	DescriptorSuffixApp = "SVS CLOUD"
 )
+
+// WebStatementDescriptor is the full line a web charge shows ("SPATIAL
+// AI* SV STUDIO", 21 of 22), set as the statement_descriptor of plan
+// invoices, which take a whole descriptor rather than a suffix.
+const WebStatementDescriptor = DescriptorPrefix + "* " + DescriptorSuffixWeb
 
 // DescriptorSuffix is the suffix for a web or app charge.
 func DescriptorSuffix(web bool) string {
