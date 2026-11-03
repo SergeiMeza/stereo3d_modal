@@ -1019,7 +1019,8 @@ func (s *Store) ListEntries(ctx context.Context, uid string, limit int, starting
 // ListBalancesExpiringBy lists balances that expire before t and haven't
 // expired (the expiry sweep and its notices).
 func (s *Store) ListBalancesExpiringBy(ctx context.Context, t time.Time, limit int) ([]*Balance, error) {
-	iter := s.fs.Collection(balancesCol(s.env)).Where("expired", "==", false).Where("expires_at", "<", t).Limit(limit).Documents(ctx)
+	// One range filter (no composite index); expired ones are skipped here.
+	iter := s.fs.Collection(balancesCol(s.env)).Where("expires_at", "<", t).Limit(limit).Documents(ctx)
 	defer iter.Stop()
 	var out []*Balance
 	for {
@@ -1034,7 +1035,9 @@ func (s *Store) ListBalancesExpiringBy(ctx context.Context, t time.Time, limit i
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, b)
+		if !b.Expired {
+			out = append(out, b)
+		}
 	}
 }
 

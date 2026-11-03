@@ -815,7 +815,10 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 	stats := map[string]int{}
 	now := time.Now().UTC()
 	// R3: any open hold on a terminal run settles or releases now.
-	if runs, err := s.Store.ListOpenHoldRuns(ctx, 100); err == nil {
+	runs, err := s.Store.ListOpenHoldRuns(ctx, 100)
+	if err != nil {
+		slog.WarnContext(ctx, "balance sweep: holds list failed", "err", err)
+	} else {
 		for _, c := range runs {
 			switch {
 			case store.IsTerminal(c.State):
@@ -870,7 +873,10 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 		}
 	}
 	// N7: notices at 30 and 7 days, then expiry.
-	if due, err := s.Store.ListBalancesExpiringBy(ctx, now.Add(30*24*time.Hour), 100); err == nil {
+	due, err := s.Store.ListBalancesExpiringBy(ctx, now.Add(30*24*time.Hour), 100)
+	if err != nil {
+		slog.WarnContext(ctx, "balance sweep: expiry list failed", "err", err)
+	} else {
 		for _, b := range due {
 			if b.ExpiresAt == nil {
 				continue
