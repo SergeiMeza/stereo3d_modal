@@ -111,6 +111,10 @@ describe("Lifelike story (2026-11)", () => {
     expect(points.textContent).toContain("Every moment rebuilt as a real 3D scene.");
     expect(points.textContent).toContain("Any length, up to 8K");
     expect(points.textContent).toContain("Your original in one eye");
+    expect(points.textContent).toContain("At Cinema sizes, 5K to 8K");
+    expect(screen.getByTestId("teams-line").textContent).toBe(
+      "For teams: Business and Studio plans. See plans",
+    );
     expect(points.textContent).toContain("Foveated Detail");
     // Pro share from GET /v1/pricing (S3D-67)
     expect(

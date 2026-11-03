@@ -21,15 +21,19 @@ internal pipeline names.
 **What the page says (owner, 2026-11):** lifelike 3D from any video; any
 length, up to 8K (S3D-05); one eye keeps your original picture at the
 highest sizes (S3D-48, S3D-65); Foveated Detail, "sharper where you look"
-(S3D-50); works in Vision Pro and every headset browser; from $3 a minute
-at 24 fps (S3D-11, from GET /v1/pricing); Pro members save 20% (S3D-67,
-from `pro_discount`). Little text: clutter makes pages hard to read.
+(S3D-50); works in Vision Pro and every headset browser; "from $X a
+minute at 24 fps" and "Pro members save N%" — both live from GET
+/v1/pricing (`from_cents_per_minute`, `pro_discount`), never hardcoded.
+Owner-approved list (2026-11): from $4 a minute (1080p), Pro saves 15%,
+5K–8K named "Cinema", Business and Studio plans ($299 / $999 a month) for
+teams — the page shows $4 / 15% once the gateway's pricing config says
+so. Little text: clutter makes pages hard to read.
 
 **Order of the page (2026-11):**
 1. Hero — New tag, eyebrow, H1, one line, CTA + "from $X a minute",
    limits + Pro line + See prices; the 2D → 3D loop.
 2. Four points — Lifelike depth · Any length, up to 8K · Your original in
-   one eye · Foveated Detail.
+   one eye (at Cinema sizes, 5K to 8K) · Foveated Detail.
 3. Works with — the scrolling device row (S3D-51).
 4. Three steps — upload, preview a moment, make it 3D.
 5. Samples — clips to download.
@@ -38,7 +42,8 @@ from `pro_discount`). Little text: clutter makes pages hard to read.
 8. Watch it — Vision Pro spatial video and side by side; works in every
    headset browser.
 9. Closing CTA — "See your own video in 3D", price line, Make your first
-   3D video + See prices, feedback link (no "beta").
+   3D video + See prices, "For teams: Business and Studio plans. See
+   plans" (→ /pricing), feedback link (no "beta").
 10. Footer.
 
 ## Sections

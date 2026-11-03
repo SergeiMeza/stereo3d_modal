@@ -106,7 +106,7 @@ export function LandingContent() {
     {
       icon: Eye,
       title: "Your original in one eye",
-      detail: "At the highest sizes, one eye shows your own frames.",
+      detail: "At Cinema sizes, 5K to 8K, one eye shows your own frames.",
     },
     {
       icon: Focus,
@@ -296,6 +296,16 @@ export function LandingContent() {
             See prices
           </Link>
         </div>
+        <p data-testid="teams-line" className="mt-5 text-sm text-fg-muted">
+          For teams: Business and Studio plans.{" "}
+          <Link
+            href="/pricing"
+            onClick={() => track("lp_teams_click")}
+            className="text-primary hover:underline"
+          >
+            See plans
+          </Link>
+        </p>
         <p className="mt-8 text-xs text-fg-muted">
           Something missing or broken?{" "}
           <a
