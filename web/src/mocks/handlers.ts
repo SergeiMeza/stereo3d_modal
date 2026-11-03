@@ -1629,7 +1629,7 @@ export const handlers = [
           success: false,
           error: "balance_due",
           message:
-            "your unpaid balance couldn't be charged — update your card, then delete your account",
+            "a payment couldn't be taken — update your card, then delete your account",
           details: { amount_cents: owed, publishable_key: "pk_test_mock" },
         },
         { status: 402 },

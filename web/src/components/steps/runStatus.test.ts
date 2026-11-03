@@ -39,7 +39,7 @@ describe("runStatus (S3D-33)", () => {
         billing: { status: "refunded", charged_cents: 3000 },
       }),
     ).toBe("Failed, refunded $30.00");
-    expect(label({ state: "canceled" })).toBe("Cancelled, not charged");
+    expect(label({ state: "canceled" })).toBe("Cancelled · not charged");
     expect(label({ state: "expired" })).toBe("Didn't start, not charged");
   });
 });
@@ -91,6 +91,6 @@ describe("cancel window (S3D-23)", () => {
           billing: { status: "refunded", charged_cents: 4500 },
         }),
       ).label,
-    ).toBe("Cancelled, refunded $45.00");
+    ).toBe("Cancelled · refunded $45.00");
   });
 });

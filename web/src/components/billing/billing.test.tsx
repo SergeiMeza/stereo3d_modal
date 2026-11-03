@@ -24,7 +24,6 @@ import {
 } from "vitest";
 
 import OnboardingScreen from "@/components/billing/OnboardingScreen";
-import { PendingBalance } from "@/components/billing/PendingBalance";
 import { RequireBilling } from "@/components/billing/RequireBilling";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -206,37 +205,3 @@ describe("BillingBanner settle flows", () => {
   });
 });
 
-describe("PendingBalance (batched billing)", () => {
-  it("shows the open batch and Pay now charges it", async () => {
-    mockDb.billing.pending = {
-      batch_id: "mb0000000001",
-      amount_cents: 1230,
-      currency: "usd",
-      cap_cents: 5000,
-      opened_at: new Date().toISOString(),
-      due_at: new Date(Date.now() + 3600_000).toISOString(),
-      items: [
-        {
-          conversion_id: "m0cdeadbeef1",
-          step: "depth_preview",
-          kind: "video",
-          description: "Depth preview",
-          amount_cents: 1230,
-          added_at: new Date().toISOString(),
-        },
-      ],
-    };
-    renderWithBilling(<PendingBalance />);
-    expect((await screen.findByTestId("pending-amount")).textContent).toBe(
-      "$12.30",
-    );
-    // the tier ladder is hidden (S3D-21); the limit is in the due line
-    expect(screen.queryByTestId("tier-line")).toBeNull();
-    expect(screen.getByText(/as soon as it reaches \$50\.00/)).toBeTruthy();
-    fireEvent.click(screen.getByTestId("pay-now"));
-    await waitFor(() =>
-      expect(screen.getByText("Your balance is $0.00.")).toBeTruthy(),
-    );
-    expect(mockDb.billing.pending).toBeNull();
-  });
-});

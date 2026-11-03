@@ -22,6 +22,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
 import { POLL_INTERVAL_MS } from "./polling";
+import { PAYMENT_NEEDED } from "@/lib/billingCopy";
 import { formatDuration, formatTimeLeft } from "@/lib/format";
 
 import { WAITING_IN_LINE_NOTE } from "./runStatus";
@@ -303,16 +304,16 @@ export function ConversionTracker({
           )}
         </div>
       ) : null}
-      {conv.state === "succeeded" && conv.billing?.status === "batched" ? (
+      {conv.state === "succeeded" && conv.billing?.status !== "charge_failed" ? (
         <p className="mt-3 text-xs text-fg-muted" data-testid="batched-note">
-          Added to your balance.
+          {formatCents(conv.quote.amount_cents)}
         </p>
       ) : null}
       {conv.state === "succeeded" &&
       conv.billing?.status === "charge_failed" ? (
         <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
-          The payment for this run didn&apos;t go through. Your files are ready
-          but locked until it does — pay it from the banner above.
+          {PAYMENT_NEEDED}. Your files are locked until the payment goes
+          through.
         </p>
       ) : null}
       {conv.state === "failed" && conv.error ? (

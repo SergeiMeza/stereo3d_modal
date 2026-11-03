@@ -1,7 +1,11 @@
 import type { JSX, ReactNode } from "react";
 
 import type { QuoteBreakdown, StepQuoteResponse } from "@/lib/api/types";
-import { quoteChargeSentence } from "@/lib/billingCopy";
+import {
+  CHARGED_AFTER,
+  CHARGED_AT_START,
+  quoteChargeSentence,
+} from "@/lib/billingCopy";
 import { formatDuration, formatVideoLength } from "@/lib/format";
 
 import { formatCents } from "./money";
@@ -12,10 +16,8 @@ export { formatDuration as formatQuoteEta } from "@/lib/format";
 /** What the customer is told about WHEN they pay, per charge_timing — the
  * short form beside the Convert button; the full sentence (with amounts)
  * sits under the quote (lib/billingCopy). */
-export const CHARGE_BEFORE_COPY =
-  "Paid when the run starts. Refunded in full if it fails.";
-export const CHARGE_AFTER_COPY =
-  "Added to your balance after it succeeds.";
+export const CHARGE_BEFORE_COPY = CHARGED_AT_START;
+export const CHARGE_AFTER_COPY = CHARGED_AFTER;
 
 /** Classic's standard depth detail per quality — included in its
  * per-minute prices (mirrors the gateway's PresetInputSize). */
@@ -80,15 +82,8 @@ function Line({
  */
 export function QuoteView({
   result,
-  balanceLimitCents,
-  balanceWindowHours,
 }: {
   result: StepQuoteResponse;
-  /** the account's balance window (hours, from GET /v1/billing) */
-  balanceWindowHours?: number;
-  /** the account's balance limit, for the "charged within 1 hour or when
-   * it reaches $X" sentence */
-  balanceLimitCents?: number;
 }): JSX.Element {
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
   const total = result.quote.amount_cents;
@@ -227,12 +222,7 @@ export function QuoteView({
         </span>
       </div>
       <p data-testid="quote-charge-timing" className="text-xs text-fg">
-        {quoteChargeSentence(
-          total,
-          result.charge_timing,
-          balanceLimitCents,
-          balanceWindowHours,
-        )}
+        {quoteChargeSentence(result.charge_timing)}
       </p>
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">

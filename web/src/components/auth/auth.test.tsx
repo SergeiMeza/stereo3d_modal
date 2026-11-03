@@ -203,7 +203,7 @@ describe("AccountScreen delete (mock mode)", () => {
     });
     renderWithAuth(<AccountScreen />);
     typeDeleteAndConfirm();
-    expect(await screen.findByText(/unpaid balance of \$3\.33/)).toBeTruthy();
+    expect(await screen.findByText(/Payment needed \(\$3\.33\): update your card/)).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
 });

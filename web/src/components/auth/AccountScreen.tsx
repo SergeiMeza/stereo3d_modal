@@ -17,7 +17,6 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { UserAvatar } from "@/components/auth/UserAvatar";
-import { PendingBalance } from "@/components/billing/PendingBalance";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
@@ -51,8 +50,8 @@ function deleteErrorMessage(err: unknown): string {
   if (err instanceof GatewayError && err.code === "balance_due") {
     const cents = err.details?.amount_cents;
     const amount =
-      typeof cents === "number" && cents > 0 ? `of ${formatCents(cents)} ` : "";
-    return `Your unpaid balance ${amount}couldn't be charged. Update your card under Manage billing, then delete your account.`;
+      typeof cents === "number" && cents > 0 ? ` (${formatCents(cents)})` : "";
+    return `Payment needed${amount}: update your card under Manage billing, then delete your account.`;
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
     return "A run is still going. Cancel it or wait for it to finish, then delete your account.";
@@ -251,13 +250,9 @@ export default function AccountScreen({
       <CardShell title="Billing">
         <p className="text-fg-muted">
           Billing is pay-as-you-go: every run shows its price before it
-          starts. {chargeRule(
-            prechargeThreshold(limits),
-            billing.status?.tier?.window_hours,
-          )} Saved payment
+          starts. {chargeRule(prechargeThreshold(limits))} Saved payment
           methods, invoices, and receipts live in the Stripe billing portal.
         </p>
-        <PendingBalance />
         {billing.status?.card ? (
           <p className="text-fg" data-testid="card-on-file">
             Card on file:{" "}
@@ -330,7 +325,7 @@ export default function AccountScreen({
             <p className="text-xs text-destructive">{deleteError}</p>
           )}
           <p className="text-xs text-fg-muted">
-            Any unpaid balance is charged to your saved card first. Your
+            Anything you still owe is charged to your saved card first. Your
             projects, videos and 3D files are removed from your account at
             once; billing records are kept for support.
           </p>

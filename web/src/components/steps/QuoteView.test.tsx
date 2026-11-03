@@ -73,7 +73,7 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
     expect(screen.getByTestId("quote-bulk-discount").textContent).toBe("−$2.82");
     expect(screen.queryByTestId("quote-minimum")).toBeNull();
     expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
-      "We charge $25.31 when the run starts and refund it in full if it fails.",
+      "Charged when it starts. Refunded if it fails.",
     );
   });
 
@@ -90,14 +90,14 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
           },
           charge_timing: "after",
         }}
-        balanceLimitCents={5000}
-        balanceWindowHours={1}
       />,
     );
     expect(screen.getByTestId("quote-minimum").textContent).toBe("$0.50");
     expect(screen.getByText("Minimum charge $0.50")).toBeTruthy();
     expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
-      "We add $0.50 to your balance after it succeeds. Your balance is charged within 1 hour or when it reaches $50.00.",
+      "Charged after it's done.",
     );
+    // the grouping of small charges is internal (S3D-21)
+    expect(document.body.textContent).not.toMatch(/balance|batch|pending/i);
   });
 });

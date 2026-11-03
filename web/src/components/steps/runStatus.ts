@@ -48,7 +48,7 @@ export function runStatus(c: Conversion): RunStatus {
     case "canceled": {
       const r = refunded(c);
       return {
-        label: r ? `Cancelled, refunded ${r}` : "Cancelled, not charged",
+        label: r ? `Cancelled · refunded ${r}` : "Cancelled · not charged",
         tone: "stopped",
       };
     }

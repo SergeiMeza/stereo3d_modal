@@ -441,7 +441,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await screen.findByText("Ready, payment needed", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
-    expect(warning.textContent).toContain("didn't go through");
+    expect(warning.textContent).toContain("Payment needed: update your card");
     expect(mockDb.billing.unpaid).toHaveLength(1);
   });
 
@@ -505,7 +505,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    await screen.findByText("Cancelled, not charged", undefined, { timeout: 3000 });
+    await screen.findByText("Cancelled · not charged", undefined, { timeout: 3000 });
     const conv = [...mockDb.conversions.values()][0];
     expect(conv.state).toBe("canceled");
     expect(onProjectChanged).not.toHaveBeenCalled();

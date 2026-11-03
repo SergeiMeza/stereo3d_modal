@@ -1,14 +1,16 @@
 /**
- * When we charge, in one place (S3D-19). Both methods: a run quoted over
- * the pre-charge threshold ($25) is charged when it starts and refunded in
- * full if it fails; a smaller run is added to the balance after it
- * succeeds, and the balance is charged within the account's window (1 hour
- * for a new account, from GET /v1/billing — never hardcoded) or when it
- * reaches the account's limit. No card holds. Short sentences (S3D-45).
+ * When we charge, in one place (S3D-19, S3D-21, S3D-45). Both methods: a
+ * run quoted over the pre-charge threshold ($25) is charged when it starts
+ * and refunded if it fails; a smaller run is charged after it's done. How
+ * small charges are grouped is internal: the customer UI never says
+ * "balance", "batch", "charged by", "pending" or names a limit. Each run
+ * shows its price; a word is added only for Refunded, Not charged and
+ * Payment needed.
  */
 
+import type { ChargeTiming, Conversion, GatewayLimits } from "@/lib/api/types";
+
 import { formatCents } from "@/components/steps/money";
-import type { ChargeTiming, GatewayLimits } from "@/lib/api/types";
 
 /** The gateway's default; GET /v1/limits rates.precharge_threshold_cents
  * is authoritative. */
@@ -18,36 +20,37 @@ export function prechargeThreshold(limits: GatewayLimits | null): number {
   return limits?.rates?.precharge_threshold_cents ?? DEFAULT_PRECHARGE_CENTS;
 }
 
-/** "within 1 hour" / "within 4 hours" / "soon" when the window is unknown. */
-export function balanceWindow(hours: number | undefined): string {
-  if (hours === undefined || !(hours > 0)) return "soon";
-  const h = Math.round(hours * 10) / 10;
-  return `within ${h} hour${h === 1 ? "" : "s"}`;
-}
+export const CHARGED_AT_START = "Charged when it starts. Refunded if it fails.";
+export const CHARGED_AFTER = "Charged after it's done.";
 
 /** The general rule, for onboarding and Account. */
-export function chargeRule(
-  thresholdCents = DEFAULT_PRECHARGE_CENTS,
-  windowHours?: number,
-): string {
+export function chargeRule(thresholdCents = DEFAULT_PRECHARGE_CENTS): string {
   const t = formatCents(thresholdCents);
-  return `Over ${t}: charged when the run starts, refunded if it fails. ${t} or less: added to your balance, charged ${balanceWindow(windowHours)}. Failed runs cost nothing.`;
+  return `Runs over ${t}: ${CHARGED_AT_START.toLowerCase()} Runs of ${t} or less: ${CHARGED_AFTER.toLowerCase()} Failed runs cost nothing.`;
 }
 
-/** The sentence under one quote. */
-export function quoteChargeSentence(
-  amountCents: number,
-  timing: ChargeTiming | undefined,
-  balanceLimitCents?: number,
-  windowHours?: number,
-): string {
-  const amount = formatCents(amountCents);
-  if (timing === "before") {
-    return `We charge ${amount} when the run starts and refund it in full if it fails.`;
-  }
-  const limit =
-    balanceLimitCents !== undefined
-      ? ` or when it reaches ${formatCents(balanceLimitCents)}`
-      : "";
-  return `We add ${amount} to your balance after it succeeds. Your balance is charged ${balanceWindow(windowHours)}${limit}.`;
+/** The line under one quote. */
+export function quoteChargeSentence(timing: ChargeTiming | undefined): string {
+  return timing === "before" ? CHARGED_AT_START : CHARGED_AFTER;
 }
+
+/** The one word a run's price may carry (S3D-21): Refunded · Not
+ * charged · Payment needed; null otherwise (the price alone). */
+export function paymentStatus(c: Conversion): string | null {
+  switch (c.billing?.status) {
+    case "refund_pending":
+    case "refunded":
+      return "Refunded";
+    case "not_charged":
+      return "Not charged";
+    case "charge_failed":
+      return "Payment needed";
+  }
+  if (c.state === "failed" || c.state === "canceled" || c.state === "expired") {
+    return "Not charged";
+  }
+  return null;
+}
+
+/** A failed charge, in words. */
+export const PAYMENT_NEEDED = "Payment needed: update your card";

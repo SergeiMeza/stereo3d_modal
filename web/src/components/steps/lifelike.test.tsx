@@ -207,8 +207,8 @@ describe("Lifelike Deliver", () => {
     const split = within(prompt).getByLabelText("Split into parts") as HTMLInputElement;
     expect(split.checked).toBe(true);
     // a 30-minute run is quoted above the threshold: paid up front
-    expect((await screen.findByTestId("quote-charge-timing")).textContent).toMatch(
-      /^We charge \$\d+\.\d\d when the run starts and refund it in full if it fails\.$/,
+    expect((await screen.findByTestId("quote-charge-timing")).textContent).toBe(
+      "Charged when it starts. Refunded if it fails.",
     );
     expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
       CHARGE_BEFORE_COPY,
@@ -257,12 +257,9 @@ describe("Lifelike Deliver", () => {
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     await screen.findByTestId("quote-breakdown");
     expect(screen.queryByTestId("split-prompt")).toBeNull();
-    // a small run goes on the balance after it succeeds (S3D-19)
-    expect(screen.getByTestId("quote-charge-timing").textContent).toMatch(
-      /^We add \$\d+\.\d\d to your balance after it succeeds\. Your balance is charged (within \d+ hours?|soon)( or when it reaches \$\d+\.\d\d)?\.$/,
-    );
-    expect(screen.getByTestId("charge-timing-hint").textContent).toMatch(
-      /after it succeeds/,
+    // a small run is charged after it's done (S3D-19, S3D-21)
+    expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
+      "Charged after it's done.",
     );
   });
 });
