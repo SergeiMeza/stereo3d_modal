@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * /account — profile, billing explainer, session, danger zone. The UID row
+ * /account — profile (with the ways to sign in, S3D-69), billing
+ * explainer, session, danger zone. The UID row
  * is click-to-copy because it's the support identifier: projects and
  * conversions are keyed to it, so "send us your account ID" must be one
  * click. Deleting the account requires typing DELETE (native input — the
@@ -16,6 +17,7 @@ import { useState } from "react";
 
 import Link from "next/link";
 
+import { SignInMethods } from "@/components/auth/SignInMethods";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { formatCents } from "@/components/steps/money";
@@ -23,11 +25,6 @@ import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
-
-const PROVIDER_LABELS: Record<string, string> = {
-  "google.com": "Google",
-  password: "Email",
-};
 
 function CardShell({
   title,
@@ -153,16 +150,6 @@ export default function AccountScreen() {
           />
           <div className="min-w-0">
             <p className="truncate text-fg">{user.email ?? "No email"}</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {user.providerIds.map((id) => (
-                <span
-                  key={id}
-                  className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-xs text-fg-muted"
-                >
-                  {PROVIDER_LABELS[id] ?? id}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -197,6 +184,8 @@ export default function AccountScreen() {
             <p className="text-xs text-destructive">{nameError}</p>
           )}
         </form>
+
+        <SignInMethods />
 
         <div className="flex items-center justify-between gap-3 border-t border-edge pt-3">
           <div className="min-w-0">
