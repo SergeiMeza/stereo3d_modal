@@ -1363,6 +1363,9 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	out := map[string]any{
 		"rate_version": rates.RateVersion,
 		"currency":     rates.Currency,
+		// Classic 3D is retired for new projects (2026-11-04): the web
+		// hides it; its prices stay for projects that already ran it.
+		"classic_new_projects": false,
 		"methods": map[string]any{
 			"lifelike": map[string]any{
 				"presets":                     enabled,

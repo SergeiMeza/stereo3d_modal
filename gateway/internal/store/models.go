@@ -733,6 +733,9 @@ type Project struct {
 	Env    string `firestore:"env" json:"-"`
 	Name   string `firestore:"name,omitempty" json:"name,omitempty"`
 	Method string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
+	// ClassicRan: the project has run Classic, so it may go on with it
+	// after Classic's retirement for new projects (2026-11-04).
+	ClassicRan bool `firestore:"classic_ran,omitempty" json:"-"`
 	// Workspace: the Modal workspace the project lives in, set at
 	// creation (S3D-40); "" = the default (projects made before).
 	Workspace    string        `firestore:"workspace,omitempty" json:"-"`

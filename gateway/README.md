@@ -388,16 +388,22 @@ scene-list version it was computed against (stale after a cut edit).
 
 ## Lifelike 3D (method per project, 2026-11-03)
 
-A project's `method` is `lifelike` or `classic` (always in project and
-conversion JSON; records without one are classic). `POST /v1/projects`
-takes an optional `method`; none means classic, so clients that predate
-Lifelike keep working (the web app always sends one and preselects
-lifelike in its UI); `PATCH /v1/projects/{id}
-{"method": ...}` switches it for the next runs, one way only: classic →
-lifelike at any time (earlier files stay); lifelike → classic is 400
-`method_switch_not_allowed`, runs or not (Classic is being retired). A new
-project naming `method: "classic"` is 400 `method_unavailable` (S3D-44);
-only a missing method (old clients) still creates classic. Classic pro
+A project's `method` is `lifelike` or, for projects made earlier,
+`classic` (always in project and conversion JSON; records without one
+are classic). **Classic 3D is retired for new projects (owner
+2026-11-04).** `POST /v1/projects` with `method: "classic"` is 422
+`classic_retired` ("Classic 3D is no longer available for new
+projects."); a missing method now means lifelike (422 `classic_retired`
+where Lifelike isn't configured). A Classic project that never ran
+Classic gets 422 `classic_retired` on analyse retry, profile, depth map,
+quote and run, and can switch: `PATCH /v1/projects/{id} {"method":
+"lifelike"}` works at any time and keeps the Classic outputs
+downloadable; lifelike → classic stays 400 `method_switch_not_allowed`.
+A project that already ran Classic (a submitted or delivered run,
+remembered as `classic_ran`) keeps its files, downloads, plays and
+further Classic runs. `GET /v1/pricing` carries `classic_new_projects:
+false` so the web hides Classic; Classic prices stay for those projects.
+The mobile one-shot route isn't a project and is unchanged. Classic pro
 steps stop at 3K: preset `4k` is 400 `preset_unavailable` (S3D-12; the
 mobile one-shot keeps 4k). `/v1/limits` methods carry `new_projects`
 (classic false). Lifelike without the

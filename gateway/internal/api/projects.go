@@ -60,13 +60,18 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	if req.Method == store.MethodClassic {
-		// S3D-44: Classic takes no new projects from clients that choose;
-		// only an old client's missing method still gets classic.
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "method_unavailable",
-			"Classic is no longer available for new projects; use Lifelike"))
+		// Classic 3D is retired for new projects (owner 2026-11-04).
+		httpx.WriteErr(ctx, w, errClassicRetired())
 		return
 	}
 	ws := s.assignWorkspace() // S3D-40: the project's workspace for life
+	if req.Method == "" {
+		if ws.Lifelike == nil {
+			httpx.WriteErr(ctx, w, errClassicRetired()) // a missing method no longer means Classic
+			return
+		}
+		req.Method = store.MethodLifelike
+	}
 	method, merr := s.resolveMethodFor(req.Method, ws.Lifelike != nil)
 	if merr != nil {
 		httpx.WriteErr(ctx, w, merr)
@@ -153,6 +158,10 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 	}
 	if p.Analyze.State != store.AnalyzeFailed {
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("analysis can only be retried after it failed"))
+		return
+	}
+	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil {
+		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
 	ws, werr := s.projectWorkspace(p)
@@ -388,6 +397,10 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
 	if p.Analyze.State != store.AnalyzeSucceeded || p.Scenes == nil {
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("profiling needs a completed analysis"))
 		return
@@ -514,6 +527,10 @@ func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Reques
 	}
 	if err := requireFiles(p); err != nil { // S3D-24
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
 	if p.Probe == nil {
@@ -1155,6 +1172,10 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
 	var req stepConvReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -1298,6 +1319,10 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	if err := requireFiles(p); err != nil { // S3D-24
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
 	p = s.noteProjectUse(ctx, p, false) // starting a run is a use (S3D-24)
