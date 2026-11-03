@@ -121,12 +121,26 @@ export function devicePage(slug: string): DevicePage | undefined {
   return DEVICE_PAGES.find((d) => d.slug === slug);
 }
 
-/** The landing's "Works with" row. */
-export const WORKS_WITH: readonly { label: string; slug: string }[] = [
-  { label: "Apple Vision Pro", slug: "vision-pro" },
-  { label: "Samsung Galaxy XR", slug: "galaxy-xr" },
-  { label: "Meta Quest", slug: "meta-quest" },
-  { label: "Pico", slug: "pico" },
-  { label: "Steam Frame", slug: "steam-frame" },
-  { label: "XR glasses", slug: "xreal" },
+export type DeviceIcon = "visor" | "galaxy" | "quest" | "pico" | "frame" | "glasses" | "tv";
+
+/** The landing's "Works with" row (S3D-51): name, icon, page. */
+export const WORKS_WITH: readonly {
+  label: string;
+  icon: DeviceIcon;
+  slug?: string;
+  soon?: boolean;
+}[] = [
+  { label: "Apple Vision Pro", icon: "visor", slug: "vision-pro" },
+  { label: "Samsung Galaxy XR", icon: "galaxy", slug: "galaxy-xr" },
+  { label: "Meta Quest", icon: "quest", slug: "meta-quest" },
+  { label: "Pico", icon: "pico", slug: "pico" },
+  { label: "Steam Frame", icon: "frame", slug: "steam-frame" },
+  { label: "XR glasses (XREAL, VITURE, RayNeo)", icon: "glasses" },
+  { label: "3D TVs", icon: "tv" },
+  {
+    label: "Ready for Meta VR Glasses, spring 2027",
+    icon: "glasses",
+    slug: "meta-vr-glasses",
+    soon: true,
+  },
 ];

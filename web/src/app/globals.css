@@ -196,3 +196,52 @@ kbd {
     linear-gradient(#141a2b, #141a2b) padding-box,
     linear-gradient(90deg, var(--ll-a), var(--ll-b), var(--ll-c)) border-box;
 }
+
+/* Landing "Works with" row (S3D-51): a slow, continuous CSS scroll with
+ * faded edges that pauses on hover; static and wrapped under
+ * prefers-reduced-motion. The track is decorative (aria-hidden); the
+ * device links live in an sr-only list. */
+.works-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.works-track {
+  display: flex;
+  width: max-content;
+  animation: works-scroll 45s linear infinite;
+}
+.works-marquee:hover .works-track {
+  animation-play-state: paused;
+}
+.works-set {
+  display: flex;
+  flex-shrink: 0;
+  gap: 40px;
+  padding-right: 40px;
+}
+@keyframes works-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .works-marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .works-track {
+    animation: none;
+    width: auto;
+  }
+  .works-set {
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 32px;
+    padding: 0;
+  }
+  .works-set[data-dup] {
+    display: none;
+  }
+}

@@ -25,7 +25,7 @@ describe("device pages (S3D-51)", () => {
     expect(devicePage("galaxy-xr")!.lines.join(" ")).toMatch(/Gallery or Files/);
     expect(devicePage("xreal")!.lines.join(" ")).toMatch(/3D \(SBS\) mode/);
     expect(devicePage("meta-vr-glasses")!.upcoming).toBe("spring 2027");
-    for (const w of WORKS_WITH) expect(devicePage(w.slug)).toBeDefined();
+    for (const w of WORKS_WITH) if (w.slug) expect(devicePage(w.slug)).toBeDefined();
   });
 
   it("lists every device page in the sitemap", () => {

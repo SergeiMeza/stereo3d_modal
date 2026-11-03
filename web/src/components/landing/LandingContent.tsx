@@ -21,10 +21,10 @@ import Link from "next/link";
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
+import { WorksWith } from "@/components/landing/WorksWith";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
-import { WORKS_WITH } from "@/lib/devices";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCentsShort } from "@/components/steps/money";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
@@ -174,28 +174,7 @@ export function LandingContent() {
         ))}
       </section>
 
-      {/* Works with (S3D-51): text only, each linking to its page */}
-      <section
-        aria-label="Works with"
-        data-testid="works-with"
-        className="mx-auto mt-12 flex w-full max-w-6xl flex-col items-center gap-2 px-4 text-sm text-fg-muted"
-      >
-        <p className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <span className="text-xs tracking-wider uppercase">Works with</span>
-          {WORKS_WITH.map((d) => (
-            <Link key={d.slug} href={`/devices/${d.slug}`} className="hover:text-fg">
-              {d.label}
-            </Link>
-          ))}
-        </p>
-        <p className="text-xs">
-          Ready for{" "}
-          <Link href="/devices/meta-vr-glasses" className="hover:text-fg">
-            Meta VR Glasses
-          </Link>{" "}
-          (spring 2027)
-        </p>
-      </section>
+      <WorksWith />
 
       {/* Three steps */}
       <section className="mx-auto mt-14 grid w-full max-w-6xl gap-6 px-4 sm:grid-cols-3">

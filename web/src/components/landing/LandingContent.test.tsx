@@ -43,11 +43,18 @@ describe("Landing hero (mock 12, S3D-46)", () => {
       "A few seconds in 3D, from $1.",
     );
     // Works with, text only, each linking to its page (S3D-51)
-    const works = screen.getByTestId("works-with");
-    expect(works.textContent).toContain(
-      "Works withApple Vision ProSamsung Galaxy XRMeta QuestPicoSteam FrameXR glasses",
-    );
-    expect(works.textContent).toContain("Ready for Meta VR Glasses (spring 2027)");
+    // Works with: the links in an sr-only list (not display:none), the
+    // animated track aria-hidden and drawn twice for the loop (S3D-51)
+    const links = screen.getByTestId("works-with-links");
+    expect(links.className).toContain("sr-only");
+    const hrefs = [...links.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/devices/galaxy-xr");
+    expect(hrefs).toContain("/devices/meta-vr-glasses");
+    expect(links.textContent).toContain("Ready for Meta VR Glasses, spring 2027");
+    const track = screen.getByTestId("works-with-track");
+    expect(track.getAttribute("aria-hidden")).toBe("true");
+    expect(track.querySelectorAll(".works-set")).toHaveLength(2);
+    expect(track.textContent).toContain("Ready for Meta VR Glasses, spring 2027");
     // no technical words on the page
     expect(document.body.textContent).not.toMatch(
       /splat|gaussian|depth map|warp|inpaint|model/i,
