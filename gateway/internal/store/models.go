@@ -645,13 +645,18 @@ func (p *Probe) CountedFPS() float64 {
 	return float64(p.CountedFrames) / p.DurationS
 }
 
-// PricingFPS is the rate a source is priced and capped at: the higher of
-// the stated rate and the counted one.
+// PricingFPS is the rate a source is priced and capped at: the counted
+// rate when it's more than 1% above the stated one (a VFR source), else
+// the stated rate (durations differ slightly between stream and
+// container, and a 30 fps clip must not read as 30.02 and be capped).
 func (p *Probe) PricingFPS() float64 {
 	if p == nil {
 		return 0
 	}
-	return max(p.FPS, p.CountedFPS())
+	if c := p.CountedFPS(); c > p.FPS*1.01 {
+		return c
+	}
+	return p.FPS
 }
 
 // PricingFrames is the frame count a source is priced at: the higher of

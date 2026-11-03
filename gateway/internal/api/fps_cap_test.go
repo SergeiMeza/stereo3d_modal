@@ -243,3 +243,12 @@ func TestFramesOverQuote(t *testing.T) {
 		t.Fatalf("target %d", quotedFrames(c))
 	}
 }
+
+// A count a hair above the stated rate (stream vs container duration) is
+// not VFR: a 30 fps clip stays 30, uncapped.
+func TestCountedJitterIsNotVFR(t *testing.T) {
+	p := &store.Probe{FPS: 30, DurationS: 99.9, NumFrames: 3000, CountedFrames: 3000}
+	if p.PricingFPS() != 30 || cappedFPS(p.PricingFPS(), fpsFreeMax) != 30 {
+		t.Fatalf("jitter %v", p.PricingFPS())
+	}
+}
