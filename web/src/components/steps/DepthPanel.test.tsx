@@ -246,9 +246,9 @@ describe("DepthPanel quotes", () => {
     expect(screen.queryByTestId("quote-base")).toBeNull();
 
     // the coarse processing-time estimate, clearly labeled as an estimate
-    // (mock: 149.46 s × 2.5 → 374 s → "~6 min")
+    // (mock: 149.46 s × 2.5 → 374 s → "about 6 min")
     expect(screen.getByText(/Estimated processing time/)).toBeDefined();
-    expect(screen.getByTestId("quote-eta").textContent).toBe("~6 min");
+    expect(screen.getByTestId("quote-eta").textContent).toBe("about 6 min");
   });
 
   it("prices the letterboxed 2.39:1 content with the aspect-aware depth factor", async () => {
@@ -404,8 +404,8 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
-    await screen.findByText("processing", undefined, { timeout: 3000 });
-    await screen.findByText("succeeded", undefined, { timeout: 3000 });
+    await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
+    await screen.findByText("Ready", undefined, { timeout: 3000 });
     await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(1));
 
     // the step joined the account's pending balance (batched billing)
@@ -439,7 +439,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
-    await screen.findByText("succeeded", undefined, { timeout: 3000 });
+    await screen.findByText("Ready, payment needed", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
     expect(warning.textContent).toContain("automatic payment");
     expect(mockDb.billing.unpaid).toHaveLength(1);
@@ -456,7 +456,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     // completeChargeAction auto-confirms; the mock flips created→paid and
     // the run proceeds to success with the hold captured
-    await screen.findByText("succeeded", undefined, { timeout: 3000 });
+    await screen.findByText("Ready", undefined, { timeout: 3000 });
     const conv = [...mockDb.conversions.values()][0];
     expect(conv.billing).toEqual({
       status: "charged",
@@ -502,10 +502,10 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
-    await screen.findByText("processing", undefined, { timeout: 3000 });
+    await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    await screen.findByText("canceled", undefined, { timeout: 3000 });
+    await screen.findByText("Cancelled, not charged", undefined, { timeout: 3000 });
     const conv = [...mockDb.conversions.values()][0];
     expect(conv.state).toBe("canceled");
     expect(onProjectChanged).not.toHaveBeenCalled();

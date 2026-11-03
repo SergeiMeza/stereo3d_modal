@@ -11,11 +11,11 @@
 const STAGE_LABELS: Record<string, string> = {
   // shared video pipeline (app/pipelines/video.py)
   preprocess: "Preparing the video",
-  profile_scenes: "Profiling scenes",
-  video_depth: "Computing the depth map",
+  profile_scenes: "Measuring scenes",
+  video_depth: "Measuring depth",
   video_stereo: "Building the 3D video",
-  encode_outputs: "Encoding outputs",
-  encode_mvhevc: "Encoding MV-HEVC",
+  encode_outputs: "Encoding your files",
+  encode_mvhevc: "Encoding the Vision Pro file",
   image_stereo: "Building the 3D image",
   // Lifelike pipeline (queued → plan → render → encode → publish → done)
   queued: "Waiting to start",
@@ -30,10 +30,6 @@ const STAGE_LABELS: Record<string, string> = {
   scene_detect: "Detecting scenes",
   thumbnails: "Rendering thumbnails",
 };
-
-/** Shown instead of the stage while a job waits for a free GPU — that
- * wait is not progress, so the tracker never renders it as a stage. */
-export const WAITING_FOR_GPU_LABEL = "Waiting for a free GPU";
 
 /** Product copy for a raw pipeline stage string. */
 export function stageLabel(stage: string): string {

@@ -268,7 +268,7 @@ describe("ConversionTracker GPU wait", () => {
     };
   }
 
-  it("says it is waiting for a free GPU — no stage, no time left, no bar", () => {
+  it("says it is waiting in line — no stage, no time left, no bar", () => {
     render(
       <AuthProvider>
         <ConversionTracker
@@ -277,8 +277,9 @@ describe("ConversionTracker GPU wait", () => {
         />
       </AuthProvider>,
     );
+    expect(screen.getByTestId("run-status").textContent).toBe("Waiting in line");
     expect(screen.getByTestId("waiting-for-gpu").textContent).toBe(
-      "Waiting for a free GPU",
+      "Starts as soon as a machine is free, usually within minutes. The price stays the same.",
     );
     expect(screen.queryByText("Waiting to start")).toBeNull();
     expect(screen.queryByTestId("tracker-eta")).toBeNull();
@@ -291,8 +292,9 @@ describe("ConversionTracker GPU wait", () => {
         <ConversionTracker conversion={run()} onProjectChanged={() => {}} />
       </AuthProvider>,
     );
+    expect(screen.getByTestId("run-status").textContent).toBe("Making your 3D");
     expect(screen.getByText("Rendering in 3D")).toBeTruthy();
-    expect(screen.getByTestId("tracker-eta").textContent).toBe("~5m 00s left");
+    expect(screen.getByTestId("tracker-eta").textContent).toBe("about 5 min left");
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 

@@ -113,13 +113,13 @@ describe("HistoryList", () => {
     const [first, second] = rows;
     expect(first.getAttribute("data-testid")).toBe("history-conv00000newer");
     expect(within(first).getByText("Production")).toBeDefined();
-    expect(within(first).getByText("failed")).toBeDefined();
+    expect(within(first).getByText("Failed, not charged")).toBeDefined();
     expect(within(first).getByText("$1.50")).toBeDefined();
     expect(within(first).getByText(FAILED.error!.message)).toBeDefined();
 
     expect(second.getAttribute("data-testid")).toBe("history-conv00000older");
     expect(within(second).getByText("Depth preview")).toBeDefined();
-    expect(within(second).getByText("succeeded")).toBeDefined();
+    expect(within(second).getByText("Ready")).toBeDefined();
     expect(within(second).getByText("$0.50")).toBeDefined();
 
     // created time is rendered as a <time> bound to the ISO timestamp

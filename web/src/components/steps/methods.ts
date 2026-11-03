@@ -51,15 +51,6 @@ export const LIFELIKE_PREVIEW_SECONDS = 5;
 /** Outputs longer than this are offered as parts (15 minutes). */
 export const SPLIT_MAX_SECONDS = 900;
 
-/** "1 h 5 min" / "12 min" / "45 s" — a length the customer reads. */
-export function formatLength(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)} s`;
-  const totalMin = Math.round(seconds / 60);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h === 0) return `${m} min`;
-  return m === 0 ? `${h} h` : `${h} h ${m} min`;
-}
 
 /** What the customer reads for 400 preset_above_source. */
 export const PRESET_ABOVE_SOURCE =

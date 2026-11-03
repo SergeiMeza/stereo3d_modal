@@ -21,8 +21,10 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { POLL_INTERVAL_MS } from "./polling";
-import { formatQuoteEta } from "./QuoteView";
-import { stageLabel, WAITING_FOR_GPU_LABEL } from "./stageLabels";
+import { formatDuration, formatTimeLeft } from "@/lib/format";
+
+import { WAITING_IN_LINE_NOTE } from "./runStatus";
+import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
@@ -73,12 +75,6 @@ export function billingStatusNote(conv: Conversion): string | null {
   }
 }
 
-function formatEta(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${String(s).padStart(2, "0")}s`;
-}
 
 export interface ConversionTrackerProps {
   conversion: Conversion;
@@ -204,15 +200,8 @@ export function ConversionTracker({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <StateChip state={conv.state} />
-          {waiting ? (
-            <span
-              data-testid="waiting-for-gpu"
-              className="text-xs text-fg-muted"
-            >
-              {WAITING_FOR_GPU_LABEL}
-            </span>
-          ) : !terminal && conv.stage ? (
+          <StateChip conversion={conv} />
+          {!waiting && conv.state === "processing" && conv.stage ? (
             // raw stage strings carry internal worker/model details
             // ("video_stereo[propainter]") — always render the mapped label
             <span className="text-xs text-fg-muted">
@@ -221,12 +210,11 @@ export function ConversionTracker({
           ) : null}
           {waiting || terminal ? null : runEta !== null ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
-              ~{formatEta(runEta)} left
+              {formatTimeLeft(runEta)}
             </span>
           ) : estimateSeconds !== undefined && estimateSeconds > 0 ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
-              About {formatQuoteEta(estimateSeconds).replace(/^~/, "")} in
-              total (estimate)
+              Estimated: {formatDuration(estimateSeconds)}
             </span>
           ) : null}
         </div>
@@ -249,8 +237,8 @@ export function ConversionTracker({
         </p>
       ) : null}
       {waiting ? (
-        <p className="mt-3 text-sm text-fg-muted" data-testid="waiting-note">
-          Your run starts as soon as one is free. The price stays the same.
+        <p className="mt-3 text-sm text-fg-muted" data-testid="waiting-for-gpu">
+          {WAITING_IN_LINE_NOTE}
         </p>
       ) : !terminal ? (
         <Progress value={pct} className="mt-3 h-1.5" />

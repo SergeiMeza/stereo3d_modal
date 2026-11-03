@@ -437,7 +437,7 @@ describe("WorkspaceScreen — fixture rendering", () => {
     const progress = await screen.findByTestId("analyze-progress");
     expect(progress.textContent).toContain("Detecting scenes");
     expect(progress.textContent).toContain("70%");
-    expect(progress.textContent).toContain("~12s left");
+    expect(progress.textContent).toContain("about 10 s left");
     expect(
       within(progress).getByLabelText("Analyze progress"),
     ).toBeTruthy();

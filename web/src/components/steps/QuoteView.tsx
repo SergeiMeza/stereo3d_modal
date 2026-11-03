@@ -2,14 +2,12 @@ import type { JSX } from "react";
 
 import type { QuoteBreakdown, StepQuoteResponse } from "@/lib/api/types";
 
+import { formatDuration } from "@/lib/format";
+
 import { formatCents } from "./money";
 
-/** "~45s" under 90 s, "~3 min" (rounded) above — the quote's coarse
- * processing-time estimate. */
-export function formatQuoteEta(seconds: number): string {
-  if (seconds < 90) return `~${Math.round(seconds)}s`;
-  return `~${Math.round(seconds / 60)} min`;
-}
+/** The quote's processing-time estimate: "about 25 min" (lib/format). */
+export { formatDuration as formatQuoteEta } from "@/lib/format";
 
 /** What the customer is told about WHEN they pay, per the quote's
  * charge_timing. */
@@ -163,7 +161,7 @@ export function QuoteView({
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
           <dt>Estimated processing time (estimate only)</dt>
           <dd data-testid="quote-eta" className="font-mono">
-            {formatQuoteEta(result.eta_seconds)}
+            {formatDuration(result.eta_seconds)}
           </dd>
         </div>
       ) : null}

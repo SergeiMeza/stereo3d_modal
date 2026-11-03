@@ -80,7 +80,7 @@ function PriorRunRow({
       className="rounded-lg border border-edge bg-surface-1 p-2.5"
     >
       <div className="flex flex-wrap items-center gap-2.5">
-        <StateChip state={c.state} />
+        <StateChip conversion={c} />
         <span className="font-mono text-xs text-fg-muted">{meta}</span>
         <span className="font-mono text-xs">{formatCents(c.quote.amount_cents)}</span>
         <time dateTime={c.created_at} className="ml-auto text-[11px] text-fg-muted">

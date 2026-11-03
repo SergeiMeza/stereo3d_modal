@@ -107,7 +107,7 @@ function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element 
         >
           {METHOD_LABELS[conversionMethod(c)]}
         </span>
-        <StateChip state={c.state} />
+        <StateChip conversion={c} />
         <span className="font-mono text-sm text-fg-muted">
           {formatCents(c.quote.amount_cents)}
         </span>

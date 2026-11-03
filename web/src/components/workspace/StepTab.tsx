@@ -139,7 +139,7 @@ export function StepTab({
                   <Card size="sm">
                     <CardContent className="flex items-center gap-2 text-xs">
                       <span className="text-fg-muted">Last run</span>
-                      <StateChip state={lastRun.state} />
+                      <StateChip conversion={lastRun} />
                       <time
                         dateTime={lastRun.created_at}
                         className="text-fg-muted"

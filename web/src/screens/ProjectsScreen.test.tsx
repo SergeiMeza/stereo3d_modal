@@ -130,7 +130,7 @@ describe("ProjectsScreen list", () => {
     const badge = await screen.findByTestId("analyze-badge-running");
     expect(badge.textContent).toContain("Building preview");
     expect(badge.textContent).toContain("45%");
-    expect(badge.textContent).toContain("~22s left");
+    expect(badge.textContent).toContain("about 20 s left");
     expect(within(badge).getByLabelText("Analyze progress")).toBeTruthy();
   });
 

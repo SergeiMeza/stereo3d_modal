@@ -173,7 +173,7 @@ describe("StepTab info drawer", () => {
 
     // last-run pointer with state chip and the History jump
     expect(within(drawer).getByText("Last run")).toBeTruthy();
-    expect(within(drawer).getByText("succeeded")).toBeTruthy();
+    expect(within(drawer).getByText("Ready")).toBeTruthy();
     fireEvent.click(within(drawer).getByRole("button", { name: "History →" }));
     expect(onNavigate).toHaveBeenCalledWith("history");
   });

@@ -1146,7 +1146,7 @@ describe("StereoPanel free shot profiling", () => {
     // POST set profile running; the panel's refetch (project GET #1)
     // advances the mock's progress
     const running = await screen.findByTestId("profile-running");
-    expect(running.textContent).toContain("Profiling shots");
+    expect(running.textContent).toContain("Measuring scenes");
     expect(running.textContent).toContain("60%");
     expect(screen.queryByRole("button", { name: "Profile shots (free)" })).toBeNull();
 

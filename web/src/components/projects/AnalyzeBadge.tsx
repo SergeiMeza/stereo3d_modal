@@ -11,6 +11,7 @@ import type { JSX } from "react";
 
 import { Progress } from "@/components/ui/progress";
 import type { AnalyzeInfo } from "@/lib/api/types";
+import { formatTimeLeft } from "@/lib/format";
 
 /** Gateway analyze stage ids → human labels. Unknown ids fall back to the
  * generic "Analyzing" rather than leaking internals. */
@@ -19,18 +20,15 @@ const STAGE_LABELS: Record<string, string> = {
   proxy: "Building preview",
   scene_detect: "Detecting scenes",
   thumbnails: "Thumbnails",
-  profiling: "Profiling shots",
+  profiling: "Measuring scenes",
 };
 
 export function analyzeStageLabel(stage?: string): string {
   return (stage !== undefined ? STAGE_LABELS[stage] : undefined) ?? "Analyzing";
 }
 
-/** "~42s left" / "~3m left" — compact remaining-time hint. */
-export function formatEtaLeft(seconds: number): string {
-  if (seconds < 90) return `~${Math.round(seconds)}s left`;
-  return `~${Math.round(seconds / 60)}m left`;
-}
+/** The shared time formatter (lib/format, S3D-34). */
+export const formatEtaLeft = formatTimeLeft;
 
 /** The progress-ish subset shared by AnalyzeInfo and ProfileJobInfo — the
  * profile job reuses the same readout. */
