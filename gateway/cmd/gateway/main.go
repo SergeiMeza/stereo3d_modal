@@ -12,6 +12,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/api"
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
+	"spatial-ai-labs/stereo3d-gateway/internal/emailcode"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
@@ -126,6 +127,16 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/reset", idh.Reset)
 	mux.HandleFunc("POST /v1/auth/reset/confirm", idh.ResetConfirm)
 
+	// Sign-in with a one-time email code (S3D-70), web and China mode.
+	ech := emailcode.NewHandlers(&emailcode.Service{
+		Store:    emailcode.NewFirestoreStore(fsClient, cfg.Env),
+		Users:    verifier,
+		Sessions: idh.Client,
+		Mail:     mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom),
+	}, ips)
+	mux.HandleFunc("POST /v1/auth/email/start", ech.Start)
+	mux.HandleFunc("POST /v1/auth/email/verify", ech.Verify)
+
 	// Authenticated client routes.
 	authed := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -167,6 +178,8 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
 	}))
+	mux.HandleFunc("GET /v1/pro", authed(svc.HandleProStatus))
+	mux.HandleFunc("POST /v1/pro/refresh", authed(svc.HandleProRefresh))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
 	mux.HandleFunc("POST /v1/uploads/status", authed(svc.HandleUploadStatus))

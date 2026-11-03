@@ -146,6 +146,23 @@ Client-facing (Firebase ID token in `Authorization: Bearer`):
 | GET | `/v1/conversions/{id}/downloads` | Signed GCS GET URLs for outputs |
 | DELETE | `/v1/conversions/{id}` | Cancel: cancels Modal job + releases hold |
 | GET | `/health` | Liveness |
+| GET | `/v1/pro` | `{pro, via, known}`: whether the caller holds Spatial Video Studio Pro (RevenueCat, cached 10 min; same rule as quotes) |
+| POST | `/v1/pro/refresh` | Same answer, asked again past the cache: the web calls it right after a Pro purchase (S3D-68) |
+
+Sign-in with a one-time email code (S3D-70, `internal/emailcode`, no token):
+
+- `POST /v1/auth/email/start {email}` mails a 6-digit code ("Stereo3D Studio:
+  your sign-in code", Resend). 10-minute expiry, 5 tries per code, 30 s
+  between codes and 5 an hour per address (Firestore
+  `auth_email_codes_{env}`, keyed by a hash of the address, codes salted and
+  hashed), plus per-IP brakes. Errors: `invalid_email`, `resend_too_soon` /
+  `too_many_codes` (`details.retry_after`), `rate_limited`.
+- `POST /v1/auth/email/verify {email, code, session?}` signs into the account
+  with that email (one account per email; created when none, email marked
+  verified; an unverified account loses its unproven password and sessions)
+  and answers `{uid, is_new_user, custom_token}` for the JS SDK, or with
+  `session: true` (China mode) the `/v1/auth/signin` Session fields. Errors:
+  `code_invalid` (`details.attempts_left`), `code_expired`, `user_disabled`.
 
 China mode (web, through the relay at cn.api.stereo3d.studio; see
 `internal/identity`, `internal/mediahost`):
