@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -18,6 +20,10 @@ func lifelikeProject() *store.Project {
 	p.Probe.Width, p.Probe.Height = 3840, 2160
 	return p
 }
+
+type httpxErr = httpx.APIError
+
+func itoa(n int) string { return strconv.Itoa(n) }
 
 func llResolveErr(t *testing.T, req *stepConvReq, p *store.Project, wantCode, wantSub string) {
 	t.Helper()
@@ -106,9 +112,90 @@ func TestLifelikePresetsAndFormats(t *testing.T) {
 func TestLifelikePreviewSpan(t *testing.T) {
 	p := lifelikeProject() // 24 fps
 	llResolveErr(t, &stepConvReq{Step: store.StepLifelikePreview}, p, "invalid_request", "from_frame and to_frame")
-	resolveOKP(t, &stepConvReq{Step: store.StepLifelikePreview, FromFrame: 0, ToFrame: 240}, p) // exactly 10 s
-	llResolveErr(t, &stepConvReq{Step: store.StepLifelikePreview, FromFrame: 0, ToFrame: 264}, p, "invalid_request", "at most 10")
 	llResolveErr(t, &stepConvReq{Step: store.StepLifelikePreview, FromFrame: 0, ToFrame: 120, SplitMaxSeconds: 900}, p, "invalid_request", "production only")
+	rule := pricing.Defaults().LifelikePreviewSeconds() // 2-10 s
+	span := func(from, to int) *httpxErr {
+		params := resolveOKP(t, &stepConvReq{Step: store.StepLifelikePreview, FromFrame: from, ToFrame: to}, p)
+		return checkPreviewSpan(p, params, rule)
+	}
+	for _, ok := range [][2]int{{0, 48}, {0, 120}, {0, 240}, {100, 341}} { // 2 s, 5 s, 10 s, 10 s + a frame
+		if err := span(ok[0], ok[1]); err != nil {
+			t.Errorf("%v: %v", ok, err)
+		}
+	}
+	for _, bad := range [][2]int{{0, 24}, {0, 264}} { // 1 s, 11 s
+		if err := span(bad[0], bad[1]); err == nil {
+			t.Errorf("%v must be refused", bad)
+		}
+	}
+	// config can move the rule
+	if err := checkPreviewSpan(p, store.Params{ToFrame: 264}, pricing.PreviewSeconds{MinS: 2, MaxS: 15}); err != nil {
+		t.Errorf("15 s rule: %v", err)
+	}
+	// quick look: half the source rate is a valid target
+	if q := resolveOKP(t, &stepConvReq{Step: store.StepLifelikePreview, ToFrame: 120, TargetFPS: 12}, p); q.TargetFPS != 12 {
+		t.Errorf("quick look target_fps: %v", q.TargetFPS)
+	}
+}
+
+// S3D-04: what a source can be rendered at.
+func TestLifelikeQualities(t *testing.T) {
+	ids := func(qs []quality) string {
+		var out []string
+		for _, q := range qs {
+			out = append(out, q.ID+":"+q.Preset+"/"+q.PricePreset+"@"+itoa(q.LabelShortSide))
+		}
+		return strings.Join(out, " ")
+	}
+	cases := []struct {
+		w, h int
+		want string
+	}{
+		{3840, 2160, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160"},
+		{1920, 1080, "1080p:1080p/1080p@1080"},
+		// 2.39:1 scope 4K: between 3k and 4k → full renders 4k, costs 3k
+		{3840, 1607, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 full:3k/qhd@1606"},
+		{3840, 1700, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 full:4k/3k@1700"},
+		// a 720p clip: full renders 1080p (clamped to 720), costs 1080p
+		{1280, 720, "full:1080p/1080p@720"},
+		// portrait: the short side is the width
+		{1440, 2560, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440"},
+		// above 4K: everything up to 4K, nothing more (scaled down)
+		{8192, 4320, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160"},
+	}
+	for _, tc := range cases {
+		p := lifelikeProject()
+		p.Probe.Width, p.Probe.Height = tc.w, tc.h
+		if got := ids(lifelikeQualities(p)); got != tc.want {
+			t.Errorf("%dx%d:\n got %s\nwant %s", tc.w, tc.h, got, tc.want)
+		}
+	}
+}
+
+func TestLifelikeFullResolutionRequests(t *testing.T) {
+	scope := lifelikeProject()
+	scope.Probe.Width, scope.Probe.Height = 3840, 1606
+	for _, preset := range []string{"full", "3k"} { // "3k" is what full renders here
+		params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: preset}, scope)
+		if params.Preset != "3k" || params.PricePreset != "qhd" || params.Quality != "full" {
+			t.Errorf("%s: %+v", preset, params)
+		}
+		if outputShortSide(scope, params) != 1606 || pricePreset(params) != "qhd" {
+			t.Errorf("%s: output %d, priced %s", preset, outputShortSide(scope, params), pricePreset(params))
+		}
+	}
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, scope, "preset_above_source", "1606p")
+	// a 720p clip: no preset means full (rendered at 720, priced at 1080p)
+	sd := lifelikeProject()
+	sd.Probe.Width, sd.Probe.Height = 1280, 720
+	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction}, sd); params.Quality != "full" || params.Preset != "1080p" || params.PricePreset != "" {
+		t.Errorf("720p default: %+v", params)
+	}
+	// a 4K source: a plain step carries no price override
+	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, lifelikeProject()); params.Quality != "4k" || params.PricePreset != "" {
+		t.Errorf("4k: %+v", params)
+	}
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), "invalid_request", "full")
 }
 
 func TestSplitMaxSecondsRails(t *testing.T) {

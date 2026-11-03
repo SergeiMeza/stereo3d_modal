@@ -126,11 +126,19 @@ machine, billing and settlement are the Classic ones. Its steps:
 
 | step | knobs |
 |---|---|
-| `lifelike_preview` | `from_frame`/`to_frame` required, ≤ 10 s of source; preset; formats (default `["sbs"]`); one GPU |
+| `lifelike_preview` | `from_frame`/`to_frame` required, 2–10 s of source (`lifelike_preview`); preset; formats (default `["sbs"]`); `target_fps` (half the source rate = quick look); one GPU |
 | `production` | preset; formats ⊆ `mvhevc`/`sbs`/`half_sbs` (default `["mvhevc","half_sbs"]`); trim; `split_max_seconds` 60–3600 |
 
-Presets are `1080p|qhd|3k|4k` (no draft); a preset above the source's short
-side is a 400 `preset_above_source` (1080p is always allowed). Classic-only
+Qualities (S3D-04): Lifelike keeps the source's shape and sizes by the
+short side per eye — `1080p|qhd|3k|4k` (no draft), each offered only when
+the source's short side (rotation-proof, rounded down to even) reaches it.
+Between steps or below 1080 a `full` option renders the next step up (which
+Lifelike clamps to the source) and costs the step below (1080p below 1080).
+Projects and Lifelike quotes carry `qualities: [{id, label_short_side,
+preset, price_preset}]`; requests send `preset` = an id (`full`, or the
+preset `full` renders); quotes return `output_short_side`. Anything else
+above the source is 400 `preset_above_source`; nothing above 4K is built
+(bigger sources are scaled down, and Lifelike has no pixel cap). Classic-only
 knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
 `use_uploaded_depth`, `displacement`) are 400s; the project's cut list is
 always forwarded. Classic refuses `split_max_seconds` (400
@@ -149,9 +157,11 @@ Part 2.mov", `url`); `downloads` (name → URL) is unchanged.
 
 Pricing: Lifelike production has its own PRICE table (no margin),
 `lifelike_price_cents_per_minute` per output minute at 24 fps, times the fps
-factor; bulk discount and minimum apply, nothing else from Classic. A
-Lifelike preview is a flat `lifelike_preview_cents` (no fps factor, no
-discounts). A quote may carry `method` to price the step as if the project
+factor; the bulk discount applies, nothing else from Classic. A Lifelike
+preview costs its frames at the same price per frame (price per minute /
+1,440, times seconds × frame rate), with no discount and no minimum. No pro
+step of either method has a per-run minimum (S3D-17): `minimum_cents`
+applies to the balance charge, and a balance under it rolls over. A quote may carry `method` to price the step as if the project
 used that method (validated by that method's rules; the project is not
 changed; the response's `method` says which) — the chooser's side-by-side
 price and ETA. On conversions a `method` other than the project's is a 409
@@ -194,7 +204,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |
 | `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 |
-| `lifelike_preview_cents` | 50 (flat) |
+| `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_base_s` 20 · `encode_frame_cap` 7200 · `encode_s_per_frame` 1080p 0.035 · qhd 0.06 · 3k 0.075 · 4k 0.13 |
 

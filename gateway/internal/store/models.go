@@ -168,6 +168,11 @@ type Params struct {
 	// seconds (production; 0 = one file). Lifelike only until the classic
 	// pipeline implements the split contract.
 	SplitMaxSeconds int `firestore:"split_max_seconds,omitempty" json:"split_max_seconds,omitempty"`
+	// Lifelike quality (S3D-04): Quality is the option picked ("full" or a
+	// preset); PricePreset the price-table row when it differs from Preset
+	// (full resolution renders the step above and costs the step below).
+	Quality     string `firestore:"quality,omitempty" json:"quality,omitempty"`
+	PricePreset string `firestore:"price_preset,omitempty" json:"price_preset,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first

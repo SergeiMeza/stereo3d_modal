@@ -130,6 +130,10 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	if h := presetOutputHeight[pa.Preset]; h > 0 {
 		put("output_height", strconv.Itoa(h))
 	}
+	put("quality", pa.Quality)
+	if pa.PricePreset != "" {
+		put("price_preset", pa.PricePreset)
+	}
 	if pa.SplitMaxSeconds > 0 {
 		put("split_max_seconds", strconv.Itoa(pa.SplitMaxSeconds))
 	}

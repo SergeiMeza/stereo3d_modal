@@ -24,9 +24,6 @@ import (
 // method are classic.
 
 const (
-	// lifelikePreviewMaxSeconds bounds a lifelike_preview's source span
-	// (the web sends ~5 s).
-	lifelikePreviewMaxSeconds = 10.0
 	// split_max_seconds rails (the service's own floor is 10 s).
 	minSplitSeconds = 60
 	maxSplitSeconds = 3600
@@ -158,20 +155,13 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project) (store.Params, *h
 			return params, httpx.ErrInvalid(knob + " applies to classic projects only")
 		}
 	}
-	params.Preset = "1080p"
-	if req.Preset != "" {
-		if !slices.Contains(pricing.LifelikePresets, req.Preset) {
-			return params, httpx.ErrInvalid("lifelike preset must be one of " + strings.Join(pricing.LifelikePresets, "|"))
-		}
-		params.Preset = req.Preset
+	q, qerr := pickQuality(lifelikeQualities(p), req.Preset, sourceShortSide(p))
+	if qerr != nil {
+		return params, qerr
 	}
-	// Lifelike never upscales: a preset above the source's short side is
-	// not offered (1080p always is; below 1080 it renders at source size).
-	if h := presetOutputHeight[params.Preset]; params.Preset != "1080p" && p.Probe != nil &&
-		p.Probe.Width > 0 && p.Probe.Height > 0 && h > min(p.Probe.Width, p.Probe.Height) {
-		return params, httpx.Err(http.StatusBadRequest, "preset_above_source", fmt.Sprintf(
-			"%s needs a source at least %d pixels on its short side; this one is %d",
-			params.Preset, h, min(p.Probe.Width, p.Probe.Height)))
+	params.Preset, params.Quality = q.Preset, q.ID
+	if q.PricePreset != q.Preset {
+		params.PricePreset = q.PricePreset
 	}
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
@@ -198,14 +188,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project) (store.Params, *h
 		if req.ToFrame == 0 {
 			return params, httpx.ErrInvalid("lifelike_preview needs from_frame and to_frame")
 		}
-		if p.Probe != nil && p.Probe.FPS > 0 {
-			end := min(req.ToFrame, p.Probe.NumFrames)
-			// one frame of slack so a client rounding 10 s to frames passes
-			if float64(end-req.FromFrame-1)/p.Probe.FPS > lifelikePreviewMaxSeconds {
-				return params, httpx.ErrInvalid(fmt.Sprintf(
-					"lifelike_preview covers at most %g s of the source", lifelikePreviewMaxSeconds))
-			}
-		}
+		// its length rule is config (checkPreviewSpan, from resolveParams)
 		if req.SplitMaxSeconds != 0 {
 			return params, httpx.ErrInvalid("split_max_seconds applies to production only")
 		}
@@ -397,4 +380,133 @@ func (s *Service) defaultMethod() string {
 func (s *Service) HandlePublicPricing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	httpx.WriteOK(w, s.Pricing.Public(r.Context()))
+}
+
+// ------------------------------------------------------------- qualities
+
+// quality is one output size a Lifelike project offers (S3D-04). Lifelike
+// keeps the source's shape, sizes by the short side per eye and never
+// upscales, so a step is offered only when the source's short side reaches
+// it; between steps (3840×1606) or below 1080 a "full" option renders the
+// next step up — which Lifelike clamps to the source — labelled with the
+// real size and priced at the step below (1080p below 1080). Nothing above
+// 4K: bigger sources are scaled down to it.
+type quality struct {
+	ID string `json:"id"` // a preset, or "full"
+	// LabelShortSide is the output's short side per eye ("Full
+	// resolution (1606p)"), odd sizes rounded down to even.
+	LabelShortSide int    `json:"label_short_side"`
+	Preset         string `json:"preset"`       // what Lifelike is asked for
+	PricePreset    string `json:"price_preset"` // the price table row
+}
+
+const qualityFull = "full"
+
+// sourceShortSide is the source's short side, rotation-proof (min of the
+// two sides), rounded down to even; 0 before analysis.
+func sourceShortSide(p *store.Project) int {
+	if p.Probe == nil || p.Probe.Width <= 0 || p.Probe.Height <= 0 {
+		return 0
+	}
+	return min(p.Probe.Width, p.Probe.Height) &^ 1
+}
+
+// lifelikeQualities lists what a project's source can be rendered at,
+// smallest first. Before analysis every step is listed.
+func lifelikeQualities(p *store.Project) []quality {
+	short := sourceShortSide(p)
+	var out []quality
+	below := "" // the highest step the source reaches
+	for _, preset := range pricing.LifelikePresets {
+		h := presetOutputHeight[preset]
+		if short == 0 || h <= short {
+			out = append(out, quality{ID: preset, LabelShortSide: h, Preset: preset, PricePreset: preset})
+			below = preset
+			continue
+		}
+		// first step above the source: full resolution, unless the source
+		// sits exactly on a step (then the step itself is its full size)
+		if presetOutputHeight[below] != short {
+			price := below
+			if price == "" {
+				price = pricing.LifelikePresets[0] // below 1080: the 1080p price
+			}
+			out = append(out, quality{ID: qualityFull, LabelShortSide: short, Preset: preset, PricePreset: price})
+		}
+		break
+	}
+	return out
+}
+
+// pickQuality resolves a requested preset against the offered qualities:
+// "" picks 1080p, or full resolution on a source below 1080; "full" or the
+// preset the full option renders pick full resolution. A step the source
+// doesn't reach is 400 preset_above_source.
+func pickQuality(offered []quality, requested string, short int) (quality, *httpx.APIError) {
+	if requested == "" {
+		requested = pricing.LifelikePresets[0]
+	}
+	for _, q := range offered {
+		if q.ID == requested || (q.ID == qualityFull && q.Preset == requested) {
+			return q, nil
+		}
+	}
+	if !slices.Contains(pricing.LifelikePresets, requested) && requested != qualityFull {
+		return quality{}, httpx.ErrInvalid("lifelike preset must be one of " +
+			strings.Join(pricing.LifelikePresets, "|") + "|" + qualityFull)
+	}
+	return quality{}, httpx.Err(http.StatusBadRequest, "preset_above_source", fmt.Sprintf(
+		"%s is above this video's own size (%dp); Lifelike never upscales", requested, short))
+}
+
+// outputShortSide is what a Lifelike run will deliver per eye: the preset,
+// clamped to the source.
+func outputShortSide(p *store.Project, params store.Params) int {
+	h := presetOutputHeight[params.Preset]
+	if short := sourceShortSide(p); short > 0 && short < h {
+		return short
+	}
+	return h
+}
+
+// pricePreset is the preset a run is priced at (the full option prices at
+// the step below its render preset).
+func pricePreset(params store.Params) string {
+	if params.PricePreset != "" {
+		return params.PricePreset
+	}
+	return params.Preset
+}
+
+// checkPreviewSpan applies the Lifelike preview's length rule (config
+// lifelike_preview, 2-10 s by default) in source seconds, with a frame of
+// slack either way for clients rounding seconds to frames.
+func checkPreviewSpan(p *store.Project, params store.Params, rule pricing.PreviewSeconds) *httpx.APIError {
+	if p.Probe == nil || p.Probe.FPS <= 0 {
+		return nil
+	}
+	end := params.ToFrame
+	if end <= 0 || end > p.Probe.NumFrames {
+		end = p.Probe.NumFrames
+	}
+	frames := float64(end - params.FromFrame)
+	if (frames-1)/p.Probe.FPS > rule.MaxS || (frames+1)/p.Probe.FPS < rule.MinS {
+		return httpx.ErrInvalid(fmt.Sprintf(
+			"lifelike_preview covers %g-%g s of the source", rule.MinS, rule.MaxS))
+	}
+	return nil
+}
+
+// resolveParams is resolveStepParams plus the rules that live in config.
+func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
+	params, err := resolveStepParams(req, p)
+	if err != nil {
+		return params, err
+	}
+	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
+		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {
+			return params, serr
+		}
+	}
+	return params, nil
 }

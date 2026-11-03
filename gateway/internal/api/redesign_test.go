@@ -108,8 +108,8 @@ func TestPublicPricingRoute(t *testing.T) {
 	var body struct {
 		Methods struct {
 			Lifelike struct {
-				Production map[string]int64 `json:"production_cents_per_minute"`
-				Preview    int64            `json:"preview_cents"`
+				Production map[string]int64   `json:"production_cents_per_minute"`
+				PerFrame   map[string]float64 `json:"preview_cents_per_frame"`
 			} `json:"lifelike"`
 		} `json:"methods"`
 		Precharge int64 `json:"precharge_threshold_cents"`
@@ -117,7 +117,7 @@ func TestPublicPricingRoute(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Methods.Lifelike.Production["1080p"] != 450 || body.Methods.Lifelike.Preview != 50 || body.Precharge != 2500 {
+	if body.Methods.Lifelike.Production["1080p"] != 450 || body.Methods.Lifelike.PerFrame["4k"] != 0.6944 || body.Precharge != 2500 {
 		t.Errorf("body: %s", w.Body)
 	}
 }

@@ -30,8 +30,8 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		{"4k", 120, 24, 1800},
 		// 48 fps doubles the frames: 1 min of 1080p = $9 (under the $10 discount)
 		{"1080p", 60, 48, 900},
-		// a 5 s production hits the $0.50 minimum (450 × 5/60 = 38¢)
-		{"1080p", 5, 24, 50},
+		// no per-run minimum: a 5 s production is 450 × 5/60 = 38¢
+		{"1080p", 5, 24, 38},
 	}
 	for _, tc := range cases {
 		for _, step := range []string{"production"} { // previews are flat (TestLifelikePreviewIsFlat)
@@ -122,25 +122,63 @@ func TestLifelikeConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestLifelikePreviewIsFlat(t *testing.T) {
+// S3D-13: a preview costs exactly its frames at the production price per
+// frame; no discount, no minimum.
+func TestLifelikePreviewPerFrame(t *testing.T) {
 	ctx := context.Background()
 	s := defaultsService(nil)
-	for _, in := range []StepInputs{
-		{Step: StepLifelikePreview, Preset: "1080p", BillableS: 5, EffectiveFPS: 24},
-		{Step: StepLifelikePreview, Preset: "4k", BillableS: 10, EffectiveFPS: 60},
-	} {
-		q, err := s.QuoteLifelike(ctx, in)
-		if err != nil || q.AmountCents != 50 {
-			t.Errorf("%+v: want flat 50, got %v %v", in, q, err)
-		}
+	cases := []struct {
+		preset string
+		secs   float64
+		fps    float64
+		want   int64
+	}{
+		// the decision's table: 5 s at 24 fps
+		{"1080p", 5, 24, 38}, {"qhd", 5, 24, 54}, {"3k", 5, 24, 67}, {"4k", 5, 24, 83},
+		// quick look at half the frame rate: half the frames, half the price
+		{"4k", 5, 12, 42},
+		// 10 s of a 60 fps source: 600 frames × 1000/1440
+		{"4k", 10, 60, 417},
+		// 2 s at 1080p: 48 frames = 15¢, no minimum
+		{"1080p", 2, 24, 15},
 	}
-	r := defaults()
-	r.LifelikePreviewCents = 75
-	if q, _ := defaultsService(r).QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: "qhd", BillableS: 5}); q.AmountCents != 75 {
-		t.Errorf("configured flat price: got %d", q.AmountCents)
+	for _, tc := range cases {
+		q, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: tc.preset, BillableS: tc.secs, EffectiveFPS: tc.fps})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.AmountCents != tc.want {
+			t.Errorf("%s %gs @%g: want %d, got %d (%v)", tc.preset, tc.secs, tc.fps, tc.want, q.AmountCents, q.Breakdown)
+		}
 	}
 	if _, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: "draft", BillableS: 5}); err == nil {
 		t.Error("draft is not a lifelike preset, previews included")
+	}
+	var absent Rates
+	if got := absent.LifelikePreviewSeconds(); got.MinS != 2 || got.MaxS != 10 || got.DefaultS != 5 {
+		t.Errorf("preview length defaults: %+v", got)
+	}
+}
+
+// S3D-17: no per-run minimum on pro steps (either method).
+func TestNoPerRunMinimumOnProSteps(t *testing.T) {
+	ctx := context.Background()
+	s := defaultsService(nil)
+	q, err := s.QuoteStep(ctx, StepInputs{Step: "stereo_preview", Preset: "1080p", BillableS: 2, EffectiveFPS: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.AmountCents >= 50 { // 120¢ × 3 × 2/60 = 12¢
+		t.Errorf("classic 2 s preview must not be lifted to the minimum: %d", q.AmountCents)
+	}
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 38 {
+		t.Errorf("lifelike 5 s production: want 38, got %d", q.AmountCents)
+	}
+	// the mobile one-shot keeps its own rules
+	r := defaults()
+	r.MinBillableSeconds = 0
+	if q, _ := defaultsService(r).QuoteVideo(ctx, VideoInputs{Preset: "draft", BillableS: 5}); q.AmountCents != 50 {
+		t.Errorf("mobile keeps the 50¢ minimum: %d", q.AmountCents)
 	}
 }
 
@@ -158,7 +196,7 @@ func TestPublicPricing(t *testing.T) {
 	p := defaultsService(nil).Public(context.Background())
 	methods := p["methods"].(map[string]any)
 	ll := methods["lifelike"].(map[string]any)
-	if ll["production_cents_per_minute"].(map[string]int64)["4k"] != 1000 || ll["preview_cents"] != int64(50) {
+	if ll["production_cents_per_minute"].(map[string]int64)["4k"] != 1000 || ll["preview_cents_per_frame"].(map[string]float64)["1080p"] != 0.3125 {
 		t.Errorf("lifelike: %v", ll)
 	}
 	cl := methods["classic"].(map[string]any)["production_cents_per_minute"].(map[string]int64)
@@ -173,7 +211,7 @@ func TestPublicPricing(t *testing.T) {
 	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
 		t.Errorf("thresholds: %v", p)
 	}
-	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) {
+	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) || b["minimum_cents"] != int64(50) {
 		t.Errorf("balance: %v", b)
 	}
 	if methods["lifelike"].(map[string]any)["max_source_bytes"] != int64(25<<30) {

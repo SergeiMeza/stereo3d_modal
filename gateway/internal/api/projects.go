@@ -941,8 +941,10 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		return nil, nil, berr
 	}
 	if projectMethod(p) == store.MethodLifelike {
-		// Classic tables, no Classic knobs, nothing reused (pricing.QuoteLifelike).
+		// Lifelike's own table at the quality's price row, no Classic
+		// knobs, nothing reused (pricing.QuoteLifelike).
 		in := s.stepQuoteInputs(p, params, step, billable)
+		in.Preset = pricePreset(params)
 		in.CreditCents = creditCents
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
@@ -1082,7 +1084,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		whatIf.Method = req.Method
 		p = &whatIf
 	}
-	params, perr := resolveStepParams(&req, p)
+	params, perr := s.resolveParams(ctx, &req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
 		return
@@ -1117,6 +1119,10 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		resp["eta_seconds"] = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
 		resp["output_seconds"] = math.Round(billable*100) / 100
 		resp["split_suggested"] = req.Step == store.StepProduction && billable > splitSuggestSeconds
+	}
+	if method == store.MethodLifelike {
+		resp["output_short_side"] = outputShortSide(p, params)
+		resp["qualities"] = lifelikeQualities(p)
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -1158,7 +1164,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			"this project uses "+projectMethod(p)+"; switch the project's method first"))
 		return
 	}
-	params, perr := resolveStepParams(&req, p)
+	params, perr := s.resolveParams(ctx, &req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
 		return
@@ -1387,6 +1393,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	}
 	if p.Probe != nil {
 		resp["probe"] = p.Probe
+	}
+	if projectMethod(p) == store.MethodLifelike {
+		resp["qualities"] = lifelikeQualities(p) // S3D-04: what this source offers
 	}
 	if p.Scenes != nil {
 		resp["scenes"] = p.Scenes

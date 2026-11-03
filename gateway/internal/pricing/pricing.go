@@ -168,10 +168,9 @@ type Rates struct {
 	// LifelikePriceCentsPerMinute: Lifelike's own PRICE per output minute
 	// at 24 fps, per preset (no margin applied; see QuoteLifelike).
 	LifelikePriceCentsPerMinute map[string]int64 `firestore:"lifelike_price_cents_per_minute"`
-	// LifelikePreviewCents: the flat price of a Lifelike preview (S3D-13:
-	// a 5-second clip at any quality and frame rate; no fps factor, no
-	// discounts). 0/absent = 50.
-	LifelikePreviewCents int64 `firestore:"lifelike_preview_cents"`
+	// LifelikePreview: the preview's length rules in source seconds (S3D-13:
+	// 2-10 s, 5 by default). Zero values use those defaults.
+	LifelikePreview PreviewSeconds `firestore:"lifelike_preview"`
 	// LifelikeMaxSourceBytes caps a Lifelike source file (S3D-42);
 	// max_source_bytes stays Classic's. 0/absent = 25 GiB.
 	LifelikeMaxSourceBytes int64 `firestore:"lifelike_max_source_bytes"`
@@ -232,6 +231,28 @@ func (r *Rates) GPUWorkersFor(method string) int {
 	return min(n, MaxGPUWorkersPerJob)
 }
 
+// PreviewSeconds bounds a Lifelike preview's span.
+type PreviewSeconds struct {
+	MinS     float64 `firestore:"min_s" json:"min_s"`
+	MaxS     float64 `firestore:"max_s" json:"max_s"`
+	DefaultS float64 `firestore:"default_s" json:"default_s"`
+}
+
+// LifelikePreviewSeconds is the preview length rule with defaults filled in.
+func (r *Rates) LifelikePreviewSeconds() PreviewSeconds {
+	p := r.LifelikePreview
+	if p.MinS <= 0 {
+		p.MinS = 2
+	}
+	if p.MaxS <= 0 {
+		p.MaxS = 10
+	}
+	if p.DefaultS <= 0 {
+		p.DefaultS = 5
+	}
+	return p
+}
+
 // MaxSourceBytesFor is the source-file cap of a method.
 func (r *Rates) MaxSourceBytesFor(method string) int64 {
 	if method == "lifelike" {
@@ -241,14 +262,6 @@ func (r *Rates) MaxSourceBytesFor(method string) int64 {
 		return 25 << 30
 	}
 	return r.MaxSourceBytes
-}
-
-// LifelikePreviewPrice is the flat Lifelike preview price.
-func (r *Rates) LifelikePreviewPrice() int64 {
-	if r.LifelikePreviewCents > 0 {
-		return r.LifelikePreviewCents
-	}
-	return 50
 }
 
 // PrechargeThreshold is the quote above which a pro step is charged up
@@ -391,7 +404,6 @@ func defaults() *Rates {
 		LifelikeMaxGPUWorkers:       4,
 		PrechargeThresholdCents:     2500,
 		LifelikePriceCentsPerMinute: defaultLifelikePrices(),
-		LifelikePreviewCents:        50,
 		LifelikeMaxSourceBytes:      25 << 30,
 		LifelikeETA:                 defaultLifelikeETA(),
 	}
@@ -783,10 +795,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	if afterReuse > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(afterReuse) * rates.DiscountPct))
 	}
-	total := afterReuse - bulkDiscount - in.CreditCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
-	}
+	// No per-run minimum on pro steps (S3D-17): minimum_cents applies to
+	// the balance charge instead (a batch under it rolls over), and a run
+	// above the pre-charge threshold is far above it.
+	total := max(afterReuse-bulkDiscount-in.CreditCents, 0)
 	return &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
@@ -816,9 +828,9 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 // 2026-11-03): lifelike_price_cents_per_minute[preset] per output minute at
 // 24 fps — a price, not a cost the margin multiplies — times the fps
 // factor, for production. None of Classic's mechanics apply (no depth-res
-// factor, no inpaint multiplier, no reuse discount); the bulk discount, the
-// minimum and the analyze credit do. A lifelike_preview is a flat
-// lifelike_preview_cents (S3D-13).
+// factor, no inpaint multiplier, no reuse discount); the bulk discount and
+// the analyze credit do. A lifelike_preview costs its frames at the same
+// price per frame (S3D-13). No per-run minimum (S3D-17).
 const (
 	StepLifelikePreview = "lifelike_preview"
 	MethodLifelike      = "lifelike"
@@ -853,10 +865,19 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
 	}
 	if in.Step == StepLifelikePreview {
-		// S3D-13: flat, whatever the quality, length or frame rate.
-		flat := rates.LifelikePreviewPrice()
+		// S3D-13: exactly what the same frames cost in the final at this
+		// quality — the per-minute price / 1,440 per frame, times the
+		// frames the preview renders (its seconds × its frame rate, so the
+		// half-rate quick look costs half). No discount, no minimum.
+		fps := in.EffectiveFPS
+		if fps <= 0 {
+			fps = fpsBase
+		}
+		frames := math.Round(in.BillableS * fps)
+		perFrame := float64(perMin) / (60 * fpsBase)
+		cents := int64(math.Round(frames * perFrame))
 		return &Quote{
-			AmountCents: flat,
+			AmountCents: cents,
 			Currency:    rates.Currency,
 			RateVersion: rates.RateVersion,
 			Breakdown: map[string]any{
@@ -864,7 +885,9 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 				"method":           MethodLifelike,
 				"preset":           in.Preset,
 				"billable_seconds": math.Round(in.BillableS*100) / 100,
-				"flat_cents":       flat,
+				"cents_per_minute": perMin,
+				"frames":           int64(frames),
+				"cents_per_frame":  round4(perFrame),
 			},
 		}, nil
 	}
@@ -874,10 +897,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	if subtotal > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
 	}
-	total := subtotal - bulkDiscount - in.CreditCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
-	}
+	total := max(subtotal-bulkDiscount-in.CreditCents, 0) // no per-run minimum (S3D-17)
 	return &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
@@ -986,9 +1006,11 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		}
 	}
 	lifelike := map[string]int64{}
+	lifelikePerFrame := map[string]float64{}
 	for _, p := range LifelikePresets {
 		if v, ok := rates.lifelikePrice(p); ok {
 			lifelike[p] = v
+			lifelikePerFrame[p] = round4(float64(v) / (60 * fpsBase))
 		}
 	}
 	newAccountCap := rates.BatchCap(0)
@@ -999,9 +1021,12 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"lifelike": map[string]any{
 				"presets":                     LifelikePresets,
 				"production_cents_per_minute": lifelike,
-				"preview_cents":               rates.LifelikePreviewPrice(),
-				"max_source_duration_s":       rates.MaxSourceDurationFor("lifelike"),
-				"max_source_bytes":            rates.MaxSourceBytesFor("lifelike"),
+				// a preview costs its frames at the production price per
+				// frame (cents_per_minute / 1,440), no discount or minimum
+				"preview_cents_per_frame": lifelikePerFrame,
+				"preview_seconds":         rates.LifelikePreviewSeconds(),
+				"max_source_duration_s":   rates.MaxSourceDurationFor("lifelike"),
+				"max_source_bytes":        rates.MaxSourceBytesFor("lifelike"),
 			},
 			"classic": map[string]any{
 				"presets":                         ClassicPresets,
@@ -1019,11 +1044,14 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"threshold_cents": rates.DiscountThresholdCents,
 			"pct":             rates.DiscountPct,
 		},
+		// No per-run minimum on pro steps (S3D-17): the minimum applies to
+		// the balance charge; a balance under it waits for the next run.
 		"minimum_cents":             rates.MinimumCents,
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
 		"balance": map[string]any{
 			"window_hours":          rates.BatchWindow().Hours(),
 			"new_account_cap_cents": newAccountCap,
+			"minimum_cents":         rates.MinimumCents,
 		},
 	}
 }

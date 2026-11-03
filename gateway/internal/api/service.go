@@ -864,7 +864,10 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				"this video is %s long — during the beta, videos can be at most %s",
 				formatMinSec(meta.Probe.Duration), formatMinSec(maxS)))
 		}
-		if maxPx := rates.MaxSourcePixels; maxPx > 0 && meta.Probe.Width*meta.Probe.Height > maxPx {
+		// The pixel cap is Classic's: Lifelike scales bigger sources down
+		// to 4K (S3D-04).
+		if maxPx := rates.MaxSourcePixels; maxPx > 0 && projectMethod(p) == store.MethodClassic &&
+			meta.Probe.Width*meta.Probe.Height > maxPx {
 			return s.rejectSource(ctx, p, fmt.Sprintf(
 				"this video is %d×%d — during the beta, resolution can be at most 4K (3840×2160)",
 				meta.Probe.Width, meta.Probe.Height))
