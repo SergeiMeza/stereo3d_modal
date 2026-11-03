@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Step } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useBilling } from "@/lib/billing";
 import { useProOffer } from "@/lib/pro/usePro";
 
 /** The Pro page (built by the sign-in/Pro work); the sheet's one action. */
@@ -42,6 +43,9 @@ export function proSaveLine(pct: number): string {
 export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
   const pro = usePricing()?.pro_discount;
   const [open, setOpen] = useState(false);
+  // Business and Studio include Pro: their quotes carry the plan's line
+  const plan = useBilling().status?.plan;
+  if (plan?.active) return null;
   if (!pro || pro.pct <= 0 || pro.applies_to !== step) return null;
   return (
     <>

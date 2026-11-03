@@ -377,7 +377,10 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
-      {result.pro === false ? <ProSaveLink step={result.step} /> : null}
+      {/* no Pro upsell on a plan's quote (Business and Studio include Pro) */}
+      {result.pro === false && !(result.tier === "business" || result.tier === "studio") ? (
+        <ProSaveLink step={result.step} />
+      ) : null}
       {chargeLine ? (
         <p data-testid="quote-charge-timing" className="text-xs text-fg">
           {quoteChargeSentence(result.charge_timing)}

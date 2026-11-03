@@ -5,7 +5,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { ProScreen } from "@/components/pro/ProScreen";
 import { stepCheckoutAtom } from "@/components/steps/checkoutStore";
 import type { StepQuoteResponse } from "@/lib/api/types";
+import { QuoteView } from "@/components/steps/QuoteView";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
+import { mockDb } from "@/mocks/handlers";
 import { resetProForTests, useProOffer } from "@/lib/pro/usePro";
 import { server } from "@/mocks/server";
 
@@ -77,5 +80,54 @@ describe("/pro (mock mode)", () => {
       </AuthProvider>,
     );
     await waitFor(() => expect(screen.getByTestId("offer").textContent).toBe("$8.99 a month"));
+  });
+});
+
+describe("Business and Studio include Pro (owner, 2026-11)", () => {
+  afterEach(() => mockDb.reset());
+
+  it("/pro says it's included and links to Billing; no plans for sale", async () => {
+    mockDb.billing.plan = {
+      plan: "studio", name: "Studio", status: "active", active: true, monthly_cents: 99900,
+      credit_cents: 150000, credit_left_cents: 150000, cancel_at_period_end: false,
+    };
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <ProScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const box = await screen.findByTestId("pro-included");
+    expect(box.textContent).toContain("Pro is included in your Studio plan.");
+    expect(screen.getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/account/billing");
+    expect(screen.queryByTestId("pro-plans")).toBeNull();
+  });
+
+  it("a plan's quote has its own line and no Pro upsell", async () => {
+    render(
+      <AuthProvider>
+        <QuoteView
+          result={{
+            step: "production",
+            method: "lifelike",
+            params: { preset: "4k", formats: ["mvhevc"] },
+            tier: "business",
+            tier_label: "Business",
+            pro: false,
+            discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 },
+            quote: {
+              amount_cents: 1500,
+              currency: "usd",
+              breakdown: { subtotal_cents: 2000, list_base_cents: 2000, addons: {}, discount: { kind: "tier", tier: "business", cents: 500, pct: 0.25 } },
+            },
+            reuse_stages: null,
+          }}
+        />
+      </AuthProvider>,
+    );
+    expect(screen.getByText("Business price")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("pro-save-link")).toBeNull();
   });
 });

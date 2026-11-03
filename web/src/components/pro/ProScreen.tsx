@@ -22,6 +22,7 @@ import { proPercent } from "@/components/pricing/ProOffer";
 import { ProPlans } from "@/components/pro/ProPlans";
 import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
+import { useBilling } from "@/lib/billing";
 import { proManagementUrl, useProStatus } from "@/lib/pro/usePro";
 
 function safeNext(raw: string | null): string | null {
@@ -35,6 +36,19 @@ function usePct(): number {
   return share > 0 ? proPercent(share) : 15;
 }
 
+/** "Pro is included in your Business plan" · Billing. */
+export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element {
+  return (
+    <div data-testid="pro-included" className="ll-edge ll-tint flex items-center gap-3 rounded-xl p-5">
+      <BadgeCheck className="size-6 shrink-0 text-primary" aria-hidden="true" />
+      <p className="flex-1 text-sm text-fg">Pro is included in your {planName} plan.</p>
+      <Link href="/account/billing" className="text-sm text-primary hover:underline">
+        Billing
+      </Link>
+    </div>
+  );
+}
+
 export function ProScreen(): JSX.Element {
   const { user } = useAuth();
   const status = useProStatus();
@@ -43,6 +57,9 @@ export function ProScreen(): JSX.Element {
   const [justBought, setJustBought] = useState(false);
   const [manage, setManage] = useState<string | null>(null);
 
+  // Business and Studio include Pro (owner, 2026-11): nothing to sell
+  const plan = useBilling().status?.plan;
+  const included = plan?.active ? (plan.name ?? (plan.plan === "studio" ? "Studio" : "Business")) : null;
   const isPro = justBought || status?.pro === true;
   useEffect(() => {
     if (!isPro || !user) return;
@@ -69,7 +86,9 @@ export function ProScreen(): JSX.Element {
         </p>
       </header>
 
-      {status === null && !justBought ? (
+      {included !== null ? (
+        <PlanIncludesPro planName={included} />
+      ) : status === null && !justBought ? (
         <div className="h-48 animate-pulse rounded-xl bg-surface-2" aria-busy="true" />
       ) : isPro ? (
         <div data-testid="pro-member" className="ll-edge ll-tint space-y-4 rounded-xl p-5">
