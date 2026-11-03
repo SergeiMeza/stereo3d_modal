@@ -283,6 +283,9 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
 	}
+	if c.Params.Stabilize {
+		body["stabilize"] = true // absent = off (the service default)
+	}
 	if c.Step == store.StepLifelikePreview {
 		maxGPUWorkers = 1 // a preview runs in one container anyway
 	}
@@ -592,6 +595,8 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		foveationFits(p, params) {
 		params.Foveation = "static"
 	}
+	// Config only (lifelike_stabilize), never a client knob.
+	params.Stabilize = projectMethod(p) == store.MethodLifelike && rates.LifelikeStabilize
 	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
 		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {
 			return params, serr

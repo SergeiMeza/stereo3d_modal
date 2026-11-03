@@ -1,9 +1,12 @@
 package api
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -66,5 +69,25 @@ func TestFrameSpanAndInvoiceKeys(t *testing.T) {
 	}
 	if store.ChargeID(store.ChargeGroup, "b1") != "group_b1" {
 		t.Fatal("charge id")
+	}
+}
+
+// lifelike_stabilize: passed through on the run's request, never shown to
+// clients.
+func TestLifelikeStabilizePassThrough(t *testing.T) {
+	c := &store.Conversion{Method: store.MethodLifelike, Params: store.Params{Preset: "4k", Stabilize: true}}
+	if lifelikeBody(c, 4)["stabilize"] != true {
+		t.Fatal("stabilize not passed")
+	}
+	c.Params.Stabilize = false
+	if _, ok := lifelikeBody(c, 4)["stabilize"]; ok {
+		t.Fatal("stabilize sent while off")
+	}
+	b, _ := json.Marshal(store.Params{Stabilize: true})
+	if strings.Contains(string(b), "stabilize") {
+		t.Fatalf("exposed to clients: %s", b)
+	}
+	if pricing.DefaultsFor("test").LifelikeStabilize || pricing.DefaultsFor("prod").LifelikeStabilize {
+		t.Fatal("off by default on test and prod")
 	}
 }

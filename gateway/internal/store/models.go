@@ -234,6 +234,10 @@ type Params struct {
 	Bitrate          string `firestore:"bitrate,omitempty" json:"bitrate,omitempty"`
 	OutputBitrateBps int64  `firestore:"output_bitrate_bps,omitempty" json:"output_bitrate_bps,omitempty"`
 	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
+	// Stabilize: Lifelike temporal stabilization (config
+	// lifelike_stabilize, the owner's A/B); recorded per run, never shown
+	// to or set by clients.
+	Stabilize bool `firestore:"stabilize,omitempty" json:"-"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first

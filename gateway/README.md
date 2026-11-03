@@ -569,6 +569,15 @@ Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
 (default to the Modal token).
 
+### Lifelike stabilization (config only)
+
+`config/pricing_{env}.lifelike_stabilize` (bool, default false on test and
+prod) sends `"stabilize": true` on every Lifelike run created while it is
+on (~15% less shimmer on moving content, +5% GPU; LIFELIKE_API.md). Each
+run records it (`params.stabilize` in Firestore, never in API responses
+and not settable by clients), so the owner's A/B can tell runs apart.
+Prices are unchanged.
+
 ### Pro discount (S3D-67)
 
 Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every

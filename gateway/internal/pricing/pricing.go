@@ -189,6 +189,10 @@ type Rates struct {
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
 	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// LifelikeStabilize passes "stabilize": true on every Lifelike run
+	// (~15% less shimmer on moving content, +5% GPU; LIFELIKE_API.md).
+	// Off by default on test and prod until the owner's A/B on Vision Pro.
+	LifelikeStabilize bool `firestore:"lifelike_stabilize"`
 	// GPUCapPerApp: GPUs each pipeline app may hold at once (the Modal
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
