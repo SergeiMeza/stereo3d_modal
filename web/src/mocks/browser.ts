@@ -11,4 +11,9 @@ import { handlers, mockDb } from "./handlers";
 mockDb.billing.hasPaymentMethod = false;
 mockDb.billing.card = undefined;
 
+// S3D-67: the dev preview prices as a non-member (the "Pro members save"
+// link shows); window.__mockDb lets a screenshot script flip it
+mockDb.pro = false;
+(globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
+
 export const worker = setupWorker(...handlers);

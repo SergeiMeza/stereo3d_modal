@@ -10,6 +10,7 @@ import { formatDuration, formatVideoLength } from "@/lib/format";
 import { qualityName } from "@/lib/glossary";
 
 import { formatCents, formatCentsShort } from "./money";
+import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
 
 /** The quote's processing-time estimate: "about 25 min" (lib/format). */
 export { formatDuration as formatQuoteEta } from "@/lib/format";
@@ -100,8 +101,13 @@ export function QuoteView({
   const bulk = b.discount_cents ?? 0;
   // S3D-17: the per-run minimum (from the gateway) applies when the
   // total is above what the lines add up to
+  // S3D-67: the quote's Pro line (full runs only)
+  const proLine =
+    result.pro_discount ??
+    (b.pro_discount_cents ? { pct: b.pro_discount_pct ?? 0, cents: b.pro_discount_cents } : null);
+  const proOff = proLine?.cents ?? 0;
   const minimumApplied =
-    b.subtotal_cents !== undefined && total > subtotal - reuse - bulk;
+    b.subtotal_cents !== undefined && total > subtotal - reuse - bulk - proOff;
 
   const fps =
     b.fps_factor !== undefined ? Math.round(b.fps_factor * 24 * 100) / 100 : null;
@@ -266,6 +272,15 @@ export function QuoteView({
           tone="discount"
         />
       ) : null}
+      {proLine && proOff > 0 ? (
+        // S3D-67: one compact line for members
+        <Line
+          label={`Pro −${proPercent(proLine.pct)}%`}
+          value={formatCents(-proOff)}
+          testId="quote-pro"
+          tone="discount"
+        />
+      ) : null}
       {minimumApplied ? (
         <Line
           label={`Minimum charge ${formatCentsShort(total)}`}
@@ -285,6 +300,7 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
+      {result.pro === false ? <ProSaveLink step={result.step} /> : null}
       {chargeLine ? (
         <p data-testid="quote-charge-timing" className="text-xs text-fg">
           {quoteChargeSentence(result.charge_timing)}
