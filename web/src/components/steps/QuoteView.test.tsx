@@ -101,3 +101,39 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
     expect(document.body.textContent).not.toMatch(/balance|batch|pending/i);
   });
 });
+
+describe("QuoteView frame-rate cap (owner 2026-11-04)", () => {
+  afterEach(cleanup);
+
+  it("says a capped run converts at the capped rate, with billable minutes only", () => {
+    render(
+      <QuoteView
+        result={{
+          step: "production",
+          method: "lifelike",
+          params: { preset: "4k", formats: ["sbs"], target_fps: 30 },
+          quote: {
+            amount_cents: 3750,
+            currency: "usd",
+            breakdown: {
+              preset: "4k",
+              billable_seconds: 149,
+              billable_minutes: 3,
+              cents_per_minute: 1000,
+              fps_factor: 1.25,
+              subtotal_cents: 3750,
+            },
+          },
+          fps_capped: true,
+          fps_cap_reason: "plan_required_above_30fps",
+          max_fps: 30,
+        }}
+      />,
+    );
+    expect(screen.getByTestId("quote-fps-capped").textContent).toBe(
+      "Converts at 30 fps. Higher frame rates come with Business and Studio plans.",
+    );
+    expect(screen.getByTestId("quote-breakdown").textContent).toContain("3 min at 4K");
+    expect(screen.getByTestId("quote-breakdown").textContent).not.toContain("rounded up");
+  });
+});

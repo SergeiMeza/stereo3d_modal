@@ -105,7 +105,7 @@ export function stageStep(stage: string | null | undefined): number {
 
 /** "Full video · 4K · 60 fps · 3 min · $58.50" — what the run is, in one
  * line (size, frame rate and billable minutes, owner 2026-11-04). */
-export function runLine(conv: Conversion): string {
+export function runLine(conv: Conversion, { price = true }: { price?: boolean } = {}): string {
   const facts =
     conv.step === "depth_preview"
       ? []
@@ -115,7 +115,7 @@ export function runLine(conv: Conversion): string {
     ...(facts.length > 0
       ? facts
       : [conv.step !== "depth_preview" && conv.params?.preset ? qualityName(conv.params.preset) : null]),
-    formatCents(conv.quote.amount_cents),
+    price ? formatCents(conv.quote.amount_cents) : null,
   ]
     .filter(Boolean)
     .join(" · ");

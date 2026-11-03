@@ -196,7 +196,8 @@ export function useFpsChoice(
     picked !== null && options.some((o) => !o.locked && Math.abs(o.fps - picked) < 0.01)
       ? picked
       : null;
-  const example = rates.find((r) => r >= 59) ?? rates[0];
+  // the owner's example rate: 60 (or 59.94, 50…) rather than 120
+  const example = rates.find((r) => r > FREE_MAX_FPS && r <= 60.01) ?? rates[0];
   const line =
     required && pricing && example !== undefined && example > FREE_MAX_FPS
       ? `Higher frame rates look smoother and cost more: at ${fpsLabel(example)} a minute counts as ${

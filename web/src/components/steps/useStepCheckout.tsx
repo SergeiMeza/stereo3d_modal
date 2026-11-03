@@ -385,7 +385,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
         conversionId={conv.conversion_id}
         projectId={conv.project_id}
         amountCents={conv.quote.amount_cents}
-        subtitle={runLine(conv)}
+        subtitle={runLine(conv, { price: false })}
         onClose={(paid) => ck.closePayNow(paid)}
       />
     );
@@ -395,7 +395,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       conversionId={conv.conversion_id}
       amountCents={conv.quote.amount_cents}
       action={action}
-      subtitle={runLine(conv)}
+      subtitle={runLine(conv, { price: false })}
       billing={conv.billing}
       projectId={conv.project_id}
       note={commercial ? undefined : PERSONAL_USE_LINE}
