@@ -1147,7 +1147,7 @@ describe("WorkspaceScreen — pages", () => {
     expect(
       within(header).getByRole("heading", { name: "Files" }),
     ).toBeTruthy();
-    expect(within(header).getByText("Kept as long as this project exists.")).toBeTruthy();
+    expect(within(header).getByText("Kept while you use this project; deleted after 90 days without use.")).toBeTruthy();
     expect(screen.getByLabelText("Conversion history")).toBeTruthy();
     // S3D-24: delete asks first, then removes the project
     fireEvent.click(within(header).getByTestId("delete-project"));
@@ -1160,6 +1160,38 @@ describe("WorkspaceScreen — pages", () => {
     await waitFor(() =>
       expect((mockDb.projects.get(PID) as { deleted?: boolean }).deleted).toBe(true),
     );
+  });
+
+  it("erased files: the project and its runs stay, no file or run actions (S3D-24)", async () => {
+    const p = mockDb.projects.get(PID)!;
+    p.files_deleted_at = "2026-10-30T00:00:00Z";
+    mockDb.conversions.set("convdone00001", {
+      conversion_id: "convdone00001",
+      state: "succeeded",
+      kind: "video",
+      project_id: PID,
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 300, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs"],
+      created_at: "2026-10-01T00:00:00Z",
+      updated_at: "2026-10-01T00:00:00Z",
+    });
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} />
+      </AuthProvider>,
+    );
+    const line = await screen.findByTestId("files-deleted-line");
+    expect(line.textContent).toBe("Upload the video again to make new 3D.");
+    const header = screen.getByTestId("page-header");
+    expect(header.textContent).toContain("Files deleted on Oct 30, 2026");
+    expect(await screen.findByTestId("history-convdone00001")).toBeTruthy();
+    expect(screen.queryByTestId("run-files")).toBeNull();
+    expect(screen.queryByTestId("view-in-3d")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Download" })).toBeNull();
+    expect(screen.queryByTestId("tab-make")).toBeNull();
   });
 
   it("toggles the shortcuts sheet with ? and closes with Escape", async () => {

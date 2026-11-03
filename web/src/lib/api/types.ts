@@ -228,6 +228,9 @@ export interface Project {
   /** S3D-24: when unused files will be deleted (ISO); absent = not
    * scheduled. Keep (POST /v1/projects/{id}/keep) pushes it back. */
   files_delete_at?: string;
+  /** S3D-24: when the files were erased (ISO). The project and its runs
+   * stay; every file route answers 410 files_deleted. */
+  files_deleted_at?: string;
   strip_thumbs?: Thumb[]; // ~100 timeline tiles (h=90)
   scene_thumbs?: Thumb[]; // mid-frame keyframe per scene (h=480)
   /** present after the first successful pro video conversion */

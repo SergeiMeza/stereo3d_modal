@@ -56,6 +56,13 @@ export interface CardState {
 }
 
 export function cardState(project: Project): CardState {
+  // S3D-24: erased files — the project stays, nothing to open or run
+  if (project.files_deleted_at !== undefined) {
+    return {
+      label: `Files deleted on ${DATE_FORMAT.format(new Date(project.files_deleted_at))}`,
+      tone: "plain",
+    };
+  }
   const a = project.analyze;
   if (a.state === "running") {
     const pct = a.progress !== undefined ? Math.round(a.progress * 100) : null;
@@ -243,7 +250,7 @@ export function ProjectCard({
 
       <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
         {/* S3D-35: no money on cards — the method chip and the state only */}
-        {deleteSoon && !kept ? (
+        {deleteSoon && !kept && project.files_deleted_at === undefined ? (
           <span data-testid="card-files-delete" className="flex items-center gap-1.5 text-amber-300">
             Files deleted on {DATE_FORMAT.format(new Date(project.files_delete_at!))}
             <span aria-hidden>·</span>

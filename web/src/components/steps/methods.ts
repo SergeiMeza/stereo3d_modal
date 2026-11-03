@@ -21,6 +21,7 @@ import {
   QUALITY_SHORT_SIDE,
   qualityName,
 } from "@/lib/glossary";
+import { FILES_DELETED_MESSAGE } from "@/lib/api/client";
 
 export const METHOD_LABELS: Record<Method, string> = METHOD_NAMES;
 
@@ -142,6 +143,8 @@ export function methodErrorCopy(code: string): string | null {
       return "This project's 3D method has changed. Reload the page to continue.";
     case "method_switch_not_allowed":
       return SWITCH_NOT_ALLOWED;
+    case "files_deleted":
+      return FILES_DELETED_MESSAGE;
     case "split_unsupported":
       return "Splitting into parts isn't available for this method.";
     default:

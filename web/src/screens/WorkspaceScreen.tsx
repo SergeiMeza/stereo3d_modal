@@ -23,6 +23,7 @@ import {
   formatEtaLeft,
 } from "@/components/projects/AnalyzeBadge";
 import { DeleteProjectButton, HistoryList } from "@/components/steps/HistoryList";
+import { UPLOAD_AGAIN } from "@/lib/api/client";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { MethodBadge } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
@@ -243,6 +244,9 @@ export default function WorkspaceScreen({
   // have maps onto its counterpart: Depth/Stereo ↔ Preview.
   const page = tabForMethod(tab, method);
   const step = STEP_BY_TAB[page];
+  // S3D-24: erased files — the project and its run history stay, with no
+  // download or run actions
+  const filesDeleted = project.files_deleted_at !== undefined;
 
   return (
     <section className="flex h-[calc(100vh-3rem)] flex-col">
@@ -268,7 +272,7 @@ export default function WorkspaceScreen({
         <MethodBadge
           project={project}
           onChanged={applyProjectUpdate}
-          allowMove={canChooseMethod(limits, project)}
+          allowMove={!filesDeleted && canChooseMethod(limits, project)}
         />
         {analyzing ? (
           <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
@@ -287,7 +291,7 @@ export default function WorkspaceScreen({
               <span>{formatEtaLeft(project.analyze.eta_seconds)}</span>
             ) : null}
           </span>
-        ) : project.analyze.state === "failed" ? (
+        ) : project.analyze.state === "failed" && !filesDeleted ? (
           <span className="flex items-center gap-2">
             <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
               Analyze failed
@@ -325,6 +329,25 @@ export default function WorkspaceScreen({
         </div>
       </header>
 
+      {filesDeleted ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="mx-auto flex max-w-4xl flex-col gap-3">
+            <PageHeader
+              title="Files"
+              description={`Files deleted on ${new Intl.DateTimeFormat("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              }).format(new Date(project.files_deleted_at!))}`}
+              actions={<DeleteProjectButton project={project} />}
+            />
+            <p data-testid="files-deleted-line" className="text-sm text-fg-muted">
+              {UPLOAD_AGAIN}.
+            </p>
+            <HistoryList project={project} />
+          </div>
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <PageTabs
           tabs={tabsFor(method)}
@@ -388,7 +411,7 @@ export default function WorkspaceScreen({
             <div className="mx-auto flex max-w-4xl flex-col gap-3">
               <PageHeader
                 title="Files"
-                description="Kept as long as this project exists."
+                description="Kept while you use this project; deleted after 90 days without use."
                 actions={<DeleteProjectButton project={project} />}
               />
               <HistoryList project={project} />
@@ -396,6 +419,7 @@ export default function WorkspaceScreen({
           )}
         </div>
       </div>
+      )}
 
       <ShortcutsSheet
         open={shortcutsOpen}

@@ -145,7 +145,10 @@ function HistoryRow({
           </span>
         </span>
       </div>
-      {c.state === "succeeded" ? <RunFiles conversion={c} /> : null}
+      {/* S3D-24: once the files are erased the run stays, its files don't */}
+      {c.state === "succeeded" && project.files_deleted_at === undefined ? (
+        <RunFiles conversion={c} />
+      ) : null}
       {c.state === "failed" ? (
         <p className="text-xs text-fg-muted">Something went wrong on our side.</p>
       ) : null}

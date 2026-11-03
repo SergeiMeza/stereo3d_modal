@@ -117,6 +117,16 @@ describe("ProjectsScreen list", () => {
     expect(p.files_delete_at).toBeUndefined();
   });
 
+  it("a project whose files are gone says so and offers nothing to open (S3D-24)", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID) as Project;
+    p.files_deleted_at = "2026-10-30T00:00:00Z";
+    renderScreen();
+    const state = await screen.findByTestId("card-state");
+    expect(state.textContent).toBe("Files deleted on Oct 30, 2026");
+    expect(screen.queryByTestId("card-files-delete")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Files" })).toBeNull();
+  });
+
   it("says nothing while deletion is more than 14 days away (S3D-24)", async () => {
     const p = mockDb.projects.get(FIXTURE_ID) as Project;
     p.files_delete_at = new Date(Date.now() + 40 * 24 * 3600 * 1000).toISOString();

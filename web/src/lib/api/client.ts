@@ -123,6 +123,11 @@ export function normalizeDownloads(raw: unknown): Downloads {
   };
 }
 
+/** S3D-24: what a 410 files_deleted says, wherever it comes from
+ * (downloads, quotes, new runs, retries, uploads into the project). */
+export const UPLOAD_AGAIN = "Upload the video again to make new 3D";
+export const FILES_DELETED_MESSAGE = `This project's files have been deleted. ${UPLOAD_AGAIN}.`;
+
 export class GatewayError extends Error {
   constructor(
     public readonly code: string,
@@ -184,9 +189,12 @@ export class GatewayClient {
       } catch {
         /* non-JSON error body */
       }
+      const code = parsed?.error ?? "server_error";
       throw new GatewayError(
-        parsed?.error ?? "server_error",
-        parsed?.message ?? `request failed (${res.status})`,
+        code,
+        code === "files_deleted"
+          ? FILES_DELETED_MESSAGE
+          : (parsed?.message ?? `request failed (${res.status})`),
         res.status,
         parsed?.details,
       );

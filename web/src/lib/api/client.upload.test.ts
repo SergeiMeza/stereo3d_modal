@@ -14,6 +14,7 @@ import { server } from "@/mocks/server";
 
 import {
   CHUNKED_UPLOAD_THRESHOLD_BYTES,
+  FILES_DELETED_MESSAGE,
   GatewayClient,
   GatewayError,
   normalizeDownloads,
@@ -211,5 +212,22 @@ describe("normalizeDownloads", () => {
       ["mvhevc", 1, "Trip 3D Part 1.mov"],
       ["mvhevc", 2, "Trip 3D Part 2.mov"],
     ]);
+  });
+});
+
+describe("410 files_deleted (S3D-24)", () => {
+  it("reads the same plain sentence wherever it comes from", async () => {
+    const id = [...mockDb.projects.keys()][0];
+    mockDb.projects.get(id)!.files_deleted_at = "2026-10-30T00:00:00Z";
+    const err = await client(false)
+      .quoteStep(id, { step: "production", preset: "1080p", formats: ["sbs"] })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(GatewayError);
+    expect((err as GatewayError).status).toBe(410);
+    expect((err as GatewayError).code).toBe("files_deleted");
+    expect((err as GatewayError).message).toBe(FILES_DELETED_MESSAGE);
+    expect(FILES_DELETED_MESSAGE).toBe(
+      "This project's files have been deleted. Upload the video again to make new 3D.",
+    );
   });
 });

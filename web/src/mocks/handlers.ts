@@ -2372,6 +2372,8 @@ export const handlers = [
     async ({ params, request }) => {
       const p = mockDb.projects.get(params.id as string);
       if (!p) return err(404, "not_found", "project not found");
+      if (p.files_deleted_at)
+        return err(410, "files_deleted", "this project's files have been deleted");
       if (!p.probe)
         return err(409, "conflict", "analysis has not completed yet");
       const raw = (await request.json()) as Record<string, unknown>;
@@ -2429,6 +2431,8 @@ export const handlers = [
     async ({ params, request }) => {
       const p = mockDb.projects.get(params.id as string);
       if (!p) return err(404, "not_found", "project not found");
+      if (p.files_deleted_at)
+        return err(410, "files_deleted", "this project's files have been deleted");
       if (!p.probe)
         return err(409, "conflict", "analysis has not completed yet");
       const idem = request.headers.get("Idempotency-Key");
@@ -2579,6 +2583,9 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     if (c.state !== "succeeded")
       return err(409, "conflict", "conversion has no outputs yet");
+    // S3D-24: erased files answer 410
+    if (c.project_id && mockDb.projects.get(c.project_id)?.files_deleted_at)
+      return err(410, "files_deleted", "this project's files have been deleted");
     // S3D-22: files stay downloadable after a failed payment
     // REAL published outputs from the captured draft job — the preview
     // players render the actual anaglyph/depth of the sample video.
