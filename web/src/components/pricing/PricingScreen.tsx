@@ -136,9 +136,20 @@ export function PricingScreen(): JSX.Element {
               <span>
                 <b>{pct}% off</b> any run over{" "}
                 {formatCentsShort(pricing.discount.threshold_cents)}.{" "}
-                <b>Minimum charge</b>{" "}
-                {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)} per
-                preview, {formatCentsShort(pricing.minimum_cents)} for other runs.
+                {(pricing.preview_minimum_cents ?? pricing.minimum_cents) ===
+                pricing.minimum_cents ? (
+                  <>
+                    <b>Minimum charge {formatCentsShort(pricing.minimum_cents)}</b>{" "}
+                    per run.
+                  </>
+                ) : (
+                  <>
+                    <b>Minimum charge</b>{" "}
+                    {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}{" "}
+                    per preview, {formatCentsShort(pricing.minimum_cents)} for
+                    other runs.
+                  </>
+                )}
               </span>
               <span>
                 <b>Over {formatCentsShort(pricing.precharge_threshold_cents)}:</b>{" "}

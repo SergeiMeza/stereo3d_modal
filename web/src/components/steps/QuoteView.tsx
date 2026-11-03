@@ -74,7 +74,7 @@ function Line({
 /**
  * A step quote in words (S3D-15/16/17/19): the video's length and frame
  * rate (+25% at 30 fps), reused work, "10% off runs over $10", "Minimum
- * charge $0.50" when the per-run floor applies (previews included), the
+ * charge $1" when the per-run floor applies (every run, S3D-17), the
  * total in USD excl. tax, and the sentence saying when it is charged. Classic's technical factors (depth
  * detail, edge handling) sit under "How we priced this". All amounts come
  * from the gateway — no client price math beyond negating discounts and
@@ -97,7 +97,7 @@ export function QuoteView({
   const subtotal = b.subtotal_cents ?? total;
   const reuse = reuseStages.length > 0 ? (b.reuse_discount_cents ?? 0) : 0;
   const bulk = b.discount_cents ?? 0;
-  // S3D-17: the $0.50 minimum per run (previews included) applies when the
+  // S3D-17: the per-run minimum (from the gateway) applies when the
   // total is above what the lines add up to
   const minimumApplied =
     b.subtotal_cents !== undefined && total > subtotal - reuse - bulk;

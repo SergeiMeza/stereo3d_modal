@@ -60,8 +60,8 @@ const RATES = {
     "3k": 200,
     "4k": 250,
   } as Record<string, number>,
-  minimumCents: 50,
-  /** S3D-13/17: every preview costs at least this */
+  /** S3D-17: every paid run costs at least $1, previews included */
+  minimumCents: 100,
   previewMinimumCents: 100,
   discountThresholdCents: 1000,
   discountPct: 0.1,
@@ -990,7 +990,8 @@ function lifelikeEta(outputSeconds: number, fps: number, preset: string): number
 
 /** A Lifelike quote: the Lifelike price table × fps factor, then the bulk
  * discount and the minimum. */
-/** The per-run floor: previews $1, other runs $0.50 (S3D-13/17). */
+/** The per-run floor (S3D-17): $1 for every run; previews read their
+ * own field so the two can differ again. */
 function minimumFor(step: string | undefined): number {
   return step === "production" ? RATES.minimumCents : RATES.previewMinimumCents;
 }

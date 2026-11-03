@@ -49,5 +49,6 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(document.body.textContent).not.toMatch(/balance|example/i);
     fireEvent.click(screen.getByRole("button", { name: "How pricing works" }));
     expect(screen.getByRole("dialog").textContent).toContain("10% off");
+    expect(screen.getByRole("dialog").textContent).toContain("Minimum charge $1 per run.");
   });
 });
