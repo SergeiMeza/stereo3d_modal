@@ -729,6 +729,9 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
 		if terr == nil {
 			s.creditLifetime(ctx, conv.UID, charged)
+			if pi.PaymentMethod != nil {
+				s.noteMethodPaid(ctx, conv.UID, pi.PaymentMethod.ID) // C1 account facts
+			}
 		}
 		return updated, terr
 	}

@@ -236,6 +236,14 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 		// Nothing to collect (free items only): settle as paid, no Stripe.
 		return s.finalizeBatchPaid(ctx, b, "", 0)
 	}
+	// E0-4: one writer. Another holder's live lease means it is charging
+	// this group right now; it alone writes the outcome.
+	leased, ok := s.acquireBatchLease(ctx, b)
+	if !ok {
+		return b, nil
+	}
+	b = leased
+	defer s.releaseBatchLease(ctx, b.ID)
 	cust, err := s.Store.GetCustomer(ctx, b.UID)
 	if err != nil {
 		return b, err
@@ -279,6 +287,9 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 		charged := pi.AmountReceived
 		if charged == 0 {
 			charged = pi.Amount
+		}
+		if pi.PaymentMethod != nil {
+			s.noteMethodPaid(ctx, b.UID, pi.PaymentMethod.ID) // C1 account facts
 		}
 		return s.finalizeBatchPaid(ctx, b, pi.ID, charged)
 	}

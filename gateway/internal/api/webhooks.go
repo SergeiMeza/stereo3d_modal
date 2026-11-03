@@ -177,6 +177,15 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 			log.Error("webhook charge settle failed", "err", err)
 			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
 			return
+		} else if errors.Is(err, store.ErrStateConflict) {
+			// Neither the current pre-charge nor an after-done charge: a
+			// payment-layer run's session PaymentIntent, or money on an
+			// object that isn't current (E0-2: adopt or refund).
+			if aerr := s.applyPaymentEvent(ctx, conversionID, pi.ID, pi.AmountReceived); aerr != nil {
+				log.Error("webhook payment apply failed", "err", aerr)
+				httpx.WriteErr(ctx, w, httpx.ErrServer())
+				return
+			}
 		}
 
 	case "payment_intent.payment_failed":
@@ -334,4 +343,35 @@ func (s *Service) handleBatchWebhook(ctx context.Context, w http.ResponseWriter,
 func currentPI(c *store.Conversion, piID string) bool {
 	return c.Stripe.PaymentIntentID == piID ||
 		(c.Stripe.PaymentIntentID == "" && (c.Stripe.PIStatus == store.PICharging || c.Stripe.PIStatus == store.PIChargePending))
+}
+
+// applyPaymentEvent applies a succeeded PaymentIntent to a payment-layer
+// run (one with a payment flow): through its current Checkout Session when
+// the PaymentIntent is that session's, else as a payment on an object that
+// isn't current (E0-2). Runs without a payment flow, or whose recorded
+// PaymentIntent this is, are left alone.
+func (s *Service) applyPaymentEvent(ctx context.Context, convID, piID string, amount int64) error {
+	c, err := s.Store.GetConversion(ctx, convID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if c.PaymentFlow == "" || c.Stripe.PaymentIntentID == piID {
+		return nil
+	}
+	if cp := c.CurrentPayment; cp != nil && cp.Kind == store.PaymentCheckoutSession {
+		out, _, serr := s.Stripe.SessionOutcome(cp.ID)
+		if serr != nil {
+			return serr
+		}
+		if out.PaymentIntentID == piID {
+			_, aerr := s.applyRunPayment(ctx, convID, *cp, out)
+			return aerr
+		}
+	}
+	_, aerr := s.applyRunPayment(ctx, convID, store.Payment{Kind: store.PaymentIntentKind, ID: piID, CreatedAt: time.Now().UTC()},
+		stripex.Outcome{Paid: true, PaymentIntentID: piID, AmountReceived: amount})
+	return aerr
 }

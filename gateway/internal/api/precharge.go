@@ -35,9 +35,11 @@ import (
 // credit on failure.
 func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func()) {
-	if chargeTiming(s.Pricing.Rates(ctx), conv.Quote.AmountCents) != "before" {
-		// Enters at "paid": billing verified, charged with the batch on
-		// success.
+	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), false)
+	conv.PaymentFlow, conv.PayReason = flow, reason
+	if flow == store.FlowAfter {
+		// Credit, at or under the threshold (C1): enters at "paid",
+		// charged with the group on success.
 		conv.State = store.StatePaid
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAuto}
 		s.createAndSubmit(ctx, w, user, conv, restore)
@@ -50,6 +52,10 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	conv.State = store.StateCreated
 	conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoPrecharge,
 		PIStatus: store.PICharging, ChargePM: cust.DefaultPaymentMethod, ChargeEmail: user.Email}
+	if cust.LastGoodMethod != "" && cust.LastGoodMethod != cust.DefaultPaymentMethod {
+		conv.Stripe.ChargePM2 = cust.LastGoodMethod // C1's second try
+	}
+	conv.PaymentFlow = store.FlowPrecharge
 	if err := s.Store.CreateConversion(ctx, conv); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
 			s.replayConversion(ctx, w, user, conv.ID) // the same Idempotency-Key raced (P3)
@@ -95,18 +101,23 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	httpx.WriteOK(w, s.conversionResponse(updated, nil))
 }
 
-// runPrecharge makes (or replays) a recorded run's pre-charge and commits
-// the outcome on the record, which must be "created" with pi_status
-// charging:
-//   - succeeded → paid (the caller submits);
-//   - processing → stays created, pi_status processing (P2): no submit
-//     until the succeeded webhook;
-//   - the bank's check → stays created with the PaymentIntent and its
-//     client secret (the client confirms; the webhook takes over);
-//   - declined → expired, nothing charged, credit back; an APIError (402)
-//     for the request;
-//   - transient → an error, the record untouched (still charging).
+// runPrecharge makes (or replays) a recorded run's pre-charge (C1) and
+// commits the outcome on the record, which must be "created" with
+// pi_status charging. One PaymentIntent, at most two tries: the default,
+// then — if it declined, it wasn't a stop code, a different last good
+// method exists and try 1 took under 25 s — that method, re-confirming the
+// same PaymentIntent with no network retry (V6). Outcomes:
+//   - succeeded → paid (the caller submits); the method that paid becomes
+//     the last good one;
+//   - processing → stays created, pi_status processing (P2);
+//   - the bank's check, or both declined → the PaymentIntent is cancelled
+//     and the run waits in the sheet for THIS run only (P3: flow paynow,
+//     pay_reason authentication|declined); the account is unchanged;
+//   - a stop code → the same, and the account becomes sheet_only;
+//   - try 1 too slow for a try 2, or transient → an error, the record
+//     still charging: the reconciler replays both keys.
 func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
+	start := time.Now()
 	pi, err := s.Stripe.PrechargeSaved(conv.Stripe.CustomerID, conv.Stripe.ChargePM,
 		conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
 			Web:          true,
@@ -117,7 +128,67 @@ func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*st
 			Metadata:     jobMetadataFromConversion(conv),
 			ReceiptEmail: conv.Stripe.ChargeEmail,
 		})
-	commit := func(mutate func(c *store.Conversion)) (*store.Conversion, error) {
+	paidWith := conv.Stripe.ChargePM
+	if err != nil {
+		fail := stripex.ClassifyChargeError(err)
+		if fail.Transient {
+			return nil, err
+		}
+		second := conv.Stripe.ChargePM2
+		if !fail.NeedsAction && !fail.Stop && fail.PaymentIntentID != "" && second != "" && second != conv.Stripe.ChargePM {
+			if time.Since(start) >= secondTryTimeout {
+				return nil, errors.New("pre-charge try 2 deferred to the reconciler (try 1 was slow)")
+			}
+			pi, err = s.Stripe.ConfirmWithMethod(fail.PaymentIntentID, second, 1, true)
+			paidWith = second
+			if err != nil {
+				fail2 := stripex.ClassifyChargeError(err)
+				if fail2.Transient {
+					return nil, err
+				}
+				if fail2.PaymentIntentID == "" {
+					fail2.PaymentIntentID = fail.PaymentIntentID
+				}
+				fail = fail2
+			}
+		}
+		if err != nil {
+			return s.prechargeToSheet(ctx, conv, fail)
+		}
+	}
+	commit := s.prechargeCommit(ctx, conv)
+	switch pi.Status {
+	case stripe.PaymentIntentStatusSucceeded:
+		now := time.Now().UTC()
+		updated, cerr := commit(func(c *store.Conversion) {
+			c.State = store.StatePaid
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = pi.AmountReceived
+			c.Stripe.CapturedAt = &now
+			c.CurrentPayment = &store.Payment{Kind: store.PaymentIntentKind, ID: pi.ID, CreatedAt: now}
+		})
+		if cerr == nil && updated != nil && updated.State == store.StatePaid {
+			s.noteMethodPaid(ctx, conv.UID, paidWith)
+		}
+		return updated, cerr
+	case stripe.PaymentIntentStatusProcessing:
+		return commit(func(c *store.Conversion) {
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIProcessing
+			c.CurrentPayment = &store.Payment{Kind: store.PaymentIntentKind, ID: pi.ID, CreatedAt: time.Now().UTC()}
+		})
+	}
+	// requires_action (or confirmation) without an error: the bank's check.
+	return s.prechargeToSheet(ctx, conv, stripex.ChargeFailure{
+		PaymentIntentID: pi.ID, Code: string(pi.Status), NeedsAction: true,
+		Message: "payment intent is " + string(pi.Status),
+	})
+}
+
+// prechargeCommit returns a committer for a charging pre-charge record.
+func (s *Service) prechargeCommit(ctx context.Context, conv *store.Conversion) func(mutate func(c *store.Conversion)) (*store.Conversion, error) {
+	return func(mutate func(c *store.Conversion)) (*store.Conversion, error) {
 		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateCreated}, func(c *store.Conversion) error {
 			if err := stillPI(c, store.PICharging); err != nil {
 				return err
@@ -130,64 +201,58 @@ func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*st
 		}
 		return updated, terr
 	}
-	if err != nil {
-		fail := stripex.ClassifyChargeError(err)
-		switch {
-		case fail.NeedsAction && fail.PaymentIntentID != "":
-			secret := ""
-			if got, gerr := s.Stripe.GetPaymentIntent(fail.PaymentIntentID); gerr == nil {
-				secret = got.ClientSecret
-			}
-			return commit(func(c *store.Conversion) {
-				c.Stripe.PaymentIntentID = fail.PaymentIntentID
-				c.Stripe.PIStatus = store.PIRequiresAction
-				c.Stripe.ClientSecret = secret
-			})
-		case fail.Transient:
-			return nil, err
-		}
-		now := time.Now().UTC()
-		updated, cerr := commit(func(c *store.Conversion) {
-			c.State = store.StateExpired
-			c.Stripe.PaymentIntentID = fail.PaymentIntentID
-			c.Stripe.PIStatus = store.PICanceled
-			c.Stripe.CanceledAt = &now
-			c.Stripe.SettleError = "precharge declined: " + fail.Code
-		})
-		if fail.PaymentIntentID != "" {
-			_ = s.Stripe.CancelHold(fail.PaymentIntentID) // a declined PI must not stay confirmable
-		}
-		s.restoreCredit(ctx, conv)
-		slog.InfoContext(ctx, "precharge declined", "conversion_id", conv.ID, "uid", conv.UID, "code", fail.Code)
+}
+
+// prechargeToSheet ends a pre-charge that didn't go through: its
+// PaymentIntent is cancelled FIRST (a cancel that finds it succeeded means
+// it paid after all), then the run waits in the sheet for this run only
+// (P3) with the run clock of a run without an object. A stop code also
+// sets the account sheet_only.
+func (s *Service) prechargeToSheet(ctx context.Context, conv *store.Conversion, fail stripex.ChargeFailure) (*store.Conversion, error) {
+	if fail.PaymentIntentID != "" {
+		out, cerr := s.Stripe.ClosePaymentIntent(fail.PaymentIntentID)
 		if cerr != nil {
-			return updated, cerr
+			return nil, cerr // can't be sure it's dead: stay charging, the reconciler retries
 		}
-		return updated, httpx.Err(http.StatusPaymentRequired, "card_declined",
-			"your payment method declined the payment — update your payment method and retry")
+		if out.Paid || out.Processing {
+			now := time.Now().UTC()
+			return s.prechargeCommit(ctx, conv)(func(c *store.Conversion) {
+				c.Stripe.PaymentIntentID = out.PaymentIntentID
+				c.CurrentPayment = &store.Payment{Kind: store.PaymentIntentKind, ID: out.PaymentIntentID, CreatedAt: now}
+				if out.Processing {
+					c.Stripe.PIStatus = store.PIProcessing
+					return
+				}
+				c.State = store.StatePaid
+				c.Stripe.PIStatus = store.PISucceeded
+				c.Stripe.CapturedCents = out.AmountReceived
+				c.Stripe.CapturedAt = &now
+			})
+		}
 	}
-	switch pi.Status {
-	case stripe.PaymentIntentStatusSucceeded:
-		now := time.Now().UTC()
-		return commit(func(c *store.Conversion) {
-			c.State = store.StatePaid
-			c.Stripe.PaymentIntentID = pi.ID
-			c.Stripe.PIStatus = store.PISucceeded
-			c.Stripe.CapturedCents = pi.AmountReceived
-			c.Stripe.CapturedAt = &now
-		})
-	case stripe.PaymentIntentStatusProcessing:
-		return commit(func(c *store.Conversion) {
-			c.Stripe.PaymentIntentID = pi.ID
-			c.Stripe.PIStatus = store.PIProcessing
-		})
+	reason := "declined"
+	if fail.NeedsAction {
+		reason = "authentication"
 	}
-	// requires_action without authentication_required (defensive): the
-	// same bank-check parking.
-	return commit(func(c *store.Conversion) {
-		c.Stripe.PaymentIntentID = pi.ID
-		c.Stripe.PIStatus = store.PIRequiresAction
-		c.Stripe.ClientSecret = pi.ClientSecret
+	if fail.Stop {
+		s.setSheetOnly(ctx, conv.UID, "stop code "+fail.DeclineCode)
+	}
+	now := time.Now().UTC()
+	expiry := now.Add(noObjectHold)
+	updated, err := s.prechargeCommit(ctx, conv)(func(c *store.Conversion) {
+		c.PaymentFlow, c.PayReason = store.FlowPayNow, reason
+		c.Stripe.PIStatus = ""
+		c.Stripe.ClientSecret = ""
+		c.Stripe.SettleError = fmt.Sprintf("precharge %s: %s %s", reason, fail.Code, fail.DeclineCode)
+		if fail.PaymentIntentID != "" {
+			c.Payments = append(c.Payments, store.Payment{Kind: store.PaymentIntentKind, ID: fail.PaymentIntentID, CreatedAt: now})
+		}
+		c.CurrentPayment = nil
+		c.ExpiresAt = &expiry
 	})
+	slog.InfoContext(ctx, "precharge needs the sheet", "conversion_id", conv.ID, "uid", conv.UID,
+		"reason", reason, "code", fail.Code, "decline_code", fail.DeclineCode, "stop", fail.Stop)
+	return updated, err
 }
 
 // redrivePrecharges replays pre-charges whose request died between the

@@ -71,6 +71,37 @@ confirmCardPayment fallback). The default card is cached on
   request died. (b) Owed-item reads aren't capped at 10. (c) Refunds name
   their amount, and the key includes it.
 
+### Payment layer rules (spec v6 C1, E0)
+
+- **C1 flow per run** (`decideFlow`, `payment_flow` on quotes and runs):
+  China mode (`X-Client-Mode: china`) → `china`; nothing saved, every
+  method failed, or `sheet_only` → `paynow` (`pay_now_reason`); credit (a
+  saved method in `paid_methods`) and ≤ `precharge_threshold_cents` →
+  `after`; otherwise `precharge`. Accounts that paid before the layer
+  (lifetime > 0, no paid list yet) count as credit until the backfill.
+- **Pre-charge**: recorded first; try 1 the default, try 2 the last good
+  method (if different, not a stop code, try 1 under 25 s, no network
+  retry: `confirm_{pi}_{pm}_1`). A bank check or two declines cancel the
+  PaymentIntent and leave the run `created` with `payment_flow=paynow`,
+  `pay_reason=authentication|declined` (P3 sheet); a stop code also sets
+  the account `sheet_only`.
+- **E0-1** `current_payment {kind, id, expires_at}`: `replaceRunPayment`
+  closes the old object (paid → the run is paid, nothing new), creates,
+  then CAS-swaps; a lost swap closes its own object.
+- **E0-2** `applyRunPayment`: money on a non-current object is adopted
+  while the run is unpaid (the previous object is closed; if it paid
+  too, refunded), refunded in full once the run is paid or terminal.
+- **E0-3** `expires_at` = object expiry + 5 min (30 min without one);
+  `resolveRunClocks` closes the object before expiring a run.
+- **E0-4** groups are charged under a lease (`acquireBatchLease`); only
+  the gateway writes failure.
+- Account facts: `last_good_method`, `paid_methods`,
+  `all_methods_failed`, `sheet_only`, `under_review`.
+
+Invariant tests run against the Firestore emulator and a fake Stripe:
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api -run 'E0|P3'`
+(skipped without the emulator).
+
 ## Legacy client flow (mobile, auth-then-capture)
 
 ```

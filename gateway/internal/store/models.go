@@ -66,6 +66,47 @@ const (
 	PIRequiresAction = "requires_action"
 )
 
+// Payment flows (C1), decided per run at start.
+const (
+	FlowAfter     = "after"     // credit, ≤ the pre-charge threshold: charged when done, grouped
+	FlowPrecharge = "precharge" // a saved method charged at start; refunded on failure/cancel
+	FlowPayNow    = "paynow"    // the sheet (Checkout Session) before the run
+	FlowChina     = "china"     // server-side Alipay / WeChat Pay PaymentIntent before the run
+)
+
+// Kinds of payment object a run, group or settle can hold (E0-1).
+const (
+	PaymentCheckoutSession = "checkout_session"
+	PaymentIntentKind      = "payment_intent"
+)
+
+// Payment is the ONE live payment object of a run, group or settle (E0-1,
+// current_payment): replaced only by compare-and-swap on ID.
+type Payment struct {
+	Kind      string     `firestore:"kind" json:"kind"`
+	ID        string     `firestore:"id" json:"-"`
+	ExpiresAt *time.Time `firestore:"expires_at,omitempty" json:"expires_at,omitempty"`
+	Attempt   int        `firestore:"attempt" json:"-"`
+	// UI: elements (our sheet), hosted_page (the hand-off), "" for a
+	// PaymentIntent.
+	UI string `firestore:"ui,omitempty" json:"-"`
+	// ClientSecret of a session in elements mode (served to the sheet).
+	ClientSecret string    `firestore:"client_secret,omitempty" json:"-"`
+	URL          string    `firestore:"url,omitempty" json:"-"`
+	CreatedAt    time.Time `firestore:"created_at" json:"-"`
+}
+
+// Lease gives one writer to a group's or settle's money (E0-4): whoever
+// holds an unexpired lease is the only code that may call Stripe for it or
+// write its failure.
+type Lease struct {
+	Owner string    `firestore:"owner"`
+	Until time.Time `firestore:"until"`
+}
+
+// Held reports an unexpired lease at now.
+func (l *Lease) Held(now time.Time) bool { return l != nil && now.Before(l.Until) }
+
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
 // the field).
 const (
@@ -238,7 +279,10 @@ type Stripe struct {
 	PIStatus     string `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
 	// ChargePM / ChargeEmail: what a recorded pre-charge is made with, so a
 	// replay sends the very same request under its key (P8a).
-	ChargePM    string `firestore:"charge_pm,omitempty" json:"-"`
+	ChargePM string `firestore:"charge_pm,omitempty" json:"-"`
+	// ChargePM2: the pre-charge's second try (C1) — the last good method
+	// when it differs from the default.
+	ChargePM2   string `firestore:"charge_pm2,omitempty" json:"-"`
 	ChargeEmail string `firestore:"charge_email,omitempty" json:"-"`
 	// BatchID: the billing batch this auto-mode conversion was folded into
 	// (pi_status batched → succeeded/charge_failed follow the batch).
@@ -325,8 +369,20 @@ type Conversion struct {
 	Error     *Error            `firestore:"error,omitempty" json:"error,omitempty"`
 	IdemKey   string            `firestore:"idem_key,omitempty" json:"-"`
 	Support   Support           `firestore:"support" json:"-"`
-	CreatedAt time.Time         `firestore:"created_at" json:"created_at"`
-	UpdatedAt time.Time         `firestore:"updated_at" json:"updated_at"`
+	// Payment layer (spec v6 E0). PaymentFlow is the C1 rule decided at
+	// start; CurrentPayment the one live payment object (E0-1); ExpiresAt
+	// the run's clock while "created", which follows the payment (E0-3);
+	// Lease the one writer while money moves (E0-4).
+	PaymentFlow    string   `firestore:"payment_flow,omitempty" json:"payment_flow,omitempty"`
+	PayReason      string   `firestore:"pay_reason,omitempty" json:"-"`
+	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
+	// Payments are every payment object the run ever had (for E0-2's
+	// late-money check and support).
+	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
+	ExpiresAt *time.Time `firestore:"expires_at,omitempty" json:"-"`
+	Lease     *Lease     `firestore:"lease,omitempty" json:"-"`
+	CreatedAt time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // Support tracks runs that outlive their estimate. On 2026-10-27 runs sat
@@ -376,6 +432,19 @@ type Customer struct {
 	// (LifetimePaidSeeded) for accounts that predate batching.
 	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
 	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+	// Payment-layer account facts (C1), updated on every off-session or
+	// saved payment. LastGoodMethod: the saved method that most recently
+	// paid us. PaidMethods: every saved method that has ever paid (credit
+	// needs one). AllMethodsFailed: a group's whole backup loop declined
+	// on every method; cleared by any payment with a saved method.
+	// SheetOnly: pays every run in the sheet (a dispute or a stop code).
+	// UnderReview: an early fraud warning; paid runs blocked.
+	LastGoodMethod   string   `firestore:"last_good_method,omitempty"`
+	PaidMethods      []string `firestore:"paid_methods,omitempty"`
+	AllMethodsFailed bool     `firestore:"all_methods_failed,omitempty"`
+	SheetOnly        bool     `firestore:"sheet_only,omitempty"`
+	SheetOnlyReason  string   `firestore:"sheet_only_reason,omitempty"`
+	UnderReview      bool     `firestore:"under_review,omitempty"`
 	// LastChargeFailedAt: the last automatic charge (a conversion's or a
 	// batch's) the card declined. Within the failure lookback it drops the
 	// account to the first batch tier (S3D-19).
@@ -441,7 +510,11 @@ type Batch struct {
 	PaymentIntentID string `firestore:"payment_intent_id,omitempty" json:"-"`
 	// PIStatus: "processing" while Stripe settles an async payment
 	// (CHARGING_ASYNC, P2): still charging, never paid until succeeded.
-	PIStatus     string     `firestore:"pi_status,omitempty" json:"-"`
+	PIStatus string `firestore:"pi_status,omitempty" json:"-"`
+	// Lease: the one writer of this group's charge (E0-4). PaidWith: the
+	// method that paid (a C5 backup may differ from the default).
+	Lease        *Lease     `firestore:"lease,omitempty" json:"-"`
+	PaidWith     string     `firestore:"paid_with,omitempty" json:"-"`
 	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
 	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
 	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`

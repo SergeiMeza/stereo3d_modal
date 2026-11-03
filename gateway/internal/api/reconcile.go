@@ -47,8 +47,8 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			if time.Since(conv.CreatedAt) < createTTL {
 				continue
 			}
-			if conv.Stripe.PIStatus == store.PICharging || conv.Stripe.PIStatus == store.PIProcessing {
-				continue // resolved from Stripe first: redrivePrecharges / sweepProcessing
+			if conv.Stripe.PIStatus == store.PICharging || conv.Stripe.PIStatus == store.PIProcessing || conv.ExpiresAt != nil {
+				continue // resolved from Stripe first: redrivePrecharges / sweepProcessing / resolveRunClocks (E0-3)
 			}
 			expired, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateCreated}, func(c *store.Conversion) error {
 				c.State = store.StateExpired
@@ -69,6 +69,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	}
 	if n := s.sweepProcessing(ctx); n > 0 {
 		stats["processing_resolved"] = n
+	}
+	if n := s.resolveRunClocks(ctx); n > 0 {
+		stats["run_clocks_resolved"] = n // E0-3
 	}
 
 	// Settle sweeps: money actions committed (capture_pending/cancel_pending)

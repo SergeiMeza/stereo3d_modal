@@ -535,6 +535,33 @@ func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID, receiptEma
 	return pi, err
 }
 
+// noRetryPI is a PaymentIntent client without network retries: the
+// pre-charge's second try must fit what is left of the request (C1, V6).
+func noRetryPI() *paymentintent.Client {
+	return &paymentintent.Client{
+		B: stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{
+			HTTPClient:        &http.Client{Timeout: 15 * time.Second},
+			MaxNetworkRetries: stripe.Int64(0),
+		}),
+		Key: stripe.Key,
+	}
+}
+
+// ConfirmWithMethod re-confirms an existing off-session PaymentIntent with
+// another saved method (the pre-charge's second try, C5 backups) under
+// key confirm_{pi}_{pm}_{attempt}. noRetry drops network retries.
+func (c *Client) ConfirmWithMethod(paymentIntentID, paymentMethodID string, attempt int, noRetry bool) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentConfirmParams{
+		PaymentMethod: stripe.String(paymentMethodID),
+		OffSession:    stripe.Bool(true),
+	}
+	params.SetIdempotencyKey(fmt.Sprintf("confirm_%s_%s_%d", paymentIntentID, paymentMethodID, attempt))
+	if noRetry {
+		return noRetryPI().Confirm(paymentIntentID, params)
+	}
+	return paymentintent.Confirm(paymentIntentID, params)
+}
+
 // ChargeInfo is what a statement line shows for a PaymentIntent's charge
 // (the billing history, S3D-57).
 type ChargeInfo struct {
@@ -587,6 +614,16 @@ type ChargeFailure struct {
 	// reconciler to retry automatically without involving the user.
 	Transient bool
 	Message   string
+	// DeclineCode is the issuer's reason; Stop marks the codes after which
+	// nothing else may be tried (C1/C5: fraudulent, stolen, lost, pick up,
+	// do not try again) — the account then pays in the sheet.
+	DeclineCode string
+	Stop        bool
+}
+
+// stopDeclines end every retry and backup at once (C5).
+var stopDeclines = map[string]bool{
+	"fraudulent": true, "stolen_card": true, "lost_card": true, "pickup_card": true, "do_not_try_again": true,
 }
 
 // ClassifyChargeError maps a Stripe error from ChargeSaved/ConfirmSavedCharge
@@ -597,7 +634,8 @@ func ClassifyChargeError(err error) ChargeFailure {
 	if !errors.As(err, &serr) {
 		return ChargeFailure{Transient: true, Message: err.Error()}
 	}
-	f := ChargeFailure{Code: string(serr.Code), Message: serr.Msg}
+	f := ChargeFailure{Code: string(serr.Code), Message: serr.Msg, DeclineCode: string(serr.DeclineCode)}
+	f.Stop = stopDeclines[f.DeclineCode]
 	if serr.PaymentIntent != nil {
 		f.PaymentIntentID = serr.PaymentIntent.ID
 	}

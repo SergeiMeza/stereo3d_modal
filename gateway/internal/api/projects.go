@@ -1187,6 +1187,19 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
 	}
+	// C1 for this account and amount (spec v6 F): after | precharge |
+	// paynow | china, with why the sheet is needed; charge_timing follows.
+	cust, _ := s.Store.GetCustomer(ctx, user.UID)
+	flow, reason := decideFlow(cust, quote.AmountCents, rates.PrechargeThreshold(), chinaMode(r))
+	resp["payment_flow"] = flow
+	if reason != "" {
+		resp["pay_now_reason"] = reason
+	}
+	if flow != store.FlowAfter {
+		resp["charge_timing"] = "before"
+	} else {
+		resp["charge_timing"] = "after"
+	}
 	// S3D-67: whether the account holds SVS Pro, and the Pro line when
 	// this step gets it (full runs, not previews).
 	resp["pro"] = quote.Breakdown["pro"] == true
