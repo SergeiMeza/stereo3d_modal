@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { CHARGED_AFTER } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 
+import { PayPerVideoLine } from "./planCopy";
 import { PlansSection } from "./PlansSection";
 
 /** Per-eye size of a quality for a 16:9 video. */
@@ -77,7 +78,11 @@ function MethodPrices({
             <th className="py-1.5 text-right font-normal">
               Per minute, {pricing.fps.base} fps
             </th>
-            {pro ? <th className="py-1.5 pl-4 text-right font-normal text-primary">With Pro</th> : null}
+            {pro ? (
+              <th className="py-1.5 pl-4 text-right font-normal text-primary">
+                With Pro{pricing.pro_discount?.pct ? ` (−${Math.round(pricing.pro_discount.pct * 100)}%)` : ""}
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -180,8 +185,8 @@ export function PricingScreen(): JSX.Element {
     <section className="mx-auto w-full max-w-4xl px-4 py-10">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Prices</h1>
-        <p className="mt-2 text-fg-muted">
-          {pricing?.plans ? "Pay per video, or save with a plan." : "Pay per video. No subscription."}
+        <p data-testid="pricing-subtitle" className="mt-2 text-fg-muted">
+          <PayPerVideoLine pricing={pricing} />
         </p>
       </div>
       {pricing === null ? (

@@ -119,7 +119,7 @@ describe("Lifelike story (2026-11)", () => {
     // Pro share from GET /v1/pricing (S3D-67)
     expect(
       (await screen.findByTestId("final-price")).textContent,
-    ).toBe("From $3 a minute. Pay per video, no subscription. Pro members save 20%.");
+    ).toBe("From $3 a minute. Pay per video. Plans save 15–30%.");
     expect(screen.getByTestId("hero-limits").textContent).toContain(
       "Any length, up to 8K. Pro members save 20%.",
     );

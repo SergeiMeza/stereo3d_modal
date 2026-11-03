@@ -83,8 +83,8 @@ export default function TermsPage() {
 
       <LegalSection title="6. Fees and payment">
         <p>
-          The Service is <strong>pay-as-you-go</strong>: no subscription,
-          no minimum. You add a payment card, and each paid job (previews
+          The Service is <strong>pay-as-you-go</strong>, with optional
+          monthly plans; no minimum. You add a payment card, and each paid job (previews
           and production renders) shows a <strong>quote before it
           starts</strong> — that quoted price is binding and is what you
           are charged. Larger jobs may place a temporary authorization hold

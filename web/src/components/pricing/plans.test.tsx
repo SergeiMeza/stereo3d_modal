@@ -60,7 +60,10 @@ describe("Pricing 2026-11", () => {
     expect(addons.textContent).toContain("Up to about 2× faster on longer videos");
     expect(screen.getByTestId("pricing-free-previews").textContent).toContain("Your first preview is free.");
     expect(screen.getByTestId("pricing-topups").textContent).toContain("from $10");
-    expect(document.body.textContent).not.toMatch(/Lifetime|depth map|splat|inpaint|Gaussian/i);
+    expect(screen.getByTestId("pricing-subtitle").textContent).toBe("Pay per video. Plans save 15–30%.");
+    expect(within(screen.getByTestId("pricing-subtitle")).getByRole("link", { name: "Plans" }).getAttribute("href")).toBe("/plans");
+    expect(lifelike.textContent).toContain("With Pro (−15%)");
+    expect(document.body.textContent).not.toMatch(/Lifetime|depth map|splat|inpaint|Gaussian|no subscription/i);
   });
 
   it("Business and Studio cards; choosing one pays in our sheet and shows the plan on Billing", async () => {

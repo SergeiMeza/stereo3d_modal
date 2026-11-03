@@ -29,6 +29,7 @@ import { ProductTour } from "@/components/landing/ProductTour";
 import { Samples } from "@/components/landing/Samples";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { Logo } from "@/components/Logo";
+import { PayPerVideoLine } from "@/components/pricing/planCopy";
 import { proSaveLine } from "@/components/pricing/ProOffer";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCentsShort } from "@/components/steps/money";
@@ -275,10 +276,8 @@ export function LandingContent() {
           See your own video in 3D
         </h2>
         <p data-testid="final-price" className="mt-2 text-fg-muted">
-          {perMinute !== null
-            ? `From ${formatCentsShort(perMinute)} a minute. Pay per video, no subscription.`
-            : "Pay per video, no subscription."}
-          {proLine ? ` ${proLine}.` : ""}
+          {perMinute !== null ? `From ${formatCentsShort(perMinute)} a minute. ` : ""}
+          <PayPerVideoLine pricing={pricing} />
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
