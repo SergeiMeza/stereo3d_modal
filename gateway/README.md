@@ -148,8 +148,11 @@ backstop, a Lifelike 400 at submit fails the run at once with its money
 returned and answers 400 `preset_unavailable` / `submit_rejected`. `original_eye`
 (`left`|`right`|null) passes through on Lifelike steps at the same price;
 `foveation: "static"` passes through only when the size is below the
-source's, at ×`foveation_price_multiplier`, and only while
-`foveation_enabled` is on (else 400 `feature_unavailable`). Classic-only
+source's, at ×`foveation_price_multiplier` (its own `foveation_cents`
+breakdown line), and only while `foveation_enabled` is on (else 400
+`feature_unavailable`). Once on, it is the DEFAULT whenever the size is
+below the source (previews too); only an explicit `"foveation": null`
+turns it off. Off, nothing changes. Classic-only
 knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
 `use_uploaded_depth`, `displacement`) are 400s; the project's cut list is
 always forwarded. Classic refuses `split_max_seconds` (400

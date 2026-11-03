@@ -312,23 +312,23 @@ func TestOriginalEye(t *testing.T) {
 // S3D-50: foveation only below the source's size, behind a switch, +30%.
 func TestFoveation(t *testing.T) {
 	p := lifelikeProject() // 3840×2160
-	params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "static"}, p)
+	params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: fovReq("static")}, p)
 	if params.Foveation != "static" {
 		t.Fatalf("%+v", params)
 	}
 	if b := lifelikeBody(&store.Conversion{Params: params}, 4); b["foveation"] != "static" {
 		t.Errorf("body: %v", b)
 	}
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Foveation: "static"}, p, "invalid_request", "below")
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "dynamic"}, p, "invalid_request", "static")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Foveation: fovReq("static")}, p, "invalid_request", "below")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: fovReq("dynamic")}, p, "invalid_request", "static")
 	scope := lifelikeProject()
 	scope.Probe.Width, scope.Probe.Height = 3840, 1606
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "full", Foveation: "static"}, scope, "invalid_request", "below")
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Foveation: "static"}, proProject(), "invalid_request", "lifelike projects only")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "full", Foveation: fovReq("static")}, scope, "invalid_request", "below")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Foveation: fovReq("static")}, proProject(), "invalid_request", "lifelike projects only")
 
 	// the switch: off by default
 	off := &Service{Pricing: pricing.NewStatic(nil)}
-	req := &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "static"}
+	req := &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: fovReq("static")}
 	if _, err := off.resolveParams(context.Background(), req, p); err == nil || err.Code != "feature_unavailable" {
 		t.Errorf("foveation_enabled false: %v", err)
 	}
@@ -351,5 +351,62 @@ func TestRejectSubmitCopy(t *testing.T) {
 	err := (&submitRejected{Code: "preset_unavailable", Message: "5K isn't available yet; choose 4K or lower"})
 	if !strings.Contains(err.Error(), "preset_unavailable") {
 		t.Error(err.Error())
+	}
+}
+
+func fovReq(v string) optString { return optString{Set: true, Value: &v} }
+
+// S3D-50: with foveation switched on it's the default below the source;
+// explicit null turns it off; switched off, nothing changes.
+func TestFoveationDefault(t *testing.T) {
+	ctx := context.Background()
+	p := lifelikeProject() // 3840×2160
+	on := pricing.Defaults()
+	on.FoveationEnabled = true
+	sOn, sOff := &Service{Pricing: pricing.NewStatic(on)}, &Service{Pricing: pricing.NewStatic(nil)}
+	resolve := func(s *Service, body string) store.Params {
+		t.Helper()
+		var req stepConvReq
+		if err := json.Unmarshal([]byte(body), &req); err != nil {
+			t.Fatal(err)
+		}
+		params, err := s.resolveParams(ctx, &req, p)
+		if err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		return params
+	}
+	if got := resolve(sOn, `{"step":"production","preset":"1080p"}`).Foveation; got != "static" {
+		t.Errorf("enabled, below the source, absent: want static, got %q", got)
+	}
+	if got := resolve(sOn, `{"step":"lifelike_preview","preset":"qhd","to_frame":120}`).Foveation; got != "static" {
+		t.Errorf("previews too: got %q", got)
+	}
+	if got := resolve(sOn, `{"step":"production","preset":"1080p","foveation":null}`).Foveation; got != "" {
+		t.Errorf("explicit null turns it off: got %q", got)
+	}
+	if got := resolve(sOn, `{"step":"production","preset":"4k"}`).Foveation; got != "" {
+		t.Errorf("at the source's own size: never, got %q", got)
+	}
+	if got := resolve(sOff, `{"step":"production","preset":"1080p"}`).Foveation; got != "" {
+		t.Errorf("switched off: nothing changes, got %q", got)
+	}
+	if got := resolve(sOff, `{"step":"production","preset":"1080p","foveation":null}`).Foveation; got != "" {
+		t.Errorf("switched off, null: got %q", got)
+	}
+	// classic accepts an explicit null (nothing to turn off)
+	var req stepConvReq
+	_ = json.Unmarshal([]byte(`{"step":"production","foveation":null}`), &req)
+	if _, err := resolveStepParams(&req, proProject()); err != nil {
+		t.Errorf("classic with foveation null: %v", err)
+	}
+	// its own line in the breakdown
+	q, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24, Foveated: true})
+	if q.Breakdown["foveation_cents"] != int64(135) || q.AmountCents != 585 {
+		t.Errorf("breakdown: %d %v", q.AmountCents, q.Breakdown)
+	}
+	pq, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: pricing.StepLifelikePreview, Preset: "4k", BillableS: 5, EffectiveFPS: 24, Foveated: true})
+	if pq.Breakdown["foveation_cents"] != int64(25) || pq.AmountCents != 108 { // 83 + 25
+		t.Errorf("preview breakdown: %d %v", pq.AmountCents, pq.Breakdown)
 	}
 }

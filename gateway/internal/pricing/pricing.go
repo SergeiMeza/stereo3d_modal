@@ -978,8 +978,10 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			fps = fpsBase
 		}
 		frames := math.Round(in.BillableS * fps)
-		perFrame := float64(perMin) * mult / (60 * fpsBase)
-		cents := max(int64(math.Round(frames*perFrame)), rates.MinimumCents)
+		perFrame := float64(perMin) / (60 * fpsBase)
+		base := int64(math.Round(frames * perFrame))
+		fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
+		cents := max(base+fov, rates.MinimumCents)
 		return &Quote{
 			AmountCents: cents,
 			Currency:    rates.Currency,
@@ -993,11 +995,14 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 				"frames":               int64(frames),
 				"cents_per_frame":      round4(perFrame),
 				"foveation_multiplier": mult,
+				"foveation_cents":      fov,
 			},
 		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
-	subtotal := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF * mult))
+	base := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
+	subtotal := base + fov
 	bulkDiscount := int64(0)
 	if subtotal > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
@@ -1014,6 +1019,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			"step":                 in.Step,
 			"method":               MethodLifelike,
 			"foveation_multiplier": mult,
+			"foveation_cents":      fov,
 			"preset":               in.Preset,
 			"billable_seconds":     math.Round(in.BillableS*100) / 100,
 			"cents_per_minute":     perMin, // the PRICE rate

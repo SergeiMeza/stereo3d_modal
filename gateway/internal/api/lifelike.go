@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -188,17 +189,15 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.OriginalEye = *req.OriginalEye
 	}
-	if req.Foveation != "" {
-		if req.Foveation != "static" {
+	if fov := req.Foveation.value(); fov != "" {
+		if fov != "static" {
 			return params, httpx.ErrInvalid("foveation must be static")
 		}
-		// Foveation spends the source's extra pixels on the centre of view,
-		// so the output must be smaller than the source (S3D-50).
-		if short := sourceShortSide(p); short > 0 && presetOutputHeight[params.Preset] >= short {
+		if short := sourceShortSide(p); short > 0 && !foveationFits(p, params) {
 			return params, httpx.ErrInvalid(fmt.Sprintf(
 				"foveation needs a size below this video's own (%dp); pick a smaller quality", short))
 		}
-		params.Foveation = req.Foveation
+		params.Foveation = fov
 	}
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
@@ -562,8 +561,15 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	if err != nil {
 		return params, err
 	}
-	if params.Foveation != "" && !s.Pricing.Rates(ctx).FoveationEnabled {
+	rates := s.Pricing.Rates(ctx)
+	if params.Foveation != "" && !rates.FoveationEnabled {
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "foveation is not available yet")
+	}
+	// S3D-50: once switched on, foveation is the default whenever the size
+	// is below the source; only an explicit "foveation": null turns it off.
+	if rates.FoveationEnabled && !req.Foveation.Set && projectMethod(p) == store.MethodLifelike &&
+		foveationFits(p, params) {
+		params.Foveation = "static"
 	}
 	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
 		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {
@@ -594,4 +600,40 @@ func (s *Service) enabledLifelikePresets() []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return s.Pricing.Rates(ctx).EnabledLifelikePresets()
+}
+
+// optString is a JSON field that tells absent (Set false) from an explicit
+// null (Set true, Value nil).
+type optString struct {
+	Set   bool
+	Value *string
+}
+
+func (o *optString) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var v string
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
+}
+
+// value is the string sent, "" when absent or null.
+func (o optString) value() string {
+	if o.Value == nil {
+		return ""
+	}
+	return *o.Value
+}
+
+// foveationFits: foveation spends the source's extra pixels on the centre
+// of view, so the output must be smaller than the source (S3D-50).
+func foveationFits(p *store.Project, params store.Params) bool {
+	short := sourceShortSide(p)
+	return short > 0 && presetOutputHeight[params.Preset] < short
 }

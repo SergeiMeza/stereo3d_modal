@@ -597,9 +597,10 @@ type stepConvReq struct {
 	// Lifelike only until the classic pipeline implements splitting.
 	SplitMaxSeconds int `json:"split_max_seconds"`
 	// Lifelike only (S3D-49/50): original_eye "left" | "right" | null;
-	// foveation "static" (behind foveation_enabled).
-	OriginalEye *string `json:"original_eye"`
-	Foveation   string  `json:"foveation"`
+	// foveation "static" | null (behind foveation_enabled; absent = on
+	// whenever the size is below the source, explicit null = off).
+	OriginalEye *string   `json:"original_eye"`
+	Foveation   optString `json:"foveation"`
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -684,7 +685,7 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		return resolveLifelikeParams(req, p, pricing.DefaultLifelikeEnabled)
 	}
 	var params store.Params
-	if (req.OriginalEye != nil && *req.OriginalEye != "") || req.Foveation != "" {
+	if (req.OriginalEye != nil && *req.OriginalEye != "") || req.Foveation.value() != "" {
 		return params, httpx.ErrInvalid("original_eye and foveation apply to lifelike projects only")
 	}
 	if req.SplitMaxSeconds != 0 {
