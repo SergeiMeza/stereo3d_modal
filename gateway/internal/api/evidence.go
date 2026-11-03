@@ -57,6 +57,7 @@ func (s *Service) evidenceFor(ctx context.Context, cs *store.Case) map[string]an
 			"refunded_cents": c.Stripe.RefundedCents, "pi_status": c.Stripe.PIStatus, "canceled_by": c.CanceledBy,
 			"submitted_at": c.Modal.SubmittedAt, "started_at": c.Modal.StartedAt, "job_id": c.Modal.JobID,
 			"gpu_cost_usd": c.Modal.CostUSD, "queued_s": c.Modal.QueuedS,
+			"priority": c.Modal.Priority, "max_gpu_workers": c.Modal.GPUWorkers, "express_cost_factor": c.Modal.ExpressCostFactor,
 		}
 		if c.Error != nil {
 			r["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage, "internal": c.Error.InternalMessage}

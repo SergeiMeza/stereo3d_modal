@@ -1256,6 +1256,20 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	// the output's length (Deliver offers "Split into parts" past 15 min).
 	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
 		resp["eta_seconds"] = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
+		if method == store.MethodLifelike && req.Step != store.StepLifelikePreview {
+			// Express on Lifelike: 8 GPUs and first in line. Planning (~40-70 s)
+			// and the encode (~100 s) don't shrink, so it saves about a minute
+			// on a 60 s clip and halves only clips of 3 min and more; an
+			// Express job may still wait up to max_wait_seconds for a running
+			// standard piece to finish.
+			std, exp := params, params
+			std.Express, exp.Express = false, true
+			resp["express_eta"] = map[string]any{
+				"eta_seconds":          s.stepETA(ctx, p, exp, req.Step, method, reuseStages),
+				"standard_eta_seconds": s.stepETA(ctx, p, std, req.Step, method, reuseStages),
+				"max_wait_seconds":     rates.ExpressMaxWaitS(),
+			}
+		}
 		resp["output_seconds"] = math.Round(billable*100) / 100
 		resp["split_suggested"] = req.Step == store.StepProduction && billable > splitSuggestSeconds
 		if size := estimatedSizeBytes(params, billable); size > 0 {

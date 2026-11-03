@@ -109,6 +109,22 @@ func (j *Job) Experimental() bool {
 	return json.Unmarshal(j.Metadata, &m) == nil && m.Experimental
 }
 
+// Scheduling is what a Lifelike job echoes of its scheduling inputs
+// (metadata.priority, metadata.max_gpu_workers); zero values when absent.
+func (j *Job) Scheduling() (priority string, gpus int) {
+	if len(j.Metadata) == 0 {
+		return "", 0
+	}
+	var m struct {
+		Priority      string `json:"priority"`
+		MaxGPUWorkers int    `json:"max_gpu_workers"`
+	}
+	if json.Unmarshal(j.Metadata, &m) != nil {
+		return "", 0
+	}
+	return m.Priority, m.MaxGPUWorkers
+}
+
 // SubmitVideo posts the clamped request body to POST /v1/videos.
 func (c *Client) SubmitVideo(ctx context.Context, body map[string]any) (*SubmitResponse, error) {
 	var out SubmitResponse

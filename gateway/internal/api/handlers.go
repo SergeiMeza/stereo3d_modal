@@ -1055,6 +1055,26 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		resp["experimental"] = true
 	}
 	resp["queued_s"] = c.Modal.QueuedS
+	if store.MethodOr(c.Method) == store.MethodLifelike {
+		// Lifelike scheduling (additive): the priority and GPU count the
+		// job echoed (what was asked until it does); an Express run waiting
+		// for a GPU waits at most queue_wait_max_seconds for a running
+		// standard piece.
+		prio := c.Modal.Priority
+		if prio == "" {
+			prio = "standard"
+			if c.Params.Express {
+				prio = "express"
+			}
+		}
+		resp["priority"] = prio
+		if c.Modal.GPUWorkers > 0 {
+			resp["max_gpu_workers"] = c.Modal.GPUWorkers
+		}
+		if prio == "express" && c.Modal.WaitingForGPU && !store.IsTerminal(c.State) && s.Pricing != nil {
+			resp["queue_wait_max_seconds"] = s.Pricing.Rates(context.Background()).ExpressMaxWaitS()
+		}
+	}
 	if len(c.Parts) > 0 {
 		resp["parts"] = c.Parts
 	}

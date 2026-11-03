@@ -172,6 +172,15 @@ type Rates struct {
 	// LifelikeMaxGPUWorkers: GPU containers one Lifelike job may use at
 	// once (default 4; clamped to MaxGPUWorkersPerJob like Classic's).
 	LifelikeMaxGPUWorkers int `firestore:"lifelike_max_gpu_workers"`
+	// Lifelike Express (2026-11-03, Lifelike team): Express runs ask for
+	// LifelikeExpressGPUWorkers (default 8, clamped) and go first in the
+	// slot scheduler. LifelikeExpressCostFactor (default 1.12) is the
+	// measured GPU cost of 8 vs 4 GPUs, for cost reporting.
+	// LifelikeExpressMaxWaitS (default 420): the longest an Express job may
+	// wait for a running standard piece to finish (4K, 3-min piece).
+	LifelikeExpressGPUWorkers int     `firestore:"lifelike_express_gpu_workers"`
+	LifelikeExpressCostFactor float64 `firestore:"lifelike_express_cost_factor"`
+	LifelikeExpressMaxWaitS   int     `firestore:"lifelike_express_max_wait_s"`
 	// PrechargeThresholdCents: pro-step quotes ABOVE this are charged
 	// before the run starts and refunded in full if it fails (LL-D8, both
 	// methods); at or below it they join the batch and are billed after.
@@ -290,6 +299,31 @@ func (r *Rates) GPUWorkersFor(method string) int {
 		}
 	}
 	return min(n, MaxGPUWorkersPerJob)
+}
+
+// ExpressGPUWorkers is max_gpu_workers for an Express Lifelike run.
+func (r *Rates) ExpressGPUWorkers() int {
+	n := r.LifelikeExpressGPUWorkers
+	if n <= 0 {
+		n = 8
+	}
+	return min(n, MaxGPUWorkersPerJob)
+}
+
+// ExpressCostFactor is Express's GPU cost relative to a standard run.
+func (r *Rates) ExpressCostFactor() float64 {
+	if r.LifelikeExpressCostFactor > 0 {
+		return r.LifelikeExpressCostFactor
+	}
+	return 1.12
+}
+
+// ExpressMaxWaitS is the longest an Express job may wait for a GPU slot.
+func (r *Rates) ExpressMaxWaitS() int {
+	if r.LifelikeExpressMaxWaitS > 0 {
+		return r.LifelikeExpressMaxWaitS
+	}
+	return 420
 }
 
 // PreviewSeconds bounds a Lifelike preview's span.

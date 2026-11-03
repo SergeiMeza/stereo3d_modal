@@ -291,9 +291,10 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.Express {
 		// Express (pricing 2026-11): the Lifelike slot scheduler gives
-		// freed GPU slots to "express" first. Only this value, and only on
-		// Express runs: standard runs omit the key (any other value will
-		// be a 400). GPU count unchanged until the team's 2/4/8 table.
+		// freed GPU slots to "express" first and the caller passes the
+		// Express GPU count (8). Only this value, and only on Express
+		// runs: standard runs omit the key (the service defaults to
+		// "standard"; anything else is a 400).
 		body["priority"] = "express"
 	}
 	if c.Params.Stabilize {
@@ -338,7 +339,11 @@ func (s *Service) stepETA(ctx context.Context, p *store.Project, params store.Pa
 	}
 	in := s.stepQuoteInputs(p, params, step, billable)
 	if method == store.MethodLifelike {
-		gpus := s.Pricing.Rates(ctx).GPUWorkersFor(store.MethodLifelike)
+		rates := s.Pricing.Rates(ctx)
+		gpus := rates.GPUWorkersFor(store.MethodLifelike)
+		if params.Express {
+			gpus = rates.ExpressGPUWorkers()
+		}
 		if step == store.StepLifelikePreview {
 			gpus = 1
 		}

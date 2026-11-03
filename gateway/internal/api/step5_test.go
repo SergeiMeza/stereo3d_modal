@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
@@ -92,18 +94,38 @@ func TestLifelikeStabilizePassThrough(t *testing.T) {
 	}
 }
 
-// Express: "priority": "express" only on Express runs; standard runs omit
-// the key (the Lifelike scheduler will 400 any other value), and the GPU
-// count is unchanged until the team's 2/4/8-GPU table arrives.
+// Express: "priority": "express" only on Express runs, standard runs omit
+// the key (the service defaults to standard; anything else is a 400);
+// Express asks for 8 GPUs (submitToModal passes ExpressGPUWorkers); the
+// job's echo is recorded on the run.
 func TestLifelikePriorityContract(t *testing.T) {
 	c := &store.Conversion{Method: store.MethodLifelike, Params: store.Params{Preset: "4k"}}
-	std := lifelikeBody(c, 4)
-	if _, ok := std["priority"]; ok {
-		t.Fatalf("standard run sent priority: %v", std["priority"])
+	rates := pricing.DefaultsFor("test")
+	std := lifelikeBody(c, rates.GPUWorkersFor(store.MethodLifelike))
+	if _, ok := std["priority"]; ok || std["max_gpu_workers"] != 4 {
+		t.Fatalf("standard run: %v %v", std["priority"], std["max_gpu_workers"])
 	}
 	c.Params.Express = true
-	exp := lifelikeBody(c, 4)
-	if exp["priority"] != "express" || exp["max_gpu_workers"] != std["max_gpu_workers"] {
+	exp := lifelikeBody(c, rates.ExpressGPUWorkers())
+	if exp["priority"] != "express" || exp["max_gpu_workers"] != 8 {
 		t.Fatalf("express: %v %v", exp["priority"], exp["max_gpu_workers"])
+	}
+	if rates.ExpressCostFactor() != 1.12 || rates.ExpressMaxWaitS() != 420 {
+		t.Fatal("express defaults")
+	}
+	job := &modalapi.Job{Metadata: json.RawMessage(`{"priority":"express","max_gpu_workers":8}`)}
+	noteScheduling(c, job)
+	if c.Modal.Priority != "express" || c.Modal.GPUWorkers != 8 {
+		t.Fatalf("echo %+v", c.Modal)
+	}
+	// ETA: render shrinks with 8 GPUs, planning and encode don't.
+	s := &Service{Pricing: pricing.NewStatic(nil)}
+	in := pricing.LifelikeInputs{Step: store.StepProduction, Preset: "4k", OutputSeconds: 60}
+	in.GPUs = 4
+	e4 := s.Pricing.EstimateLifelikeETA(context.Background(), in)
+	in.GPUs = 8
+	e8 := s.Pricing.EstimateLifelikeETA(context.Background(), in)
+	if saved := e4 - e8; saved < 40 || saved > 90 {
+		t.Fatalf("60 s clip: %d → %d", e4, e8)
 	}
 }

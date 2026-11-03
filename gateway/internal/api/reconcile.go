@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"log/slog"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -219,6 +220,14 @@ func (s *Service) reconcileModal(ctx context.Context, log *slog.Logger, stats ma
 	// ride out Stripe's 7-day auth on a job that will never start.
 	paid, err := s.Store.ListByState(ctx, store.StatePaid, 50)
 	if err == nil {
+		// The gateway's own queue: Express runs are submitted first, then
+		// the oldest.
+		sort.SliceStable(paid, func(i, j int) bool {
+			if ei, ej := paid[i].Params.Express, paid[j].Params.Express; ei != ej {
+				return ei
+			}
+			return paid[i].CreatedAt.Before(paid[j].CreatedAt)
+		})
 		var pwg sync.WaitGroup
 		psem := make(chan struct{}, 8)
 		for _, conv := range paid {

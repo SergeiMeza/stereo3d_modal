@@ -587,8 +587,23 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express
-  sends `"priority": "express"` to the Lifelike service, which ignores it
-  until its queue supports priority.
+  sends `"priority": "express"` and `max_gpu_workers` 8
+  (`lifelike_express_gpu_workers`) to the Lifelike service, which gives
+  freed GPU slots to Express first; standard runs omit `priority` (the
+  service defaults to standard and promotes standard jobs after 30 min).
+  The gateway's own queue (the reconciler's submit of paid runs) also
+  takes Express first. The job's echo (`metadata.priority`,
+  `max_gpu_workers`) is stored on the run (`modal.priority`,
+  `modal.max_gpu_workers`) and Express runs carry
+  `modal.express_cost_factor` (`lifelike_express_cost_factor`, 1.12: 8 vs
+  4 GPUs measured +9-12%) for cost reporting. Quotes add `express_eta
+  {eta_seconds, standard_eta_seconds, max_wait_seconds}` (planning and
+  the encode don't shrink: about a minute saved on a 60 s clip, about 2x
+  only from 3 min; an Express job may still wait up to
+  `lifelike_express_max_wait_s`, 420 s, for a running standard piece).
+  Lifelike runs in `GET /v1/conversions/{id}` add `priority`,
+  `max_gpu_workers` (echoed) and, while an Express run waits for a GPU,
+  `queue_wait_max_seconds`.
 - **Free previews** per period, no rollover: Pro Weekly 5/week, Monthly 20,
   Yearly 240/year, passes 60/120, Lifetime 20/month, Business 50, Studio
   200; non-subscribers 1 on their first project; 20 a day. One per 5 s,

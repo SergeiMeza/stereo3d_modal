@@ -336,6 +336,13 @@ type Modal struct {
 	// WaitingSince: when the current wait for a GPU began, as polls saw
 	// it (nil while not waiting) — the GPU-line alert's clock (S3D-34).
 	WaitingSince *time.Time `firestore:"waiting_since,omitempty" json:"-"`
+	// Priority / GPUWorkers: what a Lifelike job echoed of its scheduling
+	// (metadata.priority "standard"|"express", metadata.max_gpu_workers).
+	// ExpressCostFactor: the GPU cost factor of an Express run (8 vs 4
+	// GPUs, 1.12 measured), set at submit, for cost reporting.
+	Priority          string  `firestore:"priority,omitempty" json:"-"`
+	GPUWorkers        int     `firestore:"max_gpu_workers,omitempty" json:"-"`
+	ExpressCostFactor float64 `firestore:"express_cost_factor,omitempty" json:"-"`
 }
 
 // Part is one file of a split output (metadata.parts of the job record):

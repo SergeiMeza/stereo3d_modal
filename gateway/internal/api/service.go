@@ -112,7 +112,11 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 	rates := s.Pricing.Rates(ctx)
 	var body map[string]any
 	if conv.Method == store.MethodLifelike {
-		body = lifelikeBody(conv, rates.GPUWorkersFor(store.MethodLifelike))
+		gpus := rates.GPUWorkersFor(store.MethodLifelike)
+		if conv.Params.Express {
+			gpus = rates.ExpressGPUWorkers() // Express: 8 GPUs, first in the slot scheduler
+		}
+		body = lifelikeBody(conv, gpus)
 	} else {
 		body = s.modalBody(conv, rates.GPUWorkersFor(store.MethodClassic))
 	}
@@ -146,6 +150,9 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 		c.State = store.StateProcessing
 		c.Modal.JobID = resp.JobID
 		c.Modal.SubmittedAt = &now
+		if c.Method == store.MethodLifelike && c.Params.Express && c.Step != store.StepLifelikePreview {
+			c.Modal.ExpressCostFactor = rates.ExpressCostFactor() // cost reporting: 8 vs 4 GPUs
+		}
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {
@@ -370,6 +377,7 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 			c.Modal.WaitingForGPU = job.WaitingForGPU
 			c.Modal.QueuedS = job.QueuedS
 			c.Modal.LastPolledAt = &now
+			noteScheduling(c, job)
 			if parts := splitParts(job); parts != nil {
 				c.Parts = parts
 			}
@@ -405,6 +413,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		c.Modal.WaitingForGPU = false
 		c.Modal.QueuedS = max(c.Modal.QueuedS, job.QueuedS)
 		c.Modal.LastPolledAt = &now
+		noteScheduling(c, job)
 		c.Parts = splitParts(job)
 		c.Stripe.PIStatus = settlementAfterSuccess(c)
 		return nil
@@ -1121,4 +1130,17 @@ func (s *Service) collectOutputs(ctx context.Context, conversionID string, job *
 		}
 	}
 	return outputs
+}
+
+// noteScheduling records what a Lifelike job echoed of its scheduling
+// (priority, max_gpu_workers).
+func noteScheduling(c *store.Conversion, job *modalapi.Job) {
+	if p, n := job.Scheduling(); p != "" || n > 0 {
+		if p != "" {
+			c.Modal.Priority = p
+		}
+		if n > 0 {
+			c.Modal.GPUWorkers = n
+		}
+	}
 }
