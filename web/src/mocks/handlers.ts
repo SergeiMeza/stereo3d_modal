@@ -171,6 +171,10 @@ interface MockBilling {
   company: { name?: string; address?: Record<string, string>; tax_ids: { id: string; type: string; value: string; verification?: string }[] };
   /** what the next add-method confirm does */
   nextSetup: "saved" | "declined" | "too_many";
+  /** spec v6 F hand-off codes (P7/P8) */
+  handoffs: Map<string, { conversion_id: string; state: "open" | "paying" | "paid" | "expired"; expires_at: string }>;
+  /** the next GET /v1/handoff answers 429 */
+  handoffRateLimited: boolean;
 }
 
 /** spec v6: one open payment (a run's, or the settle's). */
@@ -180,6 +184,12 @@ interface MockCheckout {
   amount_cents: number;
   state: "open" | "paid" | "expired";
   expires_at: string;
+}
+
+/** "4K" for the mock's hand-off label. */
+function qualityNameMock(preset: string | undefined): string {
+  const names: Record<string, string> = { "1080p": "1080p", qhd: "1440p", "3k": "3K", "4k": "4K", "5k": "5K", "6k": "6K", "8k": "8K" };
+  return names[preset ?? ""] ?? preset ?? "";
 }
 
 /** GET /v1/billing/methods (spec v6.2): backup order, removability. */
@@ -298,6 +308,8 @@ function seed(): DB {
       nextConfirm: "paid",
       company: { tax_ids: [] },
       nextSetup: "saved",
+      handoffs: new Map(),
+      handoffRateLimited: false,
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -1934,6 +1946,79 @@ export const handlers = [
     b.card = { ...MOCK_CARD };
     b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
     return HttpResponse.json({ ok: true });
+  }),
+
+  // spec v6 F: pay this run on another device (P7)
+  http.post(`${GATEWAY}/v1/conversions/:id/handoff`, async ({ params, request }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "conversion not found");
+    if (c.state !== "created") return err(409, "already_paid", "this run is already paid");
+    const body = (await request.json().catch(() => ({}))) as { email?: boolean };
+    const b = mockDb.billing;
+    let code = [...b.handoffs].find(([, h]) => h.conversion_id === c.conversion_id && h.state !== "expired")?.[0];
+    if (!code) {
+      const abc = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+      const pick = () => abc[Math.floor(Math.random() * abc.length)];
+      code = Array.from({ length: 8 }, pick).join("");
+      b.handoffs.set(code, {
+        conversion_id: c.conversion_id,
+        state: "open",
+        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      });
+    }
+    const h = b.handoffs.get(code)!;
+    return HttpResponse.json({
+      code,
+      url: `https://stereo3d.studio/p/${code.slice(0, 4)}-${code.slice(4)}`,
+      qr_image_url: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
+      expires_at: h.expires_at,
+      ...(body.email ? { email_masked: "d•••@example.com" } : {}),
+    });
+  }),
+
+  // spec v6 F: what a hand-off link pays for (public, read-only, P8)
+  http.get(`${GATEWAY}/v1/handoff/:code`, ({ params }) => {
+    const b = mockDb.billing;
+    if (b.handoffRateLimited) return err(429, "rate_limited", "too many tries");
+    const code = String(params.code).replace(/-/g, "").toUpperCase();
+    const h = b.handoffs.get(code);
+    if (!h) return err(404, "not_found", "no such link");
+    const c = mockDb.conversions.get(h.conversion_id)!;
+    if (c.state !== "created") h.state = "paid";
+    return HttpResponse.json({
+      label: `${c.step === "production" ? "3D video" : "Preview"} · ${qualityNameMock(c.params.preset)}`,
+      amount_cents: c.quote.amount_cents,
+      currency: "usd",
+      email_masked: "d•••@example.com",
+      china: false,
+      expires_at: h.expires_at,
+      state: h.state,
+    });
+  }),
+
+  // spec v6 F: pay through the link (public): the mock's hosted page pays
+  // at once and comes back to return_url
+  http.post(`${GATEWAY}/v1/handoff/:code/pay`, async ({ params, request }) => {
+    const b = mockDb.billing;
+    const code = String(params.code).replace(/-/g, "").toUpperCase();
+    const h = b.handoffs.get(code);
+    if (!h) return err(404, "not_found", "no such link");
+    if (h.state === "expired") return err(409, "expired", "this link expired");
+    const body = (await request.json().catch(() => ({}))) as { method?: string; return_url?: string };
+    const c = mockDb.conversions.get(h.conversion_id)!;
+    if (c.state !== "created") return err(409, "already_paid", "already paid");
+    if (body.method === "wechat_pay") {
+      h.state = "paying";
+      return HttpResponse.json({
+        qr_image_url: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
+        expires_at: h.expires_at,
+      });
+    }
+    h.state = "paid";
+    c.state = "paid";
+    c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+    const back = body.return_url ?? "/";
+    return HttpResponse.json(body.method === "alipay" ? { redirect_url: back } : { url: back });
   }),
 
   // spec v6.2: saved methods in backup order, default first, managed here

@@ -24,6 +24,7 @@ import type { CheckoutHandle, ConversionBilling } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
+import { HandoffSheet } from "./HandoffSheet";
 import {
   ALIPAY_LINE,
   ALREADY_PAID,
@@ -87,6 +88,8 @@ export function PaySheet({
     billing?.checkout ? { kind: "ready", checkout: billing.checkout } : { kind: "loading" },
   );
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // P7: a headset can hand the payment to a phone or computer
+  const [handoff, setHandoff] = useState(false);
 
   // the open payment, when the run didn't carry it (Finish payment)
   useEffect(() => {
@@ -159,6 +162,20 @@ export function PaySheet({
         : null;
   const locked = phase.kind === "paying";
 
+  if (handoff) {
+    return (
+      <HandoffSheet
+        conversionId={conversionId}
+        onPayHere={() => {
+          setHandoff(false);
+          // the hand-off replaced the payment: open a fresh one here
+          void startAgain();
+        }}
+        onClose={(paid) => onClose(paid ? "paid" : "open")}
+      />
+    );
+  }
+
   let body: ReactNode;
   let footer: ReactNode = null;
   if (phase.kind === "ready" || phase.kind === "paying") {
@@ -214,6 +231,19 @@ export function PaySheet({
                     </Button>
                   }
                   foot={REFUNDED_IF_FAILS}
+                  after={
+                    big ? (
+                      <button
+                        type="button"
+                        data-testid="pay-other-device"
+                        disabled={locked}
+                        onClick={() => setHandoff(true)}
+                        className="w-full py-3 text-center text-xl text-primary hover:underline"
+                      >
+                        Pay on another device
+                      </button>
+                    ) : undefined
+                  }
                 />
               }
             >
@@ -281,12 +311,15 @@ export function MainButtonArea({
   extra,
   button,
   foot,
+  after,
   big = false,
 }: {
   lines: string[];
   extra?: string;
   button: ReactNode;
   foot?: string;
+  /** a text button under it (headset: Pay on another device) */
+  after?: ReactNode;
   big?: boolean;
 }): JSX.Element {
   return (
@@ -306,6 +339,7 @@ export function MainButtonArea({
       {foot ? (
         <p className={`text-center text-fg-muted ${big ? "text-lg" : "text-xs"}`}>{foot}</p>
       ) : null}
+      {after}
     </div>
   );
 }

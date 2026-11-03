@@ -726,6 +726,28 @@ export interface AccountLimits {
   reached?: boolean;
 }
 
+/** spec v6 F: POST /v1/conversions/{id}/handoff (P7) */
+export interface HandoffStart {
+  code: string;
+  url: string;
+  qr_image_url?: string;
+  expires_at: string;
+  /** after {email: true} */
+  email_masked?: string;
+}
+
+/** spec v6 F: GET /v1/handoff/{code} (public, read-only, P8) */
+export interface HandoffInfo {
+  /** "3D video · 4K" */
+  label: string;
+  amount_cents: number;
+  currency: string;
+  email_masked?: string;
+  china: boolean;
+  expires_at: string;
+  state: "open" | "paying" | "paid" | "expired";
+}
+
 export interface PayNowStart {
   method: "alipay" | "wechat_pay";
   /** Alipay: where to send the browser */

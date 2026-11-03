@@ -33,7 +33,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { PayToContinue, supportMailto } from "@/components/billing/BillingBanner";
-import { PayNowSheet } from "@/components/billing/PayNowSheet";
+import { ChinaPaySheet } from "@/components/pay/ChinaPaySheet";
 import { PaySheet } from "@/components/pay/PaySheet";
 import { chinaPayments } from "@/lib/paymentRegion";
 import { PAUSED_REVIEW, POP_AFTER, POP_PRECHARGE, POP_SHEET } from "@/components/pay/payCopy";
@@ -349,17 +349,18 @@ export function useStepCheckout(
   };
 }
 
-/** P1/P3 for the checkout's waiting run (China mode: its own sheet,
- * no Stripe.js — P6 comes with the China screens). */
+/** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
   const conv = ck.payNow;
   if (conv === null) return null;
   if (chinaPayments()) {
     return (
-      <PayNowSheet
-        conversion={conv}
-        onPaid={() => ck.closePayNow(true)}
-        onCancel={() => ck.closePayNow(false)}
+      <ChinaPaySheet
+        conversionId={conv.conversion_id}
+        projectId={conv.project_id}
+        amountCents={conv.quote.amount_cents}
+        subtitle={runLine(conv)}
+        onClose={(paid) => ck.closePayNow(paid)}
       />
     );
   }

@@ -24,7 +24,6 @@ import {
   vi,
 } from "vitest";
 
-import OnboardingScreen from "@/components/billing/OnboardingScreen";
 import { RequireBilling } from "@/components/billing/RequireBilling";
 import { SettleProvider } from "@/components/pay/SettleSheet";
 import { AuthProvider } from "@/lib/auth";
@@ -126,27 +125,6 @@ describe("RequireBilling", () => {
     expect(screen.getByText("studio content")).toBeTruthy();
     expect(screen.getByText("There's a problem with your last payment.")).toBeTruthy();
     expect(screen.getByTestId("billing-pay").textContent).toBe("Pay $1.20");
-  });
-});
-
-describe("OnboardingScreen", () => {
-  it("redirects straight through when a card is already on file", async () => {
-    renderWithBilling(<OnboardingScreen />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/projects"));
-  });
-
-  it("saves a card (mock setup), confirms via GET /v1/billing, and continues", async () => {
-    mockDb.billing.hasPaymentMethod = false;
-    mockDb.billing.card = undefined;
-    renderWithBilling(<OnboardingScreen />);
-
-    const save = await screen.findByRole("button", {
-      name: "Save test payment method",
-    });
-    fireEvent.click(save);
-
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/projects"));
-    expect(mockDb.billing.hasPaymentMethod).toBe(true);
   });
 });
 

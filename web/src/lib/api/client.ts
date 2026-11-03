@@ -6,6 +6,8 @@
 
 import type {
   CheckoutStart,
+  HandoffInfo,
+  HandoffStart,
   CompanyAddress,
   CompanyDetails,
   InvoiceList,
@@ -267,6 +269,39 @@ export class GatewayClient {
   }
 
   /** Retry the outstanding automatic charges on the current default card. */
+  // ---------------------------------------------- spec v6 F: hand-off
+
+  /** P7: a code and link to pay this run on another device; email mails it */
+  createHandoff(conversionId: string, email = false): Promise<HandoffStart> {
+    return this.request(
+      "POST",
+      `/v1/conversions/${encodeURIComponent(conversionId)}/handoff`,
+      email ? { email: true } : {},
+    );
+  }
+
+  /** P8 (public): what the link pays for; 404 bad link, 429 too many */
+  getHandoff(code: string): Promise<HandoffInfo> {
+    return this.request("GET", `/v1/handoff/${encodeURIComponent(code)}`, undefined, undefined, {
+      anonymous: true,
+    });
+  }
+
+  /** P8 (public): outside China {url} of a hosted page; China {method} →
+   * redirect_url or qr_image_url */
+  payHandoff(
+    code: string,
+    method?: "alipay" | "wechat_pay",
+  ): Promise<{ url?: string; redirect_url?: string; qr_image_url?: string; expires_at?: string }> {
+    return this.request(
+      "POST",
+      `/v1/handoff/${encodeURIComponent(code)}/pay`,
+      method ? { method, return_url: `${window.location.origin}/p/${code}?back=1` } : { return_url: `${window.location.origin}/p/${code}?back=1` },
+      undefined,
+      { anonymous: true },
+    );
+  }
+
   // ------------------------------------------- spec v6.2: our Billing UI
 
   /** P15: a setup session for adding a method; 409 too_many_methods */

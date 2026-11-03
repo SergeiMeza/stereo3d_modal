@@ -925,11 +925,12 @@ describe("pay-now methods (S3D-60/61)", () => {
       expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
     );
     fireEvent.click(screen.getByTestId("checkout-main"));
-    const sheet = await screen.findByTestId("pay-now-sheet");
-    expect(within(sheet).getByRole("button", { name: "Alipay" })).toBeTruthy();
-    fireEvent.click(within(sheet).getByRole("button", { name: "WeChat Pay" }));
-    expect(await within(sheet).findByTestId("wechat-qr")).toBeTruthy();
-    expect(within(sheet).getByText(/^Scan with WeChat to pay \$\d+\.\d\d$/)).toBeTruthy();
+    // P6: no payment form script in China mode
+    const sheet = await screen.findByTestId("china-sheet");
+    expect(within(sheet).getByTestId("china-alipay").textContent).toBe("Alipay");
+    fireEvent.click(within(sheet).getByTestId("china-wechat"));
+    expect(await screen.findByTestId("wechat-qr")).toBeTruthy();
+    expect(screen.getByText(/^Scan with WeChat to pay \$\d+\.\d\d$/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Stripe|relay|proxy/i);
     china.value = false;
   });
