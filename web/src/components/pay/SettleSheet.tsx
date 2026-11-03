@@ -13,7 +13,7 @@ import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
-import type { CheckoutStart } from "@/lib/api/types";
+import { prepaidOf, type CheckoutStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 
@@ -21,6 +21,7 @@ import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   ALREADY_SETTLED,
+  BALANCE_SETTLE_FAILED,
   CHARGED_IN_USD,
   CONFIRMING,
   DECLINED,
@@ -87,6 +88,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fromBalance, setFromBalance] = useState<"idle" | "paying" | "failed">("idle");
 
   useEffect(() => {
     if (phase.kind !== "loading") return;
@@ -124,6 +126,18 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
     timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
   }
 
+  /** spec v7 N9: pay what's owed from the prepaid balance */
+  async function payFromBalance(start: CheckoutStart): Promise<void> {
+    setFromBalance("paying");
+    try {
+      await gateway.settleFromBalance();
+      setFromBalance("idle");
+      await handle("paid", start);
+    } catch {
+      setFromBalance("failed");
+    }
+  }
+
   async function handle(result: ConfirmResult, start: CheckoutStart): Promise<void> {
     switch (result) {
       case "paid": {
@@ -152,7 +166,9 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
   if (phase.kind === "ready" || phase.kind === "paying") {
     const start = phase.start;
     const notice = phase.kind === "ready" ? phase.notice : undefined;
-    const locked = phase.kind === "paying";
+    const locked = phase.kind === "paying" || fromBalance === "paying";
+    const prepaid = prepaidOf(billing.status);
+    const balanceCovers = prepaid !== null && prepaid.available_cents >= start.amount_cents;
     return (
       <CheckoutPane
         clientSecret={start.checkout.client_secret}
@@ -177,6 +193,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
                   <Button
                     size="lg"
                     data-testid="settle-main"
+                    variant={balanceCovers ? "outline" : "default"}
                     className={`w-full tabular-nums ${big ? "h-14 text-xl" : "h-12 text-base"}`}
                     disabled={!form.ready || locked}
                     onClick={async () => {
@@ -192,6 +209,32 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
             }
           >
             <div className={`flex flex-col gap-4 ${locked ? "pointer-events-none opacity-60" : ""}`}>
+              {balanceCovers ? (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="lg"
+                    data-testid="settle-balance"
+                    className={`w-full tabular-nums ${big ? "h-14 text-xl" : "h-12 text-base"}`}
+                    disabled={locked}
+                    onClick={() => void payFromBalance(start)}
+                  >
+                    {fromBalance === "paying" ? PAYING : `Pay ${formatCents(start.amount_cents)} from your balance`}
+                  </Button>
+                  <p className="text-center text-xs text-fg-muted tabular-nums">
+                    Balance {formatCents(prepaid.available_cents)}
+                  </p>
+                  {fromBalance === "failed" ? (
+                    <p data-testid="pay-error" className="text-sm text-red-400">
+                      {BALANCE_SETTLE_FAILED}
+                    </p>
+                  ) : null}
+                  <p className="flex items-center gap-3 pt-1 text-xs text-fg-muted">
+                    <span className="h-px flex-1 bg-edge" />
+                    or pay another way
+                    <span className="h-px flex-1 bg-edge" />
+                  </p>
+                </div>
+              ) : null}
               {notice === "too_many" ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
                   {TOO_MANY}

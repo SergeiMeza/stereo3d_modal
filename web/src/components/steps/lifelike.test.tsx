@@ -34,6 +34,8 @@ import { server } from "@/mocks/server";
 import projectFixture from "../../../fixtures/project.json";
 
 import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
+import { setMockWalletsForTests } from "@/components/pay/CheckoutPane";
+
 import { clearStepQuotes } from "./checkoutStore";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
@@ -589,6 +591,52 @@ describe("in a headset browser (S3D-47)", () => {
     "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/35.1.0.0 Chrome/126.0.0.0 VR Safari/537.36";
   afterEach(() => vi.restoreAllMocks());
 
+  function noSavedMethod() {
+    mockDb.billing.hasPaymentMethod = false;
+    mockDb.billing.card = undefined;
+    mockDb.billing.methods = [];
+  }
+
+  async function openPaySheet() {
+    renderPanel(<LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    return screen.findByTestId("pay-sheet");
+  }
+
+  it("pay sheet with a wallet: wallet first, cards under Pay with a card, another device as text (B13)", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    noSavedMethod();
+    const sheet = await openPaySheet();
+    expect(within(sheet).getByText("Wallet (test mode)")).toBeTruthy();
+    expect(within(sheet).queryByText("4242 4242 4242 4242")).toBeNull();
+    expect(within(sheet).getByTestId("pay-other-device").tagName).toBe("BUTTON");
+    expect(within(sheet).getByTestId("pay-main")).toBeTruthy();
+    fireEvent.click(within(sheet).getByTestId("pay-with-card"));
+    expect(within(sheet).getByText("4242 4242 4242 4242")).toBeTruthy();
+    act(() => clearStepQuotes());
+  });
+
+  it("pay sheet with no wallet: Pay on another device leads, Pay here instead shows the cards (B13)", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    setMockWalletsForTests(false);
+    try {
+      noSavedMethod();
+      const sheet = await openPaySheet();
+      expect(within(sheet).queryByText("Wallet (test mode)")).toBeNull();
+      expect(within(sheet).queryByTestId("pay-main")).toBeNull();
+      expect(within(sheet).getByTestId("pay-other-device").textContent).toBe("Pay on another device");
+      fireEvent.click(within(sheet).getByTestId("pay-here-instead"));
+      expect(within(sheet).getByText("4242 4242 4242 4242")).toBeTruthy();
+      expect(within(sheet).getByTestId("pay-main")).toBeTruthy();
+    } finally {
+      setMockWalletsForTests(true);
+      act(() => clearStepQuotes());
+    }
+  });
+
   it("previews ask for the headset's own format", async () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
     const quotes = captureBodies("/quotes");
@@ -985,5 +1033,61 @@ describe("5K and above keep one eye original (S3D-65)", () => {
     expect(screen.queryByTestId("original-eye-fixed")).toBeNull();
     const optional = within(screen.getByTestId("original-eye-optional"));
     expect((optional.getByLabelText("Keep one eye as the original") as HTMLInputElement).checked).toBe(false);
+  });
+});
+
+describe("prepaid balance on the run button (spec v7 P14)", () => {
+  function topped(cents: number) {
+    const pp = mockDb.billing.prepaid;
+    pp.balance_cents = cents;
+    pp.last_topup_at = "2026-11-01T00:00:00Z";
+    pp.topups = 1;
+  }
+  afterEach(() => act(() => clearStepQuotes()));
+
+  it("balance covers it: paid from the balance, the run holds and starts", async () => {
+    topped(500);
+    renderPanel(<LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("charge-timing-hint").textContent).toBe("Paid from your balance"),
+    );
+    expect(screen.queryByTestId("balance-short")).toBeNull();
+    await waitFor(() =>
+      expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    await waitFor(() => expect(mockDb.conversions.size).toBe(1));
+    const run = [...mockDb.conversions.values()][0];
+    expect(screen.queryByTestId("pay-sheet")).toBeNull();
+    expect(["balance_hold", "balance_settled"]).toContain(run.billing?.status);
+  });
+
+  it("balance short with auto-reload on: we'll add first", async () => {
+    topped(50);
+    mockDb.billing.prepaid.auto_reload = { enabled: true, below_cents: 1000, add_cents: 2500 };
+    renderPanel(<LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
+        "Paid from your balance. We'll add $25.00 first.",
+      ),
+    );
+  });
+
+  it("balance short with auto-reload off: the usual line plus Balance · Add funds", async () => {
+    topped(50);
+    renderPanel(<LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    expect((await screen.findByTestId("balance-short")).textContent).toBe("Balance $0.50 · Add funds");
+    expect(screen.getByTestId("charge-timing-hint").textContent).not.toContain("balance");
+  });
+
+  it("spend limit reached: disabled with Change limit", async () => {
+    mockDb.billing.prepaid.spend_limit_cents = 10000;
+    mockDb.billing.prepaid.month_spent_cents = 10000;
+    renderPanel(<LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("charge-timing-hint").textContent).toBe("You've reached your monthly spend limit."),
+    );
+    expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("change-limit")).toBeTruthy();
   });
 });

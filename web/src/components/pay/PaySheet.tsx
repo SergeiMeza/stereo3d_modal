@@ -185,12 +185,16 @@ export function PaySheet({
       <CheckoutPane
         clientSecret={checkout.client_secret}
         big={big}
+        collapseCards={big}
         returnQuery={`conversion=${encodeURIComponent(conversionId)}${
           projectId ? `&project=${encodeURIComponent(projectId)}` : ""
         }`}
       >
         {(form, formBody) => {
           const alipay = form.selected === "alipay";
+          // spec B13: a headset with no wallet here leads with paying on
+          // another device; "Pay here instead" shows the card fields
+          const elsewhereFirst = big && form.wallets === false && !form.cardsOpen;
           return (
             <SheetFrame
               open
@@ -206,12 +210,24 @@ export function PaySheet({
                   lines={[CHARGED_IN_USD, WITHDRAWAL_LINE]}
                   extra={alipay ? ALIPAY_LINE : undefined}
                   button={
+                    elsewhereFirst ? (
+                      <Button
+                        size="lg"
+                        data-testid="pay-other-device"
+                        className="h-14 w-full text-xl"
+                        onClick={() => setHandoff(true)}
+                      >
+                        Pay on another device
+                      </Button>
+                    ) : (
                     <Button
                       size="lg"
                       data-testid="pay-main"
                       className={`w-full tabular-nums ${big ? "h-14 text-xl" : "h-12 text-base"}`}
                       disabled={!form.ready || locked}
                       onClick={async () => {
+                        // headset: the card fields first, then pay
+                        if (!form.cardsOpen) return form.openCards();
                         setPhase({ kind: "paying", checkout });
                         handle(await form.confirm(), checkout);
                       }}
@@ -229,10 +245,20 @@ export function PaySheet({
                         </>
                       )}
                     </Button>
+                    )
                   }
                   foot={REFUNDED_IF_FAILS}
                   after={
-                    big ? (
+                    elsewhereFirst ? (
+                      <button
+                        type="button"
+                        data-testid="pay-here-instead"
+                        onClick={form.openCards}
+                        className="w-full py-3 text-center text-xl text-primary hover:underline"
+                      >
+                        Pay here instead
+                      </button>
+                    ) : big ? (
                       <button
                         type="button"
                         data-testid="pay-other-device"

@@ -48,6 +48,18 @@ export interface PayForm {
   /** a sentence the form itself wants shown (field errors) */
   message: string | null;
   confirm: () => Promise<ConfirmResult>;
+  /** the wallet row's result (spec B13): true some wallet shows, false
+   * none (headset: Pay on another device leads), null not known yet */
+  wallets: boolean | null;
+  /** the card fields are showing (headset: collapsed under "Pay with a card") */
+  cardsOpen: boolean;
+  openCards: () => void;
+}
+
+/** Test mode: whether the stand-in shows a wallet row. */
+let mockWallets = true;
+export function setMockWalletsForTests(on: boolean): void {
+  mockWallets = on;
 }
 
 /** The app's tokens, read once at runtime (globals.css), for Stripe. */
@@ -84,6 +96,7 @@ export function CheckoutPane({
   showSaveLine = true,
   returnQuery,
   setup = false,
+  collapseCards = false,
   children,
 }: {
   clientSecret: string;
@@ -97,11 +110,13 @@ export function CheckoutPane({
   returnQuery?: string;
   /** P15 adds a method: "or add another way", no business details */
   setup?: boolean;
+  /** headset (spec B13): wallet row first, card fields under "Pay with a card" */
+  collapseCards?: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   if (isMockSecret(clientSecret)) {
     return (
-      <MockPane clientSecret={clientSecret} showSaveLine={showSaveLine} setup={setup}>
+      <MockPane clientSecret={clientSecret} showSaveLine={showSaveLine} setup={setup} collapseCards={collapseCards}>
         {children}
       </MockPane>
     );
@@ -114,6 +129,7 @@ export function CheckoutPane({
       showSaveLine={showSaveLine}
       returnQuery={returnQuery}
       setup={setup}
+      collapseCards={collapseCards}
     >
       {children}
     </StripePane>
@@ -127,6 +143,7 @@ function StripePane({
   showSaveLine,
   returnQuery,
   setup,
+  collapseCards,
   children,
 }: {
   clientSecret: string;
@@ -135,6 +152,7 @@ function StripePane({
   showSaveLine: boolean;
   returnQuery?: string;
   setup: boolean;
+  collapseCards: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -144,7 +162,13 @@ function StripePane({
       stripe={stripe}
       options={{ clientSecret, elementsOptions: { appearance } }}
     >
-      <StripeForm big={big} showSaveLine={showSaveLine} returnQuery={returnQuery} setup={setup}>
+      <StripeForm
+        big={big}
+        showSaveLine={showSaveLine}
+        returnQuery={returnQuery}
+        setup={setup}
+        collapseCards={collapseCards}
+      >
         {children}
       </StripeForm>
     </CheckoutElementsProvider>
@@ -156,18 +180,22 @@ function StripeForm({
   showSaveLine,
   returnQuery,
   setup,
+  collapseCards,
   children,
 }: {
   big: boolean;
   showSaveLine: boolean;
   returnQuery?: string;
   setup: boolean;
+  collapseCards: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const result = useCheckoutElements();
   const [selected, setSelected] = useState<string | null>(null);
   const [business, setBusiness] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [wallets, setWallets] = useState<boolean | null>(null);
+  const [cardsOpen, setCardsOpen] = useState(!collapseCards);
   const ready = result.type === "success";
   // saving isn't offered for Alipay or WeChat Pay (never saved, B6)
   const savable = selected !== "alipay" && selected !== "wechat_pay";
@@ -176,6 +204,9 @@ function StripeForm({
     ready,
     selected,
     message,
+    wallets,
+    cardsOpen,
+    openCards: () => setCardsOpen(true),
     confirm: async () => {
       if (result.type !== "success") return "declined";
       setMessage(null);
@@ -210,18 +241,24 @@ function StripeForm({
                 buttonHeight: big ? 56 : 48,
               } as Parameters<typeof ExpressCheckoutElement>[0]["options"]
             }
+            // spec B13: the wallet row says whether any wallet shows here
+            onReady={(e) => setWallets(e.availablePaymentMethods !== undefined && e.availablePaymentMethods !== null)}
             onConfirm={async (event) => {
               if (result.type === "success") {
                 await result.checkout.confirm({ expressCheckoutConfirmEvent: event });
               }
             }}
           />
-          <Divider setup={setup} />
-          <PaymentElement
-            options={{ layout: { type: "tabs" } }}
-            onChange={(e) => setSelected(e.value?.type ?? null)}
-          />
-          {!setup ? (
+          {wallets !== false && cardsOpen ? <Divider setup={setup} /> : null}
+          {cardsOpen ? (
+            <PaymentElement
+              options={{ layout: { type: "tabs" } }}
+              onChange={(e) => setSelected(e.value?.type ?? null)}
+            />
+          ) : wallets !== false ? (
+            <CardsToggle big={big} onOpen={() => setCardsOpen(true)} />
+          ) : null}
+          {!setup && cardsOpen ? (
             <button
               type="button"
               onClick={() => setBusiness((b) => !b)}
@@ -230,10 +267,10 @@ function StripeForm({
               {business ? REMOVE_BUSINESS : ADD_BUSINESS}
             </button>
           ) : null}
-          {business && !setup ? (
+          {business && !setup && cardsOpen ? (
             <TaxIdElement options={{ visibility: "always", fields: { businessName: "always" } }} />
           ) : null}
-          {showSaveLine && savable ? <SaveLine /> : null}
+          {showSaveLine && savable && cardsOpen ? <SaveLine /> : null}
         </>
       ) : null}
     </div>
@@ -246,19 +283,26 @@ function MockPane({
   clientSecret,
   showSaveLine,
   setup = false,
+  collapseCards = false,
   children,
 }: {
   clientSecret: string;
   showSaveLine: boolean;
   setup?: boolean;
+  collapseCards?: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const [selected, setSelected] = useState<string>("card");
   const [business, setBusiness] = useState(false);
+  const [wallets] = useState(mockWallets);
+  const [cardsOpen, setCardsOpen] = useState(!collapseCards);
   const form: PayForm = {
     ready: true,
     selected,
     message: null,
+    wallets,
+    cardsOpen,
+    openCards: () => setCardsOpen(true),
     confirm: async () => {
       const res = await fetch(
         `${GATEWAY}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
@@ -270,49 +314,71 @@ function MockPane({
   };
   const body = (
     <div data-testid="mock-checkout" className="flex flex-col gap-4">
-      <div className="flex h-12 items-center justify-center rounded-lg bg-black text-sm font-medium text-white">
-        Wallet (test mode)
-      </div>
-      <Divider setup={setup} />
-      <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2">
-        {(setup ? (["card", "paypal"] as const) : (["card", "alipay"] as const)).map((m) => (
+      {wallets ? (
+        <div className="flex h-12 items-center justify-center rounded-lg bg-black text-sm font-medium text-white">
+          Wallet (test mode)
+        </div>
+      ) : null}
+      {wallets && cardsOpen ? <Divider setup={setup} /> : null}
+      {!cardsOpen ? (
+        wallets ? <CardsToggle big={collapseCards} onOpen={() => setCardsOpen(true)} /> : null
+      ) : (
+        <>
+        <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2">
+          {(setup ? (["card", "paypal"] as const) : (["card", "alipay"] as const)).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={selected === m}
+              onClick={() => setSelected(m)}
+              className={`h-12 rounded-lg border text-sm ${
+                selected === m ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted"
+              }`}
+            >
+              {m === "card" ? "Card" : m === "paypal" ? "PayPal" : "Alipay"}
+            </button>
+          ))}
+        </div>
+        {selected === "card" ? (
+          <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 font-mono text-sm text-fg-muted">
+            4242 4242 4242 4242
+          </div>
+        ) : null}
+        {!setup ? (
           <button
-            key={m}
             type="button"
-            role="radio"
-            aria-checked={selected === m}
-            onClick={() => setSelected(m)}
-            className={`h-12 rounded-lg border text-sm ${
-              selected === m ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted"
-            }`}
+            onClick={() => setBusiness((b) => !b)}
+            className="w-fit text-sm text-primary hover:underline"
           >
-            {m === "card" ? "Card" : m === "paypal" ? "PayPal" : "Alipay"}
+            {business ? REMOVE_BUSINESS : ADD_BUSINESS}
           </button>
-        ))}
-      </div>
-      {selected === "card" ? (
-        <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 font-mono text-sm text-fg-muted">
-          4242 4242 4242 4242
-        </div>
-      ) : null}
-      {!setup ? (
-        <button
-          type="button"
-          onClick={() => setBusiness((b) => !b)}
-          className="w-fit text-sm text-primary hover:underline"
-        >
-          {business ? REMOVE_BUSINESS : ADD_BUSINESS}
-        </button>
-      ) : null}
-      {business && !setup ? (
-        <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
-          Tax ID
-        </div>
-      ) : null}
-      {showSaveLine && selected !== "alipay" ? <SaveLine /> : null}
+        ) : null}
+        {business && !setup ? (
+          <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
+            Tax ID
+          </div>
+        ) : null}
+        {showSaveLine && selected !== "alipay" ? <SaveLine /> : null}
+        </>
+      )}
     </div>
   );
   return <>{children(form, body)}</>;
+}
+
+/** Headset: the card fields wait under "Pay with a card" (spec B13). */
+function CardsToggle({ big, onOpen }: { big: boolean; onOpen: () => void }): JSX.Element {
+  return (
+    <button
+      type="button"
+      data-testid="pay-with-card"
+      onClick={onOpen}
+      className={`w-full rounded-lg border border-edge text-fg hover:bg-surface-2 ${big ? "h-14 text-xl" : "h-12 text-sm"}`}
+    >
+      Pay with a card
+    </button>
+  );
 }
 
 function Divider({ setup = false }: { setup?: boolean }): JSX.Element {

@@ -85,6 +85,8 @@ export const SPEND_LIMIT_REACHED = "You've reached your monthly spend limit.";
 export const TOPUP_SMALL_PRINT =
   "Unspent funds can be refunded within 14 days. Your balance expires 12 months after your last top-up.";
 export const TOPUP_MIN = "The minimum is $10.";
+/** P2 from the balance, when it no longer covers it (not in the spec's copy) */
+export const BALANCE_SETTLE_FAILED = "Your balance doesn't cover it any more. Pay another way.";
 export const TOPUP_DAILY = "You've reached today's limit. Try again tomorrow.";
 
 /** "Paid from your balance. We'll add $25.00 first." */

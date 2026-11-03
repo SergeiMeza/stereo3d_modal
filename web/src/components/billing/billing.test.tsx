@@ -165,6 +165,24 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
     expect(mockDb.billing.unpaid).toHaveLength(0);
   });
 
+  it("the balance covers it: Pay $X from your balance, the form under or pay another way (spec v7 P2)", async () => {
+    seedDebt(725);
+    const pp = mockDb.billing.prepaid;
+    pp.balance_cents = 2000;
+    pp.last_topup_at = "2026-11-01T00:00:00Z";
+    pp.topups = 1;
+    renderShell();
+    fireEvent.click(await screen.findByTestId("billing-pay"));
+    const main = await screen.findByTestId("settle-balance");
+    expect(main.textContent).toBe("Pay $7.25 from your balance");
+    expect(screen.getAllByText("or pay another way").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("settle-main")).toBeTruthy();
+    fireEvent.click(main);
+    expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
+    expect(mockDb.billing.unpaid).toHaveLength(0);
+    expect(mockDb.billing.prepaid.balance_cents).toBe(1275);
+  });
+
   it("a payment still in progress: Confirming your payment…, no button", async () => {
     seedDebt();
     renderShell();
