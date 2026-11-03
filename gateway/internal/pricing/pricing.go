@@ -193,6 +193,12 @@ type Rates struct {
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
 	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
+	// File keeping (S3D-24), see the accessors: days without use before a
+	// project's files go (90), the notice mails' days before (14, 3), days
+	// a deleted project's files are kept for disputes (30).
+	FileKeepDays            int   `firestore:"file_keep_days"`
+	FileNoticeDays          []int `firestore:"file_notice_days"`
+	DeletedProjectPurgeDays int   `firestore:"deleted_project_purge_days"`
 	// LifelikeEnabledPresets: the Lifelike sizes the service renders
 	// today (see EnabledLifelikePresets).
 	LifelikeEnabledPresets   []string `firestore:"lifelike_enabled_presets"`
@@ -945,6 +951,41 @@ func (r *Rates) EnabledLifelikePresets() []string {
 }
 
 // GPUCap is the per-app GPU cap the alerts report against.
+// FileKeep is how long a project's files stay without use (S3D-24,
+// file_keep_days; 0/absent = 90 days).
+func (r *Rates) FileKeep() time.Duration {
+	if r.FileKeepDays > 0 {
+		return time.Duration(r.FileKeepDays) * 24 * time.Hour
+	}
+	return 90 * 24 * time.Hour
+}
+
+// FileNotices are the notice mails' lead times before the files go,
+// longest first (file_notice_days; absent/none positive = 14 and 3 days).
+func (r *Rates) FileNotices() []time.Duration {
+	var out []time.Duration
+	for _, d := range r.FileNoticeDays {
+		if d > 0 {
+			out = append(out, time.Duration(d)*24*time.Hour)
+		}
+	}
+	if len(out) == 0 {
+		return []time.Duration{14 * 24 * time.Hour, 3 * 24 * time.Hour}
+	}
+	slices.Sort(out)
+	slices.Reverse(out)
+	return slices.Compact(out)
+}
+
+// DeletedProjectPurge is how long a deleted project's files are kept
+// before the purge (deleted_project_purge_days; 0/absent = 30 days).
+func (r *Rates) DeletedProjectPurge() time.Duration {
+	if r.DeletedProjectPurgeDays > 0 {
+		return time.Duration(r.DeletedProjectPurgeDays) * 24 * time.Hour
+	}
+	return 30 * 24 * time.Hour
+}
+
 func (r *Rates) GPUCap() int {
 	if r.GPUCapPerApp > 0 {
 		return r.GPUCapPerApp

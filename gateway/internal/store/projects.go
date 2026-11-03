@@ -91,6 +91,16 @@ func (s *Store) ListProjectsAnalyzing(ctx context.Context, limit int) ([]*Projec
 
 // UpdateProject transactionally mutates a project.
 func (s *Store) UpdateProject(ctx context.Context, id string, mutate func(p *Project) error) (*Project, error) {
+	return s.updateProject(ctx, id, true, mutate)
+}
+
+// UpdateProjectQuiet is UpdateProject without bumping updated_at — for
+// bookkeeping the customer didn't do (the file-keeping clock).
+func (s *Store) UpdateProjectQuiet(ctx context.Context, id string, mutate func(p *Project) error) (*Project, error) {
+	return s.updateProject(ctx, id, false, mutate)
+}
+
+func (s *Store) updateProject(ctx context.Context, id string, bump bool, mutate func(p *Project) error) (*Project, error) {
 	var result *Project
 	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		snap, err := tx.Get(s.projDoc(id))
@@ -108,7 +118,9 @@ func (s *Store) UpdateProject(ctx context.Context, id string, mutate func(p *Pro
 		if err := mutate(&p); err != nil {
 			return err
 		}
-		p.UpdatedAt = time.Now().UTC()
+		if bump {
+			p.UpdatedAt = time.Now().UTC()
+		}
 		result = &p
 		return tx.Set(s.projDoc(id), &p)
 	})
@@ -177,4 +189,80 @@ func (s *Store) ListProjectConversions(ctx context.Context, projectID string, li
 		Where("project_id", "==", projectID).
 		OrderBy("created_at", firestore.Desc).
 		Limit(limit).Documents(ctx))
+}
+
+func (s *Store) collectProjects(iter *firestore.DocumentIterator) ([]*Project, error) {
+	defer iter.Stop()
+	var out []*Project
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		var p Project
+		if err := snap.DataTo(&p); err != nil {
+			return nil, err
+		}
+		p.ID = snap.Ref.ID
+		out = append(out, &p)
+	}
+}
+
+// ListProjectsFilesDueBy returns projects whose files_delete_at is at or
+// before t, soonest first (file-keeping sweep; single-field index).
+func (s *Store) ListProjectsFilesDueBy(ctx context.Context, t time.Time, limit int) ([]*Project, error) {
+	return s.collectProjects(s.fs.Collection(projectsCol(s.env)).
+		Where("files_delete_at", "<=", t).
+		OrderBy("files_delete_at", firestore.Asc).
+		Limit(limit).Documents(ctx))
+}
+
+// ListProjectsBySource returns the projects made from one upload (a
+// project re-created on the same upload shares its source file).
+func (s *Store) ListProjectsBySource(ctx context.Context, gcsKey string) ([]*Project, error) {
+	return s.collectProjects(s.fs.Collection(projectsCol(s.env)).
+		Where("source.gcs_key", "==", gcsKey).Limit(50).Documents(ctx))
+}
+
+// EachProject calls fn for every project of the env, in pages (the
+// file-keeping backfill).
+func (s *Store) EachProject(ctx context.Context, fn func(p *Project) error) error {
+	var last *firestore.DocumentSnapshot
+	for {
+		q := s.fs.Collection(projectsCol(s.env)).OrderBy(firestore.DocumentID, firestore.Asc).Limit(300)
+		if last != nil {
+			q = q.StartAfter(last)
+		}
+		iter := q.Documents(ctx)
+		n := 0
+		for {
+			snap, err := iter.Next()
+			if isIterDone(err) {
+				break
+			}
+			if err != nil {
+				iter.Stop()
+				return err
+			}
+			n++
+			last = snap
+			var p Project
+			if err := snap.DataTo(&p); err != nil {
+				iter.Stop()
+				return err
+			}
+			p.ID = snap.Ref.ID
+			if err := fn(&p); err != nil {
+				iter.Stop()
+				return err
+			}
+		}
+		iter.Stop()
+		if n < 300 {
+			return nil
+		}
+	}
 }

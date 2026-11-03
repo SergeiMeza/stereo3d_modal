@@ -812,6 +812,11 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 	if conv.ProjectID != "" {
 		if p, perr := s.Store.GetProject(ctx, conv.ProjectID); perr == nil {
 			project = p
+			if err := requireFiles(p); err != nil { // S3D-24: erased
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+			project = s.noteProjectUse(ctx, p, false) // downloading is a use
 		}
 		convs, lerr := s.Store.ListProjectConversions(ctx, conv.ProjectID, 100)
 		if lerr != nil || !slices.ContainsFunc(convs, func(c *store.Conversion) bool { return c.ID == conv.ID }) {

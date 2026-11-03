@@ -241,7 +241,8 @@ keeps `billing_overdue`; account deletion still collects dues first.
 spent_cents}` (spent counts charged, pre-charged, batched and owed runs; not
 refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a
 project (409 while a run is active): it and its runs answer 404 and leave
-the lists; the record and files stay for the manual purge. Download `files`
+the lists; the record stays and its files are purged 30 days later (see
+File keeping). Download `files`
 entries carry `size_bytes`; links are signed afresh on every GET. Project
 runs download as `<original stem>_<resolution>[_partN]_<layout>.<ext>`
 (S3D-31: layout `spatial` .mov, `SBS`/`HSBS`/`TB`/`HTB` .mp4; resolution
@@ -284,10 +285,42 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
 | `gpu_cap_per_app` | 8 — GPUs per Modal app, the "busy N of cap" in the GPU-line mail |
+| `file_keep_days` | 90 — days without use before a project's files are erased (S3D-24) |
+| `file_notice_days` | `[14, 3]` — notice mails, days before |
+| `deleted_project_purge_days` | 30 — a deleted project's files are kept this long |
 
 Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
 (default to the Modal token).
+
+### File keeping (S3D-24)
+
+A project's stored files — the original upload, proxy and thumbnails, a
+depth upload, every run's outputs (`outputs/<job>/` of its analyze,
+profile and run jobs) — are erased after `file_keep_days` without use.
+Use = `GET /v1/projects/{id}`, starting a run (`POST …/conversions`), a
+download, or `POST /v1/projects/{id}/keep` (→ `{project_id,
+files_delete_at: null}`); each restarts the clock (written at most hourly
+unless a notice already went out). Projects show `files_delete_at` only
+once a deletion is scheduled (inside the 14-day window), and
+`files_deleted_at` after the erase; then downloads, quotes, runs,
+analyze/profile and depth uploads answer 410 `files_deleted`. Records and
+billing stay. Notices: one mail per account per notice listing its
+projects ("Stereo3D Studio: files of N projects will be deleted on …"),
+14 and 3 days before; a project is erased only once its last notice went
+out its full lead time ago (a late notice moves the date). Deleted
+projects (`POST …/delete`) are erased 30 days after deletion, no notices.
+Accounts deleted through `/v1/account/delete` are skipped (manual purge).
+A source shared with a re-created project stays until the last of them
+goes; a project with a run in progress waits.
+
+The sweep runs from the reconciler at most hourly (`ops_{env}/file_keeping`);
+its first run dates every existing project (last change + 90 days, never
+sooner than 14 days out, so everyone gets both notices). Test env: only
+test accounts — the owner's (`OWNER_ALERT_EMAIL`) and
+`FILE_KEEPING_TEST_ACCOUNTS` — are real, their notices mailed to the
+owner's address; every other test project is a dry run (notices and
+erases logged, nothing mailed or erased). Prod is real for everyone.
 
 ### GPU-line alert (S3D-34)
 

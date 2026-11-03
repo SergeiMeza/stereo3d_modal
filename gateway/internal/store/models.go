@@ -561,11 +561,29 @@ type Project struct {
 	SceneThumbs  []Thumb       `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
 	Archived     bool          `firestore:"archived" json:"archived"`
 	// Deleted: removed by the user (POST /v1/projects/{id}/delete, S3D-24).
-	// Soft delete like account deletion: the record and its files stay for
-	// a manual purge; the API answers 404 for the project and its runs.
+	// Soft delete: the API answers 404 for the project and its runs at
+	// once; the record stays, its stored files are purged
+	// deleted_project_purge_days later (kept for disputes).
 	Deleted   bool       `firestore:"deleted,omitempty" json:"-"`
 	DeletedAt *time.Time `firestore:"deleted_at,omitempty" json:"-"`
-	Pinned    bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
-	CreatedAt time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `firestore:"updated_at" json:"updated_at"`
+	// File keeping (S3D-24, file_keeping.go). LastActivityAt: the last
+	// use (opened, run started, download, keep). FilesDeleteAt: when the
+	// files go — last use + file_keep_days, a deleted project's deletion
+	// + deleted_project_purge_days; never sooner than the last notice's
+	// lead time after that notice went out. FilesNoticeDays: the shortest
+	// notice (days before) sent for the current date, 0 = none yet.
+	// FilesDeletedAt: when the files were erased (the record and billing
+	// stay). The API shows files_delete_at only once a deletion is
+	// scheduled (inside the notice window), see projectResponse.
+	LastActivityAt  *time.Time `firestore:"last_activity_at,omitempty" json:"-"`
+	FilesDeleteAt   *time.Time `firestore:"files_delete_at,omitempty" json:"-"`
+	FilesNoticeDays int        `firestore:"files_notice_days,omitempty" json:"-"`
+	FilesNoticeAt   *time.Time `firestore:"files_notice_at,omitempty" json:"-"`
+	FilesDeletedAt  *time.Time `firestore:"files_deleted_at,omitempty" json:"files_deleted_at,omitempty"`
+	// FilesDryRunAt: a dry-run purge (test env) logged what it would
+	// erase, so later sweeps stay quiet.
+	FilesDryRunAt *time.Time `firestore:"files_dry_run_at,omitempty" json:"-"`
+	Pinned        bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
+	CreatedAt     time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt     time.Time  `firestore:"updated_at" json:"updated_at"`
 }

@@ -174,6 +174,7 @@ func main() {
 	mux.HandleFunc("PATCH /v1/projects/{id}", authed(withID(svc.HandleUpdateProject)))
 	mux.HandleFunc("DELETE /v1/projects/{id}", authed(withID(svc.HandleArchiveProject)))
 	mux.HandleFunc("POST /v1/projects/{id}/delete", authed(withID(svc.HandleDeleteProject)))
+	mux.HandleFunc("POST /v1/projects/{id}/keep", authed(withID(svc.HandleKeepProject)))
 	mux.HandleFunc("PATCH /v1/projects/{id}/scenes", authed(withID(svc.HandleUpdateScenes)))
 	mux.HandleFunc("POST /v1/projects/{id}/depth-map", authed(withID(svc.HandleSetProjectDepthMap)))
 	mux.HandleFunc("DELETE /v1/projects/{id}/depth-map", authed(withID(svc.HandleDeleteProjectDepthMap)))

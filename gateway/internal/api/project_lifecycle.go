@@ -11,10 +11,11 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// POST /v1/projects/{id}/delete — "Delete project" (S3D-24). Soft delete,
-// the same rule as account deletion: the project is flagged and disappears
-// from the account (lists, GETs, its runs and downloads all answer 404);
-// the record and its stored files stay for the owner's manual purge.
+// POST /v1/projects/{id}/delete — "Delete project" (S3D-24). Soft delete:
+// the project is flagged and disappears from the account at once (lists,
+// GETs, its runs and downloads all answer 404); the record stays, and its
+// stored files are purged deleted_project_purge_days (30) later (kept for
+// disputes, not restorable by the customer; file_keeping.go).
 // Refused while a run is active. DELETE /v1/projects/{id} stays archive.
 // Money already owed is untouched: batched and failed charges stay on the
 // account's balance and settle through /v1/billing as before.
@@ -30,10 +31,17 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	now := time.Now().UTC()
+	purgeAt := now.Add(s.rates(ctx).DeletedProjectPurge())
 	if _, err := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
 		if !pp.Deleted {
 			pp.Deleted = true
 			pp.DeletedAt = &now
+			// The files stay for disputes, then the file-keeping sweep
+			// purges them (S3D-24); no notices for a deleted project.
+			if pp.FilesDeletedAt == nil {
+				pp.FilesDeleteAt = &purgeAt
+				pp.FilesNoticeDays, pp.FilesNoticeAt = 0, nil
+			}
 		}
 		// Stop the sweeps from polling (and Slack-alerting on) the free
 		// jobs canceled below.

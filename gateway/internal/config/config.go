@@ -63,6 +63,11 @@ type Config struct {
 	OwnerAlertEmail string
 	// SiteURL is the web app's origin, for links in customer mails.
 	SiteURL string
+	// FileKeepingTestAccounts: on test, the accounts (emails) whose
+	// projects' files the file-keeping purge really erases; every other
+	// test project is a dry run (logged only). The owner's alert address
+	// always counts. Prod ignores it and erases for real.
+	FileKeepingTestAccounts []string
 
 	// CORSOrigins are browser origins allowed to call the API (the web
 	// client). Comma-separated; "*" allows all (bearer auth, no cookies).
@@ -107,6 +112,11 @@ func Load() (*Config, error) {
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
 		OwnerAlertEmail:  getenv("OWNER_ALERT_EMAIL", ""),
 		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
+	}
+	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			c.FileKeepingTestAccounts = append(c.FileKeepingTestAccounts, e)
+		}
 	}
 	lifelike := ""
 	if env == "test" {

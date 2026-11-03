@@ -117,6 +117,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		Source:  store.Source{GCSKey: req.GCSKey, Bytes: size},
 		Analyze: store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
 	}
+	noteUse(p, time.Now().UTC(), s.rates(ctx).FileKeep()) // S3D-24 clock
 	if err := s.Store.CreateProject(ctx, p); err != nil {
 		_ = s.Modal.CancelJob(ctx, resp.JobID)
 		httpx.WriteErr(ctx, w, err)
@@ -136,6 +137,10 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 	ctx := r.Context()
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if err := requireFiles(p); err != nil { // S3D-24
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -297,6 +302,7 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	p = s.noteProjectUse(ctx, p, false) // opening is a use (S3D-24)
 	if refreshed, rerr := s.refreshAnalyze(ctx, p); rerr == nil && refreshed != nil {
 		p = refreshed
 	}
@@ -362,6 +368,10 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 	ctx := r.Context()
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if err := requireFiles(p); err != nil { // S3D-24
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -480,6 +490,10 @@ func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if err := requireFiles(p); err != nil { // S3D-24
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -1103,6 +1117,10 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
 	var req stepConvReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -1178,6 +1196,11 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	p = s.noteProjectUse(ctx, p, false) // starting a run is a use (S3D-24)
 	idemKey := r.Header.Get("Idempotency-Key")
 	if idemKey != "" {
 		prior, ferr := s.Store.FindByIdemKey(ctx, user.UID, idemKey)
@@ -1466,6 +1489,14 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	if len(p.StripThumbs) > 0 {
 		resp["strip_thumbs"] = p.StripThumbs
 		resp["scene_thumbs"] = p.SceneThumbs
+	}
+	// S3D-24: files_delete_at only once a deletion is scheduled;
+	// files_deleted_at once they're gone.
+	if at := s.filesDeleteAtFor(p); at != nil {
+		resp["files_delete_at"] = at.Format(time.RFC3339)
+	}
+	if p.FilesDeletedAt != nil {
+		resp["files_deleted_at"] = p.FilesDeletedAt.Format(time.RFC3339)
 	}
 	if conversions != nil {
 		resp["conversions"] = conversions
