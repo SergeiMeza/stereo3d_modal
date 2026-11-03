@@ -250,7 +250,9 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_source_duration_s` | 0 (unlimited); Classic keeps `max_source_duration_s` (600) |
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |
-| `preview_minimum_cents` | 100 — every preview's floor (lifelike_preview, depth_preview, stereo_preview); other runs keep `minimum_cents` (50) |
+| `pro_minimum_cents` | 100 — every paid pro-step run of both methods (S3D-17) |
+| `preview_minimum_cents` | 100 — previews (lifelike_preview, depth_preview, stereo_preview) |
+| `minimum_cents` | 50 — unchanged: the mobile one-shot's floor and the smallest grouped charge |
 | `lifelike_price_cents_per_minute` | 1080p 300 · qhd 450 · 3k 700 · 4k 850 · 5k 1300 · 6k 1600 · 8k 2200 (S3D-11) |
 | `foveation_enabled` / `foveation_price_multiplier` | false / 1.3 |
 | `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` |

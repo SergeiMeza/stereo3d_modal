@@ -30,8 +30,8 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		{"4k", 120, 24, 1530},
 		// 48 fps doubles the frames: 1 min of 1080p = $6 (under the $10 discount)
 		{"1080p", 60, 48, 600},
-		// a 5 s production floors at the 50¢ minimum (450 × 5/60 = 38¢)
-		{"1080p", 5, 24, 50},
+		// a 5 s production floors at the $1 pro-step minimum (300 × 5/60 = 25¢)
+		{"1080p", 5, 24, 100},
 	}
 	for _, tc := range cases {
 		for _, step := range []string{"production"} { // previews are flat (TestLifelikePreviewIsFlat)
@@ -182,8 +182,20 @@ func TestPerRunMinimum(t *testing.T) {
 	if (&Rates{}).PreviewMinimum() != 100 {
 		t.Error("preview minimum defaults to 100")
 	}
-	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 50 {
-		t.Errorf("lifelike 5 s production floors at 50: %d", q.AmountCents)
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 100 {
+		t.Errorf("lifelike 5 s production floors at the $1 pro minimum: %d", q.AmountCents)
+	}
+	if q, _ := s.QuoteStep(ctx, StepInputs{Step: "production", Preset: "draft", BillableS: 2, EffectiveFPS: 24}); q.AmountCents != 100 {
+		t.Errorf("classic 2 s production floors at the $1 pro minimum: %d", q.AmountCents)
+	}
+	if (&Rates{}).ProMinimum() != 100 {
+		t.Error("pro minimum defaults to 100")
+	}
+	// the mobile one-shot keeps minimum_cents (50) — shipped apps unchanged
+	m := defaults()
+	m.MinBillableSeconds = 0
+	if q, _ := defaultsService(m).QuoteVideo(ctx, VideoInputs{Preset: "draft", BillableS: 5}); q.AmountCents != 50 {
+		t.Errorf("mobile minimum: %d", q.AmountCents)
 	}
 }
 
@@ -217,7 +229,7 @@ func TestPublicPricing(t *testing.T) {
 	if _, ok := cl["4k"]; ok {
 		t.Errorf("classic pro steps stop at 3k (S3D-12): %v", cl)
 	}
-	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
+	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(100) {
 		t.Errorf("thresholds: %v", p)
 	}
 	if _, ok := p["balance"]; ok {

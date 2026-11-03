@@ -39,8 +39,11 @@ type Rates struct {
 	// applies. 0 disables the free tier.
 	FreeImagesPerDay int   `firestore:"free_images_per_day"`
 	MinimumCents     int64 `firestore:"minimum_cents"`
-	// PreviewMinimumCents floors every preview run (both methods) instead
-	// of MinimumCents (S3D-13/17); 0/absent = 100.
+	// ProMinimumCents floors every paid pro-step run of both methods
+	// (S3D-17: $1.00); PreviewMinimumCents can set previews apart (both
+	// 100 by default). MinimumCents (50) stays the mobile one-shot's floor
+	// and the smallest grouped charge, so shipped apps don't change.
+	ProMinimumCents     int64 `firestore:"pro_minimum_cents"`
 	PreviewMinimumCents int64 `firestore:"preview_minimum_cents"`
 	// Batched billing (charge-on-success steps accumulate into one charge
 	// per account — a burst of small same-merchant charges is what issuer
@@ -946,15 +949,23 @@ func (r *Rates) PreviewMinimum() int64 {
 	return 100
 }
 
+// ProMinimum is the per-run floor of a paid pro step (pro_minimum_cents;
+// 0/absent = 100).
+func (r *Rates) ProMinimum() int64 {
+	if r.ProMinimumCents > 0 {
+		return r.ProMinimumCents
+	}
+	return 100
+}
+
 // MinimumFor is a pro step's per-run floor: previews (lifelike_preview,
-// depth_preview, stereo_preview) PreviewMinimum, everything else
-// minimum_cents.
+// depth_preview, stereo_preview) PreviewMinimum, production ProMinimum.
 func (r *Rates) MinimumFor(step string) int64 {
 	switch step {
 	case StepLifelikePreview, "depth_preview", "stereo_preview":
 		return r.PreviewMinimum()
 	}
-	return r.MinimumCents
+	return r.ProMinimum()
 }
 
 // FoveationMultiplier scales a foveated Lifelike run's price (S3D-50,
@@ -1032,8 +1043,8 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
 	}
 	total := subtotal - bulkDiscount - in.CreditCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
+	if floor := rates.MinimumFor(in.Step); total < floor {
+		total = floor
 	}
 	return &Quote{
 		AmountCents: total,
@@ -1189,9 +1200,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"threshold_cents": rates.DiscountThresholdCents,
 			"pct":             rates.DiscountPct,
 		},
-		// per run, both methods, Lifelike previews included (S3D-17)
-		"minimum_cents": rates.MinimumCents,
-		// previews of either method (S3D-13/17)
+		// every paid run of either method, previews included (S3D-17)
+		"minimum_cents":             rates.ProMinimum(),
 		"preview_minimum_cents":     rates.PreviewMinimum(),
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
 	}

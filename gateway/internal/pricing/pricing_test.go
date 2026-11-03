@@ -209,8 +209,8 @@ func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
 	q = quoteStep(t, StepInputs{
 		Step: "production", Preset: "draft", BillableS: 10, CreditCents: 5000,
 	})
-	if q.AmountCents != 50 {
-		t.Errorf("production keeps minimum_cents 50, got %d", q.AmountCents)
+	if q.AmountCents != 100 {
+		t.Errorf("production floors at the $1 pro minimum, got %d", q.AmountCents)
 	}
 }
 
