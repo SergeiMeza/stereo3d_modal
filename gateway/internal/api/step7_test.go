@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -210,5 +212,42 @@ func TestPreviewPeriodAndTopupDailyCap(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &out)
 	if rec.Code != http.StatusUnprocessableEntity || out.Error != "topup_daily_cap" || out.Details["day_left_cents"] != float64(5000) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+// Tier order studio > business > pro: a plan reached through RevenueCat
+// gets the plan's rate and allowance, never Pro Monthly's; the Stripe
+// mirror stays the plan's source, and the higher tier wins.
+func TestTierOrderWithRevenueCat(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	bodies := map[string]string{}
+	rc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(bodies[strings.TrimPrefix(r.URL.Path, "/v1/subscribers/")]))
+	}))
+	t.Cleanup(rc.Close)
+	s.RevenueCat = revenuecat.New("k").WithBase(rc.URL, time.Now)
+	until := time.Now().Add(20 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	// Business through "pro" only (no mirror yet): business, not pro_monthly.
+	a := "u" + store.NewID()
+	bodies[a] = `{"subscriber":{"entitlements":{"pro":{"expires_date":"` + until + `","product_identifier":"prod_VYiOG5FegIJiFK"}}}}`
+	if at := s.accountTier(ctx, a); at.Tier != pricing.TierBusiness || at.AllowanceKey != "business" {
+		t.Fatalf("rc business: %+v", at)
+	}
+	// Mirror says business, RevenueCat says studio: studio.
+	b := "u" + store.NewID()
+	end := time.Now().Add(20 * 24 * time.Hour)
+	s.Store.PutCustomer(ctx, b, &store.Customer{StripeCustomerID: "cus_1", Plan: &store.Plan{Tier: "business", SubscriptionID: "sub_1", Status: "active", CurrentPeriodEnd: &end}})
+	bodies[b] = `{"subscriber":{"entitlements":{"studio":{"expires_date":"` + until + `","product_identifier":"prod_VYiOZAbAXiJP29"},"pro":{"expires_date":"` + until + `","product_identifier":"prod_VYiOZAbAXiJP29"}}}}`
+	if at := s.accountTier(ctx, b); at.Tier != pricing.TierStudio || at.AllowanceKey != "studio" {
+		t.Fatalf("studio wins: %+v", at)
+	}
+	// Mirror business, RevenueCat plain Pro Monthly: business (with its credit plan).
+	c := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, c, &store.Customer{StripeCustomerID: "cus_1", Plan: &store.Plan{Tier: "business", SubscriptionID: "sub_2", Status: "active", CurrentPeriodEnd: &end}})
+	bodies[c] = `{"subscriber":{"entitlements":{"pro":{"expires_date":"` + until + `","product_identifier":"pro_subs_1m_v1"}}}}`
+	if at := s.accountTier(ctx, c); at.Tier != pricing.TierBusiness || at.Plan == nil {
+		t.Fatalf("mirror plan over Pro: %+v", at)
 	}
 }

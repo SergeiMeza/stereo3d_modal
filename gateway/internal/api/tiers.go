@@ -27,33 +27,64 @@ type accountTier struct {
 // RevenueCat key, an error) is "not Pro": list prices, never blocked.
 func (s *Service) accountTier(ctx context.Context, uid string) accountTier {
 	now := time.Now().UTC()
+	// The Stripe mirror (cust.Plan) is the source of truth for the plan
+	// and its credit; RevenueCat adds Pro and, as a cross-source, the
+	// business/studio entitlements. The highest tier wins: studio >
+	// business > pro.
+	var best accountTier
 	if s.Store != nil {
 		if cust, err := s.Store.GetCustomer(ctx, uid); err == nil && cust.Plan.Active(now) {
 			if _, ok := s.rates(ctx).Plan(cust.Plan.Tier); ok {
-				at := accountTier{Tier: cust.Plan.Tier, AllowanceKey: cust.Plan.Tier, Plan: cust.Plan, PeriodEnd: cust.Plan.CurrentPeriodEnd}
+				best = accountTier{Tier: cust.Plan.Tier, AllowanceKey: cust.Plan.Tier, Plan: cust.Plan, PeriodEnd: cust.Plan.CurrentPeriodEnd}
 				start := ""
 				if cust.Plan.CurrentPeriodStart != nil {
 					start = cust.Plan.CurrentPeriodStart.Format(time.RFC3339)
 				}
-				at.PeriodKey = "plan:" + cust.Plan.SubscriptionID + ":" + start
-				return at
+				best.PeriodKey = "plan:" + cust.Plan.SubscriptionID + ":" + start
 			}
 		}
 	}
-	if !s.RevenueCat.Configured() {
-		return accountTier{}
+	if best.Tier == pricing.TierStudio || !s.RevenueCat.Configured() {
+		return best
 	}
 	st, err := s.RevenueCat.Pro(ctx, uid)
 	if err != nil {
 		slog.WarnContext(ctx, "pro check failed (list price)", "uid", uid, "err", err)
-		return accountTier{}
+		return best
 	}
 	if !st.Pro {
-		return accountTier{}
+		return best
 	}
-	at := accountTier{Tier: pricing.TierPro, AllowanceKey: st.AllowanceKey()}
-	at.PeriodKey, at.PeriodEnd = proPeriod(st, at.AllowanceKey, now)
-	return at
+	rc := accountTier{Tier: pricing.TierPro, AllowanceKey: st.AllowanceKey()}
+	if _, ok := s.rates(ctx).Plan(rc.AllowanceKey); ok {
+		// A plan reached through RevenueCat (the mirror lags or is
+		// missing): the plan's rate and preview allowance, never Pro's.
+		rc.Tier = rc.AllowanceKey
+		start := ""
+		if st.PeriodStart != nil {
+			start = st.PeriodStart.UTC().Format(time.RFC3339)
+		}
+		rc.PeriodKey, rc.PeriodEnd = "rc:"+rc.Tier+":"+start, st.ExpiresAt
+	} else {
+		rc.PeriodKey, rc.PeriodEnd = proPeriod(st, rc.AllowanceKey, now)
+	}
+	if tierRank(rc.Tier) > tierRank(best.Tier) {
+		return rc
+	}
+	return best
+}
+
+// tierRank orders tiers: studio > business > pro > none.
+func tierRank(t string) int {
+	switch t {
+	case pricing.TierStudio:
+		return 3
+	case pricing.TierBusiness:
+		return 2
+	case pricing.TierPro:
+		return 1
+	}
+	return 0
 }
 
 // proPeriod is a Pro holder's current allowance period: a pass's whole

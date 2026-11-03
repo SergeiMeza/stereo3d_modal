@@ -666,6 +666,18 @@ cents}`; the stored breakdown keeps `pro`, `pro_discount_pct`,
 `pro_discount_cents`. `/v1/pricing` adds `pro_discount: {pct,
 applies_to}` (pct 0 = off). The mobile one-shot is unchanged.
 
+**Tier order (studio > business > pro).** The account's tier is the
+highest of: the web plan in the Stripe mirror (`cust.Plan`, the source of
+truth for the plan and its credit) and what RevenueCat reports. RevenueCat
+counts as a plan when the `studio` or `business` entitlement is active, or
+when `pro` is reached through a plan product (TEST Stripe products
+`prod_VYiOZAbAXiJP29` Studio, `prod_VYiOG5FegIJiFK` Business; other ids by
+name). A plan found that way gets the plan's rate and free-preview
+allowance (`business`/`studio`, never `pro_monthly`), without credit. A
+Studio plan in the mirror skips the RevenueCat call. Posting web
+subscriptions to RevenueCat (`/v1/receipts`) is on hold until the owner
+picks between a RevenueCat Stripe app and promotional entitlements.
+
 ### File keeping (S3D-24)
 
 A project's stored files — the original upload, proxy and thumbnails, a

@@ -2,6 +2,7 @@ package revenuecat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -65,5 +66,38 @@ func TestProRules(t *testing.T) {
 	}
 	if PassMonths("pro_pass_3m_v1") != 3 || PassMonths("web_pro_pass_6m_v1") != 6 || PassMonths("pro_subs_1m_v1") != 0 {
 		t.Error("PassMonths")
+	}
+}
+
+// Web plans: studio > business > pro, and a plan never reads as Pro
+// Monthly's allowance.
+func TestPlanTiers(t *testing.T) {
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	parse := func(raw string) Status {
+		var b subscriber
+		if err := json.Unmarshal([]byte(raw), &b); err != nil {
+			t.Fatal(err)
+		}
+		return statusOf(b, now)
+	}
+	both := parse(`{"subscriber":{"entitlements":{
+		"pro":{"expires_date":"2026-12-01T00:00:00Z","product_identifier":"prod_VYiOZAbAXiJP29"},
+		"business":{"expires_date":"2026-12-01T00:00:00Z","product_identifier":"prod_VYiOG5FegIJiFK"},
+		"studio":{"expires_date":"2026-12-01T00:00:00Z","product_identifier":"prod_VYiOZAbAXiJP29"}}}}`)
+	if !both.Pro || both.Tier != TierStudio || both.AllowanceKey() != "studio" {
+		t.Fatalf("studio wins: %+v", both)
+	}
+	viaPro := parse(`{"subscriber":{"entitlements":{"pro":{"expires_date":"2026-12-01T00:00:00Z","product_identifier":"prod_VYiOG5FegIJiFK"}}}}`)
+	if viaPro.Tier != TierBusiness || viaPro.AllowanceKey() != "business" {
+		t.Fatalf("pro through the Business product: %+v %s", viaPro, viaPro.AllowanceKey())
+	}
+	lapsedStudio := parse(`{"subscriber":{"entitlements":{
+		"studio":{"expires_date":"2026-11-01T00:00:00Z","product_identifier":"prod_VYiOZAbAXiJP29"},
+		"pro":{"expires_date":"2026-11-10T00:00:00Z","product_identifier":"pro_subs_1m_v1"}}}}`)
+	if lapsedStudio.Tier != "" || lapsedStudio.AllowanceKey() != "pro_monthly" {
+		t.Fatalf("lapsed studio, live Pro Monthly: %+v", lapsedStudio)
+	}
+	if PlanTierOf("pro_subs_1m_v1") != "" || PlanTierOf("prod_VYiOZAbAXiJP29") != TierStudio {
+		t.Fatal("plan products")
 	}
 }

@@ -17,6 +17,34 @@ import (
 	"time"
 )
 
+// Web plan tiers, highest first (studio > business > pro).
+const (
+	TierStudio   = "studio"
+	TierBusiness = "business"
+)
+
+// planProducts names the web plans' products as RevenueCat reports them
+// (the Stripe TEST product ids; prod ids match by entitlement or name).
+var planProducts = map[string]string{
+	"prod_VYiOG5FegIJiFK": TierBusiness,
+	"prod_VYiOZAbAXiJP29": TierStudio,
+}
+
+// PlanTierOf is the web plan a product belongs to, "" for anything else.
+func PlanTierOf(product string) string {
+	if t, ok := planProducts[product]; ok {
+		return t
+	}
+	p := strings.ToLower(product)
+	switch {
+	case strings.Contains(p, "studio_plan") || strings.Contains(p, "web_studio") || strings.HasPrefix(p, "studio"):
+		return TierStudio
+	case strings.Contains(p, "business"):
+		return TierBusiness
+	}
+	return ""
+}
+
 const (
 	defaultBase    = "https://api.revenuecat.com"
 	okTTL          = 10 * time.Minute
@@ -37,6 +65,9 @@ type Status struct {
 	// .purchase_date) — the free-preview allowance resets with it.
 	ExpiresAt   *time.Time
 	PeriodStart *time.Time
+	// Tier: "studio" or "business" when a web plan makes the person Pro
+	// (its own entitlement, or a plan product behind "pro"); "" for Pro.
+	Tier string
 }
 
 type entry struct {
@@ -141,16 +172,29 @@ func (c *Client) fetch(ctx context.Context, uid string, now time.Time) (Status, 
 // its n months ago — passes sit outside the entitlement because a
 // one-off purchase never expires in RevenueCat.
 func statusOf(b subscriber, now time.Time) Status {
-	if e, ok := b.Subscriber.Entitlements[proEntitlement]; ok {
-		if e.ExpiresDate == nil || e.ExpiresDate.After(now) ||
-			(e.GracePeriodExpiresDate != nil && e.GracePeriodExpiresDate.After(now)) {
-			st := Status{Pro: true, Via: e.ProductIdentifier, ExpiresAt: e.ExpiresDate}
-			if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok && !sub.PurchaseDate.IsZero() {
-				pd := sub.PurchaseDate
-				st.PeriodStart = &pd
-			}
+	active := func(name string) (Status, bool) {
+		e, ok := b.Subscriber.Entitlements[name]
+		if !ok || !(e.ExpiresDate == nil || e.ExpiresDate.After(now) ||
+			(e.GracePeriodExpiresDate != nil && e.GracePeriodExpiresDate.After(now))) {
+			return Status{}, false
+		}
+		st := Status{Pro: true, Via: e.ProductIdentifier, ExpiresAt: e.ExpiresDate}
+		if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok && !sub.PurchaseDate.IsZero() {
+			pd := sub.PurchaseDate
+			st.PeriodStart = &pd
+		}
+		return st, true
+	}
+	// Business and Studio also attach to "pro"; the highest tier wins.
+	for _, tier := range []string{TierStudio, TierBusiness} {
+		if st, ok := active(tier); ok {
+			st.Tier = tier
 			return st
 		}
+	}
+	if st, ok := active(proEntitlement); ok {
+		st.Tier = PlanTierOf(st.Via) // "pro" reached through a plan product
+		return st
 	}
 	for product, purchases := range b.Subscriber.NonSubscriptions {
 		months := PassMonths(product)
@@ -186,6 +230,12 @@ func PassMonths(product string) int {
 func (s Status) AllowanceKey() string {
 	if !s.Pro {
 		return ""
+	}
+	if s.Tier != "" { // a web plan: its own allowance, never Pro Monthly's
+		return s.Tier
+	}
+	if t := PlanTierOf(s.Via); t != "" {
+		return t
 	}
 	v := strings.ToLower(s.Via)
 	switch {
