@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
+    "@revenuecat/purchases-js": "1.71.0",
     "@stripe/react-stripe-js": "^6.7.0",
     "@stripe/stripe-js": "^9.9.0",
     "@vercel/analytics": "^2.0.1",

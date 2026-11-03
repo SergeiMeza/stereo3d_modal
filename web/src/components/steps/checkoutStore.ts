@@ -16,7 +16,7 @@
  * is authoritative; a localStorage copy could only ever be stale.
  */
 
-import { atom, type PrimitiveAtom } from "jotai";
+import { atom, getDefaultStore, type PrimitiveAtom } from "jotai";
 
 import type {
   Conversion,
@@ -72,4 +72,17 @@ export function stepCheckoutAtom(
  * old atoms become unreachable, so their default-store values go with them. */
 export function resetStepCheckoutState(): void {
   atoms.clear();
+}
+
+/** Drop every panel's priced quote (S3D-68: Pro just changed, so prices
+ * did too). A panel with no quote asks for a new one, and the attempt key
+ * goes with the quote, as invalidate() does. Runs in flight are untouched. */
+export function clearStepQuotes(): void {
+  const store = getDefaultStore();
+  for (const a of atoms.values()) {
+    const s = store.get(a);
+    if (s.quote !== null || s.attemptKey !== null) {
+      store.set(a, { ...s, quote: null, attemptKey: null });
+    }
+  }
 }
