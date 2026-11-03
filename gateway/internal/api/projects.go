@@ -1153,6 +1153,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	}
 	if method == store.MethodLifelike {
 		resp["output_short_side"] = outputShortSide(p, params)
+		resp["original_eye_required"] = outputShortSide(p, params) > originalEyeAboveShortSide
 		resp["qualities"] = lifelikeQualities(p, rates.EnabledLifelikePresets())
 	}
 	httpx.WriteOK(w, resp)

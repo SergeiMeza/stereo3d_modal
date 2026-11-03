@@ -163,6 +163,10 @@ request for another is 400 `preset_unavailable` before any charge. As a
 backstop, a Lifelike 400 at submit fails the run at once with its money
 returned and answers 400 `preset_unavailable` / `submit_rejected`. `original_eye`
 (`left`|`right`|null) passes through on Lifelike steps at the same price;
+above 4K (5k/6k/8k, or a full option above 2160p) it is always on — absent
+or null means `left` — and qualities/quotes mark those
+`original_eye_required: true` (S3D-65). Supersampling is Lifelike's own
+default (S3D-66): nothing to send.
 `foveation: "static"` passes through only when the size is below the
 source's, at ×`foveation_price_multiplier` (its own `foveation_cents`
 breakdown line), and only while `foveation_enabled` is on (else 400

@@ -480,3 +480,39 @@ func TestBitrate(t *testing.T) {
 		t.Error("auto: no estimate")
 	}
 }
+
+// S3D-65: above 4K the source is always one eye.
+func TestOriginalEyeRequiredAbove4K(t *testing.T) {
+	all := []string{"1080p", "qhd", "3k", "4k", "5k", "6k", "8k"}
+	eight := lifelikeProject()
+	eight.Probe.Width, eight.Probe.Height = 8192, 4320
+	for _, q := range lifelikeQualities(eight, all) {
+		if want := q.LabelShortSide > 2160; q.OriginalEyeRequired != want {
+			t.Errorf("%s: original_eye_required %v", q.ID, q.OriginalEyeRequired)
+		}
+	}
+	between := lifelikeProject()
+	between.Probe.Width, between.Probe.Height = 5120, 2560
+	qs := lifelikeQualities(between, all)
+	if last := qs[len(qs)-1]; last.ID != "full" || !last.OriginalEyeRequired {
+		t.Errorf("full at 2560p: %+v", last)
+	}
+	eye := func(v string) *string { return &v }
+	for _, tc := range []struct {
+		req  *string
+		want string
+	}{{nil, "left"}, {eye(""), "left"}, {eye("right"), "right"}, {eye("left"), "left"}} {
+		params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "8k", OriginalEye: tc.req}, eight, all)
+		if err != nil || params.OriginalEye != tc.want {
+			t.Errorf("8k with %v: %+v %v", tc.req, params.OriginalEye, err)
+		}
+	}
+	// 4K and below keep it optional
+	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, lifelikeProject()); params.OriginalEye != "" {
+		t.Errorf("4k default: %q", params.OriginalEye)
+	}
+	// still out of the default enabled list until the service confirms them
+	if _, err := resolveStepParams(&stepConvReq{Step: store.StepProduction, Preset: "8k"}, eight); err == nil || err.Code != "preset_unavailable" {
+		t.Errorf("8k not enabled by default: %v", err)
+	}
+}

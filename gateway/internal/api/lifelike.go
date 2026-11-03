@@ -172,6 +172,11 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.OriginalEye = *req.OriginalEye
 	}
+	if q.OriginalEyeRequired && params.OriginalEye == "" {
+		// S3D-65: above 4K the source is always one eye; absent or null
+		// means the left.
+		params.OriginalEye = "left"
+	}
 	if fov := req.Foveation.value(); fov != "" {
 		if fov != "static" {
 			return params, httpx.ErrInvalid("foveation must be static")
@@ -426,12 +431,19 @@ type quality struct {
 	ID string `json:"id"` // a preset, or "full"
 	// LabelShortSide is the output's short side per eye ("Full
 	// resolution (1606p)"), odd sizes rounded down to even.
-	LabelShortSide int    `json:"label_short_side"`
-	Preset         string `json:"preset"`       // what Lifelike is asked for
-	PricePreset    string `json:"price_preset"` // the price table row
+	LabelShortSide int `json:"label_short_side"`
+	// OriginalEyeRequired: sizes above 4K always keep the source as one
+	// eye (S3D-65); the tile says so.
+	OriginalEyeRequired bool   `json:"original_eye_required,omitempty"`
+	Preset              string `json:"preset"`       // what Lifelike is asked for
+	PricePreset         string `json:"price_preset"` // the price table row
 }
 
 const qualityFull = "full"
+
+// originalEyeAboveShortSide: outputs whose short side is above this (4K's
+// 2160) always keep the source as one eye (S3D-65).
+const originalEyeAboveShortSide = 2160
 
 // sourceShortSide is the source's short side, rotation-proof (min of the
 // two sides), rounded down to even; 0 before analysis.
@@ -457,7 +469,8 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 		}
 		h := presetOutputHeight[preset]
 		if short == 0 || h <= short {
-			out = append(out, quality{ID: preset, LabelShortSide: h, Preset: preset, PricePreset: preset})
+			out = append(out, quality{ID: preset, LabelShortSide: h, Preset: preset, PricePreset: preset,
+				OriginalEyeRequired: h > originalEyeAboveShortSide})
 			below = preset
 			continue
 		}
@@ -468,7 +481,8 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 			if price == "" {
 				price = pricing.LifelikePresets[0] // below 1080: the 1080p price
 			}
-			out = append(out, quality{ID: qualityFull, LabelShortSide: short, Preset: preset, PricePreset: price})
+			out = append(out, quality{ID: qualityFull, LabelShortSide: short, Preset: preset, PricePreset: price,
+				OriginalEyeRequired: short > originalEyeAboveShortSide})
 		}
 		break
 	}
