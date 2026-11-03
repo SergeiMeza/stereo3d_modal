@@ -23,6 +23,7 @@ import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type {
   BillingCard,
   Conversion,
+  Method,
   ProfileShot,
   Project,
   SceneOverride,
@@ -66,6 +67,43 @@ const RATES = {
   depthResBase: 980,
   depthFactorCeiling: 5.0,
   fpsBase: 24,
+};
+
+/** Lifelike's own PRICE table (not cost × margin), per output minute at
+ * 24 fps — mirrors the gateway's lifelike_price_cents_per_minute. No depth,
+ * edge or reuse factors; the bulk discount and the minimum still apply.
+ * lifelike_preview is priced from the same table. */
+const LIFELIKE = {
+  priceCentsPerMinute: { "1080p": 450, qhd: 650, "3k": 800, "4k": 1000 } as Record<
+    string,
+    number
+  >,
+  /** short side per eye of each preset; above the source → 400 */
+  presetShortSide: { "1080p": 1080, qhd: 1440, "3k": 1620, "4k": 2160 } as Record<
+    string,
+    number
+  >,
+  formats: ["mvhevc", "sbs", "half_sbs"],
+  /** Classic-only knobs → 400 on lifelike requests */
+  classicOnly: [
+    "depth_res",
+    "depth_scale",
+    "inpaint",
+    "warp",
+    "scene_overrides",
+    "use_uploaded_depth",
+    "displacement",
+  ],
+  maxPreviewSeconds: 10,
+  /** split_suggested above this output length */
+  splitSuggestSeconds: 900,
+  /** ETA model: (530 × output minutes) / gpus + encode tail + 45 */
+  etaSecondsPerOutputMinute: 530,
+  gpus: 4,
+  encodeTailPerFrame: { "1080p": 0.035, qhd: 0.067, "3k": 0.087, "4k": 0.13 } as Record<
+    string,
+    number
+  >,
 };
 
 /** Pay-as-you-go billing state, mirroring the gateway's GET /v1/billing.
@@ -113,6 +151,14 @@ interface DB {
   /** per-project free-profile lifecycle position (advances per GET poll) */
   profileTicks: Map<string, number>;
   billing: MockBilling;
+  /** per-method source caps (GET /v1/limits methods; 0 = unlimited) */
+  methodMaxDurationS: Record<Method, number>;
+  /** quotes above this are charged when the run starts (charge_timing
+   * "before"), mirroring the gateway's LL-D8 threshold */
+  chargeBeforeCents: number;
+  /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
+   * Lifelike runs always wait one poll) */
+  nextWaitsForGpu: boolean;
 }
 
 function seed(): DB {
@@ -138,6 +184,9 @@ function seed(): DB {
       pending: null,
       batchCapCents: 5000,
     },
+    methodMaxDurationS: { lifelike: 0, classic: 600 },
+    chargeBeforeCents: 2500,
+    nextWaitsForGpu: false,
   };
 }
 
@@ -151,6 +200,9 @@ export const mockDb = {
     this.analyzeTicks = fresh.analyzeTicks;
     this.profileTicks = fresh.profileTicks;
     this.billing = fresh.billing;
+    this.methodMaxDurationS = fresh.methodMaxDurationS;
+    this.chargeBeforeCents = fresh.chargeBeforeCents;
+    this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     mockAuth.reset();
   },
   setConversionState(id: string, state: Conversion["state"]) {
@@ -451,7 +503,17 @@ function validateStepRequest(
   p: Project,
   body: Record<string, unknown>,
 ): ReturnType<typeof err> | null {
+  if (projectMethod(p) === "lifelike") return validateLifelikeRequest(p, body);
   const step = body.step as Step;
+  if (body.split_max_seconds !== undefined) {
+    // Classic's pipeline doesn't split yet: the gateway rejects it rather
+    // than silently dropping it
+    return err(
+      400,
+      "invalid_request",
+      "split_max_seconds is not available for this project yet",
+    );
+  }
   if (!["depth_preview", "stereo_preview", "production"].includes(step)) {
     return err(
       400,
@@ -670,6 +732,173 @@ function validateStepRequest(
   return null;
 }
 
+/** A project's method: stored, else classic (projects from before the
+ * choice existed). */
+function projectMethod(p: Project): Method {
+  return p.method ?? "classic";
+}
+
+function sourceDurationS(p: Project): number {
+  return p.probe?.duration_s ?? 0;
+}
+
+/** Lifelike request rules (contract 2026-11-03 + owner changes): steps
+ * lifelike_preview | production; presets 1080p | qhd | 3k | 4k at or below
+ * the source's short side (1080p always); formats ⊆ mvhevc/sbs/half_sbs;
+ * no Classic knobs; previews ≤ 10 s; split_max_seconds 60–3600. */
+function validateLifelikeRequest(
+  p: Project,
+  body: Record<string, unknown>,
+): ReturnType<typeof err> | null {
+  const step = body.step as string;
+  if (step !== "lifelike_preview" && step !== "production") {
+    return err(
+      400,
+      "invalid_request",
+      "Lifelike 3D projects run lifelike_preview and production only",
+    );
+  }
+  for (const k of LIFELIKE.classicOnly) {
+    if (body[k] !== undefined) {
+      return err(400, "invalid_request", `${k} is not a Lifelike 3D option`);
+    }
+  }
+  const preset = (body.preset as string | undefined) ?? "1080p";
+  if (LIFELIKE.priceCentsPerMinute[preset] === undefined) {
+    return err(400, "invalid_request", "preset must be 1080p|qhd|3k|4k");
+  }
+  const short = Math.min(p.probe!.width, p.probe!.height);
+  if (preset !== "1080p" && LIFELIKE.presetShortSide[preset] > short) {
+    return err(
+      400,
+      "preset_above_source",
+      "this quality is higher than the source video",
+    );
+  }
+  const formats = body.formats as string[] | undefined;
+  if (Array.isArray(formats)) {
+    if (formats.length === 0) {
+      return err(
+        400,
+        "invalid_request",
+        "formats cannot be empty: select at least one output format",
+      );
+    }
+    if (formats.some((f) => !LIFELIKE.formats.includes(f))) {
+      return err(
+        400,
+        "invalid_request",
+        "Lifelike 3D formats are mvhevc, sbs and half_sbs",
+      );
+    }
+  }
+  const from = body.from_frame as number | undefined;
+  const to = body.to_frame as number | undefined;
+  if (step === "lifelike_preview") {
+    if (from === undefined || to === undefined || to <= from) {
+      return err(
+        400,
+        "invalid_request",
+        "lifelike_preview needs from_frame < to_frame",
+      );
+    }
+    if ((to - from) / p.probe!.fps > LIFELIKE.maxPreviewSeconds + 1e-6) {
+      return err(400, "invalid_request", "a preview spans at most 10 seconds");
+    }
+  }
+  const split = body.split_max_seconds;
+  if (split !== undefined) {
+    if (
+      step !== "production" ||
+      typeof split !== "number" ||
+      !Number.isInteger(split) ||
+      split < 60 ||
+      split > 3600
+    ) {
+      return err(
+        400,
+        "invalid_request",
+        "split_max_seconds must be an integer in [60, 3600] on production",
+      );
+    }
+  }
+  return null;
+}
+
+/** Lifelike ETA model (contract): (530 × output minutes) / gpus + encode
+ * tail + 45, tail frames capped at 7,200. */
+function lifelikeEta(outputSeconds: number, fps: number, preset: string): number {
+  const frames = Math.min(Math.round(outputSeconds * fps), 7200);
+  const tail = frames * (LIFELIKE.encodeTailPerFrame[preset] ?? 0.035);
+  return Math.round(
+    (LIFELIKE.etaSecondsPerOutputMinute * (outputSeconds / 60)) / LIFELIKE.gpus +
+      tail +
+      45,
+  );
+}
+
+/** A Lifelike quote: the Lifelike price table × fps factor, then the bulk
+ * discount and the minimum. */
+function lifelikeQuoteFor(
+  project: Project,
+  req: StepConversionRequest,
+): {
+  quote: Conversion["quote"];
+  reuseStages: string[];
+  params: Conversion["params"];
+  outputSeconds: number;
+  eta: number;
+} {
+  const probe = project.probe!;
+  const from = req.from_frame ?? 0;
+  const to =
+    req.to_frame && req.to_frame < probe.num_frames
+      ? req.to_frame
+      : probe.num_frames;
+  const outputSeconds = (to - from) / probe.fps;
+  const preset = req.preset ?? "1080p";
+  const perMin = LIFELIKE.priceCentsPerMinute[preset];
+  const effFPS = req.target_fps ?? probe.fps;
+  const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
+  const subtotal = Math.ceil((outputSeconds / 60) * perMin * fpsFactor);
+  const bulk =
+    subtotal > RATES.discountThresholdCents
+      ? Math.round(subtotal * RATES.discountPct)
+      : 0;
+  const total = Math.max(subtotal - bulk, RATES.minimumCents);
+  return {
+    quote: {
+      amount_cents: total,
+      currency: "usd",
+      rate_version: "mock",
+      breakdown: {
+        step: req.step,
+        preset,
+        billable_seconds: Math.round(outputSeconds * 100) / 100,
+        cents_per_minute: perMin,
+        fps_factor: Math.round(fpsFactor * 10000) / 10000,
+        base_cents: subtotal,
+        subtotal_cents: subtotal,
+        discount_cents: bulk,
+      },
+    },
+    reuseStages: [],
+    params: {
+      preset,
+      formats:
+        req.formats ??
+        (req.step === "production" ? ["mvhevc"] : ["sbs"]),
+      from_frame: req.from_frame || undefined,
+      to_frame: req.to_frame || undefined,
+      target_fps: req.target_fps || undefined,
+      scene_cuts: project.scenes?.cuts,
+      split_max_seconds: req.split_max_seconds,
+    },
+    outputSeconds,
+    eta: lifelikeEta(outputSeconds, probe.fps, preset),
+  };
+}
+
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(Math.max(v, lo), hi);
 
@@ -690,7 +919,12 @@ const ANALYZE_STAGES: readonly {
 /** Coarse wall-clock estimate for a quoted step — mirrors the gateway's
  * "billable duration × per-step throughput" shape, floored at 20 s. */
 function etaForStep(step: Step, billableSeconds: number): number {
-  const perSecond = { depth_preview: 2.5, stereo_preview: 3.5, production: 4 };
+  const perSecond = {
+    depth_preview: 2.5,
+    stereo_preview: 3.5,
+    lifelike_preview: 3.5,
+    production: 4,
+  };
   return Math.max(20, Math.round(billableSeconds * perSecond[step]));
 }
 
@@ -716,7 +950,7 @@ function quoteFor(
       ? RATES.centsPerMinute[preset as keyof typeof RATES.centsPerMinute]
       : step === "stereo_preview"
         ? RATES.stereoPreviewCentsPerMinute[preset]
-        : RATES.stepCentsPerMinute[step];
+        : RATES.stepCentsPerMinute[step as "depth_preview"];
   // price = cost rate × margin (the ONE margin knob)
   const perMin = costPerMin * RATES.costMarginMultiplier;
   // Uploaded depth map: the depth stage is skipped (no resolution factor,
@@ -896,7 +1130,32 @@ function quoteFor(
  * scene_profile (the adaptive profiler's per-shot parameters) with the
  * CURRENT scenes version. */
 function succeed(c: Conversion) {
-  c.outputs = [...(c.params.formats ?? []), "depth", "depth_vis"];
+  c.waiting_for_gpu = false;
+  if (c.method === "lifelike") {
+    const formats = c.params.formats ?? [];
+    const p = c.project_id ? mockDb.projects.get(c.project_id) : undefined;
+    const fps = p?.probe?.fps ?? 24;
+    const from = c.params.from_frame ?? 0;
+    const to = c.params.to_frame ?? p?.probe?.num_frames ?? 0;
+    const seconds = (to - from) / fps;
+    const split = c.params.split_max_seconds;
+    if (split !== undefined && seconds > split) {
+      // mvhevc_part01, sbs_part01, … — every format shares the boundaries
+      const n = Math.ceil(seconds / split);
+      c.parts = Array.from({ length: n }, (_, i) => ({
+        index: i + 1,
+        start_s: i * split,
+        duration_s: Math.min(split, seconds - i * split),
+      }));
+      c.outputs = formats.flatMap((f) =>
+        c.parts!.map((part) => `${f}_part${String(part.index).padStart(2, "0")}`),
+      );
+    } else {
+      c.outputs = [...formats];
+    }
+  } else {
+    c.outputs = [...(c.params.formats ?? []), "depth", "depth_vis"];
+  }
   if (mockDb.billing.nextChargeFails) {
     mockDb.billing.nextChargeFails = false;
     mockDb.failCharge(c.conversion_id);
@@ -1034,13 +1293,48 @@ function projectDetail(p: Project) {
   const conversions = [...mockDb.conversions.values()]
     .filter((c) => c.project_id === p.project_id)
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  return { ...p, conversions };
+  return { ...p, method: projectMethod(p), conversions };
 }
 
 /** One poll = one lifecycle tick (paid→processing→succeeded). Pro
  * conversions enter at "paid" (billing verified up front) — there is no
  * client payment confirmation step anymore. */
+const LIFELIKE_TICKS: readonly { stage: string; progress: number }[] = [
+  { stage: "plan", progress: 0.1 },
+  { stage: "render", progress: 0.45 },
+  { stage: "encode", progress: 0.8 },
+  { stage: "publish", progress: 0.95 },
+];
+
 function tick(c: Conversion) {
+  // Queued for a free GPU: one poll of waiting (stage queued, no progress)
+  if (c.state === "paid" && (c.method === "lifelike" || mockDb.nextWaitsForGpu)) {
+    if (c.method !== "lifelike") mockDb.nextWaitsForGpu = false;
+    c.state = "processing";
+    c.stage = c.method === "lifelike" ? "queued" : "preprocess";
+    c.progress = 0;
+    c.waiting_for_gpu = true;
+    c.queued_s = 12;
+    return;
+  }
+  if (c.method === "lifelike" && c.state === "processing") {
+    c.waiting_for_gpu = false;
+    const i = LIFELIKE_TICKS.findIndex((t) => t.stage === c.stage);
+    const next = LIFELIKE_TICKS[i + 1];
+    if (next) {
+      c.stage = next.stage;
+      c.progress = next.progress;
+      c.eta_seconds = Math.round((1 - next.progress) * 120);
+    } else {
+      c.state = "succeeded";
+      c.stage = "done";
+      c.progress = 1;
+      c.eta_seconds = 0;
+      succeed(c);
+    }
+    return;
+  }
+  if (c.state === "processing" && c.waiting_for_gpu) c.waiting_for_gpu = false;
   if (c.state === "paid") {
     c.state = "processing";
     c.progress = 0.1;
@@ -1074,6 +1368,24 @@ function billingStatus() {
     },
     publishable_key: "pk_test_mock",
   };
+}
+
+/** LL-D8: runs quoted above the threshold are charged when they start. */
+function chargeTiming(amountCents: number): "before" | "after" {
+  return amountCents > mockDb.chargeBeforeCents ? "before" : "after";
+}
+
+/** The method's source cap applies to quotes and conversions too. */
+function methodCapError(p: Project): ReturnType<typeof err> | null {
+  const cap = mockDb.methodMaxDurationS[projectMethod(p)];
+  if (cap > 0 && sourceDurationS(p) > cap) {
+    return err(
+      400,
+      "source_too_long_for_method",
+      `This video is longer than ${Math.round(cap / 60)} minutes, the most Classic 3D can take.`,
+    );
+  }
+  return null;
 }
 
 export const handlers = [
@@ -1215,6 +1527,21 @@ export const handlers = [
     });
   }),
 
+  // GET /v1/limits — the parts the web reads: the global (Classic) cap and
+  // the per-method caps (0 = unlimited).
+  http.get(`${GATEWAY}/v1/limits`, () =>
+    HttpResponse.json({
+      limits: {
+        max_duration_s: mockDb.methodMaxDurationS.classic,
+        max_source_bytes: 20 * 1024 * 1024 * 1024,
+      },
+      methods: {
+        lifelike: { max_source_duration_s: mockDb.methodMaxDurationS.lifelike },
+        classic: { max_source_duration_s: mockDb.methodMaxDurationS.classic },
+      },
+    }),
+  ),
+
   http.post(`${GATEWAY}/v1/uploads`, async ({ request }) => {
     const { filename, resumable } = (await request.json()) as {
       filename: string;
@@ -1273,12 +1600,16 @@ export const handlers = [
   }),
 
   http.post(`${GATEWAY}/v1/projects`, async ({ request }) => {
-    const { gcs_key, name } = (await request.json()) as {
+    const { gcs_key, name, method } = (await request.json()) as {
       gcs_key: string;
       name?: string;
+      method?: Method;
     };
     if (!gcs_key.includes("/users/dev-user/")) {
       return err(400, "invalid_request", "gcs_key is not one of your uploads");
+    }
+    if (method !== undefined && method !== "lifelike" && method !== "classic") {
+      return err(400, "invalid_request", "method must be lifelike|classic");
     }
     const template = structuredClone(projectFixture) as unknown as Project;
     const id = gcs_key.split("/").at(-2) ?? newId();
@@ -1286,6 +1617,7 @@ export const handlers = [
       ...template,
       project_id: id,
       name: name || "Untitled project",
+      method: method ?? "lifelike",
       analyze: {
         state: "running",
         error: "",
@@ -1310,9 +1642,9 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/projects`, ({ request }) => {
     const archived = new URL(request.url).searchParams.get("archived") === "1";
     return HttpResponse.json({
-      projects: [...mockDb.projects.values()].filter(
-        (p) => (p.archived ?? false) === archived,
-      ),
+      projects: [...mockDb.projects.values()]
+        .filter((p) => (p.archived ?? false) === archived)
+        .map((p) => ({ ...p, method: projectMethod(p) })),
     });
   }),
 
@@ -1454,7 +1786,22 @@ export const handlers = [
       name?: string;
       pinned?: boolean;
       archived?: boolean;
+      method?: Method;
     };
+    if (body.method !== undefined) {
+      if (body.method !== "lifelike" && body.method !== "classic") {
+        return err(400, "invalid_request", "method must be lifelike|classic");
+      }
+      const cap = mockDb.methodMaxDurationS[body.method];
+      if (cap > 0 && sourceDurationS(p) > cap) {
+        return err(
+          400,
+          "source_too_long_for_method",
+          `This video is longer than ${Math.round(cap / 60)} minutes, the most Classic 3D can take.`,
+        );
+      }
+      p.method = body.method;
+    }
     if (body.name !== undefined) {
       const name = body.name.trim();
       if (name === "" || name.length > 120) {
@@ -1544,7 +1891,25 @@ export const handlers = [
       const invalid = validateStepRequest(p, body);
       if (invalid) return invalid;
       const req = body as unknown as StepConversionRequest;
+      const method = projectMethod(p);
+      const capped = methodCapError(p);
+      if (capped) return capped;
+      if (method === "lifelike") {
+        const q = lifelikeQuoteFor(p, req);
+        return HttpResponse.json({
+          step: req.step,
+          params: q.params,
+          quote: q.quote,
+          reuse_stages: null,
+          eta_seconds: q.eta,
+          method,
+          charge_timing: chargeTiming(q.quote.amount_cents),
+          output_seconds: Math.round(q.outputSeconds * 100) / 100,
+          split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
+        });
+      }
       const { quote, reuseStages, params: resolved } = quoteFor(p, req);
+      const billable = quote.breakdown?.billable_seconds ?? p.probe!.duration_s;
       return HttpResponse.json({
         step: req.step,
         params: resolved,
@@ -1552,10 +1917,11 @@ export const handlers = [
         // null when empty, mirroring the Go gateway's nil-slice serialization
         // (older deployments still send null) — keeps the client guard honest.
         reuse_stages: reuseStages.length > 0 ? reuseStages : null,
-        eta_seconds: etaForStep(
-          req.step,
-          quote.breakdown?.billable_seconds ?? p.probe!.duration_s,
-        ),
+        eta_seconds: etaForStep(req.step, billable),
+        method,
+        charge_timing: chargeTiming(quote.amount_cents),
+        output_seconds: billable,
+        split_suggested: false,
       });
     },
   ),
@@ -1594,7 +1960,11 @@ export const handlers = [
         );
       }
       const req = body as unknown as StepConversionRequest;
-      const { quote, params: resolved } = quoteFor(p, req);
+      const capped = methodCapError(p);
+      if (capped) return capped;
+      const method = projectMethod(p);
+      const { quote, params: resolved } =
+        method === "lifelike" ? lifelikeQuoteFor(p, req) : quoteFor(p, req);
       // Threshold hybrid, mirroring the gateway: expensive runs place an
       // up-front hold (which can be declined or demand 3DS); cheap runs skip
       // it and charge on success.
@@ -1625,6 +1995,9 @@ export const handlers = [
         progress: 0,
         stage: "",
         eta_seconds: 0,
+        method,
+        waiting_for_gpu: false,
+        charge_timing: chargeTiming(quote.amount_cents),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         ...(needs3ds

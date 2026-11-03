@@ -18,7 +18,39 @@ export type ConversionState =
   | "canceled"
   | "expired";
 
-export type Step = "depth_preview" | "stereo_preview" | "production";
+/** Classic steps: depth_preview, stereo_preview, production. Lifelike
+ * projects run lifelike_preview and production only (the gateway 400s the
+ * others for them). */
+export type Step =
+  | "depth_preview"
+  | "stereo_preview"
+  | "lifelike_preview"
+  | "production";
+
+/** How a project is made 3D, chosen per project and switchable any time
+ * (PATCH /v1/projects/{id}). New projects are "lifelike"; projects created
+ * before the choice existed have no stored method and read as "classic". */
+export type Method = "lifelike" | "classic";
+
+/** The method a project (or a run) uses: gateways before the method
+ * existed send nothing, which means classic. */
+export function methodOf(x: { method?: Method } | null | undefined): Method {
+  return x?.method === "lifelike" ? "lifelike" : "classic";
+}
+
+/** The method a run ran with: runs from before the choice existed carry
+ * none and were Classic; a Lifelike preview is Lifelike by its step. */
+export function conversionMethod(c: {
+  method?: Method;
+  step?: string;
+}): Method {
+  return c.step === "lifelike_preview" ? "lifelike" : methodOf(c);
+}
+
+/** Who pays when: "before" = charged when the run starts and refunded in
+ * full if it fails (quotes above the gateway's threshold); "after" =
+ * billed once it succeeds. */
+export type ChargeTiming = "before" | "after";
 
 export type Preset = "draft" | "1080p" | "qhd" | "3k" | "4k";
 
@@ -146,6 +178,8 @@ export interface DepthUpload {
 export interface Project {
   project_id: string;
   name?: string;
+  /** always sent by current gateways; absent = classic (methodOf) */
+  method?: Method;
   source_bytes: number;
   analyze: AnalyzeInfo;
   probe?: Probe; // present once analyze succeeded
@@ -191,6 +225,8 @@ export interface Params {
   scene_overrides?: SceneOverride[];
   scene_cuts?: number[];
   skip_reuse?: boolean;
+  /** production: output files of at most this many seconds each */
+  split_max_seconds?: number;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -275,10 +311,26 @@ export interface Conversion {
   reported_at?: string;
   outputs?: string[]; // names only (state=succeeded); URLs via /downloads
   error?: ConversionError;
+  /** the method the run ran with; absent on runs before the choice existed */
+  method?: Method;
+  /** the job is queued for a free GPU — the wait is not progress */
+  waiting_for_gpu?: boolean;
+  /** seconds the job has spent waiting for a GPU so far */
+  queued_s?: number;
+  /** split runs: one entry per output part, in order */
+  parts?: ConversionPart[];
+  charge_timing?: ChargeTiming;
   /** how the automatic charge went — succeeded pro-step conversions only */
   billing?: ConversionBilling;
   created_at: string;
   updated_at: string;
+}
+
+/** One part of a split output (Modal metadata.parts). */
+export interface ConversionPart {
+  index: number; // 1-based
+  start_s: number;
+  duration_s: number;
 }
 
 export interface StepQuoteResponse {
@@ -290,6 +342,13 @@ export interface StepQuoteResponse {
   reuse_stages?: string[] | null;
   /** coarse pre-run wall-clock estimate for the quoted step, in seconds */
   eta_seconds?: number;
+  method?: Method;
+  /** "before": paid when the run starts, refunded in full if it fails */
+  charge_timing?: ChargeTiming;
+  /** length of the output the quoted run would produce */
+  output_seconds?: number;
+  /** the output runs past 15 minutes: offer to split it into parts */
+  split_suggested?: boolean;
 }
 
 export interface UploadTicket {
@@ -319,6 +378,22 @@ export interface APIErrorBody {
   error: string;
   message: string;
   details?: Record<string, unknown>;
+}
+
+/** GET /v1/limits — only the parts the web reads. */
+export interface MethodLimits {
+  /** 0 = unlimited */
+  max_source_duration_s: number;
+}
+
+export interface GatewayLimits {
+  limits?: {
+    /** the global (Classic) source cap, from before per-method caps */
+    max_duration_s?: number;
+    max_source_bytes?: number;
+  };
+  /** per-method source caps; absent on gateways before Lifelike */
+  methods?: Partial<Record<Method, MethodLimits>>;
 }
 
 // ---------------------------------------------------------------- billing
@@ -421,6 +496,8 @@ export interface BillingSettleResult {
 export interface CreateProjectRequest {
   gcs_key: string;
   name?: string;
+  /** default "lifelike" */
+  method?: Method;
 }
 
 /** PATCH /v1/projects/{id} — any subset; returns the full updated project.
@@ -430,6 +507,9 @@ export interface UpdateProjectRequest {
   name?: string; // ≤120 chars after trim
   pinned?: boolean;
   archived?: boolean;
+  /** switching to classic on a source past Classic's length cap → 400
+   * source_too_long_for_method */
+  method?: Method;
 }
 
 export interface UpdateScenesRequest {
@@ -458,6 +538,10 @@ export interface StepConversionRequest {
   from_frame?: number; // half-open [from_frame, to_frame)
   to_frame?: number;
   from_scratch?: boolean; // bypass reuse (and its discount)
+  /** production: split the output into files of at most this many
+   * seconds (60–3600); the web sends 900 when the user keeps "Split into
+   * parts" */
+  split_max_seconds?: number;
   app_version?: string;
   platform?: string;
 }

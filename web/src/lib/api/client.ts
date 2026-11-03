@@ -12,6 +12,7 @@ import type {
   Conversion,
   CreateProjectRequest,
   Downloads,
+  GatewayLimits,
   Project,
   StepConversionRequest,
   StepQuoteResponse,
@@ -24,6 +25,57 @@ import {
   uploadResumable,
   type ChunkTransport,
 } from "./resumableUpload";
+
+/** Files larger than this go up in resumable 8 MiB chunks for everyone
+ * (retry and resume after a dropped connection); smaller ones keep the
+ * single signed PUT unless the region forces chunks (China mode). */
+export const CHUNKED_UPLOAD_THRESHOLD_BYTES = 100 * 1000 * 1000;
+
+/** Whether a file of this size goes up in chunks. */
+export function wantsChunkedUpload(
+  sizeBytes: number | undefined,
+  forced = false,
+): boolean {
+  return (
+    forced ||
+    (sizeBytes !== undefined && sizeBytes > CHUNKED_UPLOAD_THRESHOLD_BYTES)
+  );
+}
+
+/** Split outputs are named "<format>_partNN" (mvhevc_part01, …). Gateways
+ * that answer a part as an object ({url, part}) or a list of entries are
+ * folded back into the name → URL map under that same naming, so the rest
+ * of the app reads one shape. */
+export function normalizeDownloads(raw: unknown): Downloads {
+  const body = (raw ?? {}) as { downloads?: unknown; expires_in?: number };
+  const out: Record<string, string> = {};
+  const put = (name: string, value: unknown) => {
+    if (typeof value === "string") {
+      out[name] = value;
+      return;
+    }
+    if (value && typeof value === "object") {
+      const v = value as { url?: unknown; part?: unknown; name?: unknown };
+      if (typeof v.url !== "string") return;
+      const base = typeof v.name === "string" ? v.name : name;
+      const part = typeof v.part === "number" ? v.part : null;
+      const key =
+        part !== null && !/_part\d+$/.test(base)
+          ? `${base}_part${String(part).padStart(2, "0")}`
+          : base;
+      out[key] = v.url;
+    }
+  };
+  if (Array.isArray(body.downloads)) {
+    body.downloads.forEach((entry, i) => {
+      const named = (entry ?? {}) as { name?: unknown };
+      put(typeof named.name === "string" ? named.name : `output${i + 1}`, entry);
+    });
+  } else if (body.downloads && typeof body.downloads === "object") {
+    for (const [name, value] of Object.entries(body.downloads)) put(name, value);
+  }
+  return { downloads: out, expires_in: body.expires_in ?? 0 };
+}
 
 export class GatewayError extends Error {
   constructor(
@@ -45,8 +97,10 @@ export interface ClientOptions {
   baseUrl: string | (() => string);
   getToken: TokenProvider;
   fetchFn?: typeof fetch; // injectable for tests
-  /** Ask for resumable upload tickets (China mode: the cn. hosts carry at
-   * most 25 MB per request, so files go up in chunks). Read per upload. */
+  /** Force resumable upload tickets for every file (China mode: the cn.
+   * hosts carry at most 25 MB per request, so files go up in chunks). Read
+   * per upload. Files over CHUNKED_UPLOAD_THRESHOLD_BYTES are chunked for
+   * everyone regardless. */
   resumableUploads?: () => boolean;
   /** Chunk PUTs (default XHR, for progress); injectable for tests. */
   chunkTransport?: ChunkTransport;
@@ -140,11 +194,21 @@ export class GatewayClient {
 
   // ------------------------------------------------------------ uploads
 
-  createUpload(filename: string, contentType: string): Promise<UploadTicket> {
+  /** sizeBytes picks the upload kind: over 100 MB (or always, in China
+   * mode) the gateway opens a resumable session for chunked upload. */
+  createUpload(
+    filename: string,
+    contentType: string,
+    sizeBytes?: number,
+  ): Promise<UploadTicket> {
+    const chunked = wantsChunkedUpload(
+      sizeBytes,
+      this.opts.resumableUploads?.() ?? false,
+    );
     return this.request("POST", "/v1/uploads", {
       filename,
       content_type: contentType,
-      ...(this.opts.resumableUploads?.() ? { resumable: true } : {}),
+      ...(chunked ? { resumable: true } : {}),
     });
   }
 
@@ -155,11 +219,14 @@ export class GatewayClient {
     ticket: UploadTicket,
     file: Blob,
     onProgress?: (fraction: number) => void,
+    opts: { resume?: boolean } = {},
   ): Promise<void> {
     if (ticket.resumable === true) {
       try {
         await uploadResumable(ticket.upload_url, file, onProgress, {
           transport: this.opts.chunkTransport,
+          // a retry of a failed upload continues where the session stands
+          resume: opts.resume,
           verifyComplete: async () => {
             const st = await this.uploadStatus(ticket.gcs_key);
             return st.exists && st.bytes === file.size;
@@ -205,6 +272,12 @@ export class GatewayClient {
     gcsKey: string,
   ): Promise<{ gcs_key: string; exists: boolean; bytes: number }> {
     return this.request("POST", "/v1/uploads/status", { gcs_key: gcsKey });
+  }
+
+  /** Hard limits before an upload — the web reads the per-method source
+   * caps (methods.<method>.max_source_duration_s, 0 = unlimited). */
+  getLimits(): Promise<GatewayLimits> {
+    return this.request("GET", "/v1/limits");
   }
 
   // ----------------------------------------------------------- projects
@@ -305,7 +378,9 @@ export class GatewayClient {
     return this.request("POST", `/v1/conversions/${id}/report`, { note });
   }
 
-  getDownloads(id: string): Promise<Downloads> {
-    return this.request("GET", `/v1/conversions/${id}/downloads`);
+  async getDownloads(id: string): Promise<Downloads> {
+    return normalizeDownloads(
+      await this.request<unknown>("GET", `/v1/conversions/${id}/downloads`),
+    );
   }
 }

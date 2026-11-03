@@ -1,5 +1,7 @@
 /**
- * Chunked upload to a resumable upload session (China mode, lib/region.ts).
+ * Chunked upload to a resumable upload session — every file over 100 MB
+ * (lib/api/client.ts CHUNKED_UPLOAD_THRESHOLD_BYTES) and, in China mode
+ * (lib/region.ts), every file.
  *
  * The gateway opens the session (POST /v1/uploads {resumable: true}) and
  * answers its URL; requests to that host carry at most 25 MB, so the file
@@ -57,6 +59,9 @@ export interface ResumableUploadOptions {
   /** Whether the object is complete, asked when a request fails without
    * an answer after the last chunk went out (see above). */
   verifyComplete?: () => Promise<boolean>;
+  /** The session may already hold part of the file (a retry after the
+   * upload failed): ask where it stands first and continue from there. */
+  resume?: boolean;
 }
 
 const done = (status: number) => status === 200 || status === 201;
@@ -74,8 +79,30 @@ function retryable(status: number): boolean {
   return status === 0 || status === 408 || status === 429 || status >= 500;
 }
 
-function defaultBackoff(attempt: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, Math.min(8000, 500 * 2 ** (attempt - 1))));
+/** Longest wait for the connection to come back before a retry. */
+const OFFLINE_WAIT_MS = 2 * 60 * 1000;
+
+/** Resolves when the browser reports it is online again (or after maxMs). */
+export function waitForOnline(maxMs = OFFLINE_WAIT_MS): Promise<void> {
+  if (typeof navigator === "undefined" || navigator.onLine !== false) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", done);
+      resolve();
+    };
+    const timer = setTimeout(done, maxMs);
+    window.addEventListener("online", done);
+  });
+}
+
+async function defaultBackoff(attempt: number): Promise<void> {
+  // A dropped connection: wait for it to come back instead of burning the
+  // retries while offline.
+  await waitForOnline();
+  await new Promise((r) => setTimeout(r, Math.min(8000, 500 * 2 ** (attempt - 1))));
 }
 
 /** XHR (not fetch) so each chunk reports upload progress. */
@@ -133,6 +160,25 @@ export async function uploadResumable(
   }
 
   let offset = 0;
+  if (opts.resume) {
+    const q = await send(sessionUrl, null, {
+      "Content-Range": `bytes */${total}`,
+    });
+    // A complete session answers without CORS headers (see above), so an
+    // unanswered check may mean the earlier attempt already finished.
+    const complete =
+      done(q.status) ||
+      (q.status === 0 &&
+        opts.verifyComplete !== undefined &&
+        (await opts.verifyComplete().catch(() => false)));
+    if (complete) {
+      report(total);
+      return;
+    }
+    if (q.status === INCOMPLETE) offset = committedBytes(q.range);
+    // anything else: start from 0; the session's answers correct it
+    report(offset);
+  }
   let failures = 0;
   while (offset < total) {
     const end = Math.min(offset + chunk, total);
