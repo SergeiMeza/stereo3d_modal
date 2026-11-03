@@ -144,7 +144,10 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	var params store.Params
 	switch req.Step {
 	case store.StepLifelikePreview:
-		params.Formats = []string{"sbs"} // half_sbs where full width is refused, below
+		// sbs for the web's player, mvhevc so a preview downloads for
+		// Vision Pro too (owner, 2026-11-03); half_sbs where full width
+		// is refused, below.
+		params.Formats = []string{"sbs", "mvhevc"}
 	case store.StepProduction:
 		params.Formats = []string{"mvhevc", "half_sbs"}
 	default:
@@ -193,6 +196,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.Foveation = fov
 	}
+	params.Express = req.Express // the add-on (pricing 2026-11)
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
 	}
@@ -206,7 +210,9 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	}
 	if sbsTooWide[q.Preset] && slices.Contains(params.Formats, "sbs") {
 		if req.Step == store.StepLifelikePreview {
-			params.Formats = []string{"half_sbs"} // the preview's look, at a width that works
+			// the preview's look, at a width that works
+			params.Formats = slices.DeleteFunc(slices.Clone(params.Formats), func(f string) bool { return f == "sbs" || f == "half_sbs" })
+			params.Formats = append([]string{"half_sbs"}, params.Formats...)
 		} else {
 			return params, httpx.Err(http.StatusBadRequest, "format_unavailable",
 				"full-width side-by-side isn't available at this size; choose half side-by-side or a smaller quality")
@@ -282,6 +288,12 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
+	}
+	if c.Params.Express {
+		// Express (pricing 2026-11): the service ignores unknown keys, so
+		// this is sent now and takes effect once the Lifelike queue
+		// honours it (asked via the coordinator).
+		body["priority"] = "express"
 	}
 	if c.Params.Stabilize {
 		body["stabilize"] = true // absent = off (the service default)
@@ -690,6 +702,18 @@ func (b *bitrateReq) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
+// bitrateMaster is the Master bitrate add-on's choice.
+const bitrateMaster = "master"
+
+// masterBitrateBps: the Master bitrate per output size (both eyes).
+func masterBitrateBps(preset string) int64 {
+	mbps := map[string]int64{"draft": 60, "1080p": 60, "qhd": 80, "3k": 100, "4k": 150, "5k": 200, "6k": 250, "8k": 300}[preset]
+	if mbps == 0 {
+		mbps = 150
+	}
+	return mbps * 1_000_000
+}
+
 // Bitrate rails: the fixed choices in Mbit/s, and match_source's cap.
 var bitrateChoicesMbps = []string{"20", "40", "60", "100"}
 
@@ -718,6 +742,11 @@ func applyBitrate(params *store.Params, b bitrateReq, p *store.Project) *httpx.A
 	switch b.Choice {
 	case "", "auto":
 		return nil
+	case bitrateMaster:
+		// Master bitrate (add-on, pricing 2026-11): a high fixed rate per
+		// size, priced +20% under tier pricing.
+		params.Bitrate, params.OutputBitrateBps = bitrateMaster, masterBitrateBps(params.Preset)
+		return nil
 	case "match_source":
 		src := sourceBitrate(p)
 		if src <= 0 {
@@ -727,7 +756,7 @@ func applyBitrate(params *store.Params, b bitrateReq, p *store.Project) *httpx.A
 		return nil
 	}
 	if !slices.Contains(bitrateChoicesMbps, b.Choice) {
-		return httpx.ErrInvalid("bitrate must be auto, match_source, 20, 40, 60 or 100")
+		return httpx.ErrInvalid("bitrate must be auto, match_source, master, 20, 40, 60 or 100")
 	}
 	mbps, _ := strconv.ParseInt(b.Choice, 10, 64)
 	params.Bitrate, params.OutputBitrateBps = b.Choice, mbps*1_000_000

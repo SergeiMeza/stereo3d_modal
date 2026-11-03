@@ -9,7 +9,9 @@ import (
 // kept, never on previews, off unless enabled.
 func TestProDiscount(t *testing.T) {
 	ctx := context.Background()
-	on := DefaultsFor("test")
+	on := DefaultsFor("prod") // the S3D-67 path (tier pricing off)
+	on.ProDiscountEnabled = true
+	on.LifelikeEnabledPresets = LifelikePresets
 	svc := NewStatic(on)
 	q, err := svc.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 120, EffectiveFPS: 24, Pro: true})
 	if err != nil {

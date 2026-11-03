@@ -1088,6 +1088,13 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	// (auto_hold, state=created) carries the client_secret for the saved-card
 	// confirm; succeeded runs report the charge/capture outcome.
 	switch c.Stripe.Mode {
+	case store.BillingModeFreePreview:
+		b := map[string]any{"status": "free_preview"}
+		if c.FreePreview != nil {
+			b["units"] = c.FreePreview.Units
+			b["returned"] = c.FreePreview.Returned
+		}
+		resp["billing"] = b
 	case store.BillingModeBalance:
 		if b := balanceBilling(c); b != nil {
 			resp["billing"] = b

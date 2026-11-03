@@ -41,7 +41,7 @@ func TestLifelikeAbove4K(t *testing.T) {
 	if params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "8k"}, p, all); err != nil || !slices.Equal(params.Formats, []string{"mvhevc", "half_sbs"}) {
 		t.Errorf("8k default formats: %+v %v", params, err)
 	}
-	if params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepLifelikePreview, Preset: "8k", FromFrame: 0, ToFrame: 120}, p, all); err != nil || !slices.Equal(params.Formats, []string{"half_sbs"}) {
+	if params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepLifelikePreview, Preset: "8k", FromFrame: 0, ToFrame: 120}, p, all); err != nil || !slices.Equal(params.Formats, []string{"half_sbs", "mvhevc"}) {
 		t.Errorf("8k preview: %+v %v", params, err)
 	}
 	// up to 4K the original eye stays optional and off by default

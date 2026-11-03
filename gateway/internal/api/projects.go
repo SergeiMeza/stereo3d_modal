@@ -637,6 +637,8 @@ type stepConvReq struct {
 	// Bitrate (S3D-56, both methods, every step): "auto" (default) |
 	// "match_source" | 20 | 40 | 60 | 100 (Mbit/s).
 	Bitrate bitrateReq `json:"bitrate"`
+	// Express (add-on, pricing 2026-11, Lifelike): first in the GPU line.
+	Express bool `json:"express"`
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -1014,7 +1016,13 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		in.Preset = pricePreset(params)
 		in.Foveated = params.Foveation != ""
 		in.CreditCents = creditCents
-		in.Pro = s.isPro(ctx, p.UID)
+		at := s.accountTier(ctx, p.UID)
+		in.Pro, in.Tier = at.Tier != "", at.Tier
+		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
+		if step == store.StepLifelikePreview {
+			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.EffectiveFPS)
+			in.FreePreview = allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
+		}
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
 			return nil, nil, httpx.ErrInvalid(err.Error())
@@ -1056,7 +1064,8 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	in := s.stepQuoteInputs(p, params, step, billable)
 	in.ReuseStages = reuseStages
 	in.CreditCents = creditCents
-	in.Pro = s.isPro(ctx, p.UID)
+	at := s.accountTier(ctx, p.UID)
+	in.Pro, in.Tier, in.Master = at.Tier != "", at.Tier, params.Bitrate == bitrateMaster
 	q, err := s.Pricing.QuoteStep(ctx, in)
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())
@@ -1210,6 +1219,28 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	if l := s.limitsFor(ctx, user.UID); l.Limited {
 		resp["limits"] = l.JSON() // B14
 	}
+	// Pricing 2026-11: the tier the price is at, and free previews left.
+	if rates.TierPricing {
+		at := s.accountTier(ctx, user.UID)
+		resp["tier"] = at.Tier
+		if at.Tier != "" {
+			resp["tier_label"] = tierLabel(at.Tier)
+		}
+		units := 0
+		if req.Step == store.StepLifelikePreview {
+			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), effectiveFPS(p, params))
+		}
+		if rates.FreePreviewsEnabled {
+			resp["free_previews"] = s.freePreviewStatus(ctx, user.UID, at, units).JSON()
+		}
+		if d, ok := quote.Breakdown["discount"].(map[string]any); ok && d != nil {
+			resp["discount"] = d // one line: {kind: tier|bulk, tier?, cents, pct}
+		}
+		if quote.AmountCents == 0 && quote.Breakdown["free_preview"] == true {
+			resp["payment_flow"], resp["charge_timing"] = store.FlowFreePreview, "before"
+			delete(resp, "pay_now_reason")
+		}
+	}
 	if flow != store.FlowAfter {
 		resp["charge_timing"] = "before"
 	} else {
@@ -1310,8 +1341,8 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	if n, cerr := s.Store.CountActiveForUser(ctx, user.UID); cerr != nil {
 		httpx.WriteErr(ctx, w, cerr)
 		return
-	} else if n >= rates.MaxActivePerUser {
-		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(rates.MaxActivePerUser))
+	} else if limit := s.maxActiveFor(ctx, user.UID, rates.MaxActivePerUser); n >= limit {
+		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(limit))
 		return
 	}
 
@@ -1347,6 +1378,27 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	// The same pre-run estimate the quote showed; overdue runs are judged
 	// against it.
 	conv.Support.ExpectedSeconds = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
+
+	// Pricing 2026-11: a preview quoted free takes its free previews now;
+	// if they ran out meanwhile, it is priced like any run.
+	if conv.Quote.Breakdown["free_preview"] == true {
+		if s.consumeFreePreview(ctx, conv) {
+			conv.State, conv.PaymentFlow = store.StatePaid, store.FlowFreePreview
+			conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeFreePreview}
+			s.createAndSubmit(ctx, w, user, conv, func() {
+				s.Store.GiveBackFreePreview(ctx, conv.UID, conv.FreePreview)
+				s.restoreCredit(ctx, conv)
+			})
+			return
+		}
+		requote, _, qerr := s.quoteStep(withoutFree(ctx), p, params, req.Step, credit)
+		if qerr != nil {
+			s.restoreCredit(ctx, conv)
+			httpx.WriteErr(ctx, w, qerr)
+			return
+		}
+		conv.Quote = *requote
+	}
 
 	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) }, payContextOf(r))
 }

@@ -70,6 +70,12 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(event.Data.Raw, &inv) == nil {
 			s.handleInvoiceEvent(ctx, string(event.Type), &inv)
 		}
+		if event.Type == "invoice.paid" {
+			s.handlePlanInvoicePaid(ctx, event.Data.Raw) // a plan period's credit
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "subscription":
+		s.handleSubscriptionEvent(ctx, event.Data.Raw)
 		httpx.WriteOK(w, map[string]bool{"received": true})
 	case "payment_method":
 		if event.Type == "payment_method.detached" {

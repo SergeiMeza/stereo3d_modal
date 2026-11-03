@@ -354,6 +354,9 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 	resp["flow_state"] = flowState(cust)
 	// v7 N13: the prepaid balance (web only; the apps don't read it).
 	resp["balance"] = s.balanceSummary(ctx, user.UID, nil)
+	if p := s.planJSON(ctx, user.UID); p != nil {
+		resp["plan"] = p // pricing 2026-11: Business / Studio
+	}
 	resp["limits"] = s.limitsFor(ctx, user.UID).JSON()
 	return resp, nil
 }

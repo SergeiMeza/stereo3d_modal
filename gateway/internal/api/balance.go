@@ -872,6 +872,9 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 			}
 		}
 	}
+	if n := s.planCreditSweep(ctx); n > 0 {
+		stats["plan_credit_expired"] = n
+	}
 	// N7: notices at 30 and 7 days, then expiry.
 	due, err := s.Store.ListBalancesExpiringBy(ctx, now.Add(30*24*time.Hour), 100)
 	if err != nil {
@@ -1134,6 +1137,15 @@ func (s *Service) usageRow(ctx context.Context, c *store.Conversion, names map[s
 	row := map[string]any{"at": c.CreatedAt.Format(time.RFC3339), "project": name, "project_id": c.ProjectID,
 		"conversion_id": c.ID, "method": store.MethodOr(c.Method), "preset": c.Params.Preset, "step": c.Step,
 		"minutes": math.Round(minutes*100) / 100, "cost_cents": nil, "paid_with": "card", "status": "running"}
+	if c.FreePreview != nil {
+		row["paid_with"], row["cost_cents"], row["status"] = "free_preview", int64(0), "done"
+		if store.IsTerminal(c.State) && c.State != store.StateSucceeded {
+			row["status"] = "released"
+		} else if !store.IsTerminal(c.State) {
+			row["status"], row["cost_cents"] = "running", nil
+		}
+		return row
+	}
 	if rb := c.RunBalance; rb != nil {
 		row["paid_with"] = "balance"
 		switch rb.State {

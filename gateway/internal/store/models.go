@@ -238,6 +238,8 @@ type Params struct {
 	// lifelike_stabilize, the owner's A/B); recorded per run, never shown
 	// to or set by clients.
 	Stabilize bool `firestore:"stabilize,omitempty" json:"-"`
+	// Express (add-on, pricing 2026-11): first in the GPU line.
+	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -392,6 +394,9 @@ type Conversion struct {
 	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
 	// RunBalance: a run paid from the prepaid balance holds it here (v7 N5).
 	RunBalance *RunBalance `firestore:"balance,omitempty" json:"-"`
+	// FreePreview: a preview paid with free previews (pricing 2026-11);
+	// given back if it delivers nothing.
+	FreePreview *FreePreview `firestore:"free_preview,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
@@ -447,6 +452,8 @@ type Customer struct {
 	// before a charge. Seeded once from historical succeeded charges
 	// (LifetimePaidSeeded) for accounts that predate batching.
 	LifetimePaidCents int64 `firestore:"lifetime_paid_cents"`
+	// Plan: the web plan (Business, Studio), from Stripe Billing.
+	Plan *Plan `firestore:"plan,omitempty"`
 	// PaidOnce: a payment has gone through (lifts the B14 limits even
 	// before a pre-charged run delivers and earns the money).
 	PaidOnce           bool `firestore:"paid_once,omitempty"`

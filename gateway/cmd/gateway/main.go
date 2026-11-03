@@ -180,6 +180,8 @@ func main() {
 	mux.HandleFunc("PUT /v1/billing/balance/settings", authed(svc.HandlePutBalanceSettings)) // P18, P19
 	mux.HandleFunc("GET /v1/billing/balance/entries", authed(svc.HandleBalanceEntries))
 	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
+	mux.HandleFunc("POST /v1/billing/plan", authed(svc.HandleStartPlan)) // pricing 2026-11
+	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(svc.HandleCancelPlan))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -30,6 +31,12 @@ type Status struct {
 	// Via names what makes the person Pro: the entitlement's product
 	// (a subscription or Lifetime) or the pass; "" when not Pro.
 	Via string
+	// ExpiresAt: the entitlement's (or pass's) end; nil for Lifetime.
+	// PeriodStart: when the current period began — the pass's purchase,
+	// or the subscription's latest renewal (subscriptions[product]
+	// .purchase_date) — the free-preview allowance resets with it.
+	ExpiresAt   *time.Time
+	PeriodStart *time.Time
 }
 
 type entry struct {
@@ -98,6 +105,10 @@ type subscriber struct {
 		NonSubscriptions map[string][]struct {
 			PurchaseDate time.Time `json:"purchase_date"`
 		} `json:"non_subscriptions"`
+		Subscriptions map[string]struct {
+			PurchaseDate time.Time  `json:"purchase_date"`
+			ExpiresDate  *time.Time `json:"expires_date"`
+		} `json:"subscriptions"`
 	} `json:"subscriber"`
 }
 
@@ -133,7 +144,12 @@ func statusOf(b subscriber, now time.Time) Status {
 	if e, ok := b.Subscriber.Entitlements[proEntitlement]; ok {
 		if e.ExpiresDate == nil || e.ExpiresDate.After(now) ||
 			(e.GracePeriodExpiresDate != nil && e.GracePeriodExpiresDate.After(now)) {
-			return Status{Pro: true, Via: e.ProductIdentifier}
+			st := Status{Pro: true, Via: e.ProductIdentifier, ExpiresAt: e.ExpiresDate}
+			if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok && !sub.PurchaseDate.IsZero() {
+				pd := sub.PurchaseDate
+				st.PeriodStart = &pd
+			}
+			return st
 		}
 	}
 	for product, purchases := range b.Subscriber.NonSubscriptions {
@@ -142,8 +158,9 @@ func statusOf(b subscriber, now time.Time) Status {
 			continue
 		}
 		for _, p := range purchases {
-			if p.PurchaseDate.AddDate(0, months, 0).After(now) {
-				return Status{Pro: true, Via: product}
+			if end := p.PurchaseDate.AddDate(0, months, 0); end.After(now) {
+				pd := p.PurchaseDate
+				return Status{Pro: true, Via: product, ExpiresAt: &end, PeriodStart: &pd}
 			}
 		}
 	}
@@ -161,4 +178,29 @@ func PassMonths(product string) int {
 	}
 	n, _ := strconv.Atoi(m[1])
 	return n
+}
+
+// AllowanceKey names a Pro holder's free-preview allowance by what they
+// hold: pro_weekly | pro_monthly | pro_yearly | pro_pass_3m |
+// pro_pass_6m | pro_lifetime.
+func (s Status) AllowanceKey() string {
+	if !s.Pro {
+		return ""
+	}
+	v := strings.ToLower(s.Via)
+	switch {
+	case PassMonths(v) == 3:
+		return "pro_pass_3m"
+	case PassMonths(v) == 6:
+		return "pro_pass_6m"
+	case PassMonths(v) > 0:
+		return "pro_monthly"
+	case s.ExpiresAt == nil || strings.Contains(v, "lifetime"):
+		return "pro_lifetime"
+	case strings.Contains(v, "week"):
+		return "pro_weekly"
+	case strings.Contains(v, "year") || strings.Contains(v, "annual"):
+		return "pro_yearly"
+	}
+	return "pro_monthly"
 }

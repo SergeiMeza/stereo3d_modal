@@ -48,6 +48,10 @@ const (
 	EntryDisputeLoss     = "dispute_loss"
 	EntryExpiry          = "expiry"
 	EntryAdjustment      = "adjustment"
+	// Plan credit (pricing 2026-11): a plan's monthly credit, non-cash,
+	// spent first, gone at the period's end.
+	EntryPlanCredit       = "plan_credit"
+	EntryPlanCreditExpiry = "plan_credit_expiry"
 )
 
 // Top-up states.
@@ -93,6 +97,11 @@ type FifoItem struct {
 	TopupID        string    `firestore:"topup_id"`
 	RemainingCents int64     `firestore:"remaining_cents"`
 	At             time.Time `firestore:"at"`
+	// PlanCredit: a plan's credit for one period (ExpiresAt), spent before
+	// anything else and never paid out.
+	PlanCredit bool       `firestore:"plan_credit,omitempty"`
+	ExpiresAt  *time.Time `firestore:"expires_at,omitempty"`
+	Ref        string     `firestore:"ref,omitempty"`
 }
 
 // FifoUse is what a settle or debt payment took from one item.
@@ -148,6 +157,7 @@ type Balance struct {
 	DayReloads      int                `firestore:"day_reloads"`
 	Notices         map[string]bool    `firestore:"notices,omitempty"` // expiry notices sent for this expires_at
 	TopupCount      int                `firestore:"topup_count"`
+	HasPlanCredit   bool               `firestore:"has_plan_credit"`
 	EntrySeq        int64              `firestore:"entry_seq"`
 	Extra           map[string]any     `firestore:"extra,omitempty"`
 	UpdatedAt       time.Time          `firestore:"updated_at"`
@@ -297,10 +307,11 @@ type BalanceOp struct {
 	CaseID        string
 	Ref           string
 	Note          string
-	PendingReload bool      // hold: waits for the in-flight reload
-	Auto          bool      // topup: an auto-reload
-	Restore       []FifoUse // refund_to_balance: the items the run used
-	EntryID       string    // a fixed id (once per PaymentIntent)
+	PendingReload bool       // hold: waits for the in-flight reload
+	Auto          bool       // topup: an auto-reload
+	ExpiresAt     *time.Time // plan_credit: the period's end
+	Restore       []FifoUse  // refund_to_balance: the items the run used
+	EntryID       string     // a fixed id (once per PaymentIntent)
 }
 
 // ledger applies ops to a balance and records entries; then checks E0-8,
@@ -335,6 +346,12 @@ func (l *ledger) add(e Entry) {
 func (l *ledger) consumeFifo(cents int64) []FifoUse {
 	sort.SliceStable(l.b.Fifo, func(i, j int) bool {
 		a, b := l.b.Fifo[i], l.b.Fifo[j]
+		if a.PlanCredit != b.PlanCredit {
+			return a.PlanCredit // plan credit first, soonest to expire
+		}
+		if a.PlanCredit && a.ExpiresAt != nil && b.ExpiresAt != nil && !a.ExpiresAt.Equal(*b.ExpiresAt) {
+			return a.ExpiresAt.Before(*b.ExpiresAt)
+		}
 		if (a.TopupID == "") != (b.TopupID == "") {
 			return a.TopupID == ""
 		}
@@ -510,6 +527,15 @@ func (l *ledger) apply(op BalanceOp) error {
 			exp := l.now.Add(balanceLifetime)
 			b.Expired, b.ExpiresAt, b.Notices = false, &exp, nil
 		}
+	case EntryPlanCredit:
+		// The new period's credit replaces what is left of the last one.
+		l.expirePlanCredit(op.Ref, true)
+		exp := op.ExpiresAt
+		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, ExpiresAt: exp, Ref: op.Ref})
+		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCredit, Cents: op.Cents, Delta: op.Cents, Ref: op.Ref, Note: op.Note})
+		b.Expired = false
+	case EntryPlanCreditExpiry:
+		l.expirePlanCredit("", false)
 	case EntryDisputeFreeze:
 		amt := min(op.Cents, max(b.Available(), 0))
 		b.FrozenCents += amt
@@ -606,6 +632,7 @@ func (l *ledger) startReload(cents int64, convID string) {
 // commit writes the summary, the entries and any new reload record.
 func (s *Store) commitLedger(tx *firestore.Transaction, l *ledger) error {
 	l.b.UpdatedAt = l.now
+	l.b.HasPlanCredit = l.b.PlanCreditCents() > 0
 	for _, e := range l.entries {
 		if err := tx.Create(s.entryDoc(l.b.UID, e.ID), e); err != nil {
 			return err
@@ -1073,4 +1100,85 @@ func (s *Store) EntryExists(ctx context.Context, uid, id string) (bool, error) {
 		return false, err
 	}
 	return snap.Exists(), nil
+}
+
+// expirePlanCredit removes plan credit that has run out (all of it when
+// all): only what is available — credit reserved by holds stays until
+// they end.
+func (l *ledger) expirePlanCredit(ref string, all bool) {
+	b := l.b
+	room := max(b.Available(), 0)
+	var gone int64
+	keep := b.Fifo[:0]
+	for _, it := range b.Fifo {
+		due := it.PlanCredit && (all || (it.ExpiresAt != nil && !it.ExpiresAt.After(l.now)))
+		if due && room > 0 {
+			take := min(it.RemainingCents, room)
+			room -= take
+			gone += take
+			it.RemainingCents -= take
+		}
+		if it.RemainingCents > 0 {
+			keep = append(keep, it)
+		}
+	}
+	b.Fifo = keep
+	if gone > 0 {
+		l.add(Entry{Kind: EntryPlanCreditExpiry, Cents: gone, Delta: -gone, Ref: ref})
+	}
+}
+
+// PlanCreditDue reports whether any plan credit has passed its end.
+func (b *Balance) PlanCreditDue(now time.Time) bool {
+	for _, it := range b.Fifo {
+		if it.PlanCredit && it.ExpiresAt != nil && !it.ExpiresAt.After(now) && it.RemainingCents > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// PlanCreditCents is the unspent plan credit.
+func (b *Balance) PlanCreditCents() int64 {
+	var n int64
+	for _, it := range b.Fifo {
+		if it.PlanCredit {
+			n += it.RemainingCents
+		}
+	}
+	return n
+}
+
+// CashCents is the unspent money from cash top-ups (what T11 can pay
+// out).
+func (b *Balance) CashCents() int64 {
+	var n int64
+	for _, it := range b.Fifo {
+		if !it.PlanCredit && it.TopupID != "" {
+			n += it.RemainingCents
+		}
+	}
+	return n
+}
+
+// ListBalancesWithPlanCredit lists balances holding plan credit (the
+// expiry sweep).
+func (s *Store) ListBalancesWithPlanCredit(ctx context.Context, limit int) ([]*Balance, error) {
+	iter := s.fs.Collection(balancesCol(s.env)).Where("has_plan_credit", "==", true).Limit(limit).Documents(ctx)
+	defer iter.Stop()
+	var out []*Balance
+	for {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		b, err := snapToBalance(snap.Ref.ID, snap)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
 }

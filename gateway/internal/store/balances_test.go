@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func topupFor(t *testing.T, s *Store, uid string, cents int64, pi string) {
@@ -180,4 +181,12 @@ func TestBalanceTriggerAndExpiry(t *testing.T) {
 	if b, _ = s.GetBalance(ctx, uid); b.Expired || b.BalanceCents != 500 {
 		t.Fatalf("reopened: %+v", b)
 	}
+}
+
+func mustTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }

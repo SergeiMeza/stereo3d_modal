@@ -225,6 +225,19 @@ type Rates struct {
 	// LifelikeETA is the Lifelike wall-clock model — see
 	// EstimateLifelikeETA.
 	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
+
+	// 2026-11 pricing (tiers.go; test only until the owner's go for prod).
+	// TierPricing: subscriber tiers, add-ons and the never-stacked bulk.
+	TierPricing            bool                        `firestore:"tier_pricing"`
+	LifelikeTierPrices     map[string]map[string]int64 `firestore:"lifelike_tier_prices"`
+	TierPctOverride        map[string]float64          `firestore:"tier_pct"`
+	AddOnPctOverride       map[string]float64          `firestore:"addon_pct"`
+	PlansEnabled           bool                        `firestore:"plans_enabled"`
+	Plans                  map[string]PlanDef          `firestore:"plans"`
+	FreePreviewsEnabled    bool                        `firestore:"free_previews_enabled"`
+	FreePreviewsOverride   map[string]int              `firestore:"free_previews"`
+	FreePreviewsPerDay     int                         `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds float64                     `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
@@ -639,6 +652,13 @@ type StepInputs struct {
 	// Pro: the customer holds SVS Pro (S3D-67): production runs get
 	// ProDiscount off before the bulk discount.
 	Pro bool
+	// Tier pricing (tiers.go): the account's tier, the add-ons, and a
+	// free preview (quoted $0, Units free previews used).
+	Tier        string
+	Master      bool
+	Express     bool
+	FreePreview bool
+	Units       int
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
@@ -732,6 +752,7 @@ func DefaultsFor(env string) *Rates {
 		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
 		r.FoveationEnabled = true
 		r.ProDiscountEnabled = true
+		applyTestTierDefaults(r) // 2026-11 pricing, test only
 	}
 	return r
 }
@@ -927,6 +948,15 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	}
 
 	afterReuse := subtotal - reuseDiscount
+	if rates.TierPricing {
+		return rates.quoteClassicTiers(in, afterReuse, map[string]any{
+			"step": in.Step, "preset": in.Preset, "billable_seconds": math.Round(in.BillableS*100) / 100,
+			"cents_per_minute": int64(math.Round(rateCents)), "cost_margin_multiplier": rates.margin(),
+			"fps_factor": round4(fpsF), "base_cents": baseCents, "depth_res": in.DepthRes,
+			"depth_res_factor": round4(depthResFactor), "inpaint_multiplier": inpaintMultiplier,
+			"reuse_stages": in.ReuseStages, "reuse_discount_cents": reuseDiscount,
+		}), nil
+	}
 	proDiscount := rates.proDiscountCents(in, afterReuse)
 	afterPro := afterReuse - proDiscount
 	bulkDiscount := int64(0)
@@ -1121,6 +1151,9 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	if !ok {
 		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
 	}
+	if rates.TierPricing {
+		return rates.quoteLifelikeTiers(in, perMin)
+	}
 	mult := 1.0
 	if in.Foveated {
 		mult = rates.FoveationMultiplier()
@@ -1293,7 +1326,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			}
 		}
 	}
-	return map[string]any{
+	out := map[string]any{
 		"rate_version": rates.RateVersion,
 		"currency":     rates.Currency,
 		"methods": map[string]any{
@@ -1338,6 +1371,10 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		// before the bulk discount; pct 0 = off.
 		"pro_discount": map[string]any{"pct": rates.ProDiscount(), "applies_to": "production"},
 	}
+	if rates.TierPricing {
+		rates.publicTiers(out, enabled)
+	}
+	return out
 }
 
 // proPct is the Pro share a quote applied (0 when none applied).

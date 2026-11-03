@@ -42,7 +42,7 @@ func llResolveErr(t *testing.T, req *stepConvReq, p *store.Project, wantCode, wa
 func TestLifelikeStepTemplates(t *testing.T) {
 	p := lifelikeProject()
 	prev := resolveOKP(t, &stepConvReq{Step: store.StepLifelikePreview, FromFrame: 240, ToFrame: 360}, p)
-	if prev.Preset != "1080p" || len(prev.Formats) != 1 || prev.Formats[0] != "sbs" {
+	if prev.Preset != "1080p" || len(prev.Formats) != 2 || prev.Formats[0] != "sbs" || prev.Formats[1] != "mvhevc" {
 		t.Errorf("preview defaults: %+v", prev)
 	}
 	if prev.TargetFPS != 0 {

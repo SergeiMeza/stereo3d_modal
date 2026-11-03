@@ -124,6 +124,9 @@ func projectDownloadNames(p *store.Project, convs []*store.Conversion) map[strin
 		}
 		slices.Sort(outputs)
 		res := resolutionLabel(c, p)
+		if isPreviewStep(c.Step) {
+			res += "_preview" // previews download too, named apart (owner, 2026-11-03)
+		}
 		names := map[string]string{}
 		for _, o := range outputs {
 			base := baseDownloadName(stem, res, o, path.Ext(c.Outputs[o]))
@@ -164,4 +167,9 @@ func rfc5987(s string) string {
 		fmt.Fprintf(&b, "%%%02X", c)
 	}
 	return b.String()
+}
+
+// isPreviewStep: a preview run of either method.
+func isPreviewStep(step string) bool {
+	return step == store.StepLifelikePreview || step == store.StepStereoPreview || step == store.StepDepthPreview
 }

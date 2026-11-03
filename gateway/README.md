@@ -569,6 +569,54 @@ Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
 (default to the Modal token).
 
+### Pricing 2026-11 (TEST only; prod defaults unchanged)
+
+`tier_pricing`, `free_previews_enabled` and `plans_enabled` default on for
+test only (pricing proposal 2026-11, BL-19, owner-approved for test).
+
+- **Tiers**: Studio > Business (web plan) > Pro (SVS Pro entitlement or a
+  running pass) > list. Lifelike per output minute at 24 fps (fps factors
+  unchanged): list 1080p 400 · 1440p 550 · 3K 800 · 4K 1000 · 5K 1600 · 6K
+  2000 · 8K 2800; Pro 340/470/680/850/1360/1700/2380; Business
+  300/410/600/750/1200/1500/2100; Studio 280/385/560/700/1120/1400/1960.
+  Classic: 15/25/30% off its production prices.
+- **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
+  the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
+  tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay
+  (`pro_discount_cents` = the tier's saving, `discount_cents` = bulk).
+- **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
+  +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
+  (`express: true`, Lifelike; included in Business and Studio). Express
+  sends `"priority": "express"` to the Lifelike service, which ignores it
+  until its queue supports priority.
+- **Free previews** per period, no rollover: Pro Weekly 5/week, Monthly 20,
+  Yearly 240/year, passes 60/120, Lifetime 20/month, Business 50, Studio
+  200; non-subscribers 1 on their first project; 20 a day. One per 5 s,
+  doubled for 5K–8K and 60 fps. A free preview quotes $0
+  (`payment_flow: free_preview`, breakdown `free_preview`,
+  `price_without_free_cents`), takes its previews at submit
+  (`previews_{env}`), and gives them back if it delivers nothing (inside
+  its terminal transition). Quotes carry `free_previews {allowance, used,
+  remaining, daily_left, units, free, intro, resets_at?}`.
+- **Plans**: `POST /v1/billing/plan {plan: business|studio, ui}` →
+  subscription-mode Checkout (`{checkout, url?, plan, publishable_key}`;
+  409 `plan_active`); `POST /v1/billing/plan/cancel {resume?}`.
+  `GET /v1/billing` adds `plan {plan, name, status, active, monthly_cents,
+  credit_cents, credit_left_cents, current_period_end,
+  cancel_at_period_end}`. Prices by lookup key `svs_web_{tier}_monthly`
+  (test: Business $299, Studio $999). `customer.subscription.*` mirrors
+  the plan; `invoice.paid` grants the period's credit ($400 / $1,500) as
+  non-cash plan credit in the balance ledger (spent first, never paid out,
+  expired at the period's end or replaced by the next grant). Plans raise
+  the concurrent-run cap (3 / 8).
+- **Previews download**: preview runs output `sbs` + `mvhevc` by default
+  (half_sbs above 4K) and download like any run, named
+  `<stem>_<res>_preview_<layout>.<ext>`.
+- `GET /v1/pricing` adds `pricing_model: tiers`, `tiers
+  {lifelike_cents_per_minute {list, pro, business, studio}, classic_pct}`,
+  `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
+  false`.
+
 ### Lifelike stabilization (config only)
 
 `config/pricing_{env}.lifelike_stabilize` (bool, default false on test and

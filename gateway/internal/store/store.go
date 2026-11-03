@@ -393,10 +393,19 @@ func (s *Store) Transition(ctx context.Context, id string, fromStates []string, 
 		if err != nil {
 			return err
 		}
+		commitPreview, err := s.returnFreePreview(tx, c)
+		if err != nil {
+			return err
+		}
 		c.UpdatedAt = time.Now().UTC()
 		result = c
 		if commitHold != nil {
 			if err := commitHold(); err != nil {
+				return err
+			}
+		}
+		if commitPreview != nil {
+			if err := commitPreview(); err != nil {
 				return err
 			}
 		}
