@@ -33,15 +33,14 @@ describe("Landing hero (mock 12, S3D-46)", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Turn any video into lifelike 3D",
     );
-    expect(
-      screen.getAllByRole("link", { name: "Make your first 3D video" }),
-    ).toHaveLength(2); // hero and closing section
+    expect(screen.getAllByRole("link", { name: "Make your first 3D video" })).toHaveLength(1); // hero
+    // the closing section: one button, no prices (owner 2026-11)
+    expect(screen.getAllByRole("link", { name: "Make your 3D video" })).toHaveLength(1);
+    expect(screen.queryByTestId("final-price")).toBeNull();
     expect((await screen.findByTestId("hero-from-price")).textContent).toBe(
       "from $3 a minute at 24 fps",
     );
-    expect(screen.getByTestId("hero-step-2").textContent).toBe(
-      "A few seconds in 3D, from $1.",
-    );
+    expect(screen.getByTestId("hero-step-2").textContent).toBe("A few seconds in 3D.");
     // Works with, text only, each linking to its page (S3D-51)
     // Works with: the links in an sr-only list (not display:none), the
     // animated track aria-hidden and drawn twice for the loop (S3D-51)
@@ -116,13 +115,9 @@ describe("Lifelike story (2026-11)", () => {
       "For teams: Business and Studio plans. See plans",
     );
     expect(points.textContent).toContain("Foveated Detail");
-    // Pro share from GET /v1/pricing (S3D-67)
-    expect(
-      (await screen.findByTestId("final-price")).textContent,
-    ).toBe("From $3 a minute. Pay per video. Plans save 15–30%.");
-    expect(screen.getByTestId("hero-limits").textContent).toContain(
-      "Any length, up to 8K. Pro members save 20%.",
-    );
+    // prices only in the one hero line (owner 2026-11)
+    expect(screen.getByTestId("hero-limits").textContent).toContain("Any length, up to 8K. See prices");
+    expect(screen.getByTestId("hero-limits").textContent).not.toMatch(/save|\$/);
     // How it looks: a phone shot per screen, Make 3D open on the tabs
     for (const id of ["projects", "make-3d", "tracker", "files"]) {
       expect(

@@ -1,15 +1,14 @@
 "use client";
 
 /**
- * The device pages' price line (S3D-51/15/05): "from $3 a minute at 24
- * fps · any length, up to 8K", from GET /v1/pricing — nothing until it
- * answers.
+ * The device pages' line under the button (S3D-51/05): "any length, up
+ * to 8K", from GET /v1/pricing — nothing until it answers. No price here
+ * (owner 2026-11: prices live on /pricing, /plans and the quote).
  */
 
 import type { JSX } from "react";
 
 import { methodLimitText } from "@/components/steps/methods";
-import { formatCentsShort } from "@/components/steps/money";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 
 export function DevicePrice(): JSX.Element | null {
@@ -18,7 +17,6 @@ export function DevicePrice(): JSX.Element | null {
   if (!pricing || from === null) return null;
   return (
     <span data-testid="device-price" className="text-sm text-fg-muted">
-      from {formatCentsShort(from)} a minute at {pricing.fps.base} fps ·{" "}
       {methodLimitText("lifelike", null, pricing)}
     </span>
   );

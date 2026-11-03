@@ -29,8 +29,6 @@ import { ProductTour } from "@/components/landing/ProductTour";
 import { Samples } from "@/components/landing/Samples";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { Logo } from "@/components/Logo";
-import { PayPerVideoLine } from "@/components/pricing/planCopy";
-import { proSaveLine } from "@/components/pricing/ProOffer";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCentsShort } from "@/components/steps/money";
 import { track } from "@/lib/analytics";
@@ -88,9 +86,6 @@ export function LandingContent() {
   const perMinute = pricing ? fromPerMinute(pricing) : null;
   // S3D-05: the limits are Lifelike's, from /v1/pricing ("Any length, up to 8K")
   const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing));
-  // S3D-67: shown only when the gateway sends a Pro share
-  const pro = pricing?.pro_discount;
-  const proLine = pro && pro.pct > 0 ? proSaveLine(pro.pct) : null;
   const ctaHref = signedIn ? "/projects" : "/signin";
 
   const points: Point[] = [
@@ -160,7 +155,7 @@ export function LandingContent() {
             ) : null}
           </div>
           <p data-testid="hero-limits" className="mt-4 text-xs text-fg-muted">
-            {lifelikeLimits}.{proLine ? ` ${proLine}.` : ""}{" "}
+            {lifelikeLimits}.{" "}
             <Link
               href="/pricing"
               onClick={() => track("lp_pricing_click")}
@@ -197,10 +192,7 @@ export function LandingContent() {
           { t: "Upload a video", s: `${lifelikeLimits}.` },
           {
             t: "Preview a moment",
-            s:
-              pricing !== null
-                ? `A few seconds in 3D, from ${formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}.`
-                : "A few seconds in 3D.",
+            s: "A few seconds in 3D.",
           },
           { t: "Make it 3D", s: "Download for your headset." },
         ].map((st, i) => (
@@ -275,24 +267,13 @@ export function LandingContent() {
         <h2 className="text-3xl font-semibold tracking-tight text-balance">
           See your own video in 3D
         </h2>
-        <p data-testid="final-price" className="mt-2 text-fg-muted">
-          {perMinute !== null ? `From ${formatCentsShort(perMinute)} a minute. ` : ""}
-          <PayPerVideoLine pricing={pricing} />
-        </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
             href={ctaHref}
             onClick={() => track("lp_cta_bottom_click", { signed_in: signedIn })}
             className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
           >
-            Make your first 3D video
-          </Link>
-          <Link
-            href="/pricing"
-            onClick={() => track("lp_pricing_click")}
-            className="rounded-lg border border-edge bg-card px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
-          >
-            See prices
+            Make your 3D video
           </Link>
         </div>
         <p data-testid="teams-line" className="mt-5 text-sm text-fg-muted">

@@ -35,7 +35,7 @@ describe("/devices/<slug> (S3D-51, screen 14)", () => {
     expect(screen.getByText(/Gallery or Files, then choose 3D side-by-side/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Make your video 3D" })).toBeTruthy();
     expect((await screen.findByTestId("device-price")).textContent).toBe(
-      "from $3 a minute at 24 fps · any length, up to 8K",
+      "any length, up to 8K",
     );
     expect(screen.getByText("A Side by side file: one picture for each eye.")).toBeTruthy();
   });
