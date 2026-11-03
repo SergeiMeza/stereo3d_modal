@@ -259,7 +259,7 @@ describe("Lifelike Deliver", () => {
     expect(screen.queryByTestId("split-prompt")).toBeNull();
     // a small run goes on the balance after it succeeds (S3D-19)
     expect(screen.getByTestId("quote-charge-timing").textContent).toMatch(
-      /^We add \$\d+\.\d\d to your balance after it succeeds\. Your balance is charged within 4 hours( or when it reaches \$\d+\.\d\d)?\.$/,
+      /^We add \$\d+\.\d\d to your balance after it succeeds\. Your balance is charged (within \d+ hours?|soon)( or when it reaches \$\d+\.\d\d)?\.$/,
     );
     expect(screen.getByTestId("charge-timing-hint").textContent).toMatch(
       /after it succeeds/,

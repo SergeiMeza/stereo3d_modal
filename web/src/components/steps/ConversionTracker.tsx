@@ -305,8 +305,7 @@ export function ConversionTracker({
       ) : null}
       {conv.state === "succeeded" && conv.billing?.status === "batched" ? (
         <p className="mt-3 text-xs text-fg-muted" data-testid="batched-note">
-          Added to your balance — charged together with your other runs
-          within 4 hours.
+          Added to your balance.
         </p>
       ) : null}
       {conv.state === "succeeded" &&

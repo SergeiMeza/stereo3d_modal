@@ -193,6 +193,8 @@ export interface QualityOption {
 export interface Project {
   project_id: string;
   name?: string;
+  /** list items only (S3D-35) */
+  summary?: ProjectSummary;
   /** Lifelike qualities for this source; absent on older gateways (the
    * web then derives them from the probe) */
   qualities?: QualityOption[];
@@ -403,6 +405,60 @@ export interface DownloadFile {
   part?: number; // 1-based, split runs only
   filename?: string; // "<name> 3D Part 2.mov"
   url: string;
+  /** stored object size; absent when storage didn't answer */
+  size_bytes?: number;
+}
+
+/** A project card's outcome line (S3D-35), on GET /v1/projects items. */
+export interface ProjectSummary {
+  latest_state?: ConversionState;
+  latest_step?: Step;
+  /** money taken or owed for delivered work */
+  spent_cents: number;
+  /** optional extras the cards use when the gateway sends them */
+  latest_progress?: number;
+  latest_eta_seconds?: number;
+  latest_waiting_for_gpu?: boolean;
+  latest_billing_status?: ConversionBilling["status"];
+}
+
+/** GET /v1/billing balance (S3D-21): always present on current gateways. */
+export interface BillingBalance {
+  amount_cents: number;
+  currency: string;
+  /** RFC3339 latest charge time; null with nothing open */
+  due_at: string | null;
+  cap_cents: number;
+}
+
+/** GET /v1/pricing (public, S3D-18). Prices per minute of output at 24
+ * fps; the frame rate scales them by fps/24 within [min, max] factor. */
+export interface PublicPricing {
+  rate_version?: string;
+  currency: string;
+  methods: {
+    lifelike?: {
+      presets: Preset[];
+      production_cents_per_minute: Partial<Record<Preset, number>>;
+      /** flat preview price on gateways before per-frame previews */
+      preview_cents?: number;
+      max_source_duration_s: number;
+      max_source_bytes?: number;
+    };
+    classic?: {
+      presets: Preset[];
+      production_cents_per_minute: Partial<Record<Preset, number>>;
+      stereo_preview_cents_per_minute?: Partial<Record<Preset, number>>;
+      depth_preview_cents_per_minute?: number;
+      max_source_duration_s: number;
+      max_source_bytes?: number;
+    };
+  };
+  fps: { base: number; min_factor: number; max_factor: number };
+  discount: { threshold_cents: number; pct: number };
+  minimum_cents: number;
+  precharge_threshold_cents: number;
+  balance: { window_hours: number; new_account_cap_cents: number };
 }
 
 export interface APIErrorBody {
@@ -547,6 +603,8 @@ export interface BillingStatus {
   unpaid: UnpaidCharge[];
   /** the open batch, when any step is waiting to be charged */
   pending?: PendingBatch;
+  /** the header pill's data (S3D-21) */
+  balance?: BillingBalance;
   tier?: BillingTier;
   publishable_key: string;
 }

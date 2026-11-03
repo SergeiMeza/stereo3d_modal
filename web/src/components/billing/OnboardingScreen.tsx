@@ -82,7 +82,7 @@ export default function OnboardingScreen(): JSX.Element {
           shows its exact price before it starts.
         </p>
         <p data-testid="charge-rule" className="text-sm text-fg-muted">
-          {chargeRule(prechargeThreshold(limits))}
+          {chargeRule(prechargeThreshold(limits), status?.tier?.window_hours)}
         </p>
       </header>
       <div className="rounded-lg border border-edge bg-surface-1 p-4">

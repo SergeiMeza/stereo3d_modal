@@ -387,7 +387,7 @@ export function StepCheckoutSection({
   disabledReason,
 }: StepCheckoutSectionProps): JSX.Element {
   const blocked = disabledReason !== undefined;
-  const balanceLimit = useBilling().status?.tier?.cap_cents;
+  const tier = useBilling().status?.tier;
   return (
     <>
       <div className="flex items-center gap-3">
@@ -417,7 +417,11 @@ export function StepCheckoutSection({
       {ck.error ? <p className="text-sm text-red-400">{ck.error}</p> : null}
       {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
       {ck.quote ? (
-        <QuoteView result={ck.quote} balanceLimitCents={balanceLimit} />
+        <QuoteView
+          result={ck.quote}
+          balanceLimitCents={tier?.cap_cents}
+          balanceWindowHours={tier?.window_hours}
+        />
       ) : null}
       {ck.tracking && ck.active ? (
         <ConversionTracker

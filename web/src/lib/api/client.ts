@@ -15,6 +15,7 @@ import type {
   Downloads,
   GatewayLimits,
   Project,
+  PublicPricing,
   StepConversionRequest,
   StepQuoteResponse,
   UpdateProjectRequest,
@@ -71,6 +72,7 @@ export function normalizeDownloads(raw: unknown): Downloads {
       part?: unknown;
       filename?: unknown;
       url?: unknown;
+      size_bytes?: unknown;
     };
     if (typeof e.url !== "string") return;
     const format =
@@ -92,6 +94,7 @@ export function normalizeDownloads(raw: unknown): Downloads {
       format,
       ...(part !== undefined ? { part } : {}),
       ...(typeof e.filename === "string" ? { filename: e.filename } : {}),
+      ...(typeof e.size_bytes === "number" ? { size_bytes: e.size_bytes } : {}),
       url: e.url,
     });
   };
@@ -105,10 +108,15 @@ export function normalizeDownloads(raw: unknown): Downloads {
   if (Array.isArray(body.files)) {
     body.files.forEach((entry, i) => putEntry(`file${i + 1}`, entry));
   }
+  // the map and the files listing name the same outputs: keep one entry
+  // per name, the files listing's (it carries filename and size)
+  const byName = new Map<string, DownloadFile>();
+  for (const f of files) byName.set(f.name, { ...byName.get(f.name), ...f });
+  const listed = [...byName.values()];
   return {
     downloads: out,
     expires_in: body.expires_in ?? 0,
-    ...(files.length > 0 ? { files } : {}),
+    ...(listed.length > 0 ? { files: listed } : {}),
   };
 }
 
@@ -149,9 +157,10 @@ export class GatewayClient {
     path: string,
     body?: unknown,
     headers?: Record<string, string>,
+    opts: { anonymous?: boolean } = {},
   ): Promise<T> {
     const f = this.opts.fetchFn ?? fetch;
-    const token = await this.opts.getToken();
+    const token = opts.anonymous ? null : await this.opts.getToken();
     const base =
       typeof this.opts.baseUrl === "function"
         ? this.opts.baseUrl()
@@ -159,7 +168,7 @@ export class GatewayClient {
     const res = await f(`${base}${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...headers,
       },
@@ -315,6 +324,13 @@ export class GatewayClient {
     return this.request("GET", "/v1/limits");
   }
 
+  /** Public price list (no sign-in needed, S3D-18). */
+  getPricing(): Promise<PublicPricing> {
+    return this.request("GET", "/v1/pricing", undefined, undefined, {
+      anonymous: true,
+    });
+  }
+
   // ----------------------------------------------------------- projects
 
   createProject(req: CreateProjectRequest): Promise<Project> {
@@ -336,6 +352,12 @@ export class GatewayClient {
 
   updateProject(id: string, req: UpdateProjectRequest): Promise<Project> {
     return this.request("PATCH", `/v1/projects/${id}`, req);
+  }
+
+  /** Delete a project and its files from the account (S3D-24); refused
+   * (409) while a run is active. */
+  deleteProject(id: string): Promise<{ project_id: string; deleted: boolean }> {
+    return this.request("POST", `/v1/projects/${id}/delete`, {});
   }
 
   archiveProject(id: string): Promise<Project> {

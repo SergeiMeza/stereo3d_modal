@@ -81,9 +81,12 @@ function Line({
 export function QuoteView({
   result,
   balanceLimitCents,
+  balanceWindowHours,
 }: {
   result: StepQuoteResponse;
-  /** the account's balance limit, for the "charged within 4 hours or when
+  /** the account's balance window (hours, from GET /v1/billing) */
+  balanceWindowHours?: number;
+  /** the account's balance limit, for the "charged within 1 hour or when
    * it reaches $X" sentence */
   balanceLimitCents?: number;
 }): JSX.Element {
@@ -224,7 +227,12 @@ export function QuoteView({
         </span>
       </div>
       <p data-testid="quote-charge-timing" className="text-xs text-fg">
-        {quoteChargeSentence(total, result.charge_timing, balanceLimitCents)}
+        {quoteChargeSentence(
+          total,
+          result.charge_timing,
+          balanceLimitCents,
+          balanceWindowHours,
+        )}
       </p>
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">

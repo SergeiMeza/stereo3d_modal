@@ -251,7 +251,10 @@ export default function AccountScreen({
       <CardShell title="Billing">
         <p className="text-fg-muted">
           Billing is pay-as-you-go: every run shows its price before it
-          starts. {chargeRule(prechargeThreshold(limits))} Saved payment
+          starts. {chargeRule(
+            prechargeThreshold(limits),
+            billing.status?.tier?.window_hours,
+          )} Saved payment
           methods, invoices, and receipts live in the Stripe billing portal.
         </p>
         <PendingBalance />

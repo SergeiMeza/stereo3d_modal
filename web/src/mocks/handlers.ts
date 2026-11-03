@@ -143,8 +143,11 @@ const MOCK_CARD: BillingCard = {
   exp_year: 2034,
 };
 
+/** The mock keeps soft-deleted projects (S3D-24) with this flag. */
+type MockProject = Project & { deleted?: boolean };
+
 interface DB {
-  projects: Map<string, Project>;
+  projects: Map<string, MockProject>;
   conversions: Map<string, Conversion>;
   idem: Map<string, string>; // Idempotency-Key → conversion_id
   /** per-project analyze lifecycle position (one stage per GET poll) */
@@ -1264,7 +1267,7 @@ function batchCharge(c: Conversion) {
       currency: c.quote.currency,
       cap_cents: b.batchCapCents,
       opened_at: now.toISOString(),
-      due_at: new Date(now.getTime() + 4 * 3600 * 1000).toISOString(),
+      due_at: new Date(now.getTime() + 1 * 3600 * 1000).toISOString(),
       items: [],
     };
   }
@@ -1447,14 +1450,70 @@ function billingStatus() {
     delinquent: b.unpaid.length > 0,
     unpaid: b.unpaid,
     ...(b.pending ? { pending: b.pending } : {}),
+    balance: {
+      amount_cents: b.pending?.amount_cents ?? 0,
+      currency: "usd",
+      due_at: b.pending?.due_at ?? null,
+      cap_cents: b.pending?.cap_cents ?? b.batchCapCents,
+    },
     tier: {
       cap_cents: b.batchCapCents,
-      window_hours: 4,
+      window_hours: 1,
       lifetime_paid_cents: 0,
       hold_threshold_cents: b.holdThresholdCents,
       next_tier: { min_paid_cents: 20000, cap_cents: 15000 },
     },
     publishable_key: "pk_test_mock",
+  };
+}
+
+/** Classic per-minute prices at the standard settings (S3D-12): 1080p
+ * $4.50, 1440p $7.12, 3K $8.14, 4K $27.46 in the decisions. */
+const CLASSIC_STANDARD_CENTS_PER_MINUTE: Record<string, number> = {
+  "1080p": 450,
+  qhd: 712,
+  "3k": 814,
+  "4k": 2746,
+};
+
+/** A plausible stored size for an output (S3D-31). */
+function mockOutputBytes(c: Conversion, format: string): number {
+  const seconds = c.parts?.[0]?.duration_s ?? 60;
+  const perSecond: Record<string, number> = {
+    mvhevc: 6_000_000,
+    sbs: 4_000_000,
+    half_sbs: 2_000_000,
+    anaglyph: 2_000_000,
+    depth: 1_000_000,
+  };
+  return Math.round(seconds * (perSecond[format] ?? 1_000_000));
+}
+
+/** A project card's outcome line (S3D-35), like the gateway's summary. */
+function projectSummary(p: MockProject) {
+  const convs = [...mockDb.conversions.values()]
+    .filter((c) => c.project_id === p.project_id)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const latest = convs[0];
+  const spent = convs.reduce((sum, c) => {
+    const s = c.billing?.status;
+    return s === "charged" || s === "batched" || s === "charge_failed" ||
+      s === "charge_pending"
+      ? sum + c.quote.amount_cents
+      : sum;
+  }, 0);
+  return {
+    ...(latest
+      ? {
+          latest_state: latest.state,
+          latest_step: latest.step,
+          latest_progress: latest.progress,
+          ...(latest.eta_seconds ? { latest_eta_seconds: latest.eta_seconds } : {}),
+          ...(latest.waiting_for_gpu ? { latest_waiting_for_gpu: true } : {}),
+          ...(latest.billing ? { latest_billing_status: latest.billing.status } : {}),
+        }
+      : {}),
+    spent_cents: spent,
   };
 }
 
@@ -1642,6 +1701,65 @@ export const handlers = [
     }),
   ),
 
+  // GET /v1/pricing — public (no sign-in), every number from config
+  http.get(`${GATEWAY}/v1/pricing`, () =>
+    HttpResponse.json({
+      rate_version: "mock",
+      currency: "usd",
+      methods: {
+        lifelike: {
+          presets: ["1080p", "qhd", "3k", "4k"],
+          production_cents_per_minute: LIFELIKE.priceCentsPerMinute,
+          max_source_duration_s: mockDb.methodMaxDurationS.lifelike,
+          max_source_bytes: 25 * 1024 ** 3,
+        },
+        classic: {
+          presets: ["1080p", "qhd", "3k", "4k"],
+          // per minute at the standard depth detail and Best edges, 16:9
+          production_cents_per_minute: CLASSIC_STANDARD_CENTS_PER_MINUTE,
+          stereo_preview_cents_per_minute: Object.fromEntries(
+            Object.entries(RATES.stereoPreviewCentsPerMinute).map(([k, v]) => [
+              k,
+              v * RATES.costMarginMultiplier,
+            ]),
+          ),
+          depth_preview_cents_per_minute:
+            RATES.stepCentsPerMinute.depth_preview * RATES.costMarginMultiplier,
+          max_source_duration_s: mockDb.methodMaxDurationS.classic,
+          max_source_bytes: 8 * 1024 ** 3,
+        },
+      },
+      fps: { base: 24, min_factor: 0.5, max_factor: 2.5 },
+      discount: {
+        threshold_cents: RATES.discountThresholdCents,
+        pct: RATES.discountPct,
+      },
+      minimum_cents: RATES.minimumCents,
+      precharge_threshold_cents: mockDb.chargeBeforeCents,
+      balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
+    }),
+  ),
+
+  // S3D-24: soft delete — the project and its runs then answer 404
+  http.post(`${GATEWAY}/v1/projects/:id/delete`, ({ params }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p || p.deleted) return err(404, "not_found", "project not found");
+    const active = [...mockDb.conversions.values()].some(
+      (c) =>
+        c.project_id === p.project_id &&
+        !["succeeded", "failed", "canceled", "expired"].includes(c.state),
+    );
+    if (active) {
+      return err(
+        409,
+        "conflict",
+        "A run is still in progress. Cancel it or wait for it to finish, then delete the project.",
+      );
+    }
+    p.deleted = true;
+    return HttpResponse.json({ project_id: p.project_id, deleted: true });
+  }),
+
   http.post(`${GATEWAY}/v1/uploads`, async ({ request }) => {
     const { filename, resumable } = (await request.json()) as {
       filename: string;
@@ -1747,14 +1865,18 @@ export const handlers = [
     const archived = new URL(request.url).searchParams.get("archived") === "1";
     return HttpResponse.json({
       projects: [...mockDb.projects.values()]
-        .filter((p) => (p.archived ?? false) === archived)
-        .map((p) => ({ ...p, method: projectMethod(p) })),
+        .filter((p) => (p.archived ?? false) === archived && !p.deleted)
+        .map((p) => ({
+          ...p,
+          method: projectMethod(p),
+          summary: projectSummary(p),
+        })),
     });
   }),
 
   http.get(`${GATEWAY}/v1/projects/:id`, ({ params }) => {
     const p = mockDb.projects.get(params.id as string);
-    if (!p) return err(404, "not_found", "project not found");
+    if (!p || p.deleted) return err(404, "not_found", "project not found");
     if (p.analyze.state === "running") {
       const tick = mockDb.analyzeTicks.get(p.project_id) ?? 0;
       if (tick < ANALYZE_STAGES.length) {
@@ -2226,6 +2348,7 @@ export const handlers = [
           name,
           format,
           ...(m ? { part: Number(m[2]) } : {}),
+          size_bytes: mockOutputBytes(c, format),
           filename: m
             ? `${projectName} 3D Part ${Number(m[2])}.${ext}`
             : `${projectName} 3D.${ext}`,
