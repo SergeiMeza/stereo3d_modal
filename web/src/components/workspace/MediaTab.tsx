@@ -38,7 +38,7 @@ import { formatBytes } from "@/lib/format";
 import { frameToTimecode, parseRational } from "@/lib/frames";
 
 import { FilmstripTimeline } from "./FilmstripTimeline";
-import { MethodChooser } from "./MethodChooser";
+import { MethodChooser, MoveToLifelikeOffer } from "./MethodChooser";
 import { PageHeader } from "./PageHeader";
 import type { WorkspaceTabId } from "./PageTabs";
 import { PreviewViewer } from "./PreviewViewer";
@@ -279,8 +279,13 @@ export function MediaTab({
         }
       />
 
-      {onProjectChanged ? (
+      {/* S3D-01/44: the method is chosen before the first run; after it a
+          Classic project gets the one-way offer, a Lifelike one nothing */}
+      {onProjectChanged === undefined ? null : (project.conversions ?? [])
+          .length === 0 ? (
         <MethodChooser project={project} onChanged={onProjectChanged} />
+      ) : methodOf(project) === "classic" ? (
+        <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />
       ) : null}
 
       <div className="min-w-0">

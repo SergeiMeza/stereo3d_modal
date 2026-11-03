@@ -282,14 +282,14 @@ describe("Lifelike Preview", () => {
       <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    // priced per frame like the final, no minimum: 5 s at 1080p 24 fps
-    expect((await screen.findByTestId("quote-total")).textContent).toBe("$0.38");
-    // Quick look: half the frame rate, half the price
+    // priced per frame like the final: 5 s at 1080p 24 fps is $0.38, so
+    // the $0.50 minimum per run applies
+    expect((await screen.findByTestId("quote-total")).textContent).toBe("$0.50");
+    expect(screen.getByText("Minimum charge $0.50")).toBeTruthy();
+    // Quick look: half the frame rate (and half the price above the floor)
     fireEvent.click(screen.getByLabelText(/Quick look/));
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    await waitFor(() =>
-      expect(screen.getByTestId("quote-total").textContent).toBe("$0.19"),
-    );
+    await waitFor(() => expect(quotes).toHaveLength(2));
     expect(quotes[1]).toMatchObject({ target_fps: 12 });
     fireEvent.click(screen.getByLabelText(/Quick look/));
     // 2–10 s, 5 by default

@@ -24,7 +24,7 @@ import {
 } from "@/components/projects/AnalyzeBadge";
 import { HistoryList } from "@/components/steps/HistoryList";
 import { MediaTab } from "@/components/workspace/MediaTab";
-import { MethodSwitchControl } from "@/components/workspace/MethodChooser";
+import { MethodBadge } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
   PageTabs,
@@ -263,12 +263,11 @@ export default function WorkspaceScreen({
             Copy project id — quote this to support
           </TooltipContent>
         </Tooltip>
-        {canChooseMethod(limits, project) ? (
-          <MethodSwitchControl
-            project={project}
-            onChanged={applyProjectUpdate}
-          />
-        ) : null}
+        <MethodBadge
+          project={project}
+          onChanged={applyProjectUpdate}
+          allowMove={canChooseMethod(limits, project)}
+        />
         {analyzing ? (
           <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
             <span

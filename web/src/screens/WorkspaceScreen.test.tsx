@@ -35,7 +35,7 @@ import {
   zoomLevels,
   type FrameWindow,
 } from "@/components/workspace/utils";
-import type { Conversion, Probe, Project } from "@/lib/api/types";
+import type { Probe, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import {
   frameLabel,

@@ -54,13 +54,13 @@ function Line({
 }
 
 /**
- * A step quote in words (S3D-15/16/19): the video's length and frame rate
- * (+25% at 30 fps), reused work, "10% off runs over $10", the total in USD
- * excl. tax, and the sentence saying when it is charged. There is no
- * per-run minimum (S3D-17: the $0.50 minimum applies to the balance
- * charge). Classic's technical factors (depth
+ * A step quote in words (S3D-15/16/17/19): the video's length and frame
+ * rate (+25% at 30 fps), reused work, "10% off runs over $10", "Minimum
+ * charge $0.50" when the per-run floor applies (previews included), the
+ * total in USD excl. tax, and the sentence saying when it is charged. Classic's technical factors (depth
  * detail, edge handling) sit under "How we priced this". All amounts come
- * from the gateway — no client price math beyond negating discounts.
+ * from the gateway — no client price math beyond negating discounts and
+ * spotting the minimum.
  */
 export function QuoteView({
   result,
@@ -77,6 +77,10 @@ export function QuoteView({
   const subtotal = b.subtotal_cents ?? total;
   const reuse = reuseStages.length > 0 ? (b.reuse_discount_cents ?? 0) : 0;
   const bulk = b.discount_cents ?? 0;
+  // S3D-17: the $0.50 minimum per run (previews included) applies when the
+  // total is above what the lines add up to
+  const minimumApplied =
+    b.subtotal_cents !== undefined && total > subtotal - reuse - bulk;
 
   const fps =
     b.fps_factor !== undefined ? Math.round(b.fps_factor * 24 * 100) / 100 : null;
@@ -167,6 +171,13 @@ export function QuoteView({
           value={formatCents(-bulk)}
           testId="quote-bulk-discount"
           tone="discount"
+        />
+      ) : null}
+      {minimumApplied ? (
+        <Line
+          label={`Minimum charge ${formatCents(total)}`}
+          value={formatCents(total)}
+          testId="quote-minimum"
         />
       ) : null}
       <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-edge pt-2">

@@ -622,6 +622,9 @@ export interface StepConversionRequest {
    * seconds (60–3600); the web sends 900 when the user keeps "Split into
    * parts" */
   split_max_seconds?: number;
+  /** quotes only: price the step under this method without changing the
+   * project (S3D-14); conversions refuse a mismatch */
+  method?: Method;
   app_version?: string;
   platform?: string;
 }

@@ -36,7 +36,6 @@ export function PendingBalance(): JSX.Element | null {
 
   if (status === null) return null;
   const pending = status.pending;
-  const tier = status.tier;
 
   async function payNow(): Promise<void> {
     setBusy(true);

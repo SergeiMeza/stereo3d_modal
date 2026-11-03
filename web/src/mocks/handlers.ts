@@ -934,8 +934,8 @@ function lifelikeQuoteFor(
     subtotal > RATES.discountThresholdCents
       ? Math.round(subtotal * RATES.discountPct)
       : 0;
-  // no per-run minimum (S3D-17): the $0.50 floor applies to the balance
-  const total = subtotal - bulk;
+  // the $0.50 minimum per run, previews included (S3D-17)
+  const total = Math.max(subtotal - bulk, RATES.minimumCents);
   return {
     quote: {
       amount_cents: total,
@@ -1131,8 +1131,7 @@ function quoteFor(
   const credit = project.analyze.credit_available
     ? RATES.analyzeCreditCents
     : 0;
-  // no per-run minimum (S3D-17)
-  const total = Math.max(afterReuse - bulk - credit, 0);
+  const total = Math.max(afterReuse - bulk - credit, RATES.minimumCents);
   return {
     quote: {
       amount_cents: total,
@@ -1904,6 +1903,13 @@ export const handlers = [
           "this 3D method isn't available right now",
         );
       }
+      if (projectMethod(p) === "lifelike" && body.method === "classic") {
+        return err(
+          400,
+          "method_switch_not_allowed",
+          "A Lifelike project can't be switched back to Classic.",
+        );
+      }
       const cap = mockDb.methodMaxDurationS[body.method];
       if (cap > 0 && sourceDurationS(p) > cap) {
         return err(
@@ -1999,15 +2005,22 @@ export const handlers = [
       if (!p) return err(404, "not_found", "project not found");
       if (!p.probe)
         return err(409, "conflict", "analysis has not completed yet");
-      const body = (await request.json()) as Record<string, unknown>;
-      const invalid = validateStepRequest(p, body);
+      const raw = (await request.json()) as Record<string, unknown>;
+      // S3D-14: price the step under another method without changing the
+      // project
+      const { method: override, ...body } = raw as Record<string, unknown> & {
+        method?: Method;
+      };
+      const priced: Project =
+        override !== undefined ? { ...p, method: override } : p;
+      const invalid = validateStepRequest(priced, body);
       if (invalid) return invalid;
       const req = body as unknown as StepConversionRequest;
-      const method = projectMethod(p);
-      const capped = methodCapError(p);
+      const method = projectMethod(priced);
+      const capped = methodCapError(priced);
       if (capped) return capped;
       if (method === "lifelike") {
-        const q = lifelikeQuoteFor(p, req);
+        const q = lifelikeQuoteFor(priced, req);
         return HttpResponse.json({
           step: req.step,
           params: q.params,
@@ -2020,7 +2033,7 @@ export const handlers = [
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
         });
       }
-      const { quote, reuseStages, params: resolved } = quoteFor(p, req);
+      const { quote, reuseStages, params: resolved } = quoteFor(priced, req);
       const billable = quote.breakdown?.billable_seconds ?? p.probe!.duration_s;
       return HttpResponse.json({
         step: req.step,
@@ -2052,6 +2065,14 @@ export const handlers = [
         );
       }
       const body = (await request.json()) as Record<string, unknown>;
+      if (body.method !== undefined && body.method !== projectMethod(p)) {
+        return err(
+          400,
+          "invalid_request",
+          "method does not match the project's method",
+        );
+      }
+      delete body.method;
       const invalid = validateStepRequest(p, body);
       if (invalid) return invalid;
       // The real gateway's pay-as-you-go billing gate (402s, api/billing.go

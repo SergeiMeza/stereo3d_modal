@@ -86,7 +86,7 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     ],
     tips: [
       "Pick a moment with the kind of shot that matters most to you — faces, fast motion, or wide views.",
-      "A preview costs what the same seconds cost in the final video — about $0.38 for 5 seconds at 1080p and 24 fps. Quick look halves it.",
+      "A preview costs what the same seconds cost in the final video, with a $0.50 minimum per run. Quick look renders half the frame rate for half the price.",
       "Happy with it? Make 3D renders the whole video the same way.",
     ],
   },

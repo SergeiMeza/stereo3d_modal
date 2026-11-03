@@ -77,14 +77,14 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
     );
   });
 
-  it("has no per-run minimum (S3D-17)", () => {
+  it("names the $0.50 minimum per run when it applies (S3D-17)", () => {
     render(
       <QuoteView
         result={{
           step: "lifelike_preview",
           params: { preset: "1080p", formats: ["sbs"] },
           quote: {
-            amount_cents: 38,
+            amount_cents: 50,
             currency: "usd",
             breakdown: { billable_seconds: 5, base_cents: 38, subtotal_cents: 38 },
           },
@@ -93,9 +93,10 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
         balanceLimitCents={5000}
       />,
     );
-    expect(screen.queryByText(/Minimum charge/)).toBeNull();
+    expect(screen.getByTestId("quote-minimum").textContent).toBe("$0.50");
+    expect(screen.getByText("Minimum charge $0.50")).toBeTruthy();
     expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
-      "We add $0.38 to your balance after it succeeds. Your balance is charged within 4 hours or when it reaches $50.00.",
+      "We add $0.50 to your balance after it succeeds. Your balance is charged within 4 hours or when it reaches $50.00.",
     );
   });
 });
