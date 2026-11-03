@@ -383,6 +383,11 @@ export class GatewayClient {
 
   /** Delete a project and its files from the account (S3D-24); refused
    * (409) while a run is active. */
+  /** S3D-24: keep a project's files past their scheduled deletion. */
+  keepProject(id: string): Promise<{ project_id: string; files_delete_at?: string | null }> {
+    return this.request("POST", `/v1/projects/${encodeURIComponent(id)}/keep`, {});
+  }
+
   deleteProject(id: string): Promise<{ project_id: string; deleted: boolean }> {
     return this.request("POST", `/v1/projects/${id}/delete`, {});
   }

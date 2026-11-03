@@ -33,6 +33,7 @@ import {
   type Project,
   type UpdateProjectRequest,
 } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
 import { formatClock, formatTimeLeft } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
 
@@ -122,6 +123,15 @@ const TONE: Record<CardState["tone"], string> = {
   plain: "border-edge bg-surface-2 text-fg-muted",
 };
 
+const DELETE_WARNING_MS = 14 * 24 * 3600 * 1000;
+
+/** S3D-24: true when the files are scheduled to go within 14 days. */
+export function filesDeleteSoon(at: string | undefined, now = Date.now()): boolean {
+  if (at === undefined) return false;
+  const t = Date.parse(at);
+  return Number.isFinite(t) && t - now < DELETE_WARNING_MS;
+}
+
 export function ProjectCard({
   project,
   onUpdate,
@@ -130,6 +140,9 @@ export function ProjectCard({
   /** parent owns the API call + list refresh; absent = no action row */
   onUpdate?: (req: UpdateProjectRequest) => Promise<void>;
 }) {
+  const gateway = useGateway();
+  const [kept, setKept] = useState(false);
+  const [keeping, setKeeping] = useState(false);
   const [dialog, setDialog] = useState<"rename" | "archive" | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -139,6 +152,8 @@ export function ProjectCard({
   const state = cardState(project);
   const method = methodOf(project);
   const href = `/projects/${project.project_id}`;
+  // S3D-24: unused files go after 90 days; the card warns in the last 14
+  const [deleteSoon] = useState(() => filesDeleteSoon(project.files_delete_at));
 
   const run = async (req: UpdateProjectRequest) => {
     if (onUpdate === undefined) return;
@@ -228,9 +243,30 @@ export function ProjectCard({
 
       <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
         {/* S3D-35: no money on cards — the method chip and the state only */}
-        <span>
-          {DATE_FORMAT.format(new Date(project.created_at))}
-        </span>
+        {deleteSoon && !kept ? (
+          <span data-testid="card-files-delete" className="flex items-center gap-1.5 text-amber-300">
+            Files deleted on {DATE_FORMAT.format(new Date(project.files_delete_at!))}
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              disabled={keeping}
+              onClick={async () => {
+                setKeeping(true);
+                try {
+                  await gateway.keepProject(project.project_id);
+                  setKept(true);
+                } finally {
+                  setKeeping(false);
+                }
+              }}
+              className="text-primary hover:underline disabled:opacity-50"
+            >
+              Keep
+            </button>
+          </span>
+        ) : (
+          <span>{DATE_FORMAT.format(new Date(project.created_at))}</span>
+        )}
       {onUpdate !== undefined ? (
         <div className="flex items-center gap-0.5 text-fg-muted">
           <Button

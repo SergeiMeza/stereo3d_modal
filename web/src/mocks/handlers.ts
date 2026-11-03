@@ -1990,6 +1990,15 @@ export const handlers = [
     return HttpResponse.json({ project_id: p.project_id, deleted: true });
   }),
 
+  // S3D-24: Keep pushes the files' deletion back (the next one is 90
+  // days after this use)
+  http.post(`${GATEWAY}/v1/projects/:id/keep`, ({ params }) => {
+    const p = mockDb.projects.get(params.id as string);
+    if (!p || p.deleted) return err(404, "not_found", "project not found");
+    delete p.files_delete_at;
+    return HttpResponse.json({ project_id: p.project_id, files_delete_at: null });
+  }),
+
   http.post(`${GATEWAY}/v1/uploads`, async ({ request }) => {
     const { filename, resumable } = (await request.json()) as {
       filename: string;

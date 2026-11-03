@@ -1153,6 +1153,9 @@ describe("WorkspaceScreen — pages", () => {
     fireEvent.click(within(header).getByTestId("delete-project"));
     const dialog = await screen.findByTestId("delete-project-dialog");
     expect(within(dialog).getByText("Delete this project?")).toBeTruthy();
+    expect(dialog.textContent).toContain(
+      "Deleting this project deletes its files. You won't be able to download them again.",
+    );
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete project" }));
     await waitFor(() =>
       expect((mockDb.projects.get(PID) as { deleted?: boolean }).deleted).toBe(true),

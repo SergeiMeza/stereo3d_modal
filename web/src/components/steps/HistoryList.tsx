@@ -188,8 +188,8 @@ export function DeleteProjectButton({ project }: { project: Project }): JSX.Elem
           <DialogHeader>
             <DialogTitle>Delete this project?</DialogTitle>
             <DialogDescription>
-              This removes the video and every 3D file in it. It can&apos;t be
-              undone.
+              Deleting this project deletes its files. You won&apos;t be able to
+              download them again.
             </DialogDescription>
           </DialogHeader>
           {error ? <p className="text-sm text-red-400">{error}</p> : null}

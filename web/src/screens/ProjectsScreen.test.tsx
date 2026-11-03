@@ -104,6 +104,27 @@ describe("ProjectsScreen list", () => {
     void FIXTURE_SCENES;
   });
 
+  it("warns before unused files go and Keep cancels it (S3D-24)", async () => {
+    const at = new Date(Date.now() + 5 * 24 * 3600 * 1000);
+    const p = mockDb.projects.get(FIXTURE_ID) as Project;
+    p.files_delete_at = at.toISOString();
+    renderScreen();
+    const line = await screen.findByTestId("card-files-delete");
+    expect(line.textContent).toContain("Files deleted on");
+    expect(line.textContent).toContain("Keep");
+    fireEvent.click(within(line).getByRole("button", { name: "Keep" }));
+    await waitFor(() => expect(screen.queryByTestId("card-files-delete")).toBeNull());
+    expect(p.files_delete_at).toBeUndefined();
+  });
+
+  it("says nothing while deletion is more than 14 days away (S3D-24)", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID) as Project;
+    p.files_delete_at = new Date(Date.now() + 40 * 24 * 3600 * 1000).toISOString();
+    renderScreen();
+    await screen.findByTestId("project-card");
+    expect(screen.queryByTestId("card-files-delete")).toBeNull();
+  });
+
   it("shows a finished project's outcome, never what it cost (S3D-35)", async () => {
     mockDb.conversions.set("c0000000done", {
       conversion_id: "c0000000done",
