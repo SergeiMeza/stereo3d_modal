@@ -193,6 +193,8 @@ type Rates struct {
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
 	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
+	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
+	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
 	// File keeping (S3D-24), see the accessors: days without use before a
 	// project's files go (90), the notice mails' days before (14, 3), days
 	// a deleted project's files are kept for disputes (30).
@@ -984,6 +986,15 @@ func (r *Rates) DeletedProjectPurge() time.Duration {
 		return time.Duration(r.DeletedProjectPurgeDays) * 24 * time.Hour
 	}
 	return 30 * 24 * time.Hour
+}
+
+// GPUCapFor is a workspace's per-app GPU cap (gpu_cap_per_workspace,
+// else GPUCap).
+func (r *Rates) GPUCapFor(workspace string) int {
+	if n := r.GPUCapPerWorkspace[workspace]; n > 0 {
+		return n
+	}
+	return r.GPUCap()
 }
 
 func (r *Rates) GPUCap() int {

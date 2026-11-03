@@ -283,14 +283,17 @@ type Error struct {
 }
 
 type Conversion struct {
-	ID        string            `firestore:"-" json:"conversion_id"`
-	UID       string            `firestore:"uid" json:"-"`
-	Env       string            `firestore:"env" json:"-"`
-	State     string            `firestore:"state" json:"state"`
-	Kind      string            `firestore:"kind" json:"kind"`                                 // "video" | "image"
-	ProjectID string            `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
-	Step      string            `firestore:"step,omitempty" json:"step,omitempty"`
-	Method    string            `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic
+	ID        string `firestore:"-" json:"conversion_id"`
+	UID       string `firestore:"uid" json:"-"`
+	Env       string `firestore:"env" json:"-"`
+	State     string `firestore:"state" json:"state"`
+	Kind      string `firestore:"kind" json:"kind"`                                 // "video" | "image"
+	ProjectID string `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
+	Step      string `firestore:"step,omitempty" json:"step,omitempty"`
+	Method    string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic
+	// Workspace: the Modal workspace the run goes to, its project's
+	// (S3D-40); "" = the default.
+	Workspace string            `firestore:"workspace,omitempty" json:"-"`
 	ScenesVer int               `firestore:"scenes_version,omitempty" json:"scenes_version,omitempty"`
 	Client    Client            `firestore:"client" json:"client,omitempty"`
 	Source    Source            `firestore:"source" json:"source"`
@@ -543,11 +546,14 @@ type DepthUpload struct {
 }
 
 type Project struct {
-	ID           string        `firestore:"-" json:"project_id"`
-	UID          string        `firestore:"uid" json:"-"`
-	Env          string        `firestore:"env" json:"-"`
-	Name         string        `firestore:"name,omitempty" json:"name,omitempty"`
-	Method       string        `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
+	ID     string `firestore:"-" json:"project_id"`
+	UID    string `firestore:"uid" json:"-"`
+	Env    string `firestore:"env" json:"-"`
+	Name   string `firestore:"name,omitempty" json:"name,omitempty"`
+	Method string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
+	// Workspace: the Modal workspace the project lives in, set at
+	// creation (S3D-40); "" = the default (projects made before).
+	Workspace    string        `firestore:"workspace,omitempty" json:"-"`
 	Source       Source        `firestore:"source" json:"source"`
 	Probe        *Probe        `firestore:"probe,omitempty" json:"probe,omitempty"`
 	Analyze      Analyze       `firestore:"analyze" json:"analyze"`

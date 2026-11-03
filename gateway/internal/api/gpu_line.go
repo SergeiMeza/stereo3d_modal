@@ -27,25 +27,45 @@ const (
 )
 
 type waitingRun struct {
-	Conv   *store.Conversion
-	Waited time.Duration
+	Conv      *store.Conversion
+	Workspace string
+	Waited    time.Duration
+}
+
+// gpuUse is one Modal workspace's estimated busy GPUs per method and its
+// per-app cap (S3D-40: caps and queues are per workspace).
+type gpuUse struct {
+	Workspace string
+	Busy      map[string]int
+	Cap       int
 }
 
 // gpuLineSnapshot picks the runs waiting past the alert threshold (longest
-// first) and estimates each method's busy GPUs from the runs that are
-// processing and not waiting, each counted at its worker cap and the total
-// held to the per-app cap (the gateway can't see Modal's slots).
-func gpuLineSnapshot(processing []*store.Conversion, now time.Time, rates *pricing.Rates) ([]waitingRun, map[string]int) {
+// first) and estimates each workspace's busy GPUs per method from the runs
+// that are processing and not waiting, each counted at its worker cap and
+// the total held to the workspace's per-app cap (the gateway can't see
+// Modal's slots). The default workspace is always listed.
+func (s *Service) gpuLineSnapshot(processing []*store.Conversion, now time.Time, rates *pricing.Rates) ([]waitingRun, []gpuUse) {
 	var waiting []waitingRun
-	busy := map[string]int{store.MethodClassic: 0, store.MethodLifelike: 0}
+	use := map[string]*gpuUse{}
+	get := func(ws string) *gpuUse {
+		if u, ok := use[ws]; ok {
+			return u
+		}
+		u := &gpuUse{Workspace: ws, Busy: map[string]int{store.MethodClassic: 0, store.MethodLifelike: 0}, Cap: rates.GPUCapFor(ws)}
+		use[ws] = u
+		return u
+	}
+	get(s.workspaceID(""))
 	for _, c := range processing {
 		if c.State != store.StateProcessing {
 			continue
 		}
-		method := store.MethodOr(c.Method)
+		method, ws := store.MethodOr(c.Method), s.workspaceID(c.Workspace)
+		u := get(ws)
 		if c.Modal.WaitingForGPU {
 			if c.Modal.WaitingSince != nil && now.Sub(*c.Modal.WaitingSince) > gpuWaitAlertAfter {
-				waiting = append(waiting, waitingRun{Conv: c, Waited: now.Sub(*c.Modal.WaitingSince)})
+				waiting = append(waiting, waitingRun{Conv: c, Workspace: ws, Waited: now.Sub(*c.Modal.WaitingSince)})
 			}
 			continue
 		}
@@ -53,10 +73,15 @@ func gpuLineSnapshot(processing []*store.Conversion, now time.Time, rates *prici
 		if c.Step == store.StepLifelikePreview || workers <= 0 {
 			workers = 1
 		}
-		busy[method] = min(busy[method]+workers, rates.GPUCap())
+		u.Busy[method] = min(u.Busy[method]+workers, u.Cap)
 	}
 	slices.SortFunc(waiting, func(a, b waitingRun) int { return int(b.Waited - a.Waited) })
-	return waiting, busy
+	out := make([]gpuUse, 0, len(use))
+	for _, u := range use {
+		out = append(out, *u)
+	}
+	slices.SortFunc(out, func(a, b gpuUse) int { return strings.Compare(a.Workspace, b.Workspace) })
+	return waiting, out
 }
 
 var errNoChange = errors.New("no change")
@@ -70,7 +95,7 @@ func (s *Service) checkGPULine(ctx context.Context) {
 	}
 	rates := s.Pricing.Rates(ctx)
 	now := time.Now().UTC()
-	waiting, busy := gpuLineSnapshot(processing, now, rates)
+	waiting, use := s.gpuLineSnapshot(processing, now, rates)
 	if len(waiting) > 0 {
 		longest := waiting[0].Waited
 		var send bool
@@ -93,7 +118,7 @@ func (s *Service) checkGPULine(ctx context.Context) {
 			return
 		}
 		if send {
-			s.mailOwner(ctx, gpuLineMail(waiting, busy, rates.GPUCap(), s.accountEmails(ctx, waiting)))
+			s.mailOwner(ctx, gpuLineMail(waiting, use, s.accountEmails(ctx, waiting)))
 		}
 		return
 	}
@@ -150,7 +175,7 @@ func (s *Service) mailOwner(ctx context.Context, m mail.Message) {
 	slog.InfoContext(ctx, "owner mail sent", "subject", m.Subject)
 }
 
-func gpuLineMail(waiting []waitingRun, busy map[string]int, cap int, emails map[string]string) mail.Message {
+func gpuLineMail(waiting []waitingRun, use []gpuUse, emails map[string]string) mail.Message {
 	var b strings.Builder
 	n := len(waiting)
 	runs := "run"
@@ -164,12 +189,15 @@ func gpuLineMail(waiting []waitingRun, busy map[string]int, cap int, emails map[
 		if email == "" {
 			email = "uid " + c.UID
 		}
-		fmt.Fprintf(&b, "- %s — %s %s, %s, %s of video, waiting %s (conversion %s)\n",
+		fmt.Fprintf(&b, "- %s — %s %s, %s, %s of video, waiting %s (conversion %s, workspace %s)\n",
 			email, store.MethodOr(c.Method), c.Step, resolutionLabel(c, nil),
-			formatWait(time.Duration(outputSecondsOf(c)*float64(time.Second))), formatWait(w.Waited), c.ID)
+			formatWait(time.Duration(outputSecondsOf(c)*float64(time.Second))), formatWait(w.Waited), c.ID, w.Workspace)
 	}
-	fmt.Fprintf(&b, "\nGPUs busy (estimated from runs in progress, cap %d per app):\n", cap)
-	fmt.Fprintf(&b, "- Classic: %d of %d\n- Lifelike: %d of %d\n", busy[store.MethodClassic], cap, busy[store.MethodLifelike], cap)
+	b.WriteString("\nGPUs busy (estimated from runs in progress, per app):\n")
+	for _, u := range use {
+		fmt.Fprintf(&b, "- %s: Classic %d of %d, Lifelike %d of %d\n", u.Workspace,
+			u.Busy[store.MethodClassic], u.Cap, u.Busy[store.MethodLifelike], u.Cap)
+	}
 	fmt.Fprintf(&b, "\nOldest wait: %s.\n", formatWait(waiting[0].Waited))
 	return mail.Message{
 		Subject: fmt.Sprintf("Stereo3D Studio: %d %s waiting for a GPU (longest %s)", n, runs, formatWait(waiting[0].Waited)),

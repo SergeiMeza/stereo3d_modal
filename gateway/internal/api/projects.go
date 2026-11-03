@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -65,7 +66,8 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 			"Classic is no longer available for new projects; use Lifelike"))
 		return
 	}
-	method, merr := s.resolveMethod(req.Method)
+	ws := s.assignWorkspace() // S3D-40: the project's workspace for life
+	method, merr := s.resolveMethodFor(req.Method, ws.Lifelike != nil)
 	if merr != nil {
 		httpx.WriteErr(ctx, w, merr)
 		return
@@ -102,7 +104,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 
 	// Free analyze job — submitted before the record so a Modal outage
 	// fails the request instead of stranding a never-analyzed project.
-	resp, err := s.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": req.GCSKey, "notify": false})
+	resp, err := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": req.GCSKey, "notify": false})
 	if err != nil {
 		httpx.Log(ctx).Error("analyze submit failed", "project_id", id, "err", err)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
@@ -112,19 +114,20 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 
 	p := &store.Project{
 		ID: id, UID: user.UID, Env: s.Cfg.Env,
-		Name:    strings.TrimSpace(req.Name),
-		Method:  method,
-		Source:  store.Source{GCSKey: req.GCSKey, Bytes: size},
-		Analyze: store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
+		Name:      strings.TrimSpace(req.Name),
+		Method:    method,
+		Workspace: ws.ID,
+		Source:    store.Source{GCSKey: req.GCSKey, Bytes: size},
+		Analyze:   store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
 	}
 	noteUse(p, time.Now().UTC(), s.rates(ctx).FileKeep()) // S3D-24 clock
 	if err := s.Store.CreateProject(ctx, p); err != nil {
-		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	httpx.Log(ctx).Info("project created",
-		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID, "method", method)
+		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID, "method", method, "workspace", ws.ID)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -148,7 +151,13 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("analysis can only be retried after it failed"))
 		return
 	}
-	resp, merr := s.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
+	ws, werr := s.projectWorkspace(p)
+	if werr != nil {
+		httpx.Log(ctx).Error("project workspace", "project_id", id, "err", werr)
+		httpx.WriteErr(ctx, w, errWorkspaceUnavailable())
+		return
+	}
+	resp, merr := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
 	if merr != nil {
 		httpx.Log(ctx).Error("analyze retry submit failed", "project_id", id, "err", merr)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
@@ -165,7 +174,7 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		return nil
 	})
 	if uerr != nil {
-		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
 		if errors.Is(uerr, store.ErrStateConflict) {
 			uerr = httpx.ErrConflict("analysis can only be retried after it failed")
 		}
@@ -244,7 +253,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 			httpx.WriteErr(ctx, w, httpx.ErrInvalid("method must be lifelike|classic"))
 			return
 		}
-		if _, merr := s.resolveMethod(*req.Method); merr != nil {
+		if _, merr := s.resolveMethodFor(*req.Method, s.lifelikeIn(current)); merr != nil {
 			httpx.WriteErr(ctx, w, merr)
 			return
 		}
@@ -396,7 +405,13 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 	if cuts == nil {
 		cuts = []int{}
 	}
-	resp, merr := s.Modal.SubmitProfile(ctx, map[string]any{
+	ws, werr := s.projectWorkspace(p)
+	if werr != nil {
+		httpx.Log(ctx).Error("project workspace", "project_id", id, "err", werr)
+		httpx.WriteErr(ctx, w, errWorkspaceUnavailable())
+		return
+	}
+	resp, merr := ws.Modal.SubmitProfile(ctx, map[string]any{
 		"input_path": proxyKey,
 		"scene_cuts": cuts,
 		"notify":     false,
@@ -1017,7 +1032,11 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		if params.DepthSource != "" {
 			reuseStages = append(reuseStages, "depth")
 		}
-		lookup, err := s.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
+		var lookup *modalapi.ReuseLookup
+		ws, err := s.projectWorkspace(p)
+		if err == nil {
+			lookup, err = ws.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
+		}
 		if err != nil {
 			httpx.Log(ctx).Warn("reuse lookup failed (quoting full price)", "project_id", p.ID, "err", err)
 		} else {
@@ -1129,7 +1148,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	if req.Method != "" && req.Method != projectMethod(p) {
 		// What-if quote under the other method: validated and priced by
 		// that method's rules on a copy; the project is not touched.
-		if _, merr := s.resolveMethod(req.Method); merr != nil {
+		if _, merr := s.resolveMethodFor(req.Method, s.lifelikeIn(p)); merr != nil {
 			httpx.WriteErr(ctx, w, merr)
 			return
 		}
@@ -1232,7 +1251,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	method := projectMethod(p)
-	if method == store.MethodLifelike && s.Lifelike == nil {
+	if method == store.MethodLifelike && !s.lifelikeIn(p) {
 		httpx.WriteErr(ctx, w, errMethodUnavailable())
 		return
 	}
@@ -1267,7 +1286,8 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	conv := &store.Conversion{
 		ID: convID, UID: user.UID, Env: s.Cfg.Env, Kind: "video",
 		ProjectID: p.ID, Step: req.Step, Method: method,
-		Client: store.Client{AppVersion: req.AppVersion, Platform: req.Platform},
+		Workspace: s.workspaceID(p.Workspace), // S3D-40: runs where the project lives
+		Client:    store.Client{AppVersion: req.AppVersion, Platform: req.Platform},
 		Source: store.Source{
 			GCSKey: p.Source.GCSKey, Bytes: p.Source.Bytes,
 			DurationS: probeDuration(p), Frames: probeFrames(p),

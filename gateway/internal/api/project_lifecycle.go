@@ -59,9 +59,10 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 	}
 	// A free analysis or profiling job still running has nobody to report
 	// to now (best effort; both are free).
+	ws, werr := s.projectWorkspace(p)
 	for _, job := range []string{runningAnalyze(p), runningProfile(p)} {
-		if job != "" {
-			if cerr := s.Modal.CancelJob(ctx, job); cerr != nil {
+		if job != "" && werr == nil {
+			if cerr := ws.Modal.CancelJob(ctx, job); cerr != nil {
 				slog.WarnContext(ctx, "deleted project: job cancel failed", "project_id", id, "job_id", job, "err", cerr)
 			}
 		}

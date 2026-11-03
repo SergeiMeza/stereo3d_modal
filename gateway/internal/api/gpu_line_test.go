@@ -30,21 +30,27 @@ func TestGPULineSnapshotAndMail(t *testing.T) {
 		run("cl1", store.MethodClassic, store.StepProduction, 0),
 		run("cl2", store.MethodClassic, store.StepProduction, 0),
 	}
-	waiting, busy := gpuLineSnapshot(convs, now, pricing.Defaults())
+	convs = append(convs, run("other", store.MethodClassic, store.StepProduction, 0))
+	convs[len(convs)-1].Workspace = "ws-2"
+	rates := pricing.Defaults()
+	rates.GPUCapPerWorkspace = map[string]int{"ws-2": 16}
+	s := &Service{DefaultWorkspaceID: "ws-1"}
+	waiting, use := s.gpuLineSnapshot(convs, now, rates)
 	if len(waiting) != 2 || waiting[0].Conv.ID != "w2" || waiting[1].Conv.ID != "w1" {
 		t.Fatalf("waiting: %+v", waiting)
 	}
 	// lifelike: 4 (production) + 1 (preview); classic: 8 + 8 held to the cap 8
-	if busy[store.MethodLifelike] != 5 || busy[store.MethodClassic] != 8 {
-		t.Errorf("busy: %v", busy)
+	if len(use) != 2 || use[0].Workspace != "ws-1" || use[0].Busy[store.MethodLifelike] != 5 || use[0].Busy[store.MethodClassic] != 8 || use[0].Cap != 8 ||
+		use[1].Workspace != "ws-2" || use[1].Busy[store.MethodClassic] != 8 || use[1].Cap != 16 {
+		t.Errorf("use: %+v", use)
 	}
-	m := gpuLineMail(waiting, busy, 8, map[string]string{"u-w2": "a@example.com"})
+	m := gpuLineMail(waiting, use, map[string]string{"u-w2": "a@example.com"})
 	for _, want := range []string{"Stereo3D Studio", "2 runs", "longest 5m 0s"} {
 		if !strings.Contains(m.Subject, want) {
 			t.Errorf("subject %q lacks %q", m.Subject, want)
 		}
 	}
-	for _, want := range []string{"a@example.com — classic production, 4K, 1m 0s of video, waiting 5m 0s", "uid u-w1", "Classic: 8 of 8", "Lifelike: 5 of 8", "Oldest wait: 5m 0s"} {
+	for _, want := range []string{"a@example.com — classic production, 4K, 1m 0s of video, waiting 5m 0s (conversion w2, workspace ws-1)", "uid u-w1", "- ws-1: Classic 8 of 8, Lifelike 5 of 8", "- ws-2: Classic 8 of 16, Lifelike 0 of 16", "Oldest wait: 5m 0s"} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("body lacks %q:\n%s", want, m.Text)
 		}

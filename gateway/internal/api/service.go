@@ -51,11 +51,15 @@ type Service struct {
 	Store   *store.Store
 	Pricing *pricing.Service
 	Stripe  *stripex.Client
-	Modal   *modalapi.Client
-	// Lifelike is the shared lifelike3d service (nil = the Lifelike method
-	// is unavailable in this environment).
+	// Modal and Lifelike are the DEFAULT workspace's pipelines (S3D-40,
+	// workspace.go); Lifelike nil = the method is off there.
+	Modal    *modalapi.Client
 	Lifelike *modalapi.Client
-	GCS      *gcsx.Client
+	// DefaultWorkspaceID names that workspace ("" reads as it too);
+	// ExtraWorkspaces are further ones by id (none today).
+	DefaultWorkspaceID string
+	ExtraWorkspaces    map[string]*Workspace
+	GCS                *gcsx.Client
 	// Mail sends the owner alerts and customer notices (Resend; nil or
 	// unconfigured = logged only).
 	Mail  *mail.Resend
@@ -96,7 +100,7 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 	if client == nil {
 		// Lifelike was configured when this run was created and isn't now:
 		// leave it paid; paidTTL fails it and returns the money.
-		return errors.New("lifelike pipeline not configured")
+		return fmt.Errorf("pipeline not configured (workspace %q, method %q)", s.workspaceID(conv.Workspace), store.MethodOr(conv.Method))
 	}
 	rates := s.Pricing.Rates(ctx)
 	var body map[string]any
@@ -312,7 +316,7 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 	var job *modalapi.Job
 	var err error
 	if client == nil {
-		err = errors.New("lifelike pipeline not configured")
+		err = fmt.Errorf("pipeline not configured (workspace %q, method %q)", s.workspaceID(conv.Workspace), store.MethodOr(conv.Method))
 	} else {
 		job, err = client.GetJob(ctx, conv.Modal.JobID)
 	}
@@ -857,7 +861,7 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 	if p.Analyze.State != store.AnalyzeRunning || p.Analyze.JobID == "" {
 		return p, nil
 	}
-	job, err := s.Modal.GetJob(ctx, p.Analyze.JobID)
+	job, err := s.projectJob(ctx, p, p.Analyze.JobID)
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
@@ -954,7 +958,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 	if p.Profile == nil || p.Profile.State != "running" || p.Profile.JobID == "" {
 		return p, nil
 	}
-	job, err := s.Modal.GetJob(ctx, p.Profile.JobID)
+	job, err := s.projectJob(ctx, p, p.Profile.JobID)
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {

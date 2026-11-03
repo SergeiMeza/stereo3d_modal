@@ -285,6 +285,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
 | `gpu_cap_per_app` | 8 — GPUs per Modal app, the "busy N of cap" in the GPU-line mail |
+| `gpu_cap_per_workspace` | `{}` — per-workspace override of `gpu_cap_per_app` (S3D-40) |
 | `file_keep_days` | 90 — days without use before a project's files are erased (S3D-24) |
 | `file_notice_days` | `[14, 3]` — notice mails, days before |
 | `deleted_project_purge_days` | 30 — a deleted project's files are kept this long |
@@ -321,6 +322,25 @@ test accounts — the owner's (`OWNER_ALERT_EMAIL`) and
 `FILE_KEEPING_TEST_ACCOUNTS` — are real, their notices mailed to the
 owner's address; every other test project is a dry run (notices and
 erases logged, nothing mailed or erased). Prod is real for everyone.
+
+### Modal workspaces (S3D-40)
+
+A project lives in one Modal workspace, recorded at creation
+(`projects.workspace`; runs copy it to `conversions.workspace`). Every
+submit, status poll, reuse lookup and cancel of a project and its runs —
+analyze, profile, Classic and Lifelike — goes to that workspace's
+endpoints; an unknown workspace is never routed elsewhere (the request
+answers 503, sweeps leave the run to its deadline). Records without the
+field read as the default workspace: `MODAL_WORKSPACE_ID` (deploy.sh passes
+`MODAL_WORKSPACE`), else the workspace in `MODAL_BASE_URL`'s host. Its
+endpoints/tokens are the existing `MODAL_BASE_URL`, `LIFELIKE_BASE_URL`,
+`MODAL_TOKEN_*`. More workspaces (none today): `MODAL_WORKSPACES`, JSON
+`[{"id","modal_base_url","lifelike_base_url","token_id_env",
+"token_secret_env"}]`, tokens named by env var (mounted secrets). New
+projects go to the default (`assignWorkspace`, the place to balance by
+load later); `/v1/limits` Lifelike availability describes that workspace.
+Workspace ids must stay stable once projects carry them. GPU caps and the
+GPU-line alert are per workspace.
 
 ### GPU-line alert (S3D-34)
 

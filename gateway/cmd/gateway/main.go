@@ -89,6 +89,13 @@ func main() {
 		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
 	}
 	slog.Info("lifelike", "enabled", svc.Lifelike != nil, "base_url", cfg.LifelikeBaseURL)
+	// Modal workspaces (S3D-40): the clients above are the default one.
+	svc.DefaultWorkspaceID = cfg.DefaultWorkspaceID
+	svc.ExtraWorkspaces = map[string]*api.Workspace{}
+	for _, w := range cfg.ExtraWorkspaces {
+		svc.ExtraWorkspaces[w.ID] = api.NewWorkspace(w)
+	}
+	slog.Info("modal workspaces", "default", cfg.DefaultWorkspaceID, "extra", len(cfg.ExtraWorkspaces))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {

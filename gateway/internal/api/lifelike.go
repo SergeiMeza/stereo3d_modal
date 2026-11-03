@@ -50,11 +50,17 @@ func errMethodUnavailable() *httpx.APIError {
 // they must keep getting classic projects. The web app names the method
 // explicitly and defaults its own UI to lifelike (defaultMethod).
 func (s *Service) resolveMethod(requested string) (string, *httpx.APIError) {
+	return s.resolveMethodFor(requested, s.assignWorkspace().Lifelike != nil) // new projects' workspace
+}
+
+// resolveMethodFor is resolveMethod against a workspace whose Lifelike
+// is (not) configured (S3D-40).
+func (s *Service) resolveMethodFor(requested string, lifelike bool) (string, *httpx.APIError) {
 	switch requested {
 	case "":
 		return store.MethodClassic, nil
 	case store.MethodLifelike:
-		if s.Lifelike == nil {
+		if !lifelike {
 			return "", errMethodUnavailable()
 		}
 		return requested, nil
@@ -276,13 +282,24 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	return body
 }
 
-// modalFor is the pipeline service a conversion runs on; nil when it is a
-// Lifelike run and Lifelike is no longer configured.
+// modalFor is the pipeline service a conversion runs on, in its
+// workspace; nil when that workspace (or its Lifelike) is no longer
+// configured.
 func (s *Service) modalFor(c *store.Conversion) *modalapi.Client {
-	if c.Method == store.MethodLifelike {
-		return s.Lifelike
+	ws, ok := s.workspace(c.Workspace) // S3D-40: the run's own workspace
+	if !ok {
+		return nil
 	}
-	return s.Modal
+	if c.Method == store.MethodLifelike {
+		return ws.Lifelike
+	}
+	return ws.Modal
+}
+
+// lifelikeIn: the project's workspace runs Lifelike.
+func (s *Service) lifelikeIn(p *store.Project) bool {
+	ws, ok := s.workspace(p.Workspace)
+	return ok && ws.Lifelike != nil
 }
 
 // stepETA is the pre-run wall-clock estimate of a step for the method: the
@@ -373,7 +390,7 @@ func overdueQueueAllowance(c *store.Conversion) float64 {
 // default_method; LL-D1): lifelike wherever the service is configured. The
 // API's own default for a request without a method stays classic.
 func (s *Service) defaultMethod() string {
-	if s.Lifelike != nil {
+	if s.assignWorkspace().Lifelike != nil {
 		return store.MethodLifelike
 	}
 	return store.MethodClassic

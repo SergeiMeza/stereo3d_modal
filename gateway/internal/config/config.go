@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -30,6 +31,14 @@ type Config struct {
 	// Modal token above: both services live in the same workspace.
 	LifelikeTokenID     string
 	LifelikeTokenSecret string
+	// Modal workspaces (S3D-40). The settings above are the DEFAULT
+	// workspace, DefaultWorkspaceID (env MODAL_WORKSPACE_ID, else the
+	// workspace in MODAL_BASE_URL's host, "<ws>--stereo3d-api-…"). Every
+	// project records its workspace at creation; ids must stay stable.
+	// ExtraWorkspaces (env MODAL_WORKSPACES, JSON, none today) are further
+	// production workspaces, see ParseWorkspaces.
+	DefaultWorkspaceID string
+	ExtraWorkspaces    []Workspace
 
 	StripeSecretKey      string
 	StripeWebhookSecret  string
@@ -134,6 +143,17 @@ func Load() (*Config, error) {
 			c.CORSOrigins = append(c.CORSOrigins, strings.TrimRight(o, "/"))
 		}
 	}
+	c.DefaultWorkspaceID = getenv("MODAL_WORKSPACE_ID", workspaceFromURL(c.ModalBaseURL))
+	extra, err := ParseWorkspaces(getenv("MODAL_WORKSPACES", ""), os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range extra {
+		if w.ID == c.DefaultWorkspaceID {
+			return nil, fmt.Errorf("MODAL_WORKSPACES: %q is the default workspace", w.ID)
+		}
+	}
+	c.ExtraWorkspaces = extra
 	for key, val := range map[string]string{
 		"GCP_PROJECT_ID":    c.GCPProjectID,
 		"MODAL_BASE_URL":    c.ModalBaseURL,
@@ -153,4 +173,73 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// Workspace is one Modal workspace's pipeline endpoints and tokens
+// (S3D-40). An empty LifelikeBaseURL = Lifelike off there.
+type Workspace struct {
+	ID                  string
+	ModalBaseURL        string
+	ModalTokenID        string
+	ModalTokenSecret    string
+	LifelikeBaseURL     string
+	LifelikeTokenID     string
+	LifelikeTokenSecret string
+}
+
+// workspaceFromURL reads the workspace out of a Modal web endpoint host
+// ("https://<ws>--stereo3d-api-test.modal.run"); "default" when it can't.
+func workspaceFromURL(raw string) string {
+	host := raw
+	if i := strings.Index(host, "://"); i >= 0 {
+		host = host[i+3:]
+	}
+	if ws, _, ok := strings.Cut(host, "--"); ok && ws != "" && !strings.ContainsAny(ws, "/.:") {
+		return ws
+	}
+	return "default"
+}
+
+// ParseWorkspaces reads MODAL_WORKSPACES: a JSON list of
+// {"id", "modal_base_url", "lifelike_base_url", "token_id_env",
+// "token_secret_env"}. Tokens are named by env var (mounted secrets), never
+// inline; absent token envs fall back to MODAL_TOKEN_ID/SECRET.
+func ParseWorkspaces(raw string, env func(string) string) ([]Workspace, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var in []struct {
+		ID              string `json:"id"`
+		ModalBaseURL    string `json:"modal_base_url"`
+		LifelikeBaseURL string `json:"lifelike_base_url"`
+		TokenIDEnv      string `json:"token_id_env"`
+		TokenSecretEnv  string `json:"token_secret_env"`
+	}
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil, fmt.Errorf("MODAL_WORKSPACES: %w", err)
+	}
+	seen := map[string]bool{}
+	var out []Workspace
+	for _, w := range in {
+		if w.ID == "" || w.ModalBaseURL == "" || seen[w.ID] {
+			return nil, fmt.Errorf("MODAL_WORKSPACES: each entry needs a unique id and modal_base_url")
+		}
+		seen[w.ID] = true
+		tokenEnv := func(name, fallback string) string {
+			if name != "" {
+				if v := env(name); v != "" {
+					return v
+				}
+			}
+			return env(fallback)
+		}
+		id, secret := tokenEnv(w.TokenIDEnv, "MODAL_TOKEN_ID"), tokenEnv(w.TokenSecretEnv, "MODAL_TOKEN_SECRET")
+		out = append(out, Workspace{
+			ID: w.ID, ModalBaseURL: strings.TrimRight(w.ModalBaseURL, "/"),
+			ModalTokenID: id, ModalTokenSecret: secret,
+			LifelikeBaseURL: strings.TrimRight(w.LifelikeBaseURL, "/"),
+			LifelikeTokenID: id, LifelikeTokenSecret: secret,
+		})
+	}
+	return out, nil
 }

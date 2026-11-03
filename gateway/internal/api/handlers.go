@@ -709,8 +709,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			store.MethodLifelike: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodLifelike),
 				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodLifelike),
-				"available":             s.Lifelike != nil,
-				"new_projects":          s.Lifelike != nil,
+				"available":             s.assignWorkspace().Lifelike != nil, // where new projects go (S3D-40)
+				"new_projects":          s.assignWorkspace().Lifelike != nil,
 			},
 			store.MethodClassic: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
