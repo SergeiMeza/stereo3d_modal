@@ -5,10 +5,10 @@ import { EDGE_OPTIONS, EDGE_LABELS } from "@/components/steps/outputOptions";
 import { runSummary } from "./glossary";
 
 describe("edge style names (S3D-29)", () => {
-  it("offers Filled then Stretched, never ranked", () => {
+  it("offers Stretched then Filled, never ranked", () => {
     expect(EDGE_OPTIONS.map((m) => EDGE_LABELS[m])).toEqual([
-      "Filled",
       "Stretched",
+      "Filled",
     ]);
   });
 

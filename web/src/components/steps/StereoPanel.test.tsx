@@ -241,7 +241,7 @@ describe("StereoPanel scene rows", () => {
 });
 
 describe("StereoPanel request building", () => {
-  it("Edge style (S3D-29): Filled and Stretched, in that order — filled = propainter, stretched = backward+none; the per-frame fill is gone (no model names in copy)", async () => {
+  it("Edge style (S3D-29): Stretched and Filled, in that order, Filled preselected — filled = propainter, stretched = backward+none; the per-frame fill is gone (no model names in copy)", async () => {
     const bodies = captureQuoteBodies();
     const user = userEvent.setup();
     renderPanel(withProfile());
@@ -249,8 +249,8 @@ describe("StereoPanel request building", () => {
     const select = screen.getByLabelText("Edge style") as HTMLSelectElement;
     // user-facing names only — never the renderer terms; two equal options
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      "Filled",
       "Stretched",
+      "Filled",
     ]);
     expect(select.value).toBe("filled");
     expect(document.body.textContent).not.toMatch(/visible stretching|Fast fill/i);

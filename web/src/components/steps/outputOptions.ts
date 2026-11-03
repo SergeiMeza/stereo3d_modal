@@ -51,16 +51,16 @@ export const INPAINT_LABELS: Record<Inpaint, string> = {
 };
 
 /** Edge style (S3D-29): the user-facing choice that drives BOTH wire
- * fields (warp + inpaint). Two equal options in this order — Filled (the
- * default) and Stretched; which looks better is a matter of taste, so the
+ * fields (warp + inpaint). Two equal options in this order — Stretched,
+ * then Filled (Filled stays preselected); which looks better is a matter of taste, so the
  * copy never ranks them. The per-frame fill ("migan") is no longer offered
  * (the API still accepts it). Values are UI-only — never on the wire. */
-export const EDGE_OPTIONS: readonly EdgeMode[] = ["filled", "stretched"];
+export const EDGE_OPTIONS: readonly EdgeMode[] = ["stretched", "filled"];
 
 export const EDGE_LABELS: Record<EdgeMode, string> = EDGE_STYLE_NAMES;
 
 export const EDGE_HINT =
-  "Shifting the picture for each eye opens thin gaps along object edges. Filled paints them in; Stretched pulls the neighbouring pixels across them. Two different looks: pick the one you like.";
+  "Shifting the picture for each eye opens thin gaps along object edges. Stretched pulls the neighbouring pixels across them; Filled paints them in. Two different looks: pick the one you like.";
 
 /** The wire fields an edge style implies. Stretched = the backward warp
  * with no fill; Filled keeps the default forward warp (no warp field on
@@ -86,7 +86,7 @@ export const WARP_LABELS: Record<Warp, string> = {
 };
 
 export const WARP_HINT =
-  "Shifting the picture for each eye opens thin gaps along object edges. Filled paints them in; Stretched pulls the neighbouring pixels across them. Two different looks: pick the one you like.";
+  "Shifting the picture for each eye opens thin gaps along object edges. Stretched pulls the neighbouring pixels across them; Filled paints them in. Two different looks: pick the one you like.";
 
 /** The inpaint value a warp choice implies. The gateway forces this
  * pairing (backward ⇒ none) and rejects backward + propainter, so the

@@ -167,8 +167,8 @@ export const STEP_NAMES: Record<Step, string> = {
   production: "Full video",
 };
 
-/** Classic edge style (S3D-29): two equal options, Filled (the default)
- * and Stretched — a matter of taste, never ranked. The old per-frame fill
+/** Classic edge style (S3D-29): two equal options, Stretched then Filled
+ * (Filled preselected) — a matter of taste, never ranked. The old per-frame fill
  * is no longer offered; old runs that used it keep a name. */
 export type EdgeMode = "filled" | "stretched";
 
