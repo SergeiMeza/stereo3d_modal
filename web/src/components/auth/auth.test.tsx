@@ -198,4 +198,22 @@ describe("AccountScreen delete (mock mode)", () => {
     expect(screen.getByRole("button", { name: "Pay $3.33" })).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
+
+  // gateway 00081: a cash balance is refunded first, then the account goes
+  it("with a balance: confirm the refund, then deletion is pending", async () => {
+    settleAllRuns();
+    mockDb.billing.prepaid.balance_cents = 1250;
+    mockDb.billing.prepaid.topups = 1;
+    renderWithAuth(<AccountScreen />);
+    typeDeleteAndConfirm();
+    const refund = await screen.findByTestId("delete-refund");
+    expect(refund.textContent).toContain("We return your $12.50 balance to your payment method first.");
+    fireEvent.click(screen.getByRole("button", { name: "Refund and delete" }));
+    expect((await screen.findByTestId("deletion-pending")).textContent).toBe(
+      "We're returning your $12.50; your account is deleted once that's done.",
+    );
+    expect(mockDb.billing.deletionPending).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
+    expect((screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

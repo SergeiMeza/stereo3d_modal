@@ -5,6 +5,7 @@
  */
 
 import type {
+  AccountDeleteResult,
   AccountPlan,
   BalanceEntry,
   BalanceSettings,
@@ -229,9 +230,11 @@ export class GatewayClient {
 
   /** Delete the account. The gateway charges what is owed first and
    * refuses with 402 balance_due (details: amount_cents, requires_action,
-   * client_secret, publishable_key) or 409 active_runs. */
-  deleteAccount(): Promise<{ deleted: boolean }> {
-    return this.request("POST", "/v1/account/delete", {});
+   * client_secret, publishable_key) or 409 active_runs; with a prepaid
+   * balance, 409 balance_remaining {cents} until balance_confirmed, then
+   * 202 deletion_pending while the balance is refunded (00081). */
+  deleteAccount(opts: { balance_confirmed?: boolean } = {}): Promise<AccountDeleteResult> {
+    return this.request("POST", "/v1/account/delete", opts.balance_confirmed ? { balance_confirmed: true } : {});
   }
 
   // ------------------------------------------------------------- billing

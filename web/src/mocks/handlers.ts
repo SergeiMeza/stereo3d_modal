@@ -180,6 +180,8 @@ interface MockBilling {
   prepaid: MockPrepaid;
   /** pricing 2026-11: Business or Studio */
   plan: AccountPlan | null;
+  /** 00081: deletion waits for a balance refund; runs and top-ups 403 */
+  deletionPending: boolean;
 }
 
 /** spec v7 N1, the mock's ledger summary. */
@@ -587,6 +589,7 @@ function seed(): DB {
         nextTopup: "paid",
       },
       plan: null,
+      deletionPending: false,
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -2312,6 +2315,7 @@ export const handlers = [
 
   // spec v7 N3: top-ups (P17)
   http.post(`${GATEWAY}/v1/billing/balance/topup`, async ({ request }) => {
+    if (mockDb.billing.deletionPending) return err(403, "deletion_pending", "your account is being deleted");
     const body = (await request.json()) as { amount_cents: number; method?: string };
     const pp = mockDb.billing.prepaid;
     const max = pp.topups === 0 ? BALANCE_LIMITS.first_max : BALANCE_LIMITS.max;
@@ -2844,7 +2848,8 @@ export const handlers = [
 
   // Account deletion: refused while a run is going or a charge failed;
   // the pending balance is charged first.
-  http.post(`${GATEWAY}/v1/account/delete`, () => {
+  http.post(`${GATEWAY}/v1/account/delete`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { balance_confirmed?: boolean };
     const active = [...mockDb.conversions.values()].filter((c) =>
       ["created", "paid", "processing"].includes(c.state),
     ).length;
@@ -2866,6 +2871,27 @@ export const handlers = [
           details: { amount_cents: owed, publishable_key: "pk_test_mock" },
         },
         { status: 402 },
+      );
+    }
+    // 00081: a cash balance is refunded first; the account goes after
+    const cash = mockDb.billing.prepaid.balance_cents;
+    if (cash > 0) {
+      if (!body.balance_confirmed) {
+        return HttpResponse.json(
+          { success: false, error: "balance_remaining", message: "your balance is refunded before your account is deleted", details: { cents: cash } },
+          { status: 409 },
+        );
+      }
+      mockDb.billing.deletionPending = true;
+      return HttpResponse.json(
+        {
+          deleted: false,
+          deletion_pending: true,
+          case_id: "case_mock_1",
+          refund_cents: cash,
+          message: "we're returning your balance; your account is deleted once that's done",
+        },
+        { status: 202 },
       );
     }
     settlePending();
@@ -3478,6 +3504,7 @@ export const handlers = [
           `the automatic payment for conversion ${mockDb.billing.unpaid[0].conversion_id} failed — settle it before starting new work`,
         );
       }
+      if (mockDb.billing.deletionPending) return err(403, "deletion_pending", "your account is being deleted");
       const req = body as unknown as StepConversionRequest;
       const capped = methodCapError(p);
       if (capped) return capped;

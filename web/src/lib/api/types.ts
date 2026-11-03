@@ -627,6 +627,16 @@ export interface PlanDef {
   express_included: boolean;
 }
 
+/** POST /v1/account/delete: done, or (00081) pending while a cash
+ * balance is refunded */
+export interface AccountDeleteResult {
+  deleted: boolean;
+  deletion_pending?: boolean;
+  case_id?: string;
+  refund_cents?: number;
+  message?: string;
+}
+
 /** GET /v1/billing plan (Business / Studio) */
 export interface AccountPlan {
   plan: "business" | "studio";

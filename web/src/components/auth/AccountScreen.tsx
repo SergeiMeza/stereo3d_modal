@@ -72,6 +72,10 @@ export default function AccountScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   /** P13: what's owed when delete answered 402 balance_due */
   const [dues, setDues] = useState<number | null>(null);
+  /** 00081: a prepaid balance to refund before the account goes */
+  const [refund, setRefund] = useState<number | null>(null);
+  /** 00081: deletion waits for that refund */
+  const [pending, setPending] = useState<number | null>(null);
 
   if (user === null) return null;
 
@@ -101,12 +105,19 @@ export default function AccountScreen() {
     router.replace("/");
   }
 
-  async function onDelete() {
+  async function onDelete(balanceConfirmed = false) {
     setDeletePending(true);
     setDeleteError(null);
     setDues(null);
     try {
-      await deleteWithChallenge();
+      const r = await deleteWithChallenge(balanceConfirmed);
+      if (r.deletion_pending) {
+        // 00081: the balance is refunded first; the account goes after
+        setDeletePending(false);
+        setRefund(null);
+        setPending(r.refund_cents ?? 0);
+        return;
+      }
       await signOutUser();
       router.replace("/");
     } catch (err) {
@@ -116,16 +127,21 @@ export default function AccountScreen() {
         err instanceof GatewayError && err.code === "balance_due"
           ? err.details?.amount_cents
           : undefined;
+      const cash =
+        err instanceof GatewayError && err.code === "balance_remaining"
+          ? err.details?.cents
+          : undefined;
       if (typeof owed === "number" && owed > 0) setDues(owed);
+      else if (typeof cash === "number" && cash > 0) setRefund(cash);
       else setDeleteError(deleteErrorMessage(err));
     }
   }
 
   /** The bank may ask to confirm the outstanding charge (3DS): confirm it,
    * then try the delete once more. */
-  async function deleteWithChallenge() {
+  async function deleteWithChallenge(balanceConfirmed: boolean) {
     try {
-      await gateway.deleteAccount();
+      return await gateway.deleteAccount({ balance_confirmed: balanceConfirmed });
     } catch (err) {
       const d = err instanceof GatewayError ? err.details : undefined;
       if (
@@ -142,7 +158,7 @@ export default function AccountScreen() {
         d.client_secret,
       );
       if (!confirmed.ok) throw err;
-      await gateway.deleteAccount();
+      return gateway.deleteAccount({ balance_confirmed: balanceConfirmed });
     }
   }
 
@@ -254,7 +270,7 @@ export default function AccountScreen() {
               />
               <button
                 type="button"
-                disabled={confirmText !== "DELETE" || deletePending}
+                disabled={confirmText !== "DELETE" || deletePending || pending !== null}
                 onClick={() => void onDelete()}
                 className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
               >
@@ -262,6 +278,27 @@ export default function AccountScreen() {
               </button>
             </div>
           </div>
+          {refund !== null && (
+            // 00081: confirm the balance refund, then delete
+            <div data-testid="delete-refund" className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="text-fg">
+                We return your {formatCents(refund)} balance to your payment method first.
+              </span>
+              <button
+                type="button"
+                disabled={deletePending}
+                onClick={() => void onDelete(true)}
+                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50"
+              >
+                Refund and delete
+              </button>
+            </div>
+          )}
+          {pending !== null && (
+            <p data-testid="deletion-pending" className="text-sm text-fg">
+              We&apos;re returning your {formatCents(pending)}; your account is deleted once that&apos;s done.
+            </p>
+          )}
           {dues !== null && (
             // P13: pay what's owed in the settle sheet, then delete again
             <DeleteDues amountCents={dues} onPaid={() => void onDelete()} />
