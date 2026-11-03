@@ -155,7 +155,7 @@ export function useMethodQuotes(
       const req: StepConversionRequest = {
         step: "production",
         preset,
-        formats: ["mvhevc", "half_sbs"],
+        formats: ["mvhevc", "sbs"],
         method: m,
         platform: "web",
       };

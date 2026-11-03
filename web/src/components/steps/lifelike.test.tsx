@@ -106,11 +106,38 @@ describe("Lifelike qualities", () => {
     renderPanel(
       <LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />,
     );
-    const select = screen.getByLabelText("Quality") as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual([
-      "1080p · 1920×1080 per eye",
-      "1440p · 2560×1440 per eye",
-    ]);
+    const tiles = within(screen.getByRole("radiogroup", { name: "Quality" }));
+    expect(tiles.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.getByTestId("quality-1080p").textContent).toMatch(
+      /^1080p1920×1080 per eye/,
+    );
+    expect(screen.getByTestId("quality-qhd").textContent).toMatch(
+      /^1440p2560×1440 per eye/,
+    );
+    // the best one is preselected
+    expect((tiles.getAllByRole("radio")[1] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("prices every quality tile for this video, and the button carries the price (S3D-45)", async () => {
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    for (const p of ["1080p", "qhd", "3k", "4k"]) {
+      await waitFor(() =>
+        expect(screen.getByTestId(`quality-price-${p}`).textContent).toMatch(
+          /^\$\d+\.\d\d$/,
+        ),
+      );
+    }
+    const top = screen.getByTestId("quality-price-4k").textContent!;
+    await waitFor(() =>
+      expect(screen.getByTestId("checkout-main").textContent).toBe(`Make 3D · ${top}`),
+    );
+    // the quote's lines show in the price card, no Get quote step
+    expect(screen.getByTestId("quote-total").textContent).toBe(top);
+    expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "?" }));
+    expect(screen.getByRole("dialog").textContent).toMatch(/first minute/);
   });
 
   it("names the real size: Full resolution between steps and below 1080 (S3D-04)", () => {
@@ -157,10 +184,7 @@ describe("Lifelike qualities", () => {
     renderPanel(
       <LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />,
     );
-    fireEvent.change(screen.getByLabelText("Quality"), {
-      target: { value: "4k" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
+    // the best quality (4K) is preselected and priced right away
     expect(await screen.findByText(PRESET_ABOVE_SOURCE)).toBeTruthy();
   });
 });
@@ -173,16 +197,50 @@ describe("Lifelike Deliver", () => {
         onProjectChanged={() => {}}
       />,
     );
-    for (const name of [
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    expect(files.getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"))).toEqual([
       "Vision Pro spatial video",
       "Side by side",
       "Side by side (half size)",
-    ]) {
-      expect(screen.getByLabelText(name)).toBeTruthy();
-    }
+    ]);
+    // Vision Pro + Side by side by default (the Overview's "You'll get")
+    expect(
+      files.getAllByRole("checkbox").map((c) => (c as HTMLInputElement).checked),
+    ).toEqual([true, true, false]);
     expect(screen.queryByText(/anaglyph|top.?bottom|red.?cyan/i)).toBeNull();
     // none of Classic's knobs
-    expect(screen.queryByText(/Edge handling|Start from scratch|Inherited/)).toBeNull();
+    expect(screen.queryByText(/Edge style|Start from scratch|Inherited/)).toBeNull();
+  });
+
+  it("Where will you watch it? picks the files (S3D-07), and Which part? trims the run (S3D-10)", async () => {
+    const project = lifelikeProject();
+    const quotes = captureBodies("/quotes");
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    const watch = within(screen.getByRole("group", { name: "Where will you watch it?" }));
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    const checked = () =>
+      files
+        .getAllByRole("checkbox")
+        .filter((c) => (c as HTMLInputElement).checked)
+        .map((c) => c.getAttribute("aria-label"));
+    fireEvent.click(watch.getByLabelText("3D TV or projector"));
+    expect(checked()).toEqual(["Side by side (half size)"]);
+    fireEvent.click(watch.getByLabelText("Apple Vision Pro"));
+    expect(checked()).toEqual(["Vision Pro spatial video", "Side by side (half size)"]);
+    fireEvent.click(watch.getByLabelText("3D TV or projector"));
+    fireEvent.click(watch.getByLabelText("Apple Vision Pro"));
+    fireEvent.click(watch.getByLabelText("Not sure"));
+    expect(checked()).toEqual(["Vision Pro spatial video", "Side by side"]);
+
+    expect(screen.getByTestId("trim-chip").textContent).toMatch(/^Whole video · \d+:\d\d$/);
+    const start = screen.getByLabelText("Start") as HTMLInputElement;
+    expect(start.value).toBe("0:00");
+    fireEvent.change(start, { target: { value: "0:10" } });
+    fireEvent.blur(start);
+    expect(screen.getByTestId("trim-chip").textContent).toMatch(/^Part · /);
+    await waitFor(() =>
+      expect(quotes.some((q) => q.step === "production" && q.from_frame === 240)).toBe(true),
+    );
   });
 
   it("asks to split a long video (preselected), sends 900 s parts, waits for a GPU, and lists parts", async () => {
@@ -196,26 +254,22 @@ describe("Lifelike Deliver", () => {
     renderPanel(
       <LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />,
     );
-    expect(screen.queryByTestId("split-prompt")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-
     const prompt = await screen.findByTestId("split-prompt");
     expect(within(prompt).getByText(splitQuestion(seconds))).toBeTruthy();
     expect(splitQuestion(seconds)).toBe(
-      "This video is 30 minutes long. Split it into 15-minute parts so each file plays smoothly?",
+      "Your video is 30 minutes long. Split it into 15-minute parts so each file plays smoothly?",
     );
-    const split = within(prompt).getByLabelText("Split into parts") as HTMLInputElement;
+    const split = within(prompt).getByRole("radio", { name: /^Split into parts/ }) as HTMLInputElement;
     expect(split.checked).toBe(true);
+    expect(prompt.textContent).toContain("2 parts: about 15 and 15 min");
+    expect(prompt.textContent).toContain("Parts end at a scene change. No extra charge.");
     // a 30-minute run is quoted above the threshold: paid up front
-    expect((await screen.findByTestId("quote-charge-timing")).textContent).toBe(
-      "Charged when it starts. Refunded if it fails.",
-    );
     expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
       CHARGE_BEFORE_COPY,
     );
 
     mockDb.gpuWaitPolls = 1_000; // hold the GPU wait until we've seen it
-    fireEvent.click(screen.getByRole("button", { name: /^Convert/ }));
+    fireEvent.click(screen.getByTestId("checkout-main"));
     expect(
       await screen.findByTestId("waiting-for-gpu", {}, { timeout: 3000 }),
     ).toBeTruthy();
@@ -230,7 +284,7 @@ describe("Lifelike Deliver", () => {
     expect(sent[0]).toMatchObject({
       step: "production",
       split_max_seconds: 900,
-      formats: ["mvhevc", "half_sbs"],
+      formats: ["mvhevc", "sbs"],
     });
   });
 
@@ -240,9 +294,8 @@ describe("Lifelike Deliver", () => {
     renderPanel(
       <LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     fireEvent.click(await screen.findByLabelText("Keep as one file"));
-    fireEvent.click(screen.getByRole("button", { name: /^Convert/ }));
+    fireEvent.click(screen.getByTestId("checkout-main"));
     await screen.findByTestId("conversion-tracker");
     expect(sent[0].split_max_seconds).toBeUndefined();
   });
@@ -254,11 +307,10 @@ describe("Lifelike Deliver", () => {
         onProjectChanged={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     await screen.findByTestId("quote-breakdown");
     expect(screen.queryByTestId("split-prompt")).toBeNull();
     // a small run is charged after it's done (S3D-19, S3D-21)
-    expect(screen.getByTestId("quote-charge-timing").textContent).toBe(
+    expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
       "Charged after it's done.",
     );
   });

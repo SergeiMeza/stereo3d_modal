@@ -1,58 +1,53 @@
 "use client";
 
 /**
- * Deliver page for Lifelike projects (step production). Lifelike is its
- * own product, not a copy of Classic's page: a quality (1080p, 1440p, 3K,
- * 4K — only those at or below the source; Lifelike never upscales), the
- * Lifelike formats (Vision Pro spatial video, full and half side by side)
- * and the quote. No depth, edge or reuse controls.
- *
- * Long outputs: when the quote says split_suggested (output over 15
- * minutes), the page asks before the run whether to split it into
- * 15-minute parts — "Split into parts" preselected — and the run then
- * carries split_max_seconds 900. Split runs download as Part 1, Part 2…
- * (DownloadsList).
+ * Make 3D for Lifelike projects (screens 06 and 07, step production).
+ * Left, numbered sections: where you'll watch it (S3D-07, multi-select,
+ * preselecting the files), the split question for long videos (S3D-06,
+ * before the run, "Split into parts" preselected), the files, the quality
+ * tiles with this video's price each (S3D-04: only at or below the
+ * source, real sizes), and which part (S3D-10 trim). Right, the price
+ * card: the quote's lines, Ready in, the charging line with the cancel
+ * rule behind "?", and ONE button "Make 3D · $X" (S3D-45). While a run
+ * is going the tracker sits under the price card.
  */
 
 import { useState } from "react";
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
 
-import { Card, CardContent } from "@/components/ui/card";
 import {
   conversionMethod,
-  type Conversion,
   type Format,
   type Preset,
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
-import {
-  formatName,
-  qualityChoices,
-  qualityChoiceText,
-  qualityLabelFor,
-} from "@/lib/glossary";
+import { useLimits } from "@/lib/api/useLimits";
+import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
+import { qualityChoices, resolutionName } from "@/lib/glossary";
 
-import { CheckboxChip, Field, selectClass } from "./controls";
-import { splitPart } from "./DownloadsList";
 import {
-  LIFELIKE_FORMAT_LABELS,
-  LIFELIKE_FORMATS,
-  SPLIT_MAX_SECONDS,
-} from "./methods";
-import { PriorRuns } from "./PriorRuns";
-import {
-  bestPlayable,
-  StepReview,
-  useRunDownloads,
-} from "./StepReview";
-import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
+  DEFAULT_MAKE_FORMATS,
+  FileTiles,
+  formatsForDevices,
+  MakeSection,
+  partsEstimate,
+  QualityTiles,
+  TrimControl,
+  trimChip,
+  trimFields,
+  usePresetPrices,
+  WatchPicker,
+  type Device,
+} from "./makeControls";
+import { LIFELIKE_FORMATS, SPLIT_MAX_SECONDS } from "./methods";
+import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 
-/** "This video is N minutes long. …" — the split question. */
+/** "Your video is N minutes long. …" — the split question. */
 export function splitQuestion(outputSeconds: number): string {
   const minutes = Math.max(1, Math.round(outputSeconds / 60));
-  return `This video is ${minutes} minutes long. Split it into ${Math.round(
+  return `Your video is ${minutes} minutes long. Split it into ${Math.round(
     SPLIT_MAX_SECONDS / 60,
   )}-minute parts so each file plays smoothly?`;
 }
@@ -67,133 +62,97 @@ export function LifelikeDeliverPanel({
   onProjectChanged,
 }: LifelikeDeliverPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "production", onProjectChanged);
-  const [preset, setPreset] = useState<Preset>("1080p");
-  const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
-  // LL-D6: preselected; only asked (and only sent) when the quote says the
+  const limits = useLimits();
+  const choices = qualityChoices(project);
+  const [chosenPreset, setPreset] = useState<Preset | null>(null);
+  const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [formats, setFormats] = useState<Format[]>(DEFAULT_MAKE_FORMATS);
+  // S3D-06: preselected; only asked (and only sent) when the quote says the
   // output runs past 15 minutes
   const [split, setSplit] = useState(true);
+  const numFrames = project.probe?.num_frames ?? 0;
+  const [trim, setTrim] = useState<[number, number] | null>(null);
+  const range: [number, number] = trim ?? [0, numFrames];
 
-  const runs = (project.conversions ?? []).filter(
-    (c) => c.step === "production" && conversionMethod(c) === "lifelike",
+  const base: StepConversionRequest = {
+    step: "production",
+    preset,
+    formats: formats.length > 0 ? formats : DEFAULT_MAKE_FORMATS,
+    ...trimFields(range, numFrames),
+    platform: "web",
+  };
+  const prices = usePresetPrices(
+    project,
+    base,
+    choices.map((q) => q.preset),
+    "lifelike",
   );
-  const lastSucceeded = runs
-    .filter((c) => c.state === "succeeded")
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
-    | Conversion
-    | undefined;
-  const downloads = useRunDownloads(lastSucceeded);
-  const output = bestPlayable(downloads);
-  const lastWasSplit =
-    downloads !== null && Object.keys(downloads).some((n) => splitPart(n));
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
   if (!ready) {
     return (
-      <PanelShell>
-        <PanelCard>
-          <p className="text-sm text-fg-muted">
-            Analysis is still running — quotes unlock when it finishes.
-          </p>
-        </PanelCard>
-      </PanelShell>
+      <div data-testid="lifelike-deliver-panel">
+        <p className="rounded-xl border border-edge bg-surface-1 p-4 text-sm text-fg-muted">
+          We&apos;re still looking through your video. Prices appear when
+          it&apos;s done.
+        </p>
+      </div>
     );
   }
-  const sourceFps = parseRational(project.probe!.fps_rational);
-  const presets = qualityChoices(project);
+  const probe = project.probe!;
+  const fps = parseRational(probe.fps_rational);
 
   const splitOffered = ck.quote?.split_suggested === true;
   const request: StepConversionRequest = {
-    step: "production",
-    preset,
+    ...base,
     formats,
     ...(splitOffered && split ? { split_max_seconds: SPLIT_MAX_SECONDS } : {}),
-    platform: "web",
   };
+  const outputSeconds = ck.quote?.output_seconds ?? probe.duration_s;
+  const hasFiles = (project.conversions ?? []).some(
+    (c) =>
+      c.step === "production" &&
+      conversionMethod(c) === "lifelike" &&
+      c.state === "succeeded",
+  );
 
+  function change(apply: () => void): void {
+    apply();
+    ck.invalidate();
+  }
+
+  let n = 0;
   return (
-    <PanelShell>
-      <StepReview
-        project={project}
-        sourceFps={sourceFps}
-        heading="Final output"
-        headingExtras={
-          lastWasSplit ? (
-            <span className="text-[11px] text-fg-muted">
-              Your last run came in parts — download each part below.
-            </span>
-          ) : output === null ? (
-            <span className="text-[11px] text-fg-muted">
-              Deliver to review the final output beside the source.
-            </span>
-          ) : null
-        }
-        follower={
-          output !== null
-            ? {
-                url: output.url,
-                label: output.name,
-                title:
-                  "The latest delivered video, synced to the source (Vision Pro spatial video plays on the headset — download it below)",
-                testId: "deliver-output-video",
-              }
-            : null
-        }
-      />
-
-      <PanelCard>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="lifelike-production-preset" label="Quality">
-            <select
-              id="lifelike-production-preset"
-              value={preset}
-              onChange={(e) => {
-                setPreset(e.target.value as Preset);
-                ck.invalidate();
-              }}
-              className={selectClass}
-            >
-              {presets.map((q) => (
-                <option key={q.preset} value={q.preset}>
-                  {qualityChoiceText(q)}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-xs font-medium text-fg-muted">Formats</legend>
-          <div className="flex flex-wrap gap-2">
-            {LIFELIKE_FORMATS.map((f) => (
-              <CheckboxChip
-                key={f}
-                label={LIFELIKE_FORMAT_LABELS[f]}
-                checked={formats.includes(f)}
-                onChange={() => {
-                  setFormats((prev) =>
-                    prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
-                  );
-                  ck.invalidate();
-                }}
-              />
-            ))}
-          </div>
-        </fieldset>
+    <div
+      data-testid="lifelike-deliver-panel"
+      className="grid items-start gap-4 lg:grid-cols-[1fr_340px]"
+    >
+      <div className="flex min-w-0 flex-col gap-4">
+        <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">
+          <WatchPicker
+            devices={devices}
+            onChange={(next) =>
+              change(() => {
+                setDevices(next);
+                if (next.length > 0) {
+                  setFormats(formatsForDevices(next, LIFELIKE_FORMATS));
+                }
+              })
+            }
+          />
+        </MakeSection>
 
         {splitOffered && !ck.running ? (
-          <fieldset
-            data-testid="split-prompt"
-            className="flex flex-col gap-2 rounded-lg border border-edge bg-surface-2 p-3"
+          <MakeSection
+            n={++n}
+            testId="split-prompt"
+            title={splitQuestion(outputSeconds)}
+            hint="Parts end at a scene change. No extra charge."
           >
-            <legend className="sr-only">Split into parts</legend>
-            <p className="text-sm text-fg">
-              {splitQuestion(
-                ck.quote?.output_seconds ?? project.probe!.duration_s,
-              )}
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <div role="radiogroup" aria-label="Split into parts" className="flex flex-col gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="lifelike-split"
@@ -202,8 +161,11 @@ export function LifelikeDeliverPanel({
                   className="accent-primary"
                 />
                 Split into parts
+                <span className="text-xs text-fg-muted">
+                  {partsEstimate(outputSeconds, SPLIT_MAX_SECONDS)}
+                </span>
               </label>
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="lifelike-split"
@@ -214,51 +176,89 @@ export function LifelikeDeliverPanel({
                 Keep as one file
               </label>
             </div>
-            <p className="text-xs text-fg-muted">
-              Parts break between scenes wherever possible, and each part has
-              its own sound.
-            </p>
-          </fieldset>
+          </MakeSection>
         ) : null}
 
-        <StepCheckoutSection
+        <MakeSection n={++n} title="Files you'll get" hint="All included in the price.">
+          <FileTiles
+            offered={LIFELIKE_FORMATS}
+            formats={formats}
+            onToggle={(f) =>
+              change(() =>
+                setFormats((prev) =>
+                  prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+                ),
+              )
+            }
+          />
+        </MakeSection>
+
+        <MakeSection n={++n} title="Quality">
+          <QualityTiles
+            choices={choices}
+            value={preset}
+            onChange={(p) => change(() => setPreset(p))}
+            prices={prices}
+            note={
+              choices.length === 1
+                ? `Your video is ${resolutionName(probe)}.`
+                : choices.some((q) => q.label.startsWith("Full resolution"))
+                  ? "Full resolution is your video's own size, priced like the step below it."
+                  : undefined
+            }
+          />
+        </MakeSection>
+
+        <MakeSection
+          n={++n}
+          title="Which part?"
+          hint="Drag the handles to pay for just a part."
+          aside={
+            <span
+              data-testid="trim-chip"
+              className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
+            >
+              {trimChip(range, numFrames, fps)}
+            </span>
+          }
+        >
+          <TrimControl
+            numFrames={numFrames}
+            fps={fps}
+            thumbs={project.strip_thumbs ?? []}
+            value={range}
+            onChange={(next) => change(() => setTrim(next))}
+          />
+        </MakeSection>
+      </div>
+
+      <aside className="flex flex-col gap-3 lg:sticky lg:top-0">
+        <InstantCheckout
+          variant="panel"
           checkout={ck}
           request={request}
+          label="Make 3D"
           disabledReason={
-            formats.length === 0 ? "Select at least one format" : undefined
+            formats.length === 0 ? "Pick at least one file" : undefined
+          }
+          heading={
+            <div className="flex items-center gap-2">
+              <h3 className="text-[15px] font-semibold text-fg">Your price</h3>
+              <span className="ll-chip ml-auto rounded-full px-2 py-0.5 text-[11px]">
+                Lifelike 3D
+              </span>
+            </div>
+          }
+          explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits))}
+          after={
+            hasFiles ? (
+              <a href="#tab=files" className="text-center text-xs text-primary hover:underline">
+                Your earlier files are in Files
+              </a>
+            ) : null
           }
         />
-      </PanelCard>
-
-      <PriorRuns
-        title="Prior deliveries"
-        conversions={runs}
-        meta={(c) =>
-          [
-            qualityLabelFor(project, c.params.preset),
-            c.params.formats.map(formatName).join(" + "),
-            c.parts && c.parts.length > 0 ? `${c.parts.length} parts` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
-      />
-    </PanelShell>
-  );
-}
-
-function PanelShell({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <div data-testid="lifelike-deliver-panel" className="flex flex-col gap-6">
-      {children}
+      </aside>
     </div>
-  );
-}
-
-function PanelCard({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
   );
 }

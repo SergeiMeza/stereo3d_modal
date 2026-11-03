@@ -94,7 +94,7 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     step: "production",
     title: "Make 3D",
     description:
-      "The whole video in 3D, in the quality and formats you pick.",
+      "The whole video, or just a part, in 3D.",
     outputs: [
       "Vision Pro spatial video, full side by side, and half side by side",
       "Long videos can come as 15-minute parts that each play smoothly",

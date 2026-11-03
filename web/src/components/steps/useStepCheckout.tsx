@@ -454,6 +454,11 @@ export interface InstantCheckoutProps {
   trackerDownloads?: boolean;
   /** Under the button, e.g. "Make the whole video in 3D" */
   after?: ReactNode;
+  /** "panel": the price card of a Make 3D page — the quote's lines in
+   * full, the charging line with "?", then a full-width button. */
+  variant?: "inline" | "panel";
+  /** The price card's heading row ("Your price" + method chip). */
+  heading?: ReactNode;
 }
 
 /**
@@ -472,6 +477,8 @@ export function InstantCheckout({
   explain,
   trackerDownloads = true,
   after,
+  variant = "inline",
+  heading,
 }: InstantCheckoutProps): JSX.Element {
   const blocked = disabledReason !== undefined;
   const paymentNeeded =
@@ -495,8 +502,65 @@ export function InstantCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, blocked, running, quoting, quote, error]);
 
-  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
   const price = quote ? formatCents(quote.quote.amount_cents) : null;
+  const tracker =
+    ck.tracking && ck.active ? (
+      <ConversionTracker
+        conversion={ck.active}
+        onProjectChanged={ck.onProjectChanged}
+        onSettled={ck.handleSettled}
+        onUpdate={ck.handleUpdate}
+        showDownloads={trackerDownloads}
+        estimateSeconds={quote?.eta_seconds}
+      />
+    ) : null;
+  if (variant === "panel") {
+    const chargeHint = quote ? (
+      <span className="flex items-center gap-1.5">
+        <span data-testid="charge-timing-hint" className="text-xs text-fg">
+          {quote.charge_timing === "before" ? CHARGE_BEFORE_COPY : CHARGE_AFTER_COPY}
+        </span>
+        {explain ? <InfoPopover label="?" align="right">{explain}</InfoPopover> : null}
+      </span>
+    ) : null;
+    return (
+      <div className="flex flex-col gap-3">
+        <section
+          data-testid="price-card"
+          className="flex flex-col gap-4 rounded-xl border border-edge bg-surface-1 p-5"
+        >
+          {heading}
+          {quote ? (
+            <QuoteView result={quote} chargeLine={false} bare />
+          ) : (
+            <p className="text-sm text-fg-muted">
+              {blocked ? disabledReason : quoting ? "Pricing…" : error ?? "Pricing…"}
+            </p>
+          )}
+          {chargeHint}
+          {paymentNeeded && !ck.tracking ? (
+            <UpdateCardToContinue />
+          ) : (
+            <Button
+              size="lg"
+              data-testid="checkout-main"
+              className="w-full"
+              disabled={blocked || quote === null || running}
+              onClick={() => void ck.convert(request)}
+            >
+              {label}
+              {price ? ` · ${price}` : ""}
+            </Button>
+          )}
+          {after}
+          {error && quote ? <p className="text-sm text-red-400">{error}</p> : null}
+          {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
+        </section>
+        {tracker}
+      </div>
+    );
+  }
+  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -530,16 +594,7 @@ export function InstantCheckout({
       {after}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
-      {ck.tracking && ck.active ? (
-        <ConversionTracker
-          conversion={ck.active}
-          onProjectChanged={ck.onProjectChanged}
-          onSettled={ck.handleSettled}
-          onUpdate={ck.handleUpdate}
-          showDownloads={trackerDownloads}
-          estimateSeconds={quote?.eta_seconds}
-        />
-      ) : null}
+      {tracker}
     </div>
   );
 }

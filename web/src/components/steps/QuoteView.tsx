@@ -82,8 +82,14 @@ function Line({
  */
 export function QuoteView({
   result,
+  chargeLine = true,
+  bare = false,
 }: {
   result: StepQuoteResponse;
+  /** false when the page says when it's charged beside its button */
+  chargeLine?: boolean;
+  /** no box around the lines (inside a price card) */
+  bare?: boolean;
 }): JSX.Element {
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
   const total = result.quote.amount_cents;
@@ -137,7 +143,9 @@ export function QuoteView({
   return (
     <div
       data-testid="quote-breakdown"
-      className="flex flex-col gap-1.5 rounded-lg border border-edge bg-surface-2 p-4 text-sm"
+      className={`flex flex-col gap-1.5 text-sm ${
+        bare ? "" : "rounded-lg border border-edge bg-surface-2 p-4"
+      }`}
     >
       <Line
         label={videoLabel}
@@ -221,12 +229,14 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
-      <p data-testid="quote-charge-timing" className="text-xs text-fg">
-        {quoteChargeSentence(result.charge_timing)}
-      </p>
+      {chargeLine ? (
+        <p data-testid="quote-charge-timing" className="text-xs text-fg">
+          {quoteChargeSentence(result.charge_timing)}
+        </p>
+      ) : null}
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
-          <span>Estimated time</span>
+          <span>{chargeLine ? "Estimated time" : "Ready in"}</span>
           <span data-testid="quote-eta">{formatDuration(result.eta_seconds)}</span>
         </div>
       ) : null}
