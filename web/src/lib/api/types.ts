@@ -353,7 +353,13 @@ export interface ConversionBilling {
     | "not_charged"
     | "requires_payment"
     /** spec v6 F: paid elsewhere, waiting for the processor to confirm */
-    | "waiting_for_payment";
+    | "waiting_for_payment"
+    /** spec v7 N5: funds held on the prepaid balance; settled at the end */
+    | "balance_hold"
+    /** spec v7 N5: settled from the balance (charged_cents = what it took) */
+    | "balance_settled"
+    /** spec v7 N5: the hold went back, nothing taken */
+    | "balance_released";
   /** spec v6 F: why a web run waits for a payment (requires_payment) */
   reason?: "no_method" | "authentication" | "declined";
   /** spec v6 F: the run's open payment, for our pay sheet */
@@ -435,6 +441,10 @@ export interface StepQuoteResponse {
   payment_flow?: PaymentFlow;
   pay_now_reason?: "no_method" | "all_methods_failed" | "china" | "account_flag";
   limits?: AccountLimits;
+  /** spec v7 N5: the balance against this quote */
+  balance?: { available_cents: number; enough: boolean; reload_cents?: number };
+  /** spec v7 N6: this run would pass the monthly spend limit */
+  spend_limit_reached?: boolean;
   /** S3D-67: the caller holds Pro; false = not Pro, absent = the gateway
    * doesn't say */
   pro?: boolean;
@@ -716,7 +726,69 @@ export interface CheckoutStart {
 }
 
 /** spec v6 C1: how a run is paid, from the account's state. */
-export type PaymentFlow = "after" | "precharge" | "paynow";
+export type PaymentFlow = "after" | "precharge" | "paynow" | "balance";
+
+/** spec v7 N13: the prepaid balance on GET /v1/billing */
+export interface BalanceSummary {
+  balance_cents: number;
+  held_cents: number;
+  frozen_cents: number;
+  available_cents: number;
+  /** runs holding funds right now */
+  held_runs?: number;
+  expires_at?: string | null;
+  expired?: boolean;
+  /** never topped up */
+  never_topped_up?: boolean;
+  auto_reload: {
+    enabled: boolean;
+    below_cents: number;
+    add_cents: number;
+    paused_reason?: "declined" | "stop_code" | "efw" | "dispute" | "review" | "sheet_only" | "limit";
+  };
+  spend_limit_cents?: number | null;
+  month_spent_cents: number;
+  low_balance_cents: number;
+}
+
+/** spec v7 N13: PUT /v1/billing/balance/settings */
+export interface BalanceSettings {
+  auto_reload?: { enabled: boolean; below_cents: number; add_cents: number };
+  spend_limit_cents?: number | null;
+  low_balance_cents?: number;
+}
+
+/** spec v7 N13: GET /v1/billing/usage */
+export interface UsageRow {
+  at: string;
+  project: string;
+  project_id?: string;
+  conversion_id: string;
+  method: "lifelike" | "classic";
+  preset: Preset;
+  minutes: number;
+  cost_cents: number | null;
+  paid_with: string;
+  key_name?: string;
+  status: "done" | "running" | "released" | "partly_delivered" | "returned";
+  reserved_cents?: number;
+  returned_cents?: number;
+}
+
+export interface UsagePage {
+  rows: UsageRow[];
+  has_more?: boolean;
+}
+
+/** spec v7 N1: the ledger, for "Balance history" */
+export interface BalanceEntry {
+  id: string;
+  kind: "topup" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
+  cents: number;
+  at: string;
+  /** "Visa •••• 4242", "CASE-0062" */
+  detail?: string;
+}
 export type FlowState = "credit" | "saved" | "sheet" | "under_review";
 
 /** spec v6 B14: what an account that hasn't saved or paid may still add */
@@ -894,8 +966,6 @@ export interface BillingStatus {
   unpaid: UnpaidCharge[];
   /** the open batch, when any step is waiting to be charged */
   pending?: PendingBatch;
-  /** the header pill's data (S3D-21) */
-  balance?: BillingBalance;
   tier?: BillingTier;
   publishable_key: string;
   /** spec v6 F/C10: what the account owes (sum, no cap); settling = a
@@ -905,6 +975,16 @@ export interface BillingStatus {
   /** spec v6 C1: credit | saved | sheet | under_review */
   flow_state?: FlowState;
   limits?: AccountLimits;
+  /** spec v7: the prepaid balance (web only). Older gateways sent the
+   * open batch here ({amount_cents, due_at, cap_cents}); prepaidOf()
+   * tells them apart. */
+  balance?: BalanceSummary;
+}
+
+/** The prepaid balance, or null (none, or an older gateway's batch). */
+export function prepaidOf(status: { balance?: unknown } | null | undefined): BalanceSummary | null {
+  const b = status?.balance as Partial<BalanceSummary> | undefined;
+  return b && typeof b.available_cents === "number" ? (b as BalanceSummary) : null;
 }
 
 /** POST /v1/billing/setup-intent — material for the onboarding Payment

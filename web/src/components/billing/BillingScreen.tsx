@@ -16,12 +16,15 @@
  * page with Show more.
  */
 
-import { EllipsisIcon } from "lucide-react";
+import { Building2Icon, EllipsisIcon, InfoIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { supportMailto } from "@/components/billing/BillingBanner";
+import { BalanceCard } from "@/components/billing/BalanceCard";
+import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
+import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { CompanyDetailsSheet, companySummary } from "@/components/pay/CompanyDetailsSheet";
 import { UNDER_REVIEW } from "@/components/pay/payCopy";
@@ -176,10 +179,12 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         <span data-testid="row-amount" className="text-right font-mono tabular-nums text-fg">
           {amount}
         </span>
-        <span className="hidden truncate text-xs text-fg-muted sm:block">
-          {row.payment_method?.label ?? ""}
+        <span className="hidden min-w-0 items-center gap-2 text-xs text-fg sm:flex">
+          {row.payment_method ? <MethodBadge kind={badgeKind(row.payment_method.label)} /> : <span className="text-fg-muted">—</span>}
+          <span className="truncate">{row.payment_method?.label ?? ""}</span>
         </span>
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${s.cls}`}>
+          <span aria-hidden className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
           {s.label}
           {s.help ? <span className="block text-[11px] text-fg-muted">{s.help}</span> : null}
         </span>
@@ -272,13 +277,25 @@ function MethodsSection(): JSX.Element {
   }
 
   return (
-    <section aria-labelledby="payment-methods" className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-5">
-      <div className="flex items-center gap-3">
+    <section aria-labelledby="payment-methods" className="flex flex-col rounded-xl border border-edge bg-surface-1">
+      <div className="flex items-center gap-3 border-b border-edge px-5 py-4">
         <h2 id="payment-methods" className="text-sm font-semibold text-fg">
           Payment methods
         </h2>
         {busy ? <span aria-label="Saving" className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+        <Button
+          variant="outline"
+          size="sm"
+          data-testid="add-method"
+          className="ml-auto"
+          disabled={methods !== null && methods.length >= max}
+          onClick={() => setAdding(true)}
+        >
+          <PlusIcon className="size-3.5" aria-hidden />
+          Add payment method
+        </Button>
       </div>
+      <div className="flex flex-col gap-3 px-5 py-3">
       {methods === null ? (
         <SkeletonRows n={2} />
       ) : methods.length === 0 ? (
@@ -286,11 +303,28 @@ function MethodsSection(): JSX.Element {
       ) : (
         <ul data-testid="payment-methods" className="flex flex-col">
           {methods.map((m, i) => (
-            <li key={m.id} data-testid={`method-${m.id}`} className="flex items-center gap-2 border-t border-edge py-2 text-sm first:border-t-0">
-              <span className="text-fg">{methodLabel(m)}</span>
-              {m.is_default ? <span className="text-fg-muted">· Default</span> : null}
+            <li key={m.id} data-testid={`method-${m.id}`} className="flex items-center gap-3 border-t border-edge py-3 text-sm first:border-t-0">
+              <span className="w-4 text-xs text-fg-muted tabular-nums">{i + 1}</span>
+              <MethodBadge kind={badgeKind(m)} />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-fg">{methodLabel(m)}</span>
+                {isExpired(m) ? (
+                  <span className="text-xs text-fg-muted">
+                    Expired {String(m.exp_month).padStart(2, "0")}/{String(m.exp_year).slice(-2)}
+                  </span>
+                ) : null}
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+              {m.is_default ? (
+                <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                  <span className="sr-only">· </span>Default
+                </span>
+              ) : null}
               {isExpired(m) ? (
-                <span data-testid="method-expired" className="rounded-full border border-red-400/40 px-2 text-[11px] text-red-300">
+                <span
+                  data-testid="method-expired"
+                  className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] text-amber-300"
+                >
                   Expired
                 </span>
               ) : null}
@@ -308,6 +342,7 @@ function MethodsSection(): JSX.Element {
                   },
                 ]}
               />
+              </span>
             </li>
           ))}
         </ul>
@@ -318,19 +353,14 @@ function MethodsSection(): JSX.Element {
           {blocked}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          data-testid="add-method"
-          disabled={methods !== null && methods.length >= max}
-          onClick={() => setAdding(true)}
-        >
-          Add payment method
-        </Button>
-        {methods !== null && methods.length >= max ? <span className="text-xs text-fg-muted">{MAX_METHODS_LINE}</span> : null}
+      {methods !== null && methods.length >= max ? <p className="text-xs text-fg-muted">{MAX_METHODS_LINE}</p> : null}
+      {methods !== null && methods.length > 0 ? (
+        <p className="flex items-center gap-2 pb-1 text-xs text-fg-muted">
+          <InfoIcon className="size-3.5 shrink-0" aria-hidden />
+          {METHODS_LINE}
+        </p>
+      ) : null}
       </div>
-      {methods !== null && methods.length > 0 ? <p className="text-xs text-fg-muted">{METHODS_LINE}</p> : null}
       {adding ? (
         <AddMethodSheet
           first={(methods?.length ?? 0) === 0}
@@ -383,7 +413,7 @@ function MethodMenu({
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   return (
-    <span className="relative ml-auto">
+    <span className="relative">
       <button
         type="button"
         aria-label={`Options for ${label}`}
@@ -438,18 +468,19 @@ function CompanySection(): JSX.Element {
   }, [gateway]);
   const summary = companySummary(company);
   return (
-    <section aria-labelledby="company" className="flex flex-col gap-2 rounded-xl border border-edge bg-surface-1 p-5">
-      <div className="flex items-center gap-3">
+    <section aria-labelledby="company" className="flex items-center gap-4 rounded-xl border border-edge bg-surface-1 px-5 py-4">
+      <Building2Icon className="size-5 shrink-0 text-fg-muted" aria-hidden />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 id="company" className="text-sm font-semibold text-fg">
           Company details
         </h2>
-        <Button variant="ghost" size="sm" className="ml-auto" disabled={!loaded} onClick={() => setEditing(true)}>
-          Edit
-        </Button>
+        <p data-testid="company-summary" className="truncate text-xs text-fg-muted">
+          {!loaded ? "Loading…" : summary ?? "No company details. Add them to show on invoices."}
+        </p>
       </div>
-      <p data-testid="company-summary" className="text-sm text-fg-muted">
-        {!loaded ? "Loading…" : summary ?? "No company details. Add them to show on invoices."}
-      </p>
+      <Button variant="outline" size="sm" disabled={!loaded} onClick={() => setEditing(true)}>
+        Edit
+      </Button>
       {editing ? (
         <CompanyDetailsSheet
           initial={company ?? { tax_ids: [] }}
@@ -554,7 +585,8 @@ function InvoicesTab(): JSX.Element {
 export function BillingScreen(): JSX.Element {
   const gateway = useGateway();
   const review = useBilling().status?.flow_state === "under_review";
-  const [tab, setTab] = useState<"history" | "invoices">("history");
+  const [tab, setTab] = useState<"history" | "usage" | "invoices">("history");
+  const [month, setMonth] = useState(() => recentMonths()[0]);
   const [rows, setRows] = useState<BillingRow[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [tax, setTax] = useState<BillingHistory["tax"]>("off");
@@ -602,16 +634,18 @@ export function BillingScreen(): JSX.Element {
         </p>
       ) : null}
 
-      {/* spec v7 adds a Balance section here (top-ups, auto-reload, usage) */}
+      <BalanceCard />
 
       <MethodsSection />
       <CompanySection />
 
       <section aria-label="Purchases and invoices" className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
-        <div role="tablist" aria-label="Billing records" className="mb-2 flex gap-1 self-start rounded-md bg-surface-2 p-0.5 text-xs">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div role="tablist" aria-label="Billing records" className="flex gap-1 rounded-md border border-edge bg-surface-2 p-0.5 text-xs">
           {(
             [
               ["history", "History"],
+              ["usage", "Usage"],
               ["invoices", "Invoices"],
             ] as const
           ).map(([id, label]) => (
@@ -627,7 +661,15 @@ export function BillingScreen(): JSX.Element {
             </button>
           ))}
         </div>
-        {tab === "invoices" ? (
+        {tab === "usage" ? (
+          <span className="ml-auto">
+            <UsageTools month={month} onMonth={setMonth} />
+          </span>
+        ) : null}
+        </div>
+        {tab === "usage" ? (
+          <UsageTab month={month} />
+        ) : tab === "invoices" ? (
           <InvoicesTab />
         ) : error ? (
           <div className="flex items-center gap-3 text-sm">

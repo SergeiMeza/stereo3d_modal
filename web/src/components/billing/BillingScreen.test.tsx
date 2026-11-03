@@ -72,7 +72,9 @@ describe("Billing (S3D-57, S3D-62)", () => {
     renderBilling();
 
     const methods = await screen.findByTestId("payment-methods");
-    expect(methods.textContent).toBe("Visa •••• 4242· Default");
+    expect(within(methods).getAllByRole("listitem")).toHaveLength(1);
+    expect(methods.textContent).toContain("Visa •••• 4242");
+    expect(methods.textContent).toContain("· Default");
     expect(screen.getByRole("button", { name: "Add payment method" })).toBeTruthy();
     expect(
       screen.getByText("We charge your default payment method. If it's declined, we try your others in this order."),
@@ -105,7 +107,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     const help = within(big).getByTestId("row-help");
     expect(decodeURIComponent(help.getAttribute("href")!)).toMatch(/subject=Payment .+ · \$49\.72 · \w+$/);
     expect(screen.getByText("US dollars.")).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/balance|limit|pending/i);
+    expect(document.body.textContent).not.toMatch(/pending/i);
   });
 
   it("while the account owes: a Payment needed row with Pay $X (P10)", async () => {
@@ -135,8 +137,8 @@ describe("Billing (S3D-57, S3D-62)", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Make default" }));
     await waitFor(() => expect(mockDb.billing.methods[0].id).toBe("pm_mc"));
     await waitFor(() =>
-      expect(within(screen.getByTestId("payment-methods")).getAllByRole("listitem")[0].textContent).toContain(
-        "Mastercard •••• 5454· Default",
+      expect(within(screen.getByTestId("payment-methods")).getAllByRole("listitem")[0].textContent).toMatch(
+        /Mastercard •••• 5454.*· Default/,
       ),
     );
     fireEvent.click(screen.getByRole("button", { name: "Options for Visa •••• 4242" }));

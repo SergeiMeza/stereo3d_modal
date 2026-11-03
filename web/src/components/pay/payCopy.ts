@@ -77,3 +77,39 @@ export function paidMoreWaiting(cents: number): string {
 export function settleSubtitle(runs: number): string {
   return `${runs} ${runs === 1 ? "run" : "runs"} · charged after ${runs === 1 ? "it was" : "they were"} done`;
 }
+
+// ------------------------------------------------- spec v7: the balance
+
+export const PAID_FROM_BALANCE = "Paid from your balance";
+export const SPEND_LIMIT_REACHED = "You've reached your monthly spend limit.";
+export const TOPUP_SMALL_PRINT =
+  "Unspent funds can be refunded within 14 days. Your balance expires 12 months after your last top-up.";
+export const TOPUP_MIN = "The minimum is $10.";
+export const TOPUP_DAILY = "You've reached today's limit. Try again tomorrow.";
+
+/** "Paid from your balance. We'll add $25.00 first." */
+export function paidFromBalanceReload(reloadCents: number): string {
+  return `Paid from your balance. We'll add ${formatCents(reloadCents)} first.`;
+}
+
+/** P14 "?" for balance runs. */
+export function popBalance(amountCents: number): string {
+  return `We reserve ${formatCents(amountCents)} from your balance when it starts and take only the final cost, never more. Failed runs cost nothing. It starts right away. You agree that you lose your right to cancel once it's done.`;
+}
+
+/** "You can add up to $500 at a time." / first top-up */
+export function topupMax(maxCents: number, first: boolean): string {
+  return first
+    ? `You can add up to ${formatCents(maxCents).replace(/\.00$/, "")} for your first top-up.`
+    : `You can add up to ${formatCents(maxCents).replace(/\.00$/, "")} at a time.`;
+}
+
+/** "Added $25.00. Your balance is $28.20." */
+export function topupDone(added: number, balance: number): string {
+  return `Added ${formatCents(added)}. Your balance is ${formatCents(balance)}.`;
+}
+
+/** P18 consent line */
+export function reloadConsent(method: string | null, addCents: number, belowCents: number): string {
+  return `We'll charge your default payment method${method ? ` (${method})` : ""} ${formatCents(addCents)} whenever your balance drops below ${formatCents(belowCents)}. If it's declined, we try your others.`;
+}

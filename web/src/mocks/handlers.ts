@@ -175,11 +175,104 @@ interface MockBilling {
   handoffs: Map<string, { conversion_id: string; state: "open" | "paying" | "paid" | "expired"; expires_at: string }>;
   /** the next GET /v1/handoff answers 429 */
   handoffRateLimited: boolean;
+  /** spec v7 N: the prepaid balance */
+  prepaid: MockPrepaid;
+}
+
+/** spec v7 N1, the mock's ledger summary. */
+interface MockPrepaid {
+  balance_cents: number;
+  /** conversion_id → held cents */
+  holds: Map<string, number>;
+  frozen_cents: number;
+  last_topup_at: string | null;
+  expired: boolean;
+  auto_reload: { enabled: boolean; below_cents: number; add_cents: number; paused_reason?: string };
+  spend_limit_cents: number | null;
+  month_spent_cents: number;
+  low_balance_cents: number;
+  entries: { id: string; kind: string; cents: number; at: string; detail?: string }[];
+  topups: number;
+  /** what the next top-up does */
+  nextTopup: "paid" | "declined";
+}
+
+const BALANCE_LIMITS = { min: 1000, max: 50000, first_max: 10000 };
+
+function prepaidAvailable(): number {
+  const pp = mockDb.billing.prepaid;
+  let held = 0;
+  for (const v of pp.holds.values()) held += v;
+  return pp.balance_cents - held - pp.frozen_cents;
+}
+
+function prepaidSummary() {
+  const pp = mockDb.billing.prepaid;
+  let held = 0;
+  for (const v of pp.holds.values()) held += v;
+  const expires = pp.last_topup_at
+    ? new Date(new Date(pp.last_topup_at).setFullYear(new Date(pp.last_topup_at).getFullYear() + 1)).toISOString()
+    : null;
+  return {
+    balance_cents: pp.balance_cents,
+    held_cents: held,
+    held_runs: pp.holds.size,
+    frozen_cents: pp.frozen_cents,
+    available_cents: pp.balance_cents - held - pp.frozen_cents,
+    expires_at: expires,
+    expired: pp.expired,
+    never_topped_up: pp.topups === 0,
+    auto_reload: pp.auto_reload,
+    spend_limit_cents: pp.spend_limit_cents,
+    month_spent_cents: pp.month_spent_cents,
+    low_balance_cents: pp.low_balance_cents,
+  };
+}
+
+/** spec v7 N5/N6: what the balance says about a quote of this amount. */
+function balanceQuote(amountCents: number): Record<string, unknown> {
+  const pp = mockDb.billing.prepaid;
+  const out: Record<string, unknown> = {};
+  if (pp.spend_limit_cents !== null && pp.month_spent_cents + amountCents > pp.spend_limit_cents) {
+    out.spend_limit_reached = true;
+  }
+  if (pp.topups === 0 && pp.balance_cents === 0) return out;
+  const available = prepaidAvailable();
+  if (available >= amountCents) {
+    return { ...out, payment_flow: "balance", balance: { available_cents: available, enough: true } };
+  }
+  if (pp.auto_reload.enabled && !pp.auto_reload.paused_reason && mockDb.billing.hasPaymentMethod) {
+    const short = Math.ceil((amountCents - available) / 100) * 100;
+    return {
+      ...out,
+      payment_flow: "balance",
+      balance: { available_cents: available, enough: false, reload_cents: Math.max(pp.auto_reload.add_cents, short, 1000) },
+    };
+  }
+  return { ...out, balance: { available_cents: available, enough: false } };
+}
+
+function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string) {
+  const pp = mockDb.billing.prepaid;
+  pp.balance_cents += cents;
+  pp.topups += 1;
+  pp.expired = false;
+  pp.last_topup_at = new Date().toISOString();
+  if (pp.auto_reload.paused_reason === "declined") delete pp.auto_reload.paused_reason;
+  pp.entries.unshift({ id: `be_${pp.entries.length + 1}`, kind, cents, at: pp.last_topup_at, detail });
+  // N9: what's owed is paid from the balance first
+  const b = mockDb.billing;
+  const owed = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
+  if (owed > 0 && prepaidAvailable() >= owed) {
+    pp.balance_cents -= owed;
+    pp.entries.unshift({ id: `be_${pp.entries.length + 1}`, kind: "debt_payment", cents: -owed, at: new Date().toISOString() });
+    b.unpaid = [];
+  }
 }
 
 /** spec v6: one open payment (a run's, or the settle's). */
 interface MockCheckout {
-  kind: "run" | "settle" | "setup";
+  kind: "run" | "settle" | "setup" | "topup";
   conversion_id?: string;
   amount_cents: number;
   state: "open" | "paid" | "expired";
@@ -310,6 +403,20 @@ function seed(): DB {
       nextSetup: "saved",
       handoffs: new Map(),
       handoffRateLimited: false,
+      prepaid: {
+        balance_cents: 0,
+        holds: new Map(),
+        frozen_cents: 0,
+        last_topup_at: null,
+        expired: false,
+        auto_reload: { enabled: false, below_cents: 1000, add_cents: 2500 },
+        spend_limit_cents: null,
+        month_spent_cents: 0,
+        low_balance_cents: 500,
+        entries: [],
+        topups: 0,
+        nextTopup: "paid",
+      },
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -1464,7 +1571,14 @@ function succeed(c: Conversion) {
   } else {
     c.outputs = [...(c.params.formats ?? []), "depth", "depth_vis"];
   }
-  if (mockDb.billing.nextChargeFails) {
+  const hold = mockDb.billing.prepaid.holds.get(c.conversion_id);
+  if (hold !== undefined) {
+    // spec v7 N5: settle min(price, hold), release the rest
+    const pp = mockDb.billing.prepaid;
+    pp.holds.delete(c.conversion_id);
+    pp.balance_cents -= hold;
+    c.billing = { status: "balance_settled", charged_cents: hold };
+  } else if (mockDb.billing.nextChargeFails) {
     mockDb.billing.nextChargeFails = false;
     mockDb.failCharge(c.conversion_id);
   } else if (!c.billing) {
@@ -1685,12 +1799,8 @@ function billingStatus() {
     delinquent: b.unpaid.length > 0,
     unpaid: b.unpaid,
     ...(b.pending ? { pending: b.pending } : {}),
-    balance: {
-      amount_cents: b.pending?.amount_cents ?? 0,
-      currency: "usd",
-      due_at: b.pending?.due_at ?? null,
-      cap_cents: b.pending?.cap_cents ?? b.batchCapCents,
-    },
+    // spec v7: the prepaid balance (the batch pill's old field is gone)
+    balance: prepaidSummary(),
     tier: {
       cap_cents: b.batchCapCents,
       window_hours: 1,
@@ -1948,6 +2058,102 @@ export const handlers = [
     return HttpResponse.json({ ok: true });
   }),
 
+  // spec v7 N3: top-ups (P17)
+  http.post(`${GATEWAY}/v1/billing/balance/topup`, async ({ request }) => {
+    const body = (await request.json()) as { amount_cents: number; method?: string };
+    const pp = mockDb.billing.prepaid;
+    const max = pp.topups === 0 ? BALANCE_LIMITS.first_max : BALANCE_LIMITS.max;
+    if (body.amount_cents < BALANCE_LIMITS.min || body.amount_cents > max) {
+      return HttpResponse.json(
+        { success: false, error: "amount_out_of_range", message: "amount out of range", details: { min: BALANCE_LIMITS.min, max } },
+        { status: 422 },
+      );
+    }
+    const topup_id = `tu_${Math.random().toString(36).slice(2, 8)}`;
+    if (body.method === "wechat_pay") {
+      return HttpResponse.json({ topup_id, qr_image_url: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=" });
+    }
+    if (body.method === "alipay") {
+      return HttpResponse.json({ topup_id, redirect_url: "https://mock-pay.example/alipay-topup" });
+    }
+    const secret = `cs_mock_topup_${topup_id}`;
+    mockDb.billing.checkouts.set(secret, {
+      kind: "topup",
+      amount_cents: body.amount_cents,
+      state: "open",
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    });
+    return HttpResponse.json({
+      topup_id,
+      checkout: { client_secret: secret, expires_at: mockDb.billing.checkouts.get(secret)!.expires_at },
+      publishable_key: "pk_test_mock",
+    });
+  }),
+
+  // spec v7 N4/N6: auto-reload, spend limit, alert
+  http.put(`${GATEWAY}/v1/billing/balance/settings`, async ({ request }) => {
+    const body = (await request.json()) as {
+      auto_reload?: { enabled: boolean; below_cents: number; add_cents: number };
+      spend_limit_cents?: number | null;
+      low_balance_cents?: number;
+    };
+    const pp = mockDb.billing.prepaid;
+    if (body.auto_reload) {
+      if (body.auto_reload.enabled && !mockDb.billing.hasPaymentMethod) {
+        return err(409, "method_needed", "save a payment method first");
+      }
+      if (body.auto_reload.enabled && (body.auto_reload.add_cents < 1000 || body.auto_reload.add_cents < body.auto_reload.below_cents)) {
+        return err(400, "invalid_request", "add at least $10 and at least the threshold");
+      }
+      if (body.auto_reload.enabled && mockDb.billing.underReview) {
+        return err(409, "auto_reload_blocked", "a payment is being checked");
+      }
+      pp.auto_reload = { ...body.auto_reload };
+    }
+    if ("spend_limit_cents" in body) pp.spend_limit_cents = body.spend_limit_cents ?? null;
+    if (body.low_balance_cents !== undefined) pp.low_balance_cents = body.low_balance_cents;
+    return HttpResponse.json(prepaidSummary());
+  }),
+
+  http.get(`${GATEWAY}/v1/billing/balance/entries`, () =>
+    HttpResponse.json({ entries: mockDb.billing.prepaid.entries, has_more: false }),
+  ),
+
+  // spec v7 N13: usage rows
+  http.get(`${GATEWAY}/v1/billing/usage`, ({ request }) => {
+    const url = new URL(request.url);
+    const month = url.searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
+    const pp = mockDb.billing.prepaid;
+    const rows = [...mockDb.conversions.values()]
+      .filter((c) => c.created_at.slice(0, 7) === month)
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .map((c) => {
+        const p = mockDb.projects.get(c.project_id ?? "");
+        const fps = p?.probe?.fps ?? 24;
+        const frames = (c.params.to_frame ?? p?.probe?.num_frames ?? 0) - (c.params.from_frame ?? 0);
+        const st = c.billing?.status;
+        const running = !["succeeded", "failed", "canceled", "expired"].includes(c.state);
+        return {
+          at: c.created_at,
+          project: p?.name ?? "Untitled project",
+          project_id: c.project_id,
+          conversion_id: c.conversion_id,
+          method: c.method ?? "classic",
+          preset: c.params.preset,
+          minutes: Math.round((frames / fps / 60) * 100) / 100,
+          cost_cents: running ? null : st === "balance_released" || c.state !== "succeeded" ? 0 : (c.billing?.charged_cents ?? c.quote.amount_cents),
+          paid_with: st?.startsWith("balance") ? "balance" : "Visa •••• 4242",
+          status: running ? "running" : st === "balance_released" || c.state !== "succeeded" ? "released" : "done",
+          ...(running && pp.holds.has(c.conversion_id) ? { reserved_cents: pp.holds.get(c.conversion_id) } : {}),
+        };
+      });
+    if (url.searchParams.get("format") === "csv") {
+      const lines = ["date,project,method,preset,minutes,cost,paid_with,status", ...rows.map((r) => [r.at.slice(0, 10), r.project, r.method, r.preset, r.minutes, ((r.cost_cents ?? 0) / 100).toFixed(2), r.paid_with, r.status].join(","))];
+      return new HttpResponse(lines.join("\n"), { headers: { "Content-Type": "text/csv" } });
+    }
+    return HttpResponse.json({ rows, has_more: false });
+  }),
+
   // spec v6 F: pay this run on another device (P7)
   http.post(`${GATEWAY}/v1/conversions/:id/handoff`, async ({ params, request }) => {
     const c = mockDb.conversions.get(params.id as string);
@@ -2193,6 +2399,20 @@ export const handlers = [
     if (!ch) return err(404, "not_found", "no such payment");
     if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    if (ch.kind === "topup") {
+      const pp = b.prepaid;
+      const outcome = pp.nextTopup;
+      pp.nextTopup = "paid";
+      if (outcome === "declined") return HttpResponse.json({ result: "declined" });
+      ch.state = "paid";
+      addTopup(ch.amount_cents, "topup", "Visa •••• 4242");
+      b.hasPaymentMethod = true;
+      if (b.methods.length === 0) {
+        b.card = { ...MOCK_CARD };
+        b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
+      }
+      return HttpResponse.json({ result: "paid" });
+    }
     if (ch.kind === "setup") {
       const outcome = b.nextSetup;
       b.nextSetup = "saved";
@@ -2254,7 +2474,16 @@ export const handlers = [
   http.post(`${GATEWAY}/v1/billing/settle`, async ({ request }) => {
     const b = mockDb.billing;
     // spec v6 F: {ui: "elements"} → the settle's payment for our sheet (P2)
-    const body = (await request.json().catch(() => ({}))) as { ui?: string };
+    const body = (await request.json().catch(() => ({}))) as { ui?: string; source?: string };
+    // spec v7 N9: pay what's owed from the balance
+    if (body.source === "balance") {
+      const owed = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
+      if (prepaidAvailable() < owed) return err(402, "insufficient_balance", "the balance doesn't cover it");
+      b.prepaid.balance_cents -= owed;
+      b.prepaid.entries.unshift({ id: `be_${b.prepaid.entries.length + 1}`, kind: "debt_payment", cents: -owed, at: new Date().toISOString() });
+      b.unpaid = [];
+      return HttpResponse.json({ settled: true, publishable_key: "pk_test_mock" });
+    }
     if (body.ui === "elements") {
       if (b.unpaid.length === 0) return err(409, "already_paid", "nothing is owed");
       const amount = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
@@ -2868,6 +3097,7 @@ export const handlers = [
           method,
           charge_timing: chargeTiming(q.quote.amount_cents),
           ...paymentFlow(q.quote.amount_cents),
+          ...balanceQuote(q.quote.amount_cents),
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
@@ -2895,6 +3125,7 @@ export const handlers = [
         method,
         charge_timing: chargeTiming(quote.amount_cents),
         ...paymentFlow(quote.amount_cents),
+        ...balanceQuote(quote.amount_cents),
         output_seconds: billable,
         split_suggested: false,
         ...(req.step === "production"
@@ -2973,6 +3204,41 @@ export const handlers = [
       if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
       // S3D-60: a pay-now default method (Alipay, WeChat Pay) pays each run
       // when it starts — the run waits at "created" for that payment
+      // spec v7 N6: the monthly spend limit
+      const pp = mockDb.billing.prepaid;
+      if (pp.spend_limit_cents !== null && pp.month_spent_cents + quote.amount_cents > pp.spend_limit_cents) {
+        return err(403, "spend_limit_reached", "this month's spend limit is reached");
+      }
+      // spec v7 N4/N5: paid from the balance (after an auto-reload if short)
+      const bq = balanceQuote(quote.amount_cents) as { payment_flow?: string; balance?: { reload_cents?: number } };
+      if (bq.payment_flow === "balance") {
+        if (bq.balance?.reload_cents) addTopup(bq.balance.reload_cents, "auto_reload", "Visa •••• 4242");
+        const bid = newId();
+        pp.holds.set(bid, quote.amount_cents);
+        pp.month_spent_cents += quote.amount_cents;
+        const held: Conversion = {
+          conversion_id: bid,
+          state: "paid",
+          kind: "video",
+          project_id: p.project_id,
+          step: req.step,
+          scenes_version: p.scenes?.version,
+          params: resolved,
+          quote,
+          progress: 0,
+          stage: "",
+          eta_seconds: 0,
+          method,
+          waiting_for_gpu: false,
+          charge_timing: "before",
+          billing: { status: "balance_hold" },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        mockDb.conversions.set(bid, held);
+        if (idem) mockDb.idem.set(idem, bid);
+        return HttpResponse.json(held);
+      }
       // spec v6: nothing saved → the run waits for our pay sheet (P1)
       const sheet = !mockDb.billing.hasPaymentMethod;
       const payNow =
@@ -3039,6 +3305,13 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
       c.state = "canceled";
+      // spec v7 N5: a balance run's hold goes back
+      const held = mockDb.billing.prepaid.holds.get(c.conversion_id);
+      if (held !== undefined) {
+        mockDb.billing.prepaid.holds.delete(c.conversion_id);
+        mockDb.billing.prepaid.month_spent_cents -= held;
+        c.billing = { status: "balance_released" };
+      }
       // S3D-23: a pre-charged run cancelled in line or in its first minute
       // is refunded in full; an unconfirmed one was never charged
       if (c.charge_timing === "before") {

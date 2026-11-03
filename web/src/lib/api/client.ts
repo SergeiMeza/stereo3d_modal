@@ -5,7 +5,11 @@
  */
 
 import type {
+  BalanceEntry,
+  BalanceSettings,
+  BalanceSummary,
   CheckoutStart,
+  UsagePage,
   HandoffInfo,
   HandoffStart,
   CompanyAddress,
@@ -269,6 +273,61 @@ export class GatewayClient {
   }
 
   /** Retry the outstanding automatic charges on the current default card. */
+  // ----------------------------------------- spec v7 N13: the balance
+
+  /** P17: a top-up payment; 422 amount_out_of_range {min, max}; China
+   * mode passes {method} for the server path */
+  topUp(
+    amountCents: number,
+    method?: "alipay" | "wechat_pay",
+  ): Promise<{
+    checkout?: { client_secret: string; expires_at: string };
+    topup_id: string;
+    publishable_key?: string;
+    redirect_url?: string;
+    qr_image_url?: string;
+  }> {
+    return this.request(
+      "POST",
+      "/v1/billing/balance/topup",
+      method ? { amount_cents: amountCents, method } : { amount_cents: amountCents, ui: "elements" },
+    );
+  }
+
+  /** P18/P19; 409 method_needed (auto-reload without a saved method) */
+  saveBalanceSettings(s: BalanceSettings): Promise<BalanceSummary> {
+    return this.request("PUT", "/v1/billing/balance/settings", s);
+  }
+
+  getUsage(month: string, after?: string): Promise<UsagePage> {
+    const q = `?month=${encodeURIComponent(month)}${after ? `&starting_after=${encodeURIComponent(after)}` : ""}`;
+    return this.request("GET", `/v1/billing/usage${q}`);
+  }
+
+  /** The CSV download's address for a month. */
+  usageCsvUrl(month: string): string {
+    const base = typeof this.opts.baseUrl === "function" ? this.opts.baseUrl() : this.opts.baseUrl;
+    return `${base}/v1/billing/usage?month=${encodeURIComponent(month)}&format=csv`;
+  }
+
+  /** the CSV itself (signed request), for a download */
+  async usageCsv(month: string): Promise<string> {
+    const f = this.opts.fetchFn ?? fetch;
+    const token = await this.opts.getToken();
+    const res = await f(this.usageCsvUrl(month), { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new GatewayError("server_error", "Couldn't download the CSV.", res.status);
+    return res.text();
+  }
+
+  getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
+    return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  /** N9: pay what's owed from the balance */
+  settleFromBalance(): Promise<BillingSettleResult> {
+    return this.request("POST", "/v1/billing/settle", { source: "balance" });
+  }
+
   // ---------------------------------------------- spec v6 F: hand-off
 
   /** P7: a code and link to pay this run on another device; email mails it */

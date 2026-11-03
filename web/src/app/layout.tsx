@@ -11,6 +11,7 @@ import { Logo } from "@/components/Logo";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { SettleProvider } from "@/components/pay/SettleSheet";
+import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import { SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
@@ -110,7 +111,9 @@ export default function RootLayout({
             <MswProvider>
               <BillingProvider>
                 {/* P2: any "Pay $X" opens the settle sheet */}
-                <SettleProvider>{children}</SettleProvider>
+                <SettleProvider>
+                  <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
+                </SettleProvider>
               </BillingProvider>
             </MswProvider>
           </main>
