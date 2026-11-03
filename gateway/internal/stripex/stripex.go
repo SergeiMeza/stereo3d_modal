@@ -11,6 +11,8 @@
 //   - nothing is held up front; on job success the quoted amount is charged
 //     off-session against the saved card (one PaymentIntent per conversion,
 //     deterministic idempotency key so a crash-retry can never double-charge)
+//   - runs above the precharge threshold are charged BEFORE they start
+//     (PrechargeSaved) and refunded in full if they fail (RefundOrCancel)
 //
 // Every PaymentIntent carries {conversion_id, user_id, env, description}
 // metadata so the Stripe dashboard links straight back to the job record for
@@ -31,6 +33,7 @@ import (
 	"github.com/stripe/stripe-go/v78/ephemeralkey"
 	"github.com/stripe/stripe-go/v78/paymentintent"
 	"github.com/stripe/stripe-go/v78/paymentmethod"
+	"github.com/stripe/stripe-go/v78/refund"
 	"github.com/stripe/stripe-go/v78/setupintent"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
@@ -368,6 +371,66 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 		params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
 	}
 	return paymentintent.New(params)
+}
+
+// PrechargeSaved charges the saved payment method off-session (automatic
+// capture) BEFORE an expensive run is submitted. Same shape as ChargeSaved
+// with its own idempotency key: one up-front charge per conversion, ever,
+// and never confused with a post-success charge.
+func (c *Client) PrechargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(currency),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey("precharge_" + c.env + "_" + job.ConversionID)
+	return paymentintent.New(params)
+}
+
+// RefundOrCancel gives a pre-charged run's money back: a settled
+// PaymentIntent is refunded in full (refunded = the amount), one never
+// confirmed (3DS abandoned) is canceled (refunded = 0). Idempotent: the
+// refund carries a key per PaymentIntent, and an already-refunded or
+// canceled intent is success. refused reports a Stripe decision a retry
+// can't change (a disputed charge, say) — the caller flags it for a manual
+// refund instead of retrying forever.
+func (c *Client) RefundOrCancel(paymentIntentID string) (refunded int64, refused bool, err error) {
+	pi, err := paymentintent.Get(paymentIntentID, nil)
+	if err != nil {
+		return 0, false, fmt.Errorf("get payment intent: %w", err)
+	}
+	switch pi.Status {
+	case stripe.PaymentIntentStatusCanceled:
+		return 0, false, nil
+	case stripe.PaymentIntentStatusSucceeded:
+		if pi.LatestCharge != nil && pi.LatestCharge.Refunded {
+			return pi.AmountReceived, false, nil
+		}
+		params := &stripe.RefundParams{PaymentIntent: stripe.String(paymentIntentID)}
+		params.AddMetadata("env", c.env)
+		params.SetIdempotencyKey("refund_" + c.env + "_" + paymentIntentID)
+		r, rerr := refund.New(params)
+		if rerr != nil {
+			if stripeErrCode(rerr) == "charge_already_refunded" {
+				return pi.AmountReceived, false, nil
+			}
+			var serr *stripe.Error
+			refused = errors.As(rerr, &serr) && serr.Type == stripe.ErrorTypeInvalidRequest
+			return 0, refused, fmt.Errorf("refund: %w", rerr)
+		}
+		return r.Amount, false, nil
+	case stripe.PaymentIntentStatusProcessing:
+		// Can't be refunded until it settles; the sweep retries.
+		return 0, false, errors.New("payment intent still processing")
+	}
+	if cerr := c.CancelHold(paymentIntentID); cerr != nil {
+		return 0, false, cerr
+	}
+	return 0, false, nil
 }
 
 // ConfirmSavedCharge retries an existing charge PaymentIntent (decline or
