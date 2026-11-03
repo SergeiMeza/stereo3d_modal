@@ -98,13 +98,13 @@ describe("ProjectsScreen list", () => {
     );
     const box = screen.getByTestId("project-card");
     expect(within(box).getByTestId("card-state").textContent).toBe("Ready for 3D");
-    expect(within(box).getByTestId("card-spent").textContent).toBe(
-      "Nothing spent yet",
-    );
+    // S3D-35: no money on cards
+    expect(within(box).queryByTestId("card-spent")).toBeNull();
+    expect(box.textContent).not.toMatch(/\$|spent/i);
     void FIXTURE_SCENES;
   });
 
-  it("shows a finished project's outcome and what it cost", async () => {
+  it("shows a finished project's outcome, never what it cost (S3D-35)", async () => {
     mockDb.conversions.set("c0000000done", {
       conversion_id: "c0000000done",
       state: "succeeded",
@@ -125,9 +125,8 @@ describe("ProjectsScreen list", () => {
     expect(screen.getByRole("link", { name: "Files" }).getAttribute("href")).toBe(
       `/projects/${FIXTURE_ID}#tab=files`,
     );
-    expect(screen.getByTestId("card-spent").textContent).toBe(
-      "Spent so far $20.25",
-    );
+    expect(screen.queryByTestId("card-spent")).toBeNull();
+    expect(screen.getByTestId("project-card").textContent).not.toContain("$20.25");
   });
 
   it("a failed payment reads Payment needed with Update card", async () => {

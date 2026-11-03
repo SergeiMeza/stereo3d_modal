@@ -3,8 +3,8 @@
 /**
  * One project in the list (screen 01, S3D-35): thumbnail with the length,
  * name, method, the outcome line (getting ready, waiting in line, making
- * 3D with progress and time left, 3D ready, payment needed, failed) and
- * what it has cost so far (GET /v1/projects summary).
+ * 3D with progress and time left, 3D ready, payment needed, failed). No
+ * money on cards (S3D-35): summary.spent_cents is ignored.
  *
  * The card body is a Link; management actions (pin/rename/archive/restore)
  * live in a SIBLING row outside the anchor — nested interactive elements
@@ -26,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatCents } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -139,7 +138,6 @@ export function ProjectCard({
   const thumb = project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
   const state = cardState(project);
   const method = methodOf(project);
-  const spent = project.summary?.spent_cents ?? 0;
   const href = `/projects/${project.project_id}`;
 
   const run = async (req: UpdateProjectRequest) => {
@@ -229,15 +227,8 @@ export function ProjectCard({
       </div>
 
       <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
-        {spent > 0 ? (
-          <span data-testid="card-spent">
-            Spent so far{" "}
-            <span className="font-mono text-fg">{formatCents(spent)}</span>
-          </span>
-        ) : (
-          <span data-testid="card-spent">Nothing spent yet</span>
-        )}
-        <span className="ml-auto">
+        {/* S3D-35: no money on cards — the method chip and the state only */}
+        <span>
           {DATE_FORMAT.format(new Date(project.created_at))}
         </span>
       {onUpdate !== undefined ? (

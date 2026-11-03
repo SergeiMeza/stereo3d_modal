@@ -136,6 +136,10 @@ describe("Lifelike qualities", () => {
     );
     // the quote's lines show in the price card, no Get quote step
     expect(screen.getByTestId("quote-total").textContent).toBe(top);
+    // "2 min 29 s at 4K · 2.5 min × $8.50 a minute" (S3D-15)
+    expect(screen.getByTestId("price-card").textContent).toMatch(
+      /at 4K\d+\.\d min × \$\d+\.\d\d a minute/,
+    );
     expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "?" }));
     expect(screen.getByRole("dialog").textContent).toMatch(/first minute/);

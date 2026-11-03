@@ -7,6 +7,7 @@ import {
   quoteChargeSentence,
 } from "@/lib/billingCopy";
 import { formatDuration, formatVideoLength } from "@/lib/format";
+import { qualityName } from "@/lib/glossary";
 
 import { formatCents, formatCentsShort } from "./money";
 
@@ -140,6 +141,20 @@ export function QuoteView({
     b.inpaint_multiplier !== (DEFAULT_EDGE_MULTIPLIER[step ?? ""] ?? 1);
   const technical = depthChanged || edgeChanged;
 
+  // Lifelike (screens 06/07): "5 min 12 s at 4K · 5.2 min × $8.50 a
+  // minute", then "Your video is 30 fps (+25%)" with what it adds
+  const cpm = b.cents_per_minute;
+  const lifelikeLines =
+    result.method === "lifelike" &&
+    cpm !== undefined &&
+    b.billable_seconds !== undefined &&
+    b.fps_factor !== undefined;
+  const fovCents = b.foveation_cents ?? 0;
+  const atRate = lifelikeLines
+    ? Math.round((b.billable_seconds! / 60) * cpm!)
+    : 0;
+  const fpsAdds = lifelikeLines ? subtotal - fovCents - atRate : 0;
+
   return (
     <div
       data-testid="quote-breakdown"
@@ -147,14 +162,41 @@ export function QuoteView({
         bare ? "" : "rounded-lg border border-edge bg-surface-2 p-4"
       }`}
     >
-      <Line
-        label={videoLabel}
-        value={formatCents(
-          (technical ? (b.base_cents ?? subtotal) : subtotal) -
-            (b.foveation_cents ?? 0),
-        )}
-        testId="quote-base"
-      />
+      {lifelikeLines ? (
+        <>
+          <Line
+            label={
+              <>
+                {formatVideoLength(b.billable_seconds!)}
+                {b.preset ? ` at ${qualityName(b.preset)}` : ""}
+                <span className="block text-[11px] text-fg-muted/80">
+                  {(b.billable_seconds! / 60).toFixed(1)} min × {formatCents(cpm!)} a minute
+                </span>
+              </>
+            }
+            value={formatCents(atRate)}
+            testId="quote-base"
+          />
+          {b.fps_factor !== 1 && fps !== null ? (
+            <Line
+              label={
+                <span data-testid="quote-fps-factor">
+                  Your video is {fps} fps ({percent(b.fps_factor!)})
+                </span>
+              }
+              value={`${fpsAdds >= 0 ? "+" : "−"}${formatCents(Math.abs(fpsAdds))}`}
+            />
+          ) : null}
+        </>
+      ) : (
+        <Line
+          label={videoLabel}
+          value={formatCents(
+            (technical ? (b.base_cents ?? subtotal) : subtotal) - fovCents,
+          )}
+          testId="quote-base"
+        />
+      )}
       {technical ? (
         <details className="text-xs">
           <summary className="cursor-pointer text-fg-muted">
