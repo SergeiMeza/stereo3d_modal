@@ -32,6 +32,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { UpdateCardToContinue } from "@/components/billing/BillingBanner";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
 import { track, upgradeSession } from "@/lib/analytics";
@@ -68,12 +69,13 @@ export type BillingBlock =
 
 function billingBlockOf(e: unknown): BillingBlock | null {
   if (e instanceof GatewayError) {
-    if (
-      e.code === "no_payment_method" ||
-      e.code === "billing_overdue" ||
-      e.code === "card_declined"
-    ) {
+    if (e.code === "no_payment_method" || e.code === "card_declined") {
       return e.code;
+    }
+    // S3D-22: a payment needs a new card (billing_overdue on older
+    // gateways)
+    if (e.code === "billing_overdue" || e.code === "payment_method_needed") {
+      return "billing_overdue";
     }
   }
   return null;
@@ -351,17 +353,7 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
       </div>
     );
   }
-  return (
-    <div
-      data-testid="billing-block"
-      className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm"
-    >
-      <p className="text-red-200">
-        An earlier payment didn&apos;t go through. Pay it from the banner above
-        (or update your card there) to start new runs.
-      </p>
-    </div>
-  );
+  return <UpdateCardToContinue />;
 }
 
 export interface StepCheckoutSectionProps {
@@ -387,6 +379,12 @@ export function StepCheckoutSection({
   disabledReason,
 }: StepCheckoutSectionProps): JSX.Element {
   const blocked = disabledReason !== undefined;
+  // S3D-22: while a payment needs a new card, paid actions say so instead
+  // of offering their button
+  const paymentNeeded =
+    useBilling().status?.delinquent === true ||
+    ck.billingBlock === "billing_overdue";
+  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
   return (
     <>
       <div className="flex items-center gap-3">

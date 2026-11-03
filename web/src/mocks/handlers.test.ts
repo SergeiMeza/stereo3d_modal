@@ -255,8 +255,8 @@ describe("mock gateway validation", () => {
   });
 });
 
-describe("mock gateway downloads payment gate", () => {
-  it("402s downloads for a succeeded run whose charge failed; settle unlocks", async () => {
+describe("mock gateway: files stay downloadable after a failed payment (S3D-22)", () => {
+  it("serves downloads for a succeeded run whose charge failed", async () => {
     const p = mockDb.projects.get(PID)!;
     const conv: Conversion = {
       conversion_id: "lockedrun001",
@@ -274,15 +274,8 @@ describe("mock gateway downloads payment gate", () => {
     mockDb.conversions.set(conv.conversion_id, conv);
     mockDb.failCharge(conv.conversion_id);
 
-    const locked = await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`);
-    expect(locked.status).toBe(402);
-    const body = (await locked.json()) as { error: string; message: string };
-    expect(body.error).toBe("billing_overdue");
-
-    // settle clears the debt → downloads unlock
-    conv.billing = { status: "charged", charged_cents: 500 };
-    const ok = await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`);
-    expect(ok.status).toBe(200);
+    const res = await fetch(`${GATEWAY}/v1/conversions/${conv.conversion_id}/downloads`);
+    expect(res.status).toBe(200);
   });
 });
 

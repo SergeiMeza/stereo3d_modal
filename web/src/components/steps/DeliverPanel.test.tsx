@@ -333,7 +333,7 @@ describe("DeliverPanel controls", () => {
     expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("−50%");
   });
 
-  it("a payment-locked run shows the settle notice and never mounts its output", async () => {
+  it("a run whose payment failed still shows its output (S3D-22)", async () => {
     const project = fixtureProject();
     const prior: Conversion = {
       conversion_id: "lockedprod01",
@@ -353,11 +353,8 @@ describe("DeliverPanel controls", () => {
     project.conversions = [prior];
     renderPanel(project);
 
-    expect(screen.getByTestId("payment-locked-notice").textContent).toContain(
-      "locked until it does",
-    );
-    // the hook never fetches (the gateway would 402) → no follower video
-    expect(screen.queryByTestId("deliver-output-video")).toBeNull();
+    expect(screen.queryByTestId("payment-locked-notice")).toBeNull();
+    expect(await screen.findByTestId("deliver-output-video")).toBeTruthy();
   });
 
   it("shows the reuse discount and drops it when re-quoted from scratch", async () => {

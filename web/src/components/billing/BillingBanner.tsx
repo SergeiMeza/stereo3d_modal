@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * Delinquency banner. Shown on billing-gated pages when an automatic charge
- * failed after a successful conversion: new paid steps are blocked
- * (gateway 402 billing_overdue) until the debt settles.
+ * The one app-wide payment banner (S3D-22): "There's a problem with your
+ * last payment. Update your card." Files stay downloadable; new paid runs
+ * wait (gateway 402 payment_method_needed / billing_overdue) until the
+ * payment goes through.
  *
- * "Retry charge" hits POST /v1/billing/settle against the CURRENT default
- * card; a requires_action response is a 3DS challenge the user completes
- * in place (completeChargeAction). "Update card" opens the Stripe billing
- * portal — after changing the card there, Retry charge picks it up.
+ * "Update card" opens the Stripe billing portal. "Try again" hits POST
+ * /v1/billing/settle against the current card; a requires_action response
+ * is a 3DS challenge completed in place (completeChargeAction).
  */
 
 import { useState } from "react";
 import type { JSX } from "react";
 
-import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
@@ -27,6 +26,50 @@ export function setNavigateExternalForTests(fn: (url: string) => void): void {
   navigateExternal = fn;
 }
 
+export const PAYMENT_PROBLEM =
+  "There's a problem with your last payment. Update your card.";
+
+/** Open the billing portal to change the card; returns an error sentence
+ * or null once the browser is on its way. */
+export async function openCardUpdate(
+  gateway: ReturnType<typeof useGateway>,
+): Promise<string | null> {
+  try {
+    const { url } = await gateway.createBillingPortalSession(
+      window.location.href,
+    );
+    navigateExternal(url);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : "Could not open the card page";
+  }
+}
+
+/** Shown instead of a paid action's button while a payment is needed. */
+export function UpdateCardToContinue(): JSX.Element {
+  const gateway = useGateway();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  return (
+    <div data-testid="billing-block" className="flex flex-wrap items-center gap-3">
+      <Button
+        onClick={async () => {
+          setBusy(true);
+          const err = await openCardUpdate(gateway);
+          if (err !== null) {
+            setMessage(err);
+            setBusy(false);
+          }
+        }}
+        disabled={busy}
+      >
+        Update your card to continue
+      </Button>
+      {message ? <span className="text-xs text-red-400">{message}</span> : null}
+    </div>
+  );
+}
+
 export function BillingBanner(): JSX.Element | null {
   const { status, refresh } = useBilling();
   const gateway = useGateway();
@@ -34,13 +77,6 @@ export function BillingBanner(): JSX.Element | null {
   const [message, setMessage] = useState<string | null>(null);
 
   if (!status?.delinquent) return null;
-
-  const totalCents = status.unpaid.reduce((s, u) => s + u.amount_cents, 0);
-  const currency = status.unpaid[0]?.currency ?? "usd";
-  const unpaidSteps = status.unpaid.reduce(
-    (n, u) => n + (u.items?.length ?? 1),
-    0,
-  );
 
   async function retry(): Promise<void> {
     setBusy(true);
@@ -74,13 +110,9 @@ export function BillingBanner(): JSX.Element | null {
   async function updateCard(): Promise<void> {
     setBusy(true);
     setMessage(null);
-    try {
-      const { url } = await gateway.createBillingPortalSession(
-        window.location.href,
-      );
-      navigateExternal(url);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not open the portal");
+    const err = await openCardUpdate(gateway);
+    if (err !== null) {
+      setMessage(err);
       setBusy(false);
     }
   }
@@ -93,13 +125,7 @@ export function BillingBanner(): JSX.Element | null {
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-red-200">
-            A payment didn&apos;t go through — {formatCents(totalCents)}{" "}
-            {currency.toUpperCase()} due
-          </p>
-          <p className="text-xs text-red-200/70">
-            Your files are ready but locked until the payment goes through,
-            and new runs wait until then
-            {unpaidSteps > 1 ? ` (${unpaidSteps} runs)` : ""}.
+            {PAYMENT_PROBLEM}
           </p>
           {message ? (
             <p className="mt-1 text-xs text-red-300">{message}</p>
@@ -108,19 +134,20 @@ export function BillingBanner(): JSX.Element | null {
         <div className="flex shrink-0 gap-2">
           <Button
             size="sm"
+            onClick={() => void updateCard()}
+            disabled={busy}
+            data-testid="billing-update-card"
+          >
+            Update card
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => void retry()}
             disabled={busy}
             data-testid="billing-retry"
           >
-            {busy ? "Working…" : "Retry charge"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void updateCard()}
-            disabled={busy}
-          >
-            Update card
+            {busy ? "Working…" : "Try again"}
           </Button>
         </div>
       </div>

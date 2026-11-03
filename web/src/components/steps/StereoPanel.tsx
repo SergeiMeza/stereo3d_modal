@@ -122,7 +122,7 @@ import {
   type RowOverride,
   type StereoDraft,
 } from "./stereoStore";
-import { bestPlayable, paymentLocked, PaymentLockedNotice, StepReview, useRunDownloads } from "./StepReview";
+import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 export interface StereoPanelProps {
@@ -421,9 +421,7 @@ export function StereoPanel({
         sourceFps={sourceFps}
         heading="Stereo preview"
         headingExtras={
-          paymentLocked(lastSucceeded) ? (
-            <PaymentLockedNotice />
-          ) : output !== null && depthVis !== null ? (
+          output !== null && depthVis !== null ? (
             <span
               data-testid="stereo-compare-toggle"
               className="flex items-center gap-1 rounded-md border border-edge bg-surface-2 p-0.5 text-[11px]"

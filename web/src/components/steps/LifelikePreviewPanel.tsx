@@ -40,8 +40,6 @@ import {
 import { PriorRuns } from "./PriorRuns";
 import {
   bestPlayable,
-  paymentLocked,
-  PaymentLockedNotice,
   StepReview,
   useRunDownloads,
 } from "./StepReview";
@@ -235,9 +233,7 @@ export function LifelikePreviewPanel({
               </span>
             ) : null}
           </h3>
-          {paymentLocked(lastSucceeded) ? (
-            <PaymentLockedNotice />
-          ) : output !== null ? (
+          {output !== null ? (
             <video
               key={output.url}
               src={output.url}

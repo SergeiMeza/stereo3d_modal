@@ -44,8 +44,6 @@ import {
 import { PriorRuns } from "./PriorRuns";
 import {
   bestPlayable,
-  paymentLocked,
-  PaymentLockedNotice,
   StepReview,
   useRunDownloads,
 } from "./StepReview";
@@ -120,9 +118,7 @@ export function LifelikeDeliverPanel({
         sourceFps={sourceFps}
         heading="Final output"
         headingExtras={
-          paymentLocked(lastSucceeded) ? (
-            <PaymentLockedNotice />
-          ) : lastWasSplit ? (
+          lastWasSplit ? (
             <span className="text-[11px] text-fg-muted">
               Your last run came in parts — download each part below.
             </span>

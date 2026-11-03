@@ -49,7 +49,7 @@ import {
 } from "./outputOptions";
 import { PriorRuns } from "./PriorRuns";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
-import { bestPlayable, paymentLocked, PaymentLockedNotice, StepReview, useRunDownloads } from "./StepReview";
+import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 export interface DeliverPanelProps {
@@ -160,9 +160,7 @@ export function DeliverPanel({
         sourceFps={sourceFps}
         heading="Final output"
         headingExtras={
-          paymentLocked(lastSucceeded) ? (
-            <PaymentLockedNotice />
-          ) : output === null ? (
+          output === null ? (
             <span className="text-[11px] text-fg-muted">
               Run production to review the final output beside the source.
             </span>

@@ -379,7 +379,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     expect(mockDb.conversions.size).toBe(0);
   });
 
-  it("blocks with the settle notice when an automatic charge is outstanding (gateway 402 billing_overdue)", async () => {
+  it("asks for a new card when a payment is outstanding (gateway 402 payment_method_needed)", async () => {
     mockDb.billing.unpaid.push({
       conversion_id: "m0cdeadbeef1",
       amount_cents: 120,
@@ -393,7 +393,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
 
     const notice = await screen.findByTestId("billing-block");
-    expect(notice.textContent).toContain("didn't go through");
+    expect(notice.textContent).toContain("Update your card to continue");
     expect(mockDb.conversions.size).toBe(0);
   });
 

@@ -123,7 +123,10 @@ describe("RequireBilling", () => {
     // delinquent users still reach their work — banner + content together
     expect(await screen.findByTestId("billing-banner")).toBeTruthy();
     expect(screen.getByText("studio content")).toBeTruthy();
-    expect(screen.getByText(/\$1\.20/)).toBeTruthy();
+    expect(
+      screen.getByText("There's a problem with your last payment. Update your card."),
+    ).toBeTruthy();
+    expect(screen.getByTestId("billing-update-card")).toBeTruthy();
   });
 });
 
