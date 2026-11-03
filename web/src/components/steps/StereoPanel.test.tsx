@@ -431,7 +431,7 @@ describe("StereoPanel request building", () => {
 });
 
 describe("StereoPanel quote pricing", () => {
-  it("every run is full quality (×1.6 on the quote) — there is no mode choice and no model name in the copy", async () => {
+  it("Best edges and the standard depth detail are included in the price line (S3D-12) — no factor lines, no model name", async () => {
     const user = userEvent.setup();
     renderPanel();
 
@@ -443,12 +443,12 @@ describe("StereoPanel quote pricing", () => {
     // 149.46 s at 120¢ cost × 3 margin full rate → 897¢ base; the letterboxed 2.39:1
     // fixture prices the default 980 depth at ×1.345 on the 0.35 share →
     // 1005¢; ×1.6 propainter = 1608¢ → −161 bulk = $14.47 (no analyze credit)
-    expect(screen.getByTestId("quote-base").textContent).toBe("$8.97");
-    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("+60%");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.08");
+    // standard settings fold into "Your video": no separate factor lines
+    expect(screen.getByTestId("quote-base").textContent).toBe("$16.08");
+    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
+    expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
     expect(screen.getByTestId("quote-total").textContent).toBe("$14.47");
-    // the breakdown line explains the multiplier without internal terms
-    expect(screen.getByTestId("quote-breakdown").textContent).toContain(
+    expect(screen.getByTestId("quote-breakdown").textContent).not.toContain(
       "Edge handling",
     );
   });

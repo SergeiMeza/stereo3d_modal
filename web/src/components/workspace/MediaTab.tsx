@@ -178,6 +178,15 @@ function GuideList({
   );
 }
 
+/** A run that cost (or is costing) money: anything but failed, cancelled
+ * or never-started runs. The method chooser stays open until one exists
+ * (S3D-01). */
+function hasPaidRun(project: Project): boolean {
+  return (project.conversions ?? []).some(
+    (c) => c.state !== "failed" && c.state !== "canceled" && c.state !== "expired",
+  );
+}
+
 export interface MediaTabProps {
   project: Project;
   onNavigate: (tab: WorkspaceTabId) => void;
@@ -281,8 +290,7 @@ export function MediaTab({
 
       {/* S3D-01/44: the method is chosen before the first run; after it a
           Classic project gets the one-way offer, a Lifelike one nothing */}
-      {onProjectChanged === undefined ? null : (project.conversions ?? [])
-          .length === 0 ? (
+      {onProjectChanged === undefined ? null : !hasPaidRun(project) ? (
         <MethodChooser project={project} onChanged={onProjectChanged} />
       ) : methodOf(project) === "classic" ? (
         <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />

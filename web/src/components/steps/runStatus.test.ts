@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Conversion } from "@/lib/api/types";
 import { formatDuration, formatTimeLeft, formatVideoLength } from "@/lib/format";
 
+import { cancelable, cancelSecondsLeft } from "./ConversionTracker";
 import { runStatus } from "./runStatus";
 
 function run(over: Partial<Conversion>): Conversion {
@@ -51,5 +52,45 @@ describe("one time format (S3D-34)", () => {
     expect(formatTimeLeft(12 * 60)).toBe("about 12 min left");
     expect(formatVideoLength(312)).toBe("5 min 12 s");
     expect(formatVideoLength(3840)).toBe("1 h 4 min");
+  });
+});
+
+describe("cancel window (S3D-23)", () => {
+  const now = Date.parse("2026-11-03T10:00:00Z");
+  const started = (secondsAgo: number): Conversion =>
+    run({
+      state: "processing",
+      cancelable_until: new Date(now + (60 - secondsAgo) * 1000).toISOString(),
+    });
+
+  it("any time while waiting in line, then for 1 minute after the start", () => {
+    expect(cancelable(run({ state: "paid" }), now)).toBe(true);
+    expect(
+      cancelable(
+        run({
+          state: "processing",
+          waiting_for_gpu: true,
+          cancelable_until: new Date(now - 5000).toISOString(),
+        }),
+        now,
+      ),
+    ).toBe(true);
+    expect(cancelable(started(18), now)).toBe(true);
+    expect(cancelSecondsLeft(started(18), now)).toBe(42);
+    expect(cancelable(started(61), now)).toBe(false);
+    expect(cancelSecondsLeft(started(61), now)).toBeNull();
+    expect(cancelable(run({ state: "succeeded" }), now)).toBe(false);
+  });
+
+  it("a cancelled pre-paid run reads refunded", () => {
+    expect(
+      runStatus(
+        run({
+          state: "canceled",
+          charge_timing: "before",
+          billing: { status: "refunded", charged_cents: 4500 },
+        }),
+      ).label,
+    ).toBe("Cancelled, refunded $45.00");
   });
 });

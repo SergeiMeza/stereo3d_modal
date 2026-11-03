@@ -20,6 +20,7 @@ import type { Conversion, ConversionState, Downloads } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
+import { formatCents } from "./money";
 import { POLL_INTERVAL_MS } from "./polling";
 import { formatDuration, formatTimeLeft } from "@/lib/format";
 
@@ -42,14 +43,40 @@ const CANCELABLE: ReadonlySet<ConversionState> = new Set([
   "processing",
 ]);
 
-/** A job can be canceled while in an active state, but only until the
- * gateway's cancel window closes (1 minute after GPU submission —
- * `cancelable_until`; the gateway enforces this with a 409). Re-evaluated
- * on every poll tick, so the button disappears within one interval. */
-function cancelable(conv: Conversion): boolean {
+/** S3D-23: a run can be cancelled any time while it waits in line (full
+ * refund when it was paid up front) and for 1 minute after it starts
+ * (`cancelable_until`; the gateway enforces it with a 409). */
+export function cancelable(conv: Conversion, now = Date.now()): boolean {
   if (!CANCELABLE.has(conv.state)) return false;
+  if (conv.waiting_for_gpu || conv.state !== "processing") return true;
   if (!conv.cancelable_until) return true; // not yet submitted
-  return Date.now() < Date.parse(conv.cancelable_until);
+  return now < Date.parse(conv.cancelable_until);
+}
+
+/** Seconds left in the 1-minute cancel window, or null when the run is
+ * waiting in line (no countdown) or past it. */
+export function cancelSecondsLeft(
+  conv: Conversion,
+  now = Date.now(),
+): number | null {
+  if (conv.waiting_for_gpu || conv.state !== "processing") return null;
+  if (!conv.cancelable_until) return null;
+  const left = Math.ceil((Date.parse(conv.cancelable_until) - now) / 1000);
+  return left > 0 ? left : null;
+}
+
+/** What cancelling costs, in words. */
+function cancelNote(conv: Conversion, secondsLeft: number | null): string {
+  const money =
+    conv.charge_timing === "before" && conv.billing?.status === "charged"
+      ? `and get the full ${formatCents(conv.quote.amount_cents)} back`
+      : "and you won't be charged";
+  if (secondsLeft !== null) {
+    const m = Math.floor(secondsLeft / 60);
+    const s = String(secondsLeft % 60).padStart(2, "0");
+    return `You can cancel for ${m}:${s} more ${money}. After that the run finishes.`;
+  }
+  return `You can cancel while it waits ${money}.`;
 }
 
 /** Plain words for a run's payment, when there is something to say:
@@ -75,6 +102,18 @@ export function billingStatusNote(conv: Conversion): string | null {
   }
 }
 
+
+/** The current time, re-read every second while `ticking` (the cancel
+ * countdown and window). */
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [ticking]);
+  return now;
+}
 
 export interface ConversionTrackerProps {
   conversion: Conversion;
@@ -185,6 +224,8 @@ export function ConversionTracker({
   }
 
   const pct = Math.round(Math.min(Math.max(conv.progress, 0), 1) * 100);
+  // ticks while the run is active, so the window closes on time
+  const now = useNow(!terminal);
   // Queued for a free GPU: no stage, no time left, no bar — the wait is
   // not progress.
   const waiting = !terminal && conv.waiting_for_gpu === true;
@@ -218,7 +259,7 @@ export function ConversionTracker({
             </span>
           ) : null}
         </div>
-        {cancelable(conv) ? (
+        {cancelable(conv, now) ? (
           <Button
             variant="outline"
             size="xs"
@@ -229,6 +270,11 @@ export function ConversionTracker({
           </Button>
         ) : null}
       </div>
+      {cancelable(conv, now) && conv.state !== "created" ? (
+        <p className="mt-2 text-xs text-fg-muted" data-testid="cancel-note">
+          {cancelNote(conv, cancelSecondsLeft(conv, now))}
+        </p>
+      ) : null}
       {conv.state === "created" ? (
         <p className="mt-3 text-sm text-fg-muted" data-testid="hold-confirming">
           Confirming the payment with your bank — the run starts as soon as

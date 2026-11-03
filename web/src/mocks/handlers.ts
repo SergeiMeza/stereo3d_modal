@@ -2168,6 +2168,14 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
       c.state = "canceled";
+      // S3D-23: a pre-charged run cancelled in line or in its first minute
+      // is refunded in full; an unconfirmed one was never charged
+      if (c.charge_timing === "before") {
+        c.billing =
+          c.billing?.status === "charged"
+            ? { status: "refunded", charged_cents: c.quote.amount_cents }
+            : { status: "not_charged" };
+      }
     }
     return HttpResponse.json(c);
   }),

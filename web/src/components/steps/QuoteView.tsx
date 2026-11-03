@@ -17,6 +17,22 @@ export const CHARGE_BEFORE_COPY =
 export const CHARGE_AFTER_COPY =
   "Added to your balance after it succeeds.";
 
+/** Classic's standard depth detail per quality — included in its
+ * per-minute prices (mirrors the gateway's PresetInputSize). */
+const STANDARD_DEPTH_DETAIL: Record<string, number> = {
+  draft: 518,
+  "1080p": 980,
+  qhd: 1148,
+  "3k": 1148,
+  "4k": 1442,
+};
+
+/** The edge multiplier of each step's default (Best edges). */
+const DEFAULT_EDGE_MULTIPLIER: Record<string, number> = {
+  stereo_preview: 1.6,
+  production: 1,
+};
+
 /** Customer words for the stages a quote can reuse. */
 const REUSE_NAMES: Record<string, string> = {
   depth: "depth work",
@@ -103,7 +119,22 @@ export function QuoteView({
     b.depth_res_factor !== undefined && b.depth_res_factor !== 1;
   const hasInpaintMult =
     b.inpaint_multiplier !== undefined && b.inpaint_multiplier !== 1;
-  const technical = hasDepthFactor || hasInpaintMult;
+  // S3D-12: Classic's per-minute prices include the standard depth detail
+  // and Best edges, so those factors fold into the video line; the factor
+  // lines appear only when an Advanced setting changed them (the Depth
+  // page always shows its own detail).
+  const step = b.step ?? result.step;
+  const standardDepth =
+    b.preset !== undefined ? STANDARD_DEPTH_DETAIL[b.preset] : undefined;
+  const depthChanged =
+    hasDepthFactor &&
+    (step === "depth_preview" ||
+      standardDepth === undefined ||
+      b.depth_res !== standardDepth);
+  const edgeChanged =
+    b.inpaint_multiplier !== undefined &&
+    b.inpaint_multiplier !== (DEFAULT_EDGE_MULTIPLIER[step ?? ""] ?? 1);
+  const technical = depthChanged || edgeChanged;
 
   return (
     <div
@@ -112,7 +143,7 @@ export function QuoteView({
     >
       <Line
         label={videoLabel}
-        value={formatCents(b.base_cents ?? subtotal)}
+        value={formatCents(technical ? (b.base_cents ?? subtotal) : subtotal)}
         testId="quote-base"
       />
       {technical ? (
