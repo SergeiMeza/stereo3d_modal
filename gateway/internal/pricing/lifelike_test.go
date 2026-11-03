@@ -218,12 +218,13 @@ func TestPublicPricing(t *testing.T) {
 		t.Errorf("lifelike: %v", ll)
 	}
 	cl := methods["classic"].(map[string]any)["production_cents_per_minute"].(map[string]int64)
-	// default classic 1080p production: 150¢ cost × 3 margin, depth factor 1
-	if cl["1080p"] != 450 {
+	// default classic 1080p production (S3D-29 "Stretched" edges): 150¢
+	// cost × 3 margin × 0.4 (inpaint none), depth factor 1
+	if cl["1080p"] != 180 {
 		t.Errorf("classic 1080p: %v", cl)
 	}
-	// 3k carries its preset depth size: 720 × (1 + 0.35 × ((1148/980)² − 1))
-	if cl["3k"] <= 720 {
+	// 3k carries its preset depth size: 288 × (1 + 0.35 × ((1148/980)² − 1))
+	if cl["3k"] <= 288 {
 		t.Errorf("classic 3k must include the preset depth factor: %v", cl)
 	}
 	if _, ok := cl["4k"]; ok {

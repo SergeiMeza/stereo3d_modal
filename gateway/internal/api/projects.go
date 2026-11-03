@@ -812,6 +812,13 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		}
 		params.Warp = req.Warp
 	}
+	if req.Warp == "" && req.Inpaint == "" &&
+		(req.Step == store.StepStereoPreview || req.Step == store.StepProduction) {
+		// S3D-29: Classic's default edge style is the backward warp
+		// ("Stretched"); an explicit inpaint (propainter, migan, none)
+		// keeps the forward warp it implies, as before.
+		params.Warp, params.Inpaint = "backward", "none"
+	}
 	if req.DepthScale != 0 {
 		if req.Step == store.StepDepthPreview {
 			return params, httpx.ErrInvalid("depth_scale applies to stereo_preview and production only")

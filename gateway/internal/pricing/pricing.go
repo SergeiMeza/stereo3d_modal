@@ -1126,9 +1126,9 @@ var ClassicPresets = []string{"draft", "1080p", "qhd", "3k"}
 // /v1/pricing (S3D-18): every number derived from the live config, already
 // in customer prices (margin applied), so the Pricing page never restates a
 // price by hand. Classic production prices are a default quote's per-minute
-// subtotal (16:9 source, 24 fps, the preset's own depth size, edges
-// filled); Classic previews are base rates before the Depth page's
-// resolution factor and the inpaint choice.
+// subtotal (16:9 source, 24 fps, the preset's own depth size, the default
+// "Stretched" edges — S3D-29); Classic previews are base rates before the
+// Depth page's resolution factor and the inpaint choice.
 func (s *Service) Public(ctx context.Context) map[string]any {
 	rates := s.Rates(ctx)
 	perMinute := func(in StepInputs) int64 {
@@ -1143,7 +1143,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	classicProduction := map[string]int64{}
 	classicStereoPreview := map[string]int64{}
 	for _, p := range ClassicPresets {
-		if v := perMinute(StepInputs{Step: "production", Preset: p, DepthRes: PresetInputSize[p], Inpaint: "propainter"}); v > 0 {
+		// the default edge style since S3D-29: backward warp, inpaint none
+		if v := perMinute(StepInputs{Step: "production", Preset: p, DepthRes: PresetInputSize[p], Inpaint: "none"}); v > 0 {
 			classicProduction[p] = v
 		}
 		if v, ok := rates.StereoPreviewCentsPerMinute[p]; ok {

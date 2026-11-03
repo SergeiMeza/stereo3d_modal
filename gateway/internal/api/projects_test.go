@@ -192,8 +192,9 @@ func TestResolveProductionTemplate(t *testing.T) {
 	if len(p.Formats) != 2 || p.Formats[0] != "mvhevc" || p.Formats[1] != "half_sbs" {
 		t.Errorf("formats: want [mvhevc half_sbs], got %v", p.Formats)
 	}
-	if p.Inpaint != "propainter" {
-		t.Errorf("inpaint: want propainter default, got %s", p.Inpaint)
+	// S3D-29: the default edge style is the backward warp ("Stretched")
+	if p.Warp != "backward" || p.Inpaint != "none" {
+		t.Errorf("edge default: want backward/none, got %s/%s", p.Warp, p.Inpaint)
 	}
 	if p.TargetFPS != 0 { // full source fps
 		t.Errorf("target_fps: want 0 (source), got %v", p.TargetFPS)
@@ -346,10 +347,21 @@ func TestResolveWarpValidation(t *testing.T) {
 			}
 		}
 	}
-	// absent warp: not stored (pipeline default), inpaint untouched
+	// absent warp AND inpaint: the S3D-29 default, backward ("Stretched")
 	p := resolveOK(t, &stepConvReq{Step: store.StepProduction})
-	if p.Warp != "" || p.Inpaint != "propainter" {
+	if p.Warp != "backward" || p.Inpaint != "none" {
 		t.Errorf("no warp: got warp=%q inpaint=%s", p.Warp, p.Inpaint)
+	}
+	// an explicit inpaint keeps the forward warp it implies (unstored)
+	for _, inpaint := range []string{"propainter", "migan", "none"} {
+		p := resolveOK(t, &stepConvReq{Step: store.StepProduction, Inpaint: inpaint})
+		if p.Warp != "" || p.Inpaint != inpaint {
+			t.Errorf("explicit inpaint %s: got warp=%q inpaint=%s", inpaint, p.Warp, p.Inpaint)
+		}
+	}
+	// stereo previews default to stretched too
+	if p := resolveOK(t, &stepConvReq{Step: store.StepStereoPreview}); p.Warp != "backward" {
+		t.Errorf("stereo preview default: %+v", p)
 	}
 }
 
