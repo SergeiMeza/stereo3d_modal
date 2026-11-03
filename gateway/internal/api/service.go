@@ -28,6 +28,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -64,6 +65,9 @@ type Service struct {
 	// unconfigured = logged only).
 	Mail  *mail.Resend
 	Slack *notify.Slack
+	// RevenueCat answers whether a uid holds SVS Pro (S3D-67); nil or
+	// unconfigured = nobody gets the Pro discount.
+	RevenueCat *revenuecat.Client
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool

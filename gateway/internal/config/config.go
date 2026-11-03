@@ -72,6 +72,10 @@ type Config struct {
 	OwnerAlertEmail string
 	// SiteURL is the web app's origin, for links in customer mails.
 	SiteURL string
+	// RevenueCatKey is SVS's RevenueCat secret v1 key (Secret Manager
+	// RC_API_KEY_V1, shared with the SVS backend): the Pro check (S3D-67).
+	// Empty = nobody gets the Pro discount.
+	RevenueCatKey string
 	// FileKeepingTestAccounts: on test, the accounts (emails) whose
 	// projects' files the file-keeping purge really erases; every other
 	// test project is a dry run (logged only). The owner's alert address
@@ -120,6 +124,7 @@ func Load() (*Config, error) {
 		ResetMailFrom:    getenv("RESET_MAIL_FROM", ""),
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
 		OwnerAlertEmail:  getenv("OWNER_ALERT_EMAIL", ""),
+		RevenueCatKey:    strings.TrimSpace(getenv("RC_API_KEY_V1", "")),
 		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
 	}
 	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {

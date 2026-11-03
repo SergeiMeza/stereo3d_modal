@@ -20,6 +20,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 
@@ -85,6 +86,8 @@ func main() {
 		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
 	}
 	svc.Mail = mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom)
+	svc.RevenueCat = revenuecat.New(cfg.RevenueCatKey) // S3D-67 Pro check
+	slog.Info("revenuecat", "configured", svc.RevenueCat.Configured())
 	if cfg.LifelikeBaseURL != "" {
 		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
 	}

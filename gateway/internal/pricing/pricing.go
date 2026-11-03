@@ -193,6 +193,12 @@ type Rates struct {
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
 	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
+	// Pro discount (S3D-67): Spatial Video Studio Pro customers get
+	// pro_discount_pct off every paid web run (production, both methods;
+	// not previews), before the bulk discount; the per-run minimum stays.
+	// Off unless pro_discount_enabled (test defaults it on).
+	ProDiscountEnabled bool    `firestore:"pro_discount_enabled"`
+	ProDiscountPct     float64 `firestore:"pro_discount_pct"`
 	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
 	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
 	// File keeping (S3D-24), see the accessors: days without use before a
@@ -619,6 +625,9 @@ type StepInputs struct {
 	CreditCents  int64
 	// Foveated (Lifelike only): priced × FoveationMultiplier.
 	Foveated bool
+	// Pro: the customer holds SVS Pro (S3D-67): production runs get
+	// ProDiscount off before the bulk discount.
+	Pro bool
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
@@ -711,8 +720,29 @@ func DefaultsFor(env string) *Rates {
 	if env == "test" {
 		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
 		r.FoveationEnabled = true
+		r.ProDiscountEnabled = true
 	}
 	return r
+}
+
+// ProDiscount is the Pro share off a production run; 0 when switched off.
+// pro_discount_pct absent/0 = 0.20, held to [0, 0.9].
+func (r *Rates) ProDiscount() float64 {
+	if !r.ProDiscountEnabled {
+		return 0
+	}
+	if r.ProDiscountPct > 0 {
+		return min(r.ProDiscountPct, 0.9)
+	}
+	return 0.20
+}
+
+// proDiscountCents is the Pro line of a run: production only.
+func (r *Rates) proDiscountCents(in StepInputs, subtotal int64) int64 {
+	if !in.Pro || in.Step != "production" {
+		return 0
+	}
+	return int64(math.Round(float64(subtotal) * r.ProDiscount()))
 }
 
 // Rates returns the current pricing config (60s cache; falls back to code
@@ -886,11 +916,13 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	}
 
 	afterReuse := subtotal - reuseDiscount
+	proDiscount := rates.proDiscountCents(in, afterReuse)
+	afterPro := afterReuse - proDiscount
 	bulkDiscount := int64(0)
-	if afterReuse > rates.DiscountThresholdCents {
-		bulkDiscount = int64(math.Round(float64(afterReuse) * rates.DiscountPct))
+	if afterPro > rates.DiscountThresholdCents {
+		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
 	}
-	total := afterReuse - bulkDiscount - in.CreditCents
+	total := afterPro - bulkDiscount - in.CreditCents
 	if floor := rates.MinimumFor(in.Step); total < floor {
 		total = floor
 	}
@@ -913,6 +945,9 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 			"subtotal_cents":         subtotal, // after multipliers; discounts apply to this
 			"reuse_stages":           in.ReuseStages,
 			"reuse_discount_cents":   reuseDiscount,
+			"pro":                    in.Pro,
+			"pro_discount_pct":       proPct(rates, in, proDiscount),
+			"pro_discount_cents":     proDiscount,
 			"discount_cents":         bulkDiscount,
 			"analyze_credit_cents":   in.CreditCents,
 		},
@@ -1108,6 +1143,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 				"cents_per_frame":      round4(perFrame),
 				"foveation_multiplier": mult,
 				"foveation_cents":      fov,
+				"pro":                  in.Pro, // previews get no Pro discount
 			},
 		}, nil
 	}
@@ -1115,11 +1151,13 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	base := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
 	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
 	subtotal := base + fov
+	proDiscount := rates.proDiscountCents(in, subtotal)
+	afterPro := subtotal - proDiscount
 	bulkDiscount := int64(0)
-	if subtotal > rates.DiscountThresholdCents {
-		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
+	if afterPro > rates.DiscountThresholdCents {
+		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
 	}
-	total := subtotal - bulkDiscount - in.CreditCents
+	total := afterPro - bulkDiscount - in.CreditCents
 	if floor := rates.MinimumFor(in.Step); total < floor {
 		total = floor
 	}
@@ -1137,6 +1175,9 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			"cents_per_minute":     perMin, // the PRICE rate
 			"fps_factor":           round4(fpsF),
 			"subtotal_cents":       subtotal,
+			"pro":                  in.Pro,
+			"pro_discount_pct":     proPct(rates, in, proDiscount),
+			"pro_discount_cents":   proDiscount,
 			"discount_cents":       bulkDiscount,
 			"analyze_credit_cents": in.CreditCents,
 		},
@@ -1282,5 +1323,16 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		"minimum_cents":             rates.ProMinimum(),
 		"preview_minimum_cents":     rates.PreviewMinimum(),
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
+		// S3D-67: SVS Pro customers' share off full runs (not previews),
+		// before the bulk discount; pct 0 = off.
+		"pro_discount": map[string]any{"pct": rates.ProDiscount(), "applies_to": "production"},
 	}
+}
+
+// proPct is the Pro share a quote applied (0 when none applied).
+func proPct(r *Rates, in StepInputs, cents int64) float64 {
+	if cents == 0 && (!in.Pro || in.Step != "production") {
+		return 0
+	}
+	return r.ProDiscount()
 }

@@ -295,6 +295,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
 | `gpu_cap_per_app` | 8 — GPUs per Modal app, the "busy N of cap" in the GPU-line mail |
 | `gpu_cap_per_workspace` | `{}` — per-workspace override of `gpu_cap_per_app` (S3D-40) |
+| `pro_discount_enabled` / `pro_discount_pct` | false (test: true) / 0.20 — S3D-67 |
 | `file_keep_days` | 90 — days without use before a project's files are erased (S3D-24) |
 | `file_notice_days` | `[14, 3]` — notice mails, days before |
 | `deleted_project_purge_days` | 30 — a deleted project's files are kept this long |
@@ -302,6 +303,23 @@ Config keys (`config/pricing_{env}`, every one optional):
 Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
 (default to the Modal token).
+
+### Pro discount (S3D-67)
+
+Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every
+paid web run — production of both methods, not previews — taken before the
+10% bulk discount (which applies if the run is still over $10); the $1
+minimum stays. Pro = RevenueCat's `pro` entitlement active (subscriptions,
+Lifetime with no expiry, a billing grace period) or a pass
+(`…_pass_<n>m…`, App Store or web) bought less than n months ago — the
+app's own rule; `trial`/free grants don't count. The gateway asks
+RevenueCat REST v1 (`GET /v1/subscribers/{firebase uid}`, secret
+`RC_API_KEY_V1`, the SVS backend's) on each pro-step quote/run, caching 10
+min per uid (failures 1 min). Any failure or no key = list price, never a
+block. Quotes answer `pro: bool` and, when applied, `pro_discount: {pct,
+cents}`; the stored breakdown keeps `pro`, `pro_discount_pct`,
+`pro_discount_cents`. `/v1/pricing` adds `pro_discount: {pct,
+applies_to}` (pct 0 = off). The mobile one-shot is unchanged.
 
 ### File keeping (S3D-24)
 

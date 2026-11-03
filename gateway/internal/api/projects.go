@@ -1010,6 +1010,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		in.Preset = pricePreset(params)
 		in.Foveated = params.Foveation != ""
 		in.CreditCents = creditCents
+		in.Pro = s.isPro(ctx, p.UID)
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
 			return nil, nil, httpx.ErrInvalid(err.Error())
@@ -1051,6 +1052,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	in := s.stepQuoteInputs(p, params, step, billable)
 	in.ReuseStages = reuseStages
 	in.CreditCents = creditCents
+	in.Pro = s.isPro(ctx, p.UID)
 	q, err := s.Pricing.QuoteStep(ctx, in)
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())
@@ -1184,6 +1186,12 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"quote":         quote,
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
+	}
+	// S3D-67: whether the account holds SVS Pro, and the Pro line when
+	// this step gets it (full runs, not previews).
+	resp["pro"] = quote.Breakdown["pro"] == true
+	if cents, _ := quote.Breakdown["pro_discount_cents"].(int64); cents > 0 {
+		resp["pro_discount"] = map[string]any{"pct": quote.Breakdown["pro_discount_pct"], "cents": cents}
 	}
 	// Pre-run wall-clock estimate for the same knobs the quote priced, and
 	// the output's length (Deliver offers "Split into parts" past 15 min).
