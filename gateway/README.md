@@ -140,10 +140,12 @@ Projects and Lifelike quotes carry `qualities: [{id, label_short_side,
 preset, price_preset}]`; requests send `preset` = an id (`full`, or the
 preset `full` renders); quotes return `output_short_side`. Anything else
 above the source is 400 `preset_above_source`; nothing above 8K is built
-(bigger sources are scaled down, and Lifelike has no pixel cap). Until the
-Lifelike service renders 5k/6k/8k it refuses them: the run fails at once
-with its money returned and the create answers 400 `preset_unavailable`
-(any other Lifelike 400 at submit: `submit_rejected`). `original_eye`
+(bigger sources are scaled down, and Lifelike has no pixel cap). Only the
+sizes in `lifelike_enabled_presets` (default 1080p, qhd, 3k, 4k — 5k/6k/8k
+join once the Lifelike service renders them) are offered, quoted or run; a
+request for another is 400 `preset_unavailable` before any charge. As a
+backstop, a Lifelike 400 at submit fails the run at once with its money
+returned and answers 400 `preset_unavailable` / `submit_rejected`. `original_eye`
 (`left`|`right`|null) passes through on Lifelike steps at the same price;
 `foveation: "static"` passes through only when the size is below the
 source's, at ×`foveation_price_multiplier`, and only while
@@ -234,6 +236,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `precharge_threshold_cents` | 2500 |
 | `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 · 5k 1300 · 6k 1600 · 8k 2200 |
 | `foveation_enabled` / `foveation_price_multiplier` | false / 1.3 |
+| `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |

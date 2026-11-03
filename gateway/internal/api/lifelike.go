@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
@@ -149,7 +150,7 @@ func errStepForMethod(step, method string) *httpx.APIError {
 // 3k|4k, never above the source), formats (mvhevc|sbs|half_sbs),
 // target_fps, the trim and split_max_seconds. Every Classic-only knob is a
 // 400 rather than silently dropped.
-func resolveLifelikeParams(req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
+func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string) (store.Params, *httpx.APIError) {
 	var params store.Params
 	switch req.Step {
 	case store.StepLifelikePreview:
@@ -173,7 +174,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project) (store.Params, *h
 			return params, httpx.ErrInvalid(knob + " applies to classic projects only")
 		}
 	}
-	q, qerr := pickQuality(lifelikeQualities(p), req.Preset, sourceShortSide(p))
+	q, qerr := pickQuality(lifelikeQualities(p, enabled), req.Preset, sourceShortSide(p), enabled)
 	if qerr != nil {
 		return params, qerr
 	}
@@ -454,12 +455,18 @@ func sourceShortSide(p *store.Project) int {
 }
 
 // lifelikeQualities lists what a project's source can be rendered at,
-// smallest first. Before analysis every step is listed.
-func lifelikeQualities(p *store.Project) []quality {
+// smallest first, among the enabled presets (lifelike_enabled_presets).
+// Before analysis every enabled step is listed. A full option renders the
+// first ENABLED step above the source (clamped to the source); with none
+// enabled above it, the top enabled step is the top.
+func lifelikeQualities(p *store.Project, enabled []string) []quality {
 	short := sourceShortSide(p)
 	var out []quality
 	below := "" // the highest step the source reaches
 	for _, preset := range pricing.LifelikePresets {
+		if !slices.Contains(enabled, preset) {
+			continue
+		}
 		h := presetOutputHeight[preset]
 		if short == 0 || h <= short {
 			out = append(out, quality{ID: preset, LabelShortSide: h, Preset: preset, PricePreset: preset})
@@ -484,7 +491,7 @@ func lifelikeQualities(p *store.Project) []quality {
 // "" picks 1080p, or full resolution on a source below 1080; "full" or the
 // preset the full option renders pick full resolution. A step the source
 // doesn't reach is 400 preset_above_source.
-func pickQuality(offered []quality, requested string, short int) (quality, *httpx.APIError) {
+func pickQuality(offered []quality, requested string, short int, enabled []string) (quality, *httpx.APIError) {
 	if requested == "" {
 		requested = pricing.LifelikePresets[0]
 	}
@@ -496,6 +503,10 @@ func pickQuality(offered []quality, requested string, short int) (quality, *http
 	if !slices.Contains(pricing.LifelikePresets, requested) && requested != qualityFull {
 		return quality{}, httpx.ErrInvalid("lifelike preset must be one of " +
 			strings.Join(pricing.LifelikePresets, "|") + "|" + qualityFull)
+	}
+	if requested != qualityFull && !slices.Contains(enabled, requested) {
+		// Refused before any charge: the service doesn't render it yet.
+		return quality{}, errPresetUnavailable(requested, enabled)
 	}
 	return quality{}, httpx.Err(http.StatusBadRequest, "preset_above_source", fmt.Sprintf(
 		"%s is above this video's own size (%dp); Lifelike never upscales", requested, short))
@@ -541,7 +552,13 @@ func checkPreviewSpan(p *store.Project, params store.Params, rule pricing.Previe
 
 // resolveParams is resolveStepParams plus the rules that live in config.
 func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
-	params, err := resolveStepParams(req, p)
+	var params store.Params
+	var err *httpx.APIError
+	if projectMethod(p) == store.MethodLifelike {
+		params, err = resolveLifelikeParams(req, p, s.Pricing.Rates(ctx).EnabledLifelikePresets())
+	} else {
+		params, err = resolveStepParams(req, p)
+	}
 	if err != nil {
 		return params, err
 	}
@@ -554,4 +571,27 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		}
 	}
 	return params, nil
+}
+
+// errPresetUnavailable: a Lifelike size the service doesn't render yet
+// (not in lifelike_enabled_presets) — 400 before any charge.
+func errPresetUnavailable(preset string, enabled []string) *httpx.APIError {
+	top := "4K"
+	if n := len(enabled); n > 0 {
+		top = strings.ToUpper(enabled[n-1])
+	}
+	return httpx.Err(http.StatusBadRequest, "preset_unavailable", fmt.Sprintf(
+		"%s isn't available yet; choose %s or lower", strings.ToUpper(preset), top))
+}
+
+// enabledLifelikePresets for responses built without a request context
+// (projectResponse): the cached config, bounded so a cold read can't hang
+// the response; defaults without a pricing service (tests).
+func (s *Service) enabledLifelikePresets() []string {
+	if s.Pricing == nil {
+		return pricing.DefaultLifelikeEnabled
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.Pricing.Rates(ctx).EnabledLifelikePresets()
 }

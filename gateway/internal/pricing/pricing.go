@@ -182,8 +182,11 @@ type Rates struct {
 	// FoveationEnabled switches the Lifelike "foveation: static" option on
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
-	FoveationEnabled         bool    `firestore:"foveation_enabled"`
-	FoveationPriceMultiplier float64 `firestore:"foveation_price_multiplier"`
+	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// LifelikeEnabledPresets: the Lifelike sizes the service renders
+	// today (see EnabledLifelikePresets).
+	LifelikeEnabledPresets   []string `firestore:"lifelike_enabled_presets"`
+	FoveationPriceMultiplier float64  `firestore:"foveation_price_multiplier"`
 	// LifelikeETA is the Lifelike wall-clock model — see
 	// EstimateLifelikeETA.
 	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
@@ -908,6 +911,28 @@ func defaultLifelikePrices() map[string]int64 {
 	}
 }
 
+// DefaultLifelikeEnabled: the presets the Lifelike service renders today
+// (5k/6k/8k wait for Spatial 3D Studio — S3D-48).
+var DefaultLifelikeEnabled = []string{"1080p", "qhd", "3k", "4k"}
+
+// EnabledLifelikePresets is lifelike_enabled_presets in LifelikePresets
+// order (unknown names dropped); absent or empty = DefaultLifelikeEnabled.
+// Only these are offered, quoted or run: a run for another is refused
+// before any charge, so nothing is charged for a size the service would
+// refuse.
+func (r *Rates) EnabledLifelikePresets() []string {
+	var out []string
+	for _, p := range LifelikePresets {
+		if slices.Contains(r.LifelikeEnabledPresets, p) {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return DefaultLifelikeEnabled
+	}
+	return out
+}
+
 // FoveationMultiplier scales a foveated Lifelike run's price (S3D-50,
 // foveation_price_multiplier; 0/absent = 1.3).
 func (r *Rates) FoveationMultiplier() float64 {
@@ -1085,7 +1110,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	}
 	lifelike := map[string]int64{}
 	lifelikePerFrame := map[string]float64{}
-	for _, p := range LifelikePresets {
+	enabled := rates.EnabledLifelikePresets()
+	for _, p := range enabled {
 		if v, ok := rates.lifelikePrice(p); ok {
 			lifelike[p] = v
 			lifelikePerFrame[p] = round4(float64(v) / (60 * fpsBase))
@@ -1096,7 +1122,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		"currency":     rates.Currency,
 		"methods": map[string]any{
 			"lifelike": map[string]any{
-				"presets":                     LifelikePresets,
+				"presets":                     enabled,
 				"production_cents_per_minute": lifelike,
 				// a preview costs its frames at the production price per
 				// frame (cents_per_minute / 1,440), at least minimum_cents,

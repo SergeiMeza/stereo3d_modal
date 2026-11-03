@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -138,6 +139,51 @@ func TestLifelikePreviewSpan(t *testing.T) {
 	}
 }
 
+// lifelike_enabled_presets: only enabled sizes are offered, and a full
+// option needs an enabled step above the source.
+func TestLifelikeQualitiesEnabledOnly(t *testing.T) {
+	ids := func(qs []quality) string {
+		var out []string
+		for _, q := range qs {
+			out = append(out, q.ID+":"+q.Preset+"/"+q.PricePreset)
+		}
+		return strings.Join(out, " ")
+	}
+	p := lifelikeProject()
+	p.Probe.Width, p.Probe.Height = 8192, 4320
+	if got := ids(lifelikeQualities(p, pricing.DefaultLifelikeEnabled)); got != "1080p:1080p/1080p qhd:qhd/qhd 3k:3k/3k 4k:4k/4k" {
+		t.Errorf("8K source, default presets: %s", got)
+	}
+	p.Probe.Width, p.Probe.Height = 5120, 2560 // between 4k and 5k
+	if got := ids(lifelikeQualities(p, pricing.DefaultLifelikeEnabled)); got != "1080p:1080p/1080p qhd:qhd/qhd 3k:3k/3k 4k:4k/4k" {
+		t.Errorf("no full option without an enabled step above: %s", got)
+	}
+	if got := ids(lifelikeQualities(p, []string{"1080p", "qhd", "3k", "4k", "5k"})); got != "1080p:1080p/1080p qhd:qhd/qhd 3k:3k/3k 4k:4k/4k full:5k/4k" {
+		t.Errorf("5k enabled: %s", got)
+	}
+	// config parsing: order and unknown names
+	r := pricing.Rates{LifelikeEnabledPresets: []string{"8k", "1080p", "bogus", "4k"}}
+	if got := strings.Join(r.EnabledLifelikePresets(), ","); got != "1080p,4k,8k" {
+		t.Errorf("enabled from config: %s", got)
+	}
+	if got := strings.Join((&pricing.Rates{}).EnabledLifelikePresets(), ","); got != "1080p,qhd,3k,4k" {
+		t.Errorf("absent: %s", got)
+	}
+	// the service path reads the config
+	cfg := pricing.Defaults()
+	cfg.LifelikeEnabledPresets = []string{"1080p", "qhd", "3k", "4k", "5k", "6k", "8k"}
+	s := &Service{Pricing: pricing.NewStatic(cfg)}
+	big := lifelikeProject()
+	big.Probe.Width, big.Probe.Height = 8192, 4320
+	if params, err := s.resolveParams(context.Background(), &stepConvReq{Step: store.StepProduction, Preset: "8k"}, big); err != nil || params.Preset != "8k" {
+		t.Errorf("8k enabled in config: %+v %v", params, err)
+	}
+	def := &Service{Pricing: pricing.NewStatic(nil)}
+	if _, err := def.resolveParams(context.Background(), &stepConvReq{Step: store.StepProduction, Preset: "8k"}, big); err == nil || err.Code != "preset_unavailable" {
+		t.Errorf("8k not enabled: %v", err)
+	}
+}
+
 // S3D-04: what a source can be rendered at.
 func TestLifelikeQualities(t *testing.T) {
 	ids := func(qs []quality) string {
@@ -170,7 +216,7 @@ func TestLifelikeQualities(t *testing.T) {
 	for _, tc := range cases {
 		p := lifelikeProject()
 		p.Probe.Width, p.Probe.Height = tc.w, tc.h
-		if got := ids(lifelikeQualities(p)); got != tc.want {
+		if got := ids(lifelikeQualities(p, pricing.LifelikePresets)); got != tc.want {
 			t.Errorf("%dx%d:\n got %s\nwant %s", tc.w, tc.h, got, tc.want)
 		}
 	}
@@ -199,7 +245,12 @@ func TestLifelikeFullResolutionRequests(t *testing.T) {
 	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, lifelikeProject()); params.Quality != "4k" || params.PricePreset != "" {
 		t.Errorf("4k: %+v", params)
 	}
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), "preset_above_source", "2160p")
+	// 5k-8k aren't enabled by default: refused as unavailable (before any
+	// charge); enabled, 8k on a 4K source is above the source
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), "preset_unavailable", "4K or lower")
+	if _, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), pricing.LifelikePresets); err == nil || err.Code != "preset_above_source" {
+		t.Errorf("8k enabled, 4K source: %v", err)
+	}
 	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "12k"}, lifelikeProject(), "invalid_request", "full")
 }
 

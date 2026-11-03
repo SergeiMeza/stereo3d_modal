@@ -681,7 +681,7 @@ func depthContentDims(p *store.Project) (width, height int, cropped bool) {
 // and depth_scale are the user's handles on it.
 func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
 	if projectMethod(p) == store.MethodLifelike {
-		return resolveLifelikeParams(req, p)
+		return resolveLifelikeParams(req, p, pricing.DefaultLifelikeEnabled)
 	}
 	var params store.Params
 	if (req.OriginalEye != nil && *req.OriginalEye != "") || req.Foveation != "" {
@@ -1137,7 +1137,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	}
 	if method == store.MethodLifelike {
 		resp["output_short_side"] = outputShortSide(p, params)
-		resp["qualities"] = lifelikeQualities(p)
+		resp["qualities"] = lifelikeQualities(p, rates.EnabledLifelikePresets())
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -1419,7 +1419,7 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 		resp["probe"] = p.Probe
 	}
 	if projectMethod(p) == store.MethodLifelike {
-		resp["qualities"] = lifelikeQualities(p) // S3D-04: what this source offers
+		resp["qualities"] = lifelikeQualities(p, s.enabledLifelikePresets()) // S3D-04: what this source offers
 	}
 	if p.Scenes != nil {
 		resp["scenes"] = p.Scenes
