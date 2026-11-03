@@ -37,6 +37,16 @@ fi
 # Firebase web keys ship in every web and mobile client.
 FIREBASE_WEB_API_KEY="${FIREBASE_WEB_API_KEY:-AIzaSyCZcwCfTeRhsLjmPHXUPMEU7xNUserJESQ}"
 
+# Lifelike 3D: the shared lifelike3d Modal service (ml-sharp-modal
+# docs/LIFELIKE_API.md), same workspace as the stereo3d API. Test points at
+# the test service by default; prod stays off (new projects default to
+# classic) until LIFELIKE_BASE_URL is passed explicitly — the prod service
+# is not deployed yet. Its proxy auth reuses the modal-token-* secrets.
+if [[ -z "${LIFELIKE_BASE_URL:-}" && "$ENV" == "test" ]]; then
+  LIFELIKE_BASE_URL="https://${MODAL_WORKSPACE}--lifelike3d-api-${ENV}.modal.run"
+fi
+LIFELIKE_BASE_URL="${LIFELIKE_BASE_URL:-off}"
+
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
   --source . \
@@ -44,7 +54,7 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 10 \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
-  --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}@FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}" \
+  --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}@FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}@LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}" \
   --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')

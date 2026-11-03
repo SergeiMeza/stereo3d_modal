@@ -105,6 +105,75 @@ SOURCE-frame space, which the web Stereo page seeds its per-scene editors
 from. Latest succeeded run wins; `scene_profile.scenes_version` says which
 scene-list version it was computed against (stale after a cut edit).
 
+## Lifelike 3D (method per project, 2026-11-03)
+
+A project's `method` is `lifelike` or `classic` (always in project and
+conversion JSON; records without one are classic). `POST /v1/projects`
+takes an optional `method` (default `default_project_method`, lifelike — or
+classic while `LIFELIKE_BASE_URL` is unset); `PATCH /v1/projects/{id}
+{"method": ...}` switches it for the next runs (classic on a source longer
+than Classic's cap → 400 `source_too_long_for_method`; lifelike without the
+service → 400 `method_unavailable`). `GET /v1/limits` carries
+`methods.{lifelike,classic}.{max_source_duration_s, available}` (0 =
+unlimited) and `default_method`.
+
+Lifelike runs on the shared lifelike3d Modal service (ml-sharp-modal
+`docs/LIFELIKE_API.md`, ADR-0019) — same submit/job shape, so the state
+machine, billing and settlement are the Classic ones. Its steps:
+
+| step | knobs |
+|---|---|
+| `lifelike_preview` | `from_frame`/`to_frame` required, ≤ 10 s of source; preset; formats (default `["sbs"]`); one GPU |
+| `production` | preset; formats ⊆ `mvhevc`/`sbs`/`half_sbs` (default `["mvhevc","half_sbs"]`); trim; `split_max_seconds` 60–3600 |
+
+Presets are `1080p|qhd|3k|4k` (no draft); a preset above the source's short
+side is a 400 `preset_above_source` (1080p is always allowed). Classic-only
+knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
+`use_uploaded_depth`, `displacement`) are 400s; the project's cut list is
+always forwarded. Classic refuses `split_max_seconds` (400
+`split_unsupported`) until the stereo3d pipeline implements splitting.
+
+Quotes gain `method`, `charge_timing` (`before` above
+`precharge_threshold_cents`), `eta_seconds` from the method's model,
+`output_seconds` and `split_suggested` (output > 900 s). Conversions gain
+`method`, `charge_timing`, `waiting_for_gpu`/`queued_s` (copied from the job
+record, both pipelines), `parts` (`[{index, from_frame, to_frame, start_s,
+duration_s}]` for split outputs) and, for pre-charged runs, `billing.status`
+`charged` → `refund_pending` → `refunded` (or `not_charged` when 3DS was never
+completed). `GET /v1/conversions/{id}/downloads` adds `files`: one entry per
+output (`name`, `format`, `part` for split parts, `filename` like "Trip 3D
+Part 2.mov", `url`); `downloads` (name → URL) is unchanged.
+
+Pricing: Lifelike has its own PRICE table (no margin),
+`lifelike_price_cents_per_minute` per output minute at 24 fps, times the fps
+factor, for previews and production alike; bulk discount and minimum apply,
+nothing else from Classic. ETA: `overhead_s + render_gpu_s_per_minute ×
+output minutes (24 fps) / GPUs + encode_base_s + min(frames,
+encode_frame_cap) × encode_s_per_frame[preset]`. Overdue judging adds the
+run's `queued_s`, and a run may process for max(24 h, 3 × its estimate).
+
+Billing (both methods): pro steps quoted above `precharge_threshold_cents`
+are CHARGED on the saved card before submission (`auto_precharge`; 3DS parks
+them at `created`, the succeeded webhook submits) and refunded in full when
+they fail, are canceled or expire; smaller ones join the batch on success as
+before. The mobile one-shot flow keeps its hold. PaymentIntent metadata
+carries `method` (and `split_max_seconds`).
+
+Config keys (`config/pricing_{env}`, every one optional):
+
+| key | default |
+|---|---|
+| `default_project_method` | `lifelike` |
+| `lifelike_max_source_duration_s` | 0 (unlimited); Classic keeps `max_source_duration_s` (600) |
+| `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
+| `precharge_threshold_cents` | 2500 |
+| `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 |
+| `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_base_s` 20 · `encode_frame_cap` 7200 · `encode_s_per_frame` 1080p 0.035 · qhd 0.06 · 3k 0.075 · 4k 0.13 |
+
+Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
+unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
+(default to the Modal token).
+
 ## Support runbook
 
 A user ticket should quote a `conversion_id` (the app shows it on every
