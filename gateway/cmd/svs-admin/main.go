@@ -11,7 +11,7 @@
 //	cases [-tab open|waiting|decided|closed|all] [-q text] [-type t] [-reason r]
 //	case CASE-0001
 //	act CASE-0001 <action> [-items c1=100,c2=250] [-expected-max N] [-template t] [-text t] [-method m] [-reference r] [-yes]
-//	open -uid U [-runs a,b] -reason R [-topup T] [-text t]
+//	open -uid U [-runs a,b] -reason R [-topup T] [-text t]   (reason plan_refund: the latest plan invoice, proposing paid × unspent ÷ credit)
 //	account UID
 //	account-action UID <action> [-cents N] [-case CASE-0001] [-note t] [-yes]
 //	disputes [-months 3] [-csv]
@@ -52,7 +52,7 @@ import (
 const project = "spatial-video-studio"
 
 var moneyActions = map[string]bool{"approve": true, "partial": true, "waive": true, "deny": true, "mark_out_of_band": true,
-	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true}
+	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true, "block_permanent": true}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))

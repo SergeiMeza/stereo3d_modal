@@ -76,7 +76,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if (req.Action == "write_off_owed" || req.Action == "adjust_balance") && !a.FreshAuth() {
+	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent") && !a.FreshAuth() {
 		httpx.WriteErr(ctx, w, errReauth())
 		return
 	}
@@ -89,12 +89,26 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 	switch req.Action {
 	case "clear_review":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.UnderReview = false; return nil })
+		if err == nil { // a cleared fraud warning gives the plan credit back
+			s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, "efw:", "", "review cleared", "")
+		}
 	case "clear_sheet_only":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.SheetOnly, c.SheetOnlyReason = false, ""; return nil })
 	case "block", "unblock":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.Blocked = req.Action == "block"; return nil })
-		if err == nil && req.Action == "block" {
+		switch {
+		case err == nil && req.Action == "block":
+			s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "block", req.CaseID, "account blocked", "")
 			s.revokePlanEntitlement(ctx, uid, "account blocked") // fraud: the plan's app entitlement ends now
+		case err == nil:
+			s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, "block", req.CaseID, "account unblocked", "")
+		}
+	case "block_permanent":
+		// A block that stays: the plan credit is removed (never paid out).
+		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.Blocked = true; return nil })
+		if err == nil {
+			s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "block", req.CaseID, "account blocked for good", "")
+			s.revokePlanEntitlement(ctx, uid, "account blocked for good")
 		}
 	case "resend_e2":
 		s.mailOwed(ctx, "E2", fmt.Sprintf("E2_resend_%s_%d", uid, time.Now().Unix()), uid, s.owedCents(ctx, uid))

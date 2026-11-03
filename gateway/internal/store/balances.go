@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -52,6 +53,14 @@ const (
 	// spent first, gone at the period's end.
 	EntryPlanCredit       = "plan_credit"
 	EntryPlanCreditExpiry = "plan_credit_expiry"
+	// A plan that ends early (owner rules 2026-11-03): a dispute, a fraud
+	// warning or a block freezes the unheld plan credit (Ref names why:
+	// dispute:{id} | efw:{id} | block); a won dispute or an unblock
+	// unfreezes it (it still expires at the period's end); a lost dispute,
+	// a refund we grant, a permanent block or a deletion removes it.
+	EntryPlanCreditFreeze   = "plan_credit_freeze"
+	EntryPlanCreditUnfreeze = "plan_credit_unfreeze"
+	EntryPlanCreditRemoval  = "plan_credit_removal"
 )
 
 // Top-up states.
@@ -102,7 +111,13 @@ type FifoItem struct {
 	PlanCredit bool       `firestore:"plan_credit,omitempty"`
 	ExpiresAt  *time.Time `firestore:"expires_at,omitempty"`
 	Ref        string     `firestore:"ref,omitempty"`
+	// FrozenCents of RemainingCents can't be spent (counted in the
+	// balance's frozen_cents); FrozenRef says why (plan credit freezes).
+	FrozenCents int64  `firestore:"frozen_cents,omitempty"`
+	FrozenRef   string `firestore:"frozen_ref,omitempty"`
 }
+
+func (it FifoItem) spendable() int64 { return it.RemainingCents - it.FrozenCents }
 
 // FifoUse is what a settle or debt payment took from one item.
 type FifoUse struct {
@@ -362,7 +377,7 @@ func (l *ledger) consumeFifo(cents int64) []FifoUse {
 		if cents <= 0 {
 			break
 		}
-		take := min(cents, l.b.Fifo[i].RemainingCents)
+		take := min(cents, l.b.Fifo[i].spendable())
 		if take <= 0 {
 			continue
 		}
@@ -536,6 +551,62 @@ func (l *ledger) apply(op BalanceOp) error {
 		b.Expired = false
 	case EntryPlanCreditExpiry:
 		l.expirePlanCredit("", false)
+	case EntryPlanCreditFreeze:
+		// The unheld, unfrozen plan credit (held credit stays for its run).
+		room := max(b.Available(), 0)
+		var amt int64
+		for i := range b.Fifo {
+			it := &b.Fifo[i]
+			if !it.PlanCredit || room <= 0 {
+				continue
+			}
+			take := min(it.spendable(), room)
+			if take <= 0 {
+				continue
+			}
+			it.FrozenCents += take
+			if it.FrozenRef == "" {
+				it.FrozenRef = op.Ref
+			}
+			room -= take
+			amt += take
+		}
+		b.FrozenCents += amt
+		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCreditFreeze, Cents: amt, Ref: op.Ref, CaseID: op.CaseID, Note: op.Note})
+	case EntryPlanCreditUnfreeze:
+		// What op.Ref froze (a prefix: "dispute:du_1", "efw:", "block").
+		var amt int64
+		for i := range b.Fifo {
+			it := &b.Fifo[i]
+			if it.PlanCredit && it.FrozenCents > 0 && strings.HasPrefix(it.FrozenRef, op.Ref) {
+				amt += it.FrozenCents
+				it.FrozenCents, it.FrozenRef = 0, ""
+			}
+		}
+		b.FrozenCents -= amt
+		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCreditUnfreeze, Cents: amt, Ref: op.Ref, CaseID: op.CaseID, Note: op.Note})
+		l.expirePlanCredit("", false) // still gone at its period's end
+	case EntryPlanCreditRemoval:
+		// Every frozen part, and the unheld rest; never paid out.
+		room := max(b.Available(), 0)
+		var amt int64
+		keep := b.Fifo[:0]
+		for _, it := range b.Fifo {
+			if it.PlanCredit {
+				free := min(it.spendable(), room)
+				room -= free
+				take := it.FrozenCents + free
+				b.FrozenCents -= it.FrozenCents
+				it.RemainingCents -= take
+				it.FrozenCents, it.FrozenRef = 0, ""
+				amt += take
+			}
+			if it.RemainingCents > 0 {
+				keep = append(keep, it)
+			}
+		}
+		b.Fifo = keep
+		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCreditRemoval, Cents: amt, Delta: -amt, Ref: op.Ref, CaseID: op.CaseID, Note: op.Note})
 	case EntryDisputeFreeze:
 		amt := min(op.Cents, max(b.Available(), 0))
 		b.FrozenCents += amt
@@ -1113,7 +1184,7 @@ func (l *ledger) expirePlanCredit(ref string, all bool) {
 	for _, it := range b.Fifo {
 		due := it.PlanCredit && (all || (it.ExpiresAt != nil && !it.ExpiresAt.After(l.now)))
 		if due && room > 0 {
-			take := min(it.RemainingCents, room)
+			take := min(it.spendable(), room) // a frozen part waits for its dispute or block
 			room -= take
 			gone += take
 			it.RemainingCents -= take
@@ -1147,6 +1218,24 @@ func (b *Balance) PlanCreditCents() int64 {
 		}
 	}
 	return n
+}
+
+// PlanCreditFrozen is the plan credit frozen by a dispute, a fraud
+// warning or a block.
+func (b *Balance) PlanCreditFrozen() int64 {
+	var n int64
+	for _, it := range b.Fifo {
+		if it.PlanCredit {
+			n += it.FrozenCents
+		}
+	}
+	return n
+}
+
+// PlanCreditUnheld is the plan credit a freeze or removal reaches now:
+// frozen parts plus what no in-flight run has reserved.
+func (b *Balance) PlanCreditUnheld() int64 {
+	return min(b.PlanCreditCents(), b.PlanCreditFrozen()+max(b.Available(), 0))
 }
 
 // CashCents is the unspent money from cash top-ups (what T11 can pay

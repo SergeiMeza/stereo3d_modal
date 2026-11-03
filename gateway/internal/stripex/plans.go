@@ -1,6 +1,7 @@
 package stripex
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -162,4 +163,33 @@ func (c *Client) PlanPaymentOf(pi string) (*PlanPayment, error) {
 		return nil, nil
 	}
 	return &PlanPayment{InvoiceID: inv.ID, SubscriptionID: inv.Parent.SubscriptionDetails.Subscription, AmountPaid: inv.AmountPaid}, nil
+}
+
+// InvoicePayment is the PaymentIntent that paid an invoice and how much.
+func (c *Client) InvoicePayment(invoiceID string) (pi string, paid int64, err error) {
+	var page struct {
+		Data []struct {
+			AmountPaid int64  `json:"amount_paid"`
+			Status     string `json:"status"`
+			Payment    struct {
+				PaymentIntent string `json:"payment_intent"`
+			} `json:"payment"`
+		} `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoice_payments?invoice="+url.QueryEscape(invoiceID)+"&limit=10", nil, "", &page); err != nil {
+		return "", 0, err
+	}
+	for _, p := range page.Data {
+		if p.Status == "paid" && p.Payment.PaymentIntent != "" {
+			return p.Payment.PaymentIntent, p.AmountPaid, nil
+		}
+	}
+	return "", 0, fmt.Errorf("invoice %s has no paid payment", invoiceID)
+}
+
+// CancelSubscriptionNow ends a subscription at once (no proration, no
+// final invoice): a plan refunded early.
+func (c *Client) CancelSubscriptionNow(id string) error {
+	var out map[string]any
+	return webCall(http.MethodDelete, "/v1/subscriptions/"+url.PathEscape(id), nil, "", &out)
 }

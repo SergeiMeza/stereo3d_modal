@@ -86,8 +86,11 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 	}
 	o, ok := s.ownerOfPI(pi)
 	if !ok || o.UID == "" {
-		if eventType == "charge.dispute.created" {
-			s.planEarlyEnd(ctx, pi, "dispute", 0) // a disputed plan invoice ends its app entitlement
+		switch eventType { // a plan invoice's payment: its credit and app entitlement
+		case "charge.dispute.created":
+			s.planEarlyEnd(ctx, pi, "dispute", d.ID, 0)
+		case "charge.dispute.closed":
+			s.planDisputeClosed(ctx, pi, d.ID, d.Status == "won")
 		}
 		return nil
 	}
@@ -268,7 +271,7 @@ func (s *Service) handleEFW(ctx context.Context, raw json.RawMessage) error {
 	}
 	o, ok := s.ownerOfPI(pi)
 	if !ok || o.UID == "" {
-		s.planEarlyEnd(ctx, pi, "fraud warning", 0)
+		s.planEarlyEnd(ctx, pi, "fraud warning", w.ID, 0)
 		return nil
 	}
 	s.Store.UpdateCustomer(ctx, o.UID, func(c *store.Customer) error {
@@ -341,7 +344,7 @@ func (s *Service) handleRefundEvent(ctx context.Context, eventType string, raw j
 		// Maybe a plan invoice's payment: a full refund ends the plan's
 		// app entitlement early.
 		if f, ferr := s.Stripe.PaymentFactsOf(re.PaymentIntent); ferr == nil && f.Refunded > 0 {
-			s.planEarlyEnd(ctx, re.PaymentIntent, "refund", f.Refunded)
+			s.planEarlyEnd(ctx, re.PaymentIntent, "refund", re.ID, f.Refunded)
 		}
 		return nil
 	}

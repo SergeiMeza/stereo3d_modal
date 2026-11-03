@@ -1065,10 +1065,17 @@ func ledgerRow(e store.Entry) map[string]any {
 			return nil // a settings change
 		}
 		detail = e.Note
-	case store.EntryDisputeFreeze:
+	case store.EntryDisputeFreeze, store.EntryPlanCreditFreeze:
 		cents = -e.Cents
-	case store.EntryDisputeUnfreeze:
+		detail = e.Note
+	case store.EntryDisputeUnfreeze, store.EntryPlanCreditUnfreeze:
 		cents = e.Cents
+		detail = e.Note
+	case store.EntryPlanCreditRemoval:
+		detail = e.Note
+	}
+	if cents == 0 && (e.Kind == store.EntryPlanCreditFreeze || e.Kind == store.EntryPlanCreditUnfreeze || e.Kind == store.EntryPlanCreditRemoval) {
+		return nil // nothing moved
 	}
 	if e.CaseID != "" {
 		detail = e.CaseID

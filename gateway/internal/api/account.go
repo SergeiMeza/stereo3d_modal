@@ -293,7 +293,8 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 			return err
 		}
 	}
-	s.revokePlanEntitlement(ctx, uid, "account deleted") // the app's business/studio, never pro
+	s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted") // never paid out
+	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                           // the app's business/studio, never pro
 	if s.Auth == nil {
 		return nil
 	}

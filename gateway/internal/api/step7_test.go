@@ -336,3 +336,142 @@ func TestPlanEntitlementGrants(t *testing.T) {
 		t.Fatal("revoke recorded")
 	}
 }
+
+// Plan credit when a plan ends early: a refund we grant removes the
+// unspent credit and refunds paid × unspent ÷ credit (rounded down), the
+// plan ends; a dispute freezes the unheld credit (a held run still
+// settles from it), lost removes it, won unfreezes it; a block freezes,
+// an unblock unfreezes; deletion removes.
+func TestPlanCreditEarlyEnd(t *testing.T) {
+	if planShare(29900, 20000, 40000) != 14950 || planShare(29900, 13333, 40000) != 9966 || planShare(29900, 0, 40000) != 0 {
+		t.Fatal("paid × unspent ÷ credit, rounded down")
+	}
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	newPlan := func(inv, pi, sub string, spent int64) string {
+		uid := "u" + store.NewID()
+		end := time.Now().Add(20 * 24 * time.Hour)
+		s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", Plan: &store.Plan{Tier: "business", SubscriptionID: sub,
+			Status: "active", CurrentPeriodEnd: &end, LastInvoiceID: inv, LastCreditCents: 40000}})
+		ops := []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: 40000, Ref: sub, ExpiresAt: &end, EntryID: "plancredit_" + inv}}
+		if spent > 0 {
+			ops = append(ops, store.BalanceOp{Kind: store.EntryAdjustment, Cents: -spent, EntryID: "spent_" + inv})
+		}
+		if _, _, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) { return ops, nil }); err != nil {
+			t.Fatal(err)
+		}
+		fake.invPays[pi] = inv
+		fake.invs[inv] = map[string]any{"id": inv, "amount_paid": 29900, "parent": map[string]any{"subscription_details": map[string]any{"subscription": sub}}}
+		fake.pis[pi] = map[string]any{"status": "succeeded", "amount_received": 29900}
+		fake.subs[sub] = map[string]any{"id": sub, "status": "active", "metadata": map[string]string{"product": "svs-web", "env": "test", "user_id": uid, "plan": "business"}}
+		return uid
+	}
+
+	// 2. A refund we grant: $200 of $400 left on $299 → $149.50.
+	a := newPlan("in_a"+store.NewID(), "pi_a"+store.NewID(), "sub_a"+store.NewID(), 20000)
+	cs, err := s.openPlanRefundCase(ctx, a, "owner@x", "wants out")
+	if err != nil || cs.RequestedCents != 14950 {
+		t.Fatalf("case %v %+v", err, cs)
+	}
+	if _, max := s.perRun(ctx, cs); max != 14950 {
+		t.Fatalf("proposal %d", max)
+	}
+	if err := s.applyCaseAction(ctx, cs, caseActionReq{Action: "approve"}, "owner@x"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := s.Store.GetBalance(ctx, a)
+	rows, _ := s.Store.ListRefundRows(ctx, cs.Related.PIIDs[0])
+	if b.PlanCreditCents() != 0 || len(rows) != 1 || rows[0].TotalCents != 14950 || fake.subs[fakeSubOf(fake, a)]["status"] != "canceled" {
+		t.Fatalf("after refund: credit %d rows %+v", b.PlanCreditCents(), rows)
+	}
+	if ok, _ := s.Store.EntryExists(ctx, a, "plancredit_refund_"+cs.ID); !ok {
+		t.Fatal("removal entry linked to the case")
+	}
+
+	// 3 + 7. A dispute freezes the unheld part; a held run still settles.
+	d := newPlan("in_d"+store.NewID(), "pi_d"+store.NewID(), "sub_d"+store.NewID(), 0)
+	held := &store.Conversion{ID: store.NewID(), UID: d, State: store.StatePaid, Kind: "video", PaymentFlow: store.FlowBalance,
+		Quote: store.Quote{AmountCents: 15000, Currency: "usd"}, RunBalance: &store.RunBalance{HoldCents: 15000, State: store.HoldHeld}}
+	held.Stripe.Mode = store.BillingModeBalance
+	if _, err := s.Store.CreateConversionWithHold(ctx, held, 0); err != nil {
+		t.Fatal(err)
+	}
+	piD := fakePIOf(fake, d)
+	dp := "du_" + store.NewID()
+	if err := s.handleDisputeEvent(ctx, "charge.dispute.created", []byte(`{"id":"`+dp+`","amount":29900,"status":"needs_response","payment_intent":"`+piD+`"}`)); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = s.Store.GetBalance(ctx, d)
+	if b.PlanCreditFrozen() != 25000 || b.Available() != 0 {
+		t.Fatalf("frozen %d available %d", b.PlanCreditFrozen(), b.Available())
+	}
+	s.Store.Transition(ctx, held.ID, []string{store.StatePaid}, func(c *store.Conversion) error {
+		c.State = store.StateSucceeded
+		c.RunBalance.SettleCents = 15000
+		return nil
+	})
+	b, _ = s.Store.GetBalance(ctx, d)
+	if b.PlanCreditCents() != 25000 || b.PlanCreditFrozen() != 25000 || b.HeldCents != 0 {
+		t.Fatalf("after the held run: credit %d frozen %d held %d", b.PlanCreditCents(), b.PlanCreditFrozen(), b.HeldCents)
+	}
+	s.handleDisputeEvent(ctx, "charge.dispute.closed", []byte(`{"id":"`+dp+`","amount":29900,"status":"lost","payment_intent":"`+piD+`"}`))
+	b, _ = s.Store.GetBalance(ctx, d)
+	if b.PlanCreditCents() != 0 || b.FrozenCents != 0 || b.BalanceCents != 0 {
+		t.Fatalf("lost: %+v", b)
+	}
+
+	// Won: unfrozen, still expiring at the period's end.
+	w := newPlan("in_w"+store.NewID(), "pi_w"+store.NewID(), "sub_w"+store.NewID(), 10000)
+	piW := fakePIOf(fake, w)
+	dw := "du_" + store.NewID()
+	s.handleDisputeEvent(ctx, "charge.dispute.created", []byte(`{"id":"`+dw+`","amount":29900,"status":"needs_response","payment_intent":"`+piW+`"}`))
+	s.handleDisputeEvent(ctx, "charge.dispute.closed", []byte(`{"id":"`+dw+`","amount":29900,"status":"won","payment_intent":"`+piW+`"}`))
+	b, _ = s.Store.GetBalance(ctx, w)
+	if b.PlanCreditCents() != 30000 || b.PlanCreditFrozen() != 0 || b.Available() != 30000 {
+		t.Fatalf("won: credit %d frozen %d", b.PlanCreditCents(), b.PlanCreditFrozen())
+	}
+
+	// 4. Block / unblock; 5. deletion.
+	k := newPlan("in_k"+store.NewID(), "pi_k"+store.NewID(), "sub_k"+store.NewID(), 0)
+	act := func(action string) {
+		rec := httptest.NewRecorder()
+		s.HandleAdminAccountAction(rec, httptest.NewRequest("POST", "/", strings.NewReader(`{"action":"`+action+`"}`)), &AdminUser{Email: "owner@x", AuthTime: time.Now()}, k)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d %s", action, rec.Code, rec.Body)
+		}
+	}
+	act("block")
+	if b, _ = s.Store.GetBalance(ctx, k); b.PlanCreditFrozen() != 40000 {
+		t.Fatalf("block froze %d", b.PlanCreditFrozen())
+	}
+	act("unblock")
+	if b, _ = s.Store.GetBalance(ctx, k); b.PlanCreditFrozen() != 0 || b.Available() != 40000 {
+		t.Fatalf("unblock: %d", b.PlanCreditFrozen())
+	}
+	s.finishAccountDeletion(ctx, k)
+	if b, _ = s.Store.GetBalance(ctx, k); b.PlanCreditCents() != 0 {
+		t.Fatal("deletion removes the credit")
+	}
+}
+
+func fakeSubOf(f *fakeStripe, uid string) string {
+	for id, sub := range f.subs {
+		if md, _ := sub["metadata"].(map[string]string); md["user_id"] == uid {
+			return id
+		}
+	}
+	return ""
+}
+
+func fakePIOf(f *fakeStripe, uid string) string {
+	sub := fakeSubOf(f, uid)
+	for pi, inv := range f.invPays {
+		if p, _ := f.invs[inv]["parent"].(map[string]any); p != nil {
+			if sd, _ := p["subscription_details"].(map[string]any); sd["subscription"] == sub {
+				return pi
+			}
+		}
+	}
+	return ""
+}

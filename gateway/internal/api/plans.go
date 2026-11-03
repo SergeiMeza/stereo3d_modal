@@ -146,6 +146,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID { // keep the RevenueCat grant record
 			next.RCGrantInvoice, next.RCGrantedUntil, next.RCGrantError = c.Plan.RCGrantInvoice, c.Plan.RCGrantedUntil, c.Plan.RCGrantError
 			next.RCRevokedAt, next.RCRevokeReason = c.Plan.RCRevokedAt, c.Plan.RCRevokeReason
+			next.LastInvoiceID, next.LastCreditCents = c.Plan.LastInvoiceID, c.Plan.LastCreditCents
 		}
 		c.Plan = next
 		return nil
@@ -200,6 +201,12 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	_, periodEnd := sub.Period()
 	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit
 	def, ok := s.rates(ctx).Plan(tier)
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID {
+			c.Plan.LastInvoiceID, c.Plan.LastCreditCents = inv.ID, def.CreditCents
+		}
+		return nil
+	})
 	if !ok || def.CreditCents <= 0 {
 		return
 	}

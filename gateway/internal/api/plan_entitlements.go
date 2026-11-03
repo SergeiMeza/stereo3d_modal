@@ -131,18 +131,27 @@ func (s *Service) planOwnerOfPI(pi string) (uid string, pay *stripex.PlanPayment
 	return sub.Metadata["user_id"], pay
 }
 
-// planEarlyEnd handles a refund, dispute or fraud warning on a PaymentIntent
-// that paid a plan invoice. Refunds revoke only when the invoice is
-// refunded in full.
-func (s *Service) planEarlyEnd(ctx context.Context, pi, why string, refundedCents int64) {
+// planEarlyEnd handles a refund, dispute or fraud warning (ref: its id)
+// on a PaymentIntent that paid a plan invoice: a full refund removes the
+// unspent credit, a dispute or warning freezes it; all three revoke the
+// plan's app entitlement. A partial refund only alerts Slack.
+func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, refundedCents int64) {
 	uid, pay := s.planOwnerOfPI(pi)
 	if uid == "" {
 		return
 	}
-	if why == "refund" && refundedCents < pay.AmountPaid {
-		s.Slack.Alert(ctx, "plan_partial_refund", fmt.Sprintf("plan invoice %s of `%s` partly refunded (%s of %s): entitlements kept",
-			pay.InvoiceID, uid, money(refundedCents), money(pay.AmountPaid)))
-		return
+	switch why {
+	case "refund":
+		if refundedCents < pay.AmountPaid {
+			s.Slack.Alert(ctx, "plan_partial_refund", fmt.Sprintf("plan invoice %s of `%s` partly refunded (%s of %s): credit and entitlements kept",
+				pay.InvoiceID, uid, money(refundedCents), money(pay.AmountPaid)))
+			return
+		}
+		s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "refund:"+pay.InvoiceID, "", "plan invoice refunded in full", "plancredit_refund_"+pay.InvoiceID)
+	case "dispute":
+		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "dispute:"+ref, "", "plan invoice disputed", "plancredit_freeze_"+ref)
+	case "fraud warning":
+		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "efw:"+ref, "", "early fraud warning on the plan invoice", "plancredit_freeze_"+ref)
 	}
 	s.revokePlanEntitlement(ctx, uid, why+" on "+pay.InvoiceID)
 }

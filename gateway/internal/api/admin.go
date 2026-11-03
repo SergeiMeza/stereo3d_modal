@@ -178,6 +178,9 @@ func caseMatches(c *store.Case, email, q string) bool {
 // perRun is the live per-run table (C8): price, refunded so far,
 // refundable now, delivered.
 func (s *Service) perRun(ctx context.Context, c *store.Case) ([]map[string]any, int64) {
+	if c.Reason == ReasonPlanRefund {
+		return s.planRefundRows(ctx, c)
+	}
 	var rows []map[string]any
 	var max int64
 	var live *store.ChargeRefundable
@@ -375,6 +378,8 @@ func caseActions(c *store.Case) []string {
 		return []string{"approve", "partial", "no_refund", "note", "refresh_evidence", "close"}
 	case c.Type == store.CaseBalanceRefund:
 		return []string{"approve", "partial", "deny", "mark_out_of_band", "note", "close"}
+	case c.Reason == ReasonPlanRefund:
+		return []string{"approve", "partial", "deny", "note", "close"}
 	}
 	return []string{"approve", "partial", "deny", "ask", "customer_reply", "mark_out_of_band", "note", "refresh_evidence", "close"}
 }
@@ -509,6 +514,13 @@ func (s *Service) applyCaseAction(ctx context.Context, c *store.Case, req caseAc
 			return httpx.Err(http.StatusConflict, "nothing_refundable", "There's nothing left to refund on this case.")
 		}
 		decide(map[bool]string{true: "full", false: "partial"}[req.Action == "approve"], items)
+		if c.Reason == ReasonPlanRefund {
+			var want int64
+			for _, v := range items {
+				want += v
+			}
+			return s.planRefund(ctx, c, want, who)
+		}
 		_, err = s.refundCase(ctx, c, items, who)
 		return err
 	case "waive":
@@ -664,6 +676,12 @@ func (s *Service) HandleAdminOpenCase(w http.ResponseWriter, r *http.Request, a 
 	var cases []*store.Case
 	var err error
 	switch req.Reason {
+	case ReasonPlanRefund: // the latest plan invoice; proposes paid × unspent ÷ credit
+		var c *store.Case
+		c, err = s.openPlanRefundCase(ctx, req.UID, a.who(), req.Text)
+		if c != nil {
+			cases = append(cases, c)
+		}
 	case ReasonTopupWithdraw, ReasonClosure:
 		var c *store.Case
 		c, err = s.requestBalanceRefund(ctx, req.UID, req.Reason, req.TopupID, "support", a.who(), req.Text)

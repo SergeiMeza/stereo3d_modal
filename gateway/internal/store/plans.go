@@ -28,6 +28,10 @@ type Plan struct {
 	RCGrantError   string     `firestore:"rc_grant_error,omitempty" json:"-"`
 	RCRevokedAt    *time.Time `firestore:"rc_revoked_at,omitempty" json:"-"`
 	RCRevokeReason string     `firestore:"rc_revoke_reason,omitempty" json:"-"`
+	// LastInvoiceID / LastCreditCents: the latest paid plan invoice and
+	// the credit it granted (a refund we grant is paid × unspent/credit).
+	LastInvoiceID   string `firestore:"last_invoice_id,omitempty" json:"-"`
+	LastCreditCents int64  `firestore:"last_credit_cents,omitempty" json:"-"`
 }
 
 // Active: the plan's prices and allowances apply.

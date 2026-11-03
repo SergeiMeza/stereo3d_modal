@@ -65,7 +65,7 @@ func defaultRefundPolicy() refundPolicy {
 			ReasonRunFailed: "auto", ReasonCancel: "auto", ReasonCancelledByUs: "auto", ReasonDeletion: "auto", ReasonLate: "auto",
 			ReasonPartial: "manual", ReasonDelivered: "manual", ReasonQuality: "manual", ReasonSupport: "manual",
 			ReasonEFW: "manual", ReasonDispute: "manual", ReasonRefundFailed: "manual", ReasonUnassigned: "manual",
-			ReasonUnpaid: "manual", ReasonTopupWithdraw: "auto", ReasonClosure: "manual",
+			ReasonUnpaid: "manual", ReasonTopupWithdraw: "auto", ReasonClosure: "manual", ReasonPlanRefund: "manual",
 		},
 		ManualAboveCents:     5000,
 		CapExempt:            []string{ReasonRunFailed, ReasonCancel, ReasonCancelledByUs, ReasonDeletion, ReasonLate, ReasonTopupWithdraw},

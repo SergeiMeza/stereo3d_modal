@@ -699,6 +699,38 @@ unless it was revoked. **Test accounts are real RevenueCat subscribers in
 the one shared project: a grant on test gives that uid real app Pro until
 its end time.**
 
+**Plan credit when a plan ends early (owner rules 2026-11-03).** Each
+freeze, unfreeze and removal is a balance ledger entry
+(`plan_credit_freeze`, `plan_credit_unfreeze`, `plan_credit_removal`) with
+a reason in `note`, a `ref` (`dispute:{id}`, `efw:{id}`, `block`,
+`refund:{invoice}`, `deleted`) and the case when there is one; they show
+in the balance history.
+
+| Event | Plan credit | App entitlement |
+|---|---|---|
+| Cancel at period end, non-payment | unchanged until the period ends | runs out |
+| Refund we grant (`plan_refund` case) | unspent credit removed at once; the refund is paid × unspent ÷ credit, rounded down (Business $299 with $200 of $400 left → $149.50); spent credit is never refunded; the subscription ends now | business/studio revoked |
+| Full refund from the Dashboard | removed | revoked |
+| Partial (goodwill) refund | kept, Slack alert | kept |
+| Dispute on the plan invoice | frozen; lost → removed; won → unfrozen (still expires at the period's end) | revoked |
+| Early fraud warning on it | frozen until **clear_review** | revoked |
+| Admin `block` / `unblock` | frozen / unfrozen | revoked on block |
+| Admin `block_permanent` (fresh sign-in) | removed | revoked |
+| Account deletion | removed, never paid out | revoked |
+
+Credit an in-flight run's hold reserves stays for that run (it settles
+from it); freezes and removals reach the unheld part. Frozen credit can't
+fund new runs (it's out of `available`), so quotes fall through to the
+rest of the balance or the card. A frozen part doesn't expire until it's
+unfrozen or removed. **Plan refund case:** `POST /v1/admin/cases {uid,
+reason: "plan_refund", text}` (or `svs-admin open -uid U -reason
+plan_refund`) opens a manual case on the latest paid plan invoice
+(`plan.last_invoice_id`, `last_credit_cents`); its one row is `{conversion_id:
+plan_{invoice}, kind: plan, plan, paid_cents, credit_cents, unspent_cents,
+refundable_cents, label}` and `max_refundable_cents` is the proposal;
+`approve` refunds it, `partial` with `items {"plan_{invoice}": cents}`
+less; the refund gets an amount-only credit note on the plan invoice.
+
 ### File keeping (S3D-24)
 
 A project's stored files — the original upload, proxy and thumbnails, a
@@ -845,7 +877,7 @@ responses are `no-store`.
 | `GET /v1/admin/cases/{id}` | page: `{case, runs, max_refundable_cents, events, evidence, related_cases, hints, banners, account, refunds, actions}` |
 | `POST /v1/admin/cases/{id}/actions` `{action, items, expected_max_cents, template, text, method, reference}` | actions `note, customer_reply, refresh_evidence, ask, approve, partial, waive, deny, no_refund, mark_out_of_band, assign, stop_run, accept_dispute, counter_dispute, counter_with_refund_proof, close` (`accept_dispute` closes the dispute in Stripe and the webhook closes the case; counters are filed in the Stripe Dashboard and recorded here); 409 `action_unavailable`, 409 `amount_changed` when the maximum moved → the page |
 | `GET /v1/admin/accounts/{uid}` | `{account:{uid,email,deleted,stripe_customer_id,sheet_only,sheet_only_reason,under_review,blocked,owed_cents,lifetime_paid_cents,plan,balance,…}}` |
-| `POST /v1/admin/accounts/{uid}/actions` `{action, cents, case_id, note}` | `clear_review, clear_sheet_only, block, unblock, resend_e2, write_off_owed, adjust_balance` (needs `case_id`); `block` → 403 `account_blocked` on new runs |
+| `POST /v1/admin/accounts/{uid}/actions` `{action, cents, case_id, note}` | `clear_review, clear_sheet_only, block, unblock, block_permanent, resend_e2, write_off_owed, adjust_balance` (needs `case_id`); `block` → 403 `account_blocked` on new runs |
 | `GET /v1/admin/disputes/summary?months=1..24&format=csv` | A4: `{months:[{month,charges,disputes_activity,disputed_cents_activity,disputes_by_payment,activity_pct,won,lost,accepted,countered,lost_cents,dispute_fees_cents,efw,efw_cents,efw_refunded,efw_became_disputes}], reference_pct, win_rate, counter_rate, open, by_method, by_flow, by_country, scope, account_wide, denominator, generated_at}` |
 | `GET /v1/admin/policy` | `{policy, edit_in}` |
 | `GET /v1/admin/mail-previews` | rendered E6/E9–E12 samples |

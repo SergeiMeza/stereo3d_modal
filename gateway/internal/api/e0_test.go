@@ -62,11 +62,23 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
 	case strings.HasPrefix(p, "/v1/subscriptions/"):
-		write(f.subs[strings.TrimPrefix(p, "/v1/subscriptions/")])
+		id := strings.TrimPrefix(p, "/v1/subscriptions/")
+		if r.Method == http.MethodDelete {
+			f.subs[id]["status"] = "canceled"
+		}
+		write(f.subs[id])
 	case p == "/v1/invoice_payments":
 		data := []any{}
 		if inv := f.invPays[r.URL.Query().Get("payment[payment_intent]")]; inv != "" {
 			data = append(data, map[string]any{"invoice": inv})
+		}
+		if inv := r.URL.Query().Get("invoice"); inv != "" {
+			for pi, id := range f.invPays {
+				if id == inv {
+					data = append(data, map[string]any{"invoice": inv, "status": "paid", "amount_paid": f.invs[inv]["amount_paid"],
+						"payment": map[string]any{"type": "payment_intent", "payment_intent": pi}})
+				}
+			}
 		}
 		write(map[string]any{"data": data})
 	case strings.HasPrefix(p, "/v1/invoices/") && f.invs[strings.TrimPrefix(p, "/v1/invoices/")] != nil:
