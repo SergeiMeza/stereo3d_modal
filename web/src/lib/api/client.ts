@@ -7,6 +7,7 @@
 import type {
   AccountDeleteResult,
   AccountPlan,
+  AccountSettings,
   BalanceEntry,
   BalanceSettings,
   BalanceSummary,
@@ -331,6 +332,16 @@ export class GatewayClient {
 
   getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
     return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  /** BL-25: the account's settings */
+  getAccountSettings(): Promise<AccountSettings> {
+    return this.request("GET", "/v1/account/settings");
+  }
+
+  /** BL-25: change them; lifelike_intro without a plan → 409 plan_required */
+  patchAccountSettings(patch: { lifelike_intro?: boolean; locale?: string | null }): Promise<AccountSettings> {
+    return this.request("PATCH", "/v1/account/settings", patch);
   }
 
   /** pricing 2026-11: start a Business or Studio plan (409 plan_active) */

@@ -381,6 +381,10 @@ interface DB {
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
    * so the older price assertions keep their numbers */
   tierPricing: boolean;
+  /** BL-25: account settings (lifelike_intro_editable follows the plan) */
+  accountSettings: { lifelike_intro: boolean; locale: string | null };
+  /** the next settings save fails with a 500 */
+  nextSettingsFails: boolean;
   /** 00081: POST /v1/conversions/{id}/plays received */
   plays: { conversion_id: string; file: string; kind: string }[];
   /** free previews used: this period, today, and the intro one */
@@ -464,6 +468,10 @@ function publicTiers(): Record<string, unknown> {
       rollover: false,
     },
   };
+}
+
+function accountSettings() {
+  return { ...mockDb.accountSettings, lifelike_intro_editable: mockDb.billing.plan?.active === true };
 }
 
 /** The account's tier: an active Business/Studio plan, else Pro, else list. */
@@ -607,6 +615,8 @@ function seed(): DB {
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
     freePreviews: { used: 0, dayUsed: 0, introUsed: false },
     plays: [],
+    accountSettings: { lifelike_intro: true, locale: null },
+    nextSettingsFails: false,
     gpuWaitPolls: 1,
   };
 }
@@ -630,6 +640,8 @@ export const mockDb = {
     this.tierPricing = fresh.tierPricing;
     this.freePreviews = fresh.freePreviews;
     this.plays = fresh.plays;
+    this.accountSettings = fresh.accountSettings;
+    this.nextSettingsFails = fresh.nextSettingsFails;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
@@ -2676,6 +2688,23 @@ export const handlers = [
     c.state = "paid";
     c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
     return HttpResponse.json(c);
+  }),
+
+  // BL-25 (gateway 00087): account settings; the intro switch needs a plan
+  http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(accountSettings())),
+  http.patch(`${GATEWAY}/v1/account/settings`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { lifelike_intro?: boolean; locale?: string | null };
+    const st = mockDb.accountSettings;
+    if (body.lifelike_intro !== undefined) {
+      if (!mockDb.billing.plan?.active) return err(409, "plan_required", "a Business or Studio plan is needed for that");
+      if (mockDb.nextSettingsFails) {
+        mockDb.nextSettingsFails = false;
+        return err(500, "server_error", "couldn't save");
+      }
+      st.lifelike_intro = body.lifelike_intro;
+    }
+    if (body.locale !== undefined) st.locale = body.locale;
+    return HttpResponse.json(accountSettings());
   }),
 
   // pricing 2026-11: Business / Studio subscription checkout

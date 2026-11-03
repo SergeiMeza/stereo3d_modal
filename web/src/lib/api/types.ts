@@ -639,6 +639,15 @@ export interface AccountDeleteResult {
   message?: string;
 }
 
+/** GET/PATCH /v1/account/settings (BL-25, gateway 00087) */
+export interface AccountSettings {
+  /** the Stereo3D intro before the account's videos */
+  lifelike_intro: boolean;
+  /** true only with an active Business or Studio plan */
+  lifelike_intro_editable: boolean;
+  locale: string | null;
+}
+
 /** GET /v1/billing plan (Business / Studio) */
 export interface AccountPlan {
   plan: "business" | "studio";
