@@ -71,6 +71,9 @@ import {
   useStereoDraft,
 } from "./stereoStore";
 import { StepReview, useRunDownloads } from "./StepReview";
+import { GatewayError } from "@/lib/api/client";
+
+import { FPS_PLAN_REQUIRED } from "./frameRate";
 import { CLASSIC_PREVIEW_SECONDS } from "./methods";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 import { DownloadGate } from "@/components/billing/PayToDownload";
@@ -319,7 +322,14 @@ function DepthReview({
       });
       onProjectChanged(); // pick up project.depth_upload
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "upload failed");
+      // above 30 fps without a plan (gateway 422 plan_required_fps)
+      setUploadError(
+        e instanceof GatewayError && e.code === "plan_required_fps"
+          ? FPS_PLAN_REQUIRED
+          : e instanceof Error
+            ? e.message
+            : "upload failed",
+      );
     } finally {
       setUploading(null);
     }

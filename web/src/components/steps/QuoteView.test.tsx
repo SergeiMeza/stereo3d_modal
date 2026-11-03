@@ -111,7 +111,7 @@ describe("QuoteView frame-rate cap (owner 2026-11-04)", () => {
         result={{
           step: "production",
           method: "lifelike",
-          params: { preset: "4k", formats: ["sbs"], target_fps: 30 },
+          params: { preset: "4k", formats: ["sbs"], target_fps: 30, fps_capped: true },
           quote: {
             amount_cents: 3750,
             currency: "usd",
@@ -124,9 +124,14 @@ describe("QuoteView frame-rate cap (owner 2026-11-04)", () => {
               subtotal_cents: 3750,
             },
           },
-          fps_capped: true,
-          fps_cap_reason: "plan_required_above_30fps",
-          max_fps: 30,
+          fps: {
+            max_fps: 30,
+            source_fps: 60,
+            target_fps_choices: [30, 20, 15, 12, 10],
+            fps_capped: true,
+            reason: "plan_required_above_30fps",
+            target_fps: 30,
+          },
         }}
       />,
     );

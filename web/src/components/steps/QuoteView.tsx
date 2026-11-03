@@ -403,7 +403,7 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
-      {result.fps_capped && fps !== null ? (
+      {(result.fps?.fps_capped || result.params?.fps_capped) && fps !== null ? (
         // owner 2026-11-04: the source is above 30 fps and there's no plan
         <p data-testid="quote-fps-capped" className="text-xs text-fg-muted">
           Converts at {fpsLabel(fps)}. Higher frame rates come with Business

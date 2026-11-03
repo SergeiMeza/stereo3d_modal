@@ -17,7 +17,7 @@ import { server } from "@/mocks/server";
 import projectFixture from "../../../fixtures/project.json";
 
 import { clearStepQuotes } from "./checkoutStore";
-import { fpsDivisions, needsFpsChoice } from "./frameRate";
+import { fpsDivisions, needsFpsChoice, shownRates } from "./frameRate";
 import { LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel } from "./LifelikePreviewPanel";
 
@@ -62,9 +62,14 @@ const main = () => screen.getByTestId("checkout-main") as HTMLButtonElement;
 
 describe("frame-rate choices", () => {
   it("offers whole divisions of the source down to about 24", () => {
-    expect(fpsDivisions(60)).toEqual([60, 30]);
-    expect(fpsDivisions(120)).toEqual([120, 60, 40, 30, 24]);
-    expect(fpsDivisions(59.94)).toEqual([59.94, 29.97]);
+    // the gateway's list (fps_cap.go fpsChoices)
+    expect(fpsDivisions(60, 30)).toEqual([30, 20, 15, 12, 10]);
+    expect(fpsDivisions(60)).toEqual([60, 30, 20, 15, 12, 10]);
+    expect(fpsDivisions(59.94, 30)).toEqual([29.97, 19.98, 14.985, 11.988]);
+    // what the page offers from it
+    expect(shownRates(fpsDivisions(120))).toEqual([120, 60, 40, 30, 24]);
+    expect(shownRates(fpsDivisions(60, 30))).toEqual([30]);
+    expect(shownRates(fpsDivisions(40, 30))).toEqual([20]);
     expect(needsFpsChoice(30)).toBe(false);
     expect(needsFpsChoice(29.97)).toBe(false);
     expect(needsFpsChoice(50)).toBe(true);

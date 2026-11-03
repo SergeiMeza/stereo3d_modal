@@ -263,6 +263,9 @@ export interface Params {
   /** legacy mobile-flow knob; pro steps use scene_overrides/depth_scale */
   displacement?: number;
   target_fps?: number;
+  /** the gateway lowered the rate to 30 or under (no Business or Studio
+   * plan); target_fps is the rate it converts at */
+  fps_capped?: boolean;
   from_frame?: number;
   to_frame?: number;
   inpaint?: Inpaint; // absent = pipeline default (propainter)
@@ -510,15 +513,20 @@ export interface StepQuoteResponse {
   /** Lifelike full runs: Express's estimate beside the standard one; an
    * Express run may still wait up to max_wait_seconds to start */
   express_eta?: { eta_seconds: number; standard_eta_seconds: number; max_wait_seconds: number };
-  /** owner 2026-11-04: the highest output frame rate this account may
-   * choose (30, or 120 with Business or Studio) and the target_fps values
-   * it may send for this video */
-  max_fps?: number;
-  target_fps_choices?: number[];
-  /** no target_fps was sent and the source is above max_fps: the run
-   * converts at the largest whole division of the source at or under it */
-  fps_capped?: boolean;
-  fps_cap_reason?: "plan_required_above_30fps" | string;
+  /** owner 2026-11-04 (gateway fps_cap.go fpsInfo): this account's
+   * highest output rate, the rates it may send for this video, and the
+   * rate the run converts at; fps_capped (with reason) when no target was
+   * sent and the source is above max_fps */
+  fps?: QuoteFps;
+}
+
+export interface QuoteFps {
+  max_fps: number;
+  source_fps: number;
+  target_fps_choices: number[];
+  fps_capped: boolean;
+  reason?: "plan_required_above_30fps";
+  target_fps: number;
 }
 
 export interface UploadTicket {
@@ -599,7 +607,14 @@ export interface PublicPricing {
       max_source_bytes?: number;
     };
   };
-  fps: { base: number; min_factor: number; max_factor: number };
+  fps: {
+    base: number;
+    min_factor: number;
+    max_factor: number;
+    /** owner 2026-11-04: 30 without a plan, 120 with Business or Studio */
+    max_fps_without_plan?: number;
+    max_fps_with_plan?: number;
+  };
   discount: { threshold_cents: number; pct: number; stacks_with_tier?: boolean; rule?: string };
   minimum_cents: number;
   /** every preview's floor (S3D-13/17); minimum_cents when absent */
@@ -612,8 +627,6 @@ export interface PublicPricing {
    * with method classic gets 422 classic_retired); existing Classic
    * projects keep their results and can convert with Lifelike 3D */
   classic_new_projects?: boolean;
-  /** the caller's highest output frame rate (30, or 120 with a plan) */
-  max_fps?: number;
   /** pricing 2026-11 */
   pricing_model?: "tiers";
   tiers?: {
@@ -647,6 +660,12 @@ export interface PlanDef {
   express_included: boolean;
   /** owner 2026-11-04: the plan's highest output frame rate (120) */
   max_fps?: number;
+  /** how the plan bills ("year" for Studio; absent/"month" otherwise) and
+   * what each bill is; the credit and free previews still come every
+   * credit_interval ("month") */
+  interval?: "month" | "year" | "";
+  price_cents?: number;
+  credit_interval?: string;
 }
 
 /** POST /v1/account/delete: done, or (00081) pending while a cash
@@ -679,6 +698,14 @@ export interface AccountPlan {
   credit_left_cents?: number;
   current_period_end?: string;
   cancel_at_period_end: boolean;
+  /** Studio yearly (gateway 00089): billing interval and price, the
+   * credit's interval, which month of the year this is (1–12) and when
+   * this month's usage resets */
+  interval?: "month" | "year" | "";
+  price_cents?: number;
+  credit_interval?: string;
+  month_index?: number;
+  credit_resets_at?: string;
 }
 
 export interface ProDiscount {

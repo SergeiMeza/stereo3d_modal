@@ -48,16 +48,28 @@ export function needsFpsChoice(sourceFps: number): boolean {
   return sourceFps > FREE_MAX_FPS + 0.01;
 }
 
-/** Whole divisions of the source rate down to about 24, high to low, two
- * decimals (60 → 60, 30; 120 → 120, 60, 40, 30, 24; 59.94 → 59.94, 29.97). */
-export function fpsDivisions(src: number): number[] {
+/** The gateway's choices (fps_cap.go fpsChoices): whole divisions of the
+ * source at or under `max`, high to low, down to about 10 fps, three
+ * decimals (60 → 60, 30, 20, 15, 12, 10; 59.94 → 59.94, 29.97, …). */
+export function fpsDivisions(src: number, max = Infinity): number[] {
   const out: number[] = [];
+  if (src <= 0) return out;
   for (let n = 1; n <= 12; n++) {
-    const v = Math.round((src / n) * 100) / 100;
-    if (n > 1 && v < 23.5) break;
+    const v = Math.round((src / n) * 1000) / 1000;
+    if (v > max * 1.0005) continue;
+    if (v < 10 && out.length > 0) break;
     out.push(v);
   }
   return out;
+}
+
+/** The rates the page offers from a list: those of about 24 fps and up,
+ * and always the highest (120 → 120, 60, 40, 30, 24; without a plan
+ * 60 → 30). Lower rates stay sendable through the API. */
+export function shownRates(rates: readonly number[]): number[] {
+  const sorted = [...rates].sort((a, b) => b - a);
+  const kept = sorted.filter((v) => v >= 23.5);
+  return kept.length > 0 ? kept : sorted.slice(0, 1);
 }
 
 /** "60 fps", "29.97 fps". */
@@ -130,7 +142,11 @@ export function useFpsChoice(
 
   const { target_fps: _drop, ...rest } = base;
   void _drop;
-  const candidates = required ? fpsDivisions(src) : [];
+  // every rate a plan allows, quoted once each; a 422 plan_required_fps
+  // marks it locked for this account
+  const candidates = required
+    ? shownRates(fpsDivisions(src, pricing?.fps.max_fps_with_plan ?? 120))
+    : [];
   const key = JSON.stringify({ rest, candidates, epoch, id: project.project_id });
   useEffect(() => {
     if (candidates.length === 0) return;
@@ -178,8 +194,8 @@ export function useFpsChoice(
     locked: Record<string, true>;
     quote: StepQuoteResponse | null;
   } = state.key === key ? state : { cents: {}, locked: {}, quote: null };
-  const max = now.quote?.max_fps ?? pricing?.max_fps;
-  const allowed = now.quote?.target_fps_choices;
+  const max = now.quote?.fps?.max_fps;
+  const allowed = now.quote?.fps ? shownRates(now.quote.fps.target_fps_choices) : undefined;
   const isLocked = (v: number) =>
     now.locked[String(v)] === true || (max !== undefined && v > max + 0.01);
   const rates = allowed

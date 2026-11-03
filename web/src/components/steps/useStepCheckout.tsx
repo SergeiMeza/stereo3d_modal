@@ -72,7 +72,7 @@ import { stepCheckoutAtom } from "./checkoutStore";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
-import { FPS_PLAN_REQUIRED } from "./frameRate";
+import { FPS_PLAN_REQUIRED, PICK_FRAME_RATE } from "./frameRate";
 import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView, runFacts } from "./QuoteView";
 
 function messageOf(e: unknown): string {
@@ -82,6 +82,8 @@ function messageOf(e: unknown): string {
   if (e instanceof GatewayError && e.code === "deletion_pending") return DELETION_PENDING_BLOCK;
   // owner 2026-11-04: an explicit target_fps above the account's max_fps
   if (e instanceof GatewayError && e.code === "plan_required_fps") return FPS_PLAN_REQUIRED;
+  // a web run on a source above 30 fps without a rate (the page asks first)
+  if (e instanceof GatewayError && e.code === "fps_choice_required") return PICK_FRAME_RATE;
   const friendly = e instanceof GatewayError ? methodErrorCopy(e.code) : null;
   if (friendly !== null) return friendly;
   return e instanceof Error ? e.message : "request failed";

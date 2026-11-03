@@ -410,8 +410,8 @@ const TIERS = {
   addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
-    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true, max_fps: 120 },
-    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true, max_fps: 120 },
+    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
+    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true, max_fps: 120, interval: "year", price_cents: 1198800, credit_interval: "month" },
   },
   allowances: { pro_weekly: 5, pro_monthly: 20, pro_yearly: 240, pro_pass_3m: 60, pro_pass_6m: 120, pro_lifetime: 20, business: 50, studio: 200, intro: 1 } as Record<string, number>,
   dailyCap: 20,
@@ -489,13 +489,14 @@ function mockMaxFps(): number | null {
   return t === "business" || t === "studio" ? 120 : 30;
 }
 
-/** Whole divisions of the source rate down to about 24, high to low,
- * 2 decimals (60 → 60, 30; 120 → 120, 60, 40, 30, 24). */
-function fpsDivisions(src: number): number[] {
+/** The gateway's choices (fps_cap.go fpsChoices): whole divisions of the
+ * source at or under max, down to about 10 fps, three decimals. */
+function fpsDivisions(src: number, max = Infinity): number[] {
   const out: number[] = [];
   for (let n = 1; n <= 12; n++) {
-    const v = Math.round((src / n) * 100) / 100;
-    if (n > 1 && v < 23.5) break;
+    const v = Math.round((src / n) * 1000) / 1000;
+    if (v > max * 1.0005) continue;
+    if (v < 10 && out.length > 0) break;
     out.push(v);
   }
   return out;
@@ -506,16 +507,22 @@ function fpsPolicy(p: Project, target: number | undefined) {
   const src = p.probe!.fps;
   const max = mockMaxFps();
   if (max === null) return { effective: target ?? src, extras: {} };
-  const all = fpsDivisions(src);
-  const allowed = all.filter((v) => v <= max + 0.01);
-  const capped = target === undefined && src > max + 0.01;
+  const allowed = fpsDivisions(src, max);
+  const capped = target === undefined && src > max * 1.0005;
   const effective = target ?? (capped ? (allowed[0] ?? max) : src);
   return {
     effective,
+    capped,
+    // the quote's frame-rate block (fps_cap.go fpsInfo)
     extras: {
-      max_fps: max,
-      target_fps_choices: allowed,
-      ...(capped ? { fps_capped: true, fps_cap_reason: "plan_required_above_30fps" } : {}),
+      fps: {
+        max_fps: max,
+        source_fps: src,
+        target_fps_choices: allowed,
+        fps_capped: capped,
+        ...(capped ? { reason: "plan_required_above_30fps" } : {}),
+        target_fps: effective,
+      },
     },
   };
 }
@@ -1503,7 +1510,8 @@ function lifelikeQuoteFor(
     lifelikeQualities(project).find((q) => q.preset === preset)?.price_preset ??
     preset;
   const perMin = LIFELIKE.priceCentsPerMinute[priced];
-  const effFPS = fpsPolicy(project, req.target_fps).effective;
+  const fpsPol = fpsPolicy(project, req.target_fps);
+  const effFPS = fpsPol.effective;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
   if (mockDb.tierPricing) {
     const tier = mockTier();
@@ -1567,6 +1575,7 @@ function lifelikeQuoteFor(
         from_frame: req.from_frame || undefined,
         to_frame: req.to_frame || undefined,
         target_fps: req.target_fps || (effFPS !== probe.fps ? effFPS : undefined),
+        ...("capped" in fpsPol && fpsPol.capped ? { fps_capped: true } : {}),
         scene_cuts: project.scenes?.cuts,
         split_max_seconds: req.split_max_seconds,
         ...(req.original_eye ? { original_eye: req.original_eye } : {}),
@@ -2800,8 +2809,12 @@ export const handlers = [
     if (ch.kind === "plan" && ch.plan) {
       ch.state = "paid";
       const def = TIERS.plans[ch.plan];
+      const yearly = def.interval === "year";
       const end = new Date();
-      end.setUTCMonth(end.getUTCMonth() + 1);
+      if (yearly) end.setUTCFullYear(end.getUTCFullYear() + 1);
+      else end.setUTCMonth(end.getUTCMonth() + 1);
+      const resets = new Date();
+      resets.setUTCMonth(resets.getUTCMonth() + 1);
       b.plan = {
         plan: ch.plan,
         name: def.name,
@@ -2812,6 +2825,11 @@ export const handlers = [
         credit_left_cents: def.credit_cents,
         current_period_end: end.toISOString(),
         cancel_at_period_end: false,
+        interval: def.interval as "month" | "year",
+        price_cents: def.price_cents,
+        credit_interval: def.credit_interval,
+        // plans.go planJSON: month k+1 of 12 for a yearly plan
+        ...(yearly ? { month_index: 1, credit_resets_at: resets.toISOString() } : {}),
       };
       b.hasPaymentMethod = true;
       if (b.methods.length === 0) {
@@ -3083,7 +3101,6 @@ export const handlers = [
       rate_version: "mock",
       currency: "usd",
       classic_new_projects: mockDb.classicNewProjects,
-      ...(mockMaxFps() !== null ? { max_fps: mockMaxFps() } : {}),
       methods: {
         lifelike: {
           presets: ["1080p", "qhd", "3k", "4k", "5k", "6k", "8k"],
@@ -3107,7 +3124,7 @@ export const handlers = [
           max_source_bytes: 8 * 1024 ** 3,
         },
       },
-      fps: { base: 24, min_factor: 0.5, max_factor: 2.5 },
+      fps: { base: 24, min_factor: 0.5, max_factor: 2.5, max_fps_without_plan: 30, max_fps_with_plan: 120 },
       discount: {
         threshold_cents: RATES.discountThresholdCents,
         pct: RATES.discountPct,
@@ -3613,6 +3630,19 @@ export const handlers = [
         );
       }
       delete body.method;
+      // fps_cap.go requireFPSChoice: a web run on a source above 30 fps
+      // names its rate
+      if (mockDb.fpsCap && p.probe!.fps > 30 * 1.0005 && p.probe!.fps <= 120 * 1.001 && typeof body.target_fps !== "number") {
+        return HttpResponse.json(
+          {
+            success: false,
+            error: "fps_choice_required",
+            message: "Choose the frame rate for this video.",
+            details: { target_fps_choices: fpsDivisions(p.probe!.fps, mockMaxFps() ?? 120) },
+          },
+          { status: 422 },
+        );
+      }
       const invalid = validateStepRequest(p, body);
       if (invalid) return invalid;
       // The real gateway's pay-as-you-go billing gate (402s, api/billing.go
