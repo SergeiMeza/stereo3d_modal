@@ -275,6 +275,9 @@ export function runSummary(p: Params, step?: Step): string {
 /** A video's resolution in customer words: "4K", "1080p", "720p". */
 export function resolutionName(probe: { width: number; height: number }): string {
   const short = Math.min(probe.width, probe.height);
+  if (short >= 4320) return "8K";
+  if (short >= 3240) return "6K";
+  if (short >= 2880) return "5K";
   if (short >= 2160) return "4K";
   if (short >= 1620) return "3K";
   if (short >= 1440) return "1440p";

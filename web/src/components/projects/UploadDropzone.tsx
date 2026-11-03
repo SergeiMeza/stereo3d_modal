@@ -54,7 +54,6 @@ const ACCEPT = ".mp4,.mov,.m4v,.webm";
 /** Classic's cap, for gateways from before per-method caps (which still
  * reject longer sources up front). */
 const LEGACY_MAX_DURATION_S = 10 * 60;
-const MAX_PIXELS = 3840 * 2160;
 
 /** The local length cap for a new project's method, in seconds; 0 =
  * unlimited, null = unknown (limits not loaded — the gateway decides).
@@ -139,7 +138,9 @@ function readVideoMeta(file: File): Promise<VideoMeta | null> {
   });
 }
 
-function betaLimitError(
+/** The length limit, when the gateway sets one (Lifelike: any length,
+ * any size — bigger sources are scaled down to 8K by the service). */
+function lengthLimitError(
   meta: VideoMeta,
   maxDurationS: number | null,
 ): string | null {
@@ -151,10 +152,7 @@ function betaLimitError(
   ) {
     const m = Math.floor(meta.duration / 60);
     const s = Math.round(meta.duration % 60);
-    return `This video is ${m}m ${s}s long — during the beta, videos can be at most ${Math.round(maxDurationS / 60)} minutes.`;
-  }
-  if (meta.width * meta.height > MAX_PIXELS) {
-    return `This video is ${meta.width}×${meta.height} — during the beta, resolution can be at most 4K (3840×2160).`;
+    return `This video is ${m}m ${s}s long. Videos can be at most ${Math.round(maxDurationS / 60)} minutes.`;
   }
   return null;
 }
@@ -282,7 +280,7 @@ export function UploadDropzone() {
     }
     const meta = await readVideoMeta(file);
     if (meta !== null) {
-      const limitError = betaLimitError(meta, maxDurationS);
+      const limitError = lengthLimitError(meta, maxDurationS);
       if (limitError !== null) {
         setError(limitError);
         return;
