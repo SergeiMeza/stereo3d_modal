@@ -121,3 +121,23 @@ func TestPublicPricingRoute(t *testing.T) {
 		t.Errorf("body: %s", w.Body)
 	}
 }
+
+// S3D-01/30/44: switching is one way, classic → lifelike.
+func TestMethodSwitchOneWay(t *testing.T) {
+	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic); e == nil || e.Code != "method_switch_not_allowed" || e.Status != 400 {
+		t.Errorf("lifelike → classic must be refused: %v", e)
+	}
+	for _, c := range [][2]string{
+		{store.MethodClassic, store.MethodLifelike},
+		{store.MethodLifelike, store.MethodLifelike},
+		{store.MethodClassic, store.MethodClassic},
+	} {
+		if e := methodSwitchError(c[0], c[1]); e != nil {
+			t.Errorf("%s → %s: %v", c[0], c[1], e)
+		}
+	}
+	// records without a method are classic, so they may move to lifelike
+	if e := methodSwitchError(store.MethodOr(""), store.MethodLifelike); e != nil {
+		t.Errorf("legacy project → lifelike: %v", e)
+	}
+}

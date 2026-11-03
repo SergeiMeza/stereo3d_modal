@@ -109,6 +109,17 @@ func formatGB(b int64) string {
 	return fmt.Sprintf("%.1f GB", gb)
 }
 
+// methodSwitchError enforces the one-way switch (owner decision S3D-01,
+// S3D-30, S3D-44): a classic project may move to lifelike at any time, even
+// after paid runs; a lifelike project — new or not — never goes back.
+func methodSwitchError(from, to string) *httpx.APIError {
+	if from == store.MethodLifelike && to == store.MethodClassic {
+		return httpx.Err(http.StatusBadRequest, "method_switch_not_allowed",
+			"A Lifelike project can't be switched back to Classic.")
+	}
+	return nil
+}
+
 func errStepForMethod(step, method string) *httpx.APIError {
 	steps := "depth_preview|stereo_preview|production"
 	if method == store.MethodLifelike {

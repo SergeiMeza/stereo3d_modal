@@ -203,8 +203,9 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 // management metadata. archived:true runs the full archive flow (cancels
 // active conversions, same as DELETE); archived:false restores. method
 // switches the project's conversion method for its NEXT runs (LL-D1; runs
-// in flight keep theirs); switching to classic on a source longer than
-// Classic's cap answers 400 source_too_long_for_method.
+// in flight keep theirs, earlier files stay). One way only, classic →
+// lifelike (S3D-01/30/44: Classic is being retired): lifelike → classic
+// answers 400 method_switch_not_allowed.
 func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	current, err := s.ownedProject(ctx, user, id)
@@ -233,6 +234,10 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		}
 		if _, merr := s.resolveMethod(*req.Method); merr != nil {
 			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		if serr := methodSwitchError(projectMethod(current), *req.Method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
 			return
 		}
 		if serr := methodSourceError(s.Pricing.Rates(ctx), current, *req.Method); serr != nil {

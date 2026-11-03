@@ -112,9 +112,10 @@ conversion JSON; records without one are classic). `POST /v1/projects`
 takes an optional `method`; none means classic, so clients that predate
 Lifelike keep working (the web app always sends one and preselects
 lifelike in its UI); `PATCH /v1/projects/{id}
-{"method": ...}` switches it for the next runs (classic on a source longer
-than Classic's cap → 400 `source_too_long_for_method`; lifelike without the
-service → 400 `method_unavailable`). `GET /v1/limits` carries
+{"method": ...}` switches it for the next runs, one way only: classic →
+lifelike at any time (earlier files stay); lifelike → classic is 400
+`method_switch_not_allowed` (Classic is being retired). Lifelike without the
+service → 400 `method_unavailable`. `GET /v1/limits` carries
 `methods.{lifelike,classic}.{max_source_duration_s, available}` (0 =
 unlimited) and `default_method`, the method the UI preselects (lifelike
 wherever the service is configured).
