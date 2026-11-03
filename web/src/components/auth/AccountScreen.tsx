@@ -20,6 +20,7 @@ import Link from "next/link";
 import { SignInMethods } from "@/components/auth/SignInMethods";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
+import { ACTIVE_RUNS_LINE, DeleteDues } from "@/components/pay/DeleteDues";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
@@ -49,7 +50,7 @@ function deleteErrorMessage(err: unknown): string {
     return `Payment needed${amount}: update your payment method on Billing, then delete your account.`;
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
-    return "A run is still going. Cancel it or wait for it to finish, then delete your account.";
+    return ACTIVE_RUNS_LINE;
   }
   return err instanceof Error ? err.message : "Failed to delete account.";
 }
@@ -69,6 +70,8 @@ export default function AccountScreen() {
   const [confirmText, setConfirmText] = useState("");
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** P13: what's owed when delete answered 402 balance_due */
+  const [dues, setDues] = useState<number | null>(null);
 
   if (user === null) return null;
 
@@ -101,6 +104,7 @@ export default function AccountScreen() {
   async function onDelete() {
     setDeletePending(true);
     setDeleteError(null);
+    setDues(null);
     try {
       await deleteWithChallenge();
       await signOutUser();
@@ -108,7 +112,12 @@ export default function AccountScreen() {
     } catch (err) {
       setDeletePending(false);
       void billing.refresh();
-      setDeleteError(deleteErrorMessage(err));
+      const owed =
+        err instanceof GatewayError && err.code === "balance_due"
+          ? err.details?.amount_cents
+          : undefined;
+      if (typeof owed === "number" && owed > 0) setDues(owed);
+      else setDeleteError(deleteErrorMessage(err));
     }
   }
 
@@ -253,6 +262,10 @@ export default function AccountScreen() {
               </button>
             </div>
           </div>
+          {dues !== null && (
+            // P13: pay what's owed in the settle sheet, then delete again
+            <DeleteDues amountCents={dues} onPaid={() => void onDelete()} />
+          )}
           {deleteError !== null && (
             <p className="text-xs text-destructive">{deleteError}</p>
           )}

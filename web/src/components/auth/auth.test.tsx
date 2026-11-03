@@ -25,6 +25,7 @@ import {
 import Home from "@/app/page";
 import AccountScreen from "@/components/auth/AccountScreen";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { DUES_LINE } from "@/components/pay/DeleteDues";
 import SignInScreen from "@/components/auth/SignInScreen";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -190,7 +191,10 @@ describe("AccountScreen delete (mock mode)", () => {
     });
     renderWithAuth(<AccountScreen />);
     typeDeleteAndConfirm();
-    expect(await screen.findByText(/Payment needed \(\$3\.33\): update your payment method/)).toBeTruthy();
+    // P13: the dues notice with Pay $3.33 (the settle sheet), not a dead end
+    expect(await screen.findByTestId("delete-dues")).toBeTruthy();
+    expect(screen.getByText(DUES_LINE)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pay $3.33" })).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
 });
