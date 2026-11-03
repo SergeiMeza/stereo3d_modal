@@ -545,6 +545,33 @@ const SHOT_TYPES = ["close_up", "standard", "dynamic", "wide"];
  * user-facing messages, so tests exercise real error surfacing. Returns an
  * error response or null. `body` is the raw JSON (so rejected fields the
  * typed request no longer carries — displacement — are still seen). */
+/** S3D-56: "auto" | "match_source" | 20 | 40 | 60 | 100. */
+function checkBitrate(b: unknown): ReturnType<typeof err> | null {
+  if (b === undefined || b === "auto" || b === "match_source") return null;
+  if (b === 20 || b === 40 || b === 60 || b === 100) return null;
+  return err(400, "invalid_request", "bitrate must be auto|match_source|20|40|60|100");
+}
+
+/** Estimated output size: bitrate × length × files (mock only). */
+function estimatedSizeBytes(
+  req: StepConversionRequest,
+  seconds: number,
+  sourceMbps = 60,
+): number {
+  const preset = req.preset ?? "1080p";
+  const autoMbps: Record<string, number> = {
+    "1080p": 20, qhd: 30, "3k": 40, "4k": 50, "5k": 70, "6k": 85, "8k": 110,
+  };
+  const mbps =
+    typeof req.bitrate === "number"
+      ? req.bitrate
+      : req.bitrate === "match_source"
+        ? sourceMbps
+        : (autoMbps[preset] ?? 30);
+  const files = Math.max(1, req.formats?.length ?? 1);
+  return Math.round(((mbps * 1e6) / 8) * seconds * files);
+}
+
 function validateStepRequest(
   p: Project,
   body: Record<string, unknown>,
@@ -567,6 +594,8 @@ function validateStepRequest(
       "lifelike_preview is a Lifelike 3D step",
     );
   }
+  const bitrateErr = checkBitrate(body.bitrate);
+  if (bitrateErr) return bitrateErr;
   // S3D-12: Classic stops at 3K; 4K and above are Lifelike only
   if (
     typeof body.preset === "string" &&
@@ -827,6 +856,8 @@ function validateLifelikeRequest(
   if (LIFELIKE.priceCentsPerMinute[preset] === undefined) {
     return err(400, "invalid_request", "preset must be 1080p|qhd|3k|4k|5k|6k|8k");
   }
+  const bitrateErr = checkBitrate(body.bitrate);
+  if (bitrateErr) return bitrateErr;
   const eye = body.original_eye as string | undefined;
   if (eye !== undefined && eye !== "left" && eye !== "right") {
     return err(400, "invalid_request", "original_eye must be left|right");
@@ -2223,6 +2254,7 @@ export const handlers = [
           charge_timing: chargeTiming(q.quote.amount_cents),
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
+          estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
         });
       }
       const { quote, reuseStages, params: resolved } = quoteFor(priced, req);
@@ -2239,6 +2271,9 @@ export const handlers = [
         charge_timing: chargeTiming(quote.amount_cents),
         output_seconds: billable,
         split_suggested: false,
+        ...(req.step === "production"
+          ? { estimated_size_bytes: estimatedSizeBytes(req, billable) }
+          : {}),
       });
     },
   ),

@@ -307,3 +307,17 @@ describe("Classic Make 3D (screen 10)", () => {
     });
   });
 });
+
+describe("Classic Bitrate (S3D-56)", () => {
+  it("sits under Advanced and sends the choice", async () => {
+    const bodies = captureQuoteBodies();
+    renderPanel();
+    openAdvanced();
+    const select = screen.getByLabelText("Bitrate") as HTMLSelectElement;
+    expect(select.value).toBe("auto");
+    fireEvent.change(select, { target: { value: "100" } });
+    await waitFor(() =>
+      expect(bodies.some((b) => b.step === "production" && b.bitrate === 100)).toBe(true),
+    );
+  });
+});

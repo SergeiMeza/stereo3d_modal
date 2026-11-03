@@ -21,6 +21,7 @@ import type { JSX } from "react";
 
 import { MoveToLifelikeOffer } from "@/components/workspace/MethodChooser";
 import {
+  type Bitrate,
   type Format,
   type Preset,
   type Project,
@@ -33,6 +34,8 @@ import { EDGE_NAMES, qualitiesFor, qualityChoices, type QualityChoice } from "@/
 
 import { CheckboxChip } from "./controls";
 import {
+  BitrateControl,
+  bitrateField,
   DEFAULT_MAKE_FORMATS,
   deviceForClient,
   FileTiles,
@@ -85,6 +88,8 @@ export function DeliverPanel({
   // S3D-29: two equal edge styles, Filled preselected
   const [edge, setEdge] = useState<EdgeMode>("filled");
   const [fromScratch, setFromScratch] = useState(false);
+  // S3D-56: no price change
+  const [bitrate, setBitrate] = useState<Bitrate>("auto");
   // "automatic" escapes for the inherited settings
   const [depthDefault, setDepthDefault] = useState(false);
   const [stereoDefault, setStereoDefault] = useState(false);
@@ -122,6 +127,7 @@ export function DeliverPanel({
     ...(sendStereo && sceneOverrides.length > 0 ? { scene_overrides: sceneOverrides } : {}),
     // no target_fps: production's default IS the full source rate
     ...(fromScratch ? { from_scratch: true } : {}),
+    ...bitrateField(bitrate),
     platform: "web",
   };
   const request: StepConversionRequest = {
@@ -349,6 +355,12 @@ export function DeliverPanel({
                   ))}
                 </div>
               </div>
+
+              <BitrateControl
+                value={bitrate}
+                onChange={(b) => change(() => setBitrate(b))}
+                sizeBytes={ck.quote?.estimated_size_bytes}
+              />
 
               <label
                 htmlFor="production-from-scratch"

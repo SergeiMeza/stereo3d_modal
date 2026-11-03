@@ -381,6 +381,8 @@ export interface ConversionPart {
 }
 
 export interface StepQuoteResponse {
+  /** S3D-56: the files' estimated total size, when the gateway knows */
+  estimated_size_bytes?: number;
   step: Step;
   params: Params;
   quote: Quote;
@@ -681,6 +683,9 @@ export interface UpdateScenesRequest {
  * pro-step parameter — the gateway rejects it with a 400; per-scene strength
  * lives in scene_overrides[].displacement and the global multiplier in
  * depth_scale. */
+/** Output bitrate (S3D-56), the iPhone/Mac app's choices. */
+export type Bitrate = "auto" | "match_source" | 20 | 40 | 60 | 100;
+
 export interface StepConversionRequest {
   step: Step;
   preset?: Preset; // ignored for depth_preview (always draft)
@@ -702,6 +707,8 @@ export interface StepConversionRequest {
    * seconds (60–3600); the web sends 900 when the user keeps "Split into
    * parts" */
   split_max_seconds?: number;
+  /** S3D-56: output bitrate; absent = Automatic */
+  bitrate?: Bitrate;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
   /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent

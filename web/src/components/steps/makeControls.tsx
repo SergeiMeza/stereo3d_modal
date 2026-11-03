@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import type {
+  Bitrate,
   Format,
   Method,
   Preset,
@@ -19,7 +20,7 @@ import type {
   Thumb,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { formatClock } from "@/lib/format";
+import { formatBytes, formatClock } from "@/lib/format";
 import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
 import type { Client } from "@/lib/headset";
@@ -527,4 +528,61 @@ export function partsEstimate(outputSeconds: number, maxSeconds: number): string
       ? `${mins[0]}`
       : `${mins.slice(0, -1).join(", ")} and ${mins[mins.length - 1]}`;
   return `${n} part${n === 1 ? "" : "s"}: about ${list} min`;
+}
+
+/* ---------- Bitrate (S3D-56) ---------- */
+
+export const BITRATES: readonly { value: Bitrate; label: string }[] = [
+  { value: "auto", label: "Automatic" },
+  { value: "match_source", label: "Match the source" },
+  { value: 20, label: "20 Mbit/s" },
+  { value: 40, label: "40 Mbit/s" },
+  { value: 60, label: "60 Mbit/s" },
+  { value: 100, label: "100 Mbit/s" },
+];
+
+/** The request field: absent for Automatic (the gateway's default). */
+export function bitrateField(b: Bitrate): { bitrate?: Bitrate } {
+  return b === "auto" ? {} : { bitrate: b };
+}
+
+export function BitrateControl({
+  value,
+  onChange,
+  sizeBytes,
+}: {
+  value: Bitrate;
+  onChange: (b: Bitrate) => void;
+  /** the quote's estimated_size_bytes */
+  sizeBytes?: number;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="make-bitrate" className="text-xs font-medium text-fg-muted">
+        Bitrate
+      </label>
+      <select
+        id="make-bitrate"
+        value={String(value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange(
+            v === "auto" || v === "match_source" ? v : (Number(v) as Bitrate),
+          );
+        }}
+        className="w-fit rounded-md border border-edge bg-surface-2 px-2 py-1.5 text-sm"
+      >
+        {BITRATES.map((b) => (
+          <option key={String(b.value)} value={String(b.value)}>
+            {b.label}
+          </option>
+        ))}
+      </select>
+      {sizeBytes !== undefined && sizeBytes > 0 ? (
+        <p data-testid="estimated-size" className="text-xs text-fg-muted">
+          Estimated size: about {formatBytes(sizeBytes)}
+        </p>
+      ) : null}
+    </div>
+  );
 }

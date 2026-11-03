@@ -638,7 +638,10 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     renderPanel(
       <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
-    expect(screen.queryByTestId("lifelike-advanced")).toBeNull();
+    // under Quality, not in the collapsed Advanced
+    expect(
+      within(screen.getByTestId("lifelike-advanced")).queryByText(/Keep the original picture/),
+    ).toBeNull();
     const keep = screen.getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
     expect(keep.checked).toBe(false);
     expect(screen.getByText("One eye shows your original frames at full resolution.")).toBeTruthy();
@@ -727,5 +730,40 @@ describe("Where will you watch it? options (S3D-51)", () => {
     expect(only("XR glasses (XREAL, VITURE, RayNeo)")).toEqual(["Side by side"]);
     expect(only("3D TV or projector")).toEqual(["Side by side (half size)"]);
     expect(only("Not sure")).toEqual(["Vision Pro spatial video", "Side by side"]);
+  });
+});
+
+describe("Bitrate under Advanced (S3D-56)", () => {
+  it("Lifelike Make 3D: collapsed, Automatic by default, sends the choice, shows the estimated size", async () => {
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    const advanced = screen.getByTestId("lifelike-advanced") as HTMLDetailsElement;
+    expect(advanced.open).toBe(false);
+    const select = within(advanced).getByLabelText("Bitrate") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      "Automatic",
+      "Match the source",
+      "20 Mbit/s",
+      "40 Mbit/s",
+      "60 Mbit/s",
+      "100 Mbit/s",
+    ]);
+    expect(select.value).toBe("auto");
+    expect(
+      await within(advanced).findByText(/^Estimated size: about /, {}, { timeout: 3000 }),
+    ).toBeTruthy();
+    const before = screen.getByTestId("quote-total").textContent;
+    fireEvent.change(select, { target: { value: "60" } });
+    await waitFor(() =>
+      expect(quotes.some((q) => q.step === "production" && q.bitrate === 60)).toBe(true),
+    );
+    // no price change
+    await waitFor(() => expect(screen.getByTestId("quote-total").textContent).toBe(before));
+    fireEvent.change(select, { target: { value: "match_source" } });
+    await waitFor(() =>
+      expect(quotes.some((q) => q.bitrate === "match_source")).toBe(true),
+    );
   });
 });

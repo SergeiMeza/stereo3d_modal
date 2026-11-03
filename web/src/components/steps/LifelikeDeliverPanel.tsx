@@ -17,6 +17,7 @@ import type { JSX } from "react";
 
 import {
   conversionMethod,
+  type Bitrate,
   type Format,
   type Preset,
   type Project,
@@ -28,6 +29,8 @@ import { parseRational } from "@/lib/frames";
 import { qualityChoices, resolutionName } from "@/lib/glossary";
 
 import {
+  BitrateControl,
+  bitrateField,
   DEFAULT_MAKE_FORMATS,
   deviceForClient,
   FileTiles,
@@ -89,6 +92,8 @@ export function LifelikeDeliverPanel({
   const [originalEye, setOriginalEye] = useState<"left" | "right" | null>(null);
   // S3D-50: Foveated Detail, ticked by default whenever it's shown
   const [foveated, setFoveated] = useState(true);
+  // S3D-56: under a collapsed Advanced; no price change
+  const [bitrate, setBitrate] = useState<Bitrate>("auto");
   const chosen = choices.find((q) => q.preset === preset);
   const sourceShort = project.probe
     ? Math.min(project.probe.width, project.probe.height)
@@ -105,6 +110,7 @@ export function LifelikeDeliverPanel({
     formats: formats.length > 0 ? formats : DEFAULT_MAKE_FORMATS,
     ...trimFields(range, numFrames),
     ...(originalEye ? { original_eye: originalEye } : {}),
+    ...bitrateField(bitrate),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
@@ -309,6 +315,21 @@ export function LifelikeDeliverPanel({
             onChange={(next) => change(() => setTrim(next))}
           />
         </MakeSection>
+        <details
+          data-testid="lifelike-advanced"
+          className="rounded-xl border border-edge bg-surface-1 px-4 py-3"
+        >
+          <summary className="cursor-pointer text-sm font-medium text-fg-muted">
+            Advanced
+          </summary>
+          <div className="mt-3">
+            <BitrateControl
+              value={bitrate}
+              onChange={(b) => change(() => setBitrate(b))}
+              sizeBytes={ck.quote?.estimated_size_bytes}
+            />
+          </div>
+        </details>
       </div>
 
       <aside className="flex flex-col gap-3 lg:sticky lg:top-0">
