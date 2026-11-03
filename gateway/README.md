@@ -162,6 +162,15 @@ knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
 always forwarded. Classic refuses `split_max_seconds` (400
 `split_unsupported`) until the stereo3d pipeline implements splitting.
 
+Bitrate (S3D-56, both methods, every step): `bitrate` = `auto` (default)
+| `match_source` (the analyzed stream's bit_rate, else file size × 8 /
+duration, capped at 200 Mbit/s) | 20 | 40 | 60 | 100 (Mbit/s). Resolved
+into `params.output_bitrate_bps` and sent to either pipeline as
+`output_bitrate_bps` (absent = auto; pipelines that don't support it yet
+ignore it). Same price; quotes add `estimated_size_bytes` (one file at that
+bitrate over the output length) when a rate is set. The mobile one-shot
+never sends it.
+
 Quotes gain `method`, `charge_timing` (`before` above
 `precharge_threshold_cents`), `eta_seconds` from the method's model,
 `output_seconds` and `split_suggested` (output > 900 s). Conversions gain

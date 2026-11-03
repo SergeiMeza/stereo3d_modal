@@ -138,6 +138,9 @@ type AnalyzeMetadata struct {
 		FPSRational string  `json:"fps_rational"`
 		Duration    float64 `json:"duration"`
 		NumFrames   int     `json:"num_frames"`
+		// The video stream's bit_rate, when the analyze job reports it.
+		BitRate      int64 `json:"bit_rate"`
+		VideoBitRate int64 `json:"video_bit_rate"`
 	} `json:"probe"`
 	Crop    string `json:"crop"`
 	Preview struct {

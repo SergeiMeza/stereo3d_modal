@@ -601,6 +601,9 @@ type stepConvReq struct {
 	// whenever the size is below the source, explicit null = off).
 	OriginalEye *string   `json:"original_eye"`
 	Foveation   optString `json:"foveation"`
+	// Bitrate (S3D-56, both methods, every step): "auto" (default) |
+	// "match_source" | 20 | 40 | 60 | 100 (Mbit/s).
+	Bitrate bitrateReq `json:"bitrate"`
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -860,6 +863,9 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 	params.SkipReuse = req.FromScratch
 	if p.Scenes != nil {
 		params.SceneCuts = p.Scenes.Cuts
+	}
+	if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
+		return params, berr
 	}
 	if req.UseUploadedDepth {
 		if req.Step == store.StepDepthPreview {
@@ -1141,6 +1147,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		resp["eta_seconds"] = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
 		resp["output_seconds"] = math.Round(billable*100) / 100
 		resp["split_suggested"] = req.Step == store.StepProduction && billable > splitSuggestSeconds
+		if size := estimatedSizeBytes(params, billable); size > 0 {
+			resp["estimated_size_bytes"] = size // per file, at the chosen bitrate
+		}
 	}
 	if method == store.MethodLifelike {
 		resp["output_short_side"] = outputShortSide(p, params)

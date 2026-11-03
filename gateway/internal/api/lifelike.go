@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -221,6 +222,9 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	if p.Scenes != nil {
 		params.SceneCuts = p.Scenes.Cuts
 	}
+	if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
+		return params, berr
+	}
 	return params, nil
 }
 
@@ -253,6 +257,9 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.OriginalEye != "" {
 		body["original_eye"] = c.Params.OriginalEye
+	}
+	if c.Params.OutputBitrateBps > 0 {
+		body["output_bitrate_bps"] = c.Params.OutputBitrateBps // absent = auto
 	}
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
@@ -618,4 +625,83 @@ func (o optString) value() string {
 func foveationFits(p *store.Project, params store.Params) bool {
 	short := sourceShortSide(p)
 	return short > 0 && presetOutputHeight[params.Preset] < short
+}
+
+// ------------------------------------------------------------- bitrate
+
+// bitrateReq is the request's bitrate (S3D-56): a string ("auto",
+// "match_source") or a number of Mbit/s; absent or null = auto.
+type bitrateReq struct {
+	Choice string // "" = auto
+}
+
+func (b *bitrateReq) UnmarshalJSON(raw []byte) error {
+	if string(raw) == "null" {
+		b.Choice = ""
+		return nil
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		b.Choice = s
+		return nil
+	}
+	var n float64
+	if err := json.Unmarshal(raw, &n); err != nil {
+		return fmt.Errorf("bitrate must be auto, match_source or a number of Mbit/s")
+	}
+	b.Choice = strconv.FormatFloat(n, 'f', -1, 64)
+	return nil
+}
+
+// Bitrate rails: the fixed choices in Mbit/s, and match_source's cap.
+var bitrateChoicesMbps = []string{"20", "40", "60", "100"}
+
+const maxMatchSourceBps = 200_000_000
+
+// sourceBitrate is the source video's bits per second: the analyzed video
+// stream's bit_rate, else file size × 8 / duration; 0 when unknown.
+func sourceBitrate(p *store.Project) int64 {
+	if p.Probe == nil {
+		return 0
+	}
+	if p.Probe.BitRate > 0 {
+		return p.Probe.BitRate
+	}
+	if p.Source.Bytes > 0 && p.Probe.DurationS > 0 {
+		return int64(float64(p.Source.Bytes) * 8 / p.Probe.DurationS)
+	}
+	return 0
+}
+
+// applyBitrate resolves the request's bitrate into params: auto leaves
+// both fields empty (the pipeline's own rate); match_source takes the
+// source's, capped at 200 Mbit/s; a number is that many Mbit/s. Same price
+// either way.
+func applyBitrate(params *store.Params, b bitrateReq, p *store.Project) *httpx.APIError {
+	switch b.Choice {
+	case "", "auto":
+		return nil
+	case "match_source":
+		src := sourceBitrate(p)
+		if src <= 0 {
+			return httpx.ErrConflict("match_source needs the analyzed source; try again once analysis is done")
+		}
+		params.Bitrate, params.OutputBitrateBps = b.Choice, min(src, maxMatchSourceBps)
+		return nil
+	}
+	if !slices.Contains(bitrateChoicesMbps, b.Choice) {
+		return httpx.ErrInvalid("bitrate must be auto, match_source, 20, 40, 60 or 100")
+	}
+	mbps, _ := strconv.ParseInt(b.Choice, 10, 64)
+	params.Bitrate, params.OutputBitrateBps = b.Choice, mbps*1_000_000
+	return nil
+}
+
+// estimatedSizeBytes is one output file's size at the run's bitrate over
+// its output length (0 with auto: the pipeline picks the rate).
+func estimatedSizeBytes(params store.Params, outputSeconds float64) int64 {
+	if params.OutputBitrateBps <= 0 {
+		return 0
+	}
+	return int64(float64(params.OutputBitrateBps) * outputSeconds / 8)
 }

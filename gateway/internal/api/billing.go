@@ -133,6 +133,7 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	}
 	put("quality", pa.Quality)
 	put("original_eye", pa.OriginalEye)
+	put("bitrate", pa.Bitrate)
 	put("foveation", pa.Foveation)
 	if pa.PricePreset != "" {
 		put("price_preset", pa.PricePreset)

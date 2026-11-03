@@ -406,3 +406,77 @@ func TestFoveationDefault(t *testing.T) {
 		t.Errorf("preview breakdown: %d %v", pq.AmountCents, pq.Breakdown)
 	}
 }
+
+// S3D-56: the bitrate choice, both methods, every step; same price.
+func TestBitrate(t *testing.T) {
+	decode := func(body string) stepConvReq {
+		var req stepConvReq
+		if err := json.Unmarshal([]byte(body), &req); err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		return req
+	}
+	ll := lifelikeProject()         // 4K, 100 s
+	ll.Source.Bytes = 1_250_000_000 // 100 Mbit/s over 100 s
+	cases := []struct {
+		body string
+		want int64
+	}{
+		{`{"step":"production"}`, 0},
+		{`{"step":"production","bitrate":"auto"}`, 0},
+		{`{"step":"production","bitrate":null}`, 0},
+		{`{"step":"production","bitrate":40}`, 40_000_000},
+		{`{"step":"production","bitrate":"100"}`, 100_000_000},
+		{`{"step":"lifelike_preview","to_frame":120,"bitrate":20}`, 20_000_000},
+		{`{"step":"production","bitrate":"match_source"}`, 100_000_000}, // size × 8 / duration
+	}
+	for _, tc := range cases {
+		req := decode(tc.body)
+		params := resolveOKP(t, &req, ll)
+		if params.OutputBitrateBps != tc.want {
+			t.Errorf("%s: want %d, got %d", tc.body, tc.want, params.OutputBitrateBps)
+		}
+		b := lifelikeBody(&store.Conversion{Step: req.Step, Params: params}, 4)
+		if v, ok := b["output_bitrate_bps"]; (tc.want == 0) == ok || (ok && v != tc.want) {
+			t.Errorf("%s: body output_bitrate_bps %v (present %v)", tc.body, v, ok)
+		}
+	}
+	// match_source: the analyzed stream bit_rate wins, capped at 200 Mbit/s
+	ll.Probe.BitRate = 350_000_000
+	req := decode(`{"step":"production","bitrate":"match_source"}`)
+	if params := resolveOKP(t, &req, ll); params.OutputBitrateBps != 200_000_000 || params.Bitrate != "match_source" {
+		t.Errorf("capped match_source: %+v", params)
+	}
+	noProbe := lifelikeProject()
+	noProbe.Probe = nil
+	req = decode(`{"step":"production","bitrate":"match_source"}`)
+	if _, err := resolveStepParams(&req, noProbe); err == nil || err.Code != "conflict" {
+		t.Errorf("match_source before analysis: %v", err)
+	}
+	for _, bad := range []string{`30`, `"fast"`, `0`} {
+		req := decode(`{"step":"production","bitrate":` + bad + `}`)
+		if _, err := resolveStepParams(&req, lifelikeProject()); err == nil {
+			t.Errorf("bitrate %s must be refused", bad)
+		}
+	}
+	// classic too, every step, into the stereo3d body (pro steps only)
+	for _, step := range []string{store.StepDepthPreview, store.StepStereoPreview, store.StepProduction} {
+		req := decode(`{"step":"` + step + `","bitrate":60}`)
+		params := resolveOKP(t, &req, proProject())
+		conv := &store.Conversion{Kind: "video", Step: step, Params: params}
+		if b := (&Service{}).modalBody(conv, 8); b["output_bitrate_bps"] != int64(60_000_000) {
+			t.Errorf("classic %s body: %v", step, b["output_bitrate_bps"])
+		}
+	}
+	mobile := &store.Conversion{Kind: "video", Params: store.Params{Preset: "1080p", OutputBitrateBps: 60_000_000}}
+	if _, ok := (&Service{}).modalBody(mobile, 8)["output_bitrate_bps"]; ok {
+		t.Error("the mobile one-shot never sends a bitrate")
+	}
+	// one size estimate per file
+	if got := estimatedSizeBytes(store.Params{OutputBitrateBps: 40_000_000}, 60); got != 300_000_000 {
+		t.Errorf("40 Mbit/s × 60 s: %d", got)
+	}
+	if estimatedSizeBytes(store.Params{}, 60) != 0 {
+		t.Error("auto: no estimate")
+	}
+}

@@ -176,7 +176,11 @@ type Params struct {
 	// Lifelike (S3D-49/50): OriginalEye keeps the source frame as that eye
 	// ("left" | "right"; "" = both rendered); Foveation "static" (or "").
 	OriginalEye string `firestore:"original_eye,omitempty" json:"original_eye,omitempty"`
-	Foveation   string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
+	// Bitrate (S3D-56): the choice ("match_source", "20", "40", "60",
+	// "100"; "" = auto) and what it resolved to (0 = the pipeline's own).
+	Bitrate          string `firestore:"bitrate,omitempty" json:"bitrate,omitempty"`
+	OutputBitrateBps int64  `firestore:"output_bitrate_bps,omitempty" json:"output_bitrate_bps,omitempty"`
+	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -427,6 +431,9 @@ type Probe struct {
 	FPSRational string  `firestore:"fps_rational" json:"fps_rational"`
 	DurationS   float64 `firestore:"duration_s" json:"duration_s"`
 	NumFrames   int     `firestore:"num_frames" json:"num_frames"`
+	// BitRate: the video stream's bits per second when analysis reports it
+	// (0 = unknown; match_source then estimates from the file size).
+	BitRate int64 `firestore:"bit_rate,omitempty" json:"bit_rate,omitempty"`
 }
 
 type Analyze struct {

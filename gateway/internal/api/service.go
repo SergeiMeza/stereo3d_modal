@@ -252,6 +252,11 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	// (depth_scale = displacement / standard), and the app's placement as
 	// the fallback plane pair. Images have no profiler.
 	body["adaptive"] = true
+	if c.Step != "" && c.Params.OutputBitrateBps > 0 {
+		// pro steps' bitrate choice (S3D-56); absent = auto. The mobile
+		// one-shot never sets it.
+		body["output_bitrate_bps"] = c.Params.OutputBitrateBps
+	}
 	if c.Params.SkipReuse { // from-scratch: nothing stale picked up silently
 		body["skip_reuse_preprocess"] = true
 		body["skip_reuse_depth"] = true
@@ -894,6 +899,7 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				Width: meta.Probe.Width, Height: meta.Probe.Height,
 				FPS: meta.Probe.FPS, FPSRational: meta.Probe.FPSRational,
 				DurationS: meta.Probe.Duration, NumFrames: meta.Probe.NumFrames,
+				BitRate: max(meta.Probe.VideoBitRate, meta.Probe.BitRate),
 			}
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL
