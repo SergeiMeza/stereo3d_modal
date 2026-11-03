@@ -52,7 +52,17 @@ export function conversionMethod(c: {
  * billed once it succeeds. */
 export type ChargeTiming = "before" | "after";
 
-export type Preset = "draft" | "1080p" | "qhd" | "3k" | "4k";
+/** 5k/6k/8k are Lifelike only and come from the gateway's `qualities`
+ * list (S3D-48) — never offered from a client-side list. */
+export type Preset =
+  | "draft"
+  | "1080p"
+  | "qhd"
+  | "3k"
+  | "4k"
+  | "5k"
+  | "6k"
+  | "8k";
 
 export type Format =
   "sbs" | "half_sbs" | "tb" | "half_tb" | "anaglyph" | "mvhevc";
@@ -248,6 +258,11 @@ export interface Params {
   skip_reuse?: boolean;
   /** production: output files of at most this many seconds each */
   split_max_seconds?: number;
+  /** Lifelike (S3D-49): keep the source picture as this eye; off = absent */
+  original_eye?: "left" | "right";
+  /** Lifelike (S3D-50): "Sharper centre", only below the video's own size
+   * and when the gateway reports it enabled */
+  foveation?: "static";
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -481,6 +496,8 @@ export interface MethodLimits {
   max_source_duration_s: number;
   /** false: the method can't be chosen right now (method_unavailable) */
   available?: boolean;
+  /** Lifelike: "Sharper centre" (static foveation) can be ordered */
+  foveation?: boolean;
 }
 
 export interface GatewayLimits {
@@ -681,6 +698,10 @@ export interface StepConversionRequest {
    * seconds (60–3600); the web sends 900 when the user keeps "Split into
    * parts" */
   split_max_seconds?: number;
+  /** Lifelike (S3D-49): keep the source picture as this eye */
+  original_eye?: "left" | "right";
+  /** Lifelike (S3D-50): Sharper centre */
+  foveation?: "static";
   /** quotes only: price the step under this method without changing the
    * project (S3D-14); conversions refuse a mismatch */
   method?: Method;

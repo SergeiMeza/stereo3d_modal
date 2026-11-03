@@ -25,6 +25,7 @@ import {
 
 import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { resetLimitsCache } from "@/lib/api/useLimits";
 import { parseRational } from "@/lib/frames";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
@@ -595,5 +596,74 @@ describe("in a headset browser (S3D-47)", () => {
         .filter((c) => (c as HTMLInputElement).checked)
         .map((c) => c.getAttribute("aria-label")),
     ).toEqual(["Side by side"]);
+  });
+});
+
+describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
+  it("offers 5K, 6K and 8K when the gateway lists them", async () => {
+    const project = lifelikeProject({ width: 7680, height: 4320 });
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    const tiles = within(screen.getByRole("radiogroup", { name: "Quality" }));
+    // the fixture project has no gateway list: the page offers up to 4K
+    expect(tiles.getAllByRole("radio")).toHaveLength(4);
+    cleanup();
+    const listed = {
+      ...project,
+      qualities: [
+        { preset: "4k" as const, label: "4K", eye_width: 3840, eye_height: 2160 },
+        { preset: "5k" as const, label: "5K", eye_width: 5120, eye_height: 2880 },
+        { preset: "6k" as const, label: "6K", eye_width: 5760, eye_height: 3240 },
+        { preset: "8k" as const, label: "8K", eye_width: 7680, eye_height: 4320 },
+      ],
+    };
+    mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
+    renderPanel(<LifelikeDeliverPanel project={listed} onProjectChanged={() => {}} />);
+    expect(screen.getByTestId("quality-8k").textContent).toMatch(/^8K7680×4320 per eye/);
+    await waitFor(() =>
+      expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
+    );
+  });
+
+  it("Advanced stays collapsed; Keep the original picture in one eye sends original_eye", async () => {
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    const advanced = screen.getByTestId("lifelike-advanced") as HTMLDetailsElement;
+    expect(advanced.open).toBe(false);
+    const keep = within(advanced).getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
+    expect(keep.checked).toBe(false);
+    // Sharper centre is hidden unless the gateway offers it
+    expect(within(advanced).queryByText(/Sharper centre/)).toBeNull();
+    fireEvent.click(keep);
+    fireEvent.click(within(advanced).getByLabelText("Right"));
+    await waitFor(() =>
+      expect(
+        quotes.some((q) => q.step === "production" && q.original_eye === "right" && q.preset === "4k"),
+      ).toBe(true),
+    );
+  });
+
+  it("Sharper centre appears only below the video's own size when the gateway offers it", async () => {
+    mockDb.lifelikeFoveation = true;
+    resetLimitsCache();
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    const advanced = screen.getByTestId("lifelike-advanced");
+    // 4K source at 4K: the video's own size — not offered
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(advanced).queryByText(/Sharper centre/)).toBeNull();
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "Quality" })).getAllByRole("radio")[0],
+    );
+    const sharper = await within(advanced).findByLabelText(/Sharper centre/);
+    fireEvent.click(sharper);
+    await waitFor(() =>
+      expect(
+        quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "1080p"),
+      ).toBe(true),
+    );
   });
 });

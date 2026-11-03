@@ -56,6 +56,9 @@ export const QUALITY_NAMES: Record<Preset, string> = {
   qhd: "1440p",
   "3k": "3K",
   "4k": "4K",
+  "5k": "5K",
+  "6k": "6K",
+  "8k": "8K",
 };
 
 /** Output short side per eye of each quality. */
@@ -65,9 +68,13 @@ export const QUALITY_SHORT_SIDE: Record<Preset, number> = {
   qhd: 1440,
   "3k": 1620,
   "4k": 2160,
+  "5k": 2880,
+  "6k": 3240,
+  "8k": 4320,
 };
 
-/** Qualities offered on the pages (no Draft), in order. */
+/** Qualities a page offers on its own (no Draft), in order. Lifelike's
+ * 5K/6K/8K come only from the gateway's list (S3D-48). */
 export const QUALITIES: readonly Preset[] = ["1080p", "qhd", "3k", "4k"];
 
 export function qualityName(p: string | undefined): string {
@@ -106,6 +113,8 @@ export interface QualityChoice {
   label: string;
   /** "3840×1606 per eye" */
   hint?: string;
+  /** output short side per eye, when known */
+  eyeShort?: number;
 }
 
 /** The option text: "4K · 3840×2160 per eye". */
@@ -127,6 +136,10 @@ export function qualityChoices(project: {
       preset: q.preset,
       label: q.label,
       hint: hint(q.eye_width, q.eye_height),
+      eyeShort:
+        q.eye_width && q.eye_height
+          ? Math.min(q.eye_width, q.eye_height)
+          : QUALITY_SHORT_SIDE[q.preset],
     }));
   }
   const probe = project.probe;
@@ -141,6 +154,7 @@ export function qualityChoices(project: {
           ? `Full resolution (${short}p)`
           : qualityName(p),
       hint: hint(size.width, size.height),
+      eyeShort: short,
     };
   });
 }
@@ -222,6 +236,10 @@ export function runSummary(p: Params, step?: Step): string {
     p.split_max_seconds !== undefined
       ? `in ${Math.round(p.split_max_seconds / 60)}-minute parts`
       : null,
+    p.original_eye
+      ? `Original picture in the ${p.original_eye} eye`
+      : null,
+    p.foveation === "static" ? "Sharper centre" : null,
   ]
     .filter(Boolean)
     .join(" · ");

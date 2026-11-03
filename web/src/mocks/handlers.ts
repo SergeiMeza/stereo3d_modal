@@ -75,12 +75,29 @@ const RATES = {
  * edge or reuse factors; the bulk discount and the minimum still apply.
  * lifelike_preview is priced from the same table. */
 const LIFELIKE = {
-  priceCentsPerMinute: { "1080p": 450, qhd: 650, "3k": 800, "4k": 1000 } as Record<
+  // 5k/6k/8k: mock numbers only (S3D-48; the gateway's table is authoritative)
+  priceCentsPerMinute: {
+    "1080p": 450,
+    qhd: 650,
+    "3k": 800,
+    "4k": 1000,
+    "5k": 1400,
+    "6k": 1800,
+    "8k": 2600,
+  } as Record<
     string,
     number
   >,
   /** short side per eye of each preset; above the source → 400 */
-  presetShortSide: { "1080p": 1080, qhd: 1440, "3k": 1620, "4k": 2160 } as Record<
+  presetShortSide: {
+    "1080p": 1080,
+    qhd: 1440,
+    "3k": 1620,
+    "4k": 2160,
+    "5k": 2880,
+    "6k": 3240,
+    "8k": 4320,
+  } as Record<
     string,
     number
   >,
@@ -168,6 +185,8 @@ interface DB {
   gpuWaitPolls: number;
   /** GET /v1/limits methods.<m>.available; false → method_unavailable */
   methodAvailable: Record<Method, boolean>;
+  /** GET /v1/limits methods.lifelike.foveation (Sharper centre) */
+  lifelikeFoveation: boolean;
 }
 
 function seed(): DB {
@@ -197,6 +216,7 @@ function seed(): DB {
     chargeBeforeCents: 2500,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
+    lifelikeFoveation: false,
     gpuWaitPolls: 1,
   };
 }
@@ -215,6 +235,7 @@ export const mockDb = {
     this.chargeBeforeCents = fresh.chargeBeforeCents;
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     this.methodAvailable = fresh.methodAvailable;
+    this.lifelikeFoveation = fresh.lifelikeFoveation;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
@@ -795,7 +816,21 @@ function validateLifelikeRequest(
   }
   const preset = (body.preset as string | undefined) ?? "1080p";
   if (LIFELIKE.priceCentsPerMinute[preset] === undefined) {
-    return err(400, "invalid_request", "preset must be 1080p|qhd|3k|4k");
+    return err(400, "invalid_request", "preset must be 1080p|qhd|3k|4k|5k|6k|8k");
+  }
+  const eye = body.original_eye as string | undefined;
+  if (eye !== undefined && eye !== "left" && eye !== "right") {
+    return err(400, "invalid_request", "original_eye must be left|right");
+  }
+  if (body.foveation !== undefined) {
+    if (body.foveation !== "static" || !mockDb.lifelikeFoveation) {
+      return err(400, "invalid_request", "foveation is not available");
+    }
+    const side = LIFELIKE.presetShortSide[preset];
+    const short = p.probe ? Math.min(p.probe.width, p.probe.height) : 0;
+    if (!(side < short)) {
+      return err(400, "invalid_request", "foveation needs a size below the source");
+    }
   }
   if (!lifelikeQualities(p).some((q) => q.preset === preset)) {
     return err(
@@ -867,6 +902,9 @@ function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
     ["qhd", "1440p", 1440],
     ["3k", "3K", 1620],
     ["4k", "4K", 2160],
+    ["5k", "5K", 2880],
+    ["6k", "6K", 3240],
+    ["8k", "8K", 4320],
   ];
   const size = (target: number) => {
     const k = Math.min(1, target / short);
@@ -932,7 +970,11 @@ function lifelikeQuoteFor(
   const perMin = LIFELIKE.priceCentsPerMinute[priced];
   const effFPS = req.target_fps ?? probe.fps;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
-  const subtotal = Math.ceil((outputSeconds / 60) * perMin * fpsFactor);
+  // Sharper centre: +30% (S3D-50)
+  const foveationFactor = req.foveation === "static" ? 1.3 : 1;
+  const subtotal = Math.ceil(
+    (outputSeconds / 60) * perMin * fpsFactor * foveationFactor,
+  );
   const bulk =
     subtotal > RATES.discountThresholdCents
       ? Math.round(subtotal * RATES.discountPct)
@@ -966,6 +1008,8 @@ function lifelikeQuoteFor(
       target_fps: req.target_fps || undefined,
       scene_cuts: project.scenes?.cuts,
       split_max_seconds: req.split_max_seconds,
+      ...(req.original_eye ? { original_eye: req.original_eye } : {}),
+      ...(req.foveation ? { foveation: req.foveation } : {}),
     },
     outputSeconds,
     eta: lifelikeEta(outputSeconds, probe.fps, preset),
@@ -1690,6 +1734,7 @@ export const handlers = [
         lifelike: {
           max_source_duration_s: mockDb.methodMaxDurationS.lifelike,
           available: mockDb.methodAvailable.lifelike,
+          foveation: mockDb.lifelikeFoveation,
         },
         classic: {
           max_source_duration_s: mockDb.methodMaxDurationS.classic,
