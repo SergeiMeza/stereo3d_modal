@@ -374,6 +374,8 @@ interface DB {
   gpuWaitPolls: number;
   /** GET /v1/limits methods.<m>.available; false → method_unavailable */
   methodAvailable: Record<Method, boolean>;
+  /** GET /v1/pricing classic_new_projects (owner 2026-11-04: false) */
+  classicNewProjects: boolean;
   /** GET /v1/limits methods.lifelike.foveation (Foveated Detail) */
   lifelikeFoveation: boolean;
   /** S3D-67: quotes say pro true/false; null = the gateway says nothing */
@@ -611,6 +613,7 @@ function seed(): DB {
     chargeBeforeCents: 2500,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
+    classicNewProjects: false,
     lifelikeFoveation: false,
     pro: null,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
@@ -1472,7 +1475,8 @@ function lifelikeQuoteFor(
       const perFrame = (perMin: number) => Math.round((frames * perMin) / (60 * RATES.fpsBase));
       q = composeTier(perFrame(listPer), perFrame(tierPer), tier, addOns, false);
     } else {
-      const base = (perMin: number) => Math.ceil((outputSeconds / 60) * perMin * fpsFactor);
+      // owner 2026-11-04: the run's video rounds UP to whole minutes
+      const base = (perMin: number) => Math.ceil(Math.ceil(outputSeconds / 60) * perMin * fpsFactor);
       q = composeTier(base(listPer), base(tierPer), tier, addOns, true);
     }
     let total = Math.max(q.final, minimumFor(req.step));
@@ -1494,7 +1498,8 @@ function lifelikeQuoteFor(
           list_cents_per_minute: listPer,
           cents_per_minute: tierPer,
           fps_factor: Math.round(fpsFactor * 10000) / 10000,
-          list_base_cents: preview ? q.listTotal - Object.values(q.adds).reduce((a, b) => a + b, 0) : Math.ceil((outputSeconds / 60) * listPer * fpsFactor),
+          ...(preview ? {} : { billable_minutes: Math.ceil(outputSeconds / 60) }),
+          list_base_cents: preview ? q.listTotal - Object.values(q.adds).reduce((a, b) => a + b, 0) : Math.ceil(Math.ceil(outputSeconds / 60) * listPer * fpsFactor),
           addons: q.adds,
           subtotal_cents: q.listTotal,
           discount: q.kind ? { kind: q.kind, cents: q.cents, pct: q.dpct, ...(q.kind === "tier" ? { tier } : {}) } : null,
@@ -1528,9 +1533,10 @@ function lifelikeQuoteFor(
   }
   // Foveated Detail: +30% (S3D-50)
   const foveationFactor = req.foveation === "static" ? 1.3 : 1;
-  const subtotal = Math.ceil(
-    (outputSeconds / 60) * perMin * fpsFactor * foveationFactor,
-  );
+  // owner 2026-11-04: a full run's video rounds UP to whole minutes
+  const production = req.step === "production";
+  const minutes = production ? Math.ceil(outputSeconds / 60) : outputSeconds / 60;
+  const subtotal = Math.ceil(minutes * perMin * fpsFactor * foveationFactor);
   const bulk =
     subtotal > RATES.discountThresholdCents
       ? Math.round(subtotal * RATES.discountPct)
@@ -1555,6 +1561,7 @@ function lifelikeQuoteFor(
         step: req.step,
         preset,
         billable_seconds: Math.round(outputSeconds * 100) / 100,
+        ...(production ? { billable_minutes: minutes } : {}),
         cents_per_minute: perMin,
         fps_factor: Math.round(fpsFactor * 10000) / 10000,
         base_cents: subtotal,
@@ -3028,6 +3035,7 @@ export const handlers = [
     HttpResponse.json({
       rate_version: "mock",
       currency: "usd",
+      classic_new_projects: mockDb.classicNewProjects,
       methods: {
         lifelike: {
           presets: ["1080p", "qhd", "3k", "4k", "5k", "6k", "8k"],
@@ -3166,14 +3174,19 @@ export const handlers = [
     if (method !== undefined && !mockDb.methodAvailable[method]) {
       return err(400, "method_unavailable", "this 3D method isn't available right now");
     }
+    // owner 2026-11-04: Classic 3D takes no new projects
+    if (method === "classic" && !mockDb.classicNewProjects) {
+      return err(422, "classic_retired", "Classic 3D takes no new projects");
+    }
     const template = structuredClone(projectFixture) as unknown as Project;
     const id = gcs_key.split("/").at(-2) ?? newId();
     const project: Project = {
       ...template,
       project_id: id,
       name: name || "Untitled project",
-      // a missing method means classic: old clients never sent one
-      method: method ?? "classic",
+      // a missing method meant classic for old clients; Classic takes no
+      // new projects any more, so those get Lifelike
+      method: method ?? (mockDb.classicNewProjects ? "classic" : "lifelike"),
       analyze: {
         state: "running",
         error: "",

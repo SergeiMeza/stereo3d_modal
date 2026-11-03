@@ -23,6 +23,10 @@ export function prechargeThreshold(limits: GatewayLimits | null): number {
 export const CHARGED_AT_START = "Charged when it starts. Refunded if it fails.";
 export const CHARGED_AFTER = "Charged after it's done.";
 
+/** Prices round the video up to whole minutes (owner 2026-11-04; the
+ * gateway's quote carries billable_minutes). */
+export const ROUNDED_UP_LINE = "Each started minute counts as a full minute.";
+
 /** The general rule, for onboarding and Account. */
 export function chargeRule(thresholdCents = DEFAULT_PRECHARGE_CENTS): string {
   const t = formatCentsShort(thresholdCents);

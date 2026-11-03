@@ -6,7 +6,7 @@ import {
   CHARGED_AT_START,
   quoteChargeSentence,
 } from "@/lib/billingCopy";
-import { formatDuration, formatVideoLength } from "@/lib/format";
+import { formatClock, formatDuration, formatVideoLength } from "@/lib/format";
 import { qualityName } from "@/lib/glossary";
 
 import { formatCents, formatCentsShort } from "./money";
@@ -69,6 +69,17 @@ const REUSE_NAMES: Record<string, string> = {
 };
 
 /** "+25%" / "−50%" for a price factor. */
+/** The length a quote charges for: "3 min (2:10, rounded up)" when the
+ * gateway rounded the video up to whole minutes (billable_minutes, owner
+ * 2026-11-04), else the plain length. */
+export function billedLength(b: QuoteBreakdown): string {
+  const secs = b.billable_seconds ?? 0;
+  const mins = b.billable_minutes;
+  if (mins === undefined) return formatVideoLength(secs);
+  if (Math.round(secs) >= mins * 60) return `${mins} min`;
+  return `${mins} min (${formatClock(secs)}, rounded up)`;
+}
+
 function percent(factor: number): string {
   const p = Math.round((factor - 1) * 100);
   return p >= 0 ? `+${p}%` : `−${-p}%`;
@@ -150,7 +161,7 @@ export function QuoteView({
   const videoLabel =
     b.billable_seconds !== undefined ? (
       <>
-        Your video: {formatVideoLength(b.billable_seconds)}
+        Your video: {billedLength(b)}
         {fps !== null && b.fps_factor !== 1 ? (
           <span data-testid="quote-fps-factor">
             {" "}
@@ -193,9 +204,8 @@ export function QuoteView({
     b.billable_seconds !== undefined &&
     b.fps_factor !== undefined;
   const fovCents = addonsTotal;
-  const atRate = lifelikeLines
-    ? Math.round((b.billable_seconds! / 60) * cpm!)
-    : 0;
+  const minutes = b.billable_minutes ?? (b.billable_seconds ?? 0) / 60;
+  const atRate = lifelikeLines ? Math.round(minutes * cpm!) : 0;
   const fpsAdds = lifelikeLines ? subtotal - fovCents - atRate : 0;
 
   return (
@@ -210,10 +220,10 @@ export function QuoteView({
           <Line
             label={
               <>
-                {formatVideoLength(b.billable_seconds!)}
+                {billedLength(b)}
                 {b.preset ? ` at ${qualityName(b.preset)}` : ""}
                 <span className="block text-[11px] text-fg-muted/80">
-                  {(b.billable_seconds! / 60).toFixed(1)} min × {formatCents(cpm!)} a minute
+                  {b.billable_minutes ?? minutes.toFixed(1)} min × {formatCents(cpm!)} a minute
                 </span>
               </>
             }

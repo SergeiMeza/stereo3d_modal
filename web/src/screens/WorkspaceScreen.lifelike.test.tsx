@@ -154,7 +154,7 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     );
     expect(document.body.textContent).not.toMatch(/Classic|Older method|Red-cyan/);
     expect(
-      within(screen.getByTestId("method-badge")).queryByText("Move to Lifelike 3D"),
+      within(screen.getByTestId("method-badge")).queryByText("Convert with Lifelike 3D"),
     ).toBeNull();
   });
 
@@ -172,7 +172,7 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     const offer = await screen.findByTestId("move-to-lifelike-offer");
     await waitFor(() =>
       expect(offer.textContent).toMatch(
-        /^✦Move to Lifelike 3D: \$\d+\.\d\d, about .+ for this video\./,
+        /^✦Convert with Lifelike 3D: \$\d+\.\d\d, about .+ for this video\./,
       ),
     );
     // a fair comparison: Lifelike priced at Classic's own quality, its
@@ -192,7 +192,7 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     );
     fireEvent.click(within(offer).getByRole("button", { name: "Move" }));
     const dialog = await screen.findByTestId("move-to-lifelike-dialog");
-    expect(within(dialog).getByText("Move this project to Lifelike 3D?")).toBeTruthy();
+    expect(within(dialog).getByText("Convert this project with Lifelike 3D?")).toBeTruthy();
     expect(
       within(dialog).getByText(
         "Your Classic files stay in Files. You can't move back to Classic.",
@@ -209,7 +209,7 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
       ),
     );
     expect(mockDb.projects.get(PID)!.method).toBeUndefined(); // not yet
-    fireEvent.click(within(dialog).getByRole("button", { name: "Move to Lifelike 3D" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Convert with Lifelike 3D" }));
     await waitFor(() => expect(railIds()).toContain("preview"));
     expect(mockDb.projects.get(PID)!.method).toBe("lifelike");
     await waitFor(() => expect(screen.queryByTestId("move-to-lifelike-offer")).toBeNull());
@@ -234,7 +234,7 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     expect(within(screen.getByTestId("method-badge")).getByText("Older method")).toBeTruthy();
     fireEvent.click(
       within(screen.getByTestId("method-badge")).getByRole("button", {
-        name: "Move to Lifelike 3D",
+        name: "Convert with Lifelike 3D",
       }),
     );
     expect(await screen.findByTestId("move-to-lifelike-dialog")).toBeTruthy();
@@ -257,7 +257,7 @@ describe("method availability", () => {
     await renderWorkspace();
     await waitFor(() =>
       expect(
-        within(screen.getByTestId("method-badge")).queryByText("Move to Lifelike 3D"),
+        within(screen.getByTestId("method-badge")).queryByText("Convert with Lifelike 3D"),
       ).toBeNull(),
     );
     expect(screen.queryByTestId("method-chooser")).toBeNull();

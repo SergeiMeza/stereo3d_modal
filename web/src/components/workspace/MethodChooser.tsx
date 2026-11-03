@@ -4,8 +4,9 @@
  * The project's 3D method (S3D-01, S3D-14, S3D-30, S3D-44). There is no
  * chooser: new projects are Lifelike, and a Lifelike project never shows
  * Classic. An existing Classic project keeps its "Older method" tag and
- * shows the one-way offer "Move to Lifelike 3D: $X, about Y min for this
- * video." Moving asks first ("Your Classic files stay in Files. You can't
+ * shows the one-way offer "Convert with Lifelike 3D: $X, about Y min for
+ * this video" (Classic takes no new projects since 2026-11-04). Converting
+ * asks first ("Your Classic files stay in Files. You can't
  * move back to Classic.") with both prices side by side (screen 04). The
  * gateway's 400 method_switch_not_allowed reads as a plain sentence.
  *
@@ -291,7 +292,7 @@ export function MoveToLifelikeDialog({
             Stay on Classic 3D
           </Button>
           <Button onClick={onConfirm} disabled={busy}>
-            Move to Lifelike 3D
+            Convert with Lifelike 3D
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -331,7 +332,7 @@ export function MoveToLifelikeOffer({
         ✦
       </span>
       <span className="text-fg">
-        <span className="font-medium">Move to Lifelike 3D</span>
+        <span className="font-medium">Convert with Lifelike 3D</span>
         {q ? (
           <span data-testid="move-offer-price">
             : {formatCents(q.quote.amount_cents)}
@@ -408,7 +409,7 @@ export function MethodBadge({
           onClick={() => setConfirming(true)}
           className="rounded border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/10"
         >
-          Move to Lifelike 3D
+          Convert with Lifelike 3D
         </button>
       ) : null}
       {sw.error ? (

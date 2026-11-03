@@ -14,12 +14,11 @@ import type { JSX } from "react";
 
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
-import { Badge } from "@/components/ui/badge";
 import { InfoPopover } from "@/components/ui/info-popover";
 import type { Method, Preset, PublicPricing } from "@/lib/api/types";
 import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
-import { CHARGED_AFTER } from "@/lib/billingCopy";
+import { CHARGED_AFTER, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 
 import { PayPerVideoLine } from "./planCopy";
@@ -33,17 +32,18 @@ function size169(p: Preset): string {
 }
 
 
-function MethodPrices({
+/** Lifelike 3D's prices (Classic 3D is retired for new projects, owner
+ * 2026-11-04; an existing Classic project quotes on its own page). */
+function LifelikePrices({
   pricing,
-  method,
 }: {
   pricing: PublicPricing;
-  method: Method;
 }): JSX.Element | null {
+  const method: Method = "lifelike";
   const m = pricing.methods[method];
   if (!m) return null;
   // pricing 2026-11: the list table, with the Pro price beside it
-  const tiers = method === "lifelike" ? pricing.tiers?.lifelike_cents_per_minute : undefined;
+  const tiers = pricing.tiers?.lifelike_cents_per_minute;
   const list = tiers?.list ?? m.production_cents_per_minute;
   const pro = tiers?.pro;
   const rows = m.presets.filter((p) => typeof list[p] === "number");
@@ -54,16 +54,7 @@ function MethodPrices({
       className="flex flex-col rounded-xl border border-edge bg-card p-6"
     >
       <div className="flex items-center gap-2">
-        <h2 className="text-base font-semibold">
-          {method === "lifelike" ? "Lifelike 3D" : "Classic 3D"}
-        </h2>
-        {method === "lifelike" ? (
-          <span className="ll-tag-new">New</span>
-        ) : (
-          <Badge variant="outline" className="text-fg-muted">
-            Older method
-          </Badge>
-        )}
+        <h2 className="text-base font-semibold">Lifelike 3D</h2>
       </div>
       <p className="mt-2 text-2xl font-semibold">
         from {formatCentsShort(from)}{" "}
@@ -106,6 +97,9 @@ function MethodPrices({
       </table>
       <p data-testid="pricing-fps-rule" className="mt-2 text-xs text-fg-muted">
         {fpsRule(pricing)}
+      </p>
+      <p data-testid="pricing-rounding" className="mt-1 text-xs text-fg-muted">
+        {ROUNDED_UP_LINE}
       </p>
       <p className="mt-1 text-xs text-fg-muted">
         {sentenceCase(methodLimitText(method, null, pricing))} · previews from{" "}
@@ -193,10 +187,8 @@ export function PricingScreen(): JSX.Element {
         <p className="mt-10 text-center text-fg-muted">Loading prices…</p>
       ) : (
         <>
-          {/* S3D-01: new projects are Lifelike; Classic's prices live on
-              its existing projects' own pages */}
           <div className="mx-auto mt-8 max-w-md">
-            <MethodPrices pricing={pricing} method="lifelike" />
+            <LifelikePrices pricing={pricing} />
           </div>
           {pricing.pricing_model === "tiers" ? <Extras pricing={pricing} /> : null}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center">
@@ -208,8 +200,8 @@ export function PricingScreen(): JSX.Element {
             <InfoPopover label="How pricing works">
               <span>
                 <b>Per minute of video at {pricing.fps.base} fps.</b>{" "}
-                {fpsRule(pricing)}. Make only part of a video and pay only for
-                that part.
+                {fpsRule(pricing)}. {ROUNDED_UP_LINE} Make only part of a
+                video and pay only for that part.
               </span>
               <span>
                 <b>{pct}% off</b> any run over{" "}

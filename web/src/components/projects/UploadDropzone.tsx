@@ -10,11 +10,10 @@
  *   POST /v1/projects { gcs_key, name: filename stem, method: lifelike } →
  *   router.push(/projects/{id}).
  *
- * New projects are Lifelike 3D (GET /v1/limits default_method; Classic
- * when Lifelike isn't available), so the local length check uses that
- * method's cap (methods.<method>.max_source_duration_s, 0 = unlimited).
- * The method is always sent explicitly: the gateway reads a missing one as
- * Classic, for old clients. While a file goes up the dropzone shows its size, progress
+ * New projects are Lifelike 3D (Classic 3D takes no new projects since
+ * 2026-11-04; a classic create gets 422 classic_retired), so the local
+ * length check uses Lifelike's cap (methods.lifelike.max_source_duration_s,
+ * 0 = unlimited). The method is always sent explicitly. While a file goes up the dropzone shows its size, progress
  * and time left, and the browser asks before the tab closes. A chunked
  * upload that fails can resume where it stopped.
  *

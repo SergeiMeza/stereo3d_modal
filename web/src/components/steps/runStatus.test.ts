@@ -98,10 +98,8 @@ describe("cancel window (S3D-23)", () => {
 import { limitsStatement, methodLimitText } from "./methods";
 
 describe("limits copy (S3D-05)", () => {
-  it("states both methods from /v1/limits and /v1/pricing, with defaults", () => {
-    expect(limitsStatement(null, null)).toBe(
-      "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up to 3K.",
-    );
+  it("states Lifelike only (Classic takes no new projects), with defaults", () => {
+    expect(limitsStatement(null, null)).toBe("Lifelike 3D: any length, up to 8K.");
     expect(
       methodLimitText(
         "classic",

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/lib/auth";
@@ -28,7 +28,11 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
       </AuthProvider>,
     );
     const lifelike = await screen.findByTestId("pricing-lifelike");
-    expect(within(lifelike).getByText("New")).toBeTruthy();
+    // Classic 3D is retired for new projects (owner 2026-11-04)
+    expect(lifelike.textContent).not.toMatch(/Classic|Older method/);
+    expect(screen.getByTestId("pricing-rounding").textContent).toBe(
+      "Each started minute counts as a full minute.",
+    );
     // headline in whole dollars, table in cents
     expect(lifelike.textContent).toContain("from $3 a minute at 24 fps");
     expect(lifelike.textContent).toContain("Per minute, 24 fps");

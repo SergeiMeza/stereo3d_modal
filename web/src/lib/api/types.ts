@@ -296,6 +296,9 @@ export interface QuoteBreakdown {
   step?: Step;
   preset?: string;
   billable_seconds?: number;
+  /** owner 2026-11-04: the run's video rounded UP to whole minutes, what
+   * the per-minute price multiplies (ceil on the run's total) */
+  billable_minutes?: number;
   cents_per_minute?: number;
   /** clamp(effective_fps/24, 0.5, 2.5) — frames are what cost, so the
    * render rate scales the base (previews run at half the source rate) */
@@ -596,6 +599,10 @@ export interface PublicPricing {
   balance: { window_hours: number; new_account_cap_cents: number };
   /** S3D-67: Pro's share off (0.15; 0 = off) and the step it applies to */
   pro_discount?: ProDiscount;
+  /** owner 2026-11-04: false = Classic 3D takes no new projects (a create
+   * with method classic gets 422 classic_retired); existing Classic
+   * projects keep their results and can convert with Lifelike 3D */
+  classic_new_projects?: boolean;
   /** pricing 2026-11 */
   pricing_model?: "tiers";
   tiers?: {
@@ -729,11 +736,10 @@ export function methodAvailable(
   );
 }
 
-/** The method a new project gets: the gateway's default when it is
- * available, Lifelike otherwise when available, else Classic. Unknown
- * limits (not loaded, or failed) mean Lifelike — the gateway decides. */
+/** The method a new project gets: always Lifelike 3D, sent explicitly
+ * (S3D-01; Classic 3D is retired for new projects since 2026-11-04,
+ * GET /v1/pricing classic_new_projects false). */
 export function newProjectMethod(_limits?: GatewayLimits | null): Method {
-  // S3D-01: every new project is Lifelike (sent explicitly)
   void _limits;
   return "lifelike";
 }

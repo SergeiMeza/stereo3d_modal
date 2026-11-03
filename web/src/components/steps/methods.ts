@@ -64,15 +64,13 @@ export function methodLimitText(
   return `${length}, up to ${qualityName(top)}`;
 }
 
-/** "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up
- * to 4K." — the one limits statement (S3D-05). */
+/** "Lifelike 3D: any length, up to 8K." — the one limits statement
+ * (S3D-05); Classic 3D takes no new projects since 2026-11-04. */
 export function limitsStatement(
   limits: GatewayLimits | null,
   pricing: PublicPricing | null,
 ): string {
-  return METHOD_ORDER.map(
-    (m) => `${METHOD_NAMES[m]}: ${methodLimitText(m, limits, pricing)}.`,
-  ).join(" ");
+  return `${METHOD_NAMES.lifelike}: ${methodLimitText("lifelike", limits, pricing)}.`;
 }
 
 /** Capital first letter: "Any length, up to 8K". */
@@ -86,14 +84,20 @@ export const METHOD_ORDER: readonly Method[] = ["lifelike", "classic"];
 export const RECOMMENDED_METHOD: Method = "lifelike";
 
 /** S3D-01/14: chosen before the first run; Lifelike never moves back. */
-/** S3D-30: the one move there is, Classic → Lifelike. */
-export const MOVE_TO_LIFELIKE_TITLE = "Move this project to Lifelike 3D?";
+/** S3D-30: the one move there is, Classic → Lifelike. Classic 3D is
+ * retired for new projects (owner 2026-11-04): an existing Classic project
+ * keeps its files and converts with Lifelike 3D. */
+export const CONVERT_WITH_LIFELIKE = "Convert with Lifelike 3D";
+export const MOVE_TO_LIFELIKE_TITLE = "Convert this project with Lifelike 3D?";
 export const MOVE_TO_LIFELIKE_BODY =
   "Your Classic files stay in Files. You can't move back to Classic.";
 
 /** 400 method_switch_not_allowed, in words. */
-export const SWITCH_NOT_ALLOWED =
-  "A Lifelike 3D project can't move back to Classic 3D. To use Classic, start a new project with this video and choose Classic 3D.";
+export const SWITCH_NOT_ALLOWED = "A Lifelike 3D project can't move back to Classic 3D.";
+
+/** 422 classic_retired: Classic 3D takes no new projects or runs. */
+export const CLASSIC_RETIRED =
+  "Classic 3D is retired. Your files stay here, and you can convert this project with Lifelike 3D.";
 
 /** Lifelike output formats (the gateway 400s top-bottom and red-cyan for
  * Lifelike, so they are never offered). */
@@ -153,15 +157,17 @@ export function methodErrorCopy(code: string): string | null {
     case "preset_above_source":
       return PRESET_ABOVE_SOURCE;
     case "preset_unavailable":
-      return "Classic 3D goes up to 3K. Move to Lifelike 3D for 4K and above.";
+      return "Classic 3D goes up to 3K. Convert with Lifelike 3D for 4K and above.";
     case "method_unavailable":
       return "This 3D method isn't available right now. Please try again later.";
     case "source_too_long_for_method":
-      return "This video is too long for Classic 3D. Move to Lifelike 3D at the top of the page. It works with videos of any length.";
+      return "This video is too long for Classic 3D. Convert with Lifelike 3D at the top of the page. It works with videos of any length.";
     case "step_not_supported_for_method":
       return "This project's 3D method has changed. Reload the page to continue.";
     case "method_switch_not_allowed":
       return SWITCH_NOT_ALLOWED;
+    case "classic_retired":
+      return CLASSIC_RETIRED;
     case "files_deleted":
       return FILES_DELETED_MESSAGE;
     case "split_unsupported":
