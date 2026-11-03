@@ -277,10 +277,12 @@ describe("Lifelike Deliver", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
     mockDb.gpuWaitPolls = 0;
 
-    expect(
-      await screen.findByText("Vision Pro spatial video · Part 2", {}, { timeout: 5000 }),
-    ).toBeTruthy();
-    expect(screen.getByText("Vision Pro spatial video · Part 1")).toBeTruthy();
+    // one group per device, a row per part (screen 08)
+    const group = await screen.findByTestId("file-group-mvhevc", {}, { timeout: 5000 });
+    expect(within(group).getByText("Apple Vision Pro")).toBeTruthy();
+    expect(within(group).getByText("Part 1")).toBeTruthy();
+    expect(within(group).getByText("Part 2")).toBeTruthy();
+    expect(screen.getByTestId("view-in-3d").textContent).toBe("Full screen");
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       step: "production",
@@ -491,7 +493,14 @@ describe("ConversionTracker GPU wait", () => {
       </AuthProvider>,
     );
     expect(screen.getByTestId("run-status").textContent).toBe("Making your 3D");
-    expect(screen.getByText("Rendering in 3D")).toBeTruthy();
+    // three plain steps; the current one names the stage
+    const steps = screen.getByTestId("tracker-steps");
+    expect(steps.textContent).toContain("Getting ready");
+    expect(steps.textContent).toContain("Making the 3D video");
+    expect(steps.textContent).toContain("Saving your files");
+    expect(
+      steps.querySelector('[aria-current="step"]')!.textContent,
+    ).toContain("Making the 3D video · Rendering in 3D");
     expect(screen.getByTestId("tracker-eta").textContent).toBe("about 5 min left");
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });

@@ -441,7 +441,9 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await screen.findByText("Ready, payment needed", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
-    expect(warning.textContent).toContain("Payment needed: update your card");
+    expect(warning.textContent).toContain("There's a problem with your last payment.");
+    // S3D-22: no lock wording — files stay downloadable
+    expect(warning.textContent).not.toMatch(/locked/i);
     expect(mockDb.billing.unpaid).toHaveLength(1);
   });
 

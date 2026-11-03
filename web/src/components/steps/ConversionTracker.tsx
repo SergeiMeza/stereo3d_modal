@@ -16,13 +16,14 @@ import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import type { Conversion, ConversionState, Downloads } from "@/lib/api/types";
+import type { Conversion, ConversionState } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
-import { DownloadsList, stepDownloads } from "./DownloadsList";
+import { RunFiles } from "./RunFiles";
 import { formatCents } from "./money";
 import { POLL_INTERVAL_MS } from "./polling";
-import { PAYMENT_NEEDED } from "@/lib/billingCopy";
+import { openCardUpdate } from "@/components/billing/BillingBanner";
+import { qualityName, STEP_NAMES } from "@/lib/glossary";
 import { formatDuration, formatTimeLeft } from "@/lib/format";
 
 import { WAITING_IN_LINE_NOTE } from "./runStatus";
@@ -66,18 +67,43 @@ export function cancelSecondsLeft(
   return left > 0 ? left : null;
 }
 
-/** What cancelling costs, in words. */
-function cancelNote(conv: Conversion, secondsLeft: number | null): string {
-  const money =
-    conv.charge_timing === "before" && conv.billing?.status === "charged"
-      ? `and get the full ${formatCents(conv.quote.amount_cents)} back`
-      : "and you won't be charged";
+/** What cancelling costs, in words (screen 08). */
+export function cancelNote(conv: Conversion, secondsLeft: number | null): string {
+  const paid = conv.charge_timing === "before" && conv.billing?.status === "charged";
   if (secondsLeft !== null) {
     const m = Math.floor(secondsLeft / 60);
     const s = String(secondsLeft % 60).padStart(2, "0");
-    return `You can cancel for ${m}:${s} more ${money}. After that the run finishes.`;
+    return `${m}:${s} · ${paid ? "Full refund" : "Not charged"} if you cancel now`;
   }
-  return `You can cancel while it waits ${money}.`;
+  return paid
+    ? "Cancel any time while it waits for a full refund."
+    : "Cancel any time while it waits and you won't be charged.";
+}
+
+/** The three steps a run shows while it works (screen 08). */
+const STEP_LINES = ["Getting ready", "Making the 3D video", "Saving your files"];
+
+/** Which of the three steps a raw stage belongs to. */
+export function stageStep(stage: string | null | undefined): number {
+  const base = (stage ?? "").split("[")[0].trim();
+  if (["queued", "plan", "preprocess", "profile_scenes", "analyze", "proxy"].includes(base)) {
+    return 0;
+  }
+  if (base.startsWith("encode") || base === "publish" || base === "done") return 2;
+  return 1;
+}
+
+/** "Full video · 4K · $58.50" — what the run is, in one line. */
+export function runLine(conv: Conversion): string {
+  return [
+    STEP_NAMES[conv.step ?? "production"] ?? "Run",
+    conv.step !== "depth_preview" && conv.params?.preset
+      ? qualityName(conv.params.preset)
+      : null,
+    formatCents(conv.quote.amount_cents),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** Plain words for a run's payment, when there is something to say:
@@ -144,7 +170,6 @@ export function ConversionTracker({
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
   const [conv, setConv] = useState(conversion);
-  const [downloads, setDownloads] = useState<Downloads | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const settledRef = useRef(false);
@@ -184,21 +209,13 @@ export function ConversionTracker({
     return () => clearInterval(timer);
   }, [client, conv.conversion_id, terminal, onUpdate]);
 
-  // Terminal side effects (once): notify parent; fetch downloads on success.
+  // Terminal side effects (once): notify parent (RunFiles fetches the files).
   useEffect(() => {
     if (!terminal || settledRef.current) return;
     settledRef.current = true;
     onSettled?.(conv);
     if (conv.state === "succeeded") {
       onProjectChanged();
-      if (showDownloads) {
-        client
-          .getDownloads(conv.conversion_id)
-          .then(setDownloads)
-          .catch((e: unknown) => {
-            setError(e instanceof Error ? e.message : "downloads failed");
-          });
-      }
     }
   }, [client, conv, onProjectChanged, onSettled, terminal, showDownloads]);
 
@@ -235,21 +252,20 @@ export function ConversionTracker({
       ? conv.eta_seconds
       : null;
 
+  const canCancel = cancelable(conv, now);
+  const current = stageStep(conv.stage);
+
   return (
     <div
       data-testid="conversion-tracker"
-      className="rounded-lg border border-edge bg-surface-2 p-4"
+      className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-4"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <StateChip conversion={conv} />
-          {!waiting && conv.state === "processing" && conv.stage ? (
-            // raw stage strings carry internal worker/model details
-            // ("video_stereo[propainter]") — always render the mapped label
-            <span className="text-xs text-fg-muted">
-              {stageLabel(conv.stage)}
-            </span>
-          ) : null}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <StateChip conversion={conv} />
+        <span data-testid="tracker-line" className="text-sm text-fg">
+          {runLine(conv)}
+        </span>
+        <span className="ml-auto flex items-center gap-3">
           {waiting || terminal ? null : runEta !== null ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
               {formatTimeLeft(runEta)}
@@ -259,77 +275,113 @@ export function ConversionTracker({
               Estimated: {formatDuration(estimateSeconds)}
             </span>
           ) : null}
-        </div>
-        {cancelable(conv, now) ? (
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => void cancel()}
-            disabled={canceling}
-          >
-            Cancel
-          </Button>
-        ) : null}
+          {conv.state === "succeeded" && showDownloads ? (
+            <a href="#tab=files" className="text-xs text-primary hover:underline">
+              All files
+            </a>
+          ) : null}
+          {canCancel && (waiting || conv.state !== "processing") ? (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void cancel()}
+              disabled={canceling}
+            >
+              Cancel
+            </Button>
+          ) : null}
+        </span>
       </div>
-      {cancelable(conv, now) && conv.state !== "created" ? (
-        <p className="mt-2 text-xs text-fg-muted" data-testid="cancel-note">
-          {cancelNote(conv, cancelSecondsLeft(conv, now))}
-        </p>
-      ) : null}
+
       {conv.state === "created" ? (
-        <p className="mt-3 text-sm text-fg-muted" data-testid="hold-confirming">
-          Confirming the payment with your bank — the run starts as soon as
-          it clears.
+        <p className="text-sm text-fg-muted" data-testid="hold-confirming">
+          Confirming the payment with your bank. It starts as soon as it
+          clears.
         </p>
       ) : null}
-      {waiting ? (
-        <p className="mt-3 text-sm text-fg-muted" data-testid="waiting-for-gpu">
-          {WAITING_IN_LINE_NOTE}
-        </p>
-      ) : !terminal ? (
-        <Progress value={pct} className="mt-3 h-1.5" />
+      {waiting || conv.state === "paid" ? (
+        <div className="flex flex-col gap-1 text-sm text-fg-muted">
+          <p data-testid="waiting-for-gpu">{WAITING_IN_LINE_NOTE}</p>
+          {canCancel ? (
+            <p className="text-xs" data-testid="cancel-note">
+              {cancelNote(conv, null)}
+            </p>
+          ) : null}
+        </div>
       ) : null}
+
+      {!waiting && conv.state === "processing" ? (
+        <>
+          <ol data-testid="tracker-steps" className="flex flex-col gap-1 text-sm">
+            {STEP_LINES.map((line, i) => (
+              <li
+                key={line}
+                aria-current={i === current ? "step" : undefined}
+                className={`flex items-center gap-2 ${
+                  i < current ? "text-fg-muted" : i === current ? "text-fg" : "text-fg-muted/60"
+                }`}
+              >
+                <span aria-hidden className="w-4 text-center">
+                  {i < current ? "✓" : i === current ? "•" : ""}
+                </span>
+                {line}
+                {i === current && conv.stage ? (
+                  // raw stage strings carry internal worker/model details
+                  // ("video_stereo[propainter]") — only the mapped label
+                  <span className="text-xs text-fg-muted">{" "}· {stageLabel(conv.stage)}</span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+          <Progress value={pct} className="h-1" />
+          {canCancel ? (
+            <div className="flex items-center gap-3 text-xs text-fg-muted">
+              <span data-testid="cancel-note">
+                {cancelNote(conv, cancelSecondsLeft(conv, now))}
+              </span>
+              <Button
+                variant="outline"
+                size="xs"
+                className="ml-auto"
+                onClick={() => void cancel()}
+                disabled={canceling}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
       {!terminal && (conv.overdue || conv.reported_at) ? (
         <OverdueNotice reported={Boolean(conv.reported_at)} onReport={report} />
       ) : null}
-      {conv.state === "succeeded" && showDownloads ? (
-        <div className="mt-3">
-          <p className="mb-2 text-xs font-medium text-fg-muted">Downloads</p>
-          {downloads ? (
-            <DownloadsList
-              downloads={stepDownloads(conv.step, downloads.downloads)}
-            />
-          ) : (
-            <p className="text-xs text-fg-muted">Fetching download links…</p>
-          )}
-        </div>
-      ) : null}
-      {conv.state === "succeeded" && conv.billing?.status !== "charge_failed" ? (
-        <p className="mt-3 text-xs text-fg-muted" data-testid="batched-note">
-          {formatCents(conv.quote.amount_cents)}
+
+      {conv.state === "succeeded" && conv.billing?.status === "charge_failed" ? (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-amber-400" data-testid="charge-failed">
+          There&apos;s a problem with your last payment.
+          <button
+            type="button"
+            onClick={() => void openCardUpdate(client)}
+            className="text-primary hover:underline"
+          >
+            Update card
+          </button>
         </p>
       ) : null}
-      {conv.state === "succeeded" &&
-      conv.billing?.status === "charge_failed" ? (
-        <p className="mt-3 text-sm text-amber-400" data-testid="charge-failed">
-          {PAYMENT_NEEDED}. Your files are locked until the payment goes
-          through.
+      {conv.state === "succeeded" && showDownloads ? <RunFiles conversion={conv} /> : null}
+
+      {conv.state === "failed" ? (
+        <p className="text-sm text-fg-muted" data-testid="tracker-failed">
+          Something went wrong on our side. Try again.
         </p>
       ) : null}
-      {conv.state === "failed" && conv.error ? (
-        <p className="mt-3 text-sm text-red-400">{conv.error.message}</p>
-      ) : null}
-      {billingStatusNote(conv) !== null ? (
-        <p className="mt-2 text-sm text-fg-muted" data-testid="billing-note">
+      {billingStatusNote(conv) !== null && conv.state !== "processing" ? (
+        <p className="text-xs text-fg-muted" data-testid="billing-note">
           {billingStatusNote(conv)}
         </p>
       ) : null}
-      {conv.state === "canceled" && conv.charge_timing !== "before" ? (
-        <p className="mt-3 text-sm text-fg-muted">
-          Cancelled — you were not charged.
-        </p>
-      ) : null}
-      {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>
   );
 }
