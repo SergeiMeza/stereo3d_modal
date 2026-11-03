@@ -17,7 +17,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
 import { InfoPopover } from "@/components/ui/info-popover";
 import type { Method, Preset, PublicPricing } from "@/lib/api/types";
-import { usePricing } from "@/lib/api/usePricing";
+import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { CHARGED_AFTER } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
@@ -62,9 +62,19 @@ function MethodPrices({
       </div>
       <p className="mt-2 text-2xl font-semibold">
         from {formatCentsShort(from)}{" "}
-        <span className="text-sm font-normal text-fg-muted">a minute</span>
+        <span className="text-sm font-normal text-fg-muted">
+          a minute at {pricing.fps.base} fps
+        </span>
       </p>
       <table className="mt-3 w-full text-sm">
+        <thead>
+          <tr className="text-xs text-fg-muted">
+            <th className="py-1.5 text-left font-normal">Quality</th>
+            <th className="py-1.5 text-right font-normal">
+              Per minute, {pricing.fps.base} fps
+            </th>
+          </tr>
+        </thead>
         <tbody>
           {rows.map((p) => (
             <tr key={p} className="border-t border-edge">
@@ -81,7 +91,10 @@ function MethodPrices({
           ))}
         </tbody>
       </table>
-      <p className="mt-3 text-xs text-fg-muted">
+      <p data-testid="pricing-fps-rule" className="mt-2 text-xs text-fg-muted">
+        {fpsRule(pricing)}
+      </p>
+      <p className="mt-1 text-xs text-fg-muted">
         {sentenceCase(methodLimitText(method, null, pricing))} · previews from{" "}
         {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}
       </p>
@@ -116,9 +129,9 @@ export function PricingScreen(): JSX.Element {
             </p>
             <InfoPopover label="How pricing works">
               <span>
-                <b>Per minute of video at {pricing.fps.base} fps.</b> 30 fps
-                costs 25% more, 60 fps {pricing.fps.max_factor} times as much.
-                Make only part of a video and pay only for that part.
+                <b>Per minute of video at {pricing.fps.base} fps.</b>{" "}
+                {fpsRule(pricing)}. Make only part of a video and pay only for
+                that part.
               </span>
               <span>
                 <b>{pct}% off</b> any run over{" "}

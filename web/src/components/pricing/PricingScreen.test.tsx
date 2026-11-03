@@ -30,7 +30,11 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     const lifelike = await screen.findByTestId("pricing-lifelike");
     expect(within(lifelike).getByText("New")).toBeTruthy();
     // headline in whole dollars, table in cents
-    expect(lifelike.textContent).toContain("from $3 a minute");
+    expect(lifelike.textContent).toContain("from $3 a minute at 24 fps");
+    expect(lifelike.textContent).toContain("Per minute, 24 fps");
+    expect(screen.getByTestId("pricing-fps-rule").textContent).toBe(
+      "30 fps +25% · 60 fps ×2.5",
+    );
     expect(lifelike.textContent).toContain("1080p1920×1080 per eye$3.00");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$8.50");
     expect(lifelike.textContent).toContain("8K7680×4320 per eye$22.00");

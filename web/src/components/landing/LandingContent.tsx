@@ -126,7 +126,7 @@ export function LandingContent() {
                 <b className="text-xl font-semibold text-fg">
                   {formatCentsShort(perMinute)}
                 </b>{" "}
-                a minute
+                a minute at {pricing?.fps.base ?? 24} fps
               </span>
             ) : null}
           </div>

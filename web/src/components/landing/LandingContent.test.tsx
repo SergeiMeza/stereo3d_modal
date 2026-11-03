@@ -37,7 +37,7 @@ describe("Landing hero (mock 12, S3D-46)", () => {
       screen.getByRole("link", { name: "Make your first 3D video" }),
     ).toBeTruthy();
     expect((await screen.findByTestId("hero-from-price")).textContent).toBe(
-      "from $3 a minute",
+      "from $3 a minute at 24 fps",
     );
     expect(screen.getByTestId("hero-step-2").textContent).toBe(
       "A few seconds in 3D, from $1.",
