@@ -64,17 +64,13 @@ function renderWithAuth(ui: React.ReactElement) {
 }
 
 describe("landing page", () => {
-  it("shows the pitch and an Open studio CTA into /projects (mock user is signed in)", () => {
+  it("shows the pitch and the CTA into /projects (mock user is signed in)", () => {
     renderWithAuth(<Home />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "VFX-studio 3D",
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Turn any video into lifelike 3D",
     );
-    // hero + beta band both carry the CTA
-    const ctas = screen.getAllByRole("link", { name: "Open studio" });
-    expect(ctas.length).toBeGreaterThan(0);
-    for (const cta of ctas) {
-      expect(cta.getAttribute("href")).toBe("/projects");
-    }
+    const cta = screen.getByRole("link", { name: "Make your first 3D video" });
+    expect(cta.getAttribute("href")).toBe("/projects");
     // the workflow tab strip mirrors the studio's five rooms
     for (const room of ["Overview", "Scenes", "Depth", "3D look", "Make 3D"]) {
       expect(screen.getByRole("tab", { name: new RegExp(room) })).toBeTruthy();

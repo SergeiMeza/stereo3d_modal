@@ -171,6 +171,16 @@ export interface StepReviewProps {
   /** Aside slot content when there is a run but nothing playable — rendered
    * in a matching aspect-ratio box. */
   asideFallback?: { testId: string; content: ReactNode } | null;
+  /** Any content beside the source (instead of a synced follower) — the
+   * Preview page's own clip player. */
+  aside?: ReactNode;
+  /** Controls between the players and the timeline. */
+  belowPlayer?: (ctx: StepReviewContext) => ReactNode;
+  /** Heading above the timeline ("Pick a moment"). */
+  timelineHeading?: ReactNode;
+  /** A highlighted frame span on the timeline (or one that follows the
+   * playhead). */
+  range?: [number, number] | ((playhead: number) => [number, number]) | null;
   /** Scene section(s) under the timeline, driven by the shared playhead. */
   children?: (ctx: StepReviewContext) => ReactNode;
 }
@@ -183,6 +193,10 @@ export function StepReview({
   toolbar,
   follower = null,
   asideFallback = null,
+  aside: customAside,
+  belowPlayer,
+  timelineHeading,
+  range = null,
   children,
 }: StepReviewProps): JSX.Element {
   const probe = project.probe!;
@@ -223,7 +237,9 @@ export function StepReview({
   useFollowerVideo(videoRef, followerRef, follower?.url ?? null);
   const [followerDims, setFollowerDims] = useState<VideoDims | null>(null);
 
-  const aside = follower ? (
+  const aside = customAside ? (
+    customAside
+  ) : follower ? (
     <div
       className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
       style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
@@ -281,6 +297,10 @@ export function StepReview({
         aside={aside}
       />
 
+      {belowPlayer ? belowPlayer({ playhead, scrub }) : null}
+
+      {timelineHeading}
+
       <FilmstripTimeline
         readOnly
         thumbs={project.strip_thumbs ?? []}
@@ -290,6 +310,7 @@ export function StepReview({
         cuts={project.scenes?.cuts ?? []}
         previewUrl={project.preview_url}
         aspect={probe.width / probe.height}
+        range={typeof range === "function" ? range(playhead) : range}
         onScrub={scrub}
       />
 

@@ -86,6 +86,8 @@ export interface FilmstripTimelineProps {
    * Click-scrub and zooming stay available. */
   readOnly?: boolean;
   selectedIndex?: number | null;
+  /** A highlighted [from, to) frame span — the Preview page's box. */
+  range?: [number, number] | null;
   /** Click on the strip — move the playhead to the frame under the cursor. */
   onScrub: (frame: number) => void;
   /** Double-click on the strip — add a cut at the frame under the cursor. */
@@ -106,6 +108,7 @@ export function FilmstripTimeline({
   aspect,
   readOnly = false,
   selectedIndex = null,
+  range = null,
   onScrub,
   onAddCut,
   onSelectCut,
@@ -431,6 +434,18 @@ export function FilmstripTimeline({
               </button>
             ),
           )}
+
+          {range ? (
+            <div
+              data-testid="timeline-range"
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 z-10 rounded-sm border border-primary bg-primary/25"
+              style={{
+                left: `${frameToPosition(range[0], numFrames) * 100}%`,
+                width: `${Math.max(0.4, (frameToPosition(range[1], numFrames) - frameToPosition(range[0], numFrames)) * 100)}%`,
+              }}
+            />
+          ) : null}
 
           <div
             data-testid="playhead"

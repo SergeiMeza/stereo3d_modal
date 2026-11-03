@@ -79,14 +79,14 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     step: "lifelike_preview",
     title: "Preview",
     description:
-      "Pick a moment on the timeline and see 2–10 seconds of it in 3D, in the quality you choose, before you make the whole video.",
+      "See a few seconds in 3D before you make the whole video.",
     outputs: [
       "A few seconds of your video in 3D (5 by default), starting at the moment you pick",
-      "Side by side, so you can play it right here or on a headset",
+      "Side by side, so you can play it right here (or check it in red-cyan or as a wiggle, free) or on a headset",
     ],
     tips: [
       "Pick a moment with the kind of shot that matters most to you — faces, fast motion, or wide views.",
-      "A preview costs what the same seconds cost in the final video, with a $0.50 minimum per run. Quick look renders half the frame rate for half the price.",
+      "A preview costs what the same seconds cost in the final video, with a small minimum per run. Quick look renders half the frame rate for half the price.",
       "Happy with it? Make 3D renders the whole video the same way.",
     ],
   },

@@ -1,24 +1,23 @@
 "use client";
 
 /**
- * Lifelike Preview page (step lifelike_preview): the customer picks a
- * moment on the timeline and gets 2–10 seconds of it in 3D (5 s by
- * default), in the quality they choose, priced per frame like the final
- * (S3D-13). "Quick look" renders half the frame rate for half the price.
- * Quote first, then the run, like every paid step.
+ * Lifelike Preview page (screen 05, step lifelike_preview). Left, your
+ * video with the quality, length and Quick look, and ONE main button with
+ * its price ("Preview this moment · $1.04"); right, your preview with a
+ * free 3D check on this screen — Side by side, Red-cyan or Wiggle
+ * (S3D-32); below, "Pick a moment": the timeline with the preview's box,
+ * which starts at the playhead. Earlier previews sit in a short list.
  *
- * The shared StepReview supplies the frame-exact source player and the
- * timeline; "Preview from here" fixes the moment at the playhead. The
- * request is [moment, moment + 5 s) in SOURCE frames (half open, shifted
- * back near the end so it always spans the full length when the source
- * allows). The latest preview plays in its own player: it is a 5-second
- * clip, so it can't follow the full-length source transport.
+ * Priced per frame like the final (S3D-13): 2–10 s, 5 by default; Quick
+ * look renders half the frame rate for half the price. The price, the
+ * minimum and when it's charged sit behind the "?" (S3D-45). Scrubbing
+ * doesn't re-price: the start moment can't change a preview's price, so
+ * the quote is for the same length from the start of the video.
  */
 
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
   Conversion,
@@ -26,24 +25,25 @@ import type {
   Project,
   StepConversionRequest,
 } from "@/lib/api/types";
+import { usePricing } from "@/lib/api/usePricing";
+import { formatClock } from "@/lib/format";
 import {
-  qualityChoices,
-  qualityChoiceText,
-  qualityLabelFor,
-} from "@/lib/glossary";
-import { frameToTimecode, parseRational, type RationalFPS } from "@/lib/frames";
+  frameToSeconds,
+  parseRational,
+  type RationalFPS,
+} from "@/lib/frames";
+import { qualityChoices, qualityLabelFor } from "@/lib/glossary";
 
-import { Field, selectClass } from "./controls";
+import { LIFELIKE_PREVIEW_SECONDS } from "./methods";
+import { formatCents } from "./money";
+import { StateChip } from "./StateChip";
 import {
-  LIFELIKE_PREVIEW_SECONDS,
-} from "./methods";
-import { PriorRuns } from "./PriorRuns";
-import {
-  bestPlayable,
-  StepReview,
-  useRunDownloads,
-} from "./StepReview";
-import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
+  CHECK_MODES,
+  StereoCheckViewer,
+  type CheckMode,
+} from "./StereoCheckViewer";
+import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
+import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 
 /** The preview's source range for a chosen start frame: about
  * LIFELIKE_PREVIEW_SECONDS long, half open, inside [0, numFrames). */
@@ -61,10 +61,18 @@ export function previewRange(
 
 /** Preview lengths offered (S3D-13). */
 export const PREVIEW_LENGTHS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const MIN_LENGTH = PREVIEW_LENGTHS[0];
+const MAX_LENGTH = PREVIEW_LENGTHS[PREVIEW_LENGTHS.length - 1];
 
 export interface LifelikePreviewPanelProps {
   project: Project;
   onProjectChanged: () => void;
+}
+
+function segClass(on: boolean): string {
+  return `h-7 rounded px-2.5 text-xs transition-colors ${
+    on ? "bg-surface-0 text-fg shadow-sm" : "text-fg-muted hover:text-fg"
+  }`;
 }
 
 export function LifelikePreviewPanel({
@@ -72,200 +80,370 @@ export function LifelikePreviewPanel({
   onProjectChanged,
 }: LifelikePreviewPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "lifelike_preview", onProjectChanged);
+  const pricing = usePricing();
   // null = the best quality the video reaches (the Overview prices that)
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
-  const [moment, setMoment] = useState(0);
-  const [seconds, setSeconds] = useState(LIFELIKE_PREVIEW_SECONDS);
+  const [seconds, setSeconds] = useState<number>(LIFELIKE_PREVIEW_SECONDS);
   const [quickLook, setQuickLook] = useState(false);
+  const [mode, setMode] = useState<CheckMode>("sbs");
+  const [shownId, setShownId] = useState<string | null>(null);
 
-  const runs = (project.conversions ?? []).filter(
-    (c) => c.step === "lifelike_preview",
-  );
-  const lastSucceeded = runs
-    .filter((c) => c.state === "succeeded")
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
-    | Conversion
-    | undefined;
-  const output = bestPlayable(useRunDownloads(lastSucceeded));
+  const runs = (project.conversions ?? [])
+    .filter((c) => c.step === "lifelike_preview")
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const succeeded = runs.filter((c) => c.state === "succeeded");
+  const shown =
+    succeeded.find((c) => c.conversion_id === shownId) ?? succeeded[0];
+  const output = bestPlayable(useRunDownloads(shown));
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
   if (!ready) {
     return (
       <PanelShell>
-        <PanelCard>
-          <p className="text-sm text-fg-muted">
-            Analysis is still running — previews unlock when it finishes.
-          </p>
-        </PanelCard>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-fg-muted">
+              We&apos;re still looking through your video. Previews open when
+              it&apos;s done.
+            </p>
+          </CardContent>
+        </Card>
       </PanelShell>
     );
   }
   const probe = project.probe!;
   const sourceFps = parseRational(probe.fps_rational);
-  const [from, to] = previewRange(
-    moment,
-    probe.num_frames,
-    sourceFps,
-    seconds,
-  );
+  const clock = (f: number) => formatClock(frameToSeconds(f, sourceFps));
   const halfRate = Math.round((sourceFps.num / sourceFps.den / 2) * 100) / 100;
-  const tc = (f: number) => frameToTimecode(f, sourceFps);
   const presets = qualityChoices(project);
   const preset = chosenPreset ?? presets.at(-1)?.preset ?? "1080p";
+  const choice = presets.find((q) => q.preset === preset);
+  const cuts = project.scenes?.cuts ?? [];
 
-  const request: StepConversionRequest = {
-    step: "lifelike_preview",
-    preset,
-    formats: ["sbs"], // side by side: plays right here
-    from_frame: from,
-    to_frame: to,
-    // Quick look: half the frame rate, half the price
-    ...(quickLook ? { target_fps: halfRate } : {}),
-    platform: "web",
+  const requestAt = (start: number): StepConversionRequest => {
+    const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
+    return {
+      step: "lifelike_preview",
+      preset,
+      formats: ["sbs"], // side by side: plays right here
+      from_frame: from,
+      to_frame: to,
+      // Quick look: half the frame rate, half the price
+      ...(quickLook ? { target_fps: halfRate } : {}),
+      platform: "web",
+    };
   };
+  const quoteRequest = requestAt(0);
+  const frames = quoteRequest.to_frame! - quoteRequest.from_frame!;
+
+  function change(apply: () => void): void {
+    apply();
+    ck.invalidate();
+  }
+
+  const shownMeta = shown
+    ? [
+        shown.params.from_frame !== undefined && shown.params.to_frame !== undefined
+          ? `${clock(shown.params.from_frame)} – ${clock(shown.params.to_frame)}`
+          : null,
+        qualityLabelFor(project, shown.params.preset),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const previewCard: ReactNode = (
+    <section
+      aria-label="Your preview"
+      className="flex h-full flex-col gap-2 rounded-md border border-edge bg-surface-1 p-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold text-fg">Your preview</h3>
+        {shown ? <StateChip conversion={shown} /> : null}
+        <span data-testid="preview-shown-meta" className="ml-auto text-[11px] text-fg-muted">
+          {shownMeta}
+        </span>
+      </div>
+      {shown === undefined ? (
+        <div
+          data-testid="preview-empty"
+          className="flex flex-1 items-center justify-center rounded-md border border-dashed border-edge p-6 text-center text-xs text-fg-muted"
+          style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+        >
+          Your preview appears here.
+        </div>
+      ) : output === null ? (
+        <p className="text-xs text-fg-muted">Fetching the preview…</p>
+      ) : (
+        <>
+          <StereoCheckViewer
+            url={output.url}
+            aspect={probe.width / probe.height}
+            mode={mode}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              role="radiogroup"
+              aria-label="View"
+              className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5"
+            >
+              {CHECK_MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m.id}
+                  onClick={() => setMode(m.id)}
+                  className={segClass(mode === m.id)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-fg-muted">
+              Free 3D check on this screen
+            </span>
+            <a
+              href={output.url}
+              download
+              className="ml-auto text-xs text-primary hover:underline"
+            >
+              Download
+            </a>
+          </div>
+          <div className="flex items-center text-xs">
+            <span className="font-mono text-fg-muted">
+              {formatCents(shown.quote.amount_cents)}
+            </span>
+            <a href="#tab=make" className="ml-auto text-primary hover:underline">
+              Make the whole video in 3D
+            </a>
+          </div>
+        </>
+      )}
+    </section>
+  );
 
   return (
     <PanelShell>
       <StepReview
         project={project}
         sourceFps={sourceFps}
-        heading="Pick a moment"
-        headingExtras={
-          <span className="text-[11px] text-fg-muted">
-            Scrub the timeline, then preview {seconds} seconds from there.
-          </span>
+        heading="Your video"
+        aside={previewCard}
+        range={(playhead) =>
+          previewRange(playhead, probe.num_frames, sourceFps, seconds)
+        }
+        belowPlayer={({ playhead }) => {
+          const run = requestAt(playhead);
+          const range: [number, number] = [run.from_frame!, run.to_frame!];
+          return (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1">
+                  <span id="pv-quality" className="text-[11px] text-fg-muted">
+                    Quality
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="pv-quality"
+                    className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5"
+                  >
+                    {presets.map((q) => (
+                      <button
+                        key={q.preset}
+                        type="button"
+                        role="radio"
+                        aria-checked={preset === q.preset}
+                        data-value={q.preset}
+                        onClick={() => change(() => setPreset(q.preset))}
+                        className={segClass(preset === q.preset)}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-fg-muted">Length</span>
+                  <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
+                    <button
+                      type="button"
+                      aria-label="Shorter"
+                      disabled={seconds <= MIN_LENGTH}
+                      onClick={() => change(() => setSeconds((s) => s - 1))}
+                      className={segClass(false)}
+                    >
+                      −
+                    </button>
+                    <span
+                      data-testid="preview-length"
+                      aria-label="Length"
+                      className="px-2 font-mono text-xs text-fg"
+                    >
+                      {seconds} s
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Longer"
+                      disabled={seconds >= MAX_LENGTH}
+                      onClick={() => change(() => setSeconds((s) => s + 1))}
+                      className={segClass(false)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <label className="flex h-8 cursor-pointer items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={quickLook}
+                    onChange={(e) => change(() => setQuickLook(e.target.checked))}
+                    className="accent-primary"
+                  />
+                  Quick look <span className="text-fg-muted">· half price</span>
+                </label>
+              </div>
+              <p data-testid="preview-moment" className="text-[11px] text-fg-muted">
+                {choice?.hint ? `${choice.hint} · ` : ""}
+                <span className="font-mono">
+                  {clock(range[0])} – {clock(range[1])}
+                </span>
+              </p>
+              <InstantCheckout
+                checkout={ck}
+                request={run}
+                quoteRequest={quoteRequest}
+                label="Preview this moment"
+                trackerDownloads={false}
+                explain={
+                  <span className="flex flex-col gap-1.5">
+                    <span>
+                      {frames} frames at the {choice?.label ?? preset} rate: the
+                      same price per frame as the whole video.
+                    </span>
+                    <span>
+                      Quick look uses half the frame rate for half the price.
+                      {/* the quote's own line names the minimum when it applies */}
+                      {pricing &&
+                      ck.quote?.quote.amount_cents !== pricing.minimum_cents
+                        ? ` Minimum charge ${formatCents(pricing.minimum_cents)}.`
+                        : ""}{" "}
+                      If it fails, you pay nothing.
+                    </span>
+                  </span>
+                }
+              />
+            </div>
+          );
+        }}
+        timelineHeading={
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xs font-semibold text-fg">Pick a moment</h3>
+            <span className="text-[11px] text-fg-muted">
+              Click the strip to move the preview.
+            </span>
+          </div>
         }
       >
-        {({ playhead, scrub }) => (
-          <div className="flex flex-wrap items-center gap-3">
-            <span data-testid="preview-moment" className="text-xs text-fg">
-              Preview: <span className="font-mono">{tc(from)}</span> –{" "}
-              <span className="font-mono">{tc(to)}</span>
-            </span>
-            <Button
-              variant="outline"
-              size="xs"
-              data-testid="preview-from-here"
-              disabled={playhead === moment}
-              onClick={() => {
-                setMoment(playhead);
-                ck.invalidate();
-              }}
-            >
-              Preview from here ({tc(playhead)})
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => scrub(from)}
-            >
-              Go to the preview start
-            </Button>
-          </div>
-        )}
+        {({ playhead }) => {
+          const scene = cuts.filter((c) => c <= playhead).length + 1;
+          return (
+            <PreviewRangeNote
+              range={previewRange(playhead, probe.num_frames, sourceFps, seconds)}
+              clock={clock}
+              scene={scene}
+              scenes={cuts.length + 1}
+            />
+          );
+        }}
       </StepReview>
 
-      <PanelCard>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="lifelike-preview-preset" label="Quality">
-            <select
-              id="lifelike-preview-preset"
-              value={preset}
-              onChange={(e) => {
-                setPreset(e.target.value as Preset);
-                ck.invalidate();
-              }}
-              className={selectClass}
-            >
-              {presets.map((q) => (
-                <option key={q.preset} value={q.preset}>
-                  {qualityChoiceText(q)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field id="lifelike-preview-length" label="Length">
-            <select
-              id="lifelike-preview-length"
-              value={seconds}
-              onChange={(e) => {
-                setSeconds(Number(e.target.value));
-                ck.invalidate();
-              }}
-              className={selectClass}
-            >
-              {PREVIEW_LENGTHS.map((n) => (
-                <option key={n} value={n}>
-                  {n} seconds
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <label className="flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={quickLook}
-            onChange={(e) => {
-              setQuickLook(e.target.checked);
-              ck.invalidate();
-            }}
-            className="accent-primary"
-          />
-          Quick look{" "}
-          <span className="text-fg-muted">
-            (half the frame rate, half the price)
-          </span>
-        </label>
-        <StepCheckoutSection
-          checkout={ck}
-          request={request}
-          trackerDownloads={false}
-        />
-      </PanelCard>
-
-      {lastSucceeded !== undefined ? (
-        <section className="flex flex-col gap-2" aria-label="Latest preview">
-          <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-            Latest preview
-            {lastSucceeded.params.from_frame !== undefined ? (
-              <span className="ml-2 font-mono normal-case">
-                from {tc(lastSucceeded.params.from_frame)}
-              </span>
-            ) : null}
-          </h3>
-          {output !== null ? (
-            <video
-              key={output.url}
-              src={output.url}
-              controls
-              playsInline
-              preload="metadata"
-              data-testid="lifelike-preview-video"
-              className="w-full max-w-3xl rounded-md border border-edge bg-black"
-            />
-          ) : (
-            <p className="text-xs text-fg-muted">Fetching the preview…</p>
-          )}
+      {succeeded.length > 1 || runs.length > succeeded.length ? (
+        <section aria-label="Earlier previews" className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-fg-muted">Earlier previews</h3>
+          <ul className="flex flex-col gap-2">
+            {runs.map((c) => (
+              <PreviewRow
+                key={c.conversion_id}
+                conversion={c}
+                range={
+                  c.params.from_frame !== undefined && c.params.to_frame !== undefined
+                    ? `${clock(c.params.from_frame)} – ${clock(c.params.to_frame)}`
+                    : ""
+                }
+                quality={qualityLabelFor(project, c.params.preset)}
+                shown={c.conversion_id === shown?.conversion_id}
+                onShow={
+                  c.state === "succeeded"
+                    ? () => setShownId(c.conversion_id)
+                    : undefined
+                }
+              />
+            ))}
+          </ul>
         </section>
       ) : null}
-
-      <PriorRuns
-        title="Prior previews"
-        conversions={runs}
-        meta={(c) =>
-          [
-            qualityLabelFor(project, c.params.preset),
-            c.params.from_frame !== undefined
-              ? `from ${tc(c.params.from_frame)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
-      />
     </PanelShell>
+  );
+}
+
+/** "2:31 – 2:36 · Scene 7 of 14" under the timeline. */
+function PreviewRangeNote({
+  range,
+  clock,
+  scene,
+  scenes,
+}: {
+  range: [number, number];
+  clock: (f: number) => string;
+  scene: number;
+  scenes: number;
+}): JSX.Element {
+  return (
+    <p data-testid="preview-range" className="text-[11px] text-fg-muted">
+      Preview <span className="font-mono text-fg">{clock(range[0])} – {clock(range[1])}</span>
+      {" · "}Scene {scene} of {scenes}
+    </p>
+  );
+}
+
+function PreviewRow({
+  conversion: c,
+  range,
+  quality,
+  shown,
+  onShow,
+}: {
+  conversion: Conversion;
+  range: string;
+  quality: string;
+  shown: boolean;
+  onShow?: () => void;
+}): JSX.Element {
+  return (
+    <li
+      data-testid={`preview-row-${c.conversion_id}`}
+      className="flex flex-wrap items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2 text-xs"
+    >
+      <span className="font-mono text-fg">{range}</span>
+      <span className="text-fg-muted">{quality}</span>
+      <StateChip conversion={c} />
+      <span className="ml-auto font-mono text-fg-muted">
+        {formatCents(c.quote.amount_cents)}
+      </span>
+      {onShow ? (
+        <button
+          type="button"
+          onClick={onShow}
+          disabled={shown}
+          className="text-primary hover:underline disabled:text-fg-muted disabled:no-underline"
+        >
+          {shown ? "Showing" : "Show"}
+        </button>
+      ) : null}
+    </li>
   );
 }
 
@@ -274,13 +452,5 @@ function PanelShell({ children }: { children: ReactNode }): JSX.Element {
     <div data-testid="lifelike-preview-panel" className="flex flex-col gap-6">
       {children}
     </div>
-  );
-}
-
-function PanelCard({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
   );
 }

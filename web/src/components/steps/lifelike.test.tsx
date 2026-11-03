@@ -272,49 +272,125 @@ describe("Lifelike Preview", () => {
     expect(previewRange(0, 50, fps)).toEqual([0, 50]);
   });
 
-  it("quotes and runs ~5 s from the chosen moment at the chosen quality", async () => {
+  it("prices as you pick (one button), runs from the playhead, and checks the 3D on this screen (S3D-13, S3D-32, S3D-45)", async () => {
     const project = lifelikeProject();
     const quotes = captureBodies("/quotes");
+    const runs = captureBodies("/conversions");
     renderPanel(
       <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
     );
     // the best quality the video reaches comes preselected (the Overview
     // prices that preview)
-    const quality = screen.getByLabelText("Quality") as HTMLSelectElement;
-    expect(quality.value).toBe(
-      [...quality.options].map((o) => o.value).at(-1),
+    const quality = within(screen.getByRole("radiogroup", { name: "Quality" }));
+    const options = quality.getAllByRole("radio");
+    expect(options.at(-1)!.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
+    // no preview yet
+    expect(screen.getByTestId("preview-empty")).toBeTruthy();
+
+    fireEvent.click(quality.getByRole("radio", { name: "1080p" }));
+    // priced per frame like the final: 5 s at 1080p 24 fps is under the
+    // minimum, so the minimum applies — the price sits on the button
+    const main = await screen.findByTestId("checkout-main");
+    await waitFor(() =>
+      expect(main.textContent).toBe("Preview this moment · $0.50"),
     );
-    fireEvent.change(quality, { target: { value: "1080p" } });
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    // priced per frame like the final: 5 s at 1080p 24 fps is $0.38, so
-    // the $0.50 minimum per run applies
-    expect((await screen.findByTestId("quote-total")).textContent).toBe("$0.50");
-    expect(screen.getByText("Minimum charge $0.50")).toBeTruthy();
-    // Quick look: half the frame rate (and half the price above the floor)
-    fireEvent.click(screen.getByLabelText(/Quick look/));
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    await waitFor(() => expect(quotes).toHaveLength(2));
-    expect(quotes[1]).toMatchObject({ target_fps: 12 });
-    fireEvent.click(screen.getByLabelText(/Quick look/));
-    // 2–10 s, 5 by default
-    const length = screen.getByLabelText("Length") as HTMLSelectElement;
-    expect(length.value).toBe("5");
-    expect([...length.options].map((o) => o.value)).toEqual(
-      ["2", "3", "4", "5", "6", "7", "8", "9", "10"],
+    expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
+      "Charged after it's done.",
     );
-    fireEvent.change(screen.getByLabelText("Quality"), {
-      target: { value: "qhd" },
-    });
-    expect(screen.queryByTestId("quote-total")).toBeNull(); // re-quote needed
-    fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
-    await screen.findByTestId("quote-total");
-    expect(quotes[2]).toMatchObject({
+    // details behind the "?"
+    expect(screen.queryByTestId("quote-breakdown")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "?" }));
+    const pop = within(screen.getByRole("dialog"));
+    expect(pop.getByText(/120 frames at the 1080p rate/)).toBeTruthy();
+    expect(pop.getByText(/Minimum charge \$0\.50/, { selector: "span" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(quotes.at(-1)).toMatchObject({
       step: "lifelike_preview",
-      preset: "qhd",
+      preset: "1080p",
       formats: ["sbs"],
       from_frame: 0,
       to_frame: 120,
     });
+
+    // Quick look: half the frame rate
+    fireEvent.click(screen.getByLabelText(/Quick look/));
+    await waitFor(() => expect(quotes.at(-1)).toMatchObject({ target_fps: 12 }));
+    fireEvent.click(screen.getByLabelText(/Quick look/));
+
+    // 2–10 s, 5 by default
+    expect(screen.getByTestId("preview-length").textContent).toBe("5 s");
+    fireEvent.click(screen.getByRole("button", { name: "Longer" }));
+    expect(screen.getByTestId("preview-length").textContent).toBe("6 s");
+    fireEvent.click(screen.getByRole("button", { name: "Shorter" }));
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(screen.getByRole("button", { name: "Shorter" }));
+    }
+    expect(screen.getByTestId("preview-length").textContent).toBe("2 s");
+    expect(
+      (screen.getByRole("button", { name: "Shorter" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByRole("button", { name: "Longer" }));
+    }
+    expect(screen.getByTestId("preview-length").textContent).toBe("5 s");
+
+    // the box on the timeline follows the playhead
+    expect(screen.getByTestId("timeline-range")).toBeTruthy();
+
+    // one click runs it
+    await waitFor(() =>
+      expect(screen.getByTestId("checkout-main").textContent).toMatch(/\$0\.50$/),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    await waitFor(() => expect(runs).toHaveLength(1));
+    expect(runs[0]).toMatchObject({
+      step: "lifelike_preview",
+      preset: "1080p",
+      from_frame: 0,
+      to_frame: 120,
+    });
+  });
+
+  it("shows the latest preview with a free Side by side / Red-cyan / Wiggle check", async () => {
+    const project = lifelikeProject();
+    project.conversions = [
+      {
+        conversion_id: "c0000preview",
+        state: "succeeded",
+        kind: "video",
+        project_id: PID,
+        step: "lifelike_preview",
+        method: "lifelike",
+        params: { preset: "1080p", formats: ["sbs"], from_frame: 24, to_frame: 144 },
+        quote: { amount_cents: 50, currency: "usd" },
+        progress: 1,
+        outputs: ["sbs"],
+        created_at: "2026-10-01T00:00:00Z",
+        updated_at: "2026-10-01T00:00:00Z",
+      } as Conversion,
+    ];
+    mockDb.conversions.set("c0000preview", project.conversions[0]);
+    renderPanel(
+      <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
+    );
+    const check = await screen.findByTestId("stereo-check");
+    expect(check.getAttribute("data-mode")).toBe("sbs");
+    expect(screen.getByTestId("preview-shown-meta").textContent).toBe(
+      "0:01 – 0:06 · 1080p",
+    );
+    const view = within(screen.getByRole("radiogroup", { name: "View" }));
+    fireEvent.click(view.getByRole("radio", { name: "Red-cyan" }));
+    expect(screen.getByTestId("stereo-check").getAttribute("data-mode")).toBe(
+      "anaglyph",
+    );
+    expect(screen.getByLabelText("Red-cyan view")).toBeTruthy();
+    fireEvent.click(view.getByRole("radio", { name: "Wiggle" }));
+    expect(screen.getByLabelText("Wiggle view")).toBeTruthy();
+    expect(screen.getByText("Free 3D check on this screen")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Make the whole video in 3D" }).getAttribute("href"),
+    ).toBe("#tab=make");
   });
 });
 

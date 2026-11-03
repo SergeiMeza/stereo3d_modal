@@ -30,11 +30,12 @@
 import { useAtom } from "jotai";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { UpdateCardToContinue } from "@/components/billing/BillingBanner";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
 import {
@@ -95,7 +96,11 @@ export interface StepCheckout {
   settled: boolean;
   /** Priced inputs changed — quote (and any pending attempt) is stale. */
   invalidate: () => void;
-  fetchQuote: (req: StepConversionRequest) => Promise<void>;
+  /** keepTracker: an automatic re-quote leaves a finished run's tracker */
+  fetchQuote: (
+    req: StepConversionRequest,
+    opts?: { keepTracker?: boolean },
+  ) => Promise<void>;
   convert: (req: StepConversionRequest) => Promise<void>;
   handleSettled: (settled: Conversion) => void;
   /** Tracker poll snapshots — keeps the shared store current so a remount
@@ -161,7 +166,10 @@ export function useStepCheckout(
     setState((s) => ({ ...s, quote: null, attemptKey: null }));
   }, [setState]);
 
-  async function fetchQuote(req: StepConversionRequest): Promise<void> {
+  async function fetchQuote(
+    req: StepConversionRequest,
+    opts: { keepTracker?: boolean } = {},
+  ): Promise<void> {
     setQuoting(true);
     setError(null);
     setBillingBlock(null);
@@ -178,7 +186,7 @@ export function useStepCheckout(
         quote: res,
         attemptKey: null,
         // clear a finished run's tracker before a new attempt
-        ...(s.settled ? { active: null, settled: false } : {}),
+        ...(s.settled && !opts.keepTracker ? { active: null, settled: false } : {}),
       }));
     } catch (e) {
       setError(messageOf(e));
@@ -427,5 +435,111 @@ export function StepCheckoutSection({
         />
       ) : null}
     </>
+  );
+}
+
+export interface InstantCheckoutProps {
+  checkout: StepCheckout;
+  request: StepConversionRequest;
+  /** What prices the run when it differs from `request` only in ways that
+   * can't change the price (the Preview page's start moment, so scrubbing
+   * doesn't re-price). Defaults to `request`. */
+  quoteRequest?: StepConversionRequest;
+  /** The main button's words: "Preview this moment", "Make 3D". */
+  label: string;
+  disabledReason?: string;
+  /** Extra lines for the "?" popover (how this run is priced). */
+  explain?: ReactNode;
+  /** Show the tracker's downloads list on success (default). */
+  trackerDownloads?: boolean;
+  /** Under the button, e.g. "Make the whole video in 3D" */
+  after?: ReactNode;
+}
+
+/**
+ * One main button with its price (S3D-45): the run is priced as the
+ * settings change (no "Get quote" step), the button starts it, and the
+ * details — the quote's lines, the minimum, when it's charged — sit behind
+ * the "?" beside the one charging line. While a payment needs a new card
+ * the button reads "Update your card to continue" (S3D-22).
+ */
+export function InstantCheckout({
+  checkout: ck,
+  request,
+  quoteRequest,
+  label,
+  disabledReason,
+  explain,
+  trackerDownloads = true,
+  after,
+}: InstantCheckoutProps): JSX.Element {
+  const blocked = disabledReason !== undefined;
+  const paymentNeeded =
+    useBilling().status?.delinquent === true ||
+    ck.billingBlock === "billing_overdue";
+  const key = JSON.stringify(quoteRequest ?? request);
+  const lastKey = useRef<string | null>(null);
+  const { quote, quoting, running, error, fetchQuote } = ck;
+  useEffect(() => {
+    if (blocked || running || quoting || quote !== null) return;
+    // a failed quote waits for a change instead of retrying in a loop
+    if (key === lastKey.current && error !== null) return;
+    const t = setTimeout(() => {
+      lastKey.current = key;
+      void fetchQuote(JSON.parse(key) as StepConversionRequest, {
+        keepTracker: true,
+      });
+    }, 250);
+    return () => clearTimeout(t);
+    // fetchQuote is a fresh closure each render; key carries the request
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, blocked, running, quoting, quote, error]);
+
+  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
+  const price = quote ? formatCents(quote.quote.amount_cents) : null;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Button
+          size="lg"
+          data-testid="checkout-main"
+          disabled={blocked || quote === null || running}
+          onClick={() => void ck.convert(request)}
+        >
+          {label}
+          {price ? ` · ${price}` : ""}
+        </Button>
+        {blocked ? (
+          <span className="text-xs text-amber-400">{disabledReason}</span>
+        ) : quote ? (
+          <span className="flex items-center gap-1.5">
+            <span data-testid="charge-timing-hint" className="text-xs text-fg-muted">
+              {quote.charge_timing === "before"
+                ? CHARGE_BEFORE_COPY
+                : CHARGE_AFTER_COPY}
+            </span>
+            <InfoPopover label="?">
+              {explain}
+              <QuoteView result={quote} />
+            </InfoPopover>
+          </span>
+        ) : quoting ? (
+          <span className="text-xs text-fg-muted">Pricing…</span>
+        ) : null}
+      </div>
+      {after}
+      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
+      {ck.tracking && ck.active ? (
+        <ConversionTracker
+          conversion={ck.active}
+          onProjectChanged={ck.onProjectChanged}
+          onSettled={ck.handleSettled}
+          onUpdate={ck.handleUpdate}
+          showDownloads={trackerDownloads}
+          estimateSeconds={quote?.eta_seconds}
+        />
+      ) : null}
+    </div>
   );
 }
