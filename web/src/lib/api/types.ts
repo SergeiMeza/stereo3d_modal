@@ -635,6 +635,9 @@ export interface SavedMethod {
   exp_year?: number;
   /** PayPal, Link, Cash App */
   email?: string;
+  /** spec v6 F: a card saved through a wallet */
+  wallet?: "apple_pay" | "google_pay" | "link";
+  added_at?: string;
   is_default: boolean;
   /** paid when each run starts (Alipay, WeChat Pay) */
   pay_now?: boolean;
@@ -689,7 +692,44 @@ export interface PayNowStart {
 /** GET /v1/billing/history (S3D-57): card charges as on the statement,
  * newest first. One charge may cover several small runs. */
 export interface BillingHistory {
-  charges: BillingCharge[];
+  /** older gateways: card charges */
+  charges?: BillingCharge[];
+  /** spec v6 F: one row per statement charge (group, run or settle), plus
+   * one "Payment needed" row while outstanding; refunds are their own rows */
+  rows?: BillingRow[];
+  has_more?: boolean;
+  /** C7: "inclusive" adds "Prices include VAT where it applies." */
+  tax?: "off" | "inclusive";
+}
+
+export type BillingRowStatus =
+  | "paid"
+  | "processing"
+  | "payment_needed"
+  | "refund_requested"
+  | "refunded"
+  | "partially_refunded"
+  | "disputed"
+  | "refund_failed";
+
+/** spec v6 F/P10: a purchase-history row. A refund row has a negative
+ * meaning (kind "refund") and may carry a credit note. */
+export interface BillingRow {
+  row_id: string;
+  kind?: "charge" | "refund" | "outstanding";
+  created_at: string;
+  amount_cents: number;
+  currency: string;
+  status: BillingRowStatus;
+  /** "Visa •••• 4242", "PayPal · j•••@gmail.com" */
+  payment_method?: { label: string };
+  invoice?: { hosted_invoice_url?: string; invoice_pdf?: string };
+  receipt_url?: string;
+  credit_note_url?: string;
+  /** quoted in "Get help with this payment" */
+  help_ref?: string;
+  case_id?: string;
+  items: BillingChargeItem[];
 }
 
 export interface BillingCharge {

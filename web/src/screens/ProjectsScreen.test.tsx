@@ -33,6 +33,7 @@ import { maxDurationFor } from "@/components/projects/UploadDropzone";
 import { GatewayClient, GatewayError } from "@/lib/api/client";
 import type { Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 import ProjectsScreen from "./ProjectsScreen";
@@ -102,6 +103,21 @@ describe("ProjectsScreen list", () => {
     expect(within(box).queryByTestId("card-spent")).toBeNull();
     expect(box.textContent).not.toMatch(/\$|spent/i);
     void FIXTURE_SCENES;
+  });
+
+  it("past the free limits: the limits notice with Add payment method (P11)", async () => {
+    mockDb.billing.limits = { projects_left: 0, bytes_left: 0, reached: true };
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <ProjectsScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const notice = await screen.findByTestId("limits-notice");
+    expect(notice.textContent).toBe(
+      "Make your first 3D video or save a payment method to keep more than 3 projects and 10 GB of uploads. Add payment method",
+    );
   });
 
   it("warns before unused files go and Keep cancels it (S3D-24)", async () => {

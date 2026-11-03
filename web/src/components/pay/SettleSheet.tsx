@@ -159,6 +159,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
         publishableKey={start.publishable_key}
         big={big}
         showSaveLine={false}
+        returnQuery="settle=1"
       >
         {(form, formBody) => (
           <SheetFrame

@@ -63,6 +63,7 @@ export function PaySheet({
   subtitle,
   thumb,
   billing,
+  projectId,
   onClose,
 }: {
   conversionId: string;
@@ -74,6 +75,8 @@ export function PaySheet({
   thumb?: string;
   /** the run's billing: its open payment and why it waits */
   billing?: ConversionBilling;
+  /** for the return page after a redirect */
+  projectId?: string;
   /** paid = the run is on its way; open = closed with the payment open */
   onClose: (outcome: "paid" | "open") => void;
 }): JSX.Element {
@@ -162,7 +165,13 @@ export function PaySheet({
     const checkout = phase.checkout;
     const notice = phase.kind === "ready" ? phase.notice : undefined;
     return (
-      <CheckoutPane clientSecret={checkout.client_secret} big={big}>
+      <CheckoutPane
+        clientSecret={checkout.client_secret}
+        big={big}
+        returnQuery={`conversion=${encodeURIComponent(conversionId)}${
+          projectId ? `&project=${encodeURIComponent(projectId)}` : ""
+        }`}
+      >
         {(form, formBody) => {
           const alipay = form.selected === "alipay";
           return (

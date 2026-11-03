@@ -370,6 +370,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       action={action}
       subtitle={runLine(conv)}
       billing={conv.billing}
+      projectId={conv.project_id}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}
     />
   );

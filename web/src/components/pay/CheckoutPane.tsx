@@ -82,6 +82,7 @@ export function CheckoutPane({
   publishableKey,
   big = false,
   showSaveLine = true,
+  returnQuery,
   children,
 }: {
   clientSecret: string;
@@ -90,6 +91,9 @@ export function CheckoutPane({
   big?: boolean;
   /** P2 pays with saved methods: no save line */
   showSaveLine?: boolean;
+  /** what P4 needs to know after a redirect: "conversion=…&project=…" or
+   * "settle=1" */
+  returnQuery?: string;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   if (isMockSecret(clientSecret)) {
@@ -101,6 +105,7 @@ export function CheckoutPane({
       publishableKey={publishableKey ?? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
       big={big}
       showSaveLine={showSaveLine}
+      returnQuery={returnQuery}
     >
       {children}
     </StripePane>
@@ -112,12 +117,14 @@ function StripePane({
   publishableKey,
   big,
   showSaveLine,
+  returnQuery,
   children,
 }: {
   clientSecret: string;
   publishableKey: string;
   big: boolean;
   showSaveLine: boolean;
+  returnQuery?: string;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -127,7 +134,7 @@ function StripePane({
       stripe={stripe}
       options={{ clientSecret, elementsOptions: { appearance } }}
     >
-      <StripeForm big={big} showSaveLine={showSaveLine}>
+      <StripeForm big={big} showSaveLine={showSaveLine} returnQuery={returnQuery}>
         {children}
       </StripeForm>
     </CheckoutElementsProvider>
@@ -137,10 +144,12 @@ function StripePane({
 function StripeForm({
   big,
   showSaveLine,
+  returnQuery,
   children,
 }: {
   big: boolean;
   showSaveLine: boolean;
+  returnQuery?: string;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const result = useCheckoutElements();
@@ -160,7 +169,7 @@ function StripeForm({
       setMessage(null);
       const res = await result.checkout.confirm({
         redirect: "if_required",
-        returnUrl: `${window.location.origin}/pay/return`,
+        returnUrl: `${window.location.origin}/pay/return${returnQuery ? `?${returnQuery}` : ""}`,
       });
       if (res.type === "error") {
         const code = (res.error as { code?: string }).code ?? "";

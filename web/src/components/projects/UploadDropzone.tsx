@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
+import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { GatewayError } from "@/lib/api/client";
 import {
   newProjectMethod,
@@ -176,6 +177,7 @@ export function UploadDropzone() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [limited, setLimited] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
@@ -253,12 +255,16 @@ export function UploadDropzone() {
       setInterrupted(
         resumable && ticket ? { file, ticket, contentType } : null,
       );
+      // P11: past the free limits the gateway answers 403
+      setLimited(e instanceof GatewayError && e.code === "save_method_for_more");
       setError(
-        resumable
-          ? "The upload stopped — check your connection, then resume where it left off."
-          : e instanceof GatewayError
-            ? e.message
-            : "Upload failed — please try again.",
+        e instanceof GatewayError && e.code === "save_method_for_more"
+          ? null
+          : resumable
+            ? "The upload stopped — check your connection, then resume where it left off."
+            : e instanceof GatewayError
+              ? e.message
+              : "Upload failed — please try again.",
       );
       setTimeLeftS(null);
       setPhase("idle");
@@ -403,6 +409,11 @@ export function UploadDropzone() {
         </div>
       )}
 
+      {limited ? (
+        <div className="mt-4">
+          <LimitsNotice force />
+        </div>
+      ) : null}
       {error !== null && (
         <p role="alert" className="mt-4 text-center text-xs text-red-400">
           {error}

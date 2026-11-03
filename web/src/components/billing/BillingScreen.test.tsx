@@ -59,7 +59,7 @@ function renderBilling() {
 }
 
 describe("Billing (S3D-57, S3D-62)", () => {
-  it("shows the card and one row per card charge, expandable to what it covered", async () => {
+  it("methods read-only with the portal; one row per charge, refunds with a credit note (P10)", async () => {
     run("cbig00000001", 4972, { charge_timing: "before", updated_at: "2026-11-03T09:00:00Z" });
     run("csmall000001", 100, { step: "lifelike_preview" });
     run("csmall000002", 675, { params: { preset: "1080p", formats: ["sbs"] } });
@@ -71,35 +71,58 @@ describe("Billing (S3D-57, S3D-62)", () => {
     });
     renderBilling();
 
-    // S3D-62: read-only, with the portal for changes
     const methods = await screen.findByTestId("payment-methods");
-    expect(methods.textContent).toMatch(/^Visa •••• 4242Expires \d\d\/\d\dDefault$/);
-    expect(screen.getByRole("button", { name: "Manage payment methods" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Remove|Make default|Add/ })).toBeNull();
+    expect(methods.textContent).toBe("Visa •••• 4242· Default");
+    expect(
+      screen.getByRole("button", { name: "Manage payment methods and company details ↗" }),
+    ).toBeTruthy();
+    expect(screen.getByText("We charge your default payment method. If it's declined, we try your others.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Remove|Make default/ })).toBeNull();
 
-    const rows = await screen.findAllByTestId(/^charge-ch_/);
-    expect(rows).toHaveLength(3);
-    // newest first: the big run alone, then the day's small runs together
-    const [big, grouped, refunded] = rows;
-    expect(within(big).getByTestId("charge-amount").textContent).toBe("$49.72");
-    expect(within(big).getByTestId("charge-status").textContent).toBe("Paid");
+    const history = await screen.findByTestId("history");
+    const rows = within(history).getAllByRole("listitem").filter((li) => li.dataset.testid?.startsWith("row-"));
+    // newest first: the big run alone, the day's small runs together, the
+    // refunded run's charge and its refund
+    expect(rows).toHaveLength(4);
+    const [big, grouped, refundedCharge, refund] = rows;
+    expect(within(big).getByTestId("row-amount").textContent).toBe("$49.72");
+    expect(within(big).getByTestId("row-status").textContent).toBe("Paid");
     expect(big.textContent).toContain("Visa •••• 4242");
-    expect(within(big).getByRole("link", { name: "Receipt" }).getAttribute("target")).toBe(
-      "_blank",
-    );
-    expect(within(big).getByRole("link", { name: "Invoice" }).getAttribute("target")).toBe(
-      "_blank",
-    );
-    expect(grouped.textContent).toContain("2 items");
-    expect(within(grouped).getByTestId("charge-amount").textContent).toBe("$7.75");
-    fireEvent.click(within(grouped).getByRole("button", { expanded: false }));
-    const items = within(grouped).getByTestId("charge-items");
+    expect(within(big).getByRole("link", { name: "Receipt ↗" }).getAttribute("target")).toBe("_blank");
+    expect(within(big).getByRole("link", { name: "Invoice ↗" })).toBeTruthy();
+    expect(grouped.textContent).toContain("2 items · $7.75");
+    fireEvent.click(within(grouped).getByRole("button", { name: /2 items/ }));
+    const items = within(grouped).getByTestId("row-items");
     expect(items.textContent).toContain("Preview · 4K");
     expect(items.textContent).toContain("3D video · 1080p");
-    expect(within(refunded).getByTestId("charge-status").textContent).toBe("Refunded");
-    expect(within(refunded).getByTestId("charge-amount").textContent).toBe("−$18.38");
-    // no balance or limit wording (S3D-21)
+    expect(within(refundedCharge).getByTestId("row-status").textContent).toBe("Paid");
+    expect(within(refund).getByTestId("row-amount").textContent).toBe("−$18.38");
+    expect(within(refund).getByTestId("row-status").textContent).toBe("Refunded");
+    expect(within(refund).getByRole("link", { name: "Credit note ↗" })).toBeTruthy();
+    // Get help with this payment: a mail with the date, amount and reference
+    fireEvent.click(within(big).getByRole("button", { name: "More" }));
+    const help = within(big).getByTestId("row-help");
+    expect(decodeURIComponent(help.getAttribute("href")!)).toMatch(/subject=Payment .+ · \$49\.72 · \w+$/);
+    expect(screen.getByText("US dollars.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/balance|limit|pending/i);
+  });
+
+  it("while the account owes: a Payment needed row with Pay $X (P10)", async () => {
+    mockDb.billing.unpaid.push({ conversion_id: "cowed0000001", amount_cents: 725, currency: "usd", needs_action: false });
+    renderBilling();
+    const row = await screen.findByTestId("row-row_outstanding");
+    expect(within(row).getByTestId("row-status").textContent).toBe("Payment needed");
+    expect(within(row).getByRole("button", { name: "Pay $7.25" })).toBeTruthy();
+  });
+
+  it("nothing yet: no saved methods and no purchases", async () => {
+    mockDb.billing.hasPaymentMethod = false;
+    mockDb.billing.card = undefined;
+    mockDb.billing.methods = [];
+    renderBilling();
+    expect(await screen.findByText("No saved payment methods.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add payment method" })).toBeTruthy();
+    expect(await screen.findByText("No purchases yet.")).toBeTruthy();
   });
 
   it("is in the account menu", () => {
@@ -126,7 +149,7 @@ describe("payment method labels (S3D-60)", () => {
     ).toBe("Apple Pay · Visa •••• 4242");
     expect(
       methodLabel({ id: "b", type: "paypal", email: "name@example.com", is_default: false }),
-    ).toBe("PayPal · name@…");
+    ).toBe("PayPal · n•••@example.com");
     expect(methodLabel({ id: "c", type: "alipay", is_default: false, pay_now: true })).toBe(
       "Alipay",
     );

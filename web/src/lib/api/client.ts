@@ -252,8 +252,10 @@ export class GatewayClient {
   }
 
   /** Card charges as on the statement (S3D-57). */
-  getBillingHistory(): Promise<BillingHistory> {
-    return this.request("GET", "/v1/billing/history");
+  /** spec v6 F: 25 rows a page; `after` = the last row_id seen. */
+  getBillingHistory(after?: string): Promise<BillingHistory> {
+    const q = after ? `?limit=25&starting_after=${encodeURIComponent(after)}` : "?limit=25";
+    return this.request("GET", `/v1/billing/history${q}`);
   }
 
   /** SetupIntent material for the onboarding card capture. */

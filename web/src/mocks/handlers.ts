@@ -165,6 +165,8 @@ interface MockBilling {
   checkouts: Map<string, MockCheckout>;
   /** what the next sheet confirm does (tests and the dev preview) */
   nextConfirm: "paid" | "declined" | "processing" | "too_many";
+  /** spec v6 B14: an account that hasn't saved or paid (P11) */
+  limits?: { projects_left: number; bytes_left: number; reached?: boolean };
 }
 
 /** spec v6: one open payment (a run's, or the settle's). */
@@ -1673,6 +1675,7 @@ function billingStatus() {
     ...(b.card
       ? { default_method: { type: "card", label: `Visa •••• ${b.card.last4}` } }
       : {}),
+    ...(b.limits ? { limits: b.limits } : {}),
     flow_state: b.underReview
       ? ("under_review" as const)
       : b.hasPaymentMethod
@@ -1766,7 +1769,7 @@ export const handlers = [
 
   // GET /v1/billing/history (S3D-57): card charges, newest first — a
   // run over the pre-charge threshold alone, smaller runs grouped per day
-  http.get(`${GATEWAY}/v1/billing/history`, () => {
+  http.get(`${GATEWAY}/v1/billing/history`, ({ request }) => {
     const card = mockDb.billing.card
       ? { brand: mockDb.billing.card.brand, last4: mockDb.billing.card.last4 }
       : undefined;
@@ -1833,7 +1836,60 @@ export const handlers = [
       });
     }
     charges.sort((a, b) => ((a.created_at as string) < (b.created_at as string) ? 1 : -1));
-    return HttpResponse.json({ charges });
+    // spec v6 F: rows — paid charges and refunds, plus one "Payment
+    // needed" row while the account owes
+    const label = card ? `Visa •••• ${card.last4}` : undefined;
+    const rows: Record<string, unknown>[] = [];
+    const owed = mockDb.billing.unpaid;
+    if (owed.length > 0) {
+      rows.push({
+        row_id: "row_outstanding",
+        kind: "outstanding",
+        created_at: new Date().toISOString(),
+        amount_cents: owed.reduce((n, u) => n + u.amount_cents, 0),
+        currency: "usd",
+        status: "payment_needed",
+        help_ref: "OWED",
+        items: owed.map((u) => {
+          const c = mockDb.conversions.get(u.conversion_id ?? "");
+          return c ? item(c) : { conversion_id: u.conversion_id ?? "", project_id: "", step: "production", amount_cents: u.amount_cents };
+        }),
+      });
+    }
+    for (const ch of charges) {
+      if (ch.status === "failed") continue;
+      const id = String(ch.charge_id);
+      rows.push({
+        row_id: id,
+        kind: "charge",
+        created_at: ch.created_at,
+        amount_cents: ch.amount_cents,
+        currency: "usd",
+        status: "paid",
+        ...(label ? { payment_method: { label } } : {}),
+        invoice: { hosted_invoice_url: ch.hosted_invoice_url },
+        receipt_url: ch.receipt_url,
+        help_ref: id.slice(-4).toUpperCase(),
+        items: ch.items,
+      });
+      if (ch.status === "refunded") {
+        rows.push({
+          row_id: `${id}_refund`,
+          kind: "refund",
+          created_at: ch.created_at,
+          amount_cents: ch.amount_cents,
+          currency: "usd",
+          status: "refunded",
+          credit_note_url: `https://invoice.stripe.com/cn/mock/${id}`,
+          help_ref: id.slice(-4).toUpperCase(),
+          items: ch.items,
+        });
+      }
+    }
+    const after = new URL(request.url).searchParams.get("starting_after");
+    const start = after ? rows.findIndex((r) => r.row_id === after) + 1 : 0;
+    const page = rows.slice(start, start + 25);
+    return HttpResponse.json({ rows: page, has_more: start + 25 < rows.length, tax: "off" });
   }),
 
   // SetupIntent material for the onboarding Payment Element.

@@ -48,14 +48,18 @@ function brandName(brand: string): string {
 /** "Visa •••• 4242", "Apple Pay · Visa •••• 4242", "PayPal · name@…" */
 export function methodLabel(m: SavedMethod): string {
   const card = m.brand && m.last4 ? `${brandName(m.brand)} •••• ${m.last4}` : null;
+  if (m.type === "card" && m.wallet) {
+    const wallet = { apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link" }[m.wallet];
+    return card ? `${wallet} · ${card}` : wallet;
+  }
   if (m.type === "card") return card ?? "Card";
   const name = TYPE_NAMES[m.type] ?? m.type;
   const detail = card ?? (m.email ? shortEmail(m.email) : null);
   return detail ? `${name} · ${detail}` : name;
 }
 
-/** "name@…" — enough to recognise it. */
+/** "j•••@gmail.com" (spec v6 P10) — enough to recognise it. */
 function shortEmail(email: string): string {
   const at = email.indexOf("@");
-  return at > 0 ? `${email.slice(0, at)}@…` : email;
+  return at > 0 ? `${email.charAt(0)}•••${email.slice(at)}` : email;
 }

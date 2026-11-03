@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ProjectCard } from "@/components/projects/ProjectCard";
+import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
 import { GatewayError } from "@/lib/api/client";
 import type { Project, UpdateProjectRequest } from "@/lib/api/types";
@@ -129,6 +130,7 @@ export default function ProjectsScreen() {
         </button>
       </div>
 
+      <LimitsNotice />
       <UploadDropzone />
 
       {actionError !== null ? (
