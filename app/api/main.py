@@ -319,6 +319,18 @@ def submit_video(body: dict) -> dict:
         isinstance(mvhevc_crf, bool) or not isinstance(mvhevc_crf, int) or not 0 <= mvhevc_crf <= 51
     ):
         raise HTTPException(status_code=400, detail="mvhevc_crf must be an integer in [0, 51]")
+    # target TOTAL video bitrate of every output (VBV-capped); null/absent
+    # keeps the quality-based defaults. Wins over mvhevc_crf for the spatial file.
+    output_bitrate_bps = body.get("output_bitrate_bps")
+    if output_bitrate_bps is not None and (
+        isinstance(output_bitrate_bps, bool)
+        or not isinstance(output_bitrate_bps, int)
+        or not 2_000_000 <= output_bitrate_bps <= 300_000_000
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="output_bitrate_bps must be an integer in [2000000, 300000000]",
+        )
     if "depth_only" in body and not isinstance(body["depth_only"], bool):
         raise HTTPException(status_code=400, detail="depth_only must be a bool")
     # user-provided depth video (pro step pipeline): a bucket key under the
