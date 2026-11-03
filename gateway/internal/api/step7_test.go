@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -249,5 +251,88 @@ func TestTierOrderWithRevenueCat(t *testing.T) {
 	bodies[c] = `{"subscriber":{"entitlements":{"pro":{"expires_date":"` + until + `","product_identifier":"pro_subs_1m_v1"}}}}`
 	if at := s.accountTier(ctx, c); at.Tier != pricing.TierBusiness || at.Plan == nil {
 		t.Fatalf("mirror plan over Pro: %+v", at)
+	}
+}
+
+// Option b: a paid plan invoice grants business AND pro until the
+// period's end + 3 days, once per invoice; a full refund of that invoice
+// revokes business only (never pro); M3 re-grants a missing one.
+func TestPlanEntitlementGrants(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	var calls []string
+	var mu sync.Mutex
+	entitled := map[string]bool{}
+	rc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			json.NewDecoder(r.Body).Decode(&body)
+			calls = append(calls, fmt.Sprintf("%s %v", strings.TrimPrefix(r.URL.Path, "/v1/subscribers/"), body["end_time_ms"]))
+			w.Write([]byte(`{}`))
+			return
+		}
+		ents := map[string]any{}
+		for e := range entitled {
+			ents[e] = map[string]any{"expires_date": time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339), "product_identifier": "rc_promo_" + e}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"subscriber": map[string]any{"entitlements": ents}})
+	}))
+	t.Cleanup(rc.Close)
+	s.RevenueCat = revenuecat.New("sk_test_fake").WithBase(rc.URL, time.Now)
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1"})
+	end := time.Now().Add(30 * 24 * time.Hour).Truncate(time.Second).UTC()
+	fake.subs["sub_p1"] = map[string]any{"id": "sub_p1", "status": "active", "customer": "cus_1",
+		"metadata":             map[string]string{"product": "svs-web", "env": "test", "user_id": uid, "plan": "business"},
+		"current_period_start": time.Now().Unix(), "current_period_end": end.Unix()}
+	paid := []byte(`{"id":"in_p1","subscription":"sub_p1"}`)
+	s.handlePlanInvoicePaid(ctx, paid)
+	s.handlePlanInvoicePaid(ctx, paid) // the same invoice again: no second grant
+	wantEnd := fmt.Sprint(float64(end.Add(72 * time.Hour).UnixMilli()))
+	if len(calls) != 2 || !strings.HasPrefix(calls[0], uid+"/entitlements/business/promotional") ||
+		!strings.HasPrefix(calls[1], uid+"/entitlements/pro/promotional") || !strings.HasSuffix(calls[0], wantEnd) {
+		t.Fatalf("grants %v (want end %s)", calls, wantEnd)
+	}
+	cust, _ := s.Store.GetCustomer(ctx, uid)
+	if cust.Plan == nil || cust.Plan.RCGrantInvoice != "in_p1" || cust.Plan.RCGrantedUntil == nil {
+		t.Fatalf("grant record %+v", cust.Plan)
+	}
+	if b, _ := s.Store.GetBalance(ctx, uid); b.BalanceCents <= 0 {
+		t.Fatal("the plan credit still lands")
+	}
+	// M3: RevenueCat shows nothing → granted again.
+	rep := &M3Report{Counts: map[string]int{}}
+	s.m3Plans(ctx, rep, false)
+	if rep.Counts["plan_entitlement_missing"] != 1 || len(calls) != 4 {
+		t.Fatalf("m3 %+v %v", rep.Flags, calls)
+	}
+	entitled["business"], entitled["pro"] = true, true
+	rep = &M3Report{Counts: map[string]int{}}
+	s.m3Plans(ctx, rep, false)
+	if rep.Counts["plan_entitlement_missing"] != 0 {
+		t.Fatal("entitled: no flag")
+	}
+	// A full refund of the plan invoice: business revoked, pro left to run out.
+	fake.invPays["pi_plan"] = "in_p1"
+	fake.invs["in_p1"] = map[string]any{"id": "in_p1", "amount_paid": 29900, "parent": map[string]any{"subscription_details": map[string]any{"subscription": "sub_p1"}}}
+	fake.pis["pi_plan"] = map[string]any{"status": "succeeded", "amount_received": 29900, "refunded": 29900}
+	if err := s.handleRefundEvent(ctx, "refund.created", []byte(`{"id":"re_plan","status":"succeeded","amount":29900,"payment_intent":"pi_plan"}`)); err != nil {
+		t.Fatal(err)
+	}
+	last := calls[len(calls)-1]
+	if !strings.HasPrefix(last, uid+"/entitlements/business/revoke_promotionals") {
+		t.Fatalf("revoke %v", calls)
+	}
+	for _, c := range calls {
+		if strings.Contains(c, "pro/revoke") {
+			t.Fatal("pro revoked")
+		}
+	}
+	cust, _ = s.Store.GetCustomer(ctx, uid)
+	if cust.Plan.RCRevokedAt == nil {
+		t.Fatal("revoke recorded")
 	}
 }

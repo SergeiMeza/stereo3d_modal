@@ -20,6 +20,14 @@ type Plan struct {
 	CurrentPeriodEnd   *time.Time `firestore:"current_period_end,omitempty" json:"current_period_end,omitempty"`
 	CancelAtPeriodEnd  bool       `firestore:"cancel_at_period_end" json:"cancel_at_period_end"`
 	UpdatedAt          time.Time  `firestore:"updated_at" json:"-"`
+	// RevenueCat promotional entitlements for the app (business|studio
+	// and pro): the invoice whose payment granted them (one grant per
+	// invoice), until when, the last failure, and an early revoke.
+	RCGrantInvoice string     `firestore:"rc_grant_invoice,omitempty" json:"-"`
+	RCGrantedUntil *time.Time `firestore:"rc_granted_until,omitempty" json:"-"`
+	RCGrantError   string     `firestore:"rc_grant_error,omitempty" json:"-"`
+	RCRevokedAt    *time.Time `firestore:"rc_revoked_at,omitempty" json:"-"`
+	RCRevokeReason string     `firestore:"rc_revoke_reason,omitempty" json:"-"`
 }
 
 // Active: the plan's prices and allowances apply.
@@ -179,4 +187,21 @@ func (s *Store) GiveBackFreePreview(ctx context.Context, uid string, fp *FreePre
 		}
 		return commit()
 	})
+}
+
+// ListPlanCustomers lists customers with a web plan on record (any
+// status; callers check Active).
+func (s *Store) ListPlanCustomers(ctx context.Context, limit int) (map[string]*Customer, error) {
+	snaps, err := s.fs.Collection(customersCol(s.env)).Where("plan.tier", "in", []string{"business", "studio"}).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]*Customer{}
+	for _, sn := range snaps {
+		var c Customer
+		if sn.DataTo(&c) == nil {
+			out[sn.Ref.ID] = &c
+		}
+	}
+	return out, nil
 }

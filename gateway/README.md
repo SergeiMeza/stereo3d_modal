@@ -674,9 +674,30 @@ when `pro` is reached through a plan product (TEST Stripe products
 `prod_VYiOZAbAXiJP29` Studio, `prod_VYiOG5FegIJiFK` Business; other ids by
 name). A plan found that way gets the plan's rate and free-preview
 allowance (`business`/`studio`, never `pro_monthly`), without credit. A
-Studio plan in the mirror skips the RevenueCat call. Posting web
-subscriptions to RevenueCat (`/v1/receipts`) is on hold until the owner
-picks between a RevenueCat Stripe app and promotional entitlements.
+Studio plan in the mirror skips the RevenueCat call.
+
+**Plan entitlements in RevenueCat (owner decision: promotional grants, no
+Stripe app).** On `invoice.paid` for a plan subscription (metadata
+`product=svs-web`, our env) the gateway grants the uid the plan's
+entitlement (`business` or `studio`) AND `pro` with `POST
+/v1/subscribers/{uid}/entitlements/{id}/promotional {start_time_ms: now,
+end_time_ms: period end + 3 days}` (if RevenueCat refuses the times, the
+smallest `duration` that covers the end). It uses `RC_API_KEY_V1`, which
+must be a secret key (`sk_…`; otherwise a logged no-op); the key is never
+logged. One grant per invoice, recorded on the plan (`plan.rc_grant_invoice,
+rc_granted_until, rc_grant_error`); retries on 5xx/429, then a Slack
+`rc_grant_failed`; a failed grant never blocks the credit or the payment.
+A normal end (cancel at period end, non-payment) needs nothing: the grant
+runs out. An early end revokes the plan's entitlement only
+(`revoke_promotionals` on `business`/`studio`; `pro` is never revoked, as it
+may be Pro granted for support or campaigns, and runs out at its end):
+the plan invoice refunded in full (a partial refund only alerts Slack), a
+dispute or an early fraud warning on it, the account blocked (A3) or
+deleted (`plan.rc_revoked_at, rc_revoke_reason`). M3 re-grants an active
+plan whose entitlement RevenueCat doesn't show (`plan_entitlement_missing`)
+unless it was revoked. **Test accounts are real RevenueCat subscribers in
+the one shared project: a grant on test gives that uid real app Pro until
+its end time.**
 
 ### File keeping (S3D-24)
 

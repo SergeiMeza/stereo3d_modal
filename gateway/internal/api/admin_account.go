@@ -93,6 +93,9 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.SheetOnly, c.SheetOnlyReason = false, ""; return nil })
 	case "block", "unblock":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.Blocked = req.Action == "block"; return nil })
+		if err == nil && req.Action == "block" {
+			s.revokePlanEntitlement(ctx, uid, "account blocked") // fraud: the plan's app entitlement ends now
+		}
 	case "resend_e2":
 		s.mailOwed(ctx, "E2", fmt.Sprintf("E2_resend_%s_%d", uid, time.Now().Unix()), uid, s.owedCents(ctx, uid))
 	case "write_off_owed":

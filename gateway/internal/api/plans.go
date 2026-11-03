@@ -141,8 +141,13 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 		if c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.SubscriptionID != sub.ID && c.Plan.Active(time.Now()) && sub.Status != "active" {
 			return nil // an older or incomplete subscription doesn't replace the live one
 		}
-		c.Plan = &store.Plan{Tier: tier, SubscriptionID: sub.ID, Status: sub.Status, CurrentPeriodStart: &start,
+		next := &store.Plan{Tier: tier, SubscriptionID: sub.ID, Status: sub.Status, CurrentPeriodStart: &start,
 			CurrentPeriodEnd: &end, CancelAtPeriodEnd: sub.CancelAtPeriodEnd, UpdatedAt: time.Now().UTC()}
+		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID { // keep the RevenueCat grant record
+			next.RCGrantInvoice, next.RCGrantedUntil, next.RCGrantError = c.Plan.RCGrantInvoice, c.Plan.RCGrantedUntil, c.Plan.RCGrantError
+			next.RCRevokedAt, next.RCRevokeReason = c.Plan.RCRevokedAt, c.Plan.RCRevokeReason
+		}
+		c.Plan = next
 		return nil
 	}); err != nil {
 		slog.WarnContext(ctx, "plan not recorded", "uid", uid, "subscription", sub.ID, "err", err)
@@ -192,6 +197,8 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	s.syncPlan(ctx, sub)
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
+	_, periodEnd := sub.Period()
+	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit
 	def, ok := s.rates(ctx).Plan(tier)
 	if !ok || def.CreditCents <= 0 {
 		return

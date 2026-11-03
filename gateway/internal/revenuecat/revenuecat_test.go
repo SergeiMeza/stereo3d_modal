@@ -101,3 +101,53 @@ func TestPlanTiers(t *testing.T) {
 		t.Fatal("plan products")
 	}
 }
+
+// Promotional grants: start/end in ms, a 5xx retried, a 400 on the times
+// falls back to the smallest covering duration; pro is never revoked.
+func TestPromotionalGrants(t *testing.T) {
+	retryPauses = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+	var got []string
+	fail500, reject := 1, false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if strings.HasSuffix(r.URL.Path, "/promotional") && fail500 > 0 {
+			fail500--
+			w.WriteHeader(502)
+			return
+		}
+		if _, ok := body["end_time_ms"]; ok && reject {
+			w.WriteHeader(400)
+			fmt.Fprint(w, `{"message":"end_time_ms not supported"}`)
+			return
+		}
+		got = append(got, fmt.Sprintf("%s %v", r.URL.Path, body))
+		fmt.Fprint(w, `{}`)
+	}))
+	defer srv.Close()
+	c := New("sk_test").WithBase(srv.URL, time.Now)
+	start := time.Now()
+	end := start.Add(33 * 24 * time.Hour)
+	if err := c.GrantPromotional(context.Background(), "u1", "business", start, end); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !strings.Contains(got[0], "/v1/subscribers/u1/entitlements/business/promotional") || !strings.Contains(got[0], "end_time_ms") {
+		t.Fatalf("grant %v", got)
+	}
+	reject = true
+	if err := c.GrantPromotional(context.Background(), "u1", "pro", start, end); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got[1], "duration:two_month") {
+		t.Fatalf("fallback %v", got[1])
+	}
+	if err := c.RevokePromotionals(context.Background(), "u1", "pro"); err == nil {
+		t.Fatal("pro must never be revoked")
+	}
+	if err := c.RevokePromotionals(context.Background(), "u1", "studio"); err != nil || !strings.HasSuffix(strings.Fields(got[2])[0], "/entitlements/studio/revoke_promotionals") {
+		t.Fatalf("revoke %v %v", err, got)
+	}
+	if New("appl_public").CanGrant() {
+		t.Fatal("public keys can't grant")
+	}
+}

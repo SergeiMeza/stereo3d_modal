@@ -31,6 +31,7 @@ import (
 //	balance_mismatch   balance ≠ Σ ledger entries, or held ≠ Σ holds (v7)
 //	topup_entries      a paid top-up without exactly one topup entry (v7)
 //	leaked_hold        an open hold on a terminal run (v7, R3; the sweep fixes it)
+//	plan_entitlement_missing  an active web plan whose RevenueCat entitlement isn't active → granted again
 //
 // Flags 1 and 2 go through E0-2; C8 reads amount_refunded first, so money
 // already refunded is never refunded twice [N9]. Everything else goes to
@@ -100,6 +101,7 @@ func (s *Service) RunM3(ctx context.Context, since time.Time, dryRun bool) *M3Re
 	s.m3Invoices(ctx, rep, since)
 	s.m3Runs(ctx, rep)
 	s.m3Balances(ctx, rep)
+	s.m3Plans(ctx, rep, dryRun)
 	if !dryRun {
 		rep.Retention = s.downloadRetention(ctx)
 	}

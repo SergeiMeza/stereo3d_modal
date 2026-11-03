@@ -293,6 +293,7 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 			return err
 		}
 	}
+	s.revokePlanEntitlement(ctx, uid, "account deleted") // the app's business/studio, never pro
 	if s.Auth == nil {
 		return nil
 	}

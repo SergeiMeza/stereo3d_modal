@@ -29,12 +29,16 @@ type fakeStripe struct {
 	sessions map[string]map[string]any // id → {status, payment_status, payment_intent, expires_at}
 	refunds  []string                  // payment_intent ids refunded
 	pmPrints map[string]string         // payment method id → card fingerprint
+	subs     map[string]map[string]any // subscription id → object
+	invPays  map[string]string         // payment intent → invoice id
+	invs     map[string]map[string]any // invoice id → object
 	expired  []string
 	created  int
 }
 
 func newFakeStripe() *fakeStripe {
-	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{}}
+	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{},
+		subs: map[string]map[string]any{}, invPays: map[string]string{}, invs: map[string]map[string]any{}}
 }
 
 func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +61,16 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(f.session(id))
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
+	case strings.HasPrefix(p, "/v1/subscriptions/"):
+		write(f.subs[strings.TrimPrefix(p, "/v1/subscriptions/")])
+	case p == "/v1/invoice_payments":
+		data := []any{}
+		if inv := f.invPays[r.URL.Query().Get("payment[payment_intent]")]; inv != "" {
+			data = append(data, map[string]any{"invoice": inv})
+		}
+		write(map[string]any{"data": data})
+	case strings.HasPrefix(p, "/v1/invoices/") && f.invs[strings.TrimPrefix(p, "/v1/invoices/")] != nil:
+		write(f.invs[strings.TrimPrefix(p, "/v1/invoices/")])
 	case p == "/v1/payment_intents/search":
 		var data []map[string]any
 		for id, pi := range f.pis {

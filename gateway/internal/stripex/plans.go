@@ -121,3 +121,45 @@ func (c *Client) SetCancelAtPeriodEnd(id string, cancel bool) (*Subscription, er
 	}
 	return &sub, nil
 }
+
+// PlanPayment is the plan invoice a PaymentIntent paid (refunds,
+// disputes and fraud warnings name a PaymentIntent, and subscription
+// PaymentIntents carry no metadata of their own).
+type PlanPayment struct {
+	InvoiceID      string
+	SubscriptionID string
+	AmountPaid     int64
+}
+
+// PlanPaymentOf finds the subscription invoice pi paid, through the
+// invoice payments list; nil, nil when pi paid no subscription invoice.
+func (c *Client) PlanPaymentOf(pi string) (*PlanPayment, error) {
+	q := url.Values{"payment[type]": {"payment_intent"}, "payment[payment_intent]": {pi}, "limit": {"1"}}
+	var page struct {
+		Data []struct {
+			Invoice string `json:"invoice"`
+		} `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoice_payments?"+q.Encode(), nil, "", &page); err != nil {
+		return nil, err
+	}
+	if len(page.Data) == 0 || page.Data[0].Invoice == "" {
+		return nil, nil
+	}
+	var inv struct {
+		ID         string `json:"id"`
+		AmountPaid int64  `json:"amount_paid"`
+		Parent     struct {
+			SubscriptionDetails *struct {
+				Subscription string `json:"subscription"`
+			} `json:"subscription_details"`
+		} `json:"parent"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoices/"+url.PathEscape(page.Data[0].Invoice), nil, "", &inv); err != nil {
+		return nil, err
+	}
+	if inv.Parent.SubscriptionDetails == nil || inv.Parent.SubscriptionDetails.Subscription == "" {
+		return nil, nil
+	}
+	return &PlanPayment{InvoiceID: inv.ID, SubscriptionID: inv.Parent.SubscriptionDetails.Subscription, AmountPaid: inv.AmountPaid}, nil
+}
