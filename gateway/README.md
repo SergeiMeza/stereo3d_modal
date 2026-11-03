@@ -56,9 +56,14 @@ confirmCardPayment fallback). The default card is cached on
   `IdemConversionID(env, uid, key)` and Firestore `Create`: a racing twin
   loses the create and replays the winner (pro steps and the mobile
   one-shot; mobile ids without a key are unchanged).
-- **P4** `statement_descriptor_suffix` on every PaymentIntent: `STEREO3D`
-  (web, `metadata.product=svs-web`), `SVS CLOUD` (the app's cloud runs);
-  the account prefix is `SPATIAL AI`.
+- **P4** `statement_descriptor_suffix` on every PaymentIntent: `SV STUDIO`
+  (web, `metadata.product=svs-web`; was `STEREO3D` until the web app was
+  renamed Spatial Video Studio, owner 2026-11-04: "SPATIAL AI* SV STUDIO",
+  21 of 22; "SPATIALVIDEO" would make 24), `SVS CLOUD` (the app's cloud
+  runs); the account prefix is `SPATIAL AI` (account settings are never
+  changed: the account is shared). Plan subscriptions carry no suffix
+  (Checkout in subscription mode takes none) and show the account's
+  default descriptor.
 - **P5** Customer creation carries the key `customer_{env}_{uid}`.
 - **P6** "payment method", never "card", in messages.
 - **P7** `DefaultMethod`: any reusable type (card, Link, PayPal); an
@@ -105,7 +110,7 @@ confirmCardPayment fallback). The default card is cached on
   calls in `stripex/checkout.go`/`web.go`) on the web's own PMC
   `STRIPE_PMC_WEB` ("Stereo3D web", test `pmc_1UXYkVAVV5NpxADI3Vj4kzJI`),
   forced save for card/Link/PayPal with Stripe's reuse text, tax ID
-  collection, 30-min expiry, `statement_descriptor_suffix=STEREO3D`, key
+  collection, 30-min expiry, `statement_descriptor_suffix=SV STUDIO`, key
   `run_{env}_{conversion_id}_{attempt}`. WeChat Pay is excluded unless
   `X-Client-Device: computer`; Klarna is excluded while `klarna_markets` is
   empty. Responses: `billing {status: requires_payment, reason,
@@ -846,7 +851,7 @@ once a deletion is scheduled (inside the 14-day window), and
 `files_deleted_at` after the erase; then downloads, quotes, runs,
 analyze/profile and depth uploads answer 410 `files_deleted`. Records and
 billing stay. Notices: one mail per account per notice listing its
-projects ("Stereo3D Studio: files of N projects will be deleted on …"),
+projects ("Spatial Video Studio: files of N projects will be deleted on …"),
 14 and 3 days before; a project is erased only once its last notice went
 out its full lead time ago (a late notice moves the date). Deleted
 projects (`POST …/delete`) are erased 30 days after deletion, no notices.
@@ -886,7 +891,7 @@ GPU-line alert are per workspace.
 Every reconcile sweep (each minute) looks for customer runs that have had
 `waiting_for_gpu` for more than 60 s (`modal.waiting_since`, set by the
 status poll). While any exist the owner (`OWNER_ALERT_EMAIL`, set by
-deploy.sh to the KPI-alert address) gets "Stereo3D Studio: N runs waiting
+deploy.sh to the KPI-alert address) gets "Spatial Video Studio: N runs waiting
 for a GPU": account email, method, step, resolution, length, waited so far,
 busy GPUs per method vs `gpu_cap_per_app` (estimated from the runs in
 progress at their worker caps), oldest wait. At most one mail per 15 min

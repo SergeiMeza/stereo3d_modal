@@ -45,7 +45,7 @@ func TestGPULineSnapshotAndMail(t *testing.T) {
 		t.Errorf("use: %+v", use)
 	}
 	m := gpuLineMail(waiting, use, map[string]string{"u-w2": "a@example.com"})
-	for _, want := range []string{"Stereo3D Studio", "2 runs", "longest 5m 0s"} {
+	for _, want := range []string{"Spatial Video Studio", "2 runs", "longest 5m 0s"} {
 		if !strings.Contains(m.Subject, want) {
 			t.Errorf("subject %q lacks %q", m.Subject, want)
 		}
@@ -57,7 +57,7 @@ func TestGPULineSnapshotAndMail(t *testing.T) {
 	}
 	started := now.Add(-20 * time.Minute)
 	c := gpuLineClearedMail(store.GPULine{Active: true, StartedAt: &started, LongestWaitS: 362}, now)
-	if !strings.Contains(c.Subject, "Stereo3D Studio: GPU line cleared (longest wait 6m 2s)") || !strings.Contains(c.Text, "after 20m 0s") {
+	if !strings.Contains(c.Subject, "Spatial Video Studio: GPU line cleared (longest wait 6m 2s)") || !strings.Contains(c.Text, "after 20m 0s") {
 		t.Errorf("cleared: %+v", c)
 	}
 }

@@ -7,7 +7,7 @@ import (
 
 func TestSignInCode(t *testing.T) {
 	m := SignInCode("a@example.com", "042817")
-	if m.Subject != "Stereo3D Studio: your sign-in code" || m.To != "a@example.com" {
+	if m.Subject != "Spatial Video Studio: your sign-in code" || m.To != "a@example.com" {
 		t.Fatalf("%+v", m)
 	}
 	for _, body := range []string{m.Text, m.HTML} {

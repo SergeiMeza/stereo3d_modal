@@ -447,7 +447,7 @@ func fileNoticeMail(projects []*store.Project, lead time.Duration, now time.Time
 	if len(sorted) > 1 {
 		what = fmt.Sprintf("%d projects", len(sorted))
 	}
-	fmt.Fprintf(&b, "Hello,\n\nStereo3D Studio keeps a project's files for %d days after you last use it. "+
+	fmt.Fprintf(&b, "Hello,\n\nSpatial Video Studio keeps a project's files for %d days after you last use it. "+
 		"The files of %s you haven't used for a while will be deleted soon: the original video and every 3D video made from it.\n\n",
 		leadDays(keep), what)
 	for _, p := range sorted {
@@ -463,8 +463,8 @@ func fileNoticeMail(projects []*store.Project, lead time.Duration, now time.Time
 	}
 	b.WriteString("\nTo keep a project's files, open the project before then or choose Keep files. " +
 		"Download anything you want to keep. Your account and billing history stay as they are.\n\n" +
-		"Stereo3D Studio\n")
-	subject := fmt.Sprintf("Stereo3D Studio: files of %s will be deleted on %s", what, soonest.Format("2 January"))
+		"Spatial Video Studio\n")
+	subject := fmt.Sprintf("Spatial Video Studio: files of %s will be deleted on %s", what, soonest.Format("2 January"))
 	return mail.Message{Subject: subject, Text: b.String()}
 }
 

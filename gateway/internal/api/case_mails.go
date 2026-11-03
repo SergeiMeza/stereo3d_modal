@@ -44,16 +44,16 @@ func (s *Service) mailRefunded(ctx context.Context, cs *store.Case, cents int64,
 	m := customerMail{Kind: "E6", Button: "View purchase history", Link: s.historyLink()}
 	switch how {
 	case "balance":
-		m.Subject = fmt.Sprintf("Stereo3D Studio: %s returned to your balance (%s)", money(cents), cs.ID)
+		m.Subject = fmt.Sprintf("Spatial Video Studio: %s returned to your balance (%s)", money(cents), cs.ID)
 		m.Lines = []string{fmt.Sprintf("We returned %s to your balance for %s.", money(cents), what)}
 	case "out_of_band":
-		m.Subject = fmt.Sprintf("Stereo3D Studio: we refunded %s (%s)", money(cents), cs.ID)
+		m.Subject = fmt.Sprintf("Spatial Video Studio: we refunded %s (%s)", money(cents), cs.ID)
 		m.Lines = []string{fmt.Sprintf("We returned %s to you another way.", money(cents)), "Your case: " + cs.ID + "."}
 	case "waive":
-		m.Subject = fmt.Sprintf("Stereo3D Studio: we won't charge you %s (%s)", money(cents), cs.ID)
+		m.Subject = fmt.Sprintf("Spatial Video Studio: we won't charge you %s (%s)", money(cents), cs.ID)
 		m.Lines = []string{fmt.Sprintf("We removed the %s charge for %s.", money(cents), what)}
 	default:
-		m.Subject = fmt.Sprintf("Stereo3D Studio: we refunded %s (%s)", money(cents), cs.ID)
+		m.Subject = fmt.Sprintf("Spatial Video Studio: we refunded %s (%s)", money(cents), cs.ID)
 		m.Lines = []string{fmt.Sprintf("We refunded %s for %s.", money(cents), what),
 			"Refunds usually reach you in 5–10 business days. Your case: " + cs.ID + "."}
 	}
@@ -63,7 +63,7 @@ func (s *Service) mailRefunded(ctx context.Context, cs *store.Case, cents int64,
 // mailRefundUnderReview is E9.
 func (s *Service) mailRefundUnderReview(ctx context.Context, cs *store.Case) {
 	s.mailCustomer(ctx, "E9_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E9", Subject: fmt.Sprintf("Stereo3D Studio: we're looking at your refund (%s)", cs.ID),
+		Kind: "E9", Subject: fmt.Sprintf("Spatial Video Studio: we're looking at your refund (%s)", cs.ID),
 		Lines:  []string{"We're looking at a refund for " + s.caseRunsLabel(ctx, cs) + ".", "We'll email you within 2 business days. Your case: " + cs.ID + "."},
 		Button: "View purchase history", Link: s.historyLink(),
 	})
@@ -78,7 +78,7 @@ var denyTemplates = map[string]string{
 // mailRefundDenied is E10.
 func (s *Service) mailRefundDenied(ctx context.Context, cs *store.Case, text string) {
 	s.mailCustomer(ctx, "E10_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E10", Subject: fmt.Sprintf("Stereo3D Studio: about your refund request (%s)", cs.ID),
+		Kind: "E10", Subject: fmt.Sprintf("Spatial Video Studio: about your refund request (%s)", cs.ID),
 		Lines:  []string{text, "Questions? Reply to this email and quote " + cs.ID + "."},
 		Button: "View purchase history", Link: s.historyLink(),
 	})
@@ -87,7 +87,7 @@ func (s *Service) mailRefundDenied(ctx context.Context, cs *store.Case, text str
 // mailRefundQuestion is E11.
 func (s *Service) mailRefundQuestion(ctx context.Context, cs *store.Case, question string) {
 	s.mailCustomer(ctx, fmt.Sprintf("E11_%s_%d", cs.ID, time.Now().Unix()), cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E11", Subject: fmt.Sprintf("Stereo3D Studio: a question about your refund (%s)", cs.ID),
+		Kind: "E11", Subject: fmt.Sprintf("Spatial Video Studio: a question about your refund (%s)", cs.ID),
 		Lines: []string{question, "Reply to this email. Your case: " + cs.ID + "."},
 	})
 }
@@ -95,7 +95,7 @@ func (s *Service) mailRefundQuestion(ctx context.Context, cs *store.Case, questi
 // mailRefundFailed is E12.
 func (s *Service) mailRefundFailed(ctx context.Context, cs *store.Case, cents int64) {
 	s.mailCustomer(ctx, "E12_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E12", Subject: fmt.Sprintf("Stereo3D Studio: we couldn't return your refund (%s)", cs.ID),
+		Kind: "E12", Subject: fmt.Sprintf("Spatial Video Studio: we couldn't return your refund (%s)", cs.ID),
 		Lines: []string{fmt.Sprintf("We couldn't return %s to your payment method.", money(cents)),
 			"Reply to this email so we can pay it another way. Your case: " + cs.ID + "."},
 	})
@@ -190,13 +190,13 @@ func (s *Service) HandleAdminMailPreviews(w http.ResponseWriter, r *http.Request
 	sample := &store.Case{ID: "CASE-0042"}
 	what := "Kyoto walk · 3D video · 4K"
 	mails := []customerMail{
-		{Kind: "E6", Subject: "Stereo3D Studio: we refunded $6.75 (CASE-0042)", Lines: []string{"We refunded $6.75 for " + what + ".", "Refunds usually reach you in 5–10 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E6 balance", Subject: "Stereo3D Studio: $6.75 returned to your balance (CASE-0042)", Lines: []string{"We returned $6.75 to your balance for " + what + "."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E6 waive", Subject: "Stereo3D Studio: we won't charge you $1.00 (CASE-0042)", Lines: []string{"We removed the $1.00 charge for Kyoto walk · 3D preview."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E9", Subject: "Stereo3D Studio: we're looking at your refund (CASE-0042)", Lines: []string{"We're looking at a refund for " + what + ".", "We'll email you within 2 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E10", Subject: "Stereo3D Studio: about your refund request (CASE-0042)", Lines: []string{denyTemplates["delivered"], "Questions? Reply to this email and quote CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E11", Subject: "Stereo3D Studio: a question about your refund (CASE-0042)", Lines: []string{"Which part of the video looked wrong?", "Reply to this email. Your case: CASE-0042."}},
-		{Kind: "E12", Subject: "Stereo3D Studio: we couldn't return your refund (CASE-0057)", Lines: []string{"We couldn't return $6.75 to your payment method.", "Reply to this email so we can pay it another way. Your case: CASE-0057."}},
+		{Kind: "E6", Subject: "Spatial Video Studio: we refunded $6.75 (CASE-0042)", Lines: []string{"We refunded $6.75 for " + what + ".", "Refunds usually reach you in 5–10 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
+		{Kind: "E6 balance", Subject: "Spatial Video Studio: $6.75 returned to your balance (CASE-0042)", Lines: []string{"We returned $6.75 to your balance for " + what + "."}, Button: "View purchase history", Link: s.historyLink()},
+		{Kind: "E6 waive", Subject: "Spatial Video Studio: we won't charge you $1.00 (CASE-0042)", Lines: []string{"We removed the $1.00 charge for Kyoto walk · 3D preview."}, Button: "View purchase history", Link: s.historyLink()},
+		{Kind: "E9", Subject: "Spatial Video Studio: we're looking at your refund (CASE-0042)", Lines: []string{"We're looking at a refund for " + what + ".", "We'll email you within 2 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
+		{Kind: "E10", Subject: "Spatial Video Studio: about your refund request (CASE-0042)", Lines: []string{denyTemplates["delivered"], "Questions? Reply to this email and quote CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
+		{Kind: "E11", Subject: "Spatial Video Studio: a question about your refund (CASE-0042)", Lines: []string{"Which part of the video looked wrong?", "Reply to this email. Your case: CASE-0042."}},
+		{Kind: "E12", Subject: "Spatial Video Studio: we couldn't return your refund (CASE-0057)", Lines: []string{"We couldn't return $6.75 to your payment method.", "Reply to this email so we can pay it another way. Your case: CASE-0057."}},
 	}
 	_ = sample
 	out := make([]map[string]string, 0, len(mails))

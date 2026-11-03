@@ -22,7 +22,7 @@ const (
 	resendURL      = "https://api.resend.com/emails"
 	requestTimeout = 10 * time.Second
 	// DefaultFrom is a sender on the verified spatial-ai-labs.com domain.
-	DefaultFrom = "Stereo3D Studio <no-reply@spatial-ai-labs.com>"
+	DefaultFrom = "Spatial Video Studio <no-reply@spatial-ai-labs.com>"
 )
 
 // Message is one plain email.
@@ -112,26 +112,26 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 }
 
 // ResetSubject names the app, as every user mail does.
-const ResetSubject = "Reset your Stereo3D Studio password"
+const ResetSubject = "Reset your Spatial Video Studio password"
 
 // PasswordReset is the reset email for link. Plain and short; it names
 // only the app and the site.
 func PasswordReset(to, link string) Message {
 	text := "Hi,\n\n" +
-		"We got a request to reset the password for your Stereo3D Studio account.\n" +
+		"We got a request to reset the password for your Spatial Video Studio account.\n" +
 		"To choose a new password, open this link:\n\n" +
 		link + "\n\n" +
 		"The link works once and expires in one hour. If you didn't ask for this, " +
 		"you can ignore this email; your password stays the same.\n\n" +
-		"Stereo3D Studio\n"
+		"Spatial Video Studio\n"
 	l := html.EscapeString(link)
 	htmlBody := "<p>Hi,</p>" +
-		"<p>We got a request to reset the password for your Stereo3D Studio account. " +
+		"<p>We got a request to reset the password for your Spatial Video Studio account. " +
 		"To choose a new password, open this link:</p>" +
 		`<p><a href="` + l + `">Choose a new password</a></p>` +
 		`<p style="color:#666;font-size:13px">` + l + "</p>" +
 		"<p>The link works once and expires in one hour. If you didn't ask for this, " +
 		"you can ignore this email; your password stays the same.</p>" +
-		"<p>Stereo3D Studio</p>"
+		"<p>Spatial Video Studio</p>"
 	return Message{To: to, Subject: ResetSubject, Text: text, HTML: htmlBody}
 }

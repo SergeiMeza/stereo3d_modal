@@ -385,7 +385,7 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 		"by_method":     byMethod,
 		"by_flow":       byFlow,
 		"by_country":    byCountry,
-		"scope":         "Stereo3D web charges only (metadata.product=svs-web); card networks measure the whole Stripe account",
+		"scope":         "Spatial Video Studio web charges only (metadata.product=svs-web); card networks measure the whole Stripe account",
 		"account_wide":  stripeBase + "/disputes",
 		"denominator":   "successful charges from the gateway's charge records (charges_" + s.Cfg.Env + ")",
 		"generated_at":  now,

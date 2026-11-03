@@ -16,12 +16,12 @@ import (
 // newer than the pinned SDK).
 
 // InvoiceFooter is the C6 footer (C3: the withdrawal line).
-const InvoiceFooter = "Stereo3D Studio, the web version of Spatial Video Studio. It starts right away. " +
+const InvoiceFooter = "Spatial Video Studio on the web. It starts right away. " +
 	"You agreed that you lose your right to cancel once it's done."
 
 // TopupInvoiceFooter replaces the withdrawal line on a top-up's invoice
 // (v7 N12).
-const TopupInvoiceFooter = "Prepaid balance for Stereo3D Studio. Unspent balance can be refunded within 14 days of this " +
+const TopupInvoiceFooter = "Prepaid balance for Spatial Video Studio on the web. Unspent balance can be refunded within 14 days of this " +
 	"top-up. The balance expires 12 months after your last top-up."
 
 // Invoice is the part of a Stripe invoice the job reads.

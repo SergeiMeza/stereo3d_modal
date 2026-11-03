@@ -113,7 +113,7 @@ func (s *Service) HandleGetBalance(w http.ResponseWriter, r *http.Request, user 
 
 // ------------------------------------------------------------- top-ups
 
-func topupLabel(cents int64) string { return "Stereo3D Studio balance · " + money(cents) }
+func topupLabel(cents int64) string { return "Spatial Video Studio balance · " + money(cents) }
 
 // topupRange is the allowed amount for this account now (T3).
 func (s *Service) topupRange(ctx context.Context, uid string, b *store.Balance) (lo, hi int64) {
@@ -295,7 +295,7 @@ func (s *Service) afterTopup(ctx context.Context, t *store.Topup, promoted []str
 	}
 	s.writeCharge(ctx, &store.Charge{UID: t.UID, Kind: store.ChargeTopup, SourceID: t.ID, CustomerID: t.CustomerID,
 		PaymentIntentID: t.PaymentIntentID, AmountCents: t.PaidCents, Currency: "usd", PaidWith: t.PaidWith, PaidAt: paidAt,
-		Lines: []store.ChargeLine{{ConversionID: "topup_" + t.ID, AmountCents: t.PaidCents, Description: "Stereo3D Studio balance top-up"}}})
+		Lines: []store.ChargeLine{{ConversionID: "topup_" + t.ID, AmountCents: t.PaidCents, Description: "Spatial Video Studio balance top-up"}}})
 	s.mailTopup(ctx, t)
 	for _, id := range promoted {
 		s.startPromotedRun(ctx, id)
@@ -401,7 +401,7 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 		fail("declined", "no saved method")
 		return
 	}
-	job := stripex.Job{UID: t.UID, Description: "Stereo3D Studio balance auto-reload"}
+	job := stripex.Job{UID: t.UID, Description: "Spatial Video Studio balance auto-reload"}
 	pi, chErr := s.Stripe.ChargeTopup(cust.StripeCustomerID, cust.DefaultPaymentMethod, t.Cents, t.ID, job)
 	paidWith := cust.DefaultPaymentMethod
 	var f stripex.ChargeFailure
@@ -966,14 +966,14 @@ func (s *Service) mailTopup(ctx context.Context, t *store.Topup) {
 	}
 	lines = append(lines, "Your invoice will be in Billing shortly.")
 	s.mailCustomer(ctx, "E13_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), customerMail{
-		Kind: "E13", Subject: "Stereo3D Studio: " + kind + " · " + money(t.PaidCents), Lines: lines,
+		Kind: "E13", Subject: "Spatial Video Studio: " + kind + " · " + money(t.PaidCents), Lines: lines,
 		Button: "View billing", Link: s.Cfg.SiteURL + "/billing",
 	})
 }
 
 func (s *Service) mailLowBalance(ctx context.Context, uid string, available int64) {
 	s.mailCustomer(ctx, fmt.Sprintf("E14_%s_%d", uid, time.Now().Unix()/3600), uid, s.accountEmail(ctx, uid), customerMail{
-		Kind: "E14", Subject: "Stereo3D Studio: your balance is low",
+		Kind: "E14", Subject: "Spatial Video Studio: your balance is low",
 		Lines:  []string{"Your balance is " + money(available) + ".", "Add funds to keep making 3D videos from your balance."},
 		Button: "Add funds", Link: s.Cfg.SiteURL + "/billing?add=1",
 	})
@@ -981,7 +981,7 @@ func (s *Service) mailLowBalance(ctx context.Context, uid string, available int6
 
 func (s *Service) mailReloadFailed(ctx context.Context, t *store.Topup) {
 	s.mailCustomer(ctx, "E15_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), customerMail{
-		Kind: "E15", Subject: "Stereo3D Studio: auto-reload didn't go through",
+		Kind: "E15", Subject: "Spatial Video Studio: auto-reload didn't go through",
 		Lines:  []string{"We couldn't add " + money(t.Cents) + " to your balance.", "Auto-reload is paused until you turn it back on."},
 		Button: "Check billing", Link: s.Cfg.SiteURL + "/billing",
 	})
@@ -996,7 +996,7 @@ func (s *Service) mailBalanceExpiring(ctx context.Context, b *store.Balance, day
 		return
 	}
 	s.mailCustomer(ctx, b.UID+"_"+key, b.UID, s.accountEmail(ctx, b.UID), customerMail{
-		Kind: "E16", Subject: "Stereo3D Studio: your balance expires in " + days + " days",
+		Kind: "E16", Subject: "Spatial Video Studio: your balance expires in " + days + " days",
 		Lines: []string{"Your balance of " + money(max(b.Available(), 0)) + " expires on " + b.ExpiresAt.Format("2 January 2006") + ".",
 			"Any top-up keeps the whole balance for another 12 months."},
 		Button: "Add funds", Link: s.Cfg.SiteURL + "/billing?add=1",
@@ -1009,7 +1009,7 @@ func (s *Service) mailBalanceExpired(ctx context.Context, b *store.Balance) {
 		key += "_" + b.ExpiresAt.Format("20060102")
 	}
 	s.mailCustomer(ctx, key, b.UID, s.accountEmail(ctx, b.UID), customerMail{
-		Kind: "E17", Subject: "Stereo3D Studio: your balance expired",
+		Kind: "E17", Subject: "Spatial Video Studio: your balance expired",
 		Lines:  []string{"Your balance expired 12 months after your last top-up.", "Questions? Reply to this email."},
 		Button: "Open billing", Link: s.Cfg.SiteURL + "/billing",
 	})
@@ -1133,7 +1133,7 @@ func (s *Service) HandleUsage(w http.ResponseWriter, r *http.Request, user *Auth
 	}
 	if q.Get("format") == "csv" {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="stereo3d-usage-%s.csv"`, month))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="spatial-video-studio-usage-%s.csv"`, month))
 		cw := csv.NewWriter(w)
 		_ = cw.Write([]string{"date", "project", "conversion_id", "method", "preset", "minutes", "cost_usd", "paid_with", "status"})
 		for _, row := range rows {

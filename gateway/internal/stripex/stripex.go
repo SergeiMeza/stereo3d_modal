@@ -115,7 +115,7 @@ type Job struct {
 	// reused stages — api.jobMetadata). Reserved keys (conversion_id,
 	// user_id, env, description) are stamped separately and skipped here.
 	Metadata map[string]string
-	// Web: a Stereo3D Studio web charge (pro steps, groups) rather than
+	// Web: a Spatial Video Studio web charge (pro steps, groups) rather than
 	// the SVS app's cloud conversion: picks the statement suffix and
 	// stamps product=svs-web.
 	Web bool
@@ -123,8 +123,11 @@ type Job struct {
 
 // Statement descriptor suffixes (P4): the account's prefix ("SPATIAL AI",
 // 10 characters) + "* " + suffix stays within the 22 a statement shows.
+// Web: "SPATIAL AI* SV STUDIO" (21; "SPATIALVIDEO" would make 24). Set
+// per payment; the account's own name and descriptor are never changed
+// (the account is shared with other products).
 const (
-	DescriptorSuffixWeb = "STEREO3D"
+	DescriptorSuffixWeb = "SV STUDIO"
 	DescriptorSuffixApp = "SVS CLOUD"
 )
 

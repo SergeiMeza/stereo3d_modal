@@ -122,7 +122,7 @@ func TestStartMailsAHashedCode(t *testing.T) {
 		t.Fatalf("mails: %d", len(r.mail.sent))
 	}
 	m := r.mail.sent[0]
-	if m.Subject != "Stereo3D Studio: your sign-in code" || m.To != "a@example.com" || !strings.Contains(m.Text, "123456") {
+	if m.Subject != "Spatial Video Studio: your sign-in code" || m.To != "a@example.com" || !strings.Contains(m.Text, "123456") {
 		t.Fatalf("mail: %+v", m)
 	}
 	rec, ok := r.store.Get(Key("a@example.com"))

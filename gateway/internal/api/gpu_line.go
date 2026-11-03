@@ -200,7 +200,7 @@ func gpuLineMail(waiting []waitingRun, use []gpuUse, emails map[string]string) m
 	}
 	fmt.Fprintf(&b, "\nOldest wait: %s.\n", formatWait(waiting[0].Waited))
 	return mail.Message{
-		Subject: fmt.Sprintf("Stereo3D Studio: %d %s waiting for a GPU (longest %s)", n, runs, formatWait(waiting[0].Waited)),
+		Subject: fmt.Sprintf("Spatial Video Studio: %d %s waiting for a GPU (longest %s)", n, runs, formatWait(waiting[0].Waited)),
 		Text:    b.String(),
 	}
 }
@@ -212,7 +212,7 @@ func gpuLineClearedMail(l store.GPULine, now time.Time) mail.Message {
 	}
 	longest := formatWait(time.Duration(l.LongestWaitS * float64(time.Second)))
 	return mail.Message{
-		Subject: "Stereo3D Studio: GPU line cleared (longest wait " + longest + ")",
+		Subject: "Spatial Video Studio: GPU line cleared (longest wait " + longest + ")",
 		Text:    fmt.Sprintf("No customer run is waiting for a GPU any more%s. The longest wait was %s.\n", lasted, longest),
 	}
 }

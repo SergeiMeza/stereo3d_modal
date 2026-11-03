@@ -153,7 +153,7 @@ func TestFileNoticeMail(t *testing.T) {
 		{ID: "p2", Name: "Beach", FilesDeleteAt: &b},
 		{ID: "p1", FilesDeleteAt: &a},
 	}, 14*day, now, "https://www.stereo3d.studio", 90*day)
-	if !strings.Contains(m.Subject, "Stereo3D Studio") || !strings.Contains(m.Subject, "2 projects") || !strings.Contains(m.Subject, "17 November") {
+	if !strings.Contains(m.Subject, "Spatial Video Studio") || !strings.Contains(m.Subject, "2 projects") || !strings.Contains(m.Subject, "17 November") {
 		t.Errorf("subject %q", m.Subject)
 	}
 	for _, want := range []string{"90 days", "- Untitled project: deleted on 17 November 2026", "https://www.stereo3d.studio/projects/p1", "- Beach: deleted on 19 November 2026", "Keep files"} {
