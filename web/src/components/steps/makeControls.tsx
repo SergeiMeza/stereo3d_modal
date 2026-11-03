@@ -22,6 +22,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { formatClock } from "@/lib/format";
 import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
+import type { Client } from "@/lib/headset";
 
 import { formatCents } from "./money";
 
@@ -103,6 +104,11 @@ export function formatsForDevices(
 ): Format[] {
   const want = new Set(devices.flatMap((d) => DEVICE_FORMATS[d]));
   return offered.filter((f) => want.has(f));
+}
+
+/** The device a headset browser is (S3D-47), for preselecting. */
+export function deviceForClient(c: Client): Device | null {
+  return c === "vision" ? "avp" : c === "quest" ? "quest" : c === "pico" ? "pico" : null;
 }
 
 /** The default files before anyone picks a device. */

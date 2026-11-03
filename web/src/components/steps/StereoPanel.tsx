@@ -96,6 +96,7 @@ import {
   parseRational,
   type RationalFPS,
 } from "@/lib/frames";
+import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -123,6 +124,7 @@ import {
   type StereoDraft,
 } from "./stereoStore";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
+import { useClient } from "./ViewIn3D";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 export interface StereoPanelProps {
@@ -147,7 +149,13 @@ export function StereoPanel({
   const [draft, setDraft] = useStereoDraft(project.project_id, scenesVersion);
 
   const [preset, setPreset] = useState<Preset>("1080p");
-  const [formats, setFormats] = useState<Format[]>(["sbs"]);
+  // S3D-47: a headset browser previews in the file it shows in 3D
+  const viewer = useClient();
+  const [formats, setFormats] = useState<Format[]>(() =>
+    isHeadset(viewer)
+      ? HEADSET_PREVIEW_FORMATS[viewer as Exclude<Client, "desktop">]
+      : ["sbs"],
+  );
   // Edge style (S3D-29): filled (default) | stretched
   // (backward warp). Panel-local like preset — not part of the per-scene
   // draft, which is exported as a profile file.

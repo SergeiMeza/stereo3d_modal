@@ -27,6 +27,7 @@ import type {
 } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
 import { formatClock } from "@/lib/format";
+import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
 import {
   frameToSeconds,
   parseRational,
@@ -44,6 +45,7 @@ import {
 } from "./StereoCheckViewer";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
+import { useClient, ViewIn3D } from "./ViewIn3D";
 
 /** The preview's source range for a chosen start frame: about
  * LIFELIKE_PREVIEW_SECONDS long, half open, inside [0, numFrames). */
@@ -94,7 +96,9 @@ export function LifelikePreviewPanel({
   const succeeded = runs.filter((c) => c.state === "succeeded");
   const shown =
     succeeded.find((c) => c.conversion_id === shownId) ?? succeeded[0];
-  const output = bestPlayable(useRunDownloads(shown));
+  const downloads = useRunDownloads(shown);
+  const output = bestPlayable(downloads);
+  const client = useClient();
 
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
@@ -126,7 +130,9 @@ export function LifelikePreviewPanel({
     return {
       step: "lifelike_preview",
       preset,
-      formats: ["sbs"], // side by side: plays right here
+      // side by side plays right here; a headset asks for the file it
+      // shows in 3D (S3D-47)
+      formats: isHeadset(client) ? HEADSET_PREVIEW_FORMATS[client as Exclude<Client, "desktop">] : ["sbs"],
       from_frame: from,
       to_frame: to,
       // Quick look: half the frame rate, half the price
@@ -173,8 +179,29 @@ export function LifelikePreviewPanel({
         >
           Your preview appears here.
         </div>
-      ) : output === null ? (
+      ) : downloads === null ? (
         <p className="text-xs text-fg-muted">Fetching the preview…</p>
+      ) : output === null ? (
+        // a headset's own format (Vision Pro spatial video) plays flat
+        // inline; View in 3D shows it in 3D
+        <>
+          {downloads.mvhevc ? (
+            <video
+              src={downloads.mvhevc}
+              controls
+              playsInline
+              preload="metadata"
+              data-testid="lifelike-preview-video"
+              className="w-full rounded-md border border-edge bg-black"
+            />
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <ViewIn3D files={downloads} />
+            <a href="#tab=make" className="ml-auto text-xs text-primary hover:underline">
+              Make the whole video in 3D
+            </a>
+          </div>
+        </>
       ) : (
         <>
           <StereoCheckViewer
@@ -204,6 +231,7 @@ export function LifelikePreviewPanel({
             <span className="text-[11px] text-fg-muted">
               Free 3D check on this screen
             </span>
+            <ViewIn3D files={downloads} size="xs" />
             <a
               href={output.url}
               download

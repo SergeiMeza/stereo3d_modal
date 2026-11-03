@@ -561,3 +561,39 @@ describe("ConversionTracker GPU wait", () => {
     );
   });
 });
+
+describe("in a headset browser (S3D-47)", () => {
+  const QUEST =
+    "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/35.1.0.0 Chrome/126.0.0.0 VR Safari/537.36";
+  afterEach(() => vi.restoreAllMocks());
+
+  it("previews ask for the headset's own format", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() =>
+      expect(quotes.some((q) => q.step === "lifelike_preview")).toBe(true),
+    );
+    expect(quotes.find((q) => q.step === "lifelike_preview")).toMatchObject({
+      formats: ["half_sbs"],
+    });
+  });
+
+  it("Where will you watch it? preselects the headset", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    const watch = within(screen.getByRole("group", { name: "Where will you watch it?" }));
+    expect((watch.getByLabelText("Meta Quest") as HTMLInputElement).checked).toBe(true);
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    expect(
+      files
+        .getAllByRole("checkbox")
+        .filter((c) => (c as HTMLInputElement).checked)
+        .map((c) => c.getAttribute("aria-label")),
+    ).toEqual(["Side by side"]);
+  });
+});

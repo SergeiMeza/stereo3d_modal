@@ -29,6 +29,7 @@ import { qualityChoices, resolutionName } from "@/lib/glossary";
 
 import {
   DEFAULT_MAKE_FORMATS,
+  deviceForClient,
   FileTiles,
   formatsForDevices,
   MakeSection,
@@ -43,6 +44,7 @@ import {
 } from "./makeControls";
 import { LIFELIKE_FORMATS, SPLIT_MAX_SECONDS } from "./methods";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
+import { useClient } from "./ViewIn3D";
 
 /** "Your video is N minutes long. …" — the split question. */
 export function splitQuestion(outputSeconds: number): string {
@@ -66,8 +68,17 @@ export function LifelikeDeliverPanel({
   const choices = qualityChoices(project);
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [formats, setFormats] = useState<Format[]>(DEFAULT_MAKE_FORMATS);
+  // S3D-47: in a headset browser, that headset comes preselected
+  const client = useClient();
+  const [devices, setDevices] = useState<Device[]>(() => {
+    const d = deviceForClient(client);
+    return d ? [d] : [];
+  });
+  const [formats, setFormats] = useState<Format[]>(() =>
+    devices.length > 0
+      ? formatsForDevices(devices, LIFELIKE_FORMATS)
+      : DEFAULT_MAKE_FORMATS,
+  );
   // S3D-06: preselected; only asked (and only sent) when the quote says the
   // output runs past 15 minutes
   const [split, setSplit] = useState(true);

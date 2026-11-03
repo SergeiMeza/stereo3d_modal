@@ -31,13 +31,15 @@ function drawFrame(
   video: HTMLVideoElement,
   mode: CheckMode,
   now: number,
+  aspect: number,
 ): void {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   if (vw === 0 || vh === 0) return;
   const eyeW = vw / 2;
   const w = Math.min(MAX_EYE_WIDTH, Math.round(eyeW));
-  const h = Math.round((w * vh) / eyeW);
+  // one eye's real shape (a half-size side by side is squeezed)
+  const h = Math.round(w / aspect);
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -92,12 +94,12 @@ export function StereoCheckViewer({
     if (!video || !canvas || !scratch) return;
     let raf = 0;
     const tick = (now: number) => {
-      drawFrame(canvas, scratch, video, mode, now);
+      drawFrame(canvas, scratch, video, mode, now, aspect);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [mode, scratch, url]);
+  }, [mode, scratch, url, aspect]);
 
   const canvasMode = mode !== "sbs";
   return (
