@@ -377,7 +377,8 @@ describe("Lifelike Preview", () => {
     expect(quotes.at(-1)).toMatchObject({
       step: "lifelike_preview",
       preset: "1080p",
-      formats: ["sbs"],
+      // the Vision Pro file too, so a preview can go to a headset
+      formats: ["sbs", "mvhevc"],
       from_frame: 0,
       to_frame: 120,
     });
@@ -647,7 +648,7 @@ describe("in a headset browser (S3D-47)", () => {
       expect(quotes.some((q) => q.step === "lifelike_preview")).toBe(true),
     );
     expect(quotes.find((q) => q.step === "lifelike_preview")).toMatchObject({
-      formats: ["half_sbs"],
+      formats: ["half_sbs", "mvhevc"],
     });
   });
 
@@ -714,7 +715,7 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
       expect(quotes.some((q) => q.step === "lifelike_preview" && q.preset === "8k")).toBe(true),
     );
     const q8 = quotes.find((q) => q.step === "lifelike_preview" && q.preset === "8k")!;
-    expect(q8.formats).toEqual(["half_sbs"]);
+    expect(q8.formats).toEqual(["half_sbs", "mvhevc"]);
     expect(qualityChoices(project).map((c) => [c.label, c.hint])).toEqual([
       ["4K", "3840×2160 per eye"],
       ["8K", "7680×4320 per eye"],

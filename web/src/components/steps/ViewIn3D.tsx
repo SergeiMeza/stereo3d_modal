@@ -59,7 +59,10 @@ export function ViewIn3D({
   files,
   size = "sm",
   hideHint = false,
+  onPlay,
 }: {
+  /** 00081: tell the gateway a play started (POST .../plays) */
+  onPlay?: (format: string) => void;
   /** a run's files: format (downloads key) → URL; null while loading */
   files: Partial<Record<string, string>> | null;
   size?: "xs" | "sm" | "lg";
@@ -126,6 +129,7 @@ export function ViewIn3D({
     v.src = choice.url;
     enterFullscreen(v);
     setPlaying(true);
+    onPlay?.(choice.format);
     void v.play()?.catch?.(() => {});
   }
 

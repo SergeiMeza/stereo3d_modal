@@ -261,3 +261,45 @@ describe("free previews (pricing 2026-11)", () => {
     expect(freePreviewText({ ...base, allowance: 240, remaining: 200 }, "year")).toBe("200 of 240 free previews left this year");
   });
 });
+
+describe("preview downloads (owner: previews go to a headset by AirDrop)", () => {
+  afterEach(() => act(() => clearStepQuotes()));
+
+  it("each preview format downloads under its _preview_ name; a play is logged", async () => {
+    const run = {
+      conversion_id: "cprev0000001",
+      state: "succeeded" as const,
+      kind: "video" as const,
+      project_id: PID,
+      step: "lifelike_preview" as const,
+      method: "lifelike" as const,
+      params: { preset: "1080p" as const, formats: ["sbs", "mvhevc"] as ("sbs" | "mvhevc")[], from_frame: 0, to_frame: 120 },
+      quote: { amount_cents: 0, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs", "mvhevc"],
+      billing: { status: "free_preview" as const },
+      created_at: "2026-11-03T00:00:00Z",
+      updated_at: "2026-11-03T00:00:00Z",
+    };
+    mockDb.conversions.set(run.conversion_id, run);
+    const p = mockDb.projects.get(PID)!;
+    p.method = "lifelike";
+    render(
+      <AuthProvider>
+        <LifelikePreviewPanel project={structuredClone({ ...p, conversions: [run] })} onProjectChanged={() => {}} />
+      </AuthProvider>,
+    );
+    const links = await screen.findByTestId("preview-downloads");
+    const mov = within(links).getByTestId("preview-download-mvhevc");
+    const mp4 = within(links).getByTestId("preview-download-sbs");
+    expect(mov.textContent).toBe("Vision Pro · .mov");
+    expect(mp4.textContent).toBe("Side by side · .mp4");
+    expect(mov.getAttribute("title")).toMatch(/_1080p_preview_.+\.mov$/);
+    expect(mov.hasAttribute("download")).toBe(true);
+    // the side-by-side plays in the 3D check: one play logged
+    const video = await screen.findByTestId("lifelike-preview-video");
+    fireEvent.play(video);
+    fireEvent.play(video);
+    await waitFor(() => expect(mockDb.plays).toEqual([{ conversion_id: "cprev0000001", file: "sbs", kind: "preview" }]));
+  });
+});

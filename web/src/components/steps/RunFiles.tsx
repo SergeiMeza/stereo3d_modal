@@ -166,6 +166,52 @@ export function useRunFiles(conversion: Conversion | undefined): {
   };
 }
 
+const SHORT_NAMES: Record<string, string> = {
+  mvhevc: "Vision Pro",
+  sbs: "Side by side",
+  half_sbs: "Half side by side",
+  anaglyph: "Red-cyan",
+};
+
+/** A preview's files as small Download links, one per format (previews
+ * are downloadable, free ones too, so a clip can go to a headset by
+ * AirDrop; S3D-35 gates them like any download). */
+export function PreviewDownloads({ conversion }: { conversion: Conversion }): JSX.Element | null {
+  const { files, expired, freshUrl } = useRunFiles(conversion);
+  if (!files || files.length === 0) return null;
+  const list = groupFiles(files).flatMap(([, l]) => l);
+  return (
+    <DownloadGate className="text-xs text-primary hover:underline">
+      <span data-testid="preview-downloads" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="text-fg-muted">Download</span>
+        {list.map((f) => (
+          <a
+            key={f.name}
+            href={f.url}
+            download
+            title={f.filename}
+            data-testid={`preview-download-${f.name}`}
+            onClick={(e) => {
+              if (!expired()) return;
+              e.preventDefault();
+              const a = e.currentTarget;
+              void freshUrl(f.name).then((url) => {
+                if (!url) return;
+                a.href = url;
+                a.click();
+              });
+            }}
+            className="text-primary hover:underline"
+          >
+            {SHORT_NAMES[f.format] ?? outputName(f.format)}
+            <span className="text-fg-muted"> · .{f.filename?.split(".").pop() ?? (f.format === "mvhevc" ? "mov" : "mp4")}</span>
+          </a>
+        ))}
+      </span>
+    </DownloadGate>
+  );
+}
+
 export function RunFiles({
   conversion,
 }: {
@@ -173,6 +219,10 @@ export function RunFiles({
 }): JSX.Element {
   const { files, error, expired, freshUrl } = useRunFiles(conversion);
   const client = useClient();
+  const gateway = useGateway();
+  // 00081: a play of View in 3D (fire-and-forget)
+  const logPlay = (file: string) =>
+    gateway.logPlay(conversion.conversion_id, file, PREVIEW_STEPS.has(conversion.step ?? "") ? "preview" : "view_in_3d");
   if (error) return <p className="text-xs text-red-400">{error}</p>;
   if (files === null) {
     return <p className="text-xs text-fg-muted">Fetching your files…</p>;
@@ -238,10 +288,10 @@ export function RunFiles({
                 <span className="text-fg-muted">{formatBytes(f.size_bytes)}</span>
               ) : null}
               {thisHeadset ? (
-                <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint />
+                <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint onPlay={() => logPlay(f.name)} />
               ) : null}
               <DownloadGate
-                verb={preview && !thisHeadset ? "play" : "download"}
+                verb="download"
                 className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
               >
                 <a
@@ -252,7 +302,7 @@ export function RunFiles({
                   onClick={(e) => open(e, f.name)}
                   className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
                 >
-                  {preview && !thisHeadset ? "Play" : "Download"}
+                  Download
                 </a>
               </DownloadGate>
             </li>
@@ -287,7 +337,7 @@ export function RunFiles({
   return (
     <div data-testid="run-files" className="flex flex-col gap-3">
       <div>
-        <ViewIn3D files={byFormat} />
+        <ViewIn3D files={byFormat} onPlay={logPlay} />
       </div>
       {groups.map((g) => group(g, false))}
     </div>

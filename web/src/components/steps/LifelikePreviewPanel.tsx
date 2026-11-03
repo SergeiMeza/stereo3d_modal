@@ -15,7 +15,7 @@
  * the quote is for the same length from the start of the video.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import type {
   PublicPricing,
   StepConversionRequest,
 } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { formatClock } from "@/lib/format";
 import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
@@ -46,6 +47,7 @@ import {
   StereoCheckViewer,
   type CheckMode,
 } from "./StereoCheckViewer";
+import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
@@ -90,6 +92,9 @@ export function LifelikePreviewPanel({
 }: LifelikePreviewPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "lifelike_preview", onProjectChanged);
   const pricing = usePricing();
+  const gateway = useGateway();
+  // 00081: one play per preview file and page visit
+  const played = useRef(new Set<string>());
   // null = the best quality the video reaches (the Overview prices that)
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const [seconds, setSeconds] = useState<number>(LIFELIKE_PREVIEW_SECONDS);
@@ -139,7 +144,19 @@ export function LifelikePreviewPanel({
     ? HEADSET_PREVIEW_FORMATS[client as Exclude<Client, "desktop">]
     : ["sbs"];
   const fits = wanted.filter((f) => offered.includes(f));
-  const previewFormats: Format[] = fits.length > 0 ? fits : ["half_sbs"];
+  // the side-by-side plays here; the Vision Pro file comes too, so a
+  // preview can go to a headset (the gateway makes both)
+  const previewFormats: Format[] = [
+    ...(fits.length > 0 ? fits : (["half_sbs"] as Format[])),
+    ...(fits.includes("mvhevc") || !offered.includes("mvhevc") ? [] : (["mvhevc"] as Format[])),
+  ];
+  const logPlay = (file: string) => {
+    if (!shown) return;
+    const key = `${shown.conversion_id}/${file}`;
+    if (played.current.has(key)) return;
+    played.current.add(key);
+    gateway.logPlay(shown.conversion_id, file, "preview");
+  };
 
   const requestAt = (start: number): StepConversionRequest => {
     const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
@@ -209,22 +226,25 @@ export function LifelikePreviewPanel({
                 playsInline
                 preload="metadata"
                 data-testid="lifelike-preview-video"
+                onPlay={() => logPlay("mvhevc")}
                 className="w-full rounded-md border border-edge bg-black"
               />
             </DownloadGate>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <ViewIn3D files={downloads} />
+            <ViewIn3D files={downloads} onPlay={logPlay} />
             <a href="#tab=make" className="ml-auto text-xs text-primary hover:underline">
               Make the whole video in 3D
             </a>
           </div>
+          {shown ? <PreviewDownloads conversion={shown} /> : null}
         </>
       ) : (
         <>
           {/* S3D-35: the 3D check plays the file — gated like a download */}
           <DownloadGate verb="play" className={buttonVariants({ variant: "outline", size: "sm" })}>
             <StereoCheckViewer
+              onPlay={() => logPlay(output.name)}
               url={output.url}
               aspect={probe.width / probe.height}
               mode={mode}
@@ -252,17 +272,9 @@ export function LifelikePreviewPanel({
             <span className="text-[11px] text-fg-muted">
               Free 3D check on this screen
             </span>
-            <ViewIn3D files={downloads} size="xs" />
-            <DownloadGate className="ml-auto text-xs text-primary hover:underline">
-              <a
-                href={output.url}
-                download
-                className="ml-auto text-xs text-primary hover:underline"
-              >
-                Download
-              </a>
-            </DownloadGate>
+            <ViewIn3D files={downloads} size="xs" onPlay={logPlay} />
           </div>
+          {shown ? <PreviewDownloads conversion={shown} /> : null}
           <div className="flex items-center text-xs">
             <span className="font-mono text-fg-muted">
               {formatCents(shown.quote.amount_cents)}

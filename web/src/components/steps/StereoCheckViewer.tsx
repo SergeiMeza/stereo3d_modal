@@ -75,8 +75,11 @@ export function StereoCheckViewer({
   url,
   aspect,
   mode,
+  onPlay,
 }: {
   url: string;
+  /** 00081: the clip started playing */
+  onPlay?: () => void;
   /** one eye's width / height */
   aspect: number;
   mode: CheckMode;
@@ -113,6 +116,7 @@ export function StereoCheckViewer({
         ref={videoRef}
         key={url}
         src={url}
+        onPlay={onPlay}
         autoPlay
         loop
         muted
