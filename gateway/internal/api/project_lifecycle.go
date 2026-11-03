@@ -35,6 +35,15 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 			pp.Deleted = true
 			pp.DeletedAt = &now
 		}
+		// Stop the sweeps from polling (and Slack-alerting on) the free
+		// jobs canceled below.
+		if pp.Analyze.State == store.AnalyzeRunning {
+			pp.Analyze.State = store.AnalyzeFailed
+			pp.Analyze.Error = "project deleted"
+		}
+		if pp.Profile != nil && pp.Profile.State == "running" {
+			pp.Profile.State = "failed"
+		}
 		return nil
 	}); err != nil {
 		httpx.WriteErr(ctx, w, err)
