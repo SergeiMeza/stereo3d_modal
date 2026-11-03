@@ -29,6 +29,8 @@ export function planLines(def: PlanDef, pct: number | undefined): string[] {
     ...(pct ? [`${Math.round(pct * 100)}% off every run`] : []),
     `${def.free_previews_per_period} free previews a month`,
     ...(def.express_included ? ["Express included"] : []),
+    // owner 2026-11-04: above 30 fps comes with a plan
+    ...(def.max_fps && def.max_fps > 30 ? [`Up to ${def.max_fps} fps`] : []),
     `${def.seats} people · invoices`,
   ];
 }

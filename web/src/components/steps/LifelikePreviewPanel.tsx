@@ -49,6 +49,7 @@ import {
 } from "./StereoCheckViewer";
 import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
+import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
@@ -86,7 +87,29 @@ function segClass(on: boolean): string {
   }`;
 }
 
-export function LifelikePreviewPanel({
+export function LifelikePreviewPanel(props: LifelikePreviewPanelProps): JSX.Element {
+  const { project } = props;
+  const ready =
+    project.analyze.state === "succeeded" && project.probe && project.scenes;
+  if (!ready) {
+    return (
+      <PanelShell>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-fg-muted">
+              We&apos;re still looking through your video. Previews open when
+              it&apos;s done.
+            </p>
+          </CardContent>
+        </Card>
+      </PanelShell>
+    );
+  }
+  return <ReadyPreviewPanel {...props} />;
+}
+
+/** The panel once the video is analysed (its hooks need the probe). */
+function ReadyPreviewPanel({
   project,
   onProjectChanged,
 }: LifelikePreviewPanelProps): JSX.Element {
@@ -112,22 +135,6 @@ export function LifelikePreviewPanel({
   const output = bestPlayable(downloads);
   const client = useClient();
 
-  const ready =
-    project.analyze.state === "succeeded" && project.probe && project.scenes;
-  if (!ready) {
-    return (
-      <PanelShell>
-        <Card>
-          <CardContent>
-            <p className="text-sm text-fg-muted">
-              We&apos;re still looking through your video. Previews open when
-              it&apos;s done.
-            </p>
-          </CardContent>
-        </Card>
-      </PanelShell>
-    );
-  }
   const probe = project.probe!;
   const sourceFps = parseRational(probe.fps_rational);
   const clock = (f: number) => formatClock(frameToSeconds(f, sourceFps));
@@ -158,7 +165,7 @@ export function LifelikePreviewPanel({
     gateway.logPlay(shown.conversion_id, file, "preview");
   };
 
-  const requestAt = (start: number): StepConversionRequest => {
+  const plainAt = (start: number): StepConversionRequest => {
     const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
     return {
       step: "lifelike_preview",
@@ -168,11 +175,21 @@ export function LifelikePreviewPanel({
       formats: previewFormats,
       from_frame: from,
       to_frame: to,
-      // Quick look: half the frame rate, half the price
-      ...(quickLook ? { target_fps: halfRate } : {}),
       platform: "web",
     };
   };
+  // owner 2026-11-04: above 30 fps the frame rate is a required choice
+  // (it replaces Quick look there); at 30 or below Quick look halves it
+  const fpsChoice = useFpsChoice(project, "lifelike_preview", plainAt(0));
+  const fpsMissing = fpsChoice.required && fpsChoice.value === null;
+  const requestAt = (start: number): StepConversionRequest => ({
+    ...plainAt(start),
+    ...(fpsChoice.required
+      ? fpsChoice.field
+      : quickLook
+        ? { target_fps: halfRate } // Quick look: half the frame rate, half the price
+        : {}),
+  });
   const quoteRequest = requestAt(0);
   const frames = quoteRequest.to_frame! - quoteRequest.from_frame!;
 
@@ -358,16 +375,30 @@ export function LifelikePreviewPanel({
                     </button>
                   </div>
                 </div>
-                <label className="flex h-8 cursor-pointer items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={quickLook}
-                    onChange={(e) => change(() => setQuickLook(e.target.checked))}
-                    className="accent-primary"
-                  />
-                  Quick look <span className="text-fg-muted">· half price</span>
-                </label>
+                {fpsChoice.required ? null : (
+                  <label className="flex h-8 cursor-pointer items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={quickLook}
+                      onChange={(e) => change(() => setQuickLook(e.target.checked))}
+                      className="accent-primary"
+                    />
+                    Quick look <span className="text-fg-muted">· half price</span>
+                  </label>
+                )}
               </div>
+              {fpsChoice.required ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-fg-muted">
+                    Frame rate · your video is {fpsLabel(probe.fps)}
+                  </span>
+                  <FrameRatePicker
+                    compact
+                    choice={fpsChoice}
+                    onChange={(v) => change(() => fpsChoice.set(v))}
+                  />
+                </div>
+              ) : null}
               <p data-testid="preview-moment" className="text-[11px] text-fg-muted">
                 {choice?.hint ? `${choice.hint} · ` : ""}
                 <span className="font-mono">
@@ -380,6 +411,7 @@ export function LifelikePreviewPanel({
                 quoteRequest={quoteRequest}
                 label="Preview this moment"
                 trackerDownloads={false}
+                disabledReason={fpsMissing ? PICK_FRAME_RATE : undefined}
                 explain={
                   <span className="flex flex-col gap-1.5">
                     <span>

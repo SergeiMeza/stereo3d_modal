@@ -20,6 +20,7 @@ import type { Conversion, ConversionState } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { RunFiles } from "./RunFiles";
+import { runFacts } from "./QuoteView";
 import { formatCents } from "./money";
 import { POLL_INTERVAL_MS } from "./polling";
 import { FINISH_PAYMENT, WAITING_FOR_PAYMENT } from "@/components/pay/payCopy";
@@ -102,13 +103,18 @@ export function stageStep(stage: string | null | undefined): number {
   return 1;
 }
 
-/** "Full video · 4K · $58.50" — what the run is, in one line. */
+/** "Full video · 4K · 60 fps · 3 min · $58.50" — what the run is, in one
+ * line (size, frame rate and billable minutes, owner 2026-11-04). */
 export function runLine(conv: Conversion): string {
+  const facts =
+    conv.step === "depth_preview"
+      ? []
+      : runFacts(conv.params, conv.quote?.breakdown);
   return [
     STEP_NAMES[conv.step ?? "production"] ?? "Run",
-    conv.step !== "depth_preview" && conv.params?.preset
-      ? qualityName(conv.params.preset)
-      : null,
+    ...(facts.length > 0
+      ? facts
+      : [conv.step !== "depth_preview" && conv.params?.preset ? qualityName(conv.params.preset) : null]),
     formatCents(conv.quote.amount_cents),
   ]
     .filter(Boolean)

@@ -37,7 +37,7 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(lifelike.textContent).toContain("from $3 a minute at 24 fps");
     expect(lifelike.textContent).toContain("Per minute, 24 fps");
     expect(screen.getByTestId("pricing-fps-rule").textContent).toBe(
-      "30 fps +25% · 60 fps ×2.5",
+      "30 fps +25% · 60 fps ×2.5 (Business and Studio)",
     );
     expect(lifelike.textContent).toContain("1080p1920×1080 per eye$3.00");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$8.50");

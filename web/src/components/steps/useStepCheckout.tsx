@@ -71,13 +71,16 @@ import { stepCheckoutAtom } from "./checkoutStore";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
-import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView } from "./QuoteView";
+import { FPS_PLAN_REQUIRED } from "./frameRate";
+import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView, runFacts } from "./QuoteView";
 
 function messageOf(e: unknown): string {
   // spec v7 N12: a run that would pass the monthly spend limit
   if (e instanceof GatewayError && e.code === "spend_limit_reached") return SPEND_LIMIT_REACHED;
   if (e instanceof GatewayError && e.code === "payment_method_blocked") return PAYMENT_METHOD_BLOCKED;
   if (e instanceof GatewayError && e.code === "deletion_pending") return DELETION_PENDING_BLOCK;
+  // owner 2026-11-04: an explicit target_fps above the account's max_fps
+  if (e instanceof GatewayError && e.code === "plan_required_fps") return FPS_PLAN_REQUIRED;
   const friendly = e instanceof GatewayError ? methodErrorCopy(e.code) : null;
   if (friendly !== null) return friendly;
   return e instanceof Error ? e.message : "request failed";
@@ -709,6 +712,15 @@ export function InstantCheckout({
       />
     ) : null;
   const owes = paymentNeeded && !ck.tracking;
+  // owner 2026-11-04: size, frame rate and billable length beside the
+  // button, at the moment of paying ("4K · 60 fps · 3 min")
+  const facts = quote && !blocked ? runFacts(quote.params, quote.quote.breakdown) : [];
+  const summary =
+    facts.length > 0 ? (
+      <p data-testid="run-summary" className="text-sm font-medium text-fg">
+        {facts.join(" · ")}
+      </p>
+    ) : null;
   if (variant === "panel") {
     const chargeHint = quote && !owes && !underReview ? (
       <span className="flex flex-col gap-1">
@@ -738,6 +750,7 @@ export function InstantCheckout({
             </p>
           )}
           {chargeHint}
+          {summary}
           {owes ? (
             <PayToContinue />
           ) : (
@@ -766,6 +779,13 @@ export function InstantCheckout({
           </div>
         ) : !running ? (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
+            {facts.length > 0 ? (
+              <p data-testid="run-summary-phone" className="mb-2 text-center text-xs text-fg-muted">
+                {facts.join(" · ")}
+              </p>
+            ) : blocked && disabledReason ? (
+              <p className="mb-2 text-center text-xs text-fg-muted">{disabledReason}</p>
+            ) : null}
             <Button
               size="lg"
               data-testid="checkout-main-phone"
@@ -794,6 +814,7 @@ export function InstantCheckout({
   }
   return (
     <div className="flex flex-col gap-3">
+      {summary}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button
           size="lg"

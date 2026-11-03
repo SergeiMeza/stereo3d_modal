@@ -6,9 +6,10 @@ import {
   CHARGED_AT_START,
   quoteChargeSentence,
 } from "@/lib/billingCopy";
-import { formatClock, formatDuration, formatVideoLength } from "@/lib/format";
+import { formatDuration, formatVideoLength } from "@/lib/format";
 import { qualityName } from "@/lib/glossary";
 
+import { fpsLabel, quotedFps } from "./frameRate";
 import { formatCents, formatCentsShort } from "./money";
 import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
 import { usePricing } from "@/lib/api/usePricing";
@@ -68,17 +69,32 @@ const REUSE_NAMES: Record<string, string> = {
   preprocess: "preparation",
 };
 
-/** "+25%" / "−50%" for a price factor. */
-/** The length a quote charges for: "3 min (2:10, rounded up)" when the
- * gateway rounded the video up to whole minutes (billable_minutes, owner
- * 2026-11-04), else the plain length. */
+/** The length a quote charges for: the billable minutes ("3 min") when
+ * the gateway rounds the video up to whole minutes (billable_minutes,
+ * owner 2026-11-04; the rounding itself is said once, on Prices), else
+ * the plain length (previews: "5 s"). */
 export function billedLength(b: QuoteBreakdown): string {
-  const secs = b.billable_seconds ?? 0;
-  const mins = b.billable_minutes;
-  if (mins === undefined) return formatVideoLength(secs);
-  if (Math.round(secs) >= mins * 60) return `${mins} min`;
-  return `${mins} min (${formatClock(secs)}, rounded up)`;
+  if (b.billable_minutes !== undefined) return `${b.billable_minutes} min`;
+  return formatVideoLength(b.billable_seconds ?? 0);
 }
+
+/** What a run makes, for the pay sheet, the price card and the tracker:
+ * "4K · 60 fps · 3 min" (owner 2026-11-04). */
+export function runFacts(
+  params: { preset?: string; target_fps?: number } | undefined,
+  breakdown: QuoteBreakdown | undefined,
+): string[] {
+  const b = breakdown ?? {};
+  const preset = params?.preset ?? b.preset;
+  const fps = quotedFps(params, b.fps_factor);
+  return [
+    preset ? qualityName(preset) : null,
+    fps !== null ? fpsLabel(fps) : null,
+    b.billable_seconds !== undefined || b.billable_minutes !== undefined ? billedLength(b) : null,
+  ].filter((x): x is string => x !== null);
+}
+
+/** "+25%" / "−50%" for a price factor. */
 
 function percent(factor: number): string {
   const p = Math.round((factor - 1) * 100);
@@ -156,8 +172,8 @@ export function QuoteView({
     b.subtotal_cents !== undefined &&
     total > subtotal - reuse - (tierMode ? (discount?.cents ?? 0) : bulk + proOff);
 
-  const fps =
-    b.fps_factor !== undefined ? Math.round(b.fps_factor * 24 * 100) / 100 : null;
+  // the rate the run converts at (the chosen one, or the source's)
+  const fps = quotedFps(result.params, b.fps_factor);
   const videoLabel =
     b.billable_seconds !== undefined ? (
       <>
@@ -234,7 +250,7 @@ export function QuoteView({
             <Line
               label={
                 <span data-testid="quote-fps-factor">
-                  Your video is {fps} fps ({percent(b.fps_factor!)})
+                  At {fpsLabel(fps)} ({percent(b.fps_factor!)})
                 </span>
               }
               value={`${fpsAdds >= 0 ? "+" : "−"}${formatCents(Math.abs(fpsAdds))}`}
@@ -387,6 +403,13 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
+      {result.fps_capped && fps !== null ? (
+        // owner 2026-11-04: the source is above 30 fps and there's no plan
+        <p data-testid="quote-fps-capped" className="text-xs text-fg-muted">
+          Converts at {fpsLabel(fps)}. Higher frame rates come with Business
+          and Studio plans.
+        </p>
+      ) : null}
       {/* no Pro upsell on a plan's quote (Business and Studio include Pro) */}
       {result.pro === false && !(result.tier === "business" || result.tier === "studio") ? (
         <ProSaveLink step={result.step} />

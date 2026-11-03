@@ -47,6 +47,7 @@ import {
   type Device,
 } from "./makeControls";
 import { LIFELIKE_FORMATS, lifelikeFormatsFor, SPLIT_MAX_SECONDS } from "./methods";
+import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 
@@ -165,7 +166,7 @@ export function LifelikeDeliverPanel({
   const tier = ck.quote?.tier ?? "";
   const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
   const express = expressChoice ?? expressIncluded;
-  const base: StepConversionRequest = {
+  const plain: StepConversionRequest = {
     step: "production",
     preset,
     formats: sentFormats.length > 0 ? sentFormats : offeredFormats.slice(0, 1),
@@ -177,6 +178,10 @@ export function LifelikeDeliverPanel({
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
   };
+  // owner 2026-11-04: above 30 fps the frame rate is a required choice
+  const fpsChoice = useFpsChoice(project, "production", plain);
+  const base: StepConversionRequest = { ...plain, ...fpsChoice.field };
+  const fpsMissing = fpsChoice.required && fpsChoice.value === null;
   const prices = usePresetPrices(
     project,
     base,
@@ -358,6 +363,20 @@ export function LifelikeDeliverPanel({
           ) : null}
         </MakeSection>
 
+        {fpsChoice.required ? (
+          <MakeSection
+            n={++n}
+            testId="fps-section"
+            title="Frame rate"
+            hint={`Your video is ${fpsLabel(project.probe?.fps ?? 0)}. Pick the rate to make it at.`}
+          >
+            <FrameRatePicker
+              choice={fpsChoice}
+              onChange={(v) => change(() => fpsChoice.set(v))}
+            />
+          </MakeSection>
+        ) : null}
+
         <MakeSection
           n={++n}
           title="Which part?"
@@ -423,7 +442,11 @@ export function LifelikeDeliverPanel({
           request={request}
           label="Make 3D"
           disabledReason={
-            sentFormats.length === 0 ? "Pick at least one file" : undefined
+            sentFormats.length === 0
+              ? "Pick at least one file"
+              : fpsMissing
+                ? PICK_FRAME_RATE
+                : undefined
           }
           heading={
             <div className="flex items-center gap-2">

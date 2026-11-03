@@ -53,11 +53,12 @@ export function fpsFactor(p: PublicPricing, fps: number): number {
   return Math.min(p.fps.max_factor, Math.max(p.fps.min_factor, fps / p.fps.base));
 }
 
-/** "30 fps +25% · 60 fps ×2.5" (S3D-15), from /v1/pricing's fps rule. */
+/** "30 fps +25% · 60 fps ×2.5 (Business and Studio)" (S3D-15), from /v1/pricing's fps rule. */
 export function fpsRule(p: PublicPricing): string {
   const f30 = fpsFactor(p, 30);
   const f60 = fpsFactor(p, 60);
   const pct = Math.round((f30 - 1) * 100);
   const times = Math.round(f60 * 100) / 100;
-  return `30 fps ${pct >= 0 ? "+" : "−"}${Math.abs(pct)}% · 60 fps ×${times}`;
+  // owner 2026-11-04: above 30 fps comes with Business and Studio
+  return `30 fps ${pct >= 0 ? "+" : "−"}${Math.abs(pct)}% · 60 fps ×${times} (Business and Studio)`;
 }

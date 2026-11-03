@@ -285,7 +285,7 @@ describe("Classic Make 3D (screen 10)", () => {
       if ((c as HTMLInputElement).checked) fireEvent.click(c);
     }
     expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("Pick at least one file")).toBeTruthy();
+    expect(screen.getAllByText("Pick at least one file").length).toBeGreaterThan(0);
   });
 
   it("shows the reuse discount and drops it from scratch", async () => {

@@ -510,6 +510,15 @@ export interface StepQuoteResponse {
   /** Lifelike full runs: Express's estimate beside the standard one; an
    * Express run may still wait up to max_wait_seconds to start */
   express_eta?: { eta_seconds: number; standard_eta_seconds: number; max_wait_seconds: number };
+  /** owner 2026-11-04: the highest output frame rate this account may
+   * choose (30, or 120 with Business or Studio) and the target_fps values
+   * it may send for this video */
+  max_fps?: number;
+  target_fps_choices?: number[];
+  /** no target_fps was sent and the source is above max_fps: the run
+   * converts at the largest whole division of the source at or under it */
+  fps_capped?: boolean;
+  fps_cap_reason?: "plan_required_above_30fps" | string;
 }
 
 export interface UploadTicket {
@@ -603,6 +612,8 @@ export interface PublicPricing {
    * with method classic gets 422 classic_retired); existing Classic
    * projects keep their results and can convert with Lifelike 3D */
   classic_new_projects?: boolean;
+  /** the caller's highest output frame rate (30, or 120 with a plan) */
+  max_fps?: number;
   /** pricing 2026-11 */
   pricing_model?: "tiers";
   tiers?: {
@@ -634,6 +645,8 @@ export interface PlanDef {
   seats: number;
   free_previews_per_period: number;
   express_included: boolean;
+  /** owner 2026-11-04: the plan's highest output frame rate (120) */
+  max_fps?: number;
 }
 
 /** POST /v1/account/delete: done, or (00081) pending while a cash

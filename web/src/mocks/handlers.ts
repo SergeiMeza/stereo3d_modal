@@ -383,6 +383,9 @@ interface DB {
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
    * so the older price assertions keep their numbers */
   tierPricing: boolean;
+  /** owner 2026-11-04: above 30 fps needs Business or Studio (gateway
+   * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
+  fpsCap: boolean;
   /** BL-25: account settings (lifelike_intro_editable follows the plan) */
   accountSettings: { lifelike_intro: boolean; locale: string | null };
   /** the next settings save fails with a 500 */
@@ -407,8 +410,8 @@ const TIERS = {
   addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
-    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true },
-    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true },
+    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true, max_fps: 120 },
+    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true, max_fps: 120 },
   },
   allowances: { pro_weekly: 5, pro_monthly: 20, pro_yearly: 240, pro_pass_3m: 60, pro_pass_6m: 120, pro_lifetime: 20, business: 50, studio: 200, intro: 1 } as Record<string, number>,
   dailyCap: 20,
@@ -478,6 +481,45 @@ function accountSettings() {
 }
 
 /** The account's tier: an active Business/Studio plan, else Pro, else list. */
+/** The output frame rate this account may choose: 120 with Business or
+ * Studio, 30 otherwise; null with the cap off (older gateways). */
+function mockMaxFps(): number | null {
+  if (!mockDb.fpsCap) return null;
+  const t = mockTier();
+  return t === "business" || t === "studio" ? 120 : 30;
+}
+
+/** Whole divisions of the source rate down to about 24, high to low,
+ * 2 decimals (60 → 60, 30; 120 → 120, 60, 40, 30, 24). */
+function fpsDivisions(src: number): number[] {
+  const out: number[] = [];
+  for (let n = 1; n <= 12; n++) {
+    const v = Math.round((src / n) * 100) / 100;
+    if (n > 1 && v < 23.5) break;
+    out.push(v);
+  }
+  return out;
+}
+
+/** The gateway's frame-rate fields for a quote (owner 2026-11-04). */
+function fpsPolicy(p: Project, target: number | undefined) {
+  const src = p.probe!.fps;
+  const max = mockMaxFps();
+  if (max === null) return { effective: target ?? src, extras: {} };
+  const all = fpsDivisions(src);
+  const allowed = all.filter((v) => v <= max + 0.01);
+  const capped = target === undefined && src > max + 0.01;
+  const effective = target ?? (capped ? (allowed[0] ?? max) : src);
+  return {
+    effective,
+    extras: {
+      max_fps: max,
+      target_fps_choices: allowed,
+      ...(capped ? { fps_capped: true, fps_cap_reason: "plan_required_above_30fps" } : {}),
+    },
+  };
+}
+
 function mockTier(): "" | "pro" | "business" | "studio" {
   const plan = mockDb.billing.plan;
   if (plan?.active) return plan.plan;
@@ -617,6 +659,7 @@ function seed(): DB {
     lifelikeFoveation: false,
     pro: null,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
+    fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
     freePreviews: { used: 0, dayUsed: 0, introUsed: false },
     plays: [],
     accountSettings: { lifelike_intro: true, locale: null },
@@ -1277,6 +1320,10 @@ function validateLifelikeRequest(
   }
   const bitrateErr = checkBitrate(body.bitrate);
   if (bitrateErr) return bitrateErr;
+  const maxFps = mockMaxFps();
+  if (maxFps !== null && typeof body.target_fps === "number" && body.target_fps > maxFps + 0.01) {
+    return err(422, "plan_required_fps", "frame rates above 30 fps need a Business or Studio plan");
+  }
   const eye = body.original_eye as string | undefined;
   if (eye !== undefined && eye !== "left" && eye !== "right") {
     return err(400, "invalid_request", "original_eye must be left|right");
@@ -1456,7 +1503,7 @@ function lifelikeQuoteFor(
     lifelikeQualities(project).find((q) => q.preset === preset)?.price_preset ??
     preset;
   const perMin = LIFELIKE.priceCentsPerMinute[priced];
-  const effFPS = req.target_fps ?? probe.fps;
+  const effFPS = fpsPolicy(project, req.target_fps).effective;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
   if (mockDb.tierPricing) {
     const tier = mockTier();
@@ -1519,7 +1566,7 @@ function lifelikeQuoteFor(
         formats: req.formats ?? (req.step === "production" ? ["mvhevc"] : ["sbs", "mvhevc"]),
         from_frame: req.from_frame || undefined,
         to_frame: req.to_frame || undefined,
-        target_fps: req.target_fps || undefined,
+        target_fps: req.target_fps || (effFPS !== probe.fps ? effFPS : undefined),
         scene_cuts: project.scenes?.cuts,
         split_max_seconds: req.split_max_seconds,
         ...(req.original_eye ? { original_eye: req.original_eye } : {}),
@@ -3036,6 +3083,7 @@ export const handlers = [
       rate_version: "mock",
       currency: "usd",
       classic_new_projects: mockDb.classicNewProjects,
+      ...(mockMaxFps() !== null ? { max_fps: mockMaxFps() } : {}),
       methods: {
         lifelike: {
           presets: ["1080p", "qhd", "3k", "4k", "5k", "6k", "8k"],
@@ -3515,6 +3563,7 @@ export const handlers = [
               }
             : {}),
           ...(mockDb.tierPricing ? tierQuoteExtras(req, q) : {}),
+          ...fpsPolicy(priced, req.target_fps).extras,
         });
       }
       const { quote, reuseStages, params: resolved } = quoteFor(priced, req);

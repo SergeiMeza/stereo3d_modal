@@ -143,11 +143,14 @@ describe("Lifelike qualities", () => {
     );
     // the quote's lines show in the price card, no Get quote step
     expect(screen.getByTestId("quote-total").textContent).toBe(top);
-    // "3 min (2:29, rounded up) at 4K · 3 min × $8.50 a minute" (S3D-15;
-    // whole minutes, rounded up, owner 2026-11-04)
+    // "3 min at 4K · 3 min × $8.50 a minute" (S3D-15; whole minutes,
+    // rounded up, owner 2026-11-04)
     expect(screen.getByTestId("price-card").textContent).toMatch(
-      /\d+ min \(\d+:\d\d, rounded up\) at 4K\d+ min × \$\d+\.\d\d a minute/,
+      /\d+ min at 4K\d+ min × \$\d+\.\d\d a minute/,
     );
+    expect(screen.getByTestId("price-card").textContent).not.toContain("rounded up");
+    // size, frame rate and length beside the button
+    expect(screen.getByTestId("run-summary").textContent).toMatch(/^4K · [\d.]+ fps · \d+ min$/);
     expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "?" }));
     // P14: a saved method, $25 or less: charged after it's done

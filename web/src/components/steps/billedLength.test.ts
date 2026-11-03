@@ -4,13 +4,8 @@ import { methodErrorCopy } from "./methods";
 import { billedLength } from "./QuoteView";
 
 describe("whole minutes, rounded up (owner 2026-11-04)", () => {
-  it("names the rounded minutes and the real length", () => {
-    expect(billedLength({ billable_seconds: 130, billable_minutes: 3 })).toBe(
-      "3 min (2:10, rounded up)",
-    );
-  });
-
-  it("says nothing more when the video is whole minutes", () => {
+  it("shows just the billable minutes (owner: no \"rounded up\" detail)", () => {
+    expect(billedLength({ billable_seconds: 130, billable_minutes: 3 })).toBe("3 min");
     expect(billedLength({ billable_seconds: 180, billable_minutes: 3 })).toBe("3 min");
   });
 
