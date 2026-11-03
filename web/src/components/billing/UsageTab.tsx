@@ -61,6 +61,9 @@ export function usageStatus(r: UsageRow): { text: string; cls: string } {
   }
 }
 
+/** The gateway's paid_with: balance | card | alipay (or a full label). */
+const PAID_WITH: Record<string, string> = { balance: "Balance", card: "Payment method", alipay: "Alipay" };
+
 const ENTRY: Record<BalanceEntry["kind"], string> = {
   topup: "Top-up",
   auto_reload: "Auto-reload",
@@ -193,8 +196,7 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
             <tbody>
               {shown.map((r) => {
                 const st = usageStatus(r);
-                const paid =
-                  r.paid_with === "balance" ? "Balance" : r.key_name ? `API key "${r.key_name}"` : r.paid_with;
+                const paid = r.key_name ? `API key "${r.key_name}"` : (PAID_WITH[r.paid_with] ?? r.paid_with);
                 return (
                   <tr key={r.conversion_id} data-testid={`usage-${r.conversion_id}`} className="border-b border-edge">
                     <td className="px-5 py-2.5 text-fg-muted">{shortDate(r.at)}</td>

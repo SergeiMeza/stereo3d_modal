@@ -46,6 +46,8 @@ import {
   POP_SHEET,
   popBalance,
   SPEND_LIMIT_REACHED,
+  PAYMENT_METHOD_BLOCKED,
+  DELETION_PENDING_BLOCK,
 } from "@/components/pay/payCopy";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,8 @@ import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView } from "./QuoteView";
 function messageOf(e: unknown): string {
   // spec v7 N12: a run that would pass the monthly spend limit
   if (e instanceof GatewayError && e.code === "spend_limit_reached") return SPEND_LIMIT_REACHED;
+  if (e instanceof GatewayError && e.code === "payment_method_blocked") return PAYMENT_METHOD_BLOCKED;
+  if (e instanceof GatewayError && e.code === "deletion_pending") return DELETION_PENDING_BLOCK;
   const friendly = e instanceof GatewayError ? methodErrorCopy(e.code) : null;
   if (friendly !== null) return friendly;
   return e instanceof Error ? e.message : "request failed";

@@ -34,6 +34,8 @@ import {
   PAYING,
   TOO_MANY,
   TOPUP_DAILY,
+  PAYMENT_METHOD_BLOCKED,
+  DELETION_PENDING_BLOCK,
   TOPUP_MIN,
   TOPUP_SMALL_PRINT,
   reloadConsent,
@@ -76,6 +78,24 @@ export function BalanceDialogsProvider({ children }: { children: ReactNode }): J
 const CHIPS = [1000, 2500, 5000, 10000];
 const MIN = 1000;
 
+/** P17's error lines from the gateway's top-up refusals. */
+function topupErrorText(e: unknown, amount: number, first: boolean): string {
+  const g = e instanceof GatewayError ? e : null;
+  const max = typeof g?.details?.max === "number" ? g.details.max : first ? 10000 : 50000;
+  switch (g?.code) {
+    case "amount_out_of_range":
+      return amount < MIN ? TOPUP_MIN : topupMax(max, first);
+    case "topup_daily_cap":
+      return TOPUP_DAILY;
+    case "payment_method_blocked":
+      return PAYMENT_METHOD_BLOCKED;
+    case "deletion_pending":
+      return DELETION_PENDING_BLOCK;
+    default:
+      return "Payment isn't available in this region yet.";
+  }
+}
+
 /** P17 Add funds. */
 export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element {
   const gateway = useGateway();
@@ -94,7 +114,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     | { kind: "done"; text: string }
     | { kind: "error"; text: string }
   >({ kind: "none" });
-  const [china, setChina] = useState<{ qr?: string } | null>(null);
+  const [chinaError, setChinaError] = useState<string | null>(null);
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const invalid =
@@ -116,19 +136,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           ),
         (e: unknown) => {
           if (!live) return;
-          const g = e instanceof GatewayError ? e : null;
-          const max = typeof g?.details?.max === "number" ? g.details.max : first ? 10000 : 50000;
-          setSession({
-            kind: "error",
-            text:
-              g?.code === "amount_out_of_range"
-                ? amount < MIN
-                  ? TOPUP_MIN
-                  : topupMax(max, first)
-                : g?.code === "topup_daily_cap"
-                  ? TOPUP_DAILY
-                  : "Payment isn't available in this region yet.",
-          });
+          setSession({ kind: "error", text: topupErrorText(e, amount, first) });
         },
       );
     }, 250);
@@ -224,23 +232,15 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
               className="h-12 w-full"
               disabled={amount < MIN}
               onClick={async () => {
-                const r = await gateway.topUp(amount, "alipay").catch(() => null);
+                setChinaError(null);
+                const r = await gateway.topUp(amount, "alipay").catch((e: unknown) => {
+                  setChinaError(topupErrorText(e, amount, first));
+                  return null;
+                });
                 if (r?.redirect_url) window.location.assign(r.redirect_url);
               }}
             >
               Alipay
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12 w-full"
-              disabled={amount < MIN}
-              onClick={async () => {
-                const r = await gateway.topUp(amount, "wechat_pay").catch(() => null);
-                if (r?.qr_image_url) setChina({ qr: r.qr_image_url });
-              }}
-            >
-              WeChat Pay
             </Button>
             <p className="text-center text-xs text-fg-muted">{TOPUP_SMALL_PRINT}</p>
           </div>
@@ -248,13 +248,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
       >
         <div className="flex flex-col gap-4">
           {header}
-          {china?.qr ? (
-            <div className="flex flex-col items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={china.qr} alt="" className="size-[200px] rounded-lg bg-white p-3" />
-              <p className="text-sm text-fg tabular-nums">Scan with WeChat to pay {formatCents(amount)}</p>
-            </div>
-          ) : null}
+          {chinaError ? <ErrorLine text={chinaError} /> : null}
         </div>
       </SheetFrame>
     );

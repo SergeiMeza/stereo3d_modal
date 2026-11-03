@@ -2142,7 +2142,7 @@ export const handlers = [
           preset: c.params.preset,
           minutes: Math.round((frames / fps / 60) * 100) / 100,
           cost_cents: running ? null : st === "balance_released" || c.state !== "succeeded" ? 0 : (c.billing?.charged_cents ?? c.quote.amount_cents),
-          paid_with: st?.startsWith("balance") ? "balance" : "Visa •••• 4242",
+          paid_with: st?.startsWith("balance") ? "balance" : "card",
           status: running ? "running" : st === "balance_released" || c.state !== "succeeded" ? "released" : "done",
           ...(running && pp.holds.has(c.conversion_id) ? { reserved_cents: pp.holds.get(c.conversion_id) } : {}),
         };

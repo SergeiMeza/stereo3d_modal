@@ -279,7 +279,7 @@ export class GatewayClient {
    * mode passes {method} for the server path */
   topUp(
     amountCents: number,
-    method?: "alipay" | "wechat_pay",
+    method?: "alipay",
   ): Promise<{
     checkout?: { client_secret: string; expires_at: string };
     topup_id: string;
@@ -290,7 +290,13 @@ export class GatewayClient {
     return this.request(
       "POST",
       "/v1/billing/balance/topup",
-      method ? { amount_cents: amountCents, method } : { amount_cents: amountCents, ui: "elements" },
+      method
+        ? {
+            amount_cents: amountCents,
+            method,
+            return_url: typeof window !== "undefined" ? `${window.location.origin}/pay/return?topup=1` : undefined,
+          }
+        : { amount_cents: amountCents, ui: "elements" },
     );
   }
 

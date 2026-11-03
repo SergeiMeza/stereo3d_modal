@@ -87,6 +87,10 @@ export const TOPUP_SMALL_PRINT =
 export const TOPUP_MIN = "The minimum is $10.";
 /** P2 from the balance, when it no longer covers it (not in the spec's copy) */
 export const BALANCE_SETTLE_FAILED = "Your balance doesn't cover it any more. Pay another way.";
+/** 00081: 403 payment_method_blocked on runs and top-ups */
+export const PAYMENT_METHOD_BLOCKED = "This payment method can't be used. Add another one.";
+/** 00081: 403 deletion_pending while the account waits to be deleted */
+export const DELETION_PENDING_BLOCK = "Your account is being deleted.";
 export const TOPUP_DAILY = "You've reached today's limit. Try again tomorrow.";
 
 /** "Paid from your balance. We'll add $25.00 first." */
