@@ -30,6 +30,7 @@ import { usePricing } from "@/lib/api/usePricing";
 import { formatClock } from "@/lib/format";
 import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
 import {
+  clipRange,
   frameToSeconds,
   parseRational,
   type RationalFPS,
@@ -56,10 +57,7 @@ export function previewRange(
   fps: RationalFPS,
   seconds: number = LIFELIKE_PREVIEW_SECONDS,
 ): [number, number] {
-  const span = Math.max(1, Math.round((seconds * fps.num) / fps.den));
-  const to = Math.min(Math.max(0, start) + span, numFrames);
-  const from = Math.max(0, to - span);
-  return [from, to];
+  return clipRange(start, numFrames, fps, seconds);
 }
 
 /** A preview's floor (S3D-13/17), from /v1/pricing. */

@@ -20,14 +20,12 @@ export const STEP_DEFS: readonly StepDef[] = [
     step: "depth_preview",
     title: "Depth",
     description:
-      "Check how far away everything is before you make 3D: pick the depth detail and see a depth video beside your source. Optional.",
+      "Check how far away everything is before you make 3D: a 10-second depth clip from where you are on the timeline. Optional.",
     outputs: [
-      "A depth video you can play beside your source, near is bright and far is dark",
-      "Make 3D reuses this depth work, and discounts it, when the depth detail, frame rate, scene cuts and 2D scenes all still match",
+      "A 10-second depth clip you can play beside your source, near is bright and far is dark",
     ],
     tips: [
-      "Depth detail is the setting that matters: run it at the detail you want for the final video, so Make 3D can reuse the work at a discount.",
-      "Changing scene cuts or which scenes stay 2D means the next run can't reuse this depth work.",
+      "Move the playhead to the shot you want to check; the clip starts there.",
       "Higher detail costs more; it is capped at your video's own resolution.",
       "Look for stable depth across a scene — flicker between frames shows up as shimmer in 3D.",
     ],
@@ -36,9 +34,9 @@ export const STEP_DEFS: readonly StepDef[] = [
     step: "stereo_preview",
     title: "3D look",
     description:
-      "Per-scene 3D: every scene is measured and classified automatically; review each scene against the real video, adjust the ones that need it, and preview what you deliver.",
+      "Per-scene 3D: every scene is measured and classified automatically; adjust the ones that need it, and check a 10-second clip from where you are on the timeline.",
     outputs: [
-      "A 3D preview in the same qualities and formats Make 3D offers",
+      "A 10-second 3D clip in the same qualities and formats Make 3D offers",
       "The per-scene profile computed by the run seeds this page's Auto defaults",
     ],
     tips: [

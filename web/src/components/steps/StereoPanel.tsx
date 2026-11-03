@@ -90,6 +90,7 @@ import type {
 import { useGateway } from "@/lib/api/useGateway";
 import { qualitiesFor, qualityName, runSummary } from "@/lib/glossary";
 import {
+  clipRange,
   cutsToRanges,
   defaultPreviewFPS,
   frameToTimecode,
@@ -124,6 +125,7 @@ import {
   type StereoDraft,
 } from "./stereoStore";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
+import { CLASSIC_PREVIEW_SECONDS } from "./methods";
 import { useClient } from "./ViewIn3D";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
@@ -141,6 +143,8 @@ export function StereoPanel({
   onProjectChanged,
 }: StereoPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "stereo_preview", onProjectChanged);
+  // the playhead: where the 10-second clip starts (S3D-27)
+  const [moment, setMoment] = useState(0);
   const client = useGateway();
 
   const scenesVersion = project.scenes?.version ?? 0;
@@ -336,10 +340,19 @@ export function StereoPanel({
   const sendUpload = !depthDefault && useUpload;
   const sendDepthRes =
     !depthDefault && !useUpload && inheritedDepthRes !== undefined;
+  // S3D-27: a 10-second clip from the playhead, not the whole video
+  const [clipFrom, clipTo] = clipRange(
+    moment,
+    probe.num_frames,
+    sourceFps,
+    CLASSIC_PREVIEW_SECONDS,
+  );
   const request: StepConversionRequest = {
     step: "stereo_preview",
     preset,
     formats,
+    from_frame: clipFrom,
+    to_frame: clipTo,
     // Edge handling drives BOTH wire fields. inpaint is sent EXPLICITLY
     // because the gateway defaults stereo_preview to inpaint=none; warp
     // goes on the wire only for the stretched mode (backward), which the
@@ -427,6 +440,8 @@ export function StereoPanel({
       <StepReview
         project={project}
         sourceFps={sourceFps}
+        onPlayhead={setMoment}
+        range={(f) => clipRange(f, probe.num_frames, sourceFps, CLASSIC_PREVIEW_SECONDS)}
         heading="Stereo preview"
         headingExtras={
           output !== null && depthVis !== null ? (

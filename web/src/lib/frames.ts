@@ -185,3 +185,18 @@ export function cutsToRanges(
   for (let i = 0; i + 1 < edges.length; i++) out.push([edges[i], edges[i + 1]]);
   return out;
 }
+
+/** A clip's source range for a start frame: `seconds` long, half open,
+ * inside [0, numFrames), shifted back near the end so it keeps its length
+ * (previews, S3D-13/27). */
+export function clipRange(
+  start: number,
+  numFrames: number,
+  fps: RationalFPS,
+  seconds: number,
+): [number, number] {
+  const span = Math.max(1, Math.round((seconds * fps.num) / fps.den));
+  const to = Math.min(Math.max(0, start) + span, numFrames);
+  const from = Math.max(0, to - span);
+  return [from, to];
+}

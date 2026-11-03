@@ -181,6 +181,9 @@ export interface StepReviewProps {
   /** A highlighted frame span on the timeline (or one that follows the
    * playhead). */
   range?: [number, number] | ((playhead: number) => [number, number]) | null;
+  /** Told whenever the playhead moves (the Classic previews start their
+   * 10-second clip there, S3D-27). */
+  onPlayhead?: (frame: number) => void;
   /** Scene section(s) under the timeline, driven by the shared playhead. */
   children?: (ctx: StepReviewContext) => ReactNode;
 }
@@ -197,6 +200,7 @@ export function StepReview({
   belowPlayer,
   timelineHeading,
   range = null,
+  onPlayhead,
   children,
 }: StepReviewProps): JSX.Element {
   const probe = project.probe!;
@@ -211,6 +215,9 @@ export function StepReview({
     [numFrames],
   );
   const player = usePreviewPlayer(videoRef, sourceFps, handleVideoFrame);
+  useEffect(() => {
+    onPlayhead?.(playhead);
+  }, [onPlayhead, playhead]);
 
   const scrub = useCallback(
     (frame: number) => {

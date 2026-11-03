@@ -111,6 +111,9 @@ export const LIFELIKE_FORMAT_LABELS: Record<
   half_sbs: FORMAT_NAMES.half_sbs,
 };
 
+/** Classic previews render this long a clip from the playhead (S3D-27). */
+export const CLASSIC_PREVIEW_SECONDS = 10;
+
 /** Lifelike preview length: about 5 s of source from the chosen moment
  * (the gateway allows up to 10 s). */
 export const LIFELIKE_PREVIEW_SECONDS = 5;

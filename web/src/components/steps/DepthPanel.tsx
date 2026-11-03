@@ -55,6 +55,7 @@ import {
   depthResLabel,
 } from "@/lib/depthRes";
 import {
+  clipRange,
   cutsToRanges,
   defaultPreviewFPS,
   frameToTimecode,
@@ -70,6 +71,7 @@ import {
   useStereoDraft,
 } from "./stereoStore";
 import { StepReview, useRunDownloads } from "./StepReview";
+import { CLASSIC_PREVIEW_SECONDS } from "./methods";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
 
 export { DEFAULT_DEPTH_RES };
@@ -84,6 +86,8 @@ export function DepthPanel({
   onProjectChanged,
 }: DepthPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "depth_preview", onProjectChanged);
+  // the playhead: where the 10-second clip starts (S3D-27)
+  const [moment, setMoment] = useState(0);
   // SAME draft the Stereo page edits (shared localStorage key): the scene
   // grid below flips per-scene 2D passthrough in it.
   const [draft, setDraft] = useStereoDraft(
@@ -143,9 +147,18 @@ export function DepthPanel({
 
   // Full source rate, sent EXPLICITLY: an absent target_fps makes the
   // gateway decimate previews to half rate, and depth reuse keys on fps.
+  // S3D-27: a 10-second clip from the playhead, not the whole video
+  const [clipFrom, clipTo] = clipRange(
+    moment,
+    project.probe.num_frames,
+    sourceFps,
+    CLASSIC_PREVIEW_SECONDS,
+  );
   const request: StepConversionRequest = {
     step: "depth_preview",
     depth_res: depthRes,
+    from_frame: clipFrom,
+    to_frame: clipTo,
     target_fps: defaultPreviewFPS(sourceFps).value,
     platform: "web",
     // passthrough-only (the gateway rejects depth knobs on this step):
@@ -160,6 +173,10 @@ export function DepthPanel({
       <DepthReview
         project={project}
         sourceFps={sourceFps}
+        onPlayhead={setMoment}
+        range={(f) =>
+          clipRange(f, project.probe!.num_frames, sourceFps, CLASSIC_PREVIEW_SECONDS)
+        }
         lastSucceeded={lastSucceeded}
         draft={draft}
         setDraft={setDraft}
@@ -232,9 +249,13 @@ function DepthReview({
   draft,
   setDraft,
   onProjectChanged,
+  onPlayhead,
+  range,
 }: {
   project: Project;
   sourceFps: RationalFPS;
+  onPlayhead: (f: number) => void;
+  range: (f: number) => [number, number];
   lastSucceeded: Conversion | undefined;
   draft: ReturnType<typeof useStereoDraft>[0];
   setDraft: ReturnType<typeof useStereoDraft>[1];
@@ -324,6 +345,8 @@ function DepthReview({
       <StepReview
         project={project}
         sourceFps={sourceFps}
+        onPlayhead={onPlayhead}
+        range={range}
         heading="Depth map"
         headingExtras={
           <>

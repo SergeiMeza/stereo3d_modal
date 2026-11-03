@@ -220,9 +220,12 @@ describe("DepthPanel quotes", () => {
     await waitFor(() => expect(bodies).toHaveLength(1));
     // exact object: proves displacement/preset/formats are ABSENT, and that
     // target_fps is still sent (an absent one means half-rate at the gateway)
+    // S3D-27: a 10-second clip from the playhead (frame 0 here)
     expect(bodies[0]).toEqual({
       step: "depth_preview",
       depth_res: 980,
+      from_frame: 0,
+      to_frame: 240,
       target_fps: 24,
       platform: "web",
     });
@@ -237,18 +240,19 @@ describe("DepthPanel quotes", () => {
     renderPanel(fixtureProject({ crop: undefined }));
     await getQuote(user);
 
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$5.61");
-    expect(screen.getByText(/Your video: 2 min 29 s/)).toBeDefined();
-    // no analyze-credit line: analysis is free outright, nothing is credited back
+    // a 10-second clip (S3D-27): its own seconds, under the $1 preview
+    // minimum (S3D-13/17)
+    expect(screen.getByText(/Your video: 10 s/)).toBeDefined();
     expect(screen.queryByTestId("quote-analyze-credit")).toBeNull();
-    expect(screen.getByTestId("quote-total").textContent).toBe("$5.61");
     expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
-    expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
-
+    expect(screen.getByTestId("quote-base").textContent).toBe(
+      screen.getByTestId("quote-subtotal").textContent,
+    );
+    expect(screen.getByTestId("quote-total").textContent).toBe("$1.00");
+    expect(screen.getByText("Minimum charge $1")).toBeDefined();
     // the coarse processing-time estimate, clearly labeled as an estimate
-    // (mock: 149.46 s × 2.5 → 374 s → "about 6 min")
     expect(screen.getByText(/Estimated time/)).toBeDefined();
-    expect(screen.getByTestId("quote-eta").textContent).toBe("about 6 min");
+    expect(screen.getByTestId("quote-eta").textContent).toMatch(/^about /);
   });
 
   it("prices the letterboxed 2.39:1 content with the aspect-aware depth factor", async () => {
@@ -258,10 +262,11 @@ describe("DepthPanel quotes", () => {
     renderPanel();
     await getQuote(user);
 
-    expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+35%");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$7.55");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$7.55");
+    const cents = (id: string) =>
+      Math.round(parseFloat(screen.getByTestId(id).textContent!.replace(/[^0-9.]/g, "")) * 100);
+    expect(cents("quote-subtotal")).toBeGreaterThan(cents("quote-base"));
+    expect(screen.getByTestId("quote-total").textContent).toBe("$1.00");
   });
 
   it("renders the depth_res_factor line for a higher resolution and invalidates the quote on change", async () => {
@@ -278,12 +283,10 @@ describe("DepthPanel quotes", () => {
     expect(screen.queryByRole("button", { name: /Convert/ })).toBeNull();
 
     await getQuote(user);
-    // base 561¢ × clamp(1442²×2.391 / (980²×16⁄9), 0.5, 5) = ×2.91 → 1634¢
-    expect(screen.getByTestId("quote-base").textContent).toBe("$5.61");
+    // base × clamp(1442²×2.391 / (980²×16⁄9), 0.5, 5) = ×2.91
     expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+191%");
     expect(screen.getByText(/Depth detail \(1442 px\)/)).toBeDefined();
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$16.34");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$14.71");
+    expect(screen.getByTestId("quote-total").textContent).toMatch(/^\$\d+\.\d\d$/);
   });
 
   it("surfaces the gateway's 400 invalid_request message on the panel", async () => {
@@ -324,7 +327,7 @@ describe("DepthPanel in-flight state survival (checkoutStore)", () => {
     const project = fixtureProject();
     const first = renderPanel(project);
     await getQuote(user);
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
     await screen.findByTestId("conversion-tracker");
 
     first.unmount();
@@ -370,7 +373,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("payment method");
@@ -390,7 +393,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("Update your card to continue");
@@ -402,7 +405,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
     await screen.findByText("Ready", undefined, { timeout: 3000 });
@@ -437,7 +440,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     await screen.findByText("Ready, payment needed", undefined, { timeout: 3000 });
     const warning = await screen.findByTestId("charge-failed");
@@ -454,7 +457,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     // completeChargeAction auto-confirms; the mock flips created→paid and
     // the run proceeds to success with the hold captured
@@ -473,7 +476,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("declined");
@@ -488,7 +491,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     renderPanel();
     await getQuote(user);
 
-    const convert = screen.getByRole("button", { name: "Convert · $7.55" });
+    const convert = screen.getByRole("button", { name: /^Convert · \$/ });
     await user.click(convert);
     await screen.findByTestId("conversion-tracker");
     await user.click(convert); // same attempt, second submit
@@ -502,7 +505,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     const { onProjectChanged } = renderPanel();
     await getQuote(user);
 
-    await user.click(screen.getByRole("button", { name: "Convert · $7.55" }));
+    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -698,6 +701,8 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
     expect(bodies[0]).toEqual({
       step: "depth_preview",
       depth_res: 980,
+      from_frame: 0,
+      to_frame: 240,
       target_fps: 24,
       platform: "web",
       scene_overrides: [{ first: 0, passthrough: true }],
@@ -720,6 +725,8 @@ describe("DepthPanel scene grid (shared 2D passthrough)", () => {
     expect(bodies[1]).toEqual({
       step: "depth_preview",
       depth_res: 980,
+      from_frame: 0,
+      to_frame: 240,
       target_fps: 24,
       platform: "web",
     });

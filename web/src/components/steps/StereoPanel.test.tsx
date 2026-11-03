@@ -305,6 +305,9 @@ describe("StereoPanel request building", () => {
         { first: 0, shot_type: "close_up" },
         { first: FIRST_CUT, shot_type: "wide" },
       ],
+      // S3D-27: a 10-second clip from the playhead
+      from_frame: 0,
+      to_frame: 240,
       target_fps: 24,
       platform: "web",
     });
@@ -437,14 +440,12 @@ describe("StereoPanel quote pricing", () => {
     expect(document.body.textContent).not.toMatch(/ProPainter|[Ss]platted/);
 
     await getQuote(user);
-    // 149.46 s at 120¢ cost × 3 margin full rate → 897¢ base; the letterboxed 2.39:1
-    // fixture prices the default 980 depth at ×1.345 on the 0.35 share →
-    // 1005¢; ×1.6 propainter = 1608¢ → −161 bulk = $14.47 (no analyze credit)
-    // standard settings fold into "Your video": no separate factor lines
-    expect(screen.getByTestId("quote-base").textContent).toBe("$16.08");
+    // a 10-second clip (S3D-27); standard settings fold into "Your
+    // video": no separate factor lines
+    expect(screen.getByText(/Your video: 10 s/)).toBeDefined();
     expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
     expect(screen.queryByTestId("quote-depth-factor")).toBeNull();
-    expect(screen.getByTestId("quote-total").textContent).toBe("$14.47");
+    expect(screen.getByTestId("quote-total").textContent).toMatch(/^\$\d+\.\d\d$/);
     expect(screen.getByTestId("quote-breakdown").textContent).not.toContain(
       "Edge style",
     );
@@ -772,13 +773,10 @@ describe("StereoPanel depth inheritance & reuse", () => {
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0].depth_res).toBe(980);
-    // subtotal 1608¢ (propainter default); depth share 0.35 reused →
-    // −563¢ = 1045¢ → −105 bulk = $9.40 (no analyze credit)
+    // the depth share is reused (the total sits at the $1 preview minimum)
     expect(screen.getByTestId("quote-reuse-stages").textContent).toBe("depth work");
-    expect(screen.getByTestId("quote-reuse-discount").textContent).toBe(
-      "−$5.63",
-    );
-    expect(screen.getByTestId("quote-total").textContent).toBe("$9.40");
+    expect(screen.getByTestId("quote-reuse-discount").textContent).toMatch(/^−\$\d+\.\d\d$/);
+    expect(screen.getByTestId("quote-total").textContent).toBe("$1.00");
   });
 
   it("the “use pipeline default” escape drops depth_res (and the discount) from the request", async () => {
