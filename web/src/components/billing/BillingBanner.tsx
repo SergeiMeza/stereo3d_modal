@@ -1,24 +1,35 @@
 "use client";
 
 /**
- * The one app-wide payment banner (S3D-22): "There's a problem with your
- * last payment. Update your payment method." Files stay downloadable; new paid runs
- * wait (gateway 402 payment_method_needed / billing_overdue) until the
- * payment goes through.
+ * P9 account banner (spec v6 G2/C10), on every signed-in workspace page:
  *
- * "Update payment method" opens the Stripe billing portal. "Try again" hits POST
- * /v1/billing/settle against the current card; a requires_action response
- * is a 3DS challenge completed in place (completeChargeAction).
+ * - Outstanding: "There's a problem with your last payment." · **Pay $X**
+ *   (the settle sheet, P2). Downloads and plays read "Pay $X to …" too.
+ * - Confirming (a payment for it is in progress): "Confirming your
+ *   payment…", no button.
+ * - Under review: "We're checking a payment on your account." · **Contact
+ *   support**.
+ *
+ * `openCardUpdate` opens the payment-method portal (Billing's "Manage
+ * payment methods").
  */
 
-import { useState } from "react";
+import { AlertCircleIcon, LockIcon } from "lucide-react";
 import type { JSX } from "react";
 
+import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import {
+  CONFIRMING,
+  PAYMENT_PROBLEM as PROBLEM,
+  UNDER_REVIEW,
+  payToContinue,
+} from "@/components/pay/payCopy";
+import { useSettle } from "@/components/pay/SettleSheet";
+import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
-
-import { completeChargeAction } from "./settleAction";
+import { outstandingCents } from "@/lib/billingCopy";
 
 /** Injectable for tests (jsdom cannot navigate). */
 let navigateExternal = (url: string) => window.location.assign(url);
@@ -26,18 +37,15 @@ export function setNavigateExternalForTests(fn: (url: string) => void): void {
   navigateExternal = fn;
 }
 
-export const PAYMENT_PROBLEM =
-  "There's a problem with your last payment. Update your payment method.";
+export const PAYMENT_PROBLEM = PROBLEM;
 
-/** Open the billing portal to change the card; returns an error sentence
- * or null once the browser is on its way. */
+/** Open the payment-method portal; returns an error sentence or null once
+ * the browser is on its way. */
 export async function openCardUpdate(
   gateway: ReturnType<typeof useGateway>,
 ): Promise<string | null> {
   try {
-    const { url } = await gateway.createBillingPortalSession(
-      window.location.href,
-    );
+    const { url } = await gateway.createBillingPortalSession(window.location.href);
     navigateExternal(url);
     return null;
   } catch (e) {
@@ -45,111 +53,65 @@ export async function openCardUpdate(
   }
 }
 
-/** Shown instead of a paid action's button while a payment is needed. */
-export function UpdateCardToContinue(): JSX.Element {
-  const gateway = useGateway();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+/** P14 "Outstanding": the run button while the account owes. */
+export function PayToContinue({ size = "lg" }: { size?: "lg" | "default" }): JSX.Element {
+  const cents = outstandingCents(useBilling().status);
+  const { openSettle } = useSettle();
   return (
-    <div data-testid="billing-block" className="flex flex-wrap items-center gap-3">
-      <Button
-        onClick={async () => {
-          setBusy(true);
-          const err = await openCardUpdate(gateway);
-          if (err !== null) {
-            setMessage(err);
-            setBusy(false);
-          }
-        }}
-        disabled={busy}
-      >
-        Update your payment method to continue
-      </Button>
-      {message ? <span className="text-xs text-red-400">{message}</span> : null}
-    </div>
+    <Button
+      size={size}
+      data-testid="billing-block"
+      className="w-full bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
+      onClick={() => openSettle()}
+    >
+      {payToContinue(cents)}
+    </Button>
   );
 }
 
+export function supportMailto(subject = "Payment on my account"): string {
+  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}`;
+}
+
 export function BillingBanner(): JSX.Element | null {
-  const { status, refresh } = useBilling();
-  const gateway = useGateway();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  if (!status?.delinquent) return null;
-
-  async function retry(): Promise<void> {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const result = await gateway.settleBilling();
-      if (result.settled) {
-        await refresh();
-        return;
-      }
-      if (result.requires_action && result.client_secret) {
-        const done = await completeChargeAction(
-          result.publishable_key,
-          result.client_secret,
-        );
-        if (!done.ok) {
-          setMessage(done.error ?? "Confirmation failed");
-          return;
-        }
-        await refresh();
-        return;
-      }
-      setMessage(result.message ?? "The charge was declined again.");
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Retry failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function updateCard(): Promise<void> {
-    setBusy(true);
-    setMessage(null);
-    const err = await openCardUpdate(gateway);
-    if (err !== null) {
-      setMessage(err);
-      setBusy(false);
-    }
-  }
+  const { status } = useBilling();
+  const { openSettle } = useSettle();
+  if (!status) return null;
+  const owed = outstandingCents(status);
+  const settling = status.outstanding?.settling === true;
+  const review = status.flow_state === "under_review";
+  if (owed <= 0 && !review) return null;
 
   return (
     <div
       data-testid="billing-banner"
-      className="border-b border-red-900/60 bg-red-950/40 px-4 py-3"
+      role="status"
+      className="border-b border-red-900/50 bg-red-950/30 px-4 py-2.5"
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-red-200">
-            {PAYMENT_PROBLEM}
-          </p>
-          {message ? (
-            <p className="mt-1 text-xs text-red-300">{message}</p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 gap-2">
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-3">
+        <AlertCircleIcon className="size-4 shrink-0 text-red-300" aria-hidden />
+        <p className="min-w-0 flex-1 text-sm text-red-100">
+          {review ? UNDER_REVIEW : settling ? CONFIRMING : PROBLEM}
+        </p>
+        {review ? (
+          <a
+            href={supportMailto()}
+            data-testid="billing-support"
+            className="shrink-0 text-sm font-medium text-red-200 hover:underline"
+          >
+            Contact support
+          </a>
+        ) : !settling ? (
           <Button
             size="sm"
-            onClick={() => void updateCard()}
-            disabled={busy}
-            data-testid="billing-update-card"
+            data-testid="billing-pay"
+            onClick={() => openSettle()}
+            className="shrink-0 bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
           >
-            Update payment method
+            <LockIcon className="size-3.5" aria-hidden />
+            Pay {formatCents(owed)}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void retry()}
-            disabled={busy}
-            data-testid="billing-retry"
-          >
-            {busy ? "Working…" : "Try again"}
-          </Button>
-        </div>
+        ) : null}
       </div>
     </div>
   );

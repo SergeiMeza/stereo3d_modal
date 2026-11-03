@@ -22,7 +22,8 @@ import { useGateway } from "@/lib/api/useGateway";
 import { RunFiles } from "./RunFiles";
 import { formatCents } from "./money";
 import { POLL_INTERVAL_MS } from "./polling";
-import { openCardUpdate } from "@/components/billing/BillingBanner";
+import { FINISH_PAYMENT, WAITING_FOR_PAYMENT } from "@/components/pay/payCopy";
+import { useSettle } from "@/components/pay/SettleSheet";
 import { qualityName, STEP_NAMES } from "@/lib/glossary";
 import { formatDuration, formatTimeLeft } from "@/lib/format";
 
@@ -158,6 +159,8 @@ export interface ConversionTrackerProps {
   /** The quote's estimate (eta_seconds), shown until the run reports its
    * own time left. */
   estimateSeconds?: number;
+  /** P12: reopen the run's open payment ("Finish payment") */
+  onFinishPayment?: () => void;
 }
 
 export function ConversionTracker({
@@ -167,8 +170,10 @@ export function ConversionTracker({
   onUpdate,
   showDownloads = true,
   estimateSeconds,
+  onFinishPayment,
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
+  const { openSettle } = useSettle();
   const [conv, setConv] = useState(conversion);
   const [error, setError] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
@@ -293,10 +298,21 @@ export function ConversionTracker({
         </span>
       </div>
 
-      {conv.state === "created" ? (
+      {conv.state === "created" && conv.billing?.status === "requires_payment" ? (
+        // P12: the run waits for its payment; Finish payment reopens it
+        <p className="flex flex-wrap items-center gap-3 text-sm text-fg" data-testid="waiting-for-payment">
+          {WAITING_FOR_PAYMENT}
+          {onFinishPayment ? (
+            <Button size="sm" data-testid="finish-payment" onClick={onFinishPayment}>
+              {FINISH_PAYMENT}
+            </Button>
+          ) : null}
+        </p>
+      ) : conv.state === "created" ? (
         <p className="text-sm text-fg-muted" data-testid="hold-confirming">
-          Confirming the payment with your bank. It starts as soon as it
-          clears.
+          {conv.billing?.status === "waiting_for_payment"
+            ? "Waiting for your payment to be confirmed."
+            : "Confirming the payment with your bank. It starts as soon as it clears."}
         </p>
       ) : null}
       {waiting || conv.state === "paid" ? (
@@ -362,10 +378,10 @@ export function ConversionTracker({
           There&apos;s a problem with your last payment.
           <button
             type="button"
-            onClick={() => void openCardUpdate(client)}
+            onClick={() => openSettle()}
             className="text-primary hover:underline"
           >
-            Update payment method
+            Pay now
           </button>
         </p>
       ) : null}

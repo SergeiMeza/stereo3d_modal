@@ -10,6 +10,7 @@ import { FeedbackLink } from "@/components/FeedbackLink";
 import { Logo } from "@/components/Logo";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
+import { SettleProvider } from "@/components/pay/SettleSheet";
 import { SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
@@ -110,7 +111,10 @@ export default function RootLayout({
             {/* BillingProvider sits inside MswProvider so its first
                 GET /v1/billing waits for the mock worker in mock mode. */}
             <MswProvider>
-              <BillingProvider>{children}</BillingProvider>
+              <BillingProvider>
+                {/* P2: any "Pay $X" opens the settle sheet */}
+                <SettleProvider>{children}</SettleProvider>
+              </BillingProvider>
             </MswProvider>
           </main>
         </AuthProvider>

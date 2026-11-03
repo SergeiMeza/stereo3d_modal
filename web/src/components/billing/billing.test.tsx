@@ -12,6 +12,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   afterAll,
@@ -25,6 +26,7 @@ import {
 
 import OnboardingScreen from "@/components/billing/OnboardingScreen";
 import { RequireBilling } from "@/components/billing/RequireBilling";
+import { SettleProvider } from "@/components/pay/SettleSheet";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
@@ -73,7 +75,7 @@ describe("RequireBilling", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("replace-redirects to /onboarding when no payment method is saved", async () => {
+  it("no wall when nothing is saved: the first paid run opens the pay sheet instead (spec v6)", async () => {
     mockDb.billing.hasPaymentMethod = false;
     mockDb.billing.card = undefined;
     renderWithBilling(
@@ -81,10 +83,9 @@ describe("RequireBilling", () => {
         <p>studio content</p>
       </RequireBilling>,
     );
-    await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/onboarding?next=%2Fprojects"),
-    );
-    expect(screen.queryByText("studio content")).toBeNull();
+    expect(await screen.findByText("studio content")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("billing-banner")).toBeNull();
   });
 
   it("fails open when the billing fetch errors — the gateway 402 is the backstop", async () => {
@@ -123,10 +124,8 @@ describe("RequireBilling", () => {
     // delinquent users still reach their work — banner + content together
     expect(await screen.findByTestId("billing-banner")).toBeTruthy();
     expect(screen.getByText("studio content")).toBeTruthy();
-    expect(
-      screen.getByText("There's a problem with your last payment. Update your payment method."),
-    ).toBeTruthy();
-    expect(screen.getByTestId("billing-update-card")).toBeTruthy();
+    expect(screen.getByText("There's a problem with your last payment.")).toBeTruthy();
+    expect(screen.getByTestId("billing-pay").textContent).toBe("Pay $1.20");
   });
 });
 
@@ -151,60 +150,79 @@ describe("OnboardingScreen", () => {
   });
 });
 
-describe("BillingBanner settle flows", () => {
-  function seedDebt() {
+describe("BillingBanner settle flows (P9 → P2)", () => {
+  function seedDebt(cents = 350) {
     mockDb.billing.unpaid.push({
       conversion_id: "m0cdeadbeef1",
-      amount_cents: 350,
+      amount_cents: cents,
       currency: "usd",
       needs_action: false,
     });
   }
 
-  it("Retry charge settles the debt and clears the banner", async () => {
+  function renderShell() {
+    return renderWithBilling(
+      <SettleProvider>
+        <RequireBilling>
+          <p>studio content</p>
+        </RequireBilling>
+      </SettleProvider>,
+    );
+  }
+
+  it("Pay $X opens the settle sheet; paying clears the banner", async () => {
     seedDebt();
-    renderWithBilling(
-      <RequireBilling>
-        <p>studio content</p>
-      </RequireBilling>,
-    );
-    fireEvent.click(await screen.findByTestId("billing-retry"));
-    await waitFor(() =>
-      expect(screen.queryByTestId("billing-banner")).toBeNull(),
-    );
+    renderShell();
+    fireEvent.click(await screen.findByTestId("billing-pay"));
+    await screen.findByTestId("settle-main");
+    const sheet = screen.getByTestId("settle-sheet");
+    expect(within(sheet).getByRole("heading").textContent).toBe("Pay for your last runs");
+    expect(within(sheet).getByText("1 run · charged after it was done")).toBeTruthy();
+    expect(within(sheet).getByTestId("pay-lines").textContent).toBe("Charged in US dollars.");
+    expect(within(sheet).getByText("Your downloads come back as soon as it's paid.")).toBeTruthy();
+    expect(within(sheet).queryByTestId("pay-save-line")).toBeNull();
+    fireEvent.click(within(sheet).getByTestId("settle-main"));
+    expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId("billing-banner")).toBeNull());
     expect(mockDb.billing.unpaid).toHaveLength(0);
   });
 
-  it("completes a 3DS challenge (requires_action → confirm → settled)", async () => {
+  it("a payment still in progress: Confirming your payment…, no button", async () => {
     seedDebt();
-    mockDb.billing.settleOutcome = "requires_action";
-    renderWithBilling(
-      <RequireBilling>
-        <p>studio content</p>
-      </RequireBilling>,
-    );
-    fireEvent.click(await screen.findByTestId("billing-retry"));
-    // the mock 3DS completion settles the debt, then refresh clears the banner
+    renderShell();
+    fireEvent.click(await screen.findByTestId("billing-pay"));
+    await screen.findByTestId("settle-main");
+    const sheet = screen.getByTestId("settle-sheet");
+    mockDb.billing.nextConfirm = "processing";
+    fireEvent.click(within(sheet).getByTestId("settle-main"));
+    expect(await screen.findByTestId("settle-confirming")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() =>
-      expect(screen.queryByTestId("billing-banner")).toBeNull(),
+      expect(screen.getByTestId("billing-banner").textContent).toBe("Confirming your payment…"),
     );
-    expect(mockDb.billing.unpaid).toHaveLength(0);
+    expect(screen.queryByTestId("billing-pay")).toBeNull();
   });
 
-  it("surfaces a repeat decline and keeps the banner", async () => {
+  it("a decline keeps the sheet and the banner", async () => {
     seedDebt();
-    mockDb.billing.settleOutcome = "declined";
-    renderWithBilling(
-      <RequireBilling>
-        <p>studio content</p>
-      </RequireBilling>,
+    renderShell();
+    fireEvent.click(await screen.findByTestId("billing-pay"));
+    await screen.findByTestId("settle-main");
+    const sheet = screen.getByTestId("settle-sheet");
+    mockDb.billing.nextConfirm = "declined";
+    fireEvent.click(within(sheet).getByTestId("settle-main"));
+    expect((await within(sheet).findByTestId("pay-error")).textContent).toBe(
+      "Your payment method was declined. Try another way to pay.",
     );
-    fireEvent.click(await screen.findByTestId("billing-retry"));
-    expect(
-      await screen.findByText(/declined again/),
-    ).toBeTruthy();
     expect(screen.getByTestId("billing-banner")).toBeTruthy();
     expect(mockDb.billing.unpaid).toHaveLength(1);
   });
-});
 
+  it("under review: the banner says so with Contact support", async () => {
+    mockDb.billing.underReview = true;
+    renderShell();
+    const banner = await screen.findByTestId("billing-banner");
+    expect(banner.textContent).toContain("We're checking a payment on your account.");
+    expect(screen.getByTestId("billing-support").getAttribute("href")).toMatch(/^mailto:/);
+  });
+});

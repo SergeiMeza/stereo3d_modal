@@ -351,7 +351,17 @@ export interface ConversionBilling {
     | "refund_pending"
     | "refunded"
     | "not_charged"
-    | "requires_payment";
+    | "requires_payment"
+    /** spec v6 F: paid elsewhere, waiting for the processor to confirm */
+    | "waiting_for_payment";
+  /** spec v6 F: why a web run waits for a payment (requires_payment) */
+  reason?: "no_method" | "authentication" | "declined";
+  /** spec v6 F: the run's open payment, for our pay sheet */
+  checkout?: CheckoutHandle;
+  /** spec v6 F: China mode's server payment */
+  next_action?: { type: "redirect" | "qr"; redirect_url?: string; qr_image_url?: string };
+  /** the declined method, for P3's line ("Visa •••• 4242") */
+  declined_method_label?: string;
   charged_cents?: number; // status === "charged"
   batch_id?: string; // status === "batched": on the account's pending balance
   client_secret?: string; // status === "requires_action" | "requires_payment"
@@ -421,6 +431,10 @@ export interface StepQuoteResponse {
   output_seconds?: number;
   /** the output runs past 15 minutes: offer to split it into parts */
   split_suggested?: boolean;
+  /** spec v6 F: how this run would be paid */
+  payment_flow?: PaymentFlow;
+  pay_now_reason?: "no_method" | "all_methods_failed" | "china" | "account_flag";
+  limits?: AccountLimits;
   /** S3D-67: the caller holds Pro; false = not Pro, absent = the gateway
    * doesn't say */
   pro?: boolean;
@@ -633,6 +647,36 @@ export interface BillingMethods {
 }
 
 /** A pay-now run's payment (S3D-60/61). */
+/** spec v6 F: an open payment our sheet completes (Checkout Elements). */
+export interface CheckoutHandle {
+  client_secret: string;
+  expires_at: string;
+}
+
+/** POST /v1/conversions/{id}/pay-now {ui: "elements"} and POST
+ * /v1/billing/settle {ui: "elements"}: the current payment (opened or
+ * reused) and what it is for. */
+export interface CheckoutStart {
+  checkout: CheckoutHandle;
+  amount_cents: number;
+  publishable_key?: string;
+  /** settle: "open" | "processing" | "paid" */
+  payment_state?: string;
+  /** settle: how many runs it covers */
+  runs?: number;
+}
+
+/** spec v6 C1: how a run is paid, from the account's state. */
+export type PaymentFlow = "after" | "precharge" | "paynow";
+export type FlowState = "credit" | "saved" | "sheet" | "under_review";
+
+/** spec v6 B14: what an account that hasn't saved or paid may still add */
+export interface AccountLimits {
+  projects_left: number;
+  bytes_left: number;
+  reached?: boolean;
+}
+
 export interface PayNowStart {
   method: "alipay" | "wechat_pay";
   /** Alipay: where to send the browser */
@@ -746,6 +790,13 @@ export interface BillingStatus {
   balance?: BillingBalance;
   tier?: BillingTier;
   publishable_key: string;
+  /** spec v6 F/C10: what the account owes (sum, no cap); settling = a
+   * payment for it is in progress */
+  outstanding?: { amount_cents: number; runs: number; settling?: boolean };
+  default_method?: { type: string; label: string };
+  /** spec v6 C1: credit | saved | sheet | under_review */
+  flow_state?: FlowState;
+  limits?: AccountLimits;
 }
 
 /** POST /v1/billing/setup-intent — material for the onboarding Payment

@@ -4,17 +4,15 @@
  * S3D-35: while any payment is outstanding, every project's download
  * buttons read "Pay $X to download" — and View in 3D / play "Pay $X to
  * play", since playing the file is the same access — and lead to the
- * payment step instead of the file. UI only for now: the payment step is the Billing page until
- * the pay sheet ships (billing work is on hold), then PAY_STEP_HREF goes.
+ * payment step instead of the file: the settle sheet (P2, spec v6 P9).
  */
 
-import Link from "next/link";
+import { LockIcon, PlayIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 
+import { useSettle } from "@/components/pay/SettleSheet";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents, payToDownload } from "@/lib/billingCopy";
-
-export const PAY_STEP_HREF = "/account/billing";
 
 /** Cents the account owes; 0 = downloads are open. */
 export function useOutstandingCents(): number {
@@ -32,14 +30,23 @@ export function PayLink({
   verb?: "download" | "play";
   className?: string;
 }): JSX.Element {
+  const { openSettle } = useSettle();
+  const Icon = verb === "play" ? PlayIcon : LockIcon;
+  // one look everywhere (mock P9); only the caller's margins carry over
+  const margins = (className ?? "")
+    .split(/\s+/)
+    .filter((c) => /^-?m[lrxytb]?-/.test(c))
+    .join(" ");
   return (
-    <Link
-      href={PAY_STEP_HREF}
+    <button
+      type="button"
+      onClick={() => openSettle()}
       data-testid={verb === "play" ? "pay-to-play" : "pay-to-download"}
-      className={className}
+      className={`inline-flex items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-red-200 tabular-nums transition-colors hover:bg-red-400/20 ${margins}`}
     >
+      <Icon className="size-3.5" aria-hidden />
       {payToDownload(cents, verb)}
-    </Link>
+    </button>
   );
 }
 

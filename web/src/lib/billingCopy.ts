@@ -69,7 +69,11 @@ export function cancelRule(
 
 /** S3D-35: what the account still owes (failed charges waiting to be
  * paid), in cents; 0 when nothing is outstanding or status is unknown. */
-export function outstandingCents(status: Pick<BillingStatus, "unpaid"> | null): number {
+export function outstandingCents(
+  status: (Pick<BillingStatus, "unpaid"> & Partial<Pick<BillingStatus, "outstanding">>) | null,
+): number {
+  // spec v6 F: the gateway's sum when it sends one
+  if (status?.outstanding) return status.outstanding.amount_cents;
   return (status?.unpaid ?? []).reduce((sum, u) => sum + u.amount_cents, 0);
 }
 

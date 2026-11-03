@@ -5,6 +5,7 @@
  */
 
 import type {
+  CheckoutStart,
   APIErrorBody,
   BillingSettleResult,
   BillingSetupTicket,
@@ -261,6 +262,21 @@ export class GatewayClient {
   }
 
   /** Retry the outstanding automatic charges on the current default card. */
+  /** spec v6 F: the run's open payment for our sheet (opened, or the live
+   * one reused; replace = Try again / Pay here instead). */
+  payNowCheckout(conversionId: string, replace = false): Promise<CheckoutStart> {
+    return this.request(
+      "POST",
+      `/v1/conversions/${encodeURIComponent(conversionId)}/pay-now`,
+      { ui: "elements", ...(replace ? { replace: true } : {}) },
+    );
+  }
+
+  /** spec v6 F/C11: the payment for what the account owes (P2). */
+  settleCheckout(): Promise<CheckoutStart> {
+    return this.request("POST", "/v1/billing/settle", { ui: "elements" });
+  }
+
   settleBilling(): Promise<BillingSettleResult> {
     return this.request("POST", "/v1/billing/settle", {});
   }

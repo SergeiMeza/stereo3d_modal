@@ -157,6 +157,50 @@ interface MockBilling {
   pending: PendingBatch | null;
   /** batch cap for this account, mirroring the gateway's base tier */
   batchCapCents: number;
+  /** spec v6 C13: the account is under review (P9) */
+  underReview: boolean;
+  /** spec v6 C10: a settle payment is in progress (P9 "Confirming…") */
+  settling: boolean;
+  /** spec v6: open payments for our sheet, by client_secret */
+  checkouts: Map<string, MockCheckout>;
+  /** what the next sheet confirm does (tests and the dev preview) */
+  nextConfirm: "paid" | "declined" | "processing" | "too_many";
+}
+
+/** spec v6: one open payment (a run's, or the settle's). */
+interface MockCheckout {
+  kind: "run" | "settle";
+  conversion_id?: string;
+  amount_cents: number;
+  state: "open" | "paid" | "expired";
+  expires_at: string;
+}
+
+/** spec v6 C1: how a run of this price would be paid now. */
+function paymentFlow(amountCents: number): {
+  payment_flow: "after" | "precharge" | "paynow";
+  pay_now_reason?: "no_method";
+} {
+  if (!mockDb.billing.hasPaymentMethod) return { payment_flow: "paynow", pay_now_reason: "no_method" };
+  return { payment_flow: chargeTiming(amountCents) === "before" ? "precharge" : "after" };
+}
+
+function openCheckout(c: Omit<MockCheckout, "state" | "expires_at">): {
+  client_secret: string;
+  expires_at: string;
+} {
+  const secret = `cs_mock_${c.kind}_${c.conversion_id ?? "settle"}_${Math.random().toString(36).slice(2, 8)}`;
+  const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  mockDb.billing.checkouts.set(secret, { ...c, state: "open", expires_at });
+  return { client_secret: secret, expires_at };
+}
+
+/** The live open payment for a run, if one exists. */
+function liveCheckout(conversionId: string): string | undefined {
+  for (const [secret, c] of mockDb.billing.checkouts) {
+    if (c.conversion_id === conversionId && c.state === "open") return secret;
+  }
+  return undefined;
 }
 
 const MOCK_CARD: BillingCard = {
@@ -223,6 +267,10 @@ function seed(): DB {
       nextHoldFails: false,
       pending: null,
       batchCapCents: 5000,
+      underReview: false,
+      settling: false,
+      checkouts: new Map(),
+      nextConfirm: "paid",
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -1612,6 +1660,24 @@ function billingStatus() {
       next_tier: { min_paid_cents: 20000, cap_cents: 15000 },
     },
     publishable_key: "pk_test_mock",
+    // spec v6 F
+    ...(b.unpaid.length > 0
+      ? {
+          outstanding: {
+            amount_cents: b.unpaid.reduce((n, u) => n + u.amount_cents, 0),
+            runs: b.unpaid.length,
+            settling: b.settling,
+          },
+        }
+      : {}),
+    ...(b.card
+      ? { default_method: { type: "card", label: `Visa •••• ${b.card.last4}` } }
+      : {}),
+    flow_state: b.underReview
+      ? ("under_review" as const)
+      : b.hasPaymentMethod
+        ? ("credit" as const)
+        : ("sheet" as const),
   };
 }
 
@@ -1798,7 +1864,30 @@ export const handlers = [
   http.post(`${GATEWAY}/v1/conversions/:id/pay-now`, async ({ params, request }) => {
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "conversion not found");
-    const body = (await request.json()) as { method?: string; return_url?: string };
+    const body = (await request.json()) as {
+      method?: string;
+      return_url?: string;
+      ui?: string;
+      replace?: boolean;
+    };
+    // spec v6 F: the run's open payment for our sheet
+    if (body.ui === "elements") {
+      if (c.state !== "created") return err(409, "already_paid", "this run is already paid");
+      const live = body.replace ? undefined : liveCheckout(c.conversion_id);
+      if (body.replace) {
+        for (const ch of mockDb.billing.checkouts.values()) {
+          if (ch.conversion_id === c.conversion_id && ch.state === "open") ch.state = "expired";
+        }
+      }
+      const checkout = live
+        ? { client_secret: live, expires_at: mockDb.billing.checkouts.get(live)!.expires_at }
+        : openCheckout({ kind: "run", conversion_id: c.conversion_id, amount_cents: c.quote.amount_cents });
+      return HttpResponse.json({
+        checkout,
+        amount_cents: c.quote.amount_cents,
+        publishable_key: "pk_test_mock",
+      });
+    }
     const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     if (body.method === "alipay") {
       return HttpResponse.json({
@@ -1826,9 +1915,70 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
-  // Retry outstanding charges on the current default card.
-  http.post(`${GATEWAY}/v1/billing/settle`, () => {
+  // spec v6: what our sheet's confirm does in the mock (in place of the
+  // processor): paid / declined / processing / too_many
+  http.post(`${GATEWAY}/__mock__/checkout/:secret/confirm`, ({ params }) => {
     const b = mockDb.billing;
+    const ch = b.checkouts.get(params.secret as string);
+    if (!ch) return err(404, "not_found", "no such payment");
+    if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
+    if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    const outcome = b.nextConfirm;
+    b.nextConfirm = "paid";
+    if (outcome !== "paid") {
+      if (outcome === "processing") {
+        if (ch.kind === "settle") b.settling = true;
+        const c = ch.conversion_id ? mockDb.conversions.get(ch.conversion_id) : undefined;
+        if (c) c.billing = { ...c.billing!, status: "waiting_for_payment" };
+      }
+      return HttpResponse.json({ result: outcome });
+    }
+    ch.state = "paid";
+    // the method used is saved for next time (spec v6 C3)
+    b.hasPaymentMethod = true;
+    b.card = { ...MOCK_CARD };
+    b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
+    if (ch.kind === "settle") {
+      b.unpaid = [];
+      b.settling = false;
+      for (const c of mockDb.conversions.values()) {
+        if (c.billing?.status === "charge_failed") {
+          c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+        }
+      }
+    } else if (ch.conversion_id) {
+      const c = mockDb.conversions.get(ch.conversion_id);
+      if (c) {
+        c.state = "paid";
+        c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+      }
+    }
+    return HttpResponse.json({ result: "paid" });
+  }),
+
+  // Retry outstanding charges on the current default card.
+  http.post(`${GATEWAY}/v1/billing/settle`, async ({ request }) => {
+    const b = mockDb.billing;
+    // spec v6 F: {ui: "elements"} → the settle's payment for our sheet (P2)
+    const body = (await request.json().catch(() => ({}))) as { ui?: string };
+    if (body.ui === "elements") {
+      if (b.unpaid.length === 0) return err(409, "already_paid", "nothing is owed");
+      const amount = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
+      let live: string | undefined;
+      for (const [secret, ch] of b.checkouts) {
+        if (ch.kind === "settle" && ch.state === "open") live = secret;
+      }
+      const checkout = live
+        ? { client_secret: live, expires_at: b.checkouts.get(live)!.expires_at }
+        : openCheckout({ kind: "settle", amount_cents: amount });
+      return HttpResponse.json({
+        checkout,
+        amount_cents: amount,
+        runs: b.unpaid.length,
+        payment_state: b.settling ? "processing" : "open",
+        publishable_key: "pk_test_mock",
+      });
+    }
     if (b.settleOutcome === "requires_action" && b.unpaid.length > 0) {
       return HttpResponse.json({
         settled: false,
@@ -2423,6 +2573,7 @@ export const handlers = [
           eta_seconds: q.eta,
           method,
           charge_timing: chargeTiming(q.quote.amount_cents),
+          ...paymentFlow(q.quote.amount_cents),
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
@@ -2449,6 +2600,7 @@ export const handlers = [
         eta_seconds: etaForStep(req.step, billable),
         method,
         charge_timing: chargeTiming(quote.amount_cents),
+        ...paymentFlow(quote.amount_cents),
         output_seconds: billable,
         split_suggested: false,
         ...(req.step === "production"
@@ -2487,12 +2639,8 @@ export const handlers = [
       // The real gateway's pay-as-you-go billing gate (402s, api/billing.go
       // requireBillable) — enforce it here too so the onboarding/settle flows
       // can't silently regress against the mock.
-      if (!mockDb.billing.hasPaymentMethod) {
-        return err(
-          402,
-          "no_payment_method",
-          "add a payment method before starting a conversion",
-        );
+      if (mockDb.billing.underReview) {
+        return err(403, "under_review", "a payment on this account is being checked");
       }
       if (mockDb.billing.unpaid.length > 0) {
         return err(
@@ -2531,8 +2679,10 @@ export const handlers = [
       if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
       // S3D-60: a pay-now default method (Alipay, WeChat Pay) pays each run
       // when it starts — the run waits at "created" for that payment
+      // spec v6: nothing saved → the run waits for our pay sheet (P1)
+      const sheet = !mockDb.billing.hasPaymentMethod;
       const payNow =
-        mockDb.billing.methods.find((m) => m.is_default)?.pay_now === true;
+        sheet || mockDb.billing.methods.find((m) => m.is_default)?.pay_now === true;
       const conv: Conversion = {
         conversion_id: id,
         state: payNow || needs3ds || precharge ? "created" : "paid",
@@ -2554,8 +2704,14 @@ export const handlers = [
           ? {
               billing: {
                 status: "requires_payment" as const,
+                reason: "no_method" as const,
                 client_secret: `pi_mock_paynow_${id}`,
                 publishable_key: "pk_test_mock",
+                checkout: openCheckout({
+                  kind: "run",
+                  conversion_id: id,
+                  amount_cents: quote.amount_cents,
+                }),
               },
             }
           : needs3ds

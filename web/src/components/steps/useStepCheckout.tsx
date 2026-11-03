@@ -32,9 +32,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
-import { UpdateCardToContinue } from "@/components/billing/BillingBanner";
-import { PAID_NOW, PayNowSheet } from "@/components/billing/PayNowSheet";
-import { usePaymentMethods } from "@/lib/api/usePaymentMethods";
+import { PayToContinue, supportMailto } from "@/components/billing/BillingBanner";
+import { PayNowSheet } from "@/components/billing/PayNowSheet";
+import { PaySheet } from "@/components/pay/PaySheet";
+import { chinaPayments } from "@/lib/paymentRegion";
+import { PAUSED_REVIEW, POP_AFTER, POP_PRECHARGE, POP_SHEET } from "@/components/pay/payCopy";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/ui/info-popover";
@@ -51,9 +53,10 @@ import {
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { outstandingCents } from "@/lib/billingCopy";
 
 import { stepCheckoutAtom } from "./checkoutStore";
-import { ConversionTracker, TERMINAL_STATES } from "./ConversionTracker";
+import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
 import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView } from "./QuoteView";
@@ -109,10 +112,12 @@ export interface StepCheckout {
    * mid-run resumes from the latest progress, not the creation response. */
   handleUpdate: (conversion: Conversion) => void;
   onProjectChanged: () => void;
-  /** a pay-now run waiting for its payment (S3D-60/61) */
+  /** a run waiting for its payment: the pay sheet is open (P1/P3) */
   payNow: Conversion | null;
-  /** the sheet closed: paid, or cancelled (the run is cancelled too) */
+  /** the sheet closed: paid, or left open (the run waits, P12) */
   closePayNow: (paid: boolean) => void;
+  /** P12 Finish payment: reopen the waiting run's sheet */
+  reopenPayNow: () => void;
 }
 
 export function useStepCheckout(
@@ -308,13 +313,16 @@ export function useStepCheckout(
     [setState],
   );
 
+  // spec v6 G2: closing a sheet with the payment open needs no
+  // confirmation and cancels nothing — the run shows "Waiting for
+  // payment…" with Finish payment (P12)
   function closePayNow(paid: boolean): void {
-    const conv = payNow;
     setPayNow(null);
-    if (paid || conv === null) return;
-    void client.cancelConversion(conv.conversion_id).catch(() => {});
-    attemptKeyRef.current = null;
-    setState((s) => ({ ...s, active: null, attemptKey: null }));
+    if (paid) void billing.refresh(); // the method used is saved now
+  }
+
+  function reopenPayNow(): void {
+    if (active !== null && active.state === "created") setPayNow(active);
   }
 
   const tracking = active !== null;
@@ -337,7 +345,69 @@ export function useStepCheckout(
     onProjectChanged,
     payNow,
     closePayNow,
+    reopenPayNow,
   };
+}
+
+/** P1/P3 for the checkout's waiting run (China mode: its own sheet,
+ * no Stripe.js — P6 comes with the China screens). */
+function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
+  const conv = ck.payNow;
+  if (conv === null) return null;
+  if (chinaPayments()) {
+    return (
+      <PayNowSheet
+        conversion={conv}
+        onPaid={() => ck.closePayNow(true)}
+        onCancel={() => ck.closePayNow(false)}
+      />
+    );
+  }
+  return (
+    <PaySheet
+      conversionId={conv.conversion_id}
+      amountCents={conv.quote.amount_cents}
+      action={action}
+      subtitle={runLine(conv)}
+      billing={conv.billing}
+      onClose={(outcome) => ck.closePayNow(outcome === "paid")}
+    />
+  );
+}
+
+/** P14: the charge line under the run button, from how it'd be paid. */
+function chargeLineFor(quote: StepQuoteResponse): string {
+  if (quote.payment_flow === "after") return CHARGE_AFTER_COPY;
+  if (quote.payment_flow === "precharge" || quote.payment_flow === "paynow") {
+    return CHARGE_BEFORE_COPY;
+  }
+  return quote.charge_timing === "before" ? CHARGE_BEFORE_COPY : CHARGE_AFTER_COPY;
+}
+
+/** P14: the "?" pop-over, per account state; null = the panel's own. */
+function popoverFor(quote: StepQuoteResponse | null): string | null {
+  switch (quote?.payment_flow) {
+    case "after":
+      return POP_AFTER;
+    case "precharge":
+      return POP_PRECHARGE;
+    case "paynow":
+      return POP_SHEET;
+    default:
+      return null;
+  }
+}
+
+/** P14 "Under review": paused, with Contact support. */
+function UnderReview(): JSX.Element {
+  return (
+    <div data-testid="under-review" className="flex flex-col items-center gap-1.5 text-sm">
+      <span className="text-fg-muted">{PAUSED_REVIEW}</span>
+      <a href={supportMailto()} className="text-primary hover:underline">
+        Contact support
+      </a>
+    </div>
+  );
 }
 
 /** The 402 notice with the right escape hatch: onboarding for a missing
@@ -354,7 +424,7 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
           A payment method is needed before starting paid conversions.
         </p>
         <Link
-          href="/onboarding"
+          href="/account/billing"
           className="mt-1 inline-block text-primary hover:underline"
         >
           Add payment method →
@@ -380,7 +450,7 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
       </div>
     );
   }
-  return <UpdateCardToContinue />;
+  return <PayToContinue />;
 }
 
 export interface StepCheckoutSectionProps {
@@ -409,9 +479,9 @@ export function StepCheckoutSection({
   // S3D-22: while a payment needs a new card, paid actions say so instead
   // of offering their button
   const paymentNeeded =
-    useBilling().status?.delinquent === true ||
+    outstandingCents(useBilling().status) > 0 ||
     ck.billingBlock === "billing_overdue";
-  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
+  if (paymentNeeded && !ck.tracking) return <PayToContinue size="default" />;
   return (
     <>
       <div className="flex items-center gap-3">
@@ -451,15 +521,10 @@ export function StepCheckoutSection({
           onUpdate={ck.handleUpdate}
           showDownloads={trackerDownloads}
           estimateSeconds={ck.quote?.eta_seconds}
+          onFinishPayment={ck.reopenPayNow}
         />
       ) : null}
-      {ck.payNow ? (
-        <PayNowSheet
-          conversion={ck.payNow}
-          onPaid={() => ck.closePayNow(true)}
-          onCancel={() => ck.closePayNow(false)}
-        />
-      ) : null}
+      <PaySheetFor ck={ck} action="Convert" />
     </>
   );
 }
@@ -491,8 +556,10 @@ export interface InstantCheckoutProps {
  * One main button with its price (S3D-45): the run is priced as the
  * settings change (no "Get quote" step), the button starts it, and the
  * details — the quote's lines, the minimum, when it's charged — sit behind
- * the "?" beside the one charging line. While a payment needs a new card
- * the button reads "Update your payment method to continue" (S3D-22/63).
+ * the "?" beside the one charging line. P14: while the account owes the
+ * button reads "Pay $X to continue" (the settle sheet); under review it is
+ * paused with Contact support; a run that waits for its payment opens the
+ * pay sheet (P1/P3).
  */
 export function InstantCheckout({
   checkout: ck,
@@ -506,11 +573,11 @@ export function InstantCheckout({
   variant = "inline",
   heading,
 }: InstantCheckoutProps): JSX.Element {
-  const blocked = disabledReason !== undefined;
+  const status = useBilling().status;
+  const underReview = status?.flow_state === "under_review";
+  const blocked = disabledReason !== undefined || underReview;
   const paymentNeeded =
-    useBilling().status?.delinquent === true ||
-    ck.billingBlock === "billing_overdue";
-  const methods = usePaymentMethods();
+    outstandingCents(status) > 0 || ck.billingBlock === "billing_overdue";
   const key = JSON.stringify(quoteRequest ?? request);
   const lastKey = useRef<string | null>(null);
   const { quote, quoting, running, error, fetchQuote } = ck;
@@ -530,20 +597,11 @@ export function InstantCheckout({
   }, [key, blocked, running, quoting, quote, error]);
 
   const price = quote ? formatCents(quote.quote.amount_cents) : null;
-  const sheet = ck.payNow ? (
-    <PayNowSheet
-      conversion={ck.payNow}
-      onPaid={() => ck.closePayNow(true)}
-      onCancel={() => ck.closePayNow(false)}
-    />
-  ) : null;
-  // S3D-60: a pay-now default method pays each run when it starts
-  const payNowDefault = methods?.find((m) => m.is_default)?.pay_now === true;
-  const chargeText = payNowDefault
-    ? PAID_NOW
-    : quote?.charge_timing === "before"
-      ? CHARGE_BEFORE_COPY
-      : CHARGE_AFTER_COPY;
+  const sheet = <PaySheetFor ck={ck} action={label} />;
+  const chargeText = quote ? chargeLineFor(quote) : CHARGE_AFTER_COPY;
+  // P14: the pop-over says how this account pays; the panel's own when the
+  // gateway doesn't say
+  const popover = popoverFor(quote) ?? explain;
   const tracker =
     ck.tracking && ck.active ? (
       <ConversionTracker
@@ -553,15 +611,17 @@ export function InstantCheckout({
         onUpdate={ck.handleUpdate}
         showDownloads={trackerDownloads}
         estimateSeconds={quote?.eta_seconds}
+        onFinishPayment={ck.reopenPayNow}
       />
     ) : null;
+  const owes = paymentNeeded && !ck.tracking;
   if (variant === "panel") {
-    const chargeHint = quote ? (
+    const chargeHint = quote && !owes && !underReview ? (
       <span className="flex items-center gap-1.5">
         <span data-testid="charge-timing-hint" className="text-xs text-fg">
           {chargeText}
         </span>
-        {explain ? <InfoPopover label="?" align="right">{explain}</InfoPopover> : null}
+        {popover ? <InfoPopover label="?" align="right">{popover}</InfoPopover> : null}
       </span>
     ) : null;
     return (
@@ -579,8 +639,8 @@ export function InstantCheckout({
             </p>
           )}
           {chargeHint}
-          {paymentNeeded && !ck.tracking ? (
-            <UpdateCardToContinue />
+          {owes ? (
+            <PayToContinue />
           ) : (
             <Button
               size="lg"
@@ -593,6 +653,7 @@ export function InstantCheckout({
               {price ? ` · ${price}` : ""}
             </Button>
           )}
+          {underReview && !owes ? <UnderReview /> : null}
           {after}
           {error && quote ? <p className="text-sm text-red-400">{error}</p> : null}
           {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
@@ -600,7 +661,11 @@ export function InstantCheckout({
         {tracker}
         {sheet}
         {/* phone (screen 11): the one button stays in reach at the bottom */}
-        {!(paymentNeeded && !ck.tracking) && !running ? (
+        {owes ? (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
+            <PayToContinue />
+          </div>
+        ) : !running ? (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
             <Button
               size="lg"
@@ -617,7 +682,17 @@ export function InstantCheckout({
       </div>
     );
   }
-  if (paymentNeeded && !ck.tracking) return <UpdateCardToContinue />;
+  if (owes) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="w-fit">
+          <PayToContinue />
+        </div>
+        {tracker}
+        {sheet}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -630,7 +705,9 @@ export function InstantCheckout({
           {label}
           {price ? ` · ${price}` : ""}
         </Button>
-        {blocked ? (
+        {underReview ? (
+          <UnderReview />
+        ) : blocked ? (
           <span className="text-xs text-amber-400">{disabledReason}</span>
         ) : quote ? (
           <span className="flex items-center gap-1.5">
@@ -638,6 +715,7 @@ export function InstantCheckout({
               {chargeText}
             </span>
             <InfoPopover label="?">
+              {popoverFor(quote) ? <p>{popoverFor(quote)}</p> : null}
               {explain}
               <QuoteView result={quote} />
             </InfoPopover>

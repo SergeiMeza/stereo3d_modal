@@ -4,7 +4,7 @@
  * inline previews, and failed-run error messages.
  */
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   afterAll,
   afterEach,
@@ -17,6 +17,7 @@ import {
 
 import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { SettleProvider } from "@/components/pay/SettleSheet";
 import { BillingProvider } from "@/lib/billing";
 import { outstandingCents, payToDownload } from "@/lib/billingCopy";
 import { mockDb } from "@/mocks/handlers";
@@ -99,7 +100,9 @@ function renderWithHistory(conversions: Conversion[]) {
   render(
     <AuthProvider>
       <BillingProvider>
-        <HistoryList project={project} />
+        <SettleProvider>
+          <HistoryList project={project} />
+        </SettleProvider>
       </BillingProvider>
     </AuthProvider>,
   );
@@ -156,14 +159,15 @@ describe("Files (screen 09)", () => {
     renderWithHistory([made]);
     const pay = await screen.findByTestId("pay-to-download");
     expect(pay.textContent).toBe("Pay $12.50 to download");
-    expect(pay.getAttribute("href")).toBe("/account/billing");
     const files = screen.getByTestId("run-files");
     expect(within(files).queryByRole("link", { name: "Download" })).toBeNull();
     // playing the file is the same access: View in 3D reads Pay $X to play
     expect(within(files).queryByTestId("view-in-3d")).toBeNull();
     const play = within(files).getByTestId("pay-to-play");
     expect(play.textContent).toBe("Pay $12.50 to play");
-    expect(play.getAttribute("href")).toBe("/account/billing");
+    // P9: either opens the settle sheet (P2)
+    fireEvent.click(pay);
+    expect(await screen.findByTestId("settle-sheet")).toBeTruthy();
   });
 
   it("sums what's owed; nothing owed means plain downloads", () => {

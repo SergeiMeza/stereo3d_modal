@@ -39,6 +39,7 @@ import type {
   StepConversionRequest,
 } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import { cutsToRanges, frameToTimecode, parseRational } from "@/lib/frames";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
@@ -367,36 +368,40 @@ describe("DepthPanel in-flight state survival (checkoutStore)", () => {
 });
 
 describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
-  it("blocks with the onboarding notice when no payment method is saved (gateway 402 no_payment_method)", async () => {
+  it("nothing saved: Convert opens the pay sheet for the run (spec v6 P1, no 402)", async () => {
     mockDb.billing.hasPaymentMethod = false;
+    mockDb.billing.card = undefined;
+    mockDb.billing.methods = [];
     const user = userEvent.setup();
     renderPanel();
     await getQuote(user);
 
     await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
-    const notice = await screen.findByTestId("billing-block");
-    expect(notice.textContent).toContain("payment method");
-    const link = within(notice).getByRole("link", { name: /Add payment method/ });
-    expect(link.getAttribute("href")).toBe("/onboarding");
-    expect(mockDb.conversions.size).toBe(0);
+    await screen.findByTestId("pay-main");
+    expect(screen.getByTestId("pay-sheet")).toBeTruthy();
+    const runs = [...mockDb.conversions.values()];
+    expect(runs).toHaveLength(1);
+    expect(runs[0].state).toBe("created");
   });
 
-  it("asks for a new card when a payment is outstanding (gateway 402 payment_method_needed)", async () => {
+  it("while the account owes, the run button reads Pay $X to continue (P14)", async () => {
     mockDb.billing.unpaid.push({
       conversion_id: "m0cdeadbeef1",
       amount_cents: 120,
       currency: "usd",
       needs_action: false,
     });
-    const user = userEvent.setup();
-    renderPanel();
-    await getQuote(user);
-
-    await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
-
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <DepthPanel project={fixtureProject()} onProjectChanged={vi.fn()} />
+        </BillingProvider>
+      </AuthProvider>,
+    );
     const notice = await screen.findByTestId("billing-block");
-    expect(notice.textContent).toContain("Update your payment method to continue");
+    expect(notice.textContent).toBe("Pay $1.20 to continue");
+    expect(screen.queryByRole("button", { name: /^Convert · \$/ })).toBeNull();
     expect(mockDb.conversions.size).toBe(0);
   });
 

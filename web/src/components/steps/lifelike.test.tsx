@@ -145,7 +145,10 @@ describe("Lifelike qualities", () => {
     );
     expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "?" }));
-    expect(screen.getByRole("dialog").textContent).toMatch(/first minute/);
+    // P14: a saved method, $25 or less: charged after it's done
+    expect(screen.getByRole("dialog").textContent).toContain(
+      "Charged to your default payment method when it's ready. Not charged if it fails.",
+    );
   });
 
   it("names the real size: Full resolution between steps and below 1080 (S3D-04)", () => {
@@ -826,29 +829,73 @@ describe("Bitrate under Advanced (S3D-56)", () => {
 });
 
 describe("pay-now methods (S3D-60/61)", () => {
-  it("pays the run in a sheet when the default method pays now, and says so", async () => {
-    mockDb.billing.methods = [
-      { id: "pm_alipay", type: "alipay", is_default: true, pay_now: true },
-    ];
+  it("nothing saved: the run button opens the pay sheet (P1), paying starts the run and saves the method", async () => {
+    mockDb.billing.hasPaymentMethod = false;
+    mockDb.billing.card = undefined;
+    mockDb.billing.methods = [];
     renderPanel(
       <LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
+    // P14 Sheet: charged when it starts
     await waitFor(() =>
       expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
-        "Paid now. Refunded in full if it fails.",
+        "Charged when it starts. Refunded if it fails.",
       ),
     );
     await waitFor(() =>
       expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
     );
     fireEvent.click(screen.getByTestId("checkout-main"));
-    const sheet = await screen.findByTestId("pay-now-sheet");
-    expect(within(sheet).getByText("Paid now. Refunded in full if it fails.")).toBeTruthy();
-    fireEvent.click(within(sheet).getByTestId("mock-pay-now"));
-    await waitFor(() => expect(screen.queryByTestId("pay-now-sheet")).toBeNull());
+    const sheet = await screen.findByTestId("pay-sheet");
+    expect(within(sheet).getByRole("heading").textContent).toBe("Preview this moment · $1.00");
+    expect(within(sheet).getByTestId("pay-lines").textContent).toBe(
+      "Charged in US dollars.It starts right away. You agree that you lose your right to cancel once it's done.",
+    );
+    expect(within(sheet).getByText("Refunded in full if it fails.")).toBeTruthy();
+    expect(within(sheet).getByTestId("pay-save-line")).toBeTruthy();
+    const pay = within(sheet).getByTestId("pay-main");
+    expect(pay.textContent).toBe("Pay $1.00 and start");
+    fireEvent.click(pay);
+    expect(await screen.findByText("Paid. Starting your 3D…")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId("pay-sheet")).toBeNull(), { timeout: 3000 });
     const runs = [...mockDb.conversions.values()];
     expect(runs).toHaveLength(1);
-    await waitFor(() => expect(mockDb.conversions.get(runs[0].conversion_id)!.state).not.toBe("created"));
+    expect(runs[0].state).not.toBe("created");
+    expect(mockDb.billing.hasPaymentMethod).toBe(true);
+    expect(document.body.textContent).not.toMatch(/Stripe|relay|proxy/i);
+  });
+
+  it("closing leaves the run waiting; Finish payment reopens the same payment; a decline says so (P1, P12)", async () => {
+    mockDb.billing.hasPaymentMethod = false;
+    mockDb.billing.card = undefined;
+    mockDb.billing.methods = [];
+    renderPanel(
+      <LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    await screen.findByTestId("pay-sheet");
+    const secrets = [...mockDb.billing.checkouts.keys()];
+    expect(secrets).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByTestId("pay-sheet")).toBeNull());
+    // nothing cancelled: the run waits for its payment
+    const run = [...mockDb.conversions.values()][0];
+    expect(run.state).toBe("created");
+    expect((await screen.findByTestId("waiting-for-payment")).textContent).toContain(
+      "Waiting for payment…",
+    );
+    fireEvent.click(screen.getByTestId("finish-payment"));
+    const sheet = await screen.findByTestId("pay-sheet");
+    // the same payment, not a new one
+    expect([...mockDb.billing.checkouts.keys()]).toEqual(secrets);
+    mockDb.billing.nextConfirm = "declined";
+    fireEvent.click(within(sheet).getByTestId("pay-main"));
+    expect((await within(sheet).findByTestId("pay-error")).textContent).toBe(
+      "Your payment method was declined. Try another way to pay.",
+    );
   });
 
   it("China mode: Alipay or WeChat Pay through the gateway, WeChat shows its code", async () => {
