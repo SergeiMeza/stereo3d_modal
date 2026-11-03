@@ -3,9 +3,14 @@
  * Billing packages. Pure: the mapping and the labels are tested without the
  * SDK. Prices are RevenueCat's formatted strings in the buyer's currency;
  * nothing here hardcodes an amount except the mock plans.
+ *
+ * No Lifetime on the web (owner, 2026-11-03): the plans are Weekly,
+ * Monthly, Yearly and the 3-month pass. A Lifetime package in the offering
+ * is skipped. App Store Lifetime owners are still Pro (the gateway reads
+ * the `pro` entitlement).
  */
 
-export type PlanKind = "weekly" | "monthly" | "yearly" | "lifetime" | "pass";
+export type PlanKind = "weekly" | "monthly" | "yearly" | "pass";
 
 export interface ProPlan {
   /** RevenueCat package identifier ($rc_monthly…) */
@@ -53,11 +58,10 @@ const PACKAGE_KIND: Record<string, PlanKind> = {
   $rc_weekly: "weekly",
   $rc_monthly: "monthly",
   $rc_annual: "yearly",
-  $rc_lifetime: "lifetime",
 };
 
 /** Order on the page: the app's paywall leads with Weekly (PRC-05). */
-const ORDER: PlanKind[] = ["weekly", "monthly", "yearly", "lifetime", "pass"];
+const ORDER: PlanKind[] = ["weekly", "monthly", "yearly", "pass"];
 
 export function planFromPackage(p: PackageLike): ProPlan | null {
   const prod = p.webBillingProduct;
@@ -66,9 +70,8 @@ export function planFromPackage(p: PackageLike): ProPlan | null {
   if (pass) kind = "pass";
   else if (prod.productType === "subscription") {
     kind = PERIOD_KIND[prod.normalPeriodDuration ?? ""] ?? PACKAGE_KIND[p.packageType];
-  } else {
-    kind = PACKAGE_KIND[p.packageType] ?? "lifetime";
   }
+  // anything else one-time (Lifetime) isn't sold on the web
   if (!kind) return null;
   const ip = prod.introPricePhase;
   return {
@@ -104,7 +107,6 @@ const NAME: Record<PlanKind, string> = {
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
-  lifetime: "Lifetime",
   pass: "Pass",
 };
 
@@ -118,7 +120,7 @@ export function planName(p: ProPlan): string {
   return p.kind === "pass" ? `${p.months ?? 3} months` : NAME[p.kind];
 }
 
-/** "/ week"; "once" for Lifetime and passes. */
+/** "/ week"; "once" for a pass. */
 export function planCadence(p: ProPlan): string {
   const unit = UNIT[p.kind];
   return unit ? `/ ${unit}` : "once";
@@ -135,12 +137,11 @@ export function introLine(p: ProPlan): string | null {
 
 /** What the plan's footnote says it does. */
 export function planTerms(p: ProPlan): string {
-  if (p.kind === "lifetime") return "Pay once, Pro for good.";
   if (p.kind === "pass") return `${p.months ?? 3} months of Pro. Doesn't renew.`;
   return "Renews until you cancel.";
 }
 
-/** Price per month in micros (for "best value"; passes and Lifetime: null). */
+/** Price per month in micros (for "best value"; passes: null). */
 export function monthlyMicros(p: ProPlan): number | null {
   if (p.kind === "weekly") return (p.amountMicros * 52) / 12;
   if (p.kind === "monthly") return p.amountMicros;
@@ -196,16 +197,6 @@ export const MOCK_PLANS: ProPlan[] = [
     currency: "USD",
     months: null,
     intro: { price: "$47.99", per: "yearly", cycles: 1 },
-  },
-  {
-    id: "$rc_lifetime",
-    productId: "web_pro_subs_lifetime_v2",
-    kind: "lifetime",
-    price: "$149.99",
-    amountMicros: 149_990_000,
-    currency: "USD",
-    months: null,
-    intro: null,
   },
   {
     id: "pass_3m",
