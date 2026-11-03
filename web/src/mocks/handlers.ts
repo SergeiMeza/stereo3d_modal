@@ -2596,9 +2596,11 @@ export const handlers = [
           format,
           ...(m ? { part: Number(m[2]) } : {}),
           size_bytes: mockOutputBytes(c, format),
-          filename: m
-            ? `${projectName} 3D Part ${Number(m[2])}.${ext}`
-            : `${projectName} 3D.${ext}`,
+          // S3D-31: <original>_<resolution>_<layout>.<ext>, the name the
+          // signed URL's Content-Disposition carries too
+          filename: `${projectName}_${c.params?.preset ?? "1080p"}_${format}${
+            m ? `_part${Number(m[2])}` : ""
+          }.${ext}`,
           url: url(name),
         };
       }),

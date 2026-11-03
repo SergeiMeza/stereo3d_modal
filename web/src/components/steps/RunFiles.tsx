@@ -241,7 +241,9 @@ export function RunFiles({
               ) : null}
               <a
                 href={f.url}
-                download={f.filename ?? true}
+                // S3D-31: a bare download attribute — the saved name is the
+                // one the gateway sends (Content-Disposition), never ours
+                download
                 onClick={(e) => open(e, f.name)}
                 className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
               >

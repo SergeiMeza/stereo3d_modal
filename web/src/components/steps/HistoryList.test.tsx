@@ -133,7 +133,9 @@ describe("Files (screen 09)", () => {
     // the depth run sells its depth video only; depth_vis is never offered
     expect(within(files).getByTestId("file-group-depth")).toBeDefined();
     expect(within(files).queryByTestId("file-group-anaglyph")).toBeNull();
-    expect(within(files).getByRole("link", { name: "Download" })).toBeDefined();
+    const link = within(files).getByRole("link", { name: "Download" });
+    // S3D-31: the gateway names the file (Content-Disposition); we never rename it
+    expect(link.getAttribute("download")).toBe("");
   });
 
   it("refreshes expired links on click", async () => {
