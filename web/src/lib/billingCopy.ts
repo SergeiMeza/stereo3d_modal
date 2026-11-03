@@ -73,8 +73,8 @@ export function outstandingCents(status: Pick<BillingStatus, "unpaid"> | null): 
   return (status?.unpaid ?? []).reduce((sum, u) => sum + u.amount_cents, 0);
 }
 
-/** S3D-35: the label every download button carries while a payment is
- * outstanding. */
-export function payToDownload(cents: number): string {
-  return `Pay ${formatCentsShort(cents)} to download`;
+/** S3D-35: the label every download (or play) button carries while a
+ * payment is outstanding — playing the file is the same access. */
+export function payToDownload(cents: number, verb: "download" | "play" = "download"): string {
+  return `Pay ${formatCentsShort(cents)} to ${verb}`;
 }

@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { Button } from "@/components/ui/button";
+import { PayLink, useOutstandingCents } from "@/components/billing/PayToDownload";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   detectClient,
   enterFullscreen,
@@ -66,6 +67,8 @@ export function ViewIn3D({
   hideHint?: boolean;
 }): JSX.Element | null {
   const client = useClient();
+  // S3D-35: playing the file is the same access as downloading it
+  const owed = useOutstandingCents();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const choice = files ? playChoice(client, files) : null;
@@ -104,6 +107,15 @@ export function ViewIn3D({
   }, []);
 
   if (!choice) return null;
+  if (owed > 0) {
+    return (
+      <PayLink
+        cents={owed}
+        verb="play"
+        className={buttonVariants({ variant: "outline", size })}
+      />
+    );
+  }
   const label = choice.stereo ? "View in 3D" : "Full screen";
   const hint = choice.stereo && !hideHint ? HEADSET_HINT[client] : undefined;
 

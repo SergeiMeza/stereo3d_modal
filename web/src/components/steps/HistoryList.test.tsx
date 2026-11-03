@@ -146,12 +146,24 @@ describe("Files (screen 09)", () => {
     const other: Conversion = { ...SUCCEEDED, conversion_id: "conv00000owed", quote: { amount_cents: 1250, currency: "usd" } };
     mockDb.conversions.set(other.conversion_id, structuredClone(other));
     mockDb.failCharge(other.conversion_id);
-    renderWithHistory([SUCCEEDED]);
+    const made: Conversion = {
+      ...SUCCEEDED,
+      conversion_id: "conv00000made",
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      outputs: ["sbs"],
+    };
+    renderWithHistory([made]);
     const pay = await screen.findByTestId("pay-to-download");
     expect(pay.textContent).toBe("Pay $12.50 to download");
     expect(pay.getAttribute("href")).toBe("/account/billing");
     const files = screen.getByTestId("run-files");
     expect(within(files).queryByRole("link", { name: "Download" })).toBeNull();
+    // playing the file is the same access: View in 3D reads Pay $X to play
+    expect(within(files).queryByTestId("view-in-3d")).toBeNull();
+    const play = within(files).getByTestId("pay-to-play");
+    expect(play.textContent).toBe("Pay $12.50 to play");
+    expect(play.getAttribute("href")).toBe("/account/billing");
   });
 
   it("sums what's owed; nothing owed means plain downloads", () => {
@@ -165,6 +177,7 @@ describe("Files (screen 09)", () => {
       }),
     ).toBe(1500);
     expect(payToDownload(1500)).toBe("Pay $15 to download");
+    expect(payToDownload(725, "play")).toBe("Pay $7.25 to play");
   });
 
   it("refreshes expired links on click", async () => {

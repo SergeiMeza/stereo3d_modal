@@ -241,6 +241,7 @@ export function RunFiles({
                 <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint />
               ) : null}
               <DownloadGate
+                verb={preview && !thisHeadset ? "play" : "download"}
                 className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
               >
                 <a

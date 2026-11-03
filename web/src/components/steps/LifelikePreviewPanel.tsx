@@ -49,6 +49,7 @@ import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
+import { buttonVariants } from "@/components/ui/button";
 
 /** The preview's source range for a chosen start frame: about
  * LIFELIKE_PREVIEW_SECONDS long, half open, inside [0, numFrames). */
@@ -191,14 +192,16 @@ export function LifelikePreviewPanel({
         // inline; View in 3D shows it in 3D
         <>
           {downloads.mvhevc ? (
-            <video
-              src={downloads.mvhevc}
-              controls
-              playsInline
-              preload="metadata"
-              data-testid="lifelike-preview-video"
-              className="w-full rounded-md border border-edge bg-black"
-            />
+            <DownloadGate hide>
+              <video
+                src={downloads.mvhevc}
+                controls
+                playsInline
+                preload="metadata"
+                data-testid="lifelike-preview-video"
+                className="w-full rounded-md border border-edge bg-black"
+              />
+            </DownloadGate>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <ViewIn3D files={downloads} />
@@ -209,11 +212,14 @@ export function LifelikePreviewPanel({
         </>
       ) : (
         <>
-          <StereoCheckViewer
-            url={output.url}
-            aspect={probe.width / probe.height}
-            mode={mode}
-          />
+          {/* S3D-35: the 3D check plays the file — gated like a download */}
+          <DownloadGate verb="play" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <StereoCheckViewer
+              url={output.url}
+              aspect={probe.width / probe.height}
+              mode={mode}
+            />
+          </DownloadGate>
           <div className="flex flex-wrap items-center gap-2">
             <div
               role="radiogroup"

@@ -89,13 +89,17 @@ export function DownloadsList({
             </a>
           </DownloadGate>
           {INLINE_PLAYABLE.has(splitPart(name)?.base ?? name) ? (
-            <video
-              src={url}
-              controls
-              preload="metadata"
-              data-testid={`preview-${name}`}
-              className="w-full max-w-xl rounded-md border border-edge bg-black"
-            />
+            // S3D-35: no inline player while a payment is outstanding;
+            // the pay link above stands for this file
+            <DownloadGate hide>
+              <video
+                src={url}
+                controls
+                preload="metadata"
+                data-testid={`preview-${name}`}
+                className="w-full max-w-xl rounded-md border border-edge bg-black"
+              />
+            </DownloadGate>
           ) : null}
         </li>
       ))}

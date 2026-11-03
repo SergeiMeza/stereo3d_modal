@@ -279,6 +279,14 @@ export const mockDb = {
   },
 };
 
+/** The layout marker in a mock file name (the gateway owns the real
+ * ones; these follow the design mocks). */
+const MOCK_LAYOUT_MARKERS: Record<string, string> = {
+  mvhevc: "spatial",
+  sbs: "SBS",
+  half_sbs: "Half-SBS",
+};
+
 function err(status: number, code: string, message: string) {
   return HttpResponse.json(
     { success: false, error: code, message },
@@ -2596,11 +2604,12 @@ export const handlers = [
           format,
           ...(m ? { part: Number(m[2]) } : {}),
           size_bytes: mockOutputBytes(c, format),
-          // S3D-31: <original>_<resolution>_<layout>.<ext>, the name the
-          // signed URL's Content-Disposition carries too
-          filename: `${projectName}_${c.params?.preset ?? "1080p"}_${format}${
+          // S3D-31: <original>_<resolution>[_partN]_<layout>.<ext> (the
+          // part before the layout marker so players still read it), the
+          // name the signed URL's Content-Disposition carries too
+          filename: `${projectName}_${c.params?.preset ?? "1080p"}${
             m ? `_part${Number(m[2])}` : ""
-          }.${ext}`,
+          }_${MOCK_LAYOUT_MARKERS[format] ?? format}.${ext}`,
           url: url(name),
         };
       }),

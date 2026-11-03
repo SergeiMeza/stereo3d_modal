@@ -431,7 +431,8 @@ export interface DownloadFile {
   name: string; // the downloads key, e.g. "mvhevc_part02"
   format: string; // "mvhevc"
   part?: number; // 1-based, split runs only
-  /** S3D-31: the saved name, "<original>_<resolution>_<layout>.<ext>" —
+  /** S3D-31: the saved name, "<original>_<resolution>_<layout>.<ext>",
+   * split runs "<original>_<resolution>_partN_<layout>.<ext>" —
    * also the signed URL's Content-Disposition, so links never rename it */
   filename?: string;
   url: string;
