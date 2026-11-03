@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Step } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useProOffer } from "@/lib/pro/usePro";
 
 /** The Pro page (built by the sign-in/Pro work); the sheet's one action. */
 export const PRO_PAGE_HREF = "/pro";
@@ -62,6 +63,7 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
             <DialogDescription>
               One membership for the web and the Spatial Video Studio apps.
             </DialogDescription>
+            {open ? <ProPriceLine /> : null}
           </DialogHeader>
           <Button asChild size="lg" className="w-full">
             <Link href={PRO_PAGE_HREF} data-testid="pro-sheet-get">
@@ -71,5 +73,17 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** The Pro price in one line (the Pro page's anchor plan); nothing until
+ * the plans load. Mounted only while the sheet is open. */
+function ProPriceLine(): JSX.Element | null {
+  const offer = useProOffer();
+  if (!offer) return null;
+  return (
+    <p data-testid="pro-sheet-price" className="text-sm text-fg tabular-nums">
+      {offer.line}
+    </p>
   );
 }
