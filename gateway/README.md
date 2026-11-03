@@ -794,9 +794,77 @@ responses are `no-store`.
 | `GET /v1/admin/policy` | `{policy, edit_in}` |
 | `GET /v1/admin/mail-previews` | rendered E6/E9–E12 samples |
 
-Not built yet: the download log (M8; evidence says "not recorded yet"),
-the `svs-admin` CLI, the nightly M3 check, a dispute fingerprint block
-list, per-line credit notes, and the admin console app itself.
+Still not built: the admin console app itself.
+
+### Download log, M3, block list, credit notes and svs-admin (spec M8, M3, H, C8, M1)
+
+**Download and play log (M8)**: `downloads_{env}/{auto_id}`
+`{uid, conversion_id, project_id, file, kind, at, ip_country, ip_hash,
+user_agent, expire_at}`. One row per signed URL handed out by
+`GET /v1/conversions/{id}/downloads` (`kind: download_issued`) and per
+play the web reports with **`POST /v1/conversions/{id}/plays {file,
+kind: view_in_3d|preview}` → `{logged: true}`** (optional; older clients
+just leave no play rows). Rows are queued and written in batches (every
+2 s, flushed on SIGTERM). `ip_hash` is a salted SHA-256 (`IP_HASH_SALT`,
+else derived from the reconcile token); the raw IP is never stored.
+`ip_country` comes from the first of `X-Client-Region`,
+`X-Client-Country`, `X-Client-Geo-Country`, `CF-IPCountry`,
+`X-Appengine-Country`. Cloud Run adds none, so the load balancer needs a
+custom request header `X-Client-Region: {client_region}` (owner, infra).
+Kept 13 months: `expire_at` is ready for a Firestore TTL policy
+(`gcloud firestore fields ttls update expire_at
+--collection-group=downloads_{env} --enable-ttl`), and M3 deletes rows
+past 13 months anyway. Case evidence (M7) lists them under `downloads`.
+
+**M3 nightly reconciliation**: once a day from the minute reconciler
+(the first sweep after 18:00 UTC = 03:00 JST, claimed by
+`counters_{env}/m3_{date}`), or on demand (`POST /v1/admin/reconcile
+{since_hours, dry_run}`, `svs-admin reconcile`). It searches this env's
+`svs-web` PaymentIntents of the last 48 h (Search API, paced) and checks
+the E0 invariants. Flags: `no_record` (refunded, late_or_duplicate),
+`not_current` (replayed through the webhook path: E0-2 adopt or refund),
+`double_paid`, `no_invoice` (after 1 h), `invoice_mismatch`,
+`open_invoice`, `refund_no_record`, `invoice_overpaid`,
+`run_past_expiry`, `balance_mismatch` (balance ≠ Σ entries, or held ≠ Σ
+holds), `topup_entries` (a paid top-up without exactly one topup entry),
+`leaked_hold` (an open hold on a terminal run). The report goes to Slack
+and to `reconcile_reports_{env}/{id}` `{id, env, since, at, dry_run,
+payment_intents_searched, counts, flags[{flag, ref, uid, cents, detail,
+action}], errors, downloads_deleted, duration_ms}` for the KPI stack.
+
+**Block list (H, B11)**: `blocklist_{env}/{fingerprint}` `{fingerprint,
+reason: dispute|efw|manual, source_id, uid, pi, brand, country, by, note,
+at, hits, last_hit_at}`. A dispute or early fraud warning adds the card
+by itself. At the gate, a default card on the list gets 403
+`payment_method_blocked` (runs and top-ups), and the backup loops skip
+listed cards. A payment that still succeeds with one is refunded in full
+(undelivered runs cancelled as ours, delivered ones a manual case,
+top-ups withdrawn), the account goes under review and Slack is told.
+`GET/POST /v1/admin/blocklist {action: add|remove, fingerprint, note}`.
+
+**Credit notes per line (C8 step 4)**: a refund the ledger knows the
+runs of credits those runs' invoice lines (`lines[][invoice_line_item]`
+plus `refunds[][refund]`); money returned outside Stripe gets
+`out_of_band_amount` on its lines. A Dashboard refund with no runs, an
+invoice with automatic tax, or a per-line note Stripe refuses falls back
+to amount-only. The refund path and the invoice job both use it.
+
+**Deletion waits for the closure case (N8 step 3)**: `POST
+/v1/account/delete {balance_confirmed: true}` with cash in the balance
+now answers **202 `{deleted: false, deletion_pending: true, case_id,
+refund_cents, message}`** and keeps the account (new runs and top-ups get
+403 `deletion_pending`; auto-reload pauses). The account is deleted when
+the closure case is decided (an admin decision, or the cases sweep).
+Asking again while pending answers the same 202. Without cash (plan
+credit only) the deletion goes ahead at once.
+
+**svs-admin**: `go run ./cmd/svs-admin [-env test|prod] <command>`:
+`cases`, `case`, `act` (case actions, `-items c1=100`, `-expected-max`),
+`open`, `account`, `account-action`, `disputes [-csv]`, `policy`,
+`mail-previews`, `reconcile [-since 48h] [-dry-run]`, `blocklist
+[add|remove FP]`. It calls the same handlers in process (same audit
+rows, `who: cli:$USER`), reads keys from Secret Manager with gcloud
+(never printed) and asks before money actions unless `-yes`.
 
 ## Support runbook
 
