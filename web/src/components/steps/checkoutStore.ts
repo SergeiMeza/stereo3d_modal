@@ -18,7 +18,12 @@
 
 import { atom, type PrimitiveAtom } from "jotai";
 
-import type { Conversion, Step, StepQuoteResponse } from "@/lib/api/types";
+import type {
+  Conversion,
+  Method,
+  Step,
+  StepQuoteResponse,
+} from "@/lib/api/types";
 
 export interface StepCheckoutState {
   /** Priced quote for the panel's current params. */
@@ -43,12 +48,18 @@ export const EMPTY_CHECKOUT: StepCheckoutState = {
 
 const atoms = new Map<string, PrimitiveAtom<StepCheckoutState>>();
 
-/** The surviving checkout state for one (project, step) panel. */
+/** The surviving checkout state for one (project, step) panel. Both
+ * methods have a production page, so it is keyed by method too — a
+ * Lifelike run in flight never shows up on the Classic page. */
 export function stepCheckoutAtom(
   projectId: string,
   step: Step,
+  method: Method = "classic",
 ): PrimitiveAtom<StepCheckoutState> {
-  const key = `${projectId}/${step}`;
+  const key =
+    method === "classic"
+      ? `${projectId}/${step}`
+      : `${projectId}/${method}/${step}`;
   let a = atoms.get(key);
   if (a === undefined) {
     a = atom<StepCheckoutState>(EMPTY_CHECKOUT);

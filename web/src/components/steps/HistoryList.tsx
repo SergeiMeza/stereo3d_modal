@@ -10,10 +10,15 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { Conversion, Project } from "@/lib/api/types";
+import {
+  conversionMethod,
+  type Conversion,
+  type Project,
+} from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
+import { formatLength, METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
 import { INPAINT_LABELS, WARP_LABELS } from "./outputOptions";
 import { StateChip } from "./StateChip";
@@ -21,6 +26,7 @@ import { StateChip } from "./StateChip";
 const STEP_LABELS: Record<string, string> = {
   depth_preview: "Depth preview",
   stereo_preview: "Stereo preview",
+  lifelike_preview: "Preview",
   production: "Production",
 };
 
@@ -41,6 +47,9 @@ export function paramsSummary(c: Conversion): string {
       ? `${p.scene_overrides.length} scene override${p.scene_overrides.length === 1 ? "" : "s"}`
       : null,
     p.target_fps !== undefined ? `${p.target_fps} fps` : null,
+    p.split_max_seconds !== undefined
+      ? `parts of up to ${formatLength(p.split_max_seconds)}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -55,8 +64,8 @@ export function HistoryList({ project }: { project: Project }): JSX.Element {
     <section aria-label="Conversion history" className="flex flex-col gap-2">
       {conversions.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          No conversions yet — run a step from the Depth, Stereo, or Deliver
-          pages to get started.
+          No conversions yet — run a preview or go straight to Deliver to get
+          started.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -109,6 +118,12 @@ function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium">
           {STEP_LABELS[c.step ?? ""] ?? c.kind}
+        </span>
+        <span
+          data-testid="history-method"
+          className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
+        >
+          {METHOD_LABELS[conversionMethod(c)]}
         </span>
         <StateChip state={c.state} />
         <span className="font-mono text-sm text-fg-muted">

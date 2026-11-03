@@ -26,12 +26,13 @@ import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import type {
-  Conversion,
-  Format,
-  Preset,
-  Project,
-  StepConversionRequest,
+import {
+  conversionMethod,
+  type Conversion,
+  type Format,
+  type Preset,
+  type Project,
+  type StepConversionRequest,
 } from "@/lib/api/types";
 import { parseRational } from "@/lib/frames";
 
@@ -76,8 +77,9 @@ export function DeliverPanel({
   // of the inherited depth run (skips the depth stage entirely)
   const [useUploadedDepth, setUseUploadedDepth] = useState(false);
 
+  // Classic runs only: Lifelike production runs live on Lifelike's page.
   const productionRuns = (project.conversions ?? []).filter(
-    (c) => c.step === "production",
+    (c) => c.step === "production" && conversionMethod(c) === "classic",
   );
   const lastSucceeded = productionRuns
     .filter((c) => c.state === "succeeded")

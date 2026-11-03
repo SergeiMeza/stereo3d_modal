@@ -17,12 +17,23 @@ const STAGE_LABELS: Record<string, string> = {
   encode_outputs: "Encoding outputs",
   encode_mvhevc: "Encoding MV-HEVC",
   image_stereo: "Building the 3D image",
+  // Lifelike pipeline (queued → plan → render → encode → publish → done)
+  queued: "Waiting to start",
+  plan: "Preparing",
+  render: "Rendering in 3D",
+  encode: "Encoding",
+  publish: "Publishing",
+  done: "Finishing up",
   // analyze job stages (also mapped in AnalyzeBadge for its own display)
   analyze: "Analyzing",
   proxy: "Building the preview",
   scene_detect: "Detecting scenes",
   thumbnails: "Rendering thumbnails",
 };
+
+/** Shown instead of the stage while a job waits for a free GPU — that
+ * wait is not progress, so the tracker never renders it as a stage. */
+export const WAITING_FOR_GPU_LABEL = "Waiting for a free GPU";
 
 /** Product copy for a raw pipeline stage string. */
 export function stageLabel(stage: string): string {

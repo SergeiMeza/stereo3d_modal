@@ -6,7 +6,9 @@
  * cancel button while active. On success it notifies the workspace
  * (onProjectChanged) and fetches the signed download links. A run the
  * gateway marks overdue offers "Report it" instead of an endless bar
- * (2026-10-27: runs sat at "Profiling scenes" for hours).
+ * (2026-10-27: runs sat at "Profiling scenes" for hours). A run queued for
+ * a free GPU (waiting_for_gpu) says so instead of showing a frozen stage —
+ * that wait is never drawn as progress.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -19,7 +21,8 @@ import { useGateway } from "@/lib/api/useGateway";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { POLL_INTERVAL_MS } from "./polling";
-import { stageLabel } from "./stageLabels";
+import { formatQuoteEta } from "./QuoteView";
+import { stageLabel, WAITING_FOR_GPU_LABEL } from "./stageLabels";
 import { StateChip } from "./StateChip";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
@@ -67,6 +70,9 @@ export interface ConversionTrackerProps {
    * false — its side-by-side depth view and Export button already surface
    * the outputs, so the tracker just reports the state. */
   showDownloads?: boolean;
+  /** The quote's estimate (eta_seconds), shown until the run reports its
+   * own time left. */
+  estimateSeconds?: number;
 }
 
 export function ConversionTracker({
@@ -75,6 +81,7 @@ export function ConversionTracker({
   onSettled,
   onUpdate,
   showDownloads = true,
+  estimateSeconds,
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
   const [conv, setConv] = useState(conversion);
@@ -159,6 +166,13 @@ export function ConversionTracker({
   }
 
   const pct = Math.round(Math.min(Math.max(conv.progress, 0), 1) * 100);
+  // Queued for a free GPU: no stage, no time left, no bar — the wait is
+  // not progress.
+  const waiting = !terminal && conv.waiting_for_gpu === true;
+  const runEta =
+    typeof conv.eta_seconds === "number" && conv.eta_seconds > 0
+      ? conv.eta_seconds
+      : null;
 
   return (
     <div
@@ -168,18 +182,28 @@ export function ConversionTracker({
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <StateChip state={conv.state} />
-          {!terminal && conv.stage ? (
+          {waiting ? (
+            <span
+              data-testid="waiting-for-gpu"
+              className="text-xs text-fg-muted"
+            >
+              {WAITING_FOR_GPU_LABEL}
+            </span>
+          ) : !terminal && conv.stage ? (
             // raw stage strings carry internal worker/model details
             // ("video_stereo[propainter]") — always render the mapped label
             <span className="text-xs text-fg-muted">
               {stageLabel(conv.stage)}
             </span>
           ) : null}
-          {!terminal &&
-          typeof conv.eta_seconds === "number" &&
-          conv.eta_seconds > 0 ? (
-            <span className="text-xs text-fg-muted">
-              ~{formatEta(conv.eta_seconds)} left
+          {waiting || terminal ? null : runEta !== null ? (
+            <span data-testid="tracker-eta" className="text-xs text-fg-muted">
+              ~{formatEta(runEta)} left
+            </span>
+          ) : estimateSeconds !== undefined && estimateSeconds > 0 ? (
+            <span data-testid="tracker-eta" className="text-xs text-fg-muted">
+              About {formatQuoteEta(estimateSeconds).replace(/^~/, "")} in
+              total (estimate)
             </span>
           ) : null}
         </div>
@@ -200,7 +224,13 @@ export function ConversionTracker({
           automatically once it clears.
         </p>
       ) : null}
-      {!terminal ? <Progress value={pct} className="mt-3 h-1.5" /> : null}
+      {waiting ? (
+        <p className="mt-3 text-sm text-fg-muted" data-testid="waiting-note">
+          Your run starts as soon as one is free. The price stays the same.
+        </p>
+      ) : !terminal ? (
+        <Progress value={pct} className="mt-3 h-1.5" />
+      ) : null}
       {!terminal && (conv.overdue || conv.reported_at) ? (
         <OverdueNotice reported={Boolean(conv.reported_at)} onReport={report} />
       ) : null}
@@ -231,6 +261,11 @@ export function ConversionTracker({
       ) : null}
       {conv.state === "failed" && conv.error ? (
         <p className="mt-3 text-sm text-red-400">{conv.error.message}</p>
+      ) : null}
+      {conv.state === "failed" && conv.charge_timing === "before" ? (
+        <p className="mt-2 text-sm text-fg-muted" data-testid="refund-note">
+          This run was paid when it started, so it is refunded in full.
+        </p>
       ) : null}
       {conv.state === "canceled" ? (
         <p className="mt-3 text-sm text-fg-muted">

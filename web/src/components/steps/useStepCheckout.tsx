@@ -36,22 +36,28 @@ import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
-import type {
-  Conversion,
-  Project,
-  Step,
-  StepConversionRequest,
-  StepQuoteResponse,
+import {
+  conversionMethod,
+  methodOf,
+  type Conversion,
+  type Project,
+  type Step,
+  type StepConversionRequest,
+  type StepQuoteResponse,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 
 import { stepCheckoutAtom } from "./checkoutStore";
 import { ConversionTracker, TERMINAL_STATES } from "./ConversionTracker";
+import { PRESET_ABOVE_SOURCE } from "./methods";
 import { formatCents } from "./money";
-import { QuoteView } from "./QuoteView";
+import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView } from "./QuoteView";
 
 function messageOf(e: unknown): string {
+  if (e instanceof GatewayError && e.code === "preset_above_source") {
+    return PRESET_ABOVE_SOURCE;
+  }
   return e instanceof Error ? e.message : "request failed";
 }
 
@@ -106,8 +112,9 @@ export function useStepCheckout(
   const billing = useBilling();
 
   // Survives tab navigation (module-scoped jotai store, see checkoutStore).
+  const method = methodOf(project);
   const [state, setState] = useAtom(
-    stepCheckoutAtom(project.project_id, step),
+    stepCheckoutAtom(project.project_id, step, method),
   );
   const { quote, attemptKey, active, settled } = state;
   // Transient request feedback — a remount clearing these is fine.
@@ -132,14 +139,19 @@ export function useStepCheckout(
   useEffect(() => {
     if (active !== null) return;
     const running = (conversions ?? [])
-      .filter((c) => c.step === step && !TERMINAL_STATES.has(c.state))
+      .filter(
+        (c) =>
+          c.step === step &&
+          conversionMethod(c) === method &&
+          !TERMINAL_STATES.has(c.state),
+      )
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
     if (running !== undefined) {
       setState((s) =>
         s.active !== null ? s : { ...s, active: running, settled: false },
       );
     }
-  }, [active, conversions, step, setState]);
+  }, [active, conversions, method, step, setState]);
 
   // Stable (setState from useAtom is): panels call this from effects that
   // watch priced inputs (e.g. the Depth page's passthrough set).
@@ -392,8 +404,10 @@ export function StepCheckoutSection({
           </Button>
         ) : null}
         {ck.quote && !ck.running && !blocked ? (
-          <span className="text-xs text-fg-muted">
-            Billed to your saved card when it succeeds
+          <span data-testid="charge-timing-hint" className="text-xs text-fg-muted">
+            {ck.quote.charge_timing === "before"
+              ? CHARGE_BEFORE_COPY
+              : CHARGE_AFTER_COPY}
           </span>
         ) : null}
         {blocked ? (
@@ -410,6 +424,7 @@ export function StepCheckoutSection({
           onSettled={ck.handleSettled}
           onUpdate={ck.handleUpdate}
           showDownloads={trackerDownloads}
+          estimateSeconds={ck.quote?.eta_seconds}
         />
       ) : null}
     </>

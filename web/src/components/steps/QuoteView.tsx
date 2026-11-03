@@ -11,6 +11,12 @@ export function formatQuoteEta(seconds: number): string {
   return `~${Math.round(seconds / 60)} min`;
 }
 
+/** What the customer is told about WHEN they pay, per the quote's
+ * charge_timing. */
+export const CHARGE_BEFORE_COPY =
+  "Paid when the run starts. Refunded in full if it fails.";
+export const CHARGE_AFTER_COPY = "Billed to your saved card when it succeeds";
+
 /**
  * Renders a step quote's breakdown as explicit line items. All amounts come
  * from the gateway in cents — no client-side price math beyond negating
@@ -145,6 +151,14 @@ export function QuoteView({
           {formatCents(result.quote.amount_cents)}
         </dd>
       </div>
+      {result.charge_timing === "before" ? (
+        <div className="flex items-baseline justify-between gap-3 text-xs">
+          <dt className="text-fg-muted">Payment</dt>
+          <dd data-testid="quote-charge-timing" className="text-right text-fg">
+            {CHARGE_BEFORE_COPY}
+          </dd>
+        </div>
+      ) : null}
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
           <dt>Estimated processing time (estimate only)</dt>

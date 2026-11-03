@@ -13,6 +13,27 @@ const INLINE_PLAYABLE: ReadonlySet<string> = new Set([
   "sbs",
 ]);
 
+/** A split output's name ("mvhevc_part02") → its format and 1-based part
+ * number; null for an unsplit output. */
+export function splitPart(name: string): { base: string; part: number } | null {
+  const m = /^(.+)_part(\d+)$/.exec(name);
+  return m ? { base: m[1], part: Number(m[2]) } : null;
+}
+
+/** The link text for an output: split parts read "sbs · Part 2". */
+export function downloadLabel(name: string): string {
+  const p = splitPart(name);
+  return p ? `${p.base} · Part ${p.part}` : name;
+}
+
+/** Format first, then parts in order (Part 2 before Part 10). */
+function compareOutputs(a: string, b: string): number {
+  const pa = splitPart(a);
+  const pb = splitPart(b);
+  const base = (pa?.base ?? a).localeCompare(pb?.base ?? b);
+  return base !== 0 ? base : (pa?.part ?? 0) - (pb?.part ?? 0);
+}
+
 const DEPTH_ARTIFACTS: ReadonlySet<string> = new Set(["depth", "depth_vis"]);
 
 /**
@@ -32,7 +53,9 @@ export function stepDownloads(
   const keep = (name: string): boolean => {
     if (name === "depth_vis") return false;
     if (step === "depth_preview") return name === "depth";
-    if (step === "stereo_preview") return !DEPTH_ARTIFACTS.has(name);
+    if (step === "stereo_preview" || step === "lifelike_preview") {
+      return !DEPTH_ARTIFACTS.has(name);
+    }
     return true;
   };
   return Object.fromEntries(
@@ -46,7 +69,7 @@ export function DownloadsList({
   downloads: Record<string, string>;
 }): JSX.Element {
   const entries = Object.entries(downloads).sort(([a], [b]) =>
-    a.localeCompare(b),
+    compareOutputs(a, b),
   );
   return (
     <ul className="flex flex-col gap-3">
@@ -58,9 +81,9 @@ export function DownloadsList({
             rel="noreferrer"
             className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80"
           >
-            {name}
+            {downloadLabel(name)}
           </a>
-          {INLINE_PLAYABLE.has(name) ? (
+          {INLINE_PLAYABLE.has(splitPart(name)?.base ?? name) ? (
             <video
               src={url}
               controls
