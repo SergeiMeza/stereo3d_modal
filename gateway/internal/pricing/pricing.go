@@ -150,6 +150,99 @@ type Rates struct {
 	EtaRawWarpScale float64            `firestore:"eta_raw_warp_scale"`
 	EtaBaseSeconds  map[string]float64 `firestore:"eta_base_seconds"`
 	EtaFactor       map[string]float64 `firestore:"eta_factor"`
+
+	// Lifelike 3D (2026-11-03, the shared lifelike3d service). Every key
+	// may be absent: the accessors below fall back to the code defaults, so
+	// nothing changes before the config doc is written.
+	//
+	// DefaultProjectMethod is the method a new project gets when the
+	// client names none ("lifelike" | "classic"; owner decision LL-D1).
+	DefaultProjectMethod string `firestore:"default_project_method"`
+	// LifelikeMaxSourceDurationS caps Lifelike sources; 0 = unlimited
+	// (LL-D6). max_source_duration_s stays the Classic cap.
+	LifelikeMaxSourceDurationS float64 `firestore:"lifelike_max_source_duration_s"`
+	// LifelikeMaxGPUWorkers: GPU containers one Lifelike job may use at
+	// once (default 4; clamped to MaxGPUWorkersPerJob like Classic's).
+	LifelikeMaxGPUWorkers int `firestore:"lifelike_max_gpu_workers"`
+	// PrechargeThresholdCents: pro-step quotes ABOVE this are charged
+	// before the run starts and refunded in full if it fails (LL-D8, both
+	// methods); at or below it they join the batch and are billed after.
+	PrechargeThresholdCents int64 `firestore:"precharge_threshold_cents"`
+	// LifelikePriceCentsPerMinute: Lifelike's own PRICE per output minute
+	// at 24 fps, per preset (no margin applied; see QuoteLifelike).
+	LifelikePriceCentsPerMinute map[string]int64 `firestore:"lifelike_price_cents_per_minute"`
+	// LifelikeETA is the Lifelike wall-clock model — see
+	// EstimateLifelikeETA.
+	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
+}
+
+// MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
+// to 8 GPUs at once (the Modal coordinators enforce the app-wide cap), so a
+// fat-fingered config value can't ask for more than the whole app has.
+const MaxGPUWorkersPerJob = 8
+
+// LifelikeETA: eta = overhead + render_gpu_s_per_minute × output minutes
+// (at 24 fps; frames scale it) / GPUs + encode tail, the tail being
+// encode_base_s + min(frames, encode_frame_cap) × encode_s_per_frame[preset].
+// Constants measured by the Spatial 3D Studio team on test (ml-sharp-modal
+// ADR-0019 § Estimates). Zero or missing values use the defaults.
+type LifelikeETA struct {
+	RenderGPUSecondsPerMinute float64            `firestore:"render_gpu_s_per_minute"`
+	OverheadSeconds           float64            `firestore:"overhead_s"`
+	EncodeBaseSeconds         float64            `firestore:"encode_base_s"`
+	EncodeSecondsPerFrame     map[string]float64 `firestore:"encode_s_per_frame"`
+	EncodeFrameCap            int                `firestore:"encode_frame_cap"`
+}
+
+func defaultLifelikeETA() LifelikeETA {
+	return LifelikeETA{
+		RenderGPUSecondsPerMinute: 530,
+		OverheadSeconds:           45,
+		EncodeBaseSeconds:         20,
+		EncodeSecondsPerFrame: map[string]float64{
+			"1080p": 0.035, "qhd": 0.06, "3k": 0.075, "4k": 0.13,
+		},
+		EncodeFrameCap: 7200,
+	}
+}
+
+// DefaultMethod is the method for a new project without one.
+func (r *Rates) DefaultMethod() string {
+	if r.DefaultProjectMethod == "classic" {
+		return "classic"
+	}
+	return "lifelike"
+}
+
+// MaxSourceDurationFor is the source-length cap of a method (0 = none).
+func (r *Rates) MaxSourceDurationFor(method string) float64 {
+	if method == "lifelike" {
+		return max(r.LifelikeMaxSourceDurationS, 0)
+	}
+	return r.MaxSourceDurationS
+}
+
+// GPUWorkersFor is the max_gpu_workers a job of the method is submitted
+// with, clamped to MaxGPUWorkersPerJob. 0 for classic means "omit the
+// field" (the pipeline's own default), as before.
+func (r *Rates) GPUWorkersFor(method string) int {
+	n := r.MaxGPUWorkers
+	if method == "lifelike" {
+		n = r.LifelikeMaxGPUWorkers
+		if n <= 0 {
+			n = 4
+		}
+	}
+	return min(n, MaxGPUWorkersPerJob)
+}
+
+// PrechargeThreshold is the quote above which a pro step is charged up
+// front.
+func (r *Rates) PrechargeThreshold() int64 {
+	if r.PrechargeThresholdCents > 0 {
+		return r.PrechargeThresholdCents
+	}
+	return 2500
 }
 
 // Defaults: the per-minute tables are ≈1× BILLED Modal cost (billed runs
@@ -279,6 +372,12 @@ func defaults() *Rates {
 			"production_qhd": 8.0, "production_3k": 9.5, "production_4k": 12.0,
 			"production": 6.0,
 		},
+		DefaultProjectMethod:        "lifelike",
+		LifelikeMaxSourceDurationS:  0, // unlimited
+		LifelikeMaxGPUWorkers:       4,
+		PrechargeThresholdCents:     2500,
+		LifelikePriceCentsPerMinute: defaultLifelikePrices(),
+		LifelikeETA:                 defaultLifelikeETA(),
 	}
 }
 
@@ -474,6 +573,18 @@ const cacheTTL = 60 * time.Second
 func New(fs *firestore.Client, env string) *Service {
 	return &Service{fs: fs, env: env}
 }
+
+// NewStatic serves fixed rates without Firestore (tests); nil = the code
+// defaults.
+func NewStatic(r *Rates) *Service {
+	if r == nil {
+		r = defaults()
+	}
+	return &Service{cached: r, fetchedAt: time.Now().Add(100 * 365 * 24 * time.Hour)}
+}
+
+// Defaults returns a fresh copy of the code defaults.
+func Defaults() *Rates { return defaults() }
 
 // Rates returns the current pricing config (60s cache; falls back to code
 // defaults if the Firestore doc is missing or malformed).
@@ -677,6 +788,117 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 			"analyze_credit_cents":   in.CreditCents,
 		},
 	}, nil
+}
+
+// Lifelike is its own product with its own PRICE table (owner change
+// 2026-11-03): lifelike_price_cents_per_minute[preset] per output minute at
+// 24 fps — a price, not a cost the margin multiplies — times the fps
+// factor, for lifelike_preview and production alike. None of Classic's
+// mechanics apply (no depth-res factor, no inpaint multiplier, no reuse
+// discount); the bulk discount, the minimum and the analyze credit do.
+const (
+	StepLifelikePreview = "lifelike_preview"
+	MethodLifelike      = "lifelike"
+)
+
+// LifelikePresets are the presets Lifelike renders (no draft).
+var LifelikePresets = []string{"1080p", "qhd", "3k", "4k"}
+
+func defaultLifelikePrices() map[string]int64 {
+	return map[string]int64{"1080p": 450, "qhd": 650, "3k": 800, "4k": 1000}
+}
+
+// lifelikePrice is the per-minute price of a preset; a preset missing from
+// the config doc keeps its default.
+func (r *Rates) lifelikePrice(preset string) (int64, bool) {
+	if v := r.LifelikePriceCentsPerMinute[preset]; v > 0 {
+		return v, true
+	}
+	v, ok := defaultLifelikePrices()[preset]
+	return v, ok
+}
+
+// QuoteLifelike prices a Lifelike step. in.Step is lifelike_preview or
+// production; DepthRes, Inpaint and ReuseStages are ignored.
+func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, error) {
+	if in.Step != StepLifelikePreview && in.Step != "production" {
+		return nil, fmt.Errorf("unknown lifelike step %q", in.Step)
+	}
+	rates := s.Rates(ctx)
+	perMin, ok := rates.lifelikePrice(in.Preset)
+	if !ok {
+		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
+	}
+	fpsF := fpsFactor(in.EffectiveFPS)
+	subtotal := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	bulkDiscount := int64(0)
+	if subtotal > rates.DiscountThresholdCents {
+		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
+	}
+	total := subtotal - bulkDiscount - in.CreditCents
+	if total < rates.MinimumCents {
+		total = rates.MinimumCents
+	}
+	return &Quote{
+		AmountCents: total,
+		Currency:    rates.Currency,
+		RateVersion: rates.RateVersion,
+		Breakdown: map[string]any{
+			"step":                 in.Step,
+			"method":               MethodLifelike,
+			"preset":               in.Preset,
+			"billable_seconds":     math.Round(in.BillableS*100) / 100,
+			"cents_per_minute":     perMin, // the PRICE rate
+			"fps_factor":           round4(fpsF),
+			"subtotal_cents":       subtotal,
+			"discount_cents":       bulkDiscount,
+			"analyze_credit_cents": in.CreditCents,
+		},
+	}, nil
+}
+
+// LifelikeInputs shapes a Lifelike wall-clock estimate.
+type LifelikeInputs struct {
+	Step          string
+	Preset        string
+	OutputSeconds float64
+	// EffectiveFPS: the rate the job renders at; 0 = 24.
+	EffectiveFPS float64
+	// GPUs working at once: max_gpu_workers for production, 1 for a
+	// preview (it runs in one container).
+	GPUs int
+}
+
+// EstimateLifelikeETA predicts a Lifelike run's wall-clock seconds (see
+// LifelikeETA). 1 minute of 4K on 4 GPUs: 45 + 530/4 + 20 + 1440 × 0.13 ≈
+// 385 s (measured 421-450 with a scene scan the gateway never triggers:
+// it always sends the project's cuts).
+func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) int64 {
+	e := s.Rates(ctx).LifelikeETA
+	d := defaultLifelikeETA()
+	pick := func(v, fallback float64) float64 {
+		if v > 0 {
+			return v
+		}
+		return fallback
+	}
+	fps := in.EffectiveFPS
+	if fps <= 0 {
+		fps = fpsBase
+	}
+	frames := in.OutputSeconds * fps
+	gpus := float64(max(in.GPUs, 1))
+	render := pick(e.RenderGPUSecondsPerMinute, d.RenderGPUSecondsPerMinute) * frames / (60 * fpsBase) / gpus
+	perFrame := pick(e.EncodeSecondsPerFrame[in.Preset], d.EncodeSecondsPerFrame[in.Preset])
+	if perFrame <= 0 {
+		perFrame = d.EncodeSecondsPerFrame["4k"] // unknown preset: the slowest
+	}
+	frameCap := e.EncodeFrameCap
+	if frameCap <= 0 {
+		frameCap = d.EncodeFrameCap
+	}
+	tail := pick(e.EncodeBaseSeconds, d.EncodeBaseSeconds) + math.Min(frames, float64(frameCap))*perFrame
+	return int64(math.Round(pick(e.OverheadSeconds, d.OverheadSeconds) + render + tail))
 }
 
 // QuoteImage prices one paid still at exactly ImageCents. No MinimumCents
