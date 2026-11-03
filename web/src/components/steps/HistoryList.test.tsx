@@ -5,7 +5,6 @@
  */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   afterAll,
   afterEach,
@@ -102,85 +101,60 @@ function renderWithHistory(conversions: Conversion[]) {
   );
 }
 
-describe("HistoryList", () => {
-  it("lists conversions newest-first with step, state, total, id, and time", () => {
+describe("Files (screen 09)", () => {
+  it("lists runs newest-first: what it is, method, state in a word, price with a word only when unusual", () => {
     renderWithHistory([SUCCEEDED, FAILED]);
-
-    const rows = screen.getAllByRole("listitem");
-    expect(rows).toHaveLength(2);
-
-    // newest (the failed production run) first
-    const [first, second] = rows;
+    const [first, second] = screen.getAllByRole("listitem").filter((li) =>
+      li.getAttribute("data-testid")?.startsWith("history-"),
+    );
     expect(first.getAttribute("data-testid")).toBe("history-conv00000newer");
-    expect(within(first).getByText("Production")).toBeDefined();
-    expect(within(first).getByText("Failed, not charged")).toBeDefined();
-    expect(within(first).getByText("$1.50")).toBeDefined();
-    expect(within(first).getByText(FAILED.error!.message)).toBeDefined();
+    expect(within(first).getByText("Full video")).toBeDefined();
+    expect(within(first).getByTestId("run-status").textContent).toBe("Failed");
+    expect(within(first).getByTestId("history-price").textContent).toBe(
+      "$1.50 · Not charged",
+    );
+    expect(within(first).getByText("Something went wrong on our side.")).toBeDefined();
+    expect(within(first).getByTestId("history-method").textContent).toBe("Classic 3D");
 
     expect(second.getAttribute("data-testid")).toBe("history-conv00000older");
     expect(within(second).getByText("Depth preview")).toBeDefined();
-    expect(within(second).getByText("Ready")).toBeDefined();
-    expect(within(second).getByText("$0.50")).toBeDefined();
-
-    // created time is rendered as a <time> bound to the ISO timestamp
-    expect(
-      first.querySelector(`time[datetime="${FAILED.created_at}"]`),
-    ).not.toBeNull();
+    expect(within(second).getByTestId("run-status").textContent).toBe("Ready");
+    expect(within(second).getByTestId("history-price").textContent).toBe("$0.50");
+    // a short line: quality and date, never internal values
+    expect(within(first).getByTestId("history-params").textContent).toMatch(
+      /^1080p · \S+/,
+    );
+    expect(document.body.textContent).not.toMatch(/propainter|depth_res|conv00000/);
   });
 
-  it("summarizes each run's pro params: depth_res, inpaint, depth_scale, override count, formats", () => {
-    renderWithHistory([SUCCEEDED, FAILED]);
-
-    const [first, second] = screen.getAllByRole("listitem");
-    // the production run carries the full per-scene parameter set; the
-    // inpaint wire value renders as its user-facing name, never the model
-    expect(within(first).getByTestId("history-params").textContent).toBe(
-      "1080p · Vision Pro spatial video + Side by side (half size) · Filled edges · 3D strength ×1.10 · 3 scenes adjusted",
-    );
-    // the depth run: no scene params, but resolution/fps/inpaint
-    expect(within(second).getByTestId("history-params").textContent).toBe(
-      "Depth preview · 12 fps",
-    );
-  });
-
-  it("copies the conversion_id support handle on click", async () => {
-    const user = userEvent.setup();
+  it("lists a finished run's files by device, depth preview scoped to its depth video", async () => {
     renderWithHistory([SUCCEEDED]);
-
-    await user.click(
-      screen.getByRole("button", { name: SUCCEEDED.conversion_id }),
-    );
-    expect(await screen.findByText("copied")).toBeDefined();
-    expect(await navigator.clipboard.readText()).toBe(
-      SUCCEEDED.conversion_id,
-    );
+    const files = await screen.findByTestId("run-files");
+    // the depth run sells its depth video only; depth_vis is never offered
+    expect(within(files).getByTestId("file-group-depth")).toBeDefined();
+    expect(within(files).queryByTestId("file-group-anaglyph")).toBeNull();
+    expect(within(files).getByRole("link", { name: "Download" })).toBeDefined();
   });
 
-  it("expands downloads for succeeded runs with inline stereo previews", async () => {
-    const user = userEvent.setup();
-    renderWithHistory([SUCCEEDED, FAILED]);
-
-    // only the succeeded run offers downloads
-    const buttons = screen.getAllByRole("button", { name: "Downloads" });
-    expect(buttons).toHaveLength(1);
-    await user.click(buttons[0]);
-
-    const anaglyph = await screen.findByRole("link", { name: "Red-cyan" });
-    // signed/public URL from the /downloads endpoint, straight into href
-    expect(anaglyph.getAttribute("href")).toMatch(
-      /^https:\/\/storage\.googleapis\.com\/.+\/anaglyph\.mp4$/,
-    );
-    expect(screen.getByRole("link", { name: "Side by side (half size)" })).toBeDefined();
-    expect(screen.getByRole("link", { name: "Depth video" })).toBeDefined();
-    // depth_vis is an in-app playback artifact, never a download —
-    // users mistake the 8-bit visualization for the real 16-bit map
-    expect(screen.queryByRole("link", { name: "Depth video (preview)" })).toBeNull();
-
-    // anaglyph + half_sbs get inline players; the raw 16-bit depth stays
-    // a plain link
-    expect(screen.getByTestId("preview-anaglyph").tagName).toBe("VIDEO");
-    expect(screen.getByTestId("preview-half_sbs").tagName).toBe("VIDEO");
-    expect(screen.queryByTestId("preview-depth_vis")).toBeNull();
-    expect(screen.queryByTestId("preview-depth")).toBeNull();
+  it("refreshes expired links on click", async () => {
+    const fetches: string[] = [];
+    server.events.on("request:start", ({ request }) => {
+      if (new URL(request.url).pathname.endsWith("/downloads")) fetches.push(request.url);
+    });
+    renderWithHistory([
+      { ...SUCCEEDED, step: "production", params: { preset: "1080p", formats: ["sbs"] } },
+    ]);
+    const files = await screen.findByTestId("run-files");
+    expect(fetches).toHaveLength(1);
+    const link = within(files).getAllByRole("link")[0] as HTMLAnchorElement;
+    // a live link downloads as is
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    expect(fetches).toHaveLength(1);
+    // past expires_in: fresh links first
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 400 * 24 * 3600 * 1000);
+    const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
+    link.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(fetches).toHaveLength(2));
   });
 });

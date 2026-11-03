@@ -1,41 +1,79 @@
 "use client";
 
 /**
- * Conversion history: every run of the project, newest first, with state,
- * quoted price, the conversion_id support handle (click to copy), and — for
- * succeeded runs — a downloads expander with inline preview players.
+ * Files (screen 09, S3D-31/21/24/33): every run of the project, newest
+ * first, as a card — what it is ("Full video", "Preview"), its method, a
+ * short line (quality · moment · parts · date), its state in a word and
+ * its price with a word only for Refunded, Not charged or Payment needed.
+ * Finished runs list their files by device (RunFiles), with View in 3D.
+ * Files stay downloadable after a failed payment (S3D-22). The project
+ * can be deleted from here (DeleteProjectButton).
  */
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { track } from "@/lib/analytics";
 import {
   conversionMethod,
   type Conversion,
   type Project,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-
-import { billingStatusNote } from "./ConversionTracker";
-import { DownloadsList, stepDownloads } from "./DownloadsList";
-import { runSummary } from "@/lib/glossary";
+import { paymentStatus } from "@/lib/billingCopy";
+import { formatClock } from "@/lib/format";
+import { frameToSeconds, parseRational } from "@/lib/frames";
+import { qualityLabelFor, runSummary, STEP_NAMES } from "@/lib/glossary";
 
 import { METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
-import { StateChip } from "./StateChip";
-
-const STEP_LABELS: Record<string, string> = {
-  depth_preview: "Depth preview",
-  stereo_preview: "Stereo preview",
-  lifelike_preview: "Preview",
-  production: "Production",
-};
+import { RunFiles } from "./RunFiles";
+import { runStateShort } from "./runStatus";
 
 /** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion): string {
   return runSummary(c.params, c.step);
 }
+
+/** "1080p · 0:45 – 0:50 · 3 parts · Nov 2" */
+export function runMeta(project: Project, c: Conversion): string {
+  const fps = project.probe ? parseRational(project.probe.fps_rational) : null;
+  const clock = (f: number) => (fps ? formatClock(frameToSeconds(f, fps)) : null);
+  const preview = c.step !== "production";
+  const range =
+    preview &&
+    fps &&
+    c.params.from_frame !== undefined &&
+    c.params.to_frame !== undefined
+      ? `${clock(c.params.from_frame)} – ${clock(c.params.to_frame)}`
+      : null;
+  return [
+    range,
+    c.step !== "depth_preview" ? qualityLabelFor(project, c.params.preset) : null,
+    c.parts && c.parts.length > 1 ? `${c.parts.length} parts` : null,
+    new Date(c.created_at).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+const CHIP: Record<string, string> = {
+  Ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  Failed: "border-red-500/30 bg-red-500/10 text-red-300",
+};
 
 export function HistoryList({ project }: { project: Project }): JSX.Element {
   const conversions = [...(project.conversions ?? [])].sort((a, b) =>
@@ -43,16 +81,16 @@ export function HistoryList({ project }: { project: Project }): JSX.Element {
   );
   // The page title lives in the shared PageHeader (WorkspaceScreen).
   return (
-    <section aria-label="Conversion history" className="flex flex-col gap-2">
+    <section aria-label="Conversion history" className="flex flex-col gap-3">
       {conversions.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          No conversions yet — run a preview or go straight to Deliver to get
-          started.
+          Nothing here yet. Your 3D files appear here when they&apos;re
+          ready.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {conversions.map((c) => (
-            <HistoryRow key={c.conversion_id} conversion={c} />
+            <HistoryRow key={c.conversion_id} project={project} conversion={c} />
           ))}
         </ul>
       )}
@@ -60,46 +98,24 @@ export function HistoryList({ project }: { project: Project }): JSX.Element {
   );
 }
 
-function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element {
-  const client = useGateway();
-  const [copied, setCopied] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [downloads, setDownloads] = useState<Record<string, string> | null>(
-    null,
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  async function copyId(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(c.conversion_id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable — the id is still selectable */
-    }
-  }
-
-  async function toggleDownloads(): Promise<void> {
-    const next = !open;
-    setOpen(next);
-    if (next && downloads === null) {
-      try {
-        const d = await client.getDownloads(c.conversion_id);
-        setDownloads(d.downloads);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "failed to fetch downloads");
-      }
-    }
-  }
-
+function HistoryRow({
+  project,
+  conversion: c,
+}: {
+  project: Project;
+  conversion: Conversion;
+}): JSX.Element {
+  const state = runStateShort(c);
+  const word = paymentStatus(c);
   return (
     <li
       data-testid={`history-${c.conversion_id}`}
-      className="rounded-lg border border-edge bg-surface-1 p-3"
+      data-conversion-id={c.conversion_id}
+      className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-4"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium">
-          {STEP_LABELS[c.step ?? ""] ?? c.kind}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="text-sm font-semibold text-fg">
+          {STEP_NAMES[c.step ?? "production"] ?? "Run"}
         </span>
         <span
           data-testid="history-method"
@@ -107,67 +123,82 @@ function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element 
         >
           {METHOD_LABELS[conversionMethod(c)]}
         </span>
-        <StateChip conversion={c} />
-        <span className="font-mono text-sm text-fg-muted">
-          {formatCents(c.quote.amount_cents)}
+        <span data-testid="history-params" className="text-xs text-fg-muted">
+          {runMeta(project, c)}
         </span>
-        <button
-          type="button"
-          onClick={() => void copyId()}
-          title="Copy conversion id (quote this to support)"
-          className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-fg-muted hover:text-fg"
-        >
-          {copied ? "copied" : c.conversion_id}
-        </button>
-        <time
-          dateTime={c.created_at}
-          className="ml-auto text-xs text-fg-muted"
-        >
-          {new Date(c.created_at).toLocaleString()}
-        </time>
-      </div>
-      <p
-        data-testid="history-params"
-        className="mt-1 font-mono text-[11px] text-fg-muted"
-      >
-        {paramsSummary(c)}
-      </p>
-      {c.state === "succeeded" ? (
-        <div className="mt-2">
-          <Button
-            variant="link"
-            size="xs"
-            aria-expanded={open}
-            onClick={() => void toggleDownloads()}
-            className="h-auto p-0"
+        <span className="ml-auto flex items-center gap-3">
+          <span
+            data-testid="run-status"
+            className={`rounded-full border px-2 py-0.5 text-[11px] ${
+              CHIP[state] ?? "border-edge bg-surface-2 text-fg-muted"
+            }`}
           >
-            {open ? "Hide downloads" : "Downloads"}
-          </Button>
-          {open ? (
-            downloads !== null ? (
-              <div className="mt-2">
-                {/* cross-step audit table: full deliverable scope (step
-                    undefined), which still keeps depth_vis un-downloadable */}
-                <DownloadsList downloads={stepDownloads(undefined, downloads)} />
-              </div>
-            ) : error !== null ? (
-              <p className="mt-2 text-xs text-red-400">{error}</p>
-            ) : (
-              <p className="mt-2 text-xs text-fg-muted">
-                Fetching download links…
-              </p>
-            )
-          ) : null}
-        </div>
-      ) : null}
-      {c.state === "failed" && c.error ? (
-        <p className="mt-2 text-xs text-red-400">{c.error.message}</p>
-      ) : null}
-      {billingStatusNote(c) !== null ? (
-        <p data-testid="history-billing-note" className="mt-1 text-xs text-fg-muted">
-          {billingStatusNote(c)}
-        </p>
+            {state}
+          </span>
+          <span data-testid="history-price" className="font-mono text-sm text-fg-muted">
+            {formatCents(c.quote.amount_cents)}
+            {word ? ` · ${word}` : ""}
+          </span>
+        </span>
+      </div>
+      {c.state === "succeeded" ? <RunFiles conversion={c} /> : null}
+      {c.state === "failed" ? (
+        <p className="text-xs text-fg-muted">Something went wrong on our side.</p>
       ) : null}
     </li>
+  );
+}
+
+/** "Delete project" with its confirmation (S3D-24). */
+export function DeleteProjectButton({ project }: { project: Project }): JSX.Element {
+  const gateway = useGateway();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function remove(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await gateway.deleteProject(project.project_id);
+      track("project_deleted");
+      setOpen(false);
+      router.push("/projects");
+    } catch {
+      setError("Couldn't delete the project. Please try again.");
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="xs"
+        data-testid="delete-project"
+        onClick={() => setOpen(true)}
+      >
+        Delete project
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent data-testid="delete-project-dialog">
+          <DialogHeader>
+            <DialogTitle>Delete this project?</DialogTitle>
+            <DialogDescription>
+              This removes the video and every 3D file in it. It can&apos;t be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Keep project
+            </Button>
+            <Button variant="destructive" onClick={() => void remove()} disabled={busy}>
+              Delete project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

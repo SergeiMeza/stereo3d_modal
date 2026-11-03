@@ -125,6 +125,8 @@ export function useRunFiles(conversion: Conversion | undefined): {
       files: filesOf(step, d),
       expiresAt: Date.now() + Math.max(0, (d.expires_in ?? 3600) - 30) * 1000,
     };
+    // the ref first: a click right after must see the fresh links
+    stateRef.current = next;
     setState(next);
     return next;
   }, [client, id, step]);

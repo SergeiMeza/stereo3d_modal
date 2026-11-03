@@ -22,7 +22,7 @@ import {
   analyzeStageLabel,
   formatEtaLeft,
 } from "@/components/projects/AnalyzeBadge";
-import { HistoryList } from "@/components/steps/HistoryList";
+import { DeleteProjectButton, HistoryList } from "@/components/steps/HistoryList";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { MethodBadge } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
@@ -388,7 +388,8 @@ export default function WorkspaceScreen({
             <div className="mx-auto flex max-w-4xl flex-col gap-3">
               <PageHeader
                 title="Files"
-                description="Every run of this project: its files, what it cost and how it was paid."
+                description="Kept as long as this project exists."
+                actions={<DeleteProjectButton project={project} />}
               />
               <HistoryList project={project} />
             </div>

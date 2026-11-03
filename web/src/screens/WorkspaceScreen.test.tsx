@@ -1145,8 +1145,16 @@ describe("WorkspaceScreen — pages", () => {
     expect(
       within(header).getByRole("heading", { name: "Files" }),
     ).toBeTruthy();
-    expect(within(header).getByText(/what it cost/)).toBeTruthy();
+    expect(within(header).getByText("Kept as long as this project exists.")).toBeTruthy();
     expect(screen.getByLabelText("Conversion history")).toBeTruthy();
+    // S3D-24: delete asks first, then removes the project
+    fireEvent.click(within(header).getByTestId("delete-project"));
+    const dialog = await screen.findByTestId("delete-project-dialog");
+    expect(within(dialog).getByText("Delete this project?")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete project" }));
+    await waitFor(() =>
+      expect((mockDb.projects.get(PID) as { deleted?: boolean }).deleted).toBe(true),
+    );
   });
 
   it("toggles the shortcuts sheet with ? and closes with Escape", async () => {

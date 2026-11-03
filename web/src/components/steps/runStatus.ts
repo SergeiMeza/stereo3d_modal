@@ -60,3 +60,24 @@ export function runStatus(c: Conversion): RunStatus {
 /** Waiting copy (S3D-34). */
 export const WAITING_IN_LINE_NOTE =
   "Starts as soon as a machine is free, usually within minutes. The price stays the same.";
+
+/** The state in one word or two, for the Files list (screen 09): the
+ * money word sits beside the price (lib/billingCopy paymentStatus). */
+export function runStateShort(c: Conversion): string {
+  switch (c.state) {
+    case "created":
+      return "Confirming payment";
+    case "paid":
+      return "Waiting in line";
+    case "processing":
+      return c.waiting_for_gpu ? "Waiting in line" : "Making your 3D";
+    case "succeeded":
+      return "Ready";
+    case "failed":
+      return "Failed";
+    case "canceled":
+      return "Cancelled";
+    case "expired":
+      return "Didn't start";
+  }
+}
