@@ -4,19 +4,29 @@
  * The "1 video = 1 project" entry point. Drag-drop or pick an
  * .mp4/.mov/.m4v, then:
  *
- *   POST /v1/uploads → PUT to the signed URL (client.uploadFile, XHR for
- *   progress) → POST /v1/projects { gcs_key, name: filename stem } →
+ *   POST /v1/uploads → upload (client.uploadFile: one signed PUT, or — for
+ *   files over 100 MB and everything in China mode — resumable 8 MiB
+ *   chunks that retry and resume after a dropped connection) →
+ *   POST /v1/projects { gcs_key, name: filename stem, method: lifelike } →
  *   router.push(/projects/{id}).
+ *
+ * New projects are Lifelike 3D, so the local length check uses Lifelike's
+ * cap from GET /v1/limits (methods.lifelike.max_source_duration_s, 0 =
+ * unlimited). While a file goes up the dropzone shows its size, progress
+ * and time left, and the browser asks before the tab closes. A chunked
+ * upload that fails can resume where it stopped.
  *
  * GatewayError messages are user-safe and rendered verbatim.
  */
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
+import type { GatewayLimits, Method, UploadTicket } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { formatBytes, formatTimeLeft } from "@/lib/format";
 
 const CONTENT_TYPES: Record<string, string> = {
   mp4: "video/mp4",
@@ -27,13 +37,40 @@ const CONTENT_TYPES: Record<string, string> = {
 
 const ACCEPT = ".mp4,.mov,.m4v,.webm";
 
-/** Beta source caps — mirror the gateway's max_source_duration_s /
- * max_source_pixels (pricing rates). The gateway re-checks after its own
- * probe; this local check just fails fast before a long upload. */
-const MAX_DURATION_S = 10 * 60;
+/** The method new projects get. */
+const NEW_PROJECT_METHOD: Method = "lifelike";
+
+/** Classic's cap, for gateways from before per-method caps (which still
+ * reject longer sources up front). */
+const LEGACY_MAX_DURATION_S = 10 * 60;
 const MAX_PIXELS = 3840 * 2160;
 
+/** The local length cap for a new project's method, in seconds; 0 =
+ * unlimited, null = unknown (limits not loaded — the gateway decides).
+ * The gateway re-checks after its own probe; this check just fails fast
+ * before a long upload. */
+export function maxDurationFor(
+  limits: GatewayLimits | null,
+  method: Method,
+): number | null {
+  if (limits === null) return null;
+  const perMethod = limits.methods?.[method]?.max_source_duration_s;
+  if (typeof perMethod === "number") return perMethod;
+  return limits.limits?.max_duration_s ?? LEGACY_MAX_DURATION_S;
+}
+
+/** Only after this much progress is a time-left estimate shown. */
+const ETA_MIN_ELAPSED_MS = 3000;
+
 type Phase = "idle" | "uploading" | "creating";
+
+/** A chunked upload that failed part-way: the session keeps what arrived,
+ * so "Resume upload" continues from there. */
+interface Interrupted {
+  file: File;
+  ticket: UploadTicket;
+  contentType: string;
+}
 
 interface VideoMeta {
   duration: number; // seconds
@@ -81,11 +118,19 @@ function readVideoMeta(file: File): Promise<VideoMeta | null> {
   });
 }
 
-function betaLimitError(meta: VideoMeta): string | null {
-  if (Number.isFinite(meta.duration) && meta.duration > MAX_DURATION_S) {
+function betaLimitError(
+  meta: VideoMeta,
+  maxDurationS: number | null,
+): string | null {
+  if (
+    maxDurationS !== null &&
+    maxDurationS > 0 &&
+    Number.isFinite(meta.duration) &&
+    meta.duration > maxDurationS
+  ) {
     const m = Math.floor(meta.duration / 60);
     const s = Math.round(meta.duration % 60);
-    return `This video is ${m}m ${s}s long — during the beta, videos can be at most 10 minutes.`;
+    return `This video is ${m}m ${s}s long — during the beta, videos can be at most ${Math.round(maxDurationS / 60)} minutes.`;
   }
   if (meta.width * meta.height > MAX_PIXELS) {
     return `This video is ${meta.width}×${meta.height} — during the beta, resolution can be at most 4K (3840×2160).`;
@@ -113,8 +158,103 @@ export function UploadDropzone() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState<number | null>(null);
+  const [limits, setLimits] = useState<GatewayLimits | null>(null);
+  const [interrupted, setInterrupted] = useState<Interrupted | null>(null);
+  const [timeLeftS, setTimeLeftS] = useState<number | null>(null);
+  // progress timing for the time-left estimate: start of this attempt and
+  // the fraction it started from (a resume starts part-way)
+  const timingRef = useRef<{ startedAt: number; from: number } | null>(null);
 
   const busy = phase !== "idle";
+  const maxDurationS = maxDurationFor(limits, NEW_PROJECT_METHOD);
+
+  // Per-method source caps; a failed read just skips the local check.
+  useEffect(() => {
+    let cancelled = false;
+    gateway.getLimits().then(
+      (l) => {
+        if (!cancelled) setLimits(l);
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [gateway]);
+
+  // Closing the tab mid-upload loses it: ask first.
+  useEffect(() => {
+    if (!busy) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [busy]);
+
+  function onProgress(fraction: number) {
+    setProgress(fraction);
+    const t = timingRef.current;
+    if (t === null) return;
+    const elapsed = Date.now() - t.startedAt;
+    const done = fraction - t.from;
+    if (elapsed < ETA_MIN_ELAPSED_MS || done <= 0) return;
+    setTimeLeftS(((elapsed / done) * (1 - fraction)) / 1000);
+  }
+
+  /** Upload (or resume) and create the project. */
+  async function send(
+    file: File,
+    contentType: string,
+    resume: Interrupted | null,
+  ): Promise<void> {
+    let ticket: UploadTicket | null = resume?.ticket ?? null;
+    try {
+      ticket ??= await gateway.createUpload(file.name, contentType, file.size);
+      timingRef.current = { startedAt: Date.now(), from: resume ? progress : 0 };
+      setTimeLeftS(null);
+      await gateway.uploadFile(ticket, file, onProgress, {
+        resume: resume !== null,
+      });
+      setInterrupted(null);
+      setProgress(1);
+      setTimeLeftS(null);
+      setPhase("creating");
+      // The billing profile must exist before any paid conversion; ensure
+      // it (idempotent) before the project so the sign-in-time ensure has a
+      // guaranteed backstop.
+      await gateway.ensureCustomer();
+      const project = await gateway.createProject({
+        gcs_key: ticket.gcs_key,
+        name: stem(file.name),
+        method: NEW_PROJECT_METHOD,
+      });
+      track("project_created");
+      upgradeSession("uploaded-video");
+      router.push(`/projects/${project.project_id}`);
+    } catch (e) {
+      track("upload_failed");
+      // a chunked session keeps what arrived: offer to continue from there
+      const resumable =
+        ticket?.resumable === true &&
+        e instanceof GatewayError &&
+        e.code === "upload_failed";
+      setInterrupted(
+        resumable && ticket ? { file, ticket, contentType } : null,
+      );
+      setError(
+        resumable
+          ? "The upload stopped — check your connection, then resume where it left off."
+          : e instanceof GatewayError
+            ? e.message
+            : "Upload failed — please try again.",
+      );
+      setTimeLeftS(null);
+      setPhase("idle");
+    }
+  }
 
   async function startUpload(file: File) {
     if (busy) return;
@@ -127,14 +267,16 @@ export function UploadDropzone() {
     }
     const meta = await readVideoMeta(file);
     if (meta !== null) {
-      const limitError = betaLimitError(meta);
+      const limitError = betaLimitError(meta, maxDurationS);
       if (limitError !== null) {
         setError(limitError);
         return;
       }
     }
     setError(null);
+    setInterrupted(null);
     setFileName(file.name);
+    setFileSize(file.size);
     setProgress(0);
     setPhase("uploading");
     track("upload_started", {
@@ -144,29 +286,15 @@ export function UploadDropzone() {
         ? { duration_s: Math.round(meta.duration) }
         : {}),
     });
-    try {
-      const ticket = await gateway.createUpload(file.name, contentType);
-      await gateway.uploadFile(ticket, file, setProgress);
-      setProgress(1);
-      setPhase("creating");
-      // The billing profile must exist before any paid conversion; ensure
-      // it (idempotent) before the project so the sign-in-time ensure has a
-      // guaranteed backstop.
-      await gateway.ensureCustomer();
-      const project = await gateway.createProject({
-        gcs_key: ticket.gcs_key,
-        name: stem(file.name),
-      });
-      track("project_created");
-      upgradeSession("uploaded-video");
-      router.push(`/projects/${project.project_id}`);
-    } catch (e) {
-      track("upload_failed");
-      setError(
-        e instanceof GatewayError ? e.message : "Upload failed — please try again.",
-      );
-      setPhase("idle");
-    }
+    await send(file, contentType, null);
+  }
+
+  async function resumeUpload() {
+    if (busy || interrupted === null) return;
+    setError(null);
+    setPhase("uploading");
+    track("upload_resumed");
+    await send(interrupted.file, interrupted.contentType, interrupted);
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -211,8 +339,11 @@ export function UploadDropzone() {
           Drag &amp; drop a video to start a project
         </p>
         <p className="text-xs text-fg-muted">
-          One video per project · .mp4, .mov, .m4v, or .webm · up to 10
-          minutes · up to 4K
+          One video per project · .mp4, .mov, .m4v, or .webm ·{" "}
+          {maxDurationS === null || maxDurationS === 0
+            ? "any length"
+            : `up to ${Math.round(maxDurationS / 60)} minutes`}{" "}
+          · up to 4K
         </p>
         <button
           type="button"
@@ -234,6 +365,21 @@ export function UploadDropzone() {
             </span>
             <span className="ml-3 shrink-0 font-mono">{percent}%</span>
           </div>
+          {phase === "uploading" ? (
+            <p
+              data-testid="upload-detail"
+              className="mt-1 flex justify-between gap-3 text-[11px] text-fg-muted"
+            >
+              <span>
+                {fileSize !== null
+                  ? `${formatBytes(Math.round(fileSize * progress))} of ${formatBytes(fileSize)}`
+                  : null}
+              </span>
+              <span>
+                {timeLeftS !== null ? formatTimeLeft(timeLeftS) : "Estimating time left…"}
+              </span>
+            </p>
+          ) : null}
           <div
             role="progressbar"
             aria-valuemin={0}
@@ -254,6 +400,17 @@ export function UploadDropzone() {
           {error}
         </p>
       )}
+      {interrupted !== null && !busy ? (
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void resumeUpload()}
+            className="rounded-md border border-edge bg-surface-2 px-3 py-1.5 text-xs text-fg transition-colors hover:bg-surface-1"
+          >
+            Resume upload ({Math.round(progress * 100)}% sent)
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

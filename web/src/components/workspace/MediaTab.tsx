@@ -8,7 +8,12 @@
  * ⓘ Guide drawer (shadcn Drawer/vaul, same as the step pages' Tips) and
  * deep-links into the other pages.
  *
- * Layout: the shared PageHeader, then the preview + timeline at FULL width
+ * The 3D method chooser (Lifelike / Classic) opens the page — it is the
+ * first thing a new project asks, right after upload; the guide follows
+ * the chosen method.
+ *
+ * Layout: the shared PageHeader, the method chooser, then the preview +
+ * timeline at FULL width
  * (theater, like the Cut page — a side column squeezed the player); the
  * Source / credit cards sit in a responsive row below.
  */
@@ -28,10 +33,12 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import type { Project } from "@/lib/api/types";
+import { methodOf, type Method, type Project } from "@/lib/api/types";
+import { formatBytes } from "@/lib/format";
 import { frameToTimecode, parseRational } from "@/lib/frames";
 
 import { FilmstripTimeline } from "./FilmstripTimeline";
+import { MethodChooser } from "./MethodChooser";
 import { PageHeader } from "./PageHeader";
 import type { WorkspaceTabId } from "./PageTabs";
 import { PreviewViewer } from "./PreviewViewer";
@@ -39,25 +46,43 @@ import { usePlayerShortcuts } from "./usePlayerShortcuts";
 import { usePreviewPlayer } from "./usePreviewPlayer";
 import { clampFrame } from "./utils";
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let v = bytes;
-  let u = -1;
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024;
-    u++;
-  }
-  return `${v.toFixed(v >= 100 ? 0 : 1)} ${units[u]}`;
-}
 
-const GUIDE: readonly {
+interface GuideItem {
   tab: WorkspaceTabId;
   n: number;
   title: string;
   blurb: string;
   price: "Free" | "Paid";
-}[] = [
+}
+
+const LIFELIKE_GUIDE: readonly GuideItem[] = [
+  {
+    tab: "cut",
+    n: 1,
+    title: "Cut",
+    blurb:
+      "Check the detected scene cuts — every scene is made 3D on its own, so the right cuts give the best result.",
+    price: "Free",
+  },
+  {
+    tab: "preview",
+    n: 2,
+    title: "Preview",
+    blurb:
+      "Pick a moment and see about 5 seconds of it in 3D, in the quality you choose.",
+    price: "Paid",
+  },
+  {
+    tab: "deliver",
+    n: 3,
+    title: "Deliver",
+    blurb:
+      "The whole video in 3D — Vision Pro spatial video or side by side. Long videos can come in parts.",
+    price: "Paid",
+  },
+];
+
+const CLASSIC_GUIDE: readonly GuideItem[] = [
   {
     tab: "cut",
     n: 1,
@@ -104,14 +129,17 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 /** The How-it-works pipeline guide, deep-linking into the other pages —
  * the ⓘ Guide drawer's body (formerly a card on the page). */
 function GuideList({
+  method,
   onNavigate,
 }: {
+  method: Method;
   onNavigate: (tab: WorkspaceTabId) => void;
 }): JSX.Element {
+  const guide = method === "lifelike" ? LIFELIKE_GUIDE : CLASSIC_GUIDE;
   return (
     <>
       <ol className="flex flex-col gap-3">
-        {GUIDE.map((g) => (
+        {guide.map((g) => (
           <li key={g.tab} className="flex items-start gap-3">
             <span
               aria-hidden
@@ -153,9 +181,15 @@ function GuideList({
 export interface MediaTabProps {
   project: Project;
   onNavigate: (tab: WorkspaceTabId) => void;
+  /** The method chooser's PATCH answer (the updated project). */
+  onProjectChanged?: (project: Project) => void;
 }
 
-export function MediaTab({ project, onNavigate }: MediaTabProps): JSX.Element {
+export function MediaTab({
+  project,
+  onNavigate,
+  onProjectChanged,
+}: MediaTabProps): JSX.Element {
   const { probe, scenes } = project;
   const fps = useMemo(
     () => (probe ? parseRational(probe.fps_rational) : null),
@@ -238,12 +272,16 @@ export function MediaTab({ project, onNavigate }: MediaTabProps): JSX.Element {
                 </DrawerClose>
               </DrawerHeader>
               <div className="overflow-y-auto px-4 pb-4">
-                <GuideList onNavigate={onNavigate} />
+                <GuideList method={methodOf(project)} onNavigate={onNavigate} />
               </div>
             </DrawerContent>
           </Drawer>
         }
       />
+
+      {onProjectChanged ? (
+        <MethodChooser project={project} onChanged={onProjectChanged} />
+      ) : null}
 
       <div className="min-w-0">
         {probe && fps ? (
