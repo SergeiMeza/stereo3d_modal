@@ -28,12 +28,12 @@ import { useProOffer } from "@/lib/pro/usePro";
 /** The Pro page (built by the sign-in/Pro work); the sheet's one action. */
 export const PRO_PAGE_HREF = "/pro";
 
-/** A share (0.2) as a whole percent: 20. */
+/** A share (0.15) as a whole percent: 15. */
 export function proPercent(pct: number): number {
   return Math.round(pct * 100);
 }
 
-/** "Pro members save 20%". */
+/** "Pro members save 15%" (the share from /v1/pricing). */
 export function proSaveLine(pct: number): string {
   return `Pro members save ${proPercent(pct)}%`;
 }

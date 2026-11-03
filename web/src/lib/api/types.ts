@@ -282,6 +282,8 @@ export interface Params {
   /** Lifelike (S3D-50): Foveated Detail, only below the video's own size
    * and when the gateway reports it enabled */
   foveation?: "static" | null;
+  /** pricing 2026-11: Express run (first in line) */
+  express?: boolean;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -313,9 +315,44 @@ export interface QuoteBreakdown {
   reuse_discount_cents?: number;
   discount_cents?: number;
   analyze_credit_cents?: number;
-  /** S3D-67: the Pro share applied (0.2) and what it took off */
+  /** S3D-67: the Pro share applied (0.15) and what it took off */
   pro_discount_pct?: number;
   pro_discount_cents?: number;
+  /** pricing 2026-11: the list price before add-ons and discounts */
+  list_base_cents?: number;
+  /** pricing 2026-11: what each add-on adds (cents) */
+  addons?: Partial<Record<AddOn, number>>;
+  /** pricing 2026-11: a free preview (amount 0) */
+  free_preview?: boolean;
+}
+
+/** Pricing 2026-11 add-ons: Foveated Detail, Master bitrate, Express. */
+export type AddOn = "foveated" | "master" | "express";
+
+/** Pricing 2026-11 tiers; "" = list price. */
+export type Tier = "" | "pro" | "business" | "studio";
+
+/** The quote's one discount line: the tier's price or bulk, never both. */
+export interface QuoteDiscount {
+  kind: "tier" | "bulk";
+  tier?: Tier;
+  cents: number;
+  pct: number;
+}
+
+/** Free previews on a quote (Lifelike previews only). */
+export interface FreePreviews {
+  allowance: number;
+  used: number;
+  remaining: number;
+  daily_left: number;
+  /** what this preview counts as (5K+ or 60 fps count double) */
+  units: number;
+  /** this preview would be free */
+  free: boolean;
+  /** a non-subscriber's one free preview on their first project */
+  intro: boolean;
+  resets_at?: string;
 }
 
 export interface Quote {
@@ -359,7 +396,11 @@ export interface ConversionBilling {
     /** spec v7 N5: settled from the balance (charged_cents = what it took) */
     | "balance_settled"
     /** spec v7 N5: the hold went back, nothing taken */
-    | "balance_released";
+    | "balance_released"
+    /** pricing 2026-11: a free preview, nothing charged */
+    | "free_preview"
+    /** 00081: waiting for a payment */
+    | "waiting_for_payment";
   /** spec v6 F: why a web run waits for a payment (requires_payment) */
   reason?: "no_method" | "authentication" | "declined";
   /** spec v6 F: the run's open payment, for our pay sheet */
@@ -403,6 +444,11 @@ export interface Conversion {
   waiting_for_gpu?: boolean;
   /** seconds the job has spent waiting for a GPU so far */
   queued_s?: number;
+  /** 00081: "express" or "standard" (Lifelike) */
+  priority?: "express" | "standard";
+  max_gpu_workers?: number;
+  /** 00081: an Express run waiting for a GPU starts within this */
+  queue_wait_max_seconds?: number;
   /** split runs: one entry per output part, in order */
   parts?: ConversionPart[];
   charge_timing?: ChargeTiming;
@@ -451,6 +497,14 @@ export interface StepQuoteResponse {
   /** S3D-67: the Pro line, when this step gets it (full runs only): pct is
    * a share (0.2), cents what it takes off */
   pro_discount?: { pct: number; cents: number };
+  /** pricing 2026-11: the account's tier ("" = list) and its name */
+  tier?: Tier;
+  tier_label?: string;
+  discount?: QuoteDiscount | null;
+  free_previews?: FreePreviews;
+  /** Lifelike full runs: Express's estimate beside the standard one; an
+   * Express run may still wait up to max_wait_seconds to start */
+  express_eta?: { eta_seconds: number; standard_eta_seconds: number; max_wait_seconds: number };
 }
 
 export interface UploadTicket {
@@ -532,14 +586,58 @@ export interface PublicPricing {
     };
   };
   fps: { base: number; min_factor: number; max_factor: number };
-  discount: { threshold_cents: number; pct: number };
+  discount: { threshold_cents: number; pct: number; stacks_with_tier?: boolean; rule?: string };
   minimum_cents: number;
   /** every preview's floor (S3D-13/17); minimum_cents when absent */
   preview_minimum_cents?: number;
   precharge_threshold_cents: number;
   balance: { window_hours: number; new_account_cap_cents: number };
-  /** S3D-67: Pro's share off (0.2; 0 = off) and the step it applies to */
+  /** S3D-67: Pro's share off (0.15; 0 = off) and the step it applies to */
   pro_discount?: ProDiscount;
+  /** pricing 2026-11 */
+  pricing_model?: "tiers";
+  tiers?: {
+    order: string[];
+    lifelike_cents_per_minute: Partial<Record<"list" | "pro" | "business" | "studio", Partial<Record<Preset, number>>>>;
+    classic_pct: Partial<Record<"pro" | "business" | "studio", number>>;
+  };
+  addons?: Partial<
+    Record<AddOn, { pct: number; enabled?: boolean; methods?: string[]; request?: Record<string, unknown>; included_in?: string[] }>
+  >;
+  plans?: Partial<Record<"business" | "studio", PlanDef>>;
+  free_previews?: {
+    enabled?: boolean;
+    allowances: Record<string, number>;
+    periods: Record<string, string>;
+    unit_seconds: number;
+    counts_double?: string[];
+    daily_cap: number;
+    rollover: boolean;
+  };
+}
+
+/** GET /v1/pricing plans.business / plans.studio */
+export interface PlanDef {
+  name: string;
+  monthly_cents: number;
+  credit_cents: number;
+  max_active_runs: number;
+  seats: number;
+  free_previews_per_period: number;
+  express_included: boolean;
+}
+
+/** GET /v1/billing plan (Business / Studio) */
+export interface AccountPlan {
+  plan: "business" | "studio";
+  name?: string;
+  status: string;
+  active: boolean;
+  monthly_cents?: number;
+  credit_cents?: number;
+  credit_left_cents?: number;
+  current_period_end?: string;
+  cancel_at_period_end: boolean;
 }
 
 export interface ProDiscount {
@@ -726,7 +824,7 @@ export interface CheckoutStart {
 }
 
 /** spec v6 C1: how a run is paid, from the account's state. */
-export type PaymentFlow = "after" | "precharge" | "paynow" | "balance";
+export type PaymentFlow = "after" | "precharge" | "paynow" | "balance" | "free_preview";
 
 /** spec v7 N13: the prepaid balance on GET /v1/billing */
 export interface BalanceSummary {
@@ -979,6 +1077,8 @@ export interface BillingStatus {
    * open batch here ({amount_cents, due_at, cap_cents}); prepaidOf()
    * tells them apart. */
   balance?: BalanceSummary;
+  /** pricing 2026-11: Business or Studio (absent without one) */
+  plan?: AccountPlan | null;
 }
 
 /** The prepaid balance, or null (none, or an older gateway's batch). */
@@ -1040,7 +1140,7 @@ export interface UpdateScenesRequest {
  * lives in scene_overrides[].displacement and the global multiplier in
  * depth_scale. */
 /** Output bitrate (S3D-56), the iPhone/Mac app's choices. */
-export type Bitrate = "auto" | "match_source" | 20 | 40 | 60 | 100;
+export type Bitrate = "auto" | "match_source" | 20 | 40 | 60 | 100 | "master";
 
 export interface StepConversionRequest {
   step: Step;
@@ -1063,8 +1163,11 @@ export interface StepConversionRequest {
    * seconds (60–3600); the web sends 900 when the user keeps "Split into
    * parts" */
   split_max_seconds?: number;
-  /** S3D-56: output bitrate; absent = Automatic */
+  /** S3D-56: output bitrate; absent = Automatic; "master" is the Master
+   * bitrate add-on (+20%) */
   bitrate?: Bitrate;
+  /** pricing 2026-11: Express (+50%, included in Business and Studio) */
+  express?: boolean;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
   /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent

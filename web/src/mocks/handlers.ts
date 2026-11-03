@@ -24,6 +24,7 @@ import type {
   BillingCard,
   Format,
   SavedMethod,
+  AccountPlan,
   Conversion,
   Method,
   Preset,
@@ -177,6 +178,8 @@ interface MockBilling {
   handoffRateLimited: boolean;
   /** spec v7 N: the prepaid balance */
   prepaid: MockPrepaid;
+  /** pricing 2026-11: Business or Studio */
+  plan: AccountPlan | null;
 }
 
 /** spec v7 N1, the mock's ledger summary. */
@@ -367,10 +370,174 @@ interface DB {
   lifelikeFoveation: boolean;
   /** S3D-67: quotes say pro true/false; null = the gateway says nothing */
   pro: boolean | null;
+  /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
+   * so the older price assertions keep their numbers */
+  tierPricing: boolean;
+  /** 00081: POST /v1/conversions/{id}/plays received */
+  plays: { conversion_id: string; file: string; kind: string }[];
+  /** free previews used: this period, today, and the intro one */
+  freePreviews: { used: number; dayUsed: number; introUsed: boolean };
+}
+
+/** Pricing 2026-11 (owner-approved for test, BL-19): per output minute at
+ * 24 fps per tier, Classic's tier shares, add-ons, plans, allowances. */
+const TIERS = {
+  lifelike: {
+    list: { "1080p": 400, qhd: 550, "3k": 800, "4k": 1000, "5k": 1600, "6k": 2000, "8k": 2800 },
+    pro: { "1080p": 340, qhd: 470, "3k": 680, "4k": 850, "5k": 1360, "6k": 1700, "8k": 2380 },
+    business: { "1080p": 300, qhd: 410, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100 },
+    studio: { "1080p": 280, qhd: 385, "3k": 560, "4k": 700, "5k": 1120, "6k": 1400, "8k": 1960 },
+  } as Record<string, Record<string, number>>,
+  pct: { pro: 0.15, business: 0.25, studio: 0.3 } as Record<string, number>,
+  addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
+  bulk: { threshold_cents: 5000, pct: 0.1 },
+  plans: {
+    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true },
+    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true },
+  },
+  allowances: { pro_weekly: 5, pro_monthly: 20, pro_yearly: 240, pro_pass_3m: 60, pro_pass_6m: 120, pro_lifetime: 20, business: 50, studio: 200, intro: 1 } as Record<string, number>,
+  dailyCap: 20,
+  expressMaxWaitS: 420,
+};
+
+/** Pricing 2026-11 extras on a Lifelike quote (mirrors projects.go). */
+function tierQuoteExtras(
+  req: StepConversionRequest,
+  q: { quote: Conversion["quote"]; eta: number; outputSeconds: number },
+): Record<string, unknown> {
+  const bd = (q.quote.breakdown ?? {}) as Record<string, unknown>;
+  const tier = mockTier();
+  const out: Record<string, unknown> = { tier, discount: bd.discount ?? null };
+  if (tier) out.tier_label = TIER_LABEL[tier];
+  if (req.step === "lifelike_preview") {
+    out.free_previews = freePreviewState((bd.free_preview_units as number) ?? 1);
+  }
+  if (bd.free_preview === true) {
+    out.payment_flow = "free_preview";
+    out.charge_timing = "before";
+    delete out.pay_now_reason;
+  }
+  if (req.step === "production") {
+    // Express: about a minute faster on short clips, up to ~2× on long ones
+    const standard = q.eta;
+    const express = Math.round(q.outputSeconds >= 180 ? standard * 0.55 : Math.max(standard - 60, standard * 0.7));
+    out.express_eta = { eta_seconds: express, standard_eta_seconds: standard, max_wait_seconds: TIERS.expressMaxWaitS };
+  }
+  return out;
+}
+
+/** GET /v1/pricing's 2026-11 keys (tiers.go publicTiers). */
+function publicTiers(): Record<string, unknown> {
+  const periods: Record<string, string> = {
+    pro_weekly: "week", pro_monthly: "month", pro_yearly: "year", pro_pass_3m: "pass", pro_pass_6m: "pass",
+    pro_lifetime: "month", business: "month", studio: "month",
+  };
+  return {
+    pricing_model: "tiers",
+    tiers: {
+      order: ["studio", "business", "pro", "list"],
+      lifelike_cents_per_minute: TIERS.lifelike,
+      classic_pct: TIERS.pct,
+    },
+    addons: {
+      foveated: { pct: TIERS.addons.foveated, methods: ["lifelike"], enabled: mockDb.lifelikeFoveation },
+      master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { bitrate: "master" } },
+      express: { pct: TIERS.addons.express, methods: ["lifelike"], request: { express: true }, included_in: ["business", "studio"] },
+    },
+    discount: { ...TIERS.bulk, stacks_with_tier: false, rule: "a run gets the bigger of bulk and its tier price, never both" },
+    plans: TIERS.plans,
+    free_previews: {
+      enabled: true,
+      allowances: TIERS.allowances,
+      periods,
+      unit_seconds: 5,
+      counts_double: ["5k", "6k", "8k", "60fps"],
+      daily_cap: TIERS.dailyCap,
+      rollover: false,
+    },
+  };
+}
+
+/** The account's tier: an active Business/Studio plan, else Pro, else list. */
+function mockTier(): "" | "pro" | "business" | "studio" {
+  const plan = mockDb.billing.plan;
+  if (plan?.active) return plan.plan;
+  return mockDb.pro ? "pro" : "";
+}
+
+const TIER_LABEL: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
+
+/** Free previews left (Lifelike previews), for a preview of `units`. */
+function freePreviewState(units: number) {
+  const fp = mockDb.freePreviews;
+  const tier = mockTier();
+  const key = tier === "business" || tier === "studio" ? tier : tier === "pro" ? "pro_monthly" : "intro";
+  const allowance = TIERS.allowances[key];
+  const dayLeft = Math.max(TIERS.dailyCap - fp.dayUsed, 0);
+  if (key === "intro") {
+    const used = fp.introUsed ? allowance : 0;
+    const remaining = allowance - used;
+    return { allowance, used, remaining, daily_left: dayLeft, units, free: remaining > 0 && dayLeft >= 1, intro: true };
+  }
+  const remaining = Math.max(allowance - fp.used, 0);
+  const end = new Date();
+  end.setUTCMonth(end.getUTCMonth() + 1, 1);
+  end.setUTCHours(0, 0, 0, 0);
+  return {
+    allowance,
+    used: fp.used,
+    remaining,
+    daily_left: dayLeft,
+    units,
+    free: units > 0 && remaining >= units && dayLeft >= units,
+    intro: false,
+    resets_at: end.toISOString(),
+  };
+}
+
+/** One per 5 s started, doubled for 5K-8K and 60 fps. */
+function previewUnits(preset: string, seconds: number, fps: number): number {
+  let n = Math.max(Math.ceil(seconds / 5 - 1e-9), 1);
+  if (["5k", "6k", "8k"].includes(preset) || fps >= 50) n *= 2;
+  return n;
+}
+
+/** The gateway's composeTier: add-ons on each base, the one discount
+ * that gives the lowest price (tier or bulk, never both). */
+function composeTier(listBase: number, tierBase: number, tier: string, addOns: string[], bulkAllowed: boolean) {
+  const adds: Record<string, number> = {};
+  let pct = 0;
+  for (const a of addOns) {
+    pct += TIERS.addons[a];
+    adds[a] = Math.round(listBase * TIERS.addons[a]);
+  }
+  const withAdds = (b: number) => b + Math.round(b * pct);
+  const listTotal = withAdds(listBase);
+  let final = listTotal;
+  let kind: "" | "tier" | "bulk" = "";
+  let dpct = 0;
+  if (tier && tierBase < listBase && withAdds(tierBase) < final) {
+    final = withAdds(tierBase);
+    kind = "tier";
+    dpct = TIERS.pct[tier];
+  }
+  if (bulkAllowed && listTotal > TIERS.bulk.threshold_cents) {
+    const b = listTotal - Math.round(listTotal * TIERS.bulk.pct);
+    if (b < final) {
+      final = b;
+      kind = "bulk";
+      dpct = TIERS.bulk.pct;
+    }
+  }
+  return { adds, listTotal, final, kind, dpct, cents: listTotal - final };
 }
 
 /** S3D-67: the mock's Pro share (the gateway's config is authoritative). */
 const MOCK_PRO = { pct: 0.2, applies_to: "production" };
+/** the Pro share /v1/pricing reports: 15% under the 2026-11 tiers */
+function mockProPct(): number {
+  return mockDb.tierPricing ? TIERS.pct.pro : MOCK_PRO.pct;
+}
 
 function seed(): DB {
   const project = structuredClone(projectFixture) as unknown as Project;
@@ -417,6 +584,7 @@ function seed(): DB {
         topups: 0,
         nextTopup: "paid",
       },
+      plan: null,
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -424,6 +592,9 @@ function seed(): DB {
     methodAvailable: { lifelike: true, classic: true },
     lifelikeFoveation: false,
     pro: null,
+    tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
+    freePreviews: { used: 0, dayUsed: 0, introUsed: false },
+    plays: [],
     gpuWaitPolls: 1,
   };
 }
@@ -444,6 +615,9 @@ export const mockDb = {
     this.methodAvailable = fresh.methodAvailable;
     this.lifelikeFoveation = fresh.lifelikeFoveation;
     this.pro = fresh.pro;
+    this.tierPricing = fresh.tierPricing;
+    this.freePreviews = fresh.freePreviews;
+    this.plays = fresh.plays;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
@@ -763,6 +937,7 @@ const SHOT_TYPES = ["close_up", "standard", "dynamic", "wide"];
 function checkBitrate(b: unknown): ReturnType<typeof err> | null {
   if (b === undefined || b === "auto" || b === "match_source") return null;
   if (b === 20 || b === 40 || b === 60 || b === 100) return null;
+  if (b === "master" && mockDb.tierPricing) return null; // Master bitrate add-on
   return err(400, "invalid_request", "bitrate must be auto|match_source|20|40|60|100");
 }
 
@@ -781,6 +956,8 @@ function estimatedSizeBytes(
       ? req.bitrate
       : req.bitrate === "match_source"
         ? sourceMbps
+        : req.bitrate === "master"
+        ? 2 * (autoMbps[preset] ?? 30)
         : (autoMbps[preset] ?? 30);
   const files = Math.max(1, req.formats?.length ?? 1);
   return Math.round(((mbps * 1e6) / 8) * seconds * files);
@@ -1253,6 +1430,77 @@ function lifelikeQuoteFor(
   const perMin = LIFELIKE.priceCentsPerMinute[priced];
   const effFPS = req.target_fps ?? probe.fps;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
+  if (mockDb.tierPricing) {
+    const tier = mockTier();
+    const listPer = TIERS.lifelike.list[priced];
+    const tierPer = tier ? TIERS.lifelike[tier][priced] : listPer;
+    const addOns: string[] = [];
+    if (req.foveation === "static") addOns.push("foveated");
+    if (req.bitrate === "master") addOns.push("master");
+    const plan = tier === "business" || tier === "studio" ? TIERS.plans[tier] : null;
+    const expressIncluded = req.express === true && plan?.express_included === true;
+    if (req.express && !expressIncluded) addOns.push("express");
+    const preview = req.step === "lifelike_preview";
+    let q;
+    if (preview) {
+      const frames = Math.round(outputSeconds * effFPS);
+      const perFrame = (perMin: number) => Math.round((frames * perMin) / (60 * RATES.fpsBase));
+      q = composeTier(perFrame(listPer), perFrame(tierPer), tier, addOns, false);
+    } else {
+      const base = (perMin: number) => Math.ceil((outputSeconds / 60) * perMin * fpsFactor);
+      q = composeTier(base(listPer), base(tierPer), tier, addOns, true);
+    }
+    let total = Math.max(q.final, minimumFor(req.step));
+    const units = preview ? previewUnits(priced, outputSeconds, effFPS) : 0;
+    const free = preview && freePreviewState(units).free;
+    const priceWithoutFree = total;
+    if (free) total = 0;
+    return {
+      quote: {
+        amount_cents: total,
+        currency: "usd",
+        rate_version: "mock-2026-11",
+        breakdown: {
+          step: req.step,
+          preset,
+          tier,
+          pricing: "tiers",
+          billable_seconds: Math.round(outputSeconds * 100) / 100,
+          list_cents_per_minute: listPer,
+          cents_per_minute: tierPer,
+          fps_factor: Math.round(fpsFactor * 10000) / 10000,
+          list_base_cents: preview ? q.listTotal - Object.values(q.adds).reduce((a, b) => a + b, 0) : Math.ceil((outputSeconds / 60) * listPer * fpsFactor),
+          addons: q.adds,
+          subtotal_cents: q.listTotal,
+          discount: q.kind ? { kind: q.kind, cents: q.cents, pct: q.dpct, ...(q.kind === "tier" ? { tier } : {}) } : null,
+          discount_cents: q.kind === "bulk" ? q.cents : 0,
+          pro_discount_cents: q.kind === "tier" ? q.cents : 0,
+          pro_discount_pct: q.kind === "tier" ? q.dpct : 0,
+          express: req.express === true,
+          express_included: expressIncluded,
+          ...(q.adds.foveated ? { foveation_factor: 1.3, foveation_cents: q.adds.foveated } : {}),
+          ...(free ? { free_preview: true, price_without_free_cents: priceWithoutFree } : {}),
+          ...(preview ? { free_preview_units: units } : {}),
+        },
+      },
+      reuseStages: [],
+      params: {
+        preset,
+        formats: req.formats ?? (req.step === "production" ? ["mvhevc"] : ["sbs", "mvhevc"]),
+        from_frame: req.from_frame || undefined,
+        to_frame: req.to_frame || undefined,
+        target_fps: req.target_fps || undefined,
+        scene_cuts: project.scenes?.cuts,
+        split_max_seconds: req.split_max_seconds,
+        ...(req.original_eye ? { original_eye: req.original_eye } : {}),
+        ...(req.foveation ? { foveation: req.foveation } : {}),
+        ...(req.bitrate ? { bitrate: req.bitrate } : {}),
+        ...(req.express ? { express: true } : {}),
+      },
+      outputSeconds,
+      eta: lifelikeEta(outputSeconds, probe.fps, preset),
+    };
+  }
   // Foveated Detail: +30% (S3D-50)
   const foveationFactor = req.foveation === "static" ? 1.3 : 1;
   const subtotal = Math.ceil(
@@ -2670,7 +2918,8 @@ export const handlers = [
       preview_minimum_cents: RATES.previewMinimumCents,
       precharge_threshold_cents: mockDb.chargeBeforeCents,
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
-      pro_discount: MOCK_PRO,
+      pro_discount: { ...MOCK_PRO, pct: mockProPct() },
+      ...(mockDb.tierPricing ? publicTiers() : {}),
     }),
   ),
 
@@ -3105,11 +3354,12 @@ export const handlers = [
           ...(q.quote.breakdown?.pro_discount_cents
             ? {
                 pro_discount: {
-                  pct: MOCK_PRO.pct,
+                  pct: mockDb.tierPricing ? (q.quote.breakdown.pro_discount_pct as number) : MOCK_PRO.pct,
                   cents: q.quote.breakdown.pro_discount_cents,
                 },
               }
             : {}),
+          ...(mockDb.tierPricing ? tierQuoteExtras(req, q) : {}),
         });
       }
       const { quote, reuseStages, params: resolved } = quoteFor(priced, req);
@@ -3204,6 +3454,37 @@ export const handlers = [
       if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
       // S3D-60: a pay-now default method (Alipay, WeChat Pay) pays each run
       // when it starts — the run waits at "created" for that payment
+      // pricing 2026-11: a free preview starts at once, nothing charged
+      if (quote.breakdown?.free_preview === true) {
+        const units = (quote.breakdown.free_preview_units as number) ?? 1;
+        const fp = mockDb.freePreviews;
+        if (mockTier() === "") fp.introUsed = true;
+        else fp.used += units;
+        fp.dayUsed += units;
+        const fid = newId();
+        const freeRun: Conversion = {
+          conversion_id: fid,
+          state: "paid",
+          kind: "video",
+          project_id: p.project_id,
+          step: req.step,
+          scenes_version: p.scenes?.version,
+          params: resolved,
+          quote,
+          progress: 0,
+          stage: "",
+          eta_seconds: 0,
+          method,
+          waiting_for_gpu: false,
+          charge_timing: "before",
+          billing: { status: "free_preview" },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        mockDb.conversions.set(fid, freeRun);
+        if (idem) mockDb.idem.set(idem, fid);
+        return HttpResponse.json(freeRun);
+      }
       // spec v7 N6: the monthly spend limit
       const pp = mockDb.billing.prepaid;
       if (pp.spend_limit_cents !== null && pp.month_spent_cents + quote.amount_cents > pp.spend_limit_cents) {
@@ -3297,7 +3578,26 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     tick(c);
     c.updated_at = new Date().toISOString();
+    // 00081: Express runs say so; one waiting for a GPU starts within the cap
+    if (c.method === "lifelike" && c.step === "production") {
+      const express = c.params?.express === true;
+      return HttpResponse.json({
+        ...c,
+        priority: express ? "express" : "standard",
+        max_gpu_workers: express ? 8 : 4,
+        ...(express && c.waiting_for_gpu ? { queue_wait_max_seconds: TIERS.expressMaxWaitS } : {}),
+      });
+    }
     return HttpResponse.json(c);
+  }),
+
+  // 00081: a play of View in 3D or a preview (fire-and-forget)
+  http.post(`${GATEWAY}/v1/conversions/:id/plays`, async ({ params, request }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "conversion not found");
+    const body = (await request.json().catch(() => ({}))) as { file?: string; kind?: string };
+    mockDb.plays.push({ conversion_id: c.conversion_id, file: body.file ?? "", kind: body.kind ?? "" });
+    return HttpResponse.json({ logged: true });
   }),
 
   http.delete(`${GATEWAY}/v1/conversions/:id`, ({ params }) => {
@@ -3371,7 +3671,7 @@ export const handlers = [
           // name the signed URL's Content-Disposition carries too
           filename: `${projectName}_${c.params?.preset ?? "1080p"}${
             m ? `_part${Number(m[2])}` : ""
-          }_${MOCK_LAYOUT_MARKERS[format] ?? format}.${ext}`,
+          }${c.step === "production" ? "" : "_preview"}_${MOCK_LAYOUT_MARKERS[format] ?? format}.${ext}`,
           url: url(name),
         };
       }),

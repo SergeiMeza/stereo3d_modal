@@ -28,11 +28,11 @@ function safeNext(raw: string | null): string | null {
   return raw !== null && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
 }
 
-/** Spatial Video Studio Pro's discount on web runs; 20 until /v1/pricing
- * says otherwise. */
+/** Spatial Video Studio Pro's discount on web runs, from /v1/pricing
+ * (15 until it answers, the 2026-11 Pro tier). */
 function usePct(): number {
   const share = usePricing()?.pro_discount?.pct ?? 0;
-  return share > 0 ? proPercent(share) : 20;
+  return share > 0 ? proPercent(share) : 15;
 }
 
 export function ProScreen(): JSX.Element {

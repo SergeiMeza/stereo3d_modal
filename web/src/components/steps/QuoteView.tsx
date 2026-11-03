@@ -11,6 +11,31 @@ import { qualityName } from "@/lib/glossary";
 
 import { formatCents, formatCentsShort } from "./money";
 import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
+import { usePricing } from "@/lib/api/usePricing";
+
+const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
+
+/** "Pro price", "Business price" (pricing 2026-11). */
+export function tierPriceLabel(tier: string | undefined, label?: string): string {
+  return `${label || TIER_NAMES[tier ?? ""] || "Your"} price`;
+}
+
+/** "+20%": an add-on's share of the list price, from the quote itself. */
+function addonPct(cents: number, b: QuoteBreakdown): string {
+  const base = b.list_base_cents ?? 0;
+  return base > 0 ? `+${Math.round((cents / base) * 100)}%` : "add-on";
+}
+
+/** The bulk line with the threshold from /v1/pricing. */
+function BulkLabel({ pct }: { pct: number }): JSX.Element {
+  const threshold = usePricing()?.discount.threshold_cents ?? 5000;
+  return <>{bulkLabel(pct, threshold)}</>;
+}
+
+/** "10% off over $50" from the gateway's bulk rule. */
+export function bulkLabel(pct: number, thresholdCents: number): string {
+  return `${Math.round(pct * 100)}% off over ${formatCentsShort(thresholdCents)}`;
+}
 
 /** The quote's processing-time estimate: "about 25 min" (lib/format). */
 export { formatDuration as formatQuoteEta } from "@/lib/format";
@@ -95,6 +120,15 @@ export function QuoteView({
 }): JSX.Element {
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
   const total = result.quote.amount_cents;
+  // pricing 2026-11: one discount line (the tier's price or bulk, never
+  // both), add-ons on top of the list price, free previews
+  const tierMode = result.discount !== undefined || "discount" in b;
+  const discount = result.discount ?? ((b as Record<string, unknown>).discount as StepQuoteResponse["discount"]) ?? null;
+  const addons = b.addons ?? {};
+  const addonsTotal = tierMode
+    ? Object.values(addons).reduce<number>((n, c) => n + (c ?? 0), 0)
+    : (b.foveation_cents ?? 0);
+  const freePreview = b.free_preview === true || result.payment_flow === "free_preview";
   const reuseStages = result.reuse_stages ?? [];
   const subtotal = b.subtotal_cents ?? total;
   const reuse = reuseStages.length > 0 ? (b.reuse_discount_cents ?? 0) : 0;
@@ -107,7 +141,9 @@ export function QuoteView({
     (b.pro_discount_cents ? { pct: b.pro_discount_pct ?? 0, cents: b.pro_discount_cents } : null);
   const proOff = proLine?.cents ?? 0;
   const minimumApplied =
-    b.subtotal_cents !== undefined && total > subtotal - reuse - bulk - proOff;
+    !freePreview &&
+    b.subtotal_cents !== undefined &&
+    total > subtotal - reuse - (tierMode ? (discount?.cents ?? 0) : bulk + proOff);
 
   const fps =
     b.fps_factor !== undefined ? Math.round(b.fps_factor * 24 * 100) / 100 : null;
@@ -149,13 +185,14 @@ export function QuoteView({
 
   // Lifelike (screens 06/07): "5 min 12 s at 4K · 5.2 min × $8.50 a
   // minute", then "Your video is 30 fps (+25%)" with what it adds
-  const cpm = b.cents_per_minute;
+  const cpm =
+    ((b as Record<string, unknown>).list_cents_per_minute as number | undefined) ?? b.cents_per_minute;
   const lifelikeLines =
     result.method === "lifelike" &&
     cpm !== undefined &&
     b.billable_seconds !== undefined &&
     b.fps_factor !== undefined;
-  const fovCents = b.foveation_cents ?? 0;
+  const fovCents = addonsTotal;
   const atRate = lifelikeLines
     ? Math.round((b.billable_seconds! / 60) * cpm!)
     : 0;
@@ -249,6 +286,22 @@ export function QuoteView({
           testId="quote-foveation"
         />
       ) : null}
+      {addons.master ? (
+        <Line
+          label={`Master bitrate (${addonPct(addons.master, b)})`}
+          value={`+${formatCents(addons.master)}`}
+          testId="quote-master"
+        />
+      ) : null}
+      {addons.express ? (
+        <Line
+          label={`Express (${addonPct(addons.express, b)})`}
+          value={`+${formatCents(addons.express)}`}
+          testId="quote-express"
+        />
+      ) : (b as Record<string, unknown>).express_included === true ? (
+        <Line label="Express" value="Included" testId="quote-express" />
+      ) : null}
       {reuseStages.length > 0 ? (
         <Line
           label={
@@ -264,7 +317,31 @@ export function QuoteView({
           tone="discount"
         />
       ) : null}
-      {bulk > 0 ? (
+      {tierMode && discount && discount.cents > 0 ? (
+        <Line
+          label={
+            discount.kind === "tier"
+              ? tierPriceLabel(discount.tier, result.tier_label)
+              : <BulkLabel pct={discount.pct} />
+          }
+          value={formatCents(-discount.cents)}
+          testId={discount.kind === "tier" ? "quote-tier" : "quote-bulk-discount"}
+          tone="discount"
+        />
+      ) : null}
+      {freePreview ? (
+        <Line
+          label={result.free_previews?.intro ? "Your first preview is free" : "Free preview"}
+          value={
+            typeof (b as Record<string, unknown>).price_without_free_cents === "number"
+              ? formatCents(-((b as Record<string, unknown>).price_without_free_cents as number))
+              : "Free"
+          }
+          testId="quote-free-preview"
+          tone="discount"
+        />
+      ) : null}
+      {!tierMode && bulk > 0 ? (
         <Line
           label="10% off runs over $10"
           value={formatCents(-bulk)}
@@ -272,7 +349,7 @@ export function QuoteView({
           tone="discount"
         />
       ) : null}
-      {proLine && proOff > 0 ? (
+      {!tierMode && proLine && proOff > 0 ? (
         // S3D-67: one compact line for members
         <Line
           label={`Pro −${proPercent(proLine.pct)}%`}
