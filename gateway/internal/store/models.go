@@ -94,6 +94,9 @@ type Payment struct {
 	ClientSecret string    `firestore:"client_secret,omitempty" json:"-"`
 	URL          string    `firestore:"url,omitempty" json:"-"`
 	CreatedAt    time.Time `firestore:"created_at" json:"-"`
+	// ClientIP of the request that opened it: tax location evidence when
+	// a method is saved (C6/D3).
+	ClientIP string `firestore:"client_ip,omitempty" json:"-"`
 }
 
 // Lease gives one writer to a group's or settle's money (E0-4): whoever
@@ -373,9 +376,12 @@ type Conversion struct {
 	// start; CurrentPayment the one live payment object (E0-1); ExpiresAt
 	// the run's clock while "created", which follows the payment (E0-3);
 	// Lease the one writer while money moves (E0-4).
-	PaymentFlow    string   `firestore:"payment_flow,omitempty" json:"payment_flow,omitempty"`
-	PayReason      string   `firestore:"pay_reason,omitempty" json:"-"`
-	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
+	PaymentFlow string `firestore:"payment_flow,omitempty" json:"payment_flow,omitempty"`
+	PayReason   string `firestore:"pay_reason,omitempty" json:"-"`
+	// DeclinedMethodLabel: "Visa •••• 4242" when a pre-charge was declined
+	// (P3 names the method).
+	DeclinedMethodLabel string   `firestore:"declined_method_label,omitempty" json:"-"`
+	CurrentPayment      *Payment `firestore:"current_payment,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
@@ -445,6 +451,12 @@ type Customer struct {
 	SheetOnly        bool     `firestore:"sheet_only,omitempty"`
 	SheetOnlyReason  string   `firestore:"sheet_only_reason,omitempty"`
 	UnderReview      bool     `firestore:"under_review,omitempty"`
+	// BackupOrder: the customer's order of saved methods for backups
+	// (C5, set in Billing; methods not listed follow in the order added).
+	BackupOrder []string `firestore:"backup_order,omitempty"`
+	// MethodAdds: setup sessions opened per day (H: at most 3 a day).
+	MethodAddsDay string `firestore:"method_adds_day,omitempty"`
+	MethodAdds    int    `firestore:"method_adds,omitempty"`
 	// LastChargeFailedAt: the last automatic charge (a conversion's or a
 	// batch's) the card declined. Within the failure lookback it drops the
 	// account to the first batch tier (S3D-19).

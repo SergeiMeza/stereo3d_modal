@@ -34,9 +34,13 @@ import (
 // Writes the HTTP response on every path; restore gives back the analyze
 // credit on failure.
 func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
-	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func()) {
-	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), false)
+	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func(), pc payContext) {
+	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), pc.China)
 	conv.PaymentFlow, conv.PayReason = flow, reason
+	if flow == store.FlowPayNow || flow == store.FlowChina {
+		s.startPayNowRun(ctx, w, user, cust, conv, restore, pc)
+		return
+	}
 	if flow == store.FlowAfter {
 		// Credit, at or under the threshold (C1): enters at "paid",
 		// charged with the group on success.
@@ -82,6 +86,14 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 			updated = fresh
 		} else {
 			updated = conv
+		}
+	}
+	if updated.State == store.StateCreated && updated.PaymentFlow == store.FlowPayNow && updated.CurrentPayment == nil {
+		// P3: the pre-charge needs the sheet for this run — open it now.
+		if opened, oerr := s.openRunSession(ctx, updated, "elements", pc.Device, pc.IP, user.Email); oerr == nil || errors.Is(oerr, errAlreadyPaid) {
+			updated = opened
+		} else {
+			httpx.Log(ctx).Warn("P3 session not opened; pay-now opens it", "conversion_id", updated.ID, "err", oerr)
 		}
 	}
 	if updated.State == store.StatePaid {
@@ -234,13 +246,20 @@ func (s *Service) prechargeToSheet(ctx context.Context, conv *store.Conversion, 
 	if fail.NeedsAction {
 		reason = "authentication"
 	}
+	declined := ""
+	if reason == "declined" {
+		if cust, cerr := s.Store.GetCustomer(ctx, conv.UID); cerr == nil && cust.DefaultPaymentMethod == conv.Stripe.ChargePM {
+			declined = methodLabel(&stripex.CardInfo{Type: cust.DefaultMethodType, Wallet: cust.DefaultMethodWallet,
+				Brand: cust.CardBrand, Last4: cust.CardLast4, Email: cust.DefaultMethodEmail})
+		}
+	}
 	if fail.Stop {
 		s.setSheetOnly(ctx, conv.UID, "stop code "+fail.DeclineCode)
 	}
 	now := time.Now().UTC()
 	expiry := now.Add(noObjectHold)
 	updated, err := s.prechargeCommit(ctx, conv)(func(c *store.Conversion) {
-		c.PaymentFlow, c.PayReason = store.FlowPayNow, reason
+		c.PaymentFlow, c.PayReason, c.DeclinedMethodLabel = store.FlowPayNow, reason, declined
 		c.Stripe.PIStatus = ""
 		c.Stripe.ClientSecret = ""
 		c.Stripe.SettleError = fmt.Sprintf("precharge %s: %s %s", reason, fail.Code, fail.DeclineCode)
@@ -541,4 +560,51 @@ func (s *Service) sweepProcessing(ctx context.Context) int {
 		}
 	}
 	return n
+}
+
+// payContext is what the request says about where the customer pays:
+// China mode, the device (B16) and the IP (tax evidence).
+type payContext struct {
+	China  bool
+	Device string
+	IP     string
+}
+
+func payContextOf(r *http.Request) payContext {
+	return payContext{China: chinaMode(r), Device: clientDevice(r), IP: clientIP(r)}
+}
+
+// startPayNowRun records a run that pays before it starts (C1 paynow /
+// china, C4) and opens its sheet: a Checkout Session in elements mode.
+// China runs wait for pay-now {method} (server-side Alipay / WeChat Pay).
+// The run's clock follows its payment (E0-3).
+func (s *Service) startPayNowRun(ctx context.Context, w http.ResponseWriter, user *AuthedUser,
+	cust *store.Customer, conv *store.Conversion, restore func(), pc payContext) {
+	now := time.Now().UTC()
+	expiry := now.Add(noObjectHold)
+	conv.State = store.StateCreated
+	conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoPrecharge}
+	conv.ExpiresAt = &expiry
+	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+		if errors.Is(err, store.ErrAlreadyExists) {
+			s.replayConversion(ctx, w, user, conv.ID)
+			return
+		}
+		restore()
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	httpx.Log(ctx).Info("conversion created (pay first)", "conversion_id", conv.ID, "uid", user.UID,
+		"flow", conv.PaymentFlow, "reason", conv.PayReason, "amount_cents", conv.Quote.AmountCents)
+	if conv.PaymentFlow == store.FlowChina {
+		httpx.WriteOK(w, s.payNowResponse(conv))
+		return
+	}
+	updated, err := s.openRunSession(ctx, conv, "elements", pc.Device, pc.IP, user.Email)
+	if err != nil && !errors.Is(err, errAlreadyPaid) {
+		// The run waits; pay-now opens the sheet on the next tap.
+		httpx.Log(ctx).Warn("sheet not opened at create", "conversion_id", conv.ID, "err", err)
+		updated = conv
+	}
+	httpx.WriteOK(w, s.payNowResponse(updated))
 }

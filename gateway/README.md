@@ -98,6 +98,44 @@ confirmCardPayment fallback). The default card is cached on
 - Account facts: `last_good_method`, `paid_methods`,
   `all_methods_failed`, `sheet_only`, `under_review`.
 
+### Checkout and Billing (spec v6.2 D1–D4, F)
+
+- **Sheet**: runs with `payment_flow` paynow are written `created` and get a
+  Checkout Session (`ui_mode=elements`, API `2026-10-28.endive`, raw form
+  calls in `stripex/checkout.go`/`web.go`) on the web's own PMC
+  `STRIPE_PMC_WEB` ("Stereo3D web", test `pmc_1UXYkVAVV5NpxADI3Vj4kzJI`),
+  forced save for card/Link/PayPal with Stripe's reuse text, tax ID
+  collection, 30-min expiry, `statement_descriptor_suffix=STEREO3D`, key
+  `run_{env}_{conversion_id}_{attempt}`. WeChat Pay is excluded unless
+  `X-Client-Device: computer`; Klarna is excluded while `klarna_markets` is
+  empty. Responses: `billing {status: requires_payment, reason,
+  declined_method_label?, checkout {client_secret, expires_at}}`, plus
+  top-level `checkout`, `amount_cents`, `publishable_key`.
+- `POST /v1/conversions/{id}/pay-now {ui: "elements", replace?}`: the open
+  session, or a fresh one (E0-1 replace). 409 `already_paid` / `expired` /
+  `payment_in_progress`. `{method}` (China) arrives with the China path.
+- A pre-charge that needs the bank's check or was declined opens the sheet
+  for that run in the same request (P3).
+- Pro steps no longer 402 `no_payment_method` (C4); `requireRunnable`:
+  410 deleted, 403 `under_review`, 402 `payment_method_needed {amount_cents}`
+  while anything is owed.
+- **D3** `checkout.session.completed` / `async_payment_succeeded` →
+  `applyRunPayment`; a saved method gets a consent record
+  (`consents_{env}`), `allow_redisplay=always`, the default (if none, or
+  after P3), `last_good_method`, and the request IP as tax evidence;
+  `expired` / `async_payment_failed` on the current session expire the run.
+- **Billing (ours, no Stripe portal on the web)**: `GET /v1/billing/methods`
+  (backup order, default first, `removable`, `remove_blocked_reason`,
+  `max: 5`), `POST /v1/billing/methods/setup` (setup session; 409
+  `too_many_methods`, 429 `too_many_adds` past 3 a day),
+  `POST /v1/billing/methods/{id}/default`, `PUT /v1/billing/methods/order
+  {ids}`, `DELETE /v1/billing/methods/{id}` (409 `method_needed` for the last
+  one while anything is owed/open/charging; removing the default promotes
+  the first backup), `GET/PUT /v1/billing/company`,
+  `POST/DELETE /v1/billing/company/tax-ids`.
+- The test webhook endpoint carries every D5 event; `/webhook` is served
+  as an alias of `/webhooks/stripe`.
+
 Invariant tests run against the Firestore emulator and a fake Stripe:
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api -run 'E0|P3'`
 (skipped without the emulator).

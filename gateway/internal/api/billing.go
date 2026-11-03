@@ -222,7 +222,11 @@ func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) 
 			return cust
 		}
 	}
-	card, err := s.Stripe.DefaultCard(customerID)
+	var order []string
+	if cached, gerr := s.Store.GetCustomer(ctx, uid); gerr == nil {
+		order = cached.BackupOrder
+	}
+	card, err := s.Stripe.DefaultCard(customerID, order...)
 	if err == nil {
 		cardRefreshedAt.Store(uid, time.Now())
 	}
@@ -524,4 +528,56 @@ func defaultMethodEntry(c *store.Customer) map[string]any {
 		}
 	}
 	return m
+}
+
+// requireRunnable gates a web pro step (spec v6 C1/C4/F): nothing needs to
+// be saved — a run without a method pays in the sheet — so there is no
+// 402 no_payment_method. It ensures the Stripe customer (sessions need
+// one) and refuses: a deleted account (410), an account under review
+// (403 under_review), and an outstanding one (402 payment_method_needed
+// with the owed amount, every owed item, no cap).
+func (s *Service) requireRunnable(ctx context.Context, user *AuthedUser) (*store.Customer, error) {
+	customerID, err := s.ensureCustomerID(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	cust, err := s.Store.GetCustomer(ctx, user.UID)
+	if err != nil {
+		return nil, err
+	}
+	if cust.DefaultPaymentMethod == "" {
+		cust = s.refreshCardCache(ctx, user.UID, customerID)
+	}
+	if cust.AccountDeleted {
+		return nil, httpx.Err(http.StatusGone, "account_deleted", "this account has been deleted")
+	}
+	if cust.UnderReview {
+		return nil, httpx.Err(http.StatusForbidden, "under_review", "we're checking a payment on your account; contact support to continue")
+	}
+	if owed := s.owedCents(ctx, user.UID); owed > 0 {
+		e := httpx.Err(http.StatusPaymentRequired, "payment_method_needed",
+			"a payment didn't go through — pay it before starting new work")
+		e.Details = map[string]any{"amount_cents": owed, "unpaid_cents": owed}
+		return nil, e
+	}
+	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
+}
+
+// owedCents sums every owed item (C10): failed groups and per-run failed
+// charges outside a group. No cap (P8b).
+func (s *Service) owedCents(ctx context.Context, uid string) int64 {
+	var sum int64
+	if runs, err := s.Store.ListUserByPIStatus(ctx, uid, store.PIChargeFailed, unpaidLimit); err == nil {
+		for _, c := range runs {
+			if c.Stripe.BatchID == "" {
+				sum += c.Quote.AmountCents
+			}
+		}
+	}
+	if groups, err := s.Store.ListUserBatchesByState(ctx, uid, store.BatchFailed, unpaidLimit); err == nil {
+		for _, b := range groups {
+			sum += b.TotalCents
+		}
+	}
+	return sum
 }

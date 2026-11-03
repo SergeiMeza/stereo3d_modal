@@ -1286,9 +1286,9 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	// Billing gate BEFORE any commitment: a saved card and no outstanding
 	// failed charge, or the step never starts.
-	cust, berr := s.requireBillable(ctx, user)
+	cust, berr := s.requireRunnable(ctx, user)
 	if berr != nil {
-		httpx.WriteErr(ctx, w, stepBillingError(berr))
+		httpx.WriteErr(ctx, w, berr)
 		return
 	}
 	rates := s.Pricing.Rates(ctx)
@@ -1333,7 +1333,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	// against it.
 	conv.Support.ExpectedSeconds = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
 
-	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
+	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) }, payContextOf(r))
 }
 
 // finalizeAutoBilled bills the MOBILE one-shot flow's paid conversions

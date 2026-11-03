@@ -58,6 +58,13 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	switch head.Object {
 	case "payment_intent":
 		s.handlePaymentIntentEvent(ctx, w, event)
+	case "checkout.session":
+		if err := s.handleCheckoutEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("checkout event failed", "event", string(event.Type), "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
 	default:
 		// checkout.session, charge, refund, dispute, early fraud warning,
 		// payment_method, customer and invoice events get their handlers

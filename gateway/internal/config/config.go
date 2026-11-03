@@ -76,6 +76,10 @@ type Config struct {
 	// RC_API_KEY_V1, shared with the SVS backend): the Pro check (S3D-67).
 	// Empty = nobody gets the Pro discount.
 	RevenueCatKey string
+	// StripePMCWeb is the dedicated payment-method configuration of the web
+	// ("Stereo3D web", spec v6 D2) every web Checkout Session uses — never
+	// the account's Default (shared). Empty = the sheet is unavailable.
+	StripePMCWeb string
 	// FileKeepingTestAccounts: on test, the accounts (emails) whose
 	// projects' files the file-keeping purge really erases; every other
 	// test project is a dry run (logged only). The owner's alert address
@@ -125,6 +129,7 @@ func Load() (*Config, error) {
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
 		OwnerAlertEmail:  getenv("OWNER_ALERT_EMAIL", ""),
 		RevenueCatKey:    strings.TrimSpace(getenv("RC_API_KEY_V1", "")),
+		StripePMCWeb:     getenv("STRIPE_PMC_WEB", ""),
 		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
 	}
 	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {

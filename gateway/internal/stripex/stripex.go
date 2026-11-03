@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -329,7 +330,7 @@ var ReusableTypes = map[string]bool{"card": true, "link": true, "paypal": true}
 // replaced. Only when none is set (a SetupIntent attaches but doesn't make
 // default) is one picked: the OLDEST saved reusable method, which becomes
 // the default. nil, nil when nothing reusable is saved.
-func (c *Client) DefaultMethod(customerID string) (*CardInfo, error) {
+func (c *Client) DefaultMethod(customerID string, backupOrder ...string) (*CardInfo, error) {
 	cust, err := customer.Get(customerID, &stripe.CustomerParams{
 		Params: stripe.Params{Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
 	})
@@ -343,7 +344,13 @@ func (c *Client) DefaultMethod(customerID string) (*CardInfo, error) {
 	if err != nil || len(methods) == 0 {
 		return nil, err
 	}
-	pick := methods[0] // oldest
+	pick := methods[0] // oldest — unless the customer ordered them (D4)
+	for _, id := range backupOrder {
+		if i := slices.IndexFunc(methods, func(m *CardInfo) bool { return m.PaymentMethodID == id }); i >= 0 {
+			pick = methods[i]
+			break
+		}
+	}
 	if _, err := customer.Update(customerID, &stripe.CustomerParams{
 		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
 			DefaultPaymentMethod: stripe.String(pick.PaymentMethodID),
@@ -355,8 +362,8 @@ func (c *Client) DefaultMethod(customerID string) (*CardInfo, error) {
 }
 
 // DefaultCard is DefaultMethod (kept for callers that predate P7).
-func (c *Client) DefaultCard(customerID string) (*CardInfo, error) {
-	return c.DefaultMethod(customerID)
+func (c *Client) DefaultCard(customerID string, backupOrder ...string) (*CardInfo, error) {
+	return c.DefaultMethod(customerID, backupOrder...)
 }
 
 // ListMethods lists the customer's saved reusable methods, oldest first.

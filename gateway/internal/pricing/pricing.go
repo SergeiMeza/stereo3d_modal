@@ -193,6 +193,10 @@ type Rates struct {
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
 	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
+	// KlarnaMarkets: countries where the sheet offers Klarna (spec v6.2
+	// BL-10; empty at launch = never offered). A GB account can take
+	// Klarna only from EEA/CH/UK buyers in their own currency.
+	KlarnaMarkets []string `firestore:"klarna_markets"`
 	// Pro discount (S3D-67): Spatial Video Studio Pro customers get
 	// pro_discount_pct off every paid web run (production, both methods;
 	// not previews), before the bulk discount; the per-run minimum stays.

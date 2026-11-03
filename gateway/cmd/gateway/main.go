@@ -106,6 +106,9 @@ func main() {
 		httpx.WriteOK(w, map[string]string{"status": "ok", "env": cfg.Env})
 	})
 	mux.HandleFunc("POST /webhooks/stripe", svc.HandleStripeWebhook)
+	// The TEST mode endpoint was registered at /webhook (found 2026-11-03:
+	// every test event 404ed); both paths serve the same handler.
+	mux.HandleFunc("POST /webhook", svc.HandleStripeWebhook)
 	// Public price list (S3D-18): no auth, cacheable, CORS like every route.
 	mux.HandleFunc("GET /v1/pricing", svc.HandlePublicPricing)
 	mux.HandleFunc("POST /internal/reconcile", svc.HandleReconcile)
@@ -174,6 +177,16 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
+	// Our own Billing (spec v6.2 D4/F): methods, backup order, company.
+	mux.HandleFunc("GET /v1/billing/methods", authed(svc.HandleListMethods))
+	mux.HandleFunc("POST /v1/billing/methods/setup", authed(svc.HandleSetupMethod))
+	mux.HandleFunc("POST /v1/billing/methods/{id}/default", authed(withID(svc.HandleSetDefaultMethod)))
+	mux.HandleFunc("PUT /v1/billing/methods/order", authed(svc.HandlePutMethodOrder))
+	mux.HandleFunc("DELETE /v1/billing/methods/{id}", authed(withID(svc.HandleRemoveMethod)))
+	mux.HandleFunc("GET /v1/billing/company", authed(svc.HandleGetCompany))
+	mux.HandleFunc("PUT /v1/billing/company", authed(svc.HandlePutCompany))
+	mux.HandleFunc("POST /v1/billing/company/tax-ids", authed(svc.HandleAddTaxID))
+	mux.HandleFunc("DELETE /v1/billing/company/tax-ids/{id}", authed(withID(svc.HandleDeleteTaxID)))
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
@@ -189,6 +202,7 @@ func main() {
 	mux.HandleFunc("GET /v1/conversions/{id}/downloads", authed(withID(svc.HandleDownloads)))
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
+	mux.HandleFunc("POST /v1/conversions/{id}/pay-now", authed(withID(svc.HandleRunPayNow)))
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))

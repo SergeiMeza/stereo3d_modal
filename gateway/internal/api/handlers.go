@@ -1117,6 +1117,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 			}
 		}
 	}
+	if b := payNowBilling(c); b != nil {
+		resp["billing"] = b // the sheet's run waiting for its payment (spec v6 F)
+	}
 	if sheet != nil {
 		resp["payment"] = sheet
 	}

@@ -264,7 +264,7 @@ func TestE0OneLeaseHolder(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
 	c := &store.Conversion{ID: store.NewID(), UID: "u-lease", State: store.StateSucceeded,
-		Quote: store.Quote{AmountCents: 100, Currency: "usd"},
+		Quote:  store.Quote{AmountCents: 100, Currency: "usd"},
 		Stripe: store.Stripe{Mode: store.BillingModeAuto, PIStatus: store.PIChargePending}}
 	if err := s.Store.CreateConversion(ctx, c); err != nil {
 		t.Fatal(err)
