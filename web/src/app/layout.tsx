@@ -48,7 +48,7 @@ export const metadata: Metadata = {
         url: "/landing/og.jpg",
         width: 1200,
         height: 630,
-        alt: "Stereo3D Studio: source footage next to its live depth map, with per-scene 3D controls",
+        alt: "Stereo3D Studio: turn any video into lifelike 3D, up to 8K, for Vision Pro and every headset",
       },
     ],
   },
@@ -84,9 +84,6 @@ export default function RootLayout({
                   <span className="text-primary">Studio</span>
                 </span>
               </Link>
-              <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
-                Beta
-              </span>
               <Link
                 href="/projects"
                 className="hidden text-fg-muted transition-colors hover:text-fg sm:block"
