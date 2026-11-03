@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 
 import { outputName } from "@/lib/glossary";
+import { DownloadGate } from "@/components/billing/PayToDownload";
 
 /**
  * Output name → signed URL list (from GET /v1/conversions/{id}/downloads).
@@ -77,14 +78,16 @@ export function DownloadsList({
     <ul className="flex flex-col gap-3">
       {entries.map(([name, url]) => (
         <li key={name} className="flex flex-col gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80"
-          >
-            {downloadLabel(name)}
-          </a>
+          <DownloadGate className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80">
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              {downloadLabel(name)}
+            </a>
+          </DownloadGate>
           {INLINE_PLAYABLE.has(splitPart(name)?.base ?? name) ? (
             <video
               src={url}

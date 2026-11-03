@@ -20,6 +20,7 @@ import { HEADSET_HINT, isHeadset, stereoFormatsFor } from "@/lib/headset";
 
 import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
+import { DownloadGate } from "@/components/billing/PayToDownload";
 
 interface DeviceGroupCopy {
   device: string;
@@ -239,16 +240,20 @@ export function RunFiles({
               {thisHeadset ? (
                 <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint />
               ) : null}
-              <a
-                href={f.url}
-                // S3D-31: a bare download attribute — the saved name is the
-                // one the gateway sends (Content-Disposition), never ours
-                download
-                onClick={(e) => open(e, f.name)}
+              <DownloadGate
                 className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
               >
-                {preview && !thisHeadset ? "Play" : "Download"}
-              </a>
+                <a
+                  href={f.url}
+                  // S3D-31: a bare download attribute — the saved name is the
+                  // one the gateway sends (Content-Disposition), never ours
+                  download
+                  onClick={(e) => open(e, f.name)}
+                  className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
+                >
+                  {preview && !thisHeadset ? "Play" : "Download"}
+                </a>
+              </DownloadGate>
             </li>
           ))}
         </ul>

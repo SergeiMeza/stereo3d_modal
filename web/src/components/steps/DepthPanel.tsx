@@ -34,7 +34,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -73,6 +73,7 @@ import {
 import { StepReview, useRunDownloads } from "./StepReview";
 import { CLASSIC_PREVIEW_SECONDS } from "./methods";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
+import { DownloadGate } from "@/components/billing/PayToDownload";
 
 export { DEFAULT_DEPTH_RES };
 
@@ -509,18 +510,20 @@ function DepthReview({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>
-            <Button asChild>
-              <a
-                href={exportUrl ?? undefined}
-                target="_blank"
-                rel="noreferrer"
-                download
-                data-testid="export-depth-link"
-                onClick={() => setExportOpen(false)}
-              >
-                Download 10-bit depth
-              </a>
-            </Button>
+            <DownloadGate className={buttonVariants()}>
+              <Button asChild>
+                <a
+                  href={exportUrl ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  data-testid="export-depth-link"
+                  onClick={() => setExportOpen(false)}
+                >
+                  Download 10-bit depth
+                </a>
+              </Button>
+            </DownloadGate>
           </DialogFooter>
         </DialogContent>
       </Dialog>

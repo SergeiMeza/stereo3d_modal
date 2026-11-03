@@ -8,7 +8,7 @@
  * Payment needed.
  */
 
-import type { ChargeTiming, Conversion, GatewayLimits } from "@/lib/api/types";
+import type { BillingStatus, ChargeTiming, Conversion, GatewayLimits } from "@/lib/api/types";
 
 import { formatCentsShort } from "@/components/steps/money";
 
@@ -65,4 +65,16 @@ export function cancelRule(
   return timing === "before"
     ? `Runs over ${t} are charged when you start them. Cancel any time while it waits in line, or in its first minute, for a full refund.`
     : `Runs of ${t} or less are charged after they're done. Cancel any time while it waits in line, or in its first minute, and you pay nothing.`;
+}
+
+/** S3D-35: what the account still owes (failed charges waiting to be
+ * paid), in cents; 0 when nothing is outstanding or status is unknown. */
+export function outstandingCents(status: Pick<BillingStatus, "unpaid"> | null): number {
+  return (status?.unpaid ?? []).reduce((sum, u) => sum + u.amount_cents, 0);
+}
+
+/** S3D-35: the label every download button carries while a payment is
+ * outstanding. */
+export function payToDownload(cents: number): string {
+  return `Pay ${formatCentsShort(cents)} to download`;
 }

@@ -48,6 +48,7 @@ import {
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
+import { DownloadGate } from "@/components/billing/PayToDownload";
 
 /** The preview's source range for a chosen start frame: about
  * LIFELIKE_PREVIEW_SECONDS long, half open, inside [0, numFrames). */
@@ -236,13 +237,15 @@ export function LifelikePreviewPanel({
               Free 3D check on this screen
             </span>
             <ViewIn3D files={downloads} size="xs" />
-            <a
-              href={output.url}
-              download
-              className="ml-auto text-xs text-primary hover:underline"
-            >
-              Download
-            </a>
+            <DownloadGate className="ml-auto text-xs text-primary hover:underline">
+              <a
+                href={output.url}
+                download
+                className="ml-auto text-xs text-primary hover:underline"
+              >
+                Download
+              </a>
+            </DownloadGate>
           </div>
           <div className="flex items-center text-xs">
             <span className="font-mono text-fg-muted">

@@ -17,6 +17,8 @@ import {
 
 import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
+import { outstandingCents, payToDownload } from "@/lib/billingCopy";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -96,7 +98,9 @@ function renderWithHistory(conversions: Conversion[]) {
   };
   render(
     <AuthProvider>
-      <HistoryList project={project} />
+      <BillingProvider>
+        <HistoryList project={project} />
+      </BillingProvider>
     </AuthProvider>,
   );
 }
@@ -136,6 +140,31 @@ describe("Files (screen 09)", () => {
     const link = within(files).getByRole("link", { name: "Download" });
     // S3D-31: the gateway names the file (Content-Disposition); we never rename it
     expect(link.getAttribute("download")).toBe("");
+  });
+
+  it("while a payment is outstanding, downloads read Pay $X to download (S3D-35)", async () => {
+    const other: Conversion = { ...SUCCEEDED, conversion_id: "conv00000owed", quote: { amount_cents: 1250, currency: "usd" } };
+    mockDb.conversions.set(other.conversion_id, structuredClone(other));
+    mockDb.failCharge(other.conversion_id);
+    renderWithHistory([SUCCEEDED]);
+    const pay = await screen.findByTestId("pay-to-download");
+    expect(pay.textContent).toBe("Pay $12.50 to download");
+    expect(pay.getAttribute("href")).toBe("/account/billing");
+    const files = screen.getByTestId("run-files");
+    expect(within(files).queryByRole("link", { name: "Download" })).toBeNull();
+  });
+
+  it("sums what's owed; nothing owed means plain downloads", () => {
+    expect(outstandingCents(null)).toBe(0);
+    expect(
+      outstandingCents({
+        unpaid: [
+          { amount_cents: 300, currency: "usd", needs_action: false },
+          { amount_cents: 1200, currency: "usd", needs_action: false },
+        ],
+      }),
+    ).toBe(1500);
+    expect(payToDownload(1500)).toBe("Pay $15 to download");
   });
 
   it("refreshes expired links on click", async () => {
