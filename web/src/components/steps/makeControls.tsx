@@ -226,6 +226,8 @@ export function usePresetPrices(
   base: StepConversionRequest,
   presets: readonly Preset[],
   method: Method,
+  /** fields one quality needs (S3D-65: original_eye at 5K-8K) */
+  perPreset?: Partial<Record<Preset, Partial<StepConversionRequest>>>,
 ): Partial<Record<Preset, number>> {
   const gateway = useGateway();
   const [prices, setPrices] = useState<{
@@ -234,13 +236,13 @@ export function usePresetPrices(
   }>({ key: "", cents: {} });
   const { preset: _ignored, ...rest } = base;
   void _ignored;
-  const key = JSON.stringify({ rest, presets, method });
+  const key = JSON.stringify({ rest, presets, method, perPreset });
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {
       for (const p of presets) {
         gateway
-          .quoteStep(project.project_id, { ...rest, preset: p, method })
+          .quoteStep(project.project_id, { ...rest, ...perPreset?.[p], preset: p, method })
           .then(
             (q) => {
               if (cancelled) return;
@@ -351,6 +353,11 @@ export function QualityTiles({
               </span>
               {q.hint ? (
                 <span className="font-mono text-[11px] text-fg-muted">{q.hint}</span>
+              ) : null}
+              {q.originalEyeRequired ? (
+                <span className="text-[11px] text-fg-muted">
+                  One eye keeps your original picture.
+                </span>
               ) : null}
               <span
                 data-testid={`quality-price-${q.preset}`}

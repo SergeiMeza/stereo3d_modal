@@ -866,6 +866,12 @@ function validateLifelikeRequest(
   if (eye !== undefined && eye !== "left" && eye !== "right") {
     return err(400, "invalid_request", "original_eye must be left|right");
   }
+  if (
+    eye === undefined &&
+    lifelikeQualities(p).find((q) => q.preset === preset)?.original_eye_required
+  ) {
+    return err(400, "original_eye_required", "this quality keeps one eye original");
+  }
   if (body.foveation !== undefined && body.foveation !== null) {
     if (body.foveation !== "static" || !mockDb.lifelikeFoveation) {
       return err(400, "invalid_request", "foveation is not available");
@@ -960,7 +966,13 @@ function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
   let belowSide = 0;
   for (const [preset, label, side] of steps) {
     if (side <= short) {
-      out.push({ preset, label, ...size(side) });
+      out.push({
+        preset,
+        label,
+        ...size(side),
+        // S3D-65: above 4K one eye keeps the source picture
+        ...(side > 2160 ? { original_eye_required: true } : {}),
+      });
       below = preset;
       belowSide = side;
     } else if (short <= belowSide) {
@@ -973,6 +985,7 @@ function lifelikeQualities(p: Project): NonNullable<Project["qualities"]> {
         label: `Full resolution (${short % 2 === 0 ? short : short - 1}p)`,
         ...size(short),
         ...(below !== null ? { price_preset: below } : {}),
+        ...(short > 2160 ? { original_eye_required: true } : {}),
       });
       break;
     }

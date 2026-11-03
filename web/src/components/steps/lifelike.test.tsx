@@ -626,14 +626,16 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
       ...project,
       qualities: [
         { preset: "4k" as const, label: "4K", eye_width: 3840, eye_height: 2160 },
-        { preset: "5k" as const, label: "5K", eye_width: 5120, eye_height: 2880 },
-        { preset: "6k" as const, label: "6K", eye_width: 5760, eye_height: 3240 },
-        { preset: "8k" as const, label: "8K", eye_width: 7680, eye_height: 4320 },
+        { preset: "5k" as const, label: "5K", eye_width: 5120, eye_height: 2880, original_eye_required: true },
+        { preset: "6k" as const, label: "6K", eye_width: 5760, eye_height: 3240, original_eye_required: true },
+        { preset: "8k" as const, label: "8K", eye_width: 7680, eye_height: 4320, original_eye_required: true },
       ],
     };
     mockDb.projects.get(PID)!.probe = { ...mockDb.projects.get(PID)!.probe!, width: 7680, height: 4320 };
     renderPanel(<LifelikeDeliverPanel project={listed} onProjectChanged={() => {}} />);
-    expect(screen.getByTestId("quality-8k").textContent).toMatch(/^8K7680×4320 per eye/);
+    expect(screen.getByTestId("quality-8k").textContent).toMatch(
+      /^8K7680×4320 per eyeOne eye keeps your original picture\./,
+    );
     await waitFor(() =>
       expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
@@ -819,5 +821,53 @@ describe("pay-now methods (S3D-60/61)", () => {
     expect(within(sheet).getByText(/^Scan with WeChat to pay \$\d+\.\d\d$/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Stripe|relay|proxy/i);
     china.value = false;
+  });
+});
+
+describe("5K and above keep one eye original (S3D-65)", () => {
+  it("ticks and locks the option at 5K-8K, Left by default; up to 4K it stays optional", async () => {
+    const quotes = captureBodies("/quotes");
+    mockDb.projects.get(PID)!.probe = {
+      ...mockDb.projects.get(PID)!.probe!,
+      width: 7680,
+      height: 4320,
+    };
+    const project = {
+      ...lifelikeProject({ width: 7680, height: 4320 }),
+      qualities: [
+        { preset: "4k" as const, label: "4K", eye_width: 3840, eye_height: 2160 },
+        {
+          preset: "8k" as const,
+          label: "8K",
+          eye_width: 7680,
+          eye_height: 4320,
+          original_eye_required: true,
+        },
+      ],
+    };
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    // the best quality (8K) is preselected
+    expect(screen.getByTestId("quality-8k").textContent).toContain(
+      "One eye keeps your original picture.",
+    );
+    expect(screen.getByTestId("quality-4k").textContent).not.toContain("original picture");
+    const keep = screen.getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
+    expect(keep.checked).toBe(true);
+    expect(keep.disabled).toBe(true);
+    const eye = within(screen.getByRole("radiogroup", { name: "Which eye" }));
+    expect((eye.getByLabelText("Left") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(eye.getByLabelText("Right"));
+    await waitFor(() =>
+      expect(
+        quotes.some((q) => q.step === "production" && q.preset === "8k" && q.original_eye === "right"),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("quality-price-8k").textContent).toMatch(/^\$\d+\.\d\d$/),
+    );
+    // 4K: optional and unticked again
+    fireEvent.click(within(screen.getByTestId("quality-4k")).getByRole("radio"));
+    expect(keep.checked).toBe(false);
+    expect(keep.disabled).toBe(false);
   });
 });

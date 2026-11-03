@@ -197,6 +197,9 @@ export interface QualityOption {
   /** output size per eye */
   eye_width?: number;
   eye_height?: number;
+  /** S3D-65: this size keeps the source picture as one eye — the run must
+   * send original_eye (5K, 6K, 8K) */
+  original_eye_required?: boolean;
   /** the price step it is charged at, when not its own */
   price_preset?: Preset;
 }

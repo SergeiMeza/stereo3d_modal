@@ -118,6 +118,8 @@ export interface QualityChoice {
   hint?: string;
   /** output short side per eye, when known */
   eyeShort?: number;
+  /** S3D-65: one eye must keep the original picture at this size */
+  originalEyeRequired?: boolean;
 }
 
 /** The option text: "4K · 3840×2160 per eye". */
@@ -143,6 +145,7 @@ export function qualityChoices(project: {
         q.eye_width && q.eye_height
           ? Math.min(q.eye_width, q.eye_height)
           : QUALITY_SHORT_SIDE[q.preset],
+      ...(q.original_eye_required ? { originalEyeRequired: true } : {}),
     }));
   }
   const probe = project.probe;

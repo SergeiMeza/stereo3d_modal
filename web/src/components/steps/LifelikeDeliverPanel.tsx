@@ -89,12 +89,19 @@ export function LifelikeDeliverPanel({
   const [trim, setTrim] = useState<[number, number] | null>(null);
   const range: [number, number] = trim ?? [0, numFrames];
   // S3D-48: under Quality, unticked; Left when ticked
-  const [originalEye, setOriginalEye] = useState<"left" | "right" | null>(null);
+  const [optionalEye, setOptionalEye] = useState<"left" | "right" | null>(null);
+  // S3D-65: 5K, 6K and 8K keep one eye original — ticked and locked there,
+  // Left by default; up to 4K it stays optional and unticked
+  const [requiredEye, setRequiredEye] = useState<"left" | "right">("left");
   // S3D-50: Foveated Detail, ticked by default whenever it's shown
   const [foveated, setFoveated] = useState(true);
   // S3D-56: under a collapsed Advanced; no price change
   const [bitrate, setBitrate] = useState<Bitrate>("auto");
   const chosen = choices.find((q) => q.preset === preset);
+  const eyeRequired = chosen?.originalEyeRequired === true;
+  const originalEye = eyeRequired ? requiredEye : optionalEye;
+  const setEye = (e: "left" | "right") =>
+    eyeRequired ? setRequiredEye(e) : setOptionalEye(e);
   const sourceShort = project.probe
     ? Math.min(project.probe.width, project.probe.height)
     : 0;
@@ -120,6 +127,11 @@ export function LifelikeDeliverPanel({
     base,
     choices.map((q) => q.preset),
     "lifelike",
+    Object.fromEntries(
+      choices
+        .filter((q) => q.originalEyeRequired)
+        .map((q) => [q.preset, { original_eye: originalEye ?? requiredEye }]),
+    ),
   );
 
   const ready =
@@ -246,8 +258,9 @@ export function LifelikeDeliverPanel({
                 <input
                   type="checkbox"
                   checked={originalEye !== null}
+                  disabled={eyeRequired}
                   onChange={(e) =>
-                    change(() => setOriginalEye(e.target.checked ? "left" : null))
+                    change(() => setOptionalEye(e.target.checked ? "left" : null))
                   }
                   className="accent-primary"
                 />
@@ -268,7 +281,7 @@ export function LifelikeDeliverPanel({
                         type="radio"
                         name="original-eye"
                         checked={originalEye === eye}
-                        onChange={() => change(() => setOriginalEye(eye))}
+                        onChange={() => change(() => setEye(eye))}
                         className="accent-primary"
                       />
                       {eye === "left" ? "Left" : "Right"}
