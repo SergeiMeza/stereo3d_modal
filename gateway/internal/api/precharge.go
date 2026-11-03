@@ -43,66 +43,181 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 		s.createAndSubmit(ctx, w, user, conv, restore)
 		return
 	}
-	conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoPrecharge}
-	pi, err := s.Stripe.PrechargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
-		conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
-			ConversionID: conv.ID,
-			UID:          user.UID,
-			Description:  jobDescription(conv),
-			Metadata:     s.jobMetadata(ctx, conv),
-			ReceiptEmail: user.Email,
-		})
-	if err != nil {
-		fail := stripex.ClassifyChargeError(err)
-		if fail.NeedsAction && fail.PaymentIntentID != "" {
-			// Bank wants 3DS: park at "created" with the PI; the client
-			// confirms with the saved card and the succeeded webhook moves
-			// the run to paid and submits it.
-			conv.State = store.StateCreated
-			conv.Stripe.PaymentIntentID = fail.PaymentIntentID
-			if got, gerr := s.Stripe.GetPaymentIntent(fail.PaymentIntentID); gerr == nil {
-				conv.Stripe.ClientSecret = got.ClientSecret
-			}
-			s.createAndSubmit(ctx, w, user, conv, func() {
-				_ = s.Stripe.CancelHold(fail.PaymentIntentID)
-				restore()
-			})
+	// P8a, record before money: the run is written at "created" with
+	// pi_status charging, THEN Stripe is called with the run's
+	// deterministic key. A request that dies in between leaves a record
+	// the reconciler re-drives (redrivePrecharges) by replaying that key.
+	conv.State = store.StateCreated
+	conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoPrecharge,
+		PIStatus: store.PICharging, ChargePM: cust.DefaultPaymentMethod, ChargeEmail: user.Email}
+	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+		if errors.Is(err, store.ErrAlreadyExists) {
+			s.replayConversion(ctx, w, user, conv.ID) // the same Idempotency-Key raced (P3)
 			return
 		}
 		restore()
-		if fail.Transient {
-			httpx.Log(ctx).Error("stripe precharge failed", "conversion_id", conv.ID, "err", err)
-			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error",
-				"could not take the payment; try again"))
-			return
-		}
-		httpx.Log(ctx).Info("precharge declined", "conversion_id", conv.ID, "uid", user.UID, "code", fail.Code)
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusPaymentRequired, "card_declined",
-			"your card declined the payment — update your payment method and retry"))
+		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	conv.Stripe.PaymentIntentID = pi.ID
-	switch pi.Status {
-	case stripe.PaymentIntentStatusSucceeded, stripe.PaymentIntentStatusProcessing:
-		now := time.Now().UTC()
-		conv.State = store.StatePaid
-		conv.Stripe.PIStatus = store.PISucceeded
-		conv.Stripe.CapturedCents = pi.Amount
-		conv.Stripe.CapturedAt = &now
-	default:
-		// requires_action without authentication_required (defensive, as
-		// for holds): same 3DS parking.
-		conv.State = store.StateCreated
-		conv.Stripe.ClientSecret = pi.ClientSecret
-	}
-	s.createAndSubmit(ctx, w, user, conv, func() {
-		// Nothing was submitted: give the money straight back.
-		if _, _, rerr := s.Stripe.RefundOrCancel(pi.ID); rerr != nil {
-			slog.ErrorContext(ctx, "precharge refund after a failed write", "conversion_id", conv.ID, "err", rerr)
-			s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "refund", rerr)
+	httpx.Log(ctx).Info("conversion created (pre-charge)",
+		"conversion_id", conv.ID, "uid", user.UID, "step", conv.Step, "method", conv.Method,
+		"project_id", conv.ProjectID, "amount_cents", conv.Quote.AmountCents)
+	updated, cerr := s.runPrecharge(ctx, conv)
+	if cerr != nil {
+		var apiErr *httpx.APIError
+		if errors.As(cerr, &apiErr) {
+			httpx.WriteErr(ctx, w, apiErr)
+			return
 		}
-		restore()
+		// Transient: the record stays charging and the reconciler replays
+		// the key; the client sees the run waiting for its payment.
+		httpx.Log(ctx).Warn("precharge left charging for the reconciler", "conversion_id", conv.ID, "err", cerr)
+		if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {
+			updated = fresh
+		} else {
+			updated = conv
+		}
+	}
+	if updated.State == store.StatePaid {
+		if serr := s.submitInline(ctx, updated.ID); serr != nil {
+			var rej *submitRejected
+			if errors.As(serr, &rej) {
+				e := httpx.Err(http.StatusBadRequest, rej.Code, rej.Message)
+				e.Details = map[string]any{"conversion_id": updated.ID}
+				httpx.WriteErr(ctx, w, e)
+				return
+			}
+			httpx.Log(ctx).Warn("inline submit failed; reconciler will retry", "conversion_id", updated.ID, "err", serr)
+		} else if fresh, gerr := s.Store.GetConversion(ctx, updated.ID); gerr == nil {
+			updated = fresh
+		}
+	}
+	httpx.WriteOK(w, s.conversionResponse(updated, nil))
+}
+
+// runPrecharge makes (or replays) a recorded run's pre-charge and commits
+// the outcome on the record, which must be "created" with pi_status
+// charging:
+//   - succeeded → paid (the caller submits);
+//   - processing → stays created, pi_status processing (P2): no submit
+//     until the succeeded webhook;
+//   - the bank's check → stays created with the PaymentIntent and its
+//     client secret (the client confirms; the webhook takes over);
+//   - declined → expired, nothing charged, credit back; an APIError (402)
+//     for the request;
+//   - transient → an error, the record untouched (still charging).
+func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
+	pi, err := s.Stripe.PrechargeSaved(conv.Stripe.CustomerID, conv.Stripe.ChargePM,
+		conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+			Web:          true,
+			ConversionID: conv.ID,
+			UID:          conv.UID,
+			Description:  jobDescription(conv),
+			// from the record alone: a replay must send the same request
+			Metadata:     jobMetadataFromConversion(conv),
+			ReceiptEmail: conv.Stripe.ChargeEmail,
+		})
+	commit := func(mutate func(c *store.Conversion)) (*store.Conversion, error) {
+		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateCreated}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PICharging); err != nil {
+				return err
+			}
+			mutate(c)
+			return nil
+		})
+		if errors.Is(terr, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID) // a webhook or another sweep got there first
+		}
+		return updated, terr
+	}
+	if err != nil {
+		fail := stripex.ClassifyChargeError(err)
+		switch {
+		case fail.NeedsAction && fail.PaymentIntentID != "":
+			secret := ""
+			if got, gerr := s.Stripe.GetPaymentIntent(fail.PaymentIntentID); gerr == nil {
+				secret = got.ClientSecret
+			}
+			return commit(func(c *store.Conversion) {
+				c.Stripe.PaymentIntentID = fail.PaymentIntentID
+				c.Stripe.PIStatus = store.PIRequiresAction
+				c.Stripe.ClientSecret = secret
+			})
+		case fail.Transient:
+			return nil, err
+		}
+		now := time.Now().UTC()
+		updated, cerr := commit(func(c *store.Conversion) {
+			c.State = store.StateExpired
+			c.Stripe.PaymentIntentID = fail.PaymentIntentID
+			c.Stripe.PIStatus = store.PICanceled
+			c.Stripe.CanceledAt = &now
+			c.Stripe.SettleError = "precharge declined: " + fail.Code
+		})
+		if fail.PaymentIntentID != "" {
+			_ = s.Stripe.CancelHold(fail.PaymentIntentID) // a declined PI must not stay confirmable
+		}
+		s.restoreCredit(ctx, conv)
+		slog.InfoContext(ctx, "precharge declined", "conversion_id", conv.ID, "uid", conv.UID, "code", fail.Code)
+		if cerr != nil {
+			return updated, cerr
+		}
+		return updated, httpx.Err(http.StatusPaymentRequired, "card_declined",
+			"your payment method declined the payment — update your payment method and retry")
+	}
+	switch pi.Status {
+	case stripe.PaymentIntentStatusSucceeded:
+		now := time.Now().UTC()
+		return commit(func(c *store.Conversion) {
+			c.State = store.StatePaid
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = pi.AmountReceived
+			c.Stripe.CapturedAt = &now
+		})
+	case stripe.PaymentIntentStatusProcessing:
+		return commit(func(c *store.Conversion) {
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIProcessing
+		})
+	}
+	// requires_action without authentication_required (defensive): the
+	// same bank-check parking.
+	return commit(func(c *store.Conversion) {
+		c.Stripe.PaymentIntentID = pi.ID
+		c.Stripe.PIStatus = store.PIRequiresAction
+		c.Stripe.ClientSecret = pi.ClientSecret
 	})
+}
+
+// redrivePrecharges replays pre-charges whose request died between the
+// record and Stripe's answer (pi_status charging for over a minute): the
+// deterministic key returns the first attempt's outcome, never a second
+// charge. Called by the reconciler.
+func (s *Service) redrivePrecharges(ctx context.Context) int {
+	stuck, err := s.Store.ListByPIStatus(ctx, store.PICharging, 50)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, c := range stuck {
+		if c.State != store.StateCreated || time.Since(c.UpdatedAt) < time.Minute {
+			continue
+		}
+		updated, rerr := s.runPrecharge(ctx, c)
+		var apiErr *httpx.APIError
+		if rerr != nil && !errors.As(rerr, &apiErr) {
+			slog.WarnContext(ctx, "precharge re-drive failed", "conversion_id", c.ID, "err", rerr)
+			continue
+		}
+		n++
+		if updated != nil && updated.State == store.StatePaid {
+			if serr := s.submitToModal(ctx, updated.ID); serr != nil {
+				slog.WarnContext(ctx, "submit after precharge re-drive failed", "conversion_id", c.ID, "err", serr)
+			}
+		}
+	}
+	return n
 }
 
 // refundPrecharge returns a pre-charged run's money once the run is
@@ -174,7 +289,7 @@ func stepBillingError(err error) error {
 	if errors.As(err, &apiErr) && apiErr.Code == "billing_overdue" {
 		renamed := *apiErr
 		renamed.Code = "payment_method_needed"
-		renamed.Message = "a payment failed — update your card so it can be retried before starting new work"
+		renamed.Message = "a payment failed — update your payment method so it can be retried before starting new work"
 		return &renamed
 	}
 	return err
@@ -189,6 +304,8 @@ func paymentStatus(c *store.Conversion) string {
 	switch c.Stripe.PIStatus {
 	case store.PISucceeded:
 		return "paid"
+	case store.PICharging, store.PIProcessing:
+		return "processing" // being taken, or an async payment settling (P2)
 	case store.PIRefunded, store.PIRefundFailed: // refund_failed: support refunds it by hand
 		return "refunded"
 	case store.PIChargeFailed:
@@ -234,6 +351,10 @@ func prechargeBilling(c *store.Conversion) map[string]any {
 	switch {
 	case c.State == store.StateCreated && c.Stripe.ClientSecret != "":
 		return nil // the requires_action block (conversionResponse)
+	case c.State == store.StateCreated && (c.Stripe.PIStatus == store.PICharging || c.Stripe.PIStatus == store.PIProcessing):
+		return map[string]any{"status": "waiting_for_payment"}
+	case c.State == store.StateExpired:
+		return map[string]any{"status": "not_charged"}
 	case !store.IsTerminal(c.State) || c.State == store.StateSucceeded:
 		return map[string]any{"status": "charged", "charged_cents": c.Stripe.CapturedCents}
 	case c.Stripe.PIStatus == store.PIRefunded:
@@ -286,4 +407,73 @@ func (s *Service) rejectSubmit(ctx context.Context, conv *store.Conversion, up *
 		failed = released
 	}
 	return &submitRejected{Code: code, Message: msg, Conv: failed}
+}
+
+// sweepProcessing reads the PaymentIntents of runs waiting for an async
+// payment (pi_status processing, P2) and applies Stripe's answer: settled
+// → paid (a pre-charge then submits) or charged (after-done); failed →
+// a pre-charge ends not charged, an after-done charge fails as any
+// decline. Still processing → untouched. The webhook usually gets there
+// first; this covers a lost event.
+func (s *Service) sweepProcessing(ctx context.Context) int {
+	runs, err := s.Store.ListByPIStatus(ctx, store.PIProcessing, 50)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, c := range runs {
+		if c.Stripe.PaymentIntentID == "" || time.Since(c.UpdatedAt) < 2*time.Minute {
+			continue
+		}
+		pi, gerr := s.Stripe.GetPaymentIntent(c.Stripe.PaymentIntentID)
+		if gerr != nil || pi.Status == stripe.PaymentIntentStatusProcessing {
+			continue
+		}
+		now := time.Now().UTC()
+		settled := pi.Status == stripe.PaymentIntentStatusSucceeded
+		updated, terr := s.Store.Transition(ctx, c.ID, []string{c.State}, func(cc *store.Conversion) error {
+			if err := stillPI(cc, store.PIProcessing); err != nil {
+				return err
+			}
+			switch {
+			case settled && cc.State == store.StateCreated:
+				cc.State = store.StatePaid
+				cc.Stripe.PIStatus = store.PISucceeded
+				cc.Stripe.CapturedCents = pi.AmountReceived
+				cc.Stripe.CapturedAt = &now
+				cc.Stripe.ClientSecret = ""
+			case settled:
+				cc.Stripe.PIStatus = store.PISucceeded
+				cc.Stripe.CapturedCents = pi.AmountReceived
+				cc.Stripe.CapturedAt = &now
+				cc.Stripe.SettleError = ""
+			case cc.State == store.StateCreated:
+				cc.State = store.StateExpired
+				cc.Stripe.PIStatus = store.PICanceled
+				cc.Stripe.CanceledAt = &now
+				cc.Stripe.SettleError = "async payment ended " + string(pi.Status)
+			default:
+				cc.Stripe.PIStatus = store.PIChargeFailed
+				cc.Stripe.SettleError = "charge: async payment ended " + string(pi.Status)
+			}
+			return nil
+		})
+		if terr != nil {
+			continue
+		}
+		n++
+		switch {
+		case settled && updated.State == store.StatePaid:
+			if serr := s.submitToModal(ctx, updated.ID); serr != nil {
+				slog.WarnContext(ctx, "submit after async payment failed", "conversion_id", updated.ID, "err", serr)
+			}
+		case settled:
+			s.creditLifetime(ctx, updated.UID, pi.AmountReceived)
+		case updated.State == store.StateExpired:
+			s.restoreCredit(ctx, updated)
+		default:
+			s.Slack.SettleFailed(ctx, updated.ID, updated.UID, "charge", errors.New(updated.Stripe.SettleError))
+		}
+	}
+	return n
 }

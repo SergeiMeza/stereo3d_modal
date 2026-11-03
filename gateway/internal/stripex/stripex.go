@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -32,7 +33,6 @@ import (
 	"github.com/stripe/stripe-go/v78/customer"
 	"github.com/stripe/stripe-go/v78/ephemeralkey"
 	"github.com/stripe/stripe-go/v78/paymentintent"
-	"github.com/stripe/stripe-go/v78/paymentmethod"
 	"github.com/stripe/stripe-go/v78/refund"
 	"github.com/stripe/stripe-go/v78/setupintent"
 	"github.com/stripe/stripe-go/v78/webhook"
@@ -63,6 +63,9 @@ func New(secretKey, webhookSecret, publishableKey, env string) *Client {
 	}
 }
 
+// EnsureCustomer creates the uid's Stripe customer. The idempotency key
+// makes concurrent first requests share ONE customer (P5); the caller's
+// Firestore Create keeps the mapping single.
 func (c *Client) EnsureCustomer(uid, email string) (string, error) {
 	params := &stripe.CustomerParams{}
 	if email != "" {
@@ -70,6 +73,7 @@ func (c *Client) EnsureCustomer(uid, email string) (string, error) {
 	}
 	params.AddMetadata("firebase_uid", uid)
 	params.AddMetadata("env", c.env)
+	params.SetIdempotencyKey("customer_" + c.env + "_" + uid)
 	cust, err := customer.New(params)
 	if err != nil {
 		return "", err
@@ -110,6 +114,25 @@ type Job struct {
 	// reused stages — api.jobMetadata). Reserved keys (conversion_id,
 	// user_id, env, description) are stamped separately and skipped here.
 	Metadata map[string]string
+	// Web: a Stereo3D Studio web charge (pro steps, groups) rather than
+	// the SVS app's cloud conversion: picks the statement suffix and
+	// stamps product=svs-web.
+	Web bool
+}
+
+// Statement descriptor suffixes (P4): the account's prefix ("SPATIAL AI",
+// 10 characters) + "* " + suffix stays within the 22 a statement shows.
+const (
+	DescriptorSuffixWeb = "STEREO3D"
+	DescriptorSuffixApp = "SVS CLOUD"
+)
+
+// DescriptorSuffix is the suffix for a web or app charge.
+func DescriptorSuffix(web bool) string {
+	if web {
+		return DescriptorSuffixWeb
+	}
+	return DescriptorSuffixApp
 }
 
 // stamp applies the job's metadata, description, and receipt email to
@@ -123,6 +146,10 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	params.AddMetadata("user_id", job.UID)
 	params.AddMetadata("env", c.env)
+	params.StatementDescriptorSuffix = stripe.String(DescriptorSuffix(job.Web))
+	if job.Web {
+		params.AddMetadata("product", "svs-web")
+	}
 	if job.Description != "" {
 		params.Description = stripe.String(job.Description)
 		params.AddMetadata("description", job.Description)
@@ -132,7 +159,7 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	for k, v := range job.Metadata {
 		switch k {
-		case "conversion_id", "batch_id", "user_id", "env", "description":
+		case "conversion_id", "batch_id", "user_id", "env", "description", "product":
 			continue // reserved — never let extras clobber the support keys
 		}
 		if v != "" {
@@ -275,55 +302,96 @@ func (c *Client) CreateSetupIntent(customerID, uid string) (*SetupSheet, error) 
 	}, nil
 }
 
-// CardInfo describes the customer's default (chargeable) payment method.
+// CardInfo describes the customer's default (chargeable) payment method:
+// any reusable type (P7). Brand/Last4/Exp* are set for cards (wallets
+// tokenise as cards; Wallet names apple_pay, google_pay…); Email for Link
+// and PayPal.
 type CardInfo struct {
 	PaymentMethodID string
+	Type            string // card | link | paypal
+	Wallet          string
 	Brand           string
 	Last4           string
 	ExpMonth        int64
 	ExpYear         int64
+	Email           string
+	Created         int64
 }
 
-// DefaultCard resolves the customer's default payment method, promoting the
-// newest saved card to default when none is set (a SetupIntent attaches the
-// card but does not make it the default — this read-through heals that, and
-// also picks up cards added or removed in the billing portal). nil, nil when
-// the customer has no saved card.
-func (c *Client) DefaultCard(customerID string) (*CardInfo, error) {
+// IsCard reports a card-shaped default (the iOS app's card field).
+func (ci *CardInfo) IsCard() bool { return ci != nil && (ci.Type == "" || ci.Type == "card") }
+
+// ReusableTypes are the payment-method types we charge off-session.
+var ReusableTypes = map[string]bool{"card": true, "link": true, "paypal": true}
+
+// DefaultMethod resolves the customer's default payment method (P7): any
+// reusable type is accepted as it is, and an existing default is never
+// replaced. Only when none is set (a SetupIntent attaches but doesn't make
+// default) is one picked: the OLDEST saved reusable method, which becomes
+// the default. nil, nil when nothing reusable is saved.
+func (c *Client) DefaultMethod(customerID string) (*CardInfo, error) {
 	cust, err := customer.Get(customerID, &stripe.CustomerParams{
 		Params: stripe.Params{Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get customer: %w", err)
 	}
-	if pm := cust.InvoiceSettings.DefaultPaymentMethod; pm != nil && pm.Card != nil {
-		return cardInfo(pm), nil
+	if pm := cust.InvoiceSettings.DefaultPaymentMethod; pm != nil && ReusableTypes[string(pm.Type)] {
+		return MethodInfo(pm), nil
 	}
-	iter := paymentmethod.List(&stripe.PaymentMethodListParams{
-		Customer: stripe.String(customerID),
-		Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
-	})
-	if !iter.Next() { // newest first — the card just saved by onboarding
-		return nil, iter.Err()
+	methods, err := c.ListMethods(customerID)
+	if err != nil || len(methods) == 0 {
+		return nil, err
 	}
-	pm := iter.PaymentMethod()
+	pick := methods[0] // oldest
 	if _, err := customer.Update(customerID, &stripe.CustomerParams{
 		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
-			DefaultPaymentMethod: stripe.String(pm.ID),
+			DefaultPaymentMethod: stripe.String(pick.PaymentMethodID),
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("promote default payment method: %w", err)
+		return nil, fmt.Errorf("set default payment method: %w", err)
 	}
-	return cardInfo(pm), nil
+	return pick, nil
 }
 
-func cardInfo(pm *stripe.PaymentMethod) *CardInfo {
-	info := &CardInfo{PaymentMethodID: pm.ID}
+// DefaultCard is DefaultMethod (kept for callers that predate P7).
+func (c *Client) DefaultCard(customerID string) (*CardInfo, error) {
+	return c.DefaultMethod(customerID)
+}
+
+// ListMethods lists the customer's saved reusable methods, oldest first.
+func (c *Client) ListMethods(customerID string) ([]*CardInfo, error) {
+	iter := customer.ListPaymentMethods(&stripe.CustomerListPaymentMethodsParams{Customer: stripe.String(customerID)})
+	var out []*CardInfo
+	for iter.Next() {
+		if pm := iter.PaymentMethod(); ReusableTypes[string(pm.Type)] {
+			out = append(out, MethodInfo(pm))
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Created < out[j].Created })
+	return out, nil
+}
+
+// MethodInfo summarises a PaymentMethod.
+func MethodInfo(pm *stripe.PaymentMethod) *CardInfo {
+	info := &CardInfo{PaymentMethodID: pm.ID, Type: string(pm.Type), Created: pm.Created}
 	if pm.Card != nil {
 		info.Brand = string(pm.Card.Brand)
 		info.Last4 = pm.Card.Last4
 		info.ExpMonth = pm.Card.ExpMonth
 		info.ExpYear = pm.Card.ExpYear
+		if pm.Card.Wallet != nil {
+			info.Wallet = string(pm.Card.Wallet.Type)
+		}
+	}
+	if pm.Link != nil {
+		info.Email = pm.Link.Email
+	}
+	if pm.Paypal != nil {
+		info.Email = pm.Paypal.PayerEmail
 	}
 	return info
 }
@@ -399,7 +467,9 @@ func (c *Client) PrechargeSaved(customerID, paymentMethodID string, amountCents 
 // can't change (a disputed charge, say) — the caller flags it for a manual
 // refund instead of retrying forever.
 func (c *Client) RefundOrCancel(paymentIntentID string) (refunded int64, refused bool, err error) {
-	pi, err := paymentintent.Get(paymentIntentID, nil)
+	gp := &stripe.PaymentIntentParams{}
+	gp.AddExpand("latest_charge")
+	pi, err := paymentintent.Get(paymentIntentID, gp)
 	if err != nil {
 		return 0, false, fmt.Errorf("get payment intent: %w", err)
 	}
@@ -410,9 +480,19 @@ func (c *Client) RefundOrCancel(paymentIntentID string) (refunded int64, refused
 		if pi.LatestCharge != nil && pi.LatestCharge.Refunded {
 			return pi.AmountReceived, false, nil
 		}
-		params := &stripe.RefundParams{PaymentIntent: stripe.String(paymentIntentID)}
+		remaining := pi.AmountReceived
+		if pi.LatestCharge != nil {
+			remaining -= pi.LatestCharge.AmountRefunded
+		}
+		if remaining <= 0 {
+			return pi.AmountReceived, false, nil
+		}
+		// P8c: an explicit amount, and the key names it, so a later
+		// partial refund on the same PaymentIntent can't collide.
+		params := &stripe.RefundParams{PaymentIntent: stripe.String(paymentIntentID), Amount: stripe.Int64(remaining)}
 		params.AddMetadata("env", c.env)
-		params.SetIdempotencyKey("refund_" + c.env + "_" + paymentIntentID)
+		params.AddMetadata("source", "gateway")
+		params.SetIdempotencyKey(fmt.Sprintf("refund_%s_%s_full_%d", c.env, paymentIntentID, remaining))
 		r, rerr := refund.New(params)
 		if rerr != nil {
 			if stripeErrCode(rerr) == "charge_already_refunded" {
@@ -522,6 +602,10 @@ func ClassifyChargeError(err error) ChargeFailure {
 		f.PaymentIntentID = serr.PaymentIntent.ID
 	}
 	switch {
+	case serr.Type == stripe.ErrorTypeIdempotency:
+		// the same key in flight elsewhere, or reused with other params:
+		// never a card decision
+		f.Transient = true
 	case serr.Code == stripe.ErrorCodeAuthenticationRequired:
 		f.NeedsAction = true
 	case serr.Type == stripe.ErrorTypeCard, serr.Type == stripe.ErrorTypeInvalidRequest:

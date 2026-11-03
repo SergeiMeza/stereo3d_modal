@@ -55,6 +55,15 @@ const (
 	// (Slack-flagged for a manual refund, no further retries).
 	PIRefunded     = "refunded"
 	PIRefundFailed = "refund_failed"
+	// PICharging: a pre-charge is committed on the record BEFORE Stripe is
+	// called (P8a, record before money); the reconciler replays its
+	// deterministic key when the request died. PIProcessing: Stripe
+	// accepted the payment but hasn't settled it (async methods; P2) — no
+	// submit, credit or tier change until it succeeds ("waiting for
+	// payment"). PIRequiresAction: the bank wants its check (3DS).
+	PICharging       = "charging"
+	PIProcessing     = "processing"
+	PIRequiresAction = "requires_action"
 )
 
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
@@ -227,6 +236,10 @@ type Stripe struct {
 	// the saved card. Never in JSON; conversionResponse decides exposure.
 	ClientSecret string `firestore:"client_secret,omitempty" json:"-"`
 	PIStatus     string `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
+	// ChargePM / ChargeEmail: what a recorded pre-charge is made with, so a
+	// replay sends the very same request under its key (P8a).
+	ChargePM    string `firestore:"charge_pm,omitempty" json:"-"`
+	ChargeEmail string `firestore:"charge_email,omitempty" json:"-"`
 	// BatchID: the billing batch this auto-mode conversion was folded into
 	// (pi_status batched → succeeded/charge_failed follow the batch).
 	BatchID       string     `firestore:"batch_id,omitempty" json:"batch_id,omitempty"`
@@ -340,13 +353,19 @@ type Customer struct {
 	// /v1/billing). The conversion-create gate reads this cache — a stale
 	// "has card" is caught by the post-success charge, whose failure blocks
 	// further paid steps.
-	DefaultPaymentMethod string    `firestore:"default_payment_method,omitempty"`
-	CardBrand            string    `firestore:"card_brand,omitempty"`
-	CardLast4            string    `firestore:"card_last4,omitempty"`
-	CardExpMonth         int64     `firestore:"card_exp_month,omitempty"`
-	CardExpYear          int64     `firestore:"card_exp_year,omitempty"`
-	CardUpdatedAt        time.Time `firestore:"card_updated_at,omitempty"`
-	CreatedAt            time.Time `firestore:"created_at"`
+	DefaultPaymentMethod string `firestore:"default_payment_method,omitempty"`
+	CardBrand            string `firestore:"card_brand,omitempty"`
+	CardLast4            string `firestore:"card_last4,omitempty"`
+	CardExpMonth         int64  `firestore:"card_exp_month,omitempty"`
+	CardExpYear          int64  `firestore:"card_exp_year,omitempty"`
+	// DefaultMethodType/Wallet/Email: the cached default's type (card,
+	// link, paypal; "" = a card cached before P7), wallet and account
+	// email for Link/PayPal.
+	DefaultMethodType   string    `firestore:"default_method_type,omitempty"`
+	DefaultMethodWallet string    `firestore:"default_method_wallet,omitempty"`
+	DefaultMethodEmail  string    `firestore:"default_method_email,omitempty"`
+	CardUpdatedAt       time.Time `firestore:"card_updated_at,omitempty"`
+	CreatedAt           time.Time `firestore:"created_at"`
 	// OpenBatchID points at the user's currently accumulating billing
 	// batch ("" = none). Owned by the batch transactions in batches.go.
 	OpenBatchID string `firestore:"open_batch_id,omitempty"`
@@ -419,12 +438,15 @@ type Batch struct {
 	ClosedAt    *time.Time  `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
 	CloseReason string      `firestore:"close_reason,omitempty" json:"close_reason,omitempty"`
 	// Stripe settlement: one PaymentIntent per batch across every retry.
-	PaymentIntentID string     `firestore:"payment_intent_id,omitempty" json:"-"`
-	ChargedCents    int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
-	ChargedAt       *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
-	SettleError     string     `firestore:"settle_error,omitempty" json:"-"`
-	CreatedAt       time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `firestore:"updated_at" json:"updated_at"`
+	PaymentIntentID string `firestore:"payment_intent_id,omitempty" json:"-"`
+	// PIStatus: "processing" while Stripe settles an async payment
+	// (CHARGING_ASYNC, P2): still charging, never paid until succeeded.
+	PIStatus     string     `firestore:"pi_status,omitempty" json:"-"`
+	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
+	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
+	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
+	CreatedAt    time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt    time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects

@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -672,13 +673,14 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 	case conv.Stripe.PaymentIntentID != "":
 		pi, chErr = s.Stripe.ConfirmSavedCharge(conv.Stripe.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
 	case cust.DefaultPaymentMethod == "":
-		// Card removed between the gate and success — needs the user.
+		// Method removed between the gate and success — needs the user.
 		return s.recordChargeFailure(ctx, conv, stripex.ChargeFailure{
 			Code: "no_payment_method", Message: "no default payment method on file",
 		})
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          conv.UID,
 				Description:  jobDescription(conv),
@@ -687,15 +689,30 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 			})
 	}
 
-	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||
-		pi.Status == stripe.PaymentIntentStatusProcessing) {
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+		// P2: accepted, not settled — waiting for payment; the webhook or
+		// the processing sweep settles it.
+		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PIChargePending); err != nil {
+				return err
+			}
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIProcessing
+			return nil
+		})
+		if errors.Is(terr, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID)
+		}
+		return updated, terr
+	}
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
 		now := time.Now().UTC()
 		charged := pi.AmountReceived
 		if charged == 0 {
-			charged = pi.Amount // processing: nothing received yet
+			charged = pi.Amount
 		}
 		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
-			if err := stillPI(c, store.PIChargePending); err != nil {
+			if err := stillPI(c, store.PIChargePending, store.PIProcessing); err != nil {
 				return err
 			}
 			c.Stripe.PaymentIntentID = pi.ID
@@ -841,8 +858,8 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 // pending one it acts on: two sweeps on two instances can both reach the
 // same conversion, and only the first may record the outcome (and credit the
 // lifetime spend, or refund a photo credit) (audit, 2026-10-03).
-func stillPI(c *store.Conversion, want string) error {
-	if c.Stripe.PIStatus != want {
+func stillPI(c *store.Conversion, want ...string) error {
+	if !slices.Contains(want, c.Stripe.PIStatus) {
 		return fmt.Errorf("%w: pi_status is %q, not %q", store.ErrStateConflict, c.Stripe.PIStatus, want)
 	}
 	return nil

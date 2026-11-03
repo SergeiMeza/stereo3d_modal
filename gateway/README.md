@@ -42,6 +42,35 @@ confirmCardPayment fallback). The default card is cached on
 `customers_{env}` (Firestore) and refreshed from Stripe on every
 `GET /v1/billing`.
 
+### Payment prerequisites (spec v6 §P)
+
+- **P1** Webhooks route by object type; non-PaymentIntent objects answer
+  200 untouched until their handlers land. Every PaymentIntent event acts
+  only on the record's current PaymentIntent; `canceled` never expires a
+  run the gateway canceled itself or whose PaymentIntent was replaced.
+- **P2** `processing` is never paid: runs read `pi_status=processing`
+  (billing `waiting_for_payment`, payment status `processing`), groups
+  stay charging with `pi_status=processing`; nothing is submitted,
+  credited or tiered until `succeeded` (webhook or `sweepProcessing`).
+- **P3** A request with an `Idempotency-Key` gets the run id
+  `IdemConversionID(env, uid, key)` and Firestore `Create`: a racing twin
+  loses the create and replays the winner (pro steps and the mobile
+  one-shot; mobile ids without a key are unchanged).
+- **P4** `statement_descriptor_suffix` on every PaymentIntent: `STEREO3D`
+  (web, `metadata.product=svs-web`), `SVS CLOUD` (the app's cloud runs);
+  the account prefix is `SPATIAL AI`.
+- **P5** Customer creation carries the key `customer_{env}_{uid}`.
+- **P6** "payment method", never "card", in messages.
+- **P7** `DefaultMethod`: any reusable type (card, Link, PayPal); an
+  existing default is never replaced; with none, the OLDEST saved method
+  becomes default. `/v1/billing` sends `card` only for a card default and
+  adds `default_method {type, wallet?, brand?, last4?, email?}`.
+- **P8** (a) A pre-charge is recorded first (`created`, `pi_status
+  charging`, with the method and receipt email it uses), then charged
+  with `precharge_{env}_{id}`; `redrivePrecharges` replays a record whose
+  request died. (b) Owed-item reads aren't capped at 10. (c) Refunds name
+  their amount, and the key includes it.
+
 ## Legacy client flow (mobile, auth-then-capture)
 
 ```

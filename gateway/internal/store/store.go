@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -134,11 +135,23 @@ func (s *Store) convDoc(id string) *firestore.DocumentRef {
 	return s.fs.Collection(conversionsCol(s.env)).Doc(id)
 }
 
+// CreateConversion writes a new run; ErrAlreadyExists when the id is taken
+// (an idempotent replay raced it, P3).
 func (s *Store) CreateConversion(ctx context.Context, c *Conversion) error {
 	c.CreatedAt = time.Now().UTC()
 	c.UpdatedAt = c.CreatedAt
 	_, err := s.convDoc(c.ID).Create(ctx, c)
+	if status.Code(err) == codes.AlreadyExists {
+		return ErrAlreadyExists
+	}
 	return err
+}
+
+// IdemConversionID derives a run id from the account and its
+// Idempotency-Key (P3): "k" + 15 hex characters of their SHA-256.
+func IdemConversionID(env, uid, key string) string {
+	sum := sha256.Sum256([]byte(env + "\x00" + uid + "\x00" + key))
+	return "k" + hex.EncodeToString(sum[:])[:15]
 }
 
 func (s *Store) GetConversion(ctx context.Context, id string) (*Conversion, error) {

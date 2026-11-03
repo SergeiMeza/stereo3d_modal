@@ -135,6 +135,10 @@ func (s *Store) updateProject(ctx context.Context, id string, bump bool, mutate 
 func (s *Store) ConsumeAnalyzeCredit(ctx context.Context, projectID, conversionID string) (int64, error) {
 	var credit int64
 	_, err := s.UpdateProject(ctx, projectID, func(p *Project) error {
+		if p.Analyze.CreditConsumedBy == conversionID && p.Analyze.CreditCents > 0 {
+			credit = p.Analyze.CreditCents // the same run asking again (an idempotent replay, P3)
+			return nil
+		}
 		if p.Analyze.State != AnalyzeSucceeded || p.Analyze.CreditCents <= 0 || p.Analyze.CreditConsumedBy != "" {
 			credit = 0
 			return nil

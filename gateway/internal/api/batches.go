@@ -247,6 +247,16 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	var pi *stripe.PaymentIntent
 	var chErr error
 	switch {
+	case b.PIStatus == store.PIProcessing && b.PaymentIntentID != "":
+		// CHARGING_ASYNC (P2): only read; Stripe settles it (webhook or a
+		// later sweep). Never re-confirm a payment in flight.
+		pi, chErr = s.Stripe.GetPaymentIntent(b.PaymentIntentID)
+		if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+			return b, nil
+		}
+		if chErr != nil {
+			return b, chErr
+		}
 	case b.PaymentIntentID != "":
 		pi, chErr = s.Stripe.ConfirmSavedCharge(b.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
 	case cust.DefaultPaymentMethod == "":
@@ -256,6 +266,7 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			b.TotalCents, b.Currency, stripex.Job{
+				Web:          true,
 				BatchID:      b.ID,
 				UID:          b.UID,
 				Description:  batchDescription(b),
@@ -264,13 +275,15 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 			})
 	}
 
-	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||
-		pi.Status == stripe.PaymentIntentStatusProcessing) {
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
 		charged := pi.AmountReceived
 		if charged == 0 {
 			charged = pi.Amount
 		}
 		return s.finalizeBatchPaid(ctx, b, pi.ID, charged)
+	}
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+		return s.markBatchProcessing(ctx, b, pi.ID)
 	}
 
 	var fail stripex.ChargeFailure
@@ -290,6 +303,20 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	return s.recordBatchFailure(ctx, b, fail)
 }
 
+// markBatchProcessing records an async payment in flight (P2): the batch
+// stays charging, nothing is paid, credited or tiered until it succeeds.
+func (s *Service) markBatchProcessing(ctx context.Context, b *store.Batch, piID string) (*store.Batch, error) {
+	updated, err := s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchCharging}, func(bb *store.Batch) error {
+		bb.PaymentIntentID, bb.PIStatus = piID, store.PIProcessing
+		return nil
+	}, nil, nil)
+	if errors.Is(err, store.ErrStateConflict) {
+		return s.Store.GetBatch(ctx, b.ID)
+	}
+	slog.InfoContext(ctx, "batch payment processing", "batch_id", b.ID, "payment_intent", piID)
+	return updated, err
+}
+
 // finalizeBatchPaid commits a collected batch: paid, its conversions
 // succeeded (each carrying the shared PI and its own share), lifetime
 // spend credited. Also the webhook's landing for a 3DS-completed batch PI.
@@ -303,6 +330,7 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 			}
 			bb.ChargedCents = charged
 			bb.ChargedAt = &now
+			bb.PIStatus = store.PISucceeded
 			bb.SettleError = ""
 			return nil
 		},
@@ -496,7 +524,7 @@ func (s *Service) HandlePayNow(w http.ResponseWriter, r *http.Request, user *Aut
 	}
 	if s.belowChargeMinimum(ctx, open) {
 		e := httpx.Err(http.StatusBadRequest, "below_minimum_charge",
-			"this balance is below the minimum card charge; it will be collected with your next conversions")
+			"this balance is below the minimum charge; it will be collected with your next conversions")
 		e.Details = map[string]any{"amount_cents": open.TotalCents, "minimum_cents": s.Pricing.Rates(ctx).MinimumCents}
 		httpx.WriteErr(ctx, w, e)
 		return
@@ -521,7 +549,7 @@ func (s *Service) writeBatchOutcome(ctx context.Context, w http.ResponseWriter, 
 			resp["requires_action"] = true
 			resp["client_secret"] = entry["client_secret"]
 		} else {
-			resp["message"] = "The charge was declined. Update your card in the billing portal, then retry."
+			resp["message"] = "The charge was declined. Update your payment method in the billing portal, then retry."
 		}
 	default: // charging: transient trouble, the sweep retries
 		resp["settled"] = false

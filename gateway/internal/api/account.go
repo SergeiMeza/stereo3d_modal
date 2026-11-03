@@ -177,7 +177,7 @@ func (s *Service) balanceDueErr(ctx context.Context, unpaid []*store.Conversion,
 	}
 	details["amount_cents"] = cents
 	details["publishable_key"] = s.Stripe.PublishableKey
-	msg := "your unpaid balance couldn't be charged — update your card, then delete your account"
+	msg := "your unpaid balance couldn't be charged — update your payment method, then delete your account"
 	if len(charging) > 0 && len(failed) == 0 && len(unpaid) == 0 {
 		msg = "your last payment is still processing — try again in a minute"
 	}

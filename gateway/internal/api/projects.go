@@ -1241,6 +1241,10 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			httpx.WriteOK(w, s.conversionResponse(prior, nil))
 			return
 		}
+		if prior, gerr := s.Store.GetConversion(ctx, s.idempotentConversionID(user.UID, idemKey)); gerr == nil && prior.UID == user.UID {
+			httpx.WriteOK(w, s.conversionResponse(prior, nil)) // P3
+			return
+		}
 	}
 
 	var req stepConvReq
@@ -1283,7 +1287,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	convID := store.NewID()
+	convID := s.idempotentConversionID(user.UID, idemKey) // P3: one run per key, even racing
 	// Consume the analyze credit atomically for THIS conversion; every
 	// failure path from here restores it.
 	credit, cerr := s.Store.ConsumeAnalyzeCredit(ctx, p.ID, convID)
@@ -1335,6 +1339,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
 		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          user.UID,
 				Description:  jobDescription(conv),
@@ -1353,6 +1358,11 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 					conv.Stripe.ClientSecret = got.ClientSecret
 				}
 				if err := s.Store.CreateConversion(ctx, conv); err != nil {
+					if errors.Is(err, store.ErrAlreadyExists) {
+						// P3: the racing twin owns this keyed hold — keep it.
+						s.replayConversion(ctx, w, user, conv.ID)
+						return
+					}
 					_ = s.Stripe.CancelHold(fail.PaymentIntentID)
 					restore()
 					httpx.WriteErr(ctx, w, err)
@@ -1373,7 +1383,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 			httpx.Log(ctx).Info("hold declined",
 				"conversion_id", conv.ID, "uid", user.UID, "code", fail.Code)
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusPaymentRequired, "card_declined",
-				"your card declined the payment hold — update your payment method and retry"))
+				"your payment method declined the payment hold — update your payment method and retry"))
 			return
 		}
 		if pi.Status == stripe.PaymentIntentStatusRequiresAction ||
@@ -1408,6 +1418,18 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 func (s *Service) createAndSubmit(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, conv *store.Conversion, undo func()) {
 	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+		if errors.Is(err, store.ErrAlreadyExists) {
+			// A racing request with the same Idempotency-Key won (P3). Its
+			// record holds the analyze credit and any shared, keyed
+			// PaymentIntent, so undo() must not run; only a hold of our
+			// own (an unkeyed create) is released.
+			if winner, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil &&
+				conv.Stripe.PaymentIntentID != "" && conv.Stripe.PaymentIntentID != winner.Stripe.PaymentIntentID {
+				_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
+			}
+			s.replayConversion(ctx, w, user, conv.ID)
+			return
+		}
 		undo()
 		httpx.WriteErr(ctx, w, err)
 		return

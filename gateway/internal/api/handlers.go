@@ -379,6 +379,10 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			httpx.WriteOK(w, s.conversionResponse(prior, sheet))
 			return
 		}
+		if prior, gerr := s.Store.GetConversion(ctx, s.idempotentConversionID(user.UID, idemKey)); gerr == nil && prior.UID == user.UID {
+			s.replayConversion(ctx, w, user, prior.ID) // P3
+			return
+		}
 	}
 
 	var req createConversionReq
@@ -485,11 +489,18 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	// the same upload (different preset, etc.) gets a fresh id. The id must be
 	// final BEFORE the Stripe hold is created — PI metadata carries it and the
 	// webhook routes by it.
+	// With an Idempotency-Key the id derives from it instead (P3), so two
+	// racing retries can't make two runs.
 	id := uploadIDFromKey(req.GCSKey)
-	if id == "" {
+	switch {
+	case idemKey != "":
+		id = s.idempotentConversionID(user.UID, idemKey)
+	case id == "":
 		id = store.NewID()
-	} else if _, err := s.Store.GetConversion(ctx, id); err == nil {
-		id = store.NewID()
+	default:
+		if _, err := s.Store.GetConversion(ctx, id); err == nil {
+			id = store.NewID()
+		}
 	}
 
 	conv := &store.Conversion{
@@ -557,6 +568,10 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			}
 			s.refundPhotoCredit(rctx, conv)
 			cancel()
+			if errors.Is(err, store.ErrAlreadyExists) {
+				s.replayConversion(ctx, w, user, conv.ID) // P3: a racing retry won
+				return
+			}
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
@@ -1133,4 +1148,38 @@ func probeError(err error, unreadable string) *httpx.APIError {
 		return httpx.ErrServiceBusy()
 	}
 	return httpx.ErrSource("source_unsupported", unreadable)
+}
+
+// replayConversion answers a request whose Idempotency-Key already made a
+// run (P3: the id is derived from uid + key, and a racing second request
+// loses the Firestore Create): the existing run, with the mobile hold's
+// sheet material while it still waits for the client.
+func (s *Service) replayConversion(ctx context.Context, w http.ResponseWriter, user *AuthedUser, id string) {
+	prior, err := s.Store.GetConversion(ctx, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if prior.UID != user.UID {
+		httpx.WriteErr(ctx, w, httpx.ErrNotFound("conversion"))
+		return
+	}
+	var sheet any
+	if prior.ProjectID == "" && prior.State == store.StateCreated && prior.Stripe.Mode == "" && prior.Stripe.PaymentIntentID != "" {
+		if ps, perr := s.Stripe.PaymentSheetFor(prior.Stripe.CustomerID, prior.Stripe.PaymentIntentID); perr == nil {
+			sheet = ps
+		}
+	}
+	httpx.WriteOK(w, s.conversionResponse(prior, sheet))
+}
+
+// idempotentConversionID is the run id for a request carrying an
+// Idempotency-Key (P3): derived from the account and the key, so two
+// racing requests aim at ONE document and Firestore's Create lets only one
+// through. Without a key, a fresh id.
+func (s *Service) idempotentConversionID(uid, key string) string {
+	if key == "" {
+		return store.NewID()
+	}
+	return store.IdemConversionID(s.Cfg.Env, uid, key)
 }

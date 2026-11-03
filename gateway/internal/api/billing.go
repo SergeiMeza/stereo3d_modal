@@ -24,9 +24,10 @@ import (
 // with 402s until a card is on file and no charge_failed conversion is
 // outstanding; POST /v1/billing/settle retries the outstanding charges.
 
-// unpaidLimit bounds the delinquency probe; one unpaid conversion already
-// blocks new paid work, the exact count doesn't matter.
-const unpaidLimit = 10
+// unpaidLimit is a safety bound on the owed-items reads, set far above
+// any real account (P8b): the outstanding amount is the server-side sum of
+// EVERY owed item, so it must never be cut off at a handful of runs.
+const unpaidLimit = 1000
 
 // holdThresholdCents: quotes at or above this place an off-session hold on
 // the saved card BEFORE the job runs (captured on success); below it the
@@ -203,7 +204,8 @@ func cardMatches(c *store.Customer, card *stripex.CardInfo) bool {
 		return c.DefaultPaymentMethod == "" && c.CardLast4 == ""
 	}
 	return c.DefaultPaymentMethod == card.PaymentMethodID && c.CardBrand == card.Brand &&
-		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear
+		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear &&
+		c.DefaultMethodType == card.Type && c.DefaultMethodWallet == card.Wallet && c.DefaultMethodEmail == card.Email
 }
 
 // refreshCardCache reads the live default payment method from Stripe and
@@ -238,10 +240,12 @@ func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) 
 		if card == nil {
 			c.DefaultPaymentMethod, c.CardBrand, c.CardLast4 = "", "", ""
 			c.CardExpMonth, c.CardExpYear = 0, 0
+			c.DefaultMethodType, c.DefaultMethodWallet, c.DefaultMethodEmail = "", "", ""
 		} else {
 			c.DefaultPaymentMethod = card.PaymentMethodID
 			c.CardBrand, c.CardLast4 = card.Brand, card.Last4
 			c.CardExpMonth, c.CardExpYear = card.ExpMonth, card.ExpYear
+			c.DefaultMethodType, c.DefaultMethodWallet, c.DefaultMethodEmail = card.Type, card.Wallet, card.Email
 		}
 		c.CardUpdatedAt = time.Now().UTC()
 		return nil
@@ -319,12 +323,17 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		httpx.Log(ctx).Warn("open batch lookup failed", "uid", user.UID, "err", oerr)
 	}
 	if cust.DefaultPaymentMethod != "" {
-		resp["card"] = map[string]any{
-			"brand":     cust.CardBrand,
-			"last4":     cust.CardLast4,
-			"exp_month": cust.CardExpMonth,
-			"exp_year":  cust.CardExpYear,
+		// card only when the default IS a card (P7; iOS treats it as
+		// optional); default_method describes any type.
+		if cust.DefaultMethodType == "" || cust.DefaultMethodType == "card" {
+			resp["card"] = map[string]any{
+				"brand":     cust.CardBrand,
+				"last4":     cust.CardLast4,
+				"exp_month": cust.CardExpMonth,
+				"exp_year":  cust.CardExpYear,
+			}
 		}
+		resp["default_method"] = defaultMethodEntry(cust)
 	}
 	return resp, nil
 }
@@ -364,7 +373,7 @@ func (s *Service) HandleCreateSetupIntent(w http.ResponseWriter, r *http.Request
 	sheet, err := s.Stripe.CreateSetupIntent(customerID, user.UID)
 	if err != nil {
 		httpx.Log(ctx).Error("setup intent failed", "uid", user.UID, "err", err)
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "could not start card setup; try again"))
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "could not start saving a payment method; try again"))
 		return
 	}
 	httpx.WriteOK(w, sheet)
@@ -414,7 +423,7 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 		}
 	}
 	if len(remaining)+len(stillFailed) > 0 && resp["requires_action"] != true {
-		resp["message"] = "The charge was declined again. Update your card in the billing portal, then retry."
+		resp["message"] = "The charge was declined again. Update your payment method in the billing portal, then retry."
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -499,4 +508,20 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 		return nil, e
 	}
 	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
+}
+
+// defaultMethodEntry is the cached default payment method of any type:
+// {type, wallet?, brand?, last4?, email?}.
+func defaultMethodEntry(c *store.Customer) map[string]any {
+	t := c.DefaultMethodType
+	if t == "" {
+		t = "card"
+	}
+	m := map[string]any{"type": t}
+	for k, v := range map[string]string{"wallet": c.DefaultMethodWallet, "brand": c.CardBrand, "last4": c.CardLast4, "email": c.DefaultMethodEmail} {
+		if v != "" {
+			m[k] = v
+		}
+	}
+	return m
 }
