@@ -1,14 +1,17 @@
 /**
  * /terms — static Terms of Use. Mirrors how billing actually works
- * (pay-as-you-go, binding quote per job, charge on success, holds for
- * large jobs) — keep in sync with the gateway's billing behavior when it
- * changes. Plain-language on purpose.
+ * (pay per video, a quote before every paid step, plans, prepaid balance)
+ * — keep in sync with the gateway README and BL-19 when they change.
+ * Plain-language on purpose. Commercial use of outputs needs a Business or
+ * Studio plan (owner 2026-11-04). BL-08: a lawyer reviews this page before
+ * production.
  */
 
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { LEGAL_EFFECTIVE_DATE } from "@/components/legal/effectiveDate";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
@@ -20,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalShell title="Terms of Use" effective="July 4, 2026">
+    <LegalShell title="Terms of Use" effective={LEGAL_EFFECTIVE_DATE}>
       <LegalSection title="1. Agreement">
         <p>
           These terms are a contract between you and Spatial AI Labs Ltd
@@ -35,9 +38,9 @@ export default function TermsPage() {
       <LegalSection title="2. The Service (beta)">
         <p>
           Stereo3D Studio converts 2D video into stereoscopic 3D. The
-          Service is currently in <strong>beta</strong>: source videos are
-          limited (today: up to 10 minutes and up to 4K resolution), limits
-          and features may change, and availability is not guaranteed. We
+          Service is currently in <strong>beta</strong>: the limits on
+          source videos are shown in the app, limits and features may
+          change, and availability is not guaranteed. We
           work hard to keep your projects intact, but during the beta you
           should keep your own copies of source material.
         </p>
@@ -67,7 +70,23 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="5. Acceptable use">
+      <LegalSection title="5. Using your 3D outputs">
+        <p>
+          Ownership stays with you; this section is about how you may use
+          the outputs.
+        </p>
+        <ul>
+          <li>Outputs made while you have an active Business or Studio
+            plan may be used commercially: client work, advertising, sale
+            or licensing, monetised channels and stock libraries. These
+            rights stay with those outputs after the plan ends.</li>
+          <li>All other outputs are for personal, non-commercial use.</li>
+          <li>Outputs made before {LEGAL_EFFECTIVE_DATE} keep the rights
+            they had when they were made.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="6. Acceptable use">
         <p>Do not use the Service to:</p>
         <ul>
           <li>process content you have no right to use;</li>
@@ -75,40 +94,54 @@ export default function TermsPage() {
             exploits minors (reported to authorities without notice);</li>
           <li>probe, overload, or interfere with the Service or other
             users&rsquo; work;</li>
-          <li>resell the Service itself (converting client footage you are
-            authorized to work on is fine);</li>
+          <li>resell the Service itself. Converting client footage
+            you&rsquo;re authorised to work on needs a Business or Studio
+            plan;</li>
           <li>reverse engineer the Service except where law permits.</li>
         </ul>
       </LegalSection>
 
-      <LegalSection title="6. Fees and payment">
+      {/* Facts checked against the gateway README and BL-19 (2026-11-04).
+          [CHECK] Pro on the web: sold as a subscription through the app
+          stores and RevenueCat; confirm the web wording with the owner.
+          [CHECK] Studio: billed yearly, credit granted each month. */}
+      <LegalSection title="7. Fees and payment">
         <p>
-          The Service is <strong>pay-as-you-go</strong>, with optional
-          monthly plans; no minimum. You add a payment card, and each paid job (previews
-          and production renders) shows a <strong>quote before it
-          starts</strong> — that quoted price is binding and is what you
-          are charged. Larger jobs may place a temporary authorization hold
-          for the quoted amount when they start.
+          You <strong>pay per video</strong>. Optional plans lower the
+          price: Pro, Business (billed monthly) and Studio (billed yearly).
+          Before any paid step &mdash; a preview or a full video &mdash; you
+          see a <strong>quote</strong>, and that is the most you are
+          charged for it.
         </p>
         <ul>
-          <li>You are only charged for jobs that complete successfully;
-            failed jobs are not charged and holds are released.</li>
-          <li>Production renders that reuse work from your previews are
-            discounted, as shown in the quote.</li>
-          <li>Prices may change at any time, but never retroactively — a
-            quote you accepted is honored.</li>
-          <li>Quoted prices are exclusive of any taxes we are required to
-            collect.</li>
+          <li>A full video is priced per minute, and each started minute
+            counts as a full minute. A preview is priced by its own
+            length.</li>
+          <li>Frame rates above 30 fps need a Business or Studio plan.</li>
+          <li>You can pay from a prepaid balance, which you top up
+            yourself or let reload automatically when it runs low, or with
+            a saved payment method.</li>
+          <li>Smaller runs are charged after they finish; larger ones are
+            charged when they start. If nothing is delivered, you are
+            refunded or not charged.</li>
+          <li>You can cancel a run before it starts or within its first
+            minute; after that it runs to the end.</li>
+          <li>A plan&rsquo;s usage credit is given each month and
+            doesn&rsquo;t carry over. If you cancel a plan, it runs to the
+            end of the period you paid for.</li>
+          <li>Prices exclude any taxes we must collect, which are added.</li>
+          <li>Prices may change, but never retroactively: a quote you
+            accepted is honoured.</li>
         </ul>
         <p>
-          If a charge fails we may retry it and pause new paid jobs until
-          the balance is settled. Billing questions or disputes:{" "}
+          If a payment fails we may retry it and pause new paid runs until
+          it is settled. Billing questions or disputes:{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>
-          {" "}— talk to us first; we would rather fix it than argue.
+          {" "}&mdash; talk to us first; we would rather fix it than argue.
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Outputs and 3D viewing">
+      <LegalSection title="8. Outputs and 3D viewing">
         <p>
           Automated 3D conversion is not perfect; review outputs before
           publishing them. Stereoscopic content can cause eye strain,
@@ -116,9 +149,13 @@ export default function TermsPage() {
           manufacturer&rsquo;s comfort guidance, and take breaks. You are
           responsible for how and where you use the outputs.
         </p>
+        <p>
+          Videos may start with a short Stereo3D Studio title. Business and
+          Studio plans can turn it off.
+        </p>
       </LegalSection>
 
-      <LegalSection title="8. Our intellectual property">
+      <LegalSection title="9. Our intellectual property">
         <p>
           The Service — its software, models, design and branding — belongs
           to us and our licensors. These terms give you a right to use the
@@ -126,7 +163,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="9. Feedback">
+      <LegalSection title="10. Feedback">
         <p>
           If you send us feedback or suggestions, we may use them without
           restriction or obligation to you. (Please do — the Service is in
@@ -134,7 +171,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="10. Disclaimers">
+      <LegalSection title="11. Disclaimers">
         <p>
           The Service is provided <strong>&ldquo;as is&rdquo; and
           &ldquo;as available&rdquo;</strong>, without warranties of any
@@ -145,7 +182,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="11. Limitation of liability">
+      <LegalSection title="12. Limitation of liability">
         <p>
           To the maximum extent permitted by law, we are not liable for
           indirect, incidental, special, consequential or punitive damages,
@@ -157,7 +194,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="12. Indemnification">
+      <LegalSection title="13. Indemnification">
         <p>
           You will indemnify us against third-party claims arising from
           content you upload without sufficient rights, or from your
@@ -165,17 +202,17 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="13. Termination">
+      <LegalSection title="14. Termination">
         <p>
           You can stop using the Service and ask us to delete your account
           at any time. We may suspend or terminate accounts that violate
           these terms or create risk for the Service; where reasonable, we
-          will warn you first. Sections 4 (as to past processing), 8, and
-          10–14 survive termination.
+          will warn you first. Sections 4 (as to past processing), 5, 9, and
+          11–15 survive termination.
         </p>
       </LegalSection>
 
-      <LegalSection title="14. Governing law">
+      <LegalSection title="15. Governing law">
         <p>
           These terms are governed by the laws of England and Wales, and
           disputes are subject to the exclusive jurisdiction of the courts
@@ -184,7 +221,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="15. Changes to these terms">
+      <LegalSection title="16. Changes to these terms">
         <p>
           We may update these terms as the Service evolves. Material
           changes will be announced in the app or by email, and continuing
@@ -193,7 +230,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="16. Contact">
+      <LegalSection title="17. Contact">
         <p>
           Spatial AI Labs Ltd, London, United Kingdom ·{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>

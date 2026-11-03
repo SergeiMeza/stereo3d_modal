@@ -132,3 +132,8 @@ export function topupDone(added: number, balance: number): string {
 export function reloadConsent(method: string | null, addCents: number, belowCents: number): string {
   return `We'll charge your default payment method${method ? ` (${method})` : ""} ${formatCents(addCents)} whenever your balance drops below ${formatCents(belowCents)}. If it's declined, we try your others.`;
 }
+
+/** Owner 2026-11-04: outputs without a Business or Studio plan are for
+ * personal use (Terms "Using your 3D outputs"). */
+export const PERSONAL_USE_LINE =
+  "For personal use. Commercial use comes with Business and Studio plans.";

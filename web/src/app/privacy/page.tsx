@@ -3,6 +3,9 @@
  * actually works today (Firebase auth, Google Cloud storage/Firestore,
  * Stripe billing, cloud GPU processing); update it when the data flow
  * changes. Plain-language on purpose — same voice as the rest of the app.
+ * Reviewed 2026-11-04 against the gateway README (plans via RevenueCat,
+ * prepaid balance, account settings, review cases, download/play log).
+ * BL-08: a lawyer reviews this page before production.
  */
 
 import type { Metadata } from "next";
@@ -10,6 +13,7 @@ import Link from "next/link";
 
 import { AnalyticsChoiceReset } from "@/components/AnalyticsChoice";
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { LEGAL_EFFECTIVE_DATE } from "@/components/legal/effectiveDate";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
@@ -21,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" effective="July 5, 2026">
+    <LegalShell title="Privacy Policy" effective={LEGAL_EFFECTIVE_DATE}>
       <LegalSection title="1. Who we are">
         <p>
           Stereo3D Studio (the &ldquo;Service&rdquo;) is a 2D-to-3D video
@@ -43,17 +47,44 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Billing information.</strong> Payments are processed by
-          Stripe. Your card number never touches our servers — Stripe stores
-          it and gives us a customer reference plus card metadata (brand and
-          last four digits) so you can recognize the card on file. We keep
-          records of quotes, charges, holds and receipts for the jobs you
-          run.
+          Stripe. Your full payment details never touch our servers &mdash;
+          Stripe stores them and gives us a customer reference plus a short
+          description (such as the brand and last four digits) so you can
+          recognise the payment method on file. We keep records of quotes,
+          charges, refunds and receipts for the runs you make, and, if you
+          use a prepaid balance, its top-ups, automatic reload settings,
+          spending limit and every amount added or spent; Stripe holds the
+          matching payment records.
+        </p>
+        <p>
+          <strong>Plans and subscriptions.</strong> We record which plan you
+          have (Pro, Business or Studio), its status and renewal date, and
+          the usage credit and free previews it gives you. To grant and
+          check these across our apps we share your internal user ID and
+          your plan and subscription status with our subscription provider,
+          RevenueCat.
+        </p>
+        <p>
+          <strong>Account settings.</strong> We keep the settings you choose
+          in the app: your language, which we also use for the short title
+          at the start of your videos, and whether that title is on (Business
+          and Studio plans can turn it off).
         </p>
         <p>
           <strong>Your content.</strong> The videos you upload and everything
-          the Service derives from them — scene cuts, depth maps, previews
-          and finished 3D renders — are stored so you can work on and
-          download them.
+          the Service derives from them — scene cuts, intermediate 3D data,
+          previews and finished 3D videos — are stored so you can work on and
+          download them. We also log each download link we issue and each
+          time you play a result in the app, with the run, the file, the
+          time, your country, your browser type and a one-way scrambled
+          form of your IP address (never the address itself).
+        </p>
+        <p>
+          <strong>Support, refunds and disputes.</strong> When you ask for
+          help or a refund, or a payment is disputed, we open a review case.
+          It holds what we need to decide fairly: your messages and ours,
+          the runs involved and their logs, payments and refunds, earlier
+          cases, and the download and play records for those runs.
         </p>
         <p>
           <strong>Usage and technical data.</strong> Standard server logs
@@ -78,8 +109,9 @@ export default function PrivacyPage() {
           <li>To provide the Service: storing your uploads, running the
             conversions you request on cloud GPUs, and delivering the
             results back to you.</li>
-          <li>To bill you: quoting, charging the card on file, issuing
-            receipts and handling payment issues.</li>
+          <li>To bill you: quoting, charging your balance or payment
+            method, granting your plan, issuing receipts and handling
+            payment issues, refunds and disputes.</li>
           <li>To support you: responding when you contact us, and
             investigating failed jobs.</li>
           <li>To protect the Service: detecting abuse, enforcing limits and
@@ -111,8 +143,12 @@ export default function PrivacyPage() {
           <li><strong>Microsoft Clarity</strong> — usage analytics and
             session replay, so we can see where the interface confuses
             people.</li>
-          <li><strong>Stripe</strong> — payment processing and card
-            storage.</li>
+          <li><strong>Stripe</strong> — payment processing, payment
+            method storage, and the payment records for top-ups, plans and
+            runs.</li>
+          <li><strong>RevenueCat</strong> — subscription status, so your
+            Pro, Business or Studio plan works in our apps and on the
+            web.</li>
           <li><strong>Cloud GPU providers</strong> — the compute that runs
             your conversions; your video frames pass through their machines
             during a job.</li>
@@ -130,9 +166,14 @@ export default function PrivacyPage() {
           them exists, so you can come back to your work. Delete a project
           (or ask us to delete your account) and the associated content is
           removed from active systems, with residual copies purged from
-          backups on a rolling basis. Billing records are retained as long
-          as tax and accounting law requires.
+          backups on a rolling basis; a deleted project&rsquo;s files are
+          purged within 30 days. Download and play records are kept for 13
+          months. Review cases, with their evidence, are kept for as long as
+          tax, accounting and dispute rules require. Billing records are
+          retained as long as tax and accounting law requires.
         </p>
+        {/* [CHECK] case retention: the gateway sets no expiry for cases_*;
+            confirm the period (e.g. six years with billing records). */}
       </LegalSection>
 
       <LegalSection title="6. Security">

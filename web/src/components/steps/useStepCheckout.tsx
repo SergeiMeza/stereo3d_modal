@@ -48,6 +48,7 @@ import {
   SPEND_LIMIT_REACHED,
   PAYMENT_METHOD_BLOCKED,
   DELETION_PENDING_BLOCK,
+  PERSONAL_USE_LINE,
 } from "@/components/pay/payCopy";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
@@ -373,8 +374,11 @@ export function useStepCheckout(
 
 /** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
+  const plan = useBilling().status?.plan;
   const conv = ck.payNow;
   if (conv === null) return null;
+  const commercial =
+    plan?.active === true && (plan.plan === "business" || plan.plan === "studio");
   if (chinaPayments()) {
     return (
       <ChinaPaySheet
@@ -394,6 +398,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       subtitle={runLine(conv)}
       billing={conv.billing}
       projectId={conv.project_id}
+      note={commercial ? undefined : PERSONAL_USE_LINE}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}
     />
   );

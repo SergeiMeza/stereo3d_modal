@@ -65,6 +65,7 @@ export function PaySheet({
   thumb,
   billing,
   projectId,
+  note,
   onClose,
 }: {
   conversionId: string;
@@ -78,6 +79,8 @@ export function PaySheet({
   billing?: ConversionBilling;
   /** for the return page after a redirect */
   projectId?: string;
+  /** one small muted line under the form (personal use without a plan) */
+  note?: string;
   /** paid = the run is on its way; open = closed with the payment open */
   onClose: (outcome: "paid" | "open") => void;
 }): JSX.Element {
@@ -281,6 +284,11 @@ export function PaySheet({
                   </p>
                 ) : null}
                 {formBody}
+                {note ? (
+                  <p data-testid="pay-note" className="text-xs text-fg-muted">
+                    {note}
+                  </p>
+                ) : null}
                 {notice === "declined" ? (
                   <p data-testid="pay-error" className="text-sm text-red-400">
                     {form.message ?? DECLINED}

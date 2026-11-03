@@ -27,6 +27,8 @@ export function planLines(def: PlanDef, pct: number | undefined): string[] {
   return [
     `${formatCentsShort(def.credit_cents)} of usage every month`,
     ...(pct ? [`${Math.round(pct * 100)}% off every run`] : []),
+    // owner 2026-11-04: Terms "Using your 3D outputs"
+    "Commercial use of your videos",
     `${def.free_previews_per_period} free previews a month`,
     ...(def.express_included ? ["Express included"] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
