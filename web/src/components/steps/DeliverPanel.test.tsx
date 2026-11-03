@@ -1,14 +1,11 @@
 /**
- * Deliver page tests: the inheritance chips (last depth run's depth_res +
- * the Stereo page's shared localStorage draft), production request bodies
- * forwarding EXACTLY those values with per-field "pipeline default"
- * escapes, the reuse discount / from-scratch re-quote, and the absence of
- * any displacement control (pro steps have none), and the shared review
- * area (the latest production output as a follower of the main preview).
+ * Classic Make 3D (screen 10): sections, Classic's qualities up to 3K
+ * each priced, the edge styles under Advanced with their prices, the
+ * carried-over Depth / 3D look settings with their automatic escapes, the
+ * uploaded depth map opt-in, and the reuse discount / from-scratch.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   afterAll,
   afterEach,
@@ -24,7 +21,6 @@ import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import downloadsFixture from "../../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../../fixtures/project.json";
 
 import { DeliverPanel } from "./DeliverPanel";
@@ -128,76 +124,127 @@ function captureQuoteBodies(): StepConversionRequest[] {
   return bodies;
 }
 
-async function getQuote(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "Get quote" }));
-  await screen.findByTestId("quote-breakdown");
+/** The page prices as you pick: wait for the price card's quote. */
+async function priced() {
+  await screen.findByTestId("quote-breakdown", {}, { timeout: 3000 });
 }
 
-describe("DeliverPanel inheritance", () => {
-  it("summary chips show the Depth page's depth_res and the Stereo page's tweaks FIRST", () => {
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id)];
-    seedStereoDraft(project.project_id);
-    renderPanel(project);
+/** Pick a quality tile. */
+function pickQuality(p: string) {
+  fireEvent.click(within(screen.getByTestId(`quality-${p}`)).getByRole("radio"));
+}
 
-    expect(screen.getByTestId("deliver-chip-depth").textContent).toBe(
-      "Depth detail 1442 px (from the Depth page)",
+/** Open Advanced. */
+function openAdvanced() {
+  (screen.getByTestId("classic-advanced") as HTMLDetailsElement).open = true;
+}
+
+describe("Classic Make 3D (screen 10)", () => {
+  it("numbered sections, Red-cyan among the files, quality tiles up to 3K each priced, one button", async () => {
+    renderPanel();
+    expect(screen.getByTestId("move-to-lifelike-offer")).toBeTruthy();
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    expect(files.getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"))).toEqual([
+      "Vision Pro spatial video",
+      "Side by side",
+      "Side by side (half size)",
+      "Red-cyan",
+    ]);
+    const tiles = within(screen.getByRole("radiogroup", { name: "Quality" }));
+    const values = tiles.getAllByRole("radio").map((r) => r.closest("[data-testid]")!.getAttribute("data-testid"));
+    expect(values.every((v) => !/4k|5k|6k|8k/.test(v!))).toBe(true);
+    for (const v of values) {
+      const p = v!.replace("quality-", "");
+      await waitFor(() =>
+        expect(screen.getByTestId(`quality-price-${p}`).textContent).toMatch(/^\$\d+\.\d\d$/),
+      );
+    }
+    await priced();
+    expect(screen.getByTestId("checkout-main").textContent).toMatch(/^Make 3D · \$\d+\.\d\d$/);
+    expect(screen.queryByRole("button", { name: "Get quote" })).toBeNull();
+    expect(screen.getByText("With filled edges. You can change this under Advanced.")).toBeTruthy();
+  });
+
+  it("Advanced: edges Stretched then Filled, each priced, Filled preselected; the pairs on the wire", async () => {
+    const bodies = captureQuoteBodies();
+    renderPanel();
+    openAdvanced();
+    const edges = within(screen.getByRole("radiogroup", { name: "Edges" }));
+    expect(edges.getAllByRole("radio").map((r) => r.closest("label")!.textContent!.replace(/\$.*$|…$/, ""))).toEqual([
+      "Stretched",
+      "Filled",
+    ]);
+    expect((edges.getAllByRole("radio")[1] as HTMLInputElement).checked).toBe(true);
+    await waitFor(() =>
+      expect(screen.getByTestId("edge-price-stretched").textContent).toMatch(/^\$\d+\.\d\d$/),
     );
-    expect(screen.getByTestId("deliver-chip-stereo").textContent).toBe(
-      "2 scenes adjusted, 3D strength ×1.10 (from the 3D look page)",
+    expect(screen.getByTestId("edge-price-filled").textContent).toMatch(/^\$\d+\.\d\d$/);
+    expect(document.body.textContent).not.toMatch(/visible stretching|propainter|backward/i);
+    fireEvent.click(edges.getAllByRole("radio")[0]);
+    await waitFor(() =>
+      expect(
+        bodies.some((b) => b.warp === "backward" && b.inpaint === "none" && b.step === "production"),
+      ).toBe(true),
     );
+    expect(screen.getByText("With stretched edges. You can change this under Advanced.")).toBeTruthy();
   });
 
   it("production sends THE SAME depth_res, scene_overrides and depth_scale the previews set", async () => {
     const bodies = captureQuoteBodies();
-    const user = userEvent.setup();
     const project = fixtureProject();
     project.conversions = [seededDepthRun(project.project_id)];
     seedStereoDraft(project.project_id);
     renderPanel(project);
-
-    await getQuote(user);
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    // exact body: no displacement, no target_fps (Full), inherited values in
-    expect(bodies[0]).toEqual({
-      step: "production",
-      preset: "1080p",
-      formats: ["mvhevc", "half_sbs"],
-      inpaint: "propainter",
-      depth_res: 1442,
-      depth_scale: 1.1,
-      scene_overrides: [
-        { first: 0, displacement: 0.02 },
-        { first: FIRST_CUT, shot_type: "wide" },
-      ],
-      platform: "web",
-    });
+    openAdvanced();
+    expect(screen.getByTestId("deliver-chip-depth").textContent).toBe(
+      "1442 px (from the Depth page)",
+    );
+    expect(screen.getByTestId("deliver-chip-stereo").textContent).toBe(
+      "2 scenes adjusted, 3D strength ×1.10 (from the 3D look page)",
+    );
+    pickQuality("1080p");
+    await waitFor(() =>
+      expect(bodies).toContainEqual({
+        step: "production",
+        preset: "1080p",
+        formats: ["mvhevc", "sbs"],
+        inpaint: "propainter",
+        depth_res: 1442,
+        depth_scale: 1.1,
+        scene_overrides: [
+          { first: 0, displacement: 0.02 },
+          { first: FIRST_CUT, shot_type: "wide" },
+        ],
+        platform: "web",
+      }),
+    );
   });
 
-  it("per-field 'use pipeline default' escapes drop the inherited values", async () => {
+  it("the automatic escapes drop the inherited values", async () => {
     const bodies = captureQuoteBodies();
-    const user = userEvent.setup();
     const project = fixtureProject();
     project.conversions = [seededDepthRun(project.project_id)];
     seedStereoDraft(project.project_id);
     renderPanel(project);
-
-    await user.click(
-      screen.getByRole("checkbox", { name: "Use automatic depth detail" }),
+    openAdvanced();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use automatic depth detail" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use automatic 3D for every scene" }));
+    await priced();
+    await waitFor(() =>
+      expect(
+        bodies.some(
+          (b) =>
+            b.step === "production" &&
+            b.depth_res === undefined &&
+            b.depth_scale === undefined &&
+            b.scene_overrides === undefined,
+        ),
+      ).toBe(true),
     );
-    await user.click(
-      screen.getByRole("checkbox", { name: "Use automatic 3D for every scene" }),
-    );
-    await getQuote(user);
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0].depth_res).toBeUndefined();
-    expect(bodies[0].depth_scale).toBeUndefined();
-    expect(bodies[0].scene_overrides).toBeUndefined();
   });
 
   it("the uploaded depth map is an explicit opt-in that beats the inherited depth run", async () => {
     const bodies = captureQuoteBodies();
-    const user = userEvent.setup();
     const project = fixtureProject();
     project.conversions = [seededDepthRun(project.project_id)];
     project.depth_upload = {
@@ -210,248 +257,53 @@ describe("DeliverPanel inheritance", () => {
     };
     mockDb.projects.get(project.project_id)!.depth_upload = project.depth_upload;
     renderPanel(project);
-
-    expect(
-      screen.getByTestId("deliver-chip-depth-upload").textContent,
-    ).toContain("graded-depth.mp4");
-
-    await user.click(
-      screen.getByRole("checkbox", {
-        name: "Use my uploaded depth video",
-      }),
+    openAdvanced();
+    expect(screen.getByTestId("deliver-chip-depth-upload").textContent).toContain(
+      "graded-depth.mp4",
     );
-    await getQuote(user);
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0].use_uploaded_depth).toBe(true);
-    expect(bodies[0].depth_res).toBeUndefined(); // beats the inherited 1442
-    const stages = screen.getByTestId("quote-reuse-stages");
-    expect(stages.textContent).toContain("depth");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use my uploaded depth video" }));
+    await waitFor(() =>
+      expect(
+        bodies.some((b) => b.use_uploaded_depth === true && b.depth_res === undefined),
+      ).toBe(true),
+    );
   });
 
   it("states the fallbacks when there is nothing to inherit", () => {
-    renderPanel(); // no conversions, no stereo draft
-    expect(screen.getByTestId("deliver-chip-depth-none").textContent).toMatch(
-      /No depth run yet/,
-    );
-    expect(screen.getByTestId("deliver-chip-stereo-none").textContent).toMatch(
-      /No 3D look changes/,
-    );
-  });
-});
-
-describe("DeliverPanel controls", () => {
-  it("offers presets and 4 formats (no TB) — no edge-quality choice, no fps control", () => {
     renderPanel();
+    openAdvanced();
+    expect(screen.getByTestId("deliver-chip-depth-none").textContent).toMatch(/Standard/);
+    expect(screen.getByTestId("deliver-chip-stereo-none").textContent).toMatch(/automatic 3D/);
+  });
 
-    // Classic stops at 3K (S3D-12)
-    const preset = document.getElementById("production-preset") as HTMLSelectElement;
-    expect([...preset.options].map((o) => o.value)).toEqual([
-      "1080p",
-      "qhd",
-      "3k",
-    ]);
-    expect(preset.value).toBe("1080p");
-
-    const formats = screen.getByRole("group", { name: "Formats" });
-    const boxes = within(formats).getAllByRole("checkbox");
-    expect(boxes).toHaveLength(4);
-    for (const name of ["Side by side", "Side by side (half size)", "Red-cyan", "Vision Pro spatial video"]) {
-      expect(within(formats).getByRole("checkbox", { name })).toBeDefined();
+  it("blocks the button while every file is deselected", async () => {
+    renderPanel();
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    for (const c of files.getAllByRole("checkbox")) {
+      if ((c as HTMLInputElement).checked) fireEvent.click(c);
     }
-    expect(within(formats).queryByRole("checkbox", { name: "TB" })).toBeNull();
-    expect(
-      (within(formats).getByRole("checkbox", { name: "Vision Pro spatial video" }) as HTMLInputElement)
-        .checked,
-    ).toBe(true);
-    expect(
-      (within(formats).getByRole("checkbox", { name: "Side by side (half size)" }) as HTMLInputElement)
-        .checked,
-    ).toBe(true);
-
-    // no edge-quality choice this release — every run is full quality
-    // (inpaint=propainter on the wire), and internal terms never render
-    expect(document.getElementById("production-inpaint")).toBeNull();
-    expect(document.body.textContent).not.toMatch(/ProPainter|[Ss]platted/);
-
-    // no frame-rate control in this version — production runs at the
-    // source rate (the gateway default when target_fps is absent)
-    expect(document.getElementById("production-fps")).toBeNull();
-    expect(screen.queryByText(/frame rate/i)).toBeNull();
-
-    // NO displacement slider anywhere on the pro steps
-    expect(screen.queryByText(/displacement/i)).toBeNull();
-    expect(screen.queryByRole("slider")).toBeNull();
+    expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Pick at least one file")).toBeTruthy();
   });
 
-  it("blocks checkout while every format is deselected", async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const formats = screen.getByRole("group", { name: "Formats" });
-    await user.click(within(formats).getByRole("checkbox", { name: "Vision Pro spatial video" }));
-    await user.click(within(formats).getByRole("checkbox", { name: "Side by side (half size)" }));
-
-    const quoteBtn = screen.getByRole("button", { name: "Get quote" }) as HTMLButtonElement;
-    expect(quoteBtn.disabled).toBe(true);
-    expect(screen.getByText("Select at least one format")).toBeDefined();
-
-    // re-selecting any format unblocks
-    await user.click(within(formats).getByRole("checkbox", { name: "Side by side" }));
-    expect(quoteBtn.disabled).toBe(false);
-    expect(screen.queryByText("Select at least one format")).toBeNull();
-  });
-
-  it("Edge style prices production: Stretched ×0.4, with a user-facing breakdown line", async () => {
-    const user = userEvent.setup();
-    const bodies = captureQuoteBodies();
-    renderPanel();
-
-    await getQuote(user);
-    const fullSubtotal = screen.getByTestId("quote-subtotal").textContent;
-    expect(screen.queryByTestId("quote-inpaint-multiplier")).toBeNull();
-
-    await user.selectOptions(screen.getByLabelText("Edge style"), "stretched");
-    await getQuote(user);
-    await waitFor(() => expect(bodies).toHaveLength(2));
-    expect(bodies[1]).toMatchObject({ warp: "backward", inpaint: "none" });
-    expect(screen.getByTestId("quote-inpaint-multiplier").textContent).toBe("−60%");
-    // explained in the user's terms — never the renderer/model names
-    const breakdown = screen.getByTestId("quote-breakdown").textContent!;
-    expect(breakdown).toContain("Edge style");
-    expect(breakdown).not.toMatch(/backward|gather|ProPainter|migan|inpaint/i);
-    const cents = (s: string | null) => Math.round(parseFloat(s!.replace(/[^0-9.]/g, "")) * 100);
-    expect(cents(screen.getByTestId("quote-subtotal").textContent)).toBe(
-      Math.round(cents(fullSubtotal) * 0.4),
-    );
-  });
-
-  it("a run whose payment failed still shows its output (S3D-22)", async () => {
-    const project = fixtureProject();
-    const prior: Conversion = {
-      conversion_id: "lockedprod01",
-      state: "succeeded",
-      kind: "video",
-      project_id: project.project_id,
-      step: "production",
-      params: { preset: "1080p", formats: ["sbs"] },
-      quote: { amount_cents: 500, currency: "usd" },
-      progress: 1,
-      outputs: ["sbs"],
-      billing: { status: "charge_failed" },
-      created_at: "2026-09-01T00:00:00Z",
-      updated_at: "2026-09-01T00:01:00Z",
-    };
-    mockDb.conversions.set(prior.conversion_id, structuredClone(prior));
-    project.conversions = [prior];
-    renderPanel(project);
-
-    expect(screen.queryByTestId("payment-locked-notice")).toBeNull();
-    expect(await screen.findByTestId("deliver-output-video")).toBeTruthy();
-  });
-
-  it("shows the reuse discount and drops it when re-quoted from scratch", async () => {
-    const user = userEvent.setup();
+  it("shows the reuse discount and drops it from scratch", async () => {
     const project = fixtureProject();
     const prior = seededDepthRun(project.project_id);
-    // strip the inherited depth_res so the quote stays at the preset default
     prior.params = { preset: "draft", formats: ["anaglyph"] };
     mockDb.conversions.set(prior.conversion_id, structuredClone(prior));
     project.conversions = [prior];
     renderPanel(project);
-
-    await getQuote(user);
-    // 1080p production at 150¢ cost × 3 margin full rate: 1121¢ base; the
-    // letterboxed 2.39:1 fixture prices the preset-default 980 depth at
-    // ×1.345 on the 0.35 share → $12.56 subtotal; −40% (depth 35% +
-    // preprocess 5%) reuse discount = 502¢ → $7.54 (no analyze credit)
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$12.56");
+    pickQuality("1080p");
+    await waitFor(() => expect(screen.queryByTestId("quote-reuse-discount")).not.toBeNull(), {
+      timeout: 3000,
+    });
     const stages = screen.getByTestId("quote-reuse-stages");
     expect(stages.textContent).toContain("depth");
     expect(stages.textContent).toContain("preparation");
-    expect(screen.getByTestId("quote-reuse-discount").textContent).toBe("−$5.02");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$7.54");
-
-    // from-scratch toggle re-quotes without the reuse discount
-    await user.click(screen.getByLabelText(/Start from scratch/));
-    await waitFor(() =>
-      expect(screen.getByTestId("quote-total").textContent).toBe("$11.30"),
-    );
-    expect(screen.queryByTestId("quote-reuse-discount")).toBeNull();
-    expect(screen.queryByTestId("quote-reuse-stages")).toBeNull();
-  });
-
-  it("prices the inherited depth resolution into the production quote (0.35 depth share)", async () => {
-    const user = userEvent.setup();
-    const project = fixtureProject();
-    project.conversions = [seededDepthRun(project.project_id, 1442)];
-    renderPanel(project);
-
-    await getQuote(user);
-    // base $11.21; aspect factor 1442²×2.391/(980²×16⁄9) = 2.912 on 35% of
-    // the base → 1121 × (1 + 0.35 × 1.912) = 1871¢; reuse −748 → 1123;
-    // −112 bulk → $10.11 (no analyze credit)
-    expect(screen.getByTestId("quote-base").textContent).toBe("$11.21");
-    expect(screen.getByTestId("quote-depth-factor").textContent).toBe("+191%");
-    expect(screen.getByTestId("quote-subtotal").textContent).toBe("$18.71");
-    expect(screen.getByTestId("quote-total").textContent).toBe("$10.11");
-  });
-});
-
-describe("DeliverPanel review area (one transport)", () => {
-  /** A succeeded production run seeded into the mock db (so /downloads works). */
-  function seededProductionRun(projectId: string): Conversion {
-    const conv: Conversion = {
-      conversion_id: "priorprod0001",
-      state: "succeeded",
-      kind: "video",
-      project_id: projectId,
-      step: "production",
-      params: { preset: "1080p", formats: ["mvhevc", "sbs"], inpaint: "propainter" },
-      quote: { amount_cents: 200, currency: "usd" },
-      progress: 1,
-      outputs: ["mvhevc", "sbs"],
-      created_at: "2026-07-02T08:00:00Z",
-      updated_at: "2026-07-02T08:05:00Z",
-    };
-    mockDb.conversions.set(conv.conversion_id, structuredClone(conv));
-    return conv;
-  }
-
-  it("hints at the review area before any production run — source preview + timeline still render", () => {
-    renderPanel();
-    expect(screen.getByTestId("preview-video")).toBeDefined();
-    expect(screen.getByTestId("filmstrip")).toBeDefined();
-    // active-picture (crop) overlay on the preview, same as Media/Cut
-    expect(screen.getByTestId("crop-overlay")).toBeDefined();
-    expect(
-      screen.getByText(/Run production to review the final output/),
-    ).toBeDefined();
-    expect(screen.queryByTestId("deliver-output-video")).toBeNull();
-  });
-
-  it("plays the last production run's best playable output BESIDE the source, synced to the main transport", async () => {
-    const project = fixtureProject();
-    project.conversions = [seededProductionRun(project.project_id)];
-    renderPanel(project);
-
-    // mvhevc is never browser-playable — sbs is picked
-    const output = (await screen.findByTestId(
-      "deliver-output-video",
-    )) as HTMLVideoElement;
-    expect(output.getAttribute("src")).toBe(
-      (downloadsFixture.downloads as Record<string, string>).sbs,
-    );
-    expect(screen.getByTestId("deliver-output-video-badge").textContent).toBe("sbs");
-
-    const master = screen.getByTestId("preview-video") as HTMLVideoElement;
-    const playSpy = vi.spyOn(output, "play");
-    fireEvent.click(screen.getByLabelText("Play preview"));
-    expect(playSpy).toHaveBeenCalledTimes(1);
-
-    Object.defineProperty(master, "duration", { value: 100, configurable: true });
-    Object.defineProperty(output, "duration", { value: 100, configurable: true });
-    master.currentTime = 30;
-    fireEvent.timeUpdate(master);
-    expect(output.currentTime).toBeCloseTo(30, 5);
+    openAdvanced();
+    fireEvent.click(screen.getByLabelText(/Start from scratch/));
+    await waitFor(() => expect(screen.queryByTestId("quote-reuse-discount")).toBeNull(), {
+      timeout: 3000,
+    });
   });
 });

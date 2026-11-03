@@ -1,56 +1,60 @@
 "use client";
 
 /**
- * Deliver page (step production) — the final full-quality run.
- *
- * Layout mirrors the other pro pages (the shared StepReview): the
- * frame-exact source preview with the latest production output BESIDE it as
- * a follower of the same transport, and the timeline — review the final
- * deliverable against the source, scene by scene, with one set of controls.
+ * Make 3D for Classic projects (screen 10, step production). Numbered
+ * sections like Lifelike's page (S3D-07/04/10): where you'll watch it,
+ * the files (Red-cyan included), quality tiles priced for this video
+ * (Classic stops at 3K, S3D-12), which part. Advanced, collapsed (S3D-29):
+ * the depth detail and 3D look settings carried over from the earlier
+ * pages (each with an "automatic" escape), your own depth map, the edge
+ * style — Stretched or Filled, each with its price — and Start from
+ * scratch. Right, the price card with ONE button (S3D-45). The one-way
+ * offer to move to Lifelike sits on top (S3D-44).
  *
  * Production sends THE SAME depth_res / scene_overrides / depth_scale the
- * user set on the Depth and Stereo pages: depth_res from the last succeeded
- * depth run, per-scene tweaks from the shared stereo draft store
- * (localStorage). Summary chips make that inheritance explicit FIRST, each
- * with a "use pipeline default" escape. Presets and formats are the SAME
- * set the Stereo page previews (shared outputOptions). Compatible artifacts
- * are reused automatically — the quote's reuse_stages/discount lines show
- * it.
- *
- * There is NO displacement slider anywhere on the pro steps: per-scene
- * strength is scene_overrides[].displacement, the global multiplier is
- * depth_scale (both inherited here).
+ * Depth and 3D look pages set (shared stereo draft store). Compatible
+ * earlier work is reused automatically; the quote shows the discount.
  */
 
 import { useState } from "react";
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { MoveToLifelikeOffer } from "@/components/workspace/MethodChooser";
 import {
-  conversionMethod,
-  type Conversion,
   type Format,
   type Preset,
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
-import { qualitiesFor, qualityName, runSummary } from "@/lib/glossary";
+import { useLimits } from "@/lib/api/useLimits";
+import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
+import { EDGE_NAMES, qualitiesFor, qualityChoices, type QualityChoice } from "@/lib/glossary";
 
-import { CheckboxChip, Field, selectClass } from "./controls";
+import { CheckboxChip } from "./controls";
 import {
-  EDGE_HINT,
-  EDGE_LABELS,
-  EDGE_OPTIONS,
-  edgeModeRequest,
-  FORMAT_LABELS,
-  OUTPUT_FORMATS,
-  type EdgeMode,
-} from "./outputOptions";
-import { PriorRuns } from "./PriorRuns";
+  DEFAULT_MAKE_FORMATS,
+  deviceForClient,
+  FileTiles,
+  formatsForDevices,
+  MakeSection,
+  QualityTiles,
+  TrimControl,
+  trimChip,
+  trimFields,
+  usePresetPrices,
+  useVariantPrices,
+  WatchPicker,
+  type Device,
+} from "./makeControls";
+import { formatCents } from "./money";
+import { EDGE_LABELS, EDGE_OPTIONS, edgeModeRequest, type EdgeMode } from "./outputOptions";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
-import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
-import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
+import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
+import { useClient } from "./ViewIn3D";
+
+/** Classic's files, in the order the page offers them. */
+const CLASSIC_FORMATS: readonly Format[] = ["mvhevc", "sbs", "half_sbs", "anaglyph"];
 
 export interface DeliverPanelProps {
   project: Project;
@@ -62,322 +66,331 @@ export function DeliverPanel({
   onProjectChanged,
 }: DeliverPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "production", onProjectChanged);
+  const limits = useLimits();
+  const client = useClient();
 
-  const [preset, setPreset] = useState<Preset>("1080p");
-  // Edge style (see StereoPanel): filled | stretched.
+  const choices: QualityChoice[] = (() => {
+    const allowed = new Set(qualitiesFor(project.probe, "classic"));
+    return qualityChoices({ probe: project.probe }).filter((q) => allowed.has(q.preset));
+  })();
+  const [chosenPreset, setPreset] = useState<Preset | null>(null);
+  const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
+  const [devices, setDevices] = useState<Device[]>(() => {
+    const d = deviceForClient(client);
+    return d ? [d] : [];
+  });
+  const [formats, setFormats] = useState<Format[]>(() =>
+    devices.length > 0 ? formatsForDevices(devices, CLASSIC_FORMATS) : DEFAULT_MAKE_FORMATS,
+  );
+  // S3D-29: two equal edge styles, Filled preselected
   const [edge, setEdge] = useState<EdgeMode>("filled");
-  const [formats, setFormats] = useState<Format[]>(["mvhevc", "half_sbs"]);
   const [fromScratch, setFromScratch] = useState(false);
-  // "use pipeline default" escapes for the inherited settings
+  // "automatic" escapes for the inherited settings
   const [depthDefault, setDepthDefault] = useState(false);
   const [stereoDefault, setStereoDefault] = useState(false);
-  // explicit opt-in: run against the project's uploaded depth map instead
-  // of the inherited depth run (skips the depth stage entirely)
+  // explicit opt-in: run against the project's uploaded depth map
   const [useUploadedDepth, setUseUploadedDepth] = useState(false);
+  const numFrames = project.probe?.num_frames ?? 0;
+  const [trim, setTrim] = useState<[number, number] | null>(null);
+  const range: [number, number] = trim ?? [0, numFrames];
 
-  // Classic runs only: Lifelike production runs live on Lifelike's page.
-  const productionRuns = (project.conversions ?? []).filter(
-    (c) => c.step === "production" && conversionMethod(c) === "classic",
-  );
-  const lastSucceeded = productionRuns
-    .filter((c) => c.state === "succeeded")
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] as
-    | Conversion
-    | undefined;
-  const output = bestPlayable(useRunDownloads(lastSucceeded));
-
-  const ready =
-    project.analyze.state === "succeeded" && project.probe && project.scenes;
-  if (!ready) {
-    return (
-      <PanelShell>
-        <PanelCard>
-          <p className="text-sm text-fg-muted">
-            Analysis is still running — quotes unlock when it finishes.
-          </p>
-        </PanelCard>
-      </PanelShell>
-    );
-  }
-  const probe = project.probe!;
-  const scenes = project.scenes!;
-  const sourceFps = parseRational(probe.fps_rational);
-
-  // ------------------------------------------------ inherited pipeline state
+  const scenes = project.scenes;
   const lastDepthRun = (project.conversions ?? [])
     .filter((c) => c.step === "depth_preview" && c.state === "succeeded")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
   const inheritedDepthRes = lastDepthRun?.params.depth_res;
   const depthUpload = project.depth_upload;
-  const stereoDraft = loadStereoDraft(project.project_id, scenes.version);
-  const sceneOverrides = draftToSceneOverrides(stereoDraft, [0, ...(scenes.cuts ?? [])]);
-  const hasStereoTweaks =
-    sceneOverrides.length > 0 || stereoDraft.depth_scale !== 1;
-
-  // The uploaded depth map (explicit opt-in) beats the inherited depth run.
+  const stereoDraft = loadStereoDraft(project.project_id, scenes?.version ?? 0);
+  const sceneOverrides = draftToSceneOverrides(stereoDraft, [0, ...(scenes?.cuts ?? [])]);
+  const hasStereoTweaks = sceneOverrides.length > 0 || stereoDraft.depth_scale !== 1;
   const sendUpload = useUploadedDepth && depthUpload !== undefined;
-  const sendDepthRes =
-    !sendUpload && !depthDefault && inheritedDepthRes !== undefined;
+  const sendDepthRes = !sendUpload && !depthDefault && inheritedDepthRes !== undefined;
   const sendStereo = !stereoDefault && hasStereoTweaks;
 
-  function buildRequest(over: { fromScratch?: boolean } = {}): StepConversionRequest {
-    const fs = over.fromScratch ?? fromScratch;
-    return {
-      step: "production",
-      preset,
-      // Always explicit — an empty list is rejected by the gateway (and the
-      // checkout section is disabled before it gets that far), never
-      // silently swapped for the step default.
-      formats,
-      // Edge style drives BOTH wire fields (filled = propainter, the
-      // gateway's production default, sent explicitly; stretched =
-      // backward warp + inpaint none — the only pairing the gateway
-      // accepts for it).
-      ...edgeModeRequest(edge),
-      ...(sendUpload ? { use_uploaded_depth: true } : {}),
-      ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
-      ...(sendStereo && stereoDraft.depth_scale !== 1
-        ? { depth_scale: stereoDraft.depth_scale }
-        : {}),
-      ...(sendStereo && sceneOverrides.length > 0
-        ? { scene_overrides: sceneOverrides }
-        : {}),
-      // no target_fps: production's gateway default IS the full source rate
-      ...(fs ? { from_scratch: true } : {}),
-      platform: "web",
-    };
-  }
+  // everything but the edge style: the edge tiles price both styles
+  const common: StepConversionRequest = {
+    step: "production",
+    preset,
+    // always explicit — an empty list is rejected by the gateway
+    formats: formats.length > 0 ? formats : DEFAULT_MAKE_FORMATS,
+    ...trimFields(range, numFrames),
+    ...(sendUpload ? { use_uploaded_depth: true } : {}),
+    ...(sendDepthRes ? { depth_res: inheritedDepthRes } : {}),
+    ...(sendStereo && stereoDraft.depth_scale !== 1
+      ? { depth_scale: stereoDraft.depth_scale }
+      : {}),
+    ...(sendStereo && sceneOverrides.length > 0 ? { scene_overrides: sceneOverrides } : {}),
+    // no target_fps: production's default IS the full source rate
+    ...(fromScratch ? { from_scratch: true } : {}),
+    platform: "web",
+  };
+  const request: StepConversionRequest = {
+    ...common,
+    formats,
+    // Edge style drives BOTH wire fields (filled = propainter, sent
+    // explicitly; stretched = backward warp + inpaint none)
+    ...edgeModeRequest(edge),
+  };
+  const prices = usePresetPrices(
+    project,
+    { ...common, ...edgeModeRequest(edge) },
+    choices.map((q) => q.preset),
+    "classic",
+  );
+  const edgePrices = useVariantPrices(project, common, {
+    stretched: edgeModeRequest("stretched"),
+    filled: { ...edgeModeRequest("filled"), warp: undefined },
+  });
 
-  function toggleFromScratch(v: boolean): void {
-    setFromScratch(v);
-    if (ck.quote) void ck.fetchQuote(buildRequest({ fromScratch: v })); // re-quote with the new path
-  }
-
-  return (
-    <PanelShell>
-      <StepReview
-        project={project}
-        sourceFps={sourceFps}
-        heading="Final output"
-        headingExtras={
-          output === null ? (
-            <span className="text-[11px] text-fg-muted">
-              Run production to review the final output beside the source.
-            </span>
-          ) : null
-        }
-        follower={
-          output !== null
-            ? {
-                url: output.url,
-                label: output.name,
-                title:
-                  "The latest production run's output, synced to the source transport (MV-HEVC is not browser-playable — download it below)",
-                testId: "deliver-output-video",
-              }
-            : null
-        }
-      />
-
-      <PanelCard>
-      <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Uses your earlier settings
-        </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {inheritedDepthRes !== undefined ? (
-            <>
-              <span
-                data-testid="deliver-chip-depth"
-                className={`rounded-full border px-2 py-0.5 text-xs ${
-                  depthDefault
-                    ? "border-edge bg-surface-2 text-fg-muted line-through"
-                    : "border-primary/30 bg-primary/10 text-primary"
-                }`}
-              >
-                Depth detail {inheritedDepthRes} px (from the Depth page)
-              </span>
-              <CheckboxChip
-                label="Use automatic depth detail"
-                checked={depthDefault}
-                onChange={() => {
-                  setDepthDefault((v) => !v);
-                  ck.invalidate();
-                }}
-              />
-            </>
-          ) : (
-            <span data-testid="deliver-chip-depth-none" className="text-xs text-fg-muted">
-              No depth run yet — the quality&apos;s automatic depth detail applies.
-            </span>
-          )}
-        </div>
-        {depthUpload !== undefined ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              data-testid="deliver-chip-depth-upload"
-              className={`rounded-full border px-2 py-0.5 text-xs ${
-                sendUpload
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-edge bg-surface-2 text-fg-muted"
-              }`}
-            >
-              Uploaded depth video
-              {depthUpload.name ? ` — ${depthUpload.name}` : ""}
-            </span>
-            <CheckboxChip
-              label="Use my uploaded depth video"
-              checked={useUploadedDepth}
-              onChange={() => {
-                setUseUploadedDepth((v) => !v);
-                ck.invalidate();
-              }}
-            />
-          </div>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-2">
-          {hasStereoTweaks ? (
-            <>
-              <span
-                data-testid="deliver-chip-stereo"
-                className={`rounded-full border px-2 py-0.5 text-xs ${
-                  stereoDefault
-                    ? "border-edge bg-surface-2 text-fg-muted line-through"
-                    : "border-primary/30 bg-primary/10 text-primary"
-                }`}
-              >
-                {sceneOverrides.length} scenes adjusted, 3D strength ×
-                {stereoDraft.depth_scale.toFixed(2)} (from the 3D look page)
-              </span>
-              <CheckboxChip
-                label="Use automatic 3D for every scene"
-                checked={stereoDefault}
-                onChange={() => {
-                  setStereoDefault((v) => !v);
-                  ck.invalidate();
-                }}
-              />
-            </>
-          ) : (
-            <span data-testid="deliver-chip-stereo-none" className="text-xs text-fg-muted">
-              No 3D look changes — every scene uses automatic 3D.
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-fg-muted">
-          Earlier depth work is reused automatically when it still matches —
-          the quote shows the discount.
+  const ready = project.analyze.state === "succeeded" && project.probe && project.scenes;
+  if (!ready) {
+    return (
+      <div data-testid="deliver-panel">
+        <p className="rounded-xl border border-edge bg-surface-1 p-4 text-sm text-fg-muted">
+          We&apos;re still looking through your video. Prices appear when
+          it&apos;s done.
         </p>
       </div>
+    );
+  }
+  const fps = parseRational(project.probe!.fps_rational);
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="production-preset" label="Preset">
-          <select
-            id="production-preset"
-            value={preset}
-            onChange={(e) => {
-              setPreset(e.target.value as Preset);
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            {qualitiesFor(probe, "classic").map((p) => (
-              <option key={p} value={p}>
-                {qualityName(p)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="production-edge" label="Edge style" hint={EDGE_HINT}>
-          <select
-            id="production-edge"
-            value={edge}
-            onChange={(e) => {
-              setEdge(e.target.value as EdgeMode);
-              ck.invalidate();
-            }}
-            className={selectClass}
-          >
-            {EDGE_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {EDGE_LABELS[m]}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+  function change(apply: () => void): void {
+    apply();
+    ck.invalidate();
+  }
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-medium text-fg-muted">Formats</legend>
-        <div className="flex flex-wrap gap-2">
-          {OUTPUT_FORMATS.map((f) => (
-            <CheckboxChip
-              key={f}
-              label={FORMAT_LABELS[f]}
-              checked={formats.includes(f)}
-              onChange={() => {
-                setFormats((prev) =>
-                  prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
-                );
-                ck.invalidate();
-              }}
+  let n = 0;
+  return (
+    <div data-testid="deliver-panel" className="flex flex-col gap-4">
+      <MoveToLifelikeOffer project={project} onChanged={() => onProjectChanged()} />
+      <p className="-mt-1 text-xs text-fg-muted">
+        Optional: check any 10 seconds on{" "}
+        <a href="#tab=look" className="text-primary hover:underline">
+          3D look
+        </a>{" "}
+        first.
+      </p>
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">
+            <WatchPicker
+              devices={devices}
+              onChange={(next) =>
+                change(() => {
+                  setDevices(next);
+                  if (next.length > 0) setFormats(formatsForDevices(next, CLASSIC_FORMATS));
+                })
+              }
             />
-          ))}
+          </MakeSection>
+
+          <MakeSection n={++n} title="Files you'll get" hint="All included in the price.">
+            <FileTiles
+              offered={CLASSIC_FORMATS}
+              formats={formats}
+              onToggle={(f) =>
+                change(() =>
+                  setFormats((prev) =>
+                    prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+                  ),
+                )
+              }
+            />
+          </MakeSection>
+
+          <MakeSection n={++n} title="Quality">
+            <QualityTiles
+              choices={choices}
+              value={preset}
+              onChange={(p) => change(() => setPreset(p))}
+              prices={prices}
+              note={`With ${EDGE_NAMES[edge].toLowerCase()}. You can change this under Advanced.`}
+            />
+          </MakeSection>
+
+          <MakeSection
+            n={++n}
+            title="Which part?"
+            hint="Drag the handles to pay for just a part."
+            aside={
+              <span
+                data-testid="trim-chip"
+                className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
+              >
+                {trimChip(range, numFrames, fps)}
+              </span>
+            }
+          >
+            <TrimControl
+              numFrames={numFrames}
+              fps={fps}
+              thumbs={project.strip_thumbs ?? []}
+              value={range}
+              onChange={(next) => change(() => setTrim(next))}
+            />
+          </MakeSection>
+
+          <details
+            data-testid="classic-advanced"
+            className="rounded-xl border border-edge bg-surface-1 px-4 py-3"
+          >
+            <summary className="cursor-pointer text-sm font-medium text-fg-muted">
+              Advanced
+            </summary>
+            <div className="mt-3 flex flex-col gap-5 text-sm">
+              <div className="flex flex-col gap-2">
+                <h4 className="text-xs font-medium text-fg-muted">Depth detail</h4>
+                {inheritedDepthRes !== undefined ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      data-testid="deliver-chip-depth"
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        depthDefault
+                          ? "border-edge bg-surface-2 text-fg-muted line-through"
+                          : "border-primary/30 bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {inheritedDepthRes} px (from the Depth page)
+                    </span>
+                    <CheckboxChip
+                      label="Use automatic depth detail"
+                      checked={depthDefault}
+                      onChange={() => change(() => setDepthDefault((v) => !v))}
+                    />
+                  </div>
+                ) : (
+                  <span data-testid="deliver-chip-depth-none" className="text-xs text-fg-muted">
+                    Standard for this quality. Higher detail is set on the Depth page.
+                  </span>
+                )}
+              </div>
+
+              {depthUpload !== undefined ? (
+                <div className="flex flex-col gap-2">
+                  <h4 className="text-xs font-medium text-fg-muted">Your own depth map</h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      data-testid="deliver-chip-depth-upload"
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        sendUpload
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-edge bg-surface-2 text-fg-muted"
+                      }`}
+                    >
+                      Uploaded depth video
+                      {depthUpload.name ? ` · ${depthUpload.name}` : ""}
+                    </span>
+                    <CheckboxChip
+                      label="Use my uploaded depth video"
+                      checked={useUploadedDepth}
+                      onChange={() => change(() => setUseUploadedDepth((v) => !v))}
+                    />
+                  </div>
+                  <p className="text-xs text-fg-muted">Used as is; costs less.</p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-2">
+                <h4 className="text-xs font-medium text-fg-muted">Scene settings</h4>
+                {hasStereoTweaks ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      data-testid="deliver-chip-stereo"
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        stereoDefault
+                          ? "border-edge bg-surface-2 text-fg-muted line-through"
+                          : "border-primary/30 bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {sceneOverrides.length} scenes adjusted, 3D strength ×
+                      {stereoDraft.depth_scale.toFixed(2)} (from the 3D look page)
+                    </span>
+                    <CheckboxChip
+                      label="Use automatic 3D for every scene"
+                      checked={stereoDefault}
+                      onChange={() => change(() => setStereoDefault((v) => !v))}
+                    />
+                  </div>
+                ) : (
+                  <span data-testid="deliver-chip-stereo-none" className="text-xs text-fg-muted">
+                    Every scene uses automatic 3D.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <h4 id="edge-style" className="text-xs font-medium text-fg-muted">
+                  Edges
+                </h4>
+                <div role="radiogroup" aria-labelledby="edge-style" className="grid grid-cols-2 gap-2">
+                  {EDGE_OPTIONS.map((m) => (
+                    <label
+                      key={m}
+                      data-testid={`edge-${m}`}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${
+                        edge === m
+                          ? "border-primary bg-primary/10 text-fg"
+                          : "border-edge bg-surface-0 text-fg-muted"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="edge-style"
+                        checked={edge === m}
+                        onChange={() => change(() => setEdge(m))}
+                        className="accent-primary"
+                      />
+                      <span className="font-medium">{EDGE_LABELS[m]}</span>
+                      <span data-testid={`edge-price-${m}`} className="ml-auto font-mono text-xs">
+                        {edgePrices[m] !== undefined ? formatCents(edgePrices[m]) : "…"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label
+                htmlFor="production-from-scratch"
+                className="flex cursor-pointer items-start gap-2"
+              >
+                <input
+                  id="production-from-scratch"
+                  type="checkbox"
+                  checked={fromScratch}
+                  onChange={(e) => change(() => setFromScratch(e.target.checked))}
+                  className="mt-0.5 accent-primary"
+                />
+                <span>
+                  Start from scratch
+                  <span className="block text-xs text-fg-muted">
+                    Don&apos;t reuse earlier work on this video. Full price.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </details>
         </div>
-      </fieldset>
 
-      <label
-        htmlFor="production-from-scratch"
-        className="flex cursor-pointer items-center gap-2"
-      >
-        <input
-          id="production-from-scratch"
-          type="checkbox"
-          checked={fromScratch}
-          onChange={(e) => toggleFromScratch(e.target.checked)}
-          className="accent-primary"
-        />
-        <span className="text-xs">
-          Start from scratch{" "}
-          <span className="text-fg-muted">
-            (skip artifact reuse — full price, nothing stale)
-          </span>
-        </span>
-      </label>
-
-      <StepCheckoutSection
-        checkout={ck}
-        request={buildRequest()}
-        disabledReason={
-          formats.length === 0 ? "Select at least one format" : undefined
-        }
-      />
-      </PanelCard>
-
-      <PriorRuns
-        title="Prior production runs"
-        conversions={productionRuns}
-        meta={(c) => runSummary(c.params, c.step)}
-      />
-    </PanelShell>
-  );
-}
-
-/** Page frame: review area, params card, prior runs — full width. The page
- * title/description live in the shared PageHeader (StepTab). */
-function PanelShell({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <div data-testid="deliver-panel" className="flex flex-col gap-6">
-      {children}
+        <aside className="flex flex-col gap-3 lg:sticky lg:top-0">
+          <InstantCheckout
+            variant="panel"
+            checkout={ck}
+            request={request}
+            label="Make 3D"
+            disabledReason={formats.length === 0 ? "Pick at least one file" : undefined}
+            heading={
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-fg">Your price</h3>
+                <span className="ml-auto rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted">
+                  Classic 3D
+                </span>
+              </div>
+            }
+            explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits))}
+          />
+        </aside>
+      </div>
     </div>
-  );
-}
-
-/** The params card. */
-function PanelCard({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
   );
 }

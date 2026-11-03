@@ -265,6 +265,50 @@ export function usePresetPrices(
   return prices.key === key ? prices.cents : {};
 }
 
+/** This video's price for a few variants of one request (e.g. the edge
+ * styles), from the gateway's quotes; debounced. */
+export function useVariantPrices(
+  project: Project,
+  base: StepConversionRequest,
+  variants: Record<string, Partial<StepConversionRequest>>,
+): Record<string, number> {
+  const gateway = useGateway();
+  const [prices, setPrices] = useState<{ key: string; cents: Record<string, number> }>({
+    key: "",
+    cents: {},
+  });
+  const key = JSON.stringify({ base, variants });
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      for (const [name, over] of Object.entries(variants)) {
+        const req = { ...base, ...over };
+        // a variant drops fields it sets to undefined
+        for (const k of Object.keys(over) as (keyof StepConversionRequest)[]) {
+          if (over[k] === undefined) delete req[k];
+        }
+        gateway.quoteStep(project.project_id, req).then(
+          (q) => {
+            if (cancelled) return;
+            setPrices((prev) => ({
+              key,
+              cents: { ...(prev.key === key ? prev.cents : {}), [name]: q.quote.amount_cents },
+            }));
+          },
+          () => {},
+        );
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // key carries the base request and the variants
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateway, project.project_id, key]);
+  return prices.key === key ? prices.cents : {};
+}
+
 export function QualityTiles({
   choices,
   value,
