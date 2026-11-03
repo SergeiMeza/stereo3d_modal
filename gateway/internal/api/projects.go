@@ -203,9 +203,9 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 // management metadata. archived:true runs the full archive flow (cancels
 // active conversions, same as DELETE); archived:false restores. method
 // switches the project's conversion method for its NEXT runs (LL-D1; runs
-// in flight keep theirs, earlier files stay). One way only, classic →
-// lifelike (S3D-01/30/44: Classic is being retired): lifelike → classic
-// answers 400 method_switch_not_allowed.
+// in flight keep theirs, earlier files stay). Classic → lifelike any time;
+// lifelike → classic only before the project's first paid run, else 400
+// method_switch_not_allowed (S3D-01/30/44: Classic is being retired).
 func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	current, err := s.ownedProject(ctx, user, id)
@@ -236,7 +236,14 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 			httpx.WriteErr(ctx, w, merr)
 			return
 		}
-		if serr := methodSwitchError(projectMethod(current), *req.Method); serr != nil {
+		var convs []*store.Conversion
+		if projectMethod(current) == store.MethodLifelike && *req.Method == store.MethodClassic {
+			if convs, err = s.Store.ListProjectConversions(ctx, id, 100); err != nil {
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+		}
+		if serr := methodSwitchError(projectMethod(current), *req.Method, convs); serr != nil {
 			httpx.WriteErr(ctx, w, serr)
 			return
 		}

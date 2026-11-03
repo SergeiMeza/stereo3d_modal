@@ -332,6 +332,7 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 			c.Modal.Progress = job.Progress
 			c.Modal.Stage = job.Stage
 			c.Modal.ETASeconds = job.ProgressDetail.ETASeconds
+			noteStart(c, c.Modal.WaitingForGPU, job.WaitingForGPU, now)
 			c.Modal.WaitingForGPU = job.WaitingForGPU
 			c.Modal.QueuedS = job.QueuedS
 			c.Modal.LastPolledAt = &now
@@ -493,11 +494,8 @@ func (s *Service) settleFailure(ctx context.Context, conv *store.Conversion, int
 		c.State = store.StateFailed
 		c.Modal.LastPolledAt = &now
 		c.Stripe.PIStatus = store.PICancelPending
-		c.Error = &store.Error{
-			Code:            "pipeline_failed",
-			UserMessage:     "The conversion failed and " + notChargedPhrase(c) + ". Quote this ID to support: " + c.ID,
-			InternalMessage: internalErr,
-		}
+		code, msg := failureCopy(c, internalErr)
+		c.Error = &store.Error{Code: code, UserMessage: msg, InternalMessage: internalErr}
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {

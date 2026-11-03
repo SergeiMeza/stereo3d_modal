@@ -106,15 +106,33 @@ func formatGB(b int64) string {
 	return fmt.Sprintf("%.1f GB", gb)
 }
 
-// methodSwitchError enforces the one-way switch (owner decision S3D-01,
+// methodSwitchError enforces the switch rule (owner decisions S3D-01,
 // S3D-30, S3D-44): a classic project may move to lifelike at any time, even
-// after paid runs; a lifelike project — new or not — never goes back.
-func methodSwitchError(from, to string) *httpx.APIError {
-	if from == store.MethodLifelike && to == store.MethodClassic {
-		return httpx.Err(http.StatusBadRequest, "method_switch_not_allowed",
-			"A Lifelike project can't be switched back to Classic.")
+// after paid runs; a lifelike project goes back to classic only while it
+// has no paid run (convs: the project's conversions).
+func methodSwitchError(from, to string, convs []*store.Conversion) *httpx.APIError {
+	if from != store.MethodLifelike || to != store.MethodClassic {
+		return nil
+	}
+	for _, c := range convs {
+		if paidRun(c) {
+			return httpx.Err(http.StatusBadRequest, "method_switch_not_allowed",
+				"This project already has Lifelike runs, so it stays on Lifelike.")
+		}
 	}
 	return nil
+}
+
+// paidRun: a run that took or will take money — any run, preview or
+// production, in any state, except one that ended without a result before
+// anything was charged (failed, canceled or expired with nothing captured).
+// A pre-charged run that was refunded still counts: it was paid for.
+func paidRun(c *store.Conversion) bool {
+	switch c.State {
+	case store.StateFailed, store.StateCanceled, store.StateExpired:
+		return c.Stripe.CapturedCents > 0
+	}
+	return true
 }
 
 func errStepForMethod(step, method string) *httpx.APIError {

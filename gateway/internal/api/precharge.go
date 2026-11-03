@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -160,6 +161,20 @@ func notChargedPhrase(c *store.Conversion) string {
 		return "your payment is being refunded in full"
 	}
 	return "you were not charged"
+}
+
+// serversBusyError is the lifelike3d record's error when a job waited in
+// line past its cap (6 h) and never started.
+const serversBusyError = "All our servers are busy right now"
+
+// failureCopy is a failed run's error code and user message. Either way
+// the money comes back (refund) or was never taken; the copy says which.
+func failureCopy(c *store.Conversion, internalErr string) (code, msg string) {
+	if strings.Contains(internalErr, serversBusyError) {
+		return "servers_busy", "All our servers are busy right now, so this run didn't start and " +
+			notChargedPhrase(c) + ". Please try again later. Quote this ID to support: " + c.ID
+	}
+	return "pipeline_failed", "The conversion failed and " + notChargedPhrase(c) + ". Quote this ID to support: " + c.ID
 }
 
 // prechargeBilling is the conversion's billing block for a pre-charged run.

@@ -30,8 +30,8 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		{"4k", 120, 24, 1800},
 		// 48 fps doubles the frames: 1 min of 1080p = $9 (under the $10 discount)
 		{"1080p", 60, 48, 900},
-		// no per-run minimum: a 5 s production is 450 × 5/60 = 38¢
-		{"1080p", 5, 24, 38},
+		// a 5 s production floors at the 50¢ minimum (450 × 5/60 = 38¢)
+		{"1080p", 5, 24, 50},
 	}
 	for _, tc := range cases {
 		for _, step := range []string{"production"} { // previews are flat (TestLifelikePreviewIsFlat)
@@ -78,27 +78,29 @@ func TestQuoteLifelikeRejectsClassicSteps(t *testing.T) {
 func TestEstimateLifelikeETA(t *testing.T) {
 	ctx := context.Background()
 	s := defaultsService(nil)
-	// ADR-0019: 1 minute of 4K on 4 GPUs = 45 + 530/4 + 20 + 1440 × 0.13 = 385.7
-	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 385 {
-		t.Errorf("1 min 4k on 4 GPUs: want 385, got %d", got)
+	// 1 minute on 4 GPUs: 45 + 530/4 + 150 = 327.5
+	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 328 {
+		t.Errorf("1 min on 4 GPUs: want 328, got %d", got)
 	}
-	// The encode tail caps at 7,200 frames: 60 min of 1080p on 8 GPUs =
-	// 45 + 31,800/8 + 20 + 7200 × 0.035 = 4292
-	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 3600, EffectiveFPS: 24, GPUs: 8}); got != 4292 {
-		t.Errorf("60 min 1080p on 8 GPUs: want 4292, got %d", got)
+	// the tail is flat: 60 min on 8 GPUs = 45 + 31,800/8 + 150 = 4170
+	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 3600, EffectiveFPS: 24, GPUs: 8}); got != 4170 {
+		t.Errorf("60 min on 8 GPUs: want 4170, got %d", got)
 	}
-	// Frames, not seconds: 48 fps doubles render and tail.
-	a := s.EstimateLifelikeETA(ctx, LifelikeInputs{Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 24, GPUs: 1})
-	b := s.EstimateLifelikeETA(ctx, LifelikeInputs{Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 48, GPUs: 1})
-	if b-65 != 2*(a-65) {
-		t.Errorf("48 fps should double the frame terms: %d vs %d", a, b)
+	// a 5 s preview on one GPU: 45 + 530 × 120/1440 + 30 = 119
+	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: StepLifelikePreview, Preset: "4k", OutputSeconds: 5, EffectiveFPS: 24, GPUs: 1}); got != 119 {
+		t.Errorf("5 s preview: want 119, got %d", got)
+	}
+	// Frames, not seconds: 48 fps doubles the render term only.
+	a := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 24, GPUs: 1})
+	b := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 48, GPUs: 1})
+	if b-195 != 2*(a-195) {
+		t.Errorf("48 fps should double the render term: %d vs %d", a, b)
 	}
 	// Config overrides take effect; zero values keep the defaults.
 	r := defaults()
-	r.LifelikeETA = LifelikeETA{OverheadSeconds: 100, EncodeSecondsPerFrame: map[string]float64{"4k": 0.2}}
-	got := defaultsService(r).EstimateLifelikeETA(ctx, LifelikeInputs{Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4})
-	if want := int64(540); got != want && got != want+1 { // 100 + 132.5 + 20 + 288
-		t.Errorf("overrides: want ~%d, got %d", want, got)
+	r.LifelikeETA = LifelikeETA{OverheadSeconds: 100, EncodeTailSeconds: 200}
+	if got := defaultsService(r).EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 433 {
+		t.Errorf("overrides: want 433 (100 + 132.5 + 200), got %d", got)
 	}
 }
 
@@ -122,8 +124,8 @@ func TestLifelikeConfigDefaults(t *testing.T) {
 	}
 }
 
-// S3D-13: a preview costs exactly its frames at the production price per
-// frame; no discount, no minimum.
+// S3D-13: a preview costs its frames at the production price per frame,
+// floored at the 50¢ per-run minimum (S3D-17); no bulk discount.
 func TestLifelikePreviewPerFrame(t *testing.T) {
 	ctx := context.Background()
 	s := defaultsService(nil)
@@ -133,14 +135,14 @@ func TestLifelikePreviewPerFrame(t *testing.T) {
 		fps    float64
 		want   int64
 	}{
-		// the decision's table: 5 s at 24 fps
-		{"1080p", 5, 24, 38}, {"qhd", 5, 24, 54}, {"3k", 5, 24, 67}, {"4k", 5, 24, 83},
-		// quick look at half the frame rate: half the frames, half the price
-		{"4k", 5, 12, 42},
+		// 5 s at 24 fps: 1080p's 38¢ floors at 50; the rest are above it
+		{"1080p", 5, 24, 50}, {"qhd", 5, 24, 54}, {"3k", 5, 24, 67}, {"4k", 5, 24, 83},
+		// quick look at half the frame rate: half the frames (42¢ → 50)
+		{"4k", 5, 12, 50},
 		// 10 s of a 60 fps source: 600 frames × 1000/1440
 		{"4k", 10, 60, 417},
-		// 2 s at 1080p: 48 frames = 15¢, no minimum
-		{"1080p", 2, 24, 15},
+		// 10 s 3k quick look: 120 frames × 800/1440 = 67¢
+		{"3k", 10, 12, 67},
 	}
 	for _, tc := range cases {
 		q, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: tc.preset, BillableS: tc.secs, EffectiveFPS: tc.fps})
@@ -160,25 +162,20 @@ func TestLifelikePreviewPerFrame(t *testing.T) {
 	}
 }
 
-// S3D-17: no per-run minimum on pro steps (either method).
-func TestNoPerRunMinimumOnProSteps(t *testing.T) {
+// S3D-17: the 50¢ per-run minimum stays for both methods, Lifelike
+// previews included.
+func TestPerRunMinimum(t *testing.T) {
 	ctx := context.Background()
 	s := defaultsService(nil)
 	q, err := s.QuoteStep(ctx, StepInputs{Step: "stereo_preview", Preset: "1080p", BillableS: 2, EffectiveFPS: 24})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.AmountCents >= 50 { // 120¢ × 3 × 2/60 = 12¢
-		t.Errorf("classic 2 s preview must not be lifted to the minimum: %d", q.AmountCents)
+	if q.AmountCents != 50 { // 120¢ × 3 × 2/60 = 12¢
+		t.Errorf("classic 2 s preview floors at 50: %d", q.AmountCents)
 	}
-	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 38 {
-		t.Errorf("lifelike 5 s production: want 38, got %d", q.AmountCents)
-	}
-	// the mobile one-shot keeps its own rules
-	r := defaults()
-	r.MinBillableSeconds = 0
-	if q, _ := defaultsService(r).QuoteVideo(ctx, VideoInputs{Preset: "draft", BillableS: 5}); q.AmountCents != 50 {
-		t.Errorf("mobile keeps the 50¢ minimum: %d", q.AmountCents)
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 50 {
+		t.Errorf("lifelike 5 s production floors at 50: %d", q.AmountCents)
 	}
 }
 
@@ -211,7 +208,7 @@ func TestPublicPricing(t *testing.T) {
 	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
 		t.Errorf("thresholds: %v", p)
 	}
-	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) || b["minimum_cents"] != int64(50) {
+	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) {
 		t.Errorf("balance: %v", b)
 	}
 	if methods["lifelike"].(map[string]any)["max_source_bytes"] != int64(25<<30) {

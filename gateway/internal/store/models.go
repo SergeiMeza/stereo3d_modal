@@ -246,6 +246,11 @@ type Modal struct {
 	// so. Queued time is not the run's fault, so overdue judging adds it.
 	WaitingForGPU bool    `firestore:"waiting_for_gpu,omitempty" json:"waiting_for_gpu"`
 	QueuedS       float64 `firestore:"queued_s,omitempty" json:"queued_s"`
+	// StartedAt: when the run got its GPU, as polls saw it — the moment it
+	// left the queue, or its submission once it ran a cancel window without
+	// ever queueing. nil while it has only waited. The cancel window
+	// counts from here (S3D-23).
+	StartedAt *time.Time `firestore:"started_at,omitempty" json:"-"`
 }
 
 // Part is one file of a split output (metadata.parts of the job record):

@@ -185,27 +185,25 @@ type Rates struct {
 const MaxGPUWorkersPerJob = 8
 
 // LifelikeETA: eta = overhead + render_gpu_s_per_minute × output minutes
-// (at 24 fps; frames scale it) / GPUs + encode tail, the tail being
-// encode_base_s + min(frames, encode_frame_cap) × encode_s_per_frame[preset].
-// Constants measured by the Spatial 3D Studio team on test (ml-sharp-modal
-// ADR-0019 § Estimates). Zero or missing values use the defaults.
+// (at 24 fps; frames scale it) / GPUs + a flat encode tail. The Spatial 3D
+// Studio team's numbers on test (ml-sharp-modal ADR-0019 § Estimates): the
+// encode now runs in parallel chunks, so production's tail after rendering
+// is ~150 s whatever the length (encode_tail_s); a preview encodes inline
+// in its one container (~27 s measured; preview_tail_s). Zero or missing
+// values use the defaults.
 type LifelikeETA struct {
-	RenderGPUSecondsPerMinute float64            `firestore:"render_gpu_s_per_minute"`
-	OverheadSeconds           float64            `firestore:"overhead_s"`
-	EncodeBaseSeconds         float64            `firestore:"encode_base_s"`
-	EncodeSecondsPerFrame     map[string]float64 `firestore:"encode_s_per_frame"`
-	EncodeFrameCap            int                `firestore:"encode_frame_cap"`
+	RenderGPUSecondsPerMinute float64 `firestore:"render_gpu_s_per_minute"`
+	OverheadSeconds           float64 `firestore:"overhead_s"`
+	EncodeTailSeconds         float64 `firestore:"encode_tail_s"`
+	PreviewTailSeconds        float64 `firestore:"preview_tail_s"`
 }
 
 func defaultLifelikeETA() LifelikeETA {
 	return LifelikeETA{
 		RenderGPUSecondsPerMinute: 530,
 		OverheadSeconds:           45,
-		EncodeBaseSeconds:         20,
-		EncodeSecondsPerFrame: map[string]float64{
-			"1080p": 0.035, "qhd": 0.06, "3k": 0.075, "4k": 0.13,
-		},
-		EncodeFrameCap: 7200,
+		EncodeTailSeconds:         150,
+		PreviewTailSeconds:        30,
 	}
 }
 
@@ -795,10 +793,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	if afterReuse > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(afterReuse) * rates.DiscountPct))
 	}
-	// No per-run minimum on pro steps (S3D-17): minimum_cents applies to
-	// the balance charge instead (a batch under it rolls over), and a run
-	// above the pre-charge threshold is far above it.
-	total := max(afterReuse-bulkDiscount-in.CreditCents, 0)
+	total := afterReuse - bulkDiscount - in.CreditCents
+	if total < rates.MinimumCents {
+		total = rates.MinimumCents
+	}
 	return &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
@@ -828,9 +826,9 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 // 2026-11-03): lifelike_price_cents_per_minute[preset] per output minute at
 // 24 fps — a price, not a cost the margin multiplies — times the fps
 // factor, for production. None of Classic's mechanics apply (no depth-res
-// factor, no inpaint multiplier, no reuse discount); the bulk discount and
-// the analyze credit do. A lifelike_preview costs its frames at the same
-// price per frame (S3D-13). No per-run minimum (S3D-17).
+// factor, no inpaint multiplier, no reuse discount); the bulk discount, the
+// analyze credit and the per-run minimum do. A lifelike_preview costs its
+// frames at the same price per frame, floored at the minimum (S3D-13/17).
 const (
 	StepLifelikePreview = "lifelike_preview"
 	MethodLifelike      = "lifelike"
@@ -865,17 +863,18 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
 	}
 	if in.Step == StepLifelikePreview {
-		// S3D-13: exactly what the same frames cost in the final at this
-		// quality — the per-minute price / 1,440 per frame, times the
-		// frames the preview renders (its seconds × its frame rate, so the
-		// half-rate quick look costs half). No discount, no minimum.
+		// S3D-13: what the same frames cost in the final at this quality —
+		// the per-minute price / 1,440 per frame, times the frames the
+		// preview renders (its seconds × its frame rate, so the half-rate
+		// quick look costs half) — floored at the per-run minimum (S3D-17).
+		// No bulk discount.
 		fps := in.EffectiveFPS
 		if fps <= 0 {
 			fps = fpsBase
 		}
 		frames := math.Round(in.BillableS * fps)
 		perFrame := float64(perMin) / (60 * fpsBase)
-		cents := int64(math.Round(frames * perFrame))
+		cents := max(int64(math.Round(frames*perFrame)), rates.MinimumCents)
 		return &Quote{
 			AmountCents: cents,
 			Currency:    rates.Currency,
@@ -897,7 +896,10 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	if subtotal > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
 	}
-	total := max(subtotal-bulkDiscount-in.CreditCents, 0) // no per-run minimum (S3D-17)
+	total := subtotal - bulkDiscount - in.CreditCents
+	if total < rates.MinimumCents {
+		total = rates.MinimumCents
+	}
 	return &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
@@ -929,9 +931,8 @@ type LifelikeInputs struct {
 }
 
 // EstimateLifelikeETA predicts a Lifelike run's wall-clock seconds (see
-// LifelikeETA). 1 minute of 4K on 4 GPUs: 45 + 530/4 + 20 + 1440 × 0.13 ≈
-// 385 s (measured 421-450 with a scene scan the gateway never triggers:
-// it always sends the project's cuts).
+// LifelikeETA). 1 minute on 4 GPUs: 45 + 530/4 + 150 ≈ 328 s; a 5 s
+// preview on its one GPU: 45 + 44 + 30 ≈ 119 s (measured 89-138).
 func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) int64 {
 	e := s.Rates(ctx).LifelikeETA
 	d := defaultLifelikeETA()
@@ -948,15 +949,10 @@ func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) in
 	frames := in.OutputSeconds * fps
 	gpus := float64(max(in.GPUs, 1))
 	render := pick(e.RenderGPUSecondsPerMinute, d.RenderGPUSecondsPerMinute) * frames / (60 * fpsBase) / gpus
-	perFrame := pick(e.EncodeSecondsPerFrame[in.Preset], d.EncodeSecondsPerFrame[in.Preset])
-	if perFrame <= 0 {
-		perFrame = d.EncodeSecondsPerFrame["4k"] // unknown preset: the slowest
+	tail := pick(e.EncodeTailSeconds, d.EncodeTailSeconds)
+	if in.Step == StepLifelikePreview {
+		tail = pick(e.PreviewTailSeconds, d.PreviewTailSeconds)
 	}
-	frameCap := e.EncodeFrameCap
-	if frameCap <= 0 {
-		frameCap = d.EncodeFrameCap
-	}
-	tail := pick(e.EncodeBaseSeconds, d.EncodeBaseSeconds) + math.Min(frames, float64(frameCap))*perFrame
 	return int64(math.Round(pick(e.OverheadSeconds, d.OverheadSeconds) + render + tail))
 }
 
@@ -1022,7 +1018,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 				"presets":                     LifelikePresets,
 				"production_cents_per_minute": lifelike,
 				// a preview costs its frames at the production price per
-				// frame (cents_per_minute / 1,440), no discount or minimum
+				// frame (cents_per_minute / 1,440), at least minimum_cents,
+				// no bulk discount
 				"preview_cents_per_frame": lifelikePerFrame,
 				"preview_seconds":         rates.LifelikePreviewSeconds(),
 				"max_source_duration_s":   rates.MaxSourceDurationFor("lifelike"),
@@ -1044,14 +1041,12 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"threshold_cents": rates.DiscountThresholdCents,
 			"pct":             rates.DiscountPct,
 		},
-		// No per-run minimum on pro steps (S3D-17): the minimum applies to
-		// the balance charge; a balance under it waits for the next run.
+		// per run, both methods, Lifelike previews included (S3D-17)
 		"minimum_cents":             rates.MinimumCents,
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
 		"balance": map[string]any{
 			"window_hours":          rates.BatchWindow().Hours(),
 			"new_account_cap_cents": newAccountCap,
-			"minimum_cents":         rates.MinimumCents,
 		},
 	}
 }

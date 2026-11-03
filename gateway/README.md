@@ -112,9 +112,10 @@ conversion JSON; records without one are classic). `POST /v1/projects`
 takes an optional `method`; none means classic, so clients that predate
 Lifelike keep working (the web app always sends one and preselects
 lifelike in its UI); `PATCH /v1/projects/{id}
-{"method": ...}` switches it for the next runs, one way only: classic →
-lifelike at any time (earlier files stay); lifelike → classic is 400
-`method_switch_not_allowed` (Classic is being retired). Lifelike without the
+{"method": ...}` switches it for the next runs: classic → lifelike at any
+time (earlier files stay); lifelike → classic only while the project has no
+paid run (any run except one that ended before anything was charged), else
+400 `method_switch_not_allowed` (Classic is being retired). Lifelike without the
 service → 400 `method_unavailable`. `GET /v1/limits` carries
 `methods.{lifelike,classic}.{max_source_duration_s, available}` (0 =
 unlimited) and `default_method`, the method the UI preselects (lifelike
@@ -151,7 +152,13 @@ Quotes gain `method`, `charge_timing` (`before` above
 record, both pipelines), `parts` (`[{index, from_frame, to_frame, start_s,
 duration_s}]` for split outputs) and, for pre-charged runs, `billing.status`
 `charged` → `refund_pending` → `refunded` (or `not_charged` when 3DS was never
-completed). `GET /v1/conversions/{id}/downloads` adds `files`: one entry per
+completed); a batched run that failed or was canceled reads `not_charged`.
+A Lifelike job that waited past its 6 h queue cap fails with error code
+`servers_busy`. Cancel (both methods, pre-charged or batched): any time
+before submission or while the run waits in line for a GPU with nothing
+started, then for a minute after it starts (`cancelable`, and
+`cancelable_until` once started); pre-charged runs are refunded in full,
+batched ones never charged. `GET /v1/conversions/{id}/downloads` adds `files`: one entry per
 output (`name`, `format`, `part` for split parts, `filename` like "Trip 3D
 Part 2.mov", `url`); `downloads` (name → URL) is unchanged.
 
@@ -159,9 +166,9 @@ Pricing: Lifelike production has its own PRICE table (no margin),
 `lifelike_price_cents_per_minute` per output minute at 24 fps, times the fps
 factor; the bulk discount applies, nothing else from Classic. A Lifelike
 preview costs its frames at the same price per frame (price per minute /
-1,440, times seconds × frame rate), with no discount and no minimum. No pro
-step of either method has a per-run minimum (S3D-17): `minimum_cents`
-applies to the balance charge, and a balance under it rolls over. A quote may carry `method` to price the step as if the project
+1,440, times seconds × frame rate), at least `minimum_cents`, with no bulk
+discount. The 50¢ per-run minimum applies to every pro step of both methods
+(S3D-17). A quote may carry `method` to price the step as if the project
 used that method (validated by that method's rules; the project is not
 changed; the response's `method` says which) — the chooser's side-by-side
 price and ETA. On conversions a `method` other than the project's is a 409
@@ -185,8 +192,8 @@ Source files: `POST /v1/uploads` may send `bytes` and `method` to be refused
 up front over that method's cap (`lifelike_max_source_bytes`, 25 GiB;
 Classic `max_source_bytes`, 8 GiB); project creation and a switch of method
 check the stored size (400 `source_too_large`). ETA: `overhead_s + render_gpu_s_per_minute ×
-output minutes (24 fps) / GPUs + encode_base_s + min(frames,
-encode_frame_cap) × encode_s_per_frame[preset]`. Overdue judging adds the
+output minutes (24 fps) / GPUs + encode_tail_s` (the encode runs in
+parallel chunks, so the tail is flat; previews use `preview_tail_s`). Overdue judging adds the
 run's `queued_s`, and a run may process for max(24 h, 3 × its estimate).
 
 Billing (both methods): pro steps quoted above `precharge_threshold_cents`
@@ -206,7 +213,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
-| `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_base_s` 20 · `encode_frame_cap` 7200 · `encode_s_per_frame` 1080p 0.035 · qhd 0.06 · 3k 0.075 · 4k 0.13 |
+| `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
 
 Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`

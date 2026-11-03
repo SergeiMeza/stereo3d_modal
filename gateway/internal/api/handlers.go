@@ -861,13 +861,56 @@ func downloadPaymentGate(conv *store.Conversion) *httpx.APIError {
 	return nil
 }
 
-// cancelWindow: a job may only be canceled within this long of its Modal
-// submission. Past it the GPU spend is committed — the run settles (and
+// cancelWindow: a job may only be canceled within this long of its start
+// (cancelable). Past it the GPU spend is committed — the run settles (and
 // bills) normally. Conversions not yet submitted (payment hold pending)
 // stay cancelable indefinitely so users are never trapped with a hold.
 const cancelWindow = time.Minute
 
 var errCancelWindowClosed = errors.New("cancel window closed")
+
+// runStartedAt is when the cancel window opened: the run's GPU start as
+// polls saw it, else its submission (nil before submission).
+func runStartedAt(c *store.Conversion) *time.Time {
+	if c.Modal.StartedAt != nil {
+		return c.Modal.StartedAt
+	}
+	return c.Modal.SubmittedAt
+}
+
+// cancelable (S3D-19/S3D-23, both methods, pre-charged or batched): before
+// submission; any time while the run waits in line for a GPU with nothing
+// started yet; else for cancelWindow after it started. Every case is
+// refunded in full (pre-charged) or never charged (batched).
+func cancelable(c *store.Conversion, now time.Time) bool {
+	if store.IsTerminal(c.State) {
+		return false
+	}
+	if c.Modal.SubmittedAt == nil {
+		return true
+	}
+	if c.Modal.WaitingForGPU && c.Modal.StartedAt == nil {
+		return true
+	}
+	return now.Sub(*runStartedAt(c)) <= cancelWindow
+}
+
+// noteStart records the run's GPU start from a poll (see Modal.StartedAt):
+// leaving the queue starts it now; a run that never queued counts from its
+// submission once a cancel window has passed. prevWaiting is the record's
+// waiting_for_gpu before this poll.
+func noteStart(c *store.Conversion, prevWaiting, waitingNow bool, now time.Time) {
+	if c.Modal.StartedAt != nil || waitingNow || c.Modal.SubmittedAt == nil {
+		return
+	}
+	switch {
+	case prevWaiting:
+		c.Modal.StartedAt = &now
+	case now.Sub(*c.Modal.SubmittedAt) > cancelWindow:
+		submitted := *c.Modal.SubmittedAt
+		c.Modal.StartedAt = &submitted
+	}
+}
 
 // DELETE /v1/conversions/{id} — cancel job + release hold (or refund a
 // pre-charged run).
@@ -882,6 +925,11 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 		httpx.WriteOK(w, s.conversionResponse(conv, nil))
 		return
 	}
+	// Whether it still waits in line decides the window: read it fresh.
+	if conv.State == store.StateProcessing &&
+		(conv.Modal.LastPolledAt == nil || time.Since(*conv.Modal.LastPolledAt) > pollStaleness) {
+		_, _ = s.refreshFromModal(ctx, conv)
+	}
 	// Claim the cancel via the state machine FIRST — if the job just settled
 	// (e.g. reconciler captured the hold a moment ago) this conflicts and we
 	// return the terminal state instead of touching the money. The
@@ -890,7 +938,7 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 	// The cancel-window check runs INSIDE the transaction so a submit that
 	// lands between our read and the claim can't be canceled past its window.
 	updated, err := s.Store.Transition(ctx, id, store.ActiveStates, func(c *store.Conversion) error {
-		if c.Modal.SubmittedAt != nil && time.Since(*c.Modal.SubmittedAt) > cancelWindow {
+		if !cancelable(c, time.Now()) {
 			return errCancelWindowClosed
 		}
 		c.State = store.StateCanceled
@@ -983,11 +1031,15 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if len(c.Parts) > 0 {
 		resp["parts"] = c.Parts
 	}
-	// Once submitted, cancel is only allowed for cancelWindow — tell the
-	// client when the button should disappear. Absent before submission
-	// (always cancelable) and on terminal states (nothing to cancel).
-	if !store.IsTerminal(c.State) && c.Modal.SubmittedAt != nil {
-		resp["cancelable_until"] = c.Modal.SubmittedAt.Add(cancelWindow).Format(time.RFC3339)
+	// cancelable says whether the button shows now; cancelable_until when
+	// it goes, once the run has started (absent before submission and while
+	// it waits in line with nothing started — cancelable throughout).
+	if !store.IsTerminal(c.State) {
+		now := time.Now()
+		resp["cancelable"] = cancelable(c, now)
+		if c.Modal.SubmittedAt != nil && !(c.Modal.WaitingForGPU && c.Modal.StartedAt == nil) {
+			resp["cancelable_until"] = runStartedAt(c).Add(cancelWindow).Format(time.RFC3339)
+		}
 	}
 	if isOverdue(c, time.Now()) {
 		resp["overdue"] = true // the client offers "Report it"
@@ -1024,6 +1076,10 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 			}
 		}
 	case store.BillingModeAuto, store.BillingModeAutoHold:
+		if c.State == store.StateFailed || c.State == store.StateCanceled || c.State == store.StateExpired {
+			// "Cancelled, not charged" (S3D-33): nothing was taken.
+			resp["billing"] = map[string]any{"status": "not_charged"}
+		}
 		if c.State == store.StateCreated && c.Stripe.ClientSecret != "" {
 			resp["billing"] = map[string]any{
 				"status":          "requires_action",

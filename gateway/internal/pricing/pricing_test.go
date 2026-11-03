@@ -198,13 +198,12 @@ func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
 	if q.AmountCents != 850 {
 		t.Errorf("want 850, got %d", q.AmountCents)
 	}
-	// credit larger than the subtotal floors at zero: pro steps have no
-	// per-run minimum (S3D-17; the balance charge has it)
+	// credit larger than the subtotal still floors at minimum_cents
 	q = quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 60, CreditCents: 5000,
 	})
-	if q.AmountCents != 0 {
-		t.Errorf("want 0, got %d", q.AmountCents)
+	if q.AmountCents != 50 {
+		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}
 }
 
@@ -390,14 +389,13 @@ func TestQuoteStepReuseDiscountOnAdjustedSubtotal(t *testing.T) {
 	}
 }
 
-func TestQuoteStepDepthResNoPerRunMinimum(t *testing.T) {
-	// 20s depth_preview = 75¢; factor 0.5 → 37¢, no longer lifted to 50¢
-	// (S3D-17: the minimum applies to the balance charge).
+func TestQuoteStepDepthResMinimumStillApplies(t *testing.T) {
+	// 20s depth_preview = 75¢; factor 0.5 → 38¢ → floors at 50¢.
 	q := quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 20, DepthRes: 140,
 	})
-	if q.AmountCents != 37 {
-		t.Errorf("want 37, got %d", q.AmountCents)
+	if q.AmountCents != 50 {
+		t.Errorf("want minimum 50, got %d", q.AmountCents)
 	}
 }
 

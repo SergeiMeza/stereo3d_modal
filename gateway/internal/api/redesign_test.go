@@ -122,22 +122,120 @@ func TestPublicPricingRoute(t *testing.T) {
 	}
 }
 
-// S3D-01/30/44: switching is one way, classic → lifelike.
-func TestMethodSwitchOneWay(t *testing.T) {
-	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic); e == nil || e.Code != "method_switch_not_allowed" || e.Status != 400 {
-		t.Errorf("lifelike → classic must be refused: %v", e)
+// S3D-01/30/44: classic → lifelike any time; lifelike → classic only
+// before the first paid run.
+func TestMethodSwitchRule(t *testing.T) {
+	run := func(state string, captured int64) *store.Conversion {
+		return &store.Conversion{State: state, Stripe: store.Stripe{CapturedCents: captured}}
 	}
-	for _, c := range [][2]string{
-		{store.MethodClassic, store.MethodLifelike},
-		{store.MethodLifelike, store.MethodLifelike},
-		{store.MethodClassic, store.MethodClassic},
+	free := []*store.Conversion{
+		run(store.StateFailed, 0),   // failed before any charge
+		run(store.StateCanceled, 0), // canceled in line, never charged
+		run(store.StateExpired, 0),  // 3DS never completed
+	}
+	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic, nil); e != nil {
+		t.Errorf("a new lifelike project may go back: %v", e)
+	}
+	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic, free); e != nil {
+		t.Errorf("runs that never charged don't count: %v", e)
+	}
+	for _, paid := range []*store.Conversion{
+		run(store.StateSucceeded, 0),   // batched preview
+		run(store.StateProcessing, 0),  // running, billed after
+		run(store.StatePaid, 4000),     // pre-charged, waiting to submit
+		run(store.StateCanceled, 4000), // pre-charged then refunded: was paid
+		run(store.StateCreated, 0),     // awaiting 3DS on a pre-charge
 	} {
-		if e := methodSwitchError(c[0], c[1]); e != nil {
-			t.Errorf("%s → %s: %v", c[0], c[1], e)
+		e := methodSwitchError(store.MethodLifelike, store.MethodClassic, append(free, paid))
+		if e == nil || e.Code != "method_switch_not_allowed" || e.Status != 400 {
+			t.Errorf("%s/%d must lock the project on lifelike: %v", paid.State, paid.Stripe.CapturedCents, e)
 		}
 	}
-	// records without a method are classic, so they may move to lifelike
-	if e := methodSwitchError(store.MethodOr(""), store.MethodLifelike); e != nil {
+	paid := []*store.Conversion{run(store.StateSucceeded, 900)}
+	if e := methodSwitchError(store.MethodClassic, store.MethodLifelike, paid); e != nil {
+		t.Errorf("classic → lifelike after paid runs: %v", e)
+	}
+	if e := methodSwitchError(store.MethodOr(""), store.MethodLifelike, paid); e != nil {
 		t.Errorf("legacy project → lifelike: %v", e)
+	}
+}
+
+// S3D-19/S3D-23: in line = cancelable; started = one minute.
+func TestCancelWindow(t *testing.T) {
+	now := time.Now()
+	at := func(d time.Duration) *time.Time { t := now.Add(-d); return &t }
+	c := &store.Conversion{State: store.StatePaid}
+	if !cancelable(c, now) {
+		t.Error("not submitted yet: cancelable")
+	}
+	c.State = store.StateProcessing
+	c.Modal.SubmittedAt = at(3 * time.Hour)
+	c.Modal.WaitingForGPU = true
+	if !cancelable(c, now) {
+		t.Error("3 h in line with nothing started: cancelable")
+	}
+	// it leaves the queue: the window opens at that poll
+	noteStart(c, true, false, now.Add(-30*time.Second))
+	c.Modal.WaitingForGPU = false
+	if c.Modal.StartedAt == nil || !cancelable(c, now) {
+		t.Error("30 s after starting: cancelable")
+	}
+	if cancelable(c, now.Add(time.Minute)) {
+		t.Error("90 s after starting: closed")
+	}
+	// queued again mid-run: still closed (something started)
+	c.Modal.WaitingForGPU = true
+	if cancelable(c, now.Add(time.Minute)) {
+		t.Error("a mid-run queue doesn't reopen the window")
+	}
+	// a run that never queued counts from submission
+	d := &store.Conversion{State: store.StateProcessing}
+	d.Modal.SubmittedAt = at(20 * time.Second)
+	noteStart(d, false, false, now)
+	if d.Modal.StartedAt != nil || !cancelable(d, now) {
+		t.Error("20 s after submit, never queued: open, start not fixed yet")
+	}
+	noteStart(d, false, false, now.Add(time.Minute))
+	if d.Modal.StartedAt == nil || !d.Modal.StartedAt.Equal(*d.Modal.SubmittedAt) {
+		t.Error("past the window without queueing: started at submission")
+	}
+	d.Modal.WaitingForGPU = true // a later queue doesn't reopen it
+	if cancelable(d, now.Add(time.Minute)) {
+		t.Error("closed")
+	}
+	if cancelable(&store.Conversion{State: store.StateCanceled}, now) {
+		t.Error("terminal runs are not cancelable")
+	}
+}
+
+// S3D-33: a canceled run tells refunded from not charged.
+func TestCanceledBillingStatus(t *testing.T) {
+	s := &Service{}
+	refunded := s.conversionResponse(&store.Conversion{State: store.StateCanceled, ProjectID: "p",
+		Stripe: store.Stripe{Mode: store.BillingModeAutoPrecharge, PIStatus: store.PIRefunded, CapturedCents: 4000, RefundedCents: 4000}}, nil)
+	if b := refunded["billing"].(map[string]any); b["status"] != "refunded" || b["refunded_cents"] != int64(4000) {
+		t.Errorf("refunded: %v", b)
+	}
+	batched := s.conversionResponse(&store.Conversion{State: store.StateCanceled, ProjectID: "p",
+		Stripe: store.Stripe{Mode: store.BillingModeAuto, PIStatus: store.PICanceled}}, nil)
+	if b := batched["billing"].(map[string]any); b["status"] != "not_charged" {
+		t.Errorf("batched run canceled: %v", b)
+	}
+}
+
+// A Lifelike job that waited 6 h in line fails as "servers busy", with the
+// money back or never taken.
+func TestFailureCopy(t *testing.T) {
+	pre := &store.Conversion{ID: "c1", Stripe: store.Stripe{Mode: store.BillingModeAutoPrecharge, PIStatus: store.PICancelPending, CapturedCents: 4000}}
+	code, msg := failureCopy(pre, "All our servers are busy right now. Please try again later.")
+	if code != "servers_busy" || !strings.Contains(msg, "refunded in full") {
+		t.Errorf("pre-charged: %s %q", code, msg)
+	}
+	auto := &store.Conversion{ID: "c2", Stripe: store.Stripe{Mode: store.BillingModeAuto, PIStatus: store.PICancelPending}}
+	if code, msg := failureCopy(auto, "All our servers are busy right now. Please try again later."); code != "servers_busy" || !strings.Contains(msg, "not charged") {
+		t.Errorf("batched: %s %q", code, msg)
+	}
+	if code, _ := failureCopy(auto, "We couldn't read this video."); code != "pipeline_failed" {
+		t.Errorf("other failures: %s", code)
 	}
 }
