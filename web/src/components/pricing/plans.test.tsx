@@ -76,7 +76,9 @@ describe("Pricing 2026-11", () => {
     expect(screen.getByTestId("plan-studio").textContent).toContain("25% off every run");
     expect(biz.textContent).toContain("50 free previews a month");
     expect(biz.textContent).toContain("Express included");
-    expect(screen.getByTestId("plan-studio").textContent).toContain("$999 a month");
+    // Studio bills yearly (gateway 00089): "$11,988 a year", usage monthly
+    expect(screen.getByTestId("plan-price-studio").textContent).toBe("$11,988 a year");
+    expect(screen.getByTestId("plan-studio").textContent).toContain("$11,988 a year$1,500 of usage every month");
     fireEvent.click(await within(biz).findByTestId("choose-business"));
     const main = await screen.findByTestId("plan-main");
     expect(main.textContent).toContain("Start Business · $299.00");
@@ -99,6 +101,34 @@ describe("Pricing 2026-11", () => {
     fireEvent.click(within(card).getByRole("button", { name: "Cancel plan" }));
     await waitFor(() => expect(mockDb.billing.plan?.cancel_at_period_end).toBe(true));
     expect(await within(card).findByRole("button", { name: "Keep my plan" })).toBeTruthy();
+  });
+
+  it("Studio checks out yearly, renews a year out, and Billing says when usage resets", async () => {
+    renderPricing();
+    const studio = await screen.findByTestId("plan-studio");
+    fireEvent.click(await within(studio).findByTestId("choose-studio"));
+    const main = await screen.findByTestId("plan-main");
+    expect(main.textContent).toContain("Start Studio · $11,988.00 a year");
+    const sheet = screen.getByTestId("plan-sheet");
+    const year = String(new Date().getFullYear() + 1);
+    expect(sheet.textContent).toMatch(new RegExp(`Billed yearly\\. Renews on \\d+ \\w+ ${year} until you cancel\\.`));
+    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("plan-main"));
+    expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
+    cleanup();
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <BalanceDialogsProvider>
+            <BillingScreen />
+          </BalanceDialogsProvider>
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const card = await screen.findByTestId("plan-card");
+    expect(within(card).getByTestId("plan-price").textContent).toBe("$11,988.00 a year");
+    expect(within(card).getByTestId("plan-credit-resets").textContent).toMatch(/^Usage resets on \d+ \w+ \d{4}\.$/);
+    expect(card.textContent).toMatch(new RegExp(`Billed yearly\\. Renews on \\d+ \\w+ ${year}\\.`));
   });
 
   it("plan card lines", () => {

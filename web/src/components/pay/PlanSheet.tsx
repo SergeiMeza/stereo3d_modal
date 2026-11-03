@@ -10,6 +10,7 @@ import { LockIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { planPrice } from "@/components/pricing/planCopy";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
@@ -90,8 +91,14 @@ export function PlanSheet({
     setPhase({ kind: "ready", ...s, notice: r === "too_many" ? TOO_MANY : DECLINED });
   }
 
-  const title = `${def.name} · ${formatCentsShort(def.monthly_cents)} a month`;
+  // Studio bills yearly (gateway 00089); its usage still comes monthly
+  const price = planPrice(def);
+  const renewal = new Date();
+  if (price.yearly) renewal.setFullYear(renewal.getFullYear() + 1);
+  else renewal.setMonth(renewal.getMonth() + 1);
+  const title = `${def.name} · ${formatCentsShort(price.cents)} ${price.per}`;
   const subtitle = `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time`;
+  const renewsLine = `${price.yearly ? "Billed yearly" : "Billed monthly"}. Renews on ${renewal.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} until you cancel.`;
 
   if (phase.kind === "ready" || phase.kind === "paying") {
     const s = { secret: phase.secret, publishableKey: phase.publishableKey };
@@ -109,7 +116,7 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[CHARGED_IN_USD, "Renews monthly until you cancel."]}
+                lines={[CHARGED_IN_USD, renewsLine]}
                 button={
                   <Button
                     size="lg"
@@ -126,7 +133,8 @@ export function PlanSheet({
                     ) : (
                       <>
                         <LockIcon className="size-4" aria-hidden />
-                        Start {def.name} · {formatCents(def.monthly_cents)}
+                        Start {def.name} · {formatCents(price.cents)}
+                        {price.yearly ? " a year" : ""}
                       </>
                     )}
                   </Button>

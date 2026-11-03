@@ -32,3 +32,16 @@ export function PayPerVideoLine({ pricing }: { pricing: PublicPricing | null }):
     <>Pay per video, or save with a {plans}.</>
   );
 }
+
+/** What a plan bills: Studio is yearly ($11,988 a year, gateway 00089),
+ * Business monthly. From the plan's interval and price_cents; older
+ * gateways send monthly_cents only. */
+export function planPrice(p: {
+  interval?: string;
+  price_cents?: number;
+  monthly_cents?: number;
+}): { cents: number; per: "a year" | "a month"; yearly: boolean } {
+  const yearly = p.interval === "year";
+  const cents = p.price_cents ?? (yearly ? (p.monthly_cents ?? 0) * 12 : (p.monthly_cents ?? 0));
+  return { cents, per: yearly ? "a year" : "a month", yearly };
+}

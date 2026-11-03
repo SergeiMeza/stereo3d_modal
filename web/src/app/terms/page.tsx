@@ -101,14 +101,15 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
-      {/* Facts checked against the gateway README and BL-19 (2026-11-04).
-          [CHECK] Pro on the web: sold as a subscription through the app
-          stores and RevenueCat; confirm the web wording with the owner.
-          [CHECK] Studio: billed yearly, credit granted each month. */}
+      {/* Facts checked against the gateway README and BL-19 (2026-11-04):
+          Pro on the web is a Weekly, Monthly or Yearly subscription
+          (RevenueCat Web Billing, no passes); Studio bills yearly and its
+          usage credit comes each month (gateway 00089). */}
       <LegalSection title="7. Fees and payment">
         <p>
           You <strong>pay per video</strong>. Optional plans lower the
-          price: Pro, Business (billed monthly) and Studio (billed yearly).
+          price: Pro (a weekly, monthly or yearly subscription), Business
+          (billed monthly) and Studio (billed yearly).
           Before any paid step &mdash; a preview or a full video &mdash; you
           see a <strong>quote</strong>, and that is the most you are
           charged for it.

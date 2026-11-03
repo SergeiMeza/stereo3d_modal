@@ -19,6 +19,8 @@ import type { PlanDef, PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 
+import { planPrice } from "./planCopy";
+
 const PLAN_KEYS = ["business", "studio"] as const;
 type PlanKey = (typeof PLAN_KEYS)[number];
 
@@ -50,7 +52,9 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
         <h2 id="plans-title" className="text-lg font-semibold tracking-tight">
           Plans for teams
         </h2>
-        <p className="mt-1 text-sm text-fg-muted">Usage included every month. Cancel any time.</p>
+        <p className="mt-1 text-sm text-fg-muted">
+          Usage included every month. Business bills monthly, Studio yearly.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {PLAN_KEYS.map((k) => {
@@ -67,9 +71,9 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
             >
               <div>
                 <h3 className="text-base font-semibold">{def.name}</h3>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  {formatCentsShort(def.monthly_cents)}
-                  <span className="text-sm font-normal text-fg-muted"> a month</span>
+                <p data-testid={`plan-price-${k}`} className="mt-1 text-2xl font-semibold tabular-nums">
+                  {formatCentsShort(planPrice(def).cents)}
+                  <span className="text-sm font-normal text-fg-muted"> {planPrice(def).per}</span>
                 </p>
               </div>
               <ul className="flex flex-col gap-2 text-sm">
