@@ -12,6 +12,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 // Admin API (spec M1): /v1/admin/*, called only from the admin console's
@@ -557,8 +558,19 @@ func (s *Service) applyCaseAction(ctx context.Context, c *store.Case, req caseAc
 		decide("stop_run", nil)
 		s.closeCase(ctx, c.ID, who, "stopped", "run stopped: refunded in full by its own path")
 		return nil
-	case "accept_dispute", "counter_dispute", "counter_with_refund_proof":
-		decide(req.Action, nil) // done in Stripe; recorded here
+	case "accept_dispute":
+		// Accepting closes the dispute in Stripe (it reads lost); the
+		// charge.dispute.closed webhook closes the case.
+		if c.Related.DisputeID == "" {
+			return httpx.ErrInvalid("this case has no dispute id")
+		}
+		if _, err := s.Stripe.CloseDispute(c.Related.DisputeID); err != nil {
+			return fmt.Errorf("Stripe didn't accept the dispute: %s", stripex.ErrMessage(err))
+		}
+		decide(req.Action, nil)
+		return nil
+	case "counter_dispute", "counter_with_refund_proof":
+		decide(req.Action, nil) // evidence goes in from the Stripe Dashboard; recorded here
 		return nil
 	case "close":
 		if c.Status != store.CaseDecided && c.Decision == nil && req.Text == "" {

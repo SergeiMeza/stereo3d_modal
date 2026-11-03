@@ -284,3 +284,13 @@ func (c *Client) PaymentMethodFingerprint(pm string) (string, error) {
 	}
 	return out.Card.Fingerprint, nil
 }
+
+// CloseDispute accepts a dispute (Stripe marks it lost; the
+// charge.dispute.closed webhook closes the case).
+func (c *Client) CloseDispute(id string) (*Dispute, error) {
+	var d Dispute
+	if err := webCall(http.MethodPost, "/v1/disputes/"+url.PathEscape(id)+"/close", url.Values{}, "close_"+id, &d); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}

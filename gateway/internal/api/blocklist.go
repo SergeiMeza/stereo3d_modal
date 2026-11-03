@@ -129,8 +129,13 @@ func (s *Service) checkBlockedPayment(ctx context.Context, piID string) {
 			slog.WarnContext(ctx, "blocked top-up not refunded", "pi", piID, "err", err)
 		}
 	default:
-		runs := s.runsOf(ctx, o)
-		if len(runs) == 0 {
+		var runs []string
+		for _, id := range s.runsOf(ctx, o) {
+			if _, err := s.Store.GetConversion(ctx, id); err == nil {
+				runs = append(runs, id)
+			}
+		}
+		if len(runs) == 0 { // no run on record: the whole payment goes back
 			s.refundExtraPayment(ctx, o.UID, piID, o.Facts.Received, ReasonLate, "paid with a blocked card", store.CaseRelated{})
 			return
 		}
@@ -138,7 +143,8 @@ func (s *Service) checkBlockedPayment(ctx context.Context, piID string) {
 		// delivered ones open a manual case.
 		if _, err := s.requestRefund(ctx, RefundRequest{UID: o.UID, ConversionIDs: runs, Reason: ReasonCancelledByUs,
 			Source: "system", Who: "system", Text: "paid with a blocked card"}); err != nil {
-			slog.WarnContext(ctx, "blocked payment refund failed", "pi", piID, "err", err)
+			slog.WarnContext(ctx, "blocked payment: run refund failed; refunding the payment", "pi", piID, "err", err)
+			s.refundExtraPayment(ctx, o.UID, piID, o.Facts.Received-o.Facts.Refunded, ReasonLate, "paid with a blocked card", store.CaseRelated{})
 		}
 	}
 }

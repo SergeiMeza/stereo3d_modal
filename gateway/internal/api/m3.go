@@ -231,7 +231,9 @@ func (s *Service) m3Payments(ctx context.Context, rep *M3Report, since time.Time
 		case !rec.exists:
 			f := M3Flag{Flag: "no_record", Ref: p.ID, UID: p.Metadata["user_id"], Cents: p.AmountReceived - facts.Refunded,
 				Detail: "no run, group, settle or top-up " + rec.key}
-			if !dryRun && f.UID != "" {
+			if facts.ChargeDisputed {
+				f.Action = "disputed: the dispute case decides (no refund while a dispute is open)"
+			} else if !dryRun && f.UID != "" {
 				s.refundExtraPayment(ctx, f.UID, p.ID, f.Cents, ReasonLate, "payment with no record (M3 flag 1)", store.CaseRelated{})
 				f.Action = "refunded (late_or_duplicate)"
 			} else if f.UID == "" {
