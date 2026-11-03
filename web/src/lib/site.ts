@@ -11,3 +11,7 @@ export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.stereo3d.studio";
 
 export const SITE_NAME = "Stereo3D Studio";
+
+/** S3D-52: the web app says what it is wherever it introduces itself
+ * (titles, descriptions, mail footers, under the landing logo). */
+export const SITE_TAGLINE = "The web version of Spatial Video Studio";

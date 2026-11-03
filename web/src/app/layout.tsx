@@ -10,7 +10,7 @@ import { FeedbackLink } from "@/components/FeedbackLink";
 import { Logo } from "@/components/Logo";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
-import { SITE_URL } from "@/lib/site";
+import { SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
 import "./globals.css";
@@ -26,12 +26,12 @@ const geistMono = Geist_Mono({
 });
 
 const description =
-  "Convert 2D videos to true 3D — Vision Pro spatial video for Apple Vision Pro, side by side for Meta Quest, Pico and every 3D display. Pay per run; the price shows first.";
+  `${SITE_TAGLINE}. Convert 2D videos to 3D: spatial video for Apple Vision Pro, side by side for Meta Quest, Pico and every 3D display. See the price before you start.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Stereo3D Studio — Convert 2D Video to 3D for VR Headsets",
+    default: "Stereo3D Studio — Convert 2D Video to 3D, the web version of Spatial Video Studio",
     template: "%s — Stereo3D Studio",
   },
   description,
@@ -40,9 +40,8 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Stereo3D Studio",
     locale: "en_US",
-    title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
-    description:
-      "Upload a video, preview a moment in 3D, and get true 3D for every headset.",
+    title: `Stereo3D Studio — ${SITE_TAGLINE}`,
+    description,
     images: [
       {
         url: "/landing/og.jpg",
@@ -54,7 +53,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
+    title: `Stereo3D Studio — ${SITE_TAGLINE}`,
     description,
     images: ["/landing/og.jpg"],
   },
