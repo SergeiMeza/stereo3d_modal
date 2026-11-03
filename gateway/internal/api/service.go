@@ -24,6 +24,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -55,7 +56,10 @@ type Service struct {
 	// is unavailable in this environment).
 	Lifelike *modalapi.Client
 	GCS      *gcsx.Client
-	Slack    *notify.Slack
+	// Mail sends the owner alerts and customer notices (Resend; nil or
+	// unconfigured = logged only).
+	Mail  *mail.Resend
+	Slack *notify.Slack
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
@@ -346,6 +350,12 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 			c.Modal.Stage = job.Stage
 			c.Modal.ETASeconds = job.ProgressDetail.ETASeconds
 			noteStart(c, c.Modal.WaitingForGPU, job.WaitingForGPU, now)
+			switch {
+			case job.WaitingForGPU && c.Modal.WaitingSince == nil:
+				c.Modal.WaitingSince = &now
+			case !job.WaitingForGPU:
+				c.Modal.WaitingSince = nil
+			}
 			c.Modal.WaitingForGPU = job.WaitingForGPU
 			c.Modal.QueuedS = job.QueuedS
 			c.Modal.LastPolledAt = &now

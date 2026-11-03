@@ -137,6 +137,7 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 		stats["modal_pass_skipped"]++
 	} else {
 		s.reconcileModal(ctx, log, stats, &mu)
+		s.checkGPULine(ctx) // after the polls refreshed waiting_for_gpu
 		s.reconciling.Store(false)
 	}
 

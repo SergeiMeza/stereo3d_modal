@@ -57,6 +57,12 @@ type Config struct {
 	ResendAPIKey  string
 	ResetMailFrom string
 	ResetPageURL  string
+	// OwnerAlertEmail receives the owner's operational mails (the GPU-line
+	// alert) and, on test, every customer notice instead of the customer.
+	// Empty = those mails are logged only.
+	OwnerAlertEmail string
+	// SiteURL is the web app's origin, for links in customer mails.
+	SiteURL string
 
 	// CORSOrigins are browser origins allowed to call the API (the web
 	// client). Comma-separated; "*" allows all (bearer auth, no cookies).
@@ -99,6 +105,8 @@ func Load() (*Config, error) {
 		ResendAPIKey:     getenv("RESEND_API_KEY", ""),
 		ResetMailFrom:    getenv("RESET_MAIL_FROM", ""),
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
+		OwnerAlertEmail:  getenv("OWNER_ALERT_EMAIL", ""),
+		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
 	}
 	lifelike := ""
 	if env == "test" {

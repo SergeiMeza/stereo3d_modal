@@ -189,6 +189,10 @@ type Rates struct {
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
 	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// GPUCapPerApp: GPUs each pipeline app may hold at once (the Modal
+	// coordinators enforce it; the GPU-line alert reports usage against
+	// it). 0/absent = 8.
+	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
 	// LifelikeEnabledPresets: the Lifelike sizes the service renders
 	// today (see EnabledLifelikePresets).
 	LifelikeEnabledPresets   []string `firestore:"lifelike_enabled_presets"`
@@ -938,6 +942,14 @@ func (r *Rates) EnabledLifelikePresets() []string {
 		return DefaultLifelikeEnabled
 	}
 	return out
+}
+
+// GPUCap is the per-app GPU cap the alerts report against.
+func (r *Rates) GPUCap() int {
+	if r.GPUCapPerApp > 0 {
+		return r.GPUCapPerApp
+	}
+	return MaxGPUWorkersPerJob
 }
 
 // PreviewMinimum is the per-run floor of a preview (S3D-13/17,

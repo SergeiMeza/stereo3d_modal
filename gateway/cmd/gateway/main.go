@@ -84,6 +84,7 @@ func main() {
 		GCS:     gcs,
 		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
 	}
+	svc.Mail = mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom)
 	if cfg.LifelikeBaseURL != "" {
 		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
 	}

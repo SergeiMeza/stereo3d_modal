@@ -283,10 +283,24 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
+| `gpu_cap_per_app` | 8 — GPUs per Modal app, the "busy N of cap" in the GPU-line mail |
 
 Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off
 unless set; `off` disables), `LIFELIKE_TOKEN_ID`/`LIFELIKE_TOKEN_SECRET`
 (default to the Modal token).
+
+### GPU-line alert (S3D-34)
+
+Every reconcile sweep (each minute) looks for customer runs that have had
+`waiting_for_gpu` for more than 60 s (`modal.waiting_since`, set by the
+status poll). While any exist the owner (`OWNER_ALERT_EMAIL`, set by
+deploy.sh to the KPI-alert address) gets "Stereo3D Studio: N runs waiting
+for a GPU": account email, method, step, resolution, length, waited so far,
+busy GPUs per method vs `gpu_cap_per_app` (estimated from the runs in
+progress at their worker caps), oldest wait. At most one mail per 15 min
+per line; when the line empties, one "GPU line cleared" mail with the
+longest wait. The throttle lives in `ops_{env}/gpu_line`, so instances
+agree. No address or no Resend key → logged only.
 
 ## Support runbook
 

@@ -259,6 +259,9 @@ type Modal struct {
 	// ever queueing. nil while it has only waited. The cancel window
 	// counts from here (S3D-23).
 	StartedAt *time.Time `firestore:"started_at,omitempty" json:"-"`
+	// WaitingSince: when the current wait for a GPU began, as polls saw
+	// it (nil while not waiting) — the GPU-line alert's clock (S3D-34).
+	WaitingSince *time.Time `firestore:"waiting_since,omitempty" json:"-"`
 }
 
 // Part is one file of a split output (metadata.parts of the job record):
