@@ -11,25 +11,25 @@ const STEPS = [
     tag: "Depth",
     title: "Depth, measured for every frame",
     detail:
-      "A video-native model assigns every pixel a distance, consistent from frame to frame — the foundation the 3D is built on.",
+      "We work out how far away everything is in every frame, steady from frame to frame — the base the 3D is built on.",
     src: "/landing/steps/depth.mp4",
-    label: "Source footage side by side with its animated depth map",
+    label: "Source footage side by side with its depth, near bright and far dark",
   },
   {
     number: "02",
-    tag: "Stereo",
+    tag: "3D",
     title: "Two eyes from one camera",
     detail:
-      "Left and right views are synthesized around the source footage, and the pixels a new viewpoint reveals are filled in with motion-aware inpainting. Shown here as a red-cyan anaglyph you can check on any screen.",
+      "A left and a right view are made for every frame, and the areas each eye newly sees are filled in naturally. Shown here in red-cyan, which you can check on any screen with paper glasses.",
     src: "/landing/steps/stereo.mp4",
-    label: "The same footage as a red-cyan anaglyph 3D preview",
+    label: "The same footage as a red-cyan 3D preview",
   },
   {
     number: "03",
-    tag: "Deliver",
+    tag: "Files",
     title: "Plays like it was shot in 3D",
     detail:
-      "The stereo pair is encoded to spatial video, side-by-side and more — ready for Apple Vision Pro, Samsung Galaxy XR, Meta Quest and 3D displays.",
+      "Your 3D video comes as Vision Pro spatial video and side by side — ready for Apple Vision Pro, Samsung Galaxy XR, Meta Quest, Pico and 3D displays.",
     src: "/landing/steps/delivery.mp4",
     label: "The converted video playing on a virtual home-theater screen",
   },

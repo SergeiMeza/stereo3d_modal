@@ -16,6 +16,7 @@ import type {
   Step,
   Warp,
 } from "@/lib/api/types";
+import { formatVideoLength } from "@/lib/format";
 
 /** Output formats (S3D-08: top-bottom isn't sold; the names stay for old
  * runs that have it). */
@@ -213,6 +214,35 @@ export function runSummary(p: Params, step?: Step): string {
     p.split_max_seconds !== undefined
       ? `in ${Math.round(p.split_max_seconds / 60)}-minute parts`
       : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** A video's resolution in customer words: "4K", "1080p", "720p". */
+export function resolutionName(probe: { width: number; height: number }): string {
+  const short = Math.min(probe.width, probe.height);
+  if (short >= 2160) return "4K";
+  if (short >= 1620) return "3K";
+  if (short >= 1440) return "1440p";
+  return `${short}p`;
+}
+
+/** "5 min 12 s · 4K · 30 fps · 14 scenes" — a video at a glance, with no
+ * frame counts or rational frame rates (S3D-36). */
+export function videoFacts(project: {
+  probe?: Probe;
+  scenes?: { cuts: number[] | null };
+}): string {
+  const p = project.probe;
+  if (!p) return "";
+  const fps = Math.round(p.fps * 100) / 100;
+  const scenes = (project.scenes?.cuts ?? []).length + 1;
+  return [
+    formatVideoLength(p.duration_s),
+    resolutionName(p),
+    `${fps} fps`,
+    project.scenes ? `${scenes} scene${scenes === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

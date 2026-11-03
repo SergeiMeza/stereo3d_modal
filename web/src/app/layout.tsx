@@ -26,7 +26,7 @@ const geistMono = Geist_Mono({
 });
 
 const description =
-  "Convert 2D video to true stereoscopic 3D — spatial video for Apple Vision Pro, SBS for Meta Quest and every 3D display. Pay per render with a binding quote.";
+  "Convert 2D videos to true 3D — Vision Pro spatial video for Apple Vision Pro, side by side for Meta Quest, Pico and every 3D display. Pay per run; the price shows first.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
     description:
-      "Upload a video, direct the depth scene by scene, and deliver true stereoscopic 3D to every headset.",
+      "Upload a video, preview a moment in 3D, and get true 3D for every headset.",
     images: [
       {
         url: "/landing/og.jpg",

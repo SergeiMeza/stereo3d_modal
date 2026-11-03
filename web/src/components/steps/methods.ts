@@ -24,6 +24,11 @@ export const METHOD_TAGS: Partial<Record<Method, string>> = {
   classic: "Older method",
 };
 
+/** The one limits statement (S3D-05): landing, upload box, chooser,
+ * Terms. */
+export const LIMITS_STATEMENT =
+  "Lifelike 3D: any length. Classic 3D: up to 10 minutes. Both up to 4K.";
+
 /** Length and size, stated the same way everywhere (S3D-05). */
 export const METHOD_LIMITS: Record<Method, string> = {
   lifelike: "Any length · up to 4K",

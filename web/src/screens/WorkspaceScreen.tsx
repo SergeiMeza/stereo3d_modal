@@ -53,6 +53,7 @@ import {
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useLimits } from "@/lib/api/useLimits";
+import { videoFacts } from "@/lib/glossary";
 
 const ANALYZE_POLL_MS = 3000;
 
@@ -231,8 +232,8 @@ export default function WorkspaceScreen({
       <div className="min-w-0 flex-1">
         <AnalyzeProgress analyze={project.analyze} />
         <p className="mt-1 text-sm">
-          Probing the video, detecting scene cuts and crop geometry, rendering
-          filmstrip thumbnails. This page refreshes automatically.
+          Getting your video ready: finding its scenes and making a preview.
+          This step is free, and the page updates by itself.
         </p>
       </div>
     </div>
@@ -254,13 +255,14 @@ export default function WorkspaceScreen({
             <button
               type="button"
               onClick={() => void copyProjectId()}
-              className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg-muted hover:text-fg"
+              className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-muted hover:text-fg"
             >
-              {idCopied ? "copied" : project.project_id}
+              {idCopied ? "Copied" : "Support info"}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Copy project id — quote this to support
+            Copies this project&apos;s id ({project.project_id}) — quote it to
+            support
           </TooltipContent>
         </Tooltip>
         <MethodBadge
@@ -301,8 +303,7 @@ export default function WorkspaceScreen({
           </span>
         ) : probe ? (
           <span className="text-[11px] text-fg-muted">
-            {probe.width}×{probe.height} · {probe.fps_rational} fps ·{" "}
-            {probe.num_frames} frames
+            {videoFacts(project)}
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-2">

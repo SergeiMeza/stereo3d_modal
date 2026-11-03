@@ -76,7 +76,7 @@ describe("landing page", () => {
       expect(cta.getAttribute("href")).toBe("/projects");
     }
     // the workflow tab strip mirrors the studio's five rooms
-    for (const room of ["Media", "Cut", "Depth", "Stereo", "Deliver"]) {
+    for (const room of ["Overview", "Scenes", "Depth", "3D look", "Make 3D"]) {
       expect(screen.getByRole("tab", { name: new RegExp(room) })).toBeTruthy();
     }
   });
@@ -84,12 +84,16 @@ describe("landing page", () => {
   it("switches the workflow panel when a tab is clicked", () => {
     renderWithAuth(<Home />);
     // default tab is Cut (the hero already shows the Stereo room)
-    expect(screen.getByText("Scene cuts you can trust")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /Stereo/ }));
-    expect(screen.getByText("3D directed scene by scene")).toBeTruthy();
+    expect(screen.getByText("Scene changes you can trust")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /3D look/ }));
+    expect(screen.getByText("3D directed scene by scene (Classic 3D)")).toBeTruthy();
     expect(
-      screen.getByRole("tab", { name: /Stereo/ }).getAttribute("aria-selected"),
+      screen.getByRole("tab", { name: /3D look/ }).getAttribute("aria-selected"),
     ).toBe("true");
+    // no technical terms on the landing page (S3D-36), no top-bottom (S3D-08)
+    expect(document.body.textContent).not.toMatch(
+      /inpainting|video-native model|depth map|top-bottom/i,
+    );
   });
 });
 

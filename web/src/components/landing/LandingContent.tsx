@@ -7,8 +7,9 @@
  * see the page (no forced redirect). The route itself (app/page.tsx) is
  * a server component so it can carry per-page metadata and JSON-LD.
  * Requirements and copy rules live in web/docs/LANDING.md — notably: no
- * internal pipeline terms, no fabricated proof, no dollar amounts (the
- * quote UI is the price).
+ * internal pipeline terms (S3D-36: no model names, depth maps, warping or
+ * inpainting), no fabricated proof, videos only (S3D-09). Prices live on
+ * /pricing (S3D-18), linked from here.
  */
 
 import {
@@ -29,6 +30,7 @@ import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
+import { LIMITS_STATEMENT } from "@/components/steps/methods";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
 const DEVICES = [
@@ -43,25 +45,25 @@ const QUALITY = [
     icon: Waves,
     title: "No flicker",
     detail:
-      "Depth is estimated by a video-native model that stays consistent across the whole shot — no per-frame shimmer, no swimming backgrounds.",
+      "Depth stays steady across the whole shot — no shimmer between frames, no swimming backgrounds.",
   },
   {
     icon: Clapperboard,
-    title: "Scene-aware stereo",
+    title: "Scene-aware 3D",
     detail:
-      "Depth resets exactly at your scene cuts, and each shot gets its own depth treatment under a viewing-comfort budget — bold 3D that's still easy on the eyes.",
+      "Each scene gets its own 3D, kept within a comfortable range — bold 3D that's still easy on the eyes.",
   },
   {
     icon: Sparkles,
     title: "Clean edges",
     detail:
-      "The areas a new viewpoint reveals are filled by video inpainting that understands motion — not stretched or smeared pixels around every silhouette.",
+      "The areas each eye newly sees are filled in naturally, following the motion — not stretched or smeared around every silhouette.",
   },
   {
     icon: Crosshair,
     title: "Frame-exact control",
     detail:
-      "Cuts, trims and per-scene overrides are integer frame indices, never timestamps. What you set is exactly what renders.",
+      "Scene changes, start and end trims and per-scene settings are exact to the frame. What you set is exactly what renders.",
   },
 ];
 
@@ -96,15 +98,15 @@ const PRICING = [
   },
   {
     icon: ReceiptText,
-    title: "A binding quote before every render",
+    title: "The price before every run",
     detail:
-      "Every paid job shows its exact price before it starts — and that quote is what you're charged. No surprise compute bills.",
+      "Every run shows its exact price before it starts, and that is what you're charged. No surprise bills.",
   },
   {
     icon: Sparkles,
-    title: "Preview cheap, render once",
+    title: "Preview a moment first",
     detail:
-      "Dial in depth and stereo on fast low-res previews. The production render reuses the work you already approved and discounts it from the price.",
+      "See a few seconds of your video in 3D before you make the whole thing, priced like the same seconds of the final video.",
   },
 ];
 
@@ -128,9 +130,8 @@ export function LandingContent() {
             <span className="text-primary">without the VFX studio</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-fg-muted sm:text-lg">
-            Upload a video, direct the depth scene by scene, and deliver true
-            stereoscopic 3D to every headset — at a fraction of what a VFX
-            house charges.
+            Upload a video, preview a moment in 3D, and get true 3D for every
+            headset — at a fraction of what a VFX house charges.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -161,7 +162,7 @@ export function LandingContent() {
           <div className="relative">
             <BrowserFrame
               src="/landing/stereo-tab.webp"
-              alt="Stereo3D Studio's Stereo page: source footage beside its live depth map, with per-scene 3D classification and overrides"
+              alt="Stereo3D Studio: your footage beside its depth, with each scene's 3D settings"
               priority
               aspect="aspect-[16/9]"
               sizes="(max-width: 1024px) 100vw, 1024px"
@@ -182,8 +183,8 @@ export function LandingContent() {
           Your video, directed by you
         </h2>
         <p className="mt-3 max-w-2xl text-fg-muted">
-          A real studio workflow — five focused rooms, from first frame to
-          final file. These are live screenshots, not mockups.
+          From first frame to final file. These are live screenshots, not
+          mockups.
         </p>
         <div className="mt-8">
           <WorkflowTabs />
@@ -194,14 +195,14 @@ export function LandingContent() {
       <section className="border-y border-edge bg-card/50">
         <div className="mx-auto w-full max-w-6xl px-4 py-16">
           <p className="text-xs font-medium tracking-widest text-primary uppercase">
-            The pipeline
+            Step by step
           </p>
           <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
             What happens to your video
           </h2>
           <p className="mt-3 max-w-2xl text-fg-muted">
-            The same passes a stereo conversion house runs — automated, and
-            shown here on real footage.
+            What a 3D conversion house does, done for you — shown here on real
+            footage.
           </p>
           <div className="mt-10">
             <PipelineSteps />
@@ -291,6 +292,15 @@ export function LandingContent() {
               </div>
             ))}
           </div>
+          <p className="mt-6 text-sm">
+            <Link
+              href="/pricing"
+              onClick={() => track("lp_pricing_click")}
+              className="text-primary hover:underline"
+            >
+              See prices →
+            </Link>
+          </p>
         </div>
       </section>
 
@@ -301,9 +311,8 @@ export function LandingContent() {
             In beta — help us shape it
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-fg-muted">
-            During the beta, sources can be up to 10 minutes long and up to
-            4K resolution. Something missing, broken, or worth building? Tell us —
-            we read everything.
+            {LIMITS_STATEMENT} Something missing, broken, or worth building?
+            Tell us — we read everything.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
