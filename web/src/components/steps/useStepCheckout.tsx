@@ -557,6 +557,21 @@ export function InstantCheckout({
           {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
         </section>
         {tracker}
+        {/* phone (screen 11): the one button stays in reach at the bottom */}
+        {!(paymentNeeded && !ck.tracking) && !running ? (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
+            <Button
+              size="lg"
+              data-testid="checkout-main-phone"
+              className="w-full"
+              disabled={blocked || quote === null}
+              onClick={() => void ck.convert(request)}
+            >
+              {label}
+              {price ? ` · ${price}` : ""}
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   }

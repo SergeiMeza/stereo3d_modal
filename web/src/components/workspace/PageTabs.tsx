@@ -201,7 +201,8 @@ export function PageTabs({
     <div
       role="tablist"
       aria-label="Workspace pages"
-      className="flex shrink-0 flex-col items-stretch justify-center gap-1 border-r border-edge bg-surface-1 py-4"
+      // phone (screen 11): a scrolling row of top tabs; wider: the side rail
+      className="flex shrink-0 flex-row items-stretch gap-1 overflow-x-auto border-b border-edge bg-surface-1 px-2 sm:flex-col sm:justify-center sm:overflow-visible sm:border-r sm:border-b-0 sm:px-0 sm:py-4"
     >
       {tabs.map((tab, i) => {
         const selected = tab.id === active;
@@ -220,7 +221,7 @@ export function PageTabs({
                 onClick={() => {
                   if (lockReason === undefined) onChange(tab.id);
                 }}
-                className={`relative flex w-16 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
+                className={`relative flex min-w-16 shrink-0 flex-col items-center gap-0.5 px-1 py-2 text-[11px] transition-colors sm:w-16 sm:px-0 ${
                   selected
                     ? "text-primary"
                     : lockReason !== undefined
@@ -231,7 +232,7 @@ export function PageTabs({
                 {/* active indicator, Resolve-style thin bar on the tab edge */}
                 <span
                   aria-hidden
-                  className={`absolute inset-y-2 left-0 w-0.5 rounded-r ${
+                  className={`absolute inset-x-2 bottom-0 h-0.5 rounded-t sm:inset-x-auto sm:inset-y-2 sm:bottom-auto sm:left-0 sm:h-auto sm:w-0.5 sm:rounded-t-none sm:rounded-r ${
                     selected ? "bg-primary" : "bg-transparent"
                   }`}
                 />

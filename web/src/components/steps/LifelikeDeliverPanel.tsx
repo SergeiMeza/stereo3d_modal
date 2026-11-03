@@ -160,7 +160,7 @@ export function LifelikeDeliverPanel({
   return (
     <div
       data-testid="lifelike-deliver-panel"
-      className="grid items-start gap-4 lg:grid-cols-[1fr_340px]"
+      className="grid items-start gap-4 pb-24 lg:grid-cols-[1fr_340px] lg:pb-0"
     >
       <div className="flex min-w-0 flex-col gap-4">
         <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">

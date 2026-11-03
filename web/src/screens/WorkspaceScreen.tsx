@@ -325,7 +325,7 @@ export default function WorkspaceScreen({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <PageTabs
           tabs={tabsFor(method)}
           active={page}

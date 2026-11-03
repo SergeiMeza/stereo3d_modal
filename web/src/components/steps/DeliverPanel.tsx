@@ -168,7 +168,7 @@ export function DeliverPanel({
 
   let n = 0;
   return (
-    <div data-testid="deliver-panel" className="flex flex-col gap-4">
+    <div data-testid="deliver-panel" className="flex flex-col gap-4 pb-24 lg:pb-0">
       <MoveToLifelikeOffer project={project} onChanged={() => onProjectChanged()} />
       <p className="-mt-1 text-xs text-fg-muted">
         Optional: check any 10 seconds on{" "}
