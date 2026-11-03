@@ -97,6 +97,7 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 		}
 	}
 	if updated.State == store.StatePaid {
+		s.paidAtStart(ctx, updated) // E1 before it is queued
 		if serr := s.submitInline(ctx, updated.ID); serr != nil {
 			var rej *submitRejected
 			if errors.As(serr, &rej) {
@@ -296,6 +297,7 @@ func (s *Service) redrivePrecharges(ctx context.Context) int {
 		}
 		n++
 		if updated != nil && updated.State == store.StatePaid {
+			s.paidAtStart(ctx, updated)
 			if serr := s.submitToModal(ctx, updated.ID); serr != nil {
 				slog.WarnContext(ctx, "submit after precharge re-drive failed", "conversion_id", c.ID, "err", serr)
 			}
@@ -548,6 +550,7 @@ func (s *Service) sweepProcessing(ctx context.Context) int {
 		n++
 		switch {
 		case settled && updated.State == store.StatePaid:
+			s.paidAtStart(ctx, updated)
 			if serr := s.submitToModal(ctx, updated.ID); serr != nil {
 				slog.WarnContext(ctx, "submit after async payment failed", "conversion_id", updated.ID, "err", serr)
 			}

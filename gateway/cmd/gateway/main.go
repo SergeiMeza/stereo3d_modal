@@ -172,7 +172,7 @@ func main() {
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
 	mux.HandleFunc("GET /v1/billing", authed(svc.HandleGetBilling))
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))
-	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettleBilling))
+	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettle2)) // C11 collectOutstanding
 	mux.HandleFunc("GET /v1/billing/history", authed(svc.HandleBillingHistory))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
@@ -203,6 +203,9 @@ func main() {
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/pay-now", authed(withID(svc.HandleRunPayNow)))
+	mux.HandleFunc("POST /v1/conversions/{id}/handoff", authed(withID(svc.HandleCreateHandoff))) // B17
+	mux.HandleFunc("GET /v1/handoff/{code}", svc.HandleGetHandoff)                               // public, read-only
+	mux.HandleFunc("POST /v1/handoff/{code}/pay", svc.HandleHandoffPay)                          // public
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))

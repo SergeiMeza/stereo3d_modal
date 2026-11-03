@@ -91,6 +91,10 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, serr)
 		return
 	}
+	if lerr := s.checkNewProjectRoom(ctx, user.UID, size); lerr != nil { // B14
+		httpx.WriteErr(ctx, w, lerr)
+		return
+	}
 
 	// Project id = upload id (same identifier across storage, analyze job
 	// logs, and support). A re-created project on the same upload gets a
@@ -1194,6 +1198,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	resp["payment_flow"] = flow
 	if reason != "" {
 		resp["pay_now_reason"] = reason
+	}
+	if l := s.limitsFor(ctx, user.UID); l.Limited {
+		resp["limits"] = l.JSON() // B14
 	}
 	if flow != store.FlowAfter {
 		resp["charge_timing"] = "before"

@@ -99,6 +99,27 @@ func (s *Service) noteMethodPaid(ctx context.Context, uid, pm string) {
 	}
 }
 
+// paidAtStart: a run paid before it runs — the payment lifts B14's
+// limits (lifetime credit waits for delivery) and E1 is recorded and sent
+// before the run is queued.
+func (s *Service) paidAtStart(ctx context.Context, conv *store.Conversion) {
+	s.notePaidOnce(ctx, conv.UID)
+	s.mailOrderConfirmation(ctx, conv)
+}
+
+// notePaidOnce records that a payment went through (B14).
+func (s *Service) notePaidOnce(ctx context.Context, uid string) {
+	if c, err := s.Store.GetCustomer(ctx, uid); err == nil && c.PaidOnce {
+		return
+	}
+	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		c.PaidOnce = true
+		return nil
+	}); err != nil {
+		slog.WarnContext(ctx, "account facts: paid_once not recorded", "uid", uid, "err", err)
+	}
+}
+
 // setSheetOnly makes the account pay every run in the sheet (a stop code,
 // a dispute) and tells the owner.
 func (s *Service) setSheetOnly(ctx context.Context, uid, reason string) {
@@ -277,6 +298,7 @@ func (s *Service) applyRunPayment(ctx context.Context, convID string, p store.Pa
 // afterRunPaid: account facts, then queue the run. (The order
 // confirmation mail E1 joins here with the mails, §G3.)
 func (s *Service) afterRunPaid(ctx context.Context, conv *store.Conversion, pm string) {
+	s.paidAtStart(ctx, conv)
 	if pm != "" {
 		if cust, err := s.Store.GetCustomer(ctx, conv.UID); err == nil && cust.DefaultPaymentMethod == pm {
 			s.noteMethodPaid(ctx, conv.UID, pm)

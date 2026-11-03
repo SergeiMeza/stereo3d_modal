@@ -84,13 +84,18 @@ func errSheetUnavailable() error {
 // (E0-1 replace): the first sheet, Try again, Pay here instead, the
 // hand-off's Continue to payment. ui is elements or hosted_page.
 func (s *Service) openRunSession(ctx context.Context, conv *store.Conversion, ui, device, ip, email string) (*store.Conversion, error) {
+	return s.openRunSessionTo(ctx, conv, ui, device, ip, email, "")
+}
+
+// openRunSessionTo is openRunSession with an explicit return URL ("" =
+// the return page).
+func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, ui, device, ip, email, returnURL string) (*store.Conversion, error) {
 	if s.Cfg.StripePMCWeb == "" {
 		return conv, errSheetUnavailable()
 	}
 	label := s.runLabel(ctx, conv)
-	returnURL := s.Cfg.SiteURL + "/pay/return?c=" + conv.ID
-	if ui == "hosted_page" {
-		returnURL += "&handoff=1"
+	if returnURL == "" {
+		returnURL = s.Cfg.SiteURL + "/pay/return?c=" + conv.ID
 	}
 	return s.replaceRunPayment(ctx, conv, func(attempt int) (*store.Payment, error) {
 		sess, err := s.Stripe.CreateWebSession(stripex.SessionSpec{
@@ -268,9 +273,11 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 			return s.applySetupSession(ctx, sess.ID, sess.Metadata["user_id"], sess.Customer)
 		}
 		return nil
+	case "settle":
+		return s.applySettleSessionEvent(ctx, eventType, sess.ID, sess.Metadata["settle_id"])
 	case "run":
 	default:
-		return nil // settle sessions join with the settle (C11)
+		return nil
 	}
 	convID := sess.Metadata["conversion_id"]
 	conv, err := s.Store.GetConversion(ctx, convID)
@@ -362,8 +369,86 @@ func (s *Service) saveMethodFacts(ctx context.Context, uid, customerID, pm, sess
 	}
 }
 
-// handleChinaPay is the China path (pay-now {method}): server-side
-// Alipay / WeChat Pay PaymentIntents (B7) — built with step 4.
+// handleChinaPay is the China path (pay-now {method, return_url}, B7): a
+// server-side Alipay PaymentIntent replaces the run's payment object
+// (E0-1); the answer carries next_action {type: redirect, redirect_url}
+// so no Stripe domain loads in the browser before Alipay's page. WeChat
+// Pay is held back: this account doesn't offer it in USD (BL-20).
 func (s *Service) handleChinaPay(ctx context.Context, w http.ResponseWriter, r *http.Request, user *AuthedUser, conv *store.Conversion, method string) {
-	httpx.WriteErr(ctx, w, httpx.Err(http.StatusNotImplemented, "not_available_yet", "this payment method isn't available yet"))
+	if err := runPayable(conv); err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if method != "alipay" {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "method_unavailable", "this payment method isn't available yet"))
+		return
+	}
+	updated, redirect, err := s.openAlipay(ctx, conv, s.Cfg.SiteURL+"/pay/return?c="+conv.ID, user.Email)
+	if errors.Is(err, errAlreadyPaid) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "already_paid", "this is already paid"))
+		return
+	}
+	if err != nil {
+		httpx.Log(ctx).Error("alipay payment failed", "conversion_id", conv.ID, "err", err)
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be opened; try again"))
+		return
+	}
+	resp := s.payNowResponse(updated)
+	resp["next_action"] = map[string]any{"type": "redirect", "redirect_url": redirect}
+	httpx.WriteOK(w, resp)
+}
+
+// openAlipay makes the run's current payment a server-side Alipay
+// PaymentIntent (30-min clock, E0-3).
+func (s *Service) openAlipay(ctx context.Context, conv *store.Conversion, returnURL, email string) (*store.Conversion, string, error) {
+	redirect := ""
+	updated, err := s.replaceRunPayment(ctx, conv, func(attempt int) (*store.Payment, error) {
+		pi, url, perr := s.Stripe.CreateAlipayPayment(conv.Stripe.CustomerID, conv.Quote.AmountCents, conv.Quote.Currency,
+			returnURL, attempt, stripex.Job{Web: true, ConversionID: conv.ID, UID: conv.UID,
+				Description: jobDescription(conv), ReceiptEmail: email, Metadata: jobMetadataFromConversion(conv)})
+		if perr != nil {
+			return nil, perr
+		}
+		redirect = url
+		exp := time.Now().UTC().Add(noObjectHold)
+		return &store.Payment{Kind: store.PaymentIntentKind, ID: pi.ID, ExpiresAt: &exp, Attempt: attempt, URL: url, CreatedAt: time.Now().UTC()}, nil
+	})
+	return updated, redirect, err
+}
+
+// applySettleSessionEvent: a settle's Checkout Session completed (paid or
+// processing) or ended (expired / async failed — the settle releases at
+// its lease, resolving the session first).
+func (s *Service) applySettleSessionEvent(ctx context.Context, eventType, sessionID, settleID string) error {
+	st, err := s.Store.GetSettle(ctx, settleID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	payment := store.Payment{Kind: store.PaymentCheckoutSession, ID: sessionID}
+	for _, p := range st.Payments {
+		if p.ID == sessionID {
+			payment = p
+		}
+	}
+	switch eventType {
+	case "checkout.session.completed", "checkout.session.async_payment_succeeded":
+		out, _, oerr := s.Stripe.SessionOutcome(sessionID)
+		if oerr != nil {
+			return oerr
+		}
+		_, aerr := s.applySettlePayment(ctx, settleID, payment, out)
+		return aerr
+	case "checkout.session.expired", "checkout.session.async_payment_failed":
+		if st.State == store.SettleSettling && st.CurrentPayment != nil && st.CurrentPayment.ID == sessionID {
+			_, ferr := s.Store.FinishSettle(ctx, settleID, store.SettleOutcome{}, nil)
+			if errors.Is(ferr, store.ErrStateConflict) {
+				return nil
+			}
+			return ferr
+		}
+	}
+	return nil
 }

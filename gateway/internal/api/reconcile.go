@@ -73,6 +73,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	if n := s.resolveRunClocks(ctx); n > 0 {
 		stats["run_clocks_resolved"] = n // E0-3
 	}
+	if released, retried := s.settleSweep(ctx); released+retried > 0 {
+		stats["settles_released"], stats["soft_retries"] = released, retried // C11, C5
+	}
 
 	// Settle sweeps: money actions committed (capture_pending/cancel_pending)
 	// whose Stripe call didn't land (crash, transient Stripe error).

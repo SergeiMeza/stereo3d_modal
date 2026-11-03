@@ -297,6 +297,14 @@ func (s *Service) fileKeepingSweep(ctx context.Context) {
 		accounts[uid] = c
 		return c
 	}
+	owed := map[string]bool{}
+	owing := func(uid string) bool {
+		if o, ok := owed[uid]; ok {
+			return o
+		}
+		owed[uid] = s.owedCents(ctx, uid) > 0
+		return owed[uid]
+	}
 	type noticeKey struct {
 		uid  string
 		lead time.Duration
@@ -310,6 +318,13 @@ func (s *Service) fileKeepingSweep(ctx context.Context) {
 		cust := account(p.UID)
 		if cust != nil && cust.AccountDeleted {
 			continue // account deletion keeps its own rule
+		}
+		if owing(p.UID) {
+			// M5: the clock and its notices pause while the account owes
+			// money; holding the clock at "now" restarts it when it clears.
+			s.noteProjectUse(ctx, p, true)
+			stats["paused_outstanding"]++
+			continue
 		}
 		live := s.fileKeepingLive(cust)
 		if lead, ok := dueNotice(p, now, notices); ok {

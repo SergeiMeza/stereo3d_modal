@@ -673,3 +673,49 @@ func stripeErrCode(err error) string {
 	}
 	return ""
 }
+
+// ChargeSettle charges a settle's frozen total off-session on the
+// default, under settle_{env}_{settle_id} (C11): one PaymentIntent per
+// settle across retries.
+func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents int64, currency, settleID string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(currency),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey("settle_" + c.env + "_" + settleID)
+	return paymentintent.New(params)
+}
+
+// CreateAlipayPayment creates and confirms an Alipay PaymentIntent
+// server-side for China mode (B7): no Stripe.js. The browser follows
+// next_action.alipay_handle_redirect.url and comes back to returnURL. Key
+// china_{env}_{conversion_id}_{attempt}. Never saved (Alipay can't be
+// charged off-session).
+func (c *Client) CreateAlipayPayment(customerID string, amountCents int64, currency, returnURL string, attempt int, job Job) (*stripe.PaymentIntent, string, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:             stripe.Int64(amountCents),
+		Currency:           stripe.String(currency),
+		Customer:           stripe.String(customerID),
+		PaymentMethodTypes: stripe.StringSlice([]string{"alipay"}),
+		PaymentMethodData:  &stripe.PaymentIntentPaymentMethodDataParams{Type: stripe.String("alipay")},
+		Confirm:            stripe.Bool(true),
+		ReturnURL:          stripe.String(returnURL),
+	}
+	c.stamp(params, job)
+	params.AddMetadata("payment_flow", "china")
+	params.SetIdempotencyKey(fmt.Sprintf("china_%s_%s_%d", c.env, job.ConversionID, attempt))
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		return nil, "", err
+	}
+	redirect := ""
+	if pi.NextAction != nil && pi.NextAction.AlipayHandleRedirect != nil {
+		redirect = pi.NextAction.AlipayHandleRedirect.URL
+	}
+	return pi, redirect, nil
+}

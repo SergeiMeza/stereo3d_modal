@@ -31,6 +31,10 @@ type Message struct {
 	Subject string
 	Text    string
 	HTML    string
+	// ReplyTo (the support inbox) and IdempotencyKey (Resend dedupes a
+	// retried send) are optional.
+	ReplyTo        string
+	IdempotencyKey string
 }
 
 // Resend sends through Resend's REST API.
@@ -77,6 +81,9 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 	if m.HTML != "" {
 		payload["html"] = m.HTML
 	}
+	if m.ReplyTo != "" {
+		payload["reply_to"] = m.ReplyTo
+	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -89,6 +96,9 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+r.apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	if m.IdempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", m.IdempotencyKey)
+	}
 	res, err := r.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("mail: transport failure")

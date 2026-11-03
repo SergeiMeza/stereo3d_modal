@@ -136,8 +136,66 @@ confirmCardPayment fallback). The default card is cached on
 - The test webhook endpoint carries every D5 event; `/webhook` is served
   as an alias of `/webhooks/stripe`.
 
+### Owed money, backups, hand-off, limits (spec v6.2 C5, C10, C11, B7, B14, B17, G3)
+
+- **Backups (C5)**: a group charge that fails for a non-transient reason
+  tries the account's other saved methods in its backup order (`PUT
+  /v1/billing/methods/order`), key `confirm_{pi}_{pm}_1`; when all fail the
+  group is `failed` (soft declines retried once after 24 h by the
+  reconciler), `all_methods_failed` is set, a stop code makes the account
+  `sheet_only`, and mail E2 goes out.
+- **Settle (C11)**: one function, `collectOutstanding(uid, trigger)`,
+  scopes every failed group and charge-failed run into `settles_{env}/{uid}_{n}`
+  in ONE transaction (one live settle per account; items frozen as
+  `settling`), cancels old per-run PaymentIntents, then charges: `sheet`
+  (Checkout Session "Your last runs", key `settle_{env}_{id}_{attempt}`),
+  `ios_settle` (default method only, key `settle_{env}_{id}`; a bank check
+  holds the settle 30 min), `soft_retry`/`delete` (with backups). Paid →
+  every item paid in one transaction; money on an ended settle is refunded.
+  The reconciler resolves settles past their lease from the payment object
+  before releasing them, runs the 24 h soft retry (E3 on failure, E5 on
+  success) and the day-7 reminder (E4).
+- `POST /v1/billing/settle`: empty body → today's iOS shape `{settled,
+  requires_action, client_secret, publishable_key, message}`; `{ui:
+  "elements"}` → `{checkout {client_secret, expires_at}, amount_cents, runs,
+  payment_state open|in_progress, settled, more_owed_cents}`.
+- **Outstanding lock (C10)**: while anything is owed, web project downloads
+  answer 402 `payment_needed {amount_cents}` (the live settle's frozen
+  amount when one is open). The mobile one-shot keeps `billing_overdue`.
+  Account deletion collects first: 402 `balance_due {amount_cents,
+  settle_id, publishable_key}` when it can't.
+- `GET /v1/billing` adds `outstanding {amount_cents, settling, runs?,
+  payment_state?}` (only when owed), `has_payment_method`, `flow_state
+  credit|saved|sheet|under_review`, `limits`.
+- **China (B7, BL-20)**: `pay-now {method: "alipay", return_url}` makes the
+  run's payment a server-side Alipay PaymentIntent and answers `next_action
+  {type: redirect, redirect_url}`; `wechat_pay` → 400 `method_unavailable`
+  (not offered in USD on this account). Settles have no China path yet
+  (China runs pay at start, so they don't owe).
+- **Hand-off (B17)**: `POST /v1/conversions/{id}/handoff {email?}` →
+  `{code, url, expires_at, amount_cents, email_masked?}` (expires the
+  headset's session; 8-char Crockford code, one per run; E7 mails the
+  link). Public, 5 tries/IP/min: `GET /v1/handoff/{code}` (read-only:
+  `{label, amount_cents, currency, email_masked, china, expires_at, state
+  waiting|paying|confirming|paid|expired}`) and `POST
+  /v1/handoff/{code}/pay {return_url?, method?}` → `{url}` (hosted session)
+  or, China, `{next_action}`. `return_url` must be on `SITE_URL`. The web
+  renders the QR code from `url`.
+- **Limits (B14)**: an account with no saved method and no payment keeps 3
+  web projects and 10 GB of uploads: 403 `save_method_for_more {limited,
+  reached, projects_left, bytes_left, max_projects, max_bytes}` on project
+  create / web upload; quotes carry `limits`. Any payment (`paid_once`) or
+  a saved method lifts them.
+- **Mails (G3)**: E1 (paid at start, production, before queueing), E2–E5,
+  E7 through Resend, claimed once in `mails_{env}`; on test every customer
+  mail goes to `OWNER_ALERT_EMAIL` with "(test)".
+- File keeping (M5): the erase clock and its notices pause while the
+  account owes; it restarts when it clears.
+- `payment_method.detached` (a method removed outside our API) drops it
+  from the account facts and the backup order.
+
 Invariant tests run against the Firestore emulator and a fake Stripe:
-`FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api -run 'E0|P3'`
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api ./internal/store`
 (skipped without the emulator).
 
 ## Legacy client flow (mobile, auth-then-capture)

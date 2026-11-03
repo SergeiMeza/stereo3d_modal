@@ -274,3 +274,15 @@ func ErrMessage(err error) string {
 	}
 	return fmt.Sprint(err)
 }
+
+// CustomerUID reads which account (and environment) a Stripe customer
+// belongs to, from the metadata set when it was created.
+func (c *Client) CustomerUID(customerID string) (uid, env string, err error) {
+	var cu struct {
+		Metadata map[string]string `json:"metadata"`
+	}
+	if err := webCall(http.MethodGet, "/v1/customers/"+url.PathEscape(customerID), nil, "", &cu); err != nil {
+		return "", "", err
+	}
+	return cu.Metadata["firebase_uid"], cu.Metadata["env"], nil
+}

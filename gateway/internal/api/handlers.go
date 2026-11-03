@@ -156,6 +156,12 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 			httpx.WriteErr(ctx, w, serr)
 			return
 		}
+		if req.Method != "" { // web uploads name their method (B14 is web-only)
+			if lerr := s.checkNewProjectRoom(ctx, user.UID, req.Bytes); lerr != nil {
+				httpx.WriteErr(ctx, w, lerr)
+				return
+			}
+		}
 	}
 	// The upload id doubles as the conversion id the client passes back.
 	id := store.NewID()
@@ -828,6 +834,10 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		if p, perr := s.Store.GetProject(ctx, conv.ProjectID); perr == nil {
 			project = p
 			if err := requireFiles(p); err != nil { // S3D-24: erased
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+			if err := s.outstandingLock(ctx, user.UID); err != nil { // C10 (S3D-35)
 				httpx.WriteErr(ctx, w, err)
 				return
 			}

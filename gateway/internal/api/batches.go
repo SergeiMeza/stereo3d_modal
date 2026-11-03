@@ -311,7 +311,96 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	slog.ErrorContext(ctx, "stripe batch charge failed",
 		"batch_id", b.ID, "uid", b.UID, "code", fail.Code,
 		"transient", fail.Transient, "needs_action", fail.NeedsAction, "err", fail.Message)
-	return s.recordBatchFailure(ctx, b, fail)
+	if fail.Transient {
+		return s.recordBatchFailure(ctx, b, fail) // stays charging; re-driven under the lease
+	}
+	return s.backupsThenFail(ctx, b, cust, fail)
+}
+
+// hardDeclines are declines a retry tomorrow won't fix (no 24 h retry).
+var hardDeclines = map[string]bool{
+	"expired_card": true, "incorrect_number": true, "invalid_account": true, "card_not_supported": true,
+	"currency_not_supported": true, "invalid_cvc": true, "incorrect_cvc": true, "new_account_information_available": true,
+	"restricted_card": true, "revocation_of_authorization": true, "revocation_of_all_authorizations": true,
+	"security_violation": true, "service_not_allowed": true, "transaction_not_allowed": true,
+}
+
+// backupsThenFail is C5 after the default declined: re-confirm the same
+// PaymentIntent with each other saved method in the customer's backup
+// order, once each (confirm_{pi}_{pm}_1). No backups after a stop code or
+// a bank check. A method that pays settles the group and becomes the last
+// good method. Final failure, in this order: cancel the PaymentIntent (a
+// cancel that finds it paid means paid), write FAILED, set
+// all_methods_failed when every saved method declined (sheet_only on a
+// stop code), then mail E2, Slack, first tier.
+func (s *Service) backupsThenFail(ctx context.Context, b *store.Batch, cust *store.Customer, fail stripex.ChargeFailure) (*store.Batch, error) {
+	piID := fail.PaymentIntentID
+	if piID == "" {
+		piID = b.PaymentIntentID
+	}
+	allDeclined := false
+	if !fail.Stop && !fail.NeedsAction && piID != "" && cust.StripeCustomerID != "" {
+		methods, lerr := s.Stripe.ListMethods(cust.StripeCustomerID)
+		if lerr != nil {
+			return b, lerr // can't know the backups: the lease lapses and the sweep re-drives
+		}
+		allDeclined = len(methods) > 0
+		for _, m := range orderMethods(methods, cust.DefaultPaymentMethod, cust.BackupOrder) {
+			if m.PaymentMethodID == cust.DefaultPaymentMethod {
+				continue
+			}
+			pi, err := s.Stripe.ConfirmWithMethod(piID, m.PaymentMethodID, 1, false)
+			if err == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
+				s.noteMethodPaid(ctx, b.UID, m.PaymentMethodID)
+				slog.InfoContext(ctx, "group paid by a backup", "batch_id", b.ID, "uid", b.UID)
+				return s.finalizeBatchPaid(ctx, b, pi.ID, pi.AmountReceived)
+			}
+			if err == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+				return s.markBatchProcessing(ctx, b, pi.ID)
+			}
+			f := stripex.ChargeFailure{Code: "requires_action", NeedsAction: true}
+			if err != nil {
+				f = stripex.ClassifyChargeError(err)
+			}
+			if f.Transient {
+				return b, err
+			}
+			if f.Stop {
+				fail, allDeclined = f, false
+				break
+			}
+		}
+	}
+	if piID != "" {
+		out, cerr := s.Stripe.ClosePaymentIntent(piID)
+		if cerr != nil {
+			return b, cerr // a failed group keeps no live PaymentIntent (E0-4): retry the cancel first
+		}
+		if out.Paid {
+			return s.finalizeBatchPaid(ctx, b, out.PaymentIntentID, out.AmountReceived)
+		}
+		if out.Processing {
+			return s.markBatchProcessing(ctx, b, out.PaymentIntentID)
+		}
+	}
+	fail.PaymentIntentID = piID
+	failed, err := s.recordBatchFailure(ctx, b, fail)
+	if err != nil {
+		return failed, err
+	}
+	if allDeclined {
+		if _, uerr := s.Store.UpdateCustomer(ctx, b.UID, func(c *store.Customer) error {
+			c.AllMethodsFailed = true
+			return nil
+		}); uerr != nil {
+			slog.WarnContext(ctx, "all_methods_failed not set", "uid", b.UID, "err", uerr)
+		}
+	}
+	if fail.Stop {
+		s.setSheetOnly(ctx, b.UID, "stop code "+fail.DeclineCode)
+	}
+	s.mailOwed(ctx, "E2", "E2_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+	return failed, nil
 }
 
 // markBatchProcessing records an async payment in flight (P2): the batch
@@ -394,7 +483,11 @@ func (s *Service) recordBatchFailure(ctx context.Context, b *store.Batch, fail s
 			}
 			bb.SettleError = "charge: " + fail.Message
 			if !fail.Transient {
+				now := time.Now().UTC()
 				bb.State = store.BatchFailed
+				bb.FailedAt = &now
+				bb.SoftDecline = !fail.Stop && !fail.NeedsAction && !hardDeclines[fail.DeclineCode] && fail.Code != "no_payment_method"
+				bb.PIStatus = ""
 			}
 			return nil
 		}, convMutate, nil)

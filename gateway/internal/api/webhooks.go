@@ -65,6 +65,11 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "payment_method":
+		if event.Type == "payment_method.detached" {
+			s.handleMethodDetached(ctx, event.Data.Raw, event.Data.PreviousAttributes)
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
 	default:
 		// checkout.session, charge, refund, dispute, early fraud warning,
 		// payment_method, customer and invoice events get their handlers
@@ -90,6 +95,10 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 	}
 	if pi.Metadata["env"] != s.Cfg.Env {
 		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
+		return
+	}
+	if settleID := pi.Metadata["settle_id"]; settleID != "" {
+		s.handleSettlePI(ctx, w, string(event.Type), settleID, pi.ID, pi.Status, pi.AmountReceived)
 		return
 	}
 	if batchID := pi.Metadata["batch_id"]; batchID != "" {
@@ -146,6 +155,9 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 		})
 		if perr == nil {
 			log.Info("precharge confirmed; submitting", "amount_cents", pi.AmountReceived)
+			if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
+				s.paidAtStart(ctx, c)
+			}
 			if err := s.submitToModal(ctx, conversionID); err != nil {
 				log.Warn("submit failed; reconciler will retry", "err", err)
 			}
@@ -381,4 +393,54 @@ func (s *Service) applyPaymentEvent(ctx context.Context, convID, piID string, am
 	_, aerr := s.applyRunPayment(ctx, convID, store.Payment{Kind: store.PaymentIntentKind, ID: piID, CreatedAt: time.Now().UTC()},
 		stripex.Outcome{Paid: true, PaymentIntentID: piID, AmountReceived: amount})
 	return aerr
+}
+
+// handleSettlePI applies a settle's PaymentIntent events (C11): succeeded
+// → the settle is paid (the iOS bank check lands here); processing →
+// in_progress. Failure is the gateway's to write (E0-4).
+func (s *Service) handleSettlePI(ctx context.Context, w http.ResponseWriter, eventType, settleID, piID, status string, amount int64) {
+	var out stripex.Outcome
+	switch eventType {
+	case "payment_intent.succeeded":
+		out = stripex.Outcome{Paid: true, PaymentIntentID: piID, AmountReceived: amount}
+		if pi, err := s.Stripe.GetPaymentIntent(piID); err == nil && pi.PaymentMethod != nil {
+			out.PaymentMethod = pi.PaymentMethod.ID
+		}
+	case "payment_intent.processing":
+		out = stripex.Outcome{Processing: true, PaymentIntentID: piID}
+	default:
+		httpx.WriteOK(w, map[string]bool{"received": true})
+		return
+	}
+	if _, err := s.applySettlePayment(ctx, settleID, store.Payment{Kind: store.PaymentIntentKind, ID: piID}, out); err != nil &&
+		!errors.Is(err, store.ErrNotFound) {
+		httpx.Log(ctx).Error("settle webhook failed", "settle_id", settleID, "err", err)
+		httpx.WriteErr(ctx, w, httpx.ErrServer())
+		return
+	}
+	httpx.WriteOK(w, map[string]bool{"received": true})
+}
+
+// handleMethodDetached: a method removed outside our Billing API (the
+// Dashboard, a bank's network token being retired) leaves the account
+// facts and the backup order, and the cached default is re-read. Best
+// effort; customers of other products or environments are ignored.
+func (s *Service) handleMethodDetached(ctx context.Context, raw json.RawMessage, prev map[string]any) {
+	var pm struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &pm); err != nil || pm.ID == "" {
+		return
+	}
+	customerID, _ := prev["customer"].(string)
+	if customerID == "" {
+		return
+	}
+	uid, env, err := s.Stripe.CustomerUID(customerID)
+	if err != nil || uid == "" || env != s.Cfg.Env {
+		return
+	}
+	s.forgetMethod(ctx, uid, pm.ID)
+	cardRefreshedAt.Delete(uid)
+	s.refreshCardCache(ctx, uid, customerID)
 }

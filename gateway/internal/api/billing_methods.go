@@ -166,7 +166,7 @@ func (s *Service) HandleListMethods(w http.ResponseWriter, r *http.Request, user
 	httpx.WriteOK(w, map[string]any{"methods": out, "max": maxSavedMethods})
 }
 
-// POST /v1/billing/methods/setup → {checkout {client_secret, expires_at}}:
+// POST /v1/billing/methods/setup {make_default?} → {checkout {client_secret, expires_at}}:
 // a Checkout setup session (P15). 409 too_many_methods at 5; at most 3
 // adds a day (429 too_many_adds).
 func (s *Service) HandleSetupMethod(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
@@ -175,6 +175,10 @@ func (s *Service) HandleSetupMethod(w http.ResponseWriter, r *http.Request, user
 		httpx.WriteErr(ctx, w, errSheetUnavailable())
 		return
 	}
+	var req struct {
+		MakeDefault bool `json:"make_default"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
 	customerID, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -206,7 +210,7 @@ func (s *Service) HandleSetupMethod(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	sess, err := s.Stripe.CreateSetupSession(customerID, s.Cfg.StripePMCWeb, s.Cfg.SiteURL+"/billing?added=1",
-		map[string]string{"kind": "setup", "user_id": user.UID, "client_ip": clientIP(r)},
+		map[string]string{"kind": "setup", "user_id": user.UID, "client_ip": clientIP(r), "make_default": fmt.Sprint(req.MakeDefault)},
 		fmt.Sprintf("setup_%s_%s_%s_%d", s.Cfg.Env, user.UID, day, adds))
 	if err != nil {
 		httpx.Log(ctx).Error("setup session failed", "uid", user.UID, "err", err)
@@ -230,11 +234,11 @@ func (s *Service) applySetupSession(ctx context.Context, sessionID, uid, custome
 	if cerr != nil || cust.StripeCustomerID != customerID {
 		return nil // not this env's customer
 	}
-	ip := ""
+	ip, makeDefault := "", false
 	if sess, gerr := s.Stripe.GetCheckoutSession(sessionID); gerr == nil {
-		ip = sess.Metadata["client_ip"]
+		ip, makeDefault = sess.Metadata["client_ip"], sess.Metadata["make_default"] == "true"
 	}
-	s.saveMethodFacts(ctx, uid, customerID, pm, sessionID, ip, false, false)
+	s.saveMethodFacts(ctx, uid, customerID, pm, sessionID, ip, makeDefault, false)
 	return nil
 }
 

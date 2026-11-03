@@ -339,6 +339,20 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		}
 		resp["default_method"] = defaultMethodEntry(cust)
 	}
+	// Payment layer (spec v6 F): what's owed (sum, no cap; a live
+	// settle's frozen amount), how runs pay, and the new-account limits.
+	owed := s.owedCents(ctx, user.UID)
+	outstanding := map[string]any{"amount_cents": owed, "settling": false}
+	if live, lerr := s.Store.LiveSettle(ctx, user.UID); lerr == nil && live != nil {
+		outstanding["amount_cents"], outstanding["settling"], outstanding["runs"] = live.AmountCents, true, live.Runs()
+		outstanding["payment_state"] = live.PaymentState
+	}
+	if owed > 0 {
+		resp["outstanding"] = outstanding
+	}
+	resp["has_payment_method"] = cust.DefaultPaymentMethod != ""
+	resp["flow_state"] = flowState(cust)
+	resp["limits"] = s.limitsFor(ctx, user.UID).JSON()
 	return resp, nil
 }
 
@@ -499,6 +513,9 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 	if err != nil {
 		return nil, err
 	}
+	if settling, serr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PISettling, unpaidLimit); serr == nil {
+		unpaid = append(unpaid, settling...) // inside a live settle: still owed (C10)
+	}
 	if len(unpaid) > 0 {
 		// The app shows the amount from details.unpaid_cents; without it
 		// the settle sheet read "an unpaid balance of $0.00".
@@ -567,17 +584,37 @@ func (s *Service) requireRunnable(ctx context.Context, user *AuthedUser) (*store
 // charges outside a group. No cap (P8b).
 func (s *Service) owedCents(ctx context.Context, uid string) int64 {
 	var sum int64
-	if runs, err := s.Store.ListUserByPIStatus(ctx, uid, store.PIChargeFailed, unpaidLimit); err == nil {
-		for _, c := range runs {
-			if c.Stripe.BatchID == "" {
-				sum += c.Quote.AmountCents
+	for _, st := range []string{store.PIChargeFailed, store.PISettling} {
+		if runs, err := s.Store.ListUserByPIStatus(ctx, uid, st, unpaidLimit); err == nil {
+			for _, c := range runs {
+				if c.Stripe.BatchID == "" {
+					sum += c.Quote.AmountCents
+				}
 			}
 		}
 	}
-	if groups, err := s.Store.ListUserBatchesByState(ctx, uid, store.BatchFailed, unpaidLimit); err == nil {
-		for _, b := range groups {
-			sum += b.TotalCents
+	for _, st := range []string{store.BatchFailed, store.BatchSettling} {
+		if groups, err := s.Store.ListUserBatchesByState(ctx, uid, st, unpaidLimit); err == nil {
+			for _, b := range groups {
+				sum += b.TotalCents
+			}
 		}
 	}
 	return sum
+}
+
+// flowState is the account's C1 state for Billing: credit | saved | sheet
+// | under_review.
+func flowState(c *store.Customer) string {
+	switch {
+	case c == nil:
+		return "sheet"
+	case c.UnderReview:
+		return "under_review"
+	case c.DefaultPaymentMethod == "" || c.AllMethodsFailed || c.SheetOnly:
+		return "sheet"
+	case hasCredit(c):
+		return "credit"
+	}
+	return "saved"
 }

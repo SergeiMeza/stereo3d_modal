@@ -12,7 +12,7 @@ func TestPayNowBilling(t *testing.T) {
 	exp := time.Date(2026, 11, 3, 13, 0, 0, 0, time.UTC)
 	c := &store.Conversion{State: store.StateCreated, PaymentFlow: store.FlowPayNow, PayReason: "declined",
 		DeclinedMethodLabel: "Visa •••• 4242",
-		CurrentPayment: &store.Payment{Kind: store.PaymentCheckoutSession, ID: "cs_1", UI: "elements", ClientSecret: "cs_secret", ExpiresAt: &exp}}
+		CurrentPayment:      &store.Payment{Kind: store.PaymentCheckoutSession, ID: "cs_1", UI: "elements", ClientSecret: "cs_secret", ExpiresAt: &exp}}
 	b := payNowBilling(c)
 	ch, _ := b["checkout"].(map[string]any)
 	if b["status"] != "requires_payment" || b["reason"] != "declined" || b["declined_method_label"] != "Visa •••• 4242" ||

@@ -44,7 +44,7 @@ func deletionBlock(active, unpaid, failedBatches int, open *store.Batch, minimum
 // and charged without waiting for its window.
 func (s *Service) settleForDeletion(ctx context.Context, uid, customerID string) {
 	s.refreshCardCache(ctx, uid, customerID)
-	s.retryOutstanding(ctx, uid)
+	s.closeWaitingRuns(ctx, uid)
 	open, err := s.Store.OpenBatchFor(ctx, uid)
 	if err != nil {
 		httpx.Log(ctx).Warn("account delete: open batch lookup failed", "uid", uid, "err", err)
@@ -55,6 +55,37 @@ func (s *Service) settleForDeletion(ctx context.Context, uid, customerID string)
 	}
 	if _, err := s.closeAndCharge(ctx, open.ID, store.BatchCloseAccountDelete); err != nil {
 		httpx.Log(ctx).Warn("account delete: batch charge failed", "batch_id", open.ID, "err", err)
+	}
+}
+
+// closeWaitingRuns is B12 step 1: every run still waiting for its payment
+// has that payment closed; a run whose payment had completed is refunded
+// in full (deletion_undelivered) and canceled, the rest expire.
+func (s *Service) closeWaitingRuns(ctx context.Context, uid string) {
+	runs, err := s.Store.ListUserConversions(ctx, uid, 200)
+	if err != nil {
+		return
+	}
+	now := time.Now().UTC()
+	for _, c := range runs {
+		if c.State != store.StateCreated || (c.PaymentFlow != store.FlowPayNow && c.PaymentFlow != store.FlowChina) {
+			continue
+		}
+		out, cerr := s.closePayment(c.CurrentPayment)
+		if cerr != nil {
+			continue
+		}
+		if out.Paid {
+			s.refundLatePayment(ctx, c, out.PaymentIntentID, out.AmountReceived, "account deletion closed a paid run before it started")
+		}
+		if expired, terr := s.Store.Transition(ctx, c.ID, []string{store.StateCreated}, func(cc *store.Conversion) error {
+			cc.State = store.StateCanceled
+			cc.Stripe.PIStatus = store.PICanceled
+			cc.Stripe.CanceledAt = &now
+			return nil
+		}); terr == nil {
+			s.restoreCredit(ctx, expired)
+		}
 	}
 }
 
@@ -79,6 +110,17 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	}
 	if active == 0 && cust != nil && cust.StripeCustomerID != "" {
 		s.settleForDeletion(ctx, user.UID, cust.StripeCustomerID)
+		// C11 trigger=delete: off-session with backups; a live settle (P2
+		// open, an iOS bank check) answers 402 balance_due with its amount.
+		res, cerr := s.collectOutstanding(ctx, user.UID, settleDelete, payContextOf(r))
+		if cerr == nil && res.Settle != nil && res.Settle.State == store.SettleSettling {
+			e := httpx.Err(http.StatusPaymentRequired, deleteBlockOwed,
+				"you have a payment to finish before we can delete your account")
+			e.Details = map[string]any{"amount_cents": res.Settle.AmountCents, "settle_id": res.Settle.ID,
+				"publishable_key": s.Stripe.PublishableKey}
+			httpx.WriteErr(ctx, w, e)
+			return
+		}
 	}
 
 	unpaid, err := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit)

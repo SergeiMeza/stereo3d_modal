@@ -285,7 +285,9 @@ type Stripe struct {
 	ChargePM string `firestore:"charge_pm,omitempty" json:"-"`
 	// ChargePM2: the pre-charge's second try (C1) — the last good method
 	// when it differs from the default.
-	ChargePM2   string `firestore:"charge_pm2,omitempty" json:"-"`
+	ChargePM2 string `firestore:"charge_pm2,omitempty" json:"-"`
+	// SettleID: the settle that collected (or is collecting) this run.
+	SettleID    string `firestore:"settle_id,omitempty" json:"-"`
 	ChargeEmail string `firestore:"charge_email,omitempty" json:"-"`
 	// BatchID: the billing batch this auto-mode conversion was folded into
 	// (pi_status batched → succeeded/charge_failed follow the batch).
@@ -380,8 +382,10 @@ type Conversion struct {
 	PayReason   string `firestore:"pay_reason,omitempty" json:"-"`
 	// DeclinedMethodLabel: "Visa •••• 4242" when a pre-charge was declined
 	// (P3 names the method).
-	DeclinedMethodLabel string   `firestore:"declined_method_label,omitempty" json:"-"`
-	CurrentPayment      *Payment `firestore:"current_payment,omitempty" json:"-"`
+	DeclinedMethodLabel string `firestore:"declined_method_label,omitempty" json:"-"`
+	// HandoffCode: the run's "pay on another device" code (B17), one per run.
+	HandoffCode    string   `firestore:"handoff_code,omitempty" json:"-"`
+	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
@@ -436,8 +440,11 @@ type Customer struct {
 	// batch tier: users with a proven payment history accumulate more
 	// before a charge. Seeded once from historical succeeded charges
 	// (LifetimePaidSeeded) for accounts that predate batching.
-	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
-	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+	LifetimePaidCents int64 `firestore:"lifetime_paid_cents"`
+	// PaidOnce: a payment has gone through (lifts the B14 limits even
+	// before a pre-charged run delivers and earns the money).
+	PaidOnce           bool `firestore:"paid_once,omitempty"`
+	LifetimePaidSeeded bool `firestore:"lifetime_paid_seeded"`
 	// Payment-layer account facts (C1), updated on every off-session or
 	// saved payment. LastGoodMethod: the saved method that most recently
 	// paid us. PaidMethods: every saved method that has ever paid (credit
@@ -457,6 +464,10 @@ type Customer struct {
 	// MethodAdds: setup sessions opened per day (H: at most 3 a day).
 	MethodAddsDay string `firestore:"method_adds_day,omitempty"`
 	MethodAdds    int    `firestore:"method_adds,omitempty"`
+	// LiveSettleID: the account's live settle (C11), "" when none;
+	// SettleSeq numbers its settles.
+	LiveSettleID string `firestore:"live_settle_id,omitempty"`
+	SettleSeq    int    `firestore:"settle_seq,omitempty"`
 	// LastChargeFailedAt: the last automatic charge (a conversion's or a
 	// batch's) the card declined. Within the failure lookback it drops the
 	// account to the first batch tier (S3D-19).
@@ -525,8 +536,15 @@ type Batch struct {
 	PIStatus string `firestore:"pi_status,omitempty" json:"-"`
 	// Lease: the one writer of this group's charge (E0-4). PaidWith: the
 	// method that paid (a C5 backup may differ from the default).
-	Lease        *Lease     `firestore:"lease,omitempty" json:"-"`
-	PaidWith     string     `firestore:"paid_with,omitempty" json:"-"`
+	Lease    *Lease `firestore:"lease,omitempty" json:"-"`
+	PaidWith string `firestore:"paid_with,omitempty" json:"-"`
+	// SettleID: the settle collecting this failed group (C11).
+	SettleID string `firestore:"settle_id,omitempty" json:"-"`
+	// FailedAt / SoftDecline / SoftRetried: the 24 h automatic retry of a
+	// soft decline (C5), once.
+	FailedAt     *time.Time `firestore:"failed_at,omitempty" json:"-"`
+	SoftDecline  bool       `firestore:"soft_decline,omitempty" json:"-"`
+	SoftRetried  bool       `firestore:"soft_retried,omitempty" json:"-"`
 	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
 	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
 	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
