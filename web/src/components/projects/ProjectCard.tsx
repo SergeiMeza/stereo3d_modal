@@ -34,7 +34,7 @@ import {
   type Project,
   type UpdateProjectRequest,
 } from "@/lib/api/types";
-import { formatTimeLeft } from "@/lib/format";
+import { formatClock, formatTimeLeft } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
@@ -123,15 +123,6 @@ const TONE: Record<CardState["tone"], string> = {
   plain: "border-edge bg-surface-2 text-fg-muted",
 };
 
-/** m:ss / h:mm:ss for the thumbnail corner. */
-function clock(seconds: number): string {
-  const s = Math.round(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = String(s % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
-}
-
 export function ProjectCard({
   project,
   onUpdate,
@@ -177,7 +168,7 @@ export function ProjectCard({
           ) : null}
           {probe ? (
             <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
-              {clock(probe.duration_s)}
+              {formatClock(probe.duration_s)}
             </span>
           ) : null}
         </div>

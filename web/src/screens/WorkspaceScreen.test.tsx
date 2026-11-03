@@ -403,7 +403,7 @@ describe("WorkspaceScreen — fixture rendering", () => {
 
     await screen.findByTestId("analyzing-state");
     // next poll hits the default handler (analysis succeeded)
-    await screen.findByTestId("filmstrip");
+    await screen.findByTestId("overview-price");
     expect(screen.queryByTestId("analyzing-state")).toBeNull();
   });
 
@@ -1072,7 +1072,7 @@ describe("WorkspaceScreen — pages", () => {
         <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
-    await screen.findByTestId("media-tab");
+    await screen.findByTestId("overview-tab");
     expect(screen.getByTestId("tab-overview").getAttribute("aria-selected")).toBe(
       "true",
     );
@@ -1086,10 +1086,9 @@ describe("WorkspaceScreen — pages", () => {
       "true",
     );
 
-    // click: Media page (source details + guide); the Cut EDITOR unmounts
-    // (Media keeps a read-only timeline, so the filmstrip itself remains)
+    // click: Overview (the summary); the Cut EDITOR unmounts
     fireEvent.click(screen.getByTestId("tab-overview"));
-    expect(screen.getByTestId("media-tab")).toBeTruthy();
+    expect(screen.getByTestId("overview-tab")).toBeTruthy();
     expect(screen.queryByText("Save cuts")).toBeNull();
     expect(screen.queryByTestId("scene-card")).toBeNull();
     expect(window.location.hash).toBe("#tab=overview");
@@ -1106,82 +1105,34 @@ describe("WorkspaceScreen — pages", () => {
     expect(window.location.hash).toBe("#tab=scenes");
   });
 
-  it("Media page: read-only timeline at Fit — scrub + zoom work, NO cut markers, no add", async () => {
+  it("Overview (screen 03): the summary first, one main button, the steps in a line", async () => {
     await renderWorkspace();
     fireEvent.click(screen.getByTestId("tab-overview"));
+    const summary = screen.getByTestId("overview-summary");
+    expect(screen.getByTestId("overview-facts").textContent).toMatch(
+      /^\d+ min \d+ s · .+ · [\d.]+ fps · \d+ scenes?$/,
+    );
+    expect(screen.getByTestId("overview-method").textContent).toBe("Classic 3D");
+    expect(screen.getByTestId("overview-you-get").textContent).toBe(
+      "Vision Pro spatial video + Side by side",
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("overview-price").textContent).toMatch(
+        /^\$\d+\.\d\d · about /,
+      ),
+    );
+    expect(summary.textContent).not.toMatch(/Red-cyan|frames|fps_rational/);
+    // the source player and the frame table are gone
+    expect(screen.queryByTestId("filmstrip")).toBeNull();
+    expect(screen.queryByText("Frames")).toBeNull();
+    // one main button
+    expect(within(summary).getAllByRole("button", { name: /^Make 3D/ })).toHaveLength(1);
 
-    // context view: starts at Fit (the Cut page starts fully zoomed in)
-    const strip = screen.getByTestId("filmstrip");
-    expect(strip.getAttribute("data-zoom")).toBe("1");
-    mockStripRect(strip);
-
-    // the read-only strip carries NO cut markers — cut furniture belongs
-    // to the Cut page (the Source card still counts the cuts)
-    expect(screen.queryAllByTestId("cut-marker")).toHaveLength(0);
-
-    // click-scrub pauses and seeks the proxy frame-exactly
-    fireEvent.click(screen.getByLabelText("Play preview"));
-    fireEvent.click(strip, { clientX: 100 });
-    expect(readout()).toBe(frameLabel(100, FPS));
-    expect(previewVideo().currentTime).toBe(seekTimeForFrame(100, FPS));
-    expect(screen.getByLabelText("Play preview")).toBeTruthy(); // paused
-
-    // double-click adds nothing (editing lives on the Cut page)
-    fireEvent.doubleClick(strip, { clientX: NEW_CUT });
-    expect(screen.queryAllByTestId("cut-marker")).toHaveLength(0);
-    expect(screen.queryByText("Save cuts")).toBeNull();
-
-    // zooming stays available for closer inspection
-    fireEvent.click(screen.getByLabelText("Zoom in"));
-    expect(strip.getAttribute("data-zoom")).toBe("2");
-  });
-
-  it("Media page: the transport keys work — the SAME shortcuts as the Cut page", async () => {
-    await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-overview"));
-    expect(readout()).toBe(frameLabel(0, FPS));
-
-    // ←/→ step exactly ±1 frame on the frame-exact proxy
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(readout()).toBe(frameLabel(1, FPS));
-    fireEvent.keyDown(window, { key: "ArrowLeft" });
-    expect(readout()).toBe(frameLabel(0, FPS));
-
-    // Shift-arrow steps ±1 timecode second
-    const second = Math.round(FPS.num / FPS.den);
-    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
-    expect(readout()).toBe(frameLabel(second, FPS));
-
-    // Space toggles playback
-    fireEvent.keyDown(window, { key: " " });
-    expect(screen.getByLabelText("Pause preview")).toBeTruthy();
-    fireEvent.keyDown(window, { key: " " });
-    expect(screen.getByLabelText("Play preview")).toBeTruthy();
-  });
-
-  it("Media page: header + ⓘ Guide drawer with the pipeline guide that deep-links to other pages", async () => {
-    await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-overview"));
-
-    // shared page header; the guide is NOT on the page body
-    const header = screen.getByTestId("page-header");
-    expect(within(header).getByRole("heading", { name: "Overview" })).toBeTruthy();
-    expect(screen.queryByText("How this works")).toBeNull();
-
-    // the drawer carries the old guide card content
-    fireEvent.click(screen.getByTestId("media-guide-button"));
-    const drawer = screen.getByTestId("media-guide-drawer");
-    expect(drawer.getAttribute("data-vaul-drawer-direction")).toBe("right");
-    expect(within(drawer).getByText("How this works")).toBeTruthy();
-    for (const step of ["Scenes →", "Depth →", "3D look →", "Make 3D →"]) {
-      expect(within(drawer).getByRole("button", { name: step })).toBeTruthy();
-    }
-    expect(
-      within(drawer).getByText(/Previews are optional/),
-    ).toBeTruthy();
-
-    // guide links deep-link into the pipeline pages
-    fireEvent.click(within(drawer).getByRole("button", { name: "Depth →" }));
+    const steps = screen.getByTestId("overview-steps");
+    expect(steps.textContent).toBe(
+      "✓Scenes›Depth (optional)›3D look (optional)›Make 3D›Files",
+    );
+    fireEvent.click(within(steps).getByRole("button", { name: "Depth (optional)" }));
     expect(screen.getByTestId("step-card-depth_preview")).toBeTruthy();
     expect(window.location.hash).toBe("#tab=depth");
   });

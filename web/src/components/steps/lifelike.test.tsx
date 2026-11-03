@@ -278,6 +278,13 @@ describe("Lifelike Preview", () => {
     renderPanel(
       <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
     );
+    // the best quality the video reaches comes preselected (the Overview
+    // prices that preview)
+    const quality = screen.getByLabelText("Quality") as HTMLSelectElement;
+    expect(quality.value).toBe(
+      [...quality.options].map((o) => o.value).at(-1),
+    );
+    fireEvent.change(quality, { target: { value: "1080p" } });
     fireEvent.click(screen.getByRole("button", { name: "Get quote" }));
     // priced per frame like the final: 5 s at 1080p 24 fps is $0.38, so
     // the $0.50 minimum per run applies

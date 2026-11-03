@@ -72,7 +72,8 @@ export function LifelikePreviewPanel({
   onProjectChanged,
 }: LifelikePreviewPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "lifelike_preview", onProjectChanged);
-  const [preset, setPreset] = useState<Preset>("1080p");
+  // null = the best quality the video reaches (the Overview prices that)
+  const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const [moment, setMoment] = useState(0);
   const [seconds, setSeconds] = useState(LIFELIKE_PREVIEW_SECONDS);
   const [quickLook, setQuickLook] = useState(false);
@@ -111,6 +112,7 @@ export function LifelikePreviewPanel({
   const halfRate = Math.round((sourceFps.num / sourceFps.den / 2) * 100) / 100;
   const tc = (f: number) => frameToTimecode(f, sourceFps);
   const presets = qualityChoices(project);
+  const preset = chosenPreset ?? presets.at(-1)?.preset ?? "1080p";
 
   const request: StepConversionRequest = {
     step: "lifelike_preview",

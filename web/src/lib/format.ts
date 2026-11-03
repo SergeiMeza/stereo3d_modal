@@ -43,3 +43,12 @@ export function formatVideoLength(seconds: number): string {
   if (h > 0) return m === 0 ? `${h} h` : `${h} h ${m} min`;
   return rest === 0 ? `${m} min` : `${m} min ${rest} s`;
 }
+
+/** m:ss / h:mm:ss for a thumbnail corner: "5:12". */
+export function formatClock(seconds: number): string {
+  const s = Math.round(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
+}

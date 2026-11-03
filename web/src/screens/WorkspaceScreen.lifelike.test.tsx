@@ -144,24 +144,55 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     const lifelike = within(screen.getByTestId("method-card-lifelike"));
     expect((lifelike.getByRole("radio") as HTMLInputElement).checked).toBe(true);
     expect(lifelike.getByText("Recommended")).toBeTruthy();
-    expect(lifelike.getByText("Any length · up to 4K")).toBeTruthy();
+    // S3D-46: the newest 3D technology
+    expect(lifelike.getByTestId("method-tag-new").textContent).toBe("New");
+    expect(lifelike.getByTestId("method-eyebrow").textContent).toBe(
+      "Our newest 3D technology",
+    );
+    expect(
+      lifelike.getByText(
+        "Rebuilds every moment of your video as a real 3D scene, then films it again for each eye. The most natural depth and clean edges, in a fraction of the time.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByTestId("method-card-lifelike").className).toContain(
+      "ll-edge",
+    );
+    expect(screen.getByTestId("method-card-classic").className).not.toContain(
+      "ll-edge",
+    );
     const classic = within(screen.getByTestId("method-card-classic"));
     expect(classic.getByText("Classic 3D")).toBeTruthy();
     expect(classic.getByTestId("method-tag-classic").textContent).toBe("Older method");
     expect(
       classic.getByText("Adds depth to your footage, with manual control over each step."),
     ).toBeTruthy();
-    expect(classic.getByText("Up to 10 minutes · up to 4K")).toBeTruthy();
     expect(classic.queryByText("Recommended")).toBeNull();
+    expect(classic.queryByTestId("method-tag-new")).toBeNull();
     // both prices for this video, at the best quality each method reaches
     await waitFor(() =>
       expect(screen.getByTestId("method-price-lifelike").textContent).toMatch(
-        /^\$\d+\.\d\d · about .+ at 4K/,
+        /^\$\d+\.\d\d· about .+ · any length$/,
       ),
     );
     await waitFor(() =>
       expect(screen.getByTestId("method-price-classic").textContent).toMatch(
-        /^\$\d+\.\d\d/,
+        /^\$\d+\.\d\d· about .+ · up to 10 min$/,
+      ),
+    );
+    // the summary prices the project's own method at its best quality and
+    // never names Red-cyan
+    expect(screen.getByTestId("overview-price").textContent).toBe(
+      screen
+        .getByTestId("method-price-lifelike")
+        .textContent!.replace(/ · any length$/, "")
+        .replace("·", " ·"),
+    );
+    expect(screen.getByTestId("overview-summary").textContent).not.toMatch(
+      /Red-cyan/,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("overview-main").textContent).toMatch(
+        /^Preview a moment · \$\d+\.\d\d$/,
       ),
     );
     expect(screen.getByTestId("method-price-lifelike").textContent).not.toBe(
@@ -199,6 +230,15 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
         "Your Classic files stay in Files. You can't move back to Classic.",
       ),
     ).toBeTruthy();
+    // this video's price and time under both methods
+    await waitFor(() =>
+      expect(within(dialog).getByTestId("move-lifelike-price").textContent).toMatch(
+        /^\$\d+\.\d\d$/,
+      ),
+    );
+    expect(within(dialog).getByTestId("move-classic-price").textContent).toMatch(
+      /^\$\d+\.\d\d$/,
+    );
     expect(mockDb.projects.get(PID)!.method).toBeUndefined(); // not yet
     fireEvent.click(within(dialog).getByRole("button", { name: "Move to Lifelike 3D" }));
     await waitFor(() => expect(railIds()).toContain("preview"));
@@ -224,7 +264,7 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     const offer = await screen.findByTestId("move-to-lifelike-offer");
     await waitFor(() =>
       expect(offer.textContent).toMatch(
-        /^Move to Lifelike 3D: \$\d+\.\d\d · about .+ for this video\./,
+        /Move to Lifelike 3DNew\$\d+\.\d\d, about .+ for this video\.Move$/,
       ),
     );
     fireEvent.click(

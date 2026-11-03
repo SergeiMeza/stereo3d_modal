@@ -25,8 +25,9 @@ import {
   CHOOSER_SUBTITLE,
   CHOOSER_TITLE,
   METHOD_DESCRIPTIONS,
+  LIFELIKE_EYEBROW,
   METHOD_LABELS,
-  METHOD_LIMITS,
+  METHOD_LENGTH,
   METHOD_ORDER,
   METHOD_TAGS,
   MOVE_TO_LIFELIKE_BODY,
@@ -36,6 +37,7 @@ import {
 } from "@/components/steps/methods";
 import { formatCents } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,6 +59,9 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { formatDuration } from "@/lib/format";
 import { qualitiesFor, qualityChoices, qualityLabelFor } from "@/lib/glossary";
+
+/** The dialog's closing line names Lifelike as the newest. */
+const LIFELIKE_EYEBROW_SENTENCE = "Our newest 3D technology.";
 
 /** What the customer reads when Classic can't take this video. */
 export const TOO_LONG_FOR_CLASSIC =
@@ -201,21 +206,46 @@ export function priceAndTime(q: MethodQuote | undefined): string | null {
   }`;
 }
 
-/** The confirmation for the one move there is (Classic → Lifelike). */
+/** The comparison row values for a method quote. */
+function quoteCells(q: MethodQuote | undefined): { price: string; time: string } {
+  if (!q) return { price: "…", time: "…" };
+  if (!q.quote) return { price: "—", time: "—" };
+  const eta = q.quote.eta_seconds;
+  return {
+    price: formatCents(q.quote.quote.amount_cents),
+    time: eta && eta > 0 ? formatDuration(eta) : "—",
+  };
+}
+
+/** The "New" tag beside Lifelike's name (S3D-46). */
+export function NewTag(): JSX.Element {
+  return (
+    <span data-testid="method-tag-new" className="ll-tag-new">
+      New
+    </span>
+  );
+}
+
+/** The confirmation for the one move there is (Classic → Lifelike), with
+ * this video's price and time under both methods (screen 04). */
 export function MoveToLifelikeDialog({
   open,
   onOpenChange,
   onConfirm,
   busy,
   lifelike,
+  classic,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   busy: boolean;
   lifelike?: MethodQuote;
+  classic?: MethodQuote;
 }): JSX.Element {
-  const pt = priceAndTime(lifelike);
+  const l = quoteCells(lifelike);
+  const c = quoteCells(classic);
+  const quality = lifelike?.qualityLabel ?? classic?.qualityLabel;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="move-to-lifelike-dialog">
@@ -223,11 +253,49 @@ export function MoveToLifelikeDialog({
           <DialogTitle>{MOVE_TO_LIFELIKE_TITLE}</DialogTitle>
           <DialogDescription>{MOVE_TO_LIFELIKE_BODY}</DialogDescription>
         </DialogHeader>
-        {pt ? (
-          <p className="text-sm text-fg">
-            Lifelike 3D for this video at {lifelike!.qualityLabel}: {pt}.
-          </p>
+        {lifelike || classic ? (
+          <table
+            data-testid="move-compare"
+            className="w-full overflow-hidden rounded-lg border border-edge text-sm"
+          >
+            <thead className="bg-surface-2 text-left text-xs text-fg-muted">
+              <tr>
+                <th className="px-3 py-2 font-normal">
+                  For this video{quality ? ` at ${quality}` : ""}
+                </th>
+                <th className="px-3 py-2 font-normal">Classic 3D now</th>
+                <th className="px-3 py-2 font-normal">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-fg">Lifelike 3D</span>
+                    <NewTag />
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-edge">
+                <td className="px-3 py-2 text-fg-muted">Price</td>
+                <td data-testid="move-classic-price" className="px-3 py-2 font-mono">
+                  {c.price}
+                </td>
+                <td
+                  data-testid="move-lifelike-price"
+                  className="px-3 py-2 font-mono text-fg"
+                >
+                  {l.price}
+                </td>
+              </tr>
+              <tr className="border-t border-edge">
+                <td className="px-3 py-2 text-fg-muted">Ready in</td>
+                <td className="px-3 py-2">{c.time}</td>
+                <td className="px-3 py-2">{l.time}</td>
+              </tr>
+            </tbody>
+          </table>
         ) : null}
+        <p className="text-xs text-fg-muted">
+          {LIFELIKE_EYEBROW_SENTENCE} No Depth or 3D look pages to set up.
+        </p>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Stay on Classic 3D
@@ -241,16 +309,22 @@ export function MoveToLifelikeDialog({
   );
 }
 
-/** The two cards (Overview), offered until the project's first run. */
+/** The two cards (Overview, screen 03), offered until the project's first
+ * paid run. Lifelike first, with the New tag, the eyebrow and the light
+ * edge (S3D-46); Classic plain with its "Older method" tag (S3D-44). */
 export function MethodChooser({
   project,
   onChanged,
+  quotes: given,
 }: {
   project: Project;
   onChanged: (p: Project) => void;
+  /** the Overview's quotes, so both cards and the summary share them */
+  quotes?: Partial<Record<Method, MethodQuote>>;
 }): JSX.Element {
   const sw = useMethodSwitch(project, onChanged);
-  const quotes = useMethodQuotes(project);
+  const own = useMethodQuotes(project, given ? [] : METHOD_ORDER);
+  const quotes = given ?? own;
   const [confirming, setConfirming] = useState(false);
 
   function choose(m: Method): void {
@@ -265,11 +339,13 @@ export function MethodChooser({
       aria-labelledby="method-chooser-title"
       className="flex flex-col gap-3"
     >
-      <div>
+      <div className="flex items-center gap-2">
         <h3 id="method-chooser-title" className="text-sm font-semibold text-fg">
           {CHOOSER_TITLE}
         </h3>
-        <p className="text-xs text-fg-muted">{CHOOSER_SUBTITLE}</p>
+        <InfoPopover label="?">
+          <span>{CHOOSER_SUBTITLE}</span>
+        </InfoPopover>
       </div>
       <div
         role="radiogroup"
@@ -279,16 +355,26 @@ export function MethodChooser({
         {METHOD_ORDER.map((m) => {
           const selected = sw.method === m;
           const q = quotes[m];
+          const lifelike = m === "lifelike";
+          const price = q?.quote ? formatCents(q.quote.quote.amount_cents) : null;
+          const eta = q?.quote?.eta_seconds;
           return (
             <label
               key={m}
               data-testid={`method-card-${m}`}
-              className={`flex cursor-pointer flex-col gap-1.5 rounded-lg border p-4 transition-colors ${
-                selected
-                  ? "border-primary bg-primary/10"
-                  : "border-edge bg-surface-1 hover:bg-surface-2"
+              className={`flex cursor-pointer flex-col gap-2.5 rounded-xl border p-4 transition-colors ${
+                lifelike
+                  ? `ll-edge ${selected ? "ll-tint" : ""}`
+                  : selected
+                    ? "border-primary bg-primary/10"
+                    : "border-edge bg-surface-0 hover:bg-surface-1"
               } ${sw.switching ? "cursor-wait opacity-70" : ""}`}
             >
+              {lifelike ? (
+                <span data-testid="method-eyebrow" className="ll-eyebrow">
+                  {LIFELIKE_EYEBROW}
+                </span>
+              ) : null}
               <span className="flex flex-wrap items-center gap-2">
                 <input
                   type="radio"
@@ -299,13 +385,16 @@ export function MethodChooser({
                   onChange={() => choose(m)}
                   className="accent-primary"
                 />
-                <span className="text-sm font-medium text-fg">
+                <span
+                  className={`font-medium ${lifelike ? "text-base text-fg" : "text-sm text-fg-muted"}`}
+                >
                   {METHOD_LABELS[m]}
                 </span>
+                {lifelike ? <NewTag /> : null}
                 {METHOD_TAGS[m] ? (
                   <span
                     data-testid={`method-tag-${m}`}
-                    className="rounded bg-surface-2 px-1.5 text-[10px] text-fg-muted"
+                    className="inline-flex h-[18px] items-center rounded-full border border-edge px-1.5 text-[11px] text-fg-muted"
                   >
                     {METHOD_TAGS[m]}
                   </span>
@@ -313,31 +402,38 @@ export function MethodChooser({
                 {m === RECOMMENDED_METHOD ? (
                   <Badge
                     variant="outline"
-                    className="h-4 border-primary/30 bg-primary/10 px-1.5 text-[10px] text-primary"
+                    className="h-[18px] border-primary/30 bg-primary/10 px-1.5 text-[10px] text-primary"
                   >
                     Recommended
                   </Badge>
                 ) : null}
-                <span className="ml-auto text-[11px] text-fg-muted">
-                  {METHOD_LIMITS[m]}
-                </span>
               </span>
-              <span className="pl-5 text-xs text-fg-muted">
+              <span
+                className={`text-xs leading-relaxed ${lifelike ? "text-fg-muted" : "text-fg-muted/80"}`}
+              >
                 {METHOD_DESCRIPTIONS[m]}
               </span>
               <span
                 data-testid={`method-price-${m}`}
-                className="pl-5 text-sm font-medium text-fg"
+                className="flex flex-wrap items-baseline gap-x-2 text-sm"
               >
-                {q === undefined
-                  ? "Pricing this video…"
-                  : (priceAndTime(q) ?? q.error)}
-                {q?.quote ? (
-                  <span className="text-xs font-normal text-fg-muted">
-                    {" "}
-                    at {q.qualityLabel}
-                  </span>
-                ) : null}
+                {q === undefined ? (
+                  <span className="text-fg-muted">Pricing this video…</span>
+                ) : price ? (
+                  <>
+                    <span
+                      className={`font-mono text-xl font-semibold ${selected ? "text-fg" : "text-fg-muted"}`}
+                    >
+                      {price}
+                    </span>
+                    <span className="text-fg-muted">
+                      {eta && eta > 0 ? `· ${formatDuration(eta)} ` : ""}·{" "}
+                      {METHOD_LENGTH[m]}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-fg-muted">{q.error}</span>
+                )}
               </span>
             </label>
           );
@@ -353,6 +449,7 @@ export function MethodChooser({
         onOpenChange={setConfirming}
         busy={sw.switching}
         lifelike={quotes.lifelike}
+        classic={quotes.classic}
         onConfirm={() => {
           setConfirming(false);
           void sw.setMethod("lifelike");
@@ -372,26 +469,39 @@ export function MoveToLifelikeOffer({
   onChanged: (p: Project) => void;
 }): JSX.Element | null {
   const sw = useMethodSwitch(project, onChanged);
-  const quotes = useMethodQuotes(project, ["lifelike"]);
   const [confirming, setConfirming] = useState(false);
+  const quotes = useMethodQuotes(
+    project,
+    confirming ? METHOD_ORDER : ["lifelike"],
+  );
   if (sw.method !== "classic") return null;
-  const pt = priceAndTime(quotes.lifelike);
+  const q = quotes.lifelike?.quote;
+  const eta = q?.eta_seconds;
   return (
     <div
       data-testid="move-to-lifelike-offer"
-      className="flex flex-wrap items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2 text-sm"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
     >
-      <span className="text-fg">
-        Move to Lifelike 3D{pt ? `: ${pt} for this video` : ""}.
+      <span aria-hidden className="text-primary">
+        ✦
       </span>
-      <Button
-        variant="outline"
-        size="xs"
-        className="ml-auto"
+      <span className="flex flex-wrap items-center gap-1.5 text-fg">
+        <span className="font-medium">Move to Lifelike 3D</span>
+        <NewTag />
+        {q ? (
+          <span data-testid="move-offer-price">
+            {formatCents(q.quote.amount_cents)}
+            {eta && eta > 0 ? `, ${formatDuration(eta)}` : ""} for this video.
+          </span>
+        ) : null}
+      </span>
+      <button
+        type="button"
+        className="ml-auto text-xs text-primary hover:underline"
         onClick={() => setConfirming(true)}
       >
-        See what changes
-      </Button>
+        Move
+      </button>
       {sw.error ? (
         <span role="alert" className="w-full text-xs text-amber-400">
           {sw.error}
@@ -402,6 +512,7 @@ export function MoveToLifelikeOffer({
         onOpenChange={setConfirming}
         busy={sw.switching}
         lifelike={quotes.lifelike}
+        classic={quotes.classic}
         onConfirm={() => {
           setConfirming(false);
           void sw.setMethod("lifelike");
@@ -424,6 +535,7 @@ export function MethodBadge({
 }): JSX.Element {
   const sw = useMethodSwitch(project, onChanged);
   const [confirming, setConfirming] = useState(false);
+  const quotes = useMethodQuotes(project, confirming ? METHOD_ORDER : []);
   return (
     <span data-testid="method-badge" className="flex items-center gap-2 text-[11px]">
       <span className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-fg-muted">
@@ -447,6 +559,8 @@ export function MethodBadge({
         open={confirming}
         onOpenChange={setConfirming}
         busy={sw.switching}
+        lifelike={quotes.lifelike}
+        classic={quotes.classic}
         onConfirm={() => {
           setConfirming(false);
           void sw.setMethod("lifelike");

@@ -126,3 +126,73 @@ kbd {
   text-align: center;
   color: var(--foreground);
 }
+
+/* Lifelike accent (S3D-46): our newest 3D technology — premium but quiet.
+ * A soft light travelling round the card's edge; static under
+ * prefers-reduced-motion. Classic stays plain. */
+:root {
+  --ll-a: #4f8cff;
+  --ll-b: #a78bfa;
+  --ll-c: #34d3c4;
+}
+@property --ll-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.ll-edge {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(from var(--ll-angle), var(--ll-a), var(--ll-b), var(--ll-c), var(--ll-a)) border-box;
+  animation: ll-spin 8s linear infinite;
+  box-shadow:
+    0 0 0 1px rgb(79 140 255 / 0.06),
+    0 10px 40px -12px rgb(124 108 255 / 0.35);
+}
+.ll-edge.ll-tint {
+  background:
+    linear-gradient(180deg, rgb(79 140 255 / 0.1), rgb(167 139 250 / 0.05)) padding-box,
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(from var(--ll-angle), var(--ll-a), var(--ll-b), var(--ll-c), var(--ll-a)) border-box;
+}
+@keyframes ll-spin {
+  to {
+    --ll-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-edge {
+    animation: none;
+  }
+}
+.ll-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #8fb4ff, #c4b5fd 55%, #7ee7dc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ll-tag-new {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: linear-gradient(90deg, #4f8cff, #8b6cff);
+  white-space: nowrap;
+}
+.ll-chip {
+  color: #dbe4ff;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#141a2b, #141a2b) padding-box,
+    linear-gradient(90deg, var(--ll-a), var(--ll-b), var(--ll-c)) border-box;
+}

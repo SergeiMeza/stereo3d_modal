@@ -23,7 +23,7 @@ import {
   formatEtaLeft,
 } from "@/components/projects/AnalyzeBadge";
 import { HistoryList } from "@/components/steps/HistoryList";
-import { MediaTab } from "@/components/workspace/MediaTab";
+import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { MethodBadge } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
@@ -333,7 +333,7 @@ export default function WorkspaceScreen({
         />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {page === "overview" ? (
-            <MediaTab
+            <OverviewTab
               project={project}
               onNavigate={setTab}
               onProjectChanged={

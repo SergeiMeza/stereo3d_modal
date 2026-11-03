@@ -15,9 +15,12 @@ export const METHOD_LABELS: Record<Method, string> = METHOD_NAMES;
 
 export const METHOD_DESCRIPTIONS: Record<Method, string> = {
   lifelike:
-    "Rebuilds every moment of your video in 3D, then films it again for each eye. The most natural depth, clean edges, and faster results.",
+    "Rebuilds every moment of your video as a real 3D scene, then films it again for each eye. The most natural depth and clean edges, in a fraction of the time.",
   classic: "Adds depth to your footage, with manual control over each step.",
 };
+
+/** S3D-46: Lifelike reads as our newest 3D. */
+export const LIFELIKE_EYEBROW = "Our newest 3D technology";
 
 /** The chooser's card tags (S3D-44: Classic is the older option). */
 export const METHOD_TAGS: Partial<Record<Method, string>> = {
@@ -35,6 +38,12 @@ export const METHOD_LIMITS: Record<Method, string> = {
   classic: "Up to 10 minutes · up to 4K",
 };
 
+/** Short length notes for price lines: "any length" / "up to 10 min". */
+export const METHOD_LENGTH: Record<Method, string> = {
+  lifelike: "any length",
+  classic: "up to 10 min",
+};
+
 /** Chooser order: Lifelike first (recommended). */
 export const METHOD_ORDER: readonly Method[] = ["lifelike", "classic"];
 
@@ -43,7 +52,7 @@ export const RECOMMENDED_METHOD: Method = "lifelike";
 export const CHOOSER_TITLE = "How should we make it 3D?";
 /** S3D-01/14: chosen before the first run; Lifelike never moves back. */
 export const CHOOSER_SUBTITLE =
-  "Prices and times for this video. Choose before your first preview or 3D run. A Lifelike project stays Lifelike.";
+  "You can change this freely until your first preview or 3D run. After that, a Classic project can still move to Lifelike, but not back.";
 
 /** S3D-30: the one move there is, Classic → Lifelike. */
 export const MOVE_TO_LIFELIKE_TITLE = "Move this project to Lifelike 3D?";
