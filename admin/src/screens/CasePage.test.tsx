@@ -1,0 +1,262 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+
+import { casePage, mailPreviews } from "../test/fixtures";
+import { apiError, FakeAuth, renderApp } from "../test/harness";
+
+const base = (page = casePage()) => ({
+  "GET /v1/admin/cases/CASE-0042": () => ({ json: page }),
+  "GET /v1/admin/mail-previews": () => ({ json: mailPreviews }),
+});
+
+describe("case page (A2)", () => {
+  it("shows the header, the per-run table and the evidence", async () => {
+    renderApp("/cases/CASE-0042", base());
+    expect(await screen.findByRole("heading", { name: "CASE-0042" })).toBeInTheDocument();
+    expect(screen.getByText("Visa •••• 4242")).toBeInTheDocument();
+    const run = screen.getByText("Kyoto walk · 3D video · 4K").closest("tr")!;
+    expect(within(run).getAllByText("$49.72")).toHaveLength(2);
+    expect(within(run).getByText("Partly · 3 of 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve $49.72" })).toBeEnabled();
+    expect(screen.getByText(/not recorded yet/)).toBeInTheDocument();
+    // Timeline newest first.
+    const items = screen.getAllByRole("listitem").filter((li) => li.closest("ol.ctl"));
+    expect(items[0]).toHaveTextContent("Part 4 failed.");
+  });
+
+  it("renders customer text as plain text and drops unsafe links", async () => {
+    const { container } = renderApp("/cases/CASE-0042", base());
+    await screen.findByText(/please refund/);
+    expect(screen.getByText(/<img src=x onerror=alert\(1\)>/)).toBeInTheDocument();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(container.querySelector('a[href="https://evil.example"]')).toBeNull();
+    expect(screen.getByRole("link", { name: /PaymentIntent/ })).toHaveAttribute("href", "https://dashboard.stripe.com/test/payments/pi_1");
+    expect(screen.getByRole("link", { name: /PaymentIntent/ })).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("approve: confirm sheet shows the amount per run and the mail, and sends the maximum it showed", async () => {
+    const after = casePage({}, { status: "refund_pending" });
+    const { calls } = renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: after }),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    const dialog = screen.getByRole("dialog", { name: "Refund $49.72 to Visa •••• 4242" });
+    expect(within(dialog).getByText("Refundable after this").nextSibling).toHaveTextContent("$0.00");
+    expect(within(dialog).getByText(/Mail E6 · Stereo3D Studio: we refunded \$49.72 \(CASE-0042\)/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const post = calls.find((c) => c.method === "POST")!;
+    expect(post.body).toEqual({ action: "approve", expected_max_cents: 4972 });
+    expect(screen.getByText("Done.")).toBeInTheDocument();
+    expect(screen.getAllByText("Refund pending").length).toBeGreaterThan(0);
+  });
+
+  it("amount_changed: reloads the case and asks for a fresh confirm", async () => {
+    let reloaded = false;
+    let posts = 0;
+    const smaller = casePage({
+      max_refundable_cents: 3729,
+      runs: [{ ...casePage().runs![0], refunded_cents: 1243, refundable_cents: 3729 }],
+    });
+    const { calls } = renderApp("/cases/CASE-0042", {
+      "GET /v1/admin/cases/CASE-0042": () => {
+        const page = reloaded ? smaller : casePage();
+        return { json: page };
+      },
+      "GET /v1/admin/mail-previews": () => ({ json: mailPreviews }),
+      "POST /v1/admin/cases/CASE-0042/actions": ({ body }) => {
+        posts++;
+        if (posts === 1) {
+          reloaded = true;
+          return apiError(409, "amount_changed", "The amount changed to $37.29.", { max_refundable_cents: 3729 });
+        }
+        expect(body).toEqual({ action: "approve", expected_max_cents: 3729 });
+        return { json: smaller };
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText(/The amount changed to \$37.29/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Refund $37.29 to Visa •••• 4242" })).toBeInTheDocument();
+    expect(posts).toBe(1);
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(2);
+  });
+
+  it("reauth_required: asks the owner to sign in again, then runs the action once more", async () => {
+    let posts = 0;
+    const auth = new FakeAuth();
+    renderApp(
+      "/cases/CASE-0042",
+      {
+        ...base(),
+        "POST /v1/admin/cases/CASE-0042/actions": () => {
+          posts++;
+          return posts === 1 ? apiError(401, "reauth_required", "confirm it's you again") : { json: casePage() };
+        },
+      },
+      auth,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await userEvent.click(within(reauth).getByRole("button", { name: "Sign in with Google" }));
+    await waitFor(() => expect(posts).toBe(2));
+    expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("reauth with a code step", async () => {
+    let posts = 0;
+    const auth = new FakeAuth();
+    auth.reauthResult = "code";
+    renderApp(
+      "/cases/CASE-0042",
+      {
+        ...base(),
+        "POST /v1/admin/cases/CASE-0042/actions": () => {
+          posts++;
+          return posts === 1 ? apiError(401, "reauth_required", "again") : { json: casePage() };
+        },
+      },
+      auth,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in with Google" }));
+    await userEvent.type(await screen.findByLabelText("Code from your authenticator app"), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(posts).toBe(2));
+    expect(auth.submitReauthCode).toHaveBeenCalledWith("123456");
+  });
+
+  it("cancelling the re-auth says nothing moved", async () => {
+    renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => apiError(401, "reauth_required", "again"),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await userEvent.click(within(reauth).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Not confirmed. Nothing was charged or refunded.")).toBeInTheDocument();
+  });
+
+  it("partial: validates amounts per run and prefills pro rata of failed parts", async () => {
+    const { calls } = renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage() }),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Partial…" }));
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByLabelText("Amount for c_7Hk2Qm");
+    await userEvent.clear(input);
+    await userEvent.type(input, "60");
+    expect(within(dialog).getByText(/at most that run's refundable amount/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Confirm" })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Pro rata of failed parts" }));
+    expect(input).toHaveValue("12.43");
+    expect(within(dialog).getByRole("heading")).toHaveTextContent("Refund $12.43 to Visa •••• 4242");
+    expect(within(dialog).getByText("Refundable after this").nextSibling).toHaveTextContent("$37.29");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({
+      action: "partial",
+      items: { c_7Hk2Qm: 1243 },
+      expected_max_cents: 4972,
+    });
+  });
+
+  it("deny: template choice and the E10 text", async () => {
+    const { calls } = renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage({}, { status: "closed", open: false }) }),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
+    const dialog = screen.getByRole("dialog", { name: "Deny refund" });
+    await userEvent.click(within(dialog).getByText(/Mail E10/));
+    expect(within(dialog).getByText(/delivered as described/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByLabelText("Other (write the text)"));
+    expect(within(dialog).getByRole("button", { name: "Confirm" })).toBeDisabled();
+    await userEvent.type(within(dialog).getByLabelText("Text for the customer"), "We can't refund this one.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({
+      action: "deny",
+      template: "other",
+      text: "We can't refund this one.",
+    });
+  });
+
+  it("shows the gateway's failure without claiming money moved", async () => {
+    renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () =>
+        apiError(502, "action_failed", "That didn't work: stripe down. Nothing was charged or refunded."),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That didn't work: stripe down. Nothing was charged or refunded.");
+  });
+
+  it("waive case: Waive $X with owed per run", async () => {
+    const page = casePage(
+      {
+        runs: [{ conversion_id: "c_3Pw9Lx", label: "Market day · Preview · 4K", state: "SUCCEEDED", price_cents: 100, delivered: "yes", paid_from: "owed", refundable_cents: 0, owed_cents: 100 }],
+        max_refundable_cents: 0,
+        actions: ["waive", "deny", "note", "refresh_evidence", "close"],
+      },
+      { id: "CASE-0042", type: "waive", reason: "unpaid_run" },
+    );
+    renderApp("/cases/CASE-0042", base(page));
+    await userEvent.click(await screen.findByRole("button", { name: "Waive $1.00" }));
+    const dialog = screen.getByRole("dialog", { name: "Waive $1.00" });
+    expect(within(dialog).getByText("Owed after this").nextSibling).toHaveTextContent("$0.00");
+    expect(within(dialog).getByText(/we won't charge you \$1.00/)).toBeInTheDocument();
+  });
+
+  it("dispute on a refunded charge leads with counter with refund proof", async () => {
+    const page = casePage(
+      {
+        actions: ["accept_dispute", "counter_dispute", "counter_with_refund_proof", "note", "refresh_evidence", "close"],
+        hints: ["Already refunded $12.43 on 2 Nov 2026: counter with the refund proof."],
+        refunds: [{ id: "r1", case_id: "CASE-0040", pi: "pi_1", charge_id: "ch_1", items: null, total_cents: 1243, status: "succeeded", source: "gateway", k: 1, created_at: "2026-11-02T00:00:00Z", updated_at: "2026-11-02T00:00:00Z" }],
+      },
+      { type: "dispute", reason: "dispute", dispute: { id: "dp_1", amount_cents: 4972, reason: "fraudulent", status: "needs_response", funds_withdrawn: true, due_by: "2026-11-09T00:00:00Z" } },
+    );
+    renderApp("/cases/CASE-0042", base(page));
+    const btn = await screen.findByRole("button", { name: "Counter with refund proof" });
+    expect(btn).toHaveClass("primary");
+    expect(screen.getByText(/counter with the refund proof\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+  });
+
+  it("adds a note", async () => {
+    const { calls } = renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage() }),
+    });
+    await userEvent.type(await screen.findByLabelText("Add a note"), "Checked the logs.");
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() => expect(calls.find((c) => c.method === "POST")?.body).toEqual({ action: "note", text: "Checked the logs." }));
+  });
+
+  it("closed cases offer no decisions", async () => {
+    renderApp("/cases/CASE-0042", base(casePage({ actions: ["note"] }, { status: "closed", open: false, result: "refunded" })));
+    expect(await screen.findByText("Closed · refunded")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  });
+
+  it("waiting for the run: banner with Stop run now", async () => {
+    const page = casePage({ banners: ["Waiting for the run to finish."], actions: ["stop_run", "note", "refresh_evidence", "close"] }, { status: "waiting_for_run" });
+    renderApp("/cases/CASE-0042", base(page));
+    const banner = (await screen.findByText("Waiting for the run to finish.")).closest(".banner")!;
+    await userEvent.click(within(banner as HTMLElement).getByRole("button", { name: "Stop run now" }));
+    expect(screen.getByRole("dialog", { name: "Stop the run now" })).toBeInTheDocument();
+  });
+});

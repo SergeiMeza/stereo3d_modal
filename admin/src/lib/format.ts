@@ -1,0 +1,108 @@
+/** Formatting for amounts and times. Amounts are USD cents. */
+
+export function money(cents: number | null | undefined): string {
+  const v = Number(cents ?? 0);
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  const dollars = Math.floor(abs / 100).toLocaleString("en-US");
+  return `${sign}$${dollars}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+/** "12.43" → 1243; returns null when not a valid non-negative amount. */
+export function parseDollars(text: string): number | null {
+  const t = text.trim().replace(/^\$/, "").replace(/,/g, "");
+  if (!/^\d+(\.\d{0,2})?$/.test(t)) return null;
+  const [d, c = ""] = t.split(".");
+  return Number(d) * 100 + Number(c.padEnd(2, "0"));
+}
+
+/** Signed variant for balance adjustments: "-5" → -500. */
+export function parseSignedDollars(text: string): number | null {
+  const t = text.trim();
+  const neg = t.startsWith("-");
+  const v = parseDollars(neg ? t.slice(1) : t);
+  return v === null ? null : neg ? -v : v;
+}
+
+export function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+export function pct(v: number | null | undefined, digits = 2): string {
+  return `${((v ?? 0) * 100).toFixed(digits)}%`;
+}
+
+function valid(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime()) || d.getUTCFullYear() < 2000) return null;
+  return d;
+}
+
+export function dateTime(iso: string | null | undefined): string {
+  const d = valid(iso);
+  if (!d) return "—";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+export function dateOnly(iso: string | null | undefined): string {
+  const d = valid(iso);
+  if (!d) return "—";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function time(iso: string | null | undefined): string {
+  const d = valid(iso);
+  if (!d) return "—";
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+export function ageHours(h: number): string {
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  const r = h % 24;
+  return r ? `${d}d ${r}h` : `${d}d`;
+}
+
+export function ago(iso: string | null | undefined, now = Date.now()): string {
+  const d = valid(iso);
+  if (!d) return "—";
+  const s = Math.max(0, Math.round((now - d.getTime()) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.round(h / 24)} d ago`;
+}
+
+/** "in 9 h", "in 2 d", "3 h overdue". */
+export function until(iso: string | null | undefined, now = Date.now()): string {
+  const d = valid(iso);
+  if (!d) return "";
+  const s = Math.round((d.getTime() - now) / 1000);
+  const abs = Math.abs(s);
+  const h = Math.round(abs / 3600);
+  const span = abs < 3600 ? `${Math.max(1, Math.round(abs / 60))} min` : h < 48 ? `${h} h` : `${Math.round(h / 24)} d`;
+  return s >= 0 ? `in ${span}` : `${span} overdue`;
+}
+
+/** snake_case → "snake case" for reasons, statuses, kinds. */
+export function words(v: string | null | undefined): string {
+  return (v ?? "").replace(/_/g, " ");
+}
+
+export function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m) return ym;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  });
+}

@@ -1,0 +1,455 @@
+/**
+ * Shapes of the gateway's /v1/admin/* responses (gateway README, "Admin
+ * API"; internal/api/admin.go, admin_account.go, evidence.go). Go encodes
+ * empty slices as null, so every list is optional or nullable here.
+ */
+
+export type CaseType =
+  | "refund"
+  | "dispute"
+  | "efw"
+  | "support"
+  | "waive"
+  | "balance_refund";
+
+export type CaseStatus =
+  | "waiting_for_run"
+  | "open"
+  | "waiting_on_customer"
+  | "decided"
+  | "refund_pending"
+  | "closed";
+
+export type Tab = "open" | "waiting" | "decided" | "closed" | "all";
+
+export interface CaseRow {
+  id: string;
+  type: CaseType | string;
+  reason: string;
+  mode: string;
+  status: CaseStatus | string;
+  result?: string;
+  opened_at: string;
+  age_hours: number;
+  email_masked: string;
+  requested_cents: number;
+  max_refundable_cents?: number;
+  deadline_at?: string | null;
+  deadline_red?: boolean;
+  dispute_due?: string | null;
+  last_activity_at: string;
+}
+
+export interface CasesResponse {
+  cases: CaseRow[] | null;
+  counts: { open: number; overdue: number; due_today: number };
+}
+
+export interface CaseRelated {
+  conversion_ids?: string[];
+  project_ids?: string[];
+  charge_ids?: string[];
+  pi_ids?: string[];
+  dispute_id?: string;
+  efw_id?: string;
+  topup_id?: string;
+  invoice_ids?: string[];
+  linked_case_ids?: string[];
+  superseded_by?: string;
+  duplicate_of?: string;
+}
+
+export interface CaseDecision {
+  kind: string;
+  items?: Record<string, number>;
+  by: string;
+  at: string;
+  customer_template?: string;
+  text?: string;
+}
+
+export interface DisputeInfo {
+  id: string;
+  amount_cents: number;
+  reason: string;
+  status: string;
+  due_by?: string;
+  outcome?: string;
+  funds_withdrawn: boolean;
+}
+
+export interface Case {
+  id: string;
+  uid: string;
+  customer_id?: string;
+  type: CaseType | string;
+  reason: string;
+  mode: string;
+  source: string;
+  status: CaseStatus | string;
+  result?: string;
+  open: boolean;
+  customer_visible: boolean;
+  related: CaseRelated;
+  requested_cents: number;
+  decided_cents: number;
+  items?: Record<string, number>;
+  currency: string;
+  decision?: CaseDecision;
+  refund_ids?: string[];
+  credit_note_ids?: string[];
+  dispute?: DisputeInfo;
+  customer_text?: string;
+  evidence_n: number;
+  evidence_at?: string;
+  deadline_at?: string;
+  reminders?: string[];
+  last_activity_at: string;
+  opened_at: string;
+  decided_at?: string;
+  closed_at?: string;
+  status_since: string;
+}
+
+export interface RunRow {
+  conversion_id: string;
+  label: string;
+  state: string;
+  price_cents: number;
+  delivered: "yes" | "partly" | "no" | string;
+  paid_from: string;
+  refunded_cents?: number;
+  refundable_cents: number;
+  owed_cents?: number;
+}
+
+export interface CaseEvent {
+  id: string;
+  at: string;
+  who: string;
+  kind: string;
+  text?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface RefundRow {
+  id: string;
+  case_id: string;
+  pi: string;
+  charge_id: string;
+  re_id?: string;
+  items: Record<string, number> | null;
+  total_cents: number;
+  status: string;
+  source: string;
+  k: number;
+  note?: string;
+  fail_reason?: string;
+  credit_note_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvidenceRun {
+  conversion_id: string;
+  project_id?: string;
+  step?: string;
+  method?: string;
+  preset?: string;
+  state?: string;
+  created_at?: string;
+  updated_at?: string;
+  payment_flow?: string;
+  quote_cents?: number;
+  captured_cents?: number;
+  refunded_cents?: number;
+  pi_status?: string;
+  canceled_by?: string;
+  submitted_at?: string | null;
+  started_at?: string | null;
+  job_id?: string;
+  gpu_cost_usd?: number;
+  queued_s?: number;
+  error?: { code?: string; message?: string; internal?: string };
+  files_delivered?: string[] | null;
+  parts?: number;
+  balance?: { hold_cents?: number; state?: string; settled_cents?: number };
+}
+
+export interface EvidenceDownload {
+  at?: string;
+  file?: string;
+  kind?: string;
+  ip_country?: string;
+  user_agent?: string;
+  conversion_id?: string;
+}
+
+export interface Evidence {
+  n?: number;
+  built_at?: string;
+  runs?: EvidenceRun[] | null;
+  /** A list once the M8 download log exists; a note until then. */
+  downloads?: EvidenceDownload[] | string | null;
+  payments?:
+    | {
+        charge_id: string;
+        kind: string;
+        paid_at: string;
+        amount_cents: number;
+        payment_intent?: string;
+        invoice_state?: string;
+      }[]
+    | null;
+  refunds?:
+    | {
+        id: string;
+        case_id: string;
+        pi: string;
+        re_id?: string;
+        total_cents: number;
+        status: string;
+        source: string;
+        at: string;
+      }[]
+    | null;
+  cases?:
+    | {
+        id: string;
+        type: string;
+        reason: string;
+        status: string;
+        result?: string;
+        decided_cents?: number;
+        opened_at?: string;
+        decision?: string;
+      }[]
+    | null;
+  links?: {
+    logs_url?: string;
+    stripe_urls?: string[] | null;
+    modal_job_ids?: string[] | null;
+    modal_urls?: string[] | null;
+  };
+}
+
+export interface RelatedCase {
+  id: string;
+  type: string;
+  reason: string;
+  status: string;
+  result?: string;
+}
+
+export type CaseAction =
+  | "note"
+  | "customer_reply"
+  | "refresh_evidence"
+  | "ask"
+  | "approve"
+  | "partial"
+  | "waive"
+  | "deny"
+  | "no_refund"
+  | "mark_out_of_band"
+  | "assign"
+  | "stop_run"
+  | "accept_dispute"
+  | "counter_dispute"
+  | "counter_with_refund_proof"
+  | "close";
+
+export interface CasePage {
+  case: Case;
+  runs: RunRow[] | null;
+  max_refundable_cents: number;
+  events: CaseEvent[] | null;
+  evidence: Evidence | null;
+  related_cases: RelatedCase[] | null;
+  hints: string[] | null;
+  banners: string[] | null;
+  account: { uid: string; email: string; payment_method?: string };
+  refunds: RefundRow[] | null;
+  actions: CaseAction[] | null;
+}
+
+export interface CaseActionBody {
+  action: CaseAction;
+  items?: Record<string, number>;
+  expected_max_cents?: number;
+  template?: "delivered" | "outside_terms" | "other";
+  text?: string;
+  method?: string;
+  reference?: string;
+}
+
+export interface OpenCaseBody {
+  uid: string;
+  conversion_ids?: string[];
+  reason: string;
+  text?: string;
+  topup_id?: string;
+}
+
+export interface BalanceSummary {
+  balance_cents: number;
+  held_cents: number;
+  held_runs: number;
+  frozen_cents: number;
+  available_cents: number;
+  expires_at: string | null;
+  expired: boolean;
+  never_topped_up: boolean;
+  auto_reload: {
+    enabled: boolean;
+    below_cents: number;
+    add_cents: number;
+    paused_reason?: string;
+  };
+  spend_limit_cents: number;
+  month_spent_cents: number;
+  low_balance_cents: number;
+  currency: string;
+}
+
+export interface AccountPage {
+  account: {
+    uid: string;
+    email: string;
+    stripe_customer_id?: string;
+    deleted?: boolean;
+    blocked?: boolean;
+  };
+  billing_state: {
+    flow_state?: string;
+    sheet_only?: boolean;
+    sheet_only_reason?: string;
+    all_methods_failed?: boolean;
+    last_good_method?: string;
+    under_review?: boolean;
+    lifetime_paid_cents?: number;
+    backup_order?: string[] | null;
+  };
+  owed_cents: number;
+  balance?: BalanceSummary | null;
+  plan?: {
+    plan: string;
+    name?: string;
+    status?: string;
+    active?: boolean;
+    cancel_at_period_end?: boolean;
+    monthly_cents?: number;
+    credit_cents?: number;
+    credit_left_cents?: number;
+    current_period_end?: string;
+  } | null;
+  ledger?: { id: string; kind: string; cents: number; at: string }[] | null;
+  methods?: { id: string; label: string; type: string }[] | null;
+  cases?: Case[] | null;
+  charges?:
+    | {
+        charge_id: string;
+        kind: string;
+        amount_cents: number;
+        currency: string;
+        paid_at: string;
+        lines:
+          | {
+              conversion_id: string;
+              project_id?: string;
+              amount_cents: number;
+              description: string;
+            }[]
+          | null;
+        invoice_state: string;
+      }[]
+    | null;
+  refunds?: RefundRow[] | null;
+}
+
+export type AccountAction =
+  | "clear_review"
+  | "clear_sheet_only"
+  | "block"
+  | "unblock"
+  | "resend_e2"
+  | "write_off_owed"
+  | "adjust_balance";
+
+export interface AccountActionBody {
+  action: AccountAction;
+  cents?: number;
+  case_id?: string;
+  note?: string;
+}
+
+export interface DisputeMonth {
+  month: string;
+  charges: number;
+  disputes_activity: number;
+  disputed_cents_activity: number;
+  disputes_by_payment: number;
+  activity_pct: number;
+  won: number;
+  lost: number;
+  accepted: number;
+  countered: number;
+  lost_cents: number;
+  dispute_fees_cents: number;
+  efw: number;
+  efw_cents: number;
+  efw_refunded: number;
+  efw_became_disputes: number;
+}
+
+export interface OpenDispute {
+  dispute_id: string;
+  amount_cents: number;
+  reason: string;
+  status: string;
+  payment_intent: string;
+  due_by?: string;
+  case_id?: string;
+}
+
+export interface DisputeSummary {
+  months: DisputeMonth[] | null;
+  reference_pct: number;
+  win_rate: number;
+  counter_rate: number;
+  open: OpenDispute[] | null;
+  by_method: Record<string, number> | null;
+  by_flow: Record<string, number> | null;
+  by_country: Record<string, number> | null;
+  scope: string;
+  account_wide: string;
+  denominator: string;
+  generated_at: string;
+}
+
+export interface RefundPolicy {
+  reasons: Record<string, "auto" | "manual" | string>;
+  manual_above_cents: number;
+  cap_exempt: string[] | null;
+  deadline_business_days: number;
+  reminder_hours: number;
+  timezone: string;
+  dispute_alert_pct: number;
+  notify: { slack_channel: string; owner_emails: string[] | null };
+}
+
+export interface PolicyResponse {
+  policy: RefundPolicy;
+  edit_in: string;
+}
+
+export interface MailPreview {
+  id: string;
+  subject: string;
+  text: string;
+}
+
+export interface MailPreviewsResponse {
+  mails: MailPreview[] | null;
+  deny_templates: Record<string, string> | null;
+}
