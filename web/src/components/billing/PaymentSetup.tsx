@@ -24,6 +24,10 @@ import type { BillingSetupTicket } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { getStripe } from "./stripeLoader";
+import { chinaPayments } from "@/lib/paymentRegion";
+
+/** Shown where the payment form can't load (S3D-60). */
+const PAYMENT_UNAVAILABLE = "Payment isn't available in this region yet.";
 
 export interface BillingSetupPanelProps {
   /** Called exactly once, after the processor confirms the card was saved. */
@@ -48,7 +52,7 @@ const appearance: Appearance = {
 
 // ------------------------------------------------------------------ stripe
 
-function StripeSetupForm({ onSaved }: BillingSetupPanelProps): JSX.Element {
+function StripeSetupForm({ onSaved }: { onSaved: () => void }): JSX.Element {
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
@@ -64,7 +68,7 @@ function StripeSetupForm({ onSaved }: BillingSetupPanelProps): JSX.Element {
       redirect: "if_required",
     });
     if (result.error) {
-      setError(result.error.message ?? "Could not save the card");
+      setError(result.error.message ?? "Couldn't save the payment method");
       setSaving(false);
       return;
     }
@@ -80,7 +84,7 @@ function StripeSetupForm({ onSaved }: BillingSetupPanelProps): JSX.Element {
         disabled={!stripe || !elements || !ready || saving}
         className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
       >
-        {saving ? "Saving…" : "Save card"}
+        {saving ? "Saving…" : "Save payment method"}
       </button>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       <p className="text-xs text-fg-muted">
@@ -91,9 +95,17 @@ function StripeSetupForm({ onSaved }: BillingSetupPanelProps): JSX.Element {
 }
 
 function StripeSetupPanel({ onSaved }: BillingSetupPanelProps): JSX.Element {
+  // S3D-60/61: in China mode the payment form's script is never loaded
+  const [china] = useState(() => chinaPayments());
+  if (china) return <p className="text-sm text-fg-muted">{PAYMENT_UNAVAILABLE}</p>;
+  return <StripeSetupLoader onSaved={onSaved} />;
+}
+
+function StripeSetupLoader({ onSaved }: BillingSetupPanelProps): JSX.Element {
   const gateway = useGateway();
   const [ticket, setTicket] = useState<BillingSetupTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +124,27 @@ function StripeSetupPanel({ onSaved }: BillingSetupPanelProps): JSX.Element {
     };
   }, [gateway]);
 
+  // a payment form that can't load (e.g. a blocked script) reads as one
+  // plain sentence, never why
+  useEffect(() => {
+    if (!ticket) return;
+    let cancelled = false;
+    getStripe(ticket.publishable_key).then(
+      (s) => {
+        if (!cancelled && s === null) setUnavailable(true);
+      },
+      () => {
+        if (!cancelled) setUnavailable(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket]);
+
+  if (unavailable) {
+    return <p className="text-sm text-fg-muted">{PAYMENT_UNAVAILABLE}</p>;
+  }
   if (error) {
     return <p className="text-sm text-red-400">{error}</p>;
   }

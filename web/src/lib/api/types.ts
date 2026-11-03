@@ -328,11 +328,12 @@ export interface ConversionBilling {
     | "charge_failed"
     | "refund_pending"
     | "refunded"
-    | "not_charged";
+    | "not_charged"
+    | "requires_payment";
   charged_cents?: number; // status === "charged"
   batch_id?: string; // status === "batched": on the account's pending balance
-  client_secret?: string; // status === "requires_action"
-  publishable_key?: string; // status === "requires_action"
+  client_secret?: string; // status === "requires_action" | "requires_payment"
+  publishable_key?: string; // status === "requires_action" | "requires_payment"
 }
 
 export interface Conversion {
@@ -558,6 +559,51 @@ export function newProjectMethod(_limits?: GatewayLimits | null): Method {
 
 // ---------------------------------------------------------------- billing
 
+/** GET /v1/billing/methods (S3D-59/60/61): saved payment methods, up to
+ * `max`. Cards and wallets are charged after the fact; pay-now methods
+ * (Alipay, WeChat Pay) pay each run when it starts. */
+export type PaymentMethodType =
+  | "card"
+  | "apple_pay"
+  | "google_pay"
+  | "link"
+  | "paypal"
+  | "cashapp"
+  | "klarna"
+  | "alipay"
+  | "wechat_pay";
+
+export interface SavedMethod {
+  id: string;
+  type: PaymentMethodType;
+  /** card-backed methods */
+  brand?: string;
+  last4?: string;
+  exp_month?: number;
+  exp_year?: number;
+  /** PayPal, Link, Cash App */
+  email?: string;
+  is_default: boolean;
+  /** paid when each run starts (Alipay, WeChat Pay) */
+  pay_now?: boolean;
+}
+
+export interface BillingMethods {
+  methods: SavedMethod[];
+  /** most an account may keep (5) */
+  max?: number;
+}
+
+/** A pay-now run's payment (S3D-60/61). */
+export interface PayNowStart {
+  method: "alipay" | "wechat_pay";
+  /** Alipay: where to send the browser */
+  redirect_url?: string;
+  /** WeChat Pay: the QR code to scan */
+  qr_image_url?: string;
+  expires_at?: string;
+}
+
 /** GET /v1/billing/history (S3D-57): card charges as on the statement,
  * newest first. One charge may cover several small runs. */
 export interface BillingHistory {
@@ -571,8 +617,10 @@ export interface BillingCharge {
   currency: string;
   card?: { brand: string; last4: string };
   status: "paid" | "refunded" | "failed";
-  /** Stripe's hosted receipt */
+  /** the hosted receipt */
   receipt_url?: string;
+  /** the hosted invoice (its PDF is in the customer portal) */
+  hosted_invoice_url?: string;
   items: BillingChargeItem[];
 }
 
@@ -668,6 +716,8 @@ export interface BillingSetupTicket {
   client_secret: string;
   customer_id: string;
   publishable_key: string;
+  /** the payment-method configuration the Payment Element shows (S3D-60) */
+  payment_method_configuration?: string;
 }
 
 /** POST /v1/billing/settle — retries outstanding charges on the current

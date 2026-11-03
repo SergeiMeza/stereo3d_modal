@@ -46,6 +46,8 @@ import { PRESET_ABOVE_SOURCE } from "./methods";
 import { CHARGE_BEFORE_COPY } from "./QuoteView";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 30 }));
+const china = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/paymentRegion", () => ({ chinaPayments: () => china.value }));
 
 beforeAll(() => {
   HTMLMediaElement.prototype.play = function play(this: HTMLMediaElement) {
@@ -769,5 +771,53 @@ describe("Bitrate under Advanced (S3D-56)", () => {
     await waitFor(() =>
       expect(quotes.some((q) => q.bitrate === "match_source")).toBe(true),
     );
+  });
+});
+
+describe("pay-now methods (S3D-60/61)", () => {
+  it("pays the run in a sheet when the default method pays now, and says so", async () => {
+    mockDb.billing.methods = [
+      { id: "pm_alipay", type: "alipay", is_default: true, pay_now: true },
+    ];
+    renderPanel(
+      <LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
+        "Paid now. Refunded in full if it fails.",
+      ),
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    const sheet = await screen.findByTestId("pay-now-sheet");
+    expect(within(sheet).getByText("Paid now. Refunded in full if it fails.")).toBeTruthy();
+    fireEvent.click(within(sheet).getByTestId("mock-pay-now"));
+    await waitFor(() => expect(screen.queryByTestId("pay-now-sheet")).toBeNull());
+    const runs = [...mockDb.conversions.values()];
+    expect(runs).toHaveLength(1);
+    await waitFor(() => expect(mockDb.conversions.get(runs[0].conversion_id)!.state).not.toBe("created"));
+  });
+
+  it("China mode: Alipay or WeChat Pay through the gateway, WeChat shows its code", async () => {
+    china.value = true;
+    mockDb.billing.methods = [
+      { id: "pm_wechat", type: "wechat_pay", is_default: true, pay_now: true },
+    ];
+    renderPanel(
+      <LifelikePreviewPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    const sheet = await screen.findByTestId("pay-now-sheet");
+    expect(within(sheet).getByRole("button", { name: "Alipay" })).toBeTruthy();
+    fireEvent.click(within(sheet).getByRole("button", { name: "WeChat Pay" }));
+    expect(await within(sheet).findByTestId("wechat-qr")).toBeTruthy();
+    expect(within(sheet).getByText(/^Scan with WeChat to pay \$\d+\.\d\d$/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Stripe|relay|proxy/i);
+    china.value = false;
   });
 });

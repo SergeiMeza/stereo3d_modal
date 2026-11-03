@@ -22,6 +22,7 @@ import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type {
   BillingCard,
+  SavedMethod,
   Conversion,
   Method,
   Preset,
@@ -132,6 +133,8 @@ const LIFELIKE = {
 interface MockBilling {
   hasPaymentMethod: boolean;
   card?: BillingCard;
+  /** S3D-60/62: saved payment methods; the default card mirrors `card` */
+  methods: SavedMethod[];
   /** succeeded conversions whose automatic charge failed (delinquency) */
   unpaid: UnpaidCharge[];
   /** what the next POST /v1/billing/settle attempt does (tests) */
@@ -205,6 +208,7 @@ function seed(): DB {
     billing: {
       hasPaymentMethod: true,
       card: { ...MOCK_CARD },
+      methods: [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }],
       unpaid: [],
       settleOutcome: "success",
       nextChargeFails: false,
@@ -1693,6 +1697,7 @@ export const handlers = [
           ...(card ? { card } : {}),
           status: status(c.billing?.status),
           receipt_url: `https://pay.stripe.com/receipts/mock/${c.conversion_id}`,
+          hosted_invoice_url: `https://invoice.stripe.com/i/mock/${c.conversion_id}`,
           items: [item(c)],
         });
       } else {
@@ -1709,7 +1714,12 @@ export const handlers = [
         currency: "usd",
         ...(card ? { card } : {}),
         status: failed ? "failed" : "paid",
-        ...(failed ? {} : { receipt_url: `https://pay.stripe.com/receipts/mock/${day}` }),
+        ...(failed
+          ? {}
+          : {
+              receipt_url: `https://pay.stripe.com/receipts/mock/${day}`,
+              hosted_invoice_url: `https://invoice.stripe.com/i/mock/${day}`,
+            }),
         items: list.map(item),
       });
     }
@@ -1729,9 +1739,48 @@ export const handlers = [
   /** What the MockSetupPanel calls in place of stripe.confirmSetup — the
    * card is saved and becomes the default on the next status read. */
   http.post(`${GATEWAY}/__mock__/confirm-setup`, () => {
-    mockDb.billing.hasPaymentMethod = true;
-    mockDb.billing.card = { ...MOCK_CARD };
+    const b = mockDb.billing;
+    b.hasPaymentMethod = true;
+    b.card = { ...MOCK_CARD };
+    b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
     return HttpResponse.json({ ok: true });
+  }),
+
+  // S3D-62: saved payment methods, read-only (managed in the portal)
+  http.get(`${GATEWAY}/v1/billing/methods`, () =>
+    HttpResponse.json({ methods: mockDb.billing.methods, max: 5 }),
+  ),
+
+  // S3D-61: pay a pay-now run without the Payment Element (China mode)
+  http.post(`${GATEWAY}/v1/conversions/:id/pay-now`, async ({ params, request }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "conversion not found");
+    const body = (await request.json()) as { method?: string; return_url?: string };
+    const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    if (body.method === "alipay") {
+      return HttpResponse.json({
+        method: "alipay",
+        redirect_url: `https://mock-pay.example/alipay?return=${encodeURIComponent(body.return_url ?? "")}`,
+        expires_at: expires,
+      });
+    }
+    if (body.method === "wechat_pay") {
+      return HttpResponse.json({
+        method: "wechat_pay",
+        qr_image_url: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
+        expires_at: expires,
+      });
+    }
+    return err(400, "invalid_request", "method must be alipay|wechat_pay");
+  }),
+
+  // mock-only: the customer paid a pay-now run (Payment Element or QR)
+  http.post(`${GATEWAY}/__mock__/complete-payment/:id`, ({ params }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "conversion not found");
+    c.state = "paid";
+    c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+    return HttpResponse.json(c);
   }),
 
   // Retry outstanding charges on the current default card.
@@ -2414,9 +2463,13 @@ export const handlers = [
       const needs3ds =
         (holds || precharge) && mockDb.billing.nextHoldRequiresAction;
       if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
+      // S3D-60: a pay-now default method (Alipay, WeChat Pay) pays each run
+      // when it starts — the run waits at "created" for that payment
+      const payNow =
+        mockDb.billing.methods.find((m) => m.is_default)?.pay_now === true;
       const conv: Conversion = {
         conversion_id: id,
-        state: needs3ds || precharge ? "created" : "paid",
+        state: payNow || needs3ds || precharge ? "created" : "paid",
         kind: "video",
         project_id: p.project_id,
         step: req.step,
@@ -2428,10 +2481,18 @@ export const handlers = [
         eta_seconds: 0,
         method,
         waiting_for_gpu: false,
-        charge_timing: chargeTiming(quote.amount_cents),
+        charge_timing: payNow ? "before" : chargeTiming(quote.amount_cents),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        ...(needs3ds
+        ...(payNow
+          ? {
+              billing: {
+                status: "requires_payment" as const,
+                client_secret: `pi_mock_paynow_${id}`,
+                publishable_key: "pk_test_mock",
+              },
+            }
+          : needs3ds
           ? {
               billing: {
                 status: "requires_action" as const,

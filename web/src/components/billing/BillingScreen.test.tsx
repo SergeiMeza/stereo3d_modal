@@ -58,7 +58,7 @@ function renderBilling() {
   );
 }
 
-describe("Billing (S3D-57)", () => {
+describe("Billing (S3D-57, S3D-62)", () => {
   it("shows the card and one row per card charge, expandable to what it covered", async () => {
     run("cbig00000001", 4972, { charge_timing: "before", updated_at: "2026-11-03T09:00:00Z" });
     run("csmall000001", 100, { step: "lifelike_preview" });
@@ -71,10 +71,11 @@ describe("Billing (S3D-57)", () => {
     });
     renderBilling();
 
-    expect((await screen.findByTestId("billing-card")).textContent).toMatch(
-      /^Visa •••• 4242Expires \d\d\/\d\d$/,
-    );
-    expect(screen.getByRole("button", { name: "Update card" })).toBeTruthy();
+    // S3D-62: read-only, with the portal for changes
+    const methods = await screen.findByTestId("payment-methods");
+    expect(methods.textContent).toMatch(/^Visa •••• 4242Expires \d\d\/\d\dDefault$/);
+    expect(screen.getByRole("button", { name: "Manage payment methods" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Remove|Make default|Add/ })).toBeNull();
 
     const rows = await screen.findAllByTestId(/^charge-ch_/);
     expect(rows).toHaveLength(3);
@@ -84,6 +85,9 @@ describe("Billing (S3D-57)", () => {
     expect(within(big).getByTestId("charge-status").textContent).toBe("Paid");
     expect(big.textContent).toContain("Visa •••• 4242");
     expect(within(big).getByRole("link", { name: "Receipt" }).getAttribute("target")).toBe(
+      "_blank",
+    );
+    expect(within(big).getByRole("link", { name: "Invoice" }).getAttribute("target")).toBe(
       "_blank",
     );
     expect(grouped.textContent).toContain("2 items");
@@ -111,5 +115,20 @@ describe("Billing (S3D-57)", () => {
     );
     expect(menu.getByRole("menuitem", { name: "Account" })).toBeTruthy();
     expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
+  });
+});
+
+describe("payment method labels (S3D-60)", () => {
+  it("names the type and the card or account", async () => {
+    const { methodLabel } = await import("@/lib/api/usePaymentMethods");
+    expect(
+      methodLabel({ id: "a", type: "apple_pay", brand: "visa", last4: "4242", is_default: true }),
+    ).toBe("Apple Pay · Visa •••• 4242");
+    expect(
+      methodLabel({ id: "b", type: "paypal", email: "name@example.com", is_default: false }),
+    ).toBe("PayPal · name@…");
+    expect(methodLabel({ id: "c", type: "alipay", is_default: false, pay_now: true })).toBe(
+      "Alipay",
+    );
   });
 });

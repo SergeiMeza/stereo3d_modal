@@ -33,6 +33,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { UpdateCardToContinue } from "@/components/billing/BillingBanner";
+import { PAID_NOW, PayNowSheet } from "@/components/billing/PayNowSheet";
+import { usePaymentMethods } from "@/lib/api/usePaymentMethods";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/ui/info-popover";
@@ -107,6 +109,10 @@ export interface StepCheckout {
    * mid-run resumes from the latest progress, not the creation response. */
   handleUpdate: (conversion: Conversion) => void;
   onProjectChanged: () => void;
+  /** a pay-now run waiting for its payment (S3D-60/61) */
+  payNow: Conversion | null;
+  /** the sheet closed: paid, or cancelled (the run is cancelled too) */
+  closePayNow: (paid: boolean) => void;
 }
 
 export function useStepCheckout(
@@ -127,6 +133,7 @@ export function useStepCheckout(
   const [quoting, setQuoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [billingBlock, setBillingBlock] = useState<BillingBlock | null>(null);
+  const [payNow, setPayNow] = useState<Conversion | null>(null);
   // Idempotency-Key, stable per attempt: minted lazily on the first Convert
   // click and reused on retries so a double-submit can't double-charge. The
   // ref mirrors the stored key for SYNCHRONOUS dedup (two clicks in the same
@@ -217,6 +224,8 @@ export function useStepCheckout(
       });
       upgradeSession("paid-conversion");
       setState((s) => ({ ...s, active: conv, settled: false }));
+      // a pay-now method: the run waits for this payment (S3D-60/61)
+      if (conv.billing?.status === "requires_payment") setPayNow(conv);
       // Expensive runs hold the quote up front; a 3DS demand on that hold
       // arrives as requires_action — complete it with the saved card. The
       // gateway webhook then flips created→paid and starts the job (the
@@ -299,6 +308,15 @@ export function useStepCheckout(
     [setState],
   );
 
+  function closePayNow(paid: boolean): void {
+    const conv = payNow;
+    setPayNow(null);
+    if (paid || conv === null) return;
+    void client.cancelConversion(conv.conversion_id).catch(() => {});
+    attemptKeyRef.current = null;
+    setState((s) => ({ ...s, active: null, attemptKey: null }));
+  }
+
   const tracking = active !== null;
   const running = tracking && !settled;
 
@@ -317,6 +335,8 @@ export function useStepCheckout(
     handleSettled,
     handleUpdate,
     onProjectChanged,
+    payNow,
+    closePayNow,
   };
 }
 
@@ -434,6 +454,13 @@ export function StepCheckoutSection({
           estimateSeconds={ck.quote?.eta_seconds}
         />
       ) : null}
+      {ck.payNow ? (
+        <PayNowSheet
+          conversion={ck.payNow}
+          onPaid={() => ck.closePayNow(true)}
+          onCancel={() => ck.closePayNow(false)}
+        />
+      ) : null}
     </>
   );
 }
@@ -484,6 +511,7 @@ export function InstantCheckout({
   const paymentNeeded =
     useBilling().status?.delinquent === true ||
     ck.billingBlock === "billing_overdue";
+  const methods = usePaymentMethods();
   const key = JSON.stringify(quoteRequest ?? request);
   const lastKey = useRef<string | null>(null);
   const { quote, quoting, running, error, fetchQuote } = ck;
@@ -503,6 +531,20 @@ export function InstantCheckout({
   }, [key, blocked, running, quoting, quote, error]);
 
   const price = quote ? formatCents(quote.quote.amount_cents) : null;
+  const sheet = ck.payNow ? (
+    <PayNowSheet
+      conversion={ck.payNow}
+      onPaid={() => ck.closePayNow(true)}
+      onCancel={() => ck.closePayNow(false)}
+    />
+  ) : null;
+  // S3D-60: a pay-now default method pays each run when it starts
+  const payNowDefault = methods?.find((m) => m.is_default)?.pay_now === true;
+  const chargeText = payNowDefault
+    ? PAID_NOW
+    : quote?.charge_timing === "before"
+      ? CHARGE_BEFORE_COPY
+      : CHARGE_AFTER_COPY;
   const tracker =
     ck.tracking && ck.active ? (
       <ConversionTracker
@@ -518,7 +560,7 @@ export function InstantCheckout({
     const chargeHint = quote ? (
       <span className="flex items-center gap-1.5">
         <span data-testid="charge-timing-hint" className="text-xs text-fg">
-          {quote.charge_timing === "before" ? CHARGE_BEFORE_COPY : CHARGE_AFTER_COPY}
+          {chargeText}
         </span>
         {explain ? <InfoPopover label="?" align="right">{explain}</InfoPopover> : null}
       </span>
@@ -557,6 +599,7 @@ export function InstantCheckout({
           {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
         </section>
         {tracker}
+        {sheet}
         {/* phone (screen 11): the one button stays in reach at the bottom */}
         {!(paymentNeeded && !ck.tracking) && !running ? (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
@@ -593,9 +636,7 @@ export function InstantCheckout({
         ) : quote ? (
           <span className="flex items-center gap-1.5">
             <span data-testid="charge-timing-hint" className="text-xs text-fg-muted">
-              {quote.charge_timing === "before"
-                ? CHARGE_BEFORE_COPY
-                : CHARGE_AFTER_COPY}
+              {chargeText}
             </span>
             <InfoPopover label="?">
               {explain}
@@ -610,6 +651,7 @@ export function InstantCheckout({
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
       {tracker}
+      {sheet}
     </div>
   );
 }

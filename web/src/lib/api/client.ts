@@ -9,6 +9,8 @@ import type {
   BillingSettleResult,
   BillingSetupTicket,
   BillingHistory,
+  BillingMethods,
+  PayNowStart,
   BillingStatus,
   Conversion,
   CreateProjectRequest,
@@ -219,6 +221,25 @@ export class GatewayClient {
    * heals the default payment method after onboarding / a portal edit. */
   getBilling(): Promise<BillingStatus> {
     return this.request("GET", "/v1/billing");
+  }
+
+  /** Saved payment methods, read-only (S3D-62: managed in the customer
+   * portal). */
+  getPaymentMethods(): Promise<BillingMethods> {
+    return this.request("GET", "/v1/billing/methods");
+  }
+
+  /** Pay a pay-now run without the Payment Element (China mode, S3D-61):
+   * Alipay answers with a redirect, WeChat Pay with a QR code. */
+  startPayNow(
+    conversionId: string,
+    method: "alipay" | "wechat_pay",
+    returnUrl: string,
+  ): Promise<PayNowStart> {
+    return this.request("POST", `/v1/conversions/${encodeURIComponent(conversionId)}/pay-now`, {
+      method,
+      return_url: returnUrl,
+    });
   }
 
   /** Card charges as on the statement (S3D-57). */

@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * Billing (S3D-57), from the account menu: the payment method (card,
- * expiry, Update card through the existing card flow) and the purchase
- * history — one row per card charge as on the statement, with date,
- * amount, card, Paid / Refunded / Failed and the Stripe receipt; a row
- * expands to what it covered. Compact (S3D-45); no balance or limit
- * wording anywhere (S3D-21).
+ * Billing (S3D-57/62), from the account menu: the saved payment methods,
+ * read-only with a Default tag, and one "Manage payment methods" button
+ * to the customer portal (adding, removing and the default live there);
+ * then the purchase history — one row per charge as on the statement,
+ * with date, amount, payment method, Paid / Refunded / Failed, Invoice
+ * and Receipt; a row expands to what it covered. Compact (S3D-45); no
+ * balance or limit wording anywhere (S3D-21).
  */
 
 import Link from "next/link";
@@ -18,7 +19,7 @@ import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { BillingCharge, BillingChargeItem } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { useBilling } from "@/lib/billing";
+import { methodLabel, usePaymentMethods } from "@/lib/api/usePaymentMethods";
 import { qualityName } from "@/lib/glossary";
 
 const STATUS: Record<BillingCharge["status"], { label: string; cls: string }> = {
@@ -46,7 +47,7 @@ export function itemLine(i: BillingChargeItem): string {
     .join(" · ");
 }
 
-function UpdateCardButton({ label = "Update card" }: { label?: string }): JSX.Element {
+function PortalButton({ label }: { label: string }): JSX.Element {
   const gateway = useGateway();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,17 +108,31 @@ function ChargeRow({ charge }: { charge: BillingCharge }): JSX.Element {
           {s.label}
         </span>
         {charge.status === "failed" ? (
-          <UpdateCardButton />
-        ) : charge.receipt_url ? (
-          <a
-            href={charge.receipt_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-primary hover:underline"
-          >
-            Receipt
-          </a>
-        ) : null}
+          <PortalButton label="Update payment method" />
+        ) : (
+          <span className="flex items-center gap-3 text-xs">
+            {charge.hosted_invoice_url ? (
+              <a
+                href={charge.hosted_invoice_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Invoice
+              </a>
+            ) : null}
+            {charge.receipt_url ? (
+              <a
+                href={charge.receipt_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Receipt
+              </a>
+            ) : null}
+          </span>
+        )}
       </div>
       {open ? (
         <ul data-testid="charge-items" className="flex flex-col gap-1 pb-3 pl-8 text-xs">
@@ -140,8 +155,7 @@ function ChargeRow({ charge }: { charge: BillingCharge }): JSX.Element {
 
 export function BillingScreen(): JSX.Element {
   const gateway = useGateway();
-  const billing = useBilling();
-  const card = billing.status?.card;
+  const methods = usePaymentMethods();
   const [charges, setCharges] = useState<BillingCharge[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,34 +179,49 @@ export function BillingScreen(): JSX.Element {
       <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
 
       <section
-        aria-labelledby="payment-method"
+        aria-labelledby="payment-methods"
         className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-5"
       >
-        <h2 id="payment-method" className="text-sm font-semibold text-fg">
-          Payment method
-        </h2>
-        {card ? (
-          <div className="flex flex-wrap items-center gap-4">
-            <span data-testid="billing-card" className="text-sm text-fg">
-              {brandName(card.brand)} •••• {card.last4}
-              <span className="ml-3 text-xs text-fg-muted">
-                Expires {String(card.exp_month).padStart(2, "0")}/
-                {String(card.exp_year).slice(-2)}
-              </span>
-            </span>
-            <span className="ml-auto">
-              <UpdateCardButton />
-            </span>
-          </div>
-        ) : billing.status !== null && !billing.status.has_payment_method ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="payment-methods" className="text-sm font-semibold text-fg">
+            Payment methods
+          </h2>
+          <span className="ml-auto">
+            <PortalButton label="Manage payment methods" />
+          </span>
+        </div>
+        {methods === null ? (
+          <p className="text-sm text-fg-muted">Loading…</p>
+        ) : methods.length === 0 ? (
           <p className="text-sm text-fg-muted">
-            No card saved yet.{" "}
+            No payment method saved yet.{" "}
             <Link href="/onboarding" className="text-primary hover:underline">
-              Add a card
+              Add payment method
             </Link>
           </p>
         ) : (
-          <p className="text-sm text-fg-muted">Loading…</p>
+          <ul data-testid="payment-methods" className="flex flex-col">
+            {methods.map((m) => (
+              <li
+                key={m.id}
+                data-testid={`method-${m.id}`}
+                className="flex items-center gap-3 border-t border-edge py-2 text-sm first:border-t-0"
+              >
+                <span className="text-fg">{methodLabel(m)}</span>
+                {m.exp_month && m.exp_year ? (
+                  <span className="text-xs text-fg-muted">
+                    Expires {String(m.exp_month).padStart(2, "0")}/
+                    {String(m.exp_year).slice(-2)}
+                  </span>
+                ) : null}
+                {m.is_default ? (
+                  <span className="ml-auto rounded-full border border-edge px-2 text-[11px] text-fg-muted">
+                    Default
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
@@ -204,7 +233,7 @@ export function BillingScreen(): JSX.Element {
           <h2 id="purchase-history" className="text-sm font-semibold text-fg">
             Purchase history
           </h2>
-          <span className="text-xs text-fg-muted">Card charges, newest first</span>
+          <span className="text-xs text-fg-muted">Charges, newest first</span>
         </div>
         {error ? (
           <p className="text-sm text-red-400">{error}</p>
