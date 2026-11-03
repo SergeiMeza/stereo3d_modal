@@ -28,12 +28,13 @@ type fakeStripe struct {
 	pis      map[string]map[string]any // id → {status, amount_received, payment_method}
 	sessions map[string]map[string]any // id → {status, payment_status, payment_intent, expires_at}
 	refunds  []string                  // payment_intent ids refunded
+	pmPrints map[string]string         // payment method id → card fingerprint
 	expired  []string
 	created  int
 }
 
 func newFakeStripe() *fakeStripe {
-	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}}
+	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{}}
 }
 
 func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +57,18 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(f.session(id))
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
+	case p == "/v1/payment_intents/search":
+		var data []map[string]any
+		for id, pi := range f.pis {
+			if _, ok := pi["metadata"]; ok {
+				data = append(data, f.pi(id))
+			}
+		}
+		write(map[string]any{"data": data, "has_more": false})
+	case p == "/v1/events" || (p == "/v1/invoices" && r.Method == http.MethodGet) || (p == "/v1/refunds" && r.Method == http.MethodGet):
+		write(map[string]any{"data": []any{}, "has_more": false})
+	case strings.HasPrefix(p, "/v1/payment_methods/"):
+		write(map[string]any{"id": strings.TrimPrefix(p, "/v1/payment_methods/"), "card": map[string]any{"fingerprint": f.pmPrints[strings.TrimPrefix(p, "/v1/payment_methods/")]}})
 	case strings.HasPrefix(p, "/v1/payment_intents/") && strings.HasSuffix(p, "/cancel"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/payment_intents/"), "/cancel")
 		pi := f.pis[id]
@@ -88,7 +101,15 @@ func (f *fakeStripe) pi(id string) map[string]any {
 	if md, ok := pi["metadata"]; ok {
 		out["metadata"] = md
 	}
-	out["latest_charge"] = map[string]any{"id": "ch_" + id, "object": "charge", "amount_refunded": 0}
+	charge := map[string]any{"id": "ch_" + id, "object": "charge", "amount_refunded": 0}
+	if fp, ok := pi["fingerprint"]; ok {
+		charge["payment_method_details"] = map[string]any{"type": "card", "card": map[string]any{"fingerprint": fp, "brand": "visa", "country": "US"}}
+	}
+	if n, ok := pi["refunded"]; ok {
+		charge["amount_refunded"] = n
+	}
+	out["latest_charge"] = charge
+	out["created"] = time.Now().Unix()
 	return out
 }
 

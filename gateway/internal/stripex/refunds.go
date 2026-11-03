@@ -1,6 +1,7 @@
 package stripex
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -50,12 +51,17 @@ type PaymentFacts struct {
 	CustomerID     string
 	ChargeID       string
 	ChargeDisputed bool
+	// Fingerprint: the card's fingerprint (cards and card wallets), for
+	// the block list (H).
+	Fingerprint string
+	Status      string
 }
 
 // PaymentFactsOf reads a PaymentIntent with its latest charge.
 func (c *Client) PaymentFactsOf(pi string) (*PaymentFacts, error) {
 	var raw struct {
 		ID             string            `json:"id"`
+		Status         string            `json:"status"`
 		AmountReceived int64             `json:"amount_received"`
 		Metadata       map[string]string `json:"metadata"`
 		Created        int64             `json:"created"`
@@ -67,9 +73,10 @@ func (c *Client) PaymentFactsOf(pi string) (*PaymentFacts, error) {
 			PaymentMethodDetails struct {
 				Type string `json:"type"`
 				Card struct {
-					Brand   string `json:"brand"`
-					Country string `json:"country"`
-					Wallet  *struct {
+					Brand       string `json:"brand"`
+					Country     string `json:"country"`
+					Fingerprint string `json:"fingerprint"`
+					Wallet      *struct {
 						Type string `json:"type"`
 					} `json:"wallet"`
 				} `json:"card"`
@@ -82,7 +89,8 @@ func (c *Client) PaymentFactsOf(pi string) (*PaymentFacts, error) {
 	f := &PaymentFacts{ID: raw.ID, Received: raw.AmountReceived, Refunded: raw.LatestCharge.AmountRefunded, Metadata: raw.Metadata,
 		MethodType: raw.LatestCharge.PaymentMethodDetails.Type, Created: time.Unix(raw.Created, 0).UTC(),
 		Country: raw.LatestCharge.PaymentMethodDetails.Card.Country, Brand: raw.LatestCharge.PaymentMethodDetails.Card.Brand,
-		CustomerID: raw.Customer, ChargeID: raw.LatestCharge.ID, ChargeDisputed: raw.LatestCharge.Disputed}
+		CustomerID: raw.Customer, ChargeID: raw.LatestCharge.ID, ChargeDisputed: raw.LatestCharge.Disputed,
+		Fingerprint: raw.LatestCharge.PaymentMethodDetails.Card.Fingerprint, Status: raw.Status}
 	if w := raw.LatestCharge.PaymentMethodDetails.Card.Wallet; w != nil {
 		f.Wallet = w.Type
 	}
@@ -177,4 +185,102 @@ func (c *Client) ChargePI(chargeID string) (string, error) {
 		return "", err
 	}
 	return ch.PaymentIntent, nil
+}
+
+// SearchedPI is one PaymentIntent from the Search API (M3).
+type SearchedPI struct {
+	ID             string            `json:"id"`
+	Status         string            `json:"status"`
+	Amount         int64             `json:"amount"`
+	AmountReceived int64             `json:"amount_received"`
+	Created        int64             `json:"created"`
+	Metadata       map[string]string `json:"metadata"`
+	Customer       string            `json:"customer"`
+}
+
+// SearchOurPIs pages the Search API for this env's svs-web PaymentIntents
+// created since t (M3). Search data runs about a minute behind and allows
+// 20 reads a second, so pages are spaced by pause.
+func (c *Client) SearchOurPIs(t time.Time, max int, pause time.Duration) ([]SearchedPI, error) {
+	query := fmt.Sprintf("metadata['product']:'svs-web' AND metadata['env']:'%s' AND created>%d", c.env, t.Unix())
+	var out []SearchedPI
+	page := ""
+	for len(out) < max {
+		q := url.Values{"query": {query}, "limit": {"100"}}
+		if page != "" {
+			q.Set("page", page)
+		}
+		var res struct {
+			Data     []SearchedPI `json:"data"`
+			HasMore  bool         `json:"has_more"`
+			NextPage string       `json:"next_page"`
+		}
+		if err := webCall(http.MethodGet, "/v1/payment_intents/search?"+q.Encode(), nil, "", &res); err != nil {
+			return out, err
+		}
+		out = append(out, res.Data...)
+		if !res.HasMore || res.NextPage == "" {
+			break
+		}
+		page = res.NextPage
+		time.Sleep(pause)
+	}
+	return out, nil
+}
+
+// EventRef is the part of an event M3 reads.
+type EventRef struct {
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Created int64  `json:"created"`
+	Data    struct {
+		Object struct {
+			ID       string            `json:"id"`
+			Metadata map[string]string `json:"metadata"`
+			Total    int64             `json:"total"`
+			Paid     int64             `json:"amount_paid"`
+		} `json:"object"`
+	} `json:"data"`
+}
+
+// ListEventsSince lists events of one type since t (Stripe keeps 30 days).
+func (c *Client) ListEventsSince(typ string, t time.Time, max int) ([]EventRef, error) {
+	var out []EventRef
+	after := ""
+	for len(out) < max {
+		q := url.Values{"type": {typ}, "limit": {"100"}, "created[gte]": {strconv.FormatInt(t.Unix(), 10)}}
+		if after != "" {
+			q.Set("starting_after", after)
+		}
+		var page struct {
+			Data    []EventRef `json:"data"`
+			HasMore bool       `json:"has_more"`
+		}
+		if err := webCall(http.MethodGet, "/v1/events?"+q.Encode(), nil, "", &page); err != nil {
+			return out, err
+		}
+		out = append(out, page.Data...)
+		if !page.HasMore || len(page.Data) == 0 {
+			break
+		}
+		after = page.Data[len(page.Data)-1].ID
+	}
+	return out, nil
+}
+
+// PaymentMethodFingerprint reads a saved card's fingerprint ("" for
+// methods that aren't cards).
+func (c *Client) PaymentMethodFingerprint(pm string) (string, error) {
+	var out struct {
+		Card *struct {
+			Fingerprint string `json:"fingerprint"`
+		} `json:"card"`
+	}
+	if err := webCall(http.MethodGet, "/v1/payment_methods/"+url.PathEscape(pm), nil, "", &out); err != nil {
+		return "", err
+	}
+	if out.Card == nil {
+		return "", nil
+	}
+	return out.Card.Fingerprint, nil
 }

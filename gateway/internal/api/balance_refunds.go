@@ -263,5 +263,8 @@ func (s *Service) casesSweep(ctx context.Context) map[string]int {
 	if n := s.caseReminderSweep(ctx); n > 0 {
 		stats["case_reminders"] = n
 	}
+	if n := s.finishPendingDeletions(ctx); n > 0 { // N8 step 3
+		stats["deletions_finished"] = n
+	}
 	return stats
 }

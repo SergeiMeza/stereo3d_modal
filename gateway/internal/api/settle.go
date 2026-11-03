@@ -292,7 +292,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 		paid := false
 		if backups && !fail.Stop && !fail.NeedsAction && piID != "" {
 			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
-			for _, m := range orderMethods(methods, cust.DefaultPaymentMethod, cust.BackupOrder) {
+			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 				if m.PaymentMethodID == cust.DefaultPaymentMethod {
 					continue
 				}

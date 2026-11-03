@@ -84,11 +84,30 @@ func TestInvoiceAfterPaymentInTestMode(t *testing.T) {
 		t.Fatalf("status %s", inv.Status)
 	}
 	re := rawStripe(t, key, "POST", "/v1/refunds", url.Values{"payment_intent": {piID}, "amount": {"972"}})
-	cn, err := c.CreditRefund(inv.ID, re["id"].(string), 972, "probe_cn_"+stamp)
+	// C8 step 4: the refund credits its run's line (per line, not amount-only).
+	ids, err := c.InvoiceLineIDs(inv.ID)
+	if err != nil || ids["probeb"].ID == "" || ids["probeb"].Amount != 972 {
+		t.Fatalf("line ids %v %v", ids, err)
+	}
+	cn, err := c.CreateCreditNote(stripex.CreditSpec{InvoiceID: inv.ID, Amount: 972, RefundID: re["id"].(string),
+		Lines: map[string]int64{ids["probeb"].ID: 972}}, "probe_cn_"+stamp)
 	if err != nil {
 		t.Fatalf("credit note: %v", stripex.ErrMessage(err))
 	}
 	t.Logf("credit note %s %s total=%d pdf=%v", cn.ID, cn.Number, cn.Total, cn.PDF != "")
+	if cn.Total != 972 {
+		t.Fatalf("per-line note total %d", cn.Total)
+	}
+	// V10: money returned outside Stripe on run a: out_of_band_amount.
+	oob, err := c.CreateCreditNote(stripex.CreditSpec{InvoiceID: inv.ID, Amount: 500, OutOfBand: true,
+		Lines: map[string]int64{ids["probea"].ID: 500}, Memo: "Refunded outside Stripe"}, "probe_cn_oob_"+stamp)
+	if err != nil || oob.Total != 500 {
+		t.Fatalf("out-of-band note: %v %+v", stripex.ErrMessage(err), oob)
+	}
+	facts, err := c.PaymentFactsOf(piID)
+	if err != nil || facts.Fingerprint == "" || facts.Status != "succeeded" {
+		t.Fatalf("facts %+v %v", facts, err)
+	}
 	rec, ref, err := c.PaymentAmounts(piID)
 	if err != nil || rec != 4972 || ref != 972 {
 		t.Fatalf("amounts %d %d %v", rec, ref, err)
@@ -99,7 +118,33 @@ func TestInvoiceAfterPaymentInTestMode(t *testing.T) {
 	}
 	list, _, err := c.ListInvoices(cusID, 10, "")
 	notes, err2 := c.ListCreditNotes(cusID)
-	if err != nil || err2 != nil || len(list) != 1 || len(notes) != 1 {
+	if err != nil || err2 != nil || len(list) != 1 || len(notes) != 2 {
 		t.Fatalf("lists %d %d %v %v", len(list), len(notes), err, err2)
+	}
+}
+
+// M3's reads in TEST mode: the Search API query, the events list and a
+// saved card's fingerprint (read-only).
+func TestM3ReadsInTestMode(t *testing.T) {
+	key := os.Getenv("STRIPE_TEST_KEY")
+	if !strings.HasPrefix(key, "sk_test_") {
+		t.Skip("needs a TEST secret key")
+	}
+	c := stripex.New(key, "", "pk", "test")
+	pis, err := c.SearchOurPIs(time.Now().Add(-48*time.Hour), 200, 200*time.Millisecond)
+	if err != nil {
+		t.Fatalf("search: %v", stripex.ErrMessage(err))
+	}
+	for _, p := range pis {
+		if p.Metadata["product"] != "svs-web" || p.Metadata["env"] != "test" {
+			t.Fatalf("search returned %s %v", p.ID, p.Metadata)
+		}
+	}
+	t.Logf("search: %d test PaymentIntents in 48 h", len(pis))
+	if _, err := c.ListEventsSince("invoice.overpaid", time.Now().Add(-48*time.Hour), 10); err != nil {
+		t.Fatalf("events: %v", stripex.ErrMessage(err))
+	}
+	if fp, err := c.PaymentMethodFingerprint("pm_card_visa"); err != nil || fp == "" {
+		t.Fatalf("fingerprint %q %v", fp, stripex.ErrMessage(err))
 	}
 }

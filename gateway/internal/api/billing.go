@@ -203,7 +203,7 @@ func cardMatches(c *store.Customer, card *stripex.CardInfo) bool {
 	if card == nil {
 		return c.DefaultPaymentMethod == "" && c.CardLast4 == ""
 	}
-	return c.DefaultPaymentMethod == card.PaymentMethodID && c.CardBrand == card.Brand &&
+	return c.DefaultPaymentMethod == card.PaymentMethodID && c.DefaultFingerprint == card.Fingerprint && c.CardBrand == card.Brand &&
 		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear &&
 		c.DefaultMethodType == card.Type && c.DefaultMethodWallet == card.Wallet && c.DefaultMethodEmail == card.Email
 }
@@ -245,7 +245,9 @@ func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) 
 			c.DefaultPaymentMethod, c.CardBrand, c.CardLast4 = "", "", ""
 			c.CardExpMonth, c.CardExpYear = 0, 0
 			c.DefaultMethodType, c.DefaultMethodWallet, c.DefaultMethodEmail = "", "", ""
+			c.DefaultFingerprint = ""
 		} else {
+			c.DefaultFingerprint = card.Fingerprint
 			c.DefaultPaymentMethod = card.PaymentMethodID
 			c.CardBrand, c.CardLast4 = card.Brand, card.Last4
 			c.CardExpMonth, c.CardExpYear = card.ExpMonth, card.ExpYear
@@ -578,6 +580,12 @@ func (s *Service) requireRunnable(ctx context.Context, user *AuthedUser) (*store
 	}
 	if cust.Blocked {
 		return nil, httpx.Err(http.StatusForbidden, "account_blocked", "this account can't start new runs; contact support")
+	}
+	if cust.DeletionPending {
+		return nil, errDeletionPending()
+	}
+	if s.methodBlocked(ctx, user.UID, cust) { // H: block list at the gate
+		return nil, errMethodBlocked()
 	}
 	if owed := s.owedCents(ctx, user.UID); owed > 0 {
 		e := httpx.Err(http.StatusPaymentRequired, "payment_method_needed",

@@ -27,6 +27,7 @@ type fakeInvoices struct {
 	refunded   int64
 	refunds    []map[string]any
 	notes      int
+	noteForms  []map[string]string
 	creates    int
 	failAttach bool
 }
@@ -63,7 +64,8 @@ func (f *fakeInvoices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/invoiceitems":
 		id := r.Form.Get("invoice")
 		amt, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
-		f.lines[id] = append(f.lines[id], map[string]any{"amount": amt, "metadata": map[string]any{"conversion_id": r.Form.Get("metadata[conversion_id]")}})
+		f.lines[id] = append(f.lines[id], map[string]any{"id": fmt.Sprintf("il_%s_%d", id, len(f.lines[id])), "amount": amt,
+			"metadata": map[string]any{"conversion_id": r.Form.Get("metadata[conversion_id]")}})
 		write(map[string]any{"id": "ii"})
 	case strings.HasSuffix(p, "/lines"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/invoices/"), "/lines")
@@ -88,7 +90,22 @@ func (f *fakeInvoices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(map[string]any{"data": f.refunds})
 	case p == "/v1/credit_notes":
 		f.notes++
+		form := map[string]string{}
+		for k := range r.Form {
+			form[k] = r.Form.Get(k)
+		}
+		f.noteForms = append(f.noteForms, form)
 		amt, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
+		if amt == 0 {
+			for i := 0; ; i++ {
+				v := r.Form.Get(fmt.Sprintf("lines[%d][amount]", i))
+				if v == "" {
+					break
+				}
+				n, _ := strconv.ParseInt(v, 10, 64)
+				amt += n
+			}
+		}
 		write(map[string]any{"id": fmt.Sprintf("cn_%d", f.notes), "total": amt, "pdf": "https://cn"})
 	default:
 		w.WriteHeader(404)
@@ -168,5 +185,47 @@ func TestInvoiceJobSkipsRefundedAndStopsOnMismatch(t *testing.T) {
 	}
 	if f.invoices["in_1"]["status"] != "draft" {
 		t.Fatal("a mismatched invoice must stay a draft")
+	}
+}
+
+// C8 step 4: a refund the ledger knows the runs of credits those runs'
+// invoice lines; money returned outside Stripe gets out_of_band_amount.
+func TestCreditNotesPerLine(t *testing.T) {
+	s, f := invoiceService(t)
+	ctx := context.Background()
+	ch := recordTestCharge(t, s, 4000, 972)
+	row, err := s.Store.ReserveRefund(ctx, store.ReserveSpec{ChargeID: ch.ID, UID: "u1", PI: "pi_inv", CaseID: "CASE-T1",
+		Items: map[string]int64{"c1": 972}, StripeRemainder: -1, Source: "gateway"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Store.UpdateRefundRow(ctx, row.ID, func(r *store.RefundRow) error { r.ReID, r.Status = "re_2", store.RefundSucceeded; return nil })
+	if _, err := s.Store.ReserveRefund(ctx, store.ReserveSpec{ChargeID: ch.ID, UID: "u1", PI: "pi_inv", CaseID: "CASE-T2",
+		Items: map[string]int64{"c0": 500}, StripeRemainder: -1, Source: "gateway", Status: store.RefundOutOfBand}); err != nil {
+		t.Fatal(err)
+	}
+	f.refunded = 972
+	f.refunds = []map[string]any{{"id": "re_2", "amount": 972, "status": "succeeded"}}
+	if !s.runInvoiceJob(ctx, ch.ID) {
+		t.Fatal("invoice not done")
+	}
+	if len(f.noteForms) != 2 {
+		t.Fatalf("notes %v", f.noteForms)
+	}
+	re, oob := f.noteForms[0], f.noteForms[1]
+	if re["lines[0][invoice_line_item]"] != "il_in_1_1" || re["lines[0][amount]"] != "972" || re["refunds[0][refund]"] != "re_2" || re["amount"] != "" {
+		t.Fatalf("refund note: %v", re)
+	}
+	if oob["lines[0][invoice_line_item]"] != "il_in_1_0" || oob["out_of_band_amount"] != "500" {
+		t.Fatalf("out-of-band note: %v", oob)
+	}
+	done, _ := s.Store.GetCharge(ctx, ch.ID)
+	if len(done.CreditNotes) != 2 {
+		t.Fatalf("recorded %+v", done.CreditNotes)
+	}
+	// Run again: nothing new.
+	s.creditRefunds(ctx, done, done.InvoiceID)
+	if len(f.noteForms) != 2 {
+		t.Fatal("credited twice")
 	}
 }

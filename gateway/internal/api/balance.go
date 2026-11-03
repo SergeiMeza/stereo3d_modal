@@ -157,6 +157,14 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "under_review", "we're checking a payment on your account; contact support to continue"))
 		return
 	}
+	if cust != nil && cust.DeletionPending {
+		httpx.WriteErr(ctx, w, errDeletionPending())
+		return
+	}
+	if s.methodBlocked(ctx, user.UID, cust) { // H: block list at the gate
+		httpx.WriteErr(ctx, w, errMethodBlocked())
+		return
+	}
 	b, err := s.Store.GetBalance(ctx, user.UID)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -400,7 +408,7 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 		paid := false
 		if !f.Stop && !f.NeedsAction && piID != "" {
 			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
-			for _, m := range orderMethods(methods, cust.DefaultPaymentMethod, cust.BackupOrder) {
+			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 				if m.PaymentMethodID == cust.DefaultPaymentMethod {
 					continue
 				}

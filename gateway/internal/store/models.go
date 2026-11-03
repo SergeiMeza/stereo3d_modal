@@ -503,6 +503,15 @@ type Customer struct {
 	// work is refused.
 	AccountDeleted bool       `firestore:"account_deleted,omitempty"`
 	DeletedAt      *time.Time `firestore:"deleted_at,omitempty"`
+	// DeletionPending: the customer confirmed "Delete and refund"; the
+	// account is deleted once its closure case (DeletionCaseID) is decided
+	// (N8 step 3). New runs and top-ups are refused meanwhile.
+	DeletionPending     bool       `firestore:"deletion_pending,omitempty"`
+	DeletionCaseID      string     `firestore:"deletion_case_id,omitempty"`
+	DeletionRequestedAt *time.Time `firestore:"deletion_requested_at,omitempty"`
+	// DefaultFingerprint: the cached default card's fingerprint (block
+	// list gate, H).
+	DefaultFingerprint string `firestore:"default_fingerprint,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches

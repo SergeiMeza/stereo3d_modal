@@ -168,6 +168,7 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 		s.fileKeepingSweep(ctx) // hourly (S3D-24)
 		s.reconciling.Store(false)
 	}
+	s.maybeNightly(ctx) // M3, once a day
 
 	if len(stats) > 0 {
 		log.Info("reconcile sweep", "stats", stats)

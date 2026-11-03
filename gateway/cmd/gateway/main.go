@@ -6,27 +6,20 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/api"
-	"spatial-ai-labs/stereo3d-gateway/internal/auth"
+	"spatial-ai-labs/stereo3d-gateway/internal/app"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/emailcode"
-	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/mediahost"
-	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
-	"spatial-ai-labs/stereo3d-gateway/internal/notify"
-	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
-	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
-	"spatial-ai-labs/stereo3d-gateway/internal/store"
-	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
-
-	"cloud.google.com/go/firestore"
 )
 
 // appRequestBudget bounds every app-facing request, Modal calls included,
@@ -52,55 +45,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	verifier, err := auth.New(ctx, cfg.FirebaseProjectID)
+	built, err := app.Build(ctx, cfg)
 	if err != nil {
-		slog.Error("firebase auth init", "err", err)
+		slog.Error("init", "err", err)
 		os.Exit(1)
 	}
-	st, err := store.New(ctx, cfg.GCPProjectID, cfg.Env)
-	if err != nil {
-		slog.Error("firestore init", "err", err)
-		os.Exit(1)
-	}
-	defer st.Close()
-	// pricing shares a Firestore client but reads only config/pricing_{env}.
-	fsClient, err := firestore.NewClient(ctx, cfg.GCPProjectID)
-	if err != nil {
-		slog.Error("firestore init (pricing)", "err", err)
-		os.Exit(1)
-	}
-	defer fsClient.Close()
-	gcs, err := gcsx.New(ctx, cfg.BucketName, cfg.BucketPrefix)
-	if err != nil {
-		slog.Error("gcs init", "err", err)
-		os.Exit(1)
-	}
-	defer gcs.Close()
-
-	svc := &api.Service{
-		Cfg:     cfg,
-		Auth:    verifier,
-		Store:   st,
-		Pricing: pricing.New(fsClient, cfg.Env),
-		Stripe:  stripex.New(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePublishableKey, cfg.Env),
-		Modal:   modalapi.New(cfg.ModalBaseURL, cfg.ModalTokenID, cfg.ModalTokenSecret),
-		GCS:     gcs,
-		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
-	}
-	svc.Mail = mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom)
-	svc.RevenueCat = revenuecat.New(cfg.RevenueCatKey) // S3D-67 Pro check
-	slog.Info("revenuecat", "configured", svc.RevenueCat.Configured())
-	if cfg.LifelikeBaseURL != "" {
-		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
-	}
-	slog.Info("lifelike", "enabled", svc.Lifelike != nil, "base_url", cfg.LifelikeBaseURL)
-	// Modal workspaces (S3D-40): the clients above are the default one.
-	svc.DefaultWorkspaceID = cfg.DefaultWorkspaceID
-	svc.ExtraWorkspaces = map[string]*api.Workspace{}
-	for _, w := range cfg.ExtraWorkspaces {
-		svc.ExtraWorkspaces[w.ID] = api.NewWorkspace(w)
-	}
-	slog.Info("modal workspaces", "default", cfg.DefaultWorkspaceID, "extra", len(cfg.ExtraWorkspaces))
+	defer built.Close()
+	svc, verifier, fsClient := built.Svc, built.Verifier, built.FS
+	// Cloud Run sends SIGTERM before stopping an instance: flush the
+	// queued download log (M8) and exit.
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
+		<-sig
+		built.Close()
+		os.Exit(0)
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
@@ -197,6 +157,9 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/disputes/summary", admin(svc.HandleAdminDisputes))
 	mux.HandleFunc("GET /v1/admin/policy", admin(svc.HandleAdminPolicy))
 	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
+	mux.HandleFunc("POST /v1/admin/reconcile", admin(svc.HandleAdminReconcile)) // M3 on demand
+	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
+	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
 		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
@@ -250,6 +213,7 @@ func main() {
 	mux.HandleFunc("GET /v1/conversions", authed(svc.HandleListConversions))
 	mux.HandleFunc("GET /v1/conversions/{id}", authed(withID(svc.HandleGetConversion)))
 	mux.HandleFunc("GET /v1/conversions/{id}/downloads", authed(withID(svc.HandleDownloads)))
+	mux.HandleFunc("POST /v1/conversions/{id}/plays", authed(withID(svc.HandleLogPlay))) // M8
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/pay-now", authed(withID(svc.HandleRunPayNow)))

@@ -11,8 +11,8 @@ import (
 
 // Evidence snapshot (M7): built when a case opens and on Refresh
 // evidence; frozen, each refresh adds the next. Run timeline, GPU work,
-// files delivered, payments, previous cases, links. Downloads and plays
-// arrive with the M8 issuance log.
+// files delivered, downloads and plays (M8), payments, previous cases,
+// links.
 
 func (s *Service) buildEvidence(ctx context.Context, cs *store.Case) {
 	if s.Store == nil {
@@ -126,7 +126,7 @@ func (s *Service) evidenceFor(ctx context.Context, cs *store.Case) map[string]an
 	return map[string]any{
 		"built_at":  time.Now().UTC(),
 		"runs":      runs,
-		"downloads": "not recorded yet: the download and play log (M8) is still to come",
+		"downloads": s.downloadEvidence(ctx, cs.Related.ConversionIDs),
 		"payments":  payments,
 		"refunds":   refunds,
 		"cases":     previous,

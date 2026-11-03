@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -105,6 +106,10 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if cust != nil && cust.DeletionPending { // N8: already waiting for the closure case
+		writePendingDeletion(w, cust.DeletionCaseID, 0)
+		return
+	}
 	active, err := s.Store.CountActiveForUser(ctx, user.UID)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -164,6 +169,8 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 
 	// N8 step 3: money left in the balance is refunded by a closure case;
 	// the web confirms "Delete and refund" ({balance_confirmed: true}).
+	// With cash to pay out, the deletion waits for that case's decision:
+	// 202 {deleted: false, deletion_pending: true, case_id, refund_cents}.
 	if b, berr := s.Store.GetBalance(ctx, user.UID); berr == nil && b.Exists() && b.Available() > 0 {
 		var body struct {
 			BalanceConfirmed bool `json:"balance_confirmed"`
@@ -177,30 +184,32 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 			return
 		}
 		// N8b: the closure case (manual) refunds the unspent cash top-ups;
-		// the Stripe customer and its methods stay, so it can pay out
-		// after the sign-in is gone.
+		// non-cash credit is never paid out, so without cash the deletion
+		// goes ahead now.
 		if b.CashCents() > 0 {
-			if cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deleted"); cerr != nil {
-				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` deleted with %s in its balance; case not opened: %v",
+			cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deletion")
+			if cerr != nil {
+				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
 					user.UID, money(b.Available()), cerr))
-			} else {
-				httpx.Log(ctx).Info("closure case opened", "uid", user.UID, "case_id", cs.ID)
+				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again"))
+				return
 			}
-		}
-	}
-
-	now := time.Now().UTC()
-	if cust != nil {
-		if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
-			c.AccountDeleted = true
-			c.DeletedAt = &now
-			return nil
-		}); err != nil {
-			httpx.WriteErr(ctx, w, err)
+			now := time.Now().UTC()
+			if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
+				c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &now
+				return nil
+			}); err != nil {
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+			s.pauseAutoReload(ctx, user.UID, "deletion")
+			httpx.Log(ctx).Info("deletion waits for the closure case", "uid", user.UID, "case_id", cs.ID)
+			writePendingDeletion(w, cs.ID, cs.RequestedCents)
 			return
 		}
 	}
-	if err := s.Auth.DeleteUser(ctx, user.UID); err != nil {
+
+	if err := s.finishAccountDeletion(ctx, user.UID); err != nil {
 		httpx.Log(ctx).Error("account delete: sign-in removal failed", "uid", user.UID, "err", err)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed",
 			"could not delete your account; try again"))
@@ -256,4 +265,64 @@ func (s *Service) balanceDueErr(ctx context.Context, unpaid []*store.Conversion,
 	e := httpx.Err(http.StatusPaymentRequired, deleteBlockOwed, msg)
 	e.Details = details
 	return e
+}
+
+func writePendingDeletion(w http.ResponseWriter, caseID string, cents int64) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "deleted": false, "deletion_pending": true,
+		"case_id": caseID, "refund_cents": cents,
+		"message": "We'll delete your account once your refund is decided, within 2 business days."})
+}
+
+func errDeletionPending() error {
+	return httpx.Err(http.StatusForbidden, "deletion_pending", "your account is being deleted once your refund is decided")
+}
+
+// finishAccountDeletion soft-deletes the customer record and removes the
+// sign-in. Saved methods are never detached (B12 step 5).
+func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
+	now := time.Now().UTC()
+	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
+		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			c.AccountDeleted = true
+			c.DeletedAt = &now
+			c.DeletionPending = false
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if s.Auth == nil {
+		return nil
+	}
+	return s.Auth.DeleteUser(ctx, uid) // a missing user is fine
+}
+
+// finishPendingDeletions deletes accounts whose closure case has been
+// decided (N8 step 3), from the cases sweep and after an admin decision.
+func (s *Service) finishPendingDeletions(ctx context.Context) int {
+	pending, err := s.Store.ListPendingDeletions(ctx, 100)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for uid, c := range pending {
+		if s.closureDecided(ctx, c.DeletionCaseID) && s.finishAccountDeletion(ctx, uid) == nil {
+			slog.InfoContext(ctx, "account deleted after its closure case", "uid", uid, "case_id", c.DeletionCaseID)
+			n++
+		}
+	}
+	return n
+}
+
+func (s *Service) closureDecided(ctx context.Context, caseID string) bool {
+	if caseID == "" {
+		return true
+	}
+	cs, err := s.Store.GetCase(ctx, caseID)
+	if err != nil {
+		return false
+	}
+	return !cs.Open || cs.Decision != nil
 }

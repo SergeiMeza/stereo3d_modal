@@ -425,6 +425,9 @@ func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, 
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "action_failed", "That didn't work: "+err.Error()+". Nothing was charged or refunded."))
 		return
 	}
+	if c.Reason == ReasonClosure {
+		s.finishPendingDeletions(ctx) // N8: the deletion waited for this decision
+	}
 	fresh, _ := s.Store.GetCase(ctx, id)
 	httpx.WriteOK(w, s.casePage(ctx, fresh))
 }
@@ -594,6 +597,7 @@ func (s *Service) markOutOfBand(ctx context.Context, c *store.Case, req caseActi
 		return nil
 	})
 	s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: who, Kind: "refund_executed", Text: money(row.TotalCents) + " outside Stripe"})
+	s.creditNoteFor(ctx, row) // out_of_band_amount when invoiced (V10)
 	s.mailRefunded(ctx, c, row.TotalCents, "out_of_band")
 	return nil
 }

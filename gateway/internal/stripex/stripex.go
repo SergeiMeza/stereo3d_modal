@@ -317,6 +317,7 @@ type CardInfo struct {
 	ExpYear         int64
 	Email           string
 	Created         int64
+	Fingerprint     string // cards only: the block list (H)
 }
 
 // IsCard reports a card-shaped default (the iOS app's card field).
@@ -390,6 +391,7 @@ func MethodInfo(pm *stripe.PaymentMethod) *CardInfo {
 		info.Last4 = pm.Card.Last4
 		info.ExpMonth = pm.Card.ExpMonth
 		info.ExpYear = pm.Card.ExpYear
+		info.Fingerprint = pm.Card.Fingerprint
 		if pm.Card.Wallet != nil {
 			info.Wallet = string(pm.Card.Wallet.Type)
 		}

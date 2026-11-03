@@ -69,6 +69,8 @@ type Service struct {
 	// RevenueCat answers whether a uid holds SVS Pro (S3D-67); nil or
 	// unconfigured = nobody gets the Pro discount.
 	RevenueCat *revenuecat.Client
+	// Downloads queues the M8 download and play log (nil = not logged).
+	Downloads *store.DownloadLog
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool

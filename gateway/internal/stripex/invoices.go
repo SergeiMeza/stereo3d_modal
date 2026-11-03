@@ -1,8 +1,10 @@
 package stripex
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -216,22 +218,87 @@ type CreditNote struct {
 	Status  string `json:"status"`
 }
 
-// CreditRefund makes an amount-only credit note for a refund on a paid
-// invoice (no mail: the refund mail is ours).
-func (c *Client) CreditRefund(invoiceID, refundID string, amount int64, key string) (*CreditNote, error) {
-	form := url.Values{
-		"invoice":                     {invoiceID},
-		"amount":                      {strconv.FormatInt(amount, 10)},
-		"refunds[0][refund]":          {refundID},
-		"refunds[0][amount_refunded]": {strconv.FormatInt(amount, 10)},
-		"email_type":                  {"none"},
-		"metadata[env]":               {c.env},
+// InvoiceLineIDs maps an invoice's lines by their conversion_id metadata
+// (a run, or "topup_{id}") to the line id and amount (C8 step 4).
+func (c *Client) InvoiceLineIDs(invoiceID string) (map[string]InvoiceLineRef, error) {
+	var page struct {
+		Data []struct {
+			ID       string            `json:"id"`
+			Amount   int64             `json:"amount"`
+			Metadata map[string]string `json:"metadata"`
+		} `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoices/"+url.PathEscape(invoiceID)+"/lines?limit=100", nil, "", &page); err != nil {
+		return nil, err
+	}
+	out := map[string]InvoiceLineRef{}
+	for _, l := range page.Data {
+		if id := l.Metadata["conversion_id"]; id != "" {
+			out[id] = InvoiceLineRef{ID: l.ID, Amount: l.Amount}
+		}
+	}
+	return out, nil
+}
+
+// InvoiceLineRef is one invoice line a credit note can name.
+type InvoiceLineRef struct {
+	ID     string
+	Amount int64
+}
+
+// CreditSpec is one credit note (C8 step 4): Lines (invoice line id →
+// cents) when the runs are known, else an amount-only note [V11].
+// RefundID links a Stripe refund; OutOfBand credits money returned
+// outside Stripe (out_of_band_amount, V10).
+type CreditSpec struct {
+	InvoiceID string
+	Amount    int64
+	Lines     map[string]int64
+	RefundID  string
+	OutOfBand bool
+	Memo      string
+}
+
+// CreateCreditNote creates it under key, with no mail (the refund mail
+// is ours). Never uses refund_amount.
+func (c *Client) CreateCreditNote(spec CreditSpec, key string) (*CreditNote, error) {
+	form := url.Values{"invoice": {spec.InvoiceID}, "email_type": {"none"}, "metadata[env]": {c.env}}
+	if len(spec.Lines) > 0 {
+		ids := make([]string, 0, len(spec.Lines))
+		for id := range spec.Lines {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		for i, id := range ids {
+			p := fmt.Sprintf("lines[%d]", i)
+			form.Set(p+"[type]", "invoice_line_item")
+			form.Set(p+"[invoice_line_item]", id)
+			form.Set(p+"[amount]", strconv.FormatInt(spec.Lines[id], 10))
+		}
+	} else {
+		form.Set("amount", strconv.FormatInt(spec.Amount, 10))
+	}
+	switch {
+	case spec.OutOfBand:
+		form.Set("out_of_band_amount", strconv.FormatInt(spec.Amount, 10))
+	case spec.RefundID != "":
+		form.Set("refunds[0][refund]", spec.RefundID)
+		form.Set("refunds[0][amount_refunded]", strconv.FormatInt(spec.Amount, 10))
+	}
+	if spec.Memo != "" {
+		form.Set("memo", spec.Memo)
 	}
 	var cn CreditNote
 	if err := webCall(http.MethodPost, "/v1/credit_notes", form, key, &cn); err != nil {
 		return nil, err
 	}
 	return &cn, nil
+}
+
+// CreditRefund makes an amount-only credit note for a refund on a paid
+// invoice (no mail: the refund mail is ours).
+func (c *Client) CreditRefund(invoiceID, refundID string, amount int64, key string) (*CreditNote, error) {
+	return c.CreateCreditNote(CreditSpec{InvoiceID: invoiceID, Amount: amount, RefundID: refundID}, key)
 }
 
 // ListInvoices pages a customer's invoices, newest first.

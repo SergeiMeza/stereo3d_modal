@@ -118,6 +118,7 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 			}
 		}
 		s.setSheetOnly(ctx, o.UID, "dispute "+d.ID)
+		s.blockPaymentCard(ctx, o.Facts, "dispute", d.ID, o.UID) // B11: the fingerprint joins the block list
 		s.pauseAutoReload(ctx, o.UID, "dispute")
 		for _, id := range runs { // B11: the disputed charge's files are locked
 			s.setRunDispute(ctx, id, d.ID)
@@ -271,6 +272,7 @@ func (s *Service) handleEFW(ctx context.Context, raw json.RawMessage) error {
 		return nil
 	})
 	s.pauseAutoReload(ctx, o.UID, "efw")
+	s.blockPaymentCard(ctx, o.Facts, "efw", w.ID, o.UID) // H: the fingerprint joins the block list
 	var delivered []string
 	for _, id := range s.runsOf(ctx, o) {
 		c, err := s.Store.GetConversion(ctx, id)

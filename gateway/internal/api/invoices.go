@@ -350,10 +350,13 @@ func invStatus(inv *stripex.Invoice) string {
 	return inv.Status
 }
 
-// creditRefunds gives every succeeded refund on the charge without a
-// credit-note record its credit note (amount-only until the refund layer
-// records which runs a refund covers), and records it. The same step the
-// refund function runs when the invoice already exists (C8 step 4).
+// creditRefunds gives every succeeded refund on the charge, and every
+// out-of-band ledger row, without a credit-note record its credit note,
+// and records it (C8 step 4; the same step the invoice job runs, C6 step
+// 5). A refund the ledger knows the runs of credits those runs' invoice
+// lines; a Dashboard refund with no runs, or an invoice with automatic
+// tax (line amounts there are tax-exclusive), gets an amount-only note
+// [V11]. A per-line note Stripe refuses falls back to amount-only.
 func (s *Service) creditRefunds(ctx context.Context, ch *store.Charge, invoiceID string) error {
 	refunds, err := s.Stripe.ListRefunds(ch.PaymentIntentID)
 	if err != nil {
@@ -363,18 +366,51 @@ func (s *Service) creditRefunds(ctx context.Context, ch *store.Charge, invoiceID
 	for _, cn := range ch.CreditNotes {
 		done[cn.RefundID] = true
 	}
-	for _, re := range refunds {
-		if re.Status != "succeeded" || done[re.ID] {
-			continue
+	var lines map[string]stripex.InvoiceLineRef
+	perLine := true
+	linesOf := func(items map[string]int64, total int64) map[string]int64 {
+		if !perLine || len(items) == 0 {
+			return nil
 		}
-		cn, err := s.Stripe.CreditRefund(invoiceID, re.ID, re.Amount, fmt.Sprintf("cn_%s_%s", s.Cfg.Env, re.ID))
-		if err != nil {
-			return err
+		if lines == nil {
+			inv, ierr := s.Stripe.GetInvoice(invoiceID)
+			if ierr != nil || inv.AutomaticTax.Enabled {
+				perLine = false
+				return nil
+			}
+			if lines, ierr = s.Stripe.InvoiceLineIDs(invoiceID); ierr != nil {
+				perLine = false
+				return nil
+			}
 		}
-		ref := store.CreditNoteRef{RefundID: re.ID, CreditNoteID: cn.ID, Number: cn.Number, AmountCents: cn.Total, PDF: cn.PDF}
+		out := map[string]int64{}
+		var sum int64
+		for id, cents := range items {
+			l, ok := lines[id]
+			if !ok || cents <= 0 || cents > l.Amount {
+				return nil // a run not on this invoice: amount-only
+			}
+			out[l.ID] += cents
+			sum += cents
+		}
+		if sum != total {
+			return nil
+		}
+		return out
+	}
+	credit := func(spec stripex.CreditSpec, key string) (*stripex.CreditNote, error) {
+		cn, err := s.Stripe.CreateCreditNote(spec, key)
+		if err != nil && len(spec.Lines) > 0 && !stripex.ClassifyChargeError(err).Transient {
+			slog.WarnContext(ctx, "per-line credit note refused; amount-only", "invoice", spec.InvoiceID, "err", err)
+			spec.Lines = nil
+			cn, err = s.Stripe.CreateCreditNote(spec, key+"_amount")
+		}
+		return cn, err
+	}
+	record := func(ref store.CreditNoteRef, rowID string) error {
 		if _, err := s.Store.UpdateCharge(ctx, ch.ID, func(c *store.Charge) error {
 			for _, x := range c.CreditNotes {
-				if x.RefundID == re.ID {
+				if x.RefundID == ref.RefundID {
 					return nil
 				}
 			}
@@ -382,6 +418,44 @@ func (s *Service) creditRefunds(ctx context.Context, ch *store.Charge, invoiceID
 			return nil
 		}); err != nil {
 			return err
+		}
+		if rowID != "" {
+			s.Store.UpdateRefundRow(ctx, rowID, func(r *store.RefundRow) error { r.CreditNoteID = ref.CreditNoteID; return nil })
+		}
+		return nil
+	}
+	for _, re := range refunds {
+		if re.Status != "succeeded" || done[re.ID] {
+			continue
+		}
+		spec := stripex.CreditSpec{InvoiceID: invoiceID, Amount: re.Amount, RefundID: re.ID}
+		rowID := ""
+		if row, rerr := s.Store.RefundRowByReID(ctx, re.ID); rerr == nil && row != nil {
+			spec.Lines, rowID = linesOf(row.Items, re.Amount), row.ID
+		}
+		cn, err := credit(spec, fmt.Sprintf("cn_%s_%s", s.Cfg.Env, re.ID))
+		if err != nil {
+			return err
+		}
+		if err := record(store.CreditNoteRef{RefundID: re.ID, CreditNoteID: cn.ID, Number: cn.Number, AmountCents: cn.Total, PDF: cn.PDF}, rowID); err != nil {
+			return err
+		}
+	}
+	// Money returned outside Stripe (V10): out_of_band_amount.
+	if rows, rerr := s.Store.ListRefundRows(ctx, ch.PaymentIntentID); rerr == nil {
+		for _, row := range rows {
+			if row.Status != store.RefundOutOfBand || row.CreditNoteID != "" || done[row.ID] || row.TotalCents <= 0 {
+				continue
+			}
+			spec := stripex.CreditSpec{InvoiceID: invoiceID, Amount: row.TotalCents, OutOfBand: true,
+				Lines: linesOf(row.Items, row.TotalCents), Memo: "Refunded outside Stripe"}
+			cn, err := credit(spec, fmt.Sprintf("cn_%s_oob_%s", s.Cfg.Env, row.ID))
+			if err != nil {
+				return err
+			}
+			if err := record(store.CreditNoteRef{RefundID: row.ID, CreditNoteID: cn.ID, Number: cn.Number, AmountCents: cn.Total, PDF: cn.PDF}, row.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

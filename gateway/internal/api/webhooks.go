@@ -58,6 +58,15 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	switch head.Object {
 	case "payment_intent":
 		s.handlePaymentIntentEvent(ctx, w, event)
+		if event.Type == "payment_intent.succeeded" || event.Type == "payment_intent.amount_capturable_updated" {
+			var pi struct {
+				ID       string            `json:"id"`
+				Metadata map[string]string `json:"metadata"`
+			}
+			if json.Unmarshal(event.Data.Raw, &pi) == nil && pi.Metadata["env"] == s.Cfg.Env && pi.Metadata["product"] == "svs-web" {
+				s.checkBlockedPayment(ctx, pi.ID) // H: refund + flag
+			}
+		}
 	case "checkout.session":
 		if err := s.handleCheckoutEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
 			httpx.Log(ctx).Error("checkout event failed", "event", string(event.Type), "err", err)

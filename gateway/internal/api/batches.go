@@ -345,7 +345,7 @@ func (s *Service) backupsThenFail(ctx context.Context, b *store.Batch, cust *sto
 			return b, lerr // can't know the backups: the lease lapses and the sweep re-drives
 		}
 		allDeclined = len(methods) > 0
-		for _, m := range orderMethods(methods, cust.DefaultPaymentMethod, cust.BackupOrder) {
+		for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 			if m.PaymentMethodID == cust.DefaultPaymentMethod {
 				continue
 			}

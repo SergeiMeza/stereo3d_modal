@@ -876,6 +876,7 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		files = append(files, f)
 	}
 	sortOutputFiles(files)
+	s.logIssued(r, conv, files) // M8
 	httpx.WriteOK(w, map[string]any{
 		"downloads":  urls,
 		"files":      files,
