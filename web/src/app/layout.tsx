@@ -93,6 +93,12 @@ export default function RootLayout({
               >
                 Projects
               </Link>
+              <Link
+                href="/pricing"
+                className="hidden text-fg-muted transition-colors hover:text-fg sm:block"
+              >
+                Pricing
+              </Link>
               <FeedbackLink />
               <UserMenu />
             </nav>

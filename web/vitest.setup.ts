@@ -14,6 +14,7 @@ import { afterEach } from "vitest";
 
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import { resetLimitsCache } from "@/lib/api/useLimits";
+import { resetPricingCache } from "@/lib/api/usePricing";
 import {
   compactPlayerAtom,
   compactTimelineAtom,
@@ -33,6 +34,7 @@ afterEach(() => {
   // would leak an in-flight tracker into the next test.
   resetStepCheckoutState();
   resetLimitsCache();
+  resetPricingCache();
 });
 
 class ResizeObserverStub {

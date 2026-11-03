@@ -10,7 +10,7 @@
 
 import type { ChargeTiming, Conversion, GatewayLimits } from "@/lib/api/types";
 
-import { formatCents } from "@/components/steps/money";
+import { formatCentsShort } from "@/components/steps/money";
 
 /** The gateway's default; GET /v1/limits rates.precharge_threshold_cents
  * is authoritative. */
@@ -25,7 +25,7 @@ export const CHARGED_AFTER = "Charged after it's done.";
 
 /** The general rule, for onboarding and Account. */
 export function chargeRule(thresholdCents = DEFAULT_PRECHARGE_CENTS): string {
-  const t = formatCents(thresholdCents);
+  const t = formatCentsShort(thresholdCents);
   return `Runs over ${t}: ${CHARGED_AT_START.toLowerCase()} Runs of ${t} or less: ${CHARGED_AFTER.toLowerCase()} Failed runs cost nothing.`;
 }
 

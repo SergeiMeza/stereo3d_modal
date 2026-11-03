@@ -12,3 +12,8 @@ export function formatCents(cents: number): string {
   const rem = abs % 100;
   return `${sign}$${dollars}.${String(rem).padStart(2, "0")}`;
 }
+
+/** Round amounts in rules and headlines: 2500 → "$25", 1250 → "$12.50". */
+export function formatCentsShort(cents: number): string {
+  return cents % 100 === 0 ? formatCents(cents).replace(/\.00$/, "") : formatCents(cents);
+}
