@@ -93,6 +93,18 @@ func (c *Client) SignedGetURL(key string, expires time.Duration) (string, error)
 	})
 }
 
+// SignedGetURLAs is SignedGetURL with a Content-Disposition the storage
+// answer carries, so the browser saves the file under that name. The
+// disposition is part of the signed query.
+func (c *Client) SignedGetURLAs(key string, expires time.Duration, disposition string) (string, error) {
+	return c.sign(key, &storage.SignedURLOptions{
+		Scheme:          storage.SigningSchemeV4,
+		Method:          "GET",
+		Expires:         time.Now().Add(expires),
+		QueryParameters: url.Values{"response-content-disposition": {disposition}},
+	})
+}
+
 const sessionStartTimeout = 15 * time.Second
 
 // StartResumableUpload opens an XML-API resumable upload session for key

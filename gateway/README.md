@@ -242,7 +242,15 @@ spent_cents}` (spent counts charged, pre-charged, batched and owed runs; not
 refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a
 project (409 while a run is active): it and its runs answer 404 and leave
 the lists; the record and files stay for the manual purge. Download `files`
-entries carry `size_bytes`; links are signed afresh on every GET.
+entries carry `size_bytes`; links are signed afresh on every GET. Project
+runs download as `<original stem>_<resolution>_<layout>[_partN].<ext>`
+(S3D-31: layout `spatial` .mov, `SBS`/`HSBS`/`TB`/`HTB` .mp4; resolution
+as customers see it — 1080p, 1440p, 3K, 4K…, a full-resolution run its real
+`1606p`; the stem cut to 200 bytes at a character boundary), carried on the
+signed URL as Content-Disposition (ASCII `filename` + UTF-8 `filename*`)
+and as `files[].filename`; a name a project already produced becomes
+`name (2).ext`, oldest run first. The mobile one-shot's links are
+unchanged.
 
 Source files: `POST /v1/uploads` may send `bytes` and `method` to be refused
 up front over that method's cap (`lifelike_max_source_bytes`, 25 GiB;

@@ -414,28 +414,11 @@ func TestConversionResponseLifelikeFields(t *testing.T) {
 
 // ------------------------------------------------------------- downloads
 
-func TestDownloadNames(t *testing.T) {
-	cases := []struct {
-		name, ext, want string
-		part            int
-	}{
-		{"mvhevc_part02", ".mov", "Trip 3D Part 2.mov", 2},
-		{"sbs_part01", ".mp4", "Trip 3D SBS Part 1.mp4", 1},
-		{"half_sbs_part10", ".mp4", "Trip 3D Half SBS Part 10.mp4", 10},
-		{"mvhevc", ".mov", "Trip 3D.mov", 0},
-		{"depth_vis", ".mp4", "Trip depth_vis.mp4", 0},
-		{"weird_partX", ".mp4", "Trip weird_partX.mp4", 0},
-	}
-	for _, tc := range cases {
-		if got := downloadFilename("Trip", tc.name, tc.ext); got != tc.want {
-			t.Errorf("%s: got %q want %q", tc.name, got, tc.want)
+func TestSplitOutputName(t *testing.T) {
+	for name, want := range map[string]int{"mvhevc_part02": 2, "sbs_part01": 1, "half_sbs_part10": 10, "mvhevc": 0, "weird_partX": 0} {
+		if _, part := splitOutputName(name); part != want {
+			t.Errorf("%s: part %d want %d", name, part, want)
 		}
-		if _, part := splitOutputName(tc.name); part != tc.part {
-			t.Errorf("%s: part %d want %d", tc.name, part, tc.part)
-		}
-	}
-	if got := downloadFilename("", "mvhevc", ".mov"); got != "Video 3D.mov" {
-		t.Errorf("unnamed project: %q", got)
 	}
 	files := []outputFile{{Format: "sbs", Part: 2}, {Format: "mvhevc", Part: 2}, {Format: "sbs", Part: 1}, {Format: "mvhevc", Part: 1}}
 	sortOutputFiles(files)

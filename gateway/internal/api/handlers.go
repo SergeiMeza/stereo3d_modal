@@ -801,29 +801,40 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 	}
 	// Never locked for payment reasons (S3D-22, the App Store way): a
 	// failed charge refuses NEW paid runs (payment_method_needed) instead.
-	// files: one entry per output with a download name; a split output
-	// is one entry per part (part: N, 1-based) named "<project> 3D Part
-	// N.mov". downloads (name → URL) stays as it was for older clients.
-	base := ""
+	// files: one entry per output with its download name (S3D-31,
+	// download_names.go), which also rides each signed URL as
+	// Content-Disposition for project runs; a split output is one entry
+	// per part (part: N). downloads (name → URL) stays for older clients.
+	var names map[string]string
+	var project *store.Project
 	if conv.ProjectID != "" {
 		if p, perr := s.Store.GetProject(ctx, conv.ProjectID); perr == nil {
-			base = p.Name
+			project = p
 		}
+		convs, lerr := s.Store.ListProjectConversions(ctx, conv.ProjectID, 100)
+		if lerr != nil || !slices.ContainsFunc(convs, func(c *store.Conversion) bool { return c.ID == conv.ID }) {
+			convs = append(convs, conv) // older than the listing window
+		}
+		names = projectDownloadNames(project, convs)[conv.ID]
 	}
 	urls := map[string]string{}
 	files := make([]outputFile, 0, len(conv.Outputs))
 	for name, key := range conv.Outputs {
-		u, err := s.GCS.SignedGetURL(key, downloadTTL)
+		filename := names[name]
+		var u string
+		if filename != "" {
+			u, err = s.GCS.SignedGetURLAs(key, downloadTTL, contentDisposition(filename))
+		} else {
+			filename = baseDownloadName("video", resolutionLabel(conv, nil), name, path.Ext(key))
+			u, err = s.GCS.SignedGetURL(key, downloadTTL) // mobile one-shot: unchanged
+		}
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
 		urls[name] = u
 		format, part := splitOutputName(name)
-		f := outputFile{
-			Name: name, Format: format, Part: part, URL: u,
-			Filename: downloadFilename(base, name, path.Ext(key)),
-		}
+		f := outputFile{Name: name, Format: format, Part: part, URL: u, Filename: filename}
 		if size, serr := s.GCS.Stat(ctx, key); serr == nil {
 			f.SizeBytes = size
 		}

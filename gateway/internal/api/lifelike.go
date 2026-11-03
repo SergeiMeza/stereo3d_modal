@@ -353,35 +353,6 @@ func splitOutputName(name string) (format string, part int) {
 	return name[:i], n
 }
 
-// formatLabels names an output in the downloaded file's name. Anything
-// not listed keeps its output name.
-var formatLabels = map[string]string{
-	"mvhevc":   "3D",
-	"sbs":      "3D SBS",
-	"half_sbs": "3D Half SBS",
-	"tb":       "3D TB",
-	"half_tb":  "3D Half TB",
-}
-
-// downloadFilename: "<name> 3D Part 2.mov" for a split part, "<name> 3D.mov"
-// otherwise. base is the project name (or "Video"); ext comes from the key.
-func downloadFilename(base, outputName, ext string) string {
-	format, part := splitOutputName(outputName)
-	label, ok := formatLabels[format]
-	if !ok {
-		label = format
-	}
-	name := strings.TrimSpace(base)
-	if name == "" {
-		name = "Video"
-	}
-	name = strings.NewReplacer("/", "-", "\\", "-").Replace(name)
-	if part > 0 {
-		return fmt.Sprintf("%s %s Part %d%s", name, label, part, ext)
-	}
-	return fmt.Sprintf("%s %s%s", name, label, ext)
-}
-
 // sortOutputFiles orders by format, then part.
 func sortOutputFiles(files []outputFile) {
 	slices.SortFunc(files, func(a, b outputFile) int {
