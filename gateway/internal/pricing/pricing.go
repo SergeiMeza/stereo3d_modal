@@ -168,6 +168,13 @@ type Rates struct {
 	// LifelikePriceCentsPerMinute: Lifelike's own PRICE per output minute
 	// at 24 fps, per preset (no margin applied; see QuoteLifelike).
 	LifelikePriceCentsPerMinute map[string]int64 `firestore:"lifelike_price_cents_per_minute"`
+	// LifelikePreviewCents: the flat price of a Lifelike preview (S3D-13:
+	// a 5-second clip at any quality and frame rate; no fps factor, no
+	// discounts). 0/absent = 50.
+	LifelikePreviewCents int64 `firestore:"lifelike_preview_cents"`
+	// LifelikeMaxSourceBytes caps a Lifelike source file (S3D-42);
+	// max_source_bytes stays Classic's. 0/absent = 25 GiB.
+	LifelikeMaxSourceBytes int64 `firestore:"lifelike_max_source_bytes"`
 	// LifelikeETA is the Lifelike wall-clock model — see
 	// EstimateLifelikeETA.
 	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
@@ -223,6 +230,25 @@ func (r *Rates) GPUWorkersFor(method string) int {
 		}
 	}
 	return min(n, MaxGPUWorkersPerJob)
+}
+
+// MaxSourceBytesFor is the source-file cap of a method.
+func (r *Rates) MaxSourceBytesFor(method string) int64 {
+	if method == "lifelike" {
+		if r.LifelikeMaxSourceBytes > 0 {
+			return r.LifelikeMaxSourceBytes
+		}
+		return 25 << 30
+	}
+	return r.MaxSourceBytes
+}
+
+// LifelikePreviewPrice is the flat Lifelike preview price.
+func (r *Rates) LifelikePreviewPrice() int64 {
+	if r.LifelikePreviewCents > 0 {
+		return r.LifelikePreviewCents
+	}
+	return 50
 }
 
 // PrechargeThreshold is the quote above which a pro step is charged up
@@ -365,6 +391,8 @@ func defaults() *Rates {
 		LifelikeMaxGPUWorkers:       4,
 		PrechargeThresholdCents:     2500,
 		LifelikePriceCentsPerMinute: defaultLifelikePrices(),
+		LifelikePreviewCents:        50,
+		LifelikeMaxSourceBytes:      25 << 30,
 		LifelikeETA:                 defaultLifelikeETA(),
 	}
 }
@@ -433,6 +461,12 @@ func (r *Rates) inpaintMultiplier(step, inpaint string) float64 {
 // per minute of footage.
 const fpsBase = 24.0
 
+// The fps factor's clamp.
+const (
+	fpsMinFactor = 0.5
+	fpsMaxFactor = 2.5
+)
+
 // baseElongation anchors the depth factor's base working MP at 16:9 — the
 // aspect the DepthResBase quadratic was originally calibrated on.
 const baseElongation = 16.0 / 9.0
@@ -441,7 +475,7 @@ func fpsFactor(effectiveFPS float64) float64 {
 	if effectiveFPS <= 0 {
 		return 1.0
 	}
-	return math.Min(2.5, math.Max(0.5, effectiveFPS/fpsBase))
+	return math.Min(fpsMaxFactor, math.Max(fpsMinFactor, effectiveFPS/fpsBase))
 }
 
 // depthFactor prices the depth work: LINEAR in working megapixels
@@ -781,9 +815,10 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 // Lifelike is its own product with its own PRICE table (owner change
 // 2026-11-03): lifelike_price_cents_per_minute[preset] per output minute at
 // 24 fps — a price, not a cost the margin multiplies — times the fps
-// factor, for lifelike_preview and production alike. None of Classic's
-// mechanics apply (no depth-res factor, no inpaint multiplier, no reuse
-// discount); the bulk discount, the minimum and the analyze credit do.
+// factor, for production. None of Classic's mechanics apply (no depth-res
+// factor, no inpaint multiplier, no reuse discount); the bulk discount, the
+// minimum and the analyze credit do. A lifelike_preview is a flat
+// lifelike_preview_cents (S3D-13).
 const (
 	StepLifelikePreview = "lifelike_preview"
 	MethodLifelike      = "lifelike"
@@ -816,6 +851,22 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	perMin, ok := rates.lifelikePrice(in.Preset)
 	if !ok {
 		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
+	}
+	if in.Step == StepLifelikePreview {
+		// S3D-13: flat, whatever the quality, length or frame rate.
+		flat := rates.LifelikePreviewPrice()
+		return &Quote{
+			AmountCents: flat,
+			Currency:    rates.Currency,
+			RateVersion: rates.RateVersion,
+			Breakdown: map[string]any{
+				"step":             in.Step,
+				"method":           MethodLifelike,
+				"preset":           in.Preset,
+				"billable_seconds": math.Round(in.BillableS*100) / 100,
+				"flat_cents":       flat,
+			},
+		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
 	subtotal := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
@@ -901,4 +952,78 @@ func (s *Service) QuoteImage(ctx context.Context) (*Quote, error) {
 		RateVersion: rates.RateVersion,
 		Breakdown:   map[string]any{"image_cents": rates.ImageCents, "free_image": false},
 	}, nil
+}
+
+// ClassicPresets are the presets Classic renders.
+var ClassicPresets = []string{"draft", "1080p", "qhd", "3k", "4k"}
+
+// Public is the customer-facing price list behind the public GET
+// /v1/pricing (S3D-18): every number derived from the live config, already
+// in customer prices (margin applied), so the Pricing page never restates a
+// price by hand. Classic production prices are a default quote's per-minute
+// subtotal (16:9 source, 24 fps, the preset's own depth size, edges
+// filled); Classic previews are base rates before the Depth page's
+// resolution factor and the inpaint choice.
+func (s *Service) Public(ctx context.Context) map[string]any {
+	rates := s.Rates(ctx)
+	perMinute := func(in StepInputs) int64 {
+		in.BillableS, in.ContentWidth, in.ContentHeight, in.EffectiveFPS = 60, 1920, 1080, fpsBase
+		q, err := s.QuoteStep(ctx, in)
+		if err != nil {
+			return 0
+		}
+		v, _ := q.Breakdown["subtotal_cents"].(int64)
+		return v
+	}
+	classicProduction := map[string]int64{}
+	classicStereoPreview := map[string]int64{}
+	for _, p := range ClassicPresets {
+		if v := perMinute(StepInputs{Step: "production", Preset: p, DepthRes: PresetInputSize[p], Inpaint: "propainter"}); v > 0 {
+			classicProduction[p] = v
+		}
+		if v, ok := rates.StereoPreviewCentsPerMinute[p]; ok {
+			classicStereoPreview[p] = int64(math.Round(float64(v) * rates.margin()))
+		}
+	}
+	lifelike := map[string]int64{}
+	for _, p := range LifelikePresets {
+		if v, ok := rates.lifelikePrice(p); ok {
+			lifelike[p] = v
+		}
+	}
+	newAccountCap := rates.BatchCap(0)
+	return map[string]any{
+		"rate_version": rates.RateVersion,
+		"currency":     rates.Currency,
+		"methods": map[string]any{
+			"lifelike": map[string]any{
+				"presets":                     LifelikePresets,
+				"production_cents_per_minute": lifelike,
+				"preview_cents":               rates.LifelikePreviewPrice(),
+				"max_source_duration_s":       rates.MaxSourceDurationFor("lifelike"),
+				"max_source_bytes":            rates.MaxSourceBytesFor("lifelike"),
+			},
+			"classic": map[string]any{
+				"presets":                         ClassicPresets,
+				"production_cents_per_minute":     classicProduction,
+				"stereo_preview_cents_per_minute": classicStereoPreview,
+				"depth_preview_cents_per_minute":  int64(math.Round(float64(rates.DepthPreviewCentsPerMinute) * rates.margin())),
+				"max_source_duration_s":           rates.MaxSourceDurationFor("classic"),
+				"max_source_bytes":                rates.MaxSourceBytesFor("classic"),
+			},
+		},
+		// Prices are per minute of output at 24 fps; the frame rate scales
+		// them by fps/24, clamped.
+		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor},
+		"discount": map[string]any{
+			"threshold_cents": rates.DiscountThresholdCents,
+			"pct":             rates.DiscountPct,
+		},
+		"minimum_cents":             rates.MinimumCents,
+		"precharge_threshold_cents": rates.PrechargeThreshold(),
+		"balance": map[string]any{
+			"window_hours":          rates.BatchWindow().Hours(),
+			"new_account_cap_cents": newAccountCap,
+		},
+	}
 }

@@ -30,11 +30,11 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		{"4k", 120, 24, 1800},
 		// 48 fps doubles the frames: 1 min of 1080p = $9 (under the $10 discount)
 		{"1080p", 60, 48, 900},
-		// a 5 s preview hits the $0.50 minimum (450 × 5/60 = 38¢)
+		// a 5 s production hits the $0.50 minimum (450 × 5/60 = 38¢)
 		{"1080p", 5, 24, 50},
 	}
 	for _, tc := range cases {
-		for _, step := range []string{"production", StepLifelikePreview} {
+		for _, step := range []string{"production"} { // previews are flat (TestLifelikePreviewIsFlat)
 			q, err := s.QuoteLifelike(ctx, StepInputs{
 				Step: step, Preset: tc.preset, BillableS: tc.secs, EffectiveFPS: tc.fps,
 				ContentWidth: 3840, ContentHeight: 1608, // no depth factor on a wide source
@@ -119,5 +119,64 @@ func TestLifelikeConfigDefaults(t *testing.T) {
 	}
 	if r.MaxSourceDurationFor("classic") != 600 {
 		t.Error("classic keeps max_source_duration_s")
+	}
+}
+
+func TestLifelikePreviewIsFlat(t *testing.T) {
+	ctx := context.Background()
+	s := defaultsService(nil)
+	for _, in := range []StepInputs{
+		{Step: StepLifelikePreview, Preset: "1080p", BillableS: 5, EffectiveFPS: 24},
+		{Step: StepLifelikePreview, Preset: "4k", BillableS: 10, EffectiveFPS: 60},
+	} {
+		q, err := s.QuoteLifelike(ctx, in)
+		if err != nil || q.AmountCents != 50 {
+			t.Errorf("%+v: want flat 50, got %v %v", in, q, err)
+		}
+	}
+	r := defaults()
+	r.LifelikePreviewCents = 75
+	if q, _ := defaultsService(r).QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: "qhd", BillableS: 5}); q.AmountCents != 75 {
+		t.Errorf("configured flat price: got %d", q.AmountCents)
+	}
+	if _, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: "draft", BillableS: 5}); err == nil {
+		t.Error("draft is not a lifelike preset, previews included")
+	}
+}
+
+func TestMaxSourceBytesFor(t *testing.T) {
+	var absent Rates
+	if absent.MaxSourceBytesFor("lifelike") != 25<<30 {
+		t.Error("lifelike default 25 GiB")
+	}
+	if d := defaults(); d.MaxSourceBytesFor("classic") != 8<<30 {
+		t.Error("classic keeps max_source_bytes")
+	}
+}
+
+func TestPublicPricing(t *testing.T) {
+	p := defaultsService(nil).Public(context.Background())
+	methods := p["methods"].(map[string]any)
+	ll := methods["lifelike"].(map[string]any)
+	if ll["production_cents_per_minute"].(map[string]int64)["4k"] != 1000 || ll["preview_cents"] != int64(50) {
+		t.Errorf("lifelike: %v", ll)
+	}
+	cl := methods["classic"].(map[string]any)["production_cents_per_minute"].(map[string]int64)
+	// default classic 1080p production: 150¢ cost × 3 margin, depth factor 1
+	if cl["1080p"] != 450 {
+		t.Errorf("classic 1080p: %v", cl)
+	}
+	// 4k carries its preset depth size: 900 × (1 + 0.35 × ((1442/980)² − 1))
+	if cl["4k"] <= 900 {
+		t.Errorf("classic 4k must include the preset depth factor: %v", cl)
+	}
+	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
+		t.Errorf("thresholds: %v", p)
+	}
+	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) {
+		t.Errorf("balance: %v", b)
+	}
+	if methods["lifelike"].(map[string]any)["max_source_bytes"] != int64(25<<30) {
+		t.Error("lifelike max_source_bytes")
 	}
 }

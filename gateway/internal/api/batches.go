@@ -398,6 +398,29 @@ func pendingEntry(b *store.Batch) map[string]any {
 	}
 }
 
+// balanceEntry is the header pill's data (S3D-21), always present: the open
+// balance, when it will be charged at the latest (the batch's due_at; null
+// with nothing open) and the cap that charges it sooner.
+func balanceEntry(open *store.Batch, capCents int64, currency string) map[string]any {
+	entry := map[string]any{
+		"amount_cents": int64(0),
+		"currency":     currency,
+		"due_at":       nil,
+		"cap_cents":    capCents,
+	}
+	if open != nil {
+		entry["amount_cents"] = open.TotalCents
+		entry["due_at"] = open.DueAt
+		if open.CapCents > 0 {
+			entry["cap_cents"] = open.CapCents
+		}
+		if open.Currency != "" {
+			entry["currency"] = open.Currency
+		}
+	}
+	return entry
+}
+
 // failedBatchEntry serializes a delinquent batch like unpaidEntry does a
 // conversion (same needs_action / client_secret contract).
 func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[string]any {

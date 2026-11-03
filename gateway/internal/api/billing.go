@@ -305,11 +305,13 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 	if cust.PhotoCredits > 0 {
 		resp["photo_credits"] = cust.PhotoCredits // leftover pack balance, honored until spent
 	}
-	if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
+	open, oerr := s.Store.OpenBatchFor(ctx, user.UID)
+	if oerr == nil && open != nil {
 		resp["pending"] = pendingEntry(open)
 	} else if oerr != nil {
 		httpx.Log(ctx).Warn("open batch lookup failed", "uid", user.UID, "err", oerr)
 	}
+	resp["balance"] = balanceEntry(open, s.Pricing.Rates(ctx).BatchCap(cust.LifetimePaidCents), s.Pricing.Rates(ctx).Currency)
 	if cust.DefaultPaymentMethod != "" {
 		resp["card"] = map[string]any{
 			"brand":     cust.CardBrand,

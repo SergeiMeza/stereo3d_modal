@@ -146,10 +146,34 @@ completed). `GET /v1/conversions/{id}/downloads` adds `files`: one entry per
 output (`name`, `format`, `part` for split parts, `filename` like "Trip 3D
 Part 2.mov", `url`); `downloads` (name → URL) is unchanged.
 
-Pricing: Lifelike has its own PRICE table (no margin),
+Pricing: Lifelike production has its own PRICE table (no margin),
 `lifelike_price_cents_per_minute` per output minute at 24 fps, times the fps
-factor, for previews and production alike; bulk discount and minimum apply,
-nothing else from Classic. ETA: `overhead_s + render_gpu_s_per_minute ×
+factor; bulk discount and minimum apply, nothing else from Classic. A
+Lifelike preview is a flat `lifelike_preview_cents` (no fps factor, no
+discounts). A quote may carry `method` to price the step as if the project
+used that method (validated by that method's rules; the project is not
+changed; the response's `method` says which) — the chooser's side-by-side
+price and ETA. On conversions a `method` other than the project's is a 409
+`method_mismatch`.
+
+`GET /v1/pricing` (public, no auth, `Cache-Control: max-age=300`) is the
+price list from the live config: both methods' per-minute customer prices
+(Classic production as a default quote on a 16:9 24 fps source; Classic
+previews as base rates), the Lifelike preview price, the fps rule, bulk
+discount, minimum, pre-charge threshold, balance window and new-account
+cap, and per-method length and file-size limits. `GET /v1/billing` gains
+`balance: {amount_cents, currency, due_at, cap_cents}` (always present).
+`GET /v1/projects` items gain `summary: {latest_state, latest_step,
+spent_cents}` (spent counts charged, pre-charged, batched and owed runs; not
+refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a
+project (409 while a run is active): it and its runs answer 404 and leave
+the lists; the record and files stay for the manual purge. Download `files`
+entries carry `size_bytes`; links are signed afresh on every GET.
+
+Source files: `POST /v1/uploads` may send `bytes` and `method` to be refused
+up front over that method's cap (`lifelike_max_source_bytes`, 25 GiB;
+Classic `max_source_bytes`, 8 GiB); project creation and a switch of method
+check the stored size (400 `source_too_large`). ETA: `overhead_s + render_gpu_s_per_minute ×
 output minutes (24 fps) / GPUs + encode_base_s + min(frames,
 encode_frame_cap) × encode_s_per_frame[preset]`. Overdue judging adds the
 run's `queued_s`, and a run may process for max(24 h, 3 × its estimate).
@@ -169,6 +193,8 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |
 | `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 |
+| `lifelike_preview_cents` | 50 (flat) |
+| `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_base_s` 20 · `encode_frame_cap` 7200 · `encode_s_per_frame` 1080p 0.035 · qhd 0.06 · 3k 0.075 · 4k 0.13 |
 
 Env: `LIFELIKE_BASE_URL` (test defaults to the test service, prod is off

@@ -69,6 +69,9 @@ func (s *Service) resolveMethod(requested string) (string, *httpx.APIError) {
 // unless lifelike_max_source_duration_s says otherwise. nil before the
 // probe lands (the analyze fold applies the cap then).
 func methodSourceError(rates *pricing.Rates, p *store.Project, method string) *httpx.APIError {
+	if err := sourceBytesError(rates, p.Source.Bytes, method); err != nil {
+		return err
+	}
 	maxS := rates.MaxSourceDurationFor(method)
 	if p.Probe == nil || maxS <= 0 || p.Probe.DurationS <= maxS {
 		return nil
@@ -80,6 +83,30 @@ func methodSourceError(rates *pricing.Rates, p *store.Project, method string) *h
 			formatMinSec(p.Probe.DurationS), formatMinSec(maxS))
 	}
 	return httpx.Err(http.StatusBadRequest, "source_too_long_for_method", msg)
+}
+
+// sourceBytesError enforces a method's source-file cap (S3D-42: Lifelike
+// 25 GiB, Classic max_source_bytes). 400 source_too_large, as before.
+func sourceBytesError(rates *pricing.Rates, bytes int64, method string) *httpx.APIError {
+	maxB := rates.MaxSourceBytesFor(method)
+	if maxB <= 0 || bytes <= maxB {
+		return nil
+	}
+	name := "Classic"
+	if method == store.MethodLifelike {
+		name = "Lifelike"
+	}
+	return httpx.ErrSource("source_too_large", fmt.Sprintf(
+		"This file is %s. %s works on files up to %s.", formatGB(bytes), name, formatGB(maxB)))
+}
+
+// formatGB renders a byte count as "8 GB" / "12.4 GB" for limit messages.
+func formatGB(b int64) string {
+	gb := float64(b) / (1 << 30)
+	if gb == math.Trunc(gb) {
+		return fmt.Sprintf("%.0f GB", gb)
+	}
+	return fmt.Sprintf("%.1f GB", gb)
 }
 
 func errStepForMethod(step, method string) *httpx.APIError {
@@ -271,6 +298,9 @@ type outputFile struct {
 	Part     int    `json:"part,omitempty"`
 	Filename string `json:"filename"`
 	URL      string `json:"url"`
+	// SizeBytes from the stored object (S3D-31); absent when storage
+	// didn't answer.
+	SizeBytes int64 `json:"size_bytes,omitempty"`
 }
 
 // splitOutputName parses the lifelike3d part names ("mvhevc_part02" →
@@ -346,4 +376,14 @@ func (s *Service) defaultMethod() string {
 		return store.MethodLifelike
 	}
 	return store.MethodClassic
+}
+
+// GET /v1/pricing — the public price list (S3D-18): both methods' customer
+// prices, the preview price, the fps rule, discounts, minimum, pre-charge
+// threshold, balance window and new-account cap, and per-method limits, all
+// from the live config (pricing.Service.Public). No auth; the config cache
+// is a minute, so five minutes of HTTP caching is plenty fresh.
+func (s *Service) HandlePublicPricing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	httpx.WriteOK(w, s.Pricing.Public(r.Context()))
 }

@@ -117,7 +117,10 @@ func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, us
 
 // ------------------------------------------------------------- uploads
 
-// POST /v1/uploads {filename, content_type[, resumable]} → upload ticket.
+// POST /v1/uploads {filename, content_type[, resumable, method, bytes]} →
+// upload ticket. With bytes, a file over the cap of method (none = classic,
+// S3D-42) is refused before anything is uploaded; project creation checks
+// the stored object again either way.
 //
 // By default the ticket is one signed PUT URL for the whole file. With
 // resumable: true (the web app in China mode, whose relay caps a request
@@ -131,6 +134,8 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 		Filename    string `json:"filename"`
 		ContentType string `json:"content_type"`
 		Resumable   bool   `json:"resumable"`
+		Method      string `json:"method"`
+		Bytes       int64  `json:"bytes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -140,6 +145,17 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 	if !slices.Contains(allowedExts, ext) {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("unsupported file type "+ext))
 		return
+	}
+	if req.Bytes > 0 {
+		method, merr := s.resolveMethod(req.Method)
+		if merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		if serr := sourceBytesError(s.Pricing.Rates(ctx), req.Bytes, method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
+			return
+		}
 	}
 	// The upload id doubles as the conversion id the client passes back.
 	id := store.NewID()
@@ -692,10 +708,12 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 		"methods": map[string]any{
 			store.MethodLifelike: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodLifelike),
+				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodLifelike),
 				"available":             s.Lifelike != nil,
 			},
 			store.MethodClassic: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
+				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodClassic),
 				"available":             true,
 			},
 		},
@@ -755,13 +773,19 @@ func (s *Service) HandleListConversions(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	out := make([]map[string]any, 0, len(convs))
+	gone := map[string]bool{}
 	for _, c := range convs {
+		if s.projectGone(ctx, c, gone) {
+			continue
+		}
 		out = append(out, s.conversionResponse(c, nil))
 	}
 	httpx.WriteOK(w, map[string]any{"conversions": out})
 }
 
-// GET /v1/conversions/{id}/downloads — signed GET URLs for outputs.
+// GET /v1/conversions/{id}/downloads — signed GET URLs for outputs, signed
+// afresh on every request (24 h each), so a client whose links expired
+// just asks again.
 func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	conv, err := s.ownedConversion(ctx, user, id)
@@ -796,10 +820,14 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		}
 		urls[name] = u
 		format, part := splitOutputName(name)
-		files = append(files, outputFile{
+		f := outputFile{
 			Name: name, Format: format, Part: part, URL: u,
 			Filename: downloadFilename(base, name, path.Ext(key)),
-		})
+		}
+		if size, serr := s.GCS.Stat(ctx, key); serr == nil {
+			f.SizeBytes = size
+		}
+		files = append(files, f)
 	}
 	sortOutputFiles(files)
 	httpx.WriteOK(w, map[string]any{
@@ -914,7 +942,8 @@ func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id stri
 		return nil, err
 	}
 	// 404 (not 403) for other users' conversions — don't confirm existence.
-	if conv.UID != user.UID {
+	// A deleted project's runs are gone with it.
+	if conv.UID != user.UID || s.projectGone(ctx, conv, nil) {
 		return nil, httpx.ErrNotFound("conversion")
 	}
 	return conv, nil

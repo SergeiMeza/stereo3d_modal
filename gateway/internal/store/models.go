@@ -532,7 +532,12 @@ type Project struct {
 	StripThumbs  []Thumb       `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
 	SceneThumbs  []Thumb       `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
 	Archived     bool          `firestore:"archived" json:"archived"`
-	Pinned       bool          `firestore:"pinned,omitempty" json:"pinned,omitempty"`
-	CreatedAt    time.Time     `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time     `firestore:"updated_at" json:"updated_at"`
+	// Deleted: removed by the user (POST /v1/projects/{id}/delete, S3D-24).
+	// Soft delete like account deletion: the record and its files stay for
+	// a manual purge; the API answers 404 for the project and its runs.
+	Deleted   bool       `firestore:"deleted,omitempty" json:"-"`
+	DeletedAt *time.Time `firestore:"deleted_at,omitempty" json:"-"`
+	Pinned    bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
+	CreatedAt time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `firestore:"updated_at" json:"updated_at"`
 }

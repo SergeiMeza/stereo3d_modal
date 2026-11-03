@@ -78,8 +78,8 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, uploadStatError(err))
 		return
 	}
-	if size > rates.MaxSourceBytes {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("source file too large"))
+	if serr := sourceBytesError(rates, size, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
 		return
 	}
 
@@ -175,11 +175,15 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	out := make([]map[string]any, 0, len(projects))
+	listed := make([]*store.Project, 0, len(projects))
 	for _, p := range projects {
-		if p.Archived != wantArchived {
-			continue
+		if p.Archived == wantArchived && !p.Deleted {
+			listed = append(listed, p)
 		}
+	}
+	summaries := s.projectSummaries(ctx, listed)
+	out := make([]map[string]any, 0, len(listed))
+	for i, p := range listed {
 		// Read-through poll for running analyzes so list polling (the
 		// Projects screen) sees live progress, not just the reconciler's
 		// 60s-stale state.
@@ -188,7 +192,9 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 				p = refreshed
 			}
 		}
-		out = append(out, s.projectResponse(p, nil))
+		resp := s.projectResponse(p, nil)
+		resp["summary"] = summaries[i]
+		out = append(out, resp)
 	}
 	httpx.WriteOK(w, map[string]any{"projects": out})
 }
@@ -240,7 +246,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 	}
 	if req.Archived != nil && *req.Archived {
 		// Archiving is blocked while work is in flight, exactly like DELETE.
-		if err := s.requireNoActiveConversions(ctx, id); err != nil {
+		if err := s.requireNoActiveConversions(ctx, id, "archiving"); err != nil {
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
@@ -300,14 +306,14 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 // requireNoActiveConversions blocks archiving while any of the project's
 // conversions is still in flight. Archiving never cancels work or touches
 // money — the user must wait for (or cancel) the running conversion first.
-func (s *Service) requireNoActiveConversions(ctx context.Context, projectID string) error {
+func (s *Service) requireNoActiveConversions(ctx context.Context, projectID, action string) error {
 	convs, err := s.Store.ListProjectConversions(ctx, projectID, 100)
 	if err != nil {
 		return err
 	}
 	for _, c := range convs {
 		if !store.IsTerminal(c.State) {
-			return httpx.ErrConflict("this project has an active conversion — wait for it to finish (or cancel it) before archiving")
+			return httpx.ErrConflict("this project has an active conversion — wait for it to finish (or cancel it) before " + action)
 		}
 	}
 	return nil
@@ -320,7 +326,7 @@ func (s *Service) HandleArchiveProject(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if err := s.requireNoActiveConversions(ctx, id); err != nil {
+	if err := s.requireNoActiveConversions(ctx, id, "archiving"); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -577,9 +583,13 @@ type stepConvReq struct {
 	// SplitMaxSeconds (production): output files of at most this long,
 	// 60-3600 (the web sends 900 when "Split into parts" stays on).
 	// Lifelike only until the classic pipeline implements splitting.
-	SplitMaxSeconds int    `json:"split_max_seconds"`
-	AppVersion      string `json:"app_version"`
-	Platform        string `json:"platform"`
+	SplitMaxSeconds int `json:"split_max_seconds"`
+	// Method (quotes only, S3D-14): price the step as if the project used
+	// this method, without changing the project — the chooser shows both
+	// methods' price and ETA. On conversions it must match the project's.
+	Method     string `json:"method"`
+	AppVersion string `json:"app_version"`
+	Platform   string `json:"platform"`
 }
 
 // sceneOverrideReq is a per-scene stereo tweak; `first` is the scene's first
@@ -1056,6 +1066,17 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	if req.Method != "" && req.Method != projectMethod(p) {
+		// What-if quote under the other method: validated and priced by
+		// that method's rules on a copy; the project is not touched.
+		if _, merr := s.resolveMethod(req.Method); merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		whatIf := *p
+		whatIf.Method = req.Method
+		p = &whatIf
+	}
 	params, perr := resolveStepParams(&req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
@@ -1127,6 +1148,11 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	if req.Method != "" && req.Method != projectMethod(p) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "method_mismatch",
+			"this project uses "+projectMethod(p)+"; switch the project's method first"))
+		return
+	}
 	params, perr := resolveStepParams(&req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
@@ -1192,13 +1218,13 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
 }
 
-// finalizeAutoBilled runs the SHARED tail of every auto-billed conversion
-// create (pro steps AND the mobile one-shot flow): the threshold hybrid —
-// an off-session hold (with its 3DS/decline branches) for quotes at or
-// above holdThresholdCents, plain charge-on-success mode below — then the
-// record write and the inline Modal submit. Writes the HTTP response on
-// every path. “restore“ undoes any resource consumed before billing
-// (the pro flow's analyze credit; a no-op for the one-shot flow).
+// finalizeAutoBilled bills the MOBILE one-shot flow's paid conversions
+// (pro steps use finalizeStepBilled's pre-charge since 2026-11-03): the
+// threshold hybrid — an off-session hold (with its 3DS/decline branches)
+// for quotes at or above holdThreshold (lifted by the account's tier),
+// plain charge-on-success mode below — then the record write and the
+// inline Modal submit. Writes the HTTP response on every path. “restore“
+// undoes any resource consumed before billing (a no-op for this flow).
 func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func()) {
 	// Threshold hybrid: expensive runs get an off-session hold up front (the
@@ -1319,7 +1345,7 @@ func (s *Service) ownedProject(ctx context.Context, user *AuthedUser, id string)
 	if err != nil {
 		return nil, err
 	}
-	if p.UID != user.UID {
+	if p.UID != user.UID || p.Deleted {
 		return nil, httpx.ErrNotFound("project") // 404, don't confirm existence
 	}
 	return p, nil

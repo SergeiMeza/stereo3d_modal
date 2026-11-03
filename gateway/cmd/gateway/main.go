@@ -94,6 +94,8 @@ func main() {
 		httpx.WriteOK(w, map[string]string{"status": "ok", "env": cfg.Env})
 	})
 	mux.HandleFunc("POST /webhooks/stripe", svc.HandleStripeWebhook)
+	// Public price list (S3D-18): no auth, cacheable, CORS like every route.
+	mux.HandleFunc("GET /v1/pricing", svc.HandlePublicPricing)
 	mux.HandleFunc("POST /internal/reconcile", svc.HandleReconcile)
 
 	// Sign-in through the gateway for browsers that can't reach Google
@@ -169,6 +171,7 @@ func main() {
 	mux.HandleFunc("GET /v1/projects/{id}", authed(withID(svc.HandleGetProject)))
 	mux.HandleFunc("PATCH /v1/projects/{id}", authed(withID(svc.HandleUpdateProject)))
 	mux.HandleFunc("DELETE /v1/projects/{id}", authed(withID(svc.HandleArchiveProject)))
+	mux.HandleFunc("POST /v1/projects/{id}/delete", authed(withID(svc.HandleDeleteProject)))
 	mux.HandleFunc("PATCH /v1/projects/{id}/scenes", authed(withID(svc.HandleUpdateScenes)))
 	mux.HandleFunc("POST /v1/projects/{id}/depth-map", authed(withID(svc.HandleSetProjectDepthMap)))
 	mux.HandleFunc("DELETE /v1/projects/{id}/depth-map", authed(withID(svc.HandleDeleteProjectDepthMap)))
