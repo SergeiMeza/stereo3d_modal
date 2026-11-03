@@ -1,10 +1,12 @@
 "use client";
 
 /**
- * Landing / product page body. Client because the CTA depends on auth
- * state: "Open studio" into /projects when a session exists (or in mock
- * mode), "Start converting" → /signin otherwise; signed-in users still
- * see the page (no forced redirect). The route itself (app/page.tsx) is
+ * Landing / product page body (mock 12, S3D-46): the hero leads with
+ * Lifelike 3D, our newest 3D technology, then three benefits, the devices,
+ * three steps, the studio tour, and one closing "See prices". Client
+ * because the CTA depends on auth state ("Make your first 3D video" goes
+ * to /projects with a session, /signin otherwise) and the "from $X a
+ * minute" / preview prices come from GET /v1/pricing — never hardcoded. The route itself (app/page.tsx) is
  * a server component so it can carry per-page metadata and JSON-LD.
  * Requirements and copy rules live in web/docs/LANDING.md — notably: no
  * internal pipeline terms (S3D-36: no model names, depth maps, warping or
@@ -12,58 +14,37 @@
  * /pricing (S3D-18), linked from here.
  */
 
-import {
-  BadgeCheck,
-  Clapperboard,
-  Crosshair,
-  MessageSquare,
-  ReceiptText,
-  Sparkles,
-  Waves,
-} from "lucide-react";
+import { Clock, Layers, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
-import { BrowserFrame } from "@/components/landing/BrowserFrame";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
-import { LIMITS_STATEMENT } from "@/components/steps/methods";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
-const DEVICES = [
-  "Apple Vision Pro",
-  "Samsung Galaxy XR",
-  "Meta Quest",
-  "3D TVs & players",
-];
+const DEVICES = ["Apple Vision Pro", "Meta Quest", "Pico", "3D TVs"];
 
-const QUALITY = [
+const BENEFITS = [
   {
-    icon: Waves,
-    title: "No flicker",
-    detail:
-      "Depth stays steady across the whole shot — no shimmer between frames, no swimming backgrounds.",
-  },
-  {
-    icon: Clapperboard,
-    title: "Scene-aware 3D",
-    detail:
-      "Each scene gets its own 3D, kept within a comfortable range — bold 3D that's still easy on the eyes.",
+    icon: Layers,
+    title: "Natural depth",
+    detail: "Every moment rebuilt as a real 3D scene.",
   },
   {
     icon: Sparkles,
     title: "Clean edges",
-    detail:
-      "The areas each eye newly sees are filled in naturally, following the motion — not stretched or smeared around every silhouette.",
+    detail: "Clean outlines, even around fast motion.",
   },
   {
-    icon: Crosshair,
-    title: "Frame-exact control",
-    detail:
-      "Scene changes, start and end trims and per-scene settings are exact to the frame. What you set is exactly what renders.",
+    icon: Clock,
+    title: "Ready in minutes",
+    detail: "Minutes, not hours, for most videos.",
   },
 ];
 
@@ -89,86 +70,152 @@ const FORMATS = [
   },
 ];
 
-const PRICING = [
-  {
-    icon: BadgeCheck,
-    title: "No subscription",
-    detail:
-      "Put a card on file and pay per job. No seats, no monthly minimum, nothing to cancel.",
-  },
-  {
-    icon: ReceiptText,
-    title: "The price before every run",
-    detail:
-      "Every run shows its exact price before it starts, and that is what you're charged. No surprise bills.",
-  },
-  {
-    icon: Sparkles,
-    title: "Preview a moment first",
-    detail:
-      "See a few seconds of your video in 3D before you make the whole thing, priced like the same seconds of the final video.",
-  },
-];
+/** true when the viewer asked for less motion: the hero clip then waits
+ * for a click instead of looping. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+  return reduced;
+}
 
 export function LandingContent() {
   const { user } = useAuth();
   const signedIn = user !== null;
+  const pricing = usePricing();
+  const perMinute = pricing ? fromPerMinute(pricing) : null;
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
     <div className="w-full">
-      {/* Hero */}
-      <section className="relative mx-auto w-full max-w-6xl px-4 pt-16 pb-12 sm:pt-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-edge bg-card px-3 py-1 text-xs text-fg-muted">
-            2D → 3D conversion studio
-            <span className="rounded-full border border-primary/40 px-1.5 py-px text-[10px] font-medium tracking-wide text-primary uppercase">
-              Beta
+      {/* Hero (mock 12, S3D-46): leads with Lifelike 3D */}
+      <section className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pt-14 pb-12 sm:pt-20 lg:grid-cols-[1fr_1.15fr] lg:gap-14">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-0 right-0 h-[420px] w-[620px] max-w-full rounded-full bg-[radial-gradient(closest-side,rgb(79_140_255/0.18),rgb(167_139_250/0.08)_60%,transparent)] blur-md"
+        />
+        <div className="relative">
+          <p className="flex flex-wrap items-center gap-2.5">
+            <span className="ll-tag-new">New</span>
+            <span data-testid="hero-eyebrow" className="ll-eyebrow !text-xs">
+              Lifelike 3D · our newest 3D technology
             </span>
           </p>
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            VFX-studio 3D,{" "}
-            <span className="text-primary">without the VFX studio</span>
+          <h1 className="mt-4 text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[56px]">
+            Turn any video into{" "}
+            <span className="bg-gradient-to-r from-fg via-[#b9c8ff] to-[#a7f3ea] bg-clip-text text-transparent">
+              lifelike 3D
+            </span>
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-fg-muted sm:text-lg">
-            Upload a video, preview a moment in 3D, and get true 3D for every
-            headset — at a fraction of what a VFX house charges.
+          <p className="mt-5 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
+            Our newest 3D technology rebuilds every moment as a real 3D scene.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link
               href={signedIn ? "/projects" : "/signin"}
               onClick={() => track("lp_cta_hero_click", { signed_in: signedIn })}
               className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             >
-              {signedIn ? "Open studio" : "Start converting"}
+              Make your first 3D video
             </Link>
-            <a
-              href="#workflow"
-              onClick={() => track("lp_cta_workflow_click")}
-              className="rounded-lg border border-edge bg-card px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
-            >
-              See how it works
-            </a>
+            {perMinute !== null ? (
+              <span data-testid="hero-from-price" className="text-fg-muted">
+                from{" "}
+                <b className="text-xl font-semibold text-fg">
+                  {formatCentsShort(perMinute)}
+                </b>{" "}
+                a minute
+              </span>
+            ) : null}
           </div>
-          <p className="mt-8 font-mono text-[11px] tracking-wide text-fg-muted uppercase">
-            {DEVICES.join("  ·  ")}
+          <p className="mt-4 text-xs text-fg-muted">
+            Any length, up to 4K.{" "}
+            <Link
+              href="/pricing"
+              onClick={() => track("lp_pricing_click")}
+              className="text-primary hover:underline"
+            >
+              See prices
+            </Link>
           </p>
         </div>
-
-        <div className="relative mx-auto mt-14 max-w-5xl">
-          <div
-            aria-hidden
-            className="absolute -inset-x-8 -top-10 h-64 rounded-full bg-primary/10 blur-3xl"
-          />
-          <div className="relative">
-            <BrowserFrame
-              src="/landing/stereo-tab.webp"
-              alt="Stereo3D Studio: your footage beside its depth, with each scene's 3D settings"
-              priority
-              aspect="aspect-[16/9]"
-              sizes="(max-width: 1024px) 100vw, 1024px"
+        <figure className="relative">
+          <div className="ll-edge overflow-hidden rounded-2xl p-px">
+            <video
+              autoPlay={!reducedMotion}
+              controls={reducedMotion}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-label="A video made 3D, shown in red-cyan"
+              src="/landing/steps/stereo.mp4"
+              className="aspect-video w-full rounded-2xl bg-black object-cover"
             />
           </div>
-        </div>
+          <figcaption className="mt-3 text-xs text-fg-muted">
+            Red-cyan glasses show the depth.
+          </figcaption>
+        </figure>
+      </section>
+
+      {/* Benefits */}
+      <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 sm:grid-cols-3">
+        {BENEFITS.map((b) => (
+          <div key={b.title} className="rounded-xl border border-edge bg-card p-5">
+            <b.icon aria-hidden className="size-5 text-[#9db8ff]" />
+            <p className="mt-3 font-semibold text-fg">{b.title}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
+              {b.detail}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* Devices */}
+      <section
+        aria-label="Watch on"
+        className="mx-auto mt-12 flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-9 gap-y-3 px-4 text-sm text-fg-muted"
+      >
+        <span className="text-xs tracking-wider uppercase">Watch on</span>
+        {DEVICES.map((d) => (
+          <span key={d} className="text-fg-muted">
+            {d}
+          </span>
+        ))}
+      </section>
+
+      {/* Three steps */}
+      <section className="mx-auto mt-14 grid w-full max-w-6xl gap-6 px-4 sm:grid-cols-3">
+        {[
+          { t: "Upload a video", s: "Any length, up to 4K." },
+          {
+            t: "Preview a moment",
+            s:
+              pricing !== null
+                ? `A few seconds in 3D, from ${formatCents(pricing.minimum_cents)}.`
+                : "A few seconds in 3D.",
+          },
+          { t: "Make it 3D", s: "Download for your headset." },
+        ].map((st, i) => (
+          <div key={st.t} className="flex items-start gap-3.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-edge text-xs text-fg-muted">
+              {i + 1}
+            </span>
+            <div>
+              <p className="font-medium text-fg">{st.t}</p>
+              <p data-testid={`hero-step-${i + 1}`} className="mt-1 text-sm text-fg-muted">
+                {st.s}
+              </p>
+            </div>
+          </div>
+        ))}
       </section>
 
       {/* Workflow */}
@@ -210,32 +257,6 @@ export function LandingContent() {
         </div>
       </section>
 
-      {/* Quality */}
-      <section className="border-y border-edge bg-card/50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16">
-          <p className="text-xs font-medium tracking-widest text-primary uppercase">
-            Quality
-          </p>
-          <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-            Why it looks like a studio did it
-          </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {QUALITY.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-edge bg-card p-5"
-              >
-                <item.icon aria-hidden className="size-5 text-primary" />
-                <p className="mt-3 font-medium text-fg">{item.title}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Formats × devices */}
       <section id="formats" className="mx-auto w-full max-w-6xl px-4 py-16">
         <p className="text-xs font-medium tracking-widest text-primary uppercase">
@@ -266,74 +287,32 @@ export function LandingContent() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="border-y border-edge bg-card/50">
-        <div
-          id="pricing"
-          className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-16"
-        >
-          <p className="text-xs font-medium tracking-widest text-primary uppercase">
-            Pricing
-          </p>
-          <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-            Pay for renders, not seats
-          </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {PRICING.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-edge bg-card p-5"
-              >
-                <item.icon aria-hidden className="size-5 text-primary" />
-                <p className="mt-3 font-medium text-fg">{item.title}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-6 text-sm">
-            <Link
-              href="/pricing"
-              onClick={() => track("lp_pricing_click")}
-              className="text-primary hover:underline"
-            >
-              See prices →
-            </Link>
-          </p>
+      {/* Final CTA (mock 12) */}
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 text-center">
+        <h2 className="text-3xl font-semibold tracking-tight text-balance">
+          See your own video in 3D
+        </h2>
+        <p className="mt-2 text-fg-muted">Pay per video. No subscription.</p>
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/pricing"
+            onClick={() => track("lp_cta_bottom_click", { signed_in: signedIn })}
+            className="rounded-lg border border-edge bg-card px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
+          >
+            See prices
+          </Link>
         </div>
-      </section>
-
-      {/* Beta + CTA */}
-      <section className="mx-auto w-full max-w-6xl px-4 py-16">
-        <div className="rounded-xl border border-edge bg-card p-8 text-center sm:p-12">
-          <h2 className="text-2xl font-semibold tracking-tight text-balance">
-            In beta — help us shape it
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-fg-muted">
-            {LIMITS_STATEMENT} Something missing, broken, or worth building?
-            Tell us — we read everything.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href={signedIn ? "/projects" : "/signin"}
-              onClick={() =>
-                track("lp_cta_bottom_click", { signed_in: signedIn })
-              }
-              className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-            >
-              {signedIn ? "Open studio" : "Start converting"}
-            </Link>
-            <a
-              href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
-              onClick={() => track("lp_feedback_click")}
-              className="flex items-center gap-2 rounded-lg border border-edge bg-background px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
-            >
-              <MessageSquare aria-hidden className="size-4" />
-              Send feedback
-            </a>
-          </div>
-        </div>
+        <p className="mt-8 text-xs text-fg-muted">
+          In beta. Something missing or broken?{" "}
+          <a
+            href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
+            onClick={() => track("lp_feedback_click")}
+            className="text-primary hover:underline"
+          >
+            Tell us
+          </a>
+          .
+        </p>
       </section>
 
       {/* Footer */}

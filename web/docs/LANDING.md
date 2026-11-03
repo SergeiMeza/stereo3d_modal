@@ -29,6 +29,15 @@ internal pipeline names.
 ## Sections
 
 ### 1. Hero
+> 2026-11 (S3D-46, redesign mock 12): the hero now leads with Lifelike 3D —
+> "New" tag + eyebrow "Lifelike 3D · our newest 3D technology", H1 "Turn
+> any video into lifelike 3D", one CTA "Make your first 3D video", "from
+> $X a minute" from GET /v1/pricing, the red-cyan clip in a light-edge
+> frame, then three benefits, "Watch on" devices and three steps. The
+> Quality and Pricing sections were dropped (prices live on /pricing); the
+> closing section is "See your own video in 3D" + See prices. The text
+> below describes the earlier page.
+
 - Eyebrow badge: "2D → 3D conversion studio · Beta".
 - H1: the VFX-studio positioning claim.
 - Subcopy: one sentence — upload a video, direct the depth, deliver to
