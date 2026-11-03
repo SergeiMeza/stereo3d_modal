@@ -7,6 +7,7 @@
  * section card. Native inputs underneath (tests and screen readers).
  */
 
+import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
@@ -25,6 +26,7 @@ import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
 import type { Client } from "@/lib/headset";
 
+import { priceEpochAtom } from "./checkoutStore";
 import { HIGHEST_QUALITY_TAG } from "./methods";
 import { formatCents } from "./money";
 
@@ -237,7 +239,9 @@ export function usePresetPrices(
   }>({ key: "", cents: {} });
   const { preset: _ignored, ...rest } = base;
   void _ignored;
-  const key = JSON.stringify({ rest, presets, method, perPreset });
+  // S3D-67/68: a Pro change re-prices the tiles
+  const epoch = useAtomValue(priceEpochAtom);
+  const key = JSON.stringify({ rest, presets, method, perPreset, epoch });
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {
@@ -281,7 +285,8 @@ export function useVariantPrices(
     key: "",
     cents: {},
   });
-  const key = JSON.stringify({ base, variants });
+  const epoch = useAtomValue(priceEpochAtom);
+  const key = JSON.stringify({ base, variants, epoch });
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {

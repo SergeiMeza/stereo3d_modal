@@ -6,6 +6,7 @@
  */
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -33,6 +34,7 @@ import { server } from "@/mocks/server";
 import projectFixture from "../../../fixtures/project.json";
 
 import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
+import { clearStepQuotes } from "./checkoutStore";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
 import {
@@ -669,6 +671,19 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
       ["4K", "3840×2160 per eye"],
       ["8K", "7680×4320 per eye"],
     ]);
+  });
+
+  it("a Pro change re-prices the quality tiles (S3D-67/68)", async () => {
+    const quotes = captureBodies("/quotes");
+    renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("quality-price-4k").textContent).toMatch(/^\$\d+\.\d\d$/),
+    );
+    const before = quotes.filter((q) => q.preset === "1080p").length;
+    act(() => clearStepQuotes());
+    await waitFor(() =>
+      expect(quotes.filter((q) => q.preset === "1080p").length).toBeGreaterThan(before),
+    );
   });
 
   it("6K and 8K make no full side-by-side file; 5K does", async () => {

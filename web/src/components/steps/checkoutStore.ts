@@ -74,11 +74,17 @@ export function resetStepCheckoutState(): void {
   atoms.clear();
 }
 
+/** Bumped whenever prices change for this account (Pro bought or ended):
+ * the tile price hooks (makeControls) key their quotes on it. */
+export const priceEpochAtom = atom(0);
+
 /** Drop every panel's priced quote (S3D-68: Pro just changed, so prices
  * did too). A panel with no quote asks for a new one, and the attempt key
  * goes with the quote, as invalidate() does. Runs in flight are untouched. */
 export function clearStepQuotes(): void {
   const store = getDefaultStore();
+  // the quality and edge tiles price again too (their own quotes)
+  store.set(priceEpochAtom, (n) => n + 1);
   for (const a of atoms.values()) {
     const s = store.get(a);
     if (s.quote !== null || s.attemptKey !== null) {
