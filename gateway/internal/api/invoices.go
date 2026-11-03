@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -139,25 +140,30 @@ func (s *Service) lineFor(ctx context.Context, convID, projectID string, amount 
 	return line
 }
 
-// invoiceLineLabel: "Kyoto walk · Production 3D render · 4K · 0:00–1:48".
+// invoiceLineLabel: "Kyoto walk · Lifelike 3D render · 4K · 60 fps · 3
+// min" — the billable minutes, never the exact length (owner 2026-11-04).
 func (s *Service) invoiceLineLabel(ctx context.Context, c *store.Conversion) string {
-	label := s.runLabel(ctx, c)
-	if span := frameSpan(c); span != "" {
-		label += " · " + span
+	spec := runSpec(c)
+	if spec == "" {
+		return s.runLabel(ctx, c)
 	}
-	return label
+	parts := []string{}
+	if c.ProjectID != "" {
+		if p, err := s.Store.GetProject(ctx, c.ProjectID); err == nil && strings.TrimSpace(p.Name) != "" {
+			parts = append(parts, strings.TrimSpace(p.Name))
+		}
+	}
+	return strings.Join(append(parts, jobDescription(c), spec), " · ")
 }
 
-func frameSpan(c *store.Conversion) string {
-	fps := c.Source.FPS
-	if fps <= 0 || c.Params.ToFrame <= c.Params.FromFrame {
-		return ""
+// piDescription is a web run's payment description, which Stripe prints
+// on the receipt: "Lifelike 3D render · 4K · 60 fps · 3 min" (the mobile
+// one-shot keeps its description).
+func piDescription(c *store.Conversion) string {
+	if spec := runSpec(c); spec != "" && c.ProjectID != "" {
+		return jobDescription(c) + " · " + spec
 	}
-	clock := func(frame int) string {
-		sec := int(float64(frame) / fps)
-		return fmt.Sprintf("%d:%02d", sec/60, sec%60)
-	}
-	return clock(c.Params.FromFrame) + "–" + clock(c.Params.ToFrame)
+	return jobDescription(c)
 }
 
 func orUSD(cur string) string {

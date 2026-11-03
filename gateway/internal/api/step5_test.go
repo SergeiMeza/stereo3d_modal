@@ -61,13 +61,28 @@ func TestHistoryRowsFoldSettlesAndGroups(t *testing.T) {
 	}
 }
 
-func TestFrameSpanAndInvoiceKeys(t *testing.T) {
-	c := &store.Conversion{Source: store.Source{FPS: 30}, Params: store.Params{FromFrame: 0, ToFrame: 3240}}
-	if got := frameSpan(c); got != "0:00–1:48" {
-		t.Fatalf("span %q", got)
+func TestRunSpecAndInvoiceKeys(t *testing.T) {
+	// 1:48 of 60 fps 4K production: the billable minutes, not the length
+	c := &store.Conversion{Step: store.StepProduction, Method: store.MethodLifelike, ProjectID: "p1",
+		Source: store.Source{FPS: 60}, Params: store.Params{Preset: "4k", FromFrame: 0, ToFrame: 6480},
+		Quote: store.Quote{Breakdown: map[string]any{"billable_minutes": int64(2), "billable_seconds": 108.0}}}
+	if got := runSpec(c); got != "4K · 60 fps · 2 min" {
+		t.Fatalf("spec %q", got)
 	}
-	if frameSpan(&store.Conversion{}) != "" {
-		t.Fatal("no fps: no span")
+	if got := piDescription(c); got != "Lifelike 3D render · 4K · 60 fps · 2 min" {
+		t.Fatalf("description %q", got)
+	}
+	c.Params.TargetFPS, c.Quote.Breakdown = 29.97, nil // older record: minutes from the range
+	if got := runSpec(c); got != "4K · 29.97 fps · 2 min" {
+		t.Fatalf("spec %q", got)
+	}
+	prev := &store.Conversion{Step: store.StepLifelikePreview, Source: store.Source{FPS: 30},
+		Params: store.Params{Preset: "1080p", FromFrame: 30, ToFrame: 180}}
+	if got := runSpec(prev); got != "1080p · 30 fps · 5 s" {
+		t.Fatalf("preview %q", got)
+	}
+	if got := piDescription(&store.Conversion{Kind: "video", Source: store.Source{FPS: 30}, Params: store.Params{Preset: "1080p"}}); got != "3D video conversion" {
+		t.Fatalf("mobile %q", got)
 	}
 	if store.ChargeID(store.ChargeGroup, "b1") != "group_b1" {
 		t.Fatal("charge id")

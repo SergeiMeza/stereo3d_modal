@@ -103,7 +103,7 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 			AmountCents: conv.Quote.AmountCents, Currency: conv.Quote.Currency, Label: label,
 			ReturnURL: returnURL, NoWeChat: device != "computer", SaveMethod: true,
 			NoKlarna:     len(s.rates(ctx).KlarnaMarkets) == 0, // per-market offer comes with local prices
-			ReceiptEmail: email, Description: jobDescription(conv),
+			ReceiptEmail: email, Description: piDescription(conv),
 			Metadata: map[string]string{
 				"kind": "run", "conversion_id": conv.ID, "user_id": conv.UID,
 				"payment_flow": store.FlowPayNow, "attempt": fmt.Sprint(attempt),
@@ -407,7 +407,7 @@ func (s *Service) openAlipay(ctx context.Context, conv *store.Conversion, return
 	updated, err := s.replaceRunPayment(ctx, conv, func(attempt int) (*store.Payment, error) {
 		pi, url, perr := s.Stripe.CreateAlipayPayment(conv.Stripe.CustomerID, conv.Quote.AmountCents, conv.Quote.Currency,
 			returnURL, attempt, stripex.Job{Web: true, ConversionID: conv.ID, UID: conv.UID,
-				Description: jobDescription(conv), ReceiptEmail: email, Metadata: jobMetadataFromConversion(conv)})
+				Description: piDescription(conv), ReceiptEmail: email, Metadata: jobMetadataFromConversion(conv)})
 		if perr != nil {
 			return nil, perr
 		}

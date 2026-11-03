@@ -1457,7 +1457,7 @@ func billedMinutes(step string, seconds float64) float64 {
 }
 
 // withBillableMinutes adds billable_minutes to a production quote's
-// breakdown ("3 min (2:10 rounded up)").
+// breakdown (receipts show just the minutes: "3 min").
 func withBillableMinutes(q *Quote, err error) func(StepInputs) (*Quote, error) {
 	return func(in StepInputs) (*Quote, error) {
 		if err == nil && q != nil && in.Step == "production" {

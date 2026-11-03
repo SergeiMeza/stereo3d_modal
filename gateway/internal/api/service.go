@@ -697,7 +697,7 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          conv.UID,
-				Description:  jobDescription(conv),
+				Description:  piDescription(conv),
 				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: cust.Email,
 			})

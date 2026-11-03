@@ -138,7 +138,7 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		ProjectID:    conv.ProjectID,
 		Step:         conv.Step,
 		Kind:         conv.Kind,
-		Description:  jobDescription(conv),
+		Description:  piDescription(conv),
 		AmountCents:  conv.Quote.AmountCents,
 	}, tier.Window(), tier.CapCents)
 	if errors.Is(err, store.ErrNotBatchable) || errors.Is(err, store.ErrStateConflict) {

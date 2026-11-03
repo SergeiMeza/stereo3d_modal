@@ -149,7 +149,7 @@ func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*st
 			Web:          true,
 			ConversionID: conv.ID,
 			UID:          conv.UID,
-			Description:  jobDescription(conv),
+			Description:  piDescription(conv),
 			// from the record alone: a replay must send the same request
 			Metadata:     jobMetadataFromConversion(conv),
 			ReceiptEmail: conv.Stripe.ChargeEmail,

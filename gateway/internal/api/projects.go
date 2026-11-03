@@ -1470,7 +1470,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          user.UID,
-				Description:  jobDescription(conv),
+				Description:  piDescription(conv),
 				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: user.Email,
 			})

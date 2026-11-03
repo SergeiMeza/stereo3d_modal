@@ -597,7 +597,10 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   7:40 + 7:40 → 16, not 8 + 8; the brand intro never counts); then the
   per-minute rate, fps factor, tier and add-ons as before. Quotes carry
   `billable_minutes` beside `billable_seconds`; receipts and invoices
-  show just the minutes ("4K · 60 fps · 3 min"). Holds and charges are the quote, so a settle never exceeds it.
+  show just the minutes, never the exact length: invoice lines "{project}
+  · Lifelike 3D render · 4K · 60 fps · 3 min" and web payment
+  descriptions (Stripe's receipt) "Lifelike 3D render · 4K · 60 fps · 3
+  min" (previews "… · 5 s"; the mobile one-shot keeps its own). Holds and charges are the quote, so a settle never exceeds it.
   Previews keep their exact length (Lifelike: per frame; Classic
   depth/stereo previews: per second) and the mobile one-shot is
   unchanged. The $1 minimum and the bulk threshold are unchanged.
