@@ -3,7 +3,8 @@
 /**
  * Landing / product page body (mock 12, S3D-46): the hero leads with
  * Lifelike 3D, our newest 3D technology, then three benefits, the devices,
- * three steps, the studio tour, and one closing "See prices". Client
+ * three steps, the samples to download (2026-11), the studio tour, and
+ * one closing "See prices". Client
  * because the CTA depends on auth state ("Make your first 3D video" goes
  * to /projects with a session, /signin otherwise) and the "from $X a
  * minute" / preview prices come from GET /v1/pricing — never hardcoded. The route itself (app/page.tsx) is
@@ -15,11 +16,12 @@
  */
 
 import { Clock, Layers, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { HeroCompare } from "@/components/landing/HeroCompare";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
+import { Samples } from "@/components/landing/Samples";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { Logo } from "@/components/Logo";
@@ -64,27 +66,11 @@ const FORMATS = [
   },
 ];
 
-/** true when the viewer asked for less motion: the hero clip then waits
- * for a click instead of looping. */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    if (!mq) return;
-    const update = () => setReduced(mq.matches);
-    update();
-    mq.addEventListener?.("change", update);
-    return () => mq.removeEventListener?.("change", update);
-  }, []);
-  return reduced;
-}
-
 export function LandingContent() {
   const { user } = useAuth();
   const signedIn = user !== null;
   const pricing = usePricing();
   const perMinute = pricing ? fromPerMinute(pricing) : null;
-  const reducedMotion = usePrefersReducedMotion();
   // S3D-05: the hero is about Lifelike — its limits, from /v1/pricing
   const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing));
 
@@ -141,24 +127,7 @@ export function LandingContent() {
             </Link>
           </p>
         </div>
-        <figure className="relative">
-          <div className="ll-edge overflow-hidden rounded-2xl p-px">
-            <video
-              autoPlay={!reducedMotion}
-              controls={reducedMotion}
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-label="A video made 3D, shown in red-cyan"
-              src="/landing/steps/stereo.mp4"
-              className="aspect-video w-full rounded-2xl bg-black object-cover"
-            />
-          </div>
-          <figcaption className="mt-3 text-xs text-fg-muted">
-            Red-cyan glasses show the depth.
-          </figcaption>
-        </figure>
+        <HeroCompare />
       </section>
 
       {/* Benefits */}
@@ -202,6 +171,8 @@ export function LandingContent() {
           </div>
         ))}
       </section>
+
+      <Samples />
 
       {/* Workflow */}
       <section

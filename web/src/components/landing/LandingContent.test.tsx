@@ -61,3 +61,39 @@ describe("Landing hero (mock 12, S3D-46)", () => {
     );
   });
 });
+
+describe("Samples (2026-11)", () => {
+  it("offers each clip for Vision Pro, side by side and as the 2D original", () => {
+    render(
+      <AuthProvider>
+        <LandingContent />
+      </AuthProvider>,
+    );
+    // before/after in the hero: a range input over two stills
+    const compare = screen.getByTestId("hero-compare");
+    expect(
+      compare.querySelector('input[type="range"]')?.getAttribute("aria-label"),
+    ).toBe("Compare your video with Lifelike 3D");
+    for (const slug of [
+      "mustang-golden-hour",
+      "pool-day",
+      "seoul-street",
+      "diner-freeze",
+      "matsuri-night",
+    ]) {
+      const tile = screen.getByTestId(`sample-${slug}`);
+      const hrefs = [...tile.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+      expect(hrefs).toEqual([
+        `https://cdn.public.spatial-video-studio.com/samples/2026-11/${slug}-spatial.mov`,
+        `https://cdn.public.spatial-video-studio.com/samples/2026-11/${slug}-sbs.mp4`,
+        `https://cdn.public.spatial-video-studio.com/samples/2026-11/${slug}-2d.mp4`,
+      ]);
+      expect(tile.textContent).toContain("Vision Pro (spatial video)");
+      expect(tile.textContent).toContain(
+        "Quest, Pico, Galaxy XR, XR glasses (side by side)",
+      );
+      // poster first: no video until asked to play
+      expect(tile.querySelector("video")).toBeNull();
+    }
+  });
+});

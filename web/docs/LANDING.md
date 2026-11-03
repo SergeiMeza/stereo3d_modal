@@ -49,6 +49,19 @@ internal pipeline names.
 - Hero visual: the Stereo tab screenshot (side-by-side video + depth map
   is the most self-explanatory single image) in a browser-chrome frame.
 
+> 2026-11 samples: the hero's red-cyan clip became a before/after
+> (`HeroCompare.tsx`): the Mustang sample's 2D frame (cropped to match the
+> 3D result's framing) and the same frame in red-cyan, a range input as
+> the divider. Two WebP stills in `public/landing/samples/`, no video.
+> A **Samples** section (`Samples.tsx`, `src/lib/samples.ts`) follows the
+> three steps: five 15 s clips made with Lifelike 3D (test service,
+> preset 4K, capped at the 1440p source), each with downloads for Vision
+> Pro (spatial `.mov`), the other headsets and XR glasses (side by side
+> `.mp4`) and the 2D original. Files on the public CDN under
+> `samples/2026-11/` with `Content-Disposition: attachment`; muted loops
+> under `samples/2026-11/loops/` mount only when a tile is played. The 2D
+> sources are AI-generated footage we made; the section says so.
+
 ### 2. Workflow ("Your video, directed by you")
 Interactive tab strip mirroring the app's own left nav — Media, Cut,
 Depth, Stereo, Deliver. Clicking a tab swaps the screenshot and a short
