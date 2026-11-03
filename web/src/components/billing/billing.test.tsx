@@ -124,7 +124,7 @@ describe("RequireBilling", () => {
     expect(await screen.findByTestId("billing-banner")).toBeTruthy();
     expect(screen.getByText("studio content")).toBeTruthy();
     expect(
-      screen.getByText("There's a problem with your last payment. Update your card."),
+      screen.getByText("There's a problem with your last payment. Update your payment method."),
     ).toBeTruthy();
     expect(screen.getByTestId("billing-update-card")).toBeTruthy();
   });
@@ -142,7 +142,7 @@ describe("OnboardingScreen", () => {
     renderWithBilling(<OnboardingScreen />);
 
     const save = await screen.findByRole("button", {
-      name: "Save test card",
+      name: "Save test payment method",
     });
     fireEvent.click(save);
 

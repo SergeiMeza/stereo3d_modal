@@ -111,7 +111,7 @@ export function runLine(conv: Conversion): string {
 export function billingStatusNote(conv: Conversion): string | null {
   switch (conv.billing?.status) {
     case "refund_pending":
-      return "Your refund is on its way — the full amount goes back to your card.";
+      return "Your refund is on its way. The full amount goes back to your payment method.";
     case "refunded":
       return "Refunded in full.";
     case "not_charged":
@@ -365,7 +365,7 @@ export function ConversionTracker({
             onClick={() => void openCardUpdate(client)}
             className="text-primary hover:underline"
           >
-            Update card
+            Update payment method
           </button>
         </p>
       ) : null}

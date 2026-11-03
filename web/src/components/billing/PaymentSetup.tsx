@@ -116,7 +116,7 @@ function StripeSetupLoader({ onSaved }: BillingSetupPanelProps): JSX.Element {
       })
       .catch((e: unknown) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "card setup failed");
+          setError(e instanceof Error ? e.message : "payment method setup failed");
         }
       });
     return () => {
@@ -183,10 +183,10 @@ function MockSetupPanel({ onSaved }: BillingSetupPanelProps): JSX.Element {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (!res.ok) throw new Error(`card setup failed (${res.status})`);
+      if (!res.ok) throw new Error(`payment method setup failed (${res.status})`);
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "card setup failed");
+      setError(e instanceof Error ? e.message : "payment method setup failed");
       setBusy(false);
     }
   }
@@ -205,7 +205,7 @@ function MockSetupPanel({ onSaved }: BillingSetupPanelProps): JSX.Element {
         disabled={busy}
         className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
       >
-        {busy ? "Saving…" : "Save test card"}
+        {busy ? "Saving…" : "Save test payment method"}
       </button>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>

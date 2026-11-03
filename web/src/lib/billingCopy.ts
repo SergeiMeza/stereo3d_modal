@@ -53,7 +53,7 @@ export function paymentStatus(c: Conversion): string | null {
 }
 
 /** A failed charge, in words. */
-export const PAYMENT_NEEDED = "Payment needed: update your card";
+export const PAYMENT_NEEDED = "Payment needed: update your payment method";
 
 /** The "?" beside a Make 3D price (S3D-23): when it's charged and when a
  * cancel costs nothing. */

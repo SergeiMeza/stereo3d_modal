@@ -99,7 +99,7 @@ export function cardState(project: Project): CardState {
         ? {
             label: "Payment needed",
             tone: "attention",
-            link: { label: "Update card", tab: "files" },
+            link: { label: "Update payment method", tab: "files" },
           }
         : { label: "3D ready", tone: "ready", link: { label: "Files", tab: "files" } };
     case "failed":

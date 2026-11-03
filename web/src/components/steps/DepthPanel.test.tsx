@@ -377,7 +377,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("payment method");
-    const link = within(notice).getByRole("link", { name: /Set up billing/ });
+    const link = within(notice).getByRole("link", { name: /Add payment method/ });
     expect(link.getAttribute("href")).toBe("/onboarding");
     expect(mockDb.conversions.size).toBe(0);
   });
@@ -396,7 +396,7 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await user.click(screen.getByRole("button", { name: /^Convert · \$/ }));
 
     const notice = await screen.findByTestId("billing-block");
-    expect(notice.textContent).toContain("Update your card to continue");
+    expect(notice.textContent).toContain("Update your payment method to continue");
     expect(mockDb.conversions.size).toBe(0);
   });
 
@@ -481,8 +481,8 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     const notice = await screen.findByTestId("billing-block");
     expect(notice.textContent).toContain("declined");
     expect(
-      within(notice).getByRole("link", { name: /Update your card/ }).getAttribute("href"),
-    ).toBe("/account");
+      within(notice).getByRole("link", { name: /Update payment method/ }).getAttribute("href"),
+    ).toBe("/account/billing");
     expect(mockDb.conversions.size).toBe(0);
   });
 

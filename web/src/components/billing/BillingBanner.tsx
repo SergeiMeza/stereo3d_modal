@@ -2,11 +2,11 @@
 
 /**
  * The one app-wide payment banner (S3D-22): "There's a problem with your
- * last payment. Update your card." Files stay downloadable; new paid runs
+ * last payment. Update your payment method." Files stay downloadable; new paid runs
  * wait (gateway 402 payment_method_needed / billing_overdue) until the
  * payment goes through.
  *
- * "Update card" opens the Stripe billing portal. "Try again" hits POST
+ * "Update payment method" opens the Stripe billing portal. "Try again" hits POST
  * /v1/billing/settle against the current card; a requires_action response
  * is a 3DS challenge completed in place (completeChargeAction).
  */
@@ -27,7 +27,7 @@ export function setNavigateExternalForTests(fn: (url: string) => void): void {
 }
 
 export const PAYMENT_PROBLEM =
-  "There's a problem with your last payment. Update your card.";
+  "There's a problem with your last payment. Update your payment method.";
 
 /** Open the billing portal to change the card; returns an error sentence
  * or null once the browser is on its way. */
@@ -41,7 +41,7 @@ export async function openCardUpdate(
     navigateExternal(url);
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : "Could not open the card page";
+    return e instanceof Error ? e.message : "Couldn't open the payment method page";
   }
 }
 
@@ -63,7 +63,7 @@ export function UpdateCardToContinue(): JSX.Element {
         }}
         disabled={busy}
       >
-        Update your card to continue
+        Update your payment method to continue
       </Button>
       {message ? <span className="text-xs text-red-400">{message}</span> : null}
     </div>
@@ -138,7 +138,7 @@ export function BillingBanner(): JSX.Element | null {
             disabled={busy}
             data-testid="billing-update-card"
           >
-            Update card
+            Update payment method
           </Button>
           <Button
             size="sm"

@@ -129,7 +129,7 @@ describe("ProjectsScreen list", () => {
     expect(screen.getByTestId("project-card").textContent).not.toContain("$20.25");
   });
 
-  it("a failed payment reads Payment needed with Update card", async () => {
+  it("a failed payment reads Payment needed with Update payment method", async () => {
     mockDb.conversions.set("c0000000fail", {
       conversion_id: "c0000000fail",
       state: "succeeded",
@@ -148,7 +148,7 @@ describe("ProjectsScreen list", () => {
     expect((await screen.findByTestId("card-state")).textContent).toBe(
       "Payment needed",
     );
-    expect(screen.getByRole("link", { name: "Update card" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Update payment method" })).toBeTruthy();
   });
 
   it("an unreadable video says so", async () => {

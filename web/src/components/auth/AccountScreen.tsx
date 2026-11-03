@@ -49,7 +49,7 @@ function deleteErrorMessage(err: unknown): string {
     const cents = err.details?.amount_cents;
     const amount =
       typeof cents === "number" && cents > 0 ? ` (${formatCents(cents)})` : "";
-    return `Payment needed${amount}: update your card on Billing, then delete your account.`;
+    return `Payment needed${amount}: update your payment method on Billing, then delete your account.`;
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
     return "A run is still going. Cancel it or wait for it to finish, then delete your account.";
@@ -268,7 +268,7 @@ export default function AccountScreen() {
             <p className="text-xs text-destructive">{deleteError}</p>
           )}
           <p className="text-xs text-fg-muted">
-            Anything you still owe is charged to your saved card first. Your
+            Anything you still owe is charged to your saved payment method first. Your
             projects, videos and 3D files are removed from your account at
             once; billing records are kept for support.
           </p>

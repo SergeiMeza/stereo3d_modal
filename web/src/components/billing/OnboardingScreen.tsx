@@ -67,7 +67,7 @@ export default function OnboardingScreen(): JSX.Element {
     }
     setConfirming(false);
     setError(
-      "The card was saved but hasn't shown up yet — retry, or continue and check the Account page.",
+      "Your payment method was saved but hasn't shown up yet. Retry, or continue and check Billing.",
     );
   }
 
@@ -78,7 +78,7 @@ export default function OnboardingScreen(): JSX.Element {
           Set up pay-as-you-go billing
         </h1>
         <p className="text-fg-muted">
-          Stereo3D Studio has no subscription. Save a card once; every run
+          Stereo3D Studio has no subscription. Save a payment method once; every run
           shows its exact price before it starts.
         </p>
         <p data-testid="charge-rule" className="text-sm text-fg-muted">
@@ -87,15 +87,15 @@ export default function OnboardingScreen(): JSX.Element {
       </header>
       <div className="rounded-lg border border-edge bg-surface-1 p-4">
         {confirming ? (
-          <p className="text-sm text-fg-muted">Confirming your card…</p>
+          <p className="text-sm text-fg-muted">Confirming your payment method…</p>
         ) : (
           <setup.Panel onSaved={() => void onSaved()} />
         )}
         {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
       </div>
       <p className="text-xs text-fg-muted">
-        Cards are stored by Stripe — the studio never sees the number. Manage
-        or remove them anytime from the Account page&apos;s billing portal.
+        Your payment details are stored securely by our payment provider; we
+        never see your card number. Manage them anytime on Billing.
       </p>
     </section>
   );

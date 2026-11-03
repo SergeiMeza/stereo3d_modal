@@ -357,7 +357,7 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
           href="/onboarding"
           className="mt-1 inline-block text-primary hover:underline"
         >
-          Set up billing →
+          Add payment method →
         </Link>
       </div>
     );
@@ -369,14 +369,13 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
         className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm"
       >
         <p className="text-red-200">
-          Your card declined the payment for this run — nothing was
-          charged.
+          The payment for this run was declined. Nothing was charged.
         </p>
         <Link
-          href="/account"
+          href="/account/billing"
           className="mt-1 inline-block text-primary hover:underline"
         >
-          Update your card →
+          Update payment method →
         </Link>
       </div>
     );
@@ -493,7 +492,7 @@ export interface InstantCheckoutProps {
  * settings change (no "Get quote" step), the button starts it, and the
  * details — the quote's lines, the minimum, when it's charged — sit behind
  * the "?" beside the one charging line. While a payment needs a new card
- * the button reads "Update your card to continue" (S3D-22).
+ * the button reads "Update your payment method to continue" (S3D-22/63).
  */
 export function InstantCheckout({
   checkout: ck,
