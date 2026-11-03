@@ -91,3 +91,19 @@ func TestLifelikeStabilizePassThrough(t *testing.T) {
 		t.Fatal("off by default on test and prod")
 	}
 }
+
+// Express: "priority": "express" only on Express runs; standard runs omit
+// the key (the Lifelike scheduler will 400 any other value), and the GPU
+// count is unchanged until the team's 2/4/8-GPU table arrives.
+func TestLifelikePriorityContract(t *testing.T) {
+	c := &store.Conversion{Method: store.MethodLifelike, Params: store.Params{Preset: "4k"}}
+	std := lifelikeBody(c, 4)
+	if _, ok := std["priority"]; ok {
+		t.Fatalf("standard run sent priority: %v", std["priority"])
+	}
+	c.Params.Express = true
+	exp := lifelikeBody(c, 4)
+	if exp["priority"] != "express" || exp["max_gpu_workers"] != std["max_gpu_workers"] {
+		t.Fatalf("express: %v %v", exp["priority"], exp["max_gpu_workers"])
+	}
+}

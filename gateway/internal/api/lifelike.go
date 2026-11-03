@@ -290,9 +290,10 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 		body["foveation"] = c.Params.Foveation
 	}
 	if c.Params.Express {
-		// Express (pricing 2026-11): the service ignores unknown keys, so
-		// this is sent now and takes effect once the Lifelike queue
-		// honours it (asked via the coordinator).
+		// Express (pricing 2026-11): the Lifelike slot scheduler gives
+		// freed GPU slots to "express" first. Only this value, and only on
+		// Express runs: standard runs omit the key (any other value will
+		// be a 400). GPU count unchanged until the team's 2/4/8 table.
 		body["priority"] = "express"
 	}
 	if c.Params.Stabilize {
