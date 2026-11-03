@@ -64,7 +64,6 @@ import {
   type StepQuoteResponse,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
 
@@ -451,26 +450,24 @@ const PERIOD_WORDS: Record<string, string> = {
 };
 
 /** "3 of 20 free previews left this month" / "Your first preview is free"
- * (pricing 2026-11; Lifelike previews only, no rollover). */
-export function freePreviewText(fp: NonNullable<StepQuoteResponse["free_previews"]>, period?: string): string | null {
-  if (fp.intro) return fp.free ? "Your first preview is free" : null;
+ * from the quote's free_previews.period (00083; Lifelike previews only,
+ * no rollover). */
+export function freePreviewText(fp: NonNullable<StepQuoteResponse["free_previews"]>): string | null {
+  if (fp.period === "first_project" || (fp.period === undefined && fp.intro)) {
+    return fp.free ? "Your first preview is free" : null;
+  }
   if (fp.allowance <= 0) return null;
   if (fp.remaining > 0 && fp.daily_left < Math.max(fp.units, 1)) {
     return "Today's free previews are used. More tomorrow.";
   }
-  const when = PERIOD_WORDS[period ?? "month"] ?? "this month";
-  return `${fp.remaining} of ${fp.allowance} free previews left ${when}`;
+  const when = fp.period ? PERIOD_WORDS[fp.period] : undefined;
+  return `${fp.remaining} of ${fp.allowance} free previews left${when ? ` ${when}` : ""}`;
 }
 
 function FreePreviewLine({ quote }: { quote: StepQuoteResponse | null }): JSX.Element | null {
-  const pricing = usePricing();
   const fp = quote?.free_previews;
   if (!fp) return null;
-  // the period of the allowance this account draws on
-  const fpp = pricing?.free_previews;
-  const tier = quote?.tier ?? "";
-  const key = tier === "business" || tier === "studio" ? tier : tier === "pro" ? "pro_monthly" : "intro";
-  const text = freePreviewText(fp, fpp?.periods[key]);
+  const text = freePreviewText(fp);
   if (!text) return null;
   return (
     <span data-testid="free-previews" className={`text-xs ${fp.free ? "text-emerald-300" : "text-fg-muted"} tabular-nums`}>

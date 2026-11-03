@@ -182,6 +182,10 @@ interface MockBilling {
   plan: AccountPlan | null;
   /** 00081: deletion waits for a balance refund; runs and top-ups 403 */
   deletionPending: boolean;
+  /** 00083: another reason auto-reload can't be turned on */
+  autoReloadBlocked: "" | "dispute" | "payment_failed";
+  /** 00083: what was added today, against the daily top-up cap */
+  topupDayCents: number;
 }
 
 /** spec v7 N1, the mock's ledger summary. */
@@ -202,7 +206,7 @@ interface MockPrepaid {
   nextTopup: "paid" | "declined";
 }
 
-const BALANCE_LIMITS = { min: 1000, max: 50000, first_max: 10000 };
+const BALANCE_LIMITS = { min: 1000, max: 50000, first_max: 10000, day_cap: 100000 };
 
 function prepaidAvailable(): number {
   const pp = mockDb.billing.prepaid;
@@ -481,7 +485,7 @@ function freePreviewState(units: number) {
   if (key === "intro") {
     const used = fp.introUsed ? allowance : 0;
     const remaining = allowance - used;
-    return { allowance, used, remaining, daily_left: dayLeft, units, free: remaining > 0 && dayLeft >= 1, intro: true };
+    return { allowance, used, remaining, daily_left: dayLeft, units, free: remaining > 0 && dayLeft >= 1, intro: true, period: "first_project" };
   }
   const remaining = Math.max(allowance - fp.used, 0);
   const end = new Date();
@@ -495,6 +499,7 @@ function freePreviewState(units: number) {
     units,
     free: units > 0 && remaining >= units && dayLeft >= units,
     intro: false,
+    period: "month",
     resets_at: end.toISOString(),
   };
 }
@@ -590,6 +595,8 @@ function seed(): DB {
       },
       plan: null,
       deletionPending: false,
+      autoReloadBlocked: "",
+      topupDayCents: 0,
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -2325,6 +2332,22 @@ export const handlers = [
         { status: 422 },
       );
     }
+    // 00083: the daily top-up cap, with what's left today
+    const dayLeft = BALANCE_LIMITS.day_cap - mockDb.billing.topupDayCents;
+    if (body.amount_cents > dayLeft) {
+      const tomorrow = new Date();
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      tomorrow.setUTCHours(0, 0, 0, 0);
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "topup_daily_cap",
+          message: "today's top-up limit is reached",
+          details: { min: BALANCE_LIMITS.min, max, day_left_cents: Math.max(dayLeft, 0), day_cap_cents: BALANCE_LIMITS.day_cap, resets_at: tomorrow.toISOString() },
+        },
+        { status: 422 },
+      );
+    }
     const topup_id = `tu_${Math.random().toString(36).slice(2, 8)}`;
     if (body.method === "wechat_pay") {
       return HttpResponse.json({ topup_id, qr_image_url: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=" });
@@ -2361,8 +2384,16 @@ export const handlers = [
       if (body.auto_reload.enabled && (body.auto_reload.add_cents < 1000 || body.auto_reload.add_cents < body.auto_reload.below_cents)) {
         return err(400, "invalid_request", "add at least $10 and at least the threshold");
       }
-      if (body.auto_reload.enabled && mockDb.billing.underReview) {
-        return err(409, "auto_reload_blocked", "a payment is being checked");
+      const blocked = mockDb.billing.underReview
+        ? "under_review"
+        : mockDb.billing.deletionPending
+          ? "deletion_pending"
+          : mockDb.billing.autoReloadBlocked;
+      if (body.auto_reload.enabled && blocked) {
+        return HttpResponse.json(
+          { success: false, error: "auto_reload_blocked", message: "auto-reload can't be turned on now", details: { reason: blocked } },
+          { status: 409 },
+        );
       }
       pp.auto_reload = { ...body.auto_reload };
     }
@@ -2711,6 +2742,7 @@ export const handlers = [
       pp.nextTopup = "paid";
       if (outcome === "declined") return HttpResponse.json({ result: "declined" });
       ch.state = "paid";
+      b.topupDayCents += ch.amount_cents;
       addTopup(ch.amount_cents, "topup", "Visa •••• 4242");
       b.hasPaymentMethod = true;
       if (b.methods.length === 0) {

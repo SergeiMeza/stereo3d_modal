@@ -122,6 +122,31 @@ describe("Add funds (P17)", () => {
   });
 });
 
+describe("00083 refusals", () => {
+  it("the daily top-up cap says what's left today", async () => {
+    mockDb.billing.topupDayCents = 97500;
+    topped(500);
+    renderBilling();
+    fireEvent.click(await screen.findByTestId("balance-add-funds"));
+    // $25 is preselected and fits; $50 doesn't
+    fireEvent.click(within(await screen.findByTestId("add-funds-sheet")).getByRole("radio", { name: "$50" }));
+    expect(await screen.findByText("You can add up to $25.00 more today.")).toBeTruthy();
+  });
+
+  it.each([
+    ["dispute", "Auto-reload can't be turned on while a bank dispute is open."],
+    ["payment_failed", "Auto-reload can't be turned on until a failed payment is paid."],
+  ] as const)("auto-reload blocked by %s", async (reason, line) => {
+    mockDb.billing.autoReloadBlocked = reason;
+    renderBilling();
+    fireEvent.click(await screen.findByRole("button", { name: "Set up auto-reload" }));
+    const dlg = await screen.findByTestId("auto-reload-dialog");
+    await within(dlg).findByTestId("reload-consent");
+    fireEvent.click(within(dlg).getByTestId("auto-reload-save"));
+    expect(await within(dlg).findByText(line)).toBeTruthy();
+  });
+});
+
 describe("Auto-reload (P18)", () => {
   it("validates the amount, names the default method and saves", async () => {
     renderBilling();

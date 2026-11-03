@@ -352,6 +352,8 @@ export interface FreePreviews {
   free: boolean;
   /** a non-subscriber's one free preview on their first project */
   intro: boolean;
+  /** 00083: what the allowance is for */
+  period?: "week" | "month" | "year" | "pass" | "first_project";
   resets_at?: string;
 }
 

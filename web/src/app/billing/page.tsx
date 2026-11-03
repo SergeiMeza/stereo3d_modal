@@ -1,6 +1,7 @@
 /**
- * The gateway's plan checkout returns to /billing?plan=… (hosted page);
- * Billing lives at /account/billing.
+ * Billing lives at /account/billing. The plan checkout returns there
+ * directly since gateway 00083; this stays for mails and other returns
+ * that still point at /billing.
  */
 
 import { redirect } from "next/navigation";

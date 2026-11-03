@@ -34,6 +34,8 @@ import {
   PAYING,
   TOO_MANY,
   TOPUP_DAILY,
+  topupDayLeft,
+  AUTO_RELOAD_BLOCKED,
   PAYMENT_METHOD_BLOCKED,
   DELETION_PENDING_BLOCK,
   TOPUP_MIN,
@@ -86,7 +88,7 @@ function topupErrorText(e: unknown, amount: number, first: boolean): string {
     case "amount_out_of_range":
       return amount < MIN ? TOPUP_MIN : topupMax(max, first);
     case "topup_daily_cap":
-      return TOPUP_DAILY;
+      return typeof g?.details?.day_left_cents === "number" ? topupDayLeft(g.details.day_left_cents) : TOPUP_DAILY;
     case "payment_method_blocked":
       return PAYMENT_METHOD_BLOCKED;
     case "deletion_pending":
@@ -427,9 +429,10 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
     } catch (e) {
       setState("idle");
       const code = e instanceof GatewayError ? e.code : "";
+      const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
       setError(
         code === "auto_reload_blocked"
-          ? "Auto-reload can't be turned on while we check a payment."
+          ? (AUTO_RELOAD_BLOCKED[reason] ?? AUTO_RELOAD_BLOCKED.under_review)
           : code === "method_needed"
             ? "Save a payment method to use auto-reload."
             : "Couldn't save that. Try again.",

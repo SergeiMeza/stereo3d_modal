@@ -253,12 +253,19 @@ describe("free previews (pricing 2026-11)", () => {
     expect((await screen.findByTestId("free-previews")).textContent).toBe("3 of 20 free previews left this month");
   });
 
-  it("texts", () => {
+  it("texts follow the quote's period (00083)", () => {
     const base = { allowance: 20, used: 20, remaining: 0, daily_left: 20, units: 1, free: false, intro: false };
-    expect(freePreviewText(base, "month")).toBe("0 of 20 free previews left this month");
-    expect(freePreviewText({ ...base, remaining: 5, daily_left: 0 }, "month")).toBe("Today's free previews are used. More tomorrow.");
-    expect(freePreviewText({ ...base, allowance: 1, intro: true, free: false })).toBeNull();
-    expect(freePreviewText({ ...base, allowance: 240, remaining: 200 }, "year")).toBe("200 of 240 free previews left this year");
+    expect(freePreviewText({ ...base, period: "month" })).toBe("0 of 20 free previews left this month");
+    expect(freePreviewText({ ...base, allowance: 5, remaining: 2, period: "week" })).toBe("2 of 5 free previews left this week");
+    expect(freePreviewText({ ...base, allowance: 240, remaining: 200, period: "year" })).toBe("200 of 240 free previews left this year");
+    expect(freePreviewText({ ...base, allowance: 60, remaining: 41, period: "pass" })).toBe("41 of 60 free previews left on your pass");
+    expect(freePreviewText({ ...base, allowance: 1, remaining: 1, free: true, intro: true, period: "first_project" })).toBe(
+      "Your first preview is free",
+    );
+    expect(freePreviewText({ ...base, allowance: 1, intro: true, period: "first_project" })).toBeNull();
+    // no period: no guessed month
+    expect(freePreviewText({ ...base, remaining: 3 })).toBe("3 of 20 free previews left");
+    expect(freePreviewText({ ...base, remaining: 5, daily_left: 0, period: "month" })).toBe("Today's free previews are used. More tomorrow.");
   });
 });
 

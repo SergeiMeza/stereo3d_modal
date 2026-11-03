@@ -93,6 +93,19 @@ export const PAYMENT_METHOD_BLOCKED = "This payment method can't be used. Add an
 export const DELETION_PENDING_BLOCK = "Your account is being deleted.";
 export const TOPUP_DAILY = "You've reached today's limit. Try again tomorrow.";
 
+/** 00083: topup_daily_cap with what's left today */
+export function topupDayLeft(cents: number): string {
+  return cents > 0 ? `You can add up to ${formatCents(cents)} more today.` : TOPUP_DAILY;
+}
+
+/** 00083: auto_reload_blocked, one line per reason */
+export const AUTO_RELOAD_BLOCKED: Record<string, string> = {
+  under_review: "Auto-reload can't be turned on while we check a payment.",
+  dispute: "Auto-reload can't be turned on while a bank dispute is open.",
+  payment_failed: "Auto-reload can't be turned on until a failed payment is paid.",
+  deletion_pending: "Auto-reload can't be turned on while your account is being deleted.",
+};
+
 /** "Paid from your balance. We'll add $25.00 first." */
 export function paidFromBalanceReload(reloadCents: number): string {
   return `Paid from your balance. We'll add ${formatCents(reloadCents)} first.`;
