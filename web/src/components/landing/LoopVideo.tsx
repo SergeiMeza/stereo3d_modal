@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * A muted, looping landing clip: `<base>.webm` (VP9) then `<base>.mp4`
- * (H.264), with `<base>.jpg` as the poster. It plays only while on screen
+ * A muted, looping landing clip: `<base>.mp4` (H.264) first, then
+ * `<base>.webm` (VP9), with `<base>.jpg` as the poster. H.264 leads
+ * because iPhone Safari picks a VP9 WebM it then paints as a black box. It plays only while on screen
  * and never when the viewer asked for reduced motion — then the poster is
  * all they see.
  */
@@ -69,8 +70,8 @@ export function LoopVideo({
       aria-label={label}
       className={className}
     >
-      <source src={`${base}.webm`} type="video/webm" />
       <source src={`${base}.mp4`} type="video/mp4" />
+      <source src={`${base}.webm`} type="video/webm" />
     </video>
   );
 }

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/lib/auth";
@@ -68,13 +68,14 @@ describe("Samples (2026-11)", () => {
         <LandingContent />
       </AuthProvider>,
     );
-    // the hero's 2D → 3D loop: WebM then MP4, a poster for reduced motion
+    // the hero's 2D → 3D loop: H.264 MP4 first (iPhone Safari paints VP9
+    // WebM black), then WebM, a poster for reduced motion
     const hero = screen.getByTestId("hero-loop");
     const video = hero.querySelector("video");
     expect(video?.getAttribute("poster")).toBe("/landing/hero/diner-2d-3d.jpg");
     expect(
       [...hero.querySelectorAll("source")].map((s) => s.getAttribute("type")),
-    ).toEqual(["video/webm", "video/mp4"]);
+    ).toEqual(["video/mp4", "video/webm"]);
     for (const slug of [
       "mustang-golden-hour",
       "pool-day",
@@ -96,6 +97,13 @@ describe("Samples (2026-11)", () => {
       // poster first: no video until asked to play
       expect(tile.querySelector("video")).toBeNull();
     }
+    // playing red-cyan: H.264 first there too
+    const tile = screen.getByTestId("sample-pool-day");
+    fireEvent.click(within(tile).getByRole("button", { name: "Red-cyan" }));
+    expect([...tile.querySelectorAll("source")].map((s) => s.getAttribute("src"))).toEqual([
+      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/pool-day-redcyan-loop.mp4",
+      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/pool-day-redcyan-loop.webm",
+    ]);
   });
 });
 

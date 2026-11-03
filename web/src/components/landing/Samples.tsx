@@ -53,8 +53,9 @@ function SampleTile({ sample }: { sample: Sample }) {
             aria-label={`${sample.title}, ${look === "2d" ? "the 2D video" : "in red-cyan 3D"}`}
             className="absolute inset-0 h-full w-full object-cover"
           >
-            <source src={loop.webm} type="video/webm" />
+            {/* H.264 first: iPhone Safari paints the VP9 WebM black */}
             <source src={loop.mp4} type="video/mp4" />
+            <source src={loop.webm} type="video/webm" />
           </video>
         ) : (
           <>
