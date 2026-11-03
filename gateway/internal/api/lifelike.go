@@ -623,6 +623,11 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 			return params, serr
 		}
 	}
+	// Above 30 fps needs a Business or Studio plan, checked against the
+	// account now (the quote and again when the run is created).
+	if ferr := s.applyFPSCap(ctx, p, req.TargetFPS, &params); ferr != nil {
+		return params, ferr
+	}
 	return params, nil
 }
 

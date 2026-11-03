@@ -180,9 +180,12 @@ type Params struct {
 	// pipeline default (-1.0, +0.5). Pro steps use scene_overrides instead.
 	Placement []float64 `firestore:"placement,omitempty" json:"placement,omitempty"`
 	TargetFPS float64   `firestore:"target_fps,omitempty" json:"target_fps,omitempty"`
-	FromFrame int       `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
-	ToFrame   int       `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
-	Inpaint   string    `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
+	// FPSCapped: the account has no plan for rates above 30 fps, so the
+	// source's rate was divided down to TargetFPS (fps_cap.go).
+	FPSCapped bool   `firestore:"fps_capped,omitempty" json:"fps_capped,omitempty"`
+	FromFrame int    `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
+	ToFrame   int    `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
+	Inpaint   string `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
 	// DepthModel: video depth backend ("" = pipeline default vda).
 	// Mobile exposes "da2" (per-frame relative DA2 — matches the app's
 	// on-device model); the pro web steps never set it.
@@ -622,6 +625,39 @@ type Probe struct {
 	// BitRate: the video stream's bits per second when analysis reports it
 	// (0 = unknown; match_source then estimates from the file size).
 	BitRate int64 `firestore:"bit_rate,omitempty" json:"bit_rate,omitempty"`
+	// CountedFrames: the video packets ffprobe counted in the file
+	// (-count_packets), not the header's claim (0 = not counted). A
+	// variable-frame-rate file can state 30 fps and carry bursts well
+	// above it; pricing uses the higher of the stated and counted rates.
+	CountedFrames int `firestore:"counted_frames,omitempty" json:"counted_frames,omitempty"`
+	// VFR: the counted rate is above the stated one (more than 1%).
+	VFR bool `firestore:"vfr,omitempty" json:"vfr,omitempty"`
+}
+
+// CountedFPS is the counted frames over the duration (0 = not counted).
+func (p *Probe) CountedFPS() float64 {
+	if p == nil || p.CountedFrames <= 0 || p.DurationS <= 0 {
+		return 0
+	}
+	return float64(p.CountedFrames) / p.DurationS
+}
+
+// PricingFPS is the rate a source is priced and capped at: the higher of
+// the stated rate and the counted one.
+func (p *Probe) PricingFPS() float64 {
+	if p == nil {
+		return 0
+	}
+	return max(p.FPS, p.CountedFPS())
+}
+
+// PricingFrames is the frame count a source is priced at: the higher of
+// the header's and the counted one.
+func (p *Probe) PricingFrames() int {
+	if p == nil {
+		return 0
+	}
+	return max(p.NumFrames, p.CountedFrames)
 }
 
 type Analyze struct {

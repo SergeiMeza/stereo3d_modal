@@ -1402,8 +1402,11 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			},
 		},
 		// Prices are per minute of output at 24 fps; the frame rate scales
-		// them by fps/24, clamped.
-		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor},
+		// them by fps/24, clamped. Output rates above 30 fps need a
+		// Business or Studio plan (2026-11-04); without one a faster
+		// source is divided down.
+		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor,
+			"max_fps_without_plan": 30, "max_fps_with_plan": 120},
 		"discount": map[string]any{
 			"threshold_cents": rates.DiscountThresholdCents,
 			"pct":             rates.DiscountPct,

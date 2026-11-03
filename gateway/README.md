@@ -596,11 +596,27 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   converted range ÷ 60)`, on the run's total (a split run is one range:
   7:40 + 7:40 → 16, not 8 + 8; the brand intro never counts); then the
   per-minute rate, fps factor, tier and add-ons as before. Quotes carry
-  `billable_minutes` beside `billable_seconds` ("3 min (2:10 rounded
-  up)"). Holds and charges are the quote, so a settle never exceeds it.
+  `billable_minutes` beside `billable_seconds`; receipts and invoices
+  show just the minutes ("4K · 60 fps · 3 min"). Holds and charges are the quote, so a settle never exceeds it.
   Previews keep their exact length (Lifelike: per frame; Classic
   depth/stereo previews: per second) and the mobile one-shot is
   unchanged. The $1 minimum and the bulk threshold are unchanged.
+- **Frame rates above 30 fps need a Business or Studio plan (owner
+  2026-11-04)**, every method, previews included (the mobile one-shot is
+  unchanged). Without one, a faster source runs at the largest
+  whole-number division of its rate at most 30 (60 → 30, 59.94 → 29.97,
+  50 → 25, 48 → 24, 120 → 30, 100 → 25, 90 → 30, 40 → 20): params carry
+  `target_fps` and `fps_capped: true`. An explicit `target_fps` above 30
+  is 422 `plan_required_fps` ("Frame rates above 30 fps need a Business
+  or Studio plan."); so is an uploaded depth map on such a source (it
+  needs every frame). Checked at the quote and again when the run is
+  created. Quotes add `fps {max_fps (30|120), source_fps, target_fps,
+  target_fps_choices, fps_capped, reason?: plan_required_above_30fps}`;
+  `/v1/pricing` `fps` adds `max_fps_without_plan: 30, max_fps_with_plan:
+  120`. Prices are unchanged (the fps factor against 24). **The web
+  names the rate**: a web run (request with one of our CORS origins) on a
+  source above 30 fps without `target_fps` is 422 `fps_choice_required`
+  with `details.target_fps_choices`; API callers keep the default.
 - **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay

@@ -1220,6 +1220,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"quote":         quote,
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
+		"fps":           s.fpsInfo(ctx, p, params),
 	}
 	// C1 for this account and amount (spec v6 F): after | precharge |
 	// paynow | china, with why the sheet is needed; charge_timing follows.
@@ -1353,6 +1354,10 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	if req.Method != "" && req.Method != projectMethod(p) {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "method_mismatch",
 			"this project uses "+projectMethod(p)+"; switch the project's method first"))
+		return
+	}
+	if ferr := s.requireFPSChoice(ctx, r, p, req.TargetFPS); ferr != nil {
+		httpx.WriteErr(ctx, w, ferr)
 		return
 	}
 	params, perr := s.resolveParams(ctx, &req, p)
