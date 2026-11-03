@@ -2,9 +2,11 @@
 
 /**
  * Project workspace — a DaVinci-Resolve-style paged screen: a slim project
- * header, one full-width page per pipeline stage (Media · Cut · Depth ·
- * Stereo · Deliver · History), and a left page rail. Pages switch with the
- * rail or the 1–6 keys; the active page persists in the URL hash (#tab=…).
+ * header (with the 3D method switch), one full-width page per pipeline
+ * stage, and a left page rail. The pages follow the project's method:
+ * Classic Media · Cut · Depth · Stereo · Deliver · History; Lifelike Media ·
+ * Cut · Preview · Deliver · History. Pages switch with the rail or the
+ * number keys; the active page persists in the URL hash (#tab=…).
  *
  * Loads the project (GET /v1/projects/{id}); while analyze is running it
  * polls every 3 s. The Cut page owns the frame-accurate scene-cut editor;
@@ -22,11 +24,14 @@ import {
 } from "@/components/projects/AnalyzeBadge";
 import { HistoryList } from "@/components/steps/HistoryList";
 import { MediaTab } from "@/components/workspace/MediaTab";
+import { MethodSwitchControl } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
   PageTabs,
-  TAB_ORDER,
   isWorkspaceTabId,
+  tabForMethod,
+  tabOrderFor,
+  tabsFor,
   type WorkspaceTabId,
 } from "@/components/workspace/PageTabs";
 import { SceneCutEditor } from "@/components/workspace/SceneCutEditor";
@@ -40,7 +45,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GatewayError } from "@/lib/api/client";
-import type { Project, Step } from "@/lib/api/types";
+import { methodOf, type Project, type Step } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 const ANALYZE_POLL_MS = 3000;
@@ -48,6 +53,7 @@ const ANALYZE_POLL_MS = 3000;
 const STEP_BY_TAB: Partial<Record<WorkspaceTabId, Step>> = {
   depth: "depth_preview",
   stereo: "stereo_preview",
+  preview: "lifelike_preview",
   deliver: "production",
 };
 
@@ -101,6 +107,15 @@ export default function WorkspaceScreen({
     }
   }, [gateway, projectId]);
 
+  // A PATCH answer (method switch) is the project without its runs on some
+  // gateways — keep the runs we have until the next load.
+  const applyProjectUpdate = useCallback((next: Project) => {
+    setProject((prev) => ({
+      ...next,
+      conversions: next.conversions ?? prev?.conversions,
+    }));
+  }, []);
+
   // Failed analyses are retryable (transient upstream failures shouldn't
   // force a re-upload); success flips analyze back to running, which
   // restarts the poll loop below.
@@ -134,15 +149,19 @@ export default function WorkspaceScreen({
     return () => clearInterval(timer);
   }, [analyzing, pollIntervalMs, refetch]);
 
-  // Page switching (1–6) and the shortcuts sheet (?/Esc). The Cut page's
-  // transport/editing keys live in SceneCutEditor, mounted only there.
+  // The rail follows the project's method (classic until it has loaded).
+  const method = methodOf(project);
+  const tabOrder = tabOrderFor(method);
+
+  // Page switching (number keys) and the shortcuts sheet (?/Esc). The Cut
+  // page's transport/editing keys live in SceneCutEditor, mounted only there.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey)
         return;
       const digit = Number(e.key);
-      if (digit >= 1 && digit <= TAB_ORDER.length) {
-        setTab(TAB_ORDER[digit - 1]);
+      if (digit >= 1 && digit <= tabOrder.length) {
+        setTab(tabOrder[digit - 1]);
       } else if (e.key === "?") {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
@@ -152,7 +171,7 @@ export default function WorkspaceScreen({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setTab]);
+  }, [setTab, tabOrder]);
 
   async function copyProjectId() {
     if (!project) return;
@@ -227,7 +246,10 @@ export default function WorkspaceScreen({
     </div>
   );
 
-  const step = STEP_BY_TAB[tab];
+  // A link (or the other method's page) that this method's rail doesn't
+  // have maps onto its counterpart: Depth/Stereo ↔ Preview.
+  const page = tabForMethod(tab, method);
+  const step = STEP_BY_TAB[page];
 
   return (
     <section className="flex h-[calc(100vh-3rem)] flex-col">
@@ -249,6 +271,10 @@ export default function WorkspaceScreen({
             Copy project id — quote this to support
           </TooltipContent>
         </Tooltip>
+        <MethodSwitchControl
+          project={project}
+          onChanged={applyProjectUpdate}
+        />
         {analyzing ? (
           <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
             <span
@@ -306,11 +332,20 @@ export default function WorkspaceScreen({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <PageTabs active={tab} onChange={setTab} locked={locked} />
+        <PageTabs
+          tabs={tabsFor(method)}
+          active={page}
+          onChange={setTab}
+          locked={locked}
+        />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {tab === "media" ? (
-            <MediaTab project={project} onNavigate={setTab} />
-          ) : tab === "cut" ? (
+          {page === "media" ? (
+            <MediaTab
+              project={project}
+              onNavigate={setTab}
+              onProjectChanged={applyProjectUpdate}
+            />
+          ) : page === "cut" ? (
             project.analyze.state === "failed" ? (
               <div
                 role="alert"
@@ -347,7 +382,7 @@ export default function WorkspaceScreen({
             ) : (
               analyzingCard
             )
-          ) : tab === "stereo" && stereoLockReason ? (
+          ) : page === "stereo" && stereoLockReason ? (
             // Deep links (#tab=stereo) and the number keys can still land
             // here while locked — explain instead of rendering the panel.
             <div
@@ -385,7 +420,11 @@ export default function WorkspaceScreen({
         </div>
       </div>
 
-      <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ShortcutsSheet
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        tabs={tabsFor(method)}
+      />
     </section>
   );
 }

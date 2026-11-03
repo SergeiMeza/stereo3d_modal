@@ -3,11 +3,15 @@
 /**
  * Left page rail, DaVinci Resolve-style: one tab per pipeline stage,
  * vertically centered, icon over label, switchable with the number keys
- * (1–6 — the keydown handler lives in WorkspaceScreen). Pure presentation:
- * active id in, onChange out.
+ * (the keydown handler lives in WorkspaceScreen). The set follows the
+ * project's method: Classic Media · Cut · Depth · Stereo · Deliver ·
+ * History; Lifelike Media · Cut · Preview · Deliver · History. Pure
+ * presentation: tabs + active id in, onChange out.
  */
 
 import type { JSX } from "react";
+
+import type { Method } from "@/lib/api/types";
 
 import {
   Tooltip,
@@ -20,10 +24,11 @@ export type WorkspaceTabId =
   | "cut"
   | "depth"
   | "stereo"
+  | "preview"
   | "deliver"
   | "history";
 
-interface TabDef {
+export interface TabDef {
   id: WorkspaceTabId;
   label: string;
   /** One-line tooltip; the shortcut key is appended automatically. */
@@ -39,7 +44,7 @@ const stroke = {
   strokeLinejoin: "round",
 } as const;
 
-export const WORKSPACE_TABS: readonly TabDef[] = [
+const ALL_TABS: readonly TabDef[] = [
   {
     id: "media",
     label: "Media",
@@ -87,6 +92,17 @@ export const WORKSPACE_TABS: readonly TabDef[] = [
     ),
   },
   {
+    id: "preview",
+    label: "Preview",
+    hint: "Preview — see a few seconds in 3D from any moment before you deliver",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m10 8.5 5 3.5-5 3.5v-7Z" />
+      </svg>
+    ),
+  },
+  {
     id: "deliver",
     label: "Deliver",
     hint: "Production — full-quality conversion & final formats",
@@ -110,15 +126,46 @@ export const WORKSPACE_TABS: readonly TabDef[] = [
   },
 ];
 
-export const TAB_ORDER: readonly WorkspaceTabId[] = WORKSPACE_TABS.map(
-  (t) => t.id,
-);
+const TAB_IDS: Record<Method, readonly WorkspaceTabId[]> = {
+  classic: ["media", "cut", "depth", "stereo", "deliver", "history"],
+  lifelike: ["media", "cut", "preview", "deliver", "history"],
+};
 
+/** The rail for a project's method, in order. */
+export function tabsFor(method: Method): readonly TabDef[] {
+  return TAB_IDS[method].map((id) => ALL_TABS.find((t) => t.id === id)!);
+}
+
+/** Tab ids for a method, in rail (and number-key) order. */
+export function tabOrderFor(method: Method): readonly WorkspaceTabId[] {
+  return TAB_IDS[method];
+}
+
+/** The Classic rail (today's tabs, unchanged). */
+export const WORKSPACE_TABS: readonly TabDef[] = tabsFor("classic");
+
+export const TAB_ORDER: readonly WorkspaceTabId[] = TAB_IDS.classic;
+
+/** Any tab id either method knows (URL hashes are parsed before the
+ * project — and its method — has loaded). */
 export function isWorkspaceTabId(v: unknown): v is WorkspaceTabId {
-  return typeof v === "string" && TAB_ORDER.includes(v as WorkspaceTabId);
+  return (
+    typeof v === "string" && ALL_TABS.some((t) => t.id === (v as string))
+  );
+}
+
+/** A tab id from a link or the other method's rail, mapped onto this
+ * method's rail: Classic's Depth/Stereo pages become Lifelike's Preview
+ * and back. */
+export function tabForMethod(tab: WorkspaceTabId, method: Method): WorkspaceTabId {
+  if (TAB_IDS[method].includes(tab)) return tab;
+  if (method === "lifelike") return "preview"; // depth | stereo
+  return "stereo"; // preview
 }
 
 export interface PageTabsProps {
+  /** The rail to show (tabsFor(method)); default: the Classic rail. */
+  tabs?: readonly TabDef[];
   active: WorkspaceTabId;
   onChange: (tab: WorkspaceTabId) => void;
   /** Tabs unavailable right now, mapped to the human reason (shown as the
@@ -128,6 +175,7 @@ export interface PageTabsProps {
 }
 
 export function PageTabs({
+  tabs = WORKSPACE_TABS,
   active,
   onChange,
   locked = {},
@@ -138,7 +186,7 @@ export function PageTabs({
       aria-label="Workspace pages"
       className="flex shrink-0 flex-col items-stretch justify-center gap-1 border-r border-edge bg-surface-1 py-4"
     >
-      {WORKSPACE_TABS.map((tab, i) => {
+      {tabs.map((tab, i) => {
         const selected = tab.id === active;
         const lockReason = locked[tab.id];
         return (

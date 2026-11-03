@@ -3,7 +3,8 @@
 /**
  * One paid step as a full workspace page: the shared PageHeader (step title
  * + description + the "ⓘ Tips" trigger) above the step's dedicated panel
- * (Depth / Stereo / Deliver — each owns its own parameters around the
+ * (Classic: Depth / Stereo / Deliver; Lifelike: Preview / Deliver — the
+ * project's method picks the set; each owns its own parameters around the
  * shared useStepCheckout machinery), which takes the FULL page width
  * (theater — the output players deserve the room). The About/Tips copy from
  * stepDefs and the "last run" pointer into History live in a shadcn Drawer
@@ -15,6 +16,8 @@ import type { JSX } from "react";
 
 import { DeliverPanel } from "@/components/steps/DeliverPanel";
 import { DepthPanel } from "@/components/steps/DepthPanel";
+import { LifelikeDeliverPanel } from "@/components/steps/LifelikeDeliverPanel";
+import { LifelikePreviewPanel } from "@/components/steps/LifelikePreviewPanel";
 import { StateChip } from "@/components/steps/StateChip";
 import { stepDef } from "@/components/steps/stepDefs";
 import { StereoPanel } from "@/components/steps/StereoPanel";
@@ -28,7 +31,13 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import type { Project, Step } from "@/lib/api/types";
+import {
+  conversionMethod,
+  methodOf,
+  type Method,
+  type Project,
+  type Step,
+} from "@/lib/api/types";
 
 import { PageHeader } from "./PageHeader";
 import type { WorkspaceTabId } from "./PageTabs";
@@ -38,10 +47,18 @@ interface StepPanelProps {
   onProjectChanged: () => void;
 }
 
-const PANELS: Record<Step, (props: StepPanelProps) => JSX.Element> = {
-  depth_preview: DepthPanel,
-  stereo_preview: StereoPanel,
-  production: DeliverPanel,
+type Panel = (props: StepPanelProps) => JSX.Element;
+
+const PANELS: Record<Method, Partial<Record<Step, Panel>>> = {
+  classic: {
+    depth_preview: DepthPanel,
+    stereo_preview: StereoPanel,
+    production: DeliverPanel,
+  },
+  lifelike: {
+    lifelike_preview: LifelikePreviewPanel,
+    production: LifelikeDeliverPanel,
+  },
 };
 
 function TipsCard({ title, items }: { title: string; items: string[] }) {
@@ -76,10 +93,16 @@ export function StepTab({
   onProjectChanged,
   onNavigate,
 }: StepTabProps): JSX.Element {
-  const def = stepDef(step);
-  const Panel = PANELS[step];
+  const method = methodOf(project);
+  const def = stepDef(step, method);
+  const Panel = PANELS[method][step];
+  if (Panel === undefined) throw new Error(`no ${method} panel for ${step}`);
+  // The last run of this step with this method (a project may have runs
+  // from before a switch).
   const lastRun = [...(project.conversions ?? [])]
-    .filter((c) => c.step === step)
+    .filter(
+      (c) => c.step === step && conversionMethod(c) === method,
+    )
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
 
   return (

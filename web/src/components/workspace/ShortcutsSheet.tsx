@@ -15,21 +15,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { WORKSPACE_TABS } from "./PageTabs";
+import { WORKSPACE_TABS, type TabDef } from "./PageTabs";
 
 interface Shortcut {
   keys: string[];
   action: string;
 }
 
-const GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
-  {
-    title: "Pages",
-    shortcuts: WORKSPACE_TABS.map((t, i) => ({
-      keys: [String(i + 1)],
-      action: `${t.label} page`,
-    })),
-  },
+const pageGroup = (tabs: readonly TabDef[]) => ({
+  title: "Pages",
+  shortcuts: tabs.map((t, i) => ({
+    keys: [String(i + 1)],
+    action: `${t.label} page`,
+  })),
+});
+
+const OTHER_GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
   {
     title: "Playback (every preview & player)",
     shortcuts: [
@@ -57,12 +58,16 @@ const GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
 export interface ShortcutsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The project's rail (number keys follow it); default Classic. */
+  tabs?: readonly TabDef[];
 }
 
 export function ShortcutsSheet({
   open,
   onOpenChange,
+  tabs = WORKSPACE_TABS,
 }: ShortcutsSheetProps): JSX.Element {
+  const groups = [pageGroup(tabs), ...OTHER_GROUPS];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="shortcuts-sheet" className="max-w-2xl">
@@ -70,7 +75,7 @@ export function ShortcutsSheet({
           <DialogTitle>Keyboard shortcuts</DialogTitle>
         </DialogHeader>
         <div className="grid gap-5 sm:grid-cols-2">
-          {GROUPS.map((g) => (
+          {groups.map((g) => (
             <section key={g.title}>
               <h3 className="mb-2 text-xs font-semibold tracking-wide text-fg-muted uppercase">
                 {g.title}

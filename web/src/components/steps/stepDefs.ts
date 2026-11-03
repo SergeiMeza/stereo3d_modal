@@ -1,4 +1,4 @@
-import type { Step } from "@/lib/api/types";
+import type { Method, Step } from "@/lib/api/types";
 
 /**
  * Copy for the paid pipeline steps — one source of truth for the step pages
@@ -72,8 +72,44 @@ export const STEP_DEFS: readonly StepDef[] = [
   },
 ];
 
-export function stepDef(step: Step): StepDef {
-  const def = STEP_DEFS.find((d) => d.step === step);
+/** Lifelike pages: Preview and Deliver. Customer copy only — never how
+ * the method works inside. */
+export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
+  {
+    step: "lifelike_preview",
+    title: "Preview",
+    description:
+      "Pick a moment on the timeline and see about 5 seconds of it in 3D, in the quality you choose, before you deliver the whole video.",
+    outputs: [
+      "About 5 seconds of your video in 3D, starting at the moment you pick",
+      "Side by side, so you can play it right here or on a headset",
+    ],
+    tips: [
+      "Pick a moment with the kind of shot that matters most to you — faces, fast motion, or wide views.",
+      "A preview is a small charge — you see the exact price before it runs.",
+      "Happy with it? Deliver renders the whole video the same way.",
+    ],
+  },
+  {
+    step: "production",
+    title: "Deliver",
+    description:
+      "The whole video in 3D, in the quality and formats you pick.",
+    outputs: [
+      "Vision Pro spatial video, full side by side, and half side by side",
+      "Long videos can come as 15-minute parts that each play smoothly",
+    ],
+    tips: [
+      "Vision Pro spatial video is for Apple Vision Pro; side by side plays on most other headsets and 3D TVs.",
+      "Half side by side keeps the file small; full side by side keeps every pixel.",
+      "Runs over a set amount are paid when they start and refunded in full if they fail.",
+    ],
+  },
+];
+
+export function stepDef(step: Step, method: Method = "classic"): StepDef {
+  const defs = method === "lifelike" ? LIFELIKE_STEP_DEFS : STEP_DEFS;
+  const def = defs.find((d) => d.step === step);
   if (!def) throw new Error(`unknown step ${step}`);
   return def;
 }
