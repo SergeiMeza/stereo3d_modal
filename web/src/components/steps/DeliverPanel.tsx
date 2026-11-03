@@ -184,7 +184,7 @@ export function DeliverPanel({
       <PanelCard>
       <div className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Inherited from your previews
+          Uses your earlier settings
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {inheritedDepthRes !== undefined ? (
@@ -197,10 +197,10 @@ export function DeliverPanel({
                     : "border-primary/30 bg-primary/10 text-primary"
                 }`}
               >
-                Depth {inheritedDepthRes} ×14 (from Depth page)
+                Depth detail {inheritedDepthRes} px (from the Depth page)
               </span>
               <CheckboxChip
-                label="Use pipeline default depth resolution"
+                label="Use automatic depth detail"
                 checked={depthDefault}
                 onChange={() => {
                   setDepthDefault((v) => !v);
@@ -210,7 +210,7 @@ export function DeliverPanel({
             </>
           ) : (
             <span data-testid="deliver-chip-depth-none" className="text-xs text-fg-muted">
-              No depth run yet — the preset&apos;s default depth resolution applies.
+              No depth run yet — the quality&apos;s automatic depth detail applies.
             </span>
           )}
         </div>
@@ -224,11 +224,11 @@ export function DeliverPanel({
                   : "border-edge bg-surface-2 text-fg-muted"
               }`}
             >
-              Uploaded depth map
+              Uploaded depth video
               {depthUpload.name ? ` — ${depthUpload.name}` : ""}
             </span>
             <CheckboxChip
-              label="Use uploaded depth map (skips the depth stage)"
+              label="Use my uploaded depth video"
               checked={useUploadedDepth}
               onChange={() => {
                 setUseUploadedDepth((v) => !v);
@@ -248,11 +248,11 @@ export function DeliverPanel({
                     : "border-primary/30 bg-primary/10 text-primary"
                 }`}
               >
-                {sceneOverrides.length} scene overrides + depth_scale{" "}
-                {stereoDraft.depth_scale.toFixed(2)} (from Stereo page)
+                {sceneOverrides.length} scenes adjusted, 3D strength ×
+                {stereoDraft.depth_scale.toFixed(2)} (from the 3D look page)
               </span>
               <CheckboxChip
-                label="Use pipeline defaults (adaptive)"
+                label="Use automatic 3D for every scene"
                 checked={stereoDefault}
                 onChange={() => {
                   setStereoDefault((v) => !v);
@@ -262,13 +262,13 @@ export function DeliverPanel({
             </>
           ) : (
             <span data-testid="deliver-chip-stereo-none" className="text-xs text-fg-muted">
-              No Stereo-page tweaks — every scene uses its adaptive profile.
+              No 3D look changes — every scene uses automatic 3D.
             </span>
           )}
         </div>
         <p className="text-xs text-fg-muted">
-          Production reuses compatible artifacts automatically — the quote
-          shows each reused stage and its discount.
+          Earlier depth work is reused automatically when it still matches —
+          the quote shows the discount.
         </p>
       </div>
 

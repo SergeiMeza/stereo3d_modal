@@ -602,7 +602,7 @@ export function StereoPanel({
                         : "border-primary/30 bg-primary/10 text-primary"
                     }`}
                   >
-                    Depth map {inheritedDepthRes} px (from Depth page — reused,
+                    Depth map {inheritedDepthRes} px (from the Depth page — reused,
                     not recomputed)
                   </span>
                 )}
@@ -651,7 +651,7 @@ export function StereoPanel({
             <Field
               id="stereo-preset"
               label="Resolution preset"
-              hint="The resulting output resolution — same presets as Deliver."
+              hint="The output quality — the same choices as Make 3D."
             >
               <select
                 id="stereo-preset"
@@ -732,7 +732,7 @@ export function StereoPanel({
               {Object.keys(importPending?.overrides ?? {}).length} imported
               overrides and depth scale ×
               {(importPending?.depth_scale ?? 1).toFixed(2)}? Scenes without an
-              override go back to Auto. The Deliver page inherits the same
+              override go back to Auto. Make 3D uses the same
               values.
             </DialogDescription>
           </DialogHeader>

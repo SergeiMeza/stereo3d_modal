@@ -141,10 +141,10 @@ describe("DeliverPanel inheritance", () => {
     renderPanel(project);
 
     expect(screen.getByTestId("deliver-chip-depth").textContent).toBe(
-      "Depth 1442 ×14 (from Depth page)",
+      "Depth detail 1442 px (from the Depth page)",
     );
     expect(screen.getByTestId("deliver-chip-stereo").textContent).toBe(
-      "2 scene overrides + depth_scale 1.10 (from Stereo page)",
+      "2 scenes adjusted, 3D strength ×1.10 (from the 3D look page)",
     );
   });
 
@@ -183,10 +183,10 @@ describe("DeliverPanel inheritance", () => {
     renderPanel(project);
 
     await user.click(
-      screen.getByRole("checkbox", { name: "Use pipeline default depth resolution" }),
+      screen.getByRole("checkbox", { name: "Use automatic depth detail" }),
     );
     await user.click(
-      screen.getByRole("checkbox", { name: "Use pipeline defaults (adaptive)" }),
+      screen.getByRole("checkbox", { name: "Use automatic 3D for every scene" }),
     );
     await getQuote(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -217,7 +217,7 @@ describe("DeliverPanel inheritance", () => {
 
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Use uploaded depth map (skips the depth stage)",
+        name: "Use my uploaded depth video",
       }),
     );
     await getQuote(user);
@@ -234,7 +234,7 @@ describe("DeliverPanel inheritance", () => {
       /No depth run yet/,
     );
     expect(screen.getByTestId("deliver-chip-stereo-none").textContent).toMatch(
-      /No Stereo-page tweaks/,
+      /No 3D look changes/,
     );
   });
 });

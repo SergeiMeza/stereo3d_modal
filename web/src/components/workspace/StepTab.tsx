@@ -150,9 +150,9 @@ export function StepTab({
                         variant="link"
                         size="xs"
                         className="ml-auto"
-                        onClick={() => onNavigate("history")}
+                        onClick={() => onNavigate("files")}
                       >
-                        History →
+                        Files →
                       </Button>
                     </CardContent>
                   </Card>

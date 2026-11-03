@@ -40,7 +40,7 @@ const OTHER_GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
     ],
   },
   {
-    title: "Scene cuts (Cut page)",
+    title: "Scene changes (Scenes page)",
     shortcuts: [
       { keys: ["Click"], action: "Scrub the filmstrip" },
       { keys: ["2×Click"], action: "Add a cut at the cursor frame" },

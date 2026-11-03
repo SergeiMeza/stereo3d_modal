@@ -34,7 +34,7 @@ export const STEP_DEFS: readonly StepDef[] = [
   },
   {
     step: "stereo_preview",
-    title: "Stereo",
+    title: "3D look",
     description:
       "Per-scene 3D: every scene is measured and classified automatically; review each scene against the real video, adjust the ones that need it, and preview what you deliver.",
     outputs: [
@@ -52,20 +52,20 @@ export const STEP_DEFS: readonly StepDef[] = [
       "Best edges is the default: the thin gaps that open along object edges in 3D are filled for the cleanest result. Faster, cheaper edge modes are under Advanced.",
       "Uncheck “3D” on a scene to ship it as 2D — both eyes identical, no depth (end credits, logos, title cards).",
       "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
-      "Your tweaks persist per project and carry to the Deliver page automatically.",
+      "Your tweaks persist per project and carry to Make 3D automatically.",
     ],
   },
   {
     step: "production",
-    title: "Deliver",
+    title: "Make 3D",
     description:
-      "Full-quality conversion — inherits your Depth-page resolution and Stereo-page scene tweaks, reusing compatible artifacts at a discount.",
+      "The whole video (or the part you pick) in 3D. It uses your Depth and 3D look settings and reuses earlier depth work at a discount.",
     outputs: [
       "Your video in every format you pick: Vision Pro spatial video, side by side for other headsets and 3D TVs, red-cyan for a quick check",
       "Full frame rate at the quality you pick, with Best edges unless you chose otherwise under Advanced",
     ],
     tips: [
-      "The summary chips show exactly what production inherits from the Depth and Stereo pages — each has a “use pipeline default” escape.",
+      "The summary shows which Depth and 3D look settings this run uses — each can be switched back to automatic.",
       "Reuse is the default: compatible preview artifacts (depth, preprocess) are discounted automatically — the quote shows each reused stage.",
       "Pick “Start from scratch” to recompute everything, e.g. to raise quality beyond what previews ran at.",
     ],
@@ -87,12 +87,12 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     tips: [
       "Pick a moment with the kind of shot that matters most to you — faces, fast motion, or wide views.",
       "A preview is a small charge — you see the exact price before it runs.",
-      "Happy with it? Deliver renders the whole video the same way.",
+      "Happy with it? Make 3D renders the whole video the same way.",
     ],
   },
   {
     step: "production",
-    title: "Deliver",
+    title: "Make 3D",
     description:
       "The whole video in 3D, in the quality and formats you pick.",
     outputs: [

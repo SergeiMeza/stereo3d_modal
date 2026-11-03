@@ -86,10 +86,17 @@ function railIds(): string[] {
 }
 
 describe("tabs per method", () => {
-  it("Lifelike: Media, Cut, Preview, Deliver, History", async () => {
+  it("Lifelike: Overview, Scenes, Preview, Make 3D, Files", async () => {
     setMethod("lifelike");
     await renderWorkspace();
-    expect(railIds()).toEqual(["media", "cut", "preview", "deliver", "history"]);
+    expect(railIds()).toEqual(["overview", "scenes", "preview", "make", "files"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Overview",
+      "Scenes",
+      "Preview",
+      "Make 3D",
+      "Files",
+    ]);
     fireEvent.click(screen.getByTestId("tab-preview"));
     expect(await screen.findByTestId("panel-lifelike-preview")).toBeTruthy();
     fireEvent.keyDown(window, { key: "4" });
@@ -99,12 +106,20 @@ describe("tabs per method", () => {
   it("Classic keeps today's tabs (also for projects with no stored method)", async () => {
     await renderWorkspace();
     expect(railIds()).toEqual([
-      "media",
-      "cut",
+      "overview",
+      "scenes",
       "depth",
-      "stereo",
-      "deliver",
-      "history",
+      "look",
+      "make",
+      "files",
+    ]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Overview",
+      "Scenes",
+      "Depth",
+      "3D look",
+      "Make 3D",
+      "Files",
     ]);
     fireEvent.keyDown(window, { key: "5" });
     expect(await screen.findByTestId("panel-classic-deliver")).toBeTruthy();
@@ -153,7 +168,7 @@ describe("method chooser", () => {
   });
 
   it("the header switch works from any page", async () => {
-    await renderWorkspace("#tab=history");
+    await renderWorkspace("#tab=files");
     fireEvent.click(
       within(screen.getByTestId("method-switch")).getByRole("radio", {
         name: "Lifelike 3D",
@@ -229,7 +244,7 @@ describe("History", () => {
       method: "lifelike",
       created_at: "2026-11-01T00:00:00Z",
     });
-    await renderWorkspace("#tab=history");
+    await renderWorkspace("#tab=files");
     const label = async (id: string) =>
       within(await screen.findByTestId(`history-${id}`)).getByTestId(
         "history-method",

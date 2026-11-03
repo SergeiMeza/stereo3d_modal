@@ -57,9 +57,9 @@ interface GuideItem {
 
 const LIFELIKE_GUIDE: readonly GuideItem[] = [
   {
-    tab: "cut",
+    tab: "scenes",
     n: 1,
-    title: "Cut",
+    title: "Scenes",
     blurb:
       "Check the detected scene cuts — every scene is made 3D on its own, so the right cuts give the best result.",
     price: "Free",
@@ -73,9 +73,9 @@ const LIFELIKE_GUIDE: readonly GuideItem[] = [
     price: "Paid",
   },
   {
-    tab: "deliver",
+    tab: "make",
     n: 3,
-    title: "Deliver",
+    title: "Make 3D",
     blurb:
       "The whole video in 3D — Vision Pro spatial video or side by side. Long videos can come in parts.",
     price: "Paid",
@@ -84,9 +84,9 @@ const LIFELIKE_GUIDE: readonly GuideItem[] = [
 
 const CLASSIC_GUIDE: readonly GuideItem[] = [
   {
-    tab: "cut",
+    tab: "scenes",
     n: 1,
-    title: "Cut",
+    title: "Scenes",
     blurb:
       "Fix the detected scene cuts first — every later step maps depth per scene, so wrong cuts mean wrong 3D. Cut lists import/export as PySceneDetect-style CSV.",
     price: "Free",
@@ -100,17 +100,17 @@ const CLASSIC_GUIDE: readonly GuideItem[] = [
     price: "Paid",
   },
   {
-    tab: "stereo",
+    tab: "look",
     n: 3,
-    title: "Stereo",
+    title: "3D look",
     blurb:
       "Per-scene 3D strength and shot type, seeded from the profiler — preview what you deliver.",
     price: "Paid",
   },
   {
-    tab: "deliver",
+    tab: "make",
     n: 4,
-    title: "Deliver",
+    title: "Make 3D",
     blurb:
       "Full-quality production run. Compatible preview artifacts are reused and discounted automatically.",
     price: "Paid",
@@ -171,7 +171,7 @@ function GuideList({
         ))}
       </ol>
       <p className="mt-3 border-t border-edge pt-3 text-[11px] text-fg-muted">
-        Previews are optional — you can go straight to Deliver. Every paid
+        Previews are optional — you can go straight to Make 3D. Every paid
         step shows an exact quote before checkout.
       </p>
     </>
@@ -242,8 +242,8 @@ export function MediaTab({
   return (
     <div data-testid="media-tab" className="space-y-4">
       <PageHeader
-        title="Media"
-        description="The source at a glance — frame-exact preview, read-only timeline, probe details. All editing lives on the Cut page."
+        title="Overview"
+        description="Your video at a glance. Scene changes are edited on the Scenes page."
         actions={
           <Drawer direction="right">
             <DrawerTrigger asChild>

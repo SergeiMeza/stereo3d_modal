@@ -1066,14 +1066,14 @@ describe("WorkspaceScreen — cut import/export", () => {
 });
 
 describe("WorkspaceScreen — pages", () => {
-  it("defaults to the MEDIA page when the URL has no tab hash", async () => {
+  it("defaults to the OVERVIEW page when the URL has no tab hash", async () => {
     render(
       <AuthProvider>
         <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
     await screen.findByTestId("media-tab");
-    expect(screen.getByTestId("tab-media").getAttribute("aria-selected")).toBe(
+    expect(screen.getByTestId("tab-overview").getAttribute("aria-selected")).toBe(
       "true",
     );
     // the Cut editor is NOT mounted by default
@@ -1082,17 +1082,17 @@ describe("WorkspaceScreen — pages", () => {
 
   it("honors a #tab= hash over the default and switches pages by click and number key", async () => {
     await renderWorkspace(); // opens with #tab=cut
-    expect(screen.getByTestId("tab-cut").getAttribute("aria-selected")).toBe(
+    expect(screen.getByTestId("tab-scenes").getAttribute("aria-selected")).toBe(
       "true",
     );
 
     // click: Media page (source details + guide); the Cut EDITOR unmounts
     // (Media keeps a read-only timeline, so the filmstrip itself remains)
-    fireEvent.click(screen.getByTestId("tab-media"));
+    fireEvent.click(screen.getByTestId("tab-overview"));
     expect(screen.getByTestId("media-tab")).toBeTruthy();
     expect(screen.queryByText("Save cuts")).toBeNull();
     expect(screen.queryByTestId("scene-card")).toBeNull();
-    expect(window.location.hash).toBe("#tab=media");
+    expect(window.location.hash).toBe("#tab=overview");
 
     // number keys: 3 = Depth, 5 = Deliver, 6 = History, 2 = back to Cut
     fireEvent.keyDown(window, { key: "3" });
@@ -1103,12 +1103,12 @@ describe("WorkspaceScreen — pages", () => {
     expect(screen.getByLabelText("Conversion history")).toBeTruthy();
     fireEvent.keyDown(window, { key: "2" });
     expect(screen.getByTestId("filmstrip")).toBeTruthy();
-    expect(window.location.hash).toBe("#tab=cut");
+    expect(window.location.hash).toBe("#tab=scenes");
   });
 
   it("Media page: read-only timeline at Fit — scrub + zoom work, NO cut markers, no add", async () => {
     await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-media"));
+    fireEvent.click(screen.getByTestId("tab-overview"));
 
     // context view: starts at Fit (the Cut page starts fully zoomed in)
     const strip = screen.getByTestId("filmstrip");
@@ -1138,7 +1138,7 @@ describe("WorkspaceScreen — pages", () => {
 
   it("Media page: the transport keys work — the SAME shortcuts as the Cut page", async () => {
     await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-media"));
+    fireEvent.click(screen.getByTestId("tab-overview"));
     expect(readout()).toBe(frameLabel(0, FPS));
 
     // ←/→ step exactly ±1 frame on the frame-exact proxy
@@ -1161,11 +1161,11 @@ describe("WorkspaceScreen — pages", () => {
 
   it("Media page: header + ⓘ Guide drawer with the pipeline guide that deep-links to other pages", async () => {
     await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-media"));
+    fireEvent.click(screen.getByTestId("tab-overview"));
 
     // shared page header; the guide is NOT on the page body
     const header = screen.getByTestId("page-header");
-    expect(within(header).getByRole("heading", { name: "Media" })).toBeTruthy();
+    expect(within(header).getByRole("heading", { name: "Overview" })).toBeTruthy();
     expect(screen.queryByText("How this works")).toBeNull();
 
     // the drawer carries the old guide card content
@@ -1173,7 +1173,7 @@ describe("WorkspaceScreen — pages", () => {
     const drawer = screen.getByTestId("media-guide-drawer");
     expect(drawer.getAttribute("data-vaul-drawer-direction")).toBe("right");
     expect(within(drawer).getByText("How this works")).toBeTruthy();
-    for (const step of ["Cut →", "Depth →", "Stereo →", "Deliver →"]) {
+    for (const step of ["Scenes →", "Depth →", "3D look →", "Make 3D →"]) {
       expect(within(drawer).getByRole("button", { name: step })).toBeTruthy();
     }
     expect(
@@ -1186,15 +1186,15 @@ describe("WorkspaceScreen — pages", () => {
     expect(window.location.hash).toBe("#tab=depth");
   });
 
-  it("History page: shared header with the support hint as its description", async () => {
+  it("Files page: shared header that says what it lists", async () => {
     await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-history"));
+    fireEvent.click(screen.getByTestId("tab-files"));
 
     const header = screen.getByTestId("page-header");
     expect(
-      within(header).getByRole("heading", { name: "History" }),
+      within(header).getByRole("heading", { name: "Files" }),
     ).toBeTruthy();
-    expect(within(header).getByText(/quote it to support/)).toBeTruthy();
+    expect(within(header).getByText(/what it cost/)).toBeTruthy();
     expect(screen.getByLabelText("Conversion history")).toBeTruthy();
   });
 
@@ -1208,7 +1208,7 @@ describe("WorkspaceScreen — pages", () => {
 
   it("renders the step page with the project and refetches on onProjectChanged", async () => {
     await renderWorkspace();
-    fireEvent.click(screen.getByTestId("tab-deliver"));
+    fireEvent.click(screen.getByTestId("tab-make"));
     expect(screen.getByTestId("step-card-project").textContent).toBe(PID);
 
     // a concurrent save bumps the server; onProjectChanged must refetch it
@@ -1226,54 +1226,10 @@ describe("WorkspaceScreen — pages", () => {
   });
 });
 
-describe("Stereo tab gating", () => {
-  /** A succeeded depth run in the mock db — GET project folds it into
-   * project.conversions, which is what unlocks the Stereo tab. */
-  function seedSucceededDepthRun(): void {
-    const conv: Conversion = {
-      conversion_id: "gatingdepth01",
-      state: "succeeded",
-      kind: "video",
-      project_id: PID,
-      step: "depth_preview",
-      params: { preset: "draft", formats: ["anaglyph"], depth_res: 980 },
-      quote: { amount_cents: 50, currency: "usd" },
-      progress: 1,
-      outputs: ["anaglyph", "depth", "depth_vis"],
-      created_at: "2026-07-02T08:00:00Z",
-      updated_at: "2026-07-02T08:05:00Z",
-    };
-    mockDb.conversions.set(conv.conversion_id, conv);
-  }
-
-  it("locks Stereo until a depth run succeeds: rail click is a no-op, the deep link shows the explanation", async () => {
+describe("3D look is never locked (S3D-28)", () => {
+  it("opens 3D look with no depth run and no uploaded depth", async () => {
     await renderWorkspace(); // fixture project has NO conversions
-
-    const tab = screen.getByTestId("tab-stereo");
-    expect(tab.getAttribute("aria-disabled")).toBe("true");
-
-    // clicking the locked tab does nothing — still on the Cut page
-    fireEvent.click(tab);
-    expect(screen.queryByTestId("step-card-stereo_preview")).toBeNull();
-    expect(screen.getByTestId("tab-cut").getAttribute("aria-selected")).toBe(
-      "true",
-    );
-
-    // the number key still switches the page state (deep links exist), but
-    // the panel is replaced by the lock card pointing at the Depth page
-    fireEvent.keyDown(window, { key: "4" });
-    const lock = await screen.findByTestId("stereo-locked");
-    expect(lock.textContent).toContain("Run a Depth preview");
-    expect(screen.queryByTestId("step-card-stereo_preview")).toBeNull();
-    fireEvent.click(within(lock).getByRole("button", { name: "Go to Depth" }));
-    expect(screen.getByTestId("step-card-depth_preview")).toBeTruthy();
-  });
-
-  it("unlocks Stereo once a depth run has succeeded", async () => {
-    seedSucceededDepthRun();
-    await renderWorkspace();
-
-    const tab = screen.getByTestId("tab-stereo");
+    const tab = screen.getByTestId("tab-look");
     expect(tab.getAttribute("aria-disabled")).toBeNull();
     fireEvent.click(tab);
     expect(
@@ -1282,22 +1238,20 @@ describe("Stereo tab gating", () => {
     expect(screen.queryByTestId("stereo-locked")).toBeNull();
   });
 
-  it("an uploaded depth map also unlocks Stereo (no depth run needed)", async () => {
-    mockDb.projects.get(PID)!.depth_upload = {
-      name: "graded-depth.mp4",
-      frames: PROBE.num_frames,
-      width: PROBE.width,
-      height: PROBE.height,
-      bytes: 1 << 20,
-      created_at: "2026-07-03T08:00:00Z",
-    };
-    await renderWorkspace();
-
-    const tab = screen.getByTestId("tab-stereo");
-    expect(tab.getAttribute("aria-disabled")).toBeNull();
-    fireEvent.click(tab);
+  it("old links keep working: #tab=stereo opens 3D look, #tab=history opens Files", async () => {
+    window.history.replaceState(null, "", "#tab=stereo");
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} />
+      </AuthProvider>,
+    );
     expect(
       await screen.findByTestId("step-card-stereo_preview"),
     ).toBeTruthy();
+    expect(screen.getByTestId("tab-look").getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    fireEvent.click(screen.getByTestId("tab-files"));
+    expect(window.location.hash).toBe("#tab=files");
   });
 });

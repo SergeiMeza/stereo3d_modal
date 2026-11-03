@@ -404,7 +404,7 @@ function DepthReview({
             <Button
               variant="outline"
               size="sm"
-              title="Preview a local depth video beside the source AND register it on the project — Stereo/Deliver runs can then use it instead of computing depth. Must be frame-exact (full length, source frame rate), like the export."
+              title="Preview a local depth video beside the source AND register it on the project — 3D look and Make 3D runs can then use it instead of computing depth. Must be frame-exact (full length, source frame rate), like the export."
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 fileInputRef.current?.click();

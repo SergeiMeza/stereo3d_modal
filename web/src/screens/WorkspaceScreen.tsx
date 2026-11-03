@@ -28,7 +28,7 @@ import { MethodSwitchControl } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
   PageTabs,
-  isWorkspaceTabId,
+  tabFromSlug,
   tabForMethod,
   tabOrderFor,
   tabsFor,
@@ -58,17 +58,17 @@ const ANALYZE_POLL_MS = 3000;
 
 const STEP_BY_TAB: Partial<Record<WorkspaceTabId, Step>> = {
   depth: "depth_preview",
-  stereo: "stereo_preview",
+  look: "stereo_preview",
   preview: "lifelike_preview",
-  deliver: "production",
+  make: "production",
 };
 
 function initialTab(): WorkspaceTabId {
-  // Default page is Media (the source at a glance) — a fresh/analyzed
-  // project should orient the user before editing; a URL hash still wins.
-  if (typeof window === "undefined") return "media";
+  // Default page is the Overview (S3D-25); a URL hash still wins, old slugs
+  // (#tab=media, cut, stereo, deliver, history) included.
+  if (typeof window === "undefined") return "overview";
   const m = /(?:^#|&)tab=([a-z]+)/.exec(window.location.hash);
-  return m && isWorkspaceTabId(m[1]) ? m[1] : "media";
+  return (m && tabFromSlug(m[1])) ?? "overview";
 }
 
 export interface WorkspaceScreenProps {
@@ -217,24 +217,8 @@ export default function WorkspaceScreen({
     probe !== undefined &&
     scenes !== undefined;
 
-  // The Stereo page builds on the Cut page's scenes AND a depth map — a
-  // succeeded Depth run or an uploaded one. It stays locked until both
-  // exist (the rail disables the tab; deep links get an explanatory card
-  // instead of the panel).
-  const hasDepthMap =
-    project.depth_upload !== undefined ||
-    (project.conversions ?? []).some(
-      (c) => c.step === "depth_preview" && c.state === "succeeded",
-    );
-  const stereoLockReason = !ready
-    ? "Stereo unlocks after analysis — scene cuts come first"
-    : !hasDepthMap
-      ? "Run a Depth preview (or upload a depth map) first — Stereo builds on it"
-      : undefined;
-  const locked: Partial<Record<WorkspaceTabId, string>> = stereoLockReason
-    ? { stereo: stereoLockReason }
-    : {};
-
+  // No page is locked (S3D-28): the 3D look page makes its own depth when
+  // there is no depth run yet.
   const analyzingCard = (
     <div
       data-testid="analyzing-state"
@@ -346,10 +330,9 @@ export default function WorkspaceScreen({
           tabs={tabsFor(method)}
           active={page}
           onChange={setTab}
-          locked={locked}
         />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {page === "media" ? (
+          {page === "overview" ? (
             <MediaTab
               project={project}
               onNavigate={setTab}
@@ -357,7 +340,7 @@ export default function WorkspaceScreen({
                 canChooseMethod(limits, project) ? applyProjectUpdate : undefined
               }
             />
-          ) : page === "cut" ? (
+          ) : page === "scenes" ? (
             project.analyze.state === "failed" ? (
               <div
                 role="alert"
@@ -394,25 +377,6 @@ export default function WorkspaceScreen({
             ) : (
               analyzingCard
             )
-          ) : page === "stereo" && stereoLockReason ? (
-            // Deep links (#tab=stereo) and the number keys can still land
-            // here while locked — explain instead of rendering the panel.
-            <div
-              data-testid="stereo-locked"
-              className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-md border border-edge bg-surface-1 p-6"
-            >
-              <h2 className="text-sm font-semibold">Stereo is locked</h2>
-              <p className="text-sm text-fg-muted">{stereoLockReason}.</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTab(ready ? "depth" : "cut")}
-                >
-                  {ready ? "Go to Depth" : "Go to Cut"}
-                </Button>
-              </div>
-            </div>
           ) : step ? (
             <StepTab
               step={step}
@@ -423,8 +387,8 @@ export default function WorkspaceScreen({
           ) : (
             <div className="mx-auto flex max-w-4xl flex-col gap-3">
               <PageHeader
-                title="History"
-                description="Something off with a run? Click its id to copy it and quote it to support — every conversion is traceable end-to-end by that id."
+                title="Files"
+                description="Every run of this project: its files, what it cost and how it was paid."
               />
               <HistoryList project={project} />
             </div>

@@ -4,9 +4,11 @@
  * Left page rail, DaVinci Resolve-style: one tab per pipeline stage,
  * vertically centered, icon over label, switchable with the number keys
  * (the keydown handler lives in WorkspaceScreen). The set follows the
- * project's method: Classic Media · Cut · Depth · Stereo · Deliver ·
- * History; Lifelike Media · Cut · Preview · Deliver · History. Pure
- * presentation: tabs + active id in, onChange out.
+ * project's method, in plain words (S3D-26): Lifelike Overview · Scenes ·
+ * Preview · Make 3D · Files; Classic Overview · Scenes · Depth · 3D look ·
+ * Make 3D · Files. Old URL slugs (media, cut, stereo, deliver, history)
+ * still open their page. Pure presentation: tabs + active id in, onChange
+ * out.
  */
 
 import type { JSX } from "react";
@@ -20,13 +22,22 @@ import {
 } from "@/components/ui/tooltip";
 
 export type WorkspaceTabId =
-  | "media"
-  | "cut"
+  | "overview"
+  | "scenes"
   | "depth"
-  | "stereo"
+  | "look"
   | "preview"
-  | "deliver"
-  | "history";
+  | "make"
+  | "files";
+
+/** Slugs from before the rename (links, bookmarks) → today's page. */
+const LEGACY_SLUGS: Record<string, WorkspaceTabId> = {
+  media: "overview",
+  cut: "scenes",
+  stereo: "look",
+  deliver: "make",
+  history: "files",
+};
 
 export interface TabDef {
   id: WorkspaceTabId;
@@ -46,9 +57,9 @@ const stroke = {
 
 const ALL_TABS: readonly TabDef[] = [
   {
-    id: "media",
-    label: "Media",
-    hint: "Source video, analysis results & pipeline guide",
+    id: "overview",
+    label: "Overview",
+    hint: "Your video, what you'll get, the price and the next step",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -57,9 +68,9 @@ const ALL_TABS: readonly TabDef[] = [
     ),
   },
   {
-    id: "cut",
-    label: "Cut",
-    hint: "Review & edit scene cuts on the frame-exact timeline",
+    id: "scenes",
+    label: "Scenes",
+    hint: "Check where each scene starts — free",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <circle cx="6" cy="7" r="2.5" />
@@ -71,7 +82,7 @@ const ALL_TABS: readonly TabDef[] = [
   {
     id: "depth",
     label: "Depth",
-    hint: "Depth — define the depth map: resolution is the cost/quality knob",
+    hint: "Optional: preview how far away everything is",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <path d="M12 3 3 8l9 5 9-5-9-5Z" />
@@ -80,9 +91,9 @@ const ALL_TABS: readonly TabDef[] = [
     ),
   },
   {
-    id: "stereo",
-    label: "Stereo",
-    hint: "Stereo — per-scene 3D strength & shot type, preview what you deliver",
+    id: "look",
+    label: "3D look",
+    hint: "Optional: adjust the 3D per scene and preview a moment",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <circle cx="7" cy="13" r="3.5" />
@@ -94,7 +105,7 @@ const ALL_TABS: readonly TabDef[] = [
   {
     id: "preview",
     label: "Preview",
-    hint: "Preview — see a few seconds in 3D from any moment before you deliver",
+    hint: "See a few seconds in 3D from any moment",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <circle cx="12" cy="12" r="8.5" />
@@ -103,9 +114,9 @@ const ALL_TABS: readonly TabDef[] = [
     ),
   },
   {
-    id: "deliver",
-    label: "Deliver",
-    hint: "Production — full-quality conversion & final formats",
+    id: "make",
+    label: "Make 3D",
+    hint: "Make the whole video (or a part) in 3D",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <path d="M12 15V4m0 0 4 4m-4-4L8 8" />
@@ -114,9 +125,9 @@ const ALL_TABS: readonly TabDef[] = [
     ),
   },
   {
-    id: "history",
-    label: "History",
-    hint: "Every conversion of this project — states, prices, downloads",
+    id: "files",
+    label: "Files",
+    hint: "Your 3D files, how to watch them, and what each run cost",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...stroke}>
         <circle cx="12" cy="12" r="8.5" />
@@ -127,8 +138,8 @@ const ALL_TABS: readonly TabDef[] = [
 ];
 
 const TAB_IDS: Record<Method, readonly WorkspaceTabId[]> = {
-  classic: ["media", "cut", "depth", "stereo", "deliver", "history"],
-  lifelike: ["media", "cut", "preview", "deliver", "history"],
+  classic: ["overview", "scenes", "depth", "look", "make", "files"],
+  lifelike: ["overview", "scenes", "preview", "make", "files"],
 };
 
 /** The rail for a project's method, in order. */
@@ -154,13 +165,19 @@ export function isWorkspaceTabId(v: unknown): v is WorkspaceTabId {
   );
 }
 
+/** A URL slug → its page: today's ids and the legacy ones. */
+export function tabFromSlug(slug: string): WorkspaceTabId | null {
+  if (isWorkspaceTabId(slug)) return slug;
+  return LEGACY_SLUGS[slug] ?? null;
+}
+
 /** A tab id from a link or the other method's rail, mapped onto this
- * method's rail: Classic's Depth/Stereo pages become Lifelike's Preview
+ * method's rail: Classic's Depth/3D look pages become Lifelike's Preview
  * and back. */
 export function tabForMethod(tab: WorkspaceTabId, method: Method): WorkspaceTabId {
   if (TAB_IDS[method].includes(tab)) return tab;
-  if (method === "lifelike") return "preview"; // depth | stereo
-  return "stereo"; // preview
+  if (method === "lifelike") return "preview"; // depth | look
+  return "look"; // preview
 }
 
 export interface PageTabsProps {
