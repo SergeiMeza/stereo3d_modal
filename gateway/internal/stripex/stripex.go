@@ -731,3 +731,50 @@ func (c *Client) CreateAlipayPayment(customerID string, amountCents int64, curre
 	}
 	return pi, redirect, nil
 }
+
+// ChargeTopup charges an auto-reload off-session (v7 N4): one
+// PaymentIntent under topup_{env}_{topup_id}, metadata topup_id (R8).
+func (c *Client) ChargeTopup(customerID, paymentMethodID string, amountCents int64, topupID string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	job.Web = true
+	c.stamp(params, job)
+	params.AddMetadata("topup_id", topupID)
+	params.AddMetadata("payment_flow", "topup")
+	params.SetIdempotencyKey("topup_" + c.env + "_" + topupID)
+	return paymentintent.New(params)
+}
+
+// CreateAlipayTopup is China mode's top-up (N3: the P6 server path), key
+// china_topup_{env}_{topup_id}_{attempt}.
+func (c *Client) CreateAlipayTopup(customerID string, amountCents int64, returnURL, topupID string, attempt int, job Job) (*stripe.PaymentIntent, string, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:             stripe.Int64(amountCents),
+		Currency:           stripe.String("usd"),
+		Customer:           stripe.String(customerID),
+		PaymentMethodTypes: stripe.StringSlice([]string{"alipay"}),
+		PaymentMethodData:  &stripe.PaymentIntentPaymentMethodDataParams{Type: stripe.String("alipay")},
+		Confirm:            stripe.Bool(true),
+		ReturnURL:          stripe.String(returnURL),
+	}
+	job.Web = true
+	c.stamp(params, job)
+	params.AddMetadata("topup_id", topupID)
+	params.AddMetadata("payment_flow", "china")
+	params.SetIdempotencyKey(fmt.Sprintf("china_topup_%s_%s_%d", c.env, topupID, attempt))
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		return nil, "", err
+	}
+	redirect := ""
+	if pi.NextAction != nil && pi.NextAction.AlipayHandleRedirect != nil {
+		redirect = pi.NextAction.AlipayHandleRedirect.URL
+	}
+	return pi, redirect, nil
+}

@@ -43,6 +43,7 @@ type historyRow struct {
 	CreditNoteURL string            `json:"credit_note_url,omitempty"`
 	HelpRef       string            `json:"help_ref"`
 	CaseID        string            `json:"case_id,omitempty"`
+	Label         string            `json:"label,omitempty"` // "Balance top-up · $25.00"
 	Items         []rowItem         `json:"items"`
 
 	chargeID string // charges_{env} id for the invoice ("" for none)
@@ -54,8 +55,18 @@ type historyRow struct {
 
 // historyRows builds the rows from the account's records (pure; Stripe
 // and project details come in enrichRows).
-func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store.Conversion) []historyRow {
+func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store.Conversion, topups ...*store.Topup) []historyRow {
 	var out []historyRow
+	for _, t := range topups { // v7 N3.5: each top-up is a row
+		if t.State != store.TopupPaid || t.PaidCents <= 0 {
+			continue
+		}
+		r := historyRow{RowID: store.ChargeID(store.ChargeTopup, t.ID), Kind: "charge", Currency: "usd", AmountCents: t.PaidCents,
+			Status: "paid", pi: t.PaymentIntentID, Label: "Balance top-up · " + money(t.PaidCents), amounts: map[string]int64{},
+			CreatedAt: firstTime(t.PaidAt, &t.UpdatedAt)}
+		r.chargeID = r.RowID
+		out = append(out, r)
+	}
 	settlePI := map[string]string{}
 	for _, st := range settles {
 		if st.State != store.SettlePaid || st.PaidCents <= 0 {

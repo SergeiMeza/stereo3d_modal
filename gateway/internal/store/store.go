@@ -387,8 +387,19 @@ func (s *Store) Transition(ctx context.Context, id string, fromStates []string, 
 		if err := mutate(c); err != nil {
 			return err
 		}
+		// v7.1 R3: a balance run's terminal state and its settle or
+		// release commit together.
+		commitHold, err := s.closeRunHold(tx, c)
+		if err != nil {
+			return err
+		}
 		c.UpdatedAt = time.Now().UTC()
 		result = c
+		if commitHold != nil {
+			if err := commitHold(); err != nil {
+				return err
+			}
+		}
 		return tx.Set(s.convDoc(id), c)
 	})
 	if err != nil {

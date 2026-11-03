@@ -16,6 +16,7 @@ const (
 	ChargeRun    = "run"
 	ChargeGroup  = "group"
 	ChargeSettle = "settle"
+	ChargeTopup  = "topup" // a balance top-up (v7 N12): one invoice each
 )
 
 // Invoice job states (C6).

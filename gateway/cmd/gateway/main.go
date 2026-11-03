@@ -174,7 +174,12 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))
 	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettle2)) // C11 collectOutstanding
 	mux.HandleFunc("GET /v1/billing/history", authed(svc.HandleBillingHistory))
-	mux.HandleFunc("GET /v1/billing/invoices", authed(svc.HandleListInvoices)) // C6, P10
+	mux.HandleFunc("GET /v1/billing/invoices", authed(svc.HandleListInvoices))               // C6, P10
+	mux.HandleFunc("GET /v1/billing/balance", authed(svc.HandleGetBalance))                  // v7 N13
+	mux.HandleFunc("POST /v1/billing/balance/topup", authed(svc.HandleTopup))                // P17
+	mux.HandleFunc("PUT /v1/billing/balance/settings", authed(svc.HandlePutBalanceSettings)) // P18, P19
+	mux.HandleFunc("GET /v1/billing/balance/entries", authed(svc.HandleBalanceEntries))
+	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))

@@ -275,6 +275,8 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		return nil
 	case "settle":
 		return s.applySettleSessionEvent(ctx, eventType, sess.ID, sess.Metadata["settle_id"])
+	case "topup":
+		return s.applyTopupSessionEvent(ctx, eventType, sess.ID, sess.Metadata["topup_id"])
 	case "run":
 	default:
 		return nil

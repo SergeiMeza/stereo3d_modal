@@ -783,6 +783,7 @@ func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversio
 	}
 	if !fail.Transient && err == nil {
 		s.markChargeFailed(ctx, conv.UID)
+		s.payDebtsFromBalance(ctx, conv.UID) // v7.1 R10: app debts too, from the web balance
 	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)

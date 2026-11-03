@@ -342,13 +342,18 @@ func (s *Store) FinishSettle(ctx context.Context, id string, out SettleOutcome, 
 				runRefs = append(runRefs, s.convDoc(it.ID))
 			}
 		}
-		gsnaps, err := tx.GetAll(groupRefs)
-		if err != nil {
-			return err
+		// GetAll refuses an empty list: a settle may hold only runs, or
+		// only groups.
+		var gsnaps, rsnaps []*firestore.DocumentSnapshot
+		if len(groupRefs) > 0 {
+			if gsnaps, err = tx.GetAll(groupRefs); err != nil {
+				return err
+			}
 		}
-		rsnaps, err := tx.GetAll(runRefs)
-		if err != nil {
-			return err
+		if len(runRefs) > 0 {
+			if rsnaps, err = tx.GetAll(runRefs); err != nil {
+				return err
+			}
 		}
 		now := time.Now().UTC()
 		for _, gs := range gsnaps {

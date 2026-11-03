@@ -76,6 +76,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	if released, retried := s.settleSweep(ctx); released+retried > 0 {
 		stats["settles_released"], stats["soft_retries"] = released, retried // C11, C5
 	}
+	for k, v := range s.balanceSweep(ctx) { // v7 N: holds (R3), reloads, top-ups, expiry
+		stats[k] = v
+	}
 	if n := s.invoiceSweep(ctx); n > 0 {
 		stats["invoices_done"] = n // C6
 	}

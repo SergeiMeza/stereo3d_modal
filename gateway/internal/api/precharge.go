@@ -35,6 +35,19 @@ import (
 // credit on failure.
 func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func(), pc payContext) {
+	// N6: the month's spend limit, whatever pays.
+	if err := s.spendLimitError(ctx, user.UID, conv.Quote.AmountCents); err != nil {
+		restore()
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	// N5: paid from the balance when it covers the quote (or a reload
+	// will); a lost race falls through to the v6.2 flows.
+	if plan := s.planBalance(ctx, user.UID, cust, conv.Quote.AmountCents); plan.Use {
+		if s.startBalanceRun(ctx, w, user, cust, conv, plan, restore) {
+			return
+		}
+	}
 	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), pc.China)
 	conv.PaymentFlow, conv.PayReason = flow, reason
 	if flow == store.FlowPayNow || flow == store.FlowChina {

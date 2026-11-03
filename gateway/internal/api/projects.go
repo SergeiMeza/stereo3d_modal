@@ -1195,6 +1195,14 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	// paynow | china, with why the sheet is needed; charge_timing follows.
 	cust, _ := s.Store.GetCustomer(ctx, user.UID)
 	flow, reason := decideFlow(cust, quote.AmountCents, rates.PrechargeThreshold(), chinaMode(r))
+	// v7 N5: the balance comes first when it covers the quote (or a
+	// reload will); the block tells the UI whether to offer Add funds.
+	if plan := s.planBalance(ctx, user.UID, cust, quote.AmountCents); plan.Exists {
+		resp["balance"] = plan.quoteJSON()
+		if plan.Use && (cust == nil || !cust.UnderReview) {
+			flow, reason = store.FlowBalance, ""
+		}
+	}
 	resp["payment_flow"] = flow
 	if reason != "" {
 		resp["pay_now_reason"] = reason

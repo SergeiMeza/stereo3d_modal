@@ -386,6 +386,8 @@ type Conversion struct {
 	// HandoffCode: the run's "pay on another device" code (B17), one per run.
 	HandoffCode    string   `firestore:"handoff_code,omitempty" json:"-"`
 	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
+	// RunBalance: a run paid from the prepaid balance holds it here (v7 N5).
+	RunBalance *RunBalance `firestore:"balance,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`

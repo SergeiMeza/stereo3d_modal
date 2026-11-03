@@ -94,6 +94,7 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 		Amount         int64             `json:"amount"`
 		AmountReceived int64             `json:"amount_received"`
 		Metadata       map[string]string `json:"metadata"`
+		PaymentMethod  string            `json:"payment_method"`
 	}
 	if err := json.Unmarshal(event.Data.Raw, &pi); err != nil {
 		httpx.WriteOK(w, map[string]bool{"received": true})
@@ -101,6 +102,15 @@ func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseW
 	}
 	if pi.Metadata["env"] != s.Cfg.Env {
 		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
+		return
+	}
+	if topupID := pi.Metadata["topup_id"]; topupID != "" {
+		if err := s.handleTopupPI(ctx, string(event.Type), topupID, pi.ID, pi.Status, pi.AmountReceived, pi.PaymentMethod); err != nil {
+			httpx.Log(ctx).Error("top-up event failed", "topup_id", topupID, "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
 		return
 	}
 	if settleID := pi.Metadata["settle_id"]; settleID != "" {

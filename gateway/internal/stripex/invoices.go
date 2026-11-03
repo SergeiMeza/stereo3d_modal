@@ -17,6 +17,11 @@ import (
 const InvoiceFooter = "Stereo3D Studio, the web version of Spatial Video Studio. It starts right away. " +
 	"You agreed that you lose your right to cancel once it's done."
 
+// TopupInvoiceFooter replaces the withdrawal line on a top-up's invoice
+// (v7 N12).
+const TopupInvoiceFooter = "Prepaid balance for Stereo3D Studio. Unspent balance can be refunded within 14 days of this " +
+	"top-up. The balance expires 12 months after your last top-up."
+
 // Invoice is the part of a Stripe invoice the job reads.
 type Invoice struct {
 	ID               string            `json:"id"`
@@ -43,7 +48,8 @@ type InvoiceSpec struct {
 	// default (GBP on this UK account) and refuses USD items.
 	Currency    string
 	EffectiveAt time.Time
-	Tax         bool // tax_mode inclusive: automatic_tax
+	Tax         bool   // tax_mode inclusive: automatic_tax
+	Footer      string // "" = InvoiceFooter
 }
 
 // CreateInvoice creates the draft under key (C6 step 1).
@@ -54,7 +60,7 @@ func (c *Client) CreateInvoice(spec InvoiceSpec, key string) (*Invoice, error) {
 		"collection_method":              {"charge_automatically"},
 		"auto_advance":                   {"false"},
 		"pending_invoice_items_behavior": {"exclude"},
-		"footer":                         {InvoiceFooter},
+		"footer":                         {orFooter(spec.Footer)},
 		"metadata[env]":                  {c.env},
 		"metadata[product]":              {"svs-web"},
 		"metadata[charge_id]":            {spec.ChargeID},
@@ -266,4 +272,11 @@ func (c *Client) ListCreditNotes(customerID string) ([]CreditNote, error) {
 		return nil, err
 	}
 	return page.Data, nil
+}
+
+func orFooter(f string) string {
+	if f == "" {
+		return InvoiceFooter
+	}
+	return f
 }

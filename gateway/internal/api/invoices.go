@@ -80,8 +80,8 @@ func (s *Service) recordGroupCharge(ctx context.Context, b *store.Batch) {
 
 // recordSettleCharge records a paid settle: one line per run (C11 step 6).
 func (s *Service) recordSettleCharge(ctx context.Context, st *store.Settle) {
-	if s.Store == nil || st == nil || st.State != store.SettlePaid || st.PaymentIntentID == "" || st.PaidCents <= 0 {
-		return
+	if s.Store == nil || st == nil || st.State != store.SettlePaid || st.PaymentIntentID == "" || st.PaidCents <= 0 || st.PaidWith == "balance" {
+		return // paid from the balance: its top-ups carry the invoices (T19)
 	}
 	cust, _ := s.Store.GetCustomer(ctx, st.UID)
 	paidAt := time.Now().UTC()
@@ -264,7 +264,7 @@ func (s *Service) runInvoiceJob(ctx context.Context, chargeID string) bool {
 		}
 		key := fmt.Sprintf("inv_%s_%s_%d", s.Cfg.Env, ch.ID, ch.InvoiceAttempt)
 		if inv, err = s.Stripe.CreateInvoice(stripex.InvoiceSpec{CustomerID: ch.CustomerID, ChargeID: ch.ID,
-			Currency: ch.Currency, EffectiveAt: ch.PaidAt, Tax: tax}, key); err != nil {
+			Currency: ch.Currency, EffectiveAt: ch.PaidAt, Tax: tax, Footer: invoiceFooter(ch)}, key); err != nil {
 			return fail("create", err)
 		}
 		// Store invoice_id now.
@@ -334,6 +334,13 @@ func (s *Service) runInvoiceJob(ctx context.Context, chargeID string) bool {
 	})
 	log.InfoContext(ctx, "invoice done", "invoice", inv.ID, "number", inv.Number)
 	return true
+}
+
+func invoiceFooter(ch *store.Charge) string {
+	if ch.Kind == store.ChargeTopup {
+		return stripex.TopupInvoiceFooter
+	}
+	return ""
 }
 
 func invStatus(inv *stripex.Invoice) string {

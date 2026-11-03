@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -110,6 +112,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	}
 	if active == 0 && cust != nil && cust.StripeCustomerID != "" {
 		s.settleForDeletion(ctx, user.UID, cust.StripeCustomerID)
+		s.payDebtsFromBalance(ctx, user.UID) // N8 step 2: debts from the balance first
 		// C11 trigger=delete: off-session with backups; a live settle (P2
 		// open, an iOS bank check) answers 402 balance_due with its amount.
 		res, cerr := s.collectOutstanding(ctx, user.UID, settleDelete, payContextOf(r))
@@ -157,6 +160,24 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 			"unpaid", len(unpaid), "failed_batches", len(failed), "charging_batches", len(charging))
 		httpx.WriteErr(ctx, w, s.balanceDueErr(ctx, unpaid, failed, charging, open, minimum))
 		return
+	}
+
+	// N8 step 3: money left in the balance is refunded by a closure case;
+	// the web confirms "Delete and refund" ({balance_confirmed: true}).
+	if b, berr := s.Store.GetBalance(ctx, user.UID); berr == nil && b.Exists() && b.Available() > 0 {
+		var body struct {
+			BalanceConfirmed bool `json:"balance_confirmed"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if !body.BalanceConfirmed {
+			e := httpx.Err(http.StatusConflict, "balance_remaining",
+				fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.Available())))
+			e.Details = map[string]any{"cents": b.Available()}
+			httpx.WriteErr(ctx, w, e)
+			return
+		}
+		s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` deleted with %s in its balance: refund it (closure case, N8b)",
+			user.UID, money(b.Available())))
 	}
 
 	now := time.Now().UTC()

@@ -114,7 +114,12 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	all := historyRows(batches, settles, convs)
+	topups, err := s.Store.ListUserTopups(ctx, user.UID, historyScanLimit)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	all := historyRows(batches, settles, convs, topups...)
 	after := r.URL.Query().Get("starting_after")
 	if after == "" {
 		if out := s.outstandingRow(ctx, user.UID, batches, convs); out != nil {

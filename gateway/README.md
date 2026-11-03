@@ -235,6 +235,74 @@ confirmCardPayment fallback). The default card is cached on
   while the account owes. `refund_requested`/`disputed` and `case_id`
   arrive with the refund layer.
 
+### Prepaid balance (spec v7.1 §N, web only)
+
+- **Ledger**: `balances_{env}/{uid}` (summary) + `entries/{id}`
+  (append-only: topup, hold, settle, release, debt_payment,
+  refund_to_balance, expiry, adjustment, dispute_*, cash_refund). Every
+  change is one transaction writing the entries and the summary; E0-8
+  refuses `balance + reload_in_flight − held − frozen < 0`. FIFO spending
+  (non-cash credits first), `fifo_used` on settles for refunds.
+- **Runs**: C1 picks `balance` first when available covers the quote (hold
+  = quote after discounts, at least $1). Submit writes the run and its hold
+  in ONE transaction, then queues it. The run's terminal transition settles
+  (succeeded: min(max(delivered, $1), hold)) or releases (anything else)
+  inside the same `store.Transition` (R3); the reconciler closes any hold
+  left on a terminal run. Short with auto-reload on: the hold is
+  `pending_reload`, the run waits (`waiting_for_payment`) for a reload of
+  max(Y, shortfall in whole dollars, $10); a failed reload releases it and
+  the run falls back to the sheet. Balance runs have no card charge, group
+  or invoice. N6 spend limit: 403 `spend_limit_reached`.
+- **Top-ups**: `POST /v1/billing/balance/topup {amount_cents, ui:
+  elements|hosted_page}` → `{checkout {client_secret, expires_at},
+  topup_id, publishable_key, amount_cents, url?}`; China `{amount_cents,
+  method: alipay, return_url?}` → `{topup_id, redirect_url, next_action}`.
+  $10–$500, first top-up ≤ $100, ≤ $1,000 a day: 422 `amount_out_of_range
+  {min, max}`. Credited once per PaymentIntent (entry `topup_{pi}`); a
+  second payment of the same top-up is refunded. Then: an invoice
+  (charge `topup_…`, top-up footer), E13, waiting runs start, debts paid.
+- **Auto-reload**: fires only on a downward crossing of X by `balance −
+  frozen` (holds ignored), armed again at X or above; one in flight
+  (`reload_in_flight`), 5 a day; record first (`topups_{env}`, `charging`),
+  off-session with backups, key `topup_{env}_{id}`; never with a debt,
+  under review or sheet_only. Failure: paused (`declined|stop_code|limit|
+  review|sheet_only`), E15; resumed by the customer or a top-up.
+- **Debts (N9)**: when a debt is recorded, on every top-up, and on `POST
+  /v1/billing/settle {source: "balance"}` (402 `insufficient_balance
+  {required_cents, available_cents}`), C11 pays it from the balance
+  (`debt_payment`, key `debt_{settle}`) when the balance covers it all;
+  E5. App one-shot debts included (R10).
+- `GET /v1/billing/balance` (also `balance` on `GET /v1/billing`):
+  `{balance_cents, held_cents, held_runs, frozen_cents, available_cents,
+  expires_at, expired, never_topped_up, auto_reload {enabled, below_cents,
+  add_cents, paused_reason?}, spend_limit_cents, month_spent_cents,
+  low_balance_cents, reload_in_flight?, currency}`.
+- `PUT /v1/billing/balance/settings {auto_reload?, spend_limit_cents?
+  (null clears), low_balance_cents?}` → the summary; 409 `method_needed`,
+  409 `auto_reload_blocked`, 400 `invalid_auto_reload` (Y ≥ $10, ≤ $500,
+  ≥ X). Turning auto-reload on records consent `reload-v1-2026-11`.
+- `GET /v1/billing/balance/entries?starting_after=` → `{entries: [{id,
+  kind topup|auto_reload|refund_to_balance|debt_payment|cash_refund|
+  expiry|adjustment|dispute_*, cents (signed), at, detail?}], has_more}`.
+- `GET /v1/billing/usage?month=YYYY-MM&starting_after={conversion_id}`
+  (`&format=csv` for the month) → `{rows: [{at, project, project_id,
+  conversion_id, method, preset, step, minutes, cost_cents (null while
+  running), paid_with balance|card|alipay, status done|running|released|
+  returned, reserved_cents?, returned_cents?}], has_more, month}`.
+- Quotes add `payment_flow: balance` and `balance {available_cents,
+  enough, reload_cents?}`; runs' `billing.status` reads `balance_hold`,
+  `balance_settled {charged_cents, released_cents}`, `balance_released`,
+  or `waiting_for_payment` while a reload runs. History lists each top-up
+  ("Balance top-up · $25.00").
+- Expiry 12 months after the last top-up: E16 at 30 and 7 days, then the
+  unheld part expires (E17); money landing later expires again, a refund
+  to the balance reopens it (R5). Low-balance mail E14, once per crossing.
+- Account deletion: debts from the balance first, then 409
+  `balance_remaining {cents}` unless `{balance_confirmed: true}` (Slack
+  asks for the closure refund until cases land).
+- Not yet: API keys (N10), cash refunds and dispute freezes on top-ups
+  (with cases, step 6), the nightly M3 checks.
+
 Invariant tests run against the Firestore emulator and a fake Stripe:
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8786 go test ./internal/api ./internal/store`
 (skipped without the emulator).

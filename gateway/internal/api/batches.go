@@ -399,6 +399,9 @@ func (s *Service) backupsThenFail(ctx context.Context, b *store.Batch, cust *sto
 	if fail.Stop {
 		s.setSheetOnly(ctx, b.UID, "stop code "+fail.DeclineCode)
 	}
+	if s.payDebtsFromBalance(ctx, b.UID) { // v7 N9/T20: the balance pays it at once
+		return s.Store.GetBatch(ctx, b.ID)
+	}
 	s.mailOwed(ctx, "E2", "E2_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
 	return failed, nil
 }

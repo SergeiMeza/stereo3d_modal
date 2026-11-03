@@ -111,6 +111,8 @@ func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, p
 		return settleResult{Settle: done, Paid: true}, ferr
 	}
 	switch trigger {
+	case settleBalance:
+		return s.paySettleFromBalance(ctx, st, dropped)
 	case settleSheet:
 		return s.openSettleSession(ctx, st, pc)
 	case settleIOS:
@@ -408,6 +410,15 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 			if st.Lease.Held(now) {
 				continue
 			}
+			if st.Trigger == settleBalance {
+				// Paid from the balance: the debt_payment entry decides.
+				if b, berr := s.Store.GetBalance(ctx, st.UID); berr == nil && b.Exists() {
+					if paid, _ := s.Store.EntryExists(ctx, st.UID, "debt_"+st.ID); paid {
+						_, _ = s.finishBalanceSettle(ctx, st, nil)
+						continue
+					}
+				}
+			}
 			if cp := st.CurrentPayment; cp != nil {
 				out, cerr := s.closePayment(cp)
 				if cerr != nil {
@@ -461,9 +472,31 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
-		UI string `json:"ui"`
+		UI     string `json:"ui"`
+		Source string `json:"source"` // "balance": pay from the prepaid balance (v7 N9)
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	if req.Source == "balance" {
+		owed := s.owedCents(ctx, user.UID)
+		if b, berr := s.Store.GetBalance(ctx, user.UID); owed > 0 && (berr != nil || b.Available() < owed) {
+			avail := int64(0)
+			if b != nil {
+				avail = max(b.Available(), 0)
+			}
+			e := httpx.Err(http.StatusPaymentRequired, "insufficient_balance", "your balance doesn't cover this payment")
+			e.Details = map[string]any{"required_cents": owed, "available_cents": avail}
+			httpx.WriteErr(ctx, w, e)
+			return
+		}
+		res, err := s.collectOutstanding(ctx, user.UID, settleBalance, payContextOf(r))
+		if err != nil {
+			httpx.Log(ctx).Error("settle from balance failed", "uid", user.UID, "err", err)
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be made; try again"))
+			return
+		}
+		httpx.WriteOK(w, s.settleSheetResponse(ctx, user.UID, res))
+		return
+	}
 	customerID, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
