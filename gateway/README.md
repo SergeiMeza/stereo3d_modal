@@ -640,6 +640,31 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
   false`.
 
+### Lifelike brand intro (BL-25)
+
+Behind `config/pricing_{env}.lifelike_intro_enabled` (code default
+**false** on test and prod until the pipeline's API is live): off, no
+intro field is sent. On, every new Lifelike run records the intro at
+creation and sends `intro_s` (3 on previews, 4 on every other run: free,
+paid, Express) and `intro_language` (BCP-47) to the pipeline, which puts
+it on the first part of a split video only. The language is the
+account's saved `locale`, else the request's `Accept-Language`, else
+`en`, normalised to the language alone except Chinese by script
+(`zh-Hans`, `zh-Hant`) and Portuguese by region (`pt-BR`, `pt-PT`). The
+intro is never billed: quotes, holds and charges use the customer's own
+length. Only an account with an active Business or Studio plan can turn
+it off (`intro_s: 0`); Pro and pay-per-video can't, and a saved opt-out
+is ignored without such a plan.
+
+- `GET /v1/account/settings` → `{lifelike_intro: bool, lifelike_intro_editable:
+  bool, locale: string|null}`. `lifelike_intro` is true unless an active
+  Business/Studio plan turned it off; `lifelike_intro_editable` is true
+  only while such a plan is active.
+- `PATCH /v1/account/settings {lifelike_intro?: bool, locale?: string|null}`
+  → the same shape. `lifelike_intro` without an active Business/Studio
+  plan: 409 `plan_required`. `locale` is normalised (`pt_BR` → `pt-BR`);
+  an unparseable one is 400; `null` clears it (back to the browser's).
+
 ### Pro discount (S3D-67)
 
 Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every

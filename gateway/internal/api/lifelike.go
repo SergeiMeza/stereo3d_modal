@@ -297,6 +297,14 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 		// "standard"; anything else is a 400).
 		body["priority"] = "express"
 	}
+	if c.Params.IntroS != nil { // BL-25: only when the flag was on at creation
+		body["intro_s"] = *c.Params.IntroS
+		lang := c.Params.IntroLanguage
+		if lang == "" {
+			lang = "en"
+		}
+		body["intro_language"] = lang
+	}
 	if c.Step == store.StepLifelikePreview {
 		maxGPUWorkers = 1 // a preview runs in one container anyway
 	}

@@ -178,6 +178,10 @@ type Rates struct {
 	// measured GPU cost of 8 vs 4 GPUs, for cost reporting.
 	// LifelikeExpressMaxWaitS (default 420): the longest an Express job may
 	// wait for a running standard piece to finish (4K, 3-min piece).
+	// LifelikeIntroEnabled sends the brand intro (BL-25: intro_s 3 on
+	// previews, 4 otherwise, intro_language) on Lifelike runs. Code
+	// default false until the pipeline's API is live on test.
+	LifelikeIntroEnabled      bool    `firestore:"lifelike_intro_enabled"`
 	LifelikeExpressGPUWorkers int     `firestore:"lifelike_express_gpu_workers"`
 	LifelikeExpressCostFactor float64 `firestore:"lifelike_express_cost_factor"`
 	LifelikeExpressMaxWaitS   int     `firestore:"lifelike_express_max_wait_s"`

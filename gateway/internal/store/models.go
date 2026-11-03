@@ -236,6 +236,11 @@ type Params struct {
 	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
 	// Express (add-on, pricing 2026-11): first in the GPU line.
 	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
+	// IntroS / IntroLanguage: the Lifelike brand intro (BL-25) fixed at
+	// creation: nil = none sent (the flag was off), 0 = a plan's opt-out,
+	// 3 (previews) or 4 seconds. Never billed, never shown to clients.
+	IntroS        *int   `firestore:"intro_s,omitempty" json:"-"`
+	IntroLanguage string `firestore:"intro_language,omitempty" json:"-"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -515,6 +520,11 @@ type Customer struct {
 	// DefaultFingerprint: the cached default card's fingerprint (block
 	// list gate, H).
 	DefaultFingerprint string `firestore:"default_fingerprint,omitempty"`
+	// Locale: the account's language for the Lifelike intro (BCP-47; ""
+	// = the browser's). LifelikeIntroOff: a Business/Studio plan's
+	// opt-out (honoured only while such a plan is active).
+	Locale           string `firestore:"locale,omitempty"`
+	LifelikeIntroOff bool   `firestore:"lifelike_intro_off,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches

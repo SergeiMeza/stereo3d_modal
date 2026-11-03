@@ -1336,6 +1336,9 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	method := projectMethod(p)
+	if method == store.MethodLifelike {
+		s.applyIntro(ctx, r, user.UID, req.Step, &params) // BL-25, after pricing inputs are fixed
+	}
 	if method == store.MethodLifelike && !s.lifelikeIn(p) {
 		httpx.WriteErr(ctx, w, errMethodUnavailable())
 		return

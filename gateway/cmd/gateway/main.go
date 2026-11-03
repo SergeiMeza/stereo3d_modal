@@ -201,6 +201,8 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/company/tax-ids", authed(svc.HandleAddTaxID))
 	mux.HandleFunc("DELETE /v1/billing/company/tax-ids/{id}", authed(withID(svc.HandleDeleteTaxID)))
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
+	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
+	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
 	}))
