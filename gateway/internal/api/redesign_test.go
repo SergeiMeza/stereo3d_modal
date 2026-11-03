@@ -163,46 +163,42 @@ func TestPublicPricingRoute(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Methods.Lifelike.Production["1080p"] != 450 || body.Methods.Lifelike.PerFrame["4k"] != 0.6944 || body.Precharge != 2500 {
+	if body.Methods.Lifelike.Production["1080p"] != 300 || body.Methods.Lifelike.PerFrame["4k"] != 0.5903 || body.Precharge != 2500 {
 		t.Errorf("body: %s", w.Body)
 	}
 }
 
-// S3D-01/30/44: classic → lifelike any time; lifelike → classic only
-// before the first paid run.
-func TestMethodSwitchRule(t *testing.T) {
-	run := func(state string, captured int64) *store.Conversion {
-		return &store.Conversion{State: state, Stripe: store.Stripe{CapturedCents: captured}}
+// S3D-01/30/44: classic → lifelike any time; lifelike → classic never.
+func TestMethodSwitchOneWay(t *testing.T) {
+	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic); e == nil || e.Code != "method_switch_not_allowed" || e.Status != 400 {
+		t.Errorf("lifelike → classic must be refused, runs or not: %v", e)
 	}
-	free := []*store.Conversion{
-		run(store.StateFailed, 0),   // failed before any charge
-		run(store.StateCanceled, 0), // canceled in line, never charged
-		run(store.StateExpired, 0),  // 3DS never completed
-	}
-	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic, nil); e != nil {
-		t.Errorf("a new lifelike project may go back: %v", e)
-	}
-	if e := methodSwitchError(store.MethodLifelike, store.MethodClassic, free); e != nil {
-		t.Errorf("runs that never charged don't count: %v", e)
-	}
-	for _, paid := range []*store.Conversion{
-		run(store.StateSucceeded, 0),   // batched preview
-		run(store.StateProcessing, 0),  // running, billed after
-		run(store.StatePaid, 4000),     // pre-charged, waiting to submit
-		run(store.StateCanceled, 4000), // pre-charged then refunded: was paid
-		run(store.StateCreated, 0),     // awaiting 3DS on a pre-charge
+	for _, c := range [][2]string{
+		{store.MethodClassic, store.MethodLifelike},
+		{store.MethodLifelike, store.MethodLifelike},
+		{store.MethodClassic, store.MethodClassic},
+		{store.MethodOr(""), store.MethodLifelike}, // legacy records are classic
 	} {
-		e := methodSwitchError(store.MethodLifelike, store.MethodClassic, append(free, paid))
-		if e == nil || e.Code != "method_switch_not_allowed" || e.Status != 400 {
-			t.Errorf("%s/%d must lock the project on lifelike: %v", paid.State, paid.Stripe.CapturedCents, e)
+		if e := methodSwitchError(c[0], c[1]); e != nil {
+			t.Errorf("%s → %s: %v", c[0], c[1], e)
 		}
 	}
-	paid := []*store.Conversion{run(store.StateSucceeded, 900)}
-	if e := methodSwitchError(store.MethodClassic, store.MethodLifelike, paid); e != nil {
-		t.Errorf("classic → lifelike after paid runs: %v", e)
+}
+
+// S3D-12: Classic pro steps stop at 3K; the mobile one-shot keeps 4k.
+func TestClassicStepsRefuse4K(t *testing.T) {
+	for _, step := range []string{store.StepDepthPreview, store.StepStereoPreview, store.StepProduction} {
+		llResolveErr(t, &stepConvReq{Step: step, Preset: "4k"}, proProject(), "preset_unavailable", "3K")
 	}
-	if e := methodSwitchError(store.MethodOr(""), store.MethodLifelike, paid); e != nil {
-		t.Errorf("legacy project → lifelike: %v", e)
+	resolveOK(t, &stepConvReq{Step: store.StepProduction, Preset: "3k"})
+	mobile := createConversionReq{GCSKey: "stereo3d/test/users/u1/abc/source.mp4", Preset: "4k"}
+	if err := mobile.validate(); err != nil {
+		t.Errorf("mobile 4k must stay: %v", err)
+	}
+	for _, p := range pricing.ClassicPresets {
+		if p == "4k" {
+			t.Error("4k must leave the classic preset list")
+		}
 	}
 }
 
@@ -341,7 +337,7 @@ func TestFoveation(t *testing.T) {
 	// +30% on the price
 	plain, _ := on.Pricing.QuoteLifelike(context.Background(), pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24})
 	fov, _ := on.Pricing.QuoteLifelike(context.Background(), pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24, Foveated: true})
-	if plain.AmountCents != 450 || fov.AmountCents != 585 {
+	if plain.AmountCents != 300 || fov.AmountCents != 390 {
 		t.Errorf("foveation price: %d → %d", plain.AmountCents, fov.AmountCents)
 	}
 }
@@ -402,11 +398,11 @@ func TestFoveationDefault(t *testing.T) {
 	}
 	// its own line in the breakdown
 	q, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24, Foveated: true})
-	if q.Breakdown["foveation_cents"] != int64(135) || q.AmountCents != 585 {
+	if q.Breakdown["foveation_cents"] != int64(90) || q.AmountCents != 390 {
 		t.Errorf("breakdown: %d %v", q.AmountCents, q.Breakdown)
 	}
 	pq, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: pricing.StepLifelikePreview, Preset: "4k", BillableS: 5, EffectiveFPS: 24, Foveated: true})
-	if pq.Breakdown["foveation_cents"] != int64(25) || pq.AmountCents != 108 { // 83 + 25
+	if pq.Breakdown["foveation_cents"] != int64(21) || pq.AmountCents != 92 { // 71 + 21
 		t.Errorf("preview breakdown: %d %v", pq.AmountCents, pq.Breakdown)
 	}
 }

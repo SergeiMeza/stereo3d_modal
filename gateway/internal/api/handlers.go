@@ -710,11 +710,13 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodLifelike),
 				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodLifelike),
 				"available":             s.Lifelike != nil,
+				"new_projects":          s.Lifelike != nil,
 			},
 			store.MethodClassic: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
 				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodClassic),
-				"available":             true,
+				"available":             true,  // existing classic projects keep running
+				"new_projects":          false, // S3D-44: not offered for new projects
 			},
 		},
 		"default_method": s.defaultMethod(),

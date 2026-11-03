@@ -91,7 +91,7 @@ func TestResolveDepthPreviewAcceptsDepthRes(t *testing.T) {
 }
 
 func TestResolveDepthPreviewIgnoresPresetAndFormats(t *testing.T) {
-	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Preset: "4k", Formats: []string{"sbs"}})
+	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Preset: "3k", Formats: []string{"sbs"}})
 	if p.Preset != "draft" || len(p.Formats) != 0 || !p.DepthOnly {
 		t.Errorf("depth_preview must stay draft/depth-only with no formats, got %s/%v (depth_only=%v)",
 			p.Preset, p.Formats, p.DepthOnly)
@@ -201,10 +201,10 @@ func TestResolveProductionTemplate(t *testing.T) {
 	// production accepts everything (square source so depth_res 2520 clears the
 	// aspect-aware VRAM ceiling — a 16:9 source would reject 2520; see
 	// TestResolveDepthResAspectCeiling).
-	p = resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Inpaint: "none",
+	p = resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "3k", Inpaint: "none",
 		DepthRes: 2520, DepthScale: 0.3,
 		SceneOverrides: []sceneOverrideReq{{First: 240, Displacement: 0.03}}}, squareProbeProject())
-	if p.Preset != "4k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
+	if p.Preset != "3k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
 		t.Errorf("production overrides not applied: %+v", p)
 	}
 }

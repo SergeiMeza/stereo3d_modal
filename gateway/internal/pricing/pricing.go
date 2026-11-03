@@ -906,7 +906,8 @@ var LifelikePresets = []string{"1080p", "qhd", "3k", "4k", "5k", "6k", "8k"}
 
 func defaultLifelikePrices() map[string]int64 {
 	return map[string]int64{
-		"1080p": 450, "qhd": 650, "3k": 800, "4k": 1000,
+		// S3D-11 (final owner prices v2, 2026-11-03)
+		"1080p": 300, "qhd": 450, "3k": 700, "4k": 850,
 		"5k": 1300, "6k": 1600, "8k": 2200,
 	}
 }
@@ -1083,8 +1084,9 @@ func (s *Service) QuoteImage(ctx context.Context) (*Quote, error) {
 	}, nil
 }
 
-// ClassicPresets are the presets Classic renders.
-var ClassicPresets = []string{"draft", "1080p", "qhd", "3k", "4k"}
+// ClassicPresets are the presets Classic pro steps offer: 4k left them
+// with S3D-12 (the mobile one-shot keeps it for shipped apps).
+var ClassicPresets = []string{"draft", "1080p", "qhd", "3k"}
 
 // Public is the customer-facing price list behind the public GET
 // /v1/pricing (S3D-18): every number derived from the live config, already
@@ -1116,11 +1118,15 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	}
 	lifelike := map[string]int64{}
 	lifelikePerFrame := map[string]float64{}
+	from := int64(0) // the cheapest enabled size: the "from $X a minute" line
 	enabled := rates.EnabledLifelikePresets()
 	for _, p := range enabled {
 		if v, ok := rates.lifelikePrice(p); ok {
 			lifelike[p] = v
 			lifelikePerFrame[p] = round4(float64(v) / (60 * fpsBase))
+			if from == 0 || v < from {
+				from = v
+			}
 		}
 	}
 	return map[string]any{
@@ -1130,6 +1136,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"lifelike": map[string]any{
 				"presets":                     enabled,
 				"production_cents_per_minute": lifelike,
+				"from_cents_per_minute":       from,
 				// a preview costs its frames at the production price per
 				// frame (cents_per_minute / 1,440), at least minimum_cents,
 				// no bulk discount

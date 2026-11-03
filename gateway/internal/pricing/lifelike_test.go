@@ -23,13 +23,13 @@ func TestQuoteLifelikePriceTable(t *testing.T) {
 		fps    float64
 		want   int64
 	}{
-		{"1080p", 60, 24, 450},
-		{"qhd", 60, 24, 650},
-		{"3k", 60, 24, 800},
-		// 2 min of 4k = $20 → 10% bulk discount → $18
-		{"4k", 120, 24, 1800},
-		// 48 fps doubles the frames: 1 min of 1080p = $9 (under the $10 discount)
-		{"1080p", 60, 48, 900},
+		{"1080p", 60, 24, 300},
+		{"qhd", 60, 24, 450},
+		{"3k", 60, 24, 700},
+		// 2 min of 4k = $17 → 10% bulk discount → $15.30
+		{"4k", 120, 24, 1530},
+		// 48 fps doubles the frames: 1 min of 1080p = $6 (under the $10 discount)
+		{"1080p", 60, 48, 600},
 		// a 5 s production floors at the 50¢ minimum (450 × 5/60 = 38¢)
 		{"1080p", 5, 24, 50},
 	}
@@ -61,7 +61,7 @@ func TestQuoteLifelikeConfigAndDraft(t *testing.T) {
 	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 30, EffectiveFPS: 24}); q.AmountCents != 600 {
 		t.Errorf("config price: want 600, got %d", q.AmountCents)
 	}
-	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "qhd", BillableS: 60, EffectiveFPS: 24}); q.AmountCents != 650 {
+	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "qhd", BillableS: 60, EffectiveFPS: 24}); q.AmountCents != 450 {
 		t.Errorf("preset missing from the doc keeps its default: got %d", q.AmountCents)
 	}
 	if _, err := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "draft", BillableS: 60}); err == nil {
@@ -135,14 +135,14 @@ func TestLifelikePreviewPerFrame(t *testing.T) {
 		fps    float64
 		want   int64
 	}{
-		// 5 s at 24 fps: 1080p's 38¢ floors at 50; the rest are above it
-		{"1080p", 5, 24, 50}, {"qhd", 5, 24, 54}, {"3k", 5, 24, 67}, {"4k", 5, 24, 83},
-		// quick look at half the frame rate: half the frames (42¢ → 50)
+		// 5 s at 24 fps: 25¢ and 38¢ floor at 50; 3k 58¢, 4k 71¢
+		{"1080p", 5, 24, 50}, {"qhd", 5, 24, 50}, {"3k", 5, 24, 58}, {"4k", 5, 24, 71},
+		// quick look at half the frame rate: half the frames (35¢ → 50)
 		{"4k", 5, 12, 50},
-		// 10 s of a 60 fps source: 600 frames × 1000/1440
-		{"4k", 10, 60, 417},
-		// 10 s 3k quick look: 120 frames × 800/1440 = 67¢
-		{"3k", 10, 12, 67},
+		// 10 s of a 60 fps source: 600 frames × 850/1440
+		{"4k", 10, 60, 354},
+		// 10 s 4k quick look: 120 frames × 850/1440 = 71¢
+		{"4k", 10, 12, 71},
 	}
 	for _, tc := range cases {
 		q, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: tc.preset, BillableS: tc.secs, EffectiveFPS: tc.fps})
@@ -193,7 +193,8 @@ func TestPublicPricing(t *testing.T) {
 	p := defaultsService(nil).Public(context.Background())
 	methods := p["methods"].(map[string]any)
 	ll := methods["lifelike"].(map[string]any)
-	if ll["production_cents_per_minute"].(map[string]int64)["4k"] != 1000 || ll["preview_cents_per_frame"].(map[string]float64)["1080p"] != 0.3125 {
+	if ll["production_cents_per_minute"].(map[string]int64)["4k"] != 850 || ll["preview_cents_per_frame"].(map[string]float64)["1080p"] != 0.2083 ||
+		ll["from_cents_per_minute"] != int64(300) {
 		t.Errorf("lifelike: %v", ll)
 	}
 	cl := methods["classic"].(map[string]any)["production_cents_per_minute"].(map[string]int64)
@@ -201,9 +202,12 @@ func TestPublicPricing(t *testing.T) {
 	if cl["1080p"] != 450 {
 		t.Errorf("classic 1080p: %v", cl)
 	}
-	// 4k carries its preset depth size: 900 × (1 + 0.35 × ((1442/980)² − 1))
-	if cl["4k"] <= 900 {
-		t.Errorf("classic 4k must include the preset depth factor: %v", cl)
+	// 3k carries its preset depth size: 720 × (1 + 0.35 × ((1148/980)² − 1))
+	if cl["3k"] <= 720 {
+		t.Errorf("classic 3k must include the preset depth factor: %v", cl)
+	}
+	if _, ok := cl["4k"]; ok {
+		t.Errorf("classic pro steps stop at 3k (S3D-12): %v", cl)
 	}
 	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
 		t.Errorf("thresholds: %v", p)

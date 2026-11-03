@@ -112,10 +112,14 @@ conversion JSON; records without one are classic). `POST /v1/projects`
 takes an optional `method`; none means classic, so clients that predate
 Lifelike keep working (the web app always sends one and preselects
 lifelike in its UI); `PATCH /v1/projects/{id}
-{"method": ...}` switches it for the next runs: classic → lifelike at any
-time (earlier files stay); lifelike → classic only while the project has no
-paid run (any run except one that ended before anything was charged), else
-400 `method_switch_not_allowed` (Classic is being retired). Lifelike without the
+{"method": ...}` switches it for the next runs, one way only: classic →
+lifelike at any time (earlier files stay); lifelike → classic is 400
+`method_switch_not_allowed`, runs or not (Classic is being retired). A new
+project naming `method: "classic"` is 400 `method_unavailable` (S3D-44);
+only a missing method (old clients) still creates classic. Classic pro
+steps stop at 3K: preset `4k` is 400 `preset_unavailable` (S3D-12; the
+mobile one-shot keeps 4k). `/v1/limits` methods carry `new_projects`
+(classic false). Lifelike without the
 service → 400 `method_unavailable`. `GET /v1/limits` carries
 `methods.{lifelike,classic}.{max_source_duration_s, available}` (0 =
 unlimited) and `default_method`, the method the UI preselects (lifelike
@@ -237,7 +241,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_source_duration_s` | 0 (unlimited); Classic keeps `max_source_duration_s` (600) |
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |
-| `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 · 5k 1300 · 6k 1600 · 8k 2200 |
+| `lifelike_price_cents_per_minute` | 1080p 300 · qhd 450 · 3k 700 · 4k 850 · 5k 1300 · 6k 1600 · 8k 2200 (S3D-11) |
 | `foveation_enabled` / `foveation_price_multiplier` | false / 1.3 |
 | `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |

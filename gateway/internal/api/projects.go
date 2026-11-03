@@ -58,6 +58,13 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	if req.Method == store.MethodClassic {
+		// S3D-44: Classic takes no new projects from clients that choose;
+		// only an old client's missing method still gets classic.
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "method_unavailable",
+			"Classic is no longer available for new projects; use Lifelike"))
+		return
+	}
 	method, merr := s.resolveMethod(req.Method)
 	if merr != nil {
 		httpx.WriteErr(ctx, w, merr)
@@ -204,8 +211,8 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 // active conversions, same as DELETE); archived:false restores. method
 // switches the project's conversion method for its NEXT runs (LL-D1; runs
 // in flight keep theirs, earlier files stay). Classic → lifelike any time;
-// lifelike → classic only before the project's first paid run, else 400
-// method_switch_not_allowed (S3D-01/30/44: Classic is being retired).
+// lifelike → classic never, runs or not: 400 method_switch_not_allowed
+// (S3D-01/30/44: Classic is being retired).
 func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	current, err := s.ownedProject(ctx, user, id)
@@ -236,14 +243,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 			httpx.WriteErr(ctx, w, merr)
 			return
 		}
-		var convs []*store.Conversion
-		if projectMethod(current) == store.MethodLifelike && *req.Method == store.MethodClassic {
-			if convs, err = s.Store.ListProjectConversions(ctx, id, 100); err != nil {
-				httpx.WriteErr(ctx, w, err)
-				return
-			}
-		}
-		if serr := methodSwitchError(projectMethod(current), *req.Method, convs); serr != nil {
+		if serr := methodSwitchError(projectMethod(current), *req.Method); serr != nil {
 			httpx.WriteErr(ctx, w, serr)
 			return
 		}
@@ -720,9 +720,15 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		}
 		return params, httpx.ErrInvalid("step must be depth_preview|stereo_preview|production")
 	}
+	if req.Preset == "4k" {
+		// S3D-12: Classic pro steps stop at 3K (the mobile one-shot keeps
+		// 4k for shipped apps).
+		return params, httpx.Err(http.StatusBadRequest, "preset_unavailable",
+			"4K isn't available for Classic; choose 3K or lower, or switch the project to Lifelike")
+	}
 	if req.Preset != "" && req.Step != store.StepDepthPreview {
-		if !slices.Contains(allowedPresets, req.Preset) {
-			return params, httpx.ErrInvalid("preset must be one of " + strings.Join(allowedPresets, "|"))
+		if !slices.Contains(pricing.ClassicPresets, req.Preset) {
+			return params, httpx.ErrInvalid("preset must be one of " + strings.Join(pricing.ClassicPresets, "|"))
 		}
 		params.Preset = req.Preset
 	}
