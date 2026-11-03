@@ -239,7 +239,7 @@ export function runSummary(p: Params, step?: Step): string {
     p.original_eye
       ? `Original picture in the ${p.original_eye} eye`
       : null,
-    p.foveation === "static" ? "Sharper centre" : null,
+    p.foveation === "static" ? "Foveated Detail" : null,
   ]
     .filter(Boolean)
     .join(" · ");

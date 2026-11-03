@@ -171,12 +171,12 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     // both prices for this video, at the best quality each method reaches
     await waitFor(() =>
       expect(screen.getByTestId("method-price-lifelike").textContent).toMatch(
-        /^\$\d+\.\d\d· about .+ · any length$/,
+        /^\$\d+\.\d\d· about .+ · any length, up to 8K$/,
       ),
     );
     await waitFor(() =>
       expect(screen.getByTestId("method-price-classic").textContent).toMatch(
-        /^\$\d+\.\d\d· about .+ · up to 10 min$/,
+        /^\$\d+\.\d\d· about .+ · up to 10 minutes, up to 4K$/,
       ),
     );
     // the summary prices the project's own method at its best quality and
@@ -184,7 +184,7 @@ describe("method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
     expect(screen.getByTestId("overview-price").textContent).toBe(
       screen
         .getByTestId("method-price-lifelike")
-        .textContent!.replace(/ · any length$/, "")
+        .textContent!.replace(/ · any length, up to 8K$/, "")
         .replace("·", " ·"),
     );
     expect(screen.getByTestId("overview-summary").textContent).not.toMatch(

@@ -25,6 +25,7 @@ import { Logo } from "@/components/Logo";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { WORKS_WITH } from "@/lib/devices";
+import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { FORMAT_NAMES } from "@/lib/glossary";
@@ -90,6 +91,8 @@ export function LandingContent() {
   const pricing = usePricing();
   const perMinute = pricing ? fromPerMinute(pricing) : null;
   const reducedMotion = usePrefersReducedMotion();
+  // S3D-05: the hero is about Lifelike — its limits, from /v1/pricing
+  const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing));
 
   return (
     <div className="w-full">
@@ -134,7 +137,7 @@ export function LandingContent() {
             ) : null}
           </div>
           <p className="mt-4 text-xs text-fg-muted">
-            Any length, up to 4K.{" "}
+            {lifelikeLimits}.{" "}
             <Link
               href="/pricing"
               onClick={() => track("lp_pricing_click")}
@@ -203,7 +206,7 @@ export function LandingContent() {
       {/* Three steps */}
       <section className="mx-auto mt-14 grid w-full max-w-6xl gap-6 px-4 sm:grid-cols-3">
         {[
-          { t: "Upload a video", s: "Any length, up to 4K." },
+          { t: "Upload a video", s: `${lifelikeLimits}.` },
           {
             t: "Preview a moment",
             s:

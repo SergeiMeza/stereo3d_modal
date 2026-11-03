@@ -8,8 +8,19 @@
  * gets.
  */
 
-import type { Format, Method } from "@/lib/api/types";
-import { FORMAT_NAMES, METHOD_NAMES } from "@/lib/glossary";
+import type {
+  Format,
+  GatewayLimits,
+  Method,
+  Preset,
+  PublicPricing,
+} from "@/lib/api/types";
+import {
+  FORMAT_NAMES,
+  METHOD_NAMES,
+  QUALITY_SHORT_SIDE,
+  qualityName,
+} from "@/lib/glossary";
 
 export const METHOD_LABELS: Record<Method, string> = METHOD_NAMES;
 
@@ -27,22 +38,46 @@ export const METHOD_TAGS: Partial<Record<Method, string>> = {
   classic: "Older method",
 };
 
-/** The one limits statement (S3D-05): landing, upload box, chooser,
- * Terms. */
-export const LIMITS_STATEMENT =
-  "Lifelike 3D: any length. Classic 3D: up to 10 minutes. Both up to 4K.";
+/** Defaults until /v1/limits and /v1/pricing answer (S3D-05). */
+const DEFAULT_MAX_SECONDS: Record<Method, number> = { lifelike: 0, classic: 600 };
+const DEFAULT_TOP_PRESET: Record<Method, Preset> = { lifelike: "8k", classic: "4k" };
 
-/** Length and size, stated the same way everywhere (S3D-05). */
-export const METHOD_LIMITS: Record<Method, string> = {
-  lifelike: "Any length · up to 4K",
-  classic: "Up to 10 minutes · up to 4K",
-};
+/** "any length, up to 8K" / "up to 10 minutes, up to 4K" for one method
+ * (S3D-05): the length from /v1/limits (or /v1/pricing), the top size
+ * from /v1/pricing's presets. */
+export function methodLimitText(
+  m: Method,
+  limits: GatewayLimits | null,
+  pricing: PublicPricing | null,
+): string {
+  const secs =
+    limits?.methods?.[m]?.max_source_duration_s ??
+    pricing?.methods[m]?.max_source_duration_s ??
+    DEFAULT_MAX_SECONDS[m];
+  const presets = pricing?.methods[m]?.presets ?? [];
+  const top =
+    presets.length > 0
+      ? presets.reduce((a, b) => (QUALITY_SHORT_SIDE[b] > QUALITY_SHORT_SIDE[a] ? b : a))
+      : DEFAULT_TOP_PRESET[m];
+  const length = secs > 0 ? `up to ${Math.round(secs / 60)} minutes` : "any length";
+  return `${length}, up to ${qualityName(top)}`;
+}
 
-/** Short length notes for price lines: "any length" / "up to 10 min". */
-export const METHOD_LENGTH: Record<Method, string> = {
-  lifelike: "any length",
-  classic: "up to 10 min",
-};
+/** "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up
+ * to 4K." — the one limits statement (S3D-05). */
+export function limitsStatement(
+  limits: GatewayLimits | null,
+  pricing: PublicPricing | null,
+): string {
+  return METHOD_ORDER.map(
+    (m) => `${METHOD_NAMES[m]}: ${methodLimitText(m, limits, pricing)}.`,
+  ).join(" ");
+}
+
+/** Capital first letter: "Any length, up to 8K". */
+export function sentenceCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 /** Chooser order: Lifelike first (recommended). */
 export const METHOD_ORDER: readonly Method[] = ["lifelike", "classic"];

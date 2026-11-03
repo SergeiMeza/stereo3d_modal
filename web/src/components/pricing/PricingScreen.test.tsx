@@ -31,11 +31,11 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(within(lifelike).getByText("Recommended")).toBeTruthy();
     expect(lifelike.textContent).toContain("from $4.50 a minute");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$10.00");
-    expect(lifelike.textContent).toContain("Any length · previews from $0.50");
+    expect(lifelike.textContent).toContain("Any length, up to 8K · previews from $0.50");
     const classic = screen.getByTestId("pricing-classic");
     expect(within(classic).getByText("Older method")).toBeTruthy();
     expect(classic.textContent).toContain("$27.46");
-    expect(classic.textContent).toContain("Up to 10 minutes");
+    expect(classic.textContent).toContain("Up to 10 minutes, up to 4K");
     expect(screen.getByTestId("pricing-charge-line").textContent).toBe(
       "Charged after it's done. Runs over $25 are charged when they start and refunded if they fail.",
     );

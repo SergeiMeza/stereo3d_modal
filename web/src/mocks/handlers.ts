@@ -185,7 +185,7 @@ interface DB {
   gpuWaitPolls: number;
   /** GET /v1/limits methods.<m>.available; false → method_unavailable */
   methodAvailable: Record<Method, boolean>;
-  /** GET /v1/limits methods.lifelike.foveation (Sharper centre) */
+  /** GET /v1/limits methods.lifelike.foveation (Foveated Detail) */
   lifelikeFoveation: boolean;
 }
 
@@ -822,7 +822,7 @@ function validateLifelikeRequest(
   if (eye !== undefined && eye !== "left" && eye !== "right") {
     return err(400, "invalid_request", "original_eye must be left|right");
   }
-  if (body.foveation !== undefined) {
+  if (body.foveation !== undefined && body.foveation !== null) {
     if (body.foveation !== "static" || !mockDb.lifelikeFoveation) {
       return err(400, "invalid_request", "foveation is not available");
     }
@@ -970,7 +970,7 @@ function lifelikeQuoteFor(
   const perMin = LIFELIKE.priceCentsPerMinute[priced];
   const effFPS = req.target_fps ?? probe.fps;
   const fpsFactor = clamp(effFPS / RATES.fpsBase, 0.5, 2.5);
-  // Sharper centre: +30% (S3D-50)
+  // Foveated Detail: +30% (S3D-50)
   const foveationFactor = req.foveation === "static" ? 1.3 : 1;
   const subtotal = Math.ceil(
     (outputSeconds / 60) * perMin * fpsFactor * foveationFactor,
@@ -995,6 +995,12 @@ function lifelikeQuoteFor(
         base_cents: subtotal,
         subtotal_cents: subtotal,
         discount_cents: bulk,
+        ...(foveationFactor !== 1
+          ? {
+              foveation_factor: foveationFactor,
+              foveation_cents: subtotal - Math.ceil(subtotal / foveationFactor),
+            }
+          : {}),
       },
     },
     reuseStages: [],
@@ -1753,7 +1759,7 @@ export const handlers = [
       currency: "usd",
       methods: {
         lifelike: {
-          presets: ["1080p", "qhd", "3k", "4k"],
+          presets: ["1080p", "qhd", "3k", "4k", "5k", "6k", "8k"],
           production_cents_per_minute: LIFELIKE.priceCentsPerMinute,
           max_source_duration_s: mockDb.methodMaxDurationS.lifelike,
           max_source_bytes: 25 * 1024 ** 3,

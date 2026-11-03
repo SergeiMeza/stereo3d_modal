@@ -32,10 +32,14 @@ import {
   newProjectMethod,
   type GatewayLimits,
   type Method,
+  type PublicPricing,
   type UploadTicket,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useLimits } from "@/lib/api/useLimits";
+import { usePricing } from "@/lib/api/usePricing";
+import { limitsStatement, methodLimitText } from "@/components/steps/methods";
+import { METHOD_NAMES } from "@/lib/glossary";
 import { formatBytes, formatTimeLeft } from "@/lib/format";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -66,17 +70,17 @@ export function maxDurationFor(
   return limits.limits?.max_duration_s ?? LEGACY_MAX_DURATION_S;
 }
 
-/** "Lifelike: any length · Classic: up to 10 minutes" (S3D-05), from
- * GET /v1/limits; one method only when the other isn't available. */
-export function lengthLimits(limits: GatewayLimits | null): string {
-  const cap = (s: number | null) =>
-    s === null || s === 0 ? "any length" : `up to ${Math.round(s / 60)} minutes`;
+/** "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up
+ * to 4K." (S3D-05), from GET /v1/limits and /v1/pricing; one method only
+ * when the other isn't available. */
+export function lengthLimits(
+  limits: GatewayLimits | null,
+  pricing: PublicPricing | null = null,
+): string {
   if (limits !== null && !methodAvailable(limits, "lifelike")) {
-    return cap(maxDurationFor(limits, "classic"));
+    return `${METHOD_NAMES.classic}: ${methodLimitText("classic", limits, pricing)}.`;
   }
-  return `Lifelike: ${cap(maxDurationFor(limits, "lifelike") ?? 0)} · Classic: ${cap(
-    maxDurationFor(limits, "classic") ?? LEGACY_MAX_DURATION_S,
-  )}`;
+  return limitsStatement(limits, pricing);
 }
 
 /** Only after this much progress is a time-left estimate shown. */
@@ -188,6 +192,7 @@ export function UploadDropzone() {
   const busy = phase !== "idle";
   // Per-method source caps; unknown (null) just skips the local check.
   const limits = useLimits();
+  const pricing = usePricing();
   const method = newProjectMethod(limits);
   const maxDurationS = maxDurationFor(limits, method);
 
@@ -347,7 +352,7 @@ export function UploadDropzone() {
           Drag &amp; drop a video to start a project
         </p>
         <p data-testid="upload-limits" className="text-xs text-fg-muted">
-          .mp4, .mov, .m4v or .webm · up to 4K · {lengthLimits(limits)}
+          .mp4, .mov, .m4v or .webm · {lengthLimits(limits, pricing)}
         </p>
         <button
           type="button"

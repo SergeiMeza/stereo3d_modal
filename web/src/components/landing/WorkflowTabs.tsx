@@ -82,7 +82,7 @@ const TABS: Tab[] = [
     icon: Upload,
     title: "One run, every format",
     detail:
-      "Say where you'll watch it, pick the quality up to 4K and the files you need — the whole video or just a part. The price shows before anything runs.",
+      "Say where you'll watch it, pick the quality and the files you need — the whole video or just a part. The price shows before anything runs.",
     image: "/landing/deliver-tab.webp",
     dims: { width: 1600, height: 1734 },
     alt: "Make 3D page of Stereo3D Studio showing the quality picker and the files you get",

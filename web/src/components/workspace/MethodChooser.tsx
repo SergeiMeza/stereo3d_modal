@@ -27,7 +27,7 @@ import {
   METHOD_DESCRIPTIONS,
   LIFELIKE_EYEBROW,
   METHOD_LABELS,
-  METHOD_LENGTH,
+  methodLimitText,
   METHOD_ORDER,
   METHOD_TAGS,
   MOVE_TO_LIFELIKE_BODY,
@@ -57,6 +57,8 @@ import {
   type StepQuoteResponse,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLimits } from "@/lib/api/useLimits";
+import { usePricing } from "@/lib/api/usePricing";
 import { formatDuration } from "@/lib/format";
 import { qualitiesFor, qualityChoices, qualityLabelFor } from "@/lib/glossary";
 
@@ -323,6 +325,8 @@ export function MethodChooser({
   quotes?: Partial<Record<Method, MethodQuote>>;
 }): JSX.Element {
   const sw = useMethodSwitch(project, onChanged);
+  const limits = useLimits();
+  const pricing = usePricing();
   const own = useMethodQuotes(project, given ? [] : METHOD_ORDER);
   const quotes = given ?? own;
   const [confirming, setConfirming] = useState(false);
@@ -428,7 +432,7 @@ export function MethodChooser({
                     </span>
                     <span className="text-fg-muted">
                       {eta && eta > 0 ? `· ${formatDuration(eta)} ` : ""}·{" "}
-                      {METHOD_LENGTH[m]}
+                      {methodLimitText(m, limits, pricing)}
                     </span>
                   </>
                 ) : (

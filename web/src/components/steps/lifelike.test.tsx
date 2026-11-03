@@ -633,19 +633,22 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     );
   });
 
-  it("Advanced stays collapsed; Keep the original picture in one eye sends original_eye", async () => {
+  it("Keep the original picture in one eye sits under Quality, unticked, Left when ticked (S3D-48)", async () => {
     const quotes = captureBodies("/quotes");
     renderPanel(
       <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
-    const advanced = screen.getByTestId("lifelike-advanced") as HTMLDetailsElement;
-    expect(advanced.open).toBe(false);
-    const keep = within(advanced).getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
+    expect(screen.queryByTestId("lifelike-advanced")).toBeNull();
+    const keep = screen.getByLabelText("Keep the original picture in one eye") as HTMLInputElement;
     expect(keep.checked).toBe(false);
-    // Sharper centre is hidden unless the gateway offers it
-    expect(within(advanced).queryByText(/Sharper centre/)).toBeNull();
+    expect(screen.getByText("One eye shows your original frames at full resolution.")).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "Which eye" })).toBeNull();
+    // Foveated Detail is hidden unless the gateway offers it
+    expect(screen.queryByText(/Foveated Detail/)).toBeNull();
     fireEvent.click(keep);
-    fireEvent.click(within(advanced).getByLabelText("Right"));
+    const eye = within(screen.getByRole("radiogroup", { name: "Which eye" }));
+    expect((eye.getByLabelText("Left") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(eye.getByLabelText("Right"));
     await waitFor(() =>
       expect(
         quotes.some((q) => q.step === "production" && q.original_eye === "right" && q.preset === "4k"),
@@ -653,27 +656,36 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     );
   });
 
-  it("Sharper centre appears only below the video's own size when the gateway offers it", async () => {
+  it("Foveated Detail shows below the video's own size when offered, ticked, with its own +30% line (S3D-50)", async () => {
     mockDb.lifelikeFoveation = true;
     resetLimitsCache();
     const quotes = captureBodies("/quotes");
     renderPanel(
       <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
-    const advanced = screen.getByTestId("lifelike-advanced");
-    // 4K source at 4K: the video's own size — not offered
-    await new Promise((r) => setTimeout(r, 50));
-    expect(within(advanced).queryByText(/Sharper centre/)).toBeNull();
+    // 4K source at 4K: the video's own size — not offered, nothing sent
+    await waitFor(() => expect(quotes.some((q) => q.step === "production")).toBe(true));
+    expect(screen.queryByText(/Foveated Detail/)).toBeNull();
+    expect(quotes.filter((q) => q.step === "production").every((q) => !("foveation" in q))).toBe(true);
     fireEvent.click(
       within(screen.getByRole("radiogroup", { name: "Quality" })).getAllByRole("radio")[0],
     );
-    const sharper = await within(advanced).findByLabelText(/Sharper centre/);
-    fireEvent.click(sharper);
+    const fov = (await screen.findByLabelText(/Foveated Detail/)) as HTMLInputElement;
+    expect(fov.checked).toBe(true);
+    expect(screen.getByText("More detail where you look.")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("quote-foveation").textContent).toMatch(/^\+\$\d+\.\d\d$/),
+    );
+    expect(
+      quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "1080p"),
+    ).toBe(true);
+    fireEvent.click(fov);
     await waitFor(() =>
       expect(
-        quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "1080p"),
+        quotes.some((q) => q.step === "production" && q.foveation === null && q.preset === "1080p"),
       ).toBe(true),
     );
+    await waitFor(() => expect(screen.queryByTestId("quote-foveation")).toBeNull());
   });
 });
 

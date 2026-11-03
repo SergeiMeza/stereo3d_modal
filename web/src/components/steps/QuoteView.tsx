@@ -149,7 +149,10 @@ export function QuoteView({
     >
       <Line
         label={videoLabel}
-        value={formatCents(technical ? (b.base_cents ?? subtotal) : subtotal)}
+        value={formatCents(
+          (technical ? (b.base_cents ?? subtotal) : subtotal) -
+            (b.foveation_cents ?? 0),
+        )}
         testId="quote-base"
       />
       {technical ? (
@@ -187,6 +190,17 @@ export function QuoteView({
           {formatCents(subtotal)}
         </span>
       )}
+      {b.foveation_factor !== undefined && b.foveation_factor !== 1 ? (
+        <Line
+          label={`Foveated Detail (${percent(b.foveation_factor)})`}
+          value={
+            b.foveation_cents !== undefined
+              ? `+${formatCents(b.foveation_cents)}`
+              : percent(b.foveation_factor)
+          }
+          testId="quote-foveation"
+        />
+      ) : null}
       {reuseStages.length > 0 ? (
         <Line
           label={

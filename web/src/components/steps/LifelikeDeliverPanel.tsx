@@ -85,9 +85,10 @@ export function LifelikeDeliverPanel({
   const numFrames = project.probe?.num_frames ?? 0;
   const [trim, setTrim] = useState<[number, number] | null>(null);
   const range: [number, number] = trim ?? [0, numFrames];
-  // Advanced (S3D-49/50), collapsed and off by default
+  // S3D-48: under Quality, unticked; Left when ticked
   const [originalEye, setOriginalEye] = useState<"left" | "right" | null>(null);
-  const [sharperCentre, setSharperCentre] = useState(false);
+  // S3D-50: Foveated Detail, ticked by default whenever it's shown
+  const [foveated, setFoveated] = useState(true);
   const chosen = choices.find((q) => q.preset === preset);
   const sourceShort = project.probe
     ? Math.min(project.probe.width, project.probe.height)
@@ -104,7 +105,8 @@ export function LifelikeDeliverPanel({
     formats: formats.length > 0 ? formats : DEFAULT_MAKE_FORMATS,
     ...trimFields(range, numFrames),
     ...(originalEye ? { original_eye: originalEye } : {}),
-    ...(foveationOffered && sharperCentre ? { foveation: "static" as const } : {}),
+    // shown: ticked sends "static", unticked sends null; hidden: absent
+    ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
   };
   const prices = usePresetPrices(
@@ -232,6 +234,58 @@ export function LifelikeDeliverPanel({
                   : undefined
             }
           />
+          <div className="flex flex-col gap-3 border-t border-edge pt-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={originalEye !== null}
+                  onChange={(e) =>
+                    change(() => setOriginalEye(e.target.checked ? "left" : null))
+                  }
+                  className="accent-primary"
+                />
+                Keep the original picture in one eye
+              </label>
+              <p className="pl-6 text-xs text-fg-muted">
+                One eye shows your original frames at full resolution.
+              </p>
+              {originalEye !== null ? (
+                <div
+                  role="radiogroup"
+                  aria-label="Which eye"
+                  className="flex gap-4 pl-6 text-sm"
+                >
+                  {(["left", "right"] as const).map((eye) => (
+                    <label key={eye} className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="original-eye"
+                        checked={originalEye === eye}
+                        onChange={() => change(() => setOriginalEye(eye))}
+                        className="accent-primary"
+                      />
+                      {eye === "left" ? "Left" : "Right"}
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            {foveationOffered ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={foveated}
+                    onChange={(e) => change(() => setFoveated(e.target.checked))}
+                    className="accent-primary"
+                  />
+                  Foveated Detail <span className="text-xs text-fg-muted">+30%</span>
+                </label>
+                <p className="pl-6 text-xs text-fg-muted">More detail where you look.</p>
+              </div>
+            ) : null}
+          </div>
         </MakeSection>
 
         <MakeSection
@@ -255,60 +309,6 @@ export function LifelikeDeliverPanel({
             onChange={(next) => change(() => setTrim(next))}
           />
         </MakeSection>
-        <details
-          data-testid="lifelike-advanced"
-          className="rounded-xl border border-edge bg-surface-1 px-4 py-3"
-        >
-          <summary className="cursor-pointer text-sm font-medium text-fg-muted">
-            Advanced
-          </summary>
-          <div className="mt-3 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={originalEye !== null}
-                  onChange={(e) =>
-                    change(() => setOriginalEye(e.target.checked ? "left" : null))
-                  }
-                  className="accent-primary"
-                />
-                Keep the original picture in one eye
-              </label>
-              {originalEye !== null ? (
-                <div
-                  role="radiogroup"
-                  aria-label="Which eye"
-                  className="flex gap-4 pl-6 text-sm"
-                >
-                  {(["left", "right"] as const).map((eye) => (
-                    <label key={eye} className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        name="original-eye"
-                        checked={originalEye === eye}
-                        onChange={() => change(() => setOriginalEye(eye))}
-                        className="accent-primary"
-                      />
-                      {eye === "left" ? "Left" : "Right"}
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            {foveationOffered ? (
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={sharperCentre}
-                  onChange={(e) => change(() => setSharperCentre(e.target.checked))}
-                  className="accent-primary"
-                />
-                Sharper centre <span className="text-xs text-fg-muted">+30%</span>
-              </label>
-            ) : null}
-          </div>
-        </details>
       </div>
 
       <aside className="flex flex-col gap-3 lg:sticky lg:top-0">

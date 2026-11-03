@@ -94,3 +94,20 @@ describe("cancel window (S3D-23)", () => {
     ).toBe("Cancelled · refunded $45.00");
   });
 });
+
+import { limitsStatement, methodLimitText } from "./methods";
+
+describe("limits copy (S3D-05)", () => {
+  it("states both methods from /v1/limits and /v1/pricing, with defaults", () => {
+    expect(limitsStatement(null, null)).toBe(
+      "Lifelike 3D: any length, up to 8K. Classic 3D: up to 10 minutes, up to 4K.",
+    );
+    expect(
+      methodLimitText(
+        "classic",
+        { methods: { classic: { max_source_duration_s: 1200 } } },
+        null,
+      ),
+    ).toBe("up to 20 minutes, up to 4K");
+  });
+});

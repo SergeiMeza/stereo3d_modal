@@ -260,15 +260,18 @@ export interface Params {
   split_max_seconds?: number;
   /** Lifelike (S3D-49): keep the source picture as this eye; off = absent */
   original_eye?: "left" | "right";
-  /** Lifelike (S3D-50): "Sharper centre", only below the video's own size
+  /** Lifelike (S3D-50): Foveated Detail, only below the video's own size
    * and when the gateway reports it enabled */
-  foveation?: "static";
+  foveation?: "static" | null;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
 }
 
 export interface QuoteBreakdown {
+  /** Lifelike Foveated Detail (S3D-50): its factor (1.3) and what it adds */
+  foveation_factor?: number;
+  foveation_cents?: number;
   step?: Step;
   preset?: string;
   billable_seconds?: number;
@@ -496,7 +499,7 @@ export interface MethodLimits {
   max_source_duration_s: number;
   /** false: the method can't be chosen right now (method_unavailable) */
   available?: boolean;
-  /** Lifelike: "Sharper centre" (static foveation) can be ordered */
+  /** Lifelike: Foveated Detail (static foveation) can be ordered */
   foveation?: boolean;
 }
 
@@ -700,8 +703,9 @@ export interface StepConversionRequest {
   split_max_seconds?: number;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
-  /** Lifelike (S3D-50): Sharper centre */
-  foveation?: "static";
+  /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent
+   * whenever the option is shown), absent when not offered */
+  foveation?: "static" | null;
   /** quotes only: price the step under this method without changing the
    * project (S3D-14); conversions refuse a mismatch */
   method?: Method;

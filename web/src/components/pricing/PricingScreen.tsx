@@ -10,6 +10,7 @@
 import Link from "next/link";
 import type { JSX } from "react";
 
+import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Badge } from "@/components/ui/badge";
 import { InfoPopover } from "@/components/ui/info-popover";
@@ -26,10 +27,6 @@ function size169(p: Preset): string {
   return `${w}×${h} per eye`;
 }
 
-function lengthNote(seconds: number | undefined): string {
-  if (!seconds) return "Any length";
-  return `Up to ${Math.round(seconds / 60)} minutes`;
-}
 
 function MethodPrices({
   pricing,
@@ -88,7 +85,7 @@ function MethodPrices({
         </tbody>
       </table>
       <p className="mt-3 text-xs text-fg-muted">
-        {lengthNote(m.max_source_duration_s)} · previews from{" "}
+        {sentenceCase(methodLimitText(method, null, pricing))} · previews from{" "}
         {formatCents(pricing.minimum_cents)}
       </p>
     </section>
