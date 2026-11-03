@@ -39,6 +39,9 @@ type Rates struct {
 	// applies. 0 disables the free tier.
 	FreeImagesPerDay int   `firestore:"free_images_per_day"`
 	MinimumCents     int64 `firestore:"minimum_cents"`
+	// PreviewMinimumCents floors every preview run (both methods) instead
+	// of MinimumCents (S3D-13/17); 0/absent = 100.
+	PreviewMinimumCents int64 `firestore:"preview_minimum_cents"`
 	// Batched billing (charge-on-success steps accumulate into one charge
 	// per account — a burst of small same-merchant charges is what issuer
 	// fraud rules block). BatchTiers pick the per-batch cap AND window
@@ -860,8 +863,8 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 		bulkDiscount = int64(math.Round(float64(afterReuse) * rates.DiscountPct))
 	}
 	total := afterReuse - bulkDiscount - in.CreditCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
+	if floor := rates.MinimumFor(in.Step); total < floor {
+		total = floor
 	}
 	return &Quote{
 		AmountCents: total,
@@ -934,6 +937,26 @@ func (r *Rates) EnabledLifelikePresets() []string {
 	return out
 }
 
+// PreviewMinimum is the per-run floor of a preview (S3D-13/17,
+// preview_minimum_cents; 0/absent = 100).
+func (r *Rates) PreviewMinimum() int64 {
+	if r.PreviewMinimumCents > 0 {
+		return r.PreviewMinimumCents
+	}
+	return 100
+}
+
+// MinimumFor is a pro step's per-run floor: previews (lifelike_preview,
+// depth_preview, stereo_preview) PreviewMinimum, everything else
+// minimum_cents.
+func (r *Rates) MinimumFor(step string) int64 {
+	switch step {
+	case StepLifelikePreview, "depth_preview", "stereo_preview":
+		return r.PreviewMinimum()
+	}
+	return r.MinimumCents
+}
+
 // FoveationMultiplier scales a foveated Lifelike run's price (S3D-50,
 // foveation_price_multiplier; 0/absent = 1.3).
 func (r *Rates) FoveationMultiplier() float64 {
@@ -982,7 +1005,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		perFrame := float64(perMin) / (60 * fpsBase)
 		base := int64(math.Round(frames * perFrame))
 		fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
-		cents := max(base+fov, rates.MinimumCents)
+		cents := max(base+fov, rates.MinimumFor(in.Step))
 		return &Quote{
 			AmountCents: cents,
 			Currency:    rates.Currency,
@@ -1167,7 +1190,9 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			"pct":             rates.DiscountPct,
 		},
 		// per run, both methods, Lifelike previews included (S3D-17)
-		"minimum_cents":             rates.MinimumCents,
+		"minimum_cents": rates.MinimumCents,
+		// previews of either method (S3D-13/17)
+		"preview_minimum_cents":     rates.PreviewMinimum(),
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
 	}
 }

@@ -401,8 +401,8 @@ func TestFoveationDefault(t *testing.T) {
 	if q.Breakdown["foveation_cents"] != int64(90) || q.AmountCents != 390 {
 		t.Errorf("breakdown: %d %v", q.AmountCents, q.Breakdown)
 	}
-	pq, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: pricing.StepLifelikePreview, Preset: "4k", BillableS: 5, EffectiveFPS: 24, Foveated: true})
-	if pq.Breakdown["foveation_cents"] != int64(21) || pq.AmountCents != 92 { // 71 + 21
+	pq, _ := sOn.Pricing.QuoteLifelike(ctx, pricing.StepInputs{Step: pricing.StepLifelikePreview, Preset: "4k", BillableS: 10, EffectiveFPS: 24, Foveated: true})
+	if pq.Breakdown["foveation_cents"] != int64(43) || pq.AmountCents != 185 { // 142 + 43
 		t.Errorf("preview breakdown: %d %v", pq.AmountCents, pq.Breakdown)
 	}
 }

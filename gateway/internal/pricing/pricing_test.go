@@ -198,12 +198,19 @@ func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
 	if q.AmountCents != 850 {
 		t.Errorf("want 850, got %d", q.AmountCents)
 	}
-	// credit larger than the subtotal still floors at minimum_cents
+	// credit larger than the subtotal still floors at the minimum (a
+	// preview's: preview_minimum_cents)
 	q = quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 60, CreditCents: 5000,
 	})
+	if q.AmountCents != 100 {
+		t.Errorf("want preview minimum 100, got %d", q.AmountCents)
+	}
+	q = quoteStep(t, StepInputs{
+		Step: "production", Preset: "draft", BillableS: 10, CreditCents: 5000,
+	})
 	if q.AmountCents != 50 {
-		t.Errorf("want minimum 50, got %d", q.AmountCents)
+		t.Errorf("production keeps minimum_cents 50, got %d", q.AmountCents)
 	}
 }
 
@@ -390,12 +397,13 @@ func TestQuoteStepReuseDiscountOnAdjustedSubtotal(t *testing.T) {
 }
 
 func TestQuoteStepDepthResMinimumStillApplies(t *testing.T) {
-	// 20s depth_preview = 75¢; factor 0.5 → 38¢ → floors at 50¢.
+	// 20s depth_preview = 75¢; factor 0.5 → 38¢ → floors at the $1
+	// preview minimum.
 	q := quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 20, DepthRes: 140,
 	})
-	if q.AmountCents != 50 {
-		t.Errorf("want minimum 50, got %d", q.AmountCents)
+	if q.AmountCents != 100 {
+		t.Errorf("want preview minimum 100, got %d", q.AmountCents)
 	}
 }
 

@@ -135,14 +135,14 @@ func TestLifelikePreviewPerFrame(t *testing.T) {
 		fps    float64
 		want   int64
 	}{
-		// 5 s at 24 fps: 25¢ and 38¢ floor at 50; 3k 58¢, 4k 71¢
-		{"1080p", 5, 24, 50}, {"qhd", 5, 24, 50}, {"3k", 5, 24, 58}, {"4k", 5, 24, 71},
-		// quick look at half the frame rate: half the frames (35¢ → 50)
-		{"4k", 5, 12, 50},
+		// 5 s at 24 fps (25¢, 38¢, 58¢, 71¢) all floor at the $1 preview
+		// minimum (S3D-13/17)
+		{"1080p", 5, 24, 100}, {"qhd", 5, 24, 100}, {"3k", 5, 24, 100}, {"4k", 5, 24, 100},
 		// 10 s of a 60 fps source: 600 frames × 850/1440
 		{"4k", 10, 60, 354},
-		// 10 s 4k quick look: 120 frames × 850/1440 = 71¢
-		{"4k", 10, 12, 71},
+		// 10 s at 24 fps: 240 frames × 850/1440 = 142¢; quick look half
+		// the frames (71¢ → 100)
+		{"4k", 10, 24, 142}, {"4k", 10, 12, 100},
 	}
 	for _, tc := range cases {
 		q, err := s.QuoteLifelike(ctx, StepInputs{Step: StepLifelikePreview, Preset: tc.preset, BillableS: tc.secs, EffectiveFPS: tc.fps})
@@ -171,8 +171,16 @@ func TestPerRunMinimum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.AmountCents != 50 { // 120¢ × 3 × 2/60 = 12¢
-		t.Errorf("classic 2 s preview floors at 50: %d", q.AmountCents)
+	if q.AmountCents != 100 { // 120¢ × 3 × 2/60 = 12¢
+		t.Errorf("classic 2 s preview floors at the $1 preview minimum: %d", q.AmountCents)
+	}
+	r := defaults()
+	r.PreviewMinimumCents = 75
+	if q, _ := defaultsService(r).QuoteStep(ctx, StepInputs{Step: "depth_preview", Preset: "draft", BillableS: 2}); q.AmountCents != 75 {
+		t.Errorf("preview_minimum_cents from config: %d", q.AmountCents)
+	}
+	if (&Rates{}).PreviewMinimum() != 100 {
+		t.Error("preview minimum defaults to 100")
 	}
 	if q, _ := s.QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "1080p", BillableS: 5, EffectiveFPS: 24}); q.AmountCents != 50 {
 		t.Errorf("lifelike 5 s production floors at 50: %d", q.AmountCents)
