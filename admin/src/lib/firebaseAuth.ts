@@ -38,7 +38,7 @@ const CONFIG = {
   appId: "1:151335782809:web:3bc67dc51717ad72a76b08",
 };
 
-const ISSUER = "Stereo3D Studio admin";
+const ISSUER = "Spatial Video Studio admin";
 
 function errCode(err: unknown): string | undefined {
   return typeof err === "object" && err && "code" in err

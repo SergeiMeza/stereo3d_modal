@@ -1,4 +1,4 @@
-# Stereo3D Studio admin console
+# Spatial Video Studio admin console
 
 Owner-only web app for refund, dispute and fraud cases (payment spec v7 §M1,
 §M7, §C12, §C13, A4). It talks only to the gateway's `/v1/admin/*` routes

@@ -1,5 +1,5 @@
 /**
- * BL-25: the Stereo3D intro switch for Business and Studio (gateway 00087).
+ * BL-25: the Spatial Video Studio intro switch for Business and Studio (gateway 00087).
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -39,15 +39,15 @@ function renderSwitch(node = <IntroSwitch />) {
   );
 }
 
-const sw = () => screen.findByRole("switch", { name: "Add the Stereo3D intro to my videos" });
+const sw = () => screen.findByRole("switch", { name: "Add the Spatial Video Studio intro to my videos" });
 
-describe("Stereo3D intro switch (BL-25)", () => {
+describe("Spatial Video Studio intro switch (BL-25)", () => {
   it("in the plan card, on by default, with its one line; turning it off saves", async () => {
     withPlan();
     renderSwitch(<PlanCard />);
     const s = await sw();
     expect(s.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("A short Stereo3D Studio title plays before your videos.")).toBeTruthy();
+    expect(screen.getByText("A short Spatial Video Studio title plays before your videos.")).toBeTruthy();
     fireEvent.click(s);
     // moves at once
     expect(s.getAttribute("aria-checked")).toBe("false");

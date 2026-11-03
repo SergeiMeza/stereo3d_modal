@@ -10,7 +10,7 @@ import { PlansScreen } from "@/components/pricing/PlansScreen";
 
 export const metadata: Metadata = {
   title: "Plans",
-  description: "Stereo3D Studio Business and Studio plans: usage included every month, lower prices, free previews and Express.",
+  description: "Spatial Video Studio on the web, Business and Studio plans: usage included every month, lower prices, free previews and Express.",
   alternates: { canonical: "/plans" },
 };
 

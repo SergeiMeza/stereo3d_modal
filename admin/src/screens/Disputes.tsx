@@ -40,7 +40,7 @@ export function DisputesPanel() {
     <>
       <div className="titlebar">
         <h1>Disputes and fraud</h1>
-        <span className="muted small">Stereo3D web charges only · refreshed on load</span>
+        <span className="muted small">Web app charges only · refreshed on load</span>
         <span className="grow" />
         <select className="fsel" aria-label="Months" value={months} onChange={(e) => setMonths(Number(e.target.value))}>
           <option value={6}>Last 6 months</option>

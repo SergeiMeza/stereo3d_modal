@@ -10,8 +10,11 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.stereo3d.studio";
 
-export const SITE_NAME = "Stereo3D Studio";
+/** Owner 2026-11-04: the web app carries the App Store app's name; the
+ * stereo3d.studio domain and URLs stay. */
+export const SITE_NAME = "Spatial Video Studio";
 
 /** S3D-52: the web app says what it is wherever it introduces itself
- * (titles, descriptions, mail footers, under the landing logo). */
-export const SITE_TAGLINE = "The web version of Spatial Video Studio";
+ * (titles, descriptions, mail footers); "on the web" tells it apart from
+ * the App Store app, as the marketing site does. */
+export const SITE_TAGLINE = "Spatial Video Studio on the web";

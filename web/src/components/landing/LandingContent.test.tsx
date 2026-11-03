@@ -28,7 +28,7 @@ describe("Landing hero (mock 12, S3D-46)", () => {
       </AuthProvider>,
     );
     expect(screen.getByTestId("hero-eyebrow").textContent).toBe(
-      "Lifelike 3D · our newest 3D technology",
+      "Spatial Video Studio on the web · Lifelike 3D",
     );
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Turn any video into lifelike 3D",

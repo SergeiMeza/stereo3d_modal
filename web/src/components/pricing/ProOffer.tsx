@@ -65,7 +65,7 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
               {proPercent(pro.pct)}% off every 3D video
             </DialogTitle>
             <DialogDescription>
-              One membership for the web and the Spatial Video Studio apps.
+              One membership for Spatial Video Studio on the web and in the apps.
             </DialogDescription>
             {open ? <ProPriceLine /> : null}
           </DialogHeader>

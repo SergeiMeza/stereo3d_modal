@@ -44,7 +44,7 @@ export default async function DevicePageRoute({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-14 sm:py-20">
       <nav aria-label="Breadcrumb" className="text-xs text-fg-muted">
         <Link href="/" className="hover:text-fg">
-          Stereo3D Studio
+          Spatial Video Studio
         </Link>{" "}
         / Devices / <span className="text-fg">{d.name}</span>
       </nav>

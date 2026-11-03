@@ -167,7 +167,7 @@ export default function SignInScreen() {
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
         <p className="text-fg-muted">
-          One account for the web and Spatial Video Studio.
+          One account for Spatial Video Studio on the web and in the app.
         </p>
       </div>
 

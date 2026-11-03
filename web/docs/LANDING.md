@@ -181,7 +181,7 @@ Never show a real account or customer video.
 
 **OG card** `public/landing/og.jpg` (1200×630): rendered from HTML — the
 headline, "Up to 8K. For Vision Pro and every headset.", the hero loop's
-poster (Sunset session) and "Stereo3D Studio · the web version of Spatial Video Studio".
+poster (Sunset session) and the app icon with "Spatial Video Studio · on the web" (renamed 2026-11-04).
 
 ## Design constraints
 

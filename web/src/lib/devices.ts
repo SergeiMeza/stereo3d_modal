@@ -119,11 +119,11 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     name: "Meta VR Glasses",
     title: "3D videos for Meta VR Glasses",
     description:
-      "Stereo3D Studio is ready for Meta VR Glasses, expected in spring 2027.",
+      "Spatial Video Studio on the web is ready for Meta VR Glasses, expected in spring 2027.",
     upcoming: "spring 2027",
     lines: [
       "Meta VR Glasses are expected in spring 2027.",
-      `Stereo3D Studio makes ${SBS} and ${SPATIAL} files today.`,
+      `Spatial Video Studio on the web makes ${SBS} and ${SPATIAL} files today.`,
       "We'll add how to watch here when the glasses are out.",
     ],
   },

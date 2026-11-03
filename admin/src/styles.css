@@ -1,4 +1,4 @@
-/* Stereo3D Studio admin console: dense desktop UI on the web app's tokens
+/* Spatial Video Studio admin console: dense desktop UI on the web app's tokens
    (redesign mock admin.css). System fonts only, so the CSP needs no font host. */
 :root {
   --background: #09090b;
@@ -56,10 +56,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* Header */
 .ah { display: flex; align-items: center; gap: 20px; height: 52px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; z-index: 20; }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
-.brand svg { width: 18px; height: 18px; }
+.brand .brand-icon { width: 18px; height: 18px; border-radius: 22%; background: url(/app-icon.png) center / cover; flex: none; }
 .brand .adm { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 6px; padding: 1px 6px; }
 .brand.big { font-size: 18px; }
-.brand.big svg { width: 24px; height: 24px; }
+.brand.big .brand-icon { width: 24px; height: 24px; }
 .ah nav { display: flex; gap: 4px; overflow-x: auto; }
 .ah nav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .ah nav a:hover { color: var(--foreground); }

@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
+import { AppIcon } from "@/components/AppIcon";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
@@ -95,7 +96,10 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
       data-state={state.kind}
       className="mx-auto flex w-full max-w-[440px] flex-1 flex-col gap-5 px-4 py-12"
     >
-      <p className="text-sm font-semibold tracking-tight text-fg">Stereo3D Studio</p>
+      <p className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
+        <AppIcon className="size-5" />
+        Spatial Video Studio
+      </p>
       {state.kind === "loading" ? (
         <div className="h-48 animate-pulse rounded-xl bg-surface-2" />
       ) : state.kind === "paid" ? (

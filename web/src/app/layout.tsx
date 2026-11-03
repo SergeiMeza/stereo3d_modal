@@ -7,12 +7,12 @@ import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
-import { Logo } from "@/components/Logo";
+import { AppIcon } from "@/components/AppIcon";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { SettleProvider } from "@/components/pay/SettleSheet";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
-import { SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
 import "./globals.css";
@@ -33,29 +33,29 @@ const description =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Stereo3D Studio — Convert 2D Video to 3D, the web version of Spatial Video Studio",
-    template: "%s — Stereo3D Studio",
+    default: "Spatial Video Studio on the web — Convert 2D Video to 3D",
+    template: "%s — Spatial Video Studio",
   },
   description,
-  applicationName: "Stereo3D Studio",
+  applicationName: SITE_NAME,
   openGraph: {
     type: "website",
-    siteName: "Stereo3D Studio",
+    siteName: SITE_NAME,
     locale: "en_US",
-    title: `Stereo3D Studio — ${SITE_TAGLINE}`,
+    title: `${SITE_TAGLINE}: turn any video into lifelike 3D`,
     description,
     images: [
       {
         url: "/landing/og.jpg",
         width: 1200,
         height: 630,
-        alt: "Stereo3D Studio: turn any video into lifelike 3D, up to 8K, for Vision Pro and every headset",
+        alt: "Spatial Video Studio on the web: turn any video into lifelike 3D, up to 8K, for Vision Pro and every headset",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `Stereo3D Studio — ${SITE_TAGLINE}`,
+    title: `${SITE_TAGLINE}: turn any video into lifelike 3D`,
     description,
     images: ["/landing/og.jpg"],
   },
@@ -79,9 +79,9 @@ export default function RootLayout({
                 href="/projects"
                 className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-fg"
               >
-                <Logo className="size-5" />
+                <AppIcon className="size-6" />
                 <span>
-                  Stereo3D&nbsp;
+                  Spatial Video&nbsp;
                   <span className="text-primary">Studio</span>
                 </span>
               </Link>

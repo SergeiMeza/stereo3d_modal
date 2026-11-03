@@ -15,7 +15,7 @@ Updated 2026-11-04 on `feat/lifelike-web` (owner decisions):
   prepaid balance, charge timing, cancel window, monthly credit, taxes, no
   retroactive changes). Facts checked against the gateway README and
   BL-19; open points carry `[CHECK]` comments in the page source.
-- Terms: the short Stereo3D Studio title at the start of videos.
+- Terms: the short Spatial Video Studio title at the start of videos.
 - Privacy: RevenueCat (plan status), account settings (language, title
   on/off), prepaid balance records with Stripe, review cases and the
   download/play log (13 months).

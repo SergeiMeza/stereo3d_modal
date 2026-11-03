@@ -28,7 +28,7 @@ import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { ProductTour } from "@/components/landing/ProductTour";
 import { Samples } from "@/components/landing/Samples";
 import { WorksWith } from "@/components/landing/WorksWith";
-import { Logo } from "@/components/Logo";
+import { AppIcon } from "@/components/AppIcon";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCentsShort } from "@/components/steps/money";
 import { track } from "@/lib/analytics";
@@ -123,7 +123,7 @@ export function LandingContent() {
           <p className="flex flex-wrap items-center gap-2.5">
             <span className="ll-tag-new">New</span>
             <span data-testid="hero-eyebrow" className="ll-eyebrow !text-xs">
-              Lifelike 3D · our newest 3D technology
+              Spatial Video Studio on the web · Lifelike 3D
             </span>
           </p>
           <h1 className="mt-4 text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[56px]">
@@ -288,7 +288,7 @@ export function LandingContent() {
         <p className="mt-8 text-xs text-fg-muted">
           Something missing or broken?{" "}
           <a
-            href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
+            href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Spatial Video Studio on the web feedback")}`}
             onClick={() => track("lp_feedback_click")}
             className="text-primary hover:underline"
           >
@@ -302,10 +302,10 @@ export function LandingContent() {
       <footer className="border-t border-edge">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-xs text-fg-muted">
           <p className="flex items-center gap-2">
-            <Logo className="size-4 text-fg" />
+            <AppIcon className="size-5" />
             <span>
-              Stereo3D <span className="text-primary">Studio</span> · a
-              Spatial AI Labs Ltd product
+              Spatial Video <span className="text-primary">Studio</span> on
+              the web · a Spatial AI Labs Ltd product
             </span>
           </p>
           <div className="flex items-center gap-4">

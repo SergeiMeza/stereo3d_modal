@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /**
- * Stereo3D Studio — dark professional theme.
+ * Spatial Video Studio on the web — dark professional theme.
  *
  * A pro video tool lives on dark surfaces, so the app is dark-only: the
  * shadcn/ui tokens below ARE the studio palette (no .dark variant). The

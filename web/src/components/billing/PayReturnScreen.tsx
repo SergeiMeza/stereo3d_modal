@@ -95,7 +95,7 @@ export function PayReturnScreen(): JSX.Element {
           <Success text={settle ? SETTLED : "Payment received. Your 3D video is starting."} />
           <Button asChild size="lg" className="h-12 w-full">
             <Link href={settle ? "/projects" : back}>
-              {settle ? "Back to Stereo3D Studio" : "Back to your project"}
+              {settle ? "Back to Spatial Video Studio" : "Back to your project"}
             </Link>
           </Button>
         </>

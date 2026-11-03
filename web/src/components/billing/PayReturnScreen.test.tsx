@@ -78,6 +78,6 @@ describe("Return page (P4)", () => {
       </AuthProvider>,
     );
     expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Back to Stereo3D Studio" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to Spatial Video Studio" })).toBeTruthy();
   });
 });

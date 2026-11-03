@@ -101,7 +101,7 @@ export function PlanCard(): JSX.Element | null {
 }
 
 /**
- * BL-25: Business and Studio can turn the Stereo3D intro off. Shown only
+ * BL-25: Business and Studio can turn the Spatial Video Studio intro off. Shown only
  * when GET /v1/account/settings says it's editable; the switch moves at
  * once and goes back if the save fails. 409 plan_required hides it and
  * reads the settings again.
@@ -154,12 +154,12 @@ export function IntroSwitch(): JSX.Element | null {
   return (
     <div data-testid="intro-switch" className="flex flex-col gap-1 border-t border-edge pt-3">
       <label className="flex items-center justify-between gap-3 text-sm text-fg">
-        Add the Stereo3D intro to my videos
+        Add the Spatial Video Studio intro to my videos
         <button
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label="Add the Stereo3D intro to my videos"
+          aria-label="Add the Spatial Video Studio intro to my videos"
           disabled={saving}
           onClick={() => void toggle()}
           className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-70 ${
@@ -169,7 +169,7 @@ export function IntroSwitch(): JSX.Element | null {
           <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
         </button>
       </label>
-      <p className="text-xs text-fg-muted">A short Stereo3D Studio title plays before your videos.</p>
+      <p className="text-xs text-fg-muted">A short Spatial Video Studio title plays before your videos.</p>
       {error ? <p className="text-xs text-red-400">Couldn&apos;t save that. Try again.</p> : null}
     </div>
   );

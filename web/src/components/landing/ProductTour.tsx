@@ -25,7 +25,7 @@ const SHOTS: Shot[] = [
     id: "projects",
     label: "Projects",
     detail: "Drop a video in. Every project in one place.",
-    alt: "Projects page of Stereo3D Studio with five videos, one marked 3D ready",
+    alt: "Projects page of Spatial Video Studio on the web with five videos, one marked 3D ready",
   },
   {
     id: "make-3d",
