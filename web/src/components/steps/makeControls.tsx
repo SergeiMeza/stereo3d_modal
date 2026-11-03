@@ -575,9 +575,12 @@ export function BitrateControl({
   value,
   onChange,
   sizeBytes,
+  disabled = false,
 }: {
   value: Bitrate;
   onChange: (b: Bitrate) => void;
+  /** the Master bitrate add-on sets it */
+  disabled?: boolean;
   /** the quote's estimated_size_bytes */
   sizeBytes?: number;
 }): JSX.Element {
@@ -588,6 +591,7 @@ export function BitrateControl({
       </label>
       <select
         id="make-bitrate"
+        disabled={disabled}
         value={String(value)}
         onChange={(e) => {
           const v = e.target.value;
@@ -595,7 +599,7 @@ export function BitrateControl({
             v === "auto" || v === "match_source" ? v : (Number(v) as Bitrate),
           );
         }}
-        className="w-fit rounded-md border border-edge bg-surface-2 px-2 py-1.5 text-sm"
+        className="w-fit rounded-md border border-edge bg-surface-2 px-2 py-1.5 text-sm disabled:opacity-50"
       >
         {BITRATES.map((b) => (
           <option key={String(b.value)} value={String(b.value)}>

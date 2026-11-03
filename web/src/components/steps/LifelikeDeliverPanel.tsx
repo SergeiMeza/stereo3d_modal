@@ -24,6 +24,7 @@ import {
   type StepConversionRequest,
 } from "@/lib/api/types";
 import { useLimits } from "@/lib/api/useLimits";
+import { usePricing } from "@/lib/api/usePricing";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
 import { qualityChoices, resolutionName } from "@/lib/glossary";
@@ -55,6 +56,50 @@ export function splitQuestion(outputSeconds: number): string {
   return `Your video is ${minutes} minutes long. Split it into ${Math.round(
     SPLIT_MAX_SECONDS / 60,
   )}-minute parts so each file plays smoothly?`;
+}
+
+/** Express's honest saving from the quote (00081 express_eta): about a
+ * minute on short clips, up to about 2× on long ones. */
+export function expressHint(eta?: { eta_seconds: number; standard_eta_seconds: number }): string {
+  if (!eta || eta.standard_eta_seconds <= 0 || eta.eta_seconds >= eta.standard_eta_seconds) {
+    return "Faster: first in line.";
+  }
+  if (eta.standard_eta_seconds / Math.max(eta.eta_seconds, 1) >= 1.6) {
+    return "First in line. Up to about 2× faster on longer videos.";
+  }
+  const min = Math.max(1, Math.round((eta.standard_eta_seconds - eta.eta_seconds) / 60));
+  return `First in line. About ${min} min faster.`;
+}
+
+function AddOnRow({
+  testId,
+  label,
+  price,
+  hint,
+  checked,
+  onChange,
+}: {
+  testId: string;
+  label: string;
+  price: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}): JSX.Element {
+  return (
+    <div data-testid={testId} className="flex flex-col gap-1.5">
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="accent-primary"
+        />
+        {label} <span className="text-xs text-fg-muted">{price}</span>
+      </label>
+      <p className="pl-6 text-xs text-fg-muted">{hint}</p>
+    </div>
+  );
 }
 
 export interface LifelikeDeliverPanelProps {
@@ -97,6 +142,11 @@ export function LifelikeDeliverPanel({
   const [foveated, setFoveated] = useState(true);
   // S3D-56: under a collapsed Advanced; no price change
   const [bitrate, setBitrate] = useState<Bitrate>("auto");
+  // pricing 2026-11 add-ons: Master bitrate (+20%) and Express (+50%,
+  // included in Business and Studio, where it starts ticked)
+  const addons = usePricing()?.addons;
+  const [master, setMaster] = useState(false);
+  const [expressChoice, setExpress] = useState<boolean | null>(null);
   const chosen = choices.find((q) => q.preset === preset);
   const eyeRequired = chosen?.originalEyeRequired === true;
   const originalEye = eyeRequired ? requiredEye : optionalEye;
@@ -112,13 +162,17 @@ export function LifelikeDeliverPanel({
   // 6K and 8K make no full side-by-side file (half SBS and spatial are)
   const offeredFormats = lifelikeFormatsFor(chosen ?? { preset });
   const sentFormats = formats.filter((f) => offeredFormats.includes(f));
+  const tier = ck.quote?.tier ?? "";
+  const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
+  const express = expressChoice ?? expressIncluded;
   const base: StepConversionRequest = {
     step: "production",
     preset,
     formats: sentFormats.length > 0 ? sentFormats : offeredFormats.slice(0, 1),
     ...trimFields(range, numFrames),
     ...(originalEye ? { original_eye: originalEye } : {}),
-    ...bitrateField(bitrate),
+    ...(addons?.master && master ? { bitrate: "master" as const } : bitrateField(bitrate)),
+    ...(addons?.express && express ? { express: true } : {}),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
@@ -253,7 +307,7 @@ export function LifelikeDeliverPanel({
                   : undefined
             }
           />
-          {eyeRequired || foveationOffered ? (
+          {eyeRequired || foveationOffered || addons?.master || addons?.express ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -279,6 +333,26 @@ export function LifelikeDeliverPanel({
                 </label>
                 <p className="pl-6 text-xs text-fg-muted">More detail where you look.</p>
               </div>
+            ) : null}
+            {addons?.master ? (
+              <AddOnRow
+                testId="addon-master"
+                label="Master bitrate"
+                price={`+${Math.round(addons.master.pct * 100)}%`}
+                hint="Higher-bitrate files."
+                checked={master}
+                onChange={(v) => change(() => setMaster(v))}
+              />
+            ) : null}
+            {addons?.express ? (
+              <AddOnRow
+                testId="addon-express"
+                label="Express"
+                price={expressIncluded ? "Included" : `+${Math.round(addons.express.pct * 100)}%`}
+                hint={expressHint(ck.quote?.express_eta)}
+                checked={express}
+                onChange={(v) => change(() => setExpress(v))}
+              />
             ) : null}
           </div>
           ) : null}
@@ -329,7 +403,11 @@ export function LifelikeDeliverPanel({
                 ) : null}
               </div>
             ) : null}
+            {master ? (
+              <p className="text-xs text-fg-muted">Bitrate: Master (add-on).</p>
+            ) : null}
             <BitrateControl
+              disabled={master}
               value={bitrate}
               onChange={(b) => change(() => setBitrate(b))}
               sizeBytes={ck.quote?.estimated_size_bytes}

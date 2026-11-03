@@ -49,6 +49,14 @@ const CANCELABLE: ReadonlySet<ConversionState> = new Set([
 /** S3D-23: a run can be cancelled any time while it waits in line (full
  * refund when it was paid up front) and for 1 minute after it starts
  * (`cancelable_until`; the gateway enforces it with a 409). */
+/** 00081: an Express run waiting for a GPU (it may wait for a running
+ * piece to finish, up to queue_wait_max_seconds). */
+export function expressWaitLine(maxWait?: number): string {
+  return maxWait && maxWait > 0
+    ? `Starting soon (Express). Within about ${Math.max(1, Math.round(maxWait / 60))} min.`
+    : "Starting soon (Express).";
+}
+
 export function cancelable(conv: Conversion, now = Date.now()): boolean {
   if (!CANCELABLE.has(conv.state)) return false;
   if (conv.waiting_for_gpu || conv.state !== "processing") return true;
@@ -317,7 +325,11 @@ export function ConversionTracker({
       ) : null}
       {waiting || conv.state === "paid" ? (
         <div className="flex flex-col gap-1 text-sm text-fg-muted">
-          <p data-testid="waiting-for-gpu">{WAITING_IN_LINE_NOTE}</p>
+          <p data-testid="waiting-for-gpu">
+            {conv.priority === "express" || conv.params?.express === true
+              ? expressWaitLine(conv.queue_wait_max_seconds)
+              : WAITING_IN_LINE_NOTE}
+          </p>
           {canCancel ? (
             <p className="text-xs" data-testid="cancel-note">
               {cancelNote(conv, null)}
