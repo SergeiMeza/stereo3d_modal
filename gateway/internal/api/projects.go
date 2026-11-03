@@ -45,8 +45,8 @@ func halfSourceFPS(p *store.Project) float64 {
 
 // ------------------------------------------------------------- create/list
 
-// POST /v1/projects {gcs_key, name?, method?} — method defaults to the
-// configured default (lifelike; classic while Lifelike is unavailable).
+// POST /v1/projects {gcs_key, name?, method?} — no method means classic
+// (older clients); the web app always names one.
 func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
@@ -58,7 +58,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	method, merr := s.resolveMethod(ctx, req.Method)
+	method, merr := s.resolveMethod(req.Method)
 	if merr != nil {
 		httpx.WriteErr(ctx, w, merr)
 		return
@@ -225,7 +225,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 			httpx.WriteErr(ctx, w, httpx.ErrInvalid("method must be lifelike|classic"))
 			return
 		}
-		if _, merr := s.resolveMethod(ctx, *req.Method); merr != nil {
+		if _, merr := s.resolveMethod(*req.Method); merr != nil {
 			httpx.WriteErr(ctx, w, merr)
 			return
 		}

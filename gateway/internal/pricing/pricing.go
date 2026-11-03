@@ -155,9 +155,6 @@ type Rates struct {
 	// may be absent: the accessors below fall back to the code defaults, so
 	// nothing changes before the config doc is written.
 	//
-	// DefaultProjectMethod is the method a new project gets when the
-	// client names none ("lifelike" | "classic"; owner decision LL-D1).
-	DefaultProjectMethod string `firestore:"default_project_method"`
 	// LifelikeMaxSourceDurationS caps Lifelike sources; 0 = unlimited
 	// (LL-D6). max_source_duration_s stays the Classic cap.
 	LifelikeMaxSourceDurationS float64 `firestore:"lifelike_max_source_duration_s"`
@@ -204,14 +201,6 @@ func defaultLifelikeETA() LifelikeETA {
 		},
 		EncodeFrameCap: 7200,
 	}
-}
-
-// DefaultMethod is the method for a new project without one.
-func (r *Rates) DefaultMethod() string {
-	if r.DefaultProjectMethod == "classic" {
-		return "classic"
-	}
-	return "lifelike"
 }
 
 // MaxSourceDurationFor is the source-length cap of a method (0 = none).
@@ -372,7 +361,6 @@ func defaults() *Rates {
 			"production_qhd": 8.0, "production_3k": 9.5, "production_4k": 12.0,
 			"production": 6.0,
 		},
-		DefaultProjectMethod:        "lifelike",
 		LifelikeMaxSourceDurationS:  0, // unlimited
 		LifelikeMaxGPUWorkers:       4,
 		PrechargeThresholdCents:     2500,

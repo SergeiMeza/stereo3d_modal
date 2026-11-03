@@ -109,13 +109,15 @@ scene-list version it was computed against (stale after a cut edit).
 
 A project's `method` is `lifelike` or `classic` (always in project and
 conversion JSON; records without one are classic). `POST /v1/projects`
-takes an optional `method` (default `default_project_method`, lifelike — or
-classic while `LIFELIKE_BASE_URL` is unset); `PATCH /v1/projects/{id}
+takes an optional `method`; none means classic, so clients that predate
+Lifelike keep working (the web app always sends one and preselects
+lifelike in its UI); `PATCH /v1/projects/{id}
 {"method": ...}` switches it for the next runs (classic on a source longer
 than Classic's cap → 400 `source_too_long_for_method`; lifelike without the
 service → 400 `method_unavailable`). `GET /v1/limits` carries
 `methods.{lifelike,classic}.{max_source_duration_s, available}` (0 =
-unlimited) and `default_method`.
+unlimited) and `default_method`, the method the UI preselects (lifelike
+wherever the service is configured).
 
 Lifelike runs on the shared lifelike3d Modal service (ml-sharp-modal
 `docs/LIFELIKE_API.md`, ADR-0019) — same submit/job shape, so the state
@@ -163,7 +165,6 @@ Config keys (`config/pricing_{env}`, every one optional):
 
 | key | default |
 |---|---|
-| `default_project_method` | `lifelike` |
 | `lifelike_max_source_duration_s` | 0 (unlimited); Classic keeps `max_source_duration_s` (600) |
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |

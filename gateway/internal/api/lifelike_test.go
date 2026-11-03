@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -153,26 +152,27 @@ func TestMethodSourceError(t *testing.T) {
 }
 
 func TestResolveMethod(t *testing.T) {
-	ctx := context.Background()
-	on := &Service{Pricing: pricing.NewStatic(nil), Lifelike: modalapi.New("https://x", "", "")}
-	off := &Service{Pricing: pricing.NewStatic(nil)}
-	if m, _ := on.resolveMethod(ctx, ""); m != store.MethodLifelike {
-		t.Errorf("new projects default to lifelike, got %s", m)
+	on := &Service{Lifelike: modalapi.New("https://x", "", "")}
+	off := &Service{}
+	// Old clients send no method and only know the classic steps.
+	for _, s := range []*Service{on, off} {
+		if m, err := s.resolveMethod(""); err != nil || m != store.MethodClassic {
+			t.Errorf("no method must mean classic, got %s %v", m, err)
+		}
 	}
-	if m, _ := off.resolveMethod(ctx, ""); m != store.MethodClassic {
-		t.Errorf("without the service the default falls back to classic, got %s", m)
+	if m, err := on.resolveMethod(store.MethodLifelike); err != nil || m != store.MethodLifelike {
+		t.Errorf("explicit lifelike: %s %v", m, err)
 	}
-	if _, err := off.resolveMethod(ctx, store.MethodLifelike); err == nil || err.Code != "method_unavailable" {
+	if _, err := off.resolveMethod(store.MethodLifelike); err == nil || err.Code != "method_unavailable" {
 		t.Errorf("explicit lifelike without the service: %v", err)
 	}
-	if _, err := on.resolveMethod(ctx, "magic"); err == nil {
+	if _, err := on.resolveMethod("magic"); err == nil {
 		t.Error("unknown method must 400")
 	}
-	r := pricing.Defaults()
-	r.DefaultProjectMethod = "classic"
-	cfg := &Service{Pricing: pricing.NewStatic(r), Lifelike: modalapi.New("https://x", "", "")}
-	if m, _ := cfg.resolveMethod(ctx, ""); m != store.MethodClassic {
-		t.Errorf("default_project_method classic honored, got %s", m)
+	// The UI default (GET /v1/limits default_method) is lifelike where the
+	// service runs.
+	if on.defaultMethod() != store.MethodLifelike || off.defaultMethod() != store.MethodClassic {
+		t.Errorf("default_method: on %s, off %s", on.defaultMethod(), off.defaultMethod())
 	}
 }
 

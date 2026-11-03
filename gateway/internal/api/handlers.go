@@ -699,7 +699,7 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 				"available":             true,
 			},
 		},
-		"default_method": s.defaultMethod(ctx),
+		"default_method": s.defaultMethod(),
 		"billing": map[string]any{
 			"has_payment_method": hasCard,
 			"delinquent":         delinquent,

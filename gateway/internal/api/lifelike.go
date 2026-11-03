@@ -45,14 +45,13 @@ func errMethodUnavailable() *httpx.APIError {
 	return httpx.Err(http.StatusBadRequest, "method_unavailable", "Lifelike is not available right now; use Classic")
 }
 
-// resolveMethod validates a client-named method; "" picks the configured
-// default, which falls back to classic while Lifelike is unavailable.
-func (s *Service) resolveMethod(ctx context.Context, requested string) (string, *httpx.APIError) {
+// resolveMethod validates a client-named method. "" is classic: clients
+// that predate Lifelike send no method and only know the classic steps, so
+// they must keep getting classic projects. The web app names the method
+// explicitly and defaults its own UI to lifelike (defaultMethod).
+func (s *Service) resolveMethod(requested string) (string, *httpx.APIError) {
 	switch requested {
 	case "":
-		if m := s.Pricing.Rates(ctx).DefaultMethod(); m == store.MethodLifelike && s.Lifelike != nil {
-			return m, nil
-		}
 		return store.MethodClassic, nil
 	case store.MethodLifelike:
 		if s.Lifelike == nil {
@@ -339,8 +338,12 @@ func overdueQueueAllowance(c *store.Conversion) float64 {
 	return math.Max(c.Modal.QueuedS, 0)
 }
 
-// defaultMethod is the method a project created without one gets.
-func (s *Service) defaultMethod(ctx context.Context) string {
-	m, _ := s.resolveMethod(ctx, "")
-	return m
+// defaultMethod is the method the web UI preselects (GET /v1/limits
+// default_method; LL-D1): lifelike wherever the service is configured. The
+// API's own default for a request without a method stays classic.
+func (s *Service) defaultMethod() string {
+	if s.Lifelike != nil {
+		return store.MethodLifelike
+	}
+	return store.MethodClassic
 }

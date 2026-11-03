@@ -104,9 +104,6 @@ func TestEstimateLifelikeETA(t *testing.T) {
 
 func TestLifelikeConfigDefaults(t *testing.T) {
 	var absent Rates // a config doc written before Lifelike: every key zero
-	if absent.DefaultMethod() != "lifelike" {
-		t.Error("default method must be lifelike")
-	}
 	if absent.GPUWorkersFor("lifelike") != 4 {
 		t.Errorf("lifelike workers default 4, got %d", absent.GPUWorkersFor("lifelike"))
 	}
@@ -116,14 +113,11 @@ func TestLifelikeConfigDefaults(t *testing.T) {
 	if absent.MaxSourceDurationFor("lifelike") != 0 {
 		t.Error("lifelike is unlimited by default")
 	}
-	r := Rates{MaxGPUWorkers: 10, LifelikeMaxGPUWorkers: 12, MaxSourceDurationS: 600, DefaultProjectMethod: "classic"}
+	r := Rates{MaxGPUWorkers: 10, LifelikeMaxGPUWorkers: 12, MaxSourceDurationS: 600}
 	if r.GPUWorkersFor("classic") != 8 || r.GPUWorkersFor("lifelike") != 8 {
 		t.Error("max_gpu_workers clamps to 8 for both methods")
 	}
 	if r.MaxSourceDurationFor("classic") != 600 {
 		t.Error("classic keeps max_source_duration_s")
-	}
-	if r.DefaultMethod() != "classic" {
-		t.Error("default_project_method classic must be honored")
 	}
 }
