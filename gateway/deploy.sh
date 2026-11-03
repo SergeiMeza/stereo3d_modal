@@ -46,6 +46,7 @@ if [[ -z "${LIFELIKE_BASE_URL:-}" && "$ENV" == "test" ]]; then
   LIFELIKE_BASE_URL="https://${MODAL_WORKSPACE}--lifelike3d-api-${ENV}.modal.run"
 fi
 LIFELIKE_BASE_URL="${LIFELIKE_BASE_URL:-off}"
+# Env vars are "|"-separated below: emails contain "@".
 # Owner alerts (GPU line, S3D-34; file-keeping reports, S3D-24): the address
 # the KPI alerts already mail.
 OWNER_ALERT_EMAIL="${OWNER_ALERT_EMAIL:-sergei@spatial-ai-labs.com}"
@@ -61,7 +62,7 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 10 \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
-  --set-env-vars "^@^APP_ENV=${ENV}@GCP_PROJECT_ID=${PROJECT}@MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run@CORS_ORIGINS=${CORS_ORIGINS}@FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}@LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}@OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}@FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}" \
+  --set-env-vars "^|^APP_ENV=${ENV}|GCP_PROJECT_ID=${PROJECT}|MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run|CORS_ORIGINS=${CORS_ORIGINS}|FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}|LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}|OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}|FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}" \
   --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
