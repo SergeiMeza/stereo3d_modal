@@ -1189,7 +1189,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	// failed charge, or the step never starts.
 	cust, berr := s.requireBillable(ctx, user)
 	if berr != nil {
-		httpx.WriteErr(ctx, w, berr)
+		httpx.WriteErr(ctx, w, stepBillingError(berr))
 		return
 	}
 	rates := s.Pricing.Rates(ctx)

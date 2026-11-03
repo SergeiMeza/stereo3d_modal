@@ -41,14 +41,19 @@ type Rates struct {
 	MinimumCents     int64 `firestore:"minimum_cents"`
 	// Batched billing (charge-on-success steps accumulate into one charge
 	// per account — a burst of small same-merchant charges is what issuer
-	// fraud rules block). BatchWindowHours bounds how long a batch stays
-	// open; BatchTiers picks the per-batch cap from the user's lifetime
-	// collected spend (a proven card earns a longer tab). Fractional hours
-	// are fine (test envs). BatchOneShot extends batching to the mobile
-	// one-shot flow (off until the mobile contract catches up).
-	BatchWindowHours float64     `firestore:"batch_window_hours"`
-	BatchTiers       []BatchTier `firestore:"batch_tiers"`
-	BatchOneShot     bool        `firestore:"batch_one_shot"`
+	// fraud rules block). BatchTiers pick the per-batch cap AND window
+	// from the user's lifetime collected spend (S3D-19: a proven card
+	// earns a longer, larger tab); a charge that failed within
+	// BatchFailureLookbackDays drops the account to the first tier.
+	// BatchWindowHours, when set, overrides every tier's window with one
+	// flat window (the test env runs 0.25 h); unset, each tier has its own
+	// window_hours (tiers without one keep their default). Fractional hours are fine. BatchOneShot extends
+	// batching to the mobile one-shot flow (off until the mobile contract
+	// catches up).
+	BatchWindowHours         float64     `firestore:"batch_window_hours"`
+	BatchTiers               []BatchTier `firestore:"batch_tiers"`
+	BatchFailureLookbackDays int         `firestore:"batch_failure_lookback_days"`
+	BatchOneShot             bool        `firestore:"batch_one_shot"`
 	// MinBillableSeconds floors the one-shot (mobile) video quote: a clip
 	// shorter than this is priced as this long (product decision
 	// 2026-09-02 — short clips were pricing at the 50¢ floor, and a
@@ -286,24 +291,78 @@ func (r *Rates) PrechargeThreshold() int64 {
 // accumulate up to CapCents per batch before an automatic charge. The
 // highest qualifying tier wins.
 type BatchTier struct {
-	MinPaidCents int64 `firestore:"min_paid_cents" json:"min_paid_cents"`
-	CapCents     int64 `firestore:"cap_cents" json:"cap_cents"`
+	MinPaidCents int64   `firestore:"min_paid_cents" json:"min_paid_cents"`
+	CapCents     int64   `firestore:"cap_cents" json:"cap_cents"`
+	WindowHours  float64 `firestore:"window_hours" json:"window_hours"`
+}
+
+// BatchTierFor is the tier a user batches under: the highest one their
+// collected spend reaches, or the first when a charge of theirs failed
+// recently (S3D-19: the longer, larger tab is for a good paid record; a
+// failure drops both window and cap back to a new account's). WindowHours
+// is always filled in (see Rates.BatchWindowHours).
+func (r *Rates) BatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier {
+	tiers := r.BatchTiers
+	if len(tiers) == 0 {
+		tiers = defaults().BatchTiers[:1] // no tiers configured: the base one
+	}
+	best, base := BatchTier{}, BatchTier{MinPaidCents: -1}
+	for _, t := range tiers {
+		if base.MinPaidCents < 0 || t.MinPaidCents < base.MinPaidCents {
+			base = t
+		}
+		if lifetimePaid >= t.MinPaidCents && t.CapCents > best.CapCents {
+			best = t
+		}
+	}
+	if failedRecently || best.CapCents <= 0 {
+		best = base
+	}
+	if best.CapCents <= 0 {
+		best = defaults().BatchTiers[0]
+	}
+	if r.BatchWindowHours > 0 {
+		best.WindowHours = r.BatchWindowHours // flat override (test env)
+	}
+	if best.WindowHours <= 0 {
+		best.WindowHours = defaultTierWindow(best.MinPaidCents)
+	}
+	return best
+}
+
+// defaultTierWindow is the default window of the default tier a spend
+// threshold falls in (config tiers written before window_hours existed).
+func defaultTierWindow(minPaid int64) float64 {
+	h := 1.0
+	for _, t := range defaults().BatchTiers {
+		if minPaid >= t.MinPaidCents {
+			h = t.WindowHours
+		}
+	}
+	return h
+}
+
+// Window is the tier's batch window.
+func (t BatchTier) Window() time.Duration {
+	return time.Duration(t.WindowHours * float64(time.Hour))
+}
+
+// FailureLookback is how far back a failed charge drops an account to
+// the first tier (default 90 days).
+func (r *Rates) FailureLookback() time.Duration {
+	d := r.BatchFailureLookbackDays
+	if d <= 0 {
+		d = 90
+	}
+	return time.Duration(d) * 24 * time.Hour
 }
 
 // BatchCap returns the batch cap for a user with lifetimePaid cents
 // collected so far: the highest tier whose threshold is met. Never below
-// the base tier.
+// the base tier. (The mobile hold threshold; batching itself goes through
+// BatchTierFor.)
 func (r *Rates) BatchCap(lifetimePaid int64) int64 {
-	cap := int64(0)
-	for _, t := range r.BatchTiers {
-		if lifetimePaid >= t.MinPaidCents && t.CapCents > cap {
-			cap = t.CapCents
-		}
-	}
-	if cap <= 0 {
-		cap = defaults().BatchTiers[0].CapCents
-	}
-	return cap
+	return r.BatchTierFor(lifetimePaid, false).CapCents
 }
 
 // NextBatchTier returns the next tier above the user's current cap, or
@@ -320,13 +379,9 @@ func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
 	return next
 }
 
-// BatchWindow is the batch's maximum open time.
+// BatchWindow is a new account's batch window (the first tier's).
 func (r *Rates) BatchWindow() time.Duration {
-	h := r.BatchWindowHours
-	if h <= 0 {
-		h = defaults().BatchWindowHours
-	}
-	return time.Duration(h * float64(time.Hour))
+	return r.BatchTierFor(0, false).Window()
 }
 
 func defaults() *Rates {
@@ -339,15 +394,14 @@ func defaults() *Rates {
 		},
 		ImageCents:         5,
 		FreeImagesPerDay:   100,
-		BatchWindowHours:   4,
 		MinBillableSeconds: 60,
 		// Exposure per batch ≈ cap + one step (the closing step lands in
 		// the same charge); the tiers grow it with collected revenue.
 		BatchTiers: []BatchTier{
-			{MinPaidCents: 0, CapCents: 5000},        // new accounts: $50
-			{MinPaidCents: 20000, CapCents: 15000},   // $200 collected: $150
-			{MinPaidCents: 100000, CapCents: 40000},  // $1,000 collected: $400
-			{MinPaidCents: 500000, CapCents: 100000}, // $5,000 collected: $1,000
+			{MinPaidCents: 0, CapCents: 5000, WindowHours: 1},         // new accounts: $50, 1 h
+			{MinPaidCents: 20000, CapCents: 15000, WindowHours: 4},    // $200 collected: $150, 4 h
+			{MinPaidCents: 100000, CapCents: 40000, WindowHours: 12},  // $1,000 collected: $400, 12 h
+			{MinPaidCents: 500000, CapCents: 100000, WindowHours: 24}, // $5,000 collected: $1,000, 24 h
 		},
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,
@@ -1009,7 +1063,6 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			lifelikePerFrame[p] = round4(float64(v) / (60 * fpsBase))
 		}
 	}
-	newAccountCap := rates.BatchCap(0)
 	return map[string]any{
 		"rate_version": rates.RateVersion,
 		"currency":     rates.Currency,
@@ -1044,9 +1097,5 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		// per run, both methods, Lifelike previews included (S3D-17)
 		"minimum_cents":             rates.MinimumCents,
 		"precharge_threshold_cents": rates.PrechargeThreshold(),
-		"balance": map[string]any{
-			"window_hours":          rates.BatchWindow().Hours(),
-			"new_account_cap_cents": newAccountCap,
-		},
 	}
 }

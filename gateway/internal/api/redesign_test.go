@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -84,16 +85,60 @@ func TestProjectSummary(t *testing.T) {
 	}
 }
 
-// S3D-21: the balance block is always there.
-func TestBalanceEntry(t *testing.T) {
-	none := balanceEntry(nil, 5000, "usd")
-	if none["amount_cents"] != int64(0) || none["due_at"] != nil || none["cap_cents"] != int64(5000) {
-		t.Errorf("no open batch: %v", none)
+// S3D-21: one customer-facing payment state per run.
+func TestPaymentStatus(t *testing.T) {
+	c := func(state, mode, pi string, captured, quote int64) *store.Conversion {
+		return &store.Conversion{State: state, Quote: store.Quote{AmountCents: quote},
+			Stripe: store.Stripe{Mode: mode, PIStatus: pi, CapturedCents: captured}}
 	}
-	due := time.Date(2026, 11, 3, 6, 0, 0, 0, time.UTC)
-	open := balanceEntry(&store.Batch{TotalCents: 1240, DueAt: due, CapCents: 15000, Currency: "usd"}, 5000, "usd")
-	if open["amount_cents"] != int64(1240) || open["due_at"] != due || open["cap_cents"] != int64(15000) {
-		t.Errorf("open batch: %v", open)
+	pre, auto := store.BillingModeAutoPrecharge, store.BillingModeAuto
+	cases := []struct {
+		conv *store.Conversion
+		want string
+	}{
+		{c(store.StateProcessing, pre, store.PISucceeded, 4000, 4000), "paid"}, // charged up front
+		{c(store.StateSucceeded, pre, store.PISucceeded, 4000, 4000), "paid"},
+		{c(store.StateFailed, pre, store.PICancelPending, 4000, 4000), "refunded"},
+		{c(store.StateCanceled, pre, store.PIRefunded, 4000, 4000), "refunded"},
+		{c(store.StateExpired, pre, store.PICanceled, 0, 4000), "not_charged"},
+		{c(store.StateProcessing, auto, "", 0, 900), "pending"},
+		{c(store.StateSucceeded, auto, store.PIBatched, 0, 900), "pending"},
+		{c(store.StateSucceeded, auto, store.PIChargePending, 0, 900), "pending"},
+		{c(store.StateSucceeded, auto, store.PISucceeded, 900, 900), "paid"},
+		{c(store.StateSucceeded, auto, store.PIChargeFailed, 0, 900), "payment_needed"},
+		{c(store.StateCanceled, auto, store.PICanceled, 0, 900), "not_charged"},
+		{c(store.StateFailed, auto, store.PICancelPending, 0, 900), "not_charged"},
+		{c(store.StateSucceeded, "", "", 0, 0), "not_charged"}, // free still
+	}
+	for i, tc := range cases {
+		if got := paymentStatus(tc.conv); got != tc.want {
+			t.Errorf("%d %s/%s/%s: want %s, got %s", i, tc.conv.State, tc.conv.Stripe.Mode, tc.conv.Stripe.PIStatus, tc.want, got)
+		}
+	}
+	waiting := c(store.StateCreated, pre, "", 0, 4000)
+	waiting.Stripe.ClientSecret = "secret"
+	if paymentStatus(waiting) != "payment_needed" {
+		t.Error("a pre-charge waiting for the bank's check needs the user")
+	}
+	if r := (&Service{}).conversionResponse(cases[9].conv, nil); r["payment"] != "payment_needed" {
+		t.Errorf("response payment: %v", r["payment"])
+	}
+}
+
+// S3D-22: a failed charge blocks new paid runs, not downloads.
+func TestStepBillingError(t *testing.T) {
+	overdue := httpx.Err(402, "billing_overdue", "x")
+	overdue.Details = map[string]any{"unpaid_cents": int64(900)}
+	got, ok := stepBillingError(overdue).(*httpx.APIError)
+	if !ok || got.Code != "payment_method_needed" || got.Status != 402 || got.Details["unpaid_cents"] != int64(900) {
+		t.Errorf("renamed: %+v", got)
+	}
+	if overdue.Code != "billing_overdue" {
+		t.Error("the mobile error must not be mutated")
+	}
+	noCard := httpx.Err(402, "no_payment_method", "x")
+	if stepBillingError(noCard) != error(noCard) {
+		t.Error("other errors pass through")
 	}
 }
 

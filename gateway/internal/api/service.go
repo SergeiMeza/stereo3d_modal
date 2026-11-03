@@ -725,6 +725,9 @@ func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversio
 		s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "charge",
 			fmt.Errorf("%s (%s)", fail.Message, fail.Code))
 	}
+	if !fail.Transient && err == nil {
+		s.markChargeFailed(ctx, conv.UID)
+	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)
 	}

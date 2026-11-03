@@ -797,10 +797,8 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("conversion has no outputs yet"))
 		return
 	}
-	if gateErr := downloadPaymentGate(conv); gateErr != nil {
-		httpx.WriteErr(ctx, w, gateErr)
-		return
-	}
+	// Never locked for payment reasons (S3D-22, the App Store way): a
+	// failed charge refuses NEW paid runs (payment_method_needed) instead.
 	// files: one entry per output with a download name; a split output
 	// is one entry per part (part: N, 1-based) named "<project> 3D Part
 	// N.mov". downloads (name → URL) stays as it was for older clients.
@@ -835,30 +833,6 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		"files":      files,
 		"expires_in": int(downloadTTL.Seconds()),
 	})
-}
-
-// downloadPaymentGate blocks output downloads for a conversion whose
-// automatic charge FAILED (pi_status charge_failed): the work succeeded but
-// the money never arrived, so the deliverables stay locked until
-// POST /v1/billing/settle clears the debt. Deliberately narrow — the
-// normal post-success states (capture_pending while the reconciler captures
-// a hold, charge_pending while a charge is in flight, succeeded) and
-// legacy/free conversions with no payment intent all pass, so downloads
-// never flicker locked during ordinary settlement. Same 402 machine code
-// the create path uses (billing_overdue), so the web client routes to the
-// existing settle flow.
-//
-// capture_failed is not gated: it means our hold was lost or lapsed, which
-// the user can't settle (neither /limits nor settle counts it), so gating it
-// locked the result for good (audit, 2026-10-03).
-func downloadPaymentGate(conv *store.Conversion) *httpx.APIError {
-	if conv.Stripe.PIStatus == store.PIChargeFailed {
-		e := httpx.Err(http.StatusPaymentRequired, "billing_overdue",
-			"the payment for this conversion failed — settle your balance before downloading")
-		e.Details = map[string]any{"unpaid_cents": conv.Quote.AmountCents}
-		return e
-	}
-	return nil
 }
 
 // cancelWindow: a job may only be canceled within this long of its start
@@ -1060,6 +1034,7 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if c.Error != nil {
 		resp["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage}
 	}
+	resp["payment"] = paymentStatus(c)
 	// Auto-billed conversions surface how the money went so the client can
 	// react without touching Stripe ids: a pending 3DS challenge on the hold
 	// (auto_hold, state=created) carries the client_secret for the saved-card

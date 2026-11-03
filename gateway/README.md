@@ -24,7 +24,7 @@ off-session HOLD on the saved card before the job runs (declines 402 as
 confirms) and capture it on success; smaller quotes skip the hold and charge
 the card only when the conversion SUCCEEDS. The user is never charged for a
 failed run in either path. A failed post-success charge marks the account
-delinquent — results stay available, new paid steps are blocked until
+delinquent — results stay available (downloads never lock for payment), new paid steps are blocked until
 `/v1/billing/settle` (3DS challenges return the PI client_secret for the web
 confirmCardPayment fallback). The default card is cached on
 `customers_{env}` (Firestore) and refreshed from Stripe on every
@@ -178,9 +178,23 @@ price and ETA. On conversions a `method` other than the project's is a 409
 price list from the live config: both methods' per-minute customer prices
 (Classic production as a default quote on a 16:9 24 fps source; Classic
 previews as base rates), the Lifelike preview price, the fps rule, bulk
-discount, minimum, pre-charge threshold, balance window and new-account
-cap, and per-method length and file-size limits. `GET /v1/billing` gains
-`balance: {amount_cents, currency, due_at, cap_cents}` (always present).
+discount, per-run minimum, pre-charge threshold, and per-method length and
+file-size limits. The grouped (batch) charge is internal (S3D-21): its
+window and cap never reach the public list. Every conversion carries one
+customer-facing `payment`: `pending` (billed later / its grouped charge is
+still to run), `paid`, `refunded`, `not_charged` or `payment_needed` (its
+grouped charge failed, or a pre-charge awaits the bank's check).
+
+Batching (S3D-19): the tiers set window and cap by collected spend —
+new accounts 1 h / $50; $200 collected 4 h / $150; $1,000 12 h / $400;
+$5,000 24 h / $1,000 (`batch_tiers[].window_hours`). A declined automatic
+charge within `batch_failure_lookback_days` (90) drops the account to the
+first tier, window AND cap (the larger tab is for a good paid record).
+`batch_window_hours`, when set, overrides every window (the test env sets
+0.25). A failed charge no longer locks downloads (S3D-22): new paid pro
+steps answer 402 `payment_method_needed` until the card is fixed and the
+retry (settle / pay-now) succeeds; quotes stay open; the mobile one-shot
+keeps `billing_overdue`; account deletion still collects dues first.
 `GET /v1/projects` items gain `summary: {latest_state, latest_step,
 spent_cents}` (spent counts charged, pre-charged, batched and owed runs; not
 refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a

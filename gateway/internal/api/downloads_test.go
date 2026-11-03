@@ -1,30 +1,34 @@
 package api
 
 import (
+	"os"
+	"strings"
 	"testing"
-
-	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// The downloads payment gate: a succeeded conversion whose automatic charge
-// FAILED must not hand out signed URLs (402 billing_overdue, the settle
-// flow's machine code); every ordinary post-success payment state — and
-// legacy conversions with no payment intent at all — stays downloadable. So
-// does capture_failed: our lapsed hold, which no settle can clear.
-func TestDownloadPaymentGate(t *testing.T) {
-	conv := func(pi string) *store.Conversion {
-		return &store.Conversion{State: store.StateSucceeded, Stripe: store.Stripe{PIStatus: pi}}
+// S3D-22 (the App Store way): downloads never lock for payment reasons —
+// a failed charge refuses new paid runs instead (stepBillingError). Guard
+// against the old 402 gate coming back.
+func TestDownloadsNeverPaymentGated(t *testing.T) {
+	src := readSource(t, "handlers.go")
+	i := strings.Index(src, "func (s *Service) HandleDownloads(")
+	if i < 0 {
+		t.Fatal("HandleDownloads not found")
 	}
-	for _, pi := range []string{store.PIChargeFailed} {
-		if err := downloadPaymentGate(conv(pi)); err == nil {
-			t.Fatalf("pi_status %q must block downloads", pi)
-		} else if err.Code != "billing_overdue" || err.Status != 402 {
-			t.Fatalf("want 402 billing_overdue, got %d %s", err.Status, err.Code)
+	body := src[i:]
+	body = body[:strings.Index(body, "\n}\n")]
+	for _, banned := range []string{"PIChargeFailed", "billing_overdue", "StatusPaymentRequired"} {
+		if strings.Contains(body, banned) {
+			t.Errorf("downloads must not check %s", banned)
 		}
 	}
-	for _, pi := range []string{"", store.PISucceeded, store.PICapturePending, store.PIChargePending, store.PICaptureFailed} {
-		if err := downloadPaymentGate(conv(pi)); err != nil {
-			t.Fatalf("pi_status %q must stay downloadable, got %v", pi, err)
-		}
+}
+
+func readSource(t *testing.T, name string) string {
+	t.Helper()
+	raw, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return string(raw)
 }

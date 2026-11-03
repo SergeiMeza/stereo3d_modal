@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -68,6 +69,30 @@ func (s *Service) creditLifetime(ctx context.Context, uid string, cents int64) {
 	}
 }
 
+// batchTier is the batch window and cap the account accumulates under
+// (S3D-19): by collected spend, back to the first tier after a declined
+// charge within the lookback.
+func (s *Service) batchTier(ctx context.Context, cust *store.Customer) pricing.BatchTier {
+	rates := s.Pricing.Rates(ctx)
+	if cust == nil {
+		return rates.BatchTierFor(0, false)
+	}
+	failed := cust.LastChargeFailedAt != nil && time.Since(*cust.LastChargeFailedAt) < rates.FailureLookback()
+	return rates.BatchTierFor(cust.LifetimePaidCents, failed)
+}
+
+// markChargeFailed stamps the account's last declined charge. Best effort:
+// it only shortens the next batch window.
+func (s *Service) markChargeFailed(ctx context.Context, uid string) {
+	now := time.Now().UTC()
+	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		c.LastChargeFailedAt = &now
+		return nil
+	}); err != nil {
+		slog.WarnContext(ctx, "charge failure stamp failed", "uid", uid, "err", err)
+	}
+}
+
 // holdThreshold is the quote at or above which a run gets an up-front hold
 // instead of joining the batch: the base threshold, lifted to the user's
 // batch cap so a higher tier batches the runs it is trusted for.
@@ -107,7 +132,7 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		return conv, err
 	}
 	cust = s.ensureLifetimeSeeded(ctx, conv.UID, cust)
-	rates := s.Pricing.Rates(ctx)
+	tier := s.batchTier(ctx, cust)
 	batch, err := s.Store.BatchConversion(ctx, conv.ID, store.BatchItem{
 		ConversionID: conv.ID,
 		ProjectID:    conv.ProjectID,
@@ -115,7 +140,7 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		Kind:         conv.Kind,
 		Description:  jobDescription(conv),
 		AmountCents:  conv.Quote.AmountCents,
-	}, rates.BatchWindow(), rates.BatchCap(cust.LifetimePaidCents))
+	}, tier.Window(), tier.CapCents)
 	if errors.Is(err, store.ErrNotBatchable) || errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID) // settled concurrently
 	}
@@ -338,6 +363,9 @@ func (s *Service) recordBatchFailure(ctx context.Context, b *store.Batch, fail s
 		s.Slack.BatchChargeFailed(ctx, b.ID, b.UID, len(b.Items), b.TotalCents,
 			fmt.Errorf("%s (%s)", fail.Message, fail.Code))
 	}
+	if !fail.Transient && err == nil {
+		s.markChargeFailed(ctx, b.UID)
+	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetBatch(ctx, b.ID)
 	}
@@ -398,29 +426,6 @@ func pendingEntry(b *store.Batch) map[string]any {
 	}
 }
 
-// balanceEntry is the header pill's data (S3D-21), always present: the open
-// balance, when it will be charged at the latest (the batch's due_at; null
-// with nothing open) and the cap that charges it sooner.
-func balanceEntry(open *store.Batch, capCents int64, currency string) map[string]any {
-	entry := map[string]any{
-		"amount_cents": int64(0),
-		"currency":     currency,
-		"due_at":       nil,
-		"cap_cents":    capCents,
-	}
-	if open != nil {
-		entry["amount_cents"] = open.TotalCents
-		entry["due_at"] = open.DueAt
-		if open.CapCents > 0 {
-			entry["cap_cents"] = open.CapCents
-		}
-		if open.Currency != "" {
-			entry["currency"] = open.Currency
-		}
-	}
-	return entry
-}
-
 // failedBatchEntry serializes a delinquent batch like unpaidEntry does a
 // conversion (same needs_action / client_secret contract).
 func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[string]any {
@@ -452,9 +457,10 @@ func (s *Service) tierEntry(ctx context.Context, cust *store.Customer) map[strin
 	if cust != nil {
 		paid = cust.LifetimePaidCents
 	}
+	tier := s.batchTier(ctx, cust)
 	entry := map[string]any{
-		"cap_cents":            rates.BatchCap(paid),
-		"window_hours":         rates.BatchWindow().Hours(),
+		"cap_cents":            tier.CapCents,
+		"window_hours":         tier.WindowHours,
 		"lifetime_paid_cents":  paid,
 		"hold_threshold_cents": s.holdThreshold(ctx, cust),
 	}

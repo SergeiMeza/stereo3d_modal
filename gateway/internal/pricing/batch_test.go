@@ -41,14 +41,51 @@ func TestNextBatchTier(t *testing.T) {
 }
 
 func TestBatchWindow(t *testing.T) {
-	if w := defaults().BatchWindow(); w != 4*time.Hour {
-		t.Errorf("default window %v", w)
+	if w := defaults().BatchWindow(); w != time.Hour {
+		t.Errorf("new accounts: 1 h, got %v", w)
 	}
 	if w := (&Rates{BatchWindowHours: 0.25}).BatchWindow(); w != 15*time.Minute {
-		t.Errorf("fractional window %v", w)
+		t.Errorf("flat window override (the test env's 0.25 h): %v", w)
 	}
-	if w := (&Rates{BatchWindowHours: -1}).BatchWindow(); w != 4*time.Hour {
+	if w := (&Rates{BatchWindowHours: -1}).BatchWindow(); w != time.Hour {
 		t.Errorf("negative window should fall back, got %v", w)
+	}
+}
+
+// S3D-19: the window grows with the paid record, like the cap; a recent
+// declined charge drops both to a new account's.
+func TestBatchTierWindows(t *testing.T) {
+	r := defaults()
+	cases := []struct {
+		paid   int64
+		cap    int64
+		window time.Duration
+	}{
+		{0, 5000, time.Hour}, {20000, 15000, 4 * time.Hour},
+		{100000, 40000, 12 * time.Hour}, {500000, 100000, 24 * time.Hour},
+	}
+	for _, c := range cases {
+		tier := r.BatchTierFor(c.paid, false)
+		if tier.CapCents != c.cap || tier.Window() != c.window {
+			t.Errorf("paid %d: %+v", c.paid, tier)
+		}
+		if failed := r.BatchTierFor(c.paid, true); failed.CapCents != 5000 || failed.Window() != time.Hour {
+			t.Errorf("paid %d after a failed charge: %+v", c.paid, failed)
+		}
+	}
+	// a flat batch_window_hours overrides every tier's window
+	flat := defaults()
+	flat.BatchWindowHours = 0.25
+	if w := flat.BatchTierFor(600000, false).Window(); w != 15*time.Minute {
+		t.Errorf("flat override: %v", w)
+	}
+	// config tiers written before window_hours keep the default windows
+	old := &Rates{BatchTiers: []BatchTier{{MinPaidCents: 0, CapCents: 5000}, {MinPaidCents: 100000, CapCents: 40000}}}
+	if w := old.BatchTierFor(150000, false).Window(); w != 12*time.Hour {
+		t.Errorf("tier without window_hours: %v", w)
+	}
+	if (&Rates{}).FailureLookback() != 90*24*time.Hour {
+		t.Error("failure lookback defaults to 90 days")
 	}
 }
 

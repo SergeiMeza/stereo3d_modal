@@ -93,7 +93,8 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			if s.belowChargeMinimum(ctx, b) {
 				// A few paid stills only: too small for a card charge.
 				// Roll the tab over; it collects with the next window.
-				if _, xerr := s.Store.ExtendBatchDue(ctx, b.ID, s.Pricing.Rates(ctx).BatchWindow()); xerr != nil {
+				cust, _ := s.Store.GetCustomer(ctx, b.UID)
+				if _, xerr := s.Store.ExtendBatchDue(ctx, b.ID, s.batchTier(ctx, cust).Window()); xerr != nil {
 					log.Warn("batch rollover failed", "batch_id", b.ID, "err", xerr)
 				} else {
 					stats["batch_rolled_over"]++

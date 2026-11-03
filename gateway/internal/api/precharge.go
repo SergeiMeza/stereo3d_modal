@@ -163,6 +163,57 @@ func notChargedPhrase(c *store.Conversion) string {
 	return "you were not charged"
 }
 
+// stepBillingError renames the delinquency 402 for pro steps (S3D-22):
+// with a failed charge outstanding, new paid runs answer 402
+// payment_method_needed until the card is fixed and the retry (settle /
+// pay-now) succeeds; downloads and quotes stay open. The mobile one-shot
+// keeps billing_overdue, which its clients route on.
+func stepBillingError(err error) error {
+	var apiErr *httpx.APIError
+	if errors.As(err, &apiErr) && apiErr.Code == "billing_overdue" {
+		renamed := *apiErr
+		renamed.Code = "payment_method_needed"
+		renamed.Message = "a payment failed — update your card so it can be retried before starting new work"
+		return &renamed
+	}
+	return err
+}
+
+// paymentStatus is a run's single customer-facing money state (S3D-21:
+// balances and batches stay internal): pending (billed later, or its
+// grouped charge is still to run), paid, refunded, not_charged, or
+// payment_needed (its grouped charge failed, or a pre-charge waits for the
+// bank's check).
+func paymentStatus(c *store.Conversion) string {
+	switch c.Stripe.PIStatus {
+	case store.PISucceeded:
+		return "paid"
+	case store.PIRefunded, store.PIRefundFailed: // refund_failed: support refunds it by hand
+		return "refunded"
+	case store.PIChargeFailed:
+		return "payment_needed"
+	case store.PICanceled, store.PICaptureFailed: // capture_failed: our lapsed hold, never taken
+		return "not_charged"
+	case store.PICancelPending:
+		if c.Stripe.Mode == store.BillingModeAutoPrecharge && c.Stripe.CapturedCents > 0 {
+			return "refunded" // on its way back
+		}
+		return "not_charged"
+	}
+	switch c.State {
+	case store.StateCreated:
+		if c.Stripe.ClientSecret != "" {
+			return "payment_needed"
+		}
+	case store.StateFailed, store.StateCanceled, store.StateExpired:
+		return "not_charged"
+	}
+	if c.Quote.AmountCents == 0 {
+		return "not_charged" // free (daily still, photo credit)
+	}
+	return "pending" // running, batched, charge or capture to come
+}
+
 // serversBusyError is the lifelike3d record's error when a job waited in
 // line past its cap (6 h) and never started.
 const serversBusyError = "All our servers are busy right now"

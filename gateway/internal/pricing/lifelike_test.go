@@ -208,8 +208,8 @@ func TestPublicPricing(t *testing.T) {
 	if p["precharge_threshold_cents"] != int64(2500) || p["minimum_cents"] != int64(50) {
 		t.Errorf("thresholds: %v", p)
 	}
-	if b := p["balance"].(map[string]any); b["window_hours"] != 4.0 || b["new_account_cap_cents"] != int64(5000) {
-		t.Errorf("balance: %v", b)
+	if _, ok := p["balance"]; ok {
+		t.Error("the balance window and cap are internal (S3D-21)")
 	}
 	if methods["lifelike"].(map[string]any)["max_source_bytes"] != int64(25<<30) {
 		t.Error("lifelike max_source_bytes")

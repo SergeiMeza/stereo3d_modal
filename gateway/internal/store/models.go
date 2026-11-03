@@ -337,6 +337,10 @@ type Customer struct {
 	// (LifetimePaidSeeded) for accounts that predate batching.
 	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
 	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+	// LastChargeFailedAt: the last automatic charge (a conversion's or a
+	// batch's) the card declined. Within the failure lookback it drops the
+	// account to the first batch tier (S3D-19).
+	LastChargeFailedAt *time.Time `firestore:"last_charge_failed_at,omitempty"`
 	// PhotoCredits: leftover balance from the withdrawn photo packs
 	// (sold 2026-09-02 only). Consumed after the free daily allowance and
 	// before a still is charged; refunded when a credited run fails or is
