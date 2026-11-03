@@ -167,15 +167,38 @@ interface MockBilling {
   nextConfirm: "paid" | "declined" | "processing" | "too_many";
   /** spec v6 B14: an account that hasn't saved or paid (P11) */
   limits?: { projects_left: number; bytes_left: number; reached?: boolean };
+  /** spec v6.2 P16 */
+  company: { name?: string; address?: Record<string, string>; tax_ids: { id: string; type: string; value: string; verification?: string }[] };
+  /** what the next add-method confirm does */
+  nextSetup: "saved" | "declined" | "too_many";
 }
 
 /** spec v6: one open payment (a run's, or the settle's). */
 interface MockCheckout {
-  kind: "run" | "settle";
+  kind: "run" | "settle" | "setup";
   conversion_id?: string;
   amount_cents: number;
   state: "open" | "paid" | "expired";
   expires_at: string;
+}
+
+/** GET /v1/billing/methods (spec v6.2): backup order, removability. */
+function methodsBody() {
+  const b = mockDb.billing;
+  const lastAndOwed = b.methods.length === 1 && b.unpaid.length > 0;
+  return {
+    methods: b.methods.map((m) => ({
+      ...m,
+      removable: !lastAndOwed,
+      ...(lastAndOwed
+        ? {
+            remove_blocked_reason:
+              "You can't remove your only payment method while a payment is pending. Pay it or add another one first.",
+          }
+        : {}),
+    })),
+    max: 5,
+  };
 }
 
 /** spec v6 C1: how a run of this price would be paid now. */
@@ -187,7 +210,7 @@ function paymentFlow(amountCents: number): {
   return { payment_flow: chargeTiming(amountCents) === "before" ? "precharge" : "after" };
 }
 
-function openCheckout(c: Omit<MockCheckout, "state" | "expires_at">): {
+function openCheckout(c: Omit<MockCheckout, "state" | "expires_at"> & { kind: "run" | "settle" }): {
   client_secret: string;
   expires_at: string;
 } {
@@ -273,6 +296,8 @@ function seed(): DB {
       settling: false,
       checkouts: new Map(),
       nextConfirm: "paid",
+      company: { tax_ids: [] },
+      nextSetup: "saved",
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
@@ -1911,10 +1936,114 @@ export const handlers = [
     return HttpResponse.json({ ok: true });
   }),
 
-  // S3D-62: saved payment methods, read-only (managed in the portal)
-  http.get(`${GATEWAY}/v1/billing/methods`, () =>
-    HttpResponse.json({ methods: mockDb.billing.methods, max: 5 }),
-  ),
+  // spec v6.2: saved methods in backup order, default first, managed here
+  http.get(`${GATEWAY}/v1/billing/methods`, () => HttpResponse.json(methodsBody())),
+
+  http.post(`${GATEWAY}/v1/billing/methods/setup`, async ({ request }) => {
+    const b = mockDb.billing;
+    if (b.methods.length >= 5) return err(409, "too_many_methods", "at most 5 payment methods");
+    const body = (await request.json().catch(() => ({}))) as { make_default?: boolean };
+    const secret = `cs_mock_setup_${Math.random().toString(36).slice(2, 8)}`;
+    b.checkouts.set(secret, {
+      kind: "setup",
+      amount_cents: 0,
+      state: "open",
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      ...(body.make_default ? { conversion_id: "make_default" } : {}),
+    });
+    return HttpResponse.json({ client_secret: secret, publishable_key: "pk_test_mock" });
+  }),
+
+  http.post(`${GATEWAY}/v1/billing/methods/:id/default`, ({ params }) => {
+    const b = mockDb.billing;
+    const m = b.methods.find((x) => x.id === params.id);
+    if (!m) return err(404, "not_found", "no such method");
+    b.methods = [m, ...b.methods.filter((x) => x !== m)].map((x) => ({ ...x, is_default: x === m }));
+    return HttpResponse.json(methodsBody());
+  }),
+
+  http.put(`${GATEWAY}/v1/billing/methods/order`, async ({ request }) => {
+    const b = mockDb.billing;
+    const { ids } = (await request.json()) as { ids: string[] };
+    const byId = new Map(b.methods.map((m) => [m.id, m]));
+    if (ids.length !== b.methods.length || ids.some((id) => !byId.has(id))) {
+      return err(400, "invalid_request", "ids must list every method");
+    }
+    b.methods = ids.map((id, i) => ({ ...byId.get(id)!, is_default: i === 0 }));
+    return HttpResponse.json(methodsBody());
+  }),
+
+  http.delete(`${GATEWAY}/v1/billing/methods/:id`, ({ params }) => {
+    const b = mockDb.billing;
+    if (b.methods.length === 1 && b.unpaid.length > 0) {
+      return err(409, "method_needed", "the last payment method can't go while a payment is pending");
+    }
+    const was = b.methods.find((x) => x.id === params.id);
+    b.methods = b.methods.filter((x) => x.id !== params.id);
+    if (was?.is_default && b.methods[0]) b.methods[0] = { ...b.methods[0], is_default: true };
+    if (b.methods.length === 0) {
+      b.hasPaymentMethod = false;
+      b.card = undefined;
+    }
+    return HttpResponse.json(methodsBody());
+  }),
+
+  http.get(`${GATEWAY}/v1/billing/company`, () => HttpResponse.json(mockDb.billing.company)),
+
+  http.put(`${GATEWAY}/v1/billing/company`, async ({ request }) => {
+    const body = (await request.json()) as { name?: string; address?: Record<string, string> };
+    Object.assign(mockDb.billing.company, body);
+    return HttpResponse.json(mockDb.billing.company);
+  }),
+
+  http.post(`${GATEWAY}/v1/billing/company/tax-ids`, async ({ request }) => {
+    const t = (await request.json()) as { type: string; value: string };
+    // the mock checks GB VAT only: GB + 9 digits
+    if (t.type === "gb_vat" && !/^GB\d{9}$/.test(t.value.replace(/\s/g, ""))) {
+      return err(400, "invalid_tax_id", "that tax ID doesn't fit its type");
+    }
+    mockDb.billing.company.tax_ids.push({
+      id: `txi_${Math.random().toString(36).slice(2, 8)}`,
+      type: t.type,
+      value: t.value.replace(/\s/g, ""),
+      verification: "pending",
+    });
+    return HttpResponse.json(mockDb.billing.company);
+  }),
+
+  http.delete(`${GATEWAY}/v1/billing/company/tax-ids/:id`, ({ params }) => {
+    const c = mockDb.billing.company;
+    c.tax_ids = c.tax_ids.filter((t) => t.id !== params.id);
+    return HttpResponse.json(c);
+  }),
+
+  http.get(`${GATEWAY}/v1/billing/invoices`, () => {
+    const invoices = [...mockDb.conversions.values()]
+      .filter((c) => c.billing?.status === "charged" || c.billing?.status === "refunded")
+      .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+      .map((c, i) => ({
+        invoice_id: `in_${c.conversion_id}`,
+        number: `S3D-${String(1000 + i)}`,
+        created_at: c.updated_at,
+        amount_cents: c.quote.amount_cents,
+        currency: "usd",
+        pdf_url: `https://invoice.stripe.com/pdf/mock/${c.conversion_id}`,
+        ...(c.billing?.status === "refunded"
+          ? {
+              credit_notes: [
+                {
+                  id: `cn_${c.conversion_id}`,
+                  number: `S3D-${String(1000 + i)}-CN1`,
+                  created_at: c.updated_at,
+                  amount_cents: c.quote.amount_cents,
+                  pdf_url: `https://invoice.stripe.com/cn/pdf/mock/${c.conversion_id}`,
+                },
+              ],
+            }
+          : {}),
+      }));
+    return HttpResponse.json({ invoices, has_more: false });
+  }),
 
   // S3D-61: pay a pay-now run without the Payment Element (China mode)
   http.post(`${GATEWAY}/v1/conversions/:id/pay-now`, async ({ params, request }) => {
@@ -1979,6 +2108,30 @@ export const handlers = [
     if (!ch) return err(404, "not_found", "no such payment");
     if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    if (ch.kind === "setup") {
+      const outcome = b.nextSetup;
+      b.nextSetup = "saved";
+      if (outcome === "declined") return HttpResponse.json({ result: "declined" });
+      if (outcome === "too_many") return HttpResponse.json({ result: "too_many" });
+      ch.state = "paid";
+      const n = b.methods.length;
+      const last4 = ["5454", "4444", "1881", "0005"][n % 4];
+      const added = {
+        id: `pm_mock_${last4}_${n}`,
+        type: "card" as const,
+        brand: "mastercard",
+        last4,
+        exp_month: 12,
+        exp_year: 2031,
+        is_default: n === 0 || ch.conversion_id === "make_default",
+        added_at: new Date().toISOString(),
+      };
+      b.methods = added.is_default
+        ? [added, ...b.methods.map((m) => ({ ...m, is_default: false }))]
+        : [...b.methods, added];
+      b.hasPaymentMethod = true;
+      return HttpResponse.json({ result: "paid" });
+    }
     const outcome = b.nextConfirm;
     b.nextConfirm = "paid";
     if (outcome !== "paid") {

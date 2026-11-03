@@ -83,6 +83,7 @@ export function CheckoutPane({
   big = false,
   showSaveLine = true,
   returnQuery,
+  setup = false,
   children,
 }: {
   clientSecret: string;
@@ -94,10 +95,16 @@ export function CheckoutPane({
   /** what P4 needs to know after a redirect: "conversion=…&project=…" or
    * "settle=1" */
   returnQuery?: string;
+  /** P15 adds a method: "or add another way", no business details */
+  setup?: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   if (isMockSecret(clientSecret)) {
-    return <MockPane clientSecret={clientSecret} showSaveLine={showSaveLine}>{children}</MockPane>;
+    return (
+      <MockPane clientSecret={clientSecret} showSaveLine={showSaveLine} setup={setup}>
+        {children}
+      </MockPane>
+    );
   }
   return (
     <StripePane
@@ -106,6 +113,7 @@ export function CheckoutPane({
       big={big}
       showSaveLine={showSaveLine}
       returnQuery={returnQuery}
+      setup={setup}
     >
       {children}
     </StripePane>
@@ -118,6 +126,7 @@ function StripePane({
   big,
   showSaveLine,
   returnQuery,
+  setup,
   children,
 }: {
   clientSecret: string;
@@ -125,6 +134,7 @@ function StripePane({
   big: boolean;
   showSaveLine: boolean;
   returnQuery?: string;
+  setup: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -134,7 +144,7 @@ function StripePane({
       stripe={stripe}
       options={{ clientSecret, elementsOptions: { appearance } }}
     >
-      <StripeForm big={big} showSaveLine={showSaveLine} returnQuery={returnQuery}>
+      <StripeForm big={big} showSaveLine={showSaveLine} returnQuery={returnQuery} setup={setup}>
         {children}
       </StripeForm>
     </CheckoutElementsProvider>
@@ -145,11 +155,13 @@ function StripeForm({
   big,
   showSaveLine,
   returnQuery,
+  setup,
   children,
 }: {
   big: boolean;
   showSaveLine: boolean;
   returnQuery?: string;
+  setup: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const result = useCheckoutElements();
@@ -204,19 +216,21 @@ function StripeForm({
               }
             }}
           />
-          <Divider />
+          <Divider setup={setup} />
           <PaymentElement
             options={{ layout: { type: "tabs" } }}
             onChange={(e) => setSelected(e.value?.type ?? null)}
           />
-          <button
-            type="button"
-            onClick={() => setBusiness((b) => !b)}
-            className="w-fit text-sm text-primary hover:underline"
-          >
-            {business ? REMOVE_BUSINESS : ADD_BUSINESS}
-          </button>
-          {business ? (
+          {!setup ? (
+            <button
+              type="button"
+              onClick={() => setBusiness((b) => !b)}
+              className="w-fit text-sm text-primary hover:underline"
+            >
+              {business ? REMOVE_BUSINESS : ADD_BUSINESS}
+            </button>
+          ) : null}
+          {business && !setup ? (
             <TaxIdElement options={{ visibility: "always", fields: { businessName: "always" } }} />
           ) : null}
           {showSaveLine && savable ? <SaveLine /> : null}
@@ -231,10 +245,12 @@ function StripeForm({
 function MockPane({
   clientSecret,
   showSaveLine,
+  setup = false,
   children,
 }: {
   clientSecret: string;
   showSaveLine: boolean;
+  setup?: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const [selected, setSelected] = useState<string>("card");
@@ -257,9 +273,9 @@ function MockPane({
       <div className="flex h-12 items-center justify-center rounded-lg bg-black text-sm font-medium text-white">
         Wallet (test mode)
       </div>
-      <Divider />
+      <Divider setup={setup} />
       <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2">
-        {(["card", "alipay"] as const).map((m) => (
+        {(setup ? (["card", "paypal"] as const) : (["card", "alipay"] as const)).map((m) => (
           <button
             key={m}
             type="button"
@@ -270,7 +286,7 @@ function MockPane({
               selected === m ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted"
             }`}
           >
-            {m === "card" ? "Card" : "Alipay"}
+            {m === "card" ? "Card" : m === "paypal" ? "PayPal" : "Alipay"}
           </button>
         ))}
       </div>
@@ -279,29 +295,31 @@ function MockPane({
           4242 4242 4242 4242
         </div>
       ) : null}
-      <button
-        type="button"
-        onClick={() => setBusiness((b) => !b)}
-        className="w-fit text-sm text-primary hover:underline"
-      >
-        {business ? REMOVE_BUSINESS : ADD_BUSINESS}
-      </button>
-      {business ? (
+      {!setup ? (
+        <button
+          type="button"
+          onClick={() => setBusiness((b) => !b)}
+          className="w-fit text-sm text-primary hover:underline"
+        >
+          {business ? REMOVE_BUSINESS : ADD_BUSINESS}
+        </button>
+      ) : null}
+      {business && !setup ? (
         <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
           Tax ID
         </div>
       ) : null}
-      {showSaveLine && selected === "card" ? <SaveLine /> : null}
+      {showSaveLine && selected !== "alipay" ? <SaveLine /> : null}
     </div>
   );
   return <>{children(form, body)}</>;
 }
 
-function Divider(): JSX.Element {
+function Divider({ setup = false }: { setup?: boolean }): JSX.Element {
   return (
     <div className="flex items-center gap-3 text-xs text-fg-muted">
       <span className="h-px flex-1 bg-edge" />
-      {OR_PAY_ANOTHER_WAY}
+      {setup ? "or add another way" : OR_PAY_ANOTHER_WAY}
       <span className="h-px flex-1 bg-edge" />
     </div>
   );

@@ -6,6 +6,9 @@
 
 import type {
   CheckoutStart,
+  CompanyAddress,
+  CompanyDetails,
+  InvoiceList,
   APIErrorBody,
   BillingSettleResult,
   BillingSetupTicket,
@@ -264,6 +267,49 @@ export class GatewayClient {
   }
 
   /** Retry the outstanding automatic charges on the current default card. */
+  // ------------------------------------------- spec v6.2: our Billing UI
+
+  /** P15: a setup session for adding a method; 409 too_many_methods */
+  setupPaymentMethod(makeDefault: boolean): Promise<{ client_secret: string; publishable_key?: string }> {
+    return this.request("POST", "/v1/billing/methods/setup", { make_default: makeDefault });
+  }
+
+  setDefaultMethod(id: string): Promise<BillingMethods> {
+    return this.request("POST", `/v1/billing/methods/${encodeURIComponent(id)}/default`, {});
+  }
+
+  /** the backup order (all ids, default first) */
+  orderMethods(ids: string[]): Promise<BillingMethods> {
+    return this.request("PUT", "/v1/billing/methods/order", { ids });
+  }
+
+  /** 409 method_needed while it's the last one and something is owed */
+  removeMethod(id: string): Promise<BillingMethods> {
+    return this.request("DELETE", `/v1/billing/methods/${encodeURIComponent(id)}`);
+  }
+
+  getCompany(): Promise<CompanyDetails> {
+    return this.request("GET", "/v1/billing/company");
+  }
+
+  putCompany(c: { name?: string; address?: CompanyAddress }): Promise<CompanyDetails> {
+    return this.request("PUT", "/v1/billing/company", c);
+  }
+
+  /** 400 invalid_tax_id when the value doesn't fit the type */
+  addTaxId(t: { type: string; value: string }): Promise<CompanyDetails> {
+    return this.request("POST", "/v1/billing/company/tax-ids", t);
+  }
+
+  removeTaxId(id: string): Promise<CompanyDetails> {
+    return this.request("DELETE", `/v1/billing/company/tax-ids/${encodeURIComponent(id)}`);
+  }
+
+  getInvoices(after?: string): Promise<InvoiceList> {
+    const q = after ? `?limit=25&starting_after=${encodeURIComponent(after)}` : "?limit=25";
+    return this.request("GET", `/v1/billing/invoices${q}`);
+  }
+
   /** spec v6 F: the run's open payment for our sheet (opened, or the live
    * one reused; replace = Try again / Pay here instead). */
   payNowCheckout(conversionId: string, replace = false): Promise<CheckoutStart> {

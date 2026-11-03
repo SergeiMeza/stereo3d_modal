@@ -5,13 +5,15 @@
  * payment method keeps up to 3 projects and 10 GB of uploads. Inline on
  * Projects and in the upload box once the gateway says the limit is
  * reached (GET /v1/billing `limits`, or a 403 save_method_for_more).
+ * Add payment method opens P15.
  */
 
+import { useState } from "react";
 import type { JSX } from "react";
 
-import { openCardUpdate } from "@/components/billing/BillingBanner";
-import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+
+import { AddMethodSheet } from "./AddMethodSheet";
 
 export const LIMITS_LINE =
   "Make your first 3D video or save a payment method to keep more than 3 projects and 10 GB of uploads.";
@@ -24,7 +26,8 @@ export function useLimitsReached(): boolean {
 
 export function LimitsNotice({ force = false }: { force?: boolean }): JSX.Element | null {
   const reached = useLimitsReached();
-  const gateway = useGateway();
+  const billing = useBilling();
+  const [adding, setAdding] = useState(false);
   if (!reached && !force) return null;
   return (
     <p
@@ -34,11 +37,20 @@ export function LimitsNotice({ force = false }: { force?: boolean }): JSX.Elemen
       {LIMITS_LINE}{" "}
       <button
         type="button"
-        onClick={() => void openCardUpdate(gateway)}
+        onClick={() => setAdding(true)}
         className="font-medium text-primary hover:underline"
       >
         Add payment method
       </button>
+      {adding ? (
+        <AddMethodSheet
+          first={!billing.status?.has_payment_method}
+          onClose={(saved) => {
+            setAdding(false);
+            if (saved) void billing.refresh();
+          }}
+        />
+      ) : null}
     </p>
   );
 }

@@ -638,15 +638,61 @@ export interface SavedMethod {
   /** spec v6 F: a card saved through a wallet */
   wallet?: "apple_pay" | "google_pay" | "link";
   added_at?: string;
+  /** spec v6.2: false while it's the last method and something is owed
+   * or pending (C5) */
+  removable?: boolean;
+  remove_blocked_reason?: string;
   is_default: boolean;
   /** paid when each run starts (Alipay, WeChat Pay) */
   pay_now?: boolean;
 }
 
 export interface BillingMethods {
+  /** in backup order, the default first (spec v6.2) */
   methods: SavedMethod[];
   /** most an account may keep (5) */
   max?: number;
+}
+
+/** spec v6.2 P16: GET/PUT /v1/billing/company */
+export interface CompanyDetails {
+  name?: string;
+  address?: CompanyAddress;
+  tax_ids: TaxId[];
+}
+
+export interface CompanyAddress {
+  country: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  postal_code?: string;
+  state?: string;
+}
+
+export interface TaxId {
+  id: string;
+  /** Stripe's type, e.g. "gb_vat", "eu_vat", "us_ein" */
+  type: string;
+  value: string;
+  verification?: "verified" | "pending" | "unverified" | "unavailable";
+}
+
+/** spec v6.2 P10 Invoices tab: GET /v1/billing/invoices */
+export interface InvoiceList {
+  invoices: InvoiceRow[];
+  has_more?: boolean;
+}
+
+export interface InvoiceRow {
+  invoice_id: string;
+  number: string;
+  created_at: string;
+  amount_cents: number;
+  currency: string;
+  pdf_url?: string;
+  hosted_url?: string;
+  credit_notes?: { id: string; number: string; created_at: string; amount_cents: number; pdf_url?: string }[];
 }
 
 /** A pay-now run's payment (S3D-60/61). */

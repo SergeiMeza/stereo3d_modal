@@ -3,9 +3,11 @@
 /**
  * Billing (P10, spec v6 G2; S3D-57/58/62), from the account menu.
  *
- * Methods: read-only rows oldest first with a Default tag, one button to
- * the portal ("Manage payment methods and company details ↗") and the
- * line saying how the default and the others are charged.
+ * Spec v6.2: our own UI in place of the portal. Methods in backup order
+ * (default first) with Make default · Move up · Move down · Remove, Add
+ * payment method (P15, up to 5), Expired; Company details summary + Edit
+ * (P16); History and Invoices tabs. Room is left at the top for spec v7's
+ * Balance section.
  *
  * History: one row per statement charge — Date · For · Amount · Paid with
  * · Status · Invoice ↗ · Receipt ↗ — with a "Payment needed" row while the
@@ -19,20 +21,35 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { openCardUpdate, supportMailto } from "@/components/billing/BillingBanner";
+import { supportMailto } from "@/components/billing/BillingBanner";
+import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
+import { CompanyDetailsSheet, companySummary } from "@/components/pay/CompanyDetailsSheet";
 import { UNDER_REVIEW } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { GatewayError } from "@/lib/api/client";
 import type {
   BillingCharge,
   BillingChargeItem,
   BillingHistory,
+  BillingMethods,
   BillingRow,
   BillingRowStatus,
+  CompanyDetails,
+  InvoiceRow,
+  SavedMethod,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { methodLabel, usePaymentMethods } from "@/lib/api/usePaymentMethods";
+import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
 import { useBilling } from "@/lib/billing";
 import { qualityName } from "@/lib/glossary";
 
@@ -91,32 +108,6 @@ export function helpSubject(row: BillingRow): string {
   return [`Payment ${shortDate(row.created_at)}`, formatCents(row.amount_cents), row.help_ref]
     .filter(Boolean)
     .join(" · ");
-}
-
-function PortalButton({ label }: { label: string }): JSX.Element {
-  const gateway = useGateway();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          const err = await openCardUpdate(gateway);
-          if (err !== null) {
-            setError(err);
-            setBusy(false);
-          }
-        }}
-      >
-        {label}
-      </Button>
-      {error ? <span className="text-xs text-red-400">{error}</span> : null}
-    </span>
-  );
 }
 
 function Ext({ href, label }: { href: string; label: string }): JSX.Element {
@@ -239,10 +230,331 @@ function SkeletonRows({ n }: { n: number }): JSX.Element {
   );
 }
 
+export const METHODS_LINE =
+  "We charge your default payment method. If it's declined, we try your others in this order.";
+export const MAX_METHODS_LINE = "You can save up to 5 payment methods.";
+export const REMOVE_BLOCKED =
+  "You can't remove your only payment method while a payment is pending. Pay it or add another one first.";
+
+/** P10 Payment methods: backup order, default first; each row's menu has
+ * Make default · Move up · Move down · Remove. */
+function MethodsSection(): JSX.Element {
+  const gateway = useGateway();
+  const { list, set, reload } = useBillingMethods();
+  const billing = useBilling();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [confirm, setConfirm] = useState<SavedMethod | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const methods = list?.methods ?? null;
+  const max = list?.max ?? 5;
+
+  async function change(id: string, run: () => Promise<BillingMethods>): Promise<void> {
+    setBusy(id);
+    setError(null);
+    try {
+      set(await run());
+      void billing.refresh();
+    } catch (e) {
+      if (e instanceof GatewayError && e.code === "method_needed") setBlocked(REMOVE_BLOCKED);
+      else setError("Couldn't save that. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function move(i: number, by: -1 | 1): void {
+    if (!methods) return;
+    const ids = methods.map((m) => m.id);
+    [ids[i], ids[i + by]] = [ids[i + by], ids[i]];
+    void change(methods[i].id, () => gateway.orderMethods(ids));
+  }
+
+  return (
+    <section aria-labelledby="payment-methods" className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-5">
+      <div className="flex items-center gap-3">
+        <h2 id="payment-methods" className="text-sm font-semibold text-fg">
+          Payment methods
+        </h2>
+        {busy ? <span aria-label="Saving" className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+      </div>
+      {methods === null ? (
+        <SkeletonRows n={2} />
+      ) : methods.length === 0 ? (
+        <p className="text-sm text-fg-muted">No saved payment methods.</p>
+      ) : (
+        <ul data-testid="payment-methods" className="flex flex-col">
+          {methods.map((m, i) => (
+            <li key={m.id} data-testid={`method-${m.id}`} className="flex items-center gap-2 border-t border-edge py-2 text-sm first:border-t-0">
+              <span className="text-fg">{methodLabel(m)}</span>
+              {m.is_default ? <span className="text-fg-muted">· Default</span> : null}
+              {isExpired(m) ? (
+                <span data-testid="method-expired" className="rounded-full border border-red-400/40 px-2 text-[11px] text-red-300">
+                  Expired
+                </span>
+              ) : null}
+              <MethodMenu
+                label={methodLabel(m)}
+                disabled={busy !== null}
+                items={[
+                  ...(!m.is_default ? [{ label: "Make default", run: () => void change(m.id, () => gateway.setDefaultMethod(m.id)) }] : []),
+                  ...(i > 0 ? [{ label: "Move up", run: () => move(i, -1) }] : []),
+                  ...(i < methods.length - 1 ? [{ label: "Move down", run: () => move(i, 1) }] : []),
+                  {
+                    label: "Remove",
+                    run: () =>
+                      m.removable === false ? setBlocked(m.remove_blocked_reason ?? REMOVE_BLOCKED) : setConfirm(m),
+                  },
+                ]}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {blocked ? (
+        <p data-testid="remove-blocked" className="text-xs text-amber-200">
+          {blocked}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          data-testid="add-method"
+          disabled={methods !== null && methods.length >= max}
+          onClick={() => setAdding(true)}
+        >
+          Add payment method
+        </Button>
+        {methods !== null && methods.length >= max ? <span className="text-xs text-fg-muted">{MAX_METHODS_LINE}</span> : null}
+      </div>
+      {methods !== null && methods.length > 0 ? <p className="text-xs text-fg-muted">{METHODS_LINE}</p> : null}
+      {adding ? (
+        <AddMethodSheet
+          first={(methods?.length ?? 0) === 0}
+          onClose={(saved) => {
+            setAdding(false);
+            if (saved) {
+              void reload();
+              void billing.refresh();
+            }
+          }}
+        />
+      ) : null}
+      <Dialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
+        <DialogContent data-testid="remove-confirm" className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove {confirm ? methodLabel(confirm) : ""}?</DialogTitle>
+            {methods?.length === 1 ? (
+              <DialogDescription>Your next runs will ask how to pay each time.</DialogDescription>
+            ) : null}
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm(null)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const m = confirm;
+                setConfirm(null);
+                if (m) void change(m.id, () => gateway.removeMethod(m.id));
+              }}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function MethodMenu({
+  label,
+  items,
+  disabled,
+}: {
+  label: string;
+  items: { label: string; run: () => void }[];
+  disabled: boolean;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative ml-auto">
+      <button
+        type="button"
+        aria-label={`Options for ${label}`}
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
+      >
+        <EllipsisIcon className="size-4" />
+      </button>
+      {open ? (
+        <span role="menu" className="absolute top-8 right-0 z-10 flex min-w-36 flex-col rounded-md border border-edge bg-popover py-1 shadow-lg">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                it.run();
+              }}
+              className={`px-3 py-1.5 text-left text-xs hover:bg-surface-2 ${it.label === "Remove" ? "text-red-300" : "text-fg"}`}
+            >
+              {it.label}
+            </button>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** P10 Company details: a one-line summary and Edit (P16). */
+function CompanySection(): JSX.Element {
+  const gateway = useGateway();
+  const [company, setCompany] = useState<CompanyDetails | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    let live = true;
+    gateway.getCompany().then(
+      (c) => {
+        if (!live) return;
+        setCompany(c);
+        setLoaded(true);
+      },
+      () => live && setLoaded(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [gateway]);
+  const summary = companySummary(company);
+  return (
+    <section aria-labelledby="company" className="flex flex-col gap-2 rounded-xl border border-edge bg-surface-1 p-5">
+      <div className="flex items-center gap-3">
+        <h2 id="company" className="text-sm font-semibold text-fg">
+          Company details
+        </h2>
+        <Button variant="ghost" size="sm" className="ml-auto" disabled={!loaded} onClick={() => setEditing(true)}>
+          Edit
+        </Button>
+      </div>
+      <p data-testid="company-summary" className="text-sm text-fg-muted">
+        {!loaded ? "Loading…" : summary ?? "No company details. Add them to show on invoices."}
+      </p>
+      {editing ? (
+        <CompanyDetailsSheet
+          initial={company ?? { tax_ids: [] }}
+          onClose={(saved) => {
+            setEditing(false);
+            if (saved) setCompany(saved);
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+/** P10 Invoices tab: Date · Number · Amount · PDF ↗, credit notes under
+ * their invoice. */
+function InvoicesTab(): JSX.Element {
+  const gateway = useGateway();
+  const [rows, setRows] = useState<InvoiceRow[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const load = useCallback(
+    async (after?: string) => {
+      try {
+        const l = await gateway.getInvoices(after);
+        setRows((prev) => (after && prev ? [...prev, ...l.invoices] : l.invoices));
+        setHasMore(l.has_more === true);
+        setError(false);
+      } catch {
+        if (!after) setError(true);
+      }
+    },
+    [gateway],
+  );
+  useEffect(() => {
+    let live = true;
+    gateway.getInvoices().then(
+      (l) => {
+        if (!live) return;
+        setRows(l.invoices);
+        setHasMore(l.has_more === true);
+      },
+      () => live && setError(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [gateway]);
+  if (error) {
+    return (
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-red-300">Couldn&apos;t load your invoices.</span>
+        <Button variant="outline" size="sm" onClick={() => void load()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  if (rows === null) return <SkeletonRows n={3} />;
+  if (rows.length === 0) return <p className="text-sm text-fg-muted">No invoices yet.</p>;
+  return (
+    <>
+      <ul data-testid="invoices">
+        {rows.map((inv) => (
+          <li key={inv.invoice_id} className="border-t border-edge py-2.5 text-sm">
+            <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-3">
+              <span className="text-fg-muted">{shortDate(inv.created_at)}</span>
+              <span className="font-mono text-xs text-fg">{inv.number}</span>
+              <span className="font-mono tabular-nums text-fg">{formatCents(inv.amount_cents)}</span>
+              <span className="text-xs">{inv.pdf_url ? <Ext href={inv.pdf_url} label="PDF" /> : null}</span>
+            </div>
+            {(inv.credit_notes ?? []).map((cn) => (
+              <div key={cn.id} className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-3 pt-1.5 text-xs text-fg-muted">
+                <span>{shortDate(cn.created_at)}</span>
+                <span className="font-mono">Credit note {cn.number}</span>
+                <span className="font-mono tabular-nums">−{formatCents(cn.amount_cents)}</span>
+                <span>{cn.pdf_url ? <Ext href={cn.pdf_url} label="PDF" /> : null}</span>
+              </div>
+            ))}
+          </li>
+        ))}
+      </ul>
+      {hasMore ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 self-start"
+          disabled={loadingMore}
+          onClick={async () => {
+            setLoadingMore(true);
+            await load(rows.at(-1)?.invoice_id);
+            setLoadingMore(false);
+          }}
+        >
+          {loadingMore ? "Loading…" : "Show more"}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
 export function BillingScreen(): JSX.Element {
   const gateway = useGateway();
-  const methods = usePaymentMethods();
   const review = useBilling().status?.flow_state === "under_review";
+  const [tab, setTab] = useState<"history" | "invoices">("history");
   const [rows, setRows] = useState<BillingRow[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [tax, setTax] = useState<BillingHistory["tax"]>("off");
@@ -290,54 +602,34 @@ export function BillingScreen(): JSX.Element {
         </p>
       ) : null}
 
-      <section
-        aria-labelledby="payment-methods"
-        className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-5"
-      >
-        <h2 id="payment-methods" className="text-sm font-semibold text-fg">
-          Payment methods
-        </h2>
-        {methods === null ? (
-          <SkeletonRows n={2} />
-        ) : methods.length === 0 ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-fg-muted">No saved payment methods.</p>
-            <PortalButton label="Add payment method" />
-          </div>
-        ) : (
-          <>
-            <ul data-testid="payment-methods" className="flex flex-col">
-              {methods.map((m) => (
-                <li
-                  key={m.id}
-                  data-testid={`method-${m.id}`}
-                  className="flex items-center gap-2 border-t border-edge py-2 text-sm first:border-t-0"
-                >
-                  <span className="text-fg">{methodLabel(m)}</span>
-                  {m.is_default ? <span className="text-fg-muted">· Default</span> : null}
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-col gap-2">
-              <span>
-                <PortalButton label="Manage payment methods and company details ↗" />
-              </span>
-              <p className="text-xs text-fg-muted">
-                We charge your default payment method. If it&apos;s declined, we try your others.
-              </p>
-            </div>
-          </>
-        )}
-      </section>
+      {/* spec v7 adds a Balance section here (top-ups, auto-reload, usage) */}
 
-      <section
-        aria-labelledby="purchase-history"
-        className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5"
-      >
-        <h2 id="purchase-history" className="pb-2 text-sm font-semibold text-fg">
-          Purchases
-        </h2>
-        {error ? (
+      <MethodsSection />
+      <CompanySection />
+
+      <section aria-label="Purchases and invoices" className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
+        <div role="tablist" aria-label="Billing records" className="mb-2 flex gap-1 self-start rounded-md bg-surface-2 p-0.5 text-xs">
+          {(
+            [
+              ["history", "History"],
+              ["invoices", "Invoices"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`rounded px-3 py-1 ${tab === id ? "bg-surface-0 text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {tab === "invoices" ? (
+          <InvoicesTab />
+        ) : error ? (
           <div className="flex items-center gap-3 text-sm">
             <span className="text-red-300">Couldn&apos;t load your purchases.</span>
             <Button variant="outline" size="sm" onClick={() => void load()}>

@@ -5,9 +5,9 @@
  * read-only. null until it answers (or when it fails).
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import type { SavedMethod } from "@/lib/api/types";
+import type { BillingMethods, SavedMethod } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 export function usePaymentMethods(): SavedMethod[] | null {
@@ -28,6 +28,44 @@ export function usePaymentMethods(): SavedMethod[] | null {
     };
   }, [gateway]);
   return methods;
+}
+
+/** spec v6.2 P10: the methods with their limit, and a way to replace the
+ * list with what a change returned (or reload it). */
+export function useBillingMethods(): {
+  list: BillingMethods | null;
+  error: boolean;
+  set: (m: BillingMethods) => void;
+  reload: () => Promise<void>;
+} {
+  const gateway = useGateway();
+  const [list, setList] = useState<BillingMethods | null>(null);
+  const [error, setError] = useState(false);
+  const reload = useCallback(async () => {
+    try {
+      setList(await gateway.getPaymentMethods());
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  }, [gateway]);
+  useEffect(() => {
+    let live = true;
+    gateway.getPaymentMethods().then(
+      (m) => live && setList(m),
+      () => live && setError(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [gateway]);
+  return { list, error, set: setList, reload };
+}
+
+/** A card past its expiry month. */
+export function isExpired(m: SavedMethod, now = new Date()): boolean {
+  if (!m.exp_month || !m.exp_year) return false;
+  return m.exp_year < now.getFullYear() || (m.exp_year === now.getFullYear() && m.exp_month < now.getMonth() + 1);
 }
 
 const TYPE_NAMES: Record<string, string> = {
