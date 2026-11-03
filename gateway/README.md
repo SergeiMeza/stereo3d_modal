@@ -257,8 +257,9 @@ confirmCardPayment fallback). The default card is cached on
   elements|hosted_page}` → `{checkout {client_secret, expires_at},
   topup_id, publishable_key, amount_cents, url?}`; China `{amount_cents,
   method: alipay, return_url?}` → `{topup_id, redirect_url, next_action}`.
-  $10–$500, first top-up ≤ $100, ≤ $1,000 a day: 422 `amount_out_of_range
-  {min, max}`. Credited once per PaymentIntent (entry `topup_{pi}`); a
+  $10–$500, first top-up ≤ $100: 422 `amount_out_of_range {min, max}`;
+  over the $1,000-a-day cap: 422 `topup_daily_cap {min, max,
+  day_left_cents, day_cap_cents, resets_at}` (UTC day). Credited once per PaymentIntent (entry `topup_{pi}`); a
   second payment of the same top-up is refunded. Then: an invoice
   (charge `topup_…`, top-up footer), E13, waiting runs start, debts paid.
 - **Auto-reload**: fires only on a downward crossing of X by `balance −
@@ -279,7 +280,10 @@ confirmCardPayment fallback). The default card is cached on
   low_balance_cents, reload_in_flight?, currency}`.
 - `PUT /v1/billing/balance/settings {auto_reload?, spend_limit_cents?
   (null clears), low_balance_cents?}` → the summary; 409 `method_needed`,
-  409 `auto_reload_blocked`, 400 `invalid_auto_reload` (Y ≥ $10, ≤ $500,
+  409 `auto_reload_blocked {reason: under_review | dispute |
+  payment_failed | deletion_pending}` (under review = an early fraud
+  warning or a blocked card; dispute = sheet-only after a dispute),
+  400 `invalid_auto_reload` (Y ≥ $10, ≤ $500,
   ≥ X). Turning auto-reload on records consent `reload-v1-2026-11`.
 - `GET /v1/billing/balance/entries?starting_after=` → `{entries: [{id,
   kind topup|auto_reload|refund_to_balance|debt_payment|cash_refund|
@@ -612,7 +616,11 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   `price_without_free_cents`), takes its previews at submit
   (`previews_{env}`), and gives them back if it delivers nothing (inside
   its terminal transition). Quotes carry `free_previews {allowance, used,
-  remaining, daily_left, units, free, intro, resets_at?}`.
+  remaining, daily_left, units, free, intro, period, resets_at?}`;
+  `period` is what the allowance counts over: `week` (Pro Weekly),
+  `month` (Pro Monthly, Lifetime's calendar month, Business, Studio),
+  `year` (Pro Yearly), `pass` (a pass's whole run), `first_project`
+  (non-subscribers, no `resets_at`). `resets_at` is the period's end.
 - **Plans**: `POST /v1/billing/plan {plan: business|studio, ui}` →
   subscription-mode Checkout (`{checkout, url?, plan, publishable_key}`;
   409 `plan_active`); `POST /v1/billing/plan/cancel {resume?}`.

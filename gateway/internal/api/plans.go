@@ -68,7 +68,7 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 	}
 	sess, err := s.Stripe.CreatePlanSession(stripex.PlanSessionSpec{
 		CustomerID: customerID, PMC: s.Cfg.StripePMCWeb, PriceID: priceID, UI: ui, Tier: req.Plan, UID: user.UID,
-		ReturnURL: s.Cfg.SiteURL + "/billing?plan=" + req.Plan,
+		ReturnURL: s.Cfg.SiteURL + "/account/billing?plan=" + req.Plan, // the web keeps /billing redirecting there
 		IdemKey:   fmt.Sprintf("plan_%s_%s_%s_%d", s.Cfg.Env, user.UID, req.Plan, time.Now().Unix()/60),
 	})
 	if err != nil {

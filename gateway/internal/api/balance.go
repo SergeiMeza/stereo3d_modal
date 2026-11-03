@@ -171,6 +171,18 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 		return
 	}
 	lo, hi := s.topupRange(ctx, user.UID, b)
+	if dayLeft := topupDayMaxCents - b.DayTopupCents; b.DayKey == time.Now().UTC().Format("2006-01-02") &&
+		req.AmountCents >= lo && req.AmountCents > dayLeft {
+		// Over the $1,000-a-day cap (T3): its own code, so the web can say
+		// how much is left today and when it resets.
+		now := time.Now().UTC()
+		e := httpx.Err(http.StatusUnprocessableEntity, "topup_daily_cap",
+			fmt.Sprintf("You can add up to %s more today.", money(max(dayLeft, 0))))
+		e.Details = map[string]any{"min": lo, "max": max(hi, 0), "day_left_cents": max(dayLeft, 0), "day_cap_cents": int64(topupDayMaxCents),
+			"resets_at": time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339)}
+		httpx.WriteErr(ctx, w, e)
+		return
+	}
 	if req.AmountCents < lo || req.AmountCents > hi || hi < lo {
 		e := httpx.Err(http.StatusUnprocessableEntity, "amount_out_of_range",
 			fmt.Sprintf("add between %s and %s", money(lo), money(max(hi, lo))))
@@ -562,8 +574,23 @@ func (s *Service) HandlePutBalanceSettings(w http.ResponseWriter, r *http.Reques
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "method_needed", "save a payment method to turn on auto-reload"))
 			return
 		}
-		if cust.UnderReview || cust.SheetOnly || cust.AllMethodsFailed {
-			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "auto_reload_blocked", "Auto-reload can't be turned on while we check a payment."))
+		// auto_reload_blocked {reason: under_review | dispute | payment_failed |
+		// deletion_pending}: auto-reload stays off while a payment is checked.
+		reason := ""
+		switch {
+		case cust.UnderReview:
+			reason = "under_review" // an early fraud warning or a blocked card
+		case cust.SheetOnly:
+			reason = "dispute"
+		case cust.AllMethodsFailed:
+			reason = "payment_failed"
+		case cust.DeletionPending:
+			reason = "deletion_pending"
+		}
+		if reason != "" {
+			e := httpx.Err(http.StatusConflict, "auto_reload_blocked", "Auto-reload can't be turned on while we check a payment.")
+			e.Details = map[string]any{"reason": reason}
+			httpx.WriteErr(ctx, w, e)
 			return
 		}
 		cur, _ := s.Store.GetBalance(ctx, user.UID)

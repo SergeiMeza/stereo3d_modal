@@ -76,10 +76,27 @@ func proPeriod(st revenuecat.Status, key string, now time.Time) (string, *time.T
 		}
 		start = &s
 	}
-	if start == nil {
-		return key + ":" + now.Format("2006-01"), nil
+	if start == nil { // counted per calendar month: it resets on the 1st
+		end := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		return key + ":" + now.Format("2006-01"), &end
 	}
 	return st.Via + ":" + start.UTC().Format(time.RFC3339), st.ExpiresAt
+}
+
+// previewPeriod names what a free-preview allowance counts over, for the
+// copy: week | month | year | pass | first_project.
+func previewPeriod(allowanceKey string) string {
+	switch allowanceKey {
+	case "":
+		return "first_project"
+	case "pro_weekly":
+		return "week"
+	case "pro_yearly":
+		return "year"
+	case "pro_pass_3m", "pro_pass_6m":
+		return "pass"
+	}
+	return "month" // pro_monthly, pro_lifetime (calendar month), business, studio
 }
 
 type freePreviewState struct {
@@ -89,13 +106,14 @@ type freePreviewState struct {
 	DayLeft   int
 	Units     int
 	Intro     bool // the non-subscriber's one free preview
+	Period    string
 	Free      bool // this preview (Units) would be free
 	PeriodEnd *time.Time
 }
 
 func (f freePreviewState) JSON() map[string]any {
 	out := map[string]any{"allowance": f.Allowance, "used": f.Used, "remaining": f.Remaining,
-		"daily_left": f.DayLeft, "units": f.Units, "free": f.Free, "intro": f.Intro}
+		"daily_left": f.DayLeft, "units": f.Units, "free": f.Free, "intro": f.Intro, "period": f.Period}
 	if f.PeriodEnd != nil {
 		out["resets_at"] = f.PeriodEnd.Format(time.RFC3339)
 	}
@@ -107,7 +125,7 @@ func (f freePreviewState) JSON() map[string]any {
 // others: one on their first project).
 func (s *Service) freePreviewStatus(ctx context.Context, uid string, at accountTier, units int) freePreviewState {
 	r := s.rates(ctx)
-	st := freePreviewState{Units: units, PeriodEnd: at.PeriodEnd}
+	st := freePreviewState{Units: units, PeriodEnd: at.PeriodEnd, Period: previewPeriod(at.AllowanceKey)}
 	if !r.FreePreviewsEnabled || s.Store == nil {
 		return st
 	}

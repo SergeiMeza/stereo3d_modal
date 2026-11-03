@@ -184,3 +184,31 @@ func TestM3Reconcile(t *testing.T) {
 		t.Fatalf("again: %+v", again.Counts)
 	}
 }
+
+// Web follow-ups: the free-preview period names what the allowance
+// counts over; a top-up past the day's cap has its own code.
+func TestPreviewPeriodAndTopupDailyCap(t *testing.T) {
+	for key, want := range map[string]string{"": "first_project", "pro_weekly": "week", "pro_monthly": "month", "pro_yearly": "year",
+		"pro_pass_3m": "pass", "pro_pass_6m": "pass", "pro_lifetime": "month", "business": "month", "studio": "month"} {
+		if got := previewPeriod(key); got != want {
+			t.Fatalf("%q: %s, want %s", key, got, want)
+		}
+	}
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1"})
+	for i := 0; i < 10; i++ {
+		paidTopup(t, s, uid, 9500)
+	}
+	rec := httptest.NewRecorder()
+	s.HandleTopup(rec, httptest.NewRequest("POST", "/", strings.NewReader(`{"amount_cents":10000,"ui":"elements"}`)), &AuthedUser{UID: uid})
+	var out struct {
+		Error   string         `json:"error"`
+		Details map[string]any `json:"details"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	if rec.Code != http.StatusUnprocessableEntity || out.Error != "topup_daily_cap" || out.Details["day_left_cents"] != float64(5000) {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
