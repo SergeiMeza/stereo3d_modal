@@ -1,11 +1,12 @@
 /**
- * Sample videos for the landing page (2026-11): five 15 s clips made with
- * Lifelike 3D on the test service, preset 4K (capped at the 1440p source).
- * The 2D sources are AI-generated clips we made ourselves, so they are ours
- * to share. Big files live on the public CDN under samples/2026-11/ (served
- * with Content-Disposition: attachment and a friendly file name); the muted
- * loops under samples/2026-11/loops/ play inline. Posters are local
- * (public/landing/samples/).
+ * Sample videos for the landing page (2026-11): nine 9–15 s clips of the
+ * owner's licensed footage, made with Lifelike 3D on the test service at
+ * 4K with the Master bitrate (Foveated Detail on the portrait clip). Big
+ * files live on the public CDN under samples/2026-11/ (served with
+ * Content-Disposition: attachment and a friendly file name); the muted
+ * loops under samples/2026-11/loops/ play inline, H.264 listed first.
+ * Posters are local (public/landing/samples/). The five earlier samples'
+ * CDN files stay in place for old links but are no longer listed.
  */
 
 export const SAMPLES_CDN =
@@ -41,6 +42,7 @@ function sample(
   detail: string,
   size: string,
   bytes: { spatial: number; sbs: number; original: number },
+  seconds = 15,
 ): Sample {
   const loops = `${SAMPLES_CDN}/loops/${slug}`;
   return {
@@ -48,7 +50,7 @@ function sample(
     title,
     detail,
     size,
-    seconds: 15,
+    seconds,
     poster: `/landing/samples/${slug}-poster-1600.webp`,
     loop: { mp4: `${loops}-loop.mp4`, webm: `${loops}-loop.webm` },
     redCyanLoop: {
@@ -83,46 +85,72 @@ function sample(
 
 export const SAMPLES: Sample[] = [
   sample(
-    "mustang-golden-hour",
-    "Mustang at golden hour",
-    "A classic car through city streets at sunset.",
-    "2560×1440 per eye",
-    { spatial: 25_962_810, sbs: 52_054_247, original: 28_714_713 },
+    "rooftop-party",
+    "Rooftop party",
+    "Hands in the air at a sunset party above the forest.",
+    "3840×2160 per eye",
+    { spatial: 281_202_002, sbs: 245_373_999, original: 26_401_666 },
+    12,
   ),
   sample(
-    "pool-day",
-    "Pool day",
-    "A backyard swim, splashes and sun on the water.",
-    "2560×1440 per eye",
-    { spatial: 25_341_089, sbs: 66_120_140, original: 34_061_403 },
+    "drift-chase",
+    "Drift chase",
+    "A drone chases a drifting car through clouds of tyre smoke.",
+    "3840×2160 per eye",
+    { spatial: 222_517_286, sbs: 296_814_594, original: 29_772_452 },
   ),
   sample(
-    "seoul-street",
-    "Seoul street",
-    "Rooftops, an alley cat and a morning coffee.",
-    "2560×1440 per eye",
-    { spatial: 30_540_479, sbs: 51_351_026, original: 28_166_547 },
+    "rooftop-singalong",
+    "Rooftop singalong",
+    "Singing, guitar and drinks with friends on a rooftop.",
+    "3840×2160 per eye",
+    { spatial: 195_018_598, sbs: 178_562_808, original: 17_248_841 },
+    9,
   ),
   sample(
-    "diner-freeze",
-    "Diner time freeze",
-    "Breakfast frozen in mid-air in a retro diner.",
-    "2560×1440 per eye",
-    { spatial: 26_192_352, sbs: 51_068_838, original: 25_037_751 },
+    "sunset-session",
+    "Sunset session",
+    "A singer and her band on a rooftop as the sun goes down.",
+    "3840×2160 per eye",
+    { spatial: 319_972_232, sbs: 299_105_920, original: 29_190_011 },
   ),
   sample(
-    "matsuri-night",
-    "Matsuri night",
-    "Lanterns and street food at a summer festival. Portrait.",
-    "1440×2560 per eye",
-    { spatial: 21_422_666, sbs: 57_998_596, original: 25_601_700 },
+    "studio-take",
+    "Studio take",
+    "A singer gives it everything at the mic.",
+    "3840×2160 per eye",
+    { spatial: 180_343_615, sbs: 179_324_835, original: 18_121_783 },
+    9,
+  ),
+  sample(
+    "street-dance",
+    "Street dance",
+    "Three friends dance in front of a glass tower. Portrait.",
+    "2160×3840 per eye",
+    { spatial: 286_271_450, sbs: 282_889_234, original: 29_034_621 },
+  ),
+  sample(
+    "inside-the-wave",
+    "Inside the wave",
+    "A surfer's view through the barrel of a breaking wave.",
+    "3840×2160 per eye",
+    { spatial: 129_546_110, sbs: 168_236_172, original: 16_533_473 },
+    9,
+  ),
+  sample(
+    "fencing-hall",
+    "Fencing hall",
+    "Fencers spar in a training hall as others stride past.",
+    "3840×2160 per eye",
+    { spatial: 236_561_946, sbs: 250_113_238, original: 24_547_136 },
+    13,
+  ),
+  sample(
+    "river-stones",
+    "River stones",
+    "A girl steps across sunlit stones by a forest stream.",
+    "3840×2026 per eye",
+    { spatial: 304_095_765, sbs: 258_753_773, original: 29_621_691 },
+    14,
   ),
 ];
-
-/** The before/after pair in the hero: the source (framed like the 3D
- * result) and the same moment in red-cyan. */
-export const HERO_COMPARE = {
-  before: "/landing/samples/mustang-golden-hour-before-1600.webp",
-  after: "/landing/samples/mustang-golden-hour-redcyan-1600.webp",
-  title: "Mustang at golden hour",
-};

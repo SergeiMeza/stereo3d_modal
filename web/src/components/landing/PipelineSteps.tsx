@@ -1,13 +1,13 @@
 /**
  * "What happens to your video" — the three conversion passes, each
- * illustrated with a short looping clip made from our own footage
+ * illustrated with a short looping clip made from licensed footage
  * (2026-11): a glowing line sweeps across the clip and shows how near or
  * far everything is; the scene seen from a swaying viewpoint, then its two
  * eye views; the result on a floating window, a headset and XR glasses.
  * Copy rules from web/docs/LANDING.md apply: say what it does, no internal
  * pipeline terms.
  *
- * Each clip has a WebM (VP9) and an MP4 (H.264) source and a poster
+ * Each clip has an MP4 (H.264, listed first) and a WebM (VP9) source and a poster
  * (LoopVideo: plays only while on screen, poster under reduced motion).
  */
 
@@ -42,7 +42,7 @@ const STEPS = [
       "Vision Pro spatial video and side by side, ready for every headset.",
     clip: "/landing/steps/delivery",
     label:
-      "The 3D video on a floating window in a living room, on a big screen in a headset, through the headset's lenses and in XR glasses",
+      "The 3D video as a floating window, on a big screen in a headset, through the headset's lenses and in XR glasses",
   },
 ];
 

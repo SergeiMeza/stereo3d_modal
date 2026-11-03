@@ -229,7 +229,6 @@ export function LandingContent() {
           <SectionHead
             eyebrow="Step by step"
             title="What happens to your video"
-            lede="Shown on footage we made."
           />
           <div className="mt-10">
             <PipelineSteps />

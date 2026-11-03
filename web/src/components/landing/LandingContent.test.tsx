@@ -72,16 +72,20 @@ describe("Samples (2026-11)", () => {
     // WebM black), then WebM, a poster for reduced motion
     const hero = screen.getByTestId("hero-loop");
     const video = hero.querySelector("video");
-    expect(video?.getAttribute("poster")).toBe("/landing/hero/diner-2d-3d.jpg");
+    expect(video?.getAttribute("poster")).toBe("/landing/hero/sunset-session-2d-3d.jpg");
     expect(
       [...hero.querySelectorAll("source")].map((s) => s.getAttribute("type")),
     ).toEqual(["video/mp4", "video/webm"]);
     for (const slug of [
-      "mustang-golden-hour",
-      "pool-day",
-      "seoul-street",
-      "diner-freeze",
-      "matsuri-night",
+      "rooftop-party",
+      "drift-chase",
+      "rooftop-singalong",
+      "sunset-session",
+      "studio-take",
+      "street-dance",
+      "inside-the-wave",
+      "fencing-hall",
+      "river-stones",
     ]) {
       const tile = screen.getByTestId(`sample-${slug}`);
       const hrefs = [...tile.querySelectorAll("a")].map((a) => a.getAttribute("href"));
@@ -98,11 +102,14 @@ describe("Samples (2026-11)", () => {
       expect(tile.querySelector("video")).toBeNull();
     }
     // playing red-cyan: H.264 first there too
-    const tile = screen.getByTestId("sample-pool-day");
+    // licensed footage only: none of the earlier generated samples, no such wording
+    expect(document.body.textContent).not.toMatch(/AI-generated|footage we made|Mustang|Pool day|Matsuri/);
+    expect(screen.getByTestId("sample-river-stones").textContent).toContain("14 s · 3840×2026 per eye");
+    const tile = screen.getByTestId("sample-drift-chase");
     fireEvent.click(within(tile).getByRole("button", { name: "Red-cyan" }));
     expect([...tile.querySelectorAll("source")].map((s) => s.getAttribute("src"))).toEqual([
-      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/pool-day-redcyan-loop.mp4",
-      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/pool-day-redcyan-loop.webm",
+      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/drift-chase-redcyan-loop.mp4",
+      "https://cdn.public.spatial-video-studio.com/samples/2026-11/loops/drift-chase-redcyan-loop.webm",
     ]);
   });
 });

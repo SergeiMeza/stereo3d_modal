@@ -3,8 +3,8 @@
 /**
  * "How it looks" (2026-11): screenshots of the real web app — the projects
  * list, Make 3D with the quality options up to 8K, a run in progress and
- * the files per headset — captured in mock-gateway mode with our own
- * sample footage. From 640 px up: a tab strip and one large 2240×1400 shot
+ * the files per headset — captured in mock-gateway mode with the licensed
+ * sample clips. From 640 px up: a tab strip and one large 2240×1400 shot
  * (big enough to read). On phones: every phone capture (780×1400) in a
  * horizontal snap row. Hidden images are lazy, so each viewport downloads
  * only its own. Re-shoot recipe: web/docs/LANDING.md, "Assets".

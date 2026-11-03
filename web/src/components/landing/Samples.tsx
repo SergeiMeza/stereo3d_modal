@@ -142,9 +142,8 @@ export function Samples() {
         Watch the 3D result in your headset
       </h2>
       <p className="mt-3 max-w-2xl text-fg-muted">
-        Made with Lifelike 3D, exactly as you would get them. Download one to
-        your headset, or the 2D original to compare. The 2D clips are
-        AI-generated footage we made for these samples.
+        Made with Lifelike 3D in Spatial Video Studio on the web. Download one
+        to your headset, or the 2D original to compare.
       </p>
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {SAMPLES.map((s) => (

@@ -74,20 +74,26 @@ so. Little text: clutter makes pages hard to read.
 > 3D result's framing) and the same frame in red-cyan, a range input as
 > the divider. Two WebP stills in `public/landing/samples/`, no video.
 > Later in 2026-11 the hero became a loop (`HeroLoop.tsx`, `LoopVideo.tsx`):
-> `public/landing/hero/diner-2d-3d.{webm,mp4,jpg}`, 7.5 s, 960×540, our
-> diner clip — left of a gliding line the 2D original, right of it the same
-> moment seen from a swaying viewpoint rendered from the real 3D scene (the
-> flat side is aligned to the render so the seam shows only depth). No
-> red-cyan; the poster stays under reduced motion. `HERO_COMPARE` in
-> `samples.ts` and its two WebP stills are no longer used.
+> `public/landing/hero/sunset-session-2d-3d.{mp4,webm,jpg}` (licensed
+> footage since 2026-11-04; the earlier diner clip was generated), 7.5 s,
+> 960×540, the Sunset session sample — left of a gliding line the Lifelike
+> left eye, right of it the same moment seen from a gently swaying
+> viewpoint drawn from that eye. No red-cyan; the poster stays under
+> reduced motion. `HERO_COMPARE` and its stills are gone.
 > A **Samples** section (`Samples.tsx`, `src/lib/samples.ts`) follows the
-> three steps: five 15 s clips made with Lifelike 3D (test service,
-> preset 4K, capped at the 1440p source), each with downloads for Vision
+> three steps: nine 9–15 s clips of the owner's licensed footage (since
+> 2026-11-04; the five earlier generated samples are no longer listed, their
+> CDN files stay for old links) made with Lifelike 3D (test service, preset
+> 4K with the Master bitrate, Foveated Detail on the portrait clip), each
+> with downloads for Vision
 > Pro (spatial `.mov`), the other headsets and XR glasses (side by side
 > `.mp4`) and the 2D original. Files on the public CDN under
 > `samples/2026-11/` with `Content-Disposition: attachment`; muted loops
-> under `samples/2026-11/loops/` mount only when a tile is played. The 2D
-> sources are AI-generated footage we made; the section says so.
+> under `samples/2026-11/loops/` mount only when a tile is played (H.264
+> listed first: iPhone Safari paints the VP9 WebM black). Lede: "Made with
+> Lifelike 3D in Spatial Video Studio on the web. Download one to your
+> headset, or the 2D original to compare." Source set and entries:
+> `/Volumes/Extreme Pro/splat-compare/website-samples-2026-11c` (PUBLISH.md).
 
 ### 2. How it looks ("From upload to headset") — replaced the workflow tabs 2026-11
 `ProductTour.tsx`. From 640 px up: a tab strip (Projects · Make 3D ·
@@ -99,33 +105,37 @@ Classic-era workflow tabs (`WorkflowTabs.tsx`, `BrowserFrame.tsx`,
 
 ### 3. Pipeline ("What happens to your video") — added 2026-07, clips redone 2026-11
 Three alternating rows, each a looping clip beside user-facing copy. The
-clips (2026-11) are made from our own AI-generated footage (the BytePlus
-concept clips), not the old LP assets, and carry no text — the copy is on
-the page. Each lives in `public/landing/steps/` as `<name>.webm` (VP9),
-`<name>.mp4` (H.264) and `<name>.jpg` (poster), 960×540, 24 fps, 10–12 s,
+clips are made from the owner's licensed footage (since 2026-11-04; the
+first versions used generated clips) and carry no text — the copy is on
+the page. Each lives in `public/landing/steps/` as `<name>.mp4` (H.264,
+listed first), `<name>.webm` (VP9 4:2:0) and `<name>.jpg` (poster),
+960×540, 24 fps, 10–12 s,
 ≤ 2 MB per file, the tail cross-faded into the head so the loop has no jump:
 - **01 · Depth** — "We understand the shape of every scene"
-  (`depth`: the Seoul street clip plays; a glowing line sweeps across and
+  (`depth`: the Rooftop party clip plays; a glowing line sweeps across and
   leaves the scene coloured by distance — near warm, far blue, with slow
   flowing contour lines — then a second pass brings the picture back).
-- **02 · 3D** — "Two eyes from one camera" (`stereo`: the pool clip seen
-  from a gently swaying viewpoint, rendered from the real 3D scene, ending
-  on the left-eye and right-eye views side by side with matching guide
-  lines). No red-cyan.
+- **02 · 3D** — "Two eyes from one camera" (`stereo`: the Fencing hall clip
+  seen from a gently swaying viewpoint, ending on its Lifelike left-eye and
+  right-eye views side by side with matching guide lines). No red-cyan.
 - **03 · Files** — "Plays like it was shot in 3D" (`delivery`: four 3 s
-  scenes — a floating window in a living room, a person in a headset before
-  a big virtual screen, the view through the headset lenses, XR glasses).
-  Room plates are Seedream stills we generated; no product renders, no
-  logos.
+  scenes — Studio take as a floating window over a defocused real scene,
+  Drift chase on a big screen in a dark virtual theatre, Rooftop singalong's
+  two Lifelike eyes through the headset lenses, River stones on a
+  see-through screen framed by XR glasses). No generated plates, no product
+  renders, no logos.
 Copy rule (Lifelike team, 2026-11): never "depth map", "splat" or a model
 name on the page; say what the viewer gets ("We understand the shape of
 every scene").
-Component: `PipelineSteps.tsx`. Muted loops with WebM then MP4 sources and
+Component: `PipelineSteps.tsx`. Muted loops with MP4 then WebM sources and
 a poster; a clip plays only while on screen (IntersectionObserver) and
 never under `prefers-reduced-motion: reduce`, where the poster stays.
-`aria-label`s describe each clip. No new dependencies. Sources and build
-scripts: session scratchpad `motion/` (step1_depth.py, step2_stereo.py,
-step3_deliver.py, hero.py, encode.sh).
+`aria-label`s describe each clip. No new dependencies. Build scripts:
+session scratchpad `real/` (prep.sh: 1080p copies of each sample's 2D
+original and its two Lifelike eyes from the 4K Master SBS; depth_local.py:
+a local stand-in for the swaying viewpoint; step1_depth.py,
+step2_stereo.py, step3_deliver.py, hero.py, encode.sh), adapted from the
+first set's `motion/`.
 
 ### 4. Four Lifelike points (under the hero) — 2026-11
 Lifelike depth ("Every moment rebuilt as a real 3D scene."), Any length,
@@ -160,18 +170,18 @@ and `<name>-phone` (780×1400 WebP, 390 px at 2×); ~370 KB for all eight.
 Captured from the real web app in mock-gateway mode
 (`NEXT_PUBLIC_API_MOCK=1 next dev`) with Playwright: the seeded fixture
 project is replaced through `window.__mockDb` by five Lifelike projects
-named after our sample footage (Mustang at golden hour as an 8K source,
-Seoul street, Pool day, Matsuri night, Diner freeze frame) with posters and
-strips served from a scratch copy's `public/`; then Make 3D (Vision Pro +
-Meta Quest, 8K), a run through the tracker (`gpuWaitPolls = 0`) and its
+named after the licensed samples (Sunset session, Fencing hall, Drift
+chase, River stones, Street dance, at their real 4K sizes) with thumbs and
+strips served from a temporary `public/_shots/` (deleted after); then
+Make 3D (Vision Pro + Meta Quest, 4K), a run through the tracker (`gpuWaitPolls = 0`) and its
 Files. Crops: projects 1280×800 CSS px, Make 3D below the project bar,
 tracker and files as cards centred on the app background. Scripts in the
-session scratchpad `landing-ui/scripts/` (common.js, shoot.js, crop.py).
+session scratchpad `landing-ui/scripts2/` (common.js, shoot.js, crop.py).
 Never show a real account or customer video.
 
 **OG card** `public/landing/og.jpg` (1200×630): rendered from HTML — the
 headline, "Up to 8K. For Vision Pro and every headset.", the hero loop's
-poster and "Stereo3D Studio · the web version of Spatial Video Studio".
+poster (Sunset session) and "Stereo3D Studio · the web version of Spatial Video Studio".
 
 ## Design constraints
 
