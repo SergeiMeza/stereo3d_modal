@@ -910,6 +910,11 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 	if n := s.planCreditSweep(ctx); n > 0 {
 		stats["plan_credit_expired"] = n
 	}
+	if now.Minute()%10 == 0 {
+		if n := s.planMonthlySweep(ctx, now); n > 0 {
+			stats["plan_months_granted"] = n
+		}
+	}
 	// N7: notices at 30 and 7 days, then expiry.
 	due, err := s.Store.ListBalancesExpiringBy(ctx, now.Add(30*24*time.Hour), 100)
 	if err != nil {

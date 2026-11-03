@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -20,7 +21,12 @@ import (
 // subscription; customer.subscription.* mirrors it on the account and
 // invoice.paid grants each period's credit (non-cash, in the ledger).
 
-func planLookupKey(tier string) string { return "svs_web_" + tier + "_monthly" }
+func planLookupKey(def pricing.PlanDef, tier string) string {
+	if def.LookupKey != "" {
+		return def.LookupKey
+	}
+	return "svs_web_" + tier + "_monthly"
+}
 
 // POST /v1/billing/plan {plan: business|studio, ui: elements|hosted_page}
 // → {checkout {client_secret, expires_at}, url?, plan, publishable_key}.
@@ -56,7 +62,7 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 	}
 	priceID := def.StripePriceID
 	if priceID == "" {
-		if priceID, err = s.Stripe.PriceByLookupKey(planLookupKey(req.Plan)); err != nil || priceID == "" {
+		if priceID, err = s.Stripe.PriceByLookupKey(planLookupKey(def, req.Plan)); err != nil || priceID == "" {
 			httpx.Log(ctx).Error("plan price missing", "plan", req.Plan, "err", err)
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "plans aren't available right now"))
 			return
@@ -117,6 +123,10 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 	out := map[string]any{"plan": p.Tier, "status": p.Status, "active": p.Active(time.Now()), "cancel_at_period_end": p.CancelAtPeriodEnd}
 	if def, ok := s.rates(ctx).Plan(p.Tier); ok {
 		out["name"], out["monthly_cents"], out["credit_cents"] = def.Name, def.MonthlyCents, def.CreditCents
+		out["interval"], out["price_cents"], out["credit_interval"] = def.Interval, def.PriceCents, def.CreditInterval
+	}
+	if k, _, to, ok := p.Month(time.Now()); ok && p.Yearly() {
+		out["month_index"], out["credit_resets_at"] = k+1, to.Format(time.RFC3339) // month k+1 of 12
 	}
 	if p.CurrentPeriodEnd != nil {
 		out["current_period_end"] = p.CurrentPeriodEnd.Format(time.RFC3339)
@@ -142,11 +152,12 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			return nil // an older or incomplete subscription doesn't replace the live one
 		}
 		next := &store.Plan{Tier: tier, SubscriptionID: sub.ID, Status: sub.Status, CurrentPeriodStart: &start,
-			CurrentPeriodEnd: &end, CancelAtPeriodEnd: sub.CancelAtPeriodEnd, UpdatedAt: time.Now().UTC()}
+			CurrentPeriodEnd: &end, CancelAtPeriodEnd: sub.CancelAtPeriodEnd, UpdatedAt: time.Now().UTC(), Interval: sub.Interval()}
 		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID { // keep the RevenueCat grant record
 			next.RCGrantInvoice, next.RCGrantedUntil, next.RCGrantError = c.Plan.RCGrantInvoice, c.Plan.RCGrantedUntil, c.Plan.RCGrantError
 			next.RCRevokedAt, next.RCRevokeReason = c.Plan.RCRevokedAt, c.Plan.RCRevokeReason
 			next.LastInvoiceID, next.LastCreditCents = c.Plan.LastInvoiceID, c.Plan.LastCreditCents
+			next.GrantsPaused = c.Plan.GrantsPaused
 		}
 		c.Plan = next
 		return nil
@@ -208,6 +219,16 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		return nil
 	})
 	if !ok || def.CreditCents <= 0 {
+		return
+	}
+	if sub.Interval() == "year" {
+		// A yearly plan's credit comes every month, from the scheduler; the
+		// year's invoice starts month 1 now.
+		if cust, cerr := s.Store.GetCustomer(ctx, uid); cerr == nil && cust.Plan != nil {
+			s.grantPlanMonth(ctx, uid, cust.Plan, def, time.Now().UTC())
+		}
+		s.notePaidOnce(ctx, uid)
+		s.payDebtsFromBalance(ctx, uid)
 		return
 	}
 	_, end := sub.Period()

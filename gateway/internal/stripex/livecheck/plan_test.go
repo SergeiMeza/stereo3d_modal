@@ -21,8 +21,8 @@ func TestPlanSessionInTestMode(t *testing.T) {
 	cus := rawStripe(t, key, "POST", "/v1/customers", url.Values{"name": {"Plan probe"}, "metadata[kind]": {"probe"}})
 	cusID := cus["id"].(string)
 	defer rawStripe(t, key, "DELETE", "/v1/customers/"+cusID, nil)
-	for _, tier := range []string{"business", "studio"} {
-		price, err := c.PriceByLookupKey("svs_web_" + tier + "_monthly")
+	for tier, key := range map[string]string{"business": "svs_web_business_monthly", "studio": "svs_web_studio_yearly"} {
+		price, err := c.PriceByLookupKey(key)
 		if err != nil || price == "" {
 			t.Fatalf("%s price: %q %v", tier, price, err)
 		}

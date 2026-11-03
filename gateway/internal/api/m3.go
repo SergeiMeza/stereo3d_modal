@@ -32,6 +32,7 @@ import (
 //	topup_entries      a paid top-up without exactly one topup entry (v7)
 //	leaked_hold        an open hold on a terminal run (v7, R3; the sweep fixes it)
 //	plan_entitlement_missing  an active web plan whose RevenueCat entitlement isn't active → granted again
+//	plan_credit_missed  a yearly plan's month without its credit → granted
 //
 // Flags 1 and 2 go through E0-2; C8 reads amount_refunded first, so money
 // already refunded is never refunded twice [N9]. Everything else goes to

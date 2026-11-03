@@ -47,7 +47,17 @@ type PlanDef struct {
 	FreePreviews    int    `firestore:"free_previews" json:"free_previews_per_period"`
 	ExpressIncluded bool   `firestore:"express_included" json:"express_included"`
 	StripePriceID   string `firestore:"stripe_price_id" json:"-"`
+	// Interval: how the plan bills (month | year; "" = month); PriceCents
+	// what each bill is (Studio: $11,988 a year). The credit and the free
+	// previews always come every month (credit_interval).
+	Interval       string `firestore:"interval" json:"interval"`
+	PriceCents     int64  `firestore:"price_cents" json:"price_cents"`
+	CreditInterval string `firestore:"-" json:"credit_interval"`
+	LookupKey      string `firestore:"lookup_key" json:"-"`
 }
+
+// Yearly: the plan bills once a year (its credit still comes monthly).
+func (p PlanDef) Yearly() bool { return p.Interval == "year" }
 
 func testLifelikeList() map[string]int64 {
 	return map[string]int64{"1080p": 400, "qhd": 550, "3k": 800, "4k": 1000, "5k": 1600, "6k": 2000, "8k": 2800}
@@ -74,9 +84,13 @@ func defaultAddOnPct() map[string]float64 {
 func testPlans() map[string]PlanDef {
 	return map[string]PlanDef{
 		TierBusiness: {Name: "Business", MonthlyCents: 29900, CreditCents: 40000, MaxActiveRuns: 3, Seats: 3,
-			FreePreviews: 50, ExpressIncluded: true},
+			FreePreviews: 50, ExpressIncluded: true, Interval: "month", PriceCents: 29900, CreditInterval: "month",
+			LookupKey: "svs_web_business_monthly", StripePriceID: "price_1UXaxSAVV5NpxADIFAwxnmfV"},
+		// Studio bills yearly (owner 2026-11-04): $11,988 (12 × $999), with
+		// $1,500 of credit and 200 free previews every month of the year.
 		TierStudio: {Name: "Studio", MonthlyCents: 99900, CreditCents: 150000, MaxActiveRuns: 8, Seats: 10,
-			FreePreviews: 200, ExpressIncluded: true},
+			FreePreviews: 200, ExpressIncluded: true, Interval: "year", PriceCents: 1198800, CreditInterval: "month",
+			LookupKey: "svs_web_studio_yearly", StripePriceID: "price_1UXjsfAVV5NpxADIVWtelcNn"},
 	}
 }
 
@@ -148,6 +162,13 @@ func (r *Rates) Plan(tier string) (PlanDef, bool) {
 		return PlanDef{}, false
 	}
 	p, ok := r.Plans[tier]
+	if p.Interval == "" {
+		p.Interval = "month"
+	}
+	if p.PriceCents == 0 {
+		p.PriceCents = p.MonthlyCents
+	}
+	p.CreditInterval = "month" // the credit always comes monthly
 	return p, ok
 }
 

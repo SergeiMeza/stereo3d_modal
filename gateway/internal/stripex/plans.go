@@ -88,6 +88,9 @@ type Subscription struct {
 			Price              struct {
 				ID        string `json:"id"`
 				LookupKey string `json:"lookup_key"`
+				Recurring struct {
+					Interval string `json:"interval"`
+				} `json:"recurring"`
 			} `json:"price"`
 		} `json:"data"`
 	} `json:"items"`
@@ -192,4 +195,12 @@ func (c *Client) InvoicePayment(invoiceID string) (pi string, paid int64, err er
 func (c *Client) CancelSubscriptionNow(id string) error {
 	var out map[string]any
 	return webCall(http.MethodDelete, "/v1/subscriptions/"+url.PathEscape(id), nil, "", &out)
+}
+
+// Interval is the subscription's billing interval (month | year).
+func (s *Subscription) Interval() string {
+	if len(s.Items.Data) > 0 && s.Items.Data[0].Price.Recurring.Interval != "" {
+		return s.Items.Data[0].Price.Recurring.Interval
+	}
+	return "month"
 }

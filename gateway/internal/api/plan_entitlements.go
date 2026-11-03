@@ -150,8 +150,10 @@ func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, refunde
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "refund:"+pay.InvoiceID, "", "plan invoice refunded in full", "plancredit_refund_"+pay.InvoiceID)
 	case "dispute":
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "dispute:"+ref, "", "plan invoice disputed", "plancredit_freeze_"+ref)
+		s.setGrantsPaused(ctx, uid, "dispute:"+ref)
 	case "fraud warning":
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "efw:"+ref, "", "early fraud warning on the plan invoice", "plancredit_freeze_"+ref)
+		s.setGrantsPaused(ctx, uid, "efw:"+ref)
 	}
 	s.revokePlanEntitlement(ctx, uid, why+" on "+pay.InvoiceID)
 }
@@ -159,9 +161,6 @@ func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, refunde
 // m3Plans: every active plan should hold its entitlement in RevenueCat;
 // one that doesn't (and wasn't revoked) is granted again.
 func (s *Service) m3Plans(ctx context.Context, rep *M3Report, dryRun bool) {
-	if !s.RevenueCat.Configured() {
-		return
-	}
 	custs, err := s.Store.ListPlanCustomers(ctx, 500)
 	if err != nil {
 		rep.fail("plan customers", err)
@@ -169,7 +168,19 @@ func (s *Service) m3Plans(ctx context.Context, rep *M3Report, dryRun bool) {
 	}
 	now := time.Now().UTC()
 	for uid, c := range custs {
-		if !c.Plan.Active(now) || c.Plan.RCRevokedAt != nil || c.AccountDeleted {
+		// A yearly plan's month that wasn't granted (plan_credit_missed).
+		if c.Plan.Yearly() && c.Plan.Active(now) && c.Plan.GrantsPaused == "" && !c.AccountDeleted {
+			if k, _, _, ok := c.Plan.Month(now); ok {
+				if done, _ := s.Store.EntryExists(ctx, uid, planMonthEntry(c.Plan.SubscriptionID, k)); !done {
+					f := M3Flag{Flag: "plan_credit_missed", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s month %d of 12", c.Plan.Tier, k+1)}
+					if def, ok := s.rates(ctx).Plan(c.Plan.Tier); ok && !dryRun && s.grantPlanMonth(ctx, uid, c.Plan, def, now) {
+						f.Action = "granted"
+					}
+					rep.add(f)
+				}
+			}
+		}
+		if !s.RevenueCat.Configured() || !c.Plan.Active(now) || c.Plan.RCRevokedAt != nil || c.AccountDeleted {
 			continue
 		}
 		st, err := s.RevenueCat.Fresh(ctx, uid)

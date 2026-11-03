@@ -82,6 +82,21 @@ type planRefundQuote struct {
 	InvoiceID, PI, SubscriptionID, Tier  string
 	PaidCents, CreditCents, UnspentCents int64
 	ProposalCents                        int64
+	// Yearly Studio: the current month's share (paid ÷ 12 × unspent ÷
+	// credit) plus the months not yet started pro rata (paid ÷ 12 × n).
+	// Always the owner's decision.
+	Yearly           bool
+	MonthsNotStarted int
+	CurrentCents     int64
+	FutureCents      int64
+}
+
+// amountFor is what the refund pays once removed cents of credit are gone.
+func (q *planRefundQuote) amountFor(removed int64) int64 {
+	if !q.Yearly {
+		return planShare(q.PaidCents, removed, q.CreditCents)
+	}
+	return planShare(q.PaidCents/12, removed, q.CreditCents) + q.FutureCents
 }
 
 func planShare(paid, unspent, credit int64) int64 {
@@ -108,7 +123,14 @@ func (s *Service) planRefundQuote(ctx context.Context, uid string) (*planRefundQ
 	if f, ferr := s.Stripe.PaymentFactsOf(pi); ferr == nil {
 		q.PaidCents = min(q.PaidCents, f.Received-f.Refunded)
 	}
-	q.ProposalCents = planShare(q.PaidCents, q.UnspentCents, q.CreditCents)
+	if cust.Plan.Yearly() {
+		if k, _, _, ok := cust.Plan.Month(time.Now()); ok {
+			q.Yearly, q.MonthsNotStarted = true, 11-k
+			q.FutureCents = q.PaidCents * int64(q.MonthsNotStarted) / 12
+		}
+	}
+	q.ProposalCents = q.amountFor(q.UnspentCents)
+	q.CurrentCents = q.ProposalCents - q.FutureCents
 	return q, nil
 }
 
@@ -120,6 +142,10 @@ func (s *Service) openPlanRefundCase(ctx context.Context, uid, who, text string)
 		return nil, err
 	}
 	line := "plan_" + q.InvoiceID
+	if q.Yearly {
+		text = strings.TrimSpace(fmt.Sprintf("%s\n[Yearly %s: proposal %s = this month's unspent share %s + %d months not yet started %s. The owner decides; never automatic.]",
+			text, q.Tier, money(q.ProposalCents), money(q.CurrentCents), q.MonthsNotStarted, money(q.FutureCents)))
+	}
 	return s.openCase(ctx, &store.Case{UID: uid, Type: store.CaseRefund, Reason: ReasonPlanRefund, Mode: "manual", Source: "support",
 		Status: store.CaseOpen, CustomerVisible: true, CustomerText: text, RequestedCents: q.ProposalCents,
 		Items:   map[string]int64{line: q.ProposalCents},
@@ -132,11 +158,19 @@ func (s *Service) planRefundRows(ctx context.Context, c *store.Case) ([]map[stri
 	if err != nil || len(c.Related.InvoiceIDs) == 0 || q.InvoiceID != c.Related.InvoiceIDs[0] {
 		return []map[string]any{}, 0
 	}
-	return []map[string]any{{"conversion_id": "plan_" + q.InvoiceID, "kind": "plan", "plan": q.Tier,
+	row := map[string]any{"conversion_id": "plan_" + q.InvoiceID, "kind": "plan", "plan": q.Tier,
 		"paid_cents": q.PaidCents, "credit_cents": q.CreditCents, "unspent_cents": q.UnspentCents,
 		"refundable_cents": q.ProposalCents,
 		"label": fmt.Sprintf("%s plan: %s unspent of %s credit → %s of %s", q.Tier, money(q.UnspentCents), money(q.CreditCents),
-			money(q.ProposalCents), money(q.PaidCents))}}, q.ProposalCents
+			money(q.ProposalCents), money(q.PaidCents))}
+	if q.Yearly {
+		row["yearly"] = map[string]any{"current_month_cents": q.CurrentCents, "months_not_started": q.MonthsNotStarted,
+			"future_months_cents": q.FutureCents, "owner_decides": true}
+		row["label"] = fmt.Sprintf("Yearly %s: this month %s (%s unspent of %s) + %d months not started %s = %s of %s; owner decides",
+			q.Tier, money(q.CurrentCents), money(q.UnspentCents), money(q.CreditCents), q.MonthsNotStarted, money(q.FutureCents),
+			money(q.ProposalCents), money(q.PaidCents))
+	}
+	return []map[string]any{row}, q.ProposalCents
 }
 
 // planRefund carries out a granted plan refund: the unspent credit goes
@@ -154,7 +188,7 @@ func (s *Service) planRefund(ctx context.Context, c *store.Case, want int64, who
 		return httpx.Err(http.StatusConflict, "nothing_refundable", "The plan credit is spent: there's nothing to refund.")
 	}
 	removed := s.planCreditOp(ctx, c.UID, store.EntryPlanCreditRemoval, "refund:"+q.InvoiceID, c.ID, "plan refund granted", "plancredit_refund_"+c.ID)
-	amount := min(want, planShare(q.PaidCents, removed, q.CreditCents))
+	amount := min(want, q.amountFor(removed))
 	if amount <= 0 {
 		return httpx.Err(http.StatusConflict, "nothing_refundable", "The plan credit is spent: there's nothing to refund.")
 	}
@@ -191,6 +225,7 @@ func (s *Service) planDisputeClosed(ctx context.Context, pi, disputeID string, w
 	ref := "dispute:" + disputeID
 	if won {
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, ref, "", "dispute won", "plancredit_won_"+disputeID)
+		s.setGrantsPaused(ctx, uid, "") // a yearly plan's months resume
 		return
 	}
 	s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, ref, "", "dispute lost", "plancredit_lost_"+disputeID)

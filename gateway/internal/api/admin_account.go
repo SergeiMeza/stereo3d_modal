@@ -91,6 +91,9 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.UnderReview = false; return nil })
 		if err == nil { // a cleared fraud warning gives the plan credit back
 			s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, "efw:", "", "review cleared", "")
+			if c, _ := s.Store.GetCustomer(ctx, uid); c != nil && c.Plan != nil && len(c.Plan.GrantsPaused) > 4 && c.Plan.GrantsPaused[:4] == "efw:" {
+				s.setGrantsPaused(ctx, uid, "")
+			}
 		}
 	case "clear_sheet_only":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.SheetOnly, c.SheetOnlyReason = false, ""; return nil })
@@ -99,9 +102,13 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		switch {
 		case err == nil && req.Action == "block":
 			s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "block", req.CaseID, "account blocked", "")
+			s.setGrantsPaused(ctx, uid, "block")
 			s.revokePlanEntitlement(ctx, uid, "account blocked") // fraud: the plan's app entitlement ends now
 		case err == nil:
 			s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, "block", req.CaseID, "account unblocked", "")
+			if c, _ := s.Store.GetCustomer(ctx, uid); c != nil && c.Plan != nil && c.Plan.GrantsPaused == "block" {
+				s.setGrantsPaused(ctx, uid, "")
+			}
 		}
 	case "block_permanent":
 		// A block that stays: the plan credit is removed (never paid out).

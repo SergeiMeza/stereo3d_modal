@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -41,6 +42,10 @@ func (s *Service) accountTier(ctx context.Context, uid string) accountTier {
 					start = cust.Plan.CurrentPeriodStart.Format(time.RFC3339)
 				}
 				best.PeriodKey = "plan:" + cust.Plan.SubscriptionID + ":" + start
+				if k, _, to, ok := cust.Plan.Month(now); ok && cust.Plan.Yearly() {
+					// A yearly plan's free previews reset every month of the year.
+					best.PeriodKey, best.PeriodEnd = fmt.Sprintf("plan:%s:m%02d", cust.Plan.SubscriptionID, k), &to
+				}
 			}
 		}
 	}

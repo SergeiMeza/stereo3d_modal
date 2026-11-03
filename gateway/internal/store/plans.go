@@ -32,6 +32,40 @@ type Plan struct {
 	// the credit it granted (a refund we grant is paid × unspent/credit).
 	LastInvoiceID   string `firestore:"last_invoice_id,omitempty" json:"-"`
 	LastCreditCents int64  `firestore:"last_credit_cents,omitempty" json:"-"`
+	// Interval: month | year (Studio bills yearly, its credit monthly).
+	// GrantsPaused: a yearly plan's monthly credit is held back (a dispute
+	// or fraud warning on its invoice, a block); "" = granted.
+	Interval     string `firestore:"interval,omitempty" json:"interval,omitempty"`
+	GrantsPaused string `firestore:"grants_paused,omitempty" json:"-"`
+}
+
+// AddMonths is t plus n calendar months, the day clamped to the month's
+// last (Jan 31 + 1 = Feb 28/29), as Stripe's monthly anniversaries are.
+func AddMonths(t time.Time, n int) time.Time {
+	y, m, d := t.Date()
+	first := time.Date(y, m+time.Month(n), 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+	last := first.AddDate(0, 1, -1).Day()
+	return first.AddDate(0, 0, min(d, last)-1)
+}
+
+// Yearly: billed once a year, credited every month.
+func (p *Plan) Yearly() bool { return p != nil && p.Interval == "year" }
+
+// Month is the current month of a yearly plan's period: its index (0 to
+// 11) and window [from, to), the last month ending with the period.
+func (p *Plan) Month(now time.Time) (k int, from, to time.Time, ok bool) {
+	if p == nil || p.CurrentPeriodStart == nil || p.CurrentPeriodEnd == nil {
+		return 0, time.Time{}, time.Time{}, false
+	}
+	start, end := *p.CurrentPeriodStart, *p.CurrentPeriodEnd
+	for k < 11 && !AddMonths(start, k+1).After(now) {
+		k++
+	}
+	from, to = AddMonths(start, k), AddMonths(start, k+1)
+	if k == 11 || to.After(end) {
+		to = end
+	}
+	return k, from, to, true
 }
 
 // Active: the plan's prices and allowances apply.

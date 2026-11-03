@@ -626,13 +626,33 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   subscription-mode Checkout (`{checkout, url?, plan, publishable_key}`;
   409 `plan_active`); `POST /v1/billing/plan/cancel {resume?}`.
   `GET /v1/billing` adds `plan {plan, name, status, active, monthly_cents,
-  credit_cents, credit_left_cents, current_period_end,
-  cancel_at_period_end}`. Prices by lookup key `svs_web_{tier}_monthly`
-  (test: Business $299, Studio $999). `customer.subscription.*` mirrors
-  the plan; `invoice.paid` grants the period's credit ($400 / $1,500) as
+  interval, price_cents, credit_cents, credit_interval, credit_left_cents,
+  current_period_end, cancel_at_period_end, month_index?,
+  credit_resets_at?}`. Prices by `stripe_price_id` in the code defaults
+  (TEST: Business `svs_web_business_monthly` $299 a month; Studio
+  `svs_web_studio_yearly` **$11,988 a year**; the old Studio monthly
+  price is archived). `customer.subscription.*` mirrors the plan
+  (`plan.interval`); `invoice.paid` grants the period's credit as
   non-cash plan credit in the balance ledger (spent first, never paid out,
-  expired at the period's end or replaced by the next grant). Plans raise
-  the concurrent-run cap (3 / 8).
+  expired at the period's end or replaced by the next grant): Business
+  $400 per monthly invoice. **Studio (yearly)** gets $1,500 every month of
+  the year from the scheduler (every 10 min; month k starts on the
+  subscription's monthly anniversary, the day clamped to the month's
+  end; entry `plancredit_{sub}_m{k}`, once per subscription and month;
+  Slack `plan_credit_failed`; M3 `plan_credit_missed` grants a missed
+  one); unused credit ends with its month; its 200 free previews reset
+  monthly. A dispute or fraud warning on the year's invoice, or a block,
+  holds the grants back (`plan.grants_paused`) until won, cleared or
+  unblocked; a normal cancel lets them run to the year's end. RevenueCat
+  `studio` + `pro` run to the year's end + 3 days and are granted again
+  on renewal. A Studio `plan_refund` proposes this month's unspent share
+  (paid ÷ 12 × unspent ÷ credit) **plus the months not yet started pro
+  rata** (paid ÷ 12 × n), flagged on the case and its row (`yearly
+  {current_month_cents, months_not_started, future_months_cents,
+  owner_decides: true}`); it is never refunded automatically. Plans raise
+  the concurrent-run cap (3 / 8). `GET /v1/pricing` `plans.{tier}` carry
+  `interval` (`month` | `year`), `price_cents` (per interval),
+  `monthly_cents`, `credit_cents` and `credit_interval: "month"`.
 - **Previews download**: preview runs output `sbs` + `mvhevc` by default
   (half_sbs above 4K) and download like any run, named
   `<stem>_<res>_preview_<layout>.<ext>`.
