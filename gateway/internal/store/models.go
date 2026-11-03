@@ -234,10 +234,6 @@ type Params struct {
 	Bitrate          string `firestore:"bitrate,omitempty" json:"bitrate,omitempty"`
 	OutputBitrateBps int64  `firestore:"output_bitrate_bps,omitempty" json:"output_bitrate_bps,omitempty"`
 	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
-	// Stabilize: Lifelike temporal stabilization (config
-	// lifelike_stabilize, the owner's A/B); recorded per run, never shown
-	// to or set by clients.
-	Stabilize bool `firestore:"stabilize,omitempty" json:"-"`
 	// Express (add-on, pricing 2026-11): first in the GPU line.
 	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
 }

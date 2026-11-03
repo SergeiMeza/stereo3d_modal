@@ -640,15 +640,6 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
   false`.
 
-### Lifelike stabilization (config only)
-
-`config/pricing_{env}.lifelike_stabilize` (bool, default false on test and
-prod) sends `"stabilize": true` on every Lifelike run created while it is
-on (~15% less shimmer on moving content, +5% GPU; LIFELIKE_API.md). Each
-run records it (`params.stabilize` in Firestore, never in API responses
-and not settable by clients), so the owner's A/B can tell runs apart.
-Prices are unchanged.
-
 ### Pro discount (S3D-67)
 
 Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every

@@ -85,3 +85,20 @@ func TestCasesDedupeAndFinal(t *testing.T) {
 		t.Fatalf("timeline: %d", len(events))
 	}
 }
+
+// Runs written before the pipeline took temporal smoothing in house carry
+// params.stabilize; they still read (the field is ignored).
+func TestOldRunWithRemovedParamReads(t *testing.T) {
+	s := settleStore(t)
+	ctx := context.Background()
+	id := NewID()
+	if _, err := s.fs.Collection(conversionsCol(s.env)).Doc(id).Set(ctx, map[string]any{
+		"uid": "u1", "state": StateSucceeded, "kind": "video", "method": MethodLifelike,
+		"params": map[string]any{"preset": "4k", "stabilize": true}}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.GetConversion(ctx, id)
+	if err != nil || c.Params.Preset != "4k" {
+		t.Fatalf("%+v %v", c, err)
+	}
+}
