@@ -83,7 +83,7 @@ function MethodPrices({
       </table>
       <p className="mt-3 text-xs text-fg-muted">
         {sentenceCase(methodLimitText(method, null, pricing))} · previews from{" "}
-        {formatCents(pricing.minimum_cents)}
+        {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}
       </p>
     </section>
   );
@@ -123,8 +123,9 @@ export function PricingScreen(): JSX.Element {
               <span>
                 <b>{pct}% off</b> any run over{" "}
                 {formatCentsShort(pricing.discount.threshold_cents)}.{" "}
-                <b>Minimum charge</b> {formatCents(pricing.minimum_cents)} per
-                run, previews included.
+                <b>Minimum charge</b>{" "}
+                {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)} per
+                preview, {formatCentsShort(pricing.minimum_cents)} for other runs.
               </span>
               <span>
                 <b>Over {formatCentsShort(pricing.precharge_threshold_cents)}:</b>{" "}

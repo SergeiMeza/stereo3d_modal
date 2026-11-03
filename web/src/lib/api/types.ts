@@ -476,6 +476,8 @@ export interface PublicPricing {
   fps: { base: number; min_factor: number; max_factor: number };
   discount: { threshold_cents: number; pct: number };
   minimum_cents: number;
+  /** every preview's floor (S3D-13/17); minimum_cents when absent */
+  preview_minimum_cents?: number;
   precharge_threshold_cents: number;
   balance: { window_hours: number; new_account_cap_cents: number };
 }

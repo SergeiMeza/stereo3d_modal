@@ -34,7 +34,7 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(lifelike.textContent).toContain("1080p1920×1080 per eye$3.00");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$8.50");
     expect(lifelike.textContent).toContain("8K7680×4320 per eye$22.00");
-    expect(lifelike.textContent).toContain("Any length, up to 8K · previews from $0.50");
+    expect(lifelike.textContent).toContain("Any length, up to 8K · previews from $1");
     // no Classic on the public page
     expect(screen.queryByTestId("pricing-classic")).toBeNull();
     expect(document.body.textContent).not.toMatch(/Classic/);

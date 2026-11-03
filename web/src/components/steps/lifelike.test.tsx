@@ -348,7 +348,7 @@ describe("Lifelike Preview", () => {
     // minimum, so the minimum applies — the price sits on the button
     const main = await screen.findByTestId("checkout-main");
     await waitFor(() =>
-      expect(main.textContent).toBe("Preview this moment · $0.50"),
+      expect(main.textContent).toBe("Preview this moment · $1.00"),
     );
     expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
       "Charged after it's done.",
@@ -358,7 +358,7 @@ describe("Lifelike Preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "?" }));
     const pop = within(screen.getByRole("dialog"));
     expect(pop.getByText(/120 frames at the 1080p rate/)).toBeTruthy();
-    expect(pop.getByText(/Minimum charge \$0\.50/, { selector: "span" })).toBeTruthy();
+    expect(pop.getByText(/Minimum charge \$1(?!\.)/, { selector: "span" })).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(quotes.at(-1)).toMatchObject({
       step: "lifelike_preview",
@@ -395,7 +395,7 @@ describe("Lifelike Preview", () => {
 
     // one click runs it
     await waitFor(() =>
-      expect(screen.getByTestId("checkout-main").textContent).toMatch(/\$0\.50$/),
+      expect(screen.getByTestId("checkout-main").textContent).toMatch(/\$1\.00$/),
     );
     fireEvent.click(screen.getByTestId("checkout-main"));
     await waitFor(() => expect(runs).toHaveLength(1));

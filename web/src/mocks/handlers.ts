@@ -61,6 +61,8 @@ const RATES = {
     "4k": 250,
   } as Record<string, number>,
   minimumCents: 50,
+  /** S3D-13/17: every preview costs at least this */
+  previewMinimumCents: 100,
   discountThresholdCents: 1000,
   discountPct: 0.1,
   stageShares: { depth: 0.35, preprocess: 0.05 },
@@ -957,6 +959,11 @@ function lifelikeEta(outputSeconds: number, fps: number, preset: string): number
 
 /** A Lifelike quote: the Lifelike price table × fps factor, then the bulk
  * discount and the minimum. */
+/** The per-run floor: previews $1, other runs $0.50 (S3D-13/17). */
+function minimumFor(step: string | undefined): number {
+  return step === "production" ? RATES.minimumCents : RATES.previewMinimumCents;
+}
+
 function lifelikeQuoteFor(
   project: Project,
   req: StepConversionRequest,
@@ -992,7 +999,7 @@ function lifelikeQuoteFor(
       ? Math.round(subtotal * RATES.discountPct)
       : 0;
   // the $0.50 minimum per run, previews included (S3D-17)
-  const total = Math.max(subtotal - bulk, RATES.minimumCents);
+  const total = Math.max(subtotal - bulk, minimumFor(req.step));
   return {
     quote: {
       amount_cents: total,
@@ -1196,7 +1203,7 @@ function quoteFor(
   const credit = project.analyze.credit_available
     ? RATES.analyzeCreditCents
     : 0;
-  const total = Math.max(afterReuse - bulk - credit, RATES.minimumCents);
+  const total = Math.max(afterReuse - bulk - credit, minimumFor(req.step));
   return {
     quote: {
       amount_cents: total,
@@ -1797,6 +1804,7 @@ export const handlers = [
         pct: RATES.discountPct,
       },
       minimum_cents: RATES.minimumCents,
+      preview_minimum_cents: RATES.previewMinimumCents,
       precharge_threshold_cents: mockDb.chargeBeforeCents,
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
     }),

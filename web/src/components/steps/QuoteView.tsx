@@ -8,7 +8,7 @@ import {
 } from "@/lib/billingCopy";
 import { formatDuration, formatVideoLength } from "@/lib/format";
 
-import { formatCents } from "./money";
+import { formatCents, formatCentsShort } from "./money";
 
 /** The quote's processing-time estimate: "about 25 min" (lib/format). */
 export { formatDuration as formatQuoteEta } from "@/lib/format";
@@ -226,7 +226,7 @@ export function QuoteView({
       ) : null}
       {minimumApplied ? (
         <Line
-          label={`Minimum charge ${formatCents(total)}`}
+          label={`Minimum charge ${formatCentsShort(total)}`}
           value={formatCents(total)}
           testId="quote-minimum"
         />

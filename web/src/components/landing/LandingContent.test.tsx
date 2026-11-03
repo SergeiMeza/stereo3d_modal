@@ -40,7 +40,7 @@ describe("Landing hero (mock 12, S3D-46)", () => {
       "from $3 a minute",
     );
     expect(screen.getByTestId("hero-step-2").textContent).toBe(
-      "A few seconds in 3D, from $0.50.",
+      "A few seconds in 3D, from $1.",
     );
     // Works with, text only, each linking to its page (S3D-51)
     const works = screen.getByTestId("works-with");

@@ -26,7 +26,7 @@ import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { WORKS_WITH } from "@/lib/devices";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
-import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { formatCentsShort } from "@/components/steps/money";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
@@ -205,7 +205,7 @@ export function LandingContent() {
             t: "Preview a moment",
             s:
               pricing !== null
-                ? `A few seconds in 3D, from ${formatCents(pricing.minimum_cents)}.`
+                ? `A few seconds in 3D, from ${formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}.`
                 : "A few seconds in 3D.",
           },
           { t: "Make it 3D", s: "Download for your headset." },

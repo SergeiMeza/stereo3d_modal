@@ -23,6 +23,7 @@ import type {
   Conversion,
   Preset,
   Project,
+  PublicPricing,
   StepConversionRequest,
 } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
@@ -36,7 +37,7 @@ import {
 import { qualityChoices, qualityLabelFor } from "@/lib/glossary";
 
 import { LIFELIKE_PREVIEW_SECONDS } from "./methods";
-import { formatCents } from "./money";
+import { formatCents, formatCentsShort } from "./money";
 import { StateChip } from "./StateChip";
 import {
   CHECK_MODES,
@@ -59,6 +60,11 @@ export function previewRange(
   const to = Math.min(Math.max(0, start) + span, numFrames);
   const from = Math.max(0, to - span);
   return [from, to];
+}
+
+/** A preview's floor (S3D-13/17), from /v1/pricing. */
+function previewMinimum(p: PublicPricing): number {
+  return p.preview_minimum_cents ?? p.minimum_cents;
 }
 
 /** Preview lengths offered (S3D-13). */
@@ -355,8 +361,8 @@ export function LifelikePreviewPanel({
                       Quick look uses half the frame rate for half the price.
                       {/* the quote's own line names the minimum when it applies */}
                       {pricing &&
-                      ck.quote?.quote.amount_cents !== pricing.minimum_cents
-                        ? ` Minimum charge ${formatCents(pricing.minimum_cents)}.`
+                      ck.quote?.quote.amount_cents !== previewMinimum(pricing)
+                        ? ` Minimum charge ${formatCentsShort(previewMinimum(pricing))}.`
                         : ""}{" "}
                       If it fails, you pay nothing.
                     </span>
