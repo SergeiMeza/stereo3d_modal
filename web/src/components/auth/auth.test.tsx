@@ -70,28 +70,29 @@ describe("landing page", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Turn any video into lifelike 3D",
     );
-    const cta = screen.getByRole("link", { name: "Make your first 3D video" });
-    expect(cta.getAttribute("href")).toBe("/projects");
-    // the workflow tab strip mirrors a new (Lifelike) project's rooms
-    for (const room of ["Overview", "Scenes", "Make 3D"]) {
-      expect(screen.getByRole("tab", { name: new RegExp(room) })).toBeTruthy();
+    for (const cta of screen.getAllByRole("link", { name: "Make your first 3D video" })) {
+      expect(cta.getAttribute("href")).toBe("/projects");
+    }
+    // "How it looks": the new app's screens as tabs
+    for (const screenName of ["Projects", "Make 3D", "Progress", "Files"]) {
+      expect(screen.getByRole("tab", { name: screenName })).toBeTruthy();
     }
   });
 
-  it("switches the workflow panel when a tab is clicked", () => {
+  it("switches the screenshot when a tab is clicked", () => {
     renderWithAuth(<Home />);
-    // default tab is Cut (the hero already shows the Stereo room)
-    expect(screen.getByText("Scene changes you can trust")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /Make 3D/ }));
-    expect(screen.getByText("One run, every format")).toBeTruthy();
+    // Make 3D opens first
+    expect(screen.getByRole("tab", { name: "Make 3D" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(screen.getByRole("tab", { name: "Files" }).getAttribute("aria-selected")).toBe("true");
     expect(
-      screen.getByRole("tab", { name: /Make 3D/ }).getAttribute("aria-selected"),
-    ).toBe("true");
+      screen.getByRole("tabpanel").querySelector("img")?.getAttribute("src"),
+    ).toContain("%2Flanding%2Fui%2Ffiles.webp");
     // S3D-01: the landing never offers Classic
     expect(document.body.textContent).not.toMatch(/Classic/);
     // no technical terms on the landing page (S3D-36), no top-bottom (S3D-08)
     expect(document.body.textContent).not.toMatch(
-      /inpainting|video-native model|depth map|top-bottom/i,
+      /inpainting|video-native model|depth map|top-bottom|splat|gaussian/i,
     );
   });
 });

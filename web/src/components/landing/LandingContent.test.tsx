@@ -34,8 +34,8 @@ describe("Landing hero (mock 12, S3D-46)", () => {
       "Turn any video into lifelike 3D",
     );
     expect(
-      screen.getByRole("link", { name: "Make your first 3D video" }),
-    ).toBeTruthy();
+      screen.getAllByRole("link", { name: "Make your first 3D video" }),
+    ).toHaveLength(2); // hero and closing section
     expect((await screen.findByTestId("hero-from-price")).textContent).toBe(
       "from $3 a minute at 24 fps",
     );
@@ -97,5 +97,41 @@ describe("Samples (2026-11)", () => {
       // poster first: no video until asked to play
       expect(tile.querySelector("video")).toBeNull();
     }
+  });
+});
+
+describe("Lifelike story (2026-11)", () => {
+  it("sells Lifelike, shows the real app and drops Classic and beta copy", async () => {
+    render(
+      <AuthProvider>
+        <LandingContent />
+      </AuthProvider>,
+    );
+    const points = screen.getByTestId("lifelike-points");
+    expect(points.textContent).toContain("Every moment rebuilt as a real 3D scene.");
+    expect(points.textContent).toContain("Any length, up to 8K");
+    expect(points.textContent).toContain("Your original in one eye");
+    expect(points.textContent).toContain("Foveated Detail");
+    // Pro share from GET /v1/pricing (S3D-67)
+    expect(
+      (await screen.findByTestId("final-price")).textContent,
+    ).toBe("From $3 a minute. Pay per video, no subscription. Pro members save 20%.");
+    expect(screen.getByTestId("hero-limits").textContent).toContain(
+      "Any length, up to 8K. Pro members save 20%.",
+    );
+    // How it looks: a phone shot per screen, Make 3D open on the tabs
+    for (const id of ["projects", "make-3d", "tracker", "files"]) {
+      expect(
+        screen.getByTestId(`tour-${id}`).querySelector("img")?.getAttribute("src"),
+      ).toContain(`%2Flanding%2Fui%2F${id}-phone.webp`);
+    }
+    const tab = screen.getByRole("tab", { name: "Make 3D" });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    expect(
+      screen.getByRole("tabpanel").querySelector("img")?.getAttribute("src"),
+    ).toContain("%2Flanding%2Fui%2Fmake-3d.webp");
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/\bbeta\b/i);
+    expect(text).not.toMatch(/VFX|frame-exact|conversion house|directed by you/i);
   });
 });

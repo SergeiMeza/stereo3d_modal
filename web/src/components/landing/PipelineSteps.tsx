@@ -19,7 +19,7 @@ const STEPS = [
     tag: "Depth",
     title: "We understand the shape of every scene",
     detail:
-      "We work out how far away everything is in every frame, steady from frame to frame — the base the 3D is built on.",
+      "Every moment becomes a real 3D scene, steady from frame to frame.",
     clip: "/landing/steps/depth",
     label:
       "A glowing line sweeps across the footage and shows near things warm and far things blue, then the picture again",
@@ -29,7 +29,7 @@ const STEPS = [
     tag: "3D",
     title: "Two eyes from one camera",
     detail:
-      "A left and a right view are made for every frame, and the areas each eye newly sees are filled in naturally. Here the viewpoint sways so you can see the depth on any screen.",
+      "Then we film that scene again for each eye, with clean edges. Here the viewpoint sways so you can see the depth on any screen.",
     clip: "/landing/steps/stereo",
     label:
       "The same footage seen from a gently swaying viewpoint, then its left-eye and right-eye views side by side",
@@ -39,7 +39,7 @@ const STEPS = [
     tag: "Files",
     title: "Plays like it was shot in 3D",
     detail:
-      "Your 3D video comes as Vision Pro spatial video and side by side — ready for Apple Vision Pro, Samsung Galaxy XR, Meta Quest, Pico and 3D displays.",
+      "Vision Pro spatial video and side by side, ready for every headset.",
     clip: "/landing/steps/delivery",
     label:
       "The 3D video on a floating window in a living room, on a big screen in a headset, through the headset's lenses and in XR glasses",

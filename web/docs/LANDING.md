@@ -6,8 +6,11 @@ studio").
 
 ## Positioning
 
-**One-liner:** the closest 3D quality to a VFX studio — without hiring
-one, at a fraction of the price.
+**One-liner (2026-11):** turn any video into lifelike 3D — Lifelike 3D, our
+newest 3D technology, is the product (S3D-01, S3D-44, S3D-46). Classic 3D
+lives on only in existing projects and is not sold on this page. The old
+"closest 3D quality to a VFX studio" positioning, depth direction, per-shot
+depth scripts, inpainting and frame-exact controls are gone from the page.
 
 **Audience:** VR / spatial-video users and creators. They own (or ship
 content to) Apple Vision Pro, Samsung Galaxy XR, Meta Quest, other
@@ -15,16 +18,28 @@ SBS-capable headsets, players and 3D displays. They know what "spatial
 video" and "side-by-side" mean; they don't know (or care) about our
 internal pipeline names.
 
-**Message hierarchy** (order of the page):
-1. Hero — the claim + CTA + device row (who it's for).
-2. Proof — the studio itself (real product screenshots, workflow tabs).
-3. Control — what makes it studio-grade (per-scene 3D, frame-exact,
-   editable everything).
-4. Delivery — every headset covered (formats × devices).
-5. Price — pay-as-you-go, binding quote before every render, previews
-   before you commit.
-6. Beta note + feedback CTA.
-7. Footer.
+**What the page says (owner, 2026-11):** lifelike 3D from any video; any
+length, up to 8K (S3D-05); one eye keeps your original picture at the
+highest sizes (S3D-48, S3D-65); Foveated Detail, "sharper where you look"
+(S3D-50); works in Vision Pro and every headset browser; from $3 a minute
+at 24 fps (S3D-11, from GET /v1/pricing); Pro members save 20% (S3D-67,
+from `pro_discount`). Little text: clutter makes pages hard to read.
+
+**Order of the page (2026-11):**
+1. Hero — New tag, eyebrow, H1, one line, CTA + "from $X a minute",
+   limits + Pro line + See prices; the 2D → 3D loop.
+2. Four points — Lifelike depth · Any length, up to 8K · Your original in
+   one eye · Foveated Detail.
+3. Works with — the scrolling device row (S3D-51).
+4. Three steps — upload, preview a moment, make it 3D.
+5. Samples — clips to download.
+6. How it looks — real screenshots of the new web UI.
+7. What happens to your video — the three looping step clips.
+8. Watch it — Vision Pro spatial video and side by side; works in every
+   headset browser.
+9. Closing CTA — "See your own video in 3D", price line, Make your first
+   3D video + See prices, feedback link (no "beta").
+10. Footer.
 
 ## Sections
 
@@ -69,22 +84,13 @@ internal pipeline names.
 > under `samples/2026-11/loops/` mount only when a tile is played. The 2D
 > sources are AI-generated footage we made; the section says so.
 
-### 2. Workflow ("Your video, directed by you")
-Interactive tab strip mirroring the app's own left nav — Media, Cut,
-Depth, Stereo, Deliver. Clicking a tab swaps the screenshot and a short
-description. Uses the five prepared screenshots. Default tab: Cut (the hero already shows Stereo).
-Copy per tab (user-facing vocabulary only):
-- **Media** — frame-exact source review: resolution, frame rate, every
-  frame addressable.
-- **Cut** — auto-detected scene cuts you can edit, merge, import/export;
-  every boundary frame-exact.
-- **Depth** — AI depth maps, temporally stable across the whole shot;
-  pick the resolution knob, preview cheaply, export or bring your own.
-- **Stereo** — per-scene 3D: every scene measured and classified
-  automatically; override depth strength per scene; ship credits/logos
-  as 2D.
-- **Deliver** — full-quality render that inherits your preview work and
-  reuses it at a discount; pick preset (1080p → 4K) and formats.
+### 2. How it looks ("From upload to headset") — replaced the workflow tabs 2026-11
+`ProductTour.tsx`. From 640 px up: a tab strip (Projects · Make 3D ·
+Progress · Files, Make 3D open first) over one large screenshot with a
+one-line caption. On phones: the four phone captures in a horizontal snap
+row with captions. Screenshots are the real web app, see Assets. The
+Classic-era workflow tabs (`WorkflowTabs.tsx`, `BrowserFrame.tsx`,
+`*-tab.webp`) were removed.
 
 ### 3. Pipeline ("What happens to your video") — added 2026-07, clips redone 2026-11
 Three alternating rows, each a looping clip beside user-facing copy. The
@@ -116,54 +122,51 @@ never under `prefers-reduced-motion: reduce`, where the poster stays.
 scripts: session scratchpad `motion/` (step1_depth.py, step2_stereo.py,
 step3_deliver.py, hero.py, encode.sh).
 
-### 4. Studio-grade quality (3-4 feature cards)
-- Temporally stable depth — video-native depth model, no per-frame
-  flicker.
-- Scene-aware stereo — depth resets at cuts; per-shot depth script with
-  a viewing-comfort budget.
-- Clean edges — occlusions filled by video inpainting, not smearing.
-- Frame-exact control — cuts, trims and overrides are all integer frame
-  indices; what you set is what renders.
+### 4. Four Lifelike points (under the hero) — 2026-11
+Lifelike depth ("Every moment rebuilt as a real 3D scene."), Any length,
+up to 8K (title from `methodLimitText("lifelike")`; "From a short clip to a
+whole film."), Your original in one eye ("At the highest sizes, one eye
+shows your own frames."), Foveated Detail ("Sharper where you look.").
+Two columns on phones, four on desktop.
 
-### 5. Delivery formats × devices
-Table/cards mapping formats to devices:
-- **Apple spatial video (MV-HEVC .mov)** — Apple Vision Pro (shows up in
-  Photos as Spatial Video); also plays on Android XR headsets like
-  Samsung Galaxy XR.
-- **Side-by-side / Half-SBS** — Meta Quest (any 3D player), YouTube VR,
-  3D TVs and projectors.
-- **Top-bottom / Half-TB** — 3D displays and players that expect TB.
-- **Anaglyph** — instant red-cyan check on any flat screen.
-Audio is carried through on all formats.
+### 5. Watch it ("On Vision Pro and every headset")
+"Works in Vision Pro and every headset browser: open the site there and
+watch or download straight to the headset." Two cards: Vision Pro spatial
+video (.mov) and Side by side (.mp4). Top-bottom and red-cyan are not
+sold with Lifelike (S3D-08).
 
-### 6. Pricing ("Pay for renders, not seats")
-- No subscription; card on file, pay per job.
-- Binding quote before every paid render — the price you see is the
-  price you pay.
-- Cheap low-res previews first; production reuses your preview work
-  (depth, scene profile) at a discount.
-- Honesty rule: no concrete dollar amounts on the page (prices are
-  quote-based and Firestore-tunable) — the quote UI is the price.
+### 6. Pricing
+No price section; prices live on /pricing (S3D-18). The hero and the
+closing line take "from $X a minute" and the Pro share from GET
+/v1/pricing — never hardcoded.
 
 ### 7. Beta note
-- Beta limits stated plainly: videos up to 5 minutes, below 4K input.
-- Feedback CTA (mailto sergei@spatial-ai-labs.com, reuse FeedbackLink
-  styling/subject).
+Removed 2026-11 (owner): no "Beta" chip in the app header, on the landing
+or in metadata; the closing feedback line stays without "In beta".
 
 ### 8. Footer
 - Product name, contact email, © Spatial AI Labs, year.
 
 ## Assets
 
-Five app screenshots prepared in `web/assets/` (media/cut/depth/stereo/
-deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
-- Convert to WebP, max width 1600, quality ~82 → `web/public/landing/`.
-  Target ≤ 250 KB each; total page image weight ≤ 1.5 MB.
-- Rendered via `next/image` (lazy-loaded except the hero image, which is
-  `priority`), inside a subtle browser-chrome frame with the studio
-  border/radius vocabulary.
-- `web/assets/` stays the source of truth for re-exports; it is not
-  served.
+**App screenshots (2026-11)** in `public/landing/ui/`: `projects`,
+`make-3d`, `tracker`, `files` (2240×1400 WebP, 2× for the 1120 px panel)
+and `<name>-phone` (780×1400 WebP, 390 px at 2×); ~370 KB for all eight.
+Captured from the real web app in mock-gateway mode
+(`NEXT_PUBLIC_API_MOCK=1 next dev`) with Playwright: the seeded fixture
+project is replaced through `window.__mockDb` by five Lifelike projects
+named after our sample footage (Mustang at golden hour as an 8K source,
+Seoul street, Pool day, Matsuri night, Diner freeze frame) with posters and
+strips served from a scratch copy's `public/`; then Make 3D (Vision Pro +
+Meta Quest, 8K), a run through the tracker (`gpuWaitPolls = 0`) and its
+Files. Crops: projects 1280×800 CSS px, Make 3D below the project bar,
+tracker and files as cards centred on the app background. Scripts in the
+session scratchpad `landing-ui/scripts/` (common.js, shoot.js, crop.py).
+Never show a real account or customer video.
+
+**OG card** `public/landing/og.jpg` (1200×630): rendered from HTML — the
+headline, "Up to 8K. For Vision Pro and every headset.", the hero loop's
+poster and "Stereo3D Studio · the web version of Spatial Video Studio".
 
 ## Design constraints
 
@@ -173,7 +176,7 @@ deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
   fight the app: at most a faint primary glow behind the hero image.
 - Same type system (Geist Sans / Geist Mono); mono for the small
   technical accents (step numbers, format tags) as the app already does.
-- The global header (logo, Beta badge, Projects, Feedback, UserMenu)
+- The global header (logo, Projects, Pricing, Feedback, UserMenu)
   stays; the landing renders inside the existing layout.
 - Responsive: single column on mobile, tab strip scrolls horizontally if
   needed; hero image full-width on small screens.
@@ -226,7 +229,7 @@ deliver tabs, ~2056×2200 PNG, 1.3-2.1 MB each). Requirements:
 
 ## Acceptance
 
-- `/` renders the seven sections above with the prepared screenshots.
+- `/` renders the sections in "Order of the page" with the app screenshots.
 - Lighthouse-sane: images lazy + sized, no layout shift from images
   (explicit dimensions), total landing image payload ≤ 1.5 MB.
 - `npm test` and `next build` green; deployed via the normal

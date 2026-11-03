@@ -1,78 +1,119 @@
 "use client";
 
 /**
- * Landing / product page body (mock 12, S3D-46): the hero leads with
- * Lifelike 3D, our newest 3D technology, then three benefits, the devices,
- * three steps, the samples to download (2026-11), the studio tour, and
- * one closing "See prices". Client
- * because the CTA depends on auth state ("Make your first 3D video" goes
- * to /projects with a session, /signin otherwise) and the "from $X a
- * minute" / preview prices come from GET /v1/pricing — never hardcoded. The route itself (app/page.tsx) is
- * a server component so it can carry per-page metadata and JSON-LD.
+ * Landing / product page body (mock 12, S3D-46). Lifelike 3D is the
+ * product: the hero leads with it, four short points say what it gives
+ * (natural depth, any length up to 8K, the original eye at the highest
+ * sizes, Foveated Detail), then the devices, three steps, the samples to
+ * download, "How it looks" (real screenshots of the web app), what happens
+ * to a video, where to watch it, and one closing call to action. Classic-era
+ * selling points (depth direction, per-shot scripts, frame-exact controls,
+ * "VFX studio") are gone (2026-11).
+ *
+ * Client because the CTA depends on auth state ("Make your first 3D video"
+ * goes to /projects with a session, /signin otherwise) and the prices come
+ * from GET /v1/pricing — never hardcoded. The route itself (app/page.tsx)
+ * is a server component so it can carry per-page metadata and JSON-LD.
  * Requirements and copy rules live in web/docs/LANDING.md — notably: no
- * internal pipeline terms (S3D-36: no model names, depth maps, warping or
- * inpainting), no fabricated proof, videos only (S3D-09). Prices live on
- * /pricing (S3D-18), linked from here.
+ * internal pipeline terms (S3D-36), "Foveated Detail" is the one allowed
+ * technical name (S3D-50), no fabricated proof, videos only (S3D-09).
  */
 
-import { Clock, Layers, Sparkles } from "lucide-react";
+import { Eye, Focus, Layers, Maximize2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { HeroLoop } from "@/components/landing/HeroLoop";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
+import { ProductTour } from "@/components/landing/ProductTour";
 import { Samples } from "@/components/landing/Samples";
-import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { Logo } from "@/components/Logo";
-import { track } from "@/lib/analytics";
-import { useAuth } from "@/lib/auth";
+import { proSaveLine } from "@/components/pricing/ProOffer";
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCentsShort } from "@/components/steps/money";
+import { track } from "@/lib/analytics";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
+import { useAuth } from "@/lib/auth";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
-const BENEFITS = [
-  {
-    icon: Layers,
-    title: "Natural depth",
-    detail: "Every moment rebuilt as a real 3D scene.",
-  },
-  {
-    icon: Sparkles,
-    title: "Clean edges",
-    detail: "Clean outlines, even around fast motion.",
-  },
-  {
-    icon: Clock,
-    title: "Ready in minutes",
-    detail: "Minutes, not hours, for most videos.",
-  },
-];
+interface Point {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}
 
-// Names from the glossary (S3D-37); top-bottom isn't sold (S3D-08).
+// Names from the glossary (S3D-37); Lifelike makes these two (S3D-08).
 const FORMATS = [
   {
     tag: ".mov",
     title: FORMAT_NAMES.mvhevc,
-    detail:
-      "Native spatial video for Apple Vision Pro — it lands in Photos with the Spatial badge. Also plays on Android XR headsets like Samsung Galaxy XR.",
+    detail: "For Apple Vision Pro. It shows up in Photos as a spatial video.",
   },
   {
     tag: ".mp4",
-    title: `${FORMAT_NAMES.sbs} · ${FORMAT_NAMES.half_sbs}`,
+    title: FORMAT_NAMES.sbs,
     detail:
-      "The universal VR format: Meta Quest and Pico video players, YouTube VR, 3D TVs and projectors.",
+      "For Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR glasses and 3D TVs.",
   },
 ];
+
+function SectionHead({
+  eyebrow,
+  title,
+  lede,
+}: {
+  eyebrow: string;
+  title: string;
+  lede?: string;
+}) {
+  return (
+    <>
+      <p className="text-xs font-medium tracking-widest text-primary uppercase">
+        {eyebrow}
+      </p>
+      <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+        {title}
+      </h2>
+      {lede ? <p className="mt-3 max-w-2xl text-fg-muted">{lede}</p> : null}
+    </>
+  );
+}
 
 export function LandingContent() {
   const { user } = useAuth();
   const signedIn = user !== null;
   const pricing = usePricing();
   const perMinute = pricing ? fromPerMinute(pricing) : null;
-  // S3D-05: the hero is about Lifelike — its limits, from /v1/pricing
+  // S3D-05: the limits are Lifelike's, from /v1/pricing ("Any length, up to 8K")
   const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing));
+  // S3D-67: shown only when the gateway sends a Pro share
+  const pro = pricing?.pro_discount;
+  const proLine = pro && pro.pct > 0 ? proSaveLine(pro.pct) : null;
+  const ctaHref = signedIn ? "/projects" : "/signin";
+
+  const points: Point[] = [
+    {
+      icon: Layers,
+      title: "Lifelike depth",
+      detail: "Every moment rebuilt as a real 3D scene.",
+    },
+    {
+      icon: Maximize2,
+      title: lifelikeLimits,
+      detail: "From a short clip to a whole film.",
+    },
+    {
+      icon: Eye,
+      title: "Your original in one eye",
+      detail: "At the highest sizes, one eye shows your own frames.",
+    },
+    {
+      icon: Focus,
+      title: "Foveated Detail",
+      detail: "Sharper where you look.",
+    },
+  ];
 
   return (
     <div className="w-full">
@@ -96,11 +137,12 @@ export function LandingContent() {
             </span>
           </h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
-            Our newest 3D technology rebuilds every moment as a real 3D scene.
+            We understand the shape of every scene, then film it again for
+            each eye.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link
-              href={signedIn ? "/projects" : "/signin"}
+              href={ctaHref}
               onClick={() => track("lp_cta_hero_click", { signed_in: signedIn })}
               className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             >
@@ -116,8 +158,8 @@ export function LandingContent() {
               </span>
             ) : null}
           </div>
-          <p className="mt-4 text-xs text-fg-muted">
-            {lifelikeLimits}.{" "}
+          <p data-testid="hero-limits" className="mt-4 text-xs text-fg-muted">
+            {lifelikeLimits}.{proLine ? ` ${proLine}.` : ""}{" "}
             <Link
               href="/pricing"
               onClick={() => track("lp_pricing_click")}
@@ -130,14 +172,17 @@ export function LandingContent() {
         <HeroLoop />
       </section>
 
-      {/* Benefits */}
-      <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 sm:grid-cols-3">
-        {BENEFITS.map((b) => (
-          <div key={b.title} className="rounded-xl border border-edge bg-card p-5">
-            <b.icon aria-hidden className="size-5 text-[#9db8ff]" />
-            <p className="mt-3 font-semibold text-fg">{b.title}</p>
+      {/* What Lifelike gives you */}
+      <section
+        data-testid="lifelike-points"
+        className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-3 px-4 sm:gap-4 lg:grid-cols-4"
+      >
+        {points.map((p) => (
+          <div key={p.title} className="rounded-xl border border-edge bg-card p-4 sm:p-5">
+            <p.icon aria-hidden className="size-5 text-[#9db8ff]" />
+            <p className="mt-3 font-semibold text-fg">{p.title}</p>
             <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
-              {b.detail}
+              {p.detail}
             </p>
           </div>
         ))}
@@ -174,57 +219,38 @@ export function LandingContent() {
 
       <Samples />
 
-      {/* Workflow */}
+      {/* How it looks: real screenshots of the web app */}
       <section
-        id="workflow"
+        id="how-it-looks"
         className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-16"
       >
-        <p className="text-xs font-medium tracking-widest text-primary uppercase">
-          How it works
-        </p>
-        <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-          Your video, directed by you
-        </h2>
-        <p className="mt-3 max-w-2xl text-fg-muted">
-          From first frame to final file. These are live screenshots, not
-          mockups.
-        </p>
-        <div className="mt-8">
-          <WorkflowTabs />
+        <SectionHead eyebrow="How it looks" title="From upload to headset" />
+        <div className="mt-10">
+          <ProductTour />
         </div>
       </section>
 
-      {/* Pipeline */}
+      {/* What happens to your video */}
       <section className="border-y border-edge bg-card/50">
         <div className="mx-auto w-full max-w-6xl px-4 py-16">
-          <p className="text-xs font-medium tracking-widest text-primary uppercase">
-            Step by step
-          </p>
-          <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-            What happens to your video
-          </h2>
-          <p className="mt-3 max-w-2xl text-fg-muted">
-            What a 3D conversion house does, done for you — shown here on
-            footage we made.
-          </p>
+          <SectionHead
+            eyebrow="Step by step"
+            title="What happens to your video"
+            lede="Shown on footage we made."
+          />
           <div className="mt-10">
             <PipelineSteps />
           </div>
         </div>
       </section>
 
-      {/* Formats × devices */}
+      {/* Where to watch */}
       <section id="formats" className="mx-auto w-full max-w-6xl px-4 py-16">
-        <p className="text-xs font-medium tracking-widest text-primary uppercase">
-          Delivery
-        </p>
-        <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-          Deliver to every headset
-        </h2>
-        <p className="mt-3 max-w-2xl text-fg-muted">
-          One conversion, every format your audience needs — with the source
-          audio carried through.
-        </p>
+        <SectionHead
+          eyebrow="Watch it"
+          title="On Vision Pro and every headset"
+          lede="Works in Vision Pro and every headset browser: open the site there and watch or download straight to the headset."
+        />
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {FORMATS.map((format) => (
             <div
@@ -248,18 +274,30 @@ export function LandingContent() {
         <h2 className="text-3xl font-semibold tracking-tight text-balance">
           See your own video in 3D
         </h2>
-        <p className="mt-2 text-fg-muted">Pay per video. No subscription.</p>
+        <p data-testid="final-price" className="mt-2 text-fg-muted">
+          {perMinute !== null
+            ? `From ${formatCentsShort(perMinute)} a minute. Pay per video, no subscription.`
+            : "Pay per video, no subscription."}
+          {proLine ? ` ${proLine}.` : ""}
+        </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/pricing"
+            href={ctaHref}
             onClick={() => track("lp_cta_bottom_click", { signed_in: signedIn })}
+            className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          >
+            Make your first 3D video
+          </Link>
+          <Link
+            href="/pricing"
+            onClick={() => track("lp_pricing_click")}
             className="rounded-lg border border-edge bg-card px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
           >
             See prices
           </Link>
         </div>
         <p className="mt-8 text-xs text-fg-muted">
-          In beta. Something missing or broken?{" "}
+          Something missing or broken?{" "}
           <a
             href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
             onClick={() => track("lp_feedback_click")}
