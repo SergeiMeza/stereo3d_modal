@@ -215,3 +215,14 @@ func TestPublicPricing(t *testing.T) {
 		t.Error("lifelike max_source_bytes")
 	}
 }
+
+// S3D-48: the steps above 4K.
+func TestLifelikeAbove4KPrices(t *testing.T) {
+	s := defaultsService(nil)
+	for preset, want := range map[string]int64{"5k": 1300, "6k": 1600, "8k": 2200} {
+		q, err := s.QuoteLifelike(context.Background(), StepInputs{Step: "production", Preset: preset, BillableS: 60, EffectiveFPS: 24})
+		if err != nil || q.Breakdown["subtotal_cents"] != want {
+			t.Errorf("%s: %v %v", preset, q, err)
+		}
+	}
+}

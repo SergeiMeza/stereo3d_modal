@@ -596,6 +596,10 @@ type stepConvReq struct {
 	// 60-3600 (the web sends 900 when "Split into parts" stays on).
 	// Lifelike only until the classic pipeline implements splitting.
 	SplitMaxSeconds int `json:"split_max_seconds"`
+	// Lifelike only (S3D-49/50): original_eye "left" | "right" | null;
+	// foveation "static" (behind foveation_enabled).
+	OriginalEye *string `json:"original_eye"`
+	Foveation   string  `json:"foveation"`
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -680,6 +684,9 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		return resolveLifelikeParams(req, p)
 	}
 	var params store.Params
+	if (req.OriginalEye != nil && *req.OriginalEye != "") || req.Foveation != "" {
+		return params, httpx.ErrInvalid("original_eye and foveation apply to lifelike projects only")
+	}
 	if req.SplitMaxSeconds != 0 {
 		// The classic pipeline has no split contract yet: refuse rather
 		// than deliver one file the user asked to have in parts.
@@ -952,6 +959,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		// knobs, nothing reused (pricing.QuoteLifelike).
 		in := s.stepQuoteInputs(p, params, step, billable)
 		in.Preset = pricePreset(params)
+		in.Foveated = params.Foveation != ""
 		in.CreditCents = creditCents
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
@@ -1336,6 +1344,15 @@ func (s *Service) createAndSubmit(ctx context.Context, w http.ResponseWriter,
 	// Submit inline for latency; on failure the reconciler re-drives paid
 	// conversions until paidTTL.
 	if serr := s.submitInline(ctx, conv.ID); serr != nil {
+		var rej *submitRejected
+		if errors.As(serr, &rej) {
+			// Refused outright (failed, money on its way back): a 400 the
+			// client can act on, with the run for reference.
+			e := httpx.Err(http.StatusBadRequest, rej.Code, rej.Message)
+			e.Details = map[string]any{"conversion_id": conv.ID}
+			httpx.WriteErr(ctx, w, e)
+			return
+		}
 		httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
 			"conversion_id", conv.ID, "err", serr)
 	} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {

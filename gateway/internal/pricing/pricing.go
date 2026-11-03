@@ -179,6 +179,11 @@ type Rates struct {
 	// LifelikeMaxSourceBytes caps a Lifelike source file (S3D-42);
 	// max_source_bytes stays Classic's. 0/absent = 25 GiB.
 	LifelikeMaxSourceBytes int64 `firestore:"lifelike_max_source_bytes"`
+	// FoveationEnabled switches the Lifelike "foveation: static" option on
+	// (S3D-50; off by default while its delivery format is worked out);
+	// FoveationPriceMultiplier scales a foveated run's price (1.3).
+	FoveationEnabled         bool    `firestore:"foveation_enabled"`
+	FoveationPriceMultiplier float64 `firestore:"foveation_price_multiplier"`
 	// LifelikeETA is the Lifelike wall-clock model — see
 	// EstimateLifelikeETA.
 	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
@@ -195,7 +200,9 @@ const MaxGPUWorkersPerJob = 8
 // encode now runs in parallel chunks, so production's tail after rendering
 // is ~150 s whatever the length (encode_tail_s); a preview encodes inline
 // in its one container (~27 s measured; preview_tail_s). Zero or missing
-// values use the defaults.
+// values use the defaults. The model has no per-preset term (conversion,
+// not output size, dominates a unit — ADR-0019), so 5k/6k/8k (S3D-48) use
+// it as measured at 4K until Spatial 3D Studio measures them.
 type LifelikeETA struct {
 	RenderGPUSecondsPerMinute float64 `firestore:"render_gpu_s_per_minute"`
 	OverheadSeconds           float64 `firestore:"overhead_s"`
@@ -589,6 +596,8 @@ type StepInputs struct {
 	Inpaint      string
 	ReuseStages  []string
 	CreditCents  int64
+	// Foveated (Lifelike only): priced × FoveationMultiplier.
+	Foveated bool
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
@@ -889,10 +898,23 @@ const (
 )
 
 // LifelikePresets are the presets Lifelike renders (no draft).
-var LifelikePresets = []string{"1080p", "qhd", "3k", "4k"}
+// 5k (2880 short side per eye), 6k (3240) and 8k (4320) since S3D-48.
+var LifelikePresets = []string{"1080p", "qhd", "3k", "4k", "5k", "6k", "8k"}
 
 func defaultLifelikePrices() map[string]int64 {
-	return map[string]int64{"1080p": 450, "qhd": 650, "3k": 800, "4k": 1000}
+	return map[string]int64{
+		"1080p": 450, "qhd": 650, "3k": 800, "4k": 1000,
+		"5k": 1300, "6k": 1600, "8k": 2200,
+	}
+}
+
+// FoveationMultiplier scales a foveated Lifelike run's price (S3D-50,
+// foveation_price_multiplier; 0/absent = 1.3).
+func (r *Rates) FoveationMultiplier() float64 {
+	if r.FoveationPriceMultiplier > 0 {
+		return r.FoveationPriceMultiplier
+	}
+	return 1.3
 }
 
 // lifelikePrice is the per-minute price of a preset; a preset missing from
@@ -916,6 +938,10 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	if !ok {
 		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
 	}
+	mult := 1.0
+	if in.Foveated {
+		mult = rates.FoveationMultiplier()
+	}
 	if in.Step == StepLifelikePreview {
 		// S3D-13: what the same frames cost in the final at this quality —
 		// the per-minute price / 1,440 per frame, times the frames the
@@ -927,25 +953,26 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			fps = fpsBase
 		}
 		frames := math.Round(in.BillableS * fps)
-		perFrame := float64(perMin) / (60 * fpsBase)
+		perFrame := float64(perMin) * mult / (60 * fpsBase)
 		cents := max(int64(math.Round(frames*perFrame)), rates.MinimumCents)
 		return &Quote{
 			AmountCents: cents,
 			Currency:    rates.Currency,
 			RateVersion: rates.RateVersion,
 			Breakdown: map[string]any{
-				"step":             in.Step,
-				"method":           MethodLifelike,
-				"preset":           in.Preset,
-				"billable_seconds": math.Round(in.BillableS*100) / 100,
-				"cents_per_minute": perMin,
-				"frames":           int64(frames),
-				"cents_per_frame":  round4(perFrame),
+				"step":                 in.Step,
+				"method":               MethodLifelike,
+				"preset":               in.Preset,
+				"billable_seconds":     math.Round(in.BillableS*100) / 100,
+				"cents_per_minute":     perMin,
+				"frames":               int64(frames),
+				"cents_per_frame":      round4(perFrame),
+				"foveation_multiplier": mult,
 			},
 		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
-	subtotal := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF))
+	subtotal := int64(math.Ceil(in.BillableS / 60 * float64(perMin) * fpsF * mult))
 	bulkDiscount := int64(0)
 	if subtotal > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(subtotal) * rates.DiscountPct))
@@ -961,6 +988,7 @@ func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		Breakdown: map[string]any{
 			"step":                 in.Step,
 			"method":               MethodLifelike,
+			"foveation_multiplier": mult,
 			"preset":               in.Preset,
 			"billable_seconds":     math.Round(in.BillableS*100) / 100,
 			"cents_per_minute":     perMin, // the PRICE rate
@@ -1075,8 +1103,13 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 				// no bulk discount
 				"preview_cents_per_frame": lifelikePerFrame,
 				"preview_seconds":         rates.LifelikePreviewSeconds(),
-				"max_source_duration_s":   rates.MaxSourceDurationFor("lifelike"),
-				"max_source_bytes":        rates.MaxSourceBytesFor("lifelike"),
+				// "foveation: static" option (S3D-50), when switched on
+				"foveation": map[string]any{
+					"enabled":          rates.FoveationEnabled,
+					"price_multiplier": rates.FoveationMultiplier(),
+				},
+				"max_source_duration_s": rates.MaxSourceDurationFor("lifelike"),
+				"max_source_bytes":      rates.MaxSourceBytesFor("lifelike"),
 			},
 			"classic": map[string]any{
 				"presets":                         ClassicPresets,

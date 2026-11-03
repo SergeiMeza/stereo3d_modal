@@ -131,15 +131,23 @@ machine, billing and settlement are the Classic ones. Its steps:
 | `production` | preset; formats ⊆ `mvhevc`/`sbs`/`half_sbs` (default `["mvhevc","half_sbs"]`); trim; `split_max_seconds` 60–3600 |
 
 Qualities (S3D-04): Lifelike keeps the source's shape and sizes by the
-short side per eye — `1080p|qhd|3k|4k` (no draft), each offered only when
+short side per eye — `1080p|qhd|3k|4k|5k|6k|8k` (no draft; 5k 2880, 6k
+3240, 8k 4320 since S3D-48), each offered only when
 the source's short side (rotation-proof, rounded down to even) reaches it.
 Between steps or below 1080 a `full` option renders the next step up (which
 Lifelike clamps to the source) and costs the step below (1080p below 1080).
 Projects and Lifelike quotes carry `qualities: [{id, label_short_side,
 preset, price_preset}]`; requests send `preset` = an id (`full`, or the
 preset `full` renders); quotes return `output_short_side`. Anything else
-above the source is 400 `preset_above_source`; nothing above 4K is built
-(bigger sources are scaled down, and Lifelike has no pixel cap). Classic-only
+above the source is 400 `preset_above_source`; nothing above 8K is built
+(bigger sources are scaled down, and Lifelike has no pixel cap). Until the
+Lifelike service renders 5k/6k/8k it refuses them: the run fails at once
+with its money returned and the create answers 400 `preset_unavailable`
+(any other Lifelike 400 at submit: `submit_rejected`). `original_eye`
+(`left`|`right`|null) passes through on Lifelike steps at the same price;
+`foveation: "static"` passes through only when the size is below the
+source's, at ×`foveation_price_multiplier`, and only while
+`foveation_enabled` is on (else 400 `feature_unavailable`). Classic-only
 knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
 `use_uploaded_depth`, `displacement`) are 400s; the project's cut list is
 always forwarded. Classic refuses `split_max_seconds` (400
@@ -224,7 +232,8 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_max_source_duration_s` | 0 (unlimited); Classic keeps `max_source_duration_s` (600) |
 | `lifelike_max_gpu_workers` | 4 (clamped to 8, like `max_gpu_workers`) |
 | `precharge_threshold_cents` | 2500 |
-| `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 |
+| `lifelike_price_cents_per_minute` | 1080p 450 · qhd 650 · 3k 800 · 4k 1000 · 5k 1300 · 6k 1600 · 8k 2200 |
+| `foveation_enabled` / `foveation_price_multiplier` | false / 1.3 |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
 | `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |

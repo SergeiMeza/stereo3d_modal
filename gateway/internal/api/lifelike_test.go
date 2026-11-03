@@ -160,8 +160,12 @@ func TestLifelikeQualities(t *testing.T) {
 		{1280, 720, "full:1080p/1080p@720"},
 		// portrait: the short side is the width
 		{1440, 2560, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440"},
-		// above 4K: everything up to 4K, nothing more (scaled down)
-		{8192, 4320, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160"},
+		// 8K: every step up to 8k (S3D-48)
+		{8192, 4320, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160 5k:5k/5k@2880 6k:6k/6k@3240 8k:8k/8k@4320"},
+		// between 4k and 5k: full renders 5k, costs 4k
+		{5120, 2560, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160 full:5k/4k@2560"},
+		// above 8K: scaled down to 8k, nothing more
+		{15360, 8640, "1080p:1080p/1080p@1080 qhd:qhd/qhd@1440 3k:3k/3k@1620 4k:4k/4k@2160 5k:5k/5k@2880 6k:6k/6k@3240 8k:8k/8k@4320"},
 	}
 	for _, tc := range cases {
 		p := lifelikeProject()
@@ -195,7 +199,8 @@ func TestLifelikeFullResolutionRequests(t *testing.T) {
 	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, lifelikeProject()); params.Quality != "4k" || params.PricePreset != "" {
 		t.Errorf("4k: %+v", params)
 	}
-	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), "invalid_request", "full")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "8k"}, lifelikeProject(), "preset_above_source", "2160p")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "12k"}, lifelikeProject(), "invalid_request", "full")
 }
 
 func TestSplitMaxSecondsRails(t *testing.T) {

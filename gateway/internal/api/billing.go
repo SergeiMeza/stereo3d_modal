@@ -44,6 +44,7 @@ const holdThresholdCents = 10000
 // sync when presets change — an unknown preset just omits the field.
 var presetOutputHeight = map[string]int{
 	"draft": 1080, "1080p": 1080, "qhd": 1440, "3k": 1620, "4k": 2160,
+	"5k": 2880, "6k": 3240, "8k": 4320, // Lifelike only (S3D-48)
 }
 
 // jobMetadataFromConversion builds the support-facing PaymentIntent
@@ -131,6 +132,8 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 		put("output_height", strconv.Itoa(h))
 	}
 	put("quality", pa.Quality)
+	put("original_eye", pa.OriginalEye)
+	put("foveation", pa.Foveation)
 	if pa.PricePreset != "" {
 		put("price_preset", pa.PricePreset)
 	}

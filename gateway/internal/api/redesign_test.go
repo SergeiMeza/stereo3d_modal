@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -282,5 +283,73 @@ func TestFailureCopy(t *testing.T) {
 	}
 	if code, _ := failureCopy(auto, "We couldn't read this video."); code != "pipeline_failed" {
 		t.Errorf("other failures: %s", code)
+	}
+}
+
+// S3D-49: original_eye passes through on lifelike steps; same price.
+func TestOriginalEye(t *testing.T) {
+	p := lifelikeProject()
+	eye := func(v string) *string { return &v }
+	for _, step := range []string{store.StepProduction, store.StepLifelikePreview} {
+		params := resolveOKP(t, &stepConvReq{Step: step, ToFrame: 120, OriginalEye: eye("left")}, p)
+		if params.OriginalEye != "left" {
+			t.Errorf("%s: %+v", step, params)
+		}
+		if b := lifelikeBody(&store.Conversion{Step: step, Params: params}, 4); b["original_eye"] != "left" {
+			t.Errorf("%s body: %v", step, b)
+		}
+	}
+	if params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, OriginalEye: nil}, p); params.OriginalEye != "" {
+		t.Error("null = both eyes rendered")
+	}
+	if _, ok := lifelikeBody(&store.Conversion{Params: store.Params{Preset: "4k"}}, 4)["original_eye"]; ok {
+		t.Error("absent unless set")
+	}
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, OriginalEye: eye("center")}, p, "invalid_request", "original_eye")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, OriginalEye: eye("left")}, proProject(), "invalid_request", "lifelike projects only")
+}
+
+// S3D-50: foveation only below the source's size, behind a switch, +30%.
+func TestFoveation(t *testing.T) {
+	p := lifelikeProject() // 3840×2160
+	params := resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "static"}, p)
+	if params.Foveation != "static" {
+		t.Fatalf("%+v", params)
+	}
+	if b := lifelikeBody(&store.Conversion{Params: params}, 4); b["foveation"] != "static" {
+		t.Errorf("body: %v", b)
+	}
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Foveation: "static"}, p, "invalid_request", "below")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "dynamic"}, p, "invalid_request", "static")
+	scope := lifelikeProject()
+	scope.Probe.Width, scope.Probe.Height = 3840, 1606
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Preset: "full", Foveation: "static"}, scope, "invalid_request", "below")
+	llResolveErr(t, &stepConvReq{Step: store.StepProduction, Foveation: "static"}, proProject(), "invalid_request", "lifelike projects only")
+
+	// the switch: off by default
+	off := &Service{Pricing: pricing.NewStatic(nil)}
+	req := &stepConvReq{Step: store.StepProduction, Preset: "1080p", Foveation: "static"}
+	if _, err := off.resolveParams(context.Background(), req, p); err == nil || err.Code != "feature_unavailable" {
+		t.Errorf("foveation_enabled false: %v", err)
+	}
+	r := pricing.Defaults()
+	r.FoveationEnabled = true
+	on := &Service{Pricing: pricing.NewStatic(r)}
+	if _, err := on.resolveParams(context.Background(), req, p); err != nil {
+		t.Errorf("foveation_enabled true: %v", err)
+	}
+	// +30% on the price
+	plain, _ := on.Pricing.QuoteLifelike(context.Background(), pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24})
+	fov, _ := on.Pricing.QuoteLifelike(context.Background(), pricing.StepInputs{Step: "production", Preset: "1080p", BillableS: 60, EffectiveFPS: 24, Foveated: true})
+	if plain.AmountCents != 450 || fov.AmountCents != 585 {
+		t.Errorf("foveation price: %d → %d", plain.AmountCents, fov.AmountCents)
+	}
+}
+
+// S3D-48: a preset Lifelike doesn't render yet comes back as a clear 400.
+func TestRejectSubmitCopy(t *testing.T) {
+	err := (&submitRejected{Code: "preset_unavailable", Message: "5K isn't available yet; choose 4K or lower"})
+	if !strings.Contains(err.Error(), "preset_unavailable") {
+		t.Error(err.Error())
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -113,6 +114,13 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 	if err != nil {
 		slog.ErrorContext(ctx, "modal submit failed",
 			"conversion_id", id, "uid", conv.UID, "err", err)
+		var up *modalapi.UpstreamError
+		if conv.Method == store.MethodLifelike && errors.As(err, &up) && up.StatusCode == http.StatusBadRequest {
+			// Lifelike refused a field (a preset it doesn't render yet,
+			// say): no retry can change that, so fail now and return the
+			// money rather than retrying until paidTTL.
+			return s.rejectSubmit(ctx, conv, up)
+		}
 		// Leave state=paid: the reconciler retries until paidTTL, then fails
 		// the conversion and releases the hold.
 		return err

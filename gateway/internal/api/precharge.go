@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -243,4 +244,46 @@ func prechargeBilling(c *store.Conversion) map[string]any {
 	// cancel_pending (refund on its way) or refund_failed (support refunds
 	// it by hand): either way the user is owed the money back.
 	return map[string]any{"status": "refund_pending", "charged_cents": c.Stripe.CapturedCents}
+}
+
+// submitRejected: the pipeline refused the run's request outright (400).
+// The conversion is already failed with its money on the way back; the
+// create request answers 400 with Code/Message instead of the record.
+type submitRejected struct {
+	Code, Message string
+	Conv          *store.Conversion
+}
+
+func (e *submitRejected) Error() string { return e.Code + ": " + e.Message }
+
+// rejectSubmit fails a paid run the Lifelike service refused at submit and
+// gives its money back (refund or release, like any failure). A preset
+// above 4K is the expected case until the service renders 5k/6k/8k
+// (S3D-48): the user is told to pick 4K or lower.
+func (s *Service) rejectSubmit(ctx context.Context, conv *store.Conversion, up *modalapi.UpstreamError) error {
+	code, msg := "submit_rejected", "This run couldn't be started with these settings"
+	if h := presetOutputHeight[conv.Params.Preset]; h > presetOutputHeight["4k"] {
+		code = "preset_unavailable"
+		msg = fmt.Sprintf("%s isn't available yet; choose 4K or lower", strings.ToUpper(conv.Params.Preset))
+	}
+	now := time.Now().UTC()
+	failed, err := s.Store.Transition(ctx, conv.ID, []string{store.StatePaid}, func(c *store.Conversion) error {
+		c.State = store.StateFailed
+		c.Modal.LastPolledAt = &now
+		c.Stripe.PIStatus = store.PICancelPending
+		c.Error = &store.Error{
+			Code:            code,
+			UserMessage:     msg + " — " + notChargedPhrase(c) + ".",
+			InternalMessage: fmt.Sprintf("submit rejected (%d): %s", up.StatusCode, up.Body),
+		}
+		return nil
+	})
+	if err != nil {
+		return err // raced (already submitted or settled): nothing to answer
+	}
+	s.Slack.ConversionFailed(ctx, conv.ID, conv.UID, "submit", "lifelike refused the submit: "+up.Body)
+	if released, rerr := s.releaseHold(ctx, failed); rerr == nil && released != nil {
+		failed = released
+	}
+	return &submitRejected{Code: code, Message: msg, Conv: failed}
 }

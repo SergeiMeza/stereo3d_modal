@@ -181,6 +181,24 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project) (store.Params, *h
 	if q.PricePreset != q.Preset {
 		params.PricePreset = q.PricePreset
 	}
+	if req.OriginalEye != nil && *req.OriginalEye != "" {
+		if *req.OriginalEye != "left" && *req.OriginalEye != "right" {
+			return params, httpx.ErrInvalid("original_eye must be left, right or null")
+		}
+		params.OriginalEye = *req.OriginalEye
+	}
+	if req.Foveation != "" {
+		if req.Foveation != "static" {
+			return params, httpx.ErrInvalid("foveation must be static")
+		}
+		// Foveation spends the source's extra pixels on the centre of view,
+		// so the output must be smaller than the source (S3D-50).
+		if short := sourceShortSide(p); short > 0 && presetOutputHeight[params.Preset] >= short {
+			return params, httpx.ErrInvalid(fmt.Sprintf(
+				"foveation needs a size below this video's own (%dp); pick a smaller quality", short))
+		}
+		params.Foveation = req.Foveation
+	}
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
 	}
@@ -250,6 +268,12 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.SplitMaxSeconds > 0 {
 		body["split_max_seconds"] = c.Params.SplitMaxSeconds
+	}
+	if c.Params.OriginalEye != "" {
+		body["original_eye"] = c.Params.OriginalEye
+	}
+	if c.Params.Foveation != "" {
+		body["foveation"] = c.Params.Foveation
 	}
 	if c.Step == store.StepLifelikePreview {
 		maxGPUWorkers = 1 // a preview runs in one container anyway
@@ -407,8 +431,8 @@ func (s *Service) HandlePublicPricing(w http.ResponseWriter, r *http.Request) {
 // upscales, so a step is offered only when the source's short side reaches
 // it; between steps (3840×1606) or below 1080 a "full" option renders the
 // next step up — which Lifelike clamps to the source — labelled with the
-// real size and priced at the step below (1080p below 1080). Nothing above
-// 4K: bigger sources are scaled down to it.
+// real size and priced at the step below (1080p below 1080). The top step
+// is 8K (S3D-48); bigger sources are scaled down to it.
 type quality struct {
 	ID string `json:"id"` // a preset, or "full"
 	// LabelShortSide is the output's short side per eye ("Full
@@ -520,6 +544,9 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	params, err := resolveStepParams(req, p)
 	if err != nil {
 		return params, err
+	}
+	if params.Foveation != "" && !s.Pricing.Rates(ctx).FoveationEnabled {
+		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "foveation is not available yet")
 	}
 	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
 		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {

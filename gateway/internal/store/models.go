@@ -173,6 +173,10 @@ type Params struct {
 	// (full resolution renders the step above and costs the step below).
 	Quality     string `firestore:"quality,omitempty" json:"quality,omitempty"`
 	PricePreset string `firestore:"price_preset,omitempty" json:"price_preset,omitempty"`
+	// Lifelike (S3D-49/50): OriginalEye keeps the source frame as that eye
+	// ("left" | "right"; "" = both rendered); Foveation "static" (or "").
+	OriginalEye string `firestore:"original_eye,omitempty" json:"original_eye,omitempty"`
+	Foveation   string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
