@@ -13,6 +13,18 @@ GET  /v1/billing                      status: saved card, delinquency, unpaid ch
 POST /v1/billing/setup-intent         → SetupIntent client_secret for onboarding card capture
 POST /v1/billing/settle               retry outstanding automatic charges on the current card
 POST /v1/billing/portal               Stripe customer portal (manage cards, receipts)
+GET  /v1/billing/history?limit=&cursor=
+                                      purchase history (S3D-57): one entry per card
+                                      charge, newest first — {id, type charge|refund,
+                                      created_at, amount_cents (refunds negative,
+                                      refund_of names the charge), currency, card_brand,
+                                      card_last4, status paid|refunded|
+                                      partially_refunded|failed|pending, receipt_url,
+                                      items: [{project_id, project_name, step
+                                      preview|production|photo, method, quality,
+                                      amount_cents, conversion_id}]}; a grouped charge
+                                      lists every run it covered; an open, uncharged
+                                      batch is not listed; next_cursor pages on
 ```
 
 Onboarding saves a card once (SetupIntent, off-session usage — Stripe's $0

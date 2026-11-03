@@ -455,6 +455,38 @@ func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID, receiptEma
 	return pi, err
 }
 
+// ChargeInfo is what a statement line shows for a PaymentIntent's charge
+// (the billing history, S3D-57).
+type ChargeInfo struct {
+	ReceiptURL     string
+	CardBrand      string
+	CardLast4      string
+	AmountRefunded int64
+}
+
+// ChargeDetails reads the PaymentIntent's latest charge: receipt link and
+// the card it went on. Empty info (no error) when the PI has no charge.
+func (c *Client) ChargeDetails(paymentIntentID string) (*ChargeInfo, error) {
+	params := &stripe.PaymentIntentParams{}
+	params.AddExpand("latest_charge")
+	pi, err := paymentintent.Get(paymentIntentID, params)
+	if err != nil {
+		return nil, err
+	}
+	info := &ChargeInfo{}
+	ch := pi.LatestCharge
+	if ch == nil {
+		return info, nil
+	}
+	info.ReceiptURL = ch.ReceiptURL
+	info.AmountRefunded = ch.AmountRefunded
+	if d := ch.PaymentMethodDetails; d != nil && d.Card != nil {
+		info.CardBrand = string(d.Card.Brand)
+		info.CardLast4 = d.Card.Last4
+	}
+	return info, nil
+}
+
 // GetPaymentIntent fetches a PI (client_secret for the web 3DS fallback,
 // status probes).
 func (c *Client) GetPaymentIntent(id string) (*stripe.PaymentIntent, error) {
