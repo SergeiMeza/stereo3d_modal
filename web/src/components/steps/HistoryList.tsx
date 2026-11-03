@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
+import { billingStatusNote } from "./ConversionTracker";
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatLength, METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
@@ -180,6 +181,11 @@ function HistoryRow({ conversion: c }: { conversion: Conversion }): JSX.Element 
       ) : null}
       {c.state === "failed" && c.error ? (
         <p className="mt-2 text-xs text-red-400">{c.error.message}</p>
+      ) : null}
+      {billingStatusNote(c) !== null ? (
+        <p data-testid="history-billing-note" className="mt-1 text-xs text-fg-muted">
+          {billingStatusNote(c)}
+        </p>
       ) : null}
     </li>
   );

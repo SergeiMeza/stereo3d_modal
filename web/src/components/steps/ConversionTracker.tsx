@@ -50,6 +50,29 @@ function cancelable(conv: Conversion): boolean {
   return Date.now() < Date.parse(conv.cancelable_until);
 }
 
+/** Plain words for a run's payment, when there is something to say:
+ * pre-charged runs (charge_timing "before") and their refunds. */
+export function billingStatusNote(conv: Conversion): string | null {
+  switch (conv.billing?.status) {
+    case "refund_pending":
+      return "Your refund is on its way — the full amount goes back to your card.";
+    case "refunded":
+      return "Refunded in full.";
+    case "not_charged":
+      return "You were not charged.";
+    case "charged":
+      return conv.charge_timing === "before" &&
+        (conv.state === "paid" || conv.state === "processing")
+        ? "Paid when the run started. Refunded in full if it fails."
+        : null;
+    default:
+      return conv.charge_timing === "before" &&
+        (conv.state === "failed" || conv.state === "canceled")
+        ? "This run was paid when it started, so it is refunded in full."
+        : null;
+  }
+}
+
 function formatEta(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const m = Math.floor(seconds / 60);
@@ -220,8 +243,9 @@ export function ConversionTracker({
       </div>
       {conv.state === "created" ? (
         <p className="mt-3 text-sm text-fg-muted" data-testid="hold-confirming">
-          Confirming the payment hold with your bank — the run starts
-          automatically once it clears.
+          {conv.charge_timing === "before"
+            ? "Confirming the payment with your bank — the run starts as soon as it clears."
+            : "Confirming the payment hold with your bank — the run starts automatically once it clears."}
         </p>
       ) : null}
       {waiting ? (
@@ -262,12 +286,12 @@ export function ConversionTracker({
       {conv.state === "failed" && conv.error ? (
         <p className="mt-3 text-sm text-red-400">{conv.error.message}</p>
       ) : null}
-      {conv.state === "failed" && conv.charge_timing === "before" ? (
-        <p className="mt-2 text-sm text-fg-muted" data-testid="refund-note">
-          This run was paid when it started, so it is refunded in full.
+      {billingStatusNote(conv) !== null ? (
+        <p className="mt-2 text-sm text-fg-muted" data-testid="billing-note">
+          {billingStatusNote(conv)}
         </p>
       ) : null}
-      {conv.state === "canceled" ? (
+      {conv.state === "canceled" && conv.charge_timing !== "before" ? (
         <p className="mt-3 text-sm text-fg-muted">
           Conversion canceled — you were not charged.
         </p>

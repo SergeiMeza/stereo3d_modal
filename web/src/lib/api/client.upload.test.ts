@@ -196,4 +196,20 @@ describe("normalizeDownloads", () => {
         .downloads,
     ).toEqual({ mvhevc_part03: "a" });
   });
+
+  it("reads the gateway's files listing for split parts", () => {
+    const d = normalizeDownloads({
+      downloads: { mvhevc_part01: "a", mvhevc_part02: "b" },
+      files: [
+        { name: "mvhevc_part01", format: "mvhevc", part: 1, filename: "Trip 3D Part 1.mov", url: "a" },
+        { name: "mvhevc_part02", format: "mvhevc", part: 2, filename: "Trip 3D Part 2.mov", url: "b" },
+      ],
+      expires_in: 60,
+    });
+    expect(d.downloads).toEqual({ mvhevc_part01: "a", mvhevc_part02: "b" });
+    expect(d.files?.map((f) => [f.format, f.part, f.filename])).toEqual([
+      ["mvhevc", 1, "Trip 3D Part 1.mov"],
+      ["mvhevc", 2, "Trip 3D Part 2.mov"],
+    ]);
+  });
 });

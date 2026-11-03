@@ -24,7 +24,7 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { ConversionTracker } from "./ConversionTracker";
+import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
 import { lifelikePresetsFor, PRESET_ABOVE_SOURCE } from "./methods";
@@ -164,12 +164,16 @@ describe("Lifelike Deliver", () => {
       CHARGE_BEFORE_COPY,
     );
 
+    mockDb.gpuWaitPolls = 1_000; // hold the GPU wait until we've seen it
     fireEvent.click(screen.getByRole("button", { name: /^Convert/ }));
-    expect(await screen.findByTestId("waiting-for-gpu")).toBeTruthy();
+    expect(
+      await screen.findByTestId("waiting-for-gpu", {}, { timeout: 3000 }),
+    ).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
+    mockDb.gpuWaitPolls = 0;
 
     expect(
-      await screen.findByText("mvhevc · Part 2", {}, { timeout: 3000 }),
+      await screen.findByText("mvhevc · Part 2", {}, { timeout: 5000 }),
     ).toBeTruthy();
     expect(screen.getByText("mvhevc · Part 1")).toBeTruthy();
     expect(sent).toHaveLength(1);
@@ -316,6 +320,43 @@ describe("ConversionTracker GPU wait", () => {
         />
       </AuthProvider>,
     );
-    expect(screen.getByTestId("refund-note")).toBeTruthy();
+    expect(screen.getByTestId("billing-note").textContent).toMatch(
+      /refunded in full/,
+    );
+  });
+
+  it("says plainly what happened to a pre-charged run's payment", () => {
+    const pre = run({ charge_timing: "before" });
+    expect(billingStatusNote({ ...pre, billing: { status: "charged" } })).toBe(
+      "Paid when the run started. Refunded in full if it fails.",
+    );
+    expect(
+      billingStatusNote({ ...pre, state: "failed", billing: { status: "refund_pending" } }),
+    ).toMatch(/refund is on its way/);
+    expect(
+      billingStatusNote({ ...pre, state: "failed", billing: { status: "refunded" } }),
+    ).toBe("Refunded in full.");
+    expect(
+      billingStatusNote({ ...pre, state: "canceled", billing: { status: "not_charged" } }),
+    ).toBe("You were not charged.");
+    expect(billingStatusNote(run())).toBeNull(); // billed after, as today
+  });
+
+  it("a pre-charged run waits for the card payment before it starts", () => {
+    render(
+      <AuthProvider>
+        <ConversionTracker
+          conversion={run({
+            state: "created",
+            charge_timing: "before",
+            billing: { status: "charge_pending" },
+          })}
+          onProjectChanged={() => {}}
+        />
+      </AuthProvider>,
+    );
+    expect(screen.getByTestId("hold-confirming").textContent).toMatch(
+      /Confirming the payment with your bank/,
+    );
   });
 });

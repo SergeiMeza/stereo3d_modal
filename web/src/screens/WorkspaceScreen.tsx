@@ -45,8 +45,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GatewayError } from "@/lib/api/client";
-import { methodOf, type Project, type Step } from "@/lib/api/types";
+import {
+  canChooseMethod,
+  methodOf,
+  type Project,
+  type Step,
+} from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLimits } from "@/lib/api/useLimits";
 
 const ANALYZE_POLL_MS = 3000;
 
@@ -151,6 +157,8 @@ export default function WorkspaceScreen({
 
   // The rail follows the project's method (classic until it has loaded).
   const method = methodOf(project);
+  // Hide the method choice when Lifelike can't be chosen (GET /v1/limits).
+  const limits = useLimits();
   const tabOrder = tabOrderFor(method);
 
   // Page switching (number keys) and the shortcuts sheet (?/Esc). The Cut
@@ -271,10 +279,12 @@ export default function WorkspaceScreen({
             Copy project id — quote this to support
           </TooltipContent>
         </Tooltip>
-        <MethodSwitchControl
-          project={project}
-          onChanged={applyProjectUpdate}
-        />
+        {canChooseMethod(limits, project) ? (
+          <MethodSwitchControl
+            project={project}
+            onChanged={applyProjectUpdate}
+          />
+        ) : null}
         {analyzing ? (
           <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
             <span
@@ -343,7 +353,9 @@ export default function WorkspaceScreen({
             <MediaTab
               project={project}
               onNavigate={setTab}
-              onProjectChanged={applyProjectUpdate}
+              onProjectChanged={
+                canChooseMethod(limits, project) ? applyProjectUpdate : undefined
+              }
             />
           ) : page === "cut" ? (
             project.analyze.state === "failed" ? (

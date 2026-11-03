@@ -10,9 +10,11 @@
  *   POST /v1/projects { gcs_key, name: filename stem, method: lifelike } →
  *   router.push(/projects/{id}).
  *
- * New projects are Lifelike 3D, so the local length check uses Lifelike's
- * cap from GET /v1/limits (methods.lifelike.max_source_duration_s, 0 =
- * unlimited). While a file goes up the dropzone shows its size, progress
+ * New projects are Lifelike 3D (GET /v1/limits default_method; Classic
+ * when Lifelike isn't available), so the local length check uses that
+ * method's cap (methods.<method>.max_source_duration_s, 0 = unlimited).
+ * The method is always sent explicitly: the gateway reads a missing one as
+ * Classic, for old clients. While a file goes up the dropzone shows its size, progress
  * and time left, and the browser asks before the tab closes. A chunked
  * upload that fails can resume where it stopped.
  *
@@ -24,8 +26,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
-import type { GatewayLimits, Method, UploadTicket } from "@/lib/api/types";
+import {
+  newProjectMethod,
+  type GatewayLimits,
+  type Method,
+  type UploadTicket,
+} from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLimits } from "@/lib/api/useLimits";
 import { formatBytes, formatTimeLeft } from "@/lib/format";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -36,9 +44,6 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const ACCEPT = ".mp4,.mov,.m4v,.webm";
-
-/** The method new projects get. */
-const NEW_PROJECT_METHOD: Method = "lifelike";
 
 /** Classic's cap, for gateways from before per-method caps (which still
  * reject longer sources up front). */
@@ -159,7 +164,6 @@ export function UploadDropzone() {
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
-  const [limits, setLimits] = useState<GatewayLimits | null>(null);
   const [interrupted, setInterrupted] = useState<Interrupted | null>(null);
   const [timeLeftS, setTimeLeftS] = useState<number | null>(null);
   // progress timing for the time-left estimate: start of this attempt and
@@ -167,21 +171,10 @@ export function UploadDropzone() {
   const timingRef = useRef<{ startedAt: number; from: number } | null>(null);
 
   const busy = phase !== "idle";
-  const maxDurationS = maxDurationFor(limits, NEW_PROJECT_METHOD);
-
-  // Per-method source caps; a failed read just skips the local check.
-  useEffect(() => {
-    let cancelled = false;
-    gateway.getLimits().then(
-      (l) => {
-        if (!cancelled) setLimits(l);
-      },
-      () => {},
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [gateway]);
+  // Per-method source caps; unknown (null) just skips the local check.
+  const limits = useLimits();
+  const method = newProjectMethod(limits);
+  const maxDurationS = maxDurationFor(limits, method);
 
   // Closing the tab mid-upload loses it: ask first.
   useEffect(() => {
@@ -229,7 +222,7 @@ export function UploadDropzone() {
       const project = await gateway.createProject({
         gcs_key: ticket.gcs_key,
         name: stem(file.name),
-        method: NEW_PROJECT_METHOD,
+        method,
       });
       track("project_created");
       upgradeSession("uploaded-video");

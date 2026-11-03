@@ -274,14 +274,22 @@ export interface ConversionError {
  * needs 3DS — complete it with confirmCardPayment(client_secret) and the
  * webhook starts the job. charge_failed (state=succeeded) means the account
  * is delinquent — new paid steps 402 with billing_overdue until
- * POST /v1/billing/settle clears the debt. */
+ * POST /v1/billing/settle clears the debt.
+ *
+ * Pre-charged runs (charge_timing "before") stay state=created until the
+ * card payment is confirmed (3DS included) and then read charged; a failed
+ * one moves to refund_pending → refunded, or not_charged when the payment
+ * never went through. */
 export interface ConversionBilling {
   status:
     | "requires_action"
     | "charge_pending"
     | "batched"
     | "charged"
-    | "charge_failed";
+    | "charge_failed"
+    | "refund_pending"
+    | "refunded"
+    | "not_charged";
   charged_cents?: number; // status === "charged"
   batch_id?: string; // status === "batched": on the account's pending balance
   client_secret?: string; // status === "requires_action"
@@ -363,8 +371,20 @@ export interface UploadTicket {
 }
 
 export interface Downloads {
-  downloads: Record<string, string>; // output name → signed GET URL
+  /** output name → signed GET URL; split runs add one key per part
+   * ("mvhevc_part02") */
+  downloads: Record<string, string>;
   expires_in: number;
+  /** every output with its part (split runs: one entry per part) */
+  files?: DownloadFile[];
+}
+
+export interface DownloadFile {
+  name: string; // the downloads key, e.g. "mvhevc_part02"
+  format: string; // "mvhevc"
+  part?: number; // 1-based, split runs only
+  filename?: string; // "<name> 3D Part 2.mov"
+  url: string;
 }
 
 export interface APIErrorBody {
@@ -384,6 +404,8 @@ export interface APIErrorBody {
 export interface MethodLimits {
   /** 0 = unlimited */
   max_source_duration_s: number;
+  /** false: the method can't be chosen right now (method_unavailable) */
+  available?: boolean;
 }
 
 export interface GatewayLimits {
@@ -394,6 +416,46 @@ export interface GatewayLimits {
   };
   /** per-method source caps; absent on gateways before Lifelike */
   methods?: Partial<Record<Method, MethodLimits>>;
+  /** the method new projects get */
+  default_method?: Method;
+  rates?: {
+    /** quotes above this are paid when the run starts */
+    precharge_threshold_cents?: number;
+  };
+}
+
+/** Whether the chooser and header switch show for a project: hidden only
+ * when the gateway says Lifelike can't be chosen and the project is
+ * Classic (nothing to switch to). Unknown limits show them. */
+export function canChooseMethod(
+  limits: GatewayLimits | null,
+  project: { method?: Method },
+): boolean {
+  if (limits === null) return true;
+  return methodAvailable(limits, "lifelike") || methodOf(project) === "lifelike";
+}
+
+/** Whether a method can be chosen now (gateways before Lifelike know only
+ * Classic). */
+export function methodAvailable(
+  limits: GatewayLimits | null,
+  method: Method,
+): boolean {
+  if (method === "classic") return limits?.methods?.classic?.available !== false;
+  return (
+    limits?.methods?.lifelike !== undefined &&
+    limits.methods.lifelike.available !== false
+  );
+}
+
+/** The method a new project gets: the gateway's default when it is
+ * available, Lifelike otherwise when available, else Classic. Unknown
+ * limits (not loaded, or failed) mean Lifelike — the gateway decides. */
+export function newProjectMethod(limits: GatewayLimits | null): Method {
+  if (limits === null) return "lifelike";
+  const preferred = limits?.default_method ?? "lifelike";
+  if (methodAvailable(limits, preferred)) return preferred;
+  return methodAvailable(limits, "lifelike") ? "lifelike" : "classic";
 }
 
 // ---------------------------------------------------------------- billing

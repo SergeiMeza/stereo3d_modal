@@ -95,3 +95,22 @@ export function lifelikePresetLabel(preset: string | undefined): string {
 /** What the customer reads for 400 preset_above_source. */
 export const PRESET_ABOVE_SOURCE =
   "That quality is higher than your video. Pick a lower one — we never upscale.";
+
+/** Friendly copy for the gateway's method-related 400 codes on quotes and
+ * runs; null for any other code (its own message is user-safe). */
+export function methodErrorCopy(code: string): string | null {
+  switch (code) {
+    case "preset_above_source":
+      return PRESET_ABOVE_SOURCE;
+    case "method_unavailable":
+      return "This 3D method isn't available right now. Please try again later, or switch methods at the top of the page.";
+    case "source_too_long_for_method":
+      return "This video is too long for Classic 3D. Switch to Lifelike 3D at the top of the page — it works with videos of any length.";
+    case "step_not_supported_for_method":
+      return "This project's 3D method has changed. Reload the page to continue.";
+    case "split_unsupported":
+      return "Splitting into parts isn't available for this method.";
+    default:
+      return null;
+  }
+}

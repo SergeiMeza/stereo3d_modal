@@ -67,9 +67,11 @@ export function useMethodSwitch(
       setError(
         e instanceof GatewayError && e.code === "source_too_long_for_method"
           ? TOO_LONG_FOR_CLASSIC
-          : e instanceof GatewayError
-            ? e.message
-            : "Couldn't change the method. Please try again.",
+          : e instanceof GatewayError && e.code === "method_unavailable"
+            ? `${METHOD_LABELS[next]} isn't available right now, so your project keeps ${METHOD_LABELS[method]}.`
+            : e instanceof GatewayError
+              ? e.message
+              : "Couldn't change the method. Please try again.",
       );
     } finally {
       setSwitching(false);

@@ -11,6 +11,7 @@ import type {
   BillingStatus,
   Conversion,
   CreateProjectRequest,
+  DownloadFile,
   Downloads,
   GatewayLimits,
   Project,
@@ -42,39 +43,73 @@ export function wantsChunkedUpload(
   );
 }
 
-/** Split outputs are named "<format>_partNN" (mvhevc_part01, …). Gateways
- * that answer a part as an object ({url, part}) or a list of entries are
- * folded back into the name → URL map under that same naming, so the rest
- * of the app reads one shape. */
+/** Split outputs are named "<format>_partNN" (mvhevc_part01, …), as in
+ * the gateway's downloads map. The gateway also lists every output in
+ * `files` ({name, format, part, filename, url}); those are folded into the
+ * same name → URL map (a part without its map key gets "<format>_partNN"),
+ * so the rest of the app reads one shape. A downloads list of entries is
+ * accepted the same way. */
 export function normalizeDownloads(raw: unknown): Downloads {
-  const body = (raw ?? {}) as { downloads?: unknown; expires_in?: number };
+  const body = (raw ?? {}) as {
+    downloads?: unknown;
+    files?: unknown;
+    expires_in?: number;
+  };
   const out: Record<string, string> = {};
-  const put = (name: string, value: unknown) => {
+  const files: DownloadFile[] = [];
+  const partKey = (base: string, part: number) =>
+    /_part\d+$/.test(base) ? base : `${base}_part${String(part).padStart(2, "0")}`;
+  const putEntry = (fallbackName: string, value: unknown) => {
     if (typeof value === "string") {
-      out[name] = value;
+      out[fallbackName] = value;
       return;
     }
-    if (value && typeof value === "object") {
-      const v = value as { url?: unknown; part?: unknown; name?: unknown };
-      if (typeof v.url !== "string") return;
-      const base = typeof v.name === "string" ? v.name : name;
-      const part = typeof v.part === "number" ? v.part : null;
-      const key =
-        part !== null && !/_part\d+$/.test(base)
-          ? `${base}_part${String(part).padStart(2, "0")}`
-          : base;
-      out[key] = v.url;
-    }
+    if (!value || typeof value !== "object") return;
+    const e = value as {
+      name?: unknown;
+      format?: unknown;
+      part?: unknown;
+      filename?: unknown;
+      url?: unknown;
+    };
+    if (typeof e.url !== "string") return;
+    const format =
+      typeof e.format === "string"
+        ? e.format
+        : typeof e.name === "string"
+          ? e.name.replace(/_part\d+$/, "")
+          : fallbackName;
+    const part = typeof e.part === "number" ? e.part : undefined;
+    const name =
+      part !== undefined
+        ? partKey(typeof e.name === "string" ? e.name : format, part)
+        : typeof e.name === "string"
+          ? e.name
+          : fallbackName;
+    out[name] = e.url;
+    files.push({
+      name,
+      format,
+      ...(part !== undefined ? { part } : {}),
+      ...(typeof e.filename === "string" ? { filename: e.filename } : {}),
+      url: e.url,
+    });
   };
   if (Array.isArray(body.downloads)) {
-    body.downloads.forEach((entry, i) => {
-      const named = (entry ?? {}) as { name?: unknown };
-      put(typeof named.name === "string" ? named.name : `output${i + 1}`, entry);
-    });
+    body.downloads.forEach((entry, i) => putEntry(`output${i + 1}`, entry));
   } else if (body.downloads && typeof body.downloads === "object") {
-    for (const [name, value] of Object.entries(body.downloads)) put(name, value);
+    for (const [name, value] of Object.entries(body.downloads)) {
+      putEntry(name, value);
+    }
   }
-  return { downloads: out, expires_in: body.expires_in ?? 0 };
+  if (Array.isArray(body.files)) {
+    body.files.forEach((entry, i) => putEntry(`file${i + 1}`, entry));
+  }
+  return {
+    downloads: out,
+    expires_in: body.expires_in ?? 0,
+    ...(files.length > 0 ? { files } : {}),
+  };
 }
 
 export class GatewayError extends Error {

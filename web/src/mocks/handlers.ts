@@ -159,6 +159,11 @@ interface DB {
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
+  /** polls a waiting run stays waiting for a GPU (tests raise it to hold
+   * the waiting state, then lower it to let the run go) */
+  gpuWaitPolls: number;
+  /** GET /v1/limits methods.<m>.available; false → method_unavailable */
+  methodAvailable: Record<Method, boolean>;
 }
 
 function seed(): DB {
@@ -187,6 +192,8 @@ function seed(): DB {
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
     nextWaitsForGpu: false,
+    methodAvailable: { lifelike: true, classic: true },
+    gpuWaitPolls: 1,
   };
 }
 
@@ -203,6 +210,8 @@ export const mockDb = {
     this.methodMaxDurationS = fresh.methodMaxDurationS;
     this.chargeBeforeCents = fresh.chargeBeforeCents;
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
+    this.methodAvailable = fresh.methodAvailable;
+    this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
   setConversionState(id: string, state: Conversion["state"]) {
@@ -212,6 +221,16 @@ export const mockDb = {
     if (state === "succeeded") {
       c.progress = 1;
       succeed(c);
+    }
+    if (
+      (state === "failed" || state === "canceled") &&
+      c.charge_timing === "before"
+    ) {
+      // pre-charged: a charged run is refunded in full, an unconfirmed one
+      // was never charged
+      c.billing = {
+        status: c.billing?.status === "charged" ? "refund_pending" : "not_charged",
+      };
     }
   },
   /** Fail a succeeded conversion's automatic charge (delinquency setup). */
@@ -510,8 +529,15 @@ function validateStepRequest(
     // than silently dropping it
     return err(
       400,
-      "invalid_request",
-      "split_max_seconds is not available for this project yet",
+      "split_unsupported",
+      "Classic 3D can't split outputs into parts yet",
+    );
+  }
+  if (step === "lifelike_preview") {
+    return err(
+      400,
+      "step_not_supported_for_method",
+      "lifelike_preview is a Lifelike 3D step",
     );
   }
   if (!["depth_preview", "stereo_preview", "production"].includes(step)) {
@@ -754,7 +780,7 @@ function validateLifelikeRequest(
   if (step !== "lifelike_preview" && step !== "production") {
     return err(
       400,
-      "invalid_request",
+      "step_not_supported_for_method",
       "Lifelike 3D projects run lifelike_preview and production only",
     );
   }
@@ -1307,6 +1333,12 @@ const LIFELIKE_TICKS: readonly { stage: string; progress: number }[] = [
 ];
 
 function tick(c: Conversion) {
+  // A pre-charged run's card payment clears on the next poll.
+  if (c.state === "created" && c.billing?.status === "charge_pending") {
+    c.state = "paid";
+    c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+    return;
+  }
   // Queued for a free GPU: one poll of waiting (stage queued, no progress)
   if (c.state === "paid" && (c.method === "lifelike" || mockDb.nextWaitsForGpu)) {
     if (c.method !== "lifelike") mockDb.nextWaitsForGpu = false;
@@ -1316,6 +1348,13 @@ function tick(c: Conversion) {
     c.waiting_for_gpu = true;
     c.queued_s = 12;
     return;
+  }
+  if (c.state === "processing" && c.waiting_for_gpu) {
+    const waited = (c.queued_s ?? 0) / 12;
+    if (waited < mockDb.gpuWaitPolls) {
+      c.queued_s = (c.queued_s ?? 0) + 12;
+      return;
+    }
   }
   if (c.method === "lifelike" && c.state === "processing") {
     c.waiting_for_gpu = false;
@@ -1506,7 +1545,11 @@ export const handlers = [
         c.billing.client_secret === client_secret
       ) {
         c.state = "paid";
-        delete c.billing; // success stamps "charged" like any hold capture
+        if (c.charge_timing === "before") {
+          c.billing = { status: "charged", charged_cents: c.quote.amount_cents };
+        } else {
+          delete c.billing; // success stamps "charged" like any hold capture
+        }
       }
     }
     for (const u of mockDb.billing.unpaid) {
@@ -1536,9 +1579,17 @@ export const handlers = [
         max_source_bytes: 20 * 1024 * 1024 * 1024,
       },
       methods: {
-        lifelike: { max_source_duration_s: mockDb.methodMaxDurationS.lifelike },
-        classic: { max_source_duration_s: mockDb.methodMaxDurationS.classic },
+        lifelike: {
+          max_source_duration_s: mockDb.methodMaxDurationS.lifelike,
+          available: mockDb.methodAvailable.lifelike,
+        },
+        classic: {
+          max_source_duration_s: mockDb.methodMaxDurationS.classic,
+          available: mockDb.methodAvailable.classic,
+        },
       },
+      default_method: "lifelike",
+      rates: { precharge_threshold_cents: mockDb.chargeBeforeCents },
     }),
   ),
 
@@ -1611,13 +1662,17 @@ export const handlers = [
     if (method !== undefined && method !== "lifelike" && method !== "classic") {
       return err(400, "invalid_request", "method must be lifelike|classic");
     }
+    if (method !== undefined && !mockDb.methodAvailable[method]) {
+      return err(400, "method_unavailable", "this 3D method isn't available right now");
+    }
     const template = structuredClone(projectFixture) as unknown as Project;
     const id = gcs_key.split("/").at(-2) ?? newId();
     const project: Project = {
       ...template,
       project_id: id,
       name: name || "Untitled project",
-      method: method ?? "lifelike",
+      // a missing method means classic: old clients never sent one
+      method: method ?? "classic",
       analyze: {
         state: "running",
         error: "",
@@ -1791,6 +1846,13 @@ export const handlers = [
     if (body.method !== undefined) {
       if (body.method !== "lifelike" && body.method !== "classic") {
         return err(400, "invalid_request", "method must be lifelike|classic");
+      }
+      if (!mockDb.methodAvailable[body.method]) {
+        return err(
+          400,
+          "method_unavailable",
+          "this 3D method isn't available right now",
+        );
       }
       const cap = mockDb.methodMaxDurationS[body.method];
       if (cap > 0 && sourceDurationS(p) > cap) {
@@ -1981,11 +2043,15 @@ export const handlers = [
       const id = newId();
       // Enters at "paid" (billing verified / hold in place), except a hold
       // demanding 3DS, which parks at "created" until __mock__/complete-3ds.
-      const needs3ds = holds && mockDb.billing.nextHoldRequiresAction;
+      // LL-D8: runs above the threshold are paid when they start; they stay
+      // "created" until the card payment is confirmed (3DS included)
+      const precharge = chargeTiming(quote.amount_cents) === "before";
+      const needs3ds =
+        (holds || precharge) && mockDb.billing.nextHoldRequiresAction;
       if (needs3ds) mockDb.billing.nextHoldRequiresAction = false;
       const conv: Conversion = {
         conversion_id: id,
-        state: needs3ds ? "created" : "paid",
+        state: needs3ds || precharge ? "created" : "paid",
         kind: "video",
         project_id: p.project_id,
         step: req.step,
@@ -2008,7 +2074,9 @@ export const handlers = [
                 publishable_key: "pk_test_mock",
               },
             }
-          : {}),
+          : precharge
+            ? { billing: { status: "charge_pending" as const } }
+            : {}),
       };
       mockDb.conversions.set(id, conv);
       if (idem) mockDb.idem.set(idem, id);
@@ -2059,14 +2127,32 @@ export const handlers = [
     // REAL published outputs from the captured draft job — the preview
     // players render the actual anaglyph/depth of the sample video.
     const real = downloadsFixture.downloads as Record<string, string>;
+    const url = (name: string) =>
+      real[name] ??
+      `https://storage.googleapis.com/mock/${c.conversion_id}/${name}.${
+        name.startsWith("mvhevc") ? "mov" : "mp4"
+      }`;
+    const projectName =
+      (c.project_id && mockDb.projects.get(c.project_id)?.name) || "video";
     return HttpResponse.json({
       downloads: Object.fromEntries(
-        (c.outputs ?? []).map((name) => [
-          name,
-          real[name] ??
-            `https://storage.googleapis.com/mock/${c.conversion_id}/${name}.mp4`,
-        ]),
+        (c.outputs ?? []).map((name) => [name, url(name)]),
       ),
+      // every output with its part, as the gateway lists them
+      files: (c.outputs ?? []).map((name) => {
+        const m = /^(.+)_part(\d+)$/.exec(name);
+        const format = m ? m[1] : name;
+        const ext = format === "mvhevc" ? "mov" : "mp4";
+        return {
+          name,
+          format,
+          ...(m ? { part: Number(m[2]) } : {}),
+          filename: m
+            ? `${projectName} 3D Part ${Number(m[2])}.${ext}`
+            : `${projectName} 3D.${ext}`,
+          url: url(name),
+        };
+      }),
       expires_in: 86400,
     });
   }),

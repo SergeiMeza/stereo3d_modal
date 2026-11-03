@@ -180,6 +180,33 @@ describe("method chooser", () => {
   });
 });
 
+describe("method availability", () => {
+  it("hides the chooser and the switch when Lifelike isn't available", async () => {
+    mockDb.methodAvailable.lifelike = false;
+    await renderWorkspace();
+    await waitFor(() =>
+      expect(screen.queryByTestId("method-switch")).toBeNull(),
+    );
+    expect(screen.queryByTestId("method-chooser")).toBeNull();
+    expect(railIds()).toContain("depth");
+  });
+
+  it("method_unavailable keeps the project's method with a plain note", async () => {
+    setMethod("lifelike");
+    mockDb.methodAvailable.classic = false;
+    await renderWorkspace();
+    fireEvent.click(
+      within(screen.getByTestId("method-card-classic")).getByRole("radio"),
+    );
+    expect(
+      await within(screen.getByTestId("method-chooser")).findByText(
+        "Classic 3D isn't available right now, so your project keeps Lifelike 3D.",
+      ),
+    ).toBeTruthy();
+    expect(mockDb.projects.get(PID)!.method).toBe("lifelike");
+  });
+});
+
 describe("History", () => {
   it("labels each run with its method", async () => {
     const base: Conversion = {

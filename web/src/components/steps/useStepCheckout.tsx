@@ -50,14 +50,13 @@ import { useBilling } from "@/lib/billing";
 
 import { stepCheckoutAtom } from "./checkoutStore";
 import { ConversionTracker, TERMINAL_STATES } from "./ConversionTracker";
-import { PRESET_ABOVE_SOURCE } from "./methods";
+import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
 import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView } from "./QuoteView";
 
 function messageOf(e: unknown): string {
-  if (e instanceof GatewayError && e.code === "preset_above_source") {
-    return PRESET_ABOVE_SOURCE;
-  }
+  const friendly = e instanceof GatewayError ? methodErrorCopy(e.code) : null;
+  if (friendly !== null) return friendly;
   return e instanceof Error ? e.message : "request failed";
 }
 
