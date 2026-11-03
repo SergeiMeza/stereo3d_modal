@@ -67,8 +67,13 @@ export default function ProjectsScreen() {
     if (showArchived) loadArchived();
   }, [showArchived, loadArchived]);
 
+  // poll while anything moves: the free analysis or a 3D run
   const anyAnalyzing =
-    projects?.some((p) => p.analyze.state === "running") ?? false;
+    projects?.some(
+      (p) =>
+        p.analyze.state === "running" ||
+        ["created", "paid", "processing"].includes(p.summary?.latest_state ?? ""),
+    ) ?? false;
 
   useEffect(() => {
     if (!anyAnalyzing) return;

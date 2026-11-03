@@ -86,20 +86,71 @@ function stubUploadFile() {
 }
 
 describe("ProjectsScreen list", () => {
-  it("renders the fixture project with scene count, timecode duration, and resolution", async () => {
+  it("renders a card with the length, method, outcome and spend (S3D-35)", async () => {
     renderScreen();
     const card = await screen.findByRole("link", {
       name: new RegExp(FIXTURE_NAME),
     });
     expect(card.getAttribute("href")).toBe(`/projects/${FIXTURE_ID}`);
-    expect(within(card).getByText(FIXTURE_SCENES)).toBeTruthy();
-    // 3587 frames @ 24/1 → 00:02:29:11 (frames.ts, not float math)
-    expect(within(card).getByText("00:02:29:11")).toBeTruthy();
-    expect(within(card).getByText("3840×2160")).toBeTruthy();
-    expect(within(card).getByText("Analyzed")).toBeTruthy();
+    expect(within(card).getByText("2:29")).toBeTruthy();
+    expect(within(card).getByTestId("card-method").textContent).toBe("Classic 3D");
+    const box = screen.getByTestId("project-card");
+    expect(within(box).getByTestId("card-state").textContent).toBe("Ready for 3D");
+    expect(within(box).getByTestId("card-spent").textContent).toBe(
+      "Nothing spent yet",
+    );
+    void FIXTURE_SCENES;
   });
 
-  it("shows a red failed badge with the analyze error", async () => {
+  it("shows a finished project's outcome and what it cost", async () => {
+    mockDb.conversions.set("c0000000done", {
+      conversion_id: "c0000000done",
+      state: "succeeded",
+      kind: "video",
+      project_id: FIXTURE_ID,
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 2025, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs"],
+      billing: { status: "charged", charged_cents: 2025 },
+      created_at: "2026-10-01T00:00:00Z",
+      updated_at: "2026-10-01T00:00:00Z",
+    });
+    renderScreen();
+    const state = await screen.findByTestId("card-state");
+    expect(state.textContent).toBe("3D ready");
+    expect(screen.getByRole("link", { name: "Files" }).getAttribute("href")).toBe(
+      `/projects/${FIXTURE_ID}#tab=files`,
+    );
+    expect(screen.getByTestId("card-spent").textContent).toBe(
+      "Spent so far $20.25",
+    );
+  });
+
+  it("a failed payment reads Payment needed with Update card", async () => {
+    mockDb.conversions.set("c0000000fail", {
+      conversion_id: "c0000000fail",
+      state: "succeeded",
+      kind: "video",
+      project_id: FIXTURE_ID,
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 988, currency: "usd" },
+      progress: 1,
+      outputs: ["sbs"],
+      billing: { status: "charge_failed" },
+      created_at: "2026-10-01T00:00:00Z",
+      updated_at: "2026-10-01T00:00:00Z",
+    });
+    renderScreen();
+    expect((await screen.findByTestId("card-state")).textContent).toBe(
+      "Payment needed",
+    );
+    expect(screen.getByRole("link", { name: "Update card" })).toBeTruthy();
+  });
+
+  it("an unreadable video says so", async () => {
     const p = mockDb.projects.get(FIXTURE_ID);
     if (!p) throw new Error("fixture project missing");
     p.analyze = {
@@ -109,12 +160,12 @@ describe("ProjectsScreen list", () => {
       credit_available: false,
     };
     renderScreen();
-    expect(
-      await screen.findByText(/Analyze failed — probe failed: unsupported codec/),
-    ).toBeTruthy();
+    expect((await screen.findByTestId("card-state")).textContent).toBe(
+      "Couldn't read this video",
+    );
   });
 
-  it("shows the running badge's stage label, percent, and eta when the gateway sends progress", async () => {
+  it("shows getting-ready progress and time left while the free analysis runs", async () => {
     const p = mockDb.projects.get(FIXTURE_ID);
     if (!p) throw new Error("fixture project missing");
     p.analyze = {
@@ -127,11 +178,10 @@ describe("ProjectsScreen list", () => {
       eta_seconds: 22,
     };
     renderScreen();
-    const badge = await screen.findByTestId("analyze-badge-running");
-    expect(badge.textContent).toContain("Building preview");
-    expect(badge.textContent).toContain("45%");
-    expect(badge.textContent).toContain("about 20 s left");
-    expect(within(badge).getByLabelText("Analyze progress")).toBeTruthy();
+    const state = await screen.findByTestId("card-state");
+    expect(state.textContent).toBe("Getting your video ready · 45%");
+    expect(screen.getByText("about 20 s left")).toBeTruthy();
+    expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 
   it("shows an empty state inviting upload when there are no projects", async () => {
@@ -155,7 +205,7 @@ describe("ProjectsScreen list", () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     try {
       renderScreen();
-      expect(await screen.findByText("Analyzing")).toBeTruthy();
+      expect(await screen.findByText("Getting your video ready")).toBeTruthy();
       // server-side: analyze finishes
       p.analyze = {
         state: "succeeded",
@@ -164,7 +214,7 @@ describe("ProjectsScreen list", () => {
         credit_available: true,
       };
       await vi.advanceTimersByTimeAsync(5000);
-      expect(await screen.findByText("Analyzed")).toBeTruthy();
+      expect(await screen.findByText("Ready for 3D")).toBeTruthy();
       expect(vi.getTimerCount()).toBe(0); // interval cleared once nothing runs
     } finally {
       vi.useRealTimers();
@@ -390,9 +440,9 @@ describe("ProjectsScreen management", () => {
     renderScreen();
     expect(await screen.findByRole("heading", { name: "Pinned" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "All projects" })).toBeTruthy();
-    const links = screen.getAllByRole("link");
-    expect(links[0].textContent).toContain("Pinned video");
-    expect(links[1].textContent).toContain(FIXTURE_NAME);
+    const cards = screen.getAllByTestId("project-card");
+    expect(cards[0].textContent).toContain("Pinned video");
+    expect(cards[1].textContent).toContain(FIXTURE_NAME);
   });
 
   it("pins a project via the pin button and re-renders it as pinned", async () => {

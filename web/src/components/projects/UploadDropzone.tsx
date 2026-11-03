@@ -21,12 +21,14 @@
  * GatewayError messages are user-safe and rendered verbatim.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
 import { GatewayError } from "@/lib/api/client";
 import {
+  methodAvailable,
   newProjectMethod,
   type GatewayLimits,
   type Method,
@@ -62,6 +64,19 @@ export function maxDurationFor(
   const perMethod = limits.methods?.[method]?.max_source_duration_s;
   if (typeof perMethod === "number") return perMethod;
   return limits.limits?.max_duration_s ?? LEGACY_MAX_DURATION_S;
+}
+
+/** "Lifelike: any length · Classic: up to 10 minutes" (S3D-05), from
+ * GET /v1/limits; one method only when the other isn't available. */
+export function lengthLimits(limits: GatewayLimits | null): string {
+  const cap = (s: number | null) =>
+    s === null || s === 0 ? "any length" : `up to ${Math.round(s / 60)} minutes`;
+  if (limits !== null && !methodAvailable(limits, "lifelike")) {
+    return cap(maxDurationFor(limits, "classic"));
+  }
+  return `Lifelike: ${cap(maxDurationFor(limits, "lifelike") ?? 0)} · Classic: ${cap(
+    maxDurationFor(limits, "classic") ?? LEGACY_MAX_DURATION_S,
+  )}`;
 }
 
 /** Only after this much progress is a time-left estimate shown. */
@@ -331,12 +346,8 @@ export function UploadDropzone() {
         <p className="text-fg">
           Drag &amp; drop a video to start a project
         </p>
-        <p className="text-xs text-fg-muted">
-          One video per project · .mp4, .mov, .m4v, or .webm ·{" "}
-          {maxDurationS === null || maxDurationS === 0
-            ? "any length"
-            : `up to ${Math.round(maxDurationS / 60)} minutes`}{" "}
-          · up to 4K
+        <p data-testid="upload-limits" className="text-xs text-fg-muted">
+          .mp4, .mov, .m4v or .webm · up to 4K · {lengthLimits(limits)}
         </p>
         <button
           type="button"
@@ -346,6 +357,9 @@ export function UploadDropzone() {
         >
           Choose video
         </button>
+        <Link href="/pricing" className="mt-1 text-xs text-primary hover:underline">
+          See prices
+        </Link>
       </div>
 
       {busy && (

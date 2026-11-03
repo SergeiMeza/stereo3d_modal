@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * One project in the list. Duration comes from the probe via
- * src/lib/frames.ts (frame doctrine: the rational fps, never the float);
- * scene count is cuts.length + 1 (cuts tile the video into N+1 scenes).
+ * One project in the list (screen 01, S3D-35): thumbnail with the length,
+ * name, method, the outcome line (getting ready, waiting in line, making
+ * 3D with progress and time left, 3D ready, payment needed, failed) and
+ * what it has cost so far (GET /v1/projects summary).
  *
  * The card body is a Link; management actions (pin/rename/archive/restore)
  * live in a SIBLING row outside the anchor — nested interactive elements
@@ -25,10 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Project, UpdateProjectRequest } from "@/lib/api/types";
-import { frameToTimecode, parseRational } from "@/lib/frames";
-
-import { AnalyzeBadge } from "./AnalyzeBadge";
+import { formatCents } from "@/components/steps/money";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  methodOf,
+  type Project,
+  type UpdateProjectRequest,
+} from "@/lib/api/types";
+import { formatTimeLeft } from "@/lib/format";
+import { METHOD_NAMES } from "@/lib/glossary";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -36,6 +43,94 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   timeZone: "UTC",
 });
+
+/** A card's outcome line (S3D-35): what is happening, or what came out. */
+export interface CardState {
+  label: string;
+  tone: "working" | "ready" | "attention" | "plain";
+  /** 0..1 when there is a bar */
+  progress?: number;
+  /** "about 12 min left" */
+  right?: string;
+  link?: { label: string; tab: string };
+}
+
+export function cardState(project: Project): CardState {
+  const a = project.analyze;
+  if (a.state === "running") {
+    const pct = a.progress !== undefined ? Math.round(a.progress * 100) : null;
+    return {
+      label: `Getting your video ready${pct !== null ? ` · ${pct}%` : ""}`,
+      tone: "plain",
+      progress: a.progress,
+      right:
+        a.eta_seconds && a.eta_seconds > 0
+          ? formatTimeLeft(a.eta_seconds)
+          : undefined,
+    };
+  }
+  if (a.state === "failed") {
+    return {
+      label: "Couldn't read this video",
+      tone: "attention",
+      link: { label: "Try again", tab: "overview" },
+    };
+  }
+  const s = project.summary;
+  switch (s?.latest_state) {
+    case "created":
+    case "paid":
+      return { label: "Waiting in line", tone: "working" };
+    case "processing": {
+      if (s.latest_waiting_for_gpu) return { label: "Waiting in line", tone: "working" };
+      const pct =
+        s.latest_progress !== undefined ? Math.round(s.latest_progress * 100) : null;
+      return {
+        label: `Making 3D${pct !== null ? ` · ${pct}%` : ""}`,
+        tone: "working",
+        progress: s.latest_progress,
+        right:
+          s.latest_eta_seconds && s.latest_eta_seconds > 0
+            ? formatTimeLeft(s.latest_eta_seconds)
+            : undefined,
+      };
+    }
+    case "succeeded":
+      return s.latest_billing_status === "charge_failed"
+        ? {
+            label: "Payment needed",
+            tone: "attention",
+            link: { label: "Update card", tab: "files" },
+          }
+        : { label: "3D ready", tone: "ready", link: { label: "Files", tab: "files" } };
+    case "failed":
+      return {
+        label: "Failed, not charged",
+        tone: "plain",
+        link: { label: "Try again", tab: "make" },
+      };
+    case "canceled":
+    case "expired":
+      return { label: "Cancelled · not charged", tone: "plain" };
+  }
+  return { label: "Ready for 3D", tone: "plain" };
+}
+
+const TONE: Record<CardState["tone"], string> = {
+  working: "border-primary/30 bg-primary/10 text-primary",
+  ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  attention: "border-red-500/30 bg-red-500/10 text-red-300",
+  plain: "border-edge bg-surface-2 text-fg-muted",
+};
+
+/** m:ss / h:mm:ss for the thumbnail corner. */
+function clock(seconds: number): string {
+  const s = Math.round(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
+}
 
 export function ProjectCard({
   project,
@@ -50,12 +145,11 @@ export function ProjectCard({
   const [busy, setBusy] = useState(false);
 
   const probe = project.probe;
-  const duration =
-    probe !== undefined
-      ? frameToTimecode(probe.num_frames, parseRational(probe.fps_rational))
-      : null;
-  const sceneCount =
-    project.scenes !== undefined ? (project.scenes.cuts ?? []).length + 1 : null;
+  const thumb = project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
+  const state = cardState(project);
+  const method = methodOf(project);
+  const spent = project.summary?.spent_cents ?? 0;
+  const href = `/projects/${project.project_id}`;
 
   const run = async (req: UpdateProjectRequest) => {
     if (onUpdate === undefined) return;
@@ -70,15 +164,24 @@ export function ProjectCard({
 
   return (
     <div
-      className={`rounded-lg border border-edge bg-surface-2 transition-colors hover:border-primary/60 ${
+      data-testid="project-card"
+      className={`flex h-full flex-col rounded-lg border border-edge bg-surface-2 transition-colors hover:border-primary/60 ${
         project.archived === true ? "opacity-50" : ""
       }`}
     >
-      <Link
-        href={`/projects/${project.project_id}`}
-        className={`group block p-4 ${onUpdate !== undefined ? "pb-2" : ""}`}
-      >
-        <div className="flex items-start justify-between gap-3">
+      <Link href={href} className="group flex gap-3 p-3.5 pb-2.5">
+        <div className="relative aspect-video w-32 shrink-0 self-start overflow-hidden rounded-md bg-black">
+          {thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={thumb} alt="" className="h-full w-full object-cover" />
+          ) : null}
+          {probe ? (
+            <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
+              {clock(probe.duration_s)}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="flex min-w-0 items-center gap-1.5 font-medium text-fg transition-colors group-hover:text-primary/80">
             {project.pinned === true ? (
               <>
@@ -88,29 +191,65 @@ export function ProjectCard({
             ) : null}
             <span className="truncate">{project.name ?? "Untitled project"}</span>
           </h2>
-          <AnalyzeBadge analyze={project.analyze} />
+          <span>
+            <Badge
+              variant="outline"
+              data-testid="card-method"
+              className={
+                method === "lifelike"
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-violet-400/30 bg-violet-400/10 text-violet-300"
+              }
+            >
+              {METHOD_NAMES[method]}
+            </Badge>
+          </span>
         </div>
-        <dl className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-fg-muted">
-          <div>
-            <dt className="sr-only">Duration</dt>
-            <dd className="font-mono text-fg">{duration ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="sr-only">Resolution</dt>
-            <dd>{probe !== undefined ? `${probe.width}×${probe.height}` : "—"}</dd>
-          </div>
-          <div>
-            <dt className="sr-only">Scenes</dt>
-            <dd>{sceneCount !== null ? `${sceneCount} scenes` : "—"}</dd>
-          </div>
-        </dl>
-        <p className="mt-3 text-xs text-fg-muted">
-          Created {DATE_FORMAT.format(new Date(project.created_at))}
-        </p>
       </Link>
 
+      <div className="flex min-h-11 flex-col justify-center gap-1.5 px-3.5 pb-3">
+        <div className="flex items-center gap-2 text-xs">
+          <Badge
+            variant="outline"
+            data-testid="card-state"
+            className={TONE[state.tone]}
+          >
+            {state.label}
+          </Badge>
+          {state.right ? (
+            <span className="ml-auto text-fg-muted">{state.right}</span>
+          ) : null}
+          {state.link ? (
+            <Link
+              href={`${href}#tab=${state.link.tab}`}
+              className="ml-auto text-primary hover:underline"
+            >
+              {state.link.label}
+            </Link>
+          ) : null}
+        </div>
+        {state.progress !== undefined ? (
+          <Progress
+            value={Math.round(Math.min(Math.max(state.progress, 0), 1) * 100)}
+            className="h-1"
+          />
+        ) : null}
+      </div>
+
+      <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
+        {spent > 0 ? (
+          <span data-testid="card-spent">
+            Spent so far{" "}
+            <span className="font-mono text-fg">{formatCents(spent)}</span>
+          </span>
+        ) : (
+          <span data-testid="card-spent">Nothing spent yet</span>
+        )}
+        <span className="ml-auto">
+          {DATE_FORMAT.format(new Date(project.created_at))}
+        </span>
       {onUpdate !== undefined ? (
-        <div className="flex items-center gap-1 px-3 pb-2 text-fg-muted">
+        <div className="flex items-center gap-0.5 text-fg-muted">
           <Button
             type="button"
             variant="ghost"
@@ -159,6 +298,7 @@ export function ProjectCard({
           )}
         </div>
       ) : null}
+      </div>
 
       <Dialog
         open={dialog === "rename"}
