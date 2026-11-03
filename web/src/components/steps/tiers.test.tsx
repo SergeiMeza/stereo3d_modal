@@ -16,6 +16,8 @@ import projectFixture from "../../../fixtures/project.json";
 import { clearStepQuotes } from "./checkoutStore";
 import { expressWaitLine } from "./ConversionTracker";
 import { expressHint, LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
+import { LifelikePreviewPanel } from "./LifelikePreviewPanel";
+import { freePreviewText } from "./useStepCheckout";
 import { bulkLabel, QuoteView, tierPriceLabel } from "./QuoteView";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 30 }));
@@ -206,5 +208,56 @@ describe("add-ons in Make 3D (pricing 2026-11)", () => {
     );
     expect(expressWaitLine(420)).toBe("Starting soon (Express). Within about 7 min.");
     expect(expressWaitLine()).toBe("Starting soon (Express).");
+  });
+});
+
+describe("free previews (pricing 2026-11)", () => {
+  function preview() {
+    const p = mockDb.projects.get(PID)!;
+    p.method = "lifelike";
+    return structuredClone({ ...p, conversions: [] });
+  }
+  beforeEach(() => {
+    mockDb.tierPricing = true;
+    resetPricingCache();
+  });
+  afterEach(() => {
+    act(() => clearStepQuotes());
+    resetPricingCache();
+  });
+
+  it("a new account's first preview is free and starts without paying", async () => {
+    render(
+      <AuthProvider>
+        <LifelikePreviewPanel project={preview()} onProjectChanged={() => {}} />
+      </AuthProvider>,
+    );
+    expect((await screen.findByTestId("free-previews")).textContent).toBe("Your first preview is free");
+    await waitFor(() => expect(screen.getByTestId("checkout-main").textContent).toBe("Preview this moment · Free"));
+    expect(screen.getByTestId("charge-timing-hint").textContent).toBe("Free preview");
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    await waitFor(() => expect(mockDb.conversions.size).toBe(1));
+    expect([...mockDb.conversions.values()][0].billing?.status).toBe("free_preview");
+    expect(screen.queryByTestId("pay-sheet")).toBeNull();
+    expect(mockDb.freePreviews.introUsed).toBe(true);
+  });
+
+  it("Pro: what's left this month", async () => {
+    mockDb.pro = true;
+    mockDb.freePreviews.used = 17;
+    render(
+      <AuthProvider>
+        <LifelikePreviewPanel project={preview()} onProjectChanged={() => {}} />
+      </AuthProvider>,
+    );
+    expect((await screen.findByTestId("free-previews")).textContent).toBe("3 of 20 free previews left this month");
+  });
+
+  it("texts", () => {
+    const base = { allowance: 20, used: 20, remaining: 0, daily_left: 20, units: 1, free: false, intro: false };
+    expect(freePreviewText(base, "month")).toBe("0 of 20 free previews left this month");
+    expect(freePreviewText({ ...base, remaining: 5, daily_left: 0 }, "month")).toBe("Today's free previews are used. More tomorrow.");
+    expect(freePreviewText({ ...base, allowance: 1, intro: true, free: false })).toBeNull();
+    expect(freePreviewText({ ...base, allowance: 240, remaining: 200 }, "year")).toBe("200 of 240 free previews left this year");
   });
 });

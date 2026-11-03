@@ -64,6 +64,7 @@ import {
   type StepQuoteResponse,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
 
@@ -398,6 +399,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
 
 /** P14: the charge line under the run button, from how it'd be paid. */
 function chargeLineFor(quote: StepQuoteResponse): string {
+  if (quote.payment_flow === "free_preview") return "Free preview";
   if (quote.spend_limit_reached) return SPEND_LIMIT_REACHED;
   if (quote.payment_flow === "balance") {
     return quote.balance?.reload_cents ? paidFromBalanceReload(quote.balance.reload_cents) : PAID_FROM_BALANCE;
@@ -411,7 +413,7 @@ function chargeLineFor(quote: StepQuoteResponse): string {
 
 /** P14: the "?" pop-over, per account state; null = the panel's own. */
 function popoverFor(quote: StepQuoteResponse | null): string | null {
-  if (quote?.spend_limit_reached) return null;
+  if (quote?.spend_limit_reached || quote?.payment_flow === "free_preview") return null;
   switch (quote?.payment_flow) {
     case "balance":
       return popBalance(quote.quote.amount_cents);
@@ -437,6 +439,42 @@ function BalanceShort({ quote }: { quote: StepQuoteResponse | null }): JSX.Eleme
       <button type="button" className="font-medium text-primary hover:underline" onClick={openAddFunds}>
         Add funds
       </button>
+    </span>
+  );
+}
+
+const PERIOD_WORDS: Record<string, string> = {
+  week: "this week",
+  month: "this month",
+  year: "this year",
+  pass: "on your pass",
+};
+
+/** "3 of 20 free previews left this month" / "Your first preview is free"
+ * (pricing 2026-11; Lifelike previews only, no rollover). */
+export function freePreviewText(fp: NonNullable<StepQuoteResponse["free_previews"]>, period?: string): string | null {
+  if (fp.intro) return fp.free ? "Your first preview is free" : null;
+  if (fp.allowance <= 0) return null;
+  if (fp.remaining > 0 && fp.daily_left < Math.max(fp.units, 1)) {
+    return "Today's free previews are used. More tomorrow.";
+  }
+  const when = PERIOD_WORDS[period ?? "month"] ?? "this month";
+  return `${fp.remaining} of ${fp.allowance} free previews left ${when}`;
+}
+
+function FreePreviewLine({ quote }: { quote: StepQuoteResponse | null }): JSX.Element | null {
+  const pricing = usePricing();
+  const fp = quote?.free_previews;
+  if (!fp) return null;
+  // the period of the allowance this account draws on
+  const fpp = pricing?.free_previews;
+  const tier = quote?.tier ?? "";
+  const key = tier === "business" || tier === "studio" ? tier : tier === "pro" ? "pro_monthly" : "intro";
+  const text = freePreviewText(fp, fpp?.periods[key]);
+  if (!text) return null;
+  return (
+    <span data-testid="free-previews" className={`text-xs ${fp.free ? "text-emerald-300" : "text-fg-muted"} tabular-nums`}>
+      {text}
     </span>
   );
 }
@@ -651,7 +689,11 @@ export function InstantCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, stopQuoting, running, quoting, quote, error]);
 
-  const price = quote ? formatCents(quote.quote.amount_cents) : null;
+  const price = quote
+    ? quote.payment_flow === "free_preview"
+      ? "Free"
+      : formatCents(quote.quote.amount_cents)
+    : null;
   const sheet = <PaySheetFor ck={ck} action={label} />;
   const chargeText = quote ? chargeLineFor(quote) : CHARGE_AFTER_COPY;
   // P14: the pop-over says how this account pays; the panel's own when the
@@ -681,6 +723,7 @@ export function InstantCheckout({
           {limitReached ? <ChangeLimit /> : null}
         </span>
         <BalanceShort quote={quote} />
+        <FreePreviewLine quote={quote} />
       </span>
     ) : null;
     return (
@@ -786,6 +829,7 @@ export function InstantCheckout({
               <QuoteView result={quote} />
             </InfoPopover>
             <BalanceShort quote={quote} />
+            <FreePreviewLine quote={quote} />
           </span>
         ) : quoting ? (
           <span className="text-xs text-fg-muted">Pricing…</span>
