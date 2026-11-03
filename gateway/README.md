@@ -617,6 +617,20 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   names the rate**: a web run (request with one of our CORS origins) on a
   source above 30 fps without `target_fps` is 422 `fps_choice_required`
   with `details.target_fps_choices`; API callers keep the default.
+- **Counted frames (VFR guard, 2026-11-04)**: when an analyze job
+  completes, the gateway counts the source's frames from the file, not
+  the header (`probe.Count`: MP4/MOV read their sample index, whose
+  entries are the packets; other containers `ffprobe -count_packets`,
+  which reads the whole file without decoding, 90 s cap). The project
+  probe adds `counted_frames` and `vfr` (counted rate > stated × 1.01).
+  Pricing uses the higher of the stated rate and counted ÷ duration; a
+  source above 120 fps either way is refused at analyze and 400
+  `source_fps_too_high` on quotes and runs. A count that fails leaves
+  the header standing (logged). At settle, a project run whose job
+  reports `video_frames` more than 1% over the frames it was quoted for
+  (length × target or priced rate) still settles at the quote; Slack
+  `frames_over_quote` and an owner-only support case
+  (`frames_over_quote`, one per run) record it.
 - **Bulk**: 10% off runs over $50 (list total), never stacked: a run gets
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay

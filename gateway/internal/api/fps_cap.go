@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"slices"
@@ -12,6 +13,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -146,7 +148,7 @@ func (s *Service) webClient(r *http.Request) bool {
 // requireFPSChoice: a web run on a source above 30 fps names its rate.
 func (s *Service) requireFPSChoice(ctx context.Context, r *http.Request, p *store.Project, requested float64) *httpx.APIError {
 	src := sourceFPS(p)
-	if requested > 0 || src <= fpsFreeMax*1.0005 || !s.webClient(r) {
+	if requested > 0 || src <= fpsFreeMax*1.0005 || src > fpsPlanMax*1.001 || !s.webClient(r) {
 		return nil
 	}
 	return errFPSChoiceRequired(fpsChoices(src, s.planFPSMax(ctx, p.UID)))
@@ -205,4 +207,82 @@ func runSeconds(c *store.Conversion) float64 {
 		return 0
 	}
 	return float64(c.Params.ToFrame-c.Params.FromFrame) / c.Source.FPS
+}
+
+// countSource counts the source's frames from the file (a variable so
+// tests can stand in for ffprobe).
+var countSource = func(ctx context.Context, s *Service, p *store.Project) (*probe.Counted, error) {
+	if s.GCS == nil || p.Source.GCSKey == "" {
+		return nil, nil
+	}
+	url, err := s.GCS.SignedGetURL(p.Source.GCSKey, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	return probe.Count(ctx, url)
+}
+
+// countedFrames is the source's counted frames, 0 when it couldn't be
+// counted (the header's then stand; the settle check still catches a run
+// that renders more than it was quoted).
+func (s *Service) countedFrames(ctx context.Context, p *store.Project) int {
+	c, err := countSource(ctx, s, p)
+	if err != nil {
+		slog.WarnContext(ctx, "source frame count failed", "project_id", p.ID, "err", err)
+		return 0
+	}
+	if c == nil {
+		return 0
+	}
+	return c.Frames
+}
+
+func countedRate(frames int, durationS float64) float64 {
+	if frames <= 0 || durationS <= 0 {
+		return 0
+	}
+	return float64(frames) / durationS
+}
+
+// quotedFrames is the output frames a run was priced for: its length
+// times the rate it renders at (0 = unknown).
+func quotedFrames(c *store.Conversion) int {
+	secs := runSeconds(c)
+	if secs <= 0 && c.Source.FPS > 0 && c.Params.ToFrame == 0 && c.Source.Frames > 0 {
+		secs = float64(c.Source.Frames-c.Params.FromFrame) / c.Source.FPS
+	}
+	fps := c.Params.TargetFPS
+	if fps <= 0 {
+		fps = max(c.Source.FPS, c.Source.PricingFPS)
+	}
+	if secs <= 0 || fps <= 0 {
+		return 0
+	}
+	return int(math.Round(secs * fps))
+}
+
+// checkFramesOverQuote: a run whose job rendered more than 1% over the
+// frames it was quoted for still settles at the quote (holds and charges
+// are the quote); the owner hears of it and a case records it for review.
+func (s *Service) checkFramesOverQuote(ctx context.Context, c *store.Conversion) {
+	quoted := quotedFrames(c)
+	if c.ProjectID == "" || c.Modal.VideoFrames <= 0 || quoted <= 0 || float64(c.Modal.VideoFrames) <= float64(quoted)*1.01 {
+		return
+	}
+	text := fmt.Sprintf("run `%s` rendered %d frames against %d quoted (+%.1f%%); settled at the quote (%s)",
+		c.ID, c.Modal.VideoFrames, quoted, 100*(float64(c.Modal.VideoFrames)/float64(quoted)-1), money(c.Quote.AmountCents))
+	slog.WarnContext(ctx, "frames over quote", "conversion_id", c.ID, "uid", c.UID,
+		"video_frames", c.Modal.VideoFrames, "quoted_frames", quoted)
+	if s.Slack != nil {
+		s.Slack.Alert(ctx, "frames_over_quote", text)
+	}
+	if s.Store == nil {
+		return
+	}
+	cs := &store.Case{UID: c.UID, Type: store.CaseSupport, Reason: "frames_over_quote", Mode: "manual",
+		Source: "system", Status: store.CaseOpen, Open: true, Currency: "usd",
+		Related: store.CaseRelated{ConversionIDs: []string{c.ID}}, DedupeKey: "frames_over_quote:" + c.ID}
+	if _, err := s.openCase(ctx, cs, "system", text); err != nil {
+		slog.ErrorContext(ctx, "frames over quote case failed", "conversion_id", c.ID, "err", err)
+	}
 }

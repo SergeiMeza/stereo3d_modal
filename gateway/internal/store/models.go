@@ -166,6 +166,9 @@ type Source struct {
 	FPS       float64 `firestore:"fps" json:"fps"`
 	Width     int     `firestore:"width" json:"width"`
 	Height    int     `firestore:"height" json:"height"`
+	// PricingFPS: the rate the run was priced at without a target (the
+	// counted rate when a VFR source's is higher than FPS; 0 = FPS).
+	PricingFPS float64 `firestore:"pricing_fps,omitempty" json:"-"`
 }
 
 // Params is the clamped, whitelisted subset forwarded to Modal. Trim and

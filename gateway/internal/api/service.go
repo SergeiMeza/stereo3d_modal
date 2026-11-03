@@ -429,6 +429,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	if updated.ProjectID != "" && updated.Kind == "video" {
 		s.foldSceneProfile(ctx, updated, job)
 	}
+	s.checkFramesOverQuote(ctx, updated)
 	switch updated.Stripe.Mode {
 	case store.BillingModeAuto:
 		return s.settleAutoCharge(ctx, updated)
@@ -941,6 +942,14 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				"this video is %d×%d — during the beta, resolution can be at most 4K (3840×2160)",
 				meta.Probe.Width, meta.Probe.Height))
 		}
+		// The frames the file really holds, not the header's claim: a
+		// variable-frame-rate source is priced at the higher rate, and
+		// one above 120 fps is refused (the job can't take it).
+		counted := s.countedFrames(ctx, p)
+		if r := max(meta.Probe.FPS, countedRate(counted, meta.Probe.Duration)); r > fpsPlanMax*1.001 {
+			return s.rejectSource(ctx, p, fmt.Sprintf(
+				"this video runs at %.0f fps; videos can be at most 120 fps", r))
+		}
 		credit := rates.AnalyzeCreditCents
 		now := time.Now().UTC()
 		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
@@ -955,6 +964,10 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				FPS: meta.Probe.FPS, FPSRational: meta.Probe.FPSRational,
 				DurationS: meta.Probe.Duration, NumFrames: meta.Probe.NumFrames,
 				BitRate: max(meta.Probe.VideoBitRate, meta.Probe.BitRate),
+			}
+			if counted > 0 {
+				pp.Probe.CountedFrames = counted
+				pp.Probe.VFR = pp.Probe.CountedFPS() > pp.Probe.FPS*1.01
 			}
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL

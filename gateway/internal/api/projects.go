@@ -1119,7 +1119,7 @@ func (s *Service) stepQuoteInputs(p *store.Project, params store.Params, step st
 	}
 	in.EffectiveFPS = params.TargetFPS
 	if in.EffectiveFPS <= 0 && p.Probe != nil {
-		in.EffectiveFPS = p.Probe.FPS
+		in.EffectiveFPS = p.Probe.PricingFPS() // VFR: the counted rate when higher
 	}
 	return in
 }
@@ -1410,6 +1410,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			GCSKey: p.Source.GCSKey, Bytes: p.Source.Bytes,
 			DurationS: probeDuration(p), Frames: probeFrames(p),
 			FPS: probeFPS(p), Width: probeWidth(p), Height: probeHeight(p),
+			PricingFPS: p.Probe.PricingFPS(),
 		},
 		Params:  params,
 		IdemKey: idemKey,

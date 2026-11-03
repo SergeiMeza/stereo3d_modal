@@ -2,13 +2,18 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -116,5 +121,125 @@ func TestFPSChoiceRequiredOnWeb(t *testing.T) {
 	}
 	if err := s.requireFPSChoice(ctx, web, fpsProject(uid, store.MethodLifelike, 30), 0); err != nil {
 		t.Fatalf("30 fps source: %v", err)
+	}
+}
+
+// analyzeJob serves one completed analyze job with the given header facts.
+func analyzeJob(t *testing.T, fps float64, frames int, dur float64) *modalapi.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		meta := map[string]any{"probe": map[string]any{"width": 1920, "height": 1080, "fps": fps, "duration": dur, "num_frames": frames}}
+		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": "completed", "metadata": meta})
+	}))
+	t.Cleanup(srv.Close)
+	return modalapi.New(srv.URL, "", "")
+}
+
+func foldWith(t *testing.T, s *Service, counted int, fps float64, frames int, dur float64) *store.Project {
+	t.Helper()
+	ctx := context.Background()
+	s.Modal = analyzeJob(t, fps, frames, dur)
+	prev := countSource
+	countSource = func(context.Context, *Service, *store.Project) (*probe.Counted, error) {
+		if counted == 0 {
+			return nil, nil
+		}
+		return &probe.Counted{Frames: counted, DurationS: dur, Method: "packets"}, nil
+	}
+	t.Cleanup(func() { countSource = prev })
+	p := &store.Project{ID: store.NewID(), UID: "u" + store.NewID(), Method: store.MethodLifelike,
+		Source: store.Source{GCSKey: "k", Bytes: 1 << 20}, Analyze: store.Analyze{State: store.AnalyzeRunning, JobID: "j1"}}
+	if err := s.Store.CreateProject(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.refreshAnalyze(ctx, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+// VFR: priced at the counted rate when it's higher than the stated one;
+// a header that understates its frames is caught by the count; above
+// 120 counted fps the source is refused.
+func TestCountedFramesGuard(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+
+	// avg 30 stated, bursts: 135 frames in 3 s counted = 45 fps
+	vfr := foldWith(t, s, 135, 30, 90, 3)
+	if vfr.Analyze.State != store.AnalyzeSucceeded || vfr.Probe.CountedFrames != 135 || !vfr.Probe.VFR || vfr.Probe.PricingFPS() != 45 {
+		t.Fatalf("vfr %+v %+v", vfr.Analyze, vfr.Probe)
+	}
+	plain := foldWith(t, s, 90, 30, 90, 3)
+	if plain.Probe.VFR || plain.Probe.PricingFPS() != 30 {
+		t.Fatalf("cfr %+v", plain.Probe)
+	}
+	// the VFR source prices above the same clip at its stated rate
+	end := time.Now().Add(20 * 24 * time.Hour)
+	for _, p := range []*store.Project{vfr, plain} {
+		s.Store.PutCustomer(ctx, p.UID, &store.Customer{StripeCustomerID: "cus_1",
+			Plan: &store.Plan{Tier: "studio", SubscriptionID: "sub_" + p.UID, Status: "active", CurrentPeriodEnd: &end}})
+	}
+	q := func(p *store.Project) int64 {
+		params, err := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction, Preset: "1080p"}, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		qq, _, qerr := s.quoteStep(ctx, p, params, store.StepProduction, 0)
+		if qerr != nil {
+			t.Fatal(qerr)
+		}
+		return qq.AmountCents
+	}
+	if a, b := q(vfr), q(plain); a <= b {
+		t.Fatalf("vfr %d not above cfr %d", a, b)
+	}
+
+	// lying header: 30 fps / 60 frames stated, 300 frames in 2 s counted
+	lying := foldWith(t, s, 300, 30, 60, 2)
+	if lying.Analyze.State != store.AnalyzeFailed || !strings.Contains(lying.Analyze.Error, "150 fps") {
+		t.Fatalf("lying header %+v", lying.Analyze)
+	}
+	// a project folded before the count, priced from a probe above 120
+	old := lifelikeProject()
+	old.Probe.CountedFrames, old.Probe.DurationS = 13000, 100
+	if err := methodSourceError(s.Pricing.Rates(ctx), old, store.MethodLifelike); err == nil || err.Code != "source_fps_too_high" {
+		t.Fatalf("too high: %v", err)
+	}
+	// a count that fails leaves the header standing
+	if p := foldWith(t, s, 0, 30, 90, 3); p.Analyze.State != store.AnalyzeSucceeded || p.Probe.CountedFrames != 0 {
+		t.Fatalf("no count %+v", p.Probe)
+	}
+}
+
+// A job that renders more than 1% over its quoted frames still settles at
+// the quote; a frames_over_quote case records it.
+func TestFramesOverQuote(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	c := &store.Conversion{ID: store.NewID(), UID: "u" + store.NewID(), ProjectID: "p1", Kind: "video",
+		Source: store.Source{FPS: 30, Frames: 900}, Params: store.Params{FromFrame: 0, ToFrame: 900},
+		Quote: store.Quote{AmountCents: 1200}}
+	if quotedFrames(c) != 900 {
+		t.Fatalf("quoted %d", quotedFrames(c))
+	}
+	c.Modal.VideoFrames = 905 // within 1%
+	s.checkFramesOverQuote(ctx, c)
+	if cs, _ := s.Store.ListCasesByConversion(ctx, c.ID, 5); len(cs) != 0 {
+		t.Fatalf("within 1%%: %v", cs)
+	}
+	c.Modal.VideoFrames = 1350 // a 45 fps VFR source priced at 30
+	s.checkFramesOverQuote(ctx, c)
+	s.checkFramesOverQuote(ctx, c) // once per run
+	cs, _ := s.Store.ListCasesByConversion(ctx, c.ID, 5)
+	if len(cs) != 1 || cs[0].Reason != "frames_over_quote" || cs[0].Type != store.CaseSupport || cs[0].CustomerVisible {
+		t.Fatalf("cases %+v", cs)
+	}
+	// a target rate prices its own frames
+	c.Params.TargetFPS = 15
+	if quotedFrames(c) != 450 {
+		t.Fatalf("target %d", quotedFrames(c))
 	}
 }

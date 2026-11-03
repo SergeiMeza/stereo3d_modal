@@ -277,7 +277,7 @@ func effectiveFPS(p *store.Project, params store.Params) float64 {
 		return params.TargetFPS
 	}
 	if p.Probe != nil {
-		return p.Probe.FPS
+		return p.Probe.PricingFPS() // VFR: the counted rate when higher
 	}
 	return 0
 }

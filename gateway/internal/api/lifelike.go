@@ -78,6 +78,10 @@ func methodSourceError(rates *pricing.Rates, p *store.Project, method string) *h
 	if err := sourceBytesError(rates, p.Source.Bytes, method); err != nil {
 		return err
 	}
+	if f := p.Probe.PricingFPS(); f > fpsPlanMax*1.001 {
+		return httpx.ErrSource("source_fps_too_high", fmt.Sprintf(
+			"This video runs at %.0f fps. Videos can be at most 120 fps.", f))
+	}
 	maxS := rates.MaxSourceDurationFor(method)
 	if p.Probe == nil || maxS <= 0 || p.Probe.DurationS <= maxS {
 		return nil
