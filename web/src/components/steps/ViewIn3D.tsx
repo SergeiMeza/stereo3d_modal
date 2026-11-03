@@ -57,10 +57,13 @@ export function useClient(): Client {
 export function ViewIn3D({
   files,
   size = "sm",
+  hideHint = false,
 }: {
   /** a run's files: format (downloads key) → URL; null while loading */
   files: Partial<Record<string, string>> | null;
-  size?: "xs" | "sm";
+  size?: "xs" | "sm" | "lg";
+  /** hide the one-line player hint (the page shows it once) */
+  hideHint?: boolean;
 }): JSX.Element | null {
   const client = useClient();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -102,7 +105,7 @@ export function ViewIn3D({
 
   if (!choice) return null;
   const label = choice.stereo ? "View in 3D" : "Full screen";
-  const hint = choice.stereo ? HEADSET_HINT[client] : undefined;
+  const hint = choice.stereo && !hideHint ? HEADSET_HINT[client] : undefined;
 
   function play(): void {
     const v = videoRef.current;
@@ -129,7 +132,7 @@ export function ViewIn3D({
         <span data-testid="view-in-3d-hint" className="text-[11px] text-fg-muted">
           {hint}
         </span>
-      ) : client === "vision" && !choice.stereo ? (
+      ) : client === "vision" && !choice.stereo && !hideHint ? (
         <span data-testid="view-in-3d-hint" className="text-[11px] text-fg-muted">
           Plays flat here. Vision Pro spatial video plays in 3D.
         </span>

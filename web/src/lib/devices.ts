@@ -17,7 +17,13 @@ export interface DevicePage {
   lines: string[];
   /** "ready for" instead of "works with" */
   upcoming?: string;
+  /** one line on the file it uses */
+  fileNote?: string;
 }
+
+const NOTE_SBS = `A ${FORMAT_NAMES.sbs} file: one picture for each eye.`;
+const NOTE_HALF = `A ${FORMAT_NAMES.half_sbs} file: one picture for each eye, each squeezed to half width.`;
+const NOTE_SPATIAL = `A ${FORMAT_NAMES.mvhevc} file: plays in 3D in Photos.`;
 
 const SBS = FORMAT_NAMES.sbs;
 const HALF = FORMAT_NAMES.half_sbs;
@@ -29,8 +35,9 @@ function glasses(slug: string, name: string): DevicePage {
     name,
     title: `Watch 3D videos on ${name} glasses`,
     description: `Turn your 2D videos into side-by-side 3D and watch them on ${name} glasses.`,
+    fileNote: NOTE_SBS,
     lines: [
-      `Choose ${SBS} when you make your video 3D.`,
+      `Make any video 3D and pick the ${SBS} file.`,
       "Play it on the phone or computer your glasses are connected to.",
       "Switch the glasses to 3D (SBS) mode.",
       "Play the video full screen.",
@@ -45,8 +52,9 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     title: "Watch 3D videos on Apple Vision Pro",
     description:
       "Turn your 2D videos into spatial video and watch them in 3D on Apple Vision Pro.",
+    fileNote: NOTE_SPATIAL,
     lines: [
-      `Choose ${SPATIAL} when you make your video 3D.`,
+      `Make any video 3D and pick the ${SPATIAL} file.`,
       "Download it on Vision Pro, or AirDrop it from your iPhone or Mac.",
       "Open it in Files or Photos. It plays in 3D.",
       "Or open this site in Safari on Vision Pro and select View in 3D.",
@@ -58,10 +66,11 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     title: "Watch 3D videos on Samsung Galaxy XR",
     description:
       "Turn your 2D videos into side-by-side 3D and watch them on Samsung Galaxy XR.",
+    fileNote: NOTE_SBS,
     lines: [
-      `Choose ${SBS} when you make your video 3D.`,
-      "Download it on the headset.",
-      "Open it in Gallery or Files and choose 3D side by side.",
+      `Make any video 3D and pick the ${SBS} file.`,
+      "Copy it to the headset, or download it there.",
+      "Open it in Gallery or Files, then choose 3D side-by-side.",
     ],
   },
   {
@@ -70,8 +79,9 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     title: "Watch 3D videos on Meta Quest",
     description:
       "Turn your 2D videos into side-by-side 3D and watch them on Meta Quest.",
+    fileNote: NOTE_HALF,
     lines: [
-      `Choose ${HALF} when you make your video 3D.`,
+      `Make any video 3D and pick the ${HALF} file.`,
       "Open this site in the Meta Quest Browser and select View in 3D, or open the file in a video player.",
       "In the player, choose 3D side by side.",
     ],
@@ -81,8 +91,9 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     name: "Pico",
     title: "Watch 3D videos on Pico",
     description: "Turn your 2D videos into side-by-side 3D and watch them on Pico.",
+    fileNote: NOTE_SBS,
     lines: [
-      `Choose ${SBS} when you make your video 3D.`,
+      `Make any video 3D and pick the ${SBS} file.`,
       "Open this site in the Pico Browser and select View in 3D, or open the file in a video player.",
       "In the player, choose 3D left and right (side by side).",
     ],
@@ -93,8 +104,9 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     title: "Watch 3D videos on Steam Frame",
     description:
       "Turn your 2D videos into side-by-side 3D and watch them on Steam Frame.",
+    fileNote: NOTE_SBS,
     lines: [
-      `Choose ${SBS} when you make your video 3D.`,
+      `Make any video 3D and pick the ${SBS} file.`,
       "Copy it to the headset and open it in a video player.",
       "In the player, choose 3D side by side.",
     ],

@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DevicePrice } from "@/components/landing/DevicePrice";
 import { DEVICE_PAGES, devicePage } from "@/lib/devices";
 
 export const dynamicParams = false;
@@ -41,6 +42,12 @@ export default async function DevicePageRoute({
   const others = DEVICE_PAGES.filter((o) => o.slug !== d.slug);
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-14 sm:py-20">
+      <nav aria-label="Breadcrumb" className="text-xs text-fg-muted">
+        <Link href="/" className="hover:text-fg">
+          Stereo3D Studio
+        </Link>{" "}
+        / Devices / <span className="text-fg">{d.name}</span>
+      </nav>
       <div className="flex flex-col gap-3">
         <p className="text-xs font-medium tracking-widest text-primary uppercase">
           {d.upcoming ? `Ready for ${d.name}` : `Works with ${d.name}`}
@@ -59,16 +66,20 @@ export default async function DevicePageRoute({
           </li>
         ))}
       </ol>
-      <div>
-        <Link
-          href="/projects"
-          className="inline-block rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-        >
-          Make your video 3D
-        </Link>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-4">
+          <Link
+            href="/projects"
+            className="inline-block rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          >
+            Make your video 3D
+          </Link>
+          <DevicePrice />
+        </div>
+        {d.fileNote ? <p className="text-xs text-fg-muted">{d.fileNote}</p> : null}
       </div>
       <nav aria-label="Other devices" className="border-t border-edge pt-6 text-sm text-fg-muted">
-        <span className="mr-2">Also:</span>
+        <span className="mr-2">Other devices:</span>
         {others.map((o, i) => (
           <span key={o.slug}>
             {i > 0 ? " · " : ""}

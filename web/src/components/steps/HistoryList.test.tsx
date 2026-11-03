@@ -158,3 +158,28 @@ describe("Files (screen 09)", () => {
     await vi.waitFor(() => expect(fetches).toHaveLength(2));
   });
 });
+
+describe("Files in a headset browser (S3D-47, screen 13b)", () => {
+  it("puts this headset's files first with View in 3D on every row and one hint", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 OculusBrowser/35.1.0.0 Chrome/126.0.0.0 VR Safari/537.36",
+    );
+    renderWithHistory([
+      {
+        ...SUCCEEDED,
+        step: "production",
+        params: { preset: "1080p", formats: ["mvhevc", "half_sbs"] },
+        outputs: ["mvhevc", "half_sbs"],
+      },
+    ]);
+    const files = await screen.findByTestId("run-files");
+    const mine = within(files).getByTestId("file-group-half_sbs");
+    expect(within(mine).getByText("This headset")).toBeDefined();
+    expect(within(mine).getAllByTestId("view-in-3d")[0].textContent).toBe("View in 3D");
+    expect(within(files).getAllByTestId("view-in-3d-hint")).toHaveLength(1);
+    // the Vision Pro file folds away
+    const others = within(files).getByTestId("other-files") as HTMLDetailsElement;
+    expect(others.open).toBe(false);
+    expect(within(others).getByTestId("file-group-mvhevc")).toBeDefined();
+  });
+});

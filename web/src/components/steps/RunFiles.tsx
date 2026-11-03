@@ -12,13 +12,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, MouseEvent } from "react";
 
-import type { Conversion, DownloadFile, Downloads, Step } from "@/lib/api/types";
+import type { Conversion, DownloadFile, Downloads, Format, Step } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { formatBytes } from "@/lib/format";
 import { outputName } from "@/lib/glossary";
+import { HEADSET_HINT, isHeadset, stereoFormatsFor } from "@/lib/headset";
 
 import { splitPart, stepDownloads } from "./DownloadsList";
-import { ViewIn3D } from "./ViewIn3D";
+import { useClient, ViewIn3D } from "./ViewIn3D";
 
 interface DeviceGroupCopy {
   device: string;
@@ -170,6 +171,7 @@ export function RunFiles({
   conversion: Conversion;
 }): JSX.Element {
   const { files, error, expired, freshUrl } = useRunFiles(conversion);
+  const client = useClient();
   if (error) return <p className="text-xs text-red-400">{error}</p>;
   if (files === null) {
     return <p className="text-xs text-fg-muted">Fetching your files…</p>;
@@ -192,52 +194,94 @@ export function RunFiles({
     });
   }
 
+  // S3D-47 (screen 13b): in a headset browser the files that headset
+  // shows in 3D come first as "This headset", each row with View in 3D
+  // and one hint line for the page; the other files fold away
+  const headsetFormats = stereoFormatsFor(client);
+  const groups = groupFiles(files);
+  const mine = groups.filter(([f]) => headsetFormats.includes(f as Format));
+  const others = groups.filter(([f]) => !headsetFormats.includes(f as Format));
+  const onHeadset = isHeadset(client) && mine.length > 0;
+
+  function group([format, list]: [string, DownloadFile[]], thisHeadset: boolean): JSX.Element {
+    const g = deviceGroup(format, conversion.step);
+    return (
+      <section
+        key={format}
+        data-testid={`file-group-${format}`}
+        className="flex flex-col gap-1.5 rounded-lg border border-edge bg-surface-0 p-3"
+      >
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <h4 className="text-sm font-medium text-fg">{g.device}</h4>
+          {thisHeadset ? (
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2 text-[11px] text-primary">
+              This headset
+            </span>
+          ) : (
+            <span className="text-xs text-fg-muted">{g.how}</span>
+          )}
+        </div>
+        <ul className="flex flex-col gap-1">
+          {list.map((f) => (
+            <li
+              key={f.name}
+              className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${thisHeadset ? "text-sm" : "text-xs"}`}
+            >
+              <span className="w-12 shrink-0 text-fg-muted">
+                {f.part ? `Part ${f.part}` : preview ? "Clip" : "Full"}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-mono text-fg">
+                {f.filename ?? outputName(f.name)}
+              </span>
+              {f.size_bytes !== undefined ? (
+                <span className="text-fg-muted">{formatBytes(f.size_bytes)}</span>
+              ) : null}
+              {thisHeadset ? (
+                <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint />
+              ) : null}
+              <a
+                href={f.url}
+                download={f.filename ?? true}
+                onClick={(e) => open(e, f.name)}
+                className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
+              >
+                {preview && !thisHeadset ? "Play" : "Download"}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  if (onHeadset) {
+    return (
+      <div data-testid="run-files" className="flex flex-col gap-3">
+        {HEADSET_HINT[client] ? (
+          <p data-testid="view-in-3d-hint" className="text-sm text-fg-muted">
+            {HEADSET_HINT[client]}
+          </p>
+        ) : null}
+        {mine.map((g) => group(g, true))}
+        {others.length > 0 ? (
+          <details data-testid="other-files">
+            <summary className="cursor-pointer text-sm text-fg-muted">
+              {others.map(([f]) => deviceGroup(f, conversion.step).device).join(", ")} files (
+              {others.reduce((n, [, l]) => n + l.length, 0)})
+            </summary>
+            <div className="mt-2 flex flex-col gap-3">{others.map((g) => group(g, false))}</div>
+          </details>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div data-testid="run-files" className="flex flex-col gap-3">
       <div>
         <ViewIn3D files={byFormat} />
       </div>
-      {groupFiles(files).map(([format, list]) => {
-        const g = deviceGroup(format, conversion.step);
-        return (
-          <section
-            key={format}
-            data-testid={`file-group-${format}`}
-            className="flex flex-col gap-1.5 rounded-lg border border-edge bg-surface-0 p-3"
-          >
-            <div className="flex flex-wrap items-baseline gap-x-2">
-              <h4 className="text-sm font-medium text-fg">{g.device}</h4>
-              <span className="text-xs text-fg-muted">{g.how}</span>
-            </div>
-            <ul className="flex flex-col gap-1">
-              {list.map((f) => (
-                <li
-                  key={f.name}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
-                >
-                  <span className="w-12 shrink-0 text-fg-muted">
-                    {f.part ? `Part ${f.part}` : preview ? "Clip" : "Full"}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-fg">
-                    {f.filename ?? outputName(f.name)}
-                  </span>
-                  {f.size_bytes !== undefined ? (
-                    <span className="text-fg-muted">{formatBytes(f.size_bytes)}</span>
-                  ) : null}
-                  <a
-                    href={f.url}
-                    download={f.filename ?? true}
-                    onClick={(e) => open(e, f.name)}
-                    className="text-primary hover:underline"
-                  >
-                    {preview ? "Play" : "Download"}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      {groups.map((g) => group(g, false))}
     </div>
   );
 }
