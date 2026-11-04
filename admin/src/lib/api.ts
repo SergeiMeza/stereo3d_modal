@@ -9,6 +9,9 @@ import type {
   OnboardingHeadsets,
   PlansSurfaces,
   FeedbackList,
+  Grant,
+  GrantBody,
+  RevokeResult,
   OpenCaseBody,
   PolicyResponse,
   Tab,
@@ -68,7 +71,7 @@ export class AdminApi {
   }
 
   private async send(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     body: unknown,
     force: boolean,
@@ -93,7 +96,7 @@ export class AdminApi {
   }
 
   private async raw(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     body?: unknown,
   ): Promise<Response> {
@@ -134,7 +137,7 @@ export class AdminApi {
   }
 
   private async json<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     body?: unknown,
   ): Promise<T> {
@@ -165,6 +168,30 @@ export class AdminApi {
 
   openCase(body: OpenCaseBody): Promise<{ cases: CasePage[] | null }> {
     return this.json("POST", "/v1/admin/cases", body);
+  }
+
+  /** Grant Pro (gateway 00106): an account's grants. */
+  listGrants(uid: string): Promise<{ grants: Grant[] | null }> {
+    return this.json("GET", `/v1/admin/accounts/${encodeURIComponent(uid)}/grants`);
+  }
+
+  /** 201 {grant}; 401 reauth_required; 502 grant_failed (details.grant);
+   * 503 rc_unavailable. */
+  async createGrant(uid: string, body: GrantBody): Promise<Grant> {
+    const r = await this.json<{ grant: Grant }>("POST", `/v1/admin/accounts/${encodeURIComponent(uid)}/grants`, body);
+    return r.grant;
+  }
+
+  /** 200, or 202 when some regrants wait for tonight's retry; 409
+   * grant_not_active. */
+  async revokeGrant(uid: string, id: string, reason: string): Promise<RevokeResult & { partial: boolean }> {
+    const res = await this.raw(
+      "DELETE",
+      `/v1/admin/accounts/${encodeURIComponent(uid)}/grants/${encodeURIComponent(id)}`,
+      { reason },
+    );
+    const body = (await res.json()) as RevokeResult;
+    return { ...body, partial: res.status === 202 };
   }
 
   getAccount(uid: string): Promise<AccountPage> {
@@ -224,10 +251,14 @@ async function toApiError(res: Response): Promise<ApiError> {
   const code = typeof body.error === "string" ? body.error : `http_${res.status}`;
   const message =
     typeof body.message === "string" ? body.message : `HTTP ${res.status}`;
+  const extra = body as Record<string, unknown>;
   const details =
     body.details && typeof body.details === "object"
       ? (body.details as Record<string, unknown>)
-      : null;
+      : // 502 grant_failed carries the failed grant beside the message
+        extra.grant && typeof extra.grant === "object"
+        ? { grant: extra.grant }
+        : null;
   return new ApiError(res.status, code, message, details);
 }
 

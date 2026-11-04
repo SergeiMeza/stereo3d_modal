@@ -8,6 +8,7 @@ import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
 import type { AccountAction, AccountActionBody, AccountPage as Page } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
+import { GrantsSection, PromoRegrants } from "./Grants";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
 export function AccountLookup() {
@@ -241,6 +242,9 @@ export function AccountPage({ uid }: { uid: string }) {
           </table>
         )}
       </section>
+
+      <GrantsSection uid={a.uid} initial={p.grants ?? []} />
+      <PromoRegrants rows={p.promo_regrants ?? []} />
 
       <section className="card">
         <div className="sh"><b>Balance ledger</b><span className="xs muted">latest 50</span></div>

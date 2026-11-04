@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -105,6 +105,174 @@ describe("account page (A3)", () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === "POST")?.body).toEqual({ action: "adjust_balance", cents: -500, case_id: "CASE-0042", note: "goodwill" }),
     );
+  });
+});
+
+describe("grants (00106)", () => {
+  const account = {
+    account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+    billing_state: { flow_state: "ok", sheet_only: false, lifetime_paid_cents: 0 },
+    owed_cents: 0,
+    balance: null,
+    methods: null,
+    cases: null,
+    charges: null,
+    refunds: null,
+    ledger: null,
+  };
+  const grant = (over: Record<string, unknown> = {}) => ({
+    id: "gr_1",
+    uid: "uid_123",
+    entitlement: "pro",
+    ends_at: "2026-12-04T10:00:00Z",
+    granted_by: "owner@example.com",
+    reason: "creator partnership",
+    created_at: "2026-11-04T10:00:00Z",
+    status: "active",
+    ...over,
+  });
+
+  it("lists grants with status chips; Revoke only on active ones", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          grants: [
+            grant(),
+            grant({ id: "gr_2", status: "failed", rc_error: "subscriber not found", created_at: "2026-11-03T10:00:00Z" }),
+            grant({ id: "gr_3", status: "revoked", revoked_by: "owner@example.com", revoke_reason: "ended early", created_at: "2026-11-02T10:00:00Z" }),
+          ],
+          promo_regrants: [{ id: "pr_1", status: "regranted", entitlement: "pro", ends_at: "2027-01-01T00:00:00Z" }],
+        },
+      }),
+    });
+    const active = await screen.findByTestId("grant-gr_1");
+    expect(active).toHaveTextContent("Active");
+    expect(within(active).getByRole("button", { name: "Revoke…" })).toBeInTheDocument();
+    const failed = screen.getByTestId("grant-gr_2");
+    expect(failed).toHaveTextContent("Failed");
+    expect(failed).toHaveTextContent("subscriber not found");
+    expect(within(failed).queryByRole("button", { name: "Revoke…" })).toBeNull();
+    expect(screen.getByTestId("grant-gr_3")).toHaveTextContent("ended early");
+    expect(screen.getByTestId("promo-regrants")).toHaveTextContent("Regranted");
+  });
+
+  it("grants Pro for a preset with a reason, signing in again when asked", async () => {
+    let posts = 0;
+    const auth = new FakeAuth();
+    const { calls } = renderApp(
+      "/accounts/uid_123",
+      {
+        "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, grants: [] } }),
+        "POST /v1/admin/accounts/uid_123/grants": ({ body }) => {
+          posts++;
+          if (posts === 1) return apiError(401, "reauth_required", "again");
+          const b = body as { entitlement: string; ends_at: string; reason: string };
+          return { status: 201, json: { grant: grant({ id: "gr_9", entitlement: b.entitlement, ends_at: b.ends_at, reason: b.reason }) } };
+        },
+      },
+      auth,
+    );
+    expect(await screen.findByText("No grants.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Grant Pro…" }));
+    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    const submit = within(sheet).getByRole("button", { name: "Grant Pro" });
+    expect(submit).toBeDisabled(); // reason required
+    await userEvent.selectOptions(within(sheet).getByLabelText("Entitlement"), "business");
+    await userEvent.click(within(sheet).getByLabelText("1 week"));
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "conference speaker");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Grant Business" }));
+    const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await userEvent.click(within(reauth).getByRole("button", { name: "Sign in with Google" }));
+    await waitFor(() => expect(posts).toBe(2));
+    expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
+    const body = calls.filter((c) => c.method === "POST").at(-1)!.body as { entitlement: string; ends_at: string; reason: string };
+    expect(body.entitlement).toBe("business");
+    expect(body.reason).toBe("conference speaker");
+    const days = (Date.parse(body.ends_at) - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(6.9);
+    expect(days).toBeLessThan(7.1);
+    expect(await screen.findByTestId("grant-gr_9")).toHaveTextContent("Business");
+    expect(screen.getByRole("status")).toHaveTextContent("Business granted until");
+  });
+
+  it("a custom end date outside 1 hour to 5 years can't be sent", async () => {
+    renderApp("/accounts/uid_123", { "GET /v1/admin/accounts/uid_123": () => ({ json: account }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
+    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    await userEvent.click(within(sheet).getByLabelText("Custom"));
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "test");
+    const date = within(sheet).getByLabelText(/End date/);
+    await userEvent.type(date, "2040-01-01");
+    expect(within(sheet).getByText("Pick a date from 1 hour to 5 years ahead.")).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Grant Pro" })).toBeDisabled();
+  });
+
+  it("502 grant_failed shows the message and keeps the failed record", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: account }),
+      "POST /v1/admin/accounts/uid_123/grants": () => ({
+        status: 502,
+        json: {
+          success: false,
+          error: "grant_failed",
+          message: "RevenueCat said no",
+          grant: grant({ id: "gr_f", status: "failed", rc_error: "RevenueCat said no" }),
+        },
+      }),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
+    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "support");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Grant Pro" }));
+    expect(await screen.findByTestId("grant-gr_f")).toHaveTextContent("Failed");
+    expect(screen.getByRole("status")).toHaveTextContent("Not granted: RevenueCat said no");
+  });
+
+  it("503 rc_unavailable keeps the sheet open with a retry hint", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: account }),
+      "POST /v1/admin/accounts/uid_123/grants": () => apiError(503, "rc_unavailable", "down"),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
+    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "support");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Grant Pro" }));
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent("Nothing was granted");
+  });
+
+  it("revokes with a reason; a 202 says some grants will be retried tonight", async () => {
+    const { calls } = renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, grants: [grant()] } }),
+      "DELETE /v1/admin/accounts/uid_123/grants/gr_1": () => ({
+        status: 202,
+        json: {
+          grant: grant({ status: "revoked", revoked_by: "owner@example.com", revoke_reason: "partnership ended" }),
+          regrant: { id: "rg_1", status: "partial", regranted: 0, skipped: 1 },
+        },
+      }),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Revoke…" }));
+    const sheet = screen.getByRole("dialog", { name: "Revoke Pro" });
+    const revoke = within(sheet).getByRole("button", { name: "Revoke" });
+    expect(revoke).toBeDisabled();
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "partnership ended");
+    await userEvent.click(revoke);
+    expect(await screen.findByRole("status")).toHaveTextContent("Some grants will be retried tonight");
+    expect(screen.getByTestId("grant-gr_1")).toHaveTextContent("Revoked");
+    expect(calls.find((c) => c.method === "DELETE")!.body).toEqual({ reason: "partnership ended" });
+  });
+
+  it("409 grant_not_active says so", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, grants: [grant()] } }),
+      "DELETE /v1/admin/accounts/uid_123/grants/gr_1": () => apiError(409, "grant_not_active", "not active"),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Revoke…" }));
+    const sheet = screen.getByRole("dialog", { name: "Revoke Pro" });
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "x");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Revoke" }));
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent("This grant isn't active any more.");
   });
 });
 

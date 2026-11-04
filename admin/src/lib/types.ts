@@ -344,6 +344,10 @@ export interface AccountPage {
     current_period_end?: string;
   } | null;
   ledger?: { id: string; kind: string; cents: number; at: string }[] | null;
+  /** gateway 00106: Grant Pro records */
+  grants?: Grant[] | null;
+  /** promo entitlements the gateway grants again (e.g. after a refund) */
+  promo_regrants?: { id: string; status: string; entitlement?: string; ends_at?: string; created_at?: string; reason?: string }[] | null;
   /** owner 2026-11-04: the business details on the account's invoices */
   company?: {
     company_name?: string | null;
@@ -533,4 +537,35 @@ export interface FeedbackItem {
 export interface FeedbackList {
   days: number;
   items: FeedbackItem[] | null;
+}
+
+/** Grant Pro (gateway 00106). */
+export type GrantStatus = "active" | "expired" | "revoked" | "failed" | "granting";
+
+export interface Grant {
+  id: string;
+  uid: string;
+  entitlement: "pro" | "business" | "studio" | string;
+  ends_at: string;
+  granted_by: string;
+  reason: string;
+  created_at: string;
+  status: GrantStatus;
+  rc_error?: string | null;
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  revoke_reason?: string | null;
+}
+
+export interface GrantBody {
+  entitlement: "pro" | "business" | "studio";
+  /** RFC 3339, 1 hour to 5 years ahead */
+  ends_at: string;
+  /** up to 500 characters */
+  reason: string;
+}
+
+export interface RevokeResult {
+  grant: Grant;
+  regrant?: { id: string; status: string; regranted?: number; skipped?: number } | null;
 }
