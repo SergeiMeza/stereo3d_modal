@@ -247,6 +247,9 @@ type Params struct {
 	// source_crop). False / nil: the whole frame.
 	RemoveBars bool  `firestore:"remove_bars,omitempty" json:"remove_bars,omitempty"`
 	SourceCrop *Crop `firestore:"source_crop,omitempty" json:"source_crop,omitempty"`
+	// HDR: HDR output from an HDR source (owner 2026-11-05), sent as
+	// hdr_output: true.
+	HDR bool `firestore:"hdr,omitempty" json:"hdr,omitempty"`
 	// OutputWidth / OutputHeight: the Lifelike output picture per eye,
 	// displayed pixels, as quoted (BL-03: the picture inside the bars
 	// when they come off); 0 = unknown (runs before, or before analysis).

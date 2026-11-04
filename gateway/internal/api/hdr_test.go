@@ -78,3 +78,55 @@ func TestSourceDynamicRange(t *testing.T) {
 		t.Fatalf("dv5 guard %v", err)
 	}
 }
+
+// hdr: true is 422 while off, on a non-HDR source or a Classic project;
+// recorded on the run, priced (included with a plan) and sent as
+// hdr_output; absent by default.
+func TestHDRRequest(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	off := pricing.DefaultsFor("test")
+	on := pricing.DefaultsFor("test")
+	on.LifelikeHDROutputEnabled = true
+	hdr := lifelikeProject()
+	hdr.UID = "u" + store.NewID()
+	hdr.Probe.DynamicRange, hdr.Probe.DynamicRangeBase = probe.RangeDV8, probe.RangeHLG
+	sdr := lifelikeProject()
+	sdr.UID = hdr.UID
+	sdr.Probe.DynamicRange = probe.RangeSDR
+	req := &stepConvReq{Step: store.StepProduction, Preset: "4k", HDR: true}
+
+	s.Pricing = pricing.NewStatic(off)
+	if _, err := s.resolveParams(ctx, req, hdr); err == nil || err.Status != 422 {
+		t.Fatalf("off %v", err)
+	}
+	s.Pricing = pricing.NewStatic(on)
+	if _, err := s.resolveParams(ctx, req, sdr); err == nil || err.Status != 422 || err.Code != "hdr_unavailable" {
+		t.Fatalf("sdr %v", err)
+	}
+	classic := lifelikeProject()
+	classic.Method = store.MethodClassic
+	classic.Probe.DynamicRange = probe.RangePQ
+	if _, err := s.resolveParams(ctx, req, classic); err == nil || err.Status != 422 {
+		t.Fatalf("classic %v", err)
+	}
+	params, err := s.resolveParams(ctx, req, hdr)
+	if err != nil || !params.HDR {
+		t.Fatalf("hdr %+v %v", params, err)
+	}
+	if b := lifelikeBody(&store.Conversion{Params: params}, 4); b["hdr_output"] != true {
+		t.Fatalf("body %v", b)
+	}
+	q, _, qerr := s.quoteStep(ctx, hdr, params, store.StepProduction, 0)
+	if qerr != nil || q.Breakdown["hdr"] != true || q.Breakdown["hdr_included"] != false || q.AmountCents != 2600 { // 2 min of 4K list + 30%
+		t.Fatalf("quote %v %v", q, qerr)
+	}
+	// default off: no hdr_output, no HDR line
+	plain, _ := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, hdr)
+	if b := lifelikeBody(&store.Conversion{Params: plain}, 4); plain.HDR || b["hdr_output"] != nil {
+		t.Fatalf("default %+v", plain)
+	}
+	if q, _, _ := s.quoteStep(ctx, hdr, plain, store.StepProduction, 0); q.AmountCents != 2000 || q.Breakdown["hdr"] != false {
+		t.Fatalf("default quote %v", q.Breakdown)
+	}
+}

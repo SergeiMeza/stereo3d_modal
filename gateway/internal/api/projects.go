@@ -679,6 +679,9 @@ type stepConvReq struct {
 	Bitrate bitrateReq `json:"bitrate"`
 	// Express (add-on, pricing 2026-11, Lifelike): first in the GPU line.
 	Express bool `json:"express"`
+	// HDR: HDR output (owner 2026-11-05, Lifelike, HDR sources; a per-run
+	// toggle, default off).
+	HDR bool `json:"hdr"`
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -1062,6 +1065,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
+		in.HDR = params.HDR
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.EffectiveFPS)
 			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free

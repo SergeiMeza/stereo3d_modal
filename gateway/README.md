@@ -679,6 +679,12 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   before any charge, whatever the switch, with "This video uses a Dolby
   Vision format that can't be converted…" (422 `source_unsupported` on a
   quote or run of a project that has it stored).
+- **HDR request** (owner 2026-11-05): quotes and runs take `hdr: true`, a
+  per-run toggle, default off. 422 `feature_unavailable` while the switch
+  is off, 422 `hdr_unavailable` on a Classic project or a source that
+  isn't HDR. The run records `params.hdr` and its `/convert` body carries
+  `hdr_output: true` (absent otherwise). Repack ("Get another format")
+  ignores it for now.
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express

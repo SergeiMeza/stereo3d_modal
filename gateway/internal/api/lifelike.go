@@ -297,6 +297,9 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
 	}
+	if c.Params.HDR {
+		body["hdr_output"] = true // owner 2026-11-05; absent = SDR as before
+	}
 	if c.Params.RemoveBars && c.Params.SourceCrop != nil {
 		// BL-03: the picture inside the black bars, displayed (post-rotation)
 		// source pixels, on every path (full runs, previews, split parts,
@@ -670,6 +673,11 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	if dolbyVision5(p) { // refused at analysis; a guard for the record
 		return params, httpx.Err(http.StatusUnprocessableEntity, "source_unsupported", errDolbyVision5Text)
 	}
+	if req.HDR {
+		if herr := s.hdrRequestError(ctx, p); herr != nil {
+			return params, herr
+		}
+	}
 	if projectMethod(p) == store.MethodLifelike {
 		params, err = resolveLifelikeParams(req, p, s.Pricing.Rates(ctx).EnabledLifelikePresets())
 	} else {
@@ -679,6 +687,7 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		return params, err
 	}
 	rates := s.Pricing.Rates(ctx)
+	params.HDR = req.HDR // checked above
 	if params.Foveation != "" && !rates.FoveationEnabled {
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "foveation is not available yet")
 	}
