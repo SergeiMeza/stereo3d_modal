@@ -63,6 +63,10 @@ describe("account page (A3)", () => {
             billing_email: "accounts@northlight.example",
             po_reference: "PO-2211",
           },
+          company_changes: [
+            { at: "2026-11-01T00:00:00Z", by: "checkout", fields: ["company_name", "address"] },
+            { at: "2026-11-03T00:00:00Z", by: "user", fields: ["po_reference", "billing_email"] },
+          ],
         },
       }),
     });
@@ -71,6 +75,8 @@ describe("account page (A3)", () => {
     expect(card).toHaveTextContent("1 King St, EC2V 8AU London, GB");
     expect(card).toHaveTextContent("gb_vat GB123456789 · verified");
     expect(card).toHaveTextContent("PO-2211");
+    expect(screen.getByTestId("company-changes")).toHaveTextContent("by the customer · po reference, billing email");
+    expect(screen.getByTestId("company-changes")).toHaveTextContent("at checkout · company name, address");
   });
 
   it("shows 'No account with that ID.'", async () => {

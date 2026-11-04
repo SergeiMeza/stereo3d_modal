@@ -128,7 +128,7 @@ export function AccountPage({ uid }: { uid: string }) {
       {flash && <p className="ok small" role="status">{flash}</p>}
 
       <div className="grid3">
-        <CompanyCard company={p.company ?? null} />
+        <CompanyCard company={p.company ?? null} changes={p.company_changes ?? []} />
         <section className="card">
           <div className="sh"><b>Billing state</b></div>
           <dl className="kv pad">
@@ -437,7 +437,7 @@ function OpenCaseSheet({ uid, onClose }: { uid: string; onClose: () => void }) {
 }
 
 /** The business details on the account's invoices (owner 2026-11-04). */
-function CompanyCard({ company: c }: { company: Page["company"] }) {
+function CompanyCard({ company: c, changes }: { company: Page["company"]; changes: NonNullable<Page["company_changes"]> }) {
   if (!c || !(c.company_name || c.tax_id || c.address || c.billing_email || c.po_reference)) return null;
   const addr = c.address
     ? [c.address.line1, c.address.line2, [c.address.postal_code, c.address.city].filter(Boolean).join(" "), c.address.state, c.address.country]
@@ -457,6 +457,19 @@ function CompanyCard({ company: c }: { company: Page["company"] }) {
         <dt>Billing email</dt><dd>{c.billing_email || "—"}</dd>
         <dt>PO reference</dt><dd>{c.po_reference || "—"}</dd>
       </dl>
+      {changes.length > 0 && (
+        <div className="pad" data-testid="company-changes">
+          <div className="field-label">Changes</div>
+          <ul className="xs">
+            {[...changes].reverse().map((ch, i) => (
+              <li key={ch.at + i}>
+                {dateTime(ch.at)} · {ch.by === "checkout" ? "at checkout" : ch.by === "user" ? "by the customer" : ch.by} ·{" "}
+                {(ch.fields ?? []).map(words).join(", ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

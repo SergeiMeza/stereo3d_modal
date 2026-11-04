@@ -355,6 +355,8 @@ export interface AccountPage {
   grants?: Grant[] | null;
   /** promo entitlements the gateway grants again (e.g. after a refund) */
   promo_regrants?: PromoRegrant[] | null;
+  /** company detail changes, newest last (the last 20) */
+  company_changes?: { at: string; by: string; fields: string[] | null }[] | null;
   /** owner 2026-11-04: the business details on the account's invoices */
   company?: {
     company_name?: string | null;
