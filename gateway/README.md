@@ -788,6 +788,9 @@ is asked when bars are found and can keep them.
   with code `source_crop_unfit` ("… Try again, or keep the black bars.")
   or `format_unavailable` ("… Try again with half side-by-side."); a new
   run can be started at once.
+- **Lifelike's record.** The run keeps `modal.source_crop` (applied, or
+  none for the whole frame), `modal.source_crop_requested` and
+  `modal.source_display_size` from the job's metadata.
 
 ### HDR output (owner 2026-11-05)
 

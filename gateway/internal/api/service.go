@@ -1186,6 +1186,18 @@ func noteScheduling(c *store.Conversion, job *modalapi.Job) {
 	if vfr, n := job.SourceVFR(); vfr != nil {
 		c.Modal.SourceVFR, c.Modal.SourceCountedFrames = vfr, n
 	}
+	if f := job.SourceCrop(); f.Requested != nil || f.Applied != nil || len(f.DisplaySize) == 2 {
+		box := func(b *modalapi.CropBox) *store.Crop {
+			if b == nil {
+				return nil
+			}
+			return &store.Crop{X: b.X, Y: b.Y, W: b.W, H: b.H}
+		}
+		c.Modal.SourceCrop, c.Modal.SourceCropRequested = box(f.Applied), box(f.Requested)
+		if len(f.DisplaySize) == 2 {
+			c.Modal.SourceDisplaySize = f.DisplaySize
+		}
+	}
 	if p, n := job.Scheduling(); p != "" || n > 0 {
 		if p != "" {
 			c.Modal.Priority = p

@@ -369,8 +369,14 @@ type Modal struct {
 	BrandIntroUSD float64 `firestore:"brand_intro_usd,omitempty" json:"-"`
 	// SourceVFR / SourceCountedFrames: the pipeline's read of the source
 	// (variable-rate, frames it counted); nil on jobs that don't say.
-	SourceVFR           *bool   `firestore:"source_vfr,omitempty" json:"-"`
-	SourceCountedFrames int     `firestore:"source_counted_frames,omitempty" json:"-"`
+	SourceVFR           *bool `firestore:"source_vfr,omitempty" json:"-"`
+	SourceCountedFrames int   `firestore:"source_counted_frames,omitempty" json:"-"`
+	// SourceCrop / SourceCropRequested / SourceDisplaySize: Lifelike's
+	// record of the run's black-bar crop (BL-03): applied (nil: none or
+	// the whole frame), sent, and the source's displayed [w, h].
+	SourceCrop          *Crop   `firestore:"source_crop,omitempty" json:"-"`
+	SourceCropRequested *Crop   `firestore:"source_crop_requested,omitempty" json:"-"`
+	SourceDisplaySize   []int   `firestore:"source_display_size,omitempty" json:"-"`
 	Priority            string  `firestore:"priority,omitempty" json:"-"`
 	GPUWorkers          int     `firestore:"max_gpu_workers,omitempty" json:"-"`
 	ExpressCostFactor   float64 `firestore:"express_cost_factor,omitempty" json:"-"`

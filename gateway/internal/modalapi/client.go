@@ -330,6 +330,35 @@ func (j *Job) SourceVFR() (vfr *bool, counted int) {
 	return m.SourceVFR, m.SourceCountedFrames
 }
 
+// CropBox is a picture area in displayed source pixels.
+type CropBox struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// CropFacts is what Lifelike recorded of a run's source_crop (BL-03):
+// the crop applied (nil: none, or the whole frame), what was sent, and
+// the displayed size of the source ([w, h]).
+type CropFacts struct {
+	Applied, Requested *CropBox
+	DisplaySize        []int
+}
+
+// SourceCrop decodes them; zero values on jobs that don't say.
+func (j *Job) SourceCrop() CropFacts {
+	var m struct {
+		SourceCrop          *CropBox `json:"source_crop"`
+		SourceCropRequested *CropBox `json:"source_crop_requested"`
+		SourceDisplaySize   []int    `json:"source_display_size"`
+	}
+	if len(j.Metadata) == 0 || json.Unmarshal(j.Metadata, &m) != nil {
+		return CropFacts{}
+	}
+	return CropFacts{Applied: m.SourceCrop, Requested: m.SourceCropRequested, DisplaySize: m.SourceDisplaySize}
+}
+
 // Intro decodes them; zero values on older jobs.
 func (j *Job) Intro() IntroFacts {
 	var m struct {

@@ -394,3 +394,25 @@ func TestCropRefusalFailsCleanly(t *testing.T) {
 		t.Fatal("other failures keep their copy")
 	}
 }
+
+// The run keeps Lifelike's record of its crop.
+func TestRunKeepsLifelikeCropRecord(t *testing.T) {
+	c := &store.Conversion{}
+	noteScheduling(c, &modalapi.Job{Metadata: json.RawMessage(`{"source_crop":{"x":0,"y":280,"w":3840,"h":1600},
+		"source_crop_requested":{"x":0,"y":280,"w":3840,"h":1600},"source_display_size":[3840,2160]}`)})
+	if c.Modal.SourceCrop == nil || *c.Modal.SourceCrop != (store.Crop{Y: 280, W: 3840, H: 1600}) || c.Modal.SourceCropRequested == nil ||
+		!slices.Equal(c.Modal.SourceDisplaySize, []int{3840, 2160}) {
+		t.Fatalf("record %+v", c.Modal)
+	}
+	// the whole frame sent: applied null, requested kept
+	c = &store.Conversion{}
+	noteScheduling(c, &modalapi.Job{Metadata: json.RawMessage(`{"source_crop":null,"source_crop_requested":{"x":0,"y":0,"w":1080,"h":1920},"source_display_size":[1080,1920]}`)})
+	if c.Modal.SourceCrop != nil || c.Modal.SourceCropRequested.H != 1920 {
+		t.Fatalf("no-op %+v", c.Modal)
+	}
+	c = &store.Conversion{}
+	noteScheduling(c, &modalapi.Job{Metadata: json.RawMessage(`{"video_frames":10}`)})
+	if c.Modal.SourceCrop != nil || c.Modal.SourceCropRequested != nil || c.Modal.SourceDisplaySize != nil {
+		t.Fatalf("older job %+v", c.Modal)
+	}
+}
