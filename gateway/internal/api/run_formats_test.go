@@ -321,6 +321,26 @@ func TestRunFormatsSplitRun(t *testing.T) {
 	}
 }
 
+// estimated_seconds: side-by-side ≈ 2× the length, spatial ≈ 10× at 4K,
+// scaled by pixels; spatial's give-up is max(3 h, 2× the estimate).
+func TestRepackEstimate(t *testing.T) {
+	c := &store.Conversion{Params: store.Params{Preset: "4k"}, Source: store.Source{DurationS: 60}}
+	if a, b := repackEstimate(c, "half_sbs"), repackEstimate(c, "mvhevc"); a != 120 || b != 600 {
+		t.Fatalf("4k %d %d", a, b)
+	}
+	c.Params.Preset = "1080p"
+	if got := repackEstimate(c, "mvhevc"); got != 150 {
+		t.Fatalf("1080p %d", got)
+	}
+	c.Params.Preset, c.Source.DurationS = "8k", 1200 // 1200 × 10 × 4 = 13.3 h
+	if got := repackTimeoutOf(c, "mvhevc"); got != 2*48000*time.Second {
+		t.Fatalf("8k timeout %v", got)
+	}
+	if repackTimeoutOf(c, "sbs") != repackTimeout || repackTimeoutOf(&store.Conversion{}, "mvhevc") != repackTimeout {
+		t.Fatal("3 h floor")
+	}
+}
+
 // The sample has every format: a run stored with two outputs is
 // backfilled (once, samples only) when it's read or listed; its formats
 // list nothing more and a POST is 422 sample_project.

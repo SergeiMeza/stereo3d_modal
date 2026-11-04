@@ -1346,12 +1346,16 @@ Classic runs get none (Classic is retired).
   pending: [fmt], unavailable_reason?: files_erased | half_only |
   run_failed | classic_retired, price_cents: 0, jobs:
   {fmt: {job_id, job_ids, status: pending | processing | succeeded |
-  failed, source, price_cents, requested_at, finished_at, error?, parts:
+  failed, source, price_cents, estimated_seconds, requested_at,
+  finished_at, error?, parts:
   [{index, name, job_id, status, error?}]}}}`. `job_id` is the first
   part's; `index` 0 is a run's single file. fmt is
   mvhevc | sbs | half_sbs. The GET also polls a running repack.
 - `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, job_ids, status,
-  format, source, price_cents}`. 409 `format_exists` | `format_in_progress` |
+  format, source, price_cents, estimated_seconds}`. `estimated_seconds`
+  (3DS, 2026-11-04): side-by-side ≈ 2× the run's length, spatial ≈ 10×
+  at 4K, scaled by the preset's pixels against 4K; the whole run's
+  length, so a split run's parts often finish sooner. 409 `format_exists` | `format_in_progress` |
   `format_unavailable` with `details.reason` (the reasons above, or
   `too_wide`: full side-by-side at 6K/8K); 422 `sample_project` for the
   sample's run (it has all three: spatial, full and half side-by-side,
@@ -1382,7 +1386,7 @@ Classic runs get none (Classic is retired).
   failed (completed = done; error, cancelled = failed), output: {bytes,
   width, height, frames, level}, cost_stage}`, polled by the reconciler every
   minute (`conversion.repack_pending`) and by the GET; 3 h without an end
-  fails it. Signed URLs live 6 h.
+  fails it (spatial: max(3 h, 2× its estimate)). Signed URLs live 6 h.
 - **Then.** The new files join `conversion.outputs` (`format`, or
   `format_partN` per part, all at once when the last part is done), so
   they list and download like the others (same naming, SBS/TB markers).

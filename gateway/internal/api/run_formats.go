@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"path"
 	"slices"
@@ -46,6 +47,35 @@ const (
 	repackURLExpiry = 6 * time.Hour
 	repackPrice     = 0 // ADR 0137 open question: free until the owner decides
 )
+
+// repackEstimate: about how long making format takes (3DS, 2026-11-04):
+// side-by-side ≈ 2× the run's length, spatial ≈ 10× at 4K, scaled by
+// the output's pixels against 4K. The whole run's length, so a split
+// run's parts (which run side by side) usually finish sooner.
+func repackEstimate(c *store.Conversion, format string) int {
+	secs := outputSecondsOf(c)
+	if secs <= 0 {
+		return 0
+	}
+	perSecond := 2.0
+	if format == "mvhevc" {
+		perSecond = 10
+	}
+	scale := 1.0
+	if h := presetOutputHeight[c.Params.Preset]; h > 0 {
+		scale = float64(h) * float64(h) / (2160 * 2160)
+	}
+	return int(math.Ceil(secs * perSecond * scale))
+}
+
+// repackTimeoutOf: 3 h without an end fails a repack; spatial gets
+// twice its estimate when that's longer.
+func repackTimeoutOf(c *store.Conversion, format string) time.Duration {
+	if format == "mvhevc" {
+		return max(repackTimeout, 2*time.Duration(repackEstimate(c, format))*time.Second)
+	}
+	return repackTimeout
+}
 
 func repackExt(format string) (ext, contentType string) {
 	if format == "mvhevc" {
@@ -191,7 +221,9 @@ func repackJSON(r *store.Repack) map[string]any {
 func (st runFormats) json(c *store.Conversion) map[string]any {
 	jobs := map[string]any{}
 	for f, r := range c.Repacks {
-		jobs[f] = repackJSON(r)
+		j := repackJSON(r)
+		j["estimated_seconds"] = repackEstimate(c, f)
+		jobs[f] = j
 	}
 	out := map[string]any{"available": st.Available, "have": st.Have, "pending": st.Pending, "price_cents": repackPrice, "jobs": jobs}
 	if st.Reason != "" {
@@ -348,7 +380,8 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 	}
 	s.noteProjectUse(ctx, st.Project, true) // ADR 0137: counts as use
 	s.passkeyEvent(ctx, user.UID, "run_format_requested", map[string]any{"run_id": c.ID, "format": req.Format, "source": src, "parts": len(todo)})
-	out := map[string]any{"status": "processing", "format": req.Format, "source": src, "price_cents": repackPrice}
+	out := map[string]any{"status": "processing", "format": req.Format, "source": src, "price_cents": repackPrice,
+		"estimated_seconds": repackEstimate(c, req.Format)}
 	if updated != nil && updated.Repacks[req.Format] != nil {
 		j := repackJSON(updated.Repacks[req.Format])
 		out["status"], out["job_id"], out["job_ids"] = j["status"], j["job_id"], j["job_ids"]
@@ -469,7 +502,7 @@ func (s *Service) pollRepacks(ctx context.Context, c *store.Conversion) *store.C
 		if !repackRunning(r) {
 			continue
 		}
-		timeout := repackTimeout
+		timeout := repackTimeoutOf(c, f)
 		results := map[int]partResult{}
 		for _, p := range repackParts(r) {
 			if p.Status != "pending" && p.Status != "processing" {
