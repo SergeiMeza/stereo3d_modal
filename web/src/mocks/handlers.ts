@@ -426,6 +426,10 @@ interface DB {
   } | null;
   /** the next POST /v1/plans/change answers 409 quote_expired */
   nextChangeExpired: boolean;
+  /** ADR 0136: the account's passkeys (cred id = the browser's credential id) */
+  passkeys: { id: string; name: string; device_hint: string | null; created_at: string; last_used_at: string | null }[];
+  /** ADR 0136: adding a passkey answers 401 reauth_required (sign-in too old) */
+  passkeyReauthNeeded: boolean;
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -911,6 +915,8 @@ function seed(): DB {
     proStatus: null as typeof mockDb.proStatus,
     planChanges: [] as string[],
     nextChangeExpired: false,
+    passkeys: [] as typeof mockDb.passkeys,
+    passkeyReauthNeeded: false,
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -945,6 +951,8 @@ export const mockDb = {
     this.proStatus = fresh.proStatus;
     this.planChanges = fresh.planChanges;
     this.nextChangeExpired = fresh.nextChangeExpired;
+    this.passkeys = fresh.passkeys;
+    this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -992,6 +1000,11 @@ const MOCK_LAYOUT_MARKERS: Record<string, string> = {
   sbs: "SBS",
   half_sbs: "Half-SBS",
 };
+
+/** The passkey relying party in the browser mock: this page's host. */
+function mockRpId(): string {
+  return typeof window !== "undefined" && window.location?.hostname ? window.location.hostname : "localhost";
+}
 
 function err(status: number, code: string, message: string) {
   return HttpResponse.json(
@@ -3165,6 +3178,64 @@ export const handlers = [
     return HttpResponse.json({ logged: true });
   }),
 
+  // ADR 0136: customer passkeys (the web's working shape until the gateway's)
+  http.post(`${GATEWAY}/v1/auth/passkey/options`, () =>
+    HttpResponse.json({
+      options: { publicKey: { challenge: "bW9jay1jaGFsbGVuZ2U", rpId: mockRpId(), allowCredentials: [], userVerification: "required", timeout: 60000 } },
+      expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+    }),
+  ),
+  http.post(`${GATEWAY}/v1/auth/passkey/verify`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { response?: { id?: string }; session?: boolean };
+    const key = mockDb.passkeys.find((p) => p.id === body.response?.id);
+    if (!key) return err(404, "passkey_not_registered", "This passkey isn't registered here.");
+    key.last_used_at = new Date().toISOString();
+    return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
+  }),
+  http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  http.post(`${GATEWAY}/v1/account/passkeys/register/options`, () => {
+    if (mockDb.passkeyReauthNeeded) return err(401, "reauth_required", "Sign in again to add a passkey.");
+    return HttpResponse.json({
+      options: {
+        publicKey: {
+          challenge: "bW9jay1jaGFsbGVuZ2U",
+          rp: { id: mockRpId(), name: "Spatial Video Studio" },
+          user: { id: "ZGV2LXVzZXI", name: "dev@example.com", displayName: "Dev User" },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+          authenticatorSelection: { residentKey: "required", userVerification: "required" },
+          excludeCredentials: mockDb.passkeys.map((p) => ({ id: p.id, type: "public-key" })),
+          timeout: 60000,
+          attestation: "none",
+        },
+      },
+      expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+    });
+  }),
+  http.post(`${GATEWAY}/v1/account/passkeys/register/verify`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { response?: { id?: string }; name?: string };
+    const id = body.response?.id;
+    if (!id) return err(400, "passkey_invalid", "That passkey couldn't be saved.");
+    if (mockDb.passkeys.some((p) => p.id === id)) return err(409, "passkey_exists", "This passkey is already on your account.");
+    const passkey = { id, name: (body.name ?? "").trim().slice(0, 60) || "Passkey", device_hint: null, created_at: new Date().toISOString(), last_used_at: null };
+    mockDb.passkeys.push(passkey);
+    return HttpResponse.json({ passkey }, { status: 201 });
+  }),
+  http.patch(`${GATEWAY}/v1/account/passkeys/:id`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as { name?: string };
+    const key = mockDb.passkeys.find((p) => p.id === params.id);
+    if (!key) return err(404, "not_found", "No such passkey.");
+    const name = (body.name ?? "").trim();
+    if (!name || name.length > 60) return err(400, "invalid_request", "A name is 1 to 60 characters.");
+    key.name = name;
+    return HttpResponse.json({ passkey: key });
+  }),
+  http.delete(`${GATEWAY}/v1/account/passkeys/:id`, ({ params }) => {
+    const before = mockDb.passkeys.length;
+    mockDb.passkeys = mockDb.passkeys.filter((p) => p.id !== params.id);
+    if (mockDb.passkeys.length === before) return err(404, "not_found", "No such passkey.");
+    return HttpResponse.json({ removed: true });
+  }),
+
   // BL-25 (gateway 00087): account settings; the intro switch needs a plan
   http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(accountSettings())),
   http.patch(`${GATEWAY}/v1/account/settings`, async ({ request }) => {
@@ -3189,7 +3260,9 @@ export const handlers = [
       for (const [k, v] of Object.entries(body.dismissed)) {
         // 00098: "business_note:<projectId>" for the account's own projects
         const own = k.startsWith("business_note:") && mockDb.projects.has(k.slice("business_note:".length));
-        if (!PLANS_PLACEMENTS.includes(k) && !own) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);
+        // ADR 0136: the "add a passkey" suggestion after a sign-in
+        const passkeyNote = k === "passkey_suggestion";
+        if (!PLANS_PLACEMENTS.includes(k) && !own && !passkeyNote) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);
         if (v === null) delete st.dismissed[k];
         else st.dismissed[k] = v === true ? new Date().toISOString() : v;
       }

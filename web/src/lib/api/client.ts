@@ -38,6 +38,9 @@ import type {
   UpdateScenesRequest,
   UploadTicket,
 } from "./types";
+import type { RegistrationResponseJSON } from "@simplewebauthn/browser";
+
+import { PASSKEY_ROUTES, type Passkey } from "@/lib/passkeys";
 import {
   ResumableUploadError,
   uploadResumable,
@@ -243,6 +246,7 @@ export class GatewayClient {
         parsed?.details,
       );
     }
+    if (res.status === 204) return undefined as T; // e.g. a DELETE with no body
     return (await res.json()) as T;
   }
 
@@ -363,6 +367,34 @@ export class GatewayClient {
 
   getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
     return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  /** ADR 0136: the account's passkeys */
+  async listPasskeys(): Promise<Passkey[]> {
+    const r = await this.request<{ passkeys?: Passkey[] | null }>("GET", PASSKEY_ROUTES.list);
+    return r.passkeys ?? [];
+  }
+
+  /** ADR 0136: options to create a passkey; 401 reauth_required when the
+   * sign-in is older than 5 minutes. */
+  passkeyRegisterOptions(name: string): Promise<unknown> {
+    return this.request("POST", PASSKEY_ROUTES.registerOptions, { name });
+  }
+
+  /** ADR 0136: save the new passkey; 409 passkey_exists. */
+  passkeyRegisterVerify(response: RegistrationResponseJSON, name: string): Promise<{ passkey?: Passkey }> {
+    return this.request("POST", PASSKEY_ROUTES.registerVerify, { response, name });
+  }
+
+  /** ADR 0136: rename a passkey. */
+  async renamePasskey(id: string, name: string): Promise<Passkey | null> {
+    const r = await this.request<{ passkey?: Passkey }>("PATCH", PASSKEY_ROUTES.item(id), { name });
+    return r.passkey ?? null;
+  }
+
+  /** ADR 0136: remove a passkey. */
+  async removePasskey(id: string): Promise<void> {
+    await this.request("DELETE", PASSKEY_ROUTES.item(id));
   }
 
   /** BL-25: the account's settings */

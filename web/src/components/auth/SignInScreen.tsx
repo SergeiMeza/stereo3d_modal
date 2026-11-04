@@ -24,15 +24,17 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { CodeInput } from "@/components/auth/CodeInput";
+import { PasskeyButton, usePasskeyAutofill, usePasskeysSupported } from "@/components/auth/PasskeySignIn";
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
 import { AccountExistsError, AUTH_MODE, useAuth } from "@/lib/auth";
 import type { PendingLink } from "@/lib/auth";
 import { CODE_LENGTH, EmailCodeError, RESEND_AFTER_S } from "@/lib/emailCode";
 import type { CodeStart } from "@/lib/emailCode";
+import { markPasskeySuggestion } from "@/lib/passkeys";
 import { METHOD_LABELS } from "@/lib/signInMethods";
 import { useRegion } from "@/lib/useRegion";
 
@@ -51,6 +53,7 @@ export default function SignInScreen() {
     appleEnabled,
     signInWithApple,
     signInWithGoogle,
+    signInWithPasskey,
     sendEmailCode,
     signInWithEmailCode,
     pendingLink,
@@ -67,12 +70,36 @@ export default function SignInScreen() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoSentFor = useRef<string | null>(null);
+  // ADR 0136: whether this page saw the person signed out, and whether the
+  // sign-in was a passkey (then there's nothing to suggest)
+  const sawSignedOut = useRef(false);
+  const viaPasskey = useRef(false);
+  if (ready && user === null) sawSignedOut.current = true;
 
   const signedIn = AUTH_MODE === "firebase" && ready && user !== null;
   useEffect(() => {
     // a pending link finishes on the code step, after which we leave
-    if (signedIn && pendingLink === null) router.replace(next);
+    if (signedIn && pendingLink === null) {
+      if (sawSignedOut.current) markPasskeySuggestion(!viaPasskey.current);
+      router.replace(next);
+    }
   }, [signedIn, pendingLink, router, next]);
+
+  const passkeys = usePasskeysSupported() && AUTH_MODE === "firebase" && !emailOnly;
+  const passkeySignIn = useCallback(
+    async (opts?: { autofill?: boolean }) => {
+      viaPasskey.current = true;
+      try {
+        await signInWithPasskey(opts);
+      } catch (e) {
+        viaPasskey.current = false;
+        throw e;
+      }
+    },
+    [signInWithPasskey],
+  );
+  const showError = useCallback((m: string) => setError(m), []);
+  const { autofill, restart } = usePasskeyAutofill(passkeys && step === "start", passkeySignIn, showError);
 
   // Apple/Google said the address has an account (also after a redirect):
   // send its code once and ask for it.
@@ -195,6 +222,15 @@ export default function SignInScreen() {
             <GoogleLogo className="size-4" />
             Continue with Google
           </button>
+          {passkeys && (
+            <PasskeyButton
+              signIn={passkeySignIn}
+              disabled={pending}
+              onStart={() => setError(null)}
+              onError={showError}
+              onDone={restart}
+            />
+          )}
         </div>
       )}
 
@@ -220,7 +256,7 @@ export default function SignInScreen() {
           id="signin-email"
           type="email"
           required
-          autoComplete="email"
+          autoComplete={autofill ? "username webauthn" : "email"}
           inputMode="email"
           enterKeyHint="go"
           placeholder="you@example.com"

@@ -70,6 +70,7 @@ import {
 } from "@/lib/gatewayAuth";
 import type { GatewaySession } from "@/lib/gatewayAuth";
 import { detectClient, isHeadset } from "@/lib/headset";
+import { passkeySignIn } from "@/lib/passkeys";
 import { currentRegion } from "@/lib/region";
 import { useRegion } from "@/lib/useRegion";
 
@@ -109,6 +110,12 @@ export interface AuthContextValue {
   linkProvider(id: LinkableProvider): Promise<void>;
   unlinkProvider(id: string): Promise<void>;
   signInWithGoogle(): Promise<void>;
+  /** ADR 0136: sign in with a passkey (the button, or the email field's
+   * autofill); throws PasskeyError. */
+  signInWithPasskey(opts?: { autofill?: boolean }): Promise<void>;
+  /** ADR 0136: a fresh Apple or Google sign-in for the signed-in account
+   * (adding a passkey needs one from the last 5 minutes). */
+  reauthenticate(id: LinkableProvider): Promise<void>;
   signInWithEmail(email: string, password: string): Promise<void>;
   signUpWithEmail(email: string, password: string): Promise<void>;
   resetPassword(email: string): Promise<void>;
@@ -628,6 +635,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const signInWithPasskey = useCallback(async (opts?: { autofill?: boolean }) => {
+    const gw = viaGateway();
+    // PasskeyError carries its own plain message (not a Firebase code)
+    const answer = await passkeySignIn({ autofill: opts?.autofill, session: gw });
+    if (gw) {
+      gatewayAdoptSession(answer);
+      track("login", { method: "passkey" });
+      return;
+    }
+    if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+    try {
+      const auth = await getFirebaseAuth();
+      const { signInWithCustomToken } = await import("firebase/auth");
+      await signInWithCustomToken(auth, answer.custom_token);
+      track("login", { method: "passkey" });
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
+  const reauthenticate = useCallback(async (id: LinkableProvider) => {
+    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+    try {
+      const current = await requireFirebaseUser();
+      const provider = await providerFor(id);
+      const { reauthenticateWithPopup } = await import("firebase/auth");
+      await reauthenticateWithPopup(current, provider);
+      await current.getIdToken(true);
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }, []);
+
   const clearPendingLink = useCallback(() => {
     dropPending();
     setPendingLink(null);
@@ -774,6 +814,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             linkProvider: mockNoop,
             unlinkProvider: mockNoop,
             signInWithGoogle: mockNoop,
+            signInWithPasskey: mockNoop,
+            reauthenticate: mockNoop,
             signInWithEmail: mockNoop,
             signUpWithEmail: mockNoop,
             resetPassword: mockNoop,
@@ -794,6 +836,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             linkProvider,
             unlinkProvider,
             signInWithGoogle,
+            signInWithPasskey,
+            reauthenticate,
             signInWithEmail,
             signUpWithEmail,
             resetPassword,
@@ -813,6 +857,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       linkProvider,
       unlinkProvider,
       signInWithGoogle,
+      signInWithPasskey,
+      reauthenticate,
       signInWithEmail,
       signUpWithEmail,
       resetPassword,
