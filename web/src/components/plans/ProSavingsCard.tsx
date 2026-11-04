@@ -34,7 +34,17 @@ export function ProSavingsCard({ project }: { project: Project }): JSX.Element |
     )
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
   const pro = run
-    ? tierPriceFor({ step: "production", params: run.params, quote: run.quote } as StepQuoteResponse, pricing, "pro")
+    ? tierPriceFor(
+        {
+          step: "production",
+          params: run.params,
+          quote: run.quote,
+          // the run's own alt_prices when the gateway kept them; else composed
+          alt_prices: (run as { alt_prices?: StepQuoteResponse["alt_prices"] }).alt_prices,
+        } as StepQuoteResponse,
+        pricing,
+        "pro",
+      )
     : null;
   const saved = run && pro !== null ? run.quote.amount_cents - pro : 0;
   const show = tier === "none" && dismissed === false && !!run && pro !== null && saved > 0;

@@ -513,6 +513,10 @@ export interface StepQuoteResponse {
   tier_label?: string;
   discount?: QuoteDiscount | null;
   free_previews?: FreePreviews;
+  /** gateway 00094: this Lifelike run's price on each plan, in cents, with
+   * the tier's rounding and without free previews applied (Classic quotes
+   * have none) */
+  alt_prices?: Partial<Record<"pro" | "business" | "studio", number>>;
   /** Lifelike full runs: Express's estimate beside the standard one; an
    * Express run may still wait up to max_wait_seconds to start */
   express_eta?: { eta_seconds: number; standard_eta_seconds: number; max_wait_seconds: number };

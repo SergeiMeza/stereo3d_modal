@@ -21,6 +21,7 @@ import projectFixture from "../../../fixtures/project.json";
 
 import { HeaderPlans } from "./HeaderPlans";
 import { PlansBanner } from "./PlansBanner";
+import { TalkToUs } from "./TalkToUs";
 import { ProSavingsCard } from "./ProSavingsCard";
 import { isCompanyEmail, isDismissed, saveRange, tierPriceFor } from "./upsell";
 
@@ -95,6 +96,17 @@ describe("pure rules", () => {
     expect(tierPriceFor(quote, pricing, "business")).toBe(2400);
     expect(tierPriceFor({ ...quote, step: "lifelike_preview" } as StepQuoteResponse, pricing, "pro")).toBeNull();
   });
+
+  it("the gateway's alt_prices win over the composed price", () => {
+    const quote = {
+      step: "production",
+      params: { preset: "4k" },
+      quote: { amount_cents: 3000, currency: "usd", breakdown: { preset: "4k", billable_minutes: 3, subtotal_cents: 3000, addons: {} } },
+      alt_prices: { pro: 2549, business: 2399, studio: 2249 },
+    } as unknown as StepQuoteResponse;
+    expect(tierPriceFor(quote, null, "pro")).toBe(2549);
+    expect(tierPriceFor(quote, null, "studio")).toBe(2249);
+  });
 });
 
 describe("header B", () => {
@@ -154,6 +166,13 @@ describe("quote A and the Business note", () => {
     await waitFor(() => expect(screen.getByTestId("checkout-main").textContent).toMatch(/^Make 3D · \$/));
   });
 
+  it("With Pro shows the gateway's alt_prices", async () => {
+    mockDb.altPricesFixed = { pro: 1234 };
+    wrap(<LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />);
+    const pro = await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 });
+    expect(pro.textContent).toContain("$12.34");
+  });
+
   it("a $50+ quote carries the Business note", async () => {
     const p = project();
     p.probe = { ...p.probe!, duration_s: 600, num_frames: Math.round(600 * p.probe!.fps) };
@@ -162,6 +181,31 @@ describe("quote A and the Business note", () => {
     const note = await screen.findByTestId("business-note", undefined, { timeout: 4000 });
     expect(note.textContent).toContain("Business and Studio include monthly usage.");
     expect(note.textContent).toMatch(/At Business prices this video is \$/);
+  });
+});
+
+describe("talk to us", () => {
+  it("posts message, company and team size to /v1/contact", async () => {
+    wrap(<TalkToUs />);
+    fireEvent.click(await screen.findByTestId("talk-to-us-open"));
+    fireEvent.change(screen.getByTestId("talk-to-us-message"), { target: { value: "Ten 4K videos a month" } });
+    fireEvent.change(screen.getByTestId("talk-to-us-company"), { target: { value: "Northlight" } });
+    fireEvent.change(screen.getByTestId("talk-to-us-team"), { target: { value: "4" } });
+    fireEvent.click(screen.getByTestId("talk-to-us-send"));
+    expect(await screen.findByTestId("talk-to-us-sent")).toBeTruthy();
+    expect(mockDb.events.find((e) => e.name === "contact")?.props).toEqual({
+      topic: "business", message: "Ten 4K videos a month", company: "Northlight", team_size: "4",
+    });
+  });
+
+  it("shows the gateway's message on 429, no mailto", async () => {
+    for (let i = 0; i < 5; i++) mockDb.events.push({ name: "contact", props: {}, at: new Date().toISOString() });
+    wrap(<TalkToUs />);
+    fireEvent.click(await screen.findByTestId("talk-to-us-open"));
+    fireEvent.change(screen.getByTestId("talk-to-us-message"), { target: { value: "Hi" } });
+    fireEvent.click(screen.getByTestId("talk-to-us-send"));
+    expect((await screen.findByTestId("talk-to-us-error")).textContent).toContain("support@");
+    expect(screen.queryByTestId("talk-to-us-sent")).toBeNull();
   });
 });
 

@@ -347,7 +347,14 @@ export class GatewayClient {
 
   /** Plans canvas, Nudge C: a sales enquiry ("Talk to us"); a person
    * replies by email. */
-  contactSales(body: { email: string; message: string; source: string }): Promise<{ sent: boolean }> {
+  /** gateway 00094: a sales enquiry; 400 invalid_request, 429 rate_limited
+   * (5 a day) */
+  contactSales(body: {
+    topic: "business" | "studio" | "other";
+    message: string;
+    company?: string;
+    team_size?: string;
+  }): Promise<{ sent: boolean }> {
     return this.request("POST", "/v1/contact", body);
   }
 

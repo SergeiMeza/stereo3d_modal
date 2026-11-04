@@ -56,18 +56,19 @@ export function proPct(pricing: PublicPricing | null): number | null {
   return typeof p === "number" && p > 0 ? Math.round(p * 100) : null;
 }
 
-/** What this full run would cost on a tier (owner: from the quote and the
- * tier rates). The gateway's alt_prices win when it sends them; otherwise
+/** What this run would cost on a tier. The gateway's alt_prices (00094,
+ * Lifelike quotes: exact, the tier's rounding, free previews NOT applied —
+ * callers check the quote's own free_previews) win; Classic quotes and
+ * older runs have none, so the fallback composes it as the gateway does:
  * the tier's price a minute × the quote's billable minutes × its fps
  * factor, the same add-ons on top, against the bulk discount and the
- * minimum, as the gateway composes a tier quote. null for previews (never
- * discounted) or when a number is missing. */
+ * minimum. The fallback is null for previews or when a number is missing. */
 export function tierPriceFor(
   result: StepQuoteResponse,
   pricing: PublicPricing | null,
   tier: "pro" | "business" | "studio",
 ): number | null {
-  const alt = (result as { alt_prices?: Partial<Record<string, number>> }).alt_prices?.[tier];
+  const alt = result.alt_prices?.[tier];
   if (typeof alt === "number") return alt;
   if (result.step !== "production" || !pricing?.tiers) return null;
   const b = result.quote.breakdown;

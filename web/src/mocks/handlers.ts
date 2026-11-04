@@ -383,6 +383,8 @@ interface DB {
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
    * so the older price assertions keep their numbers */
   tierPricing: boolean;
+  /** tests: fixed alt_prices on every Lifelike quote (null = priced) */
+  altPricesFixed: Partial<Record<"pro" | "business" | "studio", number>> | null;
   /** owner 2026-11-04: above 30 fps needs Business or Studio (gateway
    * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
   fpsCap: boolean;
@@ -456,6 +458,22 @@ function tierQuoteExtras(
     out.express_eta = { eta_seconds: express, standard_eta_seconds: standard, max_wait_seconds: TIERS.expressMaxWaitS };
   }
   return out;
+}
+
+/** gateway 00094: the same Lifelike run on each tier, in cents, without
+ * free previews applied. */
+function altPrices(project: Project, req: StepConversionRequest): Record<"pro" | "business" | "studio", number> {
+  const out = {} as Record<"pro" | "business" | "studio", number>;
+  for (const t of ["pro", "business", "studio"] as const) {
+    tierOverride = t;
+    try {
+      const q = lifelikeQuoteFor(project, req).quote;
+      out[t] = (q.breakdown?.price_without_free_cents as number | undefined) ?? q.amount_cents;
+    } finally {
+      tierOverride = null;
+    }
+  }
+  return { ...out, ...(mockDb.altPricesFixed ?? {}) };
 }
 
 /** GET /v1/pricing's 2026-11 keys (tiers.go publicTiers). */
@@ -602,7 +620,11 @@ function fpsPolicy(p: Project, target: number | undefined) {
   };
 }
 
+/** set while pricing the same run on another tier (alt_prices) */
+let tierOverride: "pro" | "business" | "studio" | null = null;
+
 function mockTier(): "" | "pro" | "business" | "studio" {
+  if (tierOverride) return tierOverride;
   const plan = mockDb.billing.plan;
   if (plan?.active) return plan.plan;
   return mockDb.pro ? "pro" : "";
@@ -747,6 +769,7 @@ function seed(): DB {
     lifelikeFoveation: false,
     pro: null,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
+    altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
     freePreviews: { used: 0, dayUsed: 0, introUsed: false },
     plays: [],
@@ -780,6 +803,7 @@ export const mockDb = {
     this.lifelikeFoveation = fresh.lifelikeFoveation;
     this.pro = fresh.pro;
     this.tierPricing = fresh.tierPricing;
+    this.altPricesFixed = fresh.altPricesFixed;
     this.freePreviews = fresh.freePreviews;
     this.plays = fresh.plays;
     this.accountSettings = fresh.accountSettings;
@@ -2847,10 +2871,22 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
-  // plans canvas, Nudge C: a sales enquiry
+  // gateway 00094: a sales enquiry (5 a day per account)
   http.post(`${GATEWAY}/v1/contact`, async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { email?: string; message?: string };
-    if (!body.email || !body.message) return err(400, "invalid_request", "email and message are required");
+    const body = (await request.json().catch(() => ({}))) as {
+      topic?: string; message?: string; company?: string; team_size?: string;
+    };
+    const message = (body.message ?? "").trim();
+    if (
+      !["business", "studio", "other"].includes(String(body.topic)) ||
+      message.length < 1 || message.length > 2000 ||
+      (body.company?.length ?? 0) > 120 || (body.team_size?.length ?? 0) > 120
+    ) {
+      return err(400, "invalid_request", "topic and a message of 1–2000 characters are required");
+    }
+    if (mockDb.events.filter((e) => e.name === "contact").length >= 5) {
+      return err(429, "rate_limited", "Too many messages today. Write to support@stereo3d.studio instead.");
+    }
     mockDb.events.push({ name: "contact", props: { ...body }, at: new Date().toISOString() });
     return HttpResponse.json({ sent: true });
   }),
@@ -3715,6 +3751,7 @@ export const handlers = [
               }
             : {}),
           ...(mockDb.tierPricing ? tierQuoteExtras(req, q) : {}),
+          ...(mockDb.tierPricing ? { alt_prices: altPrices(priced, req) } : {}),
           ...fpsPolicy(priced, req.target_fps).extras,
         });
       }

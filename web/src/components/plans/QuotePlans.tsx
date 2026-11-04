@@ -58,7 +58,8 @@ export function useQuoteProChoice(quote: StepQuoteResponse | null): {
   const pricing = usePricing();
   const { dismissed } = useDismissal("quote", 7);
   if (!quote || tier !== "none" || dismissed !== false) return null;
-  if (quote.payment_flow === "free_preview") return null;
+  // alt_prices don't apply free previews: a free run has nothing to save
+  if (quote.payment_flow === "free_preview" || quote.free_previews?.free || quote.quote.amount_cents === 0) return null;
   const pro = tierPriceFor(quote, pricing, "pro");
   const list = quote.quote.amount_cents;
   if (pro === null || pro >= list) return null;
