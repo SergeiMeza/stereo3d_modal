@@ -332,48 +332,70 @@ export function businessSaveRange(
   return lo === hi ? `${lo}%` : `${lo}–${hi}%`;
 }
 
-const projectKey = (projectId: string) =>
+/** The account's per-project key (gateway 00098: settings.dismissed takes
+ * "business_note:<projectId>", pruned with the project). */
+export const projectDismissKey = (projectId: string) =>
+  `business_note:${projectId}`;
+const localKey = (projectId: string) =>
   `svs-dismissed:business_note:${projectId}`;
 
 const projectListeners = new Set<() => void>();
 const projectDismissed = new Set<string>();
 
-function readProject(projectId: string): boolean {
+/** This browser's copy: the fallback when the account can't be saved. */
+function readLocal(projectId: string): boolean {
   if (projectDismissed.has(projectId)) return true;
   try {
-    return window.localStorage.getItem(projectKey(projectId)) !== null;
+    return window.localStorage.getItem(localKey(projectId)) !== null;
   } catch {
     return false;
   }
 }
 
-/** The high-end guidance, dismissed once per project; every surface of
- * that project hides together. Kept in this browser until the gateway
- * takes per-project keys (asked 2026-11-04). */
+/** Test reset: forget this browser's per-project dismissals. */
+export function clearLocalProjectDismissals(): void {
+  projectDismissed.clear();
+  try {
+    for (const k of Object.keys(window.localStorage)) {
+      if (k.startsWith("svs-dismissed:business_note:"))
+        window.localStorage.removeItem(k);
+    }
+  } catch {
+    // nothing to forget
+  }
+  for (const l of projectListeners) l();
+}
+
+/** The high-end guidance, dismissed once per project on the account;
+ * every surface of that project hides together. */
 export function useProjectDismissal(projectId: string): {
   dismissed: boolean;
   dismiss: () => void;
 } {
-  const dismissed = useSyncExternalStore(
+  const { settings, update } = useAccountSettings();
+  const local = useSyncExternalStore(
     (l) => {
       projectListeners.add(l);
       return () => projectListeners.delete(l);
     },
-    () => readProject(projectId),
+    () => readLocal(projectId),
     () => false,
   );
+  const dismissed =
+    local || settings?.dismissed?.[projectDismissKey(projectId)] !== undefined;
   const dismiss = useCallback(() => {
+    update({ dismissed: { [projectDismissKey(projectId)]: true } });
     projectDismissed.add(projectId);
     try {
       window.localStorage.setItem(
-        projectKey(projectId),
+        localKey(projectId),
         new Date().toISOString(),
       );
     } catch {
-      // storage blocked: hidden for this visit
+      // the account copy still holds it
     }
     for (const l of projectListeners) l();
-  }, [projectId]);
+  }, [projectId, update]);
   return { dismissed, dismiss };
 }
 

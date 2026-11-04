@@ -41,6 +41,7 @@ import { ProSavingsCard } from "./ProSavingsCard";
 import { BusinessNote, CinemaTierPrices } from "./QuotePlans";
 import { SourceBusinessLine } from "./SourceBusinessLine";
 import {
+  clearLocalProjectDismissals,
   isCompanyEmail,
   isDismissed,
   saveRange,
@@ -383,7 +384,10 @@ describe("receipt A", () => {
 });
 
 describe("high-end sources guide to Business (owner 2026-11-04)", () => {
-  beforeEach(() => window.localStorage.clear());
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearLocalProjectDismissals();
+  });
 
   function sourced(width: number, height: number, fps: number): Project {
     const p = structuredClone(
@@ -392,6 +396,7 @@ describe("high-end sources guide to Business (owner 2026-11-04)", () => {
     p.project_id = `hi-${width}-${fps}`;
     p.probe = { ...p.probe!, width, height, fps };
     p.analyze = { ...p.analyze, state: "succeeded" };
+    mockDb.projects.set(p.project_id, structuredClone(p));
     return p;
   }
 
@@ -425,6 +430,12 @@ describe("high-end sources guide to Business (owner 2026-11-04)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByTestId("source-business-line")).toBeNull();
+    // kept on the account under the project's own key (gateway 00098)
+    await waitFor(() =>
+      expect(
+        mockDb.accountSettings.dismissed[`business_note:${p.project_id}`],
+      ).toMatch(/^\d{4}-/),
+    );
     cleanup();
     wrap(<SourceBusinessLine project={sourced(7680, 4320, 25)} />);
     expect(await screen.findByTestId("source-business-line")).toBeTruthy();

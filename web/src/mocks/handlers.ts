@@ -2936,7 +2936,9 @@ export const handlers = [
     }
     if (body.dismissed) {
       for (const [k, v] of Object.entries(body.dismissed)) {
-        if (!PLANS_PLACEMENTS.includes(k)) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);
+        // 00098: "business_note:<projectId>" for the account's own projects
+        const own = k.startsWith("business_note:") && mockDb.projects.has(k.slice("business_note:".length));
+        if (!PLANS_PLACEMENTS.includes(k) && !own) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);
         if (v === null) delete st.dismissed[k];
         else st.dismissed[k] = v === true ? new Date().toISOString() : v;
       }

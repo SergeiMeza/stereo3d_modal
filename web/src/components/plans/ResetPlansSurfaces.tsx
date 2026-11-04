@@ -20,6 +20,7 @@ import { notifyProChanged } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
 import { SESSION_KEY } from "./PlansSheet";
+import { clearLocalProjectDismissals } from "./upsell";
 
 const PLACEMENTS = [
   "header",
