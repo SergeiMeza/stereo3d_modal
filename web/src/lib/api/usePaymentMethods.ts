@@ -5,29 +5,51 @@
  * read-only. null until it answers (or when it fails).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { atom } from "jotai";
+import { useCallback, useEffect } from "react";
 
 import type { BillingMethods, SavedMethod } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { billingUidAtom } from "@/lib/billing";
+import { appStore, useAppAtomValue } from "@/lib/state/stores";
+
+/** ADR 0138: the account's saved methods in an app-store atom, for the
+ * account they were read for (a user switch never shows the last one's). */
+export const billingMethodsAtom = atom<{ uid: string | null; list: BillingMethods | null; error: boolean }>({
+  uid: null,
+  list: null,
+  error: false,
+});
+
+const setList = (list: BillingMethods): void =>
+  appStore.set(billingMethodsAtom, { uid: appStore.get(billingUidAtom), list, error: false });
+
+/** Read the methods again (each reader's mount asks once). */
+async function reloadWith(fetch: () => Promise<BillingMethods>): Promise<void> {
+  const uid = appStore.get(billingUidAtom);
+  try {
+    const list = await fetch();
+    if (appStore.get(billingUidAtom) === uid) appStore.set(billingMethodsAtom, { uid, list, error: false });
+  } catch {
+    if (appStore.get(billingUidAtom) === uid) appStore.set(billingMethodsAtom, { uid, list: null, error: true });
+  }
+}
+
+function useMethodsState(): { list: BillingMethods | null; error: boolean; reload: () => Promise<void> } {
+  const gateway = useGateway();
+  const s = useAppAtomValue(billingMethodsAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const reload = useCallback(() => reloadWith(() => gateway.getPaymentMethods()), [gateway]);
+  // and again when the account changes (sign-in lands after the mount)
+  useEffect(() => {
+    void reload();
+  }, [reload, uid]);
+  const mine = s.uid === uid;
+  return { list: mine ? s.list : null, error: mine && s.error, reload };
+}
 
 export function usePaymentMethods(): SavedMethod[] | null {
-  const gateway = useGateway();
-  const [methods, setMethods] = useState<SavedMethod[] | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    gateway.getPaymentMethods().then(
-      (m) => {
-        if (!cancelled) setMethods(m.methods);
-      },
-      () => {
-        if (!cancelled) setMethods(null);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [gateway]);
-  return methods;
+  return useMethodsState().list?.methods ?? null;
 }
 
 /** spec v6.2 P10: the methods with their limit, and a way to replace the
@@ -38,28 +60,13 @@ export function useBillingMethods(): {
   set: (m: BillingMethods) => void;
   reload: () => Promise<void>;
 } {
-  const gateway = useGateway();
-  const [list, setList] = useState<BillingMethods | null>(null);
-  const [error, setError] = useState(false);
-  const reload = useCallback(async () => {
-    try {
-      setList(await gateway.getPaymentMethods());
-      setError(false);
-    } catch {
-      setError(true);
-    }
-  }, [gateway]);
-  useEffect(() => {
-    let live = true;
-    gateway.getPaymentMethods().then(
-      (m) => live && setList(m),
-      () => live && setError(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway]);
+  const { list, error, reload } = useMethodsState();
   return { list, error, set: setList, reload };
+}
+
+/** Test hook: nothing read. */
+export function resetPaymentMethodsForTests(): void {
+  appStore.set(billingMethodsAtom, { uid: null, list: null, error: false });
 }
 
 /** A card past its expiry month. */

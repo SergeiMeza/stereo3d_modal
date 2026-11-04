@@ -6,35 +6,21 @@
  * null until it arrives or when it fails.
  */
 
-import { useEffect, useState } from "react";
-
 import type { PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { sharedFetch } from "@/lib/state/sharedFetch";
 
-let cached: Promise<PublicPricing | null> | null = null;
+// ADR 0138: one shared answer in an app-store atom
+const pricing = sharedFetch<PublicPricing>();
 
 /** Test hook: forget the shared answer. */
 export function resetPricingCache(): void {
-  cached = null;
+  pricing.reset();
 }
 
 export function usePricing(): PublicPricing | null {
   const gateway = useGateway();
-  const [pricing, setPricing] = useState<PublicPricing | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    cached ??= gateway.getPricing().catch(() => {
-      cached = null;
-      return null;
-    });
-    void cached.then((p) => {
-      if (!cancelled) setPricing(p);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [gateway]);
-  return pricing;
+  return pricing.use(() => gateway.getPricing());
 }
 
 /** Lifelike's lowest per-minute price ("from $3.82 a minute", S3D-11),

@@ -7,33 +7,19 @@
  * callers treat that as "unknown" and let the gateway decide.
  */
 
-import { useEffect, useState } from "react";
-
 import type { GatewayLimits } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { sharedFetch } from "@/lib/state/sharedFetch";
 
-let cached: Promise<GatewayLimits | null> | null = null;
+// ADR 0138: one shared answer in an app-store atom
+const limits = sharedFetch<GatewayLimits>();
 
 /** Test hook: forget the shared answer. */
 export function resetLimitsCache(): void {
-  cached = null;
+  limits.reset();
 }
 
 export function useLimits(): GatewayLimits | null {
   const gateway = useGateway();
-  const [limits, setLimits] = useState<GatewayLimits | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    cached ??= gateway.getLimits().catch(() => {
-      cached = null; // try again on the next mount
-      return null;
-    });
-    void cached.then((l) => {
-      if (!cancelled) setLimits(l);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [gateway]);
-  return limits;
+  return limits.use(() => gateway.getLimits());
 }

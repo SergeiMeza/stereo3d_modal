@@ -19,6 +19,7 @@ import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetBillingForTests } from "@/lib/billing";
+import { resetPaymentMethodsForTests } from "@/lib/api/usePaymentMethods";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import {
   compactPlayerAtom,
@@ -52,6 +53,7 @@ afterEach(() => {
   resetLimitsCache();
   resetPricingCache();
   resetBillingForTests();
+  resetPaymentMethodsForTests();
 });
 
 class ResizeObserverStub {
