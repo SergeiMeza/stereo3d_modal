@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -37,6 +38,9 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		"balance":    s.balanceSummary(ctx, uid, nil),
 		"plan":       s.planJSON(ctx, uid),
 	}
+	if recs := s.promoGrantsJSON(ctx, uid); len(recs) > 0 {
+		out["promo_regrants"] = recs
+	}
 	if entries, _, err := s.Store.ListEntries(ctx, uid, 50, ""); err == nil {
 		out["ledger"] = entries
 	}
@@ -62,7 +66,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 }
 
 // POST /v1/admin/accounts/{uid}/actions {action: clear_review |
-// clear_sheet_only | write_off_owed | block | unblock | resend_e2 |
+// clear_sheet_only | write_off_owed | block | unblock | resend_e2 | restore_promo_grants (note = reason) |
 // adjust_balance, cents?, case_id?, note?}.
 func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Request, a *AdminUser, uid string) {
 	ctx := r.Context()
@@ -76,7 +80,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent") && !a.FreshAuth() {
+	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants") && !a.FreshAuth() {
 		httpx.WriteErr(ctx, w, errReauth())
 		return
 	}
@@ -94,6 +98,18 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 			if c, _ := s.Store.GetCustomer(ctx, uid); c != nil && c.Plan != nil && len(c.Plan.GrantsPaused) > 4 && c.Plan.GrantsPaused[:4] == "efw:" {
 				s.setGrantsPaused(ctx, uid, "")
 			}
+			s.promoResolveEFWs(ctx, uid) // promotional Pro removed for the warning comes back
+		}
+	case "restore_promo_grants":
+		// Owner only: promotional Pro removed for a lost (or open) dispute
+		// or a fraud warning comes back from the snapshot, with a reason.
+		if strings.TrimSpace(req.Note) == "" {
+			err = httpx.ErrInvalid("a restore needs a reason")
+			break
+		}
+		restored := s.promoRestore(ctx, uid, a.who(), req.Note)
+		if len(restored) == 0 {
+			err = httpx.Err(http.StatusConflict, "nothing_to_restore", "No removed promotional grants on this account.")
 		}
 	case "clear_sheet_only":
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.SheetOnly, c.SheetOnlyReason = false, ""; return nil })

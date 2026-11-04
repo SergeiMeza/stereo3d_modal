@@ -256,7 +256,8 @@ func TestTierOrderWithRevenueCat(t *testing.T) {
 
 // Option b: a paid plan invoice grants business AND pro until the
 // period's end + 3 days, once per invoice; a full refund of that invoice
-// revokes business only (never pro); M3 re-grants a missing one.
+// revokes both (other promotional grants come back); M3 re-grants a
+// missing one.
 func TestPlanEntitlementGrants(t *testing.T) {
 	s, fake := e0Service(t)
 	ctx := context.Background()
@@ -315,21 +316,17 @@ func TestPlanEntitlementGrants(t *testing.T) {
 	if rep.Counts["plan_entitlement_missing"] != 0 {
 		t.Fatal("entitled: no flag")
 	}
-	// A full refund of the plan invoice: business revoked, pro left to run out.
+	// A full refund of the plan invoice: its business and pro revoked
+	// (nothing else promotional to give back here).
 	fake.invPays["pi_plan"] = "in_p1"
 	fake.invs["in_p1"] = map[string]any{"id": "in_p1", "amount_paid": 29900, "parent": map[string]any{"subscription_details": map[string]any{"subscription": "sub_p1"}}}
 	fake.pis["pi_plan"] = map[string]any{"status": "succeeded", "amount_received": 29900, "refunded": 29900}
 	if err := s.handleRefundEvent(ctx, "refund.created", []byte(`{"id":"re_plan","status":"succeeded","amount":29900,"payment_intent":"pi_plan"}`)); err != nil {
 		t.Fatal(err)
 	}
-	last := calls[len(calls)-1]
-	if !strings.HasPrefix(last, uid+"/entitlements/business/revoke_promotionals") {
+	if n := len(calls); !strings.HasPrefix(calls[n-2], uid+"/entitlements/business/revoke_promotionals") ||
+		!strings.HasPrefix(calls[n-1], uid+"/entitlements/pro/revoke_promotionals") {
 		t.Fatalf("revoke %v", calls)
-	}
-	for _, c := range calls {
-		if strings.Contains(c, "pro/revoke") {
-			t.Fatal("pro revoked")
-		}
 	}
 	cust, _ = s.Store.GetCustomer(ctx, uid)
 	if cust.Plan.RCRevokedAt == nil {

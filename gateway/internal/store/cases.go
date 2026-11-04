@@ -101,17 +101,27 @@ type Case struct {
 	RefundIDs       []string         `firestore:"refund_ids,omitempty" json:"refund_ids,omitempty"`
 	CreditNoteIDs   []string         `firestore:"credit_note_ids,omitempty" json:"credit_note_ids,omitempty"`
 	Dispute         *DisputeInfo     `firestore:"dispute,omitempty" json:"dispute,omitempty"`
-	CustomerText    string           `firestore:"customer_text,omitempty" json:"customer_text,omitempty"`
-	EvidenceN       int              `firestore:"evidence_n" json:"evidence_n"`
-	EvidenceAt      *time.Time       `firestore:"evidence_at,omitempty" json:"evidence_at,omitempty"`
-	DeadlineAt      *time.Time       `firestore:"deadline_at,omitempty" json:"deadline_at,omitempty"`
-	Reminders       []time.Time      `firestore:"reminders,omitempty" json:"reminders,omitempty"`
-	LastActivityAt  time.Time        `firestore:"last_activity_at" json:"last_activity_at"`
-	OpenedAt        time.Time        `firestore:"opened_at" json:"opened_at"`
-	DecidedAt       *time.Time       `firestore:"decided_at,omitempty" json:"decided_at,omitempty"`
-	ClosedAt        *time.Time       `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
-	StatusSince     time.Time        `firestore:"status_since" json:"status_since"`
-	Lease           *Lease           `firestore:"lease,omitempty" json:"-"`
+	// Promo: the account's promotional grants removed when the dispute
+	// opened (the promo_regrants record and its snapshot).
+	Promo          *CasePromo  `firestore:"promo,omitempty" json:"promo,omitempty"`
+	CustomerText   string      `firestore:"customer_text,omitempty" json:"customer_text,omitempty"`
+	EvidenceN      int         `firestore:"evidence_n" json:"evidence_n"`
+	EvidenceAt     *time.Time  `firestore:"evidence_at,omitempty" json:"evidence_at,omitempty"`
+	DeadlineAt     *time.Time  `firestore:"deadline_at,omitempty" json:"deadline_at,omitempty"`
+	Reminders      []time.Time `firestore:"reminders,omitempty" json:"reminders,omitempty"`
+	LastActivityAt time.Time   `firestore:"last_activity_at" json:"last_activity_at"`
+	OpenedAt       time.Time   `firestore:"opened_at" json:"opened_at"`
+	DecidedAt      *time.Time  `firestore:"decided_at,omitempty" json:"decided_at,omitempty"`
+	ClosedAt       *time.Time  `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
+	StatusSince    time.Time   `firestore:"status_since" json:"status_since"`
+	Lease          *Lease      `firestore:"lease,omitempty" json:"-"`
+}
+
+// CasePromo links a dispute case to its promo_regrants record.
+type CasePromo struct {
+	RecordID string       `firestore:"record_id" json:"record_id"`
+	Snapshot []PromoGrant `firestore:"snapshot" json:"snapshot"`
+	Status   string       `firestore:"status" json:"status"`
 }
 
 // CaseEvent is one timeline line.

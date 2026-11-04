@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -22,10 +23,11 @@ import (
 //     last failure; a failed grant never blocks the credit or the payment.
 //   - A normal end (cancel at period end, non-payment) needs nothing: the
 //     grant runs out.
-//   - An early end (the plan invoice refunded in full, disputed, a fraud
-//     warning on it, the account blocked or deleted) revokes the plan
-//     entitlement only. `pro` is never revoked (it may be Pro granted for
-//     other reasons) and runs out at its end time.
+//   - A full refund revokes the plan's entitlement and its pro; a dispute
+//     or fraud warning removes every promotional Pro until it is resolved;
+//     the account blocked or deleted revokes the plan entitlement only.
+//     Other promotional grants are snapshotted first and given back
+//     (promo_regrant.go).
 
 const planEntitlementGrace = 72 * time.Hour
 
@@ -46,6 +48,26 @@ func (s *Service) grantPlanEntitlements(ctx context.Context, uid, tier, invoiceI
 		return
 	}
 	until := periodEnd.Add(planEntitlementGrace)
+	if h := s.promoHeldFor(ctx, uid); h != nil {
+		// A dispute or fraud warning is open: the grants join its hold and
+		// come back with the rest when it is won or cleared.
+		add := []store.PromoGrant{{Entitlement: "pro", ExpiresAt: &until}}
+		if tier != pricing.TierPro {
+			add = append(add, store.PromoGrant{Entitlement: tier, ExpiresAt: &until})
+		}
+		s.Store.UpdatePromoRegrant(ctx, h.ID, func(r *store.PromoRegrant) error {
+			r.Snapshot = mergeGrants(r.Snapshot, add)
+			return nil
+		})
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			if c.Plan != nil {
+				c.Plan.RCGrantInvoice, c.Plan.RCGrantedUntil = invoiceID, &until
+			}
+			return nil
+		})
+		slog.InfoContext(ctx, "plan entitlements held for an open dispute", "uid", uid, "plan", tier, "invoice", invoiceID, "hold", h.ID)
+		return
+	}
 	if err := s.grantRC(ctx, uid, tier, until); err != nil {
 		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 			if c.Plan != nil {
@@ -84,42 +106,33 @@ func (s *Service) grantRC(ctx context.Context, uid, tier string, until time.Time
 }
 
 // revokePlanEntitlement revokes the plan's entitlement (business or
-// studio, never pro) on an early end.
+// studio; pro for a web Pro plan) on an early end that isn't a refund or
+// a dispute (account blocked or deleted). Other promotional grants of the
+// same entitlement are given back (promo_regrant.go).
 func (s *Service) revokePlanEntitlement(ctx context.Context, uid, reason string) {
 	if s.Store == nil || uid == "" {
 		return
 	}
 	cust, err := s.Store.GetCustomer(ctx, uid)
-	if err != nil || cust.Plan == nil || (cust.Plan.Tier != pricing.TierBusiness && cust.Plan.Tier != pricing.TierStudio && cust.Plan.Tier != pricing.TierPro) {
+	if err != nil || cust.Plan == nil || (cust.Plan.RCRevokedAt != nil && cust.Plan.RCGrantInvoice == "") {
 		return
 	}
-	if cust.Plan.RCRevokedAt != nil && cust.Plan.RCGrantInvoice == "" {
-		return
-	}
-	if !s.RevenueCat.CanGrant() {
-		slog.WarnContext(ctx, "plan entitlement not revoked: no RevenueCat secret key", "uid", uid, "reason", reason)
-		return
-	}
-	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-	defer cancel()
-	revoke := s.RevenueCat.RevokePromotionals
-	if cust.Plan.Tier == pricing.TierPro {
-		// Web Pro on our Stripe ended early: its pro grant goes (this also
-		// ends any other promotional pro on the account).
-		revoke = s.RevenueCat.RevokeProPromotionals
-	}
-	if err := revoke(rctx, uid, cust.Plan.Tier); err != nil {
-		s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` (%s): %v", cust.Plan.Tier, uid, reason, err))
-		return
-	}
-	now := time.Now().UTC()
-	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
-		if c.Plan != nil {
-			c.Plan.RCRevokedAt, c.Plan.RCRevokeReason, c.Plan.RCGrantInvoice = &now, reason, ""
+	s.promoRevokeOurs(ctx, uid, "end:"+cust.Plan.SubscriptionID+":"+slugReason(reason), reason, false)
+}
+
+// revokeRefundedPlan: a refunded plan invoice's grants (the plan's
+// entitlement and its pro) go; every other promotional grant comes back.
+func (s *Service) revokeRefundedPlan(ctx context.Context, uid, invoiceID string) {
+	s.promoRevokeOurs(ctx, uid, "refund:"+invoiceID, "refund on "+invoiceID, true)
+}
+
+func slugReason(r string) string {
+	return strings.Map(func(c rune) rune {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			return c
 		}
-		return nil
-	})
-	slog.InfoContext(ctx, "plan entitlement revoked", "uid", uid, "plan", cust.Plan.Tier, "reason", reason)
+		return '_'
+	}, strings.ToLower(r))
 }
 
 // planOwnerOfPI: the uid whose plan invoice pi paid ("" when pi paid no
@@ -143,27 +156,32 @@ func (s *Service) planOwnerOfPI(pi string) (uid string, pay *stripex.PlanPayment
 // on a PaymentIntent that paid a plan invoice: a full refund removes the
 // unspent credit, a dispute or warning freezes it; all three revoke the
 // plan's app entitlement. A partial refund only alerts Slack.
-func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, refundedCents int64) {
+func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, cents int64) {
 	uid, pay := s.planOwnerOfPI(pi)
 	if uid == "" {
 		return
 	}
 	switch why {
 	case "refund":
-		if refundedCents < pay.AmountPaid {
+		if cents < pay.AmountPaid {
 			s.Slack.Alert(ctx, "plan_partial_refund", fmt.Sprintf("plan invoice %s of `%s` partly refunded (%s of %s): credit and entitlements kept",
-				pay.InvoiceID, uid, money(refundedCents), money(pay.AmountPaid)))
+				pay.InvoiceID, uid, money(cents), money(pay.AmountPaid)))
 			return
 		}
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "refund:"+pay.InvoiceID, "", "plan invoice refunded in full", "plancredit_refund_"+pay.InvoiceID)
+		s.revokeRefundedPlan(ctx, uid, pay.InvoiceID)
 	case "dispute":
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "dispute:"+ref, "", "plan invoice disputed", "plancredit_freeze_"+ref)
 		s.setGrantsPaused(ctx, uid, "dispute:"+ref)
+		if cents == 0 {
+			cents = pay.AmountPaid
+		}
+		s.promoHold(ctx, uid, "dispute:"+ref, why+" on "+pay.InvoiceID, cents, "")
 	case "fraud warning":
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "efw:"+ref, "", "early fraud warning on the plan invoice", "plancredit_freeze_"+ref)
 		s.setGrantsPaused(ctx, uid, "efw:"+ref)
+		s.promoHold(ctx, uid, "efw:"+ref, why+" on "+pay.InvoiceID, pay.AmountPaid, "")
 	}
-	s.revokePlanEntitlement(ctx, uid, why+" on "+pay.InvoiceID)
 }
 
 // m3Plans: every active plan should hold its entitlement in RevenueCat;

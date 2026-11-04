@@ -103,6 +103,7 @@ func (s *Service) RunM3(ctx context.Context, since time.Time, dryRun bool) *M3Re
 	s.m3Runs(ctx, rep)
 	s.m3Balances(ctx, rep)
 	s.m3Plans(ctx, rep, dryRun)
+	s.m3PromoRegrants(ctx, rep, dryRun)
 	if !dryRun {
 		rep.Retention = s.downloadRetention(ctx)
 	}

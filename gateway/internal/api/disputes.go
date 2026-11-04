@@ -88,9 +88,9 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 	if !ok || o.UID == "" {
 		switch eventType { // a plan invoice's payment: its credit and app entitlement
 		case "charge.dispute.created":
-			s.planEarlyEnd(ctx, pi, "dispute", d.ID, 0)
+			s.planEarlyEnd(ctx, pi, "dispute", d.ID, d.Amount)
 		case "charge.dispute.closed":
-			s.planDisputeClosed(ctx, pi, d.ID, d.Status == "won")
+			s.planDisputeClosed(ctx, pi, d.ID, disputeKept(d.Status))
 		}
 		return nil
 	}
@@ -135,6 +135,10 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 			})
 		}
 		s.noticeOwner(ctx, "O1", cs, fmt.Sprintf("SVS dispute %s · %s · %s · evidence due %s", cs.ID, money(d.Amount), d.Reason, dueDate(due)))
+		// Every promotional Pro on the account goes until it is resolved,
+		// and a yearly plan's months are held back.
+		s.pauseGrantsIfFree(ctx, o.UID, "dispute:"+d.ID)
+		s.promoHold(ctx, o.UID, "dispute:"+d.ID, "dispute on "+pi, d.Amount, cs.ID)
 	case "charge.dispute.updated", "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated":
 		if cs := s.disputeCase(ctx, pi, d.ID); cs != nil {
 			s.Store.UpdateCase(ctx, cs.ID, "system", func(c *store.Case) error {
@@ -184,6 +188,12 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 				return ops, nil
 			})
 		}
+		if disputeKept(d.Status) {
+			s.resumeGrantsIf(ctx, o.UID, "dispute:"+d.ID)
+			s.promoResolve(ctx, "dispute:"+d.ID, "won")
+		} else {
+			s.promoResolve(ctx, "dispute:"+d.ID, "lost")
+		}
 		if outcome == "won" {
 			for _, id := range runs {
 				s.setRunDispute(ctx, id, "")
@@ -199,6 +209,25 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 		}
 	}
 	return nil
+}
+
+// disputeKept: the dispute ended with the money ours (won, withdrawn —
+// Stripe reports it as won — or an inquiry closed).
+func disputeKept(status string) bool { return status == "won" || status == "warning_closed" }
+
+// pauseGrantsIfFree holds back a yearly plan's months for reason unless
+// they are held already.
+func (s *Service) pauseGrantsIfFree(ctx context.Context, uid, reason string) {
+	if c, err := s.Store.GetCustomer(ctx, uid); err == nil && c.Plan != nil && c.Plan.Yearly() && c.Plan.GrantsPaused == "" {
+		s.setGrantsPaused(ctx, uid, reason)
+	}
+}
+
+// resumeGrantsIf resumes a yearly plan's months held back for reason.
+func (s *Service) resumeGrantsIf(ctx context.Context, uid, reason string) {
+	if c, err := s.Store.GetCustomer(ctx, uid); err == nil && c.Plan != nil && c.Plan.GrantsPaused == reason {
+		s.setGrantsPaused(ctx, uid, "")
+	}
 }
 
 func dueDate(t *time.Time) string {
@@ -280,6 +309,8 @@ func (s *Service) handleEFW(ctx context.Context, raw json.RawMessage) error {
 	})
 	s.pauseAutoReload(ctx, o.UID, "efw")
 	s.blockPaymentCard(ctx, o.Facts, "efw", w.ID, o.UID) // H: the fingerprint joins the block list
+	s.pauseGrantsIfFree(ctx, o.UID, "efw:"+w.ID)
+	s.promoHold(ctx, o.UID, "efw:"+w.ID, "early fraud warning on "+pi, o.Facts.Received, "")
 	var delivered []string
 	for _, id := range s.runsOf(ctx, o) {
 		c, err := s.Store.GetConversion(ctx, id)

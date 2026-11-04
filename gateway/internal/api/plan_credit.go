@@ -206,7 +206,7 @@ func (s *Service) planRefund(ctx context.Context, c *store.Case, want int64, who
 	}
 	s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: who, Kind: "plan_ended",
 		Text: fmt.Sprintf("%s plan credit removed, %s refunded, plan ended", money(removed), money(amount))})
-	s.revokePlanEntitlement(ctx, c.UID, "refund on "+q.InvoiceID)
+	s.revokeRefundedPlan(ctx, c.UID, q.InvoiceID)
 	if q.SubscriptionID != "" {
 		if err := s.Stripe.CancelSubscriptionNow(q.SubscriptionID); err != nil {
 			s.Slack.Alert(ctx, "plan_cancel_failed", fmt.Sprintf("plan %s of `%s` not cancelled after its refund (%s): %v", q.SubscriptionID, c.UID, c.ID, err))
@@ -223,6 +223,11 @@ func (s *Service) planDisputeClosed(ctx context.Context, pi, disputeID string, w
 		return
 	}
 	ref := "dispute:" + disputeID
+	outcome := "lost"
+	if won {
+		outcome = "won"
+	}
+	defer s.promoResolve(ctx, ref, outcome)
 	if won {
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditUnfreeze, ref, "", "dispute won", "plancredit_won_"+disputeID)
 		s.setGrantsPaused(ctx, uid, "") // a yearly plan's months resume

@@ -931,8 +931,9 @@ is ignored without such a plan.
   pro`, `plan_id`. The mirror reads `plan.tier: pro`, `plan.plan_id`;
   quotes price at Pro with the plan's free previews per period
   (allowance = plan id); `invoice.paid` grants RevenueCat "pro" alone to
-  period end + 3 days; an early end revokes promotional "pro" (which also
-  ends any other promotional pro on the account). `GET /v1/billing` plan
+  period end + 3 days; an early end revokes promotional "pro" and gives
+  every other promotional grant back (see "Promotional Pro on refunds and
+  disputes"). `GET /v1/billing` plan
   block adds `plan_id`, and for Pro `name`, `interval`, `price_cents`.
 - **Plan changes** (order pro_weekly < pro_monthly < pro_yearly <
   business < studio; `pay_per_video`/`none` lowest):
@@ -1099,16 +1100,57 @@ logged. One grant per invoice, recorded on the plan (`plan.rc_grant_invoice,
 rc_granted_until, rc_grant_error`); retries on 5xx/429, then a Slack
 `rc_grant_failed`; a failed grant never blocks the credit or the payment.
 A normal end (cancel at period end, non-payment) needs nothing: the grant
-runs out. An early end revokes the plan's entitlement only
-(`revoke_promotionals` on `business`/`studio`; `pro` is never revoked, as it
-may be Pro granted for support or campaigns, and runs out at its end):
-the plan invoice refunded in full (a partial refund only alerts Slack), a
-dispute or an early fraud warning on it, the account blocked (A3) or
-deleted (`plan.rc_revoked_at, rc_revoke_reason`). M3 re-grants an active
+runs out. An early end: the plan invoice refunded in full (a partial
+refund only alerts Slack) revokes the plan's entitlement and its pro; a
+dispute or an early fraud warning on it removes every promotional Pro;
+the account blocked (A3) or deleted revokes the plan's entitlement only
+(`plan.rc_revoked_at, rc_revoke_reason`). Other promotional grants are
+snapshotted first and given back (next section). M3 re-grants an active
 plan whose entitlement RevenueCat doesn't show (`plan_entitlement_missing`)
 unless it was revoked. **Test accounts are real RevenueCat subscribers in
 the one shared project: a grant on test gives that uid real app Pro until
 its end time.**
+
+**Promotional Pro on refunds and disputes (owner 2026-11-04).**
+RevenueCat revokes all promotional grants of an entitlement at once, and
+an account can hold grants we have no records of (support goodwill from
+the RevenueCat dashboard; the SVS backend's free two weeks, which uses its
+own `trial` entitlement). So before any revoke the gateway reads the
+account's promotional grants from RevenueCat (`subscriptions` with store
+`promotional`: entitlement, product, expiry) and stores the snapshot on
+`promo_regrants_{env}/{event}` (event `refund:{invoice}` |
+`dispute:{id}` | `efw:{id}` | `end:{subscription}:{reason}`) and on the
+dispute case (`case.promo {record_id, snapshot, status}`).
+
+- **Refund** (`revoke_ours`): the refunded purchase's entitlements are
+  revoked, then every snapshotted grant except ours (our records: the
+  plan's entitlements ending at `plan.rc_granted_until`, ±10 min) is
+  granted again from now to its original end (lifetime stays lifetime);
+  expired ones are skipped. RevenueCat shows one entry per product (the
+  latest expiry), so another grant of the same product can hide under
+  ours: when ours is the only `pro` entry the record gets `uncertain:
+  true` and `promo_regrant_uncertain` is logged for support.
+- **Dispute opened / early fraud warning** (`revoke_all`): every
+  promotional grant of `pro`, `business`, `studio` and `trial` is removed
+  and a yearly plan's months held back (`grants_paused`); Slack
+  `promo_grants_removed` (account, amount, grants). A plan invoice paid
+  meanwhile adds its grants to the hold instead of granting them. **Won**
+  (also withdrawn, which Stripe reports as won, and a closed inquiry) or
+  **clear_review** for a warning → everything in the snapshot back to its
+  original end, expired skipped (`promo_grants_restored`); when another
+  dispute or warning is still open, its hold takes the grants (`merged`).
+  **Lost** → stays removed (`promo_grants_kept_removed`) until the owner
+  runs admin action `restore_promo_grants` (fresh sign-in, `note` = the
+  reason, audited) on the account.
+- Every step is idempotent per event (a redelivered webhook does
+  nothing). A failed snapshot, revoke or re-grant alerts Slack
+  `promo_regrant_failed` and leaves the record in `snapshot_failed` |
+  `revoke_failed` | `regrant_failed`; nightly M3 takes it up again
+  (`promo_regrant_retry`). Statuses: `started`, `snapshotted`, `held`,
+  `regranting`, `done`, `kept_removed`, `merged`, and the failures.
+- Admin `GET /v1/admin/accounts/{uid}` adds `promo_regrants` (the
+  records, with snapshot, `ours`, `regranted`, `skipped`, `to_grant`,
+  `uncertain`, `outcome`).
 
 **Plan credit when a plan ends early (owner rules 2026-11-03).** Each
 freeze, unfreeze and removal is a balance ledger entry
@@ -1120,11 +1162,11 @@ in the balance history.
 | Event | Plan credit | App entitlement |
 |---|---|---|
 | Cancel at period end, non-payment | unchanged until the period ends | runs out |
-| Refund we grant (`plan_refund` case) | unspent credit removed at once; the refund is paid × unspent ÷ credit, rounded down (Business $299 with $200 of $400 left → $149.50); spent credit is never refunded; the subscription ends now | business/studio revoked |
-| Full refund from the Dashboard | removed | revoked |
+| Refund we grant (`plan_refund` case) | unspent credit removed at once; the refund is paid × unspent ÷ credit, rounded down (Business $299 with $200 of $400 left → $149.50); spent credit is never refunded; the subscription ends now | its business/studio and pro revoked, other promotional grants given back |
+| Full refund from the Dashboard | removed | the same |
 | Partial (goodwill) refund | kept, Slack alert | kept |
-| Dispute on the plan invoice | frozen; lost → removed; won → unfrozen (still expires at the period's end) | revoked |
-| Early fraud warning on it | frozen until **clear_review** | revoked |
+| Dispute on the plan invoice (or any payment of ours) | frozen; lost → removed; won → unfrozen (still expires at the period's end) | every promotional Pro removed; won → all back; lost → owner restore |
+| Early fraud warning on it | frozen until **clear_review** | every promotional Pro removed until **clear_review** |
 | Admin `block` / `unblock` | frozen / unfrozen | revoked on block |
 | Admin `block_permanent` (fresh sign-in) | removed | revoked |
 | Account deletion | removed, never paid out | revoked |
