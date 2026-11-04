@@ -34,9 +34,10 @@ type onboardingPatch struct {
 	Headsets     *[]string `json:"headsets"`
 	HintsSeenAdd []string  `json:"hints_seen_add"`
 	Onboarding   *struct {
-		WelcomeDone     *bool `json:"welcome_done"`
-		ChecklistHidden *bool `json:"checklist_hidden"`
-		TipsDone        *bool `json:"tips_done"`
+		WelcomeDone       *bool `json:"welcome_done"`
+		ChecklistHidden   *bool `json:"checklist_hidden"`
+		TipsDone          *bool `json:"tips_done"`
+		AppProWelcomeDone *bool `json:"app_pro_welcome_done"`
 	} `json:"onboarding"`
 }
 
@@ -84,6 +85,9 @@ func (p *onboardingPatch) apply(c *store.Customer) {
 		}
 		if o.TipsDone != nil {
 			c.Onboarding.TipsDone = *o.TipsDone
+		}
+		if o.AppProWelcomeDone != nil {
+			c.Onboarding.AppProWelcomeDone = *o.AppProWelcomeDone
 		}
 	}
 }
@@ -144,6 +148,7 @@ func (s *Service) onboardingSettings(ctx context.Context, uid string, cust *stor
 		}
 	}
 	ob["welcome_done"] = welcome
+	s.appOnboarding(ctx, uid, cust, ob) // variant, app_pro_welcome_done, headsets_from_app
 	return map[string]any{"headsets": headsets, "hints_seen": hints, "onboarding": ob}
 }
 
@@ -199,11 +204,17 @@ var eventValidators = map[string]func(map[string]any) (map[string]any, bool){
 				devices = append(devices, v)
 			}
 		}
-		out := map[string]any{"devices": devices}
+		out := map[string]any{"devices": devices, "variant": variantDefault}
 		for _, k := range []string{"plan", "source"} {
 			if v, ok := in[k].(string); ok && slugRE.MatchString(v) {
 				out[k] = v
 			}
+		}
+		if v, ok := in["variant"]; ok && v != nil {
+			if v != variantDefault && v != variantAppPro {
+				return nil, false
+			}
+			out["variant"] = v
 		}
 		return out, true
 	},
@@ -306,13 +317,18 @@ func (s *Service) headsetReport(ctx context.Context, events []store.Event) map[s
 	type dayKey struct{ day, device string }
 	type planKey struct{ plan, device string }
 	byDay, byPlan := map[dayKey]map[string]bool{}, map[planKey]map[string]bool{}
-	people := map[string]map[string]bool{} // device → uids
+	byVariant := map[planKey]map[string]bool{} // variant, device
+	people := map[string]map[string]bool{}     // device → uids
 	firstAt := map[string]time.Time{}
 	for _, e := range events {
 		devices, _ := e.Props["devices"].([]any)
 		plan, _ := e.Props["plan"].(string)
 		if plan == "" {
 			plan = "none"
+		}
+		variant, _ := e.Props["variant"].(string)
+		if variant == "" {
+			variant = variantDefault // answers from before the variant
 		}
 		if t, ok := firstAt[e.UID]; !ok || e.At.Before(t) {
 			firstAt[e.UID] = e.At
@@ -330,7 +346,9 @@ func (s *Service) headsetReport(ctx context.Context, events []store.Event) map[s
 				return m
 			}
 			dk, pk := dayKey{e.At.UTC().Format("2006-01-02"), dev}, planKey{plan, dev}
+			vk := planKey{variant, dev}
 			byDay[dk], byPlan[pk], people[dev] = add(byDay[dk]), add(byPlan[pk]), add(people[dev])
+			byVariant[vk] = add(byVariant[vk])
 		}
 	}
 	converted := map[string]bool{}
@@ -357,6 +375,16 @@ func (s *Service) headsetReport(ctx context.Context, events []store.Event) map[s
 		}
 		return planRows[i]["device"].(string) < planRows[j]["device"].(string)
 	})
+	variantRows := []map[string]any{}
+	for k, uids := range byVariant {
+		variantRows = append(variantRows, map[string]any{"variant": k.plan, "device": k.device, "count": len(uids)})
+	}
+	sort.Slice(variantRows, func(i, j int) bool {
+		if variantRows[i]["variant"] != variantRows[j]["variant"] {
+			return variantRows[i]["variant"].(string) < variantRows[j]["variant"].(string)
+		}
+		return variantRows[i]["device"].(string) < variantRows[j]["device"].(string)
+	})
 	convRows := []map[string]any{}
 	for dev, uids := range people {
 		n := 0
@@ -368,7 +396,7 @@ func (s *Service) headsetReport(ctx context.Context, events []store.Event) map[s
 		convRows = append(convRows, map[string]any{"device": dev, "people": len(uids), "converted": n})
 	}
 	sort.Slice(convRows, func(i, j int) bool { return convRows[i]["device"].(string) < convRows[j]["device"].(string) })
-	return map[string]any{"by_day": dayRows, "by_plan": planRows, "conversion": convRows}
+	return map[string]any{"by_day": dayRows, "by_plan": planRows, "by_variant": variantRows, "conversion": convRows}
 }
 
 // paidFullRunSince: the account paid for a full run (production, not the

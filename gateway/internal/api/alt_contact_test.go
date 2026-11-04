@@ -76,4 +76,3 @@ func TestContact(t *testing.T) {
 		t.Fatalf("slack %q", txt)
 	}
 }
-

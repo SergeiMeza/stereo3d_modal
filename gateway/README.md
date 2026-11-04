@@ -802,6 +802,34 @@ is ignored without such a plan.
   (`smp` + hash), so it's added once and never again after a delete.
 - **`/v1/pricing`** plans add `max_fps: 120`.
 
+### App Pro onboarding variant (owner 2026-11-04, test)
+
+- **`onboarding.variant`**: `app_pro` while the account holds the app's
+  Pro (an active "pro" entitlement bought in the App Store or the Mac App
+  Store, or a promotional grant that isn't ours; RevenueCat's `store`),
+  else `default`. Not app Pro: Pro bought on the web (`stripe`,
+  `rc_billing`) or Pro that comes with Business/Studio (an active plan
+  entitlement, or our promotional "pro" while our plan grant runs).
+  **`onboarding.app_pro_welcome_done`** (PATCH `onboarding
+  {app_pro_welcome_done}`): the app Pro welcome, once, also for web
+  accounts that gain the app's Pro later (their `welcome_done` stays).
+- **What the app knows** (read only from `app_users/{uid}`, which the app
+  writes): `onboarding.headsets_from_app[]` in web ids, `onboarding
+  .headsets_from_app_source` (`app_answer` | `app_device` | null) and
+  `onboarding.app_viewing_device` (`apple_vision_pro` | `other_headset` |
+  `screen_only` | null). The app asks one question (viewingDevice:
+  appleVisionPro | otherHeadset | screenOnly); only Apple Vision Pro maps
+  to a device (`avp`); "other headset" doesn't say which, so nothing is
+  prefilled for it. Without an answer, the app having run on a Vision Pro
+  (usedDevices RealityDevice…) gives `avp`.
+- **Test only**: PATCH `simulate_app_pro: true|false` makes the account
+  read as app Pro for the variant and the Pro price tier (Pro Monthly's
+  preview allowance); logged as a warning; prod answers 403 `test_only`
+  and ignores a stored switch.
+- **Events**: `onboarding_headsets` takes `props.variant` (`default` |
+  `app_pro`, `default` when absent); the admin onboarding report adds
+  `by_variant[{variant, device, count}]`.
+
 ### Plans surfaces (owner 2026-11-04)
 
 - **Events** (`POST /v1/events`): `plans_surface_view`,

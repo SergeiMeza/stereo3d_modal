@@ -68,6 +68,10 @@ type Status struct {
 	// Tier: "studio" or "business" when a web plan makes the person Pro
 	// (its own entitlement, or a plan product behind "pro"); "" for Pro.
 	Tier string
+	// Store: where what makes them Pro was bought, as RevenueCat names it
+	// (app_store | mac_app_store | stripe | rc_billing | promotional | …;
+	// "" unknown).
+	Store string
 }
 
 type entry struct {
@@ -135,10 +139,12 @@ type subscriber struct {
 		} `json:"entitlements"`
 		NonSubscriptions map[string][]struct {
 			PurchaseDate time.Time `json:"purchase_date"`
+			Store        string    `json:"store"`
 		} `json:"non_subscriptions"`
 		Subscriptions map[string]struct {
 			PurchaseDate time.Time  `json:"purchase_date"`
 			ExpiresDate  *time.Time `json:"expires_date"`
+			Store        string     `json:"store"`
 		} `json:"subscriptions"`
 	} `json:"subscriber"`
 }
@@ -179,9 +185,17 @@ func statusOf(b subscriber, now time.Time) Status {
 			return Status{}, false
 		}
 		st := Status{Pro: true, Via: e.ProductIdentifier, ExpiresAt: e.ExpiresDate}
-		if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok && !sub.PurchaseDate.IsZero() {
-			pd := sub.PurchaseDate
-			st.PeriodStart = &pd
+		if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok {
+			st.Store = sub.Store
+			if !sub.PurchaseDate.IsZero() {
+				pd := sub.PurchaseDate
+				st.PeriodStart = &pd
+			}
+		} else if ns := b.Subscriber.NonSubscriptions[e.ProductIdentifier]; len(ns) > 0 {
+			st.Store = ns[len(ns)-1].Store // Lifetime
+		}
+		if st.Store == "" && strings.HasPrefix(e.ProductIdentifier, "rc_promo") {
+			st.Store = "promotional"
 		}
 		return st, true
 	}
@@ -204,7 +218,7 @@ func statusOf(b subscriber, now time.Time) Status {
 		for _, p := range purchases {
 			if end := p.PurchaseDate.AddDate(0, months, 0); end.After(now) {
 				pd := p.PurchaseDate
-				return Status{Pro: true, Via: product, ExpiresAt: &end, PeriodStart: &pd}
+				return Status{Pro: true, Via: product, ExpiresAt: &end, PeriodStart: &pd, Store: p.Store}
 			}
 		}
 	}

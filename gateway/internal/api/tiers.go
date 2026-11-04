@@ -34,7 +34,12 @@ func (s *Service) accountTier(ctx context.Context, uid string) accountTier {
 	// business > pro.
 	var best accountTier
 	if s.Store != nil {
-		if cust, err := s.Store.GetCustomer(ctx, uid); err == nil && cust.Plan.Active(now) {
+		cust, err := s.Store.GetCustomer(ctx, uid)
+		if err == nil && s.simulatedAppPro(cust) {
+			// TEST: reads as the app's Pro (Pro Monthly's allowance).
+			best = accountTier{Tier: pricing.TierPro, AllowanceKey: "pro_monthly", PeriodKey: "simulated:" + now.Format("2006-01")}
+		}
+		if err == nil && cust.Plan.Active(now) {
 			if _, ok := s.rates(ctx).Plan(cust.Plan.Tier); ok {
 				best = accountTier{Tier: cust.Plan.Tier, AllowanceKey: cust.Plan.Tier, Plan: cust.Plan, PeriodEnd: cust.Plan.CurrentPeriodEnd}
 				start := ""

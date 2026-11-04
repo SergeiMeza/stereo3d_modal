@@ -557,6 +557,10 @@ type Customer struct {
 	// Dismissed: when each plans surface was last dismissed (placement →
 	// time), for the ones that come back (projects_banner after 7 days).
 	Dismissed map[string]time.Time `firestore:"dismissed,omitempty"`
+	// SimulateAppPro (test only, never honoured on prod): the account
+	// reads as holding the app's Pro, for the onboarding variant and the
+	// Pro price tier.
+	SimulateAppPro bool `firestore:"simulate_app_pro,omitempty"`
 }
 
 // Onboarding is the account's onboarding flags; nil = never written (an
@@ -565,6 +569,9 @@ type Onboarding struct {
 	WelcomeDone     *bool `firestore:"welcome_done,omitempty"`
 	ChecklistHidden bool  `firestore:"checklist_hidden,omitempty"`
 	TipsDone        bool  `firestore:"tips_done,omitempty"`
+	// AppProWelcomeDone: the app Pro welcome was shown (once, also for web
+	// accounts that gain the app's Pro later).
+	AppProWelcomeDone bool `firestore:"app_pro_welcome_done,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches

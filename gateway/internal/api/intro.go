@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -111,9 +112,10 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 	ctx := r.Context()
 	if r.Method == http.MethodPatch {
 		var req struct {
-			LifelikeIntro *bool           `json:"lifelike_intro"`
-			Locale        json.RawMessage `json:"locale"`
-			Dismissed     json.RawMessage `json:"dismissed"`
+			LifelikeIntro  *bool           `json:"lifelike_intro"`
+			Locale         json.RawMessage `json:"locale"`
+			Dismissed      json.RawMessage `json:"dismissed"`
+			SimulateAppPro *bool           `json:"simulate_app_pro"`
 			onboardingPatch
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
@@ -127,6 +129,10 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		dismissed, derr := parseDismissed(req.Dismissed, time.Now().UTC())
 		if derr != nil {
 			httpx.WriteErr(ctx, w, derr)
+			return
+		}
+		if req.SimulateAppPro != nil && (s.Cfg == nil || s.Cfg.Env == "prod") {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "test_only", "simulate_app_pro is for test only"))
 			return
 		}
 		if _, err := s.ensureCustomerID(ctx, user); err != nil {
@@ -167,6 +173,10 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 				c.Locale = *locale
 			}
 			req.onboardingPatch.apply(c)
+			if req.SimulateAppPro != nil {
+				c.SimulateAppPro = *req.SimulateAppPro
+				slog.WarnContext(ctx, "TEST simulate_app_pro set", "uid", user.UID, "simulate_app_pro", c.SimulateAppPro, "env", s.Cfg.Env)
+			}
 			for k, t := range dismissed {
 				if c.Dismissed == nil {
 					c.Dismissed = map[string]time.Time{}
