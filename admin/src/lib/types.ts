@@ -616,3 +616,17 @@ export interface PromoRegrant {
   updated_at?: string;
   resolved_at?: string | null;
 }
+
+/** GET /v1/admin/onboarding/business_funnel?days= (Business setup request
+ * 2026-11-04): the setup steps and what people answered. */
+export interface BusinessFunnel {
+  days: number;
+  steps?: { step: string; people: number; events: number; rate_from_previous: number }[] | null;
+  by_plan?: { step: string; plan: string; people: number }[] | null;
+  answers?: {
+    accounts: number;
+    by_main_use?: { main_use: string; count: number }[] | null;
+    by_team_size?: { team_size: string; count: number }[] | null;
+  } | null;
+  generated_at: string;
+}

@@ -54,7 +54,60 @@ export function OnboardingPanel() {
         <ErrorState title="Couldn't load the onboarding answers." message={errorMessage(state.error)} onRetry={retry} />
       )}
       {state.kind === "loaded" && <Headsets data={state.data} />}
+      {state.kind === "loaded" && <SetupAnswers days={days} />}
     </>
+  );
+}
+
+const MAIN_USES: Record<string, string> = {
+  client_work: "Client work",
+  own_channel: "Own channel",
+  stock: "Stock footage",
+  other: "Other",
+};
+
+/** What the Business/Studio setup asked: main use and team size. Loaded on
+ * its own; a failure leaves the rest of the page alone. */
+function SetupAnswers({ days }: { days: number }) {
+  const { api } = useServices();
+  const { state } = useLoad(() => api.businessFunnel(days), [api, days]);
+  if (state.kind !== "loaded") return null;
+  const a = state.data.answers;
+  const uses = a?.by_main_use ?? [];
+  const sizes = a?.by_team_size ?? [];
+  if (!a || (uses.length === 0 && sizes.length === 0)) return null;
+  const total = (rows: { count: number }[]) => rows.reduce((s, r) => s + r.count, 0) || 1;
+  return (
+    <div className="two even" data-testid="onboarding-setup-answers">
+      <section className="card">
+        <div className="sh"><b>Main use</b><span className="xs muted">Business and Studio setup · {a.accounts} accounts</span></div>
+        <table className="at">
+          <tbody>
+            {[...uses].sort((x, y) => y.count - x.count).map((r) => (
+              <tr key={r.main_use}>
+                <td>{MAIN_USES[r.main_use] ?? r.main_use}</td>
+                <td className="num">{r.count}</td>
+                <td className="num">{pct(r.count / total(uses), 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+      <section className="card">
+        <div className="sh"><b>Team size</b><span className="xs muted">as answered</span></div>
+        <table className="at">
+          <tbody>
+            {[...sizes].sort((x, y) => y.count - x.count).map((r) => (
+              <tr key={r.team_size}>
+                <td>{r.team_size}</td>
+                <td className="num">{r.count}</td>
+                <td className="num">{pct(r.count / total(sizes), 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
   );
 }
 

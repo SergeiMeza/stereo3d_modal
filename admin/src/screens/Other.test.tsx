@@ -470,7 +470,28 @@ describe("onboarding answers (owner 2026-11-04)", () => {
     const funnel = screen.getByTestId("onboarding-setup-funnel");
     expect(funnel).toHaveTextContent("Picked a plan1050%82");
     expect(funnel).toHaveTextContent("Bought210%2—");
-    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=90");
+    expect(calls.find((c) => c.path === "/v1/admin/onboarding/headsets")!.url).toContain("days=90");
+  });
+
+  it("shows the Business/Studio setup answers by main use and team size", async () => {
+    renderApp("/onboarding", {
+      "GET /v1/admin/onboarding/headsets": () => ({ json: { days: 90, generated_at: "2026-11-04T00:00:00Z" } }),
+      "GET /v1/admin/onboarding/business_funnel": () => ({
+        json: {
+          days: 90,
+          answers: {
+            accounts: 4,
+            by_main_use: [{ main_use: "client_work", count: 3 }, { main_use: "stock", count: 1 }],
+            by_team_size: [{ team_size: "2-5", count: 4 }],
+          },
+          generated_at: "2026-11-04T00:00:00Z",
+        },
+      }),
+    });
+    const answers = await screen.findByTestId("onboarding-setup-answers");
+    expect(answers).toHaveTextContent("Client work375%");
+    expect(answers).toHaveTextContent("4 accounts");
+    expect(answers).toHaveTextContent("2-54100%");
   });
 });
 

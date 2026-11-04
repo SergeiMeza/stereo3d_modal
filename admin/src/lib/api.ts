@@ -1,5 +1,6 @@
 import type {
   AccountActionBody,
+  BusinessFunnel,
   AccountPage,
   CaseActionBody,
   CasePage,
@@ -214,6 +215,11 @@ export class AdminApi {
 
   plansSurfaces(days: number): Promise<PlansSurfaces> {
     return this.json("GET", `/v1/admin/plans/surfaces?days=${days}`);
+  }
+
+  /** Business/Studio setup steps and answers (main use, team size). */
+  businessFunnel(days: number): Promise<BusinessFunnel> {
+    return this.json("GET", `/v1/admin/onboarding/business_funnel?days=${days}`);
   }
 
   onboardingHeadsets(days: number): Promise<OnboardingHeadsets> {
