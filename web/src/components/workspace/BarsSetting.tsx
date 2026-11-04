@@ -125,7 +125,15 @@ export function BarsToggle({
           className="mt-0.5 accent-primary"
         />
         <span className="flex flex-col gap-0.5">
-          <span className="font-medium">Remove black bars</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">Remove black bars</span>
+            <span
+              data-testid="bars-recommended"
+              className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+            >
+              Recommended
+            </span>
+          </span>
           <span data-testid="bars-toggle-help" className="text-xs text-fg-muted">
             {value
               ? without && fullSize

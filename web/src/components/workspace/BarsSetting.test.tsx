@@ -111,6 +111,7 @@ describe("Make 3D: the black bars setting", () => {
     const toggle = screen.getByTestId("bars-toggle");
     const box = within(toggle).getByRole("checkbox", { name: /Remove black bars/ }) as HTMLInputElement;
     expect(box.checked).toBe(true);
+    expect(within(toggle).getByTestId("bars-recommended").textContent).toBe("Recommended");
     expect(within(toggle).getByTestId("bars-toggle-help").textContent).toContain("3840×1600 instead of 3840×2160");
     fireEvent.click(box);
     await waitFor(() => expect(mockDb.projects.get(PID)!.remove_bars).toBe(false));
