@@ -120,9 +120,11 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 }
 
 // payNowBilling is the billing block of a run waiting in the sheet:
-// requires_payment with why and the open session's client secret, or
+// requires_payment with why and the open session's client secret (and
+// the Stripe publishable key the sheet mounts with, so a run read back
+// with GET /v1/conversions/{id} can finish its payment), or
 // waiting_for_payment while an async payment settles.
-func payNowBilling(c *store.Conversion) map[string]any {
+func payNowBilling(c *store.Conversion, publishableKey string) map[string]any {
 	if c.State != store.StateCreated || (c.PaymentFlow != store.FlowPayNow && c.PaymentFlow != store.FlowChina) {
 		return nil
 	}
@@ -139,6 +141,7 @@ func payNowBilling(c *store.Conversion) map[string]any {
 			checkout["expires_at"] = cp.ExpiresAt.Format(time.RFC3339)
 		}
 		b["checkout"] = checkout
+		b["publishable_key"] = publishableKey
 	}
 	if c.ExpiresAt != nil {
 		b["expires_at"] = c.ExpiresAt.Format(time.RFC3339)
@@ -459,4 +462,13 @@ func (s *Service) applySettleSessionEvent(ctx context.Context, eventType, sessio
 		}
 	}
 	return nil
+}
+
+// publishableKey is the Stripe publishable key the web mounts Elements
+// with ("" without Stripe configured).
+func (s *Service) publishableKey() string {
+	if s.Stripe == nil {
+		return ""
+	}
+	return s.Stripe.PublishableKey
 }

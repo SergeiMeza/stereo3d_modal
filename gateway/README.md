@@ -119,7 +119,9 @@ confirmCardPayment fallback). The default card is cached on
   `run_{env}_{conversion_id}_{attempt}`. WeChat Pay is excluded unless
   `X-Client-Device: computer`; Klarna is excluded while `klarna_markets` is
   empty. Responses: `billing {status: requires_payment, reason,
-  declined_method_label?, checkout {client_secret, expires_at}}`, plus
+  declined_method_label?, checkout {client_secret, expires_at},
+  publishable_key}` (the key whenever a session is open, so a run read
+  back with `GET /v1/conversions/{id}` can finish its payment), plus
   top-level `checkout`, `amount_cents`, `publishable_key`.
 - `POST /v1/conversions/{id}/pay-now {ui: "elements", replace?}`: the open
   session, or a fresh one (E0-1 replace). 409 `already_paid` / `expired` /

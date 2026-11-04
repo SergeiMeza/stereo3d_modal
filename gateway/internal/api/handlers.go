@@ -1176,7 +1176,7 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 			}
 		}
 	}
-	if b := payNowBilling(c); b != nil {
+	if b := payNowBilling(c, s.publishableKey()); b != nil {
 		resp["billing"] = b // the sheet's run waiting for its payment (spec v6 F)
 	}
 	if sheet != nil {
