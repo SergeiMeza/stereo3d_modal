@@ -163,6 +163,14 @@ try {
       await close(page);
     }
 
+    // Business details: the country picker (owner 2026-11-04, ~245 countries)
+    await page.goto(`${base}/account/business-details`, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("company-country").click();
+    await assertInside(page, "Country picker", failures);
+    await page.getByPlaceholder("Search countries").fill("vi");
+    await assertInside(page, "Country picker (filtered)", failures);
+    await close(page);
+
     // Account → Sign-in & security: passkey dialogs (ADR 0136)
     await page.goto(`${base}/account`, { waitUntil: "domcontentloaded" });
     await page.getByTestId("passkey-pk_2").waitFor({ state: "visible" });

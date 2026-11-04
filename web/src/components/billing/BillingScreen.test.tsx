@@ -209,7 +209,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     };
     renderBilling();
     await waitFor(() =>
-      expect(screen.getByTestId("company-summary").textContent).toBe("Kyoto Films Ltd · GB123456789 · London, UK"),
+      expect(screen.getByTestId("company-summary").textContent).toBe("Kyoto Films Ltd · GB123456789 · London, United Kingdom"),
     );
   });
 

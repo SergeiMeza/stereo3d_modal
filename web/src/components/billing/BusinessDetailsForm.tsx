@@ -24,7 +24,9 @@ import {
 import { GatewayError } from "@/lib/api/client";
 import type { CompanyAddress, CompanyDetails } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { COUNTRIES, taxTypesFor } from "@/lib/company";
+import { localeCountry, taxTypesFor } from "@/lib/company";
+
+import { CountryCombobox, useDetectedCountry } from "./CountryCombobox";
 
 export const SAVED_LINE = "Saved. Your next invoices will use these details.";
 
@@ -38,7 +40,8 @@ interface Draft {
 }
 
 function draftOf(c: CompanyDetails): Draft {
-  const country = c.address?.country ?? "US";
+  // a new form starts at the browser language's country
+  const country = c.address?.country ?? localeCountry() ?? "US";
   return {
     company_name: c.company_name ?? "",
     address: {
@@ -81,6 +84,7 @@ function bodyOf(d: Draft): CompanyDetails {
 
 export function BusinessDetailsForm(): JSX.Element {
   const gateway = useGateway();
+  const detected = useDetectedCountry();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -177,18 +181,12 @@ export function BusinessDetailsForm(): JSX.Element {
           Billing address
         </legend>
         <Field id="company-country" label="Country">
-          <NativeSelect
+          <CountryCombobox
             id="company-country"
-            autoComplete="country"
             value={draft.address.country}
-            onChange={(e) => setAddr({ country: e.target.value })}
-          >
-            {COUNTRIES.map(([code, name]) => (
-              <NativeSelectOption key={code} value={code}>
-                {name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            detected={detected}
+            onChange={(country) => setAddr({ country })}
+          />
         </Field>
         <Field id="company-line1" label="Address line 1">
           <Input
@@ -239,21 +237,33 @@ export function BusinessDetailsForm(): JSX.Element {
           Tax ID (optional)
         </legend>
         {types.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
-            <Field id="company-tax-type" label="Type">
-              <NativeSelect
-                id="company-tax-type"
-                value={draft.tax_type}
-                onChange={(e) => set({ tax_type: e.target.value })}
-              >
-                {types.map(([t, label]) => (
-                  <NativeSelectOption key={t} value={t}>
-                    {label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field id="company-tax-value" label="Number">
+          <div
+            className={
+              types.length > 1
+                ? "grid gap-3 sm:grid-cols-[minmax(0,16rem)_1fr]"
+                : "grid gap-3"
+            }
+          >
+            {/* more than one type (e.g. Brazil's CNPJ or CPF): pick it */}
+            {types.length > 1 ? (
+              <Field id="company-tax-type" label="Type">
+                <NativeSelect
+                  id="company-tax-type"
+                  value={draft.tax_type}
+                  onChange={(e) => set({ tax_type: e.target.value })}
+                >
+                  {types.map(([t, label]) => (
+                    <NativeSelectOption key={t} value={t}>
+                      {label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+            ) : null}
+            <Field
+              id="company-tax-value"
+              label={types.length === 1 ? types[0][1] : "Number"}
+            >
               <Input
                 id="company-tax-value"
                 value={draft.tax_value}
