@@ -29,8 +29,8 @@ const NO_HAND_ROLLED_OVERLAYS = [
 /** Owner rule 2026-11-05 (ADR 0138): shared and server state lives in
  * jotai atoms. No React context for state (theme, Stripe Elements and
  * Next/Radix providers are theirs, not ours), and no useState holding a
- * fetch result. Files not migrated yet are on STATE_ALLOWLIST below,
- * which only shrinks. */
+ * fetch result. STATE_ALLOWLIST below is empty since 2026-11-05 (the
+ * whole app is migrated); keep it that way. */
 const STATE_IN_ATOMS = [
   {
     selector: "CallExpression[callee.name='createContext'], CallExpression[callee.property.name='createContext']",
@@ -38,7 +38,7 @@ const STATE_IN_ATOMS = [
   },
   {
     selector:
-      "CallExpression[callee.name='useState'] TSTypeReference > Identifier[name=/^(Project|Conversion|Conversions|BillingStatus|BillingMethods|BillingHistory|SavedMethod|PublicPricing|GatewayLimits|AccountSettings|StepQuoteResponse|PlanChangePreview|CheckoutStart|RunFormatJob|Downloads|AccountPlan)$/]",
+      "CallExpression[callee.name='useState'] TSTypeReference > Identifier[name=/^(Project|Conversion|Conversions|BillingStatus|BillingMethods|BillingHistory|SavedMethod|PublicPricing|GatewayLimits|AccountSettings|StepQuoteResponse|PlanChangePreview|CheckoutStart|RunFormatJob|Downloads|AccountPlan|Passkey)$/]",
     message: "Server data in useState (ADR 0138): keep fetch results in a jotai atom (see lib/state/sharedFetch, priceAtoms, workspaceAtoms).",
   },
   {
@@ -46,16 +46,15 @@ const STATE_IN_ATOMS = [
     message: "A fetch result into useState (ADR 0138): keep it in a jotai atom, written by an action atom.",
   },
   {
-    selector: "CallExpression[callee.property.name='then'] > ArrowFunctionExpression > CallExpression.body[callee.name=/^set[A-Z]/]",
+    // .then((x) => setX(x)): a callback with the answer (not a flag)
+    selector:
+      "CallExpression[callee.property.name='then'] > ArrowFunctionExpression[params.length>0] > CallExpression.body[callee.name=/^set[A-Z]/]",
     message: "A fetch result into useState (ADR 0138): keep it in a jotai atom, written by an action atom.",
   },
 ];
 
-/** Files that still hold server data in useState; remove a file once it
- * moves to atoms. Never add one. */
-const STATE_ALLOWLIST = [
-  "src/components/auth/Passkeys.tsx",
-];
+/** Files that still hold server data in useState: none. Never add one. */
+const STATE_ALLOWLIST = [];
 
 const eslintConfig = defineConfig([
   ...nextVitals,

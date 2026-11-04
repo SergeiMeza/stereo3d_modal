@@ -14,6 +14,7 @@ import { afterEach } from "vitest";
 
 import { billingHistoryAtom, EMPTY_HISTORY } from "@/components/billing/billingHistoryAtoms";
 import { resetPlanChangesForTests } from "@/components/billing/planChangeAtoms";
+import { EMPTY_PASSKEYS, passkeyListAtom } from "@/components/auth/passkeyAtoms";
 import { balanceDialogAtom, settleOpenAtom } from "@/components/pay/payAtoms";
 import { EMPTY_PROJECT_LIST, projectListAtom } from "@/components/projects/projectsAtoms";
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
@@ -44,6 +45,7 @@ afterEach(() => {
   store.set(settleOpenAtom, false);
   store.set(billingHistoryAtom, EMPTY_HISTORY);
   store.set(projectListAtom, EMPTY_PROJECT_LIST);
+  store.set(passkeyListAtom, EMPTY_PASSKEYS);
   store.set(balanceDialogAtom, null);
   // The per-(project, step) checkout state is likewise module-scoped and
   // would leak an in-flight tracker into the next test.

@@ -21,5 +21,5 @@ Shared state on the web app lives in jotai atoms (ADR 0138; see the
 - Async atoms are latest-wins (sequence number or per-request cache),
   debounced, with a timeout and an error state; no tokens or clients in
   atoms; persist only plain UI state with `atomWithStorage`.
-- ESLint enforces it; `STATE_ALLOWLIST` in `web/eslint.config.mjs` only
-  shrinks.
+- ESLint enforces it; `STATE_ALLOWLIST` in `web/eslint.config.mjs` is
+  empty, keep it that way.

@@ -46,6 +46,10 @@ import type { LinkableProvider } from "@/lib/auth";
 import { CODE_LENGTH, isAppleRelayEmail } from "@/lib/emailCode";
 import { addPasskey, deviceName, toPasskeyError } from "@/lib/passkeys";
 import type { Passkey } from "@/lib/passkeys";
+import { billingUidAtom } from "@/lib/billing";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
+
+import { dropPasskeyAtom, loadPasskeysAtom, passkeyListAtom, putPasskeyAtom } from "./passkeyAtoms";
 import { useRegion } from "@/lib/useRegion";
 
 const NAME_MAX = 60;
@@ -76,32 +80,28 @@ export function PasskeysSection(): JSX.Element | null {
   const gateway = useGateway();
   const supported = usePasskeysSupported();
   const cn = useRegion() === "cn";
-  const [passkeys, setPasskeys] = useState<Passkey[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // ADR 0138: the list lives in an app-store atom (passkeyAtoms)
+  const state = useAppAtomValue(passkeyListAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const passkeys = state.uid === uid ? state.list : null;
+  const loadError = state.uid === uid ? state.loadError : null;
+  const loadPasskeys = useAppSetAtom(loadPasskeysAtom);
+  const putPasskey = useAppSetAtom(putPasskeyAtom);
+  const dropPasskey = useAppSetAtom(dropPasskeyAtom);
   const [adding, setAdding] = useState(false);
-  const [renaming, setRenaming] = useState<Passkey | null>(null);
-  const [removing, setRemoving] = useState<Passkey | null>(null);
+  // the passkey a dialog is for, by id (its row comes from the list)
+  const [renamingId, setRenaming] = useState<string | null>(null);
+  const [removingId, setRemoving] = useState<string | null>(null);
+  const renaming = passkeys?.find((p) => p.id === renamingId) ?? null;
+  const removing = passkeys?.find((p) => p.id === removingId) ?? null;
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [version, setVersion] = useState(0);
-  const load = useCallback(() => setVersion((v) => v + 1), []);
+  const load = useCallback(() => void loadPasskeys(gateway), [loadPasskeys, gateway]);
 
+  // read on mount, and again when the account changes
   useEffect(() => {
-    let stop = false;
-    gateway
-      .listPasskeys()
-      .then((list) => {
-        if (stop) return;
-        setPasskeys(list);
-        setLoadError(null);
-      })
-      .catch((e: unknown) => {
-        if (!stop) setLoadError(e instanceof Error ? e.message : "Couldn't load your passkeys.");
-      });
-    return () => {
-      stop = true;
-    };
-  }, [gateway, version]);
+    load();
+  }, [load, uid]);
 
   if (cn) return null;
 
@@ -134,10 +134,10 @@ export function PasskeysSection(): JSX.Element | null {
                 </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
-                <Button size="xs" variant="outline" onClick={() => setRenaming(p)} aria-label={`Rename ${p.name}`}>
+                <Button size="xs" variant="outline" onClick={() => setRenaming(p.id)} aria-label={`Rename ${p.name}`}>
                   Rename
                 </Button>
-                <Button size="xs" variant="outline" onClick={() => setRemoving(p)} aria-label={`Remove ${p.name}`}>
+                <Button size="xs" variant="outline" onClick={() => setRemoving(p.id)} aria-label={`Remove ${p.name}`}>
                   Remove
                 </Button>
               </div>
@@ -163,7 +163,7 @@ export function PasskeysSection(): JSX.Element | null {
         onAdded={(p) => {
           setNotice("Passkey added.");
           // the gateway answers the new passkey (201): no refetch
-          if (p) setPasskeys((list) => [...(list ?? []).filter((x) => x.id !== p.id), p]);
+          if (p) putPasskey(p);
           else load();
         }}
       />
@@ -172,7 +172,7 @@ export function PasskeysSection(): JSX.Element | null {
         onClose={() => setRenaming(null)}
         onRenamed={(p) => {
           setNotice("Passkey renamed.");
-          setPasskeys((list) => (list ?? []).map((x) => (x.id === p.id ? p : x)));
+          putPasskey(p);
         }}
       />
       <RemovePasskeyDialog
@@ -180,7 +180,7 @@ export function PasskeysSection(): JSX.Element | null {
         onClose={() => setRemoving(null)}
         onRemoved={(id) => {
           setNotice("Passkey removed.");
-          setPasskeys((list) => (list ?? []).filter((x) => x.id !== id));
+          dropPasskey(id);
         }}
       />
     </div>

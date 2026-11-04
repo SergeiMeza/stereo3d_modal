@@ -89,9 +89,9 @@ context and react vanilla state management is too bug-prone").
   persisted (`atomWithStorage` with `lib/state/safeStorage`, e.g. Make 3D's
   picks per project).
 - ESLint (`no-restricted-syntax`) flags `createContext`, `useState` typed
-  with a server type, and `setX(await …)` / `.then((x) => setX(x))`. Files
-  not migrated yet are on `STATE_ALLOWLIST` in `eslint.config.mjs`, which
-  only shrinks.
+  with a server type, and `setX(await …)` / `.then((x) => setX(x))`.
+  `STATE_ALLOWLIST` in `eslint.config.mjs` is empty since 2026-11-05;
+  keep it that way.
 
 ## Environments
 
