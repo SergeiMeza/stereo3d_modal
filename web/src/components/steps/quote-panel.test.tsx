@@ -2,7 +2,7 @@
  * Make 3D's price (owner on staging, 2026-11-05): an older quote landing
  * last never shows for newer selections ("Updating…" while it comes), a
  * run in progress still gets its price, a quote that never answers turns
- * into Retry.
+ * into Retry, and the quality sizes follow Remove black bars.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
@@ -11,13 +11,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { Conversion, Project } from "@/lib/api/types";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import { AuthProvider } from "@/lib/auth";
+import { qualityChoices } from "@/lib/glossary";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
 import { clearStepQuotes } from "./checkoutStore";
-import { LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
+import { LifelikeDeliverPanel, withoutBars } from "./LifelikeDeliverPanel";
 import { QUOTE_TIMED_OUT, QUOTE_TIMEOUT_MS } from "./useStepCheckout";
 
 vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 30 }));
@@ -176,5 +177,30 @@ describe("a quote that never answers", () => {
     fireEvent.click(screen.getByTestId("quote-retry"));
     await waitFor(() => expect(buttonPrice()).not.toBeNull(), { timeout: 3000 });
     expect(screen.queryByTestId("quote-error")).toBeNull();
+  });
+});
+
+describe("quality sizes and black bars", () => {
+  // the fixture: 3840×2160 with the picture at 3840×1606 (1606/2 = 803,
+  // rounded to an even 804 as the bars setting says)
+  it("says the size without the bars while they're removed", () => {
+    const p = project({ has_bars: true, remove_bars: true });
+    const sizes = withoutBars(qualityChoices(p), p).map((q) => q.hint);
+    expect(sizes).toContain("1920×804 per eye");
+    expect(sizes).toContain("3840×1606 per eye");
+    expect(sizes).not.toContain("1920×1080 per eye");
+  });
+
+  it("keeps the full size when the bars stay, or there are none", () => {
+    const kept = project({ has_bars: true, remove_bars: false });
+    expect(withoutBars(qualityChoices(kept), kept).map((q) => q.hint)).toContain("1920×1080 per eye");
+    const none = project({ has_bars: false });
+    expect(withoutBars(qualityChoices(none), none).map((q) => q.hint)).toContain("1920×1080 per eye");
+  });
+
+  it("the quality cards show it", async () => {
+    panel(project({ has_bars: true, remove_bars: true }));
+    const tile = await screen.findByTestId("quality-1080p");
+    expect(tile.textContent).toContain("1920×804 per eye");
   });
 });
