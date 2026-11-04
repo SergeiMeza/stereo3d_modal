@@ -1,7 +1,8 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
+import { CommandMenu, SearchButton, useCommandShortcut } from "./components/CommandMenu";
 import { StateBox } from "./components/common";
 import { DisputeDueBanner } from "./components/DisputesAlert";
 import { NavList, PAGE_TITLES } from "./components/Nav";
@@ -92,6 +93,9 @@ function Shell() {
   const { route } = useRouter();
   const attention = useAttention();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  useCommandShortcut(openSearch);
   const title = PAGE_TITLES[route.name] ?? "Admin";
   return (
     <div className="flex min-h-dvh flex-col">
@@ -112,7 +116,12 @@ function Shell() {
         <span className="flex-1 truncate text-[17px] font-semibold md:hidden" aria-hidden="true">
           {title}
         </span>
-        <span className="flex-1 max-md:hidden" />
+        <div className="flex flex-1 justify-center max-md:hidden">
+          <SearchButton onClick={openSearch} />
+        </div>
+        <span className="md:hidden">
+          <SearchButton compact onClick={openSearch} />
+        </span>
         <span className="text-sm whitespace-nowrap text-muted-foreground max-lg:hidden">Signed in with a passkey</span>
         <AccountMenu />
       </header>
@@ -142,6 +151,7 @@ function Shell() {
           )}
         </main>
       </div>
+      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
           <SheetTitle className="px-2">
