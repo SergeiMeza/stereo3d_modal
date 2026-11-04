@@ -700,3 +700,15 @@ export interface AdminGrant {
   revoked_by?: string | null;
   revoke_reason?: string | null;
 }
+
+/** GET /v1/admin/efws (BL-29, gateway rev 00114): open early fraud
+ * warnings, newest first; case_id null for a caseless fraud-warning hold. */
+export interface OpenEfw {
+  id: string;
+  uid?: string | null;
+  charge?: string | null;
+  payment_intent?: string | null;
+  amount_cents?: number | null;
+  created?: string | null;
+  case_id?: string | null;
+}

@@ -24,6 +24,7 @@ import type {
   RevokeResult,
   OpenCaseBody,
   AccountHit,
+  OpenEfw,
   AdminGrant,
   RunLookup,
   PasskeyAdoption,
@@ -348,6 +349,12 @@ export class AdminApi {
   async allGrants(): Promise<AdminGrant[]> {
     const r = await this.json<{ grants: AdminGrant[] | null }>("GET", "/v1/admin/grants");
     return r.grants ?? [];
+  }
+
+  /** Open early fraud warnings (gateway rev 00114). */
+  async openEfws(): Promise<OpenEfw[]> {
+    const r = await this.json<{ efws: OpenEfw[] | null }>("GET", "/v1/admin/efws");
+    return r.efws ?? [];
   }
 
   /** Customer passkey adoption (gateway rev 00113). */

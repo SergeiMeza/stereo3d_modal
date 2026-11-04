@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { EmptyRow, ErrorState, ExtLink, FilterSelect, MiniTable, Note, PageHeader, Panel, SkeletonRows } from "@/components/common";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -140,12 +141,8 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
             </span>
           }
         >
-          <div className="flex flex-col gap-2 px-4 py-3 text-sm">
-            <p>
-              Open EFW cases are in{" "}
-              <Link to={paths.cases()} className="text-link hover:underline">Cases</Link> (type EFW), with the case's
-              refund and evidence.
-            </p>
+          <EfwList />
+          <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm">
             <p className="text-xs text-muted-foreground tabular-nums">
               {months} months: {sum(rows, "efw")} warnings, {money(sum(rows, "efw_cents"))}, {sum(rows, "efw_refunded")} refunded,{" "}
               {sum(rows, "efw_became_disputes")} became disputes. Outcomes: {won} won, {lost} lost, {money(sum(rows, "lost_cents"))} lost.
@@ -253,6 +250,45 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
 }
 
 const TWO = "grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1";
+
+/** Every open early fraud warning (GET /v1/admin/efws), newest first. */
+function EfwList() {
+  const { api } = useServices();
+  const { state } = useLoad(() => api.openEfws(), [api]);
+  if (state.kind === "loading")
+    return (
+      <div className="px-4 py-3" aria-busy="true" aria-label="Loading">
+        <Skeleton />
+      </div>
+    );
+  if (state.kind === "error") return <EmptyRow>Couldn't load the open warnings.</EmptyRow>;
+  if (state.data.length === 0) return <EmptyRow>No open early fraud warnings.</EmptyRow>;
+  return (
+    <ul className="list-none" data-testid="open-efws">
+      {state.data.map((e) => (
+        <li key={e.id} className="flex flex-col gap-1 border-b border-border-soft px-3.5 py-2.75 last:border-b-0">
+          <span className="flex justify-between gap-2">
+            <span className="text-sm font-medium">
+              {e.case_id ? (
+                <Link className="font-mono text-link hover:underline" to={paths.case(e.case_id)}>{e.case_id}</Link>
+              ) : (
+                "Fraud-warning hold, no case"
+              )}
+            </span>
+            <span className="font-mono text-sm tabular-nums">{typeof e.amount_cents === "number" ? money(e.amount_cents) : "—"}</span>
+          </span>
+          <span className="flex justify-between gap-2 text-xs text-muted-foreground">
+            <span className="truncate font-mono">{e.charge || e.payment_intent || e.id}</span>
+            <span className="flex shrink-0 gap-2">
+              {e.uid && <Link className="text-link hover:underline" to={paths.account(e.uid)}>Account</Link>}
+              <span className="tabular-nums">{e.created ? dateOnly(e.created) : ""}</span>
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const TONE_TEXT = { red: "text-destructive-foreground", amber: "text-warning-foreground", grey: "text-neutral-foreground" } as const;
 

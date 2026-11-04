@@ -30,6 +30,25 @@ describe("disputes and fraud (A4)", () => {
     expect(screen.getByTestId("open-disputes")).toHaveTextContent("product not received");
   });
 
+  it("lists the open early fraud warnings, linking the case when there is one", async () => {
+    renderApp("/disputes", {
+      "GET /v1/admin/disputes/summary": () => ({ json: disputes }),
+      "GET /v1/admin/efws": () => ({
+        json: {
+          efws: [
+            { id: "issfr_1", uid: "u1", charge: "ch_1", payment_intent: "pi_1", amount_cents: 8900, created: "2026-11-04T01:00:00Z", case_id: "CASE-1039" },
+            { id: "issfr_2", uid: "u2", charge: null, payment_intent: "pi_2", amount_cents: 1198800, created: "2026-11-03T01:00:00Z", case_id: null },
+          ],
+        },
+      }),
+    });
+    const list = await screen.findByTestId("open-efws");
+    expect(within(list).getByRole("link", { name: "CASE-1039" })).toHaveAttribute("href", "/cases/CASE-1039");
+    expect(list).toHaveTextContent("Fraud-warning hold, no case");
+    expect(list).toHaveTextContent("$11,988.00");
+    expect(within(list).getAllByRole("link", { name: "Account" })[1]).toHaveAttribute("href", "/accounts/u2");
+  });
+
   it("downloads the CSV with the token", async () => {
     const created: Blob[] = [];
     URL.createObjectURL = vi.fn((b: Blob) => {

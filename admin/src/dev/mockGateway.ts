@@ -49,6 +49,12 @@ const ROUTES: Record<string, (path: string) => unknown> = {
       { id: "gr_0", uid: "uid_456", email: "app.user@example.com", kind: "business", granted_by: "owner@example.com", start: "2026-09-01T00:00:00Z", end: "2026-10-01T00:00:00Z", status: "expired", reason: "conference speaker" },
     ],
   }),
+  "GET /v1/admin/efws": () => ({
+    efws: [
+      { id: "issfr_1", uid: "uid_123", charge: "ch_1", payment_intent: "pi_1", amount_cents: 8900, created: "2026-11-04T01:00:00Z", case_id: "CASE-0042" },
+      { id: "issfr_2", uid: "uid_456", charge: null, payment_intent: "pi_2", amount_cents: 1198800, created: "2026-11-03T01:00:00Z", case_id: null },
+    ],
+  }),
   "GET /v1/admin/accounts": () => ({ accounts: [{ uid: "uid_123", email: "jane@example.com", created_at: "2026-07-12T00:00:00Z", plan: "business" }] }),
   "GET /v1/admin/cases": () => casesResponse,
   "GET /v1/admin/cases/CASE-0042": () => casePage(),
