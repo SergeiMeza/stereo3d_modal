@@ -58,6 +58,8 @@ function when(iso: string | null | undefined): string {
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** 401 reauth_required {method: "firebase"}: the ID token's sign-in is
+ * older than 5 minutes; sign in again with one of the account's ways. */
 function needsReauth(e: unknown): boolean {
   return e instanceof GatewayError && (e.code === "reauth_required" || e.code === "recent_sign_in_required");
 }
@@ -158,25 +160,27 @@ export function PasskeysSection(): JSX.Element | null {
       <AddPasskeyDialog
         open={adding}
         onOpenChange={setAdding}
-        onAdded={() => {
+        onAdded={(p) => {
           setNotice("Passkey added.");
-          load();
+          // the gateway answers the new passkey (201): no refetch
+          if (p) setPasskeys((list) => [...(list ?? []).filter((x) => x.id !== p.id), p]);
+          else load();
         }}
       />
       <RenamePasskeyDialog
         passkey={renaming}
         onClose={() => setRenaming(null)}
-        onRenamed={() => {
+        onRenamed={(p) => {
           setNotice("Passkey renamed.");
-          load();
+          setPasskeys((list) => (list ?? []).map((x) => (x.id === p.id ? p : x)));
         }}
       />
       <RemovePasskeyDialog
         passkey={removing}
         onClose={() => setRemoving(null)}
-        onRemoved={() => {
+        onRemoved={(id) => {
           setNotice("Passkey removed.");
-          load();
+          setPasskeys((list) => (list ?? []).filter((x) => x.id !== id));
         }}
       />
     </div>
@@ -393,7 +397,7 @@ function RenamePasskeyDialog({
 }: {
   passkey: Passkey | null;
   onClose: () => void;
-  onRenamed: () => void;
+  onRenamed: (p: Passkey) => void;
 }): JSX.Element {
   const [busy, setBusy] = useState(false);
   return (
@@ -405,9 +409,9 @@ function RenamePasskeyDialog({
             busy={busy}
             setBusy={setBusy}
             onCancel={onClose}
-            onRenamed={() => {
+            onRenamed={(p) => {
               onClose();
-              onRenamed();
+              onRenamed(p);
             }}
           />
         )}
@@ -427,7 +431,7 @@ function RenameBody({
   busy: boolean;
   setBusy: (b: boolean) => void;
   onCancel: () => void;
-  onRenamed: () => void;
+  onRenamed: (p: Passkey) => void;
 }): JSX.Element {
   const gateway = useGateway();
   const [name, setName] = useState(passkey.name);
@@ -437,8 +441,8 @@ function RenameBody({
     setBusy(true);
     setError(null);
     try {
-      await gateway.renamePasskey(passkey.id, name.trim());
-      onRenamed();
+      const renamed = await gateway.renamePasskey(passkey.id, name.trim());
+      onRenamed(renamed ?? { ...passkey, name: name.trim() });
     } catch (e) {
       setError(message(e));
     } finally {
@@ -488,7 +492,7 @@ function RemovePasskeyDialog({
 }: {
   passkey: Passkey | null;
   onClose: () => void;
-  onRemoved: () => void;
+  onRemoved: (id: string) => void;
 }): JSX.Element {
   const [busy, setBusy] = useState(false);
   return (
@@ -499,9 +503,9 @@ function RemovePasskeyDialog({
             passkey={passkey}
             busy={busy}
             setBusy={setBusy}
-            onRemoved={() => {
+            onRemoved={(id) => {
               onClose();
-              onRemoved();
+              onRemoved(id);
             }}
           />
         )}
@@ -519,7 +523,7 @@ function RemoveBody({
   passkey: Passkey;
   busy: boolean;
   setBusy: (b: boolean) => void;
-  onRemoved: () => void;
+  onRemoved: (id: string) => void;
 }): JSX.Element {
   const gateway = useGateway();
   const [error, setError] = useState<string | null>(null);
@@ -529,7 +533,7 @@ function RemoveBody({
     setError(null);
     try {
       await gateway.removePasskey(passkey.id);
-      onRemoved();
+      onRemoved(passkey.id);
     } catch (e) {
       setError(message(e));
     } finally {

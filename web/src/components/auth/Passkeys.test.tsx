@@ -58,6 +58,31 @@ describe("Account → Sign-in & security: passkeys (ADR 0136)", () => {
     expect((await screen.findByTestId("passkey-cred_new")).textContent).toContain("Vision Pro");
   });
 
+  it("puts the gateway's new passkey in the list without loading it again", async () => {
+    wa = installWebAuthn();
+    let lists = 0;
+    const count = ({ request }: { request: Request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/account/passkeys") lists++;
+    };
+    server.events.on("request:start", count);
+    renderSection();
+    fireEvent.click(await screen.findByTestId("passkey-add"));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Add passkey" }));
+    expect(await screen.findByTestId("passkey-cred_new")).toBeTruthy();
+    expect(lists).toBe(1);
+    server.events.removeListener("request:start", count);
+  });
+
+  it("409 passkey_exists: this device already has one", async () => {
+    wa = installWebAuthn();
+    mockDb.passkeys = [{ id: "cred_new", name: "Mac", device_hint: "Safari on Mac", created_at: "2026-11-01T00:00:00Z", last_used_at: null }];
+    renderSection();
+    fireEvent.click(await screen.findByTestId("passkey-add"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add passkey" }));
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("This device already has a passkey for your account.");
+  });
+
   it("asks to sign in again when the sign-in is too old, then adds on the next press", async () => {
     wa = installWebAuthn();
     mockDb.passkeyReauthNeeded = true;
