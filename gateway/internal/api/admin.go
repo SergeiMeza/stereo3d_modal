@@ -149,6 +149,7 @@ func (s *Service) HandleAdminCases(w http.ResponseWriter, r *http.Request, a *Ad
 		row := map[string]any{"id": c.ID, "uid": c.UID, "type": c.Type, "reason": c.Reason, "mode": c.Mode, "status": c.Status, "result": c.Result,
 			"opened_at": c.OpenedAt, "age_hours": int(now.Sub(c.OpenedAt).Hours()), "email_masked": maskEmail(email),
 			"requested_cents": c.RequestedCents, "deadline_at": c.DeadlineAt, "last_activity_at": c.LastActivityAt}
+		row["message_excerpt"], row["run_ids"] = messageExcerpt(c.CustomerText), nonNilStrings(c.Related.ConversionIDs) // BL-29 preview pane
 		if c.DeadlineAt != nil {
 			row["deadline_red"] = c.DeadlineAt.Sub(now) < 12*time.Hour
 		}
@@ -383,6 +384,30 @@ func ifThen(ok bool, s string) string {
 		return s
 	}
 	return ""
+}
+
+// messageExcerpt: the customer's first message on one line, cut to about
+// 280 characters; nil when there is none.
+func messageExcerpt(text string) any {
+	t := strings.Join(strings.Fields(text), " ")
+	if t == "" {
+		return nil
+	}
+	if r := []rune(t); len(r) > 280 {
+		cut := string(r[:280])
+		if i := strings.LastIndex(cut, " "); i > 200 {
+			cut = cut[:i]
+		}
+		return strings.TrimRight(cut, " ,.;:") + "…"
+	}
+	return t
+}
+
+func nonNilStrings(xs []string) []string {
+	if xs == nil {
+		return []string{}
+	}
+	return xs
 }
 
 // caseActions lists what the console offers on a case (A2's table).

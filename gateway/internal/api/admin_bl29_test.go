@@ -269,3 +269,42 @@ func TestAdminAccountActivity(t *testing.T) {
 		t.Fatalf("sign-in %v", si)
 	}
 }
+
+// Case rows carry the message excerpt and the run ids for the preview.
+func TestAdminCaseRowsPreview(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	long := strings.Repeat("the video looks flat in my headset ", 20)
+	s.Store.CreateCase(ctx, &store.Case{UID: uid, Type: store.CaseRefund, Reason: ReasonQuality, Mode: "manual", Status: store.CaseOpen,
+		DedupeKey: "pv1:" + uid, CustomerText: long, Related: store.CaseRelated{ConversionIDs: []string{"aaaaaaaaaaaa"}}}, "system", "x")
+	s.Store.CreateCase(ctx, &store.Case{UID: uid, Type: store.CaseRefund, Reason: ReasonLate, Mode: "manual", Status: store.CaseOpen,
+		DedupeKey: "pv2:" + uid}, "system", "x")
+	out := adminGet(t, s.HandleAdminCases, "/v1/admin/cases?tab=all")
+	n := 0
+	for _, x := range out["cases"].([]any) {
+		m := x.(map[string]any)
+		if m["uid"] != uid {
+			continue
+		}
+		n++
+		ids, ok := m["run_ids"].([]any)
+		if !ok {
+			t.Fatalf("run_ids not an array: %v", m["run_ids"])
+		}
+		switch m["reason"] {
+		case ReasonQuality:
+			ex, _ := m["message_excerpt"].(string)
+			if len([]rune(ex)) > 281 || !strings.HasSuffix(ex, "…") || !strings.HasPrefix(ex, "the video looks flat") || len(ids) != 1 {
+				t.Fatalf("excerpt %q ids %v", ex, ids)
+			}
+		default:
+			if m["message_excerpt"] != nil || len(ids) != 0 {
+				t.Fatalf("empty row %v", m)
+			}
+		}
+	}
+	if n != 2 {
+		t.Fatalf("rows %d", n)
+	}
+}
