@@ -24,6 +24,10 @@ describe("disputes and fraud (A4)", () => {
     expect(screen.getByRole("link", { name: "CASE-0051" })).toHaveAttribute("href", "/cases/CASE-0051");
     expect(screen.getByRole("link", { name: /Whole Stripe account/ })).toHaveAttribute("href", "https://dashboard.stripe.com/test/disputes");
     expect(screen.getByText("visa")).toBeInTheDocument();
+    // B: the current month against the line
+    expect(screen.getByTestId("current-rate")).toHaveTextContent("1.00%");
+    expect(screen.getByRole("img", { name: "Rate as a share of the 0.75% line: 100 percent" })).toBeInTheDocument();
+    expect(screen.getByTestId("open-disputes")).toHaveTextContent("product not received");
   });
 
   it("downloads the CSV with the token", async () => {
@@ -38,7 +42,7 @@ describe("disputes and fraud (A4)", () => {
       "GET /v1/admin/disputes/summary": ({ path }) => (path.includes("format=csv") ? { text: "month\n2026-11\n" } : { json: disputes }),
     });
     await screen.findByText("disputes, 12 months");
-    await userEvent.click(screen.getByRole("button", { name: "CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(calls.at(-1)!.headers.Authorization).toMatch(/^Bearer /);
     expect(await created[0].text()).toContain("2026-11");

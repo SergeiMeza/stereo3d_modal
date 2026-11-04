@@ -59,7 +59,7 @@ export function DisputesPanel() {
               ]}
             />
             <Button size="sm" onClick={() => void downloadCsv()} disabled={csvBusy}>
-              {csvBusy ? "Working…" : "CSV"}
+              {csvBusy ? "Working…" : "Export CSV"}
             </Button>
             {state.kind === "loaded" && <ExtLink href={state.data.account_wide}>Whole Stripe account</ExtLink>}
           </>
@@ -95,6 +95,65 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
 
   return (
     <>
+      <RateHero rows={rows} reference={ref} />
+      <div className={TWO}>
+        <Panel title="Open disputes" note={<span className="font-mono tabular-nums">{open.length}</span>}>
+          {open.length === 0 ? (
+            <EmptyRow>No open disputes.</EmptyRow>
+          ) : (
+            <ul className="list-none" data-testid="open-disputes">
+              {[...open]
+                .sort((x, y) => (x.due_by ?? "9").localeCompare(y.due_by ?? "9"))
+                .map((d) => {
+                  const at = d.due_by ? Date.parse(d.due_by) : null;
+                  const tone = at === null ? "grey" : at - Date.now() < 24 * 3600e3 ? "red" : at - Date.now() < 3 * 24 * 3600e3 ? "amber" : "grey";
+                  return (
+                    <li key={d.dispute_id} className="flex flex-col gap-1 border-b border-border-soft px-3.5 py-2.75 last:border-b-0">
+                      <span className="flex justify-between gap-2">
+                        <span className="text-sm font-medium">{words(d.reason)}</span>
+                        <span className="font-mono text-sm tabular-nums">{money(d.amount_cents)}</span>
+                      </span>
+                      <span className="flex justify-between gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {d.case_id ? (
+                            <Link className="font-mono text-link hover:underline" to={paths.case(d.case_id)}>{d.case_id}</Link>
+                          ) : (
+                            "no case"
+                          )}{" "}
+                          · {words(d.status)} · <span className="font-mono">{d.dispute_id}</span>
+                        </span>
+                        <span className={cn("whitespace-nowrap tabular-nums", TONE_TEXT[tone])}>
+                          {d.due_by ? `evidence ${dateOnly(d.due_by).replace(/, \d{4}$/, "")} · ${until(d.due_by)}` : "—"}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </Panel>
+        <Panel
+          title="Early fraud warnings"
+          note={
+            <span className={cn("font-mono tabular-nums", data.open_efws ? "text-destructive-foreground" : "")}>
+              {data.open_efws ?? 0} open
+            </span>
+          }
+        >
+          <div className="flex flex-col gap-2 px-4 py-3 text-sm">
+            <p>
+              Open EFW cases are in{" "}
+              <Link to={paths.cases()} className="text-link hover:underline">Cases</Link> (type EFW), with the case's
+              refund and evidence.
+            </p>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {months} months: {sum(rows, "efw")} warnings, {money(sum(rows, "efw_cents"))}, {sum(rows, "efw_refunded")} refunded,{" "}
+              {sum(rows, "efw_became_disputes")} became disputes. Outcomes: {won} won, {lost} lost, {money(sum(rows, "lost_cents"))} lost.
+            </p>
+          </div>
+        </Panel>
+      </div>
+
       <Stats card>
         <Stat value={String(disputes)} label={`disputes, ${months} months`} sub="by dispute date" />
         <Stat
@@ -142,45 +201,6 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
           </Stats>
         </Panel>
       </div>
-
-      <Panel title="Open disputes" note="by evidence due date">
-        {open.length === 0 ? (
-          <EmptyRow>No open disputes.</EmptyRow>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Case</TableHead><TableHead>Evidence due</TableHead><TableHead numeric>Amount</TableHead>
-                <TableHead>Reason</TableHead><TableHead>Status</TableHead><TableHead>Dispute</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {open.map((d) => (
-                <TableRow key={d.dispute_id}>
-                  <TableCell>
-                    {d.case_id ? (
-                      <Link className="font-mono font-medium text-link" to={paths.case(d.case_id)}>{d.case_id}</Link>
-                    ) : (
-                      <span className="text-muted-foreground">no case</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {d.due_by ? (
-                      <>
-                        {dateOnly(d.due_by)} <span className="text-xs text-muted-foreground">{until(d.due_by)}</span>
-                      </>
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell numeric>{money(d.amount_cents)}</TableCell>
-                  <TableCell>{words(d.reason)}</TableCell>
-                  <TableCell>{words(d.status)}</TableCell>
-                  <TableCell className="font-mono text-xs">{d.dispute_id}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Panel>
 
       <div className="grid grid-cols-3 items-start gap-4 max-[1000px]:grid-cols-1">
         <Breakdown title="By method" data={data.by_method} />
@@ -233,6 +253,56 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
 }
 
 const TWO = "grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1";
+
+const TONE_TEXT = { red: "text-destructive-foreground", amber: "text-warning-foreground", grey: "text-neutral-foreground" } as const;
+
+/**
+ * The current month's dispute rate against the card networks' line (B):
+ * the number, a bar as a share of the line, and the last six months.
+ * Amber from two thirds of the line, red at the line.
+ */
+function RateHero({ rows, reference }: { rows: DisputeMonth[]; reference: number }) {
+  const cur = rows.at(-1);
+  if (!cur) return null;
+  const tone = (v: number) => (v >= reference ? "red" : v >= (reference * 2) / 3 ? "amber" : "grey");
+  const share = Math.min(1, cur.activity_pct / reference);
+  const t = tone(cur.activity_pct);
+  return (
+    <section aria-label="Dispute rate" className="flex flex-wrap items-center gap-6 rounded-xl border border-border bg-card p-4">
+      <div className="flex w-55 flex-col gap-1.5">
+        <span className="text-xs text-muted-foreground">{monthLabel(cur.month)} dispute rate</span>
+        <span className="font-mono text-[40px] leading-none tabular-nums" data-testid="current-rate">{pct(cur.activity_pct)}</span>
+        <span className={cn("text-xs tabular-nums", t === "red" ? "text-destructive-foreground" : t === "amber" ? "text-warning-foreground" : "text-success-foreground")}>
+          {cur.activity_pct >= reference ? "At or over" : "Under"} the {pct(reference)} line · {cur.disputes_activity} of {cur.charges}
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-2">
+        <div
+          role="img"
+          aria-label={`Rate as a share of the ${pct(reference)} line: ${Math.round(share * 100)} percent`}
+          className="h-3.5 overflow-hidden rounded-full bg-secondary"
+        >
+          {/* the width goes through React's style prop (CSSOM), which the CSP allows */}
+          <div className={cn("h-full", t === "red" ? "bg-destructive" : "bg-warning")} style={{ width: `${share * 100}%` }} />
+        </div>
+        <div className="flex justify-between font-mono text-xs text-muted-foreground tabular-nums">
+          <span>0%</span>
+          <span className="text-destructive-foreground">{pct(reference)} line</span>
+        </div>
+        <ol className="mt-1.5 grid list-none grid-cols-6 gap-2 max-sm:grid-cols-3" aria-label="Last six months">
+          {rows.slice(-6).map((r) => (
+            <li key={r.month} className="flex flex-col gap-0.5 rounded-md bg-secondary px-2 py-1.5">
+              <span className="text-2xs text-muted-foreground">{monthLabel(r.month)}</span>
+              <span className={cn("font-mono text-sm tabular-nums", { red: "text-destructive-foreground", amber: "text-warning-foreground", grey: "text-foreground" }[tone(r.activity_pct)])}>
+                {pct(r.activity_pct)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
 
 function Stats({ children, card = false }: { children: ReactNode; card?: boolean }) {
   return (
