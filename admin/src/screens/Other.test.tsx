@@ -142,7 +142,16 @@ describe("grants (00106)", () => {
             grant({ id: "gr_2", status: "failed", rc_error: "subscriber not found", created_at: "2026-11-03T10:00:00Z" }),
             grant({ id: "gr_3", status: "revoked", revoked_by: "owner@example.com", revoke_reason: "ended early", created_at: "2026-11-02T10:00:00Z" }),
           ],
-          promo_regrants: [{ id: "pr_1", status: "regranted", entitlement: "pro", ends_at: "2027-01-01T00:00:00Z" }],
+          promo_regrants: [
+            {
+              id: "pr_1",
+              event: "refund:in_1",
+              status: "done",
+              snapshot: [{ entitlement: "pro", expires_at: "2027-01-01T00:00:00Z" }],
+              regranted: [{ entitlement: "pro", expires_at: "2027-01-01T00:00:00Z" }],
+              created_at: "2026-11-01T00:00:00Z",
+            },
+          ],
         },
       }),
     });
@@ -154,7 +163,9 @@ describe("grants (00106)", () => {
     expect(failed).toHaveTextContent("subscriber not found");
     expect(within(failed).queryByRole("button", { name: "Revoke…" })).toBeNull();
     expect(screen.getByTestId("grant-gr_3")).toHaveTextContent("ended early");
-    expect(screen.getByTestId("promo-regrants")).toHaveTextContent("Regranted");
+    expect(screen.getByTestId("regrant-pr_1")).toHaveTextContent("Refund");
+    expect(screen.getByTestId("regrant-pr_1")).toHaveTextContent("Done");
+    expect(screen.queryByRole("button", { name: "Restore promotional grants…" })).toBeNull();
   });
 
   it("grants Pro for a preset with a reason, signing in again when asked", async () => {
@@ -261,6 +272,62 @@ describe("grants (00106)", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Some grants will be retried tonight");
     expect(screen.getByTestId("grant-gr_1")).toHaveTextContent("Revoked");
     expect(calls.find((c) => c.method === "DELETE")!.body).toEqual({ reason: "partnership ended" });
+  });
+
+  it("restores promotional grants after a lost dispute, with a reason and a fresh sign-in", async () => {
+    let posts = 0;
+    const lost = {
+      id: "pr_2",
+      event: "dispute:dp_1",
+      status: "kept_removed",
+      snapshot: [{ entitlement: "pro", expires_at: "2027-03-01T00:00:00Z" }],
+      case_id: "CASE-0051",
+      created_at: "2026-11-01T00:00:00Z",
+    };
+    const auth = new FakeAuth();
+    const { calls } = renderApp(
+      "/accounts/uid_123",
+      {
+        "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, promo_regrants: [lost] } }),
+        "POST /v1/admin/accounts/uid_123/actions": () => {
+          posts++;
+          if (posts === 1) return apiError(401, "reauth_required", "again");
+          return {
+            json: {
+              ...account,
+              promo_regrants: [{ ...lost, status: "done", outcome: "restored", restored_by: "owner@example.com", restore_note: "bank error", regranted: lost.snapshot }],
+            },
+          };
+        },
+      },
+      auth,
+    );
+    const row = await screen.findByTestId("regrant-pr_2");
+    expect(row).toHaveTextContent("Dispute");
+    expect(within(row).getByRole("link", { name: "CASE-0051" })).toHaveAttribute("href", "/cases/CASE-0051");
+    await userEvent.click(screen.getByRole("button", { name: "Restore promotional grants…" }));
+    const sheet = screen.getByRole("dialog", { name: "Restore promotional grants" });
+    expect(within(sheet).getByRole("button", { name: "Restore" })).toBeDisabled();
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "bank error");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Restore" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Confirm it's you" })).getByRole("button", { name: "Sign in with Google" }));
+    await waitFor(() => expect(screen.getByTestId("regrant-pr_2")).toHaveTextContent("Restored by owner@example.com: bank error"));
+    expect(calls.filter((c) => c.method === "POST").at(-1)!.body).toEqual({ action: "restore_promo_grants", note: "bank error" });
+    expect(screen.queryByRole("button", { name: "Restore promotional grants…" })).toBeNull();
+  });
+
+  it("nothing to restore says so", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: { ...account, promo_regrants: [{ id: "pr_3", event: "efw:issfr_1", status: "held", created_at: "2026-11-01T00:00:00Z" }] },
+      }),
+      "POST /v1/admin/accounts/uid_123/actions": () => apiError(409, "nothing_to_restore", "No removed promotional grants on this account."),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Restore promotional grants…" }));
+    const sheet = screen.getByRole("dialog", { name: "Restore promotional grants" });
+    await userEvent.type(within(sheet).getByLabelText(/Reason/), "x");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Restore" }));
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent("No removed promotional grants on this account.");
   });
 
   it("409 grant_not_active says so", async () => {

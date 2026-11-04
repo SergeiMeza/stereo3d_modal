@@ -354,7 +354,7 @@ export interface AccountPage {
   /** gateway 00106: Grant Pro records */
   grants?: Grant[] | null;
   /** promo entitlements the gateway grants again (e.g. after a refund) */
-  promo_regrants?: { id: string; status: string; entitlement?: string; ends_at?: string; created_at?: string; reason?: string }[] | null;
+  promo_regrants?: PromoRegrant[] | null;
   /** owner 2026-11-04: the business details on the account's invoices */
   company?: {
     company_name?: string | null;
@@ -393,7 +393,8 @@ export type AccountAction =
   | "unblock"
   | "resend_e2"
   | "write_off_owed"
-  | "adjust_balance";
+  | "adjust_balance"
+  | "restore_promo_grants";
 
 export interface AccountActionBody {
   action: AccountAction;
@@ -575,4 +576,39 @@ export interface GrantBody {
 export interface RevokeResult {
   grant: Grant;
   regrant?: { id: string; status: string; regranted?: number; skipped?: number } | null;
+}
+
+/** A promotional grant in a re-grant record; no expires_at = lifetime. */
+export interface PromoGrant {
+  entitlement: string;
+  product?: string;
+  expires_at?: string | null;
+  error?: string;
+}
+
+/** A refund, dispute, EFW or plan end that took promotional grants away and
+ * gives them back (gateway promo_regrants_{env}). */
+export interface PromoRegrant {
+  id: string;
+  uid?: string;
+  event: string;
+  policy?: string;
+  reason?: string;
+  status: string;
+  snapshot?: PromoGrant[] | null;
+  ours?: PromoGrant[] | null;
+  to_grant?: PromoGrant[] | null;
+  regranted?: PromoGrant[] | null;
+  skipped?: PromoGrant[] | null;
+  uncertain?: boolean;
+  amount_cents?: number;
+  case_id?: string;
+  outcome?: string;
+  merged_into?: string;
+  restored_by?: string;
+  restore_note?: string;
+  last_error?: string;
+  created_at: string;
+  updated_at?: string;
+  resolved_at?: string | null;
 }

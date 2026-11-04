@@ -5,7 +5,8 @@ import type { Tone } from "../components/ui";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, words } from "../lib/format";
 import { useServices } from "../lib/services";
-import type { Grant, GrantBody, GrantStatus } from "../lib/types";
+import { Link, paths } from "../lib/router";
+import type { AccountPage as AccountPageData, Grant, GrantBody, GrantStatus, PromoGrant, PromoRegrant } from "../lib/types";
 
 /**
  * Grant Pro (gateway 00106): give an account Pro, Business or Studio until
@@ -313,26 +314,134 @@ function RevokeSheet({
   );
 }
 
-/** Promo entitlements the gateway grants again (read only). */
-export function PromoRegrants({ rows }: { rows: { id: string; status: string; entitlement?: string; ends_at?: string; created_at?: string; reason?: string }[] }) {
+const PROMO_TONE: Record<string, Tone> = {
+  done: "green",
+  held: "amber",
+  kept_removed: "red",
+  merged: "muted",
+  started: "blue",
+  snapshotted: "blue",
+  regranting: "blue",
+  snapshot_failed: "red",
+  revoke_failed: "red",
+  regrant_failed: "red",
+};
+
+function grantList(gs: PromoGrant[] | null | undefined): string {
+  if (!gs || gs.length === 0) return "—";
+  return gs.map((g) => `${label(g.entitlement)} ${g.expires_at ? `until ${dateOnly(g.expires_at)}` : "lifetime"}`).join(", ");
+}
+
+/** What the event key says: refund:in_… | dispute:dp_… | efw:… | end:… */
+function eventLabel(ev: string): string {
+  const [kind] = ev.split(":");
+  return { refund: "Refund", dispute: "Dispute", efw: "Fraud warning", end: "Plan ended" }[kind] ?? label(kind);
+}
+
+/**
+ * Re-grants: promotional grants a refund, dispute, fraud warning or plan
+ * end took away, and what came back. After a lost dispute (kept_removed)
+ * or while one is held, the owner can restore them with a reason
+ * (admin action restore_promo_grants, fresh sign-in).
+ */
+export function PromoRegrants({
+  uid,
+  rows,
+  onPage,
+}: {
+  uid: string;
+  rows: PromoRegrant[];
+  onPage: (p: AccountPageData) => void;
+}) {
+  const [restoring, setRestoring] = useState(false);
+  const [flash, setFlash] = useState("");
   if (rows.length === 0) return null;
+  const restorable = rows.some((r) => r.status === "kept_removed" || r.status === "held");
   return (
     <section className="card" data-testid="promo-regrants">
-      <div className="sh"><b>Promo regrants</b></div>
+      <div className="sh">
+        <b>Re-grants</b>
+        <span className="xs muted">promotional grants taken away by a refund, dispute or fraud warning</span>
+        <span className="grow" />
+        {restorable && <Button onClick={() => setRestoring(true)}>Restore promotional grants…</Button>}
+      </div>
+      {flash && <p className="ok small pad" role="status">{flash}</p>}
       <table className="at">
-        <thead><tr><th>Entitlement</th><th>Status</th><th>Ends</th><th>Created</th><th>Reason</th></tr></thead>
+        <thead>
+          <tr><th>Event</th><th>Status</th><th>Taken</th><th>Given back</th><th>Skipped</th><th>Case</th><th>Created</th></tr>
+        </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id}>
-              <td>{r.entitlement ? label(r.entitlement) : "—"}</td>
-              <td>{label(r.status)}</td>
-              <td>{r.ends_at ? dateOnly(r.ends_at) : "—"}</td>
-              <td className="xs">{r.created_at ? dateTime(r.created_at) : "—"}</td>
-              <td className="xs">{r.reason ?? ""}</td>
+            <tr key={r.id} data-testid={`regrant-${r.id}`}>
+              <td>{eventLabel(r.event)}</td>
+              <td>
+                <Chip tone={PROMO_TONE[r.status] ?? "plain"}>{label(r.status)}</Chip>
+                {r.restored_by ? <div className="xs muted">Restored by {r.restored_by}{r.restore_note ? `: ${r.restore_note}` : ""}</div> : null}
+                {r.last_error ? <div className="xs muted">{r.last_error}</div> : null}
+              </td>
+              <td className="xs wrap">{grantList(r.snapshot)}</td>
+              <td className="xs wrap">{grantList(r.regranted)}</td>
+              <td className="xs wrap">{grantList(r.skipped)}</td>
+              <td>{r.case_id ? <Link className="link mono" to={paths.case(r.case_id)}>{r.case_id}</Link> : "—"}</td>
+              <td className="xs">{dateTime(r.created_at)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {restoring && (
+        <RestoreSheet
+          uid={uid}
+          onClose={() => setRestoring(false)}
+          onDone={(p) => {
+            setRestoring(false);
+            setFlash("Promotional grants restored.");
+            onPage(p);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function RestoreSheet({ uid, onClose, onDone }: { uid: string; onClose: () => void; onDone: (p: AccountPageData) => void }) {
+  const { api, withReauth } = useServices();
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const confirm = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      onDone(await withReauth(() => api.accountAction(uid, { action: "restore_promo_grants", note: note.trim() })));
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.code === "nothing_to_restore"
+          ? "No removed promotional grants on this account."
+          : errorMessage(err),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet
+      title="Restore promotional grants"
+      subtitle="Gives back what a lost dispute or a fraud warning took, up to each grant's original end. Expired ones are skipped."
+      onClose={onClose}
+      busy={busy}
+      footer={
+        <>
+          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="primary" size="lg" disabled={!note.trim() || busy} onClick={confirm}>
+            {busy ? "Restoring…" : "Restore"}
+          </Button>
+        </>
+      }
+    >
+      <Field label="Reason" hint="Required. Logged on the account and the dispute case.">
+        <textarea className="input" rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      {error && <p className="err small" role="alert">{error}</p>}
+    </Sheet>
   );
 }

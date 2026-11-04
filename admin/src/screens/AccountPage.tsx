@@ -61,6 +61,8 @@ const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: 
     button: "Write off",
   },
   adjust_balance: { title: "Adjust balance", body: "Adds (or, negative, removes) balance. It needs a case.", button: "Adjust" },
+  // run from the Re-grants card (RestoreSheet in Grants.tsx), not this sheet
+  restore_promo_grants: { title: "Restore promotional grants", body: "", button: "Restore" },
 };
 
 /** A3: one account. */
@@ -244,7 +246,7 @@ export function AccountPage({ uid }: { uid: string }) {
       </section>
 
       <GrantsSection uid={a.uid} initial={p.grants ?? []} />
-      <PromoRegrants rows={p.promo_regrants ?? []} />
+      <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} onPage={set} />
 
       <section className="card">
         <div className="sh"><b>Balance ledger</b><span className="xs muted">latest 50</span></div>
