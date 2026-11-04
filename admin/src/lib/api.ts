@@ -7,6 +7,7 @@ import type {
   DisputeSummary,
   MailPreviewsResponse,
   OnboardingHeadsets,
+  PlansSurfaces,
   OpenCaseBody,
   PolicyResponse,
   Tab,
@@ -175,6 +176,10 @@ export class AdminApi {
       `/v1/admin/accounts/${encodeURIComponent(uid)}/actions`,
       body,
     );
+  }
+
+  plansSurfaces(days: number): Promise<PlansSurfaces> {
+    return this.json("GET", `/v1/admin/plans/surfaces?days=${days}`);
   }
 
   onboardingHeadsets(days: number): Promise<OnboardingHeadsets> {

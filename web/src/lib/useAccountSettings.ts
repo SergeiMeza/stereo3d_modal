@@ -49,7 +49,20 @@ function merge(s: AccountSettings, patch: AccountSettingsPatch): AccountSettings
       ? { hints_seen: [...new Set([...(s.hints_seen ?? []), ...patch.hints_seen_add])] }
       : {}),
     ...(patch.onboarding ? { onboarding: { ...s.onboarding, ...patch.onboarding } } : {}),
+    ...(patch.dismissed ? { dismissed: mergeDismissed(s.dismissed ?? {}, patch.dismissed) } : {}),
   };
+}
+
+function mergeDismissed(
+  cur: Record<string, string>,
+  patch: Record<string, true | string | null>,
+): Record<string, string> {
+  const out = { ...cur };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete out[k];
+    else out[k] = v === true ? new Date().toISOString() : v;
+  }
+  return out;
 }
 
 export interface AccountSettingsApi {

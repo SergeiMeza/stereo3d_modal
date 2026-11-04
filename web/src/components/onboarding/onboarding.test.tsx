@@ -31,7 +31,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => {
   resetAccountSettingsCache();
   // a brand-new account
-  mockDb.accountSettings = { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {} };
+  mockDb.accountSettings = { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} };
 });
 afterEach(() => {
   cleanup();

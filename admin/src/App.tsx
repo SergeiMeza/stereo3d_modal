@@ -11,6 +11,7 @@ import { CasePage } from "./screens/CasePage";
 import { CasesList } from "./screens/CasesList";
 import { DisputesPanel } from "./screens/Disputes";
 import { OnboardingPanel } from "./screens/Onboarding";
+import { PlansSurfacesPanel } from "./screens/PlansSurfaces";
 import { MailPreviews } from "./screens/MailPreviews";
 import { PolicyPage } from "./screens/Policy";
 import { SignInScreen } from "./screens/SignIn";
@@ -49,6 +50,7 @@ function Shell() {
           {tab("cases", paths.cases(), "Cases", openCount !== null && <span className="cnt">{openCount}</span>)}
           {tab("disputes", paths.disputes(), "Disputes and fraud")}
           {tab("onboarding", paths.onboarding(), "Onboarding")}
+          {tab("plans", paths.plans(), "Plans surfaces")}
           {tab("accounts", paths.accounts(), "Accounts")}
           {tab("mails", paths.mails(), "Mail previews")}
           {tab("policy", paths.policy(), "Refund policy")}
@@ -69,6 +71,7 @@ function Shell() {
         {route.name === "account" && <AccountPage uid={route.uid} key={route.uid} />}
         {route.name === "disputes" && <DisputesPanel />}
         {route.name === "onboarding" && <OnboardingPanel />}
+        {route.name === "plans" && <PlansSurfacesPanel />}
         {route.name === "mails" && <MailPreviews />}
         {route.name === "policy" && <PolicyPage />}
         {route.name === "not_found" && (

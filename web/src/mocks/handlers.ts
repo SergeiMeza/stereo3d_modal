@@ -393,6 +393,8 @@ interface DB {
     headsets: string[] | null;
     hints_seen: string[];
     onboarding: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+    /** plans surfaces dismissed: placement → time (gateway 00093) */
+    dismissed: Record<string, string>;
   };
   /** the next settings save fails with a 500 */
   nextSettingsFails: boolean;
@@ -681,6 +683,9 @@ function mockProPct(): number {
   return mockDb.tierPricing ? TIERS.pct.pro : MOCK_PRO.pct;
 }
 
+/** gateway plans_surfaces.go plansPlacements */
+const PLANS_PLACEMENTS = ["header", "projects_banner", "quote", "receipt", "plans_sheet", "business_note", "business_banner", "plans_hint"];
+
 const VITEST_MOCK = typeof process !== "undefined" && !!process.env?.VITEST;
 const ALL_HINTS = ["billing", "usage", "invoices", "plans", "pricing", "pro", "account", "devices", "scenes"];
 
@@ -748,8 +753,8 @@ function seed(): DB {
     // unit tests start as an account that has seen the welcome, tips and
     // hints (onboarding tests clear these); the browser mock starts new
     accountSettings: VITEST_MOCK
-      ? { lifelike_intro: true, locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true } }
-      : { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {} },
+      ? { lifelike_intro: true, locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true }, dismissed: {} }
+      : { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} },
     nextSettingsFails: false,
     sampleSeeding: !(typeof process !== "undefined" && process.env?.VITEST),
     sampleSeeded: false,
@@ -2842,10 +2847,25 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
+  // plans canvas, Nudge C: a sales enquiry
+  http.post(`${GATEWAY}/v1/contact`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { email?: string; message?: string };
+    if (!body.email || !body.message) return err(400, "invalid_request", "email and message are required");
+    mockDb.events.push({ name: "contact", props: { ...body }, at: new Date().toISOString() });
+    return HttpResponse.json({ sent: true });
+  }),
+
   // our own product events (onboarding answers): stored with the account
   http.post(`${GATEWAY}/v1/events`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { name?: string; props?: Record<string, unknown> };
     if (!body.name) return err(400, "invalid_request", "name is required");
+    // gateway 00093: onboarding_headsets and the plans_surface_* events
+    if (body.name !== "onboarding_headsets" && !body.name.startsWith("plans_surface_")) {
+      return err(400, "unknown_event", "unknown event");
+    }
+    if (body.name.startsWith("plans_surface_") && !PLANS_PLACEMENTS.includes(String(body.props?.placement))) {
+      return err(400, "invalid_request", "placement is required");
+    }
     mockDb.events.push({ name: body.name, props: body.props ?? {}, at: new Date().toISOString() });
     return HttpResponse.json({ logged: true });
   }),
@@ -2859,8 +2879,16 @@ export const handlers = [
       headsets?: string[];
       hints_seen_add?: string[];
       onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+      dismissed?: Record<string, true | string | null>;
     };
     const st = mockDb.accountSettings;
+    if (body.dismissed) {
+      for (const [k, v] of Object.entries(body.dismissed)) {
+        if (!PLANS_PLACEMENTS.includes(k)) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);
+        if (v === null) delete st.dismissed[k];
+        else st.dismissed[k] = v === true ? new Date().toISOString() : v;
+      }
+    }
     if (body.headsets !== undefined) st.headsets = [...body.headsets];
     if (body.hints_seen_add) st.hints_seen = [...new Set([...st.hints_seen, ...body.hints_seen_add])];
     if (body.onboarding) st.onboarding = { ...st.onboarding, ...body.onboarding };

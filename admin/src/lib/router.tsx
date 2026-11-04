@@ -19,6 +19,7 @@ export type Route =
   | { name: "account"; uid: string }
   | { name: "disputes" }
   | { name: "onboarding" }
+  | { name: "plans" }
   | { name: "mails" }
   | { name: "policy" }
   | { name: "not_found" };
@@ -33,6 +34,7 @@ export function parseRoute(pathname: string): Route {
   if (a === "accounts" && parts.length === 2 && b) return { name: "account", uid: b };
   if (a === "disputes" && parts.length === 1) return { name: "disputes" };
   if (a === "onboarding" && parts.length === 1) return { name: "onboarding" };
+  if (a === "plans" && parts.length === 1) return { name: "plans" };
   if (a === "mails" && parts.length === 1) return { name: "mails" };
   if (a === "policy" && parts.length === 1) return { name: "policy" };
   return { name: "not_found" };
@@ -45,6 +47,7 @@ export const paths = {
   account: (uid: string) => `/accounts/${encodeURIComponent(uid)}`,
   disputes: () => "/disputes",
   onboarding: () => "/onboarding",
+  plans: () => "/plans",
   mails: () => "/mails",
   policy: () => "/policy",
 };

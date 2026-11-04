@@ -345,6 +345,12 @@ export class GatewayClient {
     return this.request("PATCH", "/v1/account/settings", patch);
   }
 
+  /** Plans canvas, Nudge C: a sales enquiry ("Talk to us"); a person
+   * replies by email. */
+  contactSales(body: { email: string; message: string; source: string }): Promise<{ sent: boolean }> {
+    return this.request("POST", "/v1/contact", body);
+  }
+
   /** Our own product events (onboarding answers etc.), stored by the
    * gateway with the account; never throws into product code. */
   logEvent(name: string, props: Record<string, unknown>): void {

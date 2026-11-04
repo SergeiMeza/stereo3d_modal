@@ -194,3 +194,26 @@ describe("onboarding answers (owner 2026-11-04)", () => {
     expect(calls.at(-1)!.url).toContain("days=90");
   });
 });
+
+describe("plans surfaces (owner 2026-11-04)", () => {
+  it("lists each placement with clicks and attributed plan starts", async () => {
+    const { calls } = renderApp("/plans", {
+      "GET /v1/admin/plans/surfaces": () => ({
+        json: {
+          days: 30,
+          generated_at: "2026-11-04T00:00:00Z",
+          placements: [
+            { placement: "quote", views: 200, viewers: 120, dismissals: 10, clicks: 30, conversions: 6, conversions_by_product: { pro: 5, business: 1 }, click_rate: 0.15, conversion_rate: 0.03 },
+            { placement: "header", views: 900, viewers: 300, dismissals: 0, clicks: 40, conversions: 2, conversions_by_product: { pro: 2 }, click_rate: 0.044, conversion_rate: 0.002 },
+          ],
+          unattributed: { conversions: 3, by_product: { pro: 3 } },
+        },
+      }),
+    });
+    const table = await screen.findByTestId("plans-surfaces");
+    expect(table).toHaveTextContent("Quote · pay once or with Pro");
+    expect(table).toHaveTextContent("Pro 5 · Business 1");
+    expect(screen.getByText(/Plan starts with no click in the 7 days before: 3/)).toBeInTheDocument();
+    expect(calls.at(-1)!.url).toContain("days=30");
+  });
+});

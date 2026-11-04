@@ -648,6 +648,12 @@ export interface InstantCheckoutProps {
   variant?: "inline" | "panel";
   /** The price card's heading row ("Your price" + method chip). */
   heading?: ReactNode;
+  /** Plans canvas: between the quote and the button (Quote A's choice,
+   * the Business note); given the quote */
+  beforeButton?: (quote: StepQuoteResponse) => ReactNode;
+  /** Plans canvas: the main button does this instead of starting the run
+   * (Quote A's "Subscribe and convert"); never charges by itself */
+  primary?: { label: string; onClick: () => void } | null;
 }
 
 /**
@@ -670,6 +676,8 @@ export function InstantCheckout({
   after,
   variant = "inline",
   heading,
+  beforeButton,
+  primary = null,
 }: InstantCheckoutProps): JSX.Element {
   const status = useBilling().status;
   const underReview = status?.flow_state === "under_review";
@@ -757,9 +765,20 @@ export function InstantCheckout({
             </p>
           )}
           {chargeHint}
+          {quote && beforeButton ? beforeButton(quote) : null}
           {summary}
           {owes ? (
             <PayToContinue />
+          ) : primary ? (
+            <Button
+              size="lg"
+              data-testid="checkout-main"
+              className="w-full"
+              disabled={blocked || quote === null || running}
+              onClick={primary.onClick}
+            >
+              {primary.label}
+            </Button>
           ) : (
             <Button
               size="lg"
@@ -798,10 +817,9 @@ export function InstantCheckout({
               data-testid="checkout-main-phone"
               className="w-full"
               disabled={blocked || quote === null}
-              onClick={() => void ck.convert(request)}
+              onClick={primary ? primary.onClick : () => void ck.convert(request)}
             >
-              {label}
-              {price ? ` · ${price}` : ""}
+              {primary ? primary.label : `${label}${price ? ` · ${price}` : ""}`}
             </Button>
           </div>
         ) : null}

@@ -8,6 +8,7 @@ import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
 import { AppIcon } from "@/components/AppIcon";
+import { HeaderPlans } from "@/components/plans/HeaderPlans";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { SettleProvider } from "@/components/pay/SettleSheet";
@@ -73,6 +74,11 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col bg-surface-0 font-sans text-sm leading-tight text-fg">
         <AuthProvider>
+          {/* BillingProvider sits inside MswProvider so its first
+              GET /v1/billing waits for the mock worker in mock mode; the
+              header is inside both for the plans link (owner 2026-11-04). */}
+          <MswProvider>
+          <BillingProvider>
           <header className="sticky top-0 z-40 border-b border-edge bg-surface-1/95 backdrop-blur">
             <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-3 px-4 sm:gap-6">
               <Link
@@ -91,12 +97,8 @@ export default function RootLayout({
               >
                 Projects
               </Link>
-              <Link
-                href="/pricing"
-                className="hidden text-fg-muted transition-colors hover:text-fg sm:block"
-              >
-                Pricing
-              </Link>
+              {/* plans canvas, Header B: Plans + "Save 15–25%" */}
+              <HeaderPlans />
               {/* owner 2026-11-04: Feedback sits on the right, beside Sign in
                   (icon only on phones, labelled for screen readers) */}
               <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -110,17 +112,13 @@ export default function RootLayout({
               (max-w-7xl list pages) still center themselves inside it. The
               workspace stays viewport-height (Resolve-style) within it. */}
           <main className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col">
-            {/* BillingProvider sits inside MswProvider so its first
-                GET /v1/billing waits for the mock worker in mock mode. */}
-            <MswProvider>
-              <BillingProvider>
-                {/* P2: any "Pay $X" opens the settle sheet */}
-                <SettleProvider>
-                  <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
-                </SettleProvider>
-              </BillingProvider>
-            </MswProvider>
+            {/* P2: any "Pay $X" opens the settle sheet */}
+            <SettleProvider>
+              <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
+            </SettleProvider>
           </main>
+          </BillingProvider>
+          </MswProvider>
         </AuthProvider>
         <Analytics />
         <VercelAnalytics />

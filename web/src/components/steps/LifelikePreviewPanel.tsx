@@ -49,6 +49,7 @@ import {
 } from "./StereoCheckViewer";
 import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
+import { PlansSheet, usePlansSheet } from "@/components/plans/PlansSheet";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
@@ -181,6 +182,14 @@ function ReadyPreviewPanel({
   // owner 2026-11-04: above 30 fps the frame rate is a required choice
   // (it replaces Quick look there); at 30 or below Quick look halves it
   const fpsChoice = useFpsChoice(project, "lifelike_preview", plainAt(0));
+  // plans canvas, Sheet C: after a free preview finishes here, or when the
+  // free previews are used up (once a session, people without a plan)
+  const freeDone =
+    ck.settled &&
+    ck.active?.state === "succeeded" &&
+    (ck.active.billing?.status === "free_preview" || ck.active.quote.amount_cents === 0);
+  const usedUp = ck.quote?.free_previews?.remaining === 0;
+  const plansSheet = usePlansSheet(!project.sample && (freeDone || usedUp));
   const fpsMissing = fpsChoice.required && fpsChoice.value === null;
   const requestAt = (start: number): StepConversionRequest => ({
     ...plainAt(start),
@@ -307,6 +316,12 @@ function ReadyPreviewPanel({
 
   return (
     <PanelShell>
+      <PlansSheet
+        open={plansSheet.open}
+        onClose={plansSheet.close}
+        preset={preset}
+        reason={freeDone ? "preview_done" : "previews_used"}
+      />
       <StepReview
         project={project}
         sourceFps={sourceFps}

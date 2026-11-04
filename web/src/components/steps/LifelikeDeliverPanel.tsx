@@ -49,6 +49,7 @@ import {
   type Device,
 } from "./makeControls";
 import { LIFELIKE_FORMATS, lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
+import { BusinessNote, ProCheckoutSheet, QuoteProChoice, useQuoteProChoice, type PayMode } from "@/components/plans/QuotePlans";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
@@ -155,6 +156,11 @@ export function LifelikeDeliverPanel({
   const addons = usePricing()?.addons;
   const [master, setMaster] = useState(false);
   const [expressChoice, setExpress] = useState<boolean | null>(null);
+  // plans canvas, Quote A: pay once (always first) or with Pro
+  const [payMode, setPayMode] = useState<PayMode>("once");
+  const [proSheet, setProSheet] = useState(false);
+  const proChoice = useQuoteProChoice(ck.quote);
+  const withPro = payMode === "pro" && proChoice !== null;
   const chosen = choices.find((q) => q.preset === preset);
   const eyeRequired = chosen?.originalEyeRequired === true;
   const originalEye = eyeRequired ? requiredEye : optionalEye;
@@ -466,6 +472,13 @@ export function LifelikeDeliverPanel({
             </div>
           }
           explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits))}
+          beforeButton={(q) => (
+            <>
+              <QuoteProChoice quote={q} mode={payMode} onMode={setPayMode} />
+              <BusinessNote quote={q} />
+            </>
+          )}
+          primary={withPro ? { label: "Subscribe and convert", onClick: () => setProSheet(true) } : null}
           after={
             hasFiles ? (
               <a href="#tab=files" className="text-center text-xs text-primary hover:underline">
@@ -474,6 +487,23 @@ export function LifelikeDeliverPanel({
             ) : null
           }
         />
+        {ck.quote ? (
+          <ProCheckoutSheet
+            open={proSheet}
+            quote={ck.quote}
+            onClose={() => setProSheet(false)}
+            onPayOnce={() => {
+              setProSheet(false);
+              setPayMode("once");
+            }}
+            onPurchased={() => {
+              // Pro is on: the quote re-prices; the person still taps Make 3D
+              setProSheet(false);
+              setPayMode("once");
+              ck.invalidate();
+            }}
+          />
+        ) : null}
       </aside>
     </div>
   );

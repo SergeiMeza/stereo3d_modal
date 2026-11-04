@@ -427,6 +427,28 @@ export interface OnboardingHeadsets {
   generated_at: string;
 }
 
+/** GET /v1/admin/plans/surfaces?days= (gateway 00093): each plans surface's
+ * views, dismissals, clicks and the plan starts attributed to it (last
+ * click within 7 days). */
+export interface PlansSurfaceRow {
+  placement: string;
+  views: number;
+  viewers: number;
+  dismissals: number;
+  clicks: number;
+  conversions: number;
+  conversions_by_product: Partial<Record<"pro" | "business" | "studio", number>>;
+  click_rate: number;
+  conversion_rate: number;
+}
+
+export interface PlansSurfaces {
+  days: number;
+  generated_at: string;
+  placements: PlansSurfaceRow[] | null;
+  unattributed: { conversions: number; by_product: Partial<Record<"pro" | "business" | "studio", number>> };
+}
+
 export interface DisputeSummary {
   months: DisputeMonth[] | null;
   reference_pct: number;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { JSX } from "react";
 
 import { usePricing } from "@/lib/api/usePricing";
-import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
+import { PayPerVideoAndPro, PlansHint } from "@/components/plans/PlansIntro";
 
 import { PlansSection } from "./PlansSection";
 
@@ -13,11 +13,15 @@ export function PlansScreen(): JSX.Element {
   const pricing = usePricing();
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10">
-      <FirstTimeHint id="plans" className="mb-6" />
       {pricing === null ? (
         <p className="mt-10 text-center text-fg-muted">Loading plans…</p>
       ) : pricing.plans ? (
-        <PlansSection pricing={pricing} />
+        <>
+          {/* plans canvas: Onboarding B, then pay per video and Pro */}
+          <PlansHint pricing={pricing} />
+          <PayPerVideoAndPro pricing={pricing} />
+          <PlansSection pricing={pricing} />
+        </>
       ) : (
         <p className="mt-10 text-center text-fg-muted">Plans aren&apos;t available yet.</p>
       )}

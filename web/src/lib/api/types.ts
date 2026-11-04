@@ -697,6 +697,8 @@ export interface AccountSettings {
   /** first-time hints already dismissed (one id per page or tab) */
   hints_seen?: string[];
   onboarding?: OnboardingState;
+  /** plans surfaces dismissed: placement → RFC 3339 time (gateway 00093) */
+  dismissed?: Record<string, string>;
 }
 
 /** Account onboarding state, kept on the account (not in the browser). */
@@ -721,6 +723,8 @@ export interface AccountSettingsPatch {
   /** ids to add to hints_seen */
   hints_seen_add?: string[];
   onboarding?: Pick<OnboardingState, "welcome_done" | "checklist_hidden" | "tips_done">;
+  /** placement → true (now) | RFC 3339 time | null (clear) */
+  dismissed?: Record<string, true | string | null>;
 }
 
 /** GET /v1/billing plan (Business / Studio) */

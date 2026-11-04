@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { GetStarted } from "@/components/onboarding/GetStarted";
+import { PlansBanner } from "@/components/plans/PlansBanner";
+import { TalkToUs } from "@/components/plans/TalkToUs";
 import { WelcomeDialog } from "@/components/onboarding/WelcomeDialog";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { LimitsNotice } from "@/components/pay/LimitsNotice";
@@ -155,6 +157,9 @@ export default function ProjectsScreen() {
       />
       <GetStarted onPickHeadset={() => setWelcomeAgain(true)} />
       <LimitsNotice />
+      {/* plans canvas: Talk to us for company emails, then Projects A */}
+      <TalkToUs />
+      <PlansBanner />
       <UploadDropzone />
 
       {actionError !== null ? (
