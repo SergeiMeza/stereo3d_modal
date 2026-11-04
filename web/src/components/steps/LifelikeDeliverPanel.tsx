@@ -225,7 +225,7 @@ export function LifelikeDeliverPanel({
     return (
       <div data-testid="lifelike-deliver-panel">
         <p className="rounded-xl border border-edge bg-surface-1 p-4 text-sm text-fg-muted">
-          We&apos;re still looking through your video. Prices appear when
+          We&apos;re still analyzing your video. Prices appear when
           it&apos;s done.
         </p>
       </div>

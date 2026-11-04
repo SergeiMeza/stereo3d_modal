@@ -98,7 +98,7 @@ export function LifelikePreviewPanel(props: LifelikePreviewPanelProps): JSX.Elem
         <Card>
           <CardContent>
             <p className="text-sm text-fg-muted">
-              We&apos;re still looking through your video. Previews open when
+              We&apos;re still analyzing your video. Previews open when
               it&apos;s done.
             </p>
           </CardContent>

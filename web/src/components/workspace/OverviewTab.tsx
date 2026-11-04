@@ -276,7 +276,7 @@ export function OverviewTab({
                   <div className="min-w-0 flex-1">
                     <AnalyzeProgress analyze={project.analyze} />
                     <p className="mt-1 text-sm">
-                      We&apos;re looking through your video. Prices appear
+                      We&apos;re analyzing your video. Prices appear
                       here when it&apos;s done. Free.
                     </p>
                   </div>
