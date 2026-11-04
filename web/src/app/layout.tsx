@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 import { Analytics } from "@/components/Analytics";
+import { PasskeySuggestion } from "@/components/auth/PasskeySuggestion";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
 import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
@@ -113,6 +114,8 @@ export default function RootLayout({
               (max-w-7xl list pages) still center themselves inside it. The
               workspace stays viewport-height (Resolve-style) within it. */}
           <main className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col">
+            {/* ADR 0136: "Add a passkey" once after a sign-in */}
+            <PasskeySuggestion />
             {/* P2: any "Pay $X" opens the settle sheet */}
             <SettleProvider>
               <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
