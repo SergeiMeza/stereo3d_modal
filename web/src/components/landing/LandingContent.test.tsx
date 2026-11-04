@@ -127,7 +127,7 @@ describe("Lifelike story (2026-11)", () => {
     expect(points.textContent).toContain("Your original in one eye");
     expect(points.textContent).toContain("At Cinema sizes, 5K to 8K");
     expect(screen.getByTestId("teams-line").textContent).toBe(
-      "For teams: Business and Studio plans. See plans",
+      "For work: Business and Studio plans. See plans",
     );
     expect(points.textContent).toContain("Foveated Detail");
     // prices only in the one hero line (owner 2026-11)

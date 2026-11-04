@@ -505,14 +505,14 @@ export function WelcomeDialog({
 function BusinessLine(): JSX.Element {
   return (
     <p data-testid="welcome-business" className="text-[13px] text-fg-muted">
-      Working with a team?{" "}
+      Working for clients?{" "}
       <Link
         href="/plans"
         className="underline underline-offset-2 hover:text-fg"
       >
         Business
       </Link>{" "}
-      adds seats, monthly usage and invoices.
+      adds monthly usage, commercial use and invoices.
     </p>
   );
 }

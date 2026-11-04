@@ -663,7 +663,9 @@ export interface PlanDef {
   monthly_cents: number;
   credit_cents: number;
   max_active_runs: number;
-  seats: number;
+  /** sent by the gateway; never shown until team accounts exist (owner
+   * 2026-11-04) */
+  seats?: number;
   free_previews_per_period: number;
   express_included: boolean;
   /** owner 2026-11-04: the plan's highest output frame rate (120) */

@@ -432,8 +432,8 @@ const TIERS = {
   addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
-    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
-    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, seats: 10, free_previews_per_period: 200, express_included: true, max_fps: 120, interval: "year", price_cents: 1198800, credit_interval: "month" },
+    business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
+    studio: { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, free_previews_per_period: 200, express_included: true, max_fps: 120, interval: "year", price_cents: 1198800, credit_interval: "month" },
   },
   allowances: { pro_weekly: 5, pro_monthly: 20, pro_yearly: 240, pro_pass_3m: 60, pro_pass_6m: 120, pro_lifetime: 20, business: 50, studio: 200, intro: 1 } as Record<string, number>,
   dailyCap: 20,

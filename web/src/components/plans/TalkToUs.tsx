@@ -106,9 +106,9 @@ export function TalkToUs(): JSX.Element | null {
       {step === "banner" ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="min-w-60 flex-1 text-fg">
-            Using Spatial Video Studio at work? Business gives {biz.seats}{" "}
-            people {formatCentsShort(biz.credit_cents)} of usage a month,
-            commercial use and invoices.
+            Using Spatial Video Studio at work? Business gives you{" "}
+            {formatCentsShort(biz.credit_cents)} of usage a month, commercial
+            use and invoices.
           </p>
           <Button
             size="sm"
@@ -183,7 +183,7 @@ export function TalkToUs(): JSX.Element | null {
                 data-testid="talk-to-us-team"
                 value={teamSize}
                 onChange={(e) => setTeamSize(e.target.value)}
-                placeholder="3 people"
+                placeholder="e.g. 4"
                 className="rounded-md border border-edge bg-surface-2 px-3 py-2 text-sm text-fg"
               />
             </label>

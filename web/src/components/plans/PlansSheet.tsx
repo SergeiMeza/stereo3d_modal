@@ -2,7 +2,7 @@
 
 /**
  * Plans sheet C (plans canvas, 2026-11-04): Pro first, "Business for
- * teams" as one row below. It opens after a free preview finishes, or when
+ * work" as one row below. It opens after a free preview finishes, or when
  * the free previews are used up — at most once per browser session, never
  * for Pro, Business or Studio — and closes with one tap ("Keep paying per
  * video", ×, or outside). Closing also keeps it away for a day on the
@@ -218,11 +218,11 @@ export function PlansSheet({
             className="flex items-center gap-3 rounded-[10px] border border-edge px-3.5 py-3 text-sm hover:border-fg-muted"
           >
             <span className="flex flex-1 flex-col">
-              <span className="font-medium text-fg">Business for teams</span>
+              <span className="font-medium text-fg">Business for work</span>
               <span className="text-xs text-fg-muted">
                 {formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month
-                with {formatCentsShort(biz.credit_cents)} of usage, {biz.seats}{" "}
-                people{maxFps && maxFps > 30 ? `, ${maxFps} fps` : ""}, invoices
+                with {formatCentsShort(biz.credit_cents)} of usage, commercial use
+                {maxFps && maxFps > 30 ? `, ${maxFps} fps` : ""}, invoices
               </span>
             </span>
             <ChevronRight className="size-4 text-fg-muted" aria-hidden />

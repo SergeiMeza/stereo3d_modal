@@ -38,7 +38,8 @@ export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?
     ...(def.express_included ? ["Express included"] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
     ...(maxFps && maxFps > 30 ? [`Up to ${maxFps} fps`] : []),
-    `${def.seats} people · invoices`,
+    // owner 2026-11-04: no seat counts until team accounts exist
+    "Invoices",
   ];
 }
 
@@ -53,7 +54,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
     <section data-testid="plans" aria-labelledby="plans-title" className="flex flex-col gap-4">
       <div className="text-center">
         <h2 id="plans-title" className="text-lg font-semibold tracking-tight">
-          Plans for teams
+          Plans for work
         </h2>
         <p className="mt-1 text-sm text-fg-muted">
           Usage included every month. Business bills monthly, Studio yearly.

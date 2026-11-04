@@ -276,7 +276,7 @@ export function LandingContent() {
           </Link>
         </div>
         <p data-testid="teams-line" className="mt-5 text-sm text-fg-muted">
-          For teams: Business and Studio plans.{" "}
+          For work: Business and Studio plans.{" "}
           <Link
             href="/pricing"
             onClick={() => track("lp_teams_click")}
