@@ -532,6 +532,20 @@ function startMockPro(planId: string): void {
   };
 }
 
+/** What the current Business/Studio plan has left (owner 2026-11-04):
+ * the share of the period and of this month's usage. */
+function creditBasis(): { time_share: number; usage_share: number; paid_cents: number } | null {
+  const p = mockDb.billing.plan;
+  if (!p?.active || (p.plan !== "business" && p.plan !== "studio")) return null;
+  const def = TIERS.plans[p.plan] as { price_cents?: number; monthly_cents: number; interval?: string };
+  const paid = def.price_cents ?? def.monthly_cents;
+  const end = p.current_period_end ? Date.parse(p.current_period_end) : Date.now();
+  const days = def.interval === "year" ? 365 : 30;
+  const time = Math.max(0, Math.min(1, (end - Date.now()) / (days * 86_400_000)));
+  const usage = p.credit_cents ? Math.max(0, Math.min(1, (p.credit_left_cents ?? 0) / p.credit_cents)) : 1;
+  return { time_share: Math.round(time * 10000) / 10000, usage_share: Math.round(usage * 10000) / 10000, paid_cents: paid };
+}
+
 /** The account's plan now: Business/Studio, else its web Pro, else none. */
 function currentPlanKey(): string {
   if (mockDb.billing.plan?.active)
@@ -3034,7 +3048,9 @@ export const handlers = [
         currency: "usd",
       });
     }
-    const unused = 450;
+    // owner 2026-11-04: paid × min(time left, usage left)
+    const basis = creditBasis();
+    const unused = basis ? Math.round(basis.paid_cents * Math.min(basis.time_share, basis.usage_share)) : 450;
     const renews = new Date();
     if (target.interval === "year") renews.setFullYear(renews.getFullYear() + 1);
     else if (target.interval === "week") renews.setDate(renews.getDate() + 7);
@@ -3047,6 +3063,7 @@ export const handlers = [
       today_cents: target.price - unused,
       new_plan_cents: target.price,
       unused_credit_cents: unused,
+      ...(basis ? { credit_basis: basis } : {}),
       renews_at: renews.toISOString(),
       currency: "usd",
     });
@@ -3100,9 +3117,14 @@ export const handlers = [
     }
     const key = target.id as "business" | "studio";
     const def = TIERS.plans[key];
+    // a step-up starts at once: a full period from today
+    const end = new Date();
+    if (def.interval === "year") end.setUTCFullYear(end.getUTCFullYear() + 1);
+    else end.setUTCMonth(end.getUTCMonth() + 1);
     mockDb.billing.plan = {
       plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
       credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: false,
+      current_period_end: end.toISOString(), interval: def.interval as "month" | "year", price_cents: def.price_cents,
     };
     return HttpResponse.json({ plan: key, status: "active" });
   }),

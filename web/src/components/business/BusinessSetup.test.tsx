@@ -182,9 +182,9 @@ describe("Business and Studio setup", () => {
   it("web Pro: today's price from the preview, then the change on confirm, then the welcome", async () => {
     mockDb.proStatus = { pro: true, known: true, source: "stripe" };
     await toCheckout();
-    const preview = await screen.findByTestId("setup-preview");
-    expect(preview.textContent).toMatch(
-      /^Today: \$294\.50 \(new plan \$299\.00 − \$4\.50 for your unused Pro days\)\. Renews on /,
+    const preview = await screen.findByTestId("setup-preview-line");
+    expect(preview.textContent).toBe(
+      "Today: $294.50. Business $299.00 − $4.50 for your unused Pro.",
     );
     expect(mockDb.planChanges).toEqual([]);
     fireEvent.click(screen.getByTestId("setup-confirm"));
@@ -220,5 +220,33 @@ describe("Business and Studio setup", () => {
     mockDb.proStatus = { pro: true, known: true, source: "simulated" };
     await toCheckout();
     expect(screen.queryByTestId("setup-pro-slot")).toBeNull();
+  });
+
+  it("a Business holder moves up to Studio; the preview prices it", async () => {
+    mockDb.billing.plan = {
+      plan: "business",
+      name: "Business",
+      status: "active",
+      active: true,
+      monthly_cents: 29900,
+      credit_cents: 40000,
+      credit_left_cents: 5000,
+      cancel_at_period_end: false,
+      current_period_end: new Date(Date.now() + 20 * 86_400_000).toISOString(),
+    };
+    await toCheckout();
+    expect(screen.getByTestId("setup-pro-slot").textContent).toContain(
+      "What happens to your Business",
+    );
+    const line = await screen.findByTestId("setup-preview-line");
+    expect(line.textContent).toBe(
+      "Today: $11,950.62. Studio $11,988.00 − $37.38 for your unused Business.",
+    );
+    expect(screen.getByTestId("setup-preview").textContent).toContain(
+      "Your remaining Business usage this month ends when Studio's $1,500 starts.",
+    );
+    fireEvent.click(screen.getByTestId("setup-confirm"));
+    expect(await screen.findByTestId("setup-welcome")).toBeTruthy();
+    expect(mockDb.billing.plan?.plan).toBe("studio");
   });
 });

@@ -22,12 +22,30 @@ export function changeDate(iso: string): string {
   });
 }
 
-export function upgradeLine(p: PlanChangePreview): string {
+/** "Today: $11,950.62. Studio $11,988.00 − $37.38 for your unused
+ * Business." — every number from the preview. */
+export function upgradeLine(
+  p: PlanChangePreview,
+  names: { from: string; to: string },
+): string {
   const unused = p.unused_credit_cents ?? 0;
-  const renews = p.renews_at ? ` Renews on ${changeDate(p.renews_at)}.` : "";
+  const today = `Today: ${formatCents(p.today_cents)}.`;
   return unused > 0
-    ? `Today: ${formatCents(p.today_cents)} (new plan ${formatCents(p.new_plan_cents)} − ${formatCents(unused)} for your unused Pro days).${renews}`
-    : `Today: ${formatCents(p.today_cents)}.${renews}`;
+    ? `${today} ${names.to} ${formatCents(p.new_plan_cents)} − ${formatCents(unused)} for your unused ${names.from}.`
+    : `${today} ${names.to} ${formatCents(p.new_plan_cents)}.`;
+}
+
+export const CREDIT_RULE =
+  "We credit what you paid for the time and usage you have left, whichever is smaller.";
+
+/** "Your remaining Business usage this month ends when Studio's $1,500
+ * starts." — a plan with monthly usage moving to another. */
+export function usageHandoverLine(
+  from: string,
+  to: string,
+  toCreditCents: number,
+): string {
+  return `Your remaining ${from} usage this month ends when ${to}'s ${formatCentsShort(toCreditCents)} starts.`;
 }
 
 /** "Your Studio stays on until Jan 10, 2027. Business starts then at $299

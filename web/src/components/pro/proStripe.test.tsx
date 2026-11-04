@@ -110,8 +110,8 @@ describe("web Pro on Stripe", () => {
     );
     const preview = await screen.findByTestId("pro-change-preview");
     await waitFor(() =>
-      expect(preview.textContent).toMatch(
-        /^Today: \$75\.49 \(new plan \$79\.99 − \$4\.50 for your unused Pro days\)\. Renews on /,
+      expect(preview.textContent).toBe(
+        "Today: $75.49. Pro Yearly $79.99 − $4.50 for your unused Pro Monthly.",
       ),
     );
     expect(mockDb.planChanges).toEqual([]);

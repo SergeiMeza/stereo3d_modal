@@ -34,10 +34,10 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { IntroSwitch } from "@/components/billing/PlanCard";
+import { StepUpDetails } from "@/components/billing/StepUpDetails";
 import {
   confirmPlanChange,
   REPRICED,
-  upgradeLine,
 } from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
 import {
@@ -141,7 +141,8 @@ export function BusinessSetup(): JSX.Element {
   const { user } = useAuth();
   const { settings, update } = useAccountSettings();
   const [step, setStep] = useState<Step>("plan");
-  const [plan, setPlan] = useState<PlanKey>("business");
+  const [picked, setPlan] = useState<PlanKey>("business");
+  const plan: PlanKey = tier === "business" ? "studio" : picked;
   const [talk, setTalk] = useState<"closed" | "form" | "sent">("closed");
   const [company, setCompany] = useState<CompanyDetails | null>(null);
   const [editingCompany, setEditingCompany] = useState(false);
@@ -176,13 +177,18 @@ export function BusinessSetup(): JSX.Element {
     };
   }, [gateway]);
 
-  const theCase = proCase(pro);
+  // owner 2026-11-04: Business → Studio is a step-up at once
+  const fromBusiness = tier === "business";
+  const theCase: "app_store" | "web" | "business" | null = fromBusiness
+    ? "business"
+    : proCase(pro);
   const defs = pricing?.plans;
   const def = defs?.[plan];
 
   // a web Pro: today's price for the change, before anything is charged
   useEffect(() => {
-    if (step !== "checkout" || theCase !== "web") return;
+    if (step !== "checkout" || (theCase !== "web" && theCase !== "business"))
+      return;
     let live = true;
     gateway.previewPlanChange(plan).then(
       (p) => live && setPreview(p),
@@ -193,12 +199,12 @@ export function BusinessSetup(): JSX.Element {
     };
   }, [gateway, step, theCase, plan]);
 
-  if (tier === "business" || tier === "studio") {
+  if (tier === "studio") {
     if (step !== "welcome") {
       return (
         <Page>
           <h1 className="text-xl font-semibold tracking-tight">
-            You have {tier === "business" ? "Business" : "Studio"}
+            You have Studio
           </h1>
           <p className="text-fg-muted">
             Your plan is on{" "}
@@ -297,12 +303,15 @@ export function BusinessSetup(): JSX.Element {
             {(["business", "studio"] as const).map((k) => {
               const d = defs[k]!;
               const on = plan === k;
+              // a Business holder moves up to Studio only
+              const current = fromBusiness && k === "business";
               return (
                 <button
                   key={k}
                   type="button"
                   role="radio"
                   aria-checked={on}
+                  disabled={current}
                   data-testid={`setup-plan-${k}`}
                   onClick={() => setPlan(k)}
                   className={`flex flex-col gap-3 rounded-xl border p-4 text-left ${
@@ -314,6 +323,11 @@ export function BusinessSetup(): JSX.Element {
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="text-lg font-semibold text-fg">
                       {d.name}
+                      {current ? (
+                        <span className="ml-2 text-xs font-normal text-fg-muted">
+                          Your plan
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-sm text-fg">{priceLine(d)}</span>
                   </span>
@@ -550,7 +564,9 @@ export function BusinessSetup(): JSX.Element {
               data-testid="setup-pro-slot"
             >
               <p className="text-sm font-medium text-fg">
-                What happens to your Pro
+                {theCase === "business"
+                  ? "What happens to your Business"
+                  : "What happens to your Pro"}
               </p>
               {theCase === "app_store" ? (
                 <>
@@ -582,9 +598,19 @@ export function BusinessSetup(): JSX.Element {
                   until you confirm.
                 </p>
               ) : (
-                <p className="text-sm text-fg" data-testid="setup-preview">
-                  {upgradeLine(preview)}
-                </p>
+                <StepUpDetails
+                  testId="setup-preview"
+                  preview={preview}
+                  from={
+                    theCase === "business"
+                      ? (defs.business?.name ?? "Business")
+                      : "Pro"
+                  }
+                  to={def.name}
+                  handoverCreditCents={
+                    theCase === "business" ? def.credit_cents : null
+                  }
+                />
               )}
             </div>
           ) : null}
@@ -599,7 +625,7 @@ export function BusinessSetup(): JSX.Element {
             <Button variant="ghost" onClick={() => setStep("questions")}>
               Back
             </Button>
-            {theCase === "web" ? (
+            {theCase === "web" || theCase === "business" ? (
               <Button
                 data-testid="setup-confirm"
                 disabled={preview === null || preview === "error" || confirming}

@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import type { PlanChangePreview } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { StepUpExtras } from "@/components/billing/StepUpDetails";
 import { planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import {
@@ -57,7 +58,10 @@ export function previewLine(
   if (isStepDown(p)) {
     return `${stepDownLine(current ? `Pro ${planName(current)}` : "Pro", { name: `Pro ${planName(target)}`, per: PER[target.kind] }, p)} ${NOTHING_TODAY}`;
   }
-  return upgradeLine(p);
+  return upgradeLine(p, {
+    from: current ? `Pro ${planName(current)}` : "Pro",
+    to: `Pro ${planName(target)}`,
+  });
 }
 
 export function ProPeriodChange(): JSX.Element | null {
@@ -129,6 +133,13 @@ export function ProPeriodChange(): JSX.Element | null {
                   ? previewLine(preview, currentPlan, target)
                   : "Working out today's price…")}
             </AlertDialogDescription>
+            {preview && target && !error && !isStepDown(preview) ? (
+              <StepUpExtras
+                preview={preview}
+                from={currentPlan ? `Pro ${planName(currentPlan)}` : "Pro"}
+                to={`Pro ${planName(target)}`}
+              />
+            ) : null}
             {notice ? (
               <p role="status" className="text-xs text-amber-300">
                 {notice}

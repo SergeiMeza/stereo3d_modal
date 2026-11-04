@@ -9,7 +9,8 @@
  *   video", which cancels the plan at the end of the period. Each opens a
  *   confirmation built from POST /v1/plans/preview-change: "Your Studio
  *   stays on until Jan 10, 2027. Business starts then at $299 a month.
- *   Nothing is charged today." Business → Studio stays hidden (on hold).
+ *   Nothing is charged today." Business → Studio (owner 2026-11-04) is a
+ *   step-up at once: "Today: $X. Studio $A − $B for your unused Business."
  * - ScheduledChange (Billing and Account): the waiting change, with "Keep
  *   Studio" (DELETE /v1/plans/scheduled-change) until the date.
  */
@@ -18,6 +19,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { planPrice } from "@/components/pricing/planCopy";
+import { formatCents } from "@/components/steps/money";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,10 +48,13 @@ import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 import {
   changeDate,
   confirmPlanChange,
+  isStepDown,
   NOTHING_TODAY,
   REPRICED,
   stepDownLine,
+  upgradeLine,
 } from "./planChangeCopy";
+import { StepUpExtras } from "./StepUpDetails";
 
 export const PAY_PER_VIDEO = "pay_per_video";
 
@@ -123,8 +128,10 @@ export function PlanChangeMenu({
         }))
       : [];
   const proNames = new Map(pro.map((o) => [o.id, o]));
-  // only lower plans (Business → Studio is on hold; upgrades go through setup)
+  // lower plans, and (owner 2026-11-04) Business → Studio as a step-up
   const rank = PLAN_RANK[plan.plan_id ?? plan.plan] ?? 0;
+  const higher: Option[] =
+    plan.plan === "business" ? [optionFor("studio", pricing, proNames)] : [];
   const lower: Option[] = [
     ...(plan.plan === "studio"
       ? [optionFor("business", pricing, proNames)]
@@ -171,6 +178,11 @@ export function PlanChangeMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {higher.map((o) => (
+            <DropdownMenuItem key={o.id} onSelect={() => open(o)}>
+              {o.name} (move up)
+            </DropdownMenuItem>
+          ))}
           {lower.map((o) => (
             <DropdownMenuItem key={o.id} onSelect={() => open(o)}>
               {o.name ?? "Pay per video (cancel plan)"}
@@ -192,9 +204,24 @@ export function PlanChangeMenu({
             <AlertDialogDescription data-testid="plan-change-line">
               {error ??
                 (preview && target
-                  ? `${stepDownLine(current, target.name ? { name: target.name, per: target.per } : null, preview)} ${NOTHING_TODAY}`
+                  ? isStepDown(preview)
+                    ? `${stepDownLine(current, target.name ? { name: target.name, per: target.per } : null, preview)} ${NOTHING_TODAY}`
+                    : upgradeLine(preview, {
+                        from: current,
+                        to: target.name ?? "",
+                      })
                   : "Working out the change…")}
             </AlertDialogDescription>
+            {preview && target?.name && !error && !isStepDown(preview) ? (
+              <StepUpExtras
+                preview={preview}
+                from={current}
+                to={target.name}
+                handoverCreditCents={
+                  pricing?.plans?.[target.id as "studio"]?.credit_cents ?? null
+                }
+              />
+            ) : null}
             {notice ? (
               <p role="status" className="text-xs text-amber-300">
                 {notice}
@@ -210,7 +237,11 @@ export function PlanChangeMenu({
                 void confirm();
               }}
             >
-              {target?.name ? `Change to ${target.name}` : "Cancel plan"}
+              {preview && target?.name && !isStepDown(preview)
+                ? `Pay ${formatCents(preview.today_cents)} and change`
+                : target?.name
+                  ? `Change to ${target.name}`
+                  : "Cancel plan"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

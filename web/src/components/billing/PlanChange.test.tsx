@@ -118,7 +118,8 @@ describe("step-downs", () => {
     );
   });
 
-  it("Business never lists Studio (on hold)", async () => {
+  it("Business moves up to Studio at once, priced by the preview", async () => {
+    const end = new Date(Date.now() + 20 * 86_400_000).toISOString();
     mockDb.billing.plan = {
       plan: "business",
       name: "Business",
@@ -126,20 +127,44 @@ describe("step-downs", () => {
       active: true,
       monthly_cents: 29900,
       credit_cents: 40000,
-      credit_left_cents: 40000,
+      credit_left_cents: 5000,
       cancel_at_period_end: false,
-      current_period_end: "2026-12-04T00:00:00Z",
+      current_period_end: end,
     };
     wrap(<PlanCard />);
     fireEvent.keyDown(
       await screen.findByRole("button", { name: "Change plan" }),
       { key: "Enter" },
     );
-    await screen.findByRole("menuitem", {
-      name: "Pay per video (cancel plan)",
-    });
-    expect(screen.queryByRole("menuitem", { name: "Studio" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Business" })).toBeNull();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Studio (move up)" }),
+    );
+    const line = await screen.findByTestId("plan-change-line");
+    // paid $299 × min(time left, usage left $50 of $400) = $37.38
+    await waitFor(() =>
+      expect(line.textContent).toBe(
+        "Today: $11,950.62. Studio $11,988.00 − $37.38 for your unused Business.",
+      ),
+    );
+    expect(
+      screen.getByText(
+        "Your remaining Business usage this month ends when Studio's $1,500 starts.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "How we work this out" }),
+    );
+    expect(
+      await screen.findByText(
+        "We credit what you paid for the time and usage you have left, whichever is smaller.",
+      ),
+    ).toBeTruthy();
+    expect(mockDb.billing.plan?.plan).toBe("business");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pay $11,950.62 and change" }),
+    );
+    await waitFor(() => expect(mockDb.billing.plan?.plan).toBe("studio"));
   });
 
   it("Pro Yearly → Monthly waits too, nothing charged today", async () => {
@@ -166,29 +191,64 @@ describe("step-downs", () => {
     studio();
     mockDb.nextChangeExpired = true;
     wrap(<PlanCard />);
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    fireEvent.keyDown(
+      await screen.findByRole("button", { name: "Change plan" }),
+      { key: "Enter" },
+    );
     fireEvent.click(await screen.findByRole("menuitem", { name: "Business" }));
-    await waitFor(() => expect(screen.getByTestId("plan-change-line").textContent).toContain("Business starts then"));
+    await waitFor(() =>
+      expect(screen.getByTestId("plan-change-line").textContent).toContain(
+        "Business starts then",
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Change to Business" }));
-    expect(await screen.findByText("The price was updated. Check it and confirm again.")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "The price was updated. Check it and confirm again.",
+      ),
+    ).toBeTruthy();
     expect(mockDb.billing.plan?.scheduled_change ?? null).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Change to Business" }));
-    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("business"));
+    await waitFor(() =>
+      expect(mockDb.billing.plan?.scheduled_change?.to).toBe("business"),
+    );
   });
 
   it("a web Pro's step-down shows on its plan with Keep", async () => {
-    mockDb.proStatus = { pro: true, known: true, source: "plan", plan_id: "pro_yearly", via: "pro_yearly" };
+    mockDb.proStatus = {
+      pro: true,
+      known: true,
+      source: "plan",
+      plan_id: "pro_yearly",
+      via: "pro_yearly",
+    };
     mockDb.billing.plan = {
-      plan: "pro", plan_id: "pro_yearly", name: "Pro Yearly", status: "active", active: true,
-      cancel_at_period_end: false, current_period_end: "2027-11-04T00:00:00Z", interval: "year", price_cents: 7999,
-      scheduled_change: { to: "pro_monthly", effective_at: "2027-11-04T00:00:00Z" },
+      plan: "pro",
+      plan_id: "pro_yearly",
+      name: "Pro Yearly",
+      status: "active",
+      active: true,
+      cancel_at_period_end: false,
+      current_period_end: "2027-11-04T00:00:00Z",
+      interval: "year",
+      price_cents: 7999,
+      scheduled_change: {
+        to: "pro_monthly",
+        effective_at: "2027-11-04T00:00:00Z",
+      },
     };
     wrap(<ScheduledChange plan={mockDb.billing.plan} />);
     const notice = await screen.findByTestId("scheduled-change");
     await waitFor(() =>
-      expect(notice.textContent).toContain("Pro Monthly starts on Nov 4, 2027. Your Pro Yearly stays on until then."),
+      expect(notice.textContent).toContain(
+        "Pro Monthly starts on Nov 4, 2027. Your Pro Yearly stays on until then.",
+      ),
     );
-    fireEvent.click(within(notice).getByRole("button", { name: "Keep Pro Yearly" }));
-    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change).toBeNull());
+    fireEvent.click(
+      within(notice).getByRole("button", { name: "Keep Pro Yearly" }),
+    );
+    await waitFor(() =>
+      expect(mockDb.billing.plan?.scheduled_change).toBeNull(),
+    );
   });
 });

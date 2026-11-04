@@ -151,8 +151,10 @@ export interface PlanChangePreview {
   quote_at?: string;
   today_cents: number;
   new_plan_cents: number;
-  /** upgrades: what the unused days of the current plan take off */
+  /** upgrades: what the unused part of the current plan takes off — paid ×
+   * min(time left, usage left) (owner 2026-11-04) */
   unused_credit_cents?: number;
+  credit_basis?: { time_share: number; usage_share: number; paid_cents: number } | null;
   renews_at?: string;
   /** owner 2026-11-04: a step-down starts at the end of the paid period;
    * nothing is charged today */
