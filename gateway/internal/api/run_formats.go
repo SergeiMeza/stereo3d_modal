@@ -28,9 +28,15 @@ import (
 
 var repackFormats = []string{"mvhevc", "sbs", "half_sbs"}
 
-// repackSourcePreference: the outputs a repack may read, best first (3DS
-// may flip full SBS and spatial; half SBS is never a source).
-var repackSourcePreference = []string{"sbs", "mvhevc"}
+// repackSources: per target, the outputs a repack may read, best first
+// (3DS, 2026-11-04: half SBS from spatial, else full SBS, as full SBS
+// files made before then carry a slight colour shift; spatial only from
+// full SBS; full SBS only from spatial). Half SBS is never a source.
+var repackSources = map[string][]string{
+	"half_sbs": {"mvhevc", "sbs"},
+	"mvhevc":   {"sbs"},
+	"sbs":      {"mvhevc"},
+}
 
 const (
 	repackPerHour   = 10
@@ -50,12 +56,12 @@ func repackExt(format string) (ext, contentType string) {
 type runFormats struct {
 	Have, Available, Pending []string
 	Reason                   string // files_erased | half_only | run_failed | classic_retired | split_run
-	Source                   string // the output a repack reads: sbs, else mvhevc
+	Sources                  map[string]string // target → the output its repack reads
 	Project                  *store.Project
 }
 
 func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runFormats {
-	st := runFormats{Have: []string{}, Available: []string{}, Pending: []string{}}
+	st := runFormats{Have: []string{}, Available: []string{}, Pending: []string{}, Sources: map[string]string{}}
 	for _, f := range repackFormats {
 		if c.Outputs[f] != "" {
 			st.Have = append(st.Have, f)
@@ -83,13 +89,7 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 		st.Reason = "files_erased"
 		return st
 	}
-	for _, src := range repackSourcePreference {
-		if slices.Contains(st.Have, src) {
-			st.Source = src
-			break
-		}
-	}
-	if st.Source == "" {
+	if !slices.Contains(st.Have, "sbs") && !slices.Contains(st.Have, "mvhevc") {
 		st.Reason = "half_only"
 		return st
 	}
@@ -97,7 +97,15 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 		if slices.Contains(st.Have, f) || slices.Contains(st.Pending, f) || (f == "sbs" && sbsTooWide[c.Params.Preset]) {
 			continue
 		}
-		st.Available = append(st.Available, f)
+		for _, src := range repackSources[f] {
+			if slices.Contains(st.Have, src) {
+				st.Sources[f] = src
+				break
+			}
+		}
+		if st.Sources[f] != "" {
+			st.Available = append(st.Available, f)
+		}
 	}
 	return st
 }
@@ -191,7 +199,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusServiceUnavailable, "repack_unavailable", "Getting another format isn't available right now."))
 		return
 	}
-	srcKey := c.Outputs[st.Source]
+	srcKey := c.Outputs[st.Sources[req.Format]]
 	ext, ctype := repackExt(req.Format)
 	key := path.Dir(srcKey) + "/repack_" + req.Format + ext
 	now := time.Now().UTC()
@@ -210,7 +218,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		if x.Repacks == nil {
 			x.Repacks = map[string]*store.Repack{}
 		}
-		x.Repacks[req.Format] = &store.Repack{Format: req.Format, Source: st.Source, Status: "pending", Key: key, PriceCents: repackPrice,
+		x.Repacks[req.Format] = &store.Repack{Format: req.Format, Source: st.Sources[req.Format], Status: "pending", Key: key, PriceCents: repackPrice,
 			Attempts: attempts, RequestedAt: now}
 		x.RepackPending = true
 		return nil
@@ -231,7 +239,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		if fps <= 0 {
 			fps = c.Source.FPS
 		}
-		repackID, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: st.Source},
+		repackID, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: st.Sources[req.Format]},
 			TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps})
 	}
 	if err != nil {
@@ -247,8 +255,8 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		return nil
 	})
 	s.noteProjectUse(ctx, st.Project, true) // ADR 0137: counts as use
-	s.passkeyEvent(ctx, user.UID, "run_format_requested", map[string]any{"run_id": c.ID, "format": req.Format, "source": st.Source})
-	out := map[string]any{"job_id": repackID, "status": "processing", "format": req.Format, "source": st.Source, "price_cents": repackPrice}
+	s.passkeyEvent(ctx, user.UID, "run_format_requested", map[string]any{"run_id": c.ID, "format": req.Format, "source": st.Sources[req.Format]})
+	out := map[string]any{"job_id": repackID, "status": "processing", "format": req.Format, "source": st.Sources[req.Format], "price_cents": repackPrice}
 	if updated != nil && updated.Repacks[req.Format] != nil {
 		out["status"] = updated.Repacks[req.Format].Status
 	}

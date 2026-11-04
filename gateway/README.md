@@ -1360,8 +1360,10 @@ Classic runs get none (Classic is retired).
   failed and can be retried).
 - **Rules.** Only a succeeded run whose project isn't deleted and whose
   files aren't erased (`file_keep_days`); split runs are out of v1. The
-  source is the run's full side-by-side, else its spatial file (one
-  constant, `repackSourcePreference`, in case 3DS flips it); half side-by-side alone can't make
+  source depends on the target (`repackSources`): half side-by-side from
+  spatial, else full side-by-side (full side-by-side files made before
+  2026-11-04 carry a slight colour shift); spatial only from full
+  side-by-side; full side-by-side only from spatial; half side-by-side alone can't make
   a fuller format. One per format per run; a failed one can be retried.
   Free for now (`price_cents: 0`, ADR 0137's open question). Starting one
   counts as use of the project (the keep clock restarts).

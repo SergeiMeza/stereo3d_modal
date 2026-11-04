@@ -181,16 +181,22 @@ func TestRunFormatsRepack(t *testing.T) {
 	if got, _ = s.Store.GetConversion(ctx, d.ID); got.Repacks["half_sbs"].Attempts != 2 {
 		t.Fatalf("attempts %d", got.Repacks["half_sbs"].Attempts)
 	}
-	// queued is in progress; the preference is one constant.
+	// queued is in progress.
 	stub.status = "queued"
 	if got := s.pollRepacks(ctx, got); got != nil {
 		t.Fatalf("queued changed the run: %+v", got.Repacks["half_sbs"])
 	}
-	defer func(p []string) { repackSourcePreference = p }(repackSourcePreference)
-	repackSourcePreference = []string{"mvhevc", "sbs"}
+	// Sources per target: half SBS from spatial before full SBS; spatial
+	// only from full SBS; full SBS only from spatial.
 	both := finishedRun(t, s, uid, "4k", "sbs", "mvhevc")
-	if st := s.runFormatsOf(ctx, both); st.Source != "mvhevc" || strings.Join(st.Available, ",") != "half_sbs" {
-		t.Fatalf("flipped preference %+v", st)
+	if st := s.runFormatsOf(ctx, both); st.Sources["half_sbs"] != "mvhevc" || strings.Join(st.Available, ",") != "half_sbs" {
+		t.Fatalf("both %+v", st)
+	}
+	if st := s.runFormatsOf(ctx, finishedRun(t, s, uid, "4k", "sbs")); st.Sources["half_sbs"] != "sbs" || st.Sources["mvhevc"] != "sbs" {
+		t.Fatalf("sbs only %+v", st.Sources)
+	}
+	if st := s.runFormatsOf(ctx, finishedRun(t, s, uid, "4k", "mvhevc", "half_sbs")); st.Sources["sbs"] != "mvhevc" || strings.Join(st.Available, ",") != "sbs" {
+		t.Fatalf("mvhevc + half %+v", st)
 	}
 	// Admin history.
 	if h := repacksHistory(got); len(h) != 1 || h[0]["format"] != "half_sbs" {
