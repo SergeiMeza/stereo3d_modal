@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -216,5 +217,55 @@ func TestAdminFeedbackTierAndSeen(t *testing.T) {
 	}
 	if out := adminGet(t, s.HandleAdminFeedbackSeen, "/"); out["seen_at"] != "2026-11-01T10:00:00Z" {
 		t.Fatalf("seen after %v", out)
+	}
+}
+
+// The account view: created_at, runs (count and pages), the period's
+// usage, sign-in methods.
+func TestAdminAccountActivity(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	created := time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Second)
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", Email: "a@example.com", CreatedAt: created})
+	for i := 0; i < 3; i++ {
+		c := &store.Conversion{ID: store.NewID(), UID: uid, State: store.StateSucceeded, Kind: "video", Quote: store.Quote{AmountCents: 100, Currency: "usd"}}
+		if err := s.Store.CreateConversion(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	s.SignInLookup = func(context.Context, string) (*auth.SignInInfo, error) {
+		return &auth.SignInInfo{Providers: []string{"google.com", "apple.com"}, CreatedAt: created}, nil
+	}
+	get := func(url string) map[string]any {
+		w := httptest.NewRecorder()
+		s.HandleAdminAccount(w, httptest.NewRequest(http.MethodGet, url, nil), bl29Admin(), uid)
+		var out map[string]any
+		json.Unmarshal(w.Body.Bytes(), &out)
+		if w.Code != 200 {
+			t.Fatalf("%d %v", w.Code, out)
+		}
+		return out
+	}
+	out := get("/v1/admin/accounts/" + uid + "?runs_limit=2")
+	if out["account"].(map[string]any)["created_at"] == nil {
+		t.Fatal("created_at")
+	}
+	runs := out["runs"].(map[string]any)
+	if runs["count"] != float64(3) || len(runs["items"].([]any)) != 2 || runs["next_before"] == nil {
+		t.Fatalf("runs %v", runs)
+	}
+	page2 := get("/v1/admin/accounts/" + uid + "?runs_limit=2&runs_before=" + runs["next_before"].(string))["runs"].(map[string]any)
+	if len(page2["items"].([]any)) != 1 || page2["next_before"] != nil {
+		t.Fatalf("page 2 %v", page2)
+	}
+	usage := out["usage"].(map[string]any)
+	if usage["period"] != "month" || usage["runs"] != float64(3) || usage["spent_cents"] != float64(300) || usage["free_previews"] == nil {
+		t.Fatalf("usage %v", usage)
+	}
+	si := out["sign_in"].(map[string]any)
+	if m := si["methods"].([]any); len(m) != 2 || m[0] != "google" || m[1] != "apple" || si["passkey_count"] != float64(0) {
+		t.Fatalf("sign-in %v", si)
 	}
 }

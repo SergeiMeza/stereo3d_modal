@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"time"
 
 	fbauth "firebase.google.com/go/v4/auth"
 )
@@ -88,4 +89,38 @@ func randomPassword() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// SignInInfo is how an account signs in, from Firebase Authentication.
+type SignInInfo struct {
+	Providers   []string // google.com, apple.com, password, phone, …; empty for a custom-token-only account
+	CreatedAt   time.Time
+	LastSignIn  time.Time
+	EmailLinked bool
+}
+
+// SignInOf reads uid's Firebase user (nil, nil when there is none).
+func (v *Verifier) SignInOf(ctx context.Context, uid string) (*SignInInfo, error) {
+	u, err := v.client.GetUser(ctx, uid)
+	if fbauth.IsUserNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := &SignInInfo{EmailLinked: u.Email != ""}
+	for _, p := range u.ProviderUserInfo {
+		if p != nil && p.ProviderID != "" {
+			out.Providers = append(out.Providers, p.ProviderID)
+		}
+	}
+	if u.UserMetadata != nil {
+		if u.UserMetadata.CreationTimestamp > 0 {
+			out.CreatedAt = time.UnixMilli(u.UserMetadata.CreationTimestamp).UTC()
+		}
+		if u.UserMetadata.LastLogInTimestamp > 0 {
+			out.LastSignIn = time.UnixMilli(u.UserMetadata.LastLogInTimestamp).UTC()
+		}
+	}
+	return out, nil
 }

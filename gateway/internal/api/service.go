@@ -76,6 +76,10 @@ type Service struct {
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
 
+	// SignInLookup reads how an account signs in (admin account view,
+	// BL-29); nil = Auth.SignInOf.
+	SignInLookup func(ctx context.Context, uid string) (*auth.SignInInfo, error)
+
 	// MintToken mints a Firebase custom token (customer passkey sign-in,
 	// ADR 0136); nil = Auth.CustomToken.
 	MintToken func(ctx context.Context, uid string) (string, error)

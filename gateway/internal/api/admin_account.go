@@ -42,9 +42,12 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		out["promo_regrants"] = recs
 	}
 	out["grants"] = s.adminGrantsJSON(ctx, uid)
+	passkeys := 0
 	if ps, err := s.Store.ListCustomerPasskeys(ctx, uid); err == nil { // ADR 0136
-		out["passkey_count"] = len(ps)
+		passkeys = len(ps)
+		out["passkey_count"] = passkeys
 	}
+	s.adminAccountActivity(r, uid, cust, passkeys, out) // BL-29
 	if entries, _, err := s.Store.ListEntries(ctx, uid, 50, ""); err == nil {
 		out["ledger"] = entries
 	}
