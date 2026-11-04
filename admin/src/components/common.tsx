@@ -372,3 +372,15 @@ export function FilterSelect({
     </Select>
   );
 }
+
+/** A compact table inside a panel. */
+export function MiniTable({ head, children }: { head?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto px-4 pt-1 pb-3">
+      <table className="w-full border-collapse text-[12.5px] [&_td]:border-b [&_td]:border-[#1c1c21] [&_td]:py-1.5 [&_td]:pr-2 [&_td]:whitespace-nowrap [&_td]:text-foreground-2 [&_th]:border-b [&_th]:border-border [&_th]:py-1.5 [&_th]:pr-2 [&_th]:text-left [&_th]:text-2xs [&_th]:font-medium [&_th]:text-muted-foreground">
+        {head && <thead>{head}</thead>}
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}

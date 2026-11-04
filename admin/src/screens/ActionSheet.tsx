@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 
-import { Banner, Button, ExtLink, Field, Sheet } from "../components/ui";
+import { Banner, ExtLink, Modal, Note } from "@/components/common";
+import { Button } from "@/components/ui/button";
+import { Field, FieldControl, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { ApiError, errorMessage } from "../lib/api";
 import { centsToInput, money, parseDollars } from "../lib/format";
 import { useServices } from "../lib/services";
@@ -147,16 +154,16 @@ function mailPlan(
 }
 
 function MailBox({ plan }: { plan: MailPlan }) {
-  if (!plan.mail) return plan.note ? <p className="muted small">{plan.note}</p> : null;
+  if (!plan.mail) return plan.note ? <Note>{plan.note}</Note> : null;
   return (
     <>
-      <details className="mailprev">
-        <summary>
+      <details className="rounded-lg bg-[#101014] ring-1 ring-border ring-inset">
+        <summary className="cursor-pointer px-3 py-2.5 text-[12.5px]">
           Mail {plan.mail.id} · {plan.mail.subject}
         </summary>
-        <pre className="plain mailtext">{plan.mail.text}</pre>
+        <pre className="m-0 px-3 pb-3 font-sans text-sm whitespace-pre-wrap text-foreground-2 [overflow-wrap:anywhere]">{plan.mail.text}</pre>
       </details>
-      {plan.note && <p className="muted small">{plan.note}</p>}
+      {plan.note && <Note>{plan.note}</Note>}
     </>
   );
 }
@@ -381,47 +388,44 @@ export function ActionSheet({
   const rp = proRata(page);
   const disputeUrl = stripeDisputeUrl(page);
 
+  const kind = MONEY_ACTIONS.includes(action) ? "alert" : action === "ask" || action === "customer_reply" ? "sheet" : "dialog";
+  const numCls = "py-1.5 text-right font-mono tabular-nums";
+
   return (
-    <Sheet
+    <Modal
+      kind={kind}
       title={title}
       subtitle={subtitle}
       onClose={onClose}
       busy={busy}
       wide={editable}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="primary" size="lg" onClick={() => void confirm()} disabled={busy || !!blocker}>
-            {busy ? "Working…" : "Confirm"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Working…" : "Confirm"}
+      onConfirm={() => void confirm()}
+      confirmDisabled={!!blocker}
     >
       {changed !== null && (
         <Banner tone="amber">The amount changed to {money(changed)}. Check it and confirm again.</Banner>
       )}
 
       {showsBreakdown && (
-        <table className="mini cs">
+        <table className="w-full border-collapse text-[12.5px] [&_td]:border-b [&_td]:border-[#1c1c21] [&_td]:pr-2 [&_td]:text-foreground-2 [&_th]:border-b [&_th]:border-border [&_th]:py-1.5 [&_th]:pr-2 [&_th]:text-2xs [&_th]:font-medium [&_th]:text-muted-foreground">
           <thead>
             <tr>
-              <th>Run</th>
-              {editable && <th className="num">Up to</th>}
-              <th className="num">Amount</th>
+              <th className="text-left">Run</th>
+              {editable && <th className="text-right">Up to</th>}
+              <th className="text-right">Amount</th>
             </tr>
           </thead>
           <tbody>
             {balance && (action === "approve" || action === "partial") ? (
               <tr>
-                <td>Unspent cash balance</td>
-                {editable && <td className="num">{money(max)}</td>}
-                <td className="num">
+                <td className="py-1.5">Unspent cash balance</td>
+                {editable && <td className={numCls}>{money(max)}</td>}
+                <td className={numCls}>
                   {editable ? (
                     <AmountInput id="balance" value={inputs.balance ?? ""} bad={invalid.includes("balance")} onChange={(v) => setInputs((s) => ({ ...s, balance: v }))} />
                   ) : (
-                    <b>{money(total)}</b>
+                    <b className="text-foreground">{money(total)}</b>
                   )}
                 </td>
               </tr>
@@ -430,11 +434,11 @@ export function ActionSheet({
                 .filter((r) => editable || items[r.conversion_id])
                 .map((r) => (
                   <tr key={r.conversion_id}>
-                    <td>
-                      <span className="mono xs muted">{r.conversion_id}</span> {r.label}
+                    <td className="py-1.5">
+                      <span className="font-mono text-xs text-muted-foreground">{r.conversion_id}</span> {r.label}
                     </td>
-                    {editable && <td className="num">{money(action === "assign" ? r.price_cents : r.refundable_cents)}</td>}
-                    <td className="num">
+                    {editable && <td className={numCls}>{money(action === "assign" ? r.price_cents : r.refundable_cents)}</td>}
+                    <td className={numCls}>
                       {editable ? (
                         <AmountInput
                           id={r.conversion_id}
@@ -443,7 +447,7 @@ export function ActionSheet({
                           onChange={(v) => setInputs((s) => ({ ...s, [r.conversion_id]: v }))}
                         />
                       ) : (
-                        <b>{money(items[r.conversion_id] ?? 0)}</b>
+                        <b className="text-foreground">{money(items[r.conversion_id] ?? 0)}</b>
                       )}
                     </td>
                   </tr>
@@ -471,7 +475,7 @@ export function ActionSheet({
       )}
 
       {showsBreakdown && (
-        <dl className="qline">
+        <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm text-muted-foreground [&_dd]:text-right [&_dd]:font-mono [&_dd]:text-foreground [&_dd]:tabular-nums">
           <dt>Total</dt>
           <dd>{money(total)}</dd>
           {action !== "assign" && (
@@ -490,75 +494,92 @@ export function ActionSheet({
       )}
 
       {action === "deny" && (
-        <fieldset className="radios">
-          <legend className="field-label">Template</legend>
-          {DENY_TEMPLATES.map((t) => (
-            <label key={t.id} className="radio">
-              <input type="radio" name="tpl" checked={template === t.id} onChange={() => setTemplate(t.id)} />
-              {t.label}
-            </label>
-          ))}
+        <FieldSet>
+          <FieldLegend>Template</FieldLegend>
+          <RadioGroup value={template} onValueChange={(v) => setTemplate(v as typeof template)} aria-label="Template">
+            {DENY_TEMPLATES.map((t) => (
+              <div key={t.id} className="flex items-center gap-2">
+                <RadioGroupItem value={t.id} id={`tpl-${t.id}`} />
+                <Label htmlFor={`tpl-${t.id}`} className="text-sm text-foreground">{t.label}</Label>
+              </div>
+            ))}
+          </RadioGroup>
           {template === "other" && (
-            <textarea className="input" rows={4} aria-label="Text for the customer" value={text} onChange={(e) => setText(e.target.value)} />
+            <Textarea rows={4} aria-label="Text for the customer" value={text} onChange={(e) => setText(e.target.value)} />
           )}
-        </fieldset>
+        </FieldSet>
       )}
 
       {action === "ask" && (
-        <Field label="Question for the customer (mail E11)">
-          <textarea className="input" rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+        <Field>
+          <FieldLabel>Question for the customer (mail E11)</FieldLabel>
+          <FieldControl>
+            <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+          </FieldControl>
         </Field>
       )}
       {action === "customer_reply" && (
-        <Field label="Paste the customer's message" hint="Kept as plain text. A case waiting on the customer opens again.">
-          <textarea className="input" rows={6} value={text} onChange={(e) => setText(e.target.value)} />
+        <Field>
+          <FieldLabel>Paste the customer's message</FieldLabel>
+          <FieldControl>
+            <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
+          </FieldControl>
+          <FieldDescription>Kept as plain text. A case waiting on the customer opens again.</FieldDescription>
         </Field>
       )}
       {action === "mark_out_of_band" && (
-        <div className="row gap8">
-          <Field label="Method">
-            <input className="input" placeholder="Bank transfer, PayPal…" value={method} onChange={(e) => setMethod(e.target.value)} />
+        <div className="flex gap-2 max-sm:flex-col">
+          <Field>
+            <FieldLabel>Method</FieldLabel>
+            <FieldControl>
+              <Input placeholder="Bank transfer, PayPal…" value={method} onChange={(e) => setMethod(e.target.value)} />
+            </FieldControl>
           </Field>
-          <Field label="Reference">
-            <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} />
+          <Field>
+            <FieldLabel>Reference</FieldLabel>
+            <FieldControl>
+              <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+            </FieldControl>
           </Field>
         </div>
       )}
       {action === "close" && (
-        <Field
-          label={c.decision || c.status === "decided" ? "Note (optional)" : "Why close it undecided (e.g. a duplicate of CASE-0040)"}
-        >
-          <input className="input" value={text} onChange={(e) => setText(e.target.value)} />
+        <Field>
+          <FieldLabel>
+            {c.decision || c.status === "decided" ? "Note (optional)" : "Why close it undecided (e.g. a duplicate of CASE-0040)"}
+          </FieldLabel>
+          <FieldControl>
+            <Input value={text} onChange={(e) => setText(e.target.value)} />
+          </FieldControl>
         </Field>
       )}
       {(action === "accept_dispute" || action === "counter_dispute" || action === "counter_with_refund_proof") && (
         <>
-          <p className="small">
+          <p className="text-sm">
             {action === "accept_dispute"
               ? "Accept it in the Stripe Dashboard: the amount and the fee stay lost."
               : "Submit the evidence in the Stripe Dashboard before it's due."}
           </p>
           {disputeUrl && <ExtLink href={disputeUrl}>Open the dispute in Stripe</ExtLink>}
-          <Field label="Note (optional)">
-            <input className="input" value={text} onChange={(e) => setText(e.target.value)} />
+          <Field>
+            <FieldLabel>Note (optional)</FieldLabel>
+            <FieldControl>
+              <Input value={text} onChange={(e) => setText(e.target.value)} />
+            </FieldControl>
           </Field>
         </>
       )}
       {action === "stop_run" && (
-        <p className="small">Cancels the run as ours. It's refunded in full by its own path, and the case closes.</p>
+        <p className="text-sm">Cancels the run as ours. It's refunded in full by its own path, and the case closes.</p>
       )}
 
       <MailBox plan={plan} />
 
       {blocker && !busy && (editable || action === "deny" || action === "ask" || action === "customer_reply") && (
-        <p className="muted small">{blocker}</p>
+        <Note>{blocker}</Note>
       )}
-      {error && (
-        <p className="err small" role="alert">
-          {error}
-        </p>
-      )}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -574,10 +595,10 @@ function AmountInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <span className="amount">
+    <span className="inline-flex items-center gap-1 text-muted-foreground">
       $
-      <input
-        className={`input num ${bad ? "bad" : ""}`}
+      <Input
+        className={cn("w-24 text-right font-mono tabular-nums", bad && "border-destructive")}
         inputMode="decimal"
         aria-label={`Amount for ${id}`}
         aria-invalid={bad}

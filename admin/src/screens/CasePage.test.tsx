@@ -21,7 +21,7 @@ describe("case page (A2)", () => {
     expect(screen.getByRole("button", { name: "Approve $49.72" })).toBeEnabled();
     expect(screen.getByText(/not recorded yet/)).toBeInTheDocument();
     // Timeline newest first.
-    const items = screen.getAllByRole("listitem").filter((li) => li.closest("ol.ctl"));
+    const items = screen.getAllByRole("listitem").filter((li) => li.closest('[data-testid="timeline"]'));
     expect(items[0]).toHaveTextContent("Part 4 failed.");
   });
 
@@ -43,14 +43,14 @@ describe("case page (A2)", () => {
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: after }),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
-    const dialog = screen.getByRole("dialog", { name: "Refund $49.72 to Visa •••• 4242" });
+    const dialog = screen.getByRole("alertdialog", { name: "Refund $49.72 to Visa •••• 4242" });
     expect(within(dialog).getByText("Refundable after this").nextSibling).toHaveTextContent("$0.00");
     expect(within(dialog).getByText(/Mail E6 · Stereo3D Studio: we refunded \$49.72 \(CASE-0042\)/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     const post = calls.find((c) => c.method === "POST")!;
     expect(post.body).toEqual({ action: "approve", expected_max_cents: 4972 });
-    expect(screen.getByText("Done.")).toBeInTheDocument();
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
     expect(screen.getAllByText("Refund pending").length).toBeGreaterThan(0);
   });
 
@@ -80,10 +80,10 @@ describe("case page (A2)", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByText(/The amount changed to \$37.29/)).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Refund $37.29 to Visa •••• 4242" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Refund $37.29 to Visa •••• 4242" })).toBeInTheDocument();
     expect(posts).toBe(1);
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(2);
   });
 
@@ -108,6 +108,7 @@ describe("case page (A2)", () => {
     await waitFor(() => expect(posts).toBe(2));
     expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
   it("cancelling the re-auth says nothing moved", async () => {
@@ -128,7 +129,7 @@ describe("case page (A2)", () => {
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage() }),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Partial…" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("alertdialog");
     const input = within(dialog).getByLabelText("Amount for c_7Hk2Qm");
     await userEvent.clear(input);
     await userEvent.type(input, "60");
@@ -153,7 +154,7 @@ describe("case page (A2)", () => {
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage({}, { status: "closed", open: false }) }),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
-    const dialog = screen.getByRole("dialog", { name: "Deny refund" });
+    const dialog = screen.getByRole("alertdialog", { name: "Deny refund" });
     await userEvent.click(within(dialog).getByText(/Mail E10/));
     expect(within(dialog).getByText(/delivered as described/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByLabelText("Other (write the text)"));
@@ -190,7 +191,7 @@ describe("case page (A2)", () => {
     );
     renderApp("/cases/CASE-0042", base(page));
     await userEvent.click(await screen.findByRole("button", { name: "Waive $1.00" }));
-    const dialog = screen.getByRole("dialog", { name: "Waive $1.00" });
+    const dialog = screen.getByRole("alertdialog", { name: "Waive $1.00" });
     expect(within(dialog).getByText("Owed after this").nextSibling).toHaveTextContent("$0.00");
     expect(within(dialog).getByText(/we won't charge you \$1.00/)).toBeInTheDocument();
   });
@@ -206,7 +207,7 @@ describe("case page (A2)", () => {
     );
     renderApp("/cases/CASE-0042", base(page));
     const btn = await screen.findByRole("button", { name: "Counter with refund proof" });
-    expect(btn).toHaveClass("primary");
+    expect(btn).toHaveAttribute("data-variant", "default");
     expect(screen.getByText(/counter with the refund proof\./)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
   });
@@ -231,9 +232,9 @@ describe("case page (A2)", () => {
   it("waiting for the run: banner with Stop run now", async () => {
     const page = casePage({ banners: ["Waiting for the run to finish."], actions: ["stop_run", "note", "refresh_evidence", "close"] }, { status: "waiting_for_run" });
     renderApp("/cases/CASE-0042", base(page));
-    const banner = (await screen.findByText("Waiting for the run to finish.")).closest(".banner")!;
+    const banner = (await screen.findByText("Waiting for the run to finish.")).closest('[data-slot="alert"]')!;
     await userEvent.click(within(banner as HTMLElement).getByRole("button", { name: "Stop run now" }));
-    expect(screen.getByRole("dialog", { name: "Stop the run now" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Stop the run now" })).toBeInTheDocument();
   });
 });
 
@@ -288,7 +289,7 @@ describe("closed cases and follow-ups (00107)", () => {
       "POST /v1/admin/cases/CASE-0042/actions": () => apiError(409, "case_closed", "case is closed"),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
-    const dialog = screen.getByRole("dialog", { name: "Deny refund" });
+    const dialog = screen.getByRole("alertdialog", { name: "Deny refund" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
     expect(await within(dialog).findByText("Reopen the case to add notes or decisions.")).toBeInTheDocument();
   });

@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
-import { Banner, Button, Chip, ErrorState, PlainText, Spinner, StateBox } from "../components/ui";
+import { Banner, EmptyRow, ErrorState, LoadingBlock, MiniTable, Note, Panel, PlainText, StateBox } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, money, until, words } from "../lib/format";
 import { statusLabel, statusTone, typeLabel, typeTone } from "../lib/labels";
@@ -23,10 +31,8 @@ export function CasePage({ id }: { id: string }) {
 
   return (
     <>
-      <Link to={paths.cases()} className="xs muted back">← Cases</Link>
-      {state.kind === "loading" && (
-        <div className="center pad"><Spinner label="Loading the case" /></div>
-      )}
+      <Link to={paths.cases()} className="w-fit text-xs text-muted-foreground hover:text-foreground">← Cases</Link>
+      {state.kind === "loading" && <LoadingBlock label="Loading the case" />}
       {state.kind === "error" &&
         (state.error instanceof ApiError && state.error.status === 404 ? (
           <StateBox title={`No case ${id}.`} />
@@ -67,7 +73,6 @@ function CaseBody({
 }) {
   const { api } = useServices();
   const [sheet, setSheet] = useState<CaseAction | null>(null);
-  const [flash, setFlash] = useState("");
   const [inlineErr, setInlineErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const c = page.case;
@@ -99,7 +104,7 @@ function CaseBody({
   const done = (next: Page) => {
     onPage(next);
     setSheet(null);
-    setFlash("Done.");
+    toast.success("Done.");
   };
 
   const refresh = async () => {
@@ -123,38 +128,44 @@ function CaseBody({
   );
   const approveDisabled = max <= 0 || Object.keys(approveItems(page)).length === 0 && !isBalanceCase(page);
 
+  const linkCls = "font-mono text-link hover:underline";
   return (
     <>
-      <div className="ch">
-        <div className="row gap12 wrap">
-          <h1 className="mono">{c.id}</h1>
-          <Chip tone={typeTone(c.type)}>{typeLabel(c.type)}</Chip>
-          <span className="muted">{words(c.reason)} · {c.mode}</span>
-          <Chip tone={statusTone(c.status, c.result)}>{statusLabel(c.status, c.result)}</Chip>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-mono text-2xl font-semibold">{c.id}</h1>
+          <Badge variant={typeTone(c.type)}>{typeLabel(c.type)}</Badge>
+          <span className="text-muted-foreground">{words(c.reason)} · {c.mode}</span>
+          <Badge variant={statusTone(c.status, c.result)}>{statusLabel(c.status, c.result)}</Badge>
           {c.deadline_at && c.open && (
-            <span className={`due right ${new Date(c.deadline_at).getTime() - Date.now() < 12 * 3600e3 ? "red" : ""}`}>
+            <span
+              className={cn(
+                "ml-auto text-xs whitespace-nowrap tabular-nums",
+                new Date(c.deadline_at).getTime() - Date.now() < 12 * 3600e3 ? "font-medium text-destructive" : "text-foreground-2",
+              )}
+            >
               Due {dateTime(c.deadline_at)} · {until(c.deadline_at)}
             </span>
           )}
         </div>
-        <div className="facts">
+        <Facts>
           <span>
             Account{" "}
             {c.uid ? (
-              <Link className="link" to={paths.account(c.uid)}>{page.account.email || c.uid}</Link>
+              <Link className="text-link hover:underline" to={paths.account(c.uid)}>{page.account.email || c.uid}</Link>
             ) : (
-              <span className="muted">none</span>
+              <span className="text-muted-foreground">none</span>
             )}
           </span>
-          {pm && <span>Method <b>{pm}</b></span>}
+          {pm && <span>Method <b className="font-medium text-foreground">{pm}</b></span>}
           <span>Opened {dateTime(c.opened_at)} by {c.source}</span>
           <span>{c.customer_visible ? "Customer-visible" : "Not customer-visible"}</span>
           {c.decision && (
             <span>
-              Decision <b>{words(c.decision.kind)}</b> by {c.decision.by} · {dateTime(c.decision.at)}
+              Decision <b className="font-medium text-foreground">{words(c.decision.kind)}</b> by {c.decision.by} · {dateTime(c.decision.at)}
             </span>
           )}
-        </div>
+        </Facts>
       </div>
 
       {windowed && c.open && c.deadline_at && (
@@ -174,107 +185,114 @@ function CaseBody({
             ) : undefined
           }
         >
-          <PlainText text={b} className="inline" />
+          <PlainText text={b} inline />
         </Banner>
       ))}
       {c.related.superseded_by && (
-        <p className="small">
-          Superseded by <Link className="link mono" to={paths.case(c.related.superseded_by)}>{c.related.superseded_by}</Link>
+        <p className="text-sm">
+          Superseded by <Link className={linkCls} to={paths.case(c.related.superseded_by)}>{c.related.superseded_by}</Link>
         </p>
       )}
       {followUpOf && (
-        <p className="small" data-testid="follow-up-of">
-          Follow-up of <Link className="link mono" to={paths.case(followUpOf)}>{followUpOf}</Link>
+        <p className="text-sm" data-testid="follow-up-of">
+          Follow-up of <Link className={linkCls} to={paths.case(followUpOf)}>{followUpOf}</Link>
         </p>
       )}
       {followUps.length > 0 && (
-        <p className="small" data-testid="follow-ups">
+        <p className="text-sm" data-testid="follow-ups">
           Follow-up{followUps.length > 1 ? "s" : ""}:{" "}
           {followUps.map((id, i) => (
             <span key={id}>
               {i > 0 && ", "}
-              <Link className="link mono" to={paths.case(id)}>{id}</Link>
+              <Link className={linkCls} to={paths.case(id)}>{id}</Link>
             </span>
           ))}
         </p>
       )}
       {c.related.duplicate_of && (
-        <p className="small">
-          Duplicate of <Link className="link mono" to={paths.case(c.related.duplicate_of)}>{c.related.duplicate_of}</Link>
+        <p className="text-sm">
+          Duplicate of <Link className={linkCls} to={paths.case(c.related.duplicate_of)}>{c.related.duplicate_of}</Link>
         </p>
       )}
 
       {c.dispute && (
-        <div className="card pad facts">
-          <span>Dispute <b className="mono">{c.dispute.id}</b></span>
-          <span>Amount <b>{money(c.dispute.amount_cents)}</b></span>
-          <span>Reason <b>{words(c.dispute.reason)}</b></span>
-          <span>Status <b>{words(c.dispute.status)}</b></span>
-          {c.dispute.due_by && <span>Evidence due <b>{dateTime(c.dispute.due_by)}</b> · {until(c.dispute.due_by)}</span>}
-          {c.dispute.outcome && <span>Outcome <b>{c.dispute.outcome}</b></span>}
-        </div>
+        <Card className="px-4 py-3">
+          <Facts>
+            <span>Dispute <b className="font-mono font-medium text-foreground">{c.dispute.id}</b></span>
+            <span>Amount <b className="font-medium text-foreground tabular-nums">{money(c.dispute.amount_cents)}</b></span>
+            <span>Reason <b className="font-medium text-foreground">{words(c.dispute.reason)}</b></span>
+            <span>Status <b className="font-medium text-foreground">{words(c.dispute.status)}</b></span>
+            {c.dispute.due_by && (
+              <span>
+                Evidence due <b className="font-medium text-foreground">{dateTime(c.dispute.due_by)}</b> · {until(c.dispute.due_by)}
+              </span>
+            )}
+            {c.dispute.outcome && <span>Outcome <b className="font-medium text-foreground">{c.dispute.outcome}</b></span>}
+          </Facts>
+        </Card>
       )}
 
       {runs.length > 0 && (
-        <div className="card scroll-x">
-          <table className="at runs">
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th className="num">Price</th>
-                {waive ? <th className="num">Owed</th> : <th className="num">Refunded so far</th>}
-                {!waive && <th className="num">Refundable now</th>}
-                <th>Paid from</th>
-                <th>Delivered</th>
-                <th className="num">Downloads</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Run</TableHead>
+                <TableHead numeric>Price</TableHead>
+                {waive ? <TableHead numeric>Owed</TableHead> : <TableHead numeric>Refunded so far</TableHead>}
+                {!waive && <TableHead numeric>Refundable now</TableHead>}
+                <TableHead>Paid from</TableHead>
+                <TableHead>Delivered</TableHead>
+                <TableHead numeric>Downloads</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {runs.map((r) => (
-                <tr key={r.conversion_id}>
-                  <td>
-                    <span className="mono xs muted">{r.conversion_id}</span> {r.label}
-                  </td>
-                  <td className="num">{money(r.price_cents)}</td>
+                <TableRow key={r.conversion_id}>
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">{r.conversion_id}</span> {r.label}
+                  </TableCell>
+                  <TableCell numeric>{money(r.price_cents)}</TableCell>
                   {waive ? (
-                    <td className="num"><b>{money(r.owed_cents ?? 0)}</b></td>
+                    <TableCell numeric><b>{money(r.owed_cents ?? 0)}</b></TableCell>
                   ) : (
-                    <td className="num">{money(r.refunded_cents ?? 0)}</td>
+                    <TableCell numeric>{money(r.refunded_cents ?? 0)}</TableCell>
                   )}
-                  {!waive && <td className="num"><b>{money(r.refundable_cents)}</b></td>}
-                  <td>{words(r.paid_from)}</td>
-                  <td>{deliveredChip(r.delivered, evRuns.find((e) => e.conversion_id === r.conversion_id))}</td>
-                  <td className="num">{downloadsByRun ? downloadsByRun[r.conversion_id] ?? 0 : "—"}</td>
-                </tr>
+                  {!waive && <TableCell numeric><b>{money(r.refundable_cents)}</b></TableCell>}
+                  <TableCell>{words(r.paid_from)}</TableCell>
+                  <TableCell>{deliveredChip(r.delivered, evRuns.find((e) => e.conversion_id === r.conversion_id))}</TableCell>
+                  <TableCell numeric>{downloadsByRun ? downloadsByRun[r.conversion_id] ?? 0 : "—"}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
       {runs.length === 0 && isBalanceCase(page) && (
-        <p className="small">Balance refund · refundable now <b>{money(max)}</b></p>
+        <p className="text-sm">Balance refund · refundable now <b className="tabular-nums">{money(max)}</b></p>
       )}
 
       {c.customer_text && (
-        <div className="card pad">
-          <div className="xs muted">Customer's message</div>
+        <Card className="px-4 py-3">
+          <div className="text-xs text-muted-foreground">Customer's message</div>
           <PlainText text={c.customer_text} />
-        </div>
+        </Card>
       )}
 
       {hints.map((h, i) => (
-        <p key={i} className="hint small">
-          <PlainText text={h} className="inline" />
+        <p key={i} className="border-l-2 border-violet pl-2.5 text-sm text-muted-foreground">
+          <PlainText text={h} inline />
         </p>
       ))}
 
-      <div className="acts">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Decisions">
         {primary.map((a) => (
           <Button
             key={a}
-            variant="primary"
+            variant="default"
             onClick={() => setSheet(a)}
             disabled={a === "approve" && approveDisabled}
+            className="tabular-nums"
           >
             {a === "approve" ? `Approve ${money(max)}` : a === "waive" ? `Waive ${money(owedTotal(page))}` : LABELS[a]}
           </Button>
@@ -284,76 +302,78 @@ function CaseBody({
             {LABELS[a] ?? words(a)}
           </Button>
         ))}
-        <span className="right row gap4">
+        <span className="ml-auto flex items-center gap-1">
           {has("refresh_evidence") && (
             <Button variant="ghost" size="sm" onClick={() => void refresh()} disabled={refreshing}>
               {refreshing ? "Working…" : "Refresh evidence"}
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSheet("close")}
-            disabled={!has("close")}
-            title={has("close") ? undefined : "Closed cases are final."}
-          >
-            Close
-          </Button>
+          {has("close") ? (
+            <Button variant="ghost" size="sm" onClick={() => setSheet("close")}>
+              Close
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* a disabled button gets no pointer events: the span carries the tooltip */}
+                <span tabIndex={0} className="rounded-md">
+                  <Button variant="ghost" size="sm" disabled>
+                    Close
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Closed cases are final.</TooltipContent>
+            </Tooltip>
+          )}
         </span>
       </div>
-      {flash && <p className="ok small" role="status">{flash}</p>}
-      {inlineErr && <p className="err small" role="alert">{inlineErr}</p>}
+      {inlineErr && <Note tone="error">{inlineErr}</Note>}
 
-      <div className="two">
+      <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] items-start gap-4 max-[1000px]:grid-cols-1">
         <EvidencePanel evidence={page.evidence} n={c.evidence_n} />
-        <section className="card">
-          <div className="sh"><b>Timeline</b></div>
-          <div className="tlbox">
+        <Panel title="Timeline">
+          <div className="flex flex-col gap-3 px-4 py-3">
             {has("note") && <NoteBox caseId={c.id} onPage={onPage} />}
             <Timeline page={page} />
           </div>
-          <div className="sh topline"><b>Related cases</b></div>
+          <SubHead>Related cases</SubHead>
           {(page.related_cases ?? []).length === 0 ? (
-            <p className="muted xs pad">None for this account.</p>
+            <EmptyRow>None for this account.</EmptyRow>
           ) : (
-            <table className="mini pad-table">
-              <tbody>
-                {(page.related_cases ?? []).map((r) => (
-                  <tr key={r.id}>
-                    <td><Link className="link mono" to={paths.case(r.id)}>{r.id}</Link></td>
-                    <td>{words(r.type)} · {words(r.reason)}</td>
-                    <td>{statusLabel(r.status, r.result)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <MiniTable>
+              {(page.related_cases ?? []).map((r) => (
+                <tr key={r.id}>
+                  <td><Link className={linkCls} to={paths.case(r.id)}>{r.id}</Link></td>
+                  <td>{words(r.type)} · {words(r.reason)}</td>
+                  <td>{statusLabel(r.status, r.result)}</td>
+                </tr>
+              ))}
+            </MiniTable>
           )}
           {(c.related.linked_case_ids ?? []).length > 0 && (
-            <p className="xs pad">
+            <p className="px-4 py-3 text-xs">
               Linked:{" "}
               {(c.related.linked_case_ids ?? []).map((l) => (
-                <Link key={l} className="link mono" to={paths.case(l)}>{l} </Link>
+                <Link key={l} className={linkCls} to={paths.case(l)}>{l} </Link>
               ))}
             </p>
           )}
-          <div className="sh topline"><b>Refunds</b></div>
+          <SubHead>Refunds</SubHead>
           {(page.refunds ?? []).length === 0 ? (
-            <p className="muted xs pad">No refunds on this payment.</p>
+            <EmptyRow>No refunds on this payment.</EmptyRow>
           ) : (
-            <table className="mini pad-table">
-              <tbody>
-                {(page.refunds ?? []).map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono">{r.re_id || r.id}</td>
-                    <td className="num">{money(r.total_cents)}</td>
-                    <td>{words(r.status)}{r.fail_reason ? ` · ${r.fail_reason}` : ""}</td>
-                    <td>{dateOnly(r.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <MiniTable>
+              {(page.refunds ?? []).map((r) => (
+                <tr key={r.id}>
+                  <td className="font-mono">{r.re_id || r.id}</td>
+                  <td className="text-right font-mono tabular-nums">{money(r.total_cents)}</td>
+                  <td>{words(r.status)}{r.fail_reason ? ` · ${r.fail_reason}` : ""}</td>
+                  <td>{dateOnly(r.created_at)}</td>
+                </tr>
+              ))}
+            </MiniTable>
           )}
-        </section>
+        </Panel>
       </div>
 
       {sheet && (
@@ -369,6 +389,15 @@ function CaseBody({
     </>
   );
 }
+
+function Facts({ children }: { children: ReactNode }) {
+  return <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">{children}</div>;
+}
+
+function SubHead({ children }: { children: ReactNode }) {
+  return <h3 className="border-y border-border px-4 py-3 text-sm font-semibold">{children}</h3>;
+}
+
 
 function NoteBox({ caseId, onPage }: { caseId: string; onPage: (p: Page) => void }) {
   const { api } = useServices();
@@ -392,9 +421,8 @@ function NoteBox({ caseId, onPage }: { caseId: string; onPage: (p: Page) => void
     }
   };
   return (
-    <div className="note">
-      <textarea
-        className="input"
+    <div className="flex flex-col items-end gap-1.5">
+      <Textarea
         rows={2}
         placeholder="Add a note…"
         aria-label="Add a note"
@@ -404,23 +432,30 @@ function NoteBox({ caseId, onPage }: { caseId: string; onPage: (p: Page) => void
       <Button size="sm" onClick={() => void save()} disabled={busy || !text.trim()}>
         {busy ? "Working…" : "Add note"}
       </Button>
-      {err && <p className="err xs" role="alert">{err}</p>}
+      {err && <Note tone="error" className="text-xs">{err}</Note>}
     </div>
   );
 }
 
 function Timeline({ page }: { page: Page }) {
   const events = [...(page.events ?? [])].sort((a, b) => b.at.localeCompare(a.at));
-  if (events.length === 0) return <p className="muted xs">No events yet.</p>;
+  if (events.length === 0) return <p className="text-xs text-muted-foreground">No events yet.</p>;
   return (
-    <ol className="ctl">
+    <ol className="flex list-none flex-col gap-3 p-0" data-testid="timeline">
       {events.map((e) => {
         const sys = e.who === "system";
         const cust = e.who === "customer";
         return (
-          <li key={e.id || e.at + e.kind}>
-            <span className={`who ${sys ? "sys" : cust ? "cust" : ""}`}>{sys ? "system" : cust ? "customer" : e.who}</span>
-            <span className="t">
+          <li key={e.id || e.at + e.kind} className="grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-0.5 text-sm [&>p]:col-start-2 [&>div]:col-start-2">
+            <span
+              className={cn(
+                "h-fit max-w-40 truncate rounded-md px-1.5 py-px text-2xs font-semibold",
+                sys ? "bg-secondary text-muted-foreground" : cust ? "bg-warning/12 text-warning-foreground" : "bg-primary/12 text-link",
+              )}
+            >
+              {sys ? "system" : cust ? "customer" : e.who}
+            </span>
+            <span className="font-mono text-xs text-muted-foreground">
               {dateTime(e.at)} · {words(e.kind)}
             </span>
             {e.kind === "promo_restored" && e.data ? <PromoRestored data={e.data} /> : e.text && <PlainText text={e.text} />}
@@ -446,10 +481,10 @@ function PromoRestored({ data }: { data: Record<string, unknown> }) {
   const by = typeof data.by === "string" ? data.by : "the owner";
   const reason = typeof data.reason === "string" ? data.reason : "";
   return (
-    <div className="xs" data-testid="promo-restored">
+    <div className="text-xs" data-testid="promo-restored">
       <PlainText text={`Promotional grants restored by ${by}${reason ? `: ${reason}` : ""}`} />
       <div>Given back: {regranted.length ? regranted.map(one).join(", ") : "none"}</div>
-      {skipped.length > 0 && <div className="muted">Skipped (already ended): {skipped.map(one).join(", ")}</div>}
+      {skipped.length > 0 && <div className="text-muted-foreground">Skipped (already ended): {skipped.map(one).join(", ")}</div>}
     </div>
   );
 }
