@@ -13,12 +13,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { GetStarted } from "@/components/onboarding/GetStarted";
+import { WelcomeDialog } from "@/components/onboarding/WelcomeDialog";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
 import { GatewayError } from "@/lib/api/client";
 import type { Project, UpdateProjectRequest } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useAccountSettings } from "@/lib/useAccountSettings";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -32,6 +35,11 @@ export default function ProjectsScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // onboarding (owner 2026-11-04): the welcome once per new account, then
+  // the getting-started list; "Pick now" reopens the welcome
+  const { settings } = useAccountSettings();
+  const [welcomeAgain, setWelcomeAgain] = useState(false);
+  const [welcomeClosed, setWelcomeClosed] = useState(false);
 
   const load = useCallback(() => {
     gateway.listProjects().then(
@@ -112,6 +120,13 @@ export default function ProjectsScreen() {
   );
 
   const sorted = projects === null ? null : [...projects].sort(byNewest);
+  const sample = projects?.find((p) => p.sample === true) ?? null;
+  // new accounts only: someone who already has their own projects
+  // never gets the welcome (the gateway marks older accounts done too)
+  const newAccount = projects !== null && projects.every((p) => p.sample === true);
+  const welcomeOpen =
+    welcomeAgain ||
+    (!welcomeClosed && settings !== null && settings.onboarding?.welcome_done !== true && newAccount);
   const pinned = sorted?.filter((p) => p.pinned === true) ?? [];
   const rest = sorted?.filter((p) => p.pinned !== true) ?? [];
 
@@ -130,6 +145,15 @@ export default function ProjectsScreen() {
         </button>
       </div>
 
+      <WelcomeDialog
+        open={welcomeOpen}
+        sample={sample}
+        onClose={() => {
+          setWelcomeClosed(true);
+          setWelcomeAgain(false);
+        }}
+      />
+      <GetStarted onPickHeadset={() => setWelcomeAgain(true)} />
       <LimitsNotice />
       <UploadDropzone />
 

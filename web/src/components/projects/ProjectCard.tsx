@@ -215,9 +215,19 @@ export function ProjectCard({
               {METHOD_NAMES[method]}
               {method === "classic" ? " · Older method" : ""}
             </Badge>
+            {project.sample ? (
+              <Badge variant="outline" data-testid="card-sample" className="ml-1.5 border-edge bg-surface-2 text-fg-muted">
+                Sample
+              </Badge>
+            ) : null}
           </span>
         </div>
       </Link>
+      {project.sample ? (
+        <p data-testid="card-sample-note" className="px-3.5 text-xs text-fg-muted">
+          A finished example to look around. It&apos;s not billed and you can remove it.
+        </p>
+      ) : null}
 
       <div className="flex min-h-11 flex-col justify-center gap-1.5 px-3.5 pb-3">
         <div className="flex items-center gap-2 text-xs">

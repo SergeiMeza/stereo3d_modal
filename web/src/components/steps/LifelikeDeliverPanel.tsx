@@ -24,6 +24,7 @@ import {
   type StepConversionRequest,
 } from "@/lib/api/types";
 import { useLimits } from "@/lib/api/useLimits";
+import { useAccountSettings } from "@/lib/useAccountSettings";
 import { usePricing } from "@/lib/api/usePricing";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
@@ -34,6 +35,7 @@ import {
   bitrateField,
   DEFAULT_MAKE_FORMATS,
   deviceForClient,
+  DEVICES,
   FileTiles,
   formatsForDevices,
   MakeSection,
@@ -46,7 +48,7 @@ import {
   WatchPicker,
   type Device,
 } from "./makeControls";
-import { LIFELIKE_FORMATS, lifelikeFormatsFor, SPLIT_MAX_SECONDS } from "./methods";
+import { LIFELIKE_FORMATS, lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
@@ -119,15 +121,20 @@ export function LifelikeDeliverPanel({
   const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
   // S3D-47: in a headset browser, that headset comes preselected
   const client = useClient();
-  const [devices, setDevices] = useState<Device[]>(() => {
+  // onboarding (owner 2026-11-04): otherwise the headsets the person
+  // named in the welcome, until they change the pick here
+  const headsets = useAccountSettings().settings?.headsets;
+  const [devicesChoice, setDevices] = useState<Device[] | null>(() => {
     const d = deviceForClient(client);
-    return d ? [d] : [];
+    return d ? [d] : null;
   });
-  const [formats, setFormats] = useState<Format[]>(() =>
-    devices.length > 0
-      ? formatsForDevices(devices, LIFELIKE_FORMATS)
-      : DEFAULT_MAKE_FORMATS,
-  );
+  const devices: Device[] =
+    devicesChoice ??
+    ((headsets ?? []).filter((h): h is Device => DEVICES.some((d) => d.id === h)));
+  const [formatsChoice, setFormats] = useState<Format[] | null>(null);
+  const formats: Format[] =
+    formatsChoice ??
+    (devices.length > 0 ? formatsForDevices(devices, LIFELIKE_FORMATS) : DEFAULT_MAKE_FORMATS);
   // S3D-06: preselected; only asked (and only sent) when the quote says the
   // output runs past 15 minutes
   const [split, setSplit] = useState(true);
@@ -290,8 +297,8 @@ export function LifelikeDeliverPanel({
             formats={formats}
             onToggle={(f) =>
               change(() =>
-                setFormats((prev) =>
-                  prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+                setFormats(
+                  formats.includes(f) ? formats.filter((x) => x !== f) : [...formats, f],
                 ),
               )
             }
@@ -442,7 +449,9 @@ export function LifelikeDeliverPanel({
           request={request}
           label="Make 3D"
           disabledReason={
-            sentFormats.length === 0
+            project.sample
+              ? SAMPLE_PROJECT
+              : sentFormats.length === 0
               ? "Pick at least one file"
               : fpsMissing
                 ? PICK_FRAME_RATE

@@ -163,3 +163,34 @@ describe("policy and mail previews", () => {
     expect(await screen.findByText("<b>hi</b>")).toBeInTheDocument();
   });
 });
+
+describe("onboarding answers (owner 2026-11-04)", () => {
+  it("shows people and conversion per device, by week and by plan", async () => {
+    const { calls } = renderApp("/onboarding", {
+      "GET /v1/admin/onboarding/headsets": () => ({
+        json: {
+          days: 90,
+          by_day: [
+            { day: "2026-11-02", device: "avp", count: 3 },
+            { day: "2026-11-03", device: "quest", count: 5 },
+          ],
+          by_plan: [
+            { plan: "none", device: "quest", count: 4 },
+            { plan: "pro", device: "avp", count: 3 },
+          ],
+          conversion: [
+            { device: "avp", people: 3, converted: 1 },
+            { device: "quest", people: 5, converted: 1 },
+          ],
+          generated_at: "2026-11-04T00:00:00Z",
+        },
+      }),
+    });
+    const table = await screen.findByTestId("onboarding-conversion");
+    expect(table).toHaveTextContent("Meta Quest51");
+    expect(table).toHaveTextContent("Apple Vision Pro31");
+    expect(screen.getByText("device answers")).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-plans")).toHaveTextContent("Pro");
+    expect(calls.at(-1)!.url).toContain("days=90");
+  });
+});

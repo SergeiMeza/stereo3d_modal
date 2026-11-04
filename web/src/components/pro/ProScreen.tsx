@@ -24,6 +24,7 @@ import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { proManagementUrl, useProStatus } from "@/lib/pro/usePro";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 function safeNext(raw: string | null): string | null {
   return raw !== null && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
@@ -76,6 +77,7 @@ export function ProScreen(): JSX.Element {
 
   return (
     <section className="mx-auto w-full max-w-md space-y-8 px-4 py-12">
+      <FirstTimeHint id="pro" />
       <header className="space-y-2">
         <span className="ll-eyebrow">Spatial Video Studio Pro</span>
         <h1 className="text-3xl font-semibold tracking-tight text-balance">

@@ -206,10 +206,12 @@ export function OverviewTab({
                 </div>
                 <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-l">
                   <dt className="text-xs text-fg-muted">
-                    {own ? `At ${own.qualityLabel}` : "Price"}
+                    {project.sample ? "Price" : own ? `At ${own.qualityLabel}` : "Price"}
                   </dt>
-                  <dd data-testid="overview-price" className="font-mono text-fg">
-                    {own === undefined
+                  <dd data-testid="overview-price" className={project.sample ? "text-fg" : "font-mono text-fg"}>
+                    {project.sample
+                      ? "A sample: already in 3D, never billed"
+                      : own === undefined
                       ? "Pricing this video…"
                       : (ownPrice ?? own.error)}
                   </dd>
@@ -217,7 +219,12 @@ export function OverviewTab({
               </dl>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {method === "lifelike" ? (
+                {project.sample ? (
+                  // onboarding: the sample is finished; its files are the point
+                  <Button data-testid="overview-main" onClick={() => onNavigate("files")}>
+                    See the 3D files
+                  </Button>
+                ) : method === "lifelike" ? (
                   <>
                     <Button
                       data-testid="overview-main"

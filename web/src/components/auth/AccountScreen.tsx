@@ -26,6 +26,7 @@ import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 function CardShell({
   title,
@@ -165,6 +166,7 @@ export default function AccountScreen() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6">
       <h1 className="text-xl font-semibold tracking-tight">Account</h1>
+      <FirstTimeHint id="account" />
 
       <CardShell title="Profile">
         <div className="flex items-center gap-3">

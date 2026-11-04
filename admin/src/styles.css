@@ -259,3 +259,4 @@ details.monthly summary { padding: 12px 16px; cursor: pointer; }
   .input.search { width: 100%; }
   .ah { gap: 12px; padding: 0 12px; overflow-x: auto; }
 }
+.spark { display: inline-block; width: 6px; margin-right: 4px; vertical-align: bottom; border-radius: 2px; background: rgba(79, 140, 255, 0.7); }

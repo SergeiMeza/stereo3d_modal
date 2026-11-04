@@ -22,6 +22,8 @@ import {
   analyzeStageLabel,
   formatEtaLeft,
 } from "@/components/projects/AnalyzeBadge";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
+import { WorkspaceTips } from "@/components/onboarding/WorkspaceTips";
 import { DeleteProjectButton, HistoryList } from "@/components/steps/HistoryList";
 import { UPLOAD_AGAIN } from "@/lib/api/client";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
@@ -354,6 +356,8 @@ export default function WorkspaceScreen({
           active={page}
           onChange={setTab}
         />
+        {/* onboarding: four short tips the first time (owner 2026-11-04) */}
+        {method === "lifelike" ? <WorkspaceTips /> : null}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {page === "overview" ? (
             <OverviewTab
@@ -364,7 +368,9 @@ export default function WorkspaceScreen({
               }
             />
           ) : page === "scenes" ? (
-            project.analyze.state === "failed" ? (
+            <>
+            <FirstTimeHint id="scenes" className="mb-3" />
+            {project.analyze.state === "failed" ? (
               <div
                 role="alert"
                 className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
@@ -399,7 +405,8 @@ export default function WorkspaceScreen({
               />
             ) : (
               analyzingCard
-            )
+            )}
+            </>
           ) : step ? (
             <StepTab
               step={step}

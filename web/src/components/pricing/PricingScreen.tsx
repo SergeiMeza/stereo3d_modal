@@ -20,6 +20,7 @@ import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { CHARGED_AFTER, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 import { PayPerVideoLine } from "./planCopy";
 import { PlansSection } from "./PlansSection";
@@ -183,6 +184,7 @@ export function PricingScreen(): JSX.Element {
           <PayPerVideoLine pricing={pricing} />
         </p>
       </div>
+      <FirstTimeHint id="pricing" className="mx-auto mt-6 max-w-md text-left" />
       {pricing === null ? (
         <p className="mt-10 text-center text-fg-muted">Loading prices…</p>
       ) : (

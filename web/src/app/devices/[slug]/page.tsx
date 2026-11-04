@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 
 import { DevicePrice } from "@/components/landing/DevicePrice";
 import { DEVICE_PAGES, devicePage } from "@/lib/devices";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 export const dynamicParams = false;
 
@@ -48,6 +49,7 @@ export default async function DevicePageRoute({
         </Link>{" "}
         / Devices / <span className="text-fg">{d.name}</span>
       </nav>
+      <FirstTimeHint id="devices" />
       <div className="flex flex-col gap-3">
         <p className="text-xs font-medium tracking-widest text-primary uppercase">
           {d.upcoming ? `Ready for ${d.name}` : `Works with ${d.name}`}

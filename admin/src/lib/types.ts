@@ -412,6 +412,21 @@ export interface OpenDispute {
   case_id?: string;
 }
 
+/** GET /v1/admin/onboarding/headsets?days= — the welcome's headset
+ * answers (event onboarding_headsets; owner 2026-11-04). A person counts
+ * once per device they picked; "converted" = paid for a full 3D run after
+ * answering. */
+export interface OnboardingHeadsets {
+  days: number;
+  /** answers per day and device */
+  by_day: { day: string; device: string; count: number }[] | null;
+  /** answers per plan at the time and device */
+  by_plan: { plan: string; device: string; count: number }[] | null;
+  /** people per device and how many of them converted */
+  conversion: { device: string; people: number; converted: number }[] | null;
+  generated_at: string;
+}
+
 export interface DisputeSummary {
   months: DisputeMonth[] | null;
   reference_pct: number;

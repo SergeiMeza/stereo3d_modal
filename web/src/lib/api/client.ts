@@ -8,6 +8,7 @@ import type {
   AccountDeleteResult,
   AccountPlan,
   AccountSettings,
+  AccountSettingsPatch,
   BalanceEntry,
   BalanceSettings,
   BalanceSummary,
@@ -340,8 +341,14 @@ export class GatewayClient {
   }
 
   /** BL-25: change them; lifelike_intro without a plan → 409 plan_required */
-  patchAccountSettings(patch: { lifelike_intro?: boolean; locale?: string | null }): Promise<AccountSettings> {
+  patchAccountSettings(patch: AccountSettingsPatch): Promise<AccountSettings> {
     return this.request("PATCH", "/v1/account/settings", patch);
+  }
+
+  /** Our own product events (onboarding answers etc.), stored by the
+   * gateway with the account; never throws into product code. */
+  logEvent(name: string, props: Record<string, unknown>): void {
+    void this.request("POST", "/v1/events", { name, props }).catch(() => {});
   }
 
   /** pricing 2026-11: start a Business or Studio plan (409 plan_active) */

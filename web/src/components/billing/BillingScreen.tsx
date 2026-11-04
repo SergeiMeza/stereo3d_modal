@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
+import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { CompanyDetailsSheet, companySummary } from "@/components/pay/CompanyDetailsSheet";
@@ -629,6 +630,7 @@ export function BillingScreen(): JSX.Element {
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+      <FirstTimeHint id="billing" />
       {review ? (
         <p data-testid="billing-review" className="text-sm text-amber-200">
           {UNDER_REVIEW} Contact support to continue.
@@ -669,6 +671,8 @@ export function BillingScreen(): JSX.Element {
           </span>
         ) : null}
         </div>
+        {tab === "usage" ? <FirstTimeHint id="usage" className="mb-3" /> : null}
+        {tab === "invoices" ? <FirstTimeHint id="invoices" className="mb-3" /> : null}
         {tab === "usage" ? (
           <UsageTab month={month} />
         ) : tab === "invoices" ? (

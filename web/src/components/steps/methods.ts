@@ -96,6 +96,10 @@ export const MOVE_TO_LIFELIKE_BODY =
 export const SWITCH_NOT_ALLOWED = "A Lifelike 3D project can't move back to Classic 3D.";
 
 /** 422 classic_retired: Classic 3D takes no new projects or runs. */
+/** Onboarding: the sample project is finished and never billed. */
+export const SAMPLE_PROJECT =
+  "This is a finished sample, so there's nothing to pay for here. Its 3D files are in Files. Add your own video to make 3D.";
+
 export const CLASSIC_RETIRED =
   "Classic 3D is retired. Your files stay here, and you can convert this project with Lifelike 3D.";
 
@@ -168,6 +172,8 @@ export function methodErrorCopy(code: string): string | null {
       return SWITCH_NOT_ALLOWED;
     case "classic_retired":
       return CLASSIC_RETIRED;
+    case "sample_project":
+      return SAMPLE_PROJECT;
     case "files_deleted":
       return FILES_DELETED_MESSAGE;
     case "split_unsupported":

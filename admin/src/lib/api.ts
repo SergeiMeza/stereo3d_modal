@@ -6,6 +6,7 @@ import type {
   CasesResponse,
   DisputeSummary,
   MailPreviewsResponse,
+  OnboardingHeadsets,
   OpenCaseBody,
   PolicyResponse,
   Tab,
@@ -174,6 +175,10 @@ export class AdminApi {
       `/v1/admin/accounts/${encodeURIComponent(uid)}/actions`,
       body,
     );
+  }
+
+  onboardingHeadsets(days: number): Promise<OnboardingHeadsets> {
+    return this.json("GET", `/v1/admin/onboarding/headsets?days=${days}`);
   }
 
   disputes(months: number): Promise<DisputeSummary> {

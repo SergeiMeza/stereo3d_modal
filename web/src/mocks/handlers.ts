@@ -387,9 +387,21 @@ interface DB {
    * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
   fpsCap: boolean;
   /** BL-25: account settings (lifelike_intro_editable follows the plan) */
-  accountSettings: { lifelike_intro: boolean; locale: string | null };
+  accountSettings: {
+    lifelike_intro: boolean;
+    locale: string | null;
+    headsets: string[] | null;
+    hints_seen: string[];
+    onboarding: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+  };
   /** the next settings save fails with a 500 */
   nextSettingsFails: boolean;
+  /** onboarding (owner 2026-11-04): the sample project for new accounts
+   * (seeded on the first project list; off in unit tests) */
+  sampleSeeding: boolean;
+  sampleSeeded: boolean;
+  /** POST /v1/events, newest last */
+  events: { name: string; props: Record<string, unknown>; at: string }[];
   /** 00081: POST /v1/conversions/{id}/plays received */
   plays: { conversion_id: string; file: string; kind: string }[];
   /** free previews used: this period, today, and the intro one */
@@ -477,7 +489,68 @@ function publicTiers(): Record<string, unknown> {
 }
 
 function accountSettings() {
-  return { ...mockDb.accountSettings, lifelike_intro_editable: mockDb.billing.plan?.active === true };
+  const own = [...mockDb.projects.values()].filter((p) => !p.sample);
+  const ownIds = new Set(own.map((p) => p.project_id));
+  const runs = [...mockDb.conversions.values()].filter(
+    (c) => c.state === "succeeded" && c.project_id !== undefined && ownIds.has(c.project_id),
+  );
+  const st = mockDb.accountSettings;
+  return {
+    ...st,
+    lifelike_intro_editable: mockDb.billing.plan?.active === true,
+    onboarding: {
+      ...st.onboarding,
+      // the getting-started steps, as the gateway works them out
+      steps: {
+        first_video: own.length > 0,
+        first_preview: runs.some((c) => c.step === "lifelike_preview"),
+        first_3d: runs.some((c) => c.step === "production"),
+        watched: mockDb.plays.length > 0,
+      },
+    },
+  };
+}
+
+/** Onboarding: every new account gets a finished Lifelike sample (Sunset
+ * session), never billed, archivable like any project. */
+function seedSample(): void {
+  if (!mockDb.sampleSeeding || mockDb.sampleSeeded) return;
+  mockDb.sampleSeeded = true;
+  const p = structuredClone(projectFixture) as unknown as Project;
+  const id = "samplesunset";
+  const fps = 25;
+  const dur = 19.32;
+  const poster = "/landing/samples/sunset-session-poster-1600.webp";
+  const at = new Date(Date.now() - 3600_000).toISOString();
+  Object.assign(p, {
+    project_id: id,
+    name: "Sunset session",
+    sample: true,
+    method: "lifelike",
+    archived: false,
+    created_at: at,
+    updated_at: at,
+    probe: { ...p.probe!, width: 3840, height: 2160, fps, fps_rational: "25/1", duration_s: dur, num_frames: Math.round(dur * fps) },
+    scenes: { ...p.scenes!, cuts: [] },
+    scene_thumbs: [{ frame: 0, url: poster }],
+    strip_thumbs: Array.from({ length: 30 }, (_, k) => ({ frame: Math.round((k * dur * fps) / 30), url: poster })),
+    summary: { latest_state: "succeeded", latest_step: "production", spent_cents: 0 },
+  });
+  mockDb.projects.set(id, p);
+  const conversion = {
+    conversion_id: "samplesunset-3d",
+    project_id: id,
+    step: "production",
+    method: "lifelike",
+    state: "succeeded",
+    params: { preset: "4k", formats: ["mvhevc", "sbs"] },
+    quote: { amount_cents: 0, currency: "usd", breakdown: { billable_seconds: dur, billable_minutes: 1 } },
+    outputs: ["mvhevc", "sbs"],
+    created_at: at,
+    updated_at: at,
+    billing: { status: "not_charged" },
+  } as unknown as Conversion;
+  mockDb.conversions.set(conversion.conversion_id, conversion);
 }
 
 /** The account's tier: an active Business/Studio plan, else Pro, else list. */
@@ -608,6 +681,9 @@ function mockProPct(): number {
   return mockDb.tierPricing ? TIERS.pct.pro : MOCK_PRO.pct;
 }
 
+const VITEST_MOCK = typeof process !== "undefined" && !!process.env?.VITEST;
+const ALL_HINTS = ["billing", "usage", "invoices", "plans", "pricing", "pro", "account", "devices", "scenes"];
+
 function seed(): DB {
   const project = structuredClone(projectFixture) as unknown as Project;
   // real captures predate project management — the gateway now always sends
@@ -669,8 +745,15 @@ function seed(): DB {
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
     freePreviews: { used: 0, dayUsed: 0, introUsed: false },
     plays: [],
-    accountSettings: { lifelike_intro: true, locale: null },
+    // unit tests start as an account that has seen the welcome, tips and
+    // hints (onboarding tests clear these); the browser mock starts new
+    accountSettings: VITEST_MOCK
+      ? { lifelike_intro: true, locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true } }
+      : { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {} },
     nextSettingsFails: false,
+    sampleSeeding: !(typeof process !== "undefined" && process.env?.VITEST),
+    sampleSeeded: false,
+    events: [],
     gpuWaitPolls: 1,
   };
 }
@@ -696,6 +779,11 @@ export const mockDb = {
     this.plays = fresh.plays;
     this.accountSettings = fresh.accountSettings;
     this.nextSettingsFails = fresh.nextSettingsFails;
+    this.sampleSeeding = fresh.sampleSeeding;
+    this.sampleSeeded = fresh.sampleSeeded;
+    this.events = fresh.events;
+    this.fpsCap = fresh.fpsCap;
+    this.classicNewProjects = fresh.classicNewProjects;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
     mockAuth.reset();
   },
@@ -2754,11 +2842,28 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
+  // our own product events (onboarding answers): stored with the account
+  http.post(`${GATEWAY}/v1/events`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { name?: string; props?: Record<string, unknown> };
+    if (!body.name) return err(400, "invalid_request", "name is required");
+    mockDb.events.push({ name: body.name, props: body.props ?? {}, at: new Date().toISOString() });
+    return HttpResponse.json({ logged: true });
+  }),
+
   // BL-25 (gateway 00087): account settings; the intro switch needs a plan
   http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(accountSettings())),
   http.patch(`${GATEWAY}/v1/account/settings`, async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { lifelike_intro?: boolean; locale?: string | null };
+    const body = (await request.json().catch(() => ({}))) as {
+      lifelike_intro?: boolean;
+      locale?: string | null;
+      headsets?: string[];
+      hints_seen_add?: string[];
+      onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+    };
     const st = mockDb.accountSettings;
+    if (body.headsets !== undefined) st.headsets = [...body.headsets];
+    if (body.hints_seen_add) st.hints_seen = [...new Set([...st.hints_seen, ...body.hints_seen_add])];
+    if (body.onboarding) st.onboarding = { ...st.onboarding, ...body.onboarding };
     if (body.lifelike_intro !== undefined) {
       if (!mockDb.billing.plan?.active) return err(409, "plan_required", "a Business or Studio plan is needed for that");
       if (mockDb.nextSettingsFails) {
@@ -3274,6 +3379,7 @@ export const handlers = [
 
   // default: ACTIVE (non-archived) projects; ?archived=1: ONLY archived ones
   http.get(`${GATEWAY}/v1/projects`, ({ request }) => {
+    seedSample();
     const archived = new URL(request.url).searchParams.get("archived") === "1";
     return HttpResponse.json({
       projects: [...mockDb.projects.values()]
@@ -3541,6 +3647,7 @@ export const handlers = [
         return err(410, "files_deleted", "this project's files have been deleted");
       if (!p.probe)
         return err(409, "conflict", "analysis has not completed yet");
+      if (p.sample) return err(422, "sample_project", "This is a sample project. Add your own video to make 3D.");
       const raw = (await request.json()) as Record<string, unknown>;
       // S3D-14: price the step under another method without changing the
       // project
@@ -3630,6 +3737,7 @@ export const handlers = [
         );
       }
       delete body.method;
+      if (p.sample) return err(422, "sample_project", "This is a sample project. Add your own video to make 3D.");
       // fps_cap.go requireFPSChoice: a web run on a source above 30 fps
       // names its rate
       if (mockDb.fpsCap && p.probe!.fps > 30 * 1.0005 && p.probe!.fps <= 120 * 1.001 && typeof body.target_fps !== "number") {

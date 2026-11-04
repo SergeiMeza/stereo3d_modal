@@ -39,7 +39,7 @@ import {
 } from "@/lib/frames";
 import { qualityChoices, qualityLabelFor } from "@/lib/glossary";
 
-import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor } from "./methods";
+import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor, SAMPLE_PROJECT } from "./methods";
 import { formatCents, formatCentsShort } from "./money";
 import { StateChip } from "./StateChip";
 import {
@@ -411,7 +411,7 @@ function ReadyPreviewPanel({
                 quoteRequest={quoteRequest}
                 label="Preview this moment"
                 trackerDownloads={false}
-                disabledReason={fpsMissing ? PICK_FRAME_RATE : undefined}
+                disabledReason={project.sample ? SAMPLE_PROJECT : fpsMissing ? PICK_FRAME_RATE : undefined}
                 explain={
                   <span className="flex flex-col gap-1.5">
                     <span>

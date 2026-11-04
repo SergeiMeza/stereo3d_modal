@@ -215,6 +215,9 @@ export interface QualityOption {
 }
 
 export interface Project {
+  /** onboarding: the finished sample every new account gets (never
+   * billed; archive and unarchive like any project) */
+  sample?: boolean;
   project_id: string;
   name?: string;
   /** list items only (S3D-35) */
@@ -685,6 +688,36 @@ export interface AccountSettings {
   /** true only with an active Business or Studio plan */
   lifelike_intro_editable: boolean;
   locale: string | null;
+  /** onboarding (owner 2026-11-04): where they watch, from the welcome's
+   * first question; preselects "Where will you watch it?" on Make 3D */
+  headsets?: string[] | null;
+  /** first-time hints already dismissed (one id per page or tab) */
+  hints_seen?: string[];
+  onboarding?: OnboardingState;
+}
+
+/** Account onboarding state, kept on the account (not in the browser). */
+export interface OnboardingState {
+  welcome_done?: boolean;
+  checklist_hidden?: boolean;
+  tips_done?: boolean;
+  /** the gateway's view of the getting-started steps (read-only) */
+  steps?: {
+    first_video?: boolean;
+    first_preview?: boolean;
+    first_3d?: boolean;
+    watched?: boolean;
+  };
+}
+
+/** PATCH /v1/account/settings */
+export interface AccountSettingsPatch {
+  lifelike_intro?: boolean;
+  locale?: string | null;
+  headsets?: string[];
+  /** ids to add to hints_seen */
+  hints_seen_add?: string[];
+  onboarding?: Pick<OnboardingState, "welcome_done" | "checklist_hidden" | "tips_done">;
 }
 
 /** GET /v1/billing plan (Business / Studio) */
