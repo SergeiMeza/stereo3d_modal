@@ -10,6 +10,7 @@
  */
 
 import { ChevronDown, Loader2 } from "lucide-react";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
@@ -22,12 +23,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GatewayError } from "@/lib/api/client";
-import type { Conversion, Format, Preset, RunFormats } from "@/lib/api/types";
+import type { Conversion, Format, Preset, RunFormatJob } from "@/lib/api/types";
+import { formatClock } from "@/lib/format";
 import { useGateway } from "@/lib/api/useGateway";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
 import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
 import { NO_FULL_SBS_PRESETS } from "./methods";
+import { runFilesAtom, runFormatsAtom } from "./runFilesAtoms";
+
+/** The time, ticking each second while `on`. */
+function useNow(on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [on]);
+  return now;
+}
 
 /** How often the GET is asked while a format is being made: every 3 s for
  * the first minute, then every 15 s. */
@@ -43,6 +57,36 @@ const LONG_WAIT_S = 120;
 export function aboutMinutes(seconds: number): string {
   const n = Math.max(1, Math.round(seconds / 60));
   return `About ${n} minute${n === 1 ? "" : "s"}`;
+}
+
+/** A finished job whose file isn't listed yet. */
+export const ALMOST_READY = "Almost ready…";
+
+/** "About 1:52 left" (QA 2026-11-05: a countdown, never a frozen number). */
+export function leftText(seconds: number): string {
+  return seconds > 0 ? `About ${formatClock(Math.ceil(seconds))} left` : "Almost done…";
+}
+
+/**
+ * How far a job is: the gateway's progress (0–1) and remaining seconds
+ * (counted down from when they were read) when it sends them, else its
+ * estimate counted down from when the job was asked for.
+ */
+export function jobProgress(
+  job: RunFormatJob | undefined,
+  started: { at: number; seconds: number | null } | undefined,
+  readAt: number,
+  now: number,
+): { fraction: number | null; text: string | null } {
+  const fraction =
+    typeof job?.progress === "number" ? Math.min(1, Math.max(0, job.progress)) : null;
+  if (typeof job?.remaining_seconds === "number") {
+    return { fraction, text: leftText(job.remaining_seconds - (now - readAt) / 1000) };
+  }
+  const est = job?.estimated_seconds ?? started?.seconds ?? null;
+  if (est === null) return { fraction, text: null };
+  const from = job?.requested_at ? Date.parse(job.requested_at) : (started?.at ?? now);
+  return { fraction, text: leftText(est - (now - (Number.isFinite(from) ? from : now)) / 1000) };
 }
 
 /** Why nothing can be made, in plain words; null hides the control. */
@@ -75,14 +119,16 @@ export function AnotherFormat({
 }): JSX.Element | null {
   const gateway = useGateway();
   const id = conversion.conversion_id;
-  const [data, setData] = useState<RunFormats | null>(null);
+  // ADR 0138: the run's format jobs and files live in its atoms
+  // (runFilesAtoms); what's local here is this control's own feedback
+  const [formats, setFormats] = useAtom(runFormatsAtom(id));
+  const runFiles = useAtomValue(runFilesAtom(id)).files;
+  const data = formats.data;
   /** formats whose start failed here (the gateway has no job for them) */
   const [startFailed, setStartFailed] = useState<Format[]>([]);
   const [starting, setStarting] = useState<Format | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const seenDone = useRef<Set<string> | null>(null);
-  /** the POST's estimate per format, until the GET's jobs carry one */
-  const [estimates, setEstimates] = useState<Partial<Record<Format, number>>>({});
   /** when the current making began (for the slower polls after a minute) */
   const makingSince = useRef<number | null>(null);
 
@@ -96,9 +142,9 @@ export function AnotherFormat({
     );
     if (seenDone.current !== null && [...done].some((f) => !seenDone.current!.has(f))) onNewFile();
     seenDone.current = done;
-    setData(next);
+    setFormats((s) => ({ ...s, data: next, readAt: Date.now() }));
     return next;
-  }, [gateway, id, onNewFile]);
+  }, [gateway, id, onNewFile, setFormats]);
 
   useEffect(() => {
     let stop = false;
@@ -111,7 +157,7 @@ export function AnotherFormat({
             .filter(([, j]) => j?.status === "succeeded")
             .map(([f]) => f),
         );
-        setData(d);
+        setFormats((s) => ({ ...s, data: d, readAt: Date.now() }));
       })
       .catch(() => {
         // the control stays away when the gateway can't say
@@ -119,12 +165,23 @@ export function AnotherFormat({
     return () => {
       stop = true;
     };
-  }, [gateway, id]);
+  }, [gateway, id, setFormats]);
 
+  // QA 2026-11-05: a job the gateway finished whose file isn't in the
+  // run's files yet keeps its row ("Almost ready…"), and the files are read
+  // again until it's there
+  const listed = new Set((runFiles ?? []).map((f) => f.format));
+  const finishing =
+    runFiles === null
+      ? []
+      : (Object.entries(data?.jobs ?? {})
+          .filter(([f, j]) => j?.status === "succeeded" && !listed.has(f))
+          .map(([f]) => f) as Format[]);
   const making = data?.pending ?? [];
+  const waiting = making.length + finishing.length;
   // poll while something is being made: every 3 s, every 15 s after a minute
   useEffect(() => {
-    if (making.length === 0) {
+    if (waiting === 0) {
       makingSince.current = null;
       return;
     }
@@ -132,9 +189,15 @@ export function AnotherFormat({
     const wait = Date.now() - makingSince.current < FAST_POLL_FOR_MS ? FORMAT_POLL_MS : FORMAT_POLL_SLOW_MS;
     const t = setTimeout(() => {
       void load().catch(() => {});
+      if (finishing.length > 0) onNewFile();
     }, wait);
     return () => clearTimeout(t);
-  }, [making.length, data, load]);
+    // finishing follows data and the files
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, data, runFiles, load, onNewFile]);
+
+  // the countdowns tick while something is being made
+  const now = useNow(waiting > 0);
 
   async function start(format: Format): Promise<void> {
     setStarting(format);
@@ -142,9 +205,13 @@ export function AnotherFormat({
     setStartFailed((l) => l.filter((f) => f !== format));
     try {
       const job = await gateway.requestRunFormat(id, format);
-      if (typeof job.estimated_seconds === "number") {
-        setEstimates((e) => ({ ...e, [format]: job.estimated_seconds as number }));
-      }
+      setFormats((s) => ({
+        ...s,
+        started: {
+          ...s.started,
+          [format]: { at: Date.now(), seconds: typeof job.estimated_seconds === "number" ? job.estimated_seconds : null },
+        },
+      }));
       await load();
     } catch (e) {
       if (e instanceof GatewayError && (e.code === "format_exists" || e.code === "format_in_progress")) {
@@ -223,17 +290,37 @@ export function AnotherFormat({
         <span className="text-xs text-fg-muted">Made from this run&apos;s files.</span>
       </div>
 
-      {[...new Set([...(starting ? [starting] : []), ...making])].map((f) => {
-        const est = jobs[f]?.estimated_seconds ?? estimates[f] ?? null;
+      {[...new Set([...(starting ? [starting] : []), ...making, ...finishing])].map((f) => {
+        const job = jobs[f];
+        const started = formats.started[f];
+        const est = job?.estimated_seconds ?? started?.seconds ?? null;
         const long = f === "mvhevc" || (est !== null && est > LONG_WAIT_S);
+        const done = finishing.includes(f);
+        const p = done ? null : jobProgress(job, started, formats.readAt, now);
         return (
-          <div key={f} role="status" data-testid={`another-format-making-${f}`} className="flex flex-col gap-0.5 text-xs">
-            <p className="flex items-center gap-2 text-fg">
+          <div key={f} role="status" data-testid={`another-format-making-${f}`} className="flex flex-col gap-1 text-xs">
+            <p className="flex flex-wrap items-center gap-2 text-fg">
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              {nameOf(f)}: Making it…
-              {est !== null ? <span className="text-fg-muted">{aboutMinutes(est)}</span> : null}
+              {nameOf(f)}: {done ? ALMOST_READY : "Making it…"}
+              {p?.text ? (
+                <span data-testid={`another-format-left-${f}`} className="text-fg-muted tabular-nums">
+                  {p.text}
+                </span>
+              ) : null}
             </p>
-            {long ? <p className="pl-5.5 text-fg-muted">{LONG_WAIT_COPY}</p> : null}
+            {p?.fraction !== undefined && p.fraction !== null ? (
+              <div
+                role="progressbar"
+                aria-label={`${nameOf(f)} progress`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(p.fraction * 100)}
+                className="ml-5.5 h-1 overflow-hidden rounded-full bg-surface-2"
+              >
+                <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(p.fraction * 100)}%` }} />
+              </div>
+            ) : null}
+            {long && !done ? <p className="pl-5.5 text-fg-muted">{LONG_WAIT_COPY}</p> : null}
           </div>
         );
       })}

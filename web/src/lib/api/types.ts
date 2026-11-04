@@ -1373,6 +1373,10 @@ export interface RunFormatJob {
   error?: string | null;
   /** rough time to make it (seconds), when the gateway can say */
   estimated_seconds?: number | null;
+  /** QA 2026-11-05: how far it is (0–1) and the seconds left, while it's
+   * being made (gateway, when it can say) */
+  progress?: number | null;
+  remaining_seconds?: number | null;
 }
 
 export type RunFormatsUnavailable =

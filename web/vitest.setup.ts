@@ -19,6 +19,7 @@ import { balanceDialogAtom, settleOpenAtom } from "@/components/pay/payAtoms";
 import { EMPTY_PROJECT_LIST, projectListAtom } from "@/components/projects/projectsAtoms";
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
+import { resetRunFilesForTests } from "@/components/steps/runFilesAtoms";
 import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms";
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
@@ -53,6 +54,7 @@ afterEach(() => {
   // ADR 0138: the Make 3D picks, the cached side prices and the rate picks
   resetMake3dForTests();
   resetConversionsForTests();
+  resetRunFilesForTests();
   resetPricesForTests();
   for (const k of [...fpsPickAtom.getParams()]) fpsPickAtom.remove(k);
   // ... and what they keep across reloads

@@ -16,7 +16,17 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { aboutMinutes, AnotherFormat, FORMAT_POLL_MS, FORMAT_POLL_SLOW_MS, LONG_WAIT_COPY, TOO_WIDE_COPY } from "./AnotherFormat";
+import {
+  aboutMinutes,
+  ALMOST_READY,
+  AnotherFormat,
+  FORMAT_POLL_MS,
+  FORMAT_POLL_SLOW_MS,
+  jobProgress,
+  leftText,
+  LONG_WAIT_COPY,
+  TOO_WIDE_COPY,
+} from "./AnotherFormat";
 import { RunFiles } from "./RunFiles";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -28,6 +38,7 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
+const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 const PROJECT_ID = (projectFixture as { project_id: string }).project_id;
 
 function run(over: Partial<Conversion> = {}): Conversion {
@@ -174,7 +185,8 @@ describe("Get another format (ADR 0137)", () => {
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-mvhevc"));
     const making = await screen.findByTestId("another-format-making-mvhevc");
-    await waitFor(() => expect(making.textContent).toContain("About 4 minutes"));
+    // QA 2026-11-05: a countdown from the estimate, never a frozen number
+    await waitFor(() => expect(making.textContent).toMatch(/About [34]:\d\d left/));
     expect(making.textContent).toContain("Making it…");
     expect(making.textContent).toContain(LONG_WAIT_COPY);
     expect(LONG_WAIT_COPY).toBe("This can take a while. You can leave this page; the file appears here when it's ready.");
@@ -186,7 +198,7 @@ describe("Get another format (ADR 0137)", () => {
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-half_sbs"));
     const making = await screen.findByTestId("another-format-making-half_sbs");
-    await waitFor(() => expect(making.textContent).toContain("About 1 minute"));
+    await waitFor(() => expect(making.textContent).toMatch(/About [01]:\d\d left/));
     expect(making.textContent).not.toContain(LONG_WAIT_COPY);
     expect(aboutMinutes(150)).toBe("About 3 minutes");
   });
@@ -234,4 +246,59 @@ describe("Get another format (ADR 0137)", () => {
     renderRun(run());
     expect((await screen.findByTestId("another-format-unavailable")).textContent).toMatch(/^This run is in parts/);
   });
+
+  it("counts down from the gateway's progress and time left, with a bar", async () => {
+    const c = run();
+    server.use(
+      http.get(`${GATEWAY}/v1/runs/:id/formats`, () =>
+        HttpResponse.json({
+          available: ["half_sbs"],
+          have: ["mvhevc"],
+          pending: ["sbs"],
+          price_cents: 0,
+          jobs: {
+            sbs: { job_id: "j1", status: "processing", progress: 0.4, remaining_seconds: 75, estimated_seconds: 120, requested_at: new Date().toISOString() },
+          },
+        }),
+      ),
+    );
+    renderRun(c);
+    const making = await screen.findByTestId("another-format-making-sbs");
+    const bar = within(making).getByRole("progressbar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("40");
+    const left = within(making).getByTestId("another-format-left-sbs");
+    expect(left.textContent).toMatch(/^About 1:1\d left$/);
+    const first = left.textContent;
+    await waitFor(() => expect(left.textContent).not.toBe(first), { timeout: 2500 });
+  });
+
+  it("the estimate counts down to Almost done, never frozen", () => {
+    const t0 = Date.parse("2026-11-05T18:00:00Z");
+    const job = { job_id: "j", status: "processing" as const, estimated_seconds: 120, requested_at: "2026-11-05T18:00:00Z" };
+    expect(jobProgress(job, undefined, t0, t0).text).toBe("About 2:00 left");
+    expect(jobProgress(job, undefined, t0, t0 + 50_000).text).toBe("About 1:10 left");
+    expect(jobProgress(job, undefined, t0, t0 + 400_000).text).toBe("Almost done…");
+    expect(leftText(0)).toBe("Almost done…");
+  });
+
+  it("a finished copy keeps its row until the run lists the file, then reads the files again", async () => {
+    const c = run({ outputs: ["mvhevc", "sbs"] });
+    mockDb.formatJobs.set(c.conversion_id, {
+      sbs: { job_id: "j2", status: "succeeded", polls: 9, requested_at: "2026-11-05T18:00:00Z", finished_at: "2026-11-05T18:02:00Z" },
+    });
+    // the run's file list hasn't caught up yet (a reload right after)
+    let lag = 1;
+    server.use(
+      http.get(`${GATEWAY}/v1/conversions/:id/downloads`, () => {
+        if (lag <= 0) return undefined;
+        lag -= 1;
+        return HttpResponse.json({ downloads: { mvhevc: "https://example.test/a.mov" }, expires_in: 3600 });
+      }),
+    );
+    renderRun(c);
+    const row = await screen.findByTestId("another-format-making-sbs");
+    expect(row.textContent).toContain(ALMOST_READY);
+    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    expect(screen.queryByTestId("another-format-making-sbs")).toBeNull();
+  }, 15_000);
 });

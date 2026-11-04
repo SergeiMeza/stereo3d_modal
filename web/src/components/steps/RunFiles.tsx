@@ -9,7 +9,8 @@
  * payment (S3D-22).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useAtom } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
 import type { JSX, MouseEvent } from "react";
 
 import type { Conversion, DownloadFile, Downloads, Format, Step } from "@/lib/api/types";
@@ -22,6 +23,7 @@ import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
 import { AnotherFormat } from "./AnotherFormat";
+import { runFilesAtom } from "./runFilesAtoms";
 import { loadErrorText, useIsSample } from "./loadError";
 
 interface DeviceGroupCopy {
@@ -113,12 +115,9 @@ export function useRunFiles(conversion: Conversion | undefined): {
   const client = useGateway();
   const id = conversion?.conversion_id ?? null;
   const step = conversion?.step;
-  const [state, setState] = useState<{
-    id: string;
-    files: DownloadFile[];
-    expiresAt: number;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // ADR 0138: the run's files live in its atom (runFilesAtoms), so Get
+  // another format sees when a new file is listed
+  const [state, setState] = useAtom(runFilesAtom(id ?? ""));
   const sample = useIsSample();
   const stateRef = useRef(state);
   useEffect(() => {
@@ -129,38 +128,38 @@ export function useRunFiles(conversion: Conversion | undefined): {
     if (id === null) return null;
     const d = await client.getDownloads(id);
     const next = {
-      id,
       files: filesOf(step, d),
       expiresAt: Date.now() + Math.max(0, (d.expires_in ?? 3600) - 30) * 1000,
+      error: null,
     };
     // the ref first: a click right after must see the fresh links
     stateRef.current = next;
     setState(next);
     return next;
-  }, [client, id, step]);
+  }, [client, id, step, setState]);
 
   useEffect(() => {
-    if (id === null || stateRef.current?.id === id) return;
+    if (id === null || stateRef.current.files !== null) return;
     let cancelled = false;
     load().catch((e: unknown) => {
-      if (!cancelled) setError(loadErrorText(e, sample, "Couldn't load the files."));
+      if (!cancelled) setState((s) => ({ ...s, error: loadErrorText(e, sample, "Couldn't load the files.") }));
     });
     return () => {
       cancelled = true;
     };
-  }, [id, load, sample]);
+  }, [id, load, sample, setState]);
 
   const freshUrl = useCallback(
     async (name: string) => {
-      let s = stateRef.current;
-      if (!s || Date.now() >= s.expiresAt) s = await load();
-      return s?.files.find((f) => f.name === name)?.url ?? null;
+      let s: { files: DownloadFile[] | null; expiresAt: number } | null = stateRef.current;
+      if (!s?.files || Date.now() >= s.expiresAt) s = await load();
+      return s?.files?.find((f) => f.name === name)?.url ?? null;
     },
     [load],
   );
 
   const expired = useCallback(
-    () => stateRef.current !== null && Date.now() >= stateRef.current.expiresAt,
+    () => stateRef.current.files !== null && Date.now() >= stateRef.current.expiresAt,
     [],
   );
 
@@ -169,8 +168,8 @@ export function useRunFiles(conversion: Conversion | undefined): {
   }, [load]);
 
   return {
-    files: state && state.id === id ? state.files : null,
-    error,
+    files: id === null ? null : state.files,
+    error: state.error,
     expired,
     freshUrl,
     reload,
