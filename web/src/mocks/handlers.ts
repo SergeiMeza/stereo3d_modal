@@ -1037,7 +1037,13 @@ function runFormats(c: Conversion, advance: boolean) {
           j.error = "repack failed";
         } else {
           j.status = "succeeded";
-          c.outputs = [...(c.outputs ?? []), fmt];
+          // a split run gets one file per part, like its own part files
+          c.outputs = [
+            ...(c.outputs ?? []),
+            ...(c.parts && c.parts.length > 1
+              ? c.parts.map((p) => `${fmt}_part${String(p.index).padStart(2, "0")}`)
+              : [fmt]),
+          ];
           have.push(fmt);
         }
       }
@@ -1051,7 +1057,6 @@ function runFormats(c: Conversion, advance: boolean) {
   if (c.state !== "succeeded") reason = "run_failed";
   else if (project?.files_deleted_at) reason = "files_erased";
   else if (c.method !== "lifelike") reason = "classic_retired";
-  else if (c.parts && c.parts.length > 1) reason = "split_run";
   // only the half-size file: nothing full-size to make others from
   else if (have.length === 1 && have[0] === "half_sbs") reason = "half_only";
   const offered = ["6k", "8k"].includes(c.params.preset ?? "") ? ["mvhevc", "half_sbs"] : ["mvhevc", "sbs", "half_sbs"];

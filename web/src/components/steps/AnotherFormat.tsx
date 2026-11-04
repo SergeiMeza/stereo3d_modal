@@ -49,6 +49,7 @@ export function aboutMinutes(seconds: number): string {
 export const UNAVAILABLE_COPY: Record<string, string | null> = {
   half_only: "This run only has the half-size file. Make a new conversion for other formats.",
   files_erased: "These files were erased after 90 days without use.",
+  // split runs get one file per part now; an older gateway may still say it
   split_run: "This run is in parts, so other formats can't be made from it. Make a new conversion for other formats.",
   // too_wide only rules out full side by side at 6K/8K, never the control
   too_wide: null,

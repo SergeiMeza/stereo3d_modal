@@ -207,4 +207,31 @@ describe("Get another format (ADR 0137)", () => {
     });
     vi.restoreAllMocks();
   }, 15_000);
+
+  it("a split run gets the new format per part", async () => {
+    renderRun(
+      run({
+        parts: [
+          { index: 1, start_s: 0, duration_s: 900 },
+          { index: 2, start_s: 900, duration_s: 300 },
+        ],
+        outputs: ["mvhevc_part01", "mvhevc_part02"],
+      }),
+    );
+    await openMenu();
+    fireEvent.click(await screen.findByTestId("another-format-sbs"));
+    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    const rows = within(screen.getByTestId("file-group-sbs")).getAllByText(/^Part \d$/);
+    expect(rows.map((r) => r.textContent)).toEqual(["Part 1", "Part 2"]);
+  }, 15_000);
+
+  it("an older gateway's split_run still says why", async () => {
+    server.use(
+      http.get("*/v1/runs/:id/formats", () =>
+        HttpResponse.json({ available: [], have: ["mvhevc"], pending: [], unavailable_reason: "split_run", price_cents: 0, jobs: {} }),
+      ),
+    );
+    renderRun(run());
+    expect((await screen.findByTestId("another-format-unavailable")).textContent).toMatch(/^This run is in parts/);
+  });
 });
