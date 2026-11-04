@@ -109,9 +109,20 @@ function billingBlockOf(e: unknown): BillingBlock | null {
   return null;
 }
 
+/** staging 2026-11-05: a quote that hasn't answered by now is an error
+ * with Retry, never "Pricing…" forever. */
+export const QUOTE_TIMEOUT_MS = 10_000;
+export const QUOTE_TIMED_OUT = "Pricing is taking longer than usual.";
+
 export interface StepCheckout {
   quote: StepQuoteResponse | null;
+  /** the request `quote` answers (JSON); undefined when not known */
+  quoteKey?: string;
+  /** the last quote received, also while a change re-prices */
+  lastQuote: StepQuoteResponse | null;
   quoting: boolean;
+  /** the request being priced now (JSON), null when none */
+  pendingKey: string | null;
   error: string | null;
   /** conversion creation was blocked by the billing gate (402) */
   billingBlock: BillingBlock | null;
@@ -157,7 +168,11 @@ export function useStepCheckout(
   );
   const { quote, attemptKey, active, settled } = state;
   // Transient request feedback — a remount clearing these is fine.
-  const [quoting, setQuoting] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const quoting = pendingKey !== null;
+  // staging 2026-11-05: only the latest quote request counts; an older
+  // answer landing last never overwrites a newer one
+  const quoteSeq = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [billingBlock, setBillingBlock] = useState<BillingBlock | null>(null);
   const [payNow, setPayNow] = useState<Conversion | null>(null);
@@ -197,18 +212,34 @@ export function useStepCheckout(
   // watch priced inputs (e.g. the Depth page's passthrough set).
   const invalidate = useCallback((): void => {
     attemptKeyRef.current = null;
-    setState((s) => ({ ...s, quote: null, attemptKey: null }));
+    quoteSeq.current += 1; // a request in flight is now stale
+    setPendingKey(null);
+    setState((s) => ({
+      ...s,
+      quote: null,
+      previous: s.quote ?? s.previous ?? null,
+      attemptKey: null,
+    }));
   }, [setState]);
 
   async function fetchQuote(
     req: StepConversionRequest,
     opts: { keepTracker?: boolean } = {},
   ): Promise<void> {
-    setQuoting(true);
+    const mine = ++quoteSeq.current;
+    const reqKey = JSON.stringify(req);
+    setPendingKey(reqKey);
     setError(null);
     setBillingBlock(null);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const res = await client.quoteStep(project.project_id, req);
+      const res = await Promise.race([
+        client.quoteStep(project.project_id, req),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(QUOTE_TIMED_OUT)), QUOTE_TIMEOUT_MS);
+        }),
+      ]);
+      if (mine !== quoteSeq.current) return; // a newer request or a change took over
       track("quote_received", {
         step,
         value: res.quote.amount_cents / 100,
@@ -218,14 +249,17 @@ export function useStepCheckout(
       setState((s) => ({
         ...s,
         quote: res,
+        quoteKey: reqKey,
+        previous: res,
         attemptKey: null,
         // clear a finished run's tracker before a new attempt
         ...(s.settled && !opts.keepTracker ? { active: null, settled: false } : {}),
       }));
     } catch (e) {
-      setError(messageOf(e));
+      if (mine === quoteSeq.current) setError(messageOf(e));
     } finally {
-      setQuoting(false);
+      clearTimeout(timer);
+      if (mine === quoteSeq.current) setPendingKey(null);
     }
   }
 
@@ -355,7 +389,10 @@ export function useStepCheckout(
 
   return {
     quote,
+    quoteKey: state.quoteKey,
+    lastQuote: quote ?? state.previous ?? null,
     quoting,
+    pendingKey,
     error,
     billingBlock,
     active,
@@ -691,11 +728,19 @@ export function InstantCheckout({
     outstandingCents(status) > 0 || ck.billingBlock === "billing_overdue";
   const key = JSON.stringify(quoteRequest ?? request);
   const lastKey = useRef<string | null>(null);
-  const { quote, quoting, running, error, fetchQuote } = ck;
+  const { running, error, fetchQuote, pendingKey } = ck;
+  // staging 2026-11-05: a price shows only for the current selections;
+  // an older one waits behind "Updating…" while the new one comes
+  const fresh = ck.quote !== null && (ck.quoteKey === undefined || ck.quoteKey === key);
+  const quote = fresh ? ck.quote : null;
+  const quoting = pendingKey === key;
+  const updating = !fresh && ck.lastQuote !== null;
+  // ... and a run in progress still gets its price (staging 2026-11-05)
   useEffect(() => {
-    if (stopQuoting || running || quoting || quote !== null) return;
-    // a failed quote waits for a change instead of retrying in a loop
+    if (stopQuoting || fresh || pendingKey === key) return;
+    // a failed quote waits for a change (or Retry) instead of looping
     if (key === lastKey.current && error !== null) return;
+    // changes settle for 250 ms before they're priced
     const t = setTimeout(() => {
       lastKey.current = key;
       void fetchQuote(JSON.parse(key) as StepConversionRequest, {
@@ -705,7 +750,31 @@ export function InstantCheckout({
     return () => clearTimeout(t);
     // fetchQuote is a fresh closure each render; key carries the request
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, stopQuoting, running, quoting, quote, error]);
+  }, [key, stopQuoting, fresh, pendingKey, error]);
+  const retry = (): void =>
+    void fetchQuote(JSON.parse(key) as StepConversionRequest, { keepTracker: true });
+  const quoteError =
+    error !== null && !quoting && !fresh && error !== SPEND_LIMIT_REACHED ? (
+      <span className="flex flex-wrap items-center gap-2">
+        <span data-testid="quote-error" className="text-sm text-red-400">
+          {error}
+        </span>
+        <button
+          type="button"
+          data-testid="quote-retry"
+          onClick={retry}
+          className="text-sm text-primary hover:underline"
+        >
+          Retry
+        </button>
+      </span>
+    ) : null;
+  const pricingText = updating ? "Updating…" : "Pricing…";
+  const runNote = running ? (
+    <p data-testid="run-in-progress" className="text-xs text-fg-muted">
+      A run is in progress. You can start another when it finishes.
+    </p>
+  ) : null;
 
   const price = quote
     ? quote.payment_flow === "free_preview"
@@ -762,9 +831,13 @@ export function InstantCheckout({
           {heading}
           {quote ? (
             <QuoteView result={quote} chargeLine={false} bare />
+          ) : stopQuoting ? (
+            <p className="text-sm text-fg-muted">{disabledReason}</p>
+          ) : quoteError ? (
+            quoteError
           ) : (
-            <p className="text-sm text-fg-muted">
-              {stopQuoting ? disabledReason : quoting ? "Pricing…" : error ?? "Pricing…"}
+            <p data-testid="quote-pending" className="text-sm text-fg-muted">
+              {pricingText}
             </p>
           )}
           {chargeHint}
@@ -794,6 +867,7 @@ export function InstantCheckout({
               {price ? ` · ${price}` : ""}
             </Button>
           )}
+          {runNote}
           {underReview && !owes ? <UnderReview /> : null}
           {after}
           {error && quote && error !== chargeText ? <p className="text-sm text-red-400">{error}</p> : null}
@@ -877,12 +951,17 @@ export function InstantCheckout({
             <BalanceShort quote={quote} />
             <FreePreviewLine quote={quote} />
           </span>
-        ) : quoting ? (
-          <span className="text-xs text-fg-muted">Pricing…</span>
+        ) : quoteError ? (
+          quoteError
+        ) : !running ? (
+          <span data-testid="quote-pending" className="text-xs text-fg-muted">
+            {pricingText}
+          </span>
         ) : null}
       </div>
+      {runNote}
       {after}
-      {error && !limitReached ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error && !limitReached && !quoteError ? <p className="text-sm text-red-400">{error}</p> : null}
       {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
       {tracker}
       {sheet}

@@ -37,6 +37,12 @@ export interface StepCheckoutState {
   active: Conversion | null;
   /** active reached a terminal state. */
   settled: boolean;
+  /** staging 2026-11-05: the request `quote` answers (JSON), so a panel
+   * never shows a price for other selections; absent when set elsewhere */
+  quoteKey?: string;
+  /** the last quote received, kept while a change re-prices (its plan
+   * tier and split offer stay steady instead of flickering) */
+  previous?: StepQuoteResponse | null;
 }
 
 export const EMPTY_CHECKOUT: StepCheckoutState = {
@@ -88,7 +94,7 @@ export function clearStepQuotes(): void {
   for (const a of atoms.values()) {
     const s = store.get(a);
     if (s.quote !== null || s.attemptKey !== null) {
-      store.set(a, { ...s, quote: null, attemptKey: null });
+      store.set(a, { ...s, quote: null, previous: s.quote ?? s.previous ?? null, attemptKey: null });
     }
   }
 }

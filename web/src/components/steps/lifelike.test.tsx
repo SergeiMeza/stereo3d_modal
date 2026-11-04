@@ -282,8 +282,9 @@ describe("Lifelike Deliver", () => {
     expect(split.checked).toBe(true);
     expect(prompt.textContent).toContain("2 parts: about 15 and 15 min");
     expect(prompt.textContent).toContain("Parts end at a scene change. No extra charge.");
-    // a 30-minute run is quoted above the threshold: paid up front
-    expect(screen.getByTestId("charge-timing-hint").textContent).toBe(
+    // a 30-minute run is quoted above the threshold: paid up front (the
+    // split request is priced again: a price only for what runs)
+    expect((await screen.findByTestId("charge-timing-hint")).textContent).toBe(
       CHARGE_BEFORE_COPY,
     );
 

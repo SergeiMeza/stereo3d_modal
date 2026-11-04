@@ -199,7 +199,8 @@ export function LifelikeDeliverPanel({
   // 6K and 8K make no full side-by-side file (half SBS and spatial are)
   const offeredFormats = lifelikeFormatsFor(chosen ?? { preset });
   const sentFormats = formats.filter((f) => offeredFormats.includes(f));
-  const tier = ck.quote?.tier ?? "";
+  // the last quote's plan, steady while a change re-prices
+  const tier = ck.lastQuote?.tier ?? "";
   const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
   const express = expressChoice ?? expressIncluded;
   const plain: StepConversionRequest = {
@@ -245,7 +246,7 @@ export function LifelikeDeliverPanel({
   const probe = project.probe!;
   const fps = parseRational(probe.fps_rational);
 
-  const splitOffered = ck.quote?.split_suggested === true;
+  const splitOffered = ck.lastQuote?.split_suggested === true;
   const request: StepConversionRequest = {
     ...base,
     formats: sentFormats,
