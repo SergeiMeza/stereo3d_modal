@@ -73,7 +73,10 @@ func (s *Store) ListUserEvents(ctx context.Context, uid string, since time.Time,
 // (pro_state_{env}/{uid}), so a start of Pro is seen as a change.
 type ProState struct {
 	Pro bool      `firestore:"pro"`
-	At  time.Time `firestore:"at"`
+	At  time.Time `firestore:"at"` // when it last changed
+	// CheckedAt: the last time the gateway asked (2026-11-05: "at" alone
+	// read as stale while nothing had changed).
+	CheckedAt *time.Time `firestore:"checked_at,omitempty"`
 }
 
 func proStateDoc(s *Store, uid string) *firestore.DocumentRef {
@@ -95,10 +98,11 @@ func (s *Store) SwapProState(ctx context.Context, uid string, pro bool, now time
 		} else if status.Code(err) != codes.NotFound {
 			return err
 		}
+		next := ProState{Pro: pro, At: now, CheckedAt: &now}
 		if prev != nil && prev.Pro == pro {
-			return nil
+			next.At = prev.At // unchanged: only the check moves
 		}
-		return tx.Set(proStateDoc(s, uid), ProState{Pro: pro, At: now})
+		return tx.Set(proStateDoc(s, uid), next)
 	})
 	return prev, err
 }

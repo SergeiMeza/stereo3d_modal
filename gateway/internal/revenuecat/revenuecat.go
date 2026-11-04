@@ -47,7 +47,7 @@ func PlanTierOf(product string) string {
 
 const (
 	defaultBase    = "https://api.revenuecat.com"
-	okTTL          = 10 * time.Minute
+	okTTL          = 2 * time.Minute // a purchase in the app shows on the web soon (QA 2026-11-05)
 	failTTL        = time.Minute // a failing RevenueCat is asked again soon, not every quote
 	callTimeout    = 4 * time.Second
 	proEntitlement = "pro"

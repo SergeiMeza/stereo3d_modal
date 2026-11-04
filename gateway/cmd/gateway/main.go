@@ -66,6 +66,7 @@ func main() {
 		httpx.WriteOK(w, map[string]string{"status": "ok", "env": cfg.Env})
 	})
 	mux.HandleFunc("POST /webhooks/stripe", svc.HandleStripeWebhook)
+	mux.HandleFunc("POST /webhooks/revenuecat", svc.HandleRevenueCatWebhook) // Pro changes from the app's stores
 	// The TEST mode endpoint was registered at /webhook (found 2026-11-03:
 	// every test event 404ed); both paths serve the same handler.
 	mux.HandleFunc("POST /webhook", svc.HandleStripeWebhook)

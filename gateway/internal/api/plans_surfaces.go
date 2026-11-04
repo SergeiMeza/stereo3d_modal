@@ -123,8 +123,17 @@ func (s *Service) attributePlanStart(ctx context.Context, uid, product, source, 
 	return added
 }
 
-// proSeen: the Pro state this instance last stored per uid.
+// proSeen: the Pro state this instance last stored per uid, and when.
 var proSeen sync.Map
+
+type proSeenEntry struct {
+	pro bool
+	at  time.Time
+}
+
+// proStateTTL: how often an unchanged Pro state is written again
+// (pro_state.checked_at), per instance.
+const proStateTTL = 2 * time.Minute
 
 // noteProSeen: a person the gateway saw without Pro and now sees with it
 // started Pro (bought on the web through RevenueCat, or anywhere else).
@@ -133,16 +142,16 @@ func (s *Service) noteProSeen(ctx context.Context, uid string, pro bool) {
 	if s.Store == nil {
 		return
 	}
-	if v, ok := proSeen.Load(uid); ok && v.(bool) == pro {
-		return // unchanged since this instance last looked
-	}
 	now := time.Now().UTC()
+	if v, ok := proSeen.Load(uid); ok && v.(proSeenEntry).pro == pro && now.Sub(v.(proSeenEntry).at) < proStateTTL {
+		return // unchanged since this instance last looked, a moment ago
+	}
 	prev, err := s.Store.SwapProState(ctx, uid, pro, now)
 	if err != nil {
-		slog.WarnContext(ctx, "pro state not stored", "uid", uid, "err", err)
+		slog.WarnContext(ctx, "pro state not stored", "err", err) // no uid in the logs
 		return
 	}
-	proSeen.Store(uid, pro)
+	proSeen.Store(uid, proSeenEntry{pro: pro, at: now})
 	if pro && prev != nil && !prev.Pro {
 		s.attributePlanStart(ctx, uid, "pro", "revenuecat", "pro:"+uid+":"+now.Format("2006-01-02"), now)
 	}

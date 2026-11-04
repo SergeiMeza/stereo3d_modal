@@ -68,6 +68,12 @@ SECRETS="STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET
 if gcloud secrets describe "admin-session-key-${ENV}" --project "$PROJECT" >/dev/null 2>&1; then
   SECRETS="${SECRETS},ADMIN_SESSION_KEY=admin-session-key-${ENV}:latest"
 fi
+# RevenueCat webhook (POST /webhooks/revenuecat): the Authorization header
+# set in the RevenueCat dashboard, mounted when
+# revenuecat-webhook-auth-{env} exists (the route answers 503 without it).
+if gcloud secrets describe "revenuecat-webhook-auth-${ENV}" --project "$PROJECT" >/dev/null 2>&1; then
+  SECRETS="${SECRETS},REVENUECAT_WEBHOOK_AUTH=revenuecat-webhook-auth-${ENV}:latest"
+fi
 
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \

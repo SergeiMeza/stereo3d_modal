@@ -1135,6 +1135,15 @@ Business/Studio, only instructions.
   `management_url` (RevenueCat's `subscriber.management_url`, else
   `https://apps.apple.com/account/subscriptions` for Apple stores). Never
   the RevenueCat app user id.
+- **Freshness.** RevenueCat answers are cached 2 minutes per instance
+  (was 10); `POST /v1/pro/refresh` skips the cache. `pro_state_{env}`
+  keeps `at` (when Pro last changed) and `checked_at` (the last look,
+  at most every 2 minutes per instance). `POST /webhooks/revenuecat`
+  (RevenueCat dashboard → Integrations → Webhooks, Authorization header =
+  Secret Manager `revenuecat-webhook-auth-{env}`, mounted by deploy.sh
+  when it exists; 503 without) forgets and re-reads every account an
+  event names (app user id, original id, aliases, transfers; anonymous
+  ids skipped). No uids in these logs.
 - **Plan receipt (E18)**, at the subscription's first paid invoice, once:
   "Spatial Video Studio: your Business plan has started"; with an active
   App Store Pro (found among all subscriptions, not hidden by the plan's

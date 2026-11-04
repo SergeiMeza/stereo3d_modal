@@ -96,7 +96,7 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 	}
 	st, err := s.RevenueCat.Pro(r.Context(), u.UID)
 	if err != nil {
-		slog.WarnContext(r.Context(), "pro status unknown", "uid", u.UID, "err", err)
+		slog.WarnContext(r.Context(), "pro status unknown", "err", err)
 	} else {
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "") // a start of Pro (plans count at checkout)
 	}
@@ -117,9 +117,9 @@ func (s *Service) HandleProRefresh(w http.ResponseWriter, r *http.Request, u *Au
 	}
 	st, err := s.RevenueCat.Fresh(r.Context(), u.UID)
 	if err != nil {
-		slog.WarnContext(r.Context(), "pro refresh failed", "uid", u.UID, "err", err)
+		slog.WarnContext(r.Context(), "pro refresh failed", "err", err)
 	} else {
-		slog.InfoContext(r.Context(), "pro refreshed", "uid", u.UID, "pro", st.Pro, "via", st.Via)
+		slog.InfoContext(r.Context(), "pro refreshed", "pro", st.Pro, "via", st.Via)
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "")
 	}
 	w.Header().Set("Cache-Control", "no-store")

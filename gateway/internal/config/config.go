@@ -49,6 +49,10 @@ type Config struct {
 	// AdminSessionKey signs admin passkey sessions (ADR 0135; Secret
 	// Manager admin-session-key-{env}); "" = passkey sessions off.
 	AdminSessionKey string
+	// RevenueCatWebhookAuth: the Authorization header RevenueCat sends to
+	// POST /webhooks/revenuecat (Secret Manager
+	// revenuecat-webhook-auth-{env}); "" = the route is off.
+	RevenueCatWebhookAuth string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
 	// /v1/auth/* routes that sign browsers in on their behalf (identity
@@ -123,9 +127,10 @@ func Load() (*Config, error) {
 		StripeWebhookSecret:  getenv("STRIPE_WEBHOOK_SECRET", ""),
 		StripePublishableKey: getenv("STRIPE_PUBLISHABLE_KEY", ""),
 
-		SlackWebhookURL: getenv("SLACK_WEBHOOK_URL", ""),
-		ReconcileToken:  getenv("RECONCILE_TOKEN", ""),
-		AdminSessionKey: getenv("ADMIN_SESSION_KEY", ""),
+		SlackWebhookURL:       getenv("SLACK_WEBHOOK_URL", ""),
+		ReconcileToken:        getenv("RECONCILE_TOKEN", ""),
+		AdminSessionKey:       getenv("ADMIN_SESSION_KEY", ""),
+		RevenueCatWebhookAuth: getenv("REVENUECAT_WEBHOOK_AUTH", ""),
 
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),
