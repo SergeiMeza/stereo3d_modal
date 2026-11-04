@@ -40,14 +40,14 @@ export default function PrivacyPage() {
 
       <LegalSection title="2. Information we collect">
         <p>
-          <strong>Account information.</strong> When you sign in we receive
+          <strong>Account information.</strong>{" "}When you sign in we receive
           your email address, and if you sign in with Apple, Google or
           another provider, the basic profile details it shares (such as
           your name; Apple may give us a private relay email). We assign
           your account an internal user ID.
         </p>
         <p>
-          <strong>Billing information.</strong> Payments are processed by
+          <strong>Billing information.</strong>{" "}Payments are processed by
           Stripe. Your full payment details never touch our servers &mdash;
           Stripe stores them and gives us a customer reference plus a short
           description (such as the brand and last four digits) so you can
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           revealing its number.
         </p>
         <p>
-          <strong>Plans and subscriptions.</strong> We record which plan you
+          <strong>Plans and subscriptions.</strong>{" "}We record which plan you
           have (Pro, Business or Studio), its status and renewal date, and
           the usage credit and free previews it gives you. To grant and
           check these across our apps we share your internal user ID and
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
           RevenueCat.
         </p>
         <p>
-          <strong>Account settings.</strong> We keep the settings you choose
+          <strong>Account settings.</strong>{" "}We keep the settings you choose
           in the app: your language, which we also use for the short title
           at the start of your videos, and whether that title is on (Business
           and Studio plans can turn it off), your answers to the welcome
@@ -80,7 +80,7 @@ export default function PrivacyPage() {
           you&rsquo;ve already seen.
         </p>
         <p>
-          <strong>Your content.</strong> The videos you upload and everything
+          <strong>Your content.</strong>{" "}The videos you upload and everything
           the Service derives from them — scene cuts, intermediate 3D data,
           previews and finished 3D videos — are stored so you can work on and
           download them. We also log each download link we issue and each
@@ -92,14 +92,14 @@ export default function PrivacyPage() {
           with Spatial Video Studio and which run they came from.
         </p>
         <p>
-          <strong>Support, refunds and disputes.</strong> When you ask for
+          <strong>Support, refunds and disputes.</strong>{" "}When you ask for
           help or a refund, or a payment is disputed, we open a review case.
           It holds what we need to decide fairly: your messages and ours,
           the runs involved and their logs, payments and refunds, earlier
           cases, and the download and play records for those runs.
         </p>
         <p>
-          <strong>Usage and technical data.</strong> Standard server logs
+          <strong>Usage and technical data.</strong>{" "}Standard server logs
           (IP address, browser type, request timestamps) and job records
           (what was run, how long it took, what it cost). We use these to
           operate the Service, prevent abuse and debug problems, and we
