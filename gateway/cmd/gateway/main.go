@@ -139,14 +139,14 @@ func main() {
 				return
 			}
 			au, ok, serr := svc.AdminUserFor(r, a.UID, a.Email, a.AuthTime, a.MFA)
-			if secondFactor && serr != nil {
-				e := httpx.Err(http.StatusUnauthorized, "session_invalid", "Your admin session ended. Confirm with your passkey again.")
+			if secondFactor && serr != nil { // session_expired | invalid_session: the console drops its token
+				e := httpx.Err(http.StatusUnauthorized, api.SessionErrCode(serr), "Your admin session ended. Confirm with your passkey again.")
 				e.Details = map[string]any{"method": "passkey"}
 				httpx.WriteErr(r.Context(), w, e)
 				return
 			}
 			if secondFactor && !ok {
-				e := httpx.Err(http.StatusForbidden, "mfa_required", "confirm with your passkey (or sign in with your second factor)")
+				e := httpx.Err(http.StatusUnauthorized, "session_required", "Confirm with your passkey (or sign in with your second factor).")
 				e.Details = map[string]any{"methods": []string{"passkey", "totp"}}
 				httpx.WriteErr(r.Context(), w, e)
 				return

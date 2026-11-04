@@ -194,7 +194,9 @@ func TestAdminPasskeys(t *testing.T) {
 	if code != 401 || out["error"] != "reauth_required" || errMethod(out) != "passkey" {
 		t.Fatalf("money action on a stale assertion: %d %v", code, out)
 	}
-	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) { s.HandleAdminDeletePasskey(w, r, a, b64(v2.id)) }, http.MethodDelete, ""); code != 401 {
+	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+		s.HandleAdminDeletePasskey(w, r, a, b64(v2.id))
+	}, http.MethodDelete, ""); code != 401 {
 		t.Fatalf("delete on a stale assertion: %d %v", code, out)
 	}
 	code, out, _ = c.assert(v1, s.HandleAdminSessionReassert, pkOrigin, pkRPID)
@@ -208,10 +210,14 @@ func TestAdminPasskeys(t *testing.T) {
 	}
 
 	// The last passkey stays.
-	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) { s.HandleAdminDeletePasskey(w, r, a, b64(v2.id)) }, http.MethodDelete, ""); code != 200 {
+	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+		s.HandleAdminDeletePasskey(w, r, a, b64(v2.id))
+	}, http.MethodDelete, ""); code != 200 {
 		t.Fatalf("delete %d %v", code, out)
 	}
-	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) { s.HandleAdminDeletePasskey(w, r, a, b64(v1.id)) }, http.MethodDelete, ""); code != 409 || out["error"] != "last_passkey" {
+	if code, out := c.call(func(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+		s.HandleAdminDeletePasskey(w, r, a, b64(v1.id))
+	}, http.MethodDelete, ""); code != 409 || out["error"] != "last_passkey" {
 		t.Fatalf("last passkey %d %v", code, out)
 	}
 
@@ -271,5 +277,63 @@ func TestAdminPasskeyRefusals(t *testing.T) {
 	wrong := v.get(challengeFrom(t, opt), pkOrigin, pkRPID, c.uid)
 	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"credential":`+string(wrong)+`}`); code != 400 || out["error"] != "challenge_invalid" {
 		t.Fatalf("register challenge as a session %d %v", code, out)
+	}
+}
+
+// The console's shapes: {purpose, response}; reassert needs a session
+// and a reassert challenge; session errors carry the codes the console
+// drops its token on.
+func TestAdminPasskeyConsoleShapes(t *testing.T) {
+	s := pkService(t)
+	ctx := context.Background()
+	c := &pkClient{t: t, s: s, uid: "admin" + store.NewID(), authTime: time.Now(), origin: pkOrigin}
+	v := newVAuth(t)
+	code, out := c.call(s.HandlePasskeyRegisterOptions, http.MethodPost, `{"name":"Mac"}`)
+	if code != 200 {
+		t.Fatalf("options %d %v", code, out)
+	}
+	if code, out := c.call(s.HandlePasskeyRegisterVerify, http.MethodPost, `{"name":"Mac","response":`+string(v.create(challengeFrom(t, out), pkOrigin, pkRPID))+`}`); code != 201 {
+		t.Fatalf("register with response %d %v", code, out)
+	}
+	if code, out := c.call(s.HandleAdminSessionOptions, http.MethodPost, `{"purpose":"reassert"}`); code != 401 || out["error"] != "session_required" {
+		t.Fatalf("reassert without a session %d %v", code, out)
+	}
+	sign := func(purpose string) (int, map[string]any) {
+		_, o := c.call(s.HandleAdminSessionOptions, http.MethodPost, `{"purpose":"`+purpose+`"}`)
+		v.count++
+		return c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"purpose":"`+purpose+`","response":`+string(v.get(challengeFrom(t, o), pkOrigin, pkRPID, c.uid))+`}`)
+	}
+	code, out = sign("sign_in")
+	if code != 200 || out["session"] == nil {
+		t.Fatalf("sign_in %d %v", code, out)
+	}
+	c.session = out["session"].(string)
+	if code, out := sign("reassert"); code != 200 || out["session"] == nil {
+		t.Fatalf("reassert %d %v", code, out)
+	}
+	// A sign_in challenge answered as reassert is refused.
+	_, o := c.call(s.HandleAdminSessionOptions, http.MethodPost, `{"purpose":"sign_in"}`)
+	v.count++
+	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"purpose":"reassert","response":`+string(v.get(challengeFrom(t, o), pkOrigin, pkRPID, c.uid))+`}`); code != 400 || out["error"] != "challenge_invalid" {
+		t.Fatalf("purpose mismatch %d %v", code, out)
+	}
+	// Session error codes.
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); err != nil {
+		t.Fatalf("no header is no error: %v", err)
+	}
+	expired, _ := s.signAdminSession(AdminSession{UID: c.uid, IssuedAt: time.Now().Add(-13 * time.Hour).Unix(), ExpiresAt: time.Now().Add(-time.Hour).Unix()})
+	r.Header.Set("X-Admin-Session", expired)
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "session_expired" {
+		t.Fatalf("expired: %v", err)
+	}
+	r.Header.Set("X-Admin-Session", c.session+"x")
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "invalid_session" {
+		t.Fatalf("tampered: %v", err)
+	}
+	s.Store.BumpSessionEpoch(ctx, c.uid)
+	r.Header.Set("X-Admin-Session", c.session)
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "invalid_session" {
+		t.Fatalf("revoked: %v", err)
 	}
 }

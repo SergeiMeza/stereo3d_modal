@@ -1347,15 +1347,19 @@ the owner retires it.
     (else 401 `reauth_required {method: "google"}`); a further one also
     needs `X-Admin-Session` with an assertion within 5 minutes (401
     `reauth_required {method: "passkey"}`).
-  - `POST /v1/admin/passkeys/register/verify {name?, credential}` (the
-    `PublicKeyCredential` JSON) → 201 `{passkey: {id, name, created_at,
+  - `POST /v1/admin/passkeys/register/verify {name?, response}` (the
+    `PublicKeyCredential` JSON; `credential` also accepted) → 201 `{passkey: {id, name, created_at,
     last_used_at}}`; 400 `challenge_invalid` | `passkey_invalid`; 409
     `passkey_exists`. Slack `admin_passkey_added` (uid, name, origin,
     country).
-  - `POST /v1/admin/session/options` → `{options: {publicKey:
-    PublicKeyCredentialRequestOptions}, expires_at}`; 409 `no_passkey`.
-  - `POST /v1/admin/session/verify {credential}` → `{session,
-    expires_at, last_assertion_at}`. The session is HMAC-SHA256 signed with
+  - `POST /v1/admin/session/options {purpose?: sign_in | reassert}` →
+    `{options: {publicKey: PublicKeyCredentialRequestOptions},
+    expires_at}`; 409 `no_passkey`; reassert without a session 401
+    `session_required`. The challenge is bound to the purpose.
+  - `POST /v1/admin/session/verify {purpose?, response}` → `{session,
+    expires_at, last_assertion_at}`: sign_in starts a session, reassert
+    (with `X-Admin-Session`) returns the same session (sid, exp) with
+    `last_assertion_at` now. The session is HMAC-SHA256 signed with
     `ADMIN_SESSION_KEY` (Secret Manager `admin-session-key-{env}`, mounted
     by deploy.sh when it exists): claims uid, iat, exp (12 h),
     last_assertion_at, the uid's epoch. The console sends it as
@@ -1363,8 +1367,8 @@ the owner retires it.
     or RP, used meanwhile), `passkey_clone_suspected` (the sign count
     didn't go up; Slack), 400 `challenge_invalid` (replayed, expired, or
     another purpose's or account's).
-  - `POST /v1/admin/session/reassert {credential}` with the session →
-    the same session (sid, exp) with `last_assertion_at` now.
+  - `POST /v1/admin/session/reassert {response}` with the session: the
+    same as verify with purpose reassert (kept for older consoles).
   - `GET /v1/admin/passkeys` → `{passkeys: [{id, name, created_at,
     last_used_at}]}`.
   - `DELETE /v1/admin/passkeys/{id}`: an assertion within 5 minutes; 409
@@ -1372,8 +1376,10 @@ the owner retires it.
 - **Admin auth.** Every other admin route takes token + valid
   `X-Admin-Session` for the same uid (method passkey) or the TOTP sign-in
   (method totp). A session header that doesn't verify is 401
-  `session_invalid {method: "passkey"}`; neither factor is 403
-  `mfa_required {methods: ["passkey", "totp"]}`. Money actions need the
+  `session_expired` or `invalid_session` (bad signature, another
+  account's, revoked by a reset), with `{method: "passkey"}`; neither
+  factor is 401 `session_required {methods: ["passkey", "totp"]}`. The
+  console drops its token on all three. Money actions need the
   last assertion within 5 minutes (TOTP: auth_time), else 401
   `reauth_required {method: "passkey"}`.
 - **Break-glass.** `gateway/scripts/admin-passkeys-reset.sh <test|prod>

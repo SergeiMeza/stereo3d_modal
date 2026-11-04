@@ -49,8 +49,21 @@ const (
 	adminSessionTTL = 12 * time.Hour
 	passkeyNameMax  = 60
 	purposeRegister = "register"
-	purposeSession  = "session"
+	purposeSession  = "session"  // sign_in
+	purposeReassert = "reassert" // a fresh assertion for an existing session
 )
+
+// sessionPurpose reads the console's purpose (sign_in | reassert; ""
+// is sign_in).
+func sessionPurpose(p string) (string, bool) {
+	switch p {
+	case "", "sign_in", "session":
+		return purposeSession, true
+	case "reassert":
+		return purposeReassert, true
+	}
+	return "", false
+}
 
 type passkeyRP struct {
 	id     string
@@ -148,7 +161,26 @@ type AdminSession struct {
 	ID              string `json:"sid"`
 }
 
-var errNoSession = errors.New("no admin session")
+// Session errors, as the console reads them: session_required (none
+// sent), session_expired, invalid_session (bad signature, another
+// account's, revoked by a break-glass reset); the console drops its token
+// on any of them.
+var (
+	errNoSession      = errors.New("session_required")
+	errSessionExpired = errors.New("session_expired")
+	errSessionInvalid = errors.New("invalid_session")
+)
+
+// SessionErrCode is the error code for a session error.
+func SessionErrCode(err error) string {
+	switch {
+	case errors.Is(err, errNoSession):
+		return "session_required"
+	case errors.Is(err, errSessionExpired):
+		return "session_expired"
+	}
+	return "invalid_session"
+}
 
 func (s *Service) signAdminSession(sess AdminSession) (string, error) {
 	if s.Cfg.AdminSessionKey == "" {
@@ -169,32 +201,32 @@ func (s *Service) AdminSessionOf(ctx context.Context, r *http.Request, uid strin
 		return nil, errNoSession
 	}
 	if s.Cfg.AdminSessionKey == "" {
-		return nil, errors.New("admin sessions not configured")
+		return nil, errSessionInvalid
 	}
 	parts := strings.Split(tok, ".")
 	if len(parts) != 3 || parts[0] != "v1" {
-		return nil, errors.New("malformed admin session")
+		return nil, errSessionInvalid
 	}
 	mac := hmac.New(sha256.New, []byte(s.Cfg.AdminSessionKey))
 	mac.Write([]byte("v1." + parts[1]))
 	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil || !hmac.Equal(sig, mac.Sum(nil)) {
-		return nil, errors.New("bad admin session signature")
+		return nil, errSessionInvalid
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
 	var sess AdminSession
-	if err != nil || json.Unmarshal(raw, &sess) != nil {
-		return nil, errors.New("malformed admin session")
+	if err != nil || json.Unmarshal(raw, &sess) != nil || sess.UID != uid {
+		return nil, errSessionInvalid
 	}
-	if sess.UID != uid || time.Now().Unix() >= sess.ExpiresAt {
-		return nil, errors.New("admin session expired or not this account's")
+	if time.Now().Unix() >= sess.ExpiresAt {
+		return nil, errSessionExpired
 	}
 	ep, err := s.Store.SessionEpoch(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
 	if ep != sess.Epoch {
-		return nil, errors.New("admin session revoked")
+		return nil, errSessionInvalid
 	}
 	return &sess, nil
 }
@@ -337,11 +369,15 @@ func (s *Service) HandlePasskeyRegisterVerify(w http.ResponseWriter, r *http.Req
 	}
 	var req struct {
 		Name       string          `json:"name"`
+		Response   json.RawMessage `json:"response"`
 		Credential json.RawMessage `json:"credential"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil || len(req.Credential) == 0 {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("credential is required"))
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil || (len(req.Response) == 0 && len(req.Credential) == 0) {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("response is required"))
 		return
+	}
+	if len(req.Response) > 0 {
+		req.Credential = req.Response
 	}
 	parsed, err := protocol.ParseCredentialCreationResponseBytes(req.Credential)
 	if err != nil {
@@ -393,12 +429,27 @@ func (s *Service) HandlePasskeyRegisterVerify(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusCreated, map[string]any{"passkey": passkeyJSON(p)})
 }
 
-// POST /v1/admin/session/options → {options ({publicKey}), expires_at};
-// 409 no_passkey when the account has none on this origin.
+// POST /v1/admin/session/options {purpose?: sign_in | reassert} →
+// {options ({publicKey}), expires_at}; 409 no_passkey when the account
+// has none on this origin; reassert needs the session (401
+// session_required).
 func (s *Service) HandleAdminSessionOptions(w http.ResponseWriter, r *http.Request, a *AdminUser) {
 	ctx := r.Context()
 	rp := s.requirePasskeyRP(w, r)
 	if rp == nil {
+		return
+	}
+	var req struct {
+		Purpose string `json:"purpose"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req)
+	purpose, ok := sessionPurpose(req.Purpose)
+	if !ok {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("purpose: sign_in or reassert"))
+		return
+	}
+	if purpose == purposeReassert && a.Session == nil {
+		httpx.WriteErr(ctx, w, sessionRequired())
 		return
 	}
 	u, _, err := s.adminWAUserFor(ctx, a, rp)
@@ -415,33 +466,50 @@ func (s *Service) HandleAdminSessionOptions(w http.ResponseWriter, r *http.Reque
 		httpx.WriteErr(ctx, w, httpx.ErrServer())
 		return
 	}
-	if err := s.saveChallenge(ctx, a, rp, purposeSession, "", session); err != nil {
+	if err := s.saveChallenge(ctx, a, rp, purpose, "", session); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrServer())
 		return
 	}
 	httpx.WriteOK(w, map[string]any{"options": assertion, "expires_at": time.Now().Add(passkeyTTL).UTC()})
 }
 
-// verifyAssertion checks a session-purpose assertion and records the use.
-func (s *Service) verifyAssertion(w http.ResponseWriter, r *http.Request, a *AdminUser) bool {
+func sessionRequired() error {
+	return httpx.Err(http.StatusUnauthorized, "session_required", "Start a passkey session first.")
+}
+
+// assertionReq is a session verify body: {purpose?, response} (the
+// console) or {credential} (the same PublicKeyCredential JSON).
+type assertionReq struct {
+	Purpose    string          `json:"purpose"`
+	Response   json.RawMessage `json:"response"`
+	Credential json.RawMessage `json:"credential"`
+}
+
+func (q assertionReq) cred() json.RawMessage {
+	if len(q.Response) > 0 {
+		return q.Response
+	}
+	return q.Credential
+}
+
+// verifyAssertion checks an assertion made for purpose and records the
+// use.
+func (s *Service) verifyAssertion(w http.ResponseWriter, r *http.Request, a *AdminUser, purpose string, body json.RawMessage) bool {
 	ctx := r.Context()
 	rp := s.requirePasskeyRP(w, r)
 	if rp == nil {
 		return false
 	}
-	var req struct {
-		Credential json.RawMessage `json:"credential"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil || len(req.Credential) == 0 {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("credential is required"))
+	if len(body) == 0 {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("response is required"))
 		return false
 	}
-	parsed, err := protocol.ParseCredentialRequestResponseBytes(req.Credential)
+	parsed, err := protocol.ParseCredentialRequestResponseBytes(body)
 	if err != nil {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "passkey_invalid", "That passkey response couldn't be read."))
 		return false
 	}
-	_, session, err := s.takeChallenge(ctx, a, rp, purposeSession, parsed.Response.CollectedClientData.Challenge)
+	_, session, err := s.takeChallenge(ctx, a, rp, purpose, parsed.Response.CollectedClientData.Challenge)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return false
@@ -492,14 +560,30 @@ func (s *Service) writeSession(w http.ResponseWriter, r *http.Request, sess Admi
 		"last_assertion_at": time.Unix(sess.LastAssertionAt, 0).UTC()})
 }
 
-// POST /v1/admin/session/verify {credential} → {session, expires_at,
-// last_assertion_at}.
+// POST /v1/admin/session/verify {purpose?: sign_in | reassert,
+// response} → {session, expires_at, last_assertion_at}. sign_in starts a
+// session; reassert (with X-Admin-Session) returns the same session with
+// last_assertion_at now.
 func (s *Service) HandleAdminSessionVerify(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	var req assertionReq
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
+		httpx.WriteErr(r.Context(), w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	purpose, ok := sessionPurpose(req.Purpose)
+	if !ok {
+		httpx.WriteErr(r.Context(), w, httpx.ErrInvalid("purpose: sign_in or reassert"))
+		return
+	}
+	if purpose == purposeReassert {
+		s.reassert(w, r, a, req)
+		return
+	}
 	if s.Cfg.AdminSessionKey == "" {
 		httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusServiceUnavailable, "sessions_unavailable", "Passkey sessions aren't configured here."))
 		return
 	}
-	if !s.verifyAssertion(w, r, a) {
+	if !s.verifyAssertion(w, r, a, purposeSession, req.cred()) {
 		return
 	}
 	ep, err := s.Store.SessionEpoch(r.Context(), a.UID)
@@ -512,19 +596,46 @@ func (s *Service) HandleAdminSessionVerify(w http.ResponseWriter, r *http.Reques
 		Epoch: ep, ID: newSessionID()})
 }
 
-// POST /v1/admin/session/reassert {credential} with X-Admin-Session →
-// the same session with last_assertion_at now.
+// POST /v1/admin/session/reassert {response} with X-Admin-Session: the
+// same as verify with purpose reassert (options from purpose reassert;
+// a sign_in challenge is accepted here too).
 func (s *Service) HandleAdminSessionReassert(w http.ResponseWriter, r *http.Request, a *AdminUser) {
-	if a.Session == nil {
-		httpx.WriteErr(r.Context(), w, passkeyReauth("passkey", "Start a passkey session first."))
+	var req assertionReq
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
+		httpx.WriteErr(r.Context(), w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if !s.verifyAssertion(w, r, a) {
+	s.reassert(w, r, a, req)
+}
+
+func (s *Service) reassert(w http.ResponseWriter, r *http.Request, a *AdminUser, req assertionReq) {
+	if a.Session == nil {
+		httpx.WriteErr(r.Context(), w, sessionRequired())
+		return
+	}
+	purpose := purposeReassert
+	if req.Purpose == "" { // the older reassert route reads options made for sign_in
+		purpose = s.challengePurposeOf(r.Context(), req.cred())
+	}
+	if !s.verifyAssertion(w, r, a, purpose, req.cred()) {
 		return
 	}
 	sess := *a.Session
 	sess.LastAssertionAt = time.Now().Unix()
 	s.writeSession(w, r, sess)
+}
+
+// challengePurposeOf peeks at the purpose a response's challenge was made
+// for (reassert or session; it is consumed and checked by the verify).
+func (s *Service) challengePurposeOf(ctx context.Context, body json.RawMessage) string {
+	parsed, err := protocol.ParseCredentialRequestResponseBytes(body)
+	if err != nil {
+		return purposeReassert
+	}
+	if c, err := s.Store.PeekPasskeyChallenge(ctx, parsed.Response.CollectedClientData.Challenge); err == nil && c.Purpose == purposeSession {
+		return purposeSession
+	}
+	return purposeReassert
 }
 
 // GET /v1/admin/passkeys → {passkeys: [{id, name, created_at,
