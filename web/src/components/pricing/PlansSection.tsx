@@ -12,12 +12,16 @@ import Link from "next/link";
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { PlanChangeSheet } from "@/components/pay/PlanChangeSheet";
 import { PlanSheet } from "@/components/pay/PlanSheet";
+import { periodWord } from "@/components/pro/proMembership";
 import { formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { PlanDef, PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
+import { isTeamPlan } from "@/lib/api/types";
+import { isWebPro, useProStatus } from "@/lib/pro/usePro";
 
 import { planPrice } from "./planCopy";
 
@@ -47,9 +51,17 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
   const { user } = useAuth();
   const billing = useBilling();
   const [open, setOpen] = useState<PlanKey | null>(null);
+  const pro = useProStatus();
   const plans = pricing.plans;
   if (!plans || PLAN_KEYS.every((k) => !plans[k])) return null;
-  const mine = billing.status?.plan?.active ? billing.status.plan.plan : null;
+  // a web Pro's plan block isn't a team plan: Business and Studio stay open
+  const teamPlan = billing.status?.plan;
+  const mine = isTeamPlan(teamPlan) ? teamPlan.plan : null;
+  // coordinator 2026-11-05: for a web Pro they're a plan change (credited
+  // for the unused Pro), never a second checkout
+  const webPro = isWebPro(pro);
+  const proPeriod = periodWord(billing.status?.plan?.plan === "pro" ? billing.status.plan.plan_id : pro?.plan_id ?? pro?.via);
+  const proName = `Pro${proPeriod ? ` ${proPeriod}` : ""}`;
   return (
     <section data-testid="plans" aria-labelledby="plans-title" className="flex flex-col gap-4">
       <div className="text-center">
@@ -112,7 +124,11 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
         })}
       </div>
       {open && plans[open] ? (
-        <PlanSheet plan={open} def={plans[open]!} onClose={() => setOpen(null)} />
+        webPro ? (
+          <PlanChangeSheet plan={open} def={plans[open]!} from={proName} onClose={() => setOpen(null)} />
+        ) : (
+          <PlanSheet plan={open} def={plans[open]!} onClose={() => setOpen(null)} />
+        )
       ) : null}
     </section>
   );
