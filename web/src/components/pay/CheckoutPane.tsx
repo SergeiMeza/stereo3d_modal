@@ -9,6 +9,9 @@
  * Business and Studio (gateway 00105): the session requires a billing
  * address, so the pane shows Stripe's Billing Address Element (wired into
  * the session), and the optional business name and tax ID right away.
+ * QA 2026-11-05: the address comes first, above the payment fields, is
+ * prefilled from the saved business details, and `revealMissing` scrolls
+ * to it and focuses it when the sheet's button is pressed too early.
  *
  * A render prop hands the sheet a `PayForm` (ready, confirm, selected
  * method) so the sheet owns the one main button and the states.
@@ -26,11 +29,12 @@ import {
   TaxIdElement,
   useCheckoutElements,
 } from "@stripe/react-stripe-js/checkout";
-import type { Appearance } from "@stripe/stripe-js";
-import { useMemo, useState } from "react";
+import type { Appearance, StripeAddressElement } from "@stripe/stripe-js";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { getStripe } from "@/components/billing/stripeLoader";
+import type { CompanyAddress } from "@/lib/api/types";
 
 import { ADD_BUSINESS, OR_PAY_ANOTHER_WAY, REMOVE_BUSINESS, SAVE_LINE } from "./payCopy";
 
@@ -59,6 +63,28 @@ export interface PayForm {
   /** the card fields are showing (headset: collapsed under "Pay with a card") */
   cardsOpen: boolean;
   openCards: () => void;
+  /** the required billing address is filled in (true when none is asked) */
+  addressComplete: boolean;
+  /** an asked-for address that isn't complete: scroll to it, focus its
+   * first field and say true; otherwise false */
+  revealMissing: () => boolean;
+}
+
+/** A saved address to start the billing address with. */
+export interface PrefillAddress {
+  name?: string | null;
+  address: CompanyAddress;
+}
+
+/** A saved address worth prefilling: a country and a street at least. */
+export function usablePrefill(p: PrefillAddress | null | undefined): PrefillAddress | null {
+  if (!p?.address?.country || !p.address.line1?.trim()) return null;
+  return p;
+}
+
+/** Bring a block into view inside the sheet's scrolling body. */
+function scrollToBlock(el: HTMLElement | null): void {
+  el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
 }
 
 /** Test mode: whether the stand-in shows a wallet row. */
@@ -143,6 +169,7 @@ export function CheckoutPane({
   setup = false,
   collapseCards = false,
   billingAddress = false,
+  prefillAddress = null,
   children,
 }: {
   clientSecret: string;
@@ -150,6 +177,8 @@ export function CheckoutPane({
   /** Business/Studio: the session requires a billing address, and offers
    * the business name and tax ID */
   billingAddress?: boolean;
+  /** the saved business address the billing address starts with */
+  prefillAddress?: PrefillAddress | null;
   /** headset: bigger type and targets */
   big?: boolean;
   /** P2 pays with saved methods: no save line */
@@ -171,6 +200,7 @@ export function CheckoutPane({
         setup={setup}
         collapseCards={collapseCards}
         billingAddress={billingAddress}
+        prefillAddress={prefillAddress}
       >
         {children}
       </MockPane>
@@ -186,6 +216,7 @@ export function CheckoutPane({
       setup={setup}
       collapseCards={collapseCards}
       billingAddress={billingAddress}
+      prefillAddress={prefillAddress}
     >
       {children}
     </StripePane>
@@ -201,6 +232,7 @@ function StripePane({
   setup,
   collapseCards,
   billingAddress,
+  prefillAddress,
   children,
 }: {
   clientSecret: string;
@@ -211,6 +243,7 @@ function StripePane({
   setup: boolean;
   collapseCards: boolean;
   billingAddress: boolean;
+  prefillAddress: PrefillAddress | null;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -227,6 +260,7 @@ function StripePane({
         setup={setup}
         collapseCards={collapseCards}
         billingAddress={billingAddress}
+        prefillAddress={prefillAddress}
       >
         {children}
       </StripeForm>
@@ -240,6 +274,7 @@ function StripeForm({
   setup,
   collapseCards,
   billingAddress,
+  prefillAddress,
   children,
 }: {
   big: boolean;
@@ -249,6 +284,7 @@ function StripeForm({
   setup: boolean;
   collapseCards: boolean;
   billingAddress: boolean;
+  prefillAddress: PrefillAddress | null;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const result = useCheckoutElements();
@@ -257,7 +293,41 @@ function StripeForm({
   const [message, setMessage] = useState<string | null>(null);
   const [wallets, setWallets] = useState<boolean | null>(null);
   const [cardsOpen, setCardsOpen] = useState(!collapseCards);
+  // the Billing Address Element's own "complete" (null until it reports)
+  const [addressDone, setAddressDone] = useState<boolean | null>(null);
+  // nodes in state, not refs: the sheet's button reads them from `form`
+  const [addressBlock, setAddressBlock] = useState<HTMLDivElement | null>(null);
+  const [addressEl, setAddressEl] = useState<StripeAddressElement | null>(null);
+  const prefilled = useRef(false);
   const ready = result.type === "success";
+  const checkout = result.type === "success" ? result.checkout : null;
+  const prefill = usablePrefill(prefillAddress);
+
+  // QA 2026-11-05: start the address from the saved business details when
+  // the session has none of its own (Stripe fills it from the customer)
+  useEffect(() => {
+    if (!checkout || !billingAddress || !prefill || prefilled.current) return;
+    prefilled.current = true;
+    if (checkout.billingAddress?.address?.line1) return;
+    const a = prefill.address;
+    void checkout
+      .updateBillingAddress({
+        name: prefill.name ?? null,
+        address: {
+          country: a.country,
+          line1: a.line1 ?? null,
+          line2: a.line2 ?? null,
+          city: a.city ?? null,
+          postal_code: a.postal_code ?? null,
+          state: a.state ?? null,
+        },
+      })
+      .catch(() => undefined);
+  }, [checkout, billingAddress, prefill]);
+
+  const sessionAddress = checkout?.billingAddress?.address;
+  const addressComplete =
+    !billingAddress || (addressDone ?? Boolean(sessionAddress?.country && sessionAddress.line1));
   // saving isn't offered for Alipay or WeChat Pay (never saved, B6)
   const savable = selected !== "alipay" && selected !== "wechat_pay";
 
@@ -268,6 +338,14 @@ function StripeForm({
     wallets,
     cardsOpen,
     openCards: () => setCardsOpen(true),
+    addressComplete,
+    revealMissing: () => {
+      if (addressComplete) return false;
+      setCardsOpen(true);
+      scrollToBlock(addressBlock);
+      addressEl?.focus();
+      return true;
+    },
     confirm: async () => {
       if (result.type !== "success") return "declined";
       setMessage(null);
@@ -319,6 +397,17 @@ function StripeForm({
             }}
           />
           {wallets !== false && cardsOpen ? <Divider setup={setup} /> : null}
+          {billingAddress && cardsOpen ? (
+            // gateway 00105: required; the element writes it into the
+            // session. QA 2026-11-05: first, so it's never below the fold
+            <div ref={setAddressBlock} data-testid="billing-address" className="flex flex-col gap-2 scroll-mt-4">
+              <p className="text-sm font-medium text-fg">Billing address</p>
+              <BillingAddressElement
+                onChange={(e) => setAddressDone(e.complete)}
+                onReady={setAddressEl}
+              />
+            </div>
+          ) : null}
           {cardsOpen ? (
             <PaymentElement
               options={{ layout: { type: "tabs" } }}
@@ -326,10 +415,6 @@ function StripeForm({
             />
           ) : wallets !== false ? (
             <CardsToggle big={big} onOpen={() => setCardsOpen(true)} />
-          ) : null}
-          {billingAddress && cardsOpen ? (
-            // gateway 00105: required; the element writes it into the session
-            <BillingAddressElement />
           ) : null}
           {!setup && !billingAddress && cardsOpen ? (
             <button
@@ -359,6 +444,7 @@ function MockPane({
   setup = false,
   collapseCards = false,
   billingAddress = false,
+  prefillAddress = null,
   children,
 }: {
   clientSecret: string;
@@ -366,11 +452,28 @@ function MockPane({
   setup?: boolean;
   collapseCards?: boolean;
   billingAddress?: boolean;
+  prefillAddress?: PrefillAddress | null;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const [selected, setSelected] = useState<string>("card");
-  const [address, setAddress] = useState({ country: "US", line1: "", city: "", postal_code: "" });
+  const [address, setAddress] = useState(() => {
+    const a = usablePrefill(prefillAddress)?.address;
+    return { country: a?.country ?? "US", line1: a?.line1 ?? "", city: a?.city ?? "", postal_code: a?.postal_code ?? "" };
+  });
   const [message, setMessage] = useState<string | null>(null);
+  const [addressBlock, setAddressBlock] = useState<HTMLFieldSetElement | null>(null);
+  // the saved details may land after the pane: fill an untouched address once
+  const mockPrefill = usablePrefill(prefillAddress)?.address ?? null;
+  const mockPrefilled = useRef(mockPrefill !== null);
+  useEffect(() => {
+    if (!mockPrefill || mockPrefilled.current) return;
+    mockPrefilled.current = true;
+    setAddress((cur) =>
+      cur.line1 || cur.city || cur.postal_code
+        ? cur
+        : { country: mockPrefill.country, line1: mockPrefill.line1 ?? "", city: mockPrefill.city ?? "", postal_code: mockPrefill.postal_code ?? "" },
+    );
+  }, [mockPrefill]);
   const addressDone = !billingAddress || (address.line1.trim() !== "" && address.city.trim() !== "" && address.postal_code.trim() !== "");
   const [business, setBusiness] = useState(false);
   const [wallets] = useState(mockWallets);
@@ -382,6 +485,15 @@ function MockPane({
     wallets,
     cardsOpen,
     openCards: () => setCardsOpen(true),
+    addressComplete: addressDone,
+    revealMissing: () => {
+      if (addressDone) return false;
+      setCardsOpen(true);
+      scrollToBlock(addressBlock);
+      const empty = Array.from(addressBlock?.querySelectorAll("input") ?? []).find((i) => i.value.trim() === "");
+      empty?.focus();
+      return true;
+    },
     confirm: async () => {
       // like Stripe: the session won't confirm without its billing address
       if (!addressDone) {
@@ -409,6 +521,27 @@ function MockPane({
         wallets ? <CardsToggle big={collapseCards} onOpen={() => setCardsOpen(true)} /> : null
       ) : (
         <>
+        {billingAddress ? (
+          <fieldset ref={setAddressBlock} data-testid="mock-billing-address" className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm text-fg">Billing address</legend>
+            {(
+              [
+                ["line1", "Address"],
+                ["city", "City"],
+                ["postal_code", "Postal code"],
+              ] as const
+            ).map(([k, label]) => (
+              <input
+                key={k}
+                aria-label={label}
+                placeholder={label}
+                value={address[k]}
+                onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
+                className="h-11 rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg"
+              />
+            ))}
+          </fieldset>
+        ) : null}
         <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2">
           {(setup ? (["card", "paypal"] as const) : (["card", "alipay"] as const)).map((m) => (
             <button
@@ -429,27 +562,6 @@ function MockPane({
           <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 font-mono text-sm text-fg-muted">
             4242 4242 4242 4242
           </div>
-        ) : null}
-        {billingAddress ? (
-          <fieldset data-testid="mock-billing-address" className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm text-fg">Billing address</legend>
-            {(
-              [
-                ["line1", "Address"],
-                ["city", "City"],
-                ["postal_code", "Postal code"],
-              ] as const
-            ).map(([k, label]) => (
-              <input
-                key={k}
-                aria-label={label}
-                placeholder={label}
-                value={address[k]}
-                onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
-                className="h-11 rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg"
-              />
-            ))}
-          </fieldset>
         ) : null}
         {!setup && !billingAddress ? (
           <button

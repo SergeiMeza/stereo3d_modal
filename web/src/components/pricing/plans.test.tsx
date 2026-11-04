@@ -74,6 +74,22 @@ describe("Pricing 2026-11", () => {
     expect(document.body.textContent).not.toMatch(/Lifetime|depth map|splat|inpaint|Gaussian|no subscription/i);
   });
 
+  it("the saved business details start the billing address (QA 2026-11-05)", async () => {
+    mockDb.billing.company = {
+      company_name: "Acme Ltd",
+      address: { country: "GB", line1: "1 King St", city: "London", postal_code: "EC2V 8AU" },
+    };
+    renderPricing();
+    fireEvent.click(await within(await screen.findByTestId("plan-business")).findByTestId("choose-business"));
+    await waitFor(() => expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe("1 King St"));
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("London");
+    expect((screen.getByLabelText("Postal code") as HTMLInputElement).value).toBe("EC2V 8AU");
+    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("plan-main"));
+    expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
+    expect(screen.queryByTestId("plan-address-hint")).toBeNull();
+  });
+
   it("Business and Studio cards; choosing one pays in our sheet and shows the plan on Billing", async () => {
     renderPricing();
     const biz = await screen.findByTestId("plan-business");
@@ -90,14 +106,24 @@ describe("Pricing 2026-11", () => {
     const main = await screen.findByTestId("plan-main");
     // gateway 00105: no billing address, no payment
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
-    expect(screen.getByTestId("mock-billing-address")).toBeTruthy();
+    const addressBlock = screen.getByTestId("mock-billing-address");
     expect(screen.getByText("Tax ID (optional)")).toBeTruthy();
+    // QA 2026-11-05: the address comes before the payment fields
+    const methods = screen.getByRole("radiogroup", { name: "Payment method" });
+    expect(addressBlock.compareDocumentPosition(methods) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // an early press shows and focuses the address, and pays nothing
     fireEvent.click(screen.getByTestId("plan-main"));
-    expect(await screen.findByText("Enter your billing address.")).toBeTruthy();
+    expect((await screen.findByTestId("plan-address-hint")).textContent).toBe("Fill in your billing address");
+    expect(document.activeElement).toBe(screen.getByLabelText("Address"));
     expect(mockDb.billing.plan).toBeFalsy();
     expect(main.textContent).toContain("Start Business · $299.00");
-    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText("Address"), { target: { value: "1 King St" } });
+    fireEvent.click(screen.getByTestId("plan-main"));
+    // the first empty field next
+    expect(document.activeElement).toBe(screen.getByLabelText("City"));
     fillBillingAddress();
+    expect(screen.queryByTestId("plan-address-hint")).toBeNull();
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
     expect(mockDb.billing.plan?.plan).toBe("business");
