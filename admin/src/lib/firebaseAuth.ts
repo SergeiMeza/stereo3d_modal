@@ -19,7 +19,7 @@ import {
 } from "firebase/auth";
 import QRCode from "qrcode";
 
-import type { SessionProblem } from "./api";
+import type { SessionProblem, SessionProblemDetails } from "./api";
 import { authErrorMessage, type AdminAuth, type AuthState, type Enrolment } from "./auth";
 import { FIREBASE_AUTH_DOMAIN } from "./csp";
 
@@ -240,11 +240,22 @@ export function createFirebaseAuth(): AdminAuth {
       return user ? user.getIdToken(force) : null;
     },
 
-    reportProblem(problem: SessionProblem) {
+    reportProblem(problem: SessionProblem, details?: SessionProblemDetails) {
       const user = auth.currentUser;
       if (problem === "invalid_token" || !user) {
         pendingNotice = "expired";
         void fbSignOut(auth);
+        return;
+      }
+      if (problem === "session_required") {
+        // ADR 0135: no second factor on the call; the passkey step
+        set({
+          kind: "passkey",
+          email: user.email ?? "",
+          uid: user.uid,
+          hasFactor: multiFactor(user).enrolledFactors.length > 0,
+          methods: details?.methods,
+        });
         return;
       }
       if (problem === "no_access") {

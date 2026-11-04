@@ -69,8 +69,12 @@ export class FakeAuth implements AdminAuth {
     if (force) this.tokens++;
     return `token-${this.tokens}`;
   });
-  reportProblem = vi.fn((p: string) => {
+  reportProblem = vi.fn((p: string, d?: { methods?: string[] }) => {
     this.problems.push(p);
+    // like the Firebase auth: no second factor on a call → the passkey step
+    if (p === "session_required" && (this.state.kind === "ready" || this.state.kind === "passkey")) {
+      this.set({ kind: "passkey", email: this.state.email, uid: this.state.uid, hasFactor: false, methods: d?.methods });
+    }
   });
   recheck = vi.fn(async () => {});
   signOut = vi.fn(async () => {
@@ -88,7 +92,7 @@ export function renderApp(
   const api = new AdminApi({
     baseUrl: GATEWAY,
     getToken: (f) => auth.getToken(f),
-    onSessionProblem: (p) => auth.reportProblem(p),
+    onSessionProblem: (p, d) => (d ? auth.reportProblem(p, d) : auth.reportProblem(p)),
     fetchImpl: fetch,
     session,
   });

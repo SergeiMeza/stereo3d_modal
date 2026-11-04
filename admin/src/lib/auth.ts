@@ -1,4 +1,4 @@
-import type { SessionProblem } from "./api";
+import type { SessionProblem, SessionProblemDetails } from "./api";
 
 /**
  * Sign-in state for the console (A0). The Firebase implementation lives in
@@ -16,7 +16,14 @@ export type AuthState =
   | { kind: "code"; label: string; error?: string }
   /** Google is done and the claim is there; the passkey is next (ADR 0135).
    * The authenticator code stays available while the gateway accepts it. */
-  | { kind: "passkey"; email: string; uid: string; hasFactor: boolean }
+  | {
+      kind: "passkey";
+      email: string;
+      uid: string;
+      hasFactor: boolean;
+      /** the gateway's second factors (401 session_required); unknown = both */
+      methods?: string[];
+    }
   /** Signed in with the claim but no second factor yet. */
   | { kind: "enrol"; email: string; hasFactor: boolean; error?: string }
   | { kind: "no_access"; email: string }
@@ -39,7 +46,7 @@ export interface AdminAuth {
   submitReauthCode(code: string): Promise<void>;
   getToken(force?: boolean): Promise<string | null>;
   /** The gateway refused the session (expired token, no claim, no MFA). */
-  reportProblem(problem: SessionProblem): void;
+  reportProblem(problem: SessionProblem, details?: SessionProblemDetails): void;
   /** Re-reads the claims (after the owner sets svs_admin). */
   recheck(): Promise<void>;
   signOut(): Promise<void>;

@@ -25,7 +25,15 @@ export function SignInScreen({ auth, state, api }: { auth: AdminAuth; state: Aut
 function Body({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: AdminApi }) {
   switch (state.kind) {
     case "passkey":
-      return <PasskeyStep auth={auth} api={api} email={state.email} hasFactor={state.hasFactor} />;
+      return (
+        <PasskeyStep
+          auth={auth}
+          api={api}
+          email={state.email}
+          hasFactor={state.hasFactor}
+          totp={!state.methods || state.methods.includes("totp")}
+        />
+      );
     case "loading":
     case "ready":
       return <Spinner />;
@@ -148,7 +156,20 @@ type PasskeyStage =
  * sign in with it. The authenticator code stays one link away while the
  * gateway still takes it.
  */
-function PasskeyStep({ auth, api, email, hasFactor }: { auth: AdminAuth; api: AdminApi; email: string; hasFactor: boolean }) {
+function PasskeyStep({
+  auth,
+  api,
+  email,
+  hasFactor,
+  totp,
+}: {
+  auth: AdminAuth;
+  api: AdminApi;
+  email: string;
+  hasFactor: boolean;
+  /** the gateway still takes the authenticator code */
+  totp: boolean;
+}) {
   const [stage, setStage] = useState<PasskeyStage>({ kind: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -239,9 +260,11 @@ function PasskeyStep({ auth, api, email, hasFactor }: { auth: AdminAuth; api: Ad
         </>
       )}
       {error && <p className="err small" role="alert">{error}</p>}
-      <Button size="sm" variant="ghost" onClick={() => setStage({ kind: "totp" })}>
-        Use an authenticator code instead
-      </Button>
+      {totp && (
+        <Button size="sm" variant="ghost" onClick={() => setStage({ kind: "totp" })}>
+          Use an authenticator code instead
+        </Button>
+      )}
       <Button size="sm" variant="ghost" onClick={() => void auth.signOut()}>Use another account</Button>
     </>
   );

@@ -48,7 +48,12 @@ export class ApiError extends Error {
 }
 
 /** Codes that end or block the whole session rather than one request. */
-export type SessionProblem = "invalid_token" | "no_access" | "mfa_required";
+export type SessionProblem = "invalid_token" | "no_access" | "mfa_required" | "session_required";
+
+/** With session_required: the second factors the gateway takes. */
+export interface SessionProblemDetails {
+  methods?: string[];
+}
 
 /** The gateway's answer when the passkey session is missing or over: the
  * token is dropped and the console asks for the passkey again. */
@@ -83,7 +88,7 @@ export interface AdminApiOptions {
   baseUrl: string;
   /** Firebase ID token; `force` refreshes it (after a 401 or a re-auth). */
   getToken: (force?: boolean) => Promise<string | null>;
-  onSessionProblem?: (problem: SessionProblem) => void;
+  onSessionProblem?: (problem: SessionProblem, details?: SessionProblemDetails) => void;
   fetchImpl?: typeof fetch;
   /** The passkey session token (ADR 0135); a new sessionStorage-backed one by default. */
   session?: AdminSession;
@@ -156,6 +161,12 @@ export class AdminApi {
     if (res.status === 401) {
       const err = await toApiError(res);
       if (SESSION_CODES.has(err.code)) this.session.clear();
+      if (err.code === "session_required") {
+        // No second factor on this call (ADR 0135): the passkey step, with
+        // the TOTP link only when the gateway still takes it.
+        const methods = Array.isArray(err.details?.methods) ? (err.details.methods as string[]) : undefined;
+        this.onSessionProblem?.("session_required", { methods });
+      }
       if (err.code !== "invalid_token") throw err;
       // A token can expire between the SDK's refreshes: retry once with a
       // fresh one before calling the session over.
@@ -352,7 +363,9 @@ async function toApiError(res: Response): Promise<ApiError> {
         : // 401 reauth_required names the method: {method: "passkey"}
           typeof extra.method === "string"
           ? { method: extra.method }
-          : null;
+          : Array.isArray(extra.methods)
+            ? { methods: extra.methods }
+            : null;
   return new ApiError(res.status, code, message, details);
 }
 

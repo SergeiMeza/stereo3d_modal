@@ -96,6 +96,35 @@ describe("passkey sign-in (ADR 0135)", () => {
     expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
   });
 
+  it("401 session_required {methods: passkey, totp}: the passkey step with the code link", async () => {
+    const auth = new FakeAuth();
+    renderApp(
+      "/cases",
+      {
+        "GET /v1/admin/cases": () =>
+          apiError(401, "session_required", "Confirm with your passkey (or sign in with your second factor).", { methods: ["passkey", "totp"] }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "x" } }),
+      },
+      auth,
+    );
+    expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
+    expect(auth.problems).toContain("session_required");
+    expect(screen.getByRole("button", { name: "Use an authenticator code instead" })).toBeInTheDocument();
+  });
+
+  it("no TOTP link when the gateway takes only the passkey", async () => {
+    renderApp(
+      "/cases",
+      {
+        "GET /v1/admin/cases": () => apiError(401, "session_required", "Confirm with your passkey.", { methods: ["passkey"] }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "x" } }),
+      },
+      new FakeAuth(),
+    );
+    expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use an authenticator code instead" })).toBeNull();
+  });
+
   it("an ended passkey session asks for the passkey again", async () => {
     const session = new AdminSession(memoryStorage());
     session.set("sess_old");
