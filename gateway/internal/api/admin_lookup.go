@@ -88,3 +88,63 @@ func (s *Service) HandleAdminRun(w http.ResponseWriter, r *http.Request, a *Admi
 		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "currency": nilIfEmpty(c.Quote.Currency), "kind": c.Kind,
 		"method": nilIfEmpty(c.Method)}})
 }
+
+// GET /v1/admin/efws → {efws: [{id, uid, charge, payment_intent,
+// amount_cents, created, case_id}]}: every early fraud warning still
+// open, with a case (an efw case not closed) or without one (a
+// fraud-warning hold on promotional Pro, e.g. a plan invoice's), newest
+// first. charge and created come from Stripe when it answers.
+func (s *Service) HandleAdminOpenEFWs(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	ctx := r.Context()
+	rows := map[string]map[string]any{}
+	if cases, err := s.Store.ListCasesByType(ctx, store.CaseEFW, 500); err == nil {
+		for _, c := range cases {
+			if !c.Open {
+				continue
+			}
+			id := firstNonEmpty(c.Related.EFWID, c.ID)
+			pi := ""
+			if len(c.Related.PIIDs) > 0 {
+				pi = c.Related.PIIDs[0]
+			}
+			rows[id] = map[string]any{"id": id, "uid": c.UID, "charge": nil, "payment_intent": nilIfEmpty(pi), "amount_cents": c.RequestedCents,
+				"created": c.OpenedAt, "case_id": c.ID}
+		}
+	}
+	if recs, err := s.Store.ListPromoRegrantsByStatus(ctx, []string{"held"}, 500); err == nil {
+		for _, rec := range recs {
+			id, ok := strings.CutPrefix(rec.ID, "efw:")
+			if !ok || rows[id] != nil {
+				continue
+			}
+			rows[id] = map[string]any{"id": id, "uid": rec.UID, "charge": nil, "payment_intent": nil, "amount_cents": rec.AmountCents,
+				"created": rec.CreatedAt, "case_id": nilIfEmpty(rec.CaseID)}
+		}
+	}
+	if len(rows) > 0 && s.Stripe != nil {
+		if efws, err := s.Stripe.ListEFWsSince(time.Now().AddDate(0, 0, -180), 2000); err == nil {
+			for _, e := range efws {
+				if row := rows[e.ID]; row != nil {
+					row["charge"] = nilIfEmpty(e.Charge)
+					if e.PaymentIntent != "" {
+						row["payment_intent"] = e.PaymentIntent
+					}
+					if e.Created > 0 {
+						row["created"] = time.Unix(e.Created, 0).UTC()
+					}
+				}
+			}
+		}
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		ti, _ := out[i]["created"].(time.Time)
+		tj, _ := out[j]["created"].(time.Time)
+		return ti.After(tj)
+	})
+	s.audit(ctx, a, "efws_list", map[string]any{"count": len(out)})
+	httpx.WriteOK(w, map[string]any{"efws": out})
+}

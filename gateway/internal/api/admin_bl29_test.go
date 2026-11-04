@@ -144,3 +144,29 @@ func TestAdminAllGrants(t *testing.T) {
 		t.Fatalf("grants %v", mine)
 	}
 }
+
+// Open early fraud warnings, with a case or only a hold.
+func TestAdminOpenEFWs(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	cs, _, _ := s.Store.CreateCase(ctx, &store.Case{UID: uid, Type: store.CaseEFW, Reason: ReasonEFW, Mode: "manual", Status: store.CaseOpen,
+		DedupeKey: "efw:issfr_a" + uid, RequestedCents: 900, Related: store.CaseRelated{EFWID: "issfr_a" + uid, PIIDs: []string{"pi_a"}}}, "system", "x")
+	s.Store.CreatePromoRegrant(ctx, "efw:issfr_b"+uid, &store.PromoRegrant{UID: uid, Policy: promoPolicyAll, Status: "held", AmountCents: 29900})
+	s.Store.CreatePromoRegrant(ctx, "efw:issfr_a"+uid, &store.PromoRegrant{UID: uid, Policy: promoPolicyAll, Status: "held", CaseID: cs.ID})
+	out := adminGet(t, s.HandleAdminOpenEFWs, "/v1/admin/efws")
+	got := map[string]map[string]any{}
+	for _, x := range out["efws"].([]any) {
+		m := x.(map[string]any)
+		got[m["id"].(string)] = m
+	}
+	if a := got["issfr_a"+uid]; a == nil || a["case_id"] != cs.ID || a["amount_cents"] != float64(900) || a["payment_intent"] != "pi_a" {
+		t.Fatalf("with a case %v", a)
+	}
+	if b := got["issfr_b"+uid]; b == nil || b["case_id"] != nil || b["amount_cents"] != float64(29900) || b["uid"] != uid {
+		t.Fatalf("without a case %v", b)
+	}
+	if len(got) != 2 {
+		t.Fatalf("efws %v", got)
+	}
+}
