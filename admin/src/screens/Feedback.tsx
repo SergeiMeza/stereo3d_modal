@@ -6,9 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { errorMessage } from "../lib/api";
 import { dateTime } from "../lib/format";
 import { useAttention } from "../lib/attention";
-import { useServices } from "../lib/services";
 import type { FeedbackItem } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { useQuery } from "@/state/query";
+import { feedbackQuery } from "@/state/queries";
 
 const KINDS: Record<string, string> = { idea: "Idea", problem: "Problem", other: "Something else" };
 const TIERS: Record<string, string> = { studio: "Studio", business: "Business", pro: "Pro", free: "Free" };
@@ -18,10 +18,9 @@ const PLATFORMS: Record<string, string> = { web: "Web", ios: "iPhone/iPad", maco
 /** Feedback (owner 2026-11-04): what people sent from the web app and the
  * apps, read only, newest first. */
 export function FeedbackPanel() {
-  const { api } = useServices();
   const [days, setDays] = useState(30);
   const [platform, setPlatform] = useState("");
-  const { state, retry } = useLoad(() => api.feedback(days, platform), [api, days, platform]);
+  const { state, retry } = useQuery(feedbackQuery, { days, platform });
   const { markFeedbackSeen } = useAttention();
   // opening Feedback clears the "new" badge (per browser)
   useEffect(() => markFeedbackSeen(), [markFeedbackSeen]);

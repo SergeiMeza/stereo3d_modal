@@ -6,9 +6,9 @@ import { EmptyRow, ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { pct } from "../lib/format";
-import { useServices } from "../lib/services";
 import type { OnboardingHeadsets } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { useQuery } from "@/state/query";
+import { businessFunnelQuery, onboardingQuery } from "@/state/queries";
 
 /** The welcome's device names. The web app sends Make 3D's device ids
  * (WELCOME_DEVICES: avp, quest, galaxyxr, pico, steamframe, glasses, tv,
@@ -37,9 +37,8 @@ const name = (d: string) => DEVICE_NAMES[d] ?? d;
 /** Onboarding: where new people watch (owner 2026-11-04) — answers by
  * device over time, by plan, and each device's conversion rate. */
 export function OnboardingPanel() {
-  const { api } = useServices();
   const [days, setDays] = useState(90);
-  const { state, retry } = useLoad(() => api.onboardingHeadsets(days), [api, days]);
+  const { state, retry } = useQuery(onboardingQuery, days);
   return (
     <>
       <PageHeader
@@ -79,8 +78,7 @@ const MAIN_USES: Record<string, string> = {
 /** What the Business/Studio setup asked: main use and team size. Loaded on
  * its own; a failure leaves the rest of the page alone. */
 function SetupAnswers({ days }: { days: number }) {
-  const { api } = useServices();
-  const { state } = useLoad(() => api.businessFunnel(days), [api, days]);
+  const { state } = useQuery(businessFunnelQuery, days);
   if (state.kind !== "loaded") return null;
   const a = state.data.answers;
   const uses = a?.by_main_use ?? [];

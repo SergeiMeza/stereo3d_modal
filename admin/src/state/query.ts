@@ -67,11 +67,17 @@ export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T
   const timeoutMs = opts.timeoutMs ?? QUERY_TIMEOUT_MS;
   const slots = atomFamily((_key: string) => atom<Slot<T>>({ load: null, seq: 0 }));
 
-  /** Loads params; "keep" leaves the current data on screen meanwhile. */
-  const run = atom(null, async (get, set, params: P, mode: "fresh" | "keep" = "fresh"): Promise<T> => {
+  /**
+   * Loads params. "keep" leaves the current data on screen meanwhile;
+   * "revisit" keeps it only when it loaded (coming back to a screen shows
+   * the last answer while it refreshes, a failed one shows the skeleton).
+   */
+  const run = atom(null, async (get, set, params: P, mode: "fresh" | "keep" | "revisit" = "fresh"): Promise<T> => {
     const slot = slots(keyOf(params));
     const seq = get(slot).seq + 1;
-    set(slot, { seq, load: mode === "keep" ? get(slot).load : { kind: "loading" } });
+    const prev = get(slot).load;
+    const keep = mode === "keep" || (mode === "revisit" && prev?.kind === "loaded");
+    set(slot, { seq, load: keep ? prev : { kind: "loading" } });
     try {
       const data = await withTimeout(fetcher(get, params), timeoutMs);
       if (get(slot).seq === seq) set(slot, { seq, load: { kind: "loaded", data } });
@@ -114,7 +120,7 @@ export function useQuery<P, T>(q: Query<P, T>, params: P, enabled = true) {
   const run = useSetAtom(q.run);
   const put = useSetAtom(q.put);
   useEffect(() => {
-    if (enabled) run(params).catch(() => {});
+    if (enabled) run(params, "revisit").catch(() => {});
     // params are compared by key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, run]);

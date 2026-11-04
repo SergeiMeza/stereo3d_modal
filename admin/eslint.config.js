@@ -63,13 +63,7 @@ const STATE_ALLOWLIST = [
   "src/screens/CasePage.tsx",
   "src/screens/CasesList.tsx",
   "src/screens/Disputes.tsx",
-  "src/screens/Feedback.tsx",
   "src/screens/GrantsPage.tsx",
-  "src/screens/MailPreviews.tsx",
-  "src/screens/Onboarding.tsx",
-  "src/screens/Overview.tsx",
-  "src/screens/PlansSurfaces.tsx",
-  "src/screens/Policy.tsx",
   "src/screens/Security.tsx",
   "src/screens/SignIn.tsx",
 ];
