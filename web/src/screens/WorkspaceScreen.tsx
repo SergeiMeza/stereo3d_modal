@@ -260,7 +260,13 @@ function Workspace({
     <>
       <section className="flex h-[calc(100vh-3rem)] flex-col">
         <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-edge bg-surface-1 px-4 py-2">
-          <h1 className="text-sm font-semibold tracking-tight">
+          {/* owner 2026-11-05 (iPhone): a long file name without spaces
+              made the page scroll sideways; it truncates instead */}
+          <h1
+            data-testid="workspace-title"
+            title={project.name || undefined}
+            className="min-w-0 max-w-full truncate text-sm font-semibold tracking-tight"
+          >
             {project.name || "Untitled project"}
           </h1>
           <Tooltip>
