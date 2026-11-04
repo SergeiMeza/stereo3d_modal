@@ -29,9 +29,12 @@ pnpm build && pnpm preview   # production build on :5174, served with the CSP he
 
 ## Signing in (ADR 0135)
 
-Signing in needs an account with the `svs_admin` custom claim (see
-`spatial-video-studio/Docs/backlog/BL-23-admin-console-setup.md`; without it
-the console stops at "This account has no access."). Then:
+Sign-in is **Google, then a passkey** (ADR 0135). It needs an account with
+the `svs_admin` custom claim; without it the console stops at "This account
+has no access." The owner's one-time steps (the claim, the first passkey,
+Firebase) are in BL-23,
+`spatial-video-studio/Docs/backlog/BL-23-admin-console-setup.md` (SVS
+a9ffc582). Then:
 
 1. **Google** (Firebase popup).
 2. **"Use your passkey"**: `POST /v1/admin/session/options` (fetched as the
@@ -46,8 +49,9 @@ the console stops at "This account has no access."). Then:
    `…/register/verify`), then sign in with it.
 
 "A passkey uses Face ID, Touch ID, your phone or a security key. Nothing to
-type." The authenticator code (TOTP) stays one link away ("Use an
-authenticator code instead") while the gateway still accepts it. The
+type." An authenticator code (TOTP) is only a temporary fallback, one link
+away ("Use an authenticator code instead"), while the gateway still accepts
+it. The
 passkey routes are the console's working shape (`PASSKEY_ROUTES` in
 `src/lib/api.ts`) until the gateway sends its own.
 
@@ -109,7 +113,7 @@ Behaviour the gateway expects:
 - **401 `invalid_token`**: retried once with a fresh token, then the session
   ends ("Your session ended. Sign in again.").
 - **403 `no_access` / `mfa_required`**: the no-access screen, or the
-  second-factor set-up.
+  authenticator-code fallback.
 
 Security:
 - **Customer text is plain text only.** Customer messages, notes, banners,
@@ -136,41 +140,34 @@ Security:
   `@simplewebauthn/browser` (pinned 13.3.0) is bundled into our own scripts,
   and its calls go to the gateway, already in `connect-src`. The
   Permissions-Policy names `publickey-credentials-get/create=(self)`.
-- The fallback second factor is an authenticator app (TOTP). SMS would need
-  reCAPTCHA scripts, which this CSP doesn't allow.
+- The second step is the passkey (ADR 0135). The temporary TOTP fallback
+  uses an authenticator app; SMS would need reCAPTCHA scripts, which this
+  CSP doesn't allow.
 
-## Deploy on Vercel (the owner creates the project and DNS)
+## Deploy on Vercel
 
-One Vercel project, for example `stereo3d-admin`, on the same repository and
-Git integration as the web app:
+The Vercel project **`stereo3d-admin`** exists, on the same repository and
+Git integration as the web app, with **Root Directory** `admin`.
+`vercel.json` sets the framework (Vite), the install command
+(`npx --yes pnpm@12.15.0 install --frozen-lockfile`), the build command
+(`npm run build`), the output (`dist`), the SPA rewrite and the security
+headers (Node 22 or newer).
 
-1. **New Project** → import this repository → **Root Directory** `admin`.
-   `vercel.json` sets the framework (Vite), the install command
-   (`npx --yes pnpm@12.15.0 install --frozen-lockfile`), the build command
-   (`npm run build`), the output (`dist`), the SPA rewrite and the security
-   headers. Node 22 or newer.
-2. **Environment variables** (nothing secret):
-   - Production: `VITE_GATEWAY_URL=https://stereo3d-gateway-prod-151335782809.us-central1.run.app`, `VITE_ENV_LABEL=prod`
-   - Preview: `VITE_GATEWAY_URL=https://stereo3d-gateway-test-151335782809.us-central1.run.app`, `VITE_ENV_LABEL=test`
-3. **Production branch** `main`. Optionally, set **Ignored Build Step**
-   `git diff --quiet HEAD^ HEAD -- .` so commits that don't touch `admin/`
-   don't rebuild it.
-4. **Domains**:
-   - `admin.stereo3d.studio` → Production;
-   - `admin-test.stereo3d.studio` → assigned to the Git branch `staging`
-     (Preview env, test gateway), like the web app's staging alias.
-5. **DNS** at the `stereo3d.studio` registrar: a `CNAME` for `admin` and one
-   for `admin-test`, both to `cname.vercel-dns.com` (or the record Vercel
-   shows).
-6. **Firebase**: Firebase's authorized-domain check also accepts subdomains of
-   an entry, so `stereo3d.studio`, which is already listed, should cover both
-   hosts. If the popup says the domain isn't authorized, add the two hosts
-   under Authentication → Settings → Authorized domains.
-7. Optional: Vercel Authentication (Deployment Protection) in front of the
-   console, as a second gate before Firebase.
+- **Test**: every push to the branch `staging` builds
+  `https://admin-test.stereo3d.studio` (Preview env, test gateway). Keep
+  `staging` a fast-forward of `feat/lifelike-web`.
+- **Prod** (`admin.stereo3d.studio`, branch `main`) is held by the project's
+  Ignored Build Step, so a push to `main` doesn't publish the console. It
+  opens with the web launch, once the gateway's admin routes are live on
+  prod.
+- **Environment variables** (nothing secret): `VITE_GATEWAY_URL` and
+  `VITE_ENV_LABEL`, test for Preview and prod for Production (the gateway
+  URLs are in the table at the top).
+- **CSP**: if you change `src/lib/csp.ts` or the gateways, regenerate
+  `vercel.json` (a test checks they match).
 
-Don't deploy the console from `main` until the gateway's admin routes are
-live on prod (the prod admin origin is `admin.stereo3d.studio`).
+The owner's remaining steps (Firebase, the `svs_admin` claim, the first
+passkey, DNS checks) are in BL-23 (SVS a9ffc582).
 
 ## Layout
 
