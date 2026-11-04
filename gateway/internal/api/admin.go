@@ -232,7 +232,8 @@ func (s *Service) perRun(ctx context.Context, c *store.Case) ([]map[string]any, 
 		}
 		m := s.moneyOf(ctx, conv)
 		row := map[string]any{"conversion_id": id, "label": s.runLabel(ctx, conv), "state": conv.State, "price_cents": m.Price,
-			"delivered": deliveredOf(conv), "paid_from": paidFrom(m), "formats_added": repacksHistory(conv)}
+			"delivered": deliveredOf(conv), "paid_from": paidFrom(m), "formats_added": repacksHistory(conv),
+			"bars_removed": runBarsJSON(conv)}
 		refundable := m.Price
 		switch {
 		case m.Balance:

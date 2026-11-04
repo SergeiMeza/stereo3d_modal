@@ -748,6 +748,10 @@ is asked when bars are found and can keep them.
   hasn't kept them; false without bars) and `bars_removal_available`
   (a Lifelike project and `lifelike_source_crop_enabled`: code default
   off, on for test).
+- **Run.** A run that takes bars off records `params.remove_bars: true`
+  and `params.source_crop: {x, y, w, h}` (displayed source pixels, fixed
+  at creation); the admin run rows show it as `bars_removed` (null when
+  the run kept the whole frame).
 
 ### Lifelike brand intro (BL-25)
 

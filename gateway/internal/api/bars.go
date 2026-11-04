@@ -94,3 +94,12 @@ func (s *Service) sourceCropOn(ctx context.Context) bool {
 func (s *Service) markBarsRemoval(ctx context.Context, p *store.Project) {
 	p.BarsRemovalOff = !s.sourceCropOn(ctx)
 }
+
+// runBarsJSON: the crop a run took off (displayed source pixels), for
+// the admin views; nil when it kept the whole frame.
+func runBarsJSON(c *store.Conversion) any {
+	if !c.Params.RemoveBars || c.Params.SourceCrop == nil {
+		return nil
+	}
+	return c.Params.SourceCrop
+}

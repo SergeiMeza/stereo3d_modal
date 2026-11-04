@@ -44,7 +44,8 @@ func signInMethod(provider string) string {
 
 func adminRunJSON(c *store.Conversion) map[string]any {
 	return map[string]any{"id": c.ID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State, "kind": c.Kind,
-		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "formats_added": repacksHistory(c)}
+		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "formats_added": repacksHistory(c),
+		"bars_removed": runBarsJSON(c)}
 }
 
 func (s *Service) adminAccountActivity(r *http.Request, uid string, cust *store.Customer, passkeys int, out map[string]any) {

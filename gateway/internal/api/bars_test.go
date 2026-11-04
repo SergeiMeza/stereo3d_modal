@@ -106,3 +106,36 @@ func TestRemoveBarsSetting(t *testing.T) {
 		t.Fatal("runs keep bars while the switch is off")
 	}
 }
+
+// The run records remove_bars and the crop it takes off (admin and "Get
+// another format" read them from params); kept bars or the switch off
+// record nothing.
+func TestRunParamsRecordBars(t *testing.T) {
+	all := pricing.LifelikePresets
+	p := barsProject(1920, 1080, "800:1920:140:0") // rotated letterbox
+	params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction}, p, all)
+	if err != nil || !params.RemoveBars || params.SourceCrop == nil || *params.SourceCrop != (store.Crop{X: 140, Y: 0, W: 800, H: 1920}) {
+		t.Fatalf("removing %+v %v", params, err)
+	}
+	raw, _ := json.Marshal(params)
+	var out map[string]any
+	json.Unmarshal(raw, &out)
+	if out["remove_bars"] != true || out["source_crop"].(map[string]any)["w"] != float64(800) {
+		t.Fatalf("params json %s", raw)
+	}
+	if got := runBarsJSON(&store.Conversion{Params: params}); got.(*store.Crop).W != 800 || runBarsJSON(&store.Conversion{}) != nil {
+		t.Fatalf("admin %v", got)
+	}
+	keep := false
+	p.RemoveBars = &keep
+	if params, _ := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction}, p, all); params.RemoveBars || params.SourceCrop != nil {
+		t.Fatalf("kept %+v", params)
+	}
+	p.RemoveBars, p.BarsRemovalOff = nil, true
+	if params, _ := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction}, p, all); params.RemoveBars || params.SourceCrop != nil {
+		t.Fatalf("switch off %+v", params)
+	}
+	if params, _ := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction}, barsProject(1920, 1080, "1080:1920:0:0"), all); params.RemoveBars || params.SourceCrop != nil {
+		t.Fatalf("no bars %+v", params)
+	}
+}

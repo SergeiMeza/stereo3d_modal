@@ -242,6 +242,11 @@ type Params struct {
 	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
 	// Express (add-on, pricing 2026-11): first in the GPU line.
 	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
+	// RemoveBars / SourceCrop (BL-03): the run takes the project's black
+	// bars off, keeping SourceCrop (displayed source pixels, sent as
+	// source_crop). False / nil: the whole frame.
+	RemoveBars bool  `firestore:"remove_bars,omitempty" json:"remove_bars,omitempty"`
+	SourceCrop *Crop `firestore:"source_crop,omitempty" json:"source_crop,omitempty"`
 	// IntroS / IntroLanguage: the Lifelike brand intro (BL-25) fixed at
 	// creation: nil = none sent (the flag was off), 0 = a plan's opt-out,
 	// 3 (previews) or 4 seconds. Never billed, never shown to clients.

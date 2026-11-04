@@ -200,7 +200,10 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.Foveation = fov
 	}
-	params.Express = req.Express // the add-on (pricing 2026-11)
+	params.Express = req.Express                   // the add-on (pricing 2026-11)
+	if c, ok := barsCrop(p); ok && removeBars(p) { // BL-03: the run keeps what it took off
+		params.RemoveBars, params.SourceCrop = true, &c
+	}
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
 	}
