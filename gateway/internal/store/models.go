@@ -881,10 +881,17 @@ type Project struct {
 	Profile      *ProfileJob   `firestore:"profile,omitempty" json:"profile,omitempty"`
 	DepthUpload  *DepthUpload  `firestore:"depth_upload,omitempty" json:"depth_upload,omitempty"`
 	Crop         string        `firestore:"crop,omitempty" json:"crop,omitempty"`
-	PreviewURL   string        `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
-	StripThumbs  []Thumb       `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
-	SceneThumbs  []Thumb       `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
-	Archived     bool          `firestore:"archived" json:"archived"`
+	// RemoveBars: the user's choice for black bars on Lifelike runs
+	// (BL-03, owner 2026-11-03: bars come off by default); nil = the
+	// default (remove when analysis found bars), see removeBars.
+	RemoveBars *bool `firestore:"remove_bars,omitempty" json:"-"`
+	// BarsRemovalOff: set on read when the gateway doesn't send
+	// source_crop yet (lifelike_source_crop_enabled off); never stored.
+	BarsRemovalOff bool    `firestore:"-" json:"-"`
+	PreviewURL     string  `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
+	StripThumbs    []Thumb `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
+	SceneThumbs    []Thumb `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
+	Archived       bool    `firestore:"archived" json:"archived"`
 	// Deleted: removed by the user (POST /v1/projects/{id}/delete, S3D-24).
 	// Soft delete: the API answers 404 for the project and its runs at
 	// once; the record stays, its stored files are purged
@@ -911,6 +918,14 @@ type Project struct {
 	Pinned        bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
 	CreatedAt     time.Time  `firestore:"created_at" json:"created_at"`
 	UpdatedAt     time.Time  `firestore:"updated_at" json:"updated_at"`
+}
+
+// Crop is a picture area in displayed (post-rotation) source pixels.
+type Crop struct {
+	X int `firestore:"x" json:"x"`
+	Y int `firestore:"y" json:"y"`
+	W int `firestore:"w" json:"w"`
+	H int `firestore:"h" json:"h"`
 }
 
 // Repack is one format made from a finished run's stored output (ADR 0137).

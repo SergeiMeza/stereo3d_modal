@@ -259,16 +259,18 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		Pinned   *bool   `json:"pinned"`
 		Archived *bool   `json:"archived"`
 		Method   *string `json:"method"`
+		// RemoveBars (BL-03): false keeps the black bars on Lifelike runs.
+		RemoveBars *bool `json:"remove_bars"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if req.Name == nil && req.Pinned == nil && req.Archived == nil && req.Method == nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived, method"))
+	if req.Name == nil && req.Pinned == nil && req.Archived == nil && req.Method == nil && req.RemoveBars == nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived, method, remove_bars"))
 		return
 	}
-	if req.Method != nil && current.Sample {
+	if (req.Method != nil || req.RemoveBars != nil) && current.Sample {
 		httpx.WriteErr(ctx, w, errSampleProject())
 		return
 	}
@@ -314,6 +316,9 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		if req.Method != nil {
 			pp.Method = *req.Method
 		}
+		if req.RemoveBars != nil {
+			pp.RemoveBars = req.RemoveBars
+		}
 		return nil
 	})
 	if err != nil {
@@ -321,7 +326,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	httpx.Log(ctx).Info("project updated", "project_id", id, "uid", user.UID,
-		"pinned", p.Pinned, "archived", p.Archived, "method", projectMethod(p))
+		"pinned", p.Pinned, "archived", p.Archived, "method", projectMethod(p), "remove_bars", req.RemoveBars != nil && *req.RemoveBars)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -743,7 +748,7 @@ func depthContentDims(p *store.Project) (width, height int, cropped bool) {
 	if p.Crop != "" {
 		var w, h, x, y int
 		if n, err := fmt.Sscanf(p.Crop, "%d:%d:%d:%d", &w, &h, &x, &y); n == 4 && err == nil && w > 0 && h > 0 {
-			return w, h, w != p.Probe.Width || h != p.Probe.Height
+			return w, h, hasBars(p) // a rotated full-frame crop isn't bars
 		}
 	}
 	return p.Probe.Width, p.Probe.Height, false
@@ -1632,6 +1637,7 @@ func (s *Service) ownedProject(ctx context.Context, user *AuthedUser, id string)
 	if p.UID != user.UID || p.Deleted {
 		return nil, httpx.ErrNotFound("project") // 404, don't confirm existence
 	}
+	s.markBarsRemoval(ctx, p)
 	return p, nil
 }
 
@@ -1688,6 +1694,11 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	if p.Crop != "" {
 		resp["crop"] = p.Crop
 	}
+	// BL-03: bars found, whether runs take them off (the user's choice,
+	// on by default), and whether the gateway can yet.
+	resp["has_bars"] = hasBars(p)
+	resp["remove_bars"] = hasBars(p) && (p.RemoveBars == nil || *p.RemoveBars)
+	resp["bars_removal_available"] = projectMethod(p) == store.MethodLifelike && s.sourceCropOn(context.Background())
 	if p.PreviewURL != "" {
 		resp["preview_url"] = p.PreviewURL
 	}

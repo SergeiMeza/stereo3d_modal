@@ -731,6 +731,24 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
   false`.
 
+### Black bars (BL-03, owner 2026-11-03)
+
+Lifelike runs take letterbox and pillarbox bars off by default; the user
+is asked when bars are found and can keep them.
+
+- **Bars.** Analysis stores `project.crop` (`W:H:X:Y`, cropdetect on
+  decoded frames, so displayed pixels; `probe` is coded pixels, before
+  rotation). `has_bars` is true when the crop is smaller than the frame
+  turned to the crop's orientation by at least 8 px on a side or 2% of
+  the picture, so a portrait clip's `1080:1920:0:0` on a 1920x1080 probe
+  is no bars. Classic's depth ceiling uses the same rule.
+- **Setting.** `PATCH /v1/projects/{id} {remove_bars: bool}` (422
+  `sample_project` on the sample). Project responses carry `crop`,
+  `has_bars`, `remove_bars` (true when there are bars and the user
+  hasn't kept them; false without bars) and `bars_removal_available`
+  (a Lifelike project and `lifelike_source_crop_enabled`: code default
+  off, on for test).
+
 ### Lifelike brand intro (BL-25)
 
 Behind `config/pricing_{env}.lifelike_intro_enabled` (code default

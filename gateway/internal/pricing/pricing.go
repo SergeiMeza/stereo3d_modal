@@ -202,6 +202,11 @@ type Rates struct {
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
 	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// LifelikeSourceCropEnabled: Lifelike runs take black bars off
+	// (source_crop on /convert, BL-03) and are sized and priced on the
+	// picture inside. Code default off; on for test, where Lifelike
+	// ignores the key until it ships it.
+	LifelikeSourceCropEnabled bool `firestore:"lifelike_source_crop_enabled"`
 	// GPUCapPerApp: GPUs each pipeline app may hold at once (the Modal
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
@@ -789,7 +794,8 @@ func DefaultsFor(env string) *Rates {
 		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
 		r.FoveationEnabled = true
 		r.ProDiscountEnabled = true
-		applyTestTierDefaults(r) // 2026-11 pricing, test only
+		r.LifelikeSourceCropEnabled = true // BL-03
+		applyTestTierDefaults(r)           // 2026-11 pricing, test only
 	}
 	return r
 }
