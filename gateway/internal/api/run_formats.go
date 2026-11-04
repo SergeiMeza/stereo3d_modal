@@ -45,18 +45,21 @@ const (
 	repackPerHour   = 10
 	repackTimeout   = 3 * time.Hour
 	repackURLExpiry = 6 * time.Hour
-	repackPrice     = 0 // ADR 0137 open question: free until the owner decides
+	repackOverhead  = 30 // seconds a repack takes to start, measured on test 2026-11-04
+	repackPrice     = 0  // ADR 0137 open question: free until the owner decides
 )
 
 // repackEstimate: about how long making format takes (3DS, 2026-11-04):
 // side-by-side ≈ 2× the run's length, spatial ≈ 10× at 4K, scaled by
-// the output's pixels against 4K. The whole run's length, so a split
-// run's parts (which run side by side) usually finish sooner.
+// the output's pixels against 4K, plus repackOverhead per file (a split
+// run's parts each start their own container). The whole run's length,
+// so a split run's parts (which run side by side) usually finish sooner.
 func repackEstimate(c *store.Conversion, format string) int {
 	secs := outputSecondsOf(c)
 	if secs <= 0 {
 		return 0
 	}
+	overhead := repackOverhead * len(runPartNumbers(c))
 	perSecond := 2.0
 	if format == "mvhevc" {
 		perSecond = 10
@@ -65,7 +68,7 @@ func repackEstimate(c *store.Conversion, format string) int {
 	if h := presetOutputHeight[c.Params.Preset]; h > 0 {
 		scale = float64(h) * float64(h) / (2160 * 2160)
 	}
-	return int(math.Ceil(secs * perSecond * scale))
+	return int(math.Ceil(secs*perSecond*scale)) + overhead
 }
 
 // repackTimeoutOf: 3 h without an end fails a repack; spatial gets

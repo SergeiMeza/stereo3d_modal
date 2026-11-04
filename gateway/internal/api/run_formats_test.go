@@ -322,18 +322,24 @@ func TestRunFormatsSplitRun(t *testing.T) {
 }
 
 // estimated_seconds: side-by-side ≈ 2× the length, spatial ≈ 10× at 4K,
-// scaled by pixels; spatial's give-up is max(3 h, 2× the estimate).
+// scaled by pixels, plus 30 s per file; spatial's give-up is max(3 h,
+// 2× the estimate).
 func TestRepackEstimate(t *testing.T) {
 	c := &store.Conversion{Params: store.Params{Preset: "4k"}, Source: store.Source{DurationS: 60}}
-	if a, b := repackEstimate(c, "half_sbs"), repackEstimate(c, "mvhevc"); a != 120 || b != 600 {
+	if a, b := repackEstimate(c, "half_sbs"), repackEstimate(c, "mvhevc"); a != 150 || b != 630 {
 		t.Fatalf("4k %d %d", a, b)
 	}
 	c.Params.Preset = "1080p"
-	if got := repackEstimate(c, "mvhevc"); got != 150 {
+	if got := repackEstimate(c, "mvhevc"); got != 180 {
 		t.Fatalf("1080p %d", got)
 	}
-	c.Params.Preset, c.Source.DurationS = "8k", 1200 // 1200 × 10 × 4 = 13.3 h
-	if got := repackTimeoutOf(c, "mvhevc"); got != 2*48000*time.Second {
+	c.Outputs = map[string]string{"sbs_part1": "a", "sbs_part2": "b", "sbs_part3": "c"}
+	if got := repackEstimate(c, "half_sbs"); got != 30+90 { // 60 × 2 × ¼ + 3 parts × 30
+		t.Fatalf("split %d", got)
+	}
+	c.Outputs = nil
+	c.Params.Preset, c.Source.DurationS = "8k", 1200 // 1200 × 10 × 4 + 30 = 13.3 h
+	if got := repackTimeoutOf(c, "mvhevc"); got != 2*48030*time.Second {
 		t.Fatalf("8k timeout %v", got)
 	}
 	if repackTimeoutOf(c, "sbs") != repackTimeout || repackTimeoutOf(&store.Conversion{}, "mvhevc") != repackTimeout {
