@@ -159,6 +159,7 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
 	mux.HandleFunc("POST /v1/admin/reconcile", admin(svc.HandleAdminReconcile)) // M3 on demand
 	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
+	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets)) // onboarding 2026-11-04
 	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
@@ -203,6 +204,7 @@ func main() {
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
+	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
 	}))

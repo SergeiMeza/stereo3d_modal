@@ -57,7 +57,7 @@ func noteUse(p *store.Project, now time.Time, keep time.Duration) {
 // It returns the project as stored, or p unchanged when nothing was
 // written or the write failed (never fails the request).
 func (s *Service) noteProjectUse(ctx context.Context, p *store.Project, force bool) *store.Project {
-	if p == nil || p.Deleted || p.FilesDeletedAt != nil {
+	if p == nil || p.Deleted || p.FilesDeletedAt != nil || p.Sample {
 		return p
 	}
 	now := time.Now().UTC()
@@ -358,7 +358,7 @@ func (s *Service) fileKeepingSweep(ctx context.Context) {
 func (s *Service) backfillFileKeeping(ctx context.Context, now time.Time, keep, purge time.Duration, notices []time.Duration) error {
 	n := 0
 	err := s.Store.EachProject(ctx, func(p *store.Project) error {
-		if p.FilesDeleteAt != nil || p.FilesDeletedAt != nil {
+		if p.FilesDeleteAt != nil || p.FilesDeletedAt != nil || p.Sample {
 			return nil
 		}
 		at := backfillDeleteAt(p, now, keep, purge, notices)
@@ -471,8 +471,8 @@ func fileNoticeMail(projects []*store.Project, lead time.Duration, now time.Time
 // purgeProjectFiles erases a project's stored files (live) or logs what
 // it would erase (dry run). A project with a run in progress waits.
 func (s *Service) purgeProjectFiles(ctx context.Context, p *store.Project, live bool, now time.Time, stats map[string]int) {
-	if !live && p.FilesDryRunAt != nil {
-		return
+	if (!live && p.FilesDryRunAt != nil) || p.Sample {
+		return // the sample's files are the CDN's, shared
 	}
 	convs, err := s.Store.ListProjectConversions(ctx, p.ID, 500)
 	if err != nil {

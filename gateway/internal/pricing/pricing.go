@@ -1406,7 +1406,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		// Business or Studio plan (2026-11-04); without one a faster
 		// source is divided down.
 		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor,
-			"max_fps_without_plan": 30, "max_fps_with_plan": 120},
+			"max_fps_without_plan": 30, "max_fps_with_plan": PlanMaxFPS},
 		"discount": map[string]any{
 			"threshold_cents": rates.DiscountThresholdCents,
 			"pct":             rates.DiscountPct,

@@ -160,7 +160,7 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("analysis can only be retried after it failed"))
 		return
 	}
-	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil {
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil {
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
@@ -208,6 +208,10 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
+	}
+	// Onboarding: a new account's first list brings the finished sample.
+	if sample, added := s.ensureSample(ctx, user.UID, projects); added {
+		projects = append([]*store.Project{sample}, projects...)
 	}
 	listed := make([]*store.Project, 0, len(projects))
 	for _, p := range projects {
@@ -259,6 +263,10 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 	}
 	if req.Name == nil && req.Pinned == nil && req.Archived == nil && req.Method == nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived, method"))
+		return
+	}
+	if req.Method != nil && current.Sample {
+		httpx.WriteErr(ctx, w, errSampleProject())
 		return
 	}
 	if req.Method != nil {
@@ -397,7 +405,7 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
@@ -467,6 +475,10 @@ func (s *Service) HandleUpdateScenes(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if p.Sample {
+		httpx.WriteErr(ctx, w, errSampleProject())
+		return
+	}
 	var req struct {
 		Cuts          []int `json:"cuts"`
 		ExpectVersion *int  `json:"expect_version"`
@@ -529,7 +541,7 @@ func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Reques
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
@@ -1172,7 +1184,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
@@ -1322,7 +1334,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if cerr := s.requireClassicAllowed(ctx, p); cerr != nil { // Classic 3D retired for new projects
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
 		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
@@ -1639,6 +1651,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 		"pinned":       p.Pinned,
 		"created_at":   p.CreatedAt.Format(time.RFC3339),
 		"updated_at":   p.UpdatedAt.Format(time.RFC3339),
+	}
+	if p.Sample {
+		resp["sample"] = true // onboarding: read-only, never billed
 	}
 	if p.Probe != nil {
 		resp["probe"] = p.Probe

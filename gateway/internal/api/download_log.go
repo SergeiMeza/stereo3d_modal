@@ -100,9 +100,10 @@ func (s *Service) HandleLogPlay(w http.ResponseWriter, r *http.Request, user *Au
 	if len(file) > 200 {
 		file = file[:200]
 	}
-	if s.Downloads != nil {
+	if s.Downloads != nil && !conv.Sample {
 		s.Downloads.Log(s.downloadRow(r, conv, file, kind))
 	}
+	s.noteWatched(ctx, conv) // onboarding: their first play (not the sample)
 	httpx.WriteOK(w, map[string]any{"logged": true})
 }
 

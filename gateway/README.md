@@ -761,6 +761,47 @@ is ignored without such a plan.
   plan: 409 `plan_required`. `locale` is normalised (`pt_BR` → `pt-BR`);
   an unparseable one is 400; `null` clears it (back to the browser's).
 
+### Onboarding (owner 2026-11-04)
+
+- **`GET /v1/account/settings`** adds `headsets` (string ids, `null`
+  until answered), `hints_seen` (dismissed first-time hints) and
+  `onboarding {welcome_done, checklist_hidden, tips_done, steps
+  {first_video, first_preview, first_3d, watched}}`. The steps are worked
+  out here and leave the sample out: a project of their own; a succeeded
+  preview; a succeeded full run; their first play (`/plays`) or download
+  of a run of their own (`customers.first_watched_at`). Accounts from
+  before onboarding (a customer record or a project before 2026-11-04
+  03:00 UTC) read `welcome_done: true` until they set it.
+- **`PATCH`** takes `headsets` (replaces; ids `[a-z0-9_.-]`, at most 12),
+  `hints_seen_add` (appends, at most 30 a call, 200 kept) and a partial
+  `onboarding {welcome_done?, checklist_hidden?, tips_done?}`, besides
+  `lifelike_intro` and `locale`.
+- **`POST /v1/events {name, props}`** → `{logged: true}`: our own events
+  in `events_{env}` with the uid and time. Allow-listed (400
+  `unknown_event`): `onboarding_headsets {devices[], plan?, source?}`,
+  other props dropped. 4 KB body, 30 an hour per account per instance
+  (429 `rate_limited`).
+- **`GET /v1/admin/onboarding/headsets?days=30`** (admin) → `{days,
+  by_day[{day, device, count}], by_plan[{plan, device, count}],
+  conversion[{device, people, converted}], generated_at}`. A person
+  counts once per device (per day, per plan); `converted` = a priced full
+  run that succeeded after their first answer, worked out when asked.
+- **The sample**: a new account's first `GET /v1/projects` adds a
+  finished Lifelike "Sunset session" (`sample: true`, 4K, 15 s at 25 fps)
+  with a succeeded full run (`sample: true`, $0). Its files are the
+  public CDN's `samples/2026-11/sunset-session-*` (preview: the 2D
+  original; downloads: the spatial `.mov` and SBS `.mp4` as they are);
+  nothing is copied per account (our bucket ages objects out at 90 days).
+  Thumbnails are the web's own poster path. Quotes, runs, analyze,
+  profile, depth map, scene edits and method switches answer 422
+  `sample_project` ("This is a sample project. Add your own video to make
+  3D."); archive, unarchive, rename, pin and delete work as usual; file
+  keeping never schedules or purges it; it's left out of `GET
+  /v1/conversions`, the usage CSV, the month's spend, the download log
+  and the onboarding steps. The id is fixed per account
+  (`smp` + hash), so it's added once and never again after a delete.
+- **`/v1/pricing`** plans add `max_fps: 120`.
+
 ### Pro discount (S3D-67)
 
 Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every

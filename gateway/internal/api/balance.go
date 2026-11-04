@@ -1123,7 +1123,7 @@ func (s *Service) HandleUsage(w http.ResponseWriter, r *http.Request, user *Auth
 	names := map[string]string{}
 	var rows []map[string]any
 	for _, c := range convs {
-		if c.ProjectID == "" || c.CreatedAt.Before(start) || !c.CreatedAt.Before(end) {
+		if c.ProjectID == "" || c.Sample || c.CreatedAt.Before(start) || !c.CreatedAt.Before(end) {
 			continue
 		}
 		row := s.usageRow(ctx, c, names)

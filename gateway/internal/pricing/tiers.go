@@ -54,7 +54,13 @@ type PlanDef struct {
 	PriceCents     int64  `firestore:"price_cents" json:"price_cents"`
 	CreditInterval string `firestore:"-" json:"credit_interval"`
 	LookupKey      string `firestore:"lookup_key" json:"-"`
+	// MaxFPS: the top output rate the plan allows (120; without a plan 30,
+	// /v1/pricing fps).
+	MaxFPS int `firestore:"-" json:"max_fps"`
 }
+
+// PlanMaxFPS is the top output rate with a Business or Studio plan.
+const PlanMaxFPS = 120
 
 // Yearly: the plan bills once a year (its credit still comes monthly).
 func (p PlanDef) Yearly() bool { return p.Interval == "year" }
@@ -170,6 +176,7 @@ func (r *Rates) Plan(tier string) (PlanDef, bool) {
 		p.PriceCents = p.MonthlyCents
 	}
 	p.CreditInterval = "month" // the credit always comes monthly
+	p.MaxFPS = PlanMaxFPS
 	return p, ok
 }
 

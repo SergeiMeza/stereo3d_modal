@@ -382,9 +382,12 @@ type Error struct {
 }
 
 type Conversion struct {
-	ID        string `firestore:"-" json:"conversion_id"`
-	UID       string `firestore:"uid" json:"-"`
-	Env       string `firestore:"env" json:"-"`
+	ID  string `firestore:"-" json:"conversion_id"`
+	UID string `firestore:"uid" json:"-"`
+	Env string `firestore:"env" json:"-"`
+	// Sample: the sample project's finished run; Outputs hold public URLs
+	// of shared files, not keys (sample.go).
+	Sample    bool   `firestore:"sample,omitempty" json:"sample,omitempty"`
 	State     string `firestore:"state" json:"state"`
 	Kind      string `firestore:"kind" json:"kind"`                                 // "video" | "image"
 	ProjectID string `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
@@ -542,6 +545,23 @@ type Customer struct {
 	// opt-out (honoured only while such a plan is active).
 	Locale           string `firestore:"locale,omitempty"`
 	LifelikeIntroOff bool   `firestore:"lifelike_intro_off,omitempty"`
+	// Onboarding (owner 2026-11-04): where they watch (the welcome's first
+	// answer; HeadsetsSet tells an empty answer from none), the first-time
+	// hints dismissed, the welcome/checklist/tips flags, and when they
+	// first played or downloaded a run of their own.
+	Headsets       []string    `firestore:"headsets,omitempty"`
+	HeadsetsSet    bool        `firestore:"headsets_set,omitempty"`
+	HintsSeen      []string    `firestore:"hints_seen,omitempty"`
+	Onboarding     *Onboarding `firestore:"onboarding,omitempty"`
+	FirstWatchedAt *time.Time  `firestore:"first_watched_at,omitempty"`
+}
+
+// Onboarding is the account's onboarding flags; nil = never written (an
+// account from before onboarding reads welcome_done).
+type Onboarding struct {
+	WelcomeDone     *bool `firestore:"welcome_done,omitempty"`
+	ChecklistHidden bool  `firestore:"checklist_hidden,omitempty"`
+	TipsDone        bool  `firestore:"tips_done,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches
@@ -780,9 +800,13 @@ type DepthUpload struct {
 }
 
 type Project struct {
-	ID     string `firestore:"-" json:"project_id"`
-	UID    string `firestore:"uid" json:"-"`
-	Env    string `firestore:"env" json:"-"`
+	ID  string `firestore:"-" json:"project_id"`
+	UID string `firestore:"uid" json:"-"`
+	Env string `firestore:"env" json:"-"`
+	// Sample: the finished "Sunset session" every new account gets
+	// (onboarding, 2026-11-04): read-only, never billed, its files shared
+	// (never deleted), left out of usage, KPIs and billing reports.
+	Sample bool   `firestore:"sample,omitempty" json:"sample,omitempty"`
 	Name   string `firestore:"name,omitempty" json:"name,omitempty"`
 	Method string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
 	// ClassicRan: the project has run Classic, so it may go on with it

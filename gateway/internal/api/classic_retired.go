@@ -40,6 +40,16 @@ func (s *Service) classicAllowed(ctx context.Context, p *store.Project) bool {
 	return false
 }
 
+// requireProjectRunnable gates every run, quote and media change on a project:
+// never the onboarding sample (422 sample_project), and Classic only where
+// it's still allowed.
+func (s *Service) requireProjectRunnable(ctx context.Context, p *store.Project) *httpx.APIError {
+	if p != nil && p.Sample {
+		return errSampleProject()
+	}
+	return s.requireClassicAllowed(ctx, p)
+}
+
 // requireClassicAllowed is the gate for Classic projects.
 func (s *Service) requireClassicAllowed(ctx context.Context, p *store.Project) *httpx.APIError {
 	if projectMethod(p) != store.MethodClassic || s.classicAllowed(ctx, p) {

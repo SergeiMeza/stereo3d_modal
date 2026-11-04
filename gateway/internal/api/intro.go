@@ -113,9 +113,14 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		var req struct {
 			LifelikeIntro *bool           `json:"lifelike_intro"`
 			Locale        json.RawMessage `json:"locale"`
+			onboardingPatch
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
 			httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+			return
+		}
+		if verr := req.onboardingPatch.validate(); verr != nil {
+			httpx.WriteErr(ctx, w, verr)
 			return
 		}
 		if _, err := s.ensureCustomerID(ctx, user); err != nil {
@@ -155,6 +160,7 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			if locale != nil {
 				c.Locale = *locale
 			}
+			req.onboardingPatch.apply(c)
 			return nil
 		}); err != nil {
 			httpx.WriteErr(ctx, w, err)
@@ -166,6 +172,9 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 	out := map[string]any{"lifelike_intro": !(editable && cust.LifelikeIntroOff), "lifelike_intro_editable": editable, "locale": nil}
 	if cust != nil && cust.Locale != "" {
 		out["locale"] = cust.Locale
+	}
+	for k, v := range s.onboardingSettings(ctx, user.UID, cust) { // owner 2026-11-04
+		out[k] = v
 	}
 	httpx.WriteOK(w, out)
 }

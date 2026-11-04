@@ -798,8 +798,8 @@ func (s *Service) HandleListConversions(w http.ResponseWriter, r *http.Request, 
 	out := make([]map[string]any, 0, len(convs))
 	gone := map[string]bool{}
 	for _, c := range convs {
-		if s.projectGone(ctx, c, gone) {
-			continue
+		if c.Sample || s.projectGone(ctx, c, gone) {
+			continue // the onboarding sample isn't a conversion of theirs
 		}
 		out = append(out, s.conversionResponse(c, nil))
 	}
@@ -820,6 +820,11 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("conversion has no outputs yet"))
 		return
 	}
+	if conv.Sample {
+		httpx.WriteOK(w, sampleDownloads(conv)) // the CDN's shared files
+		return
+	}
+	s.noteWatched(ctx, conv) // onboarding: their first download
 	// Never locked for payment reasons (S3D-22, the App Store way): a
 	// failed charge refuses NEW paid runs (payment_method_needed) instead.
 	// files: one entry per output with its download name (S3D-31,
@@ -1030,6 +1035,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"params":        c.Params,
 	}
 	resp["method"] = store.MethodOr(c.Method)
+	if c.Sample {
+		resp["sample"] = true
+	}
 	if c.ProjectID != "" {
 		resp["project_id"] = c.ProjectID
 		resp["step"] = c.Step
