@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
         "Referrer-Policy": "no-referrer",
       },
     },
-    build: { sourcemap: false },
+    build: { sourcemap: false, chunkSizeWarningLimit: 800 },
     test: {
       environment: "jsdom",
       globals: false,
