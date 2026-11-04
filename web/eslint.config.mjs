@@ -26,14 +26,59 @@ const NO_HAND_ROLLED_OVERLAYS = [
   },
 ];
 
+/** Owner rule 2026-11-05 (ADR 0138): shared and server state lives in
+ * jotai atoms. No React context for state (theme, Stripe Elements and
+ * Next/Radix providers are theirs, not ours), and no useState holding a
+ * fetch result. Files not migrated yet are on STATE_ALLOWLIST below,
+ * which only shrinks. */
+const STATE_IN_ATOMS = [
+  {
+    selector: "CallExpression[callee.name='createContext'], CallExpression[callee.property.name='createContext']",
+    message: "No React context for state (ADR 0138): put shared state in a jotai atom (lib/state, a feature's *Atoms.ts).",
+  },
+  {
+    selector:
+      "CallExpression[callee.name='useState'] TSTypeReference > Identifier[name=/^(Project|Conversion|Conversions|BillingStatus|BillingMethods|BillingHistory|SavedMethod|PublicPricing|GatewayLimits|AccountSettings|StepQuoteResponse|PlanChangePreview|CheckoutStart|RunFormatJob|Downloads|AccountPlan)$/]",
+    message: "Server data in useState (ADR 0138): keep fetch results in a jotai atom (see lib/state/sharedFetch, priceAtoms, workspaceAtoms).",
+  },
+  {
+    selector: "CallExpression[callee.name=/^set[A-Z]/] > AwaitExpression",
+    message: "A fetch result into useState (ADR 0138): keep it in a jotai atom, written by an action atom.",
+  },
+  {
+    selector: "CallExpression[callee.property.name='then'] > ArrowFunctionExpression > CallExpression.body[callee.name=/^set[A-Z]/]",
+    message: "A fetch result into useState (ADR 0138): keep it in a jotai atom, written by an action atom.",
+  },
+];
+
+/** Files that still hold server data in useState; remove a file once it
+ * moves to atoms. Never add one. */
+const STATE_ALLOWLIST = [
+  "src/components/auth/Passkeys.tsx",
+  "src/components/billing/BillingScreen.tsx",
+  "src/components/billing/PlanCard.tsx",
+  "src/components/billing/PlanChange.tsx",
+  "src/components/business/BusinessSetup.tsx",
+  "src/components/pro/ProPeriodChange.tsx",
+  "src/screens/ProjectsScreen.tsx",
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
-    rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS] },
+    rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS, ...STATE_IN_ATOMS] },
   },
+  ...(STATE_ALLOWLIST.length > 0
+    ? [
+        {
+          files: STATE_ALLOWLIST,
+          rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS] },
+        },
+      ]
+    : []),
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
