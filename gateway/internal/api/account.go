@@ -293,6 +293,11 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 			return err
 		}
 	}
+	if n, err := s.Store.DeleteUserCustomerPasskeys(ctx, uid); err != nil { // ADR 0136: the passkeys go with the account
+		return err
+	} else if n > 0 {
+		slog.InfoContext(ctx, "passkeys removed with the account", "count", n)
+	}
 	s.removeSamples(ctx, uid)                                                                                      // the onboarding sample goes with the account
 	s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted") // never paid out
 	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                           // the app's business/studio, never pro

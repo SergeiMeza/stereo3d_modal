@@ -187,6 +187,16 @@ const (
 // eventValidators: the allow-list. Each returns the props to store
 // (cleaned) or false to refuse the event.
 var eventValidators = map[string]func(map[string]any) (map[string]any, bool){
+	// A sign-in on the web, by method (ADR 0136: passkey adoption). The
+	// gateway logs passkey sign-ins itself; the web logs the others.
+	"sign_in": func(in map[string]any) (map[string]any, bool) {
+		m, _ := in["method"].(string)
+		switch m {
+		case "google", "apple", "email", "password", "email_code":
+			return map[string]any{"method": m}, true
+		}
+		return nil, false
+	},
 	// The welcome's first question: where they'll watch (several allowed),
 	// the plan at the time and where it was asked.
 	"onboarding_headsets": func(in map[string]any) (map[string]any, bool) {
