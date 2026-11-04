@@ -10,7 +10,7 @@ import type { JSX } from "react";
 export const FEEDBACK_EMAIL = "sergei@spatial-ai-labs.com";
 
 const MAILTO = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(
-  "Stereo3D Studio feedback",
+  "Spatial Video Studio on the web feedback",
 )}`;
 
 export function FeedbackLink(): JSX.Element {

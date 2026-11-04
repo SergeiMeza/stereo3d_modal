@@ -41,7 +41,7 @@ const TABS: Tab[] = [
       "Resolution, frame rate, duration, scene count — reviewed on a frame-exact player before you spend anything.",
     image: "/landing/media-tab.webp",
     dims: { width: 1600, height: 1705 },
-    alt: "Media page of Stereo3D Studio showing a frame-exact source player, filmstrip and source details",
+    alt: "Media page of Spatial Video Studio on the web showing a frame-exact source player, filmstrip and source details",
   },
   {
     id: "cut",
@@ -52,7 +52,7 @@ const TABS: Tab[] = [
       "Cuts are detected automatically and stay fully editable — add, merge, import or export, every boundary exact to the frame. Depth resets exactly where your scenes do.",
     image: "/landing/cut-tab.webp",
     dims: { width: 1600, height: 1705 },
-    alt: "Cut page of Stereo3D Studio showing editable scene-cut markers on a filmstrip and a grid of detected scenes",
+    alt: "Cut page of Spatial Video Studio on the web showing editable scene-cut markers on a filmstrip and a grid of detected scenes",
   },
   {
     id: "depth",
@@ -63,7 +63,7 @@ const TABS: Tab[] = [
       "AI depth maps rendered side by side with your footage, stable across the whole shot. Pick the quality knob, exclude scenes that should stay 2D, export the map or bring your own.",
     image: "/landing/depth-tab.webp",
     dims: { width: 1600, height: 1734 },
-    alt: "Depth page of Stereo3D Studio showing the source frame next to its computed depth map and per-scene 3D toggles",
+    alt: "Depth page of Spatial Video Studio on the web showing the source frame next to its computed depth map and per-scene 3D toggles",
   },
   {
     id: "stereo",
@@ -74,7 +74,7 @@ const TABS: Tab[] = [
       "Every scene is measured and classified automatically — close-up, standard, wide. Review against the real footage, override the depth strength only where it matters, keep credits and logos flat.",
     image: "/landing/stereo-tab.webp",
     dims: { width: 1600, height: 1734 },
-    alt: "Stereo page of Stereo3D Studio showing per-scene 3D classification with manual overrides next to a live depth preview",
+    alt: "Stereo page of Spatial Video Studio on the web showing per-scene 3D classification with manual overrides next to a live depth preview",
   },
   {
     id: "deliver",
@@ -85,7 +85,7 @@ const TABS: Tab[] = [
       "The production render inherits your preview work — approved depth, scene tweaks — and reuses it at a discount. Pick a preset up to 4K and check every format you need.",
     image: "/landing/deliver-tab.webp",
     dims: { width: 1600, height: 1734 },
-    alt: "Deliver page of Stereo3D Studio showing inherited preview settings, a quality preset picker and output format checkboxes",
+    alt: "Deliver page of Spatial Video Studio on the web showing inherited preview settings, a quality preset picker and output format checkboxes",
   },
 ];
 

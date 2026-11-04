@@ -1,4 +1,4 @@
-# Stereo3D Studio — web client
+# Spatial Video Studio on the web — web client (stereo3d.studio)
 
 Professional 2D→3D conversion studio (Next.js App Router). One video = one
 project; the workspace tabs (Media / Cut / Depth / Stereo / Deliver / History)

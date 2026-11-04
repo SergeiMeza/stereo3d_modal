@@ -14,7 +14,7 @@ import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description:
-    "The terms that govern your use of Stereo3D Studio, including content ownership, payment and beta conditions.",
+    "The terms that govern your use of Spatial Video Studio on the web, including content ownership, payment and beta conditions.",
   alternates: { canonical: "/terms" },
 };
 
@@ -26,7 +26,7 @@ export default function TermsPage() {
           These terms are a contract between you and Spatial AI Labs Ltd
           (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a company registered in
           England and Wales with its registered office in London, United
-          Kingdom, governing Stereo3D Studio (the &ldquo;Service&rdquo;). By creating an account or using the
+          Kingdom, governing Spatial Video Studio on the web at stereo3d.studio (the &ldquo;Service&rdquo;). By creating an account or using the
           Service you accept them. If you use the Service for an
           organization, you accept on its behalf and confirm you may do so.
         </p>
@@ -34,7 +34,7 @@ export default function TermsPage() {
 
       <LegalSection title="2. The Service (beta)">
         <p>
-          Stereo3D Studio converts 2D video into stereoscopic 3D. The
+          Spatial Video Studio on the web converts 2D video into stereoscopic 3D. The
           Service is currently in <strong>beta</strong>: source videos are
           limited (today: up to 10 minutes and up to 4K resolution), limits
           and features may change, and availability is not guaranteed. We

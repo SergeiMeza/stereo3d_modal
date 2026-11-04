@@ -15,7 +15,7 @@ import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "How Stereo3D Studio collects, uses, stores and protects your data.",
+    "How Spatial Video Studio on the web collects, uses, stores and protects your data.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -24,8 +24,8 @@ export default function PrivacyPage() {
     <LegalShell title="Privacy Policy" effective="July 5, 2026">
       <LegalSection title="1. Who we are">
         <p>
-          Stereo3D Studio (the &ldquo;Service&rdquo;) is a 2D-to-3D video
-          conversion product operated by Spatial AI Labs Ltd
+          Spatial Video Studio on the web at stereo3d.studio (the
+          &ldquo;Service&rdquo;) is a 2D-to-3D video conversion product operated by Spatial AI Labs Ltd
           (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a company registered in
           England and Wales with its registered office in London, United
           Kingdom. This policy explains what data we collect when you use

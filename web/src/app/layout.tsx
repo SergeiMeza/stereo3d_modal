@@ -7,10 +7,10 @@ import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
-import { Logo } from "@/components/Logo";
+import { AppIcon } from "@/components/AppIcon";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 
 import "./globals.css";
@@ -31,16 +31,16 @@ const description =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Stereo3D Studio — Convert 2D Video to 3D for VR Headsets",
-    template: "%s — Stereo3D Studio",
+    default: "Spatial Video Studio on the web — Convert 2D Video to 3D for VR Headsets",
+    template: "%s — Spatial Video Studio",
   },
   description,
-  applicationName: "Stereo3D Studio",
+  applicationName: SITE_NAME,
   openGraph: {
     type: "website",
-    siteName: "Stereo3D Studio",
+    siteName: SITE_NAME,
     locale: "en_US",
-    title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
+    title: "Spatial Video Studio on the web — VFX-studio 3D, without the VFX studio",
     description:
       "Upload a video, direct the depth scene by scene, and deliver true stereoscopic 3D to every headset.",
     images: [
@@ -48,13 +48,13 @@ export const metadata: Metadata = {
         url: "/landing/og.jpg",
         width: 1200,
         height: 630,
-        alt: "Stereo3D Studio: source footage next to its live depth map, with per-scene 3D controls",
+        alt: "Spatial Video Studio on the web: source footage next to its live depth map, with per-scene 3D controls",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stereo3D Studio — VFX-studio 3D, without the VFX studio",
+    title: "Spatial Video Studio on the web — VFX-studio 3D, without the VFX studio",
     description,
     images: ["/landing/og.jpg"],
   },
@@ -78,9 +78,9 @@ export default function RootLayout({
                 href="/projects"
                 className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-fg"
               >
-                <Logo className="size-5" />
+                <AppIcon className="size-6" />
                 <span>
-                  Stereo3D&nbsp;
+                  Spatial Video&nbsp;
                   <span className="text-primary">Studio</span>
                 </span>
               </Link>
