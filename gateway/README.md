@@ -1174,8 +1174,14 @@ dispute case (`case.promo {record_id, snapshot, status}`).
 - A dispute on a plan invoice opens a manual dispute case like a run's
   (`related.pi_ids`, `dispute_id`, evidence, owner notice O1) with the
   snapshot on `case.promo`; its updates and close follow the run cases.
-  The promo outcome is written before the case closes (a closed case
-  takes no writes; a later owner restore shows on the record only).
+  The promo outcome is written before the case closes. An owner restore
+  after a lost dispute appends one event to the closed case (kind
+  `promo_restored`, `data {type, by, at, reason, restore_id,
+  regranted[{entitlement, ends_at}], skipped[{entitlement, ends_at}]}`,
+  in the admin case timeline `events`); the case stays closed and
+  unchanged. That kind is the only exception to the closed-case guard
+  (`AppendClosedCaseEvent`, idempotent per restore id); `UpdateCase` on a
+  closed case is still refused.
 - The rule for disputes sits in `disputePromoPolicy` (the owner may still
   change it).
 - Admin `GET /v1/admin/accounts/{uid}` adds `promo_regrants` (the

@@ -455,6 +455,27 @@ func (s *Service) promoResolve(ctx context.Context, key, outcome string) {
 	s.promoGiveBack(ctx, key, outcome, "", "")
 }
 
+// casePromoRestored appends the owner's restore to the dispute case, which
+// is closed by then (lost): the one write a closed case takes, once per
+// restore.
+func (s *Service) casePromoRestored(ctx context.Context, rec *store.PromoRegrant, who, note string, at time.Time) {
+	list := func(gs []store.PromoGrant) []map[string]any {
+		out := make([]map[string]any, 0, len(gs))
+		for _, g := range gs {
+			out = append(out, map[string]any{"entitlement": g.Entitlement, "ends_at": g.ExpiresAt})
+		}
+		return out
+	}
+	restoreID := "promo_restored_" + strings.ReplaceAll(rec.ID, ":", "_")
+	e := store.CaseEvent{At: at, Who: who, Kind: store.CaseEventPromoRestored,
+		Text: fmt.Sprintf("promotional Pro restored by %s: %s", who, note),
+		Data: map[string]any{"type": store.CaseEventPromoRestored, "by": who, "at": at, "reason": note, "restore_id": restoreID,
+			"regranted": list(rec.Regranted), "skipped": list(rec.Skipped)}}
+	if _, err := s.Store.AppendClosedCaseEvent(ctx, rec.CaseID, restoreID, e); err != nil {
+		slog.WarnContext(ctx, "promo restore not added to the case", "case_id", rec.CaseID, "err", err)
+	}
+}
+
 // promoGiveBack re-grants a held or kept-removed record's snapshot.
 func (s *Service) promoGiveBack(ctx context.Context, key, outcome, who, note string) *store.PromoRegrant {
 	now := time.Now().UTC()
@@ -483,6 +504,9 @@ func (s *Service) promoGiveBack(ctx context.Context, key, outcome, who, note str
 	}
 	s.Slack.Alert(ctx, "promo_grants_restored", fmt.Sprintf("%s on `%s` (%s) %s: promotional Pro given back: %s; expired, skipped: %s",
 		promoEventName(key), rec.UID, money(rec.AmountCents), outcome, grantsText(got.Regranted), grantsText(got.Skipped)))
+	if outcome == "restored" && got.CaseID != "" {
+		s.casePromoRestored(ctx, got, who, note, now)
+	}
 	return got
 }
 

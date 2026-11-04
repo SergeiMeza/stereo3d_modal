@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -362,6 +363,44 @@ func TestPromoDisputeLostAndRestore(t *testing.T) {
 	}
 	if code := act(`{"action":"restore_promo_grants","note":"again"}`); code != http.StatusConflict {
 		t.Fatalf("nothing left to restore: %d", code)
+	}
+	// The closed case got the restore as its one extra event, and stays
+	// closed; nothing else writes to it.
+	cs := s.disputeCase(ctx, pi, dp)
+	if cs == nil || cs.Open || cs.Status != store.CaseClosed || cs.Result != "dispute_lost" {
+		t.Fatalf("case %+v", cs)
+	}
+	evs, _ := s.Store.ListCaseEvents(ctx, cs.ID, 50)
+	var restored []store.CaseEvent
+	for _, e := range evs {
+		if e.Kind == store.CaseEventPromoRestored {
+			restored = append(restored, e)
+		}
+	}
+	if len(restored) != 1 || restored[0].Who != "owner@x" || restored[0].Data["reason"] != "customer explained, bank error" ||
+		len(restored[0].Data["regranted"].([]any)) != 4 || len(restored[0].Data["skipped"].([]any)) != 1 || restored[0].Data["type"] != "promo_restored" {
+		t.Fatalf("restore event %+v", restored)
+	}
+	if _, err := s.Store.UpdateCase(ctx, cs.ID, "system", func(c *store.Case) error { c.Status = store.CaseOpen; return nil }); !errors.Is(err, store.ErrStateConflict) {
+		t.Fatalf("closed case written: %v", err)
+	}
+	if ok, err := s.Store.AppendClosedCaseEvent(ctx, cs.ID, "x"+store.NewID(), store.CaseEvent{Kind: "note", Text: "hi"}); ok || !errors.Is(err, store.ErrStateConflict) {
+		t.Fatalf("other event on a closed case: %v %v", ok, err)
+	}
+	rec, _ = s.Store.GetPromoRegrant(ctx, "dispute:"+dp)
+	s.casePromoRestored(ctx, rec, "owner@x", "again", time.Now()) // the same restore again: no second event
+	evs, _ = s.Store.ListCaseEvents(ctx, cs.ID, 50)
+	n := 0
+	for _, e := range evs {
+		if e.Kind == store.CaseEventPromoRestored {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d restore events", n)
+	}
+	if got, _ := s.Store.GetCase(ctx, cs.ID); got.Status != store.CaseClosed || got.Open {
+		t.Fatal("still closed")
 	}
 }
 

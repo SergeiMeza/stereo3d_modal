@@ -44,7 +44,9 @@ func (g *AdminGrant) Status(now time.Time) string {
 	return "active"
 }
 
-func adminGrantCol(s *Store) *firestore.CollectionRef { return s.fs.Collection("promo_grants_" + s.env) }
+func adminGrantCol(s *Store) *firestore.CollectionRef {
+	return s.fs.Collection("promo_grants_" + s.env)
+}
 
 func (s *Store) CreateAdminGrant(ctx context.Context, g *AdminGrant) error {
 	g.ID = NewID()

@@ -276,6 +276,35 @@ func (s *Store) AddCaseEvent(ctx context.Context, id string, e CaseEvent) error 
 	return err
 }
 
+// CaseEventPromoRestored is the one event a closed case still takes
+// through AppendClosedCaseEvent: the owner restored the promotional Pro
+// a lost dispute removed (owner 2026-11-04).
+const CaseEventPromoRestored = "promo_restored"
+
+// AppendClosedCaseEvent appends e to a case whatever its status, without
+// touching the case itself (status, result, activity stay): the narrow
+// exception to the closed-case guard, for promo_restored alone. eventID
+// makes it idempotent (false when it was there).
+func (s *Store) AppendClosedCaseEvent(ctx context.Context, caseID, eventID string, e CaseEvent) (bool, error) {
+	if e.Kind != CaseEventPromoRestored {
+		return false, fmt.Errorf("%w: a closed case takes only %s events", ErrStateConflict, CaseEventPromoRestored)
+	}
+	if e.At.IsZero() {
+		e.At = time.Now().UTC()
+	}
+	if _, err := s.caseDoc(caseID).Get(ctx); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	_, err := s.caseDoc(caseID).Collection("events").Doc(eventID).Create(ctx, e)
+	if status.Code(err) == codes.AlreadyExists {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // ListCaseEvents is a case's timeline, newest first.
 func (s *Store) ListCaseEvents(ctx context.Context, id string, limit int) ([]CaseEvent, error) {
 	iter := s.caseDoc(id).Collection("events").OrderBy("at", firestore.Desc).Limit(limit).Documents(ctx)
