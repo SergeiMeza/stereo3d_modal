@@ -17,7 +17,7 @@ import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
-import { useProStatus, type ProStatus } from "@/lib/pro/usePro";
+import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -39,13 +39,25 @@ export function planStarted(def: PlanDef): string {
 /** QA 2026-11-05: the Pro this account already has, before a plan starts
  * (copy only). A web Pro never gets here: Business and Studio are a plan
  * change for it (PlanChangeSheet), credited for the unused Pro. */
+export const PRO_UNKNOWN_KEEPS = "Your current Pro keeps running. Cancel it where you bought it if you like.";
+
 export function proNoteFor(pro: ProStatus | null, planName: string): string | null {
-  if (!pro?.pro) return null;
-  if (pro.source === "app_store") return "Your App Store Pro keeps running. You can cancel it in your Apple ID settings.";
-  if (pro.source === "mac_app_store")
-    return "Your Mac App Store Pro keeps running. You can cancel it in your Apple ID settings.";
-  if (pro.source === "promotional") return `Your Pro from Spatial Video Studio keeps running alongside ${planName}.`;
-  return null;
+  switch (proSourceKind(pro)) {
+    case "app_store":
+      return "Your App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+    case "mac_app_store":
+      return "Your Mac App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+    case "grant":
+      return `Your Pro from Spatial Video Studio keeps running alongside ${planName}.`;
+    case "unknown":
+    case "web":
+      // QA batch 3: a source the gateway doesn't name, or a web Pro that
+      // isn't our own Stripe plan (that one never gets here): never a
+      // credit line
+      return PRO_UNKNOWN_KEEPS;
+    default:
+      return null;
+  }
 }
 
 export function PlanSheet({

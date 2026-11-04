@@ -13,7 +13,7 @@ import { resetProForTests } from "@/lib/pro/usePro";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import { proNoteFor } from "./PlanSheet";
+import { PRO_UNKNOWN_KEEPS, proNoteFor } from "./PlanSheet";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -54,8 +54,14 @@ describe("a plan while Pro", () => {
     expect(proNoteFor({ pro: true, known: true, source: "promotional" }, "Business")).toBe(
       "Your Pro from Spatial Video Studio keeps running alongside Business.",
     );
+    expect(proNoteFor({ pro: true, known: true, source: "grant" }, "Business")).toBe(
+      "Your Pro from Spatial Video Studio keeps running alongside Business.",
+    );
     expect(proNoteFor({ pro: false, known: true }, "Business")).toBeNull();
-    expect(proNoteFor({ pro: true, known: true, source: "stripe" }, "Business")).toBeNull();
+    // QA batch 3: a source the gateway doesn't name, or none: generic
+    expect(proNoteFor({ pro: true, known: true, source: "unknown" }, "Business")).toBe(PRO_UNKNOWN_KEEPS);
+    expect(proNoteFor({ pro: true, known: true }, "Business")).toBe(PRO_UNKNOWN_KEEPS);
+    expect(PRO_UNKNOWN_KEEPS).toBe("Your current Pro keeps running. Cancel it where you bought it if you like.");
   });
 
   it("an App Store Pro: the sheet says it keeps running; the price doesn't change", async () => {
@@ -68,7 +74,7 @@ describe("a plan while Pro", () => {
   });
 
   it("a web Pro: Business is a plan change credited for the unused Pro, never a second checkout", async () => {
-    mockDb.proStatus = { pro: true, known: true, source: "stripe", plan_id: "pro_monthly" };
+    mockDb.proStatus = { pro: true, known: true, source: "web", plan_id: "pro_monthly" };
     const posts: string[] = [];
     server.events.on("request:start", ({ request }) => {
       if (request.method === "POST") posts.push(new URL(request.url).pathname);
@@ -100,6 +106,48 @@ describe("a plan while Pro", () => {
     // no new plan checkout
     expect(posts).not.toContain("/v1/billing/plan");
     server.events.removeAllListeners();
+  });
+
+  it.each([
+    ["unknown", { pro: true, known: true, source: "unknown" }],
+    ["missing", { pro: true, known: true }],
+  ])("a %s source: the plain checkout with the generic line, never the credit line", async (_, status) => {
+    mockDb.proStatus = status as typeof mockDb.proStatus;
+    const sheet = await chooseBusiness();
+    expect((await within(sheet).findByTestId("plan-pro-note")).textContent).toBe(PRO_UNKNOWN_KEEPS);
+    expect(sheet.textContent).not.toMatch(/unused Pro/);
+    expect(screen.queryByTestId("plan-change-sheet")).toBeNull();
+  });
+
+  it("a grant: the plain checkout, and it keeps running", async () => {
+    mockDb.proStatus = { pro: true, known: true, source: "grant" };
+    const sheet = await chooseBusiness();
+    expect((await within(sheet).findByTestId("plan-pro-note")).textContent).toBe(
+      "Your Pro from Spatial Video Studio keeps running alongside Business.",
+    );
+    expect(screen.queryByTestId("plan-change-sheet")).toBeNull();
+  });
+
+  it("a Stripe Pro plan in billing routes to the plan change even without a source", async () => {
+    mockDb.proStatus = { pro: true, known: true };
+    mockDb.billing.plan = {
+      plan: "pro", plan_id: "pro_monthly", name: "Pro Monthly", status: "active", active: true,
+      cancel_at_period_end: false,
+    } as typeof mockDb.billing.plan;
+    mockDb.tierPricing = true;
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <PricingScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const card = await screen.findByTestId("plan-business");
+    const choose = (await within(card).findByTestId("choose-business")) as HTMLButtonElement;
+    await waitFor(() => expect(choose.disabled).toBe(false));
+    fireEvent.click(choose);
+    expect(await screen.findByTestId("plan-change-sheet")).toBeTruthy();
   });
 
   it("no Pro: no line", async () => {

@@ -32,7 +32,24 @@ export interface ProStatus {
   known: boolean;
   /** where this Pro is billed (owner 2026-11-04): the App Store, the Mac
    * App Store, the web, included with a plan, or simulated */
-  source?: "app_store" | "mac_app_store" | "rc_billing" | "stripe" | "plan" | "simulated" | string | null;
+  source?:
+    | "app_store"
+    | "mac_app_store"
+    | "web"
+    | "grant"
+    | "unknown"
+    | "rc_billing"
+    | "stripe"
+    | "plan"
+    | "simulated"
+    | "promotional"
+    | string
+    | null;
+  /** QA 2026-11-05 batch 3 (gateway): "week" | "month" | "year", when known */
+  period?: string | null;
+  /** when it renews, or when it ends (cancelled, a grant, a pass) */
+  renews_at?: string | null;
+  ends_at?: string | null;
   /** the store's subscription page (App Store sources) */
   management_url?: string | null;
   /** gateway 00102: source "plan" — our own plan's id (pro_monthly,
@@ -131,6 +148,9 @@ async function callGateway(
     management_url: body.management_url ?? null,
     plan_id: body.plan_id ?? null,
     scheduled_change: body.scheduled_change ?? null,
+    period: body.period ?? null,
+    renews_at: body.renews_at ?? null,
+    ends_at: body.ends_at ?? null,
   };
 }
 
@@ -242,6 +262,33 @@ export function useBuyPro(): (
  * pro_* plan_id; "stripe" from the mock before it). */
 export function isWebPro(s: ProStatus | null | undefined): boolean {
   if (!s?.pro) return false;
-  if (s.source === "stripe" || s.source === "rc_billing") return true;
+  if (s.source === "web" || s.source === "stripe" || s.source === "rc_billing") return true;
   return s.source === "plan" && (s.plan_id ?? "").startsWith("pro_");
+}
+
+/** QA 2026-11-05 batch 3: Pro on our own Stripe plan, the only Pro that
+ * moves to Business or Studio by plan change (credited for the unused
+ * Pro): source "web", or a Stripe Pro plan in GET /v1/billing. */
+export function isStripePro(
+  s: ProStatus | null | undefined,
+  plan: { plan?: string; active?: boolean } | null | undefined,
+): boolean {
+  if (!s?.pro) return false;
+  if (s.source === "web") return true;
+  if (plan?.active === true && plan.plan === "pro") return true;
+  return s.source === "plan" && (s.plan_id ?? "").startsWith("pro_");
+}
+
+/** The App Store, a grant, the web, or a source we can't name. */
+export function proSourceKind(
+  s: ProStatus | null | undefined,
+): "app_store" | "mac_app_store" | "grant" | "web" | "team" | "simulated" | "unknown" | null {
+  if (!s?.pro) return null;
+  const src = s.source ?? "";
+  if (src === "app_store" || src === "mac_app_store") return src;
+  if (src === "grant" || src === "promotional") return "grant";
+  if (isWebPro(s)) return "web";
+  if (src === "plan") return "team";
+  if (src === "simulated") return "simulated";
+  return "unknown";
 }

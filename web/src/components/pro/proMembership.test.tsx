@@ -13,7 +13,7 @@ import { resetProForTests } from "@/lib/pro/usePro";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import { periodWord, proMembership } from "./proMembership";
+import { periodWord, PRO_UNKNOWN_LINE, proMembership } from "./proMembership";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
@@ -65,6 +65,35 @@ describe("the Pro member's line", () => {
       text: "Pro given to your account by Spatial Video Studio, at no charge.",
       manage: null,
     });
+  });
+
+  it("the gateway's source, period and dates (QA batch 3)", () => {
+    expect(
+      proMembership({ pro: true, known: true, source: "web", period: "year", renews_at: "2027-01-10T00:00:00Z" }, null),
+    ).toEqual({ text: "Pro Yearly on the web. Renews on 10 Jan 2027.", manage: "billing" });
+    expect(
+      proMembership(
+        { pro: true, known: true, source: "app_store", period: "month", renews_at: "2026-12-01T00:00:00Z" },
+        null,
+      ),
+    ).toEqual({ text: "Pro Monthly through the App Store. Renews on 1 Dec 2026.", manage: "apple" });
+    expect(
+      proMembership({ pro: true, known: true, source: "app_store", period: "month", ends_at: "2026-12-01T00:00:00Z" }, null)
+        ?.text,
+    ).toBe("Pro Monthly through the App Store. Ends on 1 Dec 2026.");
+    expect(proMembership({ pro: true, known: true, source: "grant", ends_at: "2027-02-01T00:00:00Z" }, null)).toEqual({
+      text: "Pro given to your account by Spatial Video Studio, at no charge. Ends on 1 Feb 2027.",
+      manage: null,
+    });
+  });
+
+  it("an unknown or missing source: a generic line, nothing to manage", () => {
+    expect(proMembership({ pro: true, known: true, source: "unknown" }, null)).toEqual({
+      text: PRO_UNKNOWN_LINE,
+      manage: null,
+    });
+    expect(proMembership({ pro: true, known: true }, null)).toEqual({ text: PRO_UNKNOWN_LINE, manage: null });
+    expect(PRO_UNKNOWN_LINE).toBe("Pro is active. Manage it where you bought it.");
   });
 
   it("nothing for a plan's Pro, a simulated one, or no Pro", () => {

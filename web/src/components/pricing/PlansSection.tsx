@@ -21,7 +21,7 @@ import type { PlanDef, PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { isTeamPlan } from "@/lib/api/types";
-import { isWebPro, useProStatus } from "@/lib/pro/usePro";
+import { isStripePro, useProStatus } from "@/lib/pro/usePro";
 
 import { planPrice } from "./planCopy";
 
@@ -59,7 +59,8 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
   const mine = isTeamPlan(teamPlan) ? teamPlan.plan : null;
   // coordinator 2026-11-05: for a web Pro they're a plan change (credited
   // for the unused Pro), never a second checkout
-  const webPro = isWebPro(pro);
+  // QA batch 3: only a Pro on our own Stripe plan moves by plan change
+  const webPro = isStripePro(pro, billing.status?.plan);
   const proPeriod = periodWord(billing.status?.plan?.plan === "pro" ? billing.status.plan.plan_id : pro?.plan_id ?? pro?.via);
   const proName = `Pro${proPeriod ? ` ${proPeriod}` : ""}`;
   return (
