@@ -182,27 +182,59 @@ func (s *Service) HandleAdminPlansSurfaces(w http.ResponseWriter, r *http.Reques
 	httpx.WriteOK(w, out)
 }
 
+// surfaceRow accumulates one placement, or one reason within it.
+type surfaceRow struct {
+	views, dismissals, clicks, conversions int
+	viewers                                map[string]bool
+	byProduct                              map[string]int
+}
+
+func newSurfaceRow() *surfaceRow {
+	return &surfaceRow{viewers: map[string]bool{}, byProduct: map[string]int{"pro": 0, "business": 0, "studio": 0}}
+}
+
+func (r *surfaceRow) add(e store.Event) {
+	switch e.Name {
+	case "plans_surface_view":
+		r.views++
+		r.viewers[e.UID] = true
+	case "plans_surface_dismiss":
+		r.dismissals++
+	case "plans_surface_click":
+		r.clicks++
+	}
+}
+
+func surfaceRate(a, b int) float64 {
+	if b == 0 {
+		return 0
+	}
+	return math.Round(float64(a)/float64(b)*10000) / 10000
+}
+
+func (r *surfaceRow) json() map[string]any {
+	return map[string]any{"views": r.views, "viewers": len(r.viewers), "dismissals": r.dismissals, "clicks": r.clicks,
+		"conversions": r.conversions, "conversions_by_product": r.byProduct, "click_rate": surfaceRate(r.clicks, r.views)}
+}
+
 func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[string]any {
-	type reasonRow struct{ views, clicks, conversions int }
-	type row struct {
-		views, dismissals, clicks, conversions int
-		viewers                                map[string]bool
-		byProduct                              map[string]int
-		byReason                               map[string]*reasonRow
-	}
-	reasonOf := func(v any) string {
-		if s, _ := v.(string); s != "" {
-			return s
-		}
-		return "none"
-	}
-	rows := map[string]*row{}
-	get := func(p string) *row {
+	rows := map[string]*surfaceRow{}
+	reasons := map[string]map[string]*surfaceRow{} // placement → reason → row
+	get := func(p string) *surfaceRow {
 		if rows[p] == nil {
-			rows[p] = &row{viewers: map[string]bool{}, byProduct: map[string]int{"pro": 0, "business": 0, "studio": 0},
-				byReason: map[string]*reasonRow{}}
+			rows[p], reasons[p] = newSurfaceRow(), map[string]*surfaceRow{}
 		}
 		return rows[p]
+	}
+	getReason := func(p, reason string) *surfaceRow {
+		get(p)
+		if reason == "" {
+			reason = "none"
+		}
+		if reasons[p][reason] == nil {
+			reasons[p][reason] = newSurfaceRow()
+		}
+		return reasons[p][reason]
 	}
 	for _, p := range plansPlacements {
 		get(p)
@@ -212,22 +244,9 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 		if p == "" {
 			continue
 		}
-		r := get(p)
-		reason := reasonOf(e.Props["reason"])
-		if r.byReason[reason] == nil {
-			r.byReason[reason] = &reasonRow{}
-		}
-		switch e.Name {
-		case "plans_surface_view":
-			r.views++
-			r.viewers[e.UID] = true
-			r.byReason[reason].views++
-		case "plans_surface_dismiss":
-			r.dismissals++
-		case "plans_surface_click":
-			r.clicks++
-			r.byReason[reason].clicks++
-		}
+		reason, _ := e.Props["reason"].(string)
+		get(p).add(e)
+		getReason(p, reason).add(e)
 	}
 	unattributed := map[string]int{"pro": 0, "business": 0, "studio": 0}
 	nUnattributed := 0
@@ -237,20 +256,10 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 			nUnattributed++
 			continue
 		}
-		r := get(c.Placement)
-		r.conversions++
-		r.byProduct[c.Product]++
-		reason := reasonOf(c.Reason)
-		if r.byReason[reason] == nil {
-			r.byReason[reason] = &reasonRow{}
+		for _, r := range []*surfaceRow{get(c.Placement), getReason(c.Placement, c.Reason)} {
+			r.conversions++
+			r.byProduct[c.Product]++
 		}
-		r.byReason[reason].conversions++
-	}
-	rate := func(a, b int) float64 {
-		if b == 0 {
-			return 0
-		}
-		return math.Round(float64(a)/float64(b)*10000) / 10000
 	}
 	names := make([]string, 0, len(rows))
 	for p := range rows {
@@ -260,38 +269,107 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 	list := make([]map[string]any, 0, len(names))
 	for _, p := range names {
 		r := rows[p]
-		reasons := make([]string, 0, len(r.byReason))
-		for k := range r.byReason {
-			reasons = append(reasons, k)
+		rs := make([]string, 0, len(reasons[p]))
+		for k := range reasons[p] {
+			rs = append(rs, k)
 		}
-		sort.Strings(reasons)
-		byReason := make([]map[string]any, 0, len(reasons))
-		for _, k := range reasons {
-			rr := r.byReason[k]
-			byReason = append(byReason, map[string]any{"reason": k, "views": rr.views, "clicks": rr.clicks, "conversions": rr.conversions})
+		sort.Strings(rs)
+		byReason := make([]map[string]any, 0, len(rs))
+		for _, k := range rs {
+			m := reasons[p][k].json()
+			m["placement"], m["reason"] = p, k
+			byReason = append(byReason, m)
 		}
-		list = append(list, map[string]any{"placement": p, "views": r.views, "viewers": len(r.viewers), "dismissals": r.dismissals,
-			"clicks": r.clicks, "conversions": r.conversions, "conversions_by_product": r.byProduct, "by_reason": byReason,
-			"click_rate": rate(r.clicks, r.views), "conversion_rate": rate(r.conversions, r.clicks)})
+		m := r.json()
+		m["placement"], m["by_reason"], m["conversion_rate"] = p, byReason, surfaceRate(r.conversions, r.clicks)
+		list = append(list, m)
 	}
 	return map[string]any{"placements": list, "unattributed": map[string]any{"conversions": nUnattributed, "by_product": unattributed}}
 }
 
 // ------------------------------------------------------------ dismissed
 
+// maxDismissed caps the stored keys (the newest kept).
+const maxDismissed = 200
+
+// perProjectDismissals: placements dismissed per project, keyed
+// "<placement>:<projectId>".
+var perProjectDismissals = []string{"business_note"}
+
+// dismissedProject is the project id of a per-project key ("" for a plain
+// placement).
+func dismissedProject(k string) string {
+	if p, id, ok := strings.Cut(k, ":"); ok && slices.Contains(perProjectDismissals, p) {
+		return id
+	}
+	return ""
+}
+
+func validDismissedKey(k string) bool {
+	if slices.Contains(plansPlacements, k) {
+		return true
+	}
+	id := dismissedProject(k)
+	return id != "" && ValidResourceID(id)
+}
+
+// keepDismissed: the keys to keep, the per-project ones only whose project is the user's,
+// not archived and not deleted, and at most maxDismissed keys (newest).
+// It reads the projects before the customer update (no reads inside it).
+func (s *Service) keepDismissed(ctx context.Context, uid string, keys []string) (map[string]bool, error) {
+	ids := []string{}
+	for _, k := range keys {
+		if id := dismissedProject(k); id != "" && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	projects, err := s.Store.GetProjectsByID(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	keep := map[string]bool{}
+	for _, k := range keys {
+		if id := dismissedProject(k); id == "" {
+			keep[k] = true
+		} else if p := projects[id]; p != nil && p.UID == uid && !p.Archived && !p.Deleted {
+			keep[k] = true
+		}
+	}
+	return keep, nil
+}
+
+func capDismissed(m map[string]time.Time) {
+	if len(m) <= maxDismissed {
+		return
+	}
+	type kv struct {
+		k string
+		t time.Time
+	}
+	all := make([]kv, 0, len(m))
+	for k, t := range m {
+		all = append(all, kv{k, t})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].t.After(all[j].t) })
+	for _, e := range all[maxDismissed:] {
+		delete(m, e.k)
+	}
+}
+
 // dismissedPatch is PATCH /v1/account/settings dismissed {placement: true
-// (now) | RFC 3339 time | null (clear)}.
+// (now) | RFC 3339 time | null (clear)}; business_note also per project
+// ("business_note:<projectId>", the user's own project).
 func parseDismissed(raw json.RawMessage, now time.Time) (map[string]*time.Time, *httpx.APIError) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
 	var in map[string]json.RawMessage
-	if json.Unmarshal(raw, &in) != nil || len(in) > len(plansPlacements) {
-		return nil, httpx.ErrInvalid("dismissed is {placement: true | time | null}")
+	if json.Unmarshal(raw, &in) != nil || len(in) > maxDismissed {
+		return nil, httpx.ErrInvalid("dismissed is {placement: true | time | null}, at most 200")
 	}
 	out := map[string]*time.Time{}
 	for k, v := range in {
-		if !slices.Contains(plansPlacements, k) {
+		if !validDismissedKey(k) {
 			return nil, httpx.ErrInvalid("dismissed: unknown placement " + strconv.Quote(k))
 		}
 		switch s := strings.TrimSpace(string(v)); {

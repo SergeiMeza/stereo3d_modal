@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -131,6 +132,29 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			httpx.WriteErr(ctx, w, derr)
 			return
 		}
+		var keepKeys map[string]bool
+		if len(dismissed) > 0 {
+			keys := []string{}
+			if cur, cerr := s.Store.GetCustomer(ctx, user.UID); cerr == nil {
+				for k := range cur.Dismissed {
+					keys = append(keys, k)
+				}
+			}
+			for k, t := range dismissed {
+				keys = append(keys, k)
+				if id := dismissedProject(k); id != "" && t != nil {
+					if p, perr := s.Store.GetProject(ctx, id); perr != nil || p.UID != user.UID || p.Deleted {
+						httpx.WriteErr(ctx, w, httpx.ErrInvalid("dismissed: "+strconv.Quote(k)+" isn't one of your projects"))
+						return
+					}
+				}
+			}
+			var kerr error
+			if keepKeys, kerr = s.keepDismissed(ctx, user.UID, keys); kerr != nil {
+				httpx.WriteErr(ctx, w, kerr)
+				return
+			}
+		}
 		if req.SimulateAppPro != nil && (s.Cfg == nil || s.Cfg.Env == "prod") {
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "test_only", "simulate_app_pro is for test only"))
 			return
@@ -186,6 +210,14 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 				} else {
 					c.Dismissed[k] = *t
 				}
+			}
+			if keepKeys != nil {
+				for k := range c.Dismissed {
+					if !keepKeys[k] {
+						delete(c.Dismissed, k) // archived, deleted or not theirs
+					}
+				}
+				capDismissed(c.Dismissed)
 			}
 			return nil
 		}); err != nil {

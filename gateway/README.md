@@ -803,7 +803,9 @@ is ignored without such a plan.
   added once and never again after a delete. The first samples (before
   2026-11-04 05:00 UTC) had `smp…` ids that every route refused (404
   "conversion not found"); the next list retires such a sample and adds
-  one with proper ids.
+  one with proper ids. For the sample's run, `GET /v1/conversions/{id}`,
+  `/downloads` and `/plays` answer 200 (plays aren't logged), and
+  `/handoff` answers 200 `{sample: true, nothing_to_pay: true}`.
 - **`/v1/pricing`** plans add `max_fps: 120`.
 
 ### App Pro onboarding variant (owner 2026-11-04, test)
@@ -861,15 +863,20 @@ is ignored without such a plan.
   `click_plan`, `click_at`; none = unattributed).
 - **`GET /v1/admin/plans/surfaces?days=30`** (admin) → `{days,
   placements[{placement, views, viewers, dismissals, clicks, conversions,
-  conversions_by_product {pro, business, studio}, by_reason[{reason,
-  views, clicks, conversions}] (reason "none" when absent), click_rate,
-  conversion_rate}], unattributed {conversions, by_product},
+  conversions_by_product {pro, business, studio}, by_reason[{placement,
+  reason, views, viewers, dismissals, clicks, conversions,
+  conversions_by_product, click_rate}] (reason "none" when absent),
+  click_rate, conversion_rate}], unattributed {conversions, by_product},
   generated_at}`; every placement is listed; counts are events, viewers
   are people; `click_rate` = clicks ÷ views, `conversion_rate` =
   conversions ÷ clicks (4 decimals, 0 when the divisor is 0).
 - **`/v1/account/settings` `dismissed`**: GET `{placement: RFC 3339}`
   (`{}` by default); PATCH `dismissed {placement: true (now) | time |
-  null (clear)}`, placements as above, a future time clamped to now.
+  null (clear)}`, placements as above, a future time clamped to now;
+  `business_note` also per project as `business_note:<projectId>` (400
+  unless it's the user's project). A PATCH that touches `dismissed`
+  prunes per-project keys whose project is archived, deleted or gone,
+  and keeps at most 200 keys (the newest).
 
 ### Alt prices and sales contact (owner 2026-11-04)
 

@@ -270,3 +270,31 @@ func (s *Store) EachProject(ctx context.Context, fn func(p *Project) error) erro
 		}
 	}
 }
+
+// GetProjectsByID reads several projects in one round trip; missing ones
+// are absent from the map.
+func (s *Store) GetProjectsByID(ctx context.Context, ids []string) (map[string]*Project, error) {
+	out := map[string]*Project{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	refs := make([]*firestore.DocumentRef, 0, len(ids))
+	for _, id := range ids {
+		refs = append(refs, s.projDoc(id))
+	}
+	snaps, err := s.fs.GetAll(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
+	for _, sn := range snaps {
+		if !sn.Exists() {
+			continue
+		}
+		var p Project
+		if sn.DataTo(&p) == nil {
+			p.ID = sn.Ref.ID
+			out[p.ID] = &p
+		}
+	}
+	return out, nil
+}

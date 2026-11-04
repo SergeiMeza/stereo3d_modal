@@ -188,8 +188,49 @@ func TestPlansSurfaceReason(t *testing.T) {
 		if p["placement"] != "quote" {
 			continue
 		}
-		if got := fmt.Sprint(p["by_reason"]); got != "[map[clicks:0 conversions:0 reason:none views:1] map[clicks:1 conversions:1 reason:source_8k views:2]]" {
-			t.Fatalf("by_reason %s", got)
+		br := p["by_reason"].([]map[string]any)
+		if len(br) != 2 || br[0]["reason"] != "none" || br[0]["views"] != 1 || br[1]["placement"] != "quote" ||
+			br[1]["reason"] != "source_8k" || br[1]["views"] != 2 || br[1]["viewers"] != 1 || br[1]["clicks"] != 1 ||
+			br[1]["conversions"] != 1 || br[1]["click_rate"] != 0.5 || br[1]["dismissals"] != 0 ||
+			br[1]["conversions_by_product"].(map[string]int)["business"] != 1 {
+			t.Fatalf("by_reason %v", br)
 		}
+	}
+}
+
+// business_note per project: the user's own, pruned when archived.
+func TestDismissedPerProject(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", CreatedAt: sampleSince.Add(time.Hour)})
+	mine, other := &store.Project{ID: store.NewID(), UID: uid}, &store.Project{ID: store.NewID(), UID: "someone"}
+	s.Store.CreateProject(ctx, mine)
+	s.Store.CreateProject(ctx, other)
+	settings := func(body string) (int, map[string]any) {
+		return callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleAccountSettings(w, r, &AuthedUser{UID: uid}) }, "PATCH", body)
+	}
+	if code, _ := settings(`{"dismissed":{"business_note:` + other.ID + `":true}}`); code != 400 {
+		t.Fatal("someone else's project")
+	}
+	if code, _ := settings(`{"dismissed":{"quote:` + mine.ID + `":true}}`); code != 400 {
+		t.Fatal("quote isn't per project")
+	}
+	code, out := settings(`{"dismissed":{"business_note:` + mine.ID + `":true,"header":true}}`)
+	if d := out["dismissed"].(map[string]any); code != 200 || d["business_note:"+mine.ID] == nil || d["header"] == nil {
+		t.Fatalf("set %d %v", code, out)
+	}
+	s.Store.UpdateProject(ctx, mine.ID, func(p *store.Project) error { p.Archived = true; return nil })
+	_, out = settings(`{"dismissed":{"plans_hint":true}}`)
+	if d := out["dismissed"].(map[string]any); d["business_note:"+mine.ID] != nil || d["header"] == nil || d["plans_hint"] == nil {
+		t.Fatalf("pruned %v", d)
+	}
+	m := map[string]time.Time{}
+	for i := 0; i < 210; i++ {
+		m[fmt.Sprint("k", i)] = time.Unix(int64(i), 0)
+	}
+	capDismissed(m)
+	if _, ok := m["k209"]; len(m) != maxDismissed || !ok {
+		t.Fatalf("cap %d", len(m))
 	}
 }

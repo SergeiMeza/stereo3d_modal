@@ -73,6 +73,11 @@ func TestSampleOpensEndToEnd(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("play %d", rec.Code)
 	}
+	rec = httptest.NewRecorder()
+	s.HandleCreateHandoff(rec, httptest.NewRequest("POST", "/", strings.NewReader(`{}`)), user, cid)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"sample":true`) {
+		t.Fatalf("handoff %d %s", rec.Code, rec.Body)
+	}
 }
 
 // A sample made with the old "smp…" id (the routes refused it) is retired

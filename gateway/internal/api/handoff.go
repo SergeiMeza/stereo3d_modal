@@ -99,6 +99,11 @@ func (s *Service) HandleCreateHandoff(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, httpx.ErrNotFound("conversion"))
 		return
 	}
+	if conv.Sample {
+		// The onboarding sample: nothing to pay, nothing to hand over.
+		httpx.WriteOK(w, map[string]any{"sample": true, "nothing_to_pay": true})
+		return
+	}
 	if err := runPayable(conv); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
