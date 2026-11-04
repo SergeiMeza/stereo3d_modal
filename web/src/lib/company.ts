@@ -10,9 +10,10 @@
 import type { CompanyDetails } from "@/lib/api/types";
 
 /**
- * Every ISO 3166-1 alpha-2 code except the four Stripe can't serve (CU, IR,
- * KP, SY): what Stripe Checkout offers for a billing address. One list;
- * names come from Intl, not from here.
+ * What Stripe Checkout offers for a billing address: every ISO 3166-1
+ * alpha-2 code, plus XK (Kosovo, which Stripe offers though it isn't in
+ * ISO 3166-1), minus the four Stripe can't serve (CU, IR, KP, SY). One
+ * list; names come from Intl, not from here.
  */
 export const COUNTRY_CODES: readonly string[] = [
   "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ",
@@ -38,6 +39,7 @@ export const COUNTRY_CODES: readonly string[] = [
   "UA", "UG", "UM", "US", "UY", "UZ",
   "VA", "VC", "VE", "VG", "VI", "VN", "VU",
   "WF", "WS",
+  "XK",
   "YE", "YT",
   "ZA", "ZM", "ZW",
 ];

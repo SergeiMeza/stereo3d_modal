@@ -25,7 +25,7 @@ import {
 import { http, HttpResponse } from "msw";
 
 import { AuthProvider } from "@/lib/auth";
-import { companySummary, countryName, taxTypesFor } from "@/lib/company";
+import { COUNTRY_CODES, companySummary, countryName, taxTypesFor } from "@/lib/company";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -190,6 +190,14 @@ describe("business details", () => {
     ]);
   });
 
+  it("Kosovo can be picked and saved", async () => {
+    renderForm();
+    await pickCountry("XK", "Kosovo");
+    expect(screen.getByLabelText("Country").textContent).toBe("Kosovo");
+    fireEvent.click(screen.getByTestId("company-save"));
+    await waitFor(() => expect(mockDb.billing.company?.address?.country).toBe("XK"));
+  });
+
   it("a country without a tax ID type hides the tax field", async () => {
     renderForm();
     await pickCountry("AF", "Afgh");
@@ -221,6 +229,13 @@ describe("countries and tax IDs worldwide", () => {
         "en",
       ),
     ).toBe("Lumen SA · 30-12345678-9 · Buenos Aires, Argentina");
+  });
+
+  it("offers Kosovo (XK) as Stripe does, and not CU, IR, KP or SY", () => {
+    expect(COUNTRY_CODES).toContain("XK");
+    expect(countryName("XK", "en")).toBe("Kosovo");
+    for (const c of ["CU", "IR", "KP", "SY"]) expect(COUNTRY_CODES).not.toContain(c);
+    expect(COUNTRY_CODES).toHaveLength(246);
   });
 
   it("uses Stripe's tax ID types, with EU VAT first for EU members", () => {
