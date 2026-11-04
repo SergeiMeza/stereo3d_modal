@@ -1345,3 +1345,37 @@ export function isTeamPlan(
 ): p is AccountPlan & { plan: "business" | "studio" } {
   return p?.active === true && (p.plan === "business" || p.plan === "studio");
 }
+
+/** ADR 0137: another format for a finished run, made from its files
+ * (free). GET /v1/runs/{id}/formats. */
+export type RunFormatJobStatus = "pending" | "processing" | "succeeded" | "failed";
+
+export interface RunFormatJob {
+  job_id: string;
+  status: RunFormatJobStatus;
+  source?: string;
+  price_cents?: number;
+  requested_at?: string;
+  finished_at?: string | null;
+  error?: string | null;
+}
+
+export type RunFormatsUnavailable =
+  | "files_erased"
+  | "half_only"
+  | "run_failed"
+  | "too_wide"
+  | "classic_retired"
+  | "split_run";
+
+export interface RunFormats {
+  /** formats that can be made now */
+  available: Format[];
+  /** formats the run already has */
+  have: Format[];
+  /** formats being made */
+  pending: Format[];
+  unavailable_reason?: RunFormatsUnavailable | string | null;
+  price_cents: number;
+  jobs?: Partial<Record<Format, RunFormatJob>> | null;
+}

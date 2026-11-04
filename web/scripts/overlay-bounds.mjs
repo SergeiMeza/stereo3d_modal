@@ -194,6 +194,23 @@ try {
     await page.evaluate((pid) => {
       window.__mockDb.projects.get(pid).method = "lifelike";
     }, id);
+    // a finished run for the Files tab's "Get another format" (ADR 0137)
+    await page.evaluate((pid) => {
+      window.__mockDb.conversions.set("conv_overlay_formats", {
+        conversion_id: "conv_overlay_formats",
+        state: "succeeded",
+        kind: "video",
+        method: "lifelike",
+        project_id: pid,
+        step: "production",
+        params: { preset: "1080p", formats: ["mvhevc"] },
+        quote: { amount_cents: 500, currency: "usd" },
+        progress: 1,
+        outputs: ["mvhevc"],
+        created_at: "2026-11-01T09:00:00Z",
+        updated_at: "2026-11-01T09:10:00Z",
+      });
+    }, id);
     await page.locator(`a[href="/projects/${id}"]`).first().click();
     await page.getByTestId("tab-make").click();
     const q = page.getByRole("button", { name: "?" }).last();
@@ -208,6 +225,14 @@ try {
       await assertInside(page, "Pro checkout sheet", failures);
       await close(page);
     }
+
+    // Files: "Get another format" on a finished run (ADR 0137)
+    await page.getByTestId("tab-files").click();
+    const another = page.getByTestId("another-format-open").first();
+    await another.waitFor({ state: "visible" });
+    await another.click();
+    await assertInside(page, "Get another format menu", failures);
+    await close(page);
     await page.close();
   }
 } finally {

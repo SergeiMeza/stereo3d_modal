@@ -21,6 +21,7 @@ import { HEADSET_HINT, isHeadset, stereoFormatsFor } from "@/lib/headset";
 import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
+import { AnotherFormat } from "./AnotherFormat";
 import { loadErrorText, useIsSample } from "./loadError";
 
 interface DeviceGroupCopy {
@@ -105,6 +106,8 @@ export function useRunFiles(conversion: Conversion | undefined): {
   expired: () => boolean;
   /** a fresh URL for a file (fetches new links when these expired) */
   freshUrl: (name: string) => Promise<string | null>;
+  /** load the files again (a new format arrived, ADR 0137) */
+  reload: () => void;
 } {
   const client = useGateway();
   const id = conversion?.conversion_id ?? null;
@@ -160,11 +163,16 @@ export function useRunFiles(conversion: Conversion | undefined): {
     [],
   );
 
+  const reload = useCallback(() => {
+    void load().catch(() => {});
+  }, [load]);
+
   return {
     files: state && state.id === id ? state.files : null,
     error,
     expired,
     freshUrl,
+    reload,
   };
 }
 
@@ -219,12 +227,13 @@ export function RunFiles({
 }: {
   conversion: Conversion;
 }): JSX.Element {
-  const { files, error, expired, freshUrl } = useRunFiles(conversion);
+  const { files, error, expired, freshUrl, reload } = useRunFiles(conversion);
   const client = useClient();
   const gateway = useGateway();
   // 00081: a play of View in 3D (fire-and-forget)
   const logPlay = (file: string) =>
     gateway.logPlay(conversion.conversion_id, file, PREVIEW_STEPS.has(conversion.step ?? "") ? "preview" : "view_in_3d");
+  const preview = PREVIEW_STEPS.has(conversion.step ?? "");
   if (error) return <p className="text-xs text-red-400">{error}</p>;
   if (files === null) {
     return <p className="text-xs text-fg-muted">Fetching your files…</p>;
@@ -232,8 +241,10 @@ export function RunFiles({
   if (files.length === 0) {
     return <p className="text-xs text-fg-muted">No files in this run.</p>;
   }
+  // ADR 0137: a finished run can get another format from its files, free
+  const another =
+    conversion.step === "production" ? <AnotherFormat conversion={conversion} onNewFile={reload} /> : null;
   const byFormat = Object.fromEntries(files.filter((f) => !f.part || f.part === 1).map((f) => [f.format, f.url]));
-  const preview = PREVIEW_STEPS.has(conversion.step ?? "");
 
   // a live link downloads as is; an expired one gets fresh links first
   function open(e: MouseEvent<HTMLAnchorElement>, name: string): void {
@@ -323,6 +334,7 @@ export function RunFiles({
           </p>
         ) : null}
         {mine.map((g) => group(g, true))}
+        {another}
         {others.length > 0 ? (
           <details data-testid="other-files">
             <summary className="cursor-pointer text-sm text-fg-muted">
@@ -342,6 +354,7 @@ export function RunFiles({
         <ViewIn3D files={byFormat} onPlay={logPlay} />
       </div>
       {groups.map((g) => group(g, false))}
+      {another}
     </div>
   );
 }

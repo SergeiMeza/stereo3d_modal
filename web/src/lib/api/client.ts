@@ -17,6 +17,9 @@ import type {
   HandoffInfo,
   HandoffStart,
   CompanyDetails,
+  Format,
+  RunFormatJob,
+  RunFormats,
   InvoiceList,
   APIErrorBody,
   BillingSettleResult,
@@ -783,6 +786,19 @@ export class GatewayClient {
   /** Tell us an overdue run looks stuck; the note is optional. */
   reportConversion(id: string, note: string): Promise<Conversion> {
     return this.request("POST", `/v1/conversions/${id}/report`, { note });
+  }
+
+  /** ADR 0137: the formats a finished run can still get (free). */
+  async getRunFormats(id: string): Promise<RunFormats> {
+    const r = await this.request<RunFormats>("GET", `/v1/runs/${encodeURIComponent(id)}/formats`);
+    return { ...r, available: r.available ?? [], have: r.have ?? [], pending: r.pending ?? [] };
+  }
+
+  /** ADR 0137: make another format; 202 {job_id, status, format}. 409
+   * format_exists | format_in_progress | format_unavailable {reason}; 429
+   * rate_limited; 502/503 repack_unavailable. */
+  requestRunFormat(id: string, format: Format): Promise<RunFormatJob & { format: Format }> {
+    return this.request("POST", `/v1/runs/${encodeURIComponent(id)}/formats`, { format });
   }
 
   async getDownloads(id: string): Promise<Downloads> {

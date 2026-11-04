@@ -188,7 +188,9 @@ export function WatchPicker({
 
 /* ---------- Files you'll get ---------- */
 
-const FORMAT_FOR: Partial<Record<Format, string>> = {
+/** Who each file is for, in one line (the Make 3D tiles and "Get another
+ * format", ADR 0137). */
+export const FORMAT_FOR: Partial<Record<Format, string>> = {
   mvhevc: "For Apple Vision Pro",
   sbs: "For Meta Quest, Galaxy XR, Pico, Steam Frame and XR glasses",
   half_sbs: "For 3D TVs, projectors, and Meta Quest at 4K and above",

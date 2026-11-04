@@ -432,6 +432,12 @@ interface DB {
   passkeyReauthNeeded: boolean;
   /** ADR 0136: refusals the next passkey sign-in checks answer, in order */
   passkeyVerifyErrors: { status: number; code: string }[];
+  /** ADR 0137: another format for a finished run: jobs per run, the GETs
+   * a job takes to finish, and whether the next ones fail */
+  formatJobs: Map<string, Partial<Record<string, { job_id: string; status: string; polls: number; requested_at: string; finished_at: string | null; error?: string }>>>;
+  formatJobPolls: number;
+  formatJobsFail: boolean;
+  formatServiceDown: boolean;
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -920,6 +926,10 @@ function seed(): DB {
     passkeys: [] as typeof mockDb.passkeys,
     passkeyReauthNeeded: false,
     passkeyVerifyErrors: [] as { status: number; code: string }[],
+    formatJobs: new Map() as typeof mockDb.formatJobs,
+    formatJobPolls: 1,
+    formatJobsFail: false,
+    formatServiceDown: false,
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -957,6 +967,10 @@ export const mockDb = {
     this.passkeys = fresh.passkeys;
     this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
     this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
+    this.formatJobs = fresh.formatJobs;
+    this.formatJobPolls = fresh.formatJobPolls;
+    this.formatJobsFail = fresh.formatJobsFail;
+    this.formatServiceDown = fresh.formatServiceDown;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -1004,6 +1018,58 @@ const MOCK_LAYOUT_MARKERS: Record<string, string> = {
   sbs: "SBS",
   half_sbs: "Half-SBS",
 };
+
+/** ADR 0137: what a finished run can still get; `advance` moves running
+ * jobs on (one GET at a time, like a poll). */
+function runFormats(c: Conversion, advance: boolean) {
+  const base = (n: string) => n.replace(/_part\d+$/, "");
+  const have = [...new Set((c.outputs ?? []).map(base))].filter((f) => ["mvhevc", "sbs", "half_sbs", "anaglyph"].includes(f));
+  const jobs = mockDb.formatJobs.get(c.conversion_id) ?? {};
+  if (advance) {
+    for (const [fmt, j] of Object.entries(jobs)) {
+      if (!j || j.status === "succeeded" || j.status === "failed") continue;
+      j.polls += 1;
+      j.status = "processing";
+      if (j.polls >= mockDb.formatJobPolls) {
+        j.finished_at = new Date().toISOString();
+        if (mockDb.formatJobsFail) {
+          j.status = "failed";
+          j.error = "repack failed";
+        } else {
+          j.status = "succeeded";
+          c.outputs = [...(c.outputs ?? []), fmt];
+          have.push(fmt);
+        }
+      }
+    }
+  }
+  const pending = Object.entries(jobs)
+    .filter(([, j]) => j && (j.status === "pending" || j.status === "processing"))
+    .map(([f]) => f);
+  const project = c.project_id ? mockDb.projects.get(c.project_id) : undefined;
+  let reason: string | null = null;
+  if (c.state !== "succeeded") reason = "run_failed";
+  else if (project?.files_deleted_at) reason = "files_erased";
+  else if (c.method !== "lifelike") reason = "classic_retired";
+  else if (c.parts && c.parts.length > 1) reason = "split_run";
+  // only the half-size file: nothing full-size to make others from
+  else if (have.length === 1 && have[0] === "half_sbs") reason = "half_only";
+  const offered = ["6k", "8k"].includes(c.params.preset ?? "") ? ["mvhevc", "half_sbs"] : ["mvhevc", "sbs", "half_sbs"];
+  const available = reason ? [] : offered.filter((f) => !have.includes(f) && !pending.includes(f));
+  return {
+    available,
+    have,
+    pending,
+    ...(reason ? { unavailable_reason: reason } : {}),
+    price_cents: 0,
+    jobs: Object.fromEntries(
+      Object.entries(jobs).map(([f, j]) => [
+        f,
+        { job_id: j!.job_id, status: j!.status, source: "repack", price_cents: 0, requested_at: j!.requested_at, finished_at: j!.finished_at, ...(j!.error ? { error: j!.error } : {}) },
+      ]),
+    ),
+  };
+}
 
 /** The passkey relying party in the browser mock: this page's host. */
 function mockRpId(): string {
@@ -4433,6 +4499,33 @@ export const handlers = [
       c.reported_at = new Date().toISOString();
     }
     return HttpResponse.json(c);
+  }),
+
+  // ADR 0137: another format for a finished run, free
+  http.get(`${GATEWAY}/v1/runs/:id/formats`, ({ params }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "run not found");
+    return HttpResponse.json(runFormats(c, true));
+  }),
+  http.post(`${GATEWAY}/v1/runs/:id/formats`, async ({ params, request }) => {
+    const c = mockDb.conversions.get(params.id as string);
+    if (!c) return err(404, "not_found", "run not found");
+    const { format } = (await request.json().catch(() => ({}))) as { format?: string };
+    const st = runFormats(c, false);
+    if (format && st.have.includes(format)) return err(409, "format_exists", "the run already has that format");
+    if (format && st.pending.includes(format)) return err(409, "format_in_progress", "that format is being made");
+    if (!format || !st.available.includes(format)) {
+      return HttpResponse.json(
+        { success: false, error: "format_unavailable", message: "that format can't be made for this run", details: { reason: st.unavailable_reason ?? "half_only" } },
+        { status: 409 },
+      );
+    }
+    if (mockDb.formatServiceDown) return err(503, "repack_unavailable", "formats can't be made right now");
+    const jobs = mockDb.formatJobs.get(c.conversion_id) ?? {};
+    const job_id = `job_${c.conversion_id}_${format}_${Date.now()}`;
+    jobs[format] = { job_id, status: "pending", polls: 0, requested_at: new Date().toISOString(), finished_at: null };
+    mockDb.formatJobs.set(c.conversion_id, jobs);
+    return HttpResponse.json({ job_id, status: "pending", format, source: "repack", price_cents: 0 }, { status: 202 });
   }),
 
   http.get(`${GATEWAY}/v1/conversions/:id/downloads`, ({ params }) => {
