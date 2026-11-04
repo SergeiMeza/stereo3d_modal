@@ -1,5 +1,4 @@
-import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Brand } from "../components/Brand";
 import { Note } from "@/components/common";
@@ -8,6 +7,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { ApiError, type AdminApi } from "../lib/api";
 import type { AdminAuth, AuthState } from "../lib/auth";
 import { assertPasskey, createPasskey, PASSKEY_COPY, passkeyErrorMessage } from "../lib/passkeys";
+import { sessionOptionsQuery } from "../lib/services";
+import { useQuery } from "@/state/query";
 
 const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 
@@ -83,11 +84,6 @@ function SignedOut({ auth, state }: { auth: AdminAuth; state: Extract<AuthState,
   );
 }
 
-type PasskeyStage =
-  | { kind: "checking" }
-  | { kind: "use"; options: PublicKeyCredentialRequestOptionsJSON | null; added?: boolean }
-  | { kind: "setup" };
-
 /**
  * After Google: "Use your passkey". The options are fetched as the step
  * opens, so the browser's passkey prompt opens straight from the click.
@@ -95,44 +91,29 @@ type PasskeyStage =
  * sign in with it. There is no other second factor (ADR 0135).
  */
 function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; email: string }) {
-  const [stage, setStage] = useState<PasskeyStage>({ kind: "checking" });
+  // the challenge, in an atom (ADR 0138); loaded anew each time the step opens
+  const challenge = useQuery(sessionOptionsQuery, "sign_in");
+  const load = challenge.state;
+  const noPasskey = load.kind === "error" && load.error instanceof ApiError && load.error.code === "no_passkey";
+  const stage = load.kind === "loading" ? "checking" : noPasskey ? "setup" : "use";
+  const options = load.kind === "loaded" ? load.data : undefined;
+  // local UI: the click's own outcome
+  const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const prepare = async (added = false) => {
-    setError("");
-    try {
-      const options = await api.sessionOptions("sign_in");
-      setStage({ kind: "use", options, added });
-    } catch (e) {
-      if (e instanceof ApiError && e.code === "no_passkey") setStage({ kind: "setup" });
-      else {
-        setStage({ kind: "use", options: null, added });
-        setError(passkeyErrorMessage(e));
-      }
-    }
-  };
-
-  useEffect(() => {
-    void prepare();
-    // once per mount: the step reopens after a sign-out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [actionError, setActionError] = useState("");
+  const error = actionError || (load.kind === "error" && !noPasskey ? passkeyErrorMessage(load.error) : "");
 
   const use = async () => {
-    if (stage.kind !== "use") return;
+    if (stage !== "use") return;
     setBusy(true);
-    setError("");
+    setActionError("");
     try {
-      await assertPasskey(api, "sign_in", stage.options ?? undefined);
+      await assertPasskey(api, "sign_in", options);
       // the session is set; the console opens
     } catch (e) {
-      setError(passkeyErrorMessage(e));
+      setActionError(passkeyErrorMessage(e));
       // a used or expired challenge can't be tried again
-      void api.sessionOptions("sign_in").then(
-        (options) => setStage({ kind: "use", options }),
-        () => setStage({ kind: "use", options: null }),
-      );
+      void challenge.reload().catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -140,7 +121,7 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
 
   const setup = async () => {
     setBusy(true);
-    setError("");
+    setActionError("");
     try {
       try {
         await createPasskey(api);
@@ -151,9 +132,10 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
         await auth.reauthenticate();
         await createPasskey(api);
       }
-      await prepare(true);
+      setAdded(true);
+      await challenge.reload().catch(() => {});
     } catch (e) {
-      setError(
+      setActionError(
         e instanceof ApiError && e.code === "passkey_exists"
           ? "This device already has a passkey for the console. Use it to sign in."
           : passkeyErrorMessage(e),
@@ -165,7 +147,7 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
 
   return (
     <>
-      {stage.kind === "setup" ? (
+      {stage === "setup" ? (
         <>
           <p>Set up a passkey to use the console.</p>
           <Note>{email} · {PASSKEY_COPY}</Note>
@@ -175,10 +157,10 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
         </>
       ) : (
         <>
-          {stage.kind === "use" && stage.added && <p className="text-sm text-warning" role="status">Passkey added. Use it to sign in.</p>}
+          {stage === "use" && added && <p className="text-sm text-warning" role="status">Passkey added. Use it to sign in.</p>}
           <p>Use your passkey to finish signing in.</p>
           <Note>{email} · {PASSKEY_COPY}</Note>
-          <Button variant="default" size="lg" className="w-full" onClick={() => void use()} disabled={busy || stage.kind === "checking"}>
+          <Button variant="default" size="lg" className="w-full" onClick={() => void use()} disabled={busy || stage === "checking"}>
             {busy ? "Waiting for the passkey…" : "Use your passkey"}
           </Button>
         </>

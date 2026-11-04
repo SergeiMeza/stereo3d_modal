@@ -31,6 +31,35 @@ const NO_HAND_ROLLED_OVERLAYS = [
   },
 ];
 
+/** ADR 0138 (owner 2026-11-05): shared state and gateway responses live in
+ * jotai atoms (src/state/); React Context only for non-state providers. */
+const STATE_IN_ATOMS = [
+  {
+    selector: "CallExpression[callee.name='createContext'], CallExpression[callee.property.name='createContext']",
+    message:
+      "ADR 0138: shared state goes in a jotai atom, not a React Context. Context is only for non-state providers (theme, Radix, router), in the allowlist below.",
+  },
+  {
+    selector: "CallExpression[callee.name=/^set[A-Z]/] > AwaitExpression",
+    message: "ADR 0138: a gateway response kept in useState: use a query atom (src/state/query.ts, useQuery).",
+  },
+  {
+    selector: "CallExpression[callee.property.name='then'] > Identifier[name=/^set[A-Z]/]",
+    message: "ADR 0138: a gateway response kept in useState: use a query atom (src/state/query.ts, useQuery).",
+  },
+  {
+    selector: "CallExpression[callee.name='useLoad']",
+    message: "ADR 0138: useLoad keeps a response in useState: use useQuery (src/state/query.ts).",
+  },
+];
+
+/** Files allowed a React Context: non-state providers only (ADR 0138).
+ * src/components/ui/field.tsx (ids for a label and its control) is exempt
+ * in the ui block below. */
+const STATE_ALLOWLIST = [
+  "src/lib/router.tsx", // the router's provider (allowed: router)
+];
+
 export default defineConfig([
   globalIgnores(["dist/**", "dist-overlays/**", "node_modules/**"]),
   {
@@ -47,7 +76,17 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
+    rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS, ...STATE_IN_ATOMS] },
+  },
+  {
+    files: STATE_ALLOWLIST,
     rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS] },
+  },
+  {
+    // shadcn primitives: Field's id plumbing is a non-state context
+    files: ["src/components/ui/**/*.tsx"],
+    ignores: ["src/components/ui/field.tsx"],
+    rules: { "no-restricted-syntax": ["error", STATE_IN_ATOMS[0]] },
   },
   {
     files: ["scripts/**/*.mjs"],

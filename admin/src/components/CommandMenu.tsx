@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { atom, useAtom, useSetAtom } from "jotai";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { SearchIcon } from "lucide-react";
 
 import {
@@ -17,7 +18,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { dateOnly, money, words } from "@/lib/format";
 import { typeLabel } from "@/lib/labels";
 import { paths, useRouter } from "@/lib/router";
-import { useServices } from "@/lib/services";
+import { createQuery, useQuery } from "@/state/query";
+import { apiOf, servicesAtom } from "@/state/services";
 import type { AccountHit, CaseRow, RunLookup } from "@/lib/types";
 
 /**
@@ -117,73 +119,59 @@ export function SearchButton({ onClick, compact = false }: { onClick: () => void
   );
 }
 
-/** Opens ⌘K from anywhere in the shell, optionally with a query (a run id). */
-export const CommandContext = createContext<(query?: string) => void>(() => {});
+/** ⌘K's open state and starting query (ADR 0138: an atom, not a Context). */
+export const searchAtom = atom<{ open: boolean; query: string }>({ open: false, query: "" });
 
+/** Opens ⌘K from anywhere in the shell, optionally with a query (a run id). */
 export function useOpenSearch(): (query?: string) => void {
-  return useContext(CommandContext);
+  const set = useSetAtom(searchAtom);
+  return useCallback((query?: string) => set({ open: true, query: typeof query === "string" ? query : "" }), [set]);
 }
 
-export function CommandMenu({
-  open,
-  onOpenChange,
-  initialQuery = "",
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  /** what the box starts with, e.g. a run id from the cases preview */
-  initialQuery?: string;
-}) {
-  const { api } = useServices();
+interface SearchResults {
+  accounts: AccountHit[];
+  cases: CaseRow[];
+  run: RunLookup | null;
+}
+
+/** One search per term: accounts, cases and a run, latest wins. */
+const commandSearchQuery = createQuery<string, SearchResults>(async (get, term) => {
+  const api = apiOf(get(servicesAtom));
+  const [accounts, r, run] = await Promise.all([
+    api.searchAccounts(term).catch(() => [] as AccountHit[]),
+    term.length >= 3 ? api.listCases({ tab: "all", q: term }) : Promise.resolve({ cases: [] as CaseRow[] }),
+    RUN_LIKE.test(term) ? api.getRun(term).catch(() => null) : Promise.resolve(null),
+  ]);
+  return { accounts, cases: (r.cases ?? []).slice(0, 8), run };
+});
+
+export function CommandMenu() {
+  const [search, setSearch] = useAtom(searchAtom);
+  const open = search.open;
+  const onOpenChange = (o: boolean) => setSearch((s) => ({ ...s, open: o }));
   const { navigate } = useRouter();
-  const [q, setQ] = useState(initialQuery);
-  const [cases, setCases] = useState<CaseRow[] | null>(null);
-  const [accounts, setAccounts] = useState<AccountHit[] | null>(null);
-  const [run, setRun] = useState<RunLookup | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  // the box's text and its debounced copy: local, ephemeral UI
+  const [q, setQ] = useState(search.query);
+  const [debounced, setDebounced] = useState("");
   const term = q.trim();
 
   useEffect(() => {
-    if (open) setQ(initialQuery);
-    else {
-      setQ("");
-      setCases(null);
-      setAccounts(null);
-      setRun(null);
-    }
-  }, [open, initialQuery]);
+    setQ(open ? search.query : "");
+  }, [open, search.query]);
 
   useEffect(() => {
-    setCases(null);
-    setAccounts(null);
-    setRun(null);
-    setError(false);
-    if (term.length < 2 || term.length > 320 || CASE_ID.test(term) || term.startsWith("uid:")) return;
-    let live = true;
-    const t = setTimeout(async () => {
-      setBusy(true);
-      try {
-        const [acc, r, found] = await Promise.all([
-          api.searchAccounts(term).catch(() => [] as AccountHit[]),
-          term.length >= 3 ? api.listCases({ tab: "all", q: term }) : Promise.resolve({ cases: [], counts: { open: 0, overdue: 0, due_today: 0 } }),
-          RUN_LIKE.test(term) ? api.getRun(term).catch(() => null) : Promise.resolve(null),
-        ]);
-        if (!live) return;
-        setAccounts(acc);
-        setRun(found);
-        setCases((r.cases ?? []).slice(0, 8));
-      } catch {
-        if (live) setError(true);
-      } finally {
-        if (live) setBusy(false);
-      }
-    }, 250);
-    return () => {
-      live = false;
-      clearTimeout(t);
-    };
-  }, [api, term]);
+    const t = setTimeout(() => setDebounced(term), 250);
+    return () => clearTimeout(t);
+  }, [term]);
+
+  const searchable = debounced === term && term.length >= 2 && term.length <= 320 && !CASE_ID.test(term) && !term.startsWith("uid:");
+  const results = useQuery(commandSearchQuery, debounced, open && searchable);
+  const loaded = searchable && results.state.kind === "loaded" ? results.state.data : null;
+  const cases = loaded?.cases ?? null;
+  const accounts = loaded?.accounts ?? null;
+  const run = loaded?.run ?? null;
+  const busy = open && searchable && results.state.kind === "loading";
+  const error = searchable && results.state.kind === "error";
 
   const go = (item: Recent) => {
     remember(item);
@@ -203,7 +191,14 @@ export function CommandMenu({
           {term && !caseId && !uid && !busy && cases !== null && cases.length === 0 && !accounts?.length && !run && (
             <CommandEmpty>Nothing matches “{term}”.</CommandEmpty>
           )}
-          {error && <p className="px-3 py-3 text-sm text-destructive-foreground">Search didn't work. Try again.</p>}
+          {error && (
+            <p className="flex items-center gap-2 px-3 py-3 text-sm text-destructive-foreground">
+              <span className="flex-1">Search didn't work.</span>
+              <Button type="button" size="sm" variant="outline" onClick={results.retry}>
+                Retry
+              </Button>
+            </p>
+          )}
           {caseId && (
             <CommandGroup heading="Case">
               <CommandItem value={`case ${caseId}`} onSelect={() => go({ label: caseId, to: paths.case(caseId) })}>

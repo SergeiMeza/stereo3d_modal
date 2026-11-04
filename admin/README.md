@@ -217,6 +217,30 @@ FilterSelect, states) in `src/components/common.tsx`.
   (`vite build --mode overlays`, `src/dev/`, never in a production build)
   and fails on any violation.
 
+## State (ADR 0138)
+
+jotai, with `jotai-family` for per-id atoms. One `<Provider>` per signed-in
+session (keyed by the email), so nothing read in one session survives a
+sign-out.
+
+- **Gateway reads** are queries (`src/state/query.ts`, defined in
+  `src/state/queries.ts`): one atom per params key. Latest wins (a sequence
+  number per key), a 20 s timeout ends in an error with Retry, and coming
+  back to a screen shows the last answer while it refreshes. Screens read
+  them with `useQuery(query, params)`; actions `set` the gateway's answer
+  or `update` it in place (a new grant, an older page of runs).
+- **Shared UI state** is an atom next to its screen: the ⌘K box, the cases
+  list's filters and selection, the Grant sheet, the reauth prompt, the
+  attention badges (`src/lib/attention.tsx`, polled every 60 s).
+- **useState** is for one component's ephemeral UI only (a field's text,
+  a busy flag, an open sheet).
+- **Context** is for non-state providers only: the router, Radix/shadcn
+  and a field's ids. `pnpm lint` fails on `createContext` elsewhere and on
+  a response kept in useState (`setX(await …)`, `.then(setX)`).
+- **Secrets**: the passkey session (`X-Admin-Session`) stays in
+  AdminSession's sessionStorage and Google's token in Firebase Auth; no
+  atom holds a token, and no atom is persisted.
+
 ## Layout
 
 ```
@@ -226,6 +250,7 @@ admin/
     main.tsx, App.tsx (shell), index.css (Tailwind and tokens)
     lib/       api client, auth (interface + Firebase), adminSession, passkeys, csp, router, types, format, links,
                attention (badges and lanes), lanes, styleSingleton
+    state/     query (query atoms, useQuery), queries (the gateway reads), services (api, auth, email)
     screens/   SignIn, Overview, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage (+ Grants),
                GrantsPage, Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy, Security
     components/ ui/ (shadcn), common.tsx, Nav, CommandMenu, PasskeyNote, Brand, DisputesAlert

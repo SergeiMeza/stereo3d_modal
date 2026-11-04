@@ -11,7 +11,8 @@ import { dateTime } from "../lib/format";
 import { createPasskey, deviceName, PASSKEY_COPY, passkeyErrorMessage } from "../lib/passkeys";
 import { useServices } from "../lib/services";
 import type { Passkey } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { passkeysQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 
 /**
  * Security (ADR 0135): the passkeys on the admin account. Adding one needs
@@ -21,7 +22,7 @@ import { useLoad } from "../lib/useLoad";
  */
 export function SecurityPage() {
   const { api, withReauth } = useServices();
-  const { state, retry, set } = useLoad(() => api.listPasskeys(), [api]);
+  const { state, retry, reload } = useQuery(passkeysQuery, null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Passkey | null>(null);
 
@@ -69,7 +70,7 @@ export function SecurityPage() {
           onClose={() => setAdding(false)}
           onAdd={async (name) => {
             await withReauth(() => createPasskey(api, name));
-            set(await api.listPasskeys());
+            await reload();
             setAdding(false);
             toast.success("Passkey added.");
           }}
@@ -81,7 +82,7 @@ export function SecurityPage() {
           onClose={() => setRemoving(null)}
           onRemove={async () => {
             await withReauth(() => api.removePasskey(removing.id));
-            set(await api.listPasskeys());
+            await reload();
             setRemoving(null);
             toast.success("Passkey removed.");
           }}

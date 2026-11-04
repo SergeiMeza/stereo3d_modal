@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Provider } from "jotai";
+import { useHydrateAtoms } from "jotai/utils";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
-import { CommandContext, CommandMenu, SearchButton, useCommandShortcut } from "./components/CommandMenu";
+import { CommandMenu, SearchButton, useCommandShortcut, useOpenSearch } from "./components/CommandMenu";
 import { StateBox } from "./components/common";
 import { DisputeDueBanner } from "./components/DisputesAlert";
 import { NavList, PAGE_TITLES } from "./components/Nav";
@@ -18,10 +20,11 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./components/ui/sheet";
 import { Toaster } from "./components/ui/sonner";
 import type { AdminApi } from "./lib/api";
-import { AttentionProvider, useAttention } from "./lib/attention";
+import { useAttention, useAttentionPolling } from "./lib/attention";
 import type { AdminAuth } from "./lib/auth";
+import { servicesAtom, type Services } from "./state/services";
 import { Link, RouterProvider, paths, useRouter } from "./lib/router";
-import { ServicesProvider, useServices } from "./lib/services";
+import { ReauthHost, useServices } from "./lib/services";
 import { AccountLookup, AccountPage } from "./screens/AccountPage";
 import { CasePage } from "./screens/CasePage";
 import { CasesList } from "./screens/CasesList";
@@ -38,6 +41,12 @@ import { SignInScreen } from "./screens/SignIn";
 
 const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 
+/** Sets the services atom once per store (ADR 0138). */
+function HydrateServices({ services, children }: { services: Services; children: ReactNode }) {
+  useHydrateAtoms([[servicesAtom, services]]);
+  return children;
+}
+
 export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi; initialPath?: string }) {
   const state = useSyncExternalStore(auth.subscribe, auth.getState);
   const session = useSyncExternalStore(api.session.subscribe, api.session.get);
@@ -47,19 +56,22 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
   }, [state.kind, api]);
   // Signed in = Google with the claim, then the passkey session (ADR 0135).
   const signedIn = state.kind === "passkey" && session !== null;
+  const email = state.kind === "passkey" ? state.email : "";
+  // One jotai store per signed-in session (ADR 0138): signing out, or in as
+  // someone else, starts from empty atoms, so no server data carries over.
   return (
     <>
-      {signedIn ? (
-        <ServicesProvider api={api} auth={auth} email={state.email}>
-          <RouterProvider initialPath={initialPath}>
-            <AttentionProvider>
+      <Provider key={signedIn ? `in:${email}` : "out"}>
+        <HydrateServices services={{ api, auth, email }}>
+          {signedIn ? (
+            <RouterProvider initialPath={initialPath}>
               <Shell />
-            </AttentionProvider>
-          </RouterProvider>
-        </ServicesProvider>
-      ) : (
-        <SignInScreen auth={auth} state={state} api={api} />
-      )}
+            </RouterProvider>
+          ) : (
+            <SignInScreen auth={auth} state={state} api={api} />
+          )}
+        </HydrateServices>
+      </Provider>
       <Toaster />
     </>
   );
@@ -91,19 +103,14 @@ function AccountMenu() {
 
 function Shell() {
   const { route } = useRouter();
+  useAttentionPolling();
   const attention = useAttention();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const openSearch = useCallback((query?: string) => {
-    setSearchQuery(typeof query === "string" ? query : "");
-    setSearchOpen(true);
-  }, []);
+  const openSearch = useOpenSearch();
   const openEmptySearch = useCallback(() => openSearch(), [openSearch]);
   useCommandShortcut(openEmptySearch);
   const title = PAGE_TITLES[route.name] ?? "Admin";
   return (
-    <CommandContext.Provider value={openSearch}>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 flex h-13 items-center gap-4 border-b border-border bg-card px-5 max-md:h-16 max-md:gap-1.5 max-md:px-3">
         <Button
@@ -157,7 +164,8 @@ function Shell() {
           )}
         </main>
       </div>
-      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
+      <ReauthHost />
+      <CommandMenu />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
           <SheetTitle className="px-2">
@@ -168,6 +176,5 @@ function Shell() {
         </SheetContent>
       </Sheet>
     </div>
-    </CommandContext.Provider>
   );
 }

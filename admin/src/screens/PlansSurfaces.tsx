@@ -4,9 +4,9 @@ import { EmptyRow, ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { pct } from "../lib/format";
-import { useServices } from "../lib/services";
 import type { PlansSurfaces } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { useQuery } from "@/state/query";
+import { plansSurfacesQuery } from "@/state/queries";
 
 const NAMES: Record<string, string> = {
   header: "Header · Plans and Save chip",
@@ -36,9 +36,8 @@ const products = (by: Partial<Record<string, number>>) =>
 /** Plans surfaces (owner 2026-11-04): each placement's views, dismissals,
  * clicks and the plan starts its last click led to (7-day window). */
 export function PlansSurfacesPanel() {
-  const { api } = useServices();
   const [days, setDays] = useState(30);
-  const { state, retry } = useLoad(() => api.plansSurfaces(days), [api, days]);
+  const { state, retry } = useQuery(plansSurfacesQuery, days);
   return (
     <>
       <PageHeader

@@ -1,19 +1,20 @@
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { atom, useAtomValue, useSetAtom } from "jotai";
+import { useCallback, useMemo, useState } from "react";
 
 import { Modal, Note } from "@/components/common";
-import { AdminApi, ApiError } from "./api";
+import { createQuery, useQuery } from "@/state/query";
+import { apiOf, servicesAtom, useServicesAtom } from "@/state/services";
+import { ApiError, type AdminApi, type PasskeyPurpose } from "./api";
 import type { AdminAuth } from "./auth";
 import { assertPasskey, PASSKEY_COPY, passkeyErrorMessage } from "./passkeys";
+
+/**
+ * The console's services and the re-assert step (ADR 0135), on atoms
+ * (ADR 0138): the gateway client, the Google sign-in and the owner's email
+ * come from servicesAtom; a pending "Confirm it's you" is reauthAtom, shown
+ * by <ReauthHost /> in the shell.
+ */
 
 interface Services {
   api: AdminApi;
@@ -21,45 +22,35 @@ interface Services {
   email: string;
   /**
    * Runs a money action; on 401 reauth_required asks the owner to confirm
-   * with the passkey (ADR 0135; a Google sign-in when the gateway names
+   * with the passkey (a Google sign-in when the gateway names
    * {method: "google"}) and runs it once more.
    */
   withReauth: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
-const ServicesContext = createContext<Services | null>(null);
-
-export function useServices(): Services {
-  const v = useContext(ServicesContext);
-  if (!v) throw new Error("useServices outside ServicesProvider");
-  return v;
+interface PendingReauth {
+  how: "passkey" | "google";
+  resolve: () => void;
+  reject: (e: Error) => void;
 }
 
-type Pending = { resolve: () => void; reject: (e: Error) => void };
+/** The re-assert waiting for the owner, if any (memory only). */
+export const reauthAtom = atom<PendingReauth | null>(null);
 
-export function ServicesProvider({
-  api,
-  auth,
-  email,
-  children,
-}: {
-  api: AdminApi;
-  auth: AdminAuth;
-  email: string;
-  children: ReactNode;
-}) {
-  const [asking, setAsking] = useState<null | "passkey" | "google">(null);
-  const pending = useRef<Pending | null>(null);
+/** Session options (a fresh WebAuthn challenge) per purpose. */
+/** A passkey challenge per purpose; single-use, so every opening loads anew. */
+export const sessionOptionsQuery = createQuery<PasskeyPurpose, PublicKeyCredentialRequestOptionsJSON>(
+  (get, purpose) => apiOf(get(servicesAtom)).sessionOptions(purpose),
+  { fresh: true },
+);
 
+export function useServices(): Services {
+  const { api, auth, email } = useServicesAtom();
+  const setPending = useSetAtom(reauthAtom);
   const ask = useCallback(
-    (how: "passkey" | "google") =>
-      new Promise<void>((resolve, reject) => {
-        pending.current = { resolve, reject };
-        setAsking(how);
-      }),
-    [],
+    (how: "passkey" | "google") => new Promise<void>((resolve, reject) => setPending({ how, resolve, reject })),
+    [setPending],
   );
-
   const withReauth = useCallback(
     async <T,>(fn: () => Promise<T>): Promise<T> => {
       let how: "passkey" | "google";
@@ -74,23 +65,26 @@ export function ServicesProvider({
     },
     [ask],
   );
+  return useMemo(() => ({ api, auth, email, withReauth }), [api, auth, email, withReauth]);
+}
 
+const cancelled = () => new ApiError(401, "reauth_cancelled", "Not confirmed. Nothing was charged or refunded.");
+
+/** Shows the pending re-assert; rendered once in the shell. */
+export function ReauthHost() {
+  const pending = useAtomValue(reauthAtom);
+  const setPending = useSetAtom(reauthAtom);
+  const { api, auth } = useServicesAtom();
+  if (!pending) return null;
   const finish = (err?: Error) => {
-    const p = pending.current;
-    pending.current = null;
-    setAsking(null);
-    if (err) p?.reject(err);
-    else p?.resolve();
+    setPending(null);
+    if (err) pending.reject(err);
+    else pending.resolve();
   };
-  const cancelled = () => new ApiError(401, "reauth_cancelled", "Not confirmed. Nothing was charged or refunded.");
-
-  const value = useMemo(() => ({ api, auth, email, withReauth }), [api, auth, email, withReauth]);
-  return (
-    <ServicesContext.Provider value={value}>
-      {children}
-      {asking === "google" && <ReauthSheet auth={auth} onDone={() => finish()} onCancel={() => finish(cancelled())} />}
-      {asking === "passkey" && <PasskeyReauthSheet api={api} onDone={() => finish()} onCancel={() => finish(cancelled())} />}
-    </ServicesContext.Provider>
+  return pending.how === "google" ? (
+    <ReauthSheet auth={auth} onDone={() => finish()} onCancel={() => finish(cancelled())} />
+  ) : (
+    <PasskeyReauthSheet api={api} onDone={() => finish()} onCancel={() => finish(cancelled())} />
   );
 }
 
@@ -98,27 +92,24 @@ export function ServicesProvider({
  * options are fetched as the sheet opens so the prompt opens from the
  * click. */
 function PasskeyReauthSheet({ api, onDone, onCancel }: { api: AdminApi; onDone: () => void; onCancel: () => void }) {
-  const [options, setOptions] = useState<PublicKeyCredentialRequestOptionsJSON | null>(null);
+  const options = useQuery(sessionOptionsQuery, "reassert");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback(() => {
-    api.sessionOptions("reassert").then(setOptions, (e) => setError(passkeyErrorMessage(e)));
-  }, [api]);
-  useEffect(load, [load]);
   const go = async () => {
     setBusy(true);
     setError("");
     try {
-      await assertPasskey(api, "reassert", options ?? undefined);
+      await assertPasskey(api, "reassert", options.state.kind === "loaded" ? options.state.data : undefined);
       onDone();
     } catch (e) {
       setError(passkeyErrorMessage(e));
-      setOptions(null);
-      load();
+      // a used or expired challenge can't be tried again
+      options.retry();
     } finally {
       setBusy(false);
     }
   };
+  const shown = error || (options.state.kind === "error" ? passkeyErrorMessage(options.state.error) : "");
   return (
     <Modal
       title="Confirm it's you"
@@ -129,7 +120,7 @@ function PasskeyReauthSheet({ api, onDone, onCancel }: { api: AdminApi; onDone: 
       onConfirm={() => void go()}
     >
       <Note>{PASSKEY_COPY} Then the action runs again.</Note>
-      {error && <Note tone="error">{error}</Note>}
+      {shown && <Note tone="error">{shown}</Note>}
     </Modal>
   );
 }

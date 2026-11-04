@@ -3,13 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { money, pct, words } from "../lib/format";
-import { useServices } from "../lib/services";
-import { useLoad } from "../lib/useLoad";
+import { useQuery } from "@/state/query";
+import { policyQuery } from "@/state/queries";
 
 /** The refund policy in force (C12). Read-only: it's edited in Firestore. */
 export function PolicyPage() {
-  const { api } = useServices();
-  const { state, retry } = useLoad(() => api.policy(), [api]);
+  const { state, retry } = useQuery(policyQuery, null);
   return (
     <>
       <PageHeader title="Refund policy">

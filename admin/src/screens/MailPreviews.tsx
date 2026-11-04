@@ -1,12 +1,11 @@
 import { ErrorState, KV, PageHeader, Panel, PlainText, SkeletonRows, StateBox } from "@/components/common";
 import { errorMessage } from "../lib/api";
-import { useServices } from "../lib/services";
-import { useLoad } from "../lib/useLoad";
+import { useQuery } from "@/state/query";
+import { mailPreviewsQuery } from "@/state/queries";
 
 /** Every customer mail the cases send, rendered by the gateway with sample data. */
 export function MailPreviews() {
-  const { api } = useServices();
-  const { state, retry } = useLoad(() => api.mailPreviews(), [api]);
+  const { state, retry } = useQuery(mailPreviewsQuery, null);
   return (
     <>
       <PageHeader title="Mail previews">

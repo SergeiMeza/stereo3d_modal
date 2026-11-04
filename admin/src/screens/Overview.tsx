@@ -7,8 +7,8 @@ import { useAttention } from "@/lib/attention";
 import { ago, money, pct, time, words } from "@/lib/format";
 import { nextUpCopy, type Lane, type LaneItem } from "@/lib/lanes";
 import { Link, paths, useRouter } from "@/lib/router";
-import { useServices } from "@/lib/services";
-import { useLoad } from "@/lib/useLoad";
+import { useQuery } from "@/state/query";
+import { passkeyAdoptionQuery, plansSurfacesQuery } from "@/state/queries";
 import { cn } from "@/lib/utils";
 
 /**
@@ -175,8 +175,7 @@ function NextUp({ item, remaining, onSkip }: { item: LaneItem; remaining: number
 
 /** Plan starts in the last 7 days (plans surfaces' starts, newest first). */
 function PlanStarts() {
-  const { api } = useServices();
-  const { state } = useLoad(() => api.plansSurfaces(7), [api]);
+  const { state } = useQuery(plansSurfacesQuery, 7);
   const starts = state.kind === "loaded" ? state.data.starts ?? [] : [];
   const paid = starts.reduce((s, x) => s + (x.price_cents ?? 0), 0);
   return (
@@ -250,8 +249,7 @@ function NewFeedback() {
 
 /** Customer passkeys (ADR 0136; gateway rev 00113). */
 function PasskeyAdoptionCard() {
-  const { api } = useServices();
-  const { state } = useLoad(() => api.passkeyAdoption(), [api]);
+  const { state } = useQuery(passkeyAdoptionQuery, null);
   if (state.kind === "error") return null;
   return (
     <Panel title="Customer passkeys" note="sign-ins by method">

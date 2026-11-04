@@ -1,3 +1,4 @@
+import { atom, useAtom, useSetAtom } from "jotai";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, words } from "../lib/format";
 import { useServices } from "../lib/services";
 import { Link, paths } from "../lib/router";
+import { accountQuery } from "@/state/queries";
 import type { AccountPage as AccountPageData, Grant, GrantBody, GrantStatus, PromoGrant, PromoRegrant } from "../lib/types";
 
 /**
@@ -71,22 +73,22 @@ export function endInRange(d: Date, now = new Date()): boolean {
   return d.getTime() >= min && d.getTime() <= max.getTime();
 }
 
-export function GrantsSection({
-  uid,
-  initial,
-  granting,
-  setGranting,
-}: {
-  uid: string;
-  initial: Grant[];
-  /** the page's "Grant a plan…" opens the same sheet */
-  granting: boolean;
-  setGranting: (v: boolean) => void;
-}) {
-  const [grants, setGrants] = useState<Grant[]>(initial);
+/** The account whose Grant sheet is open: the page's "Grant a plan…" and
+ * this card's "Grant Pro…" open the same one (ADR 0138). */
+export const grantSheetAtom = atom<string | null>(null);
+
+export function GrantsSection({ uid, grants }: { uid: string; grants: Grant[] }) {
+  const [grantingUid, setGrantingUid] = useAtom(grantSheetAtom);
+  const granting = grantingUid === uid;
+  const setGranting = (open: boolean) => setGrantingUid(open ? uid : null);
   const [revoking, setRevoking] = useState<Grant | null>(null);
+  // a new or revoked grant goes into the account's atom
+  const updateAccount = useSetAtom(accountQuery.update);
   const upsert = (g: Grant) =>
-    setGrants((list) => [g, ...list.filter((x) => x.id !== g.id)].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));
+    updateAccount(uid, (p) => ({
+      ...p,
+      grants: [g, ...(p.grants ?? []).filter((x) => x.id !== g.id)].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
+    }));
 
   return (
     <Panel
@@ -370,15 +372,8 @@ function eventLabel(ev: string): string {
  * or while one is held, the owner can restore them with a reason
  * (admin action restore_promo_grants, fresh sign-in).
  */
-export function PromoRegrants({
-  uid,
-  rows,
-  onPage,
-}: {
-  uid: string;
-  rows: PromoRegrant[];
-  onPage: (p: AccountPageData) => void;
-}) {
+export function PromoRegrants({ uid, rows }: { uid: string; rows: PromoRegrant[] }) {
+  const putAccount = useSetAtom(accountQuery.put);
   const [restoring, setRestoring] = useState(false);
   if (rows.length === 0) return null;
   const restorable = rows.some((r) => r.status === "kept_removed" || r.status === "held");
@@ -421,7 +416,7 @@ export function PromoRegrants({
           onDone={(p) => {
             setRestoring(false);
             toast.success("Promotional grants restored.");
-            onPage(p);
+            putAccount(uid, p);
           }}
         />
       )}
