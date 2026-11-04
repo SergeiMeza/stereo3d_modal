@@ -37,6 +37,7 @@ import {
   useMethodQuotes,
 } from "./MethodChooser";
 import type { WorkspaceTabId } from "./PageTabs";
+import { BarsNotice } from "./BarsSetting";
 
 /** What the summary says you'll get (the default files of a full run). */
 const YOU_GET = "Vision Pro spatial video + Side by side";
@@ -142,12 +143,15 @@ export interface OverviewTabProps {
   /** The method chooser's PATCH answer; absent when the method can't
    * change right now. */
   onProjectChanged?: (project: Project) => void;
+  /** any other PATCH answer (the black bars choice) */
+  onProjectUpdated?: (project: Project) => void;
 }
 
 export function OverviewTab({
   project,
   onNavigate,
   onProjectChanged,
+  onProjectUpdated,
 }: OverviewTabProps): JSX.Element {
   const method = methodOf(project);
   const quotes = useMethodQuotes(project, [method]);
@@ -295,6 +299,11 @@ export function OverviewTab({
           )}
         </div>
       </section>
+
+      {/* owner request 2026-11-04: say when the video has black bars */}
+      {analyzed && onProjectUpdated ? (
+        <BarsNotice project={project} onProjectChanged={onProjectUpdated} />
+      ) : null}
 
       <nav
         data-testid="overview-steps"

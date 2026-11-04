@@ -234,6 +234,11 @@ export interface Project {
   /** user-uploaded depth map registered on the project */
   depth_upload?: DepthUpload;
   crop?: string; // "W:H:X:Y" black-bar geometry, if detected
+  /** owner 2026-11-04: the video has black bars (the picture is `crop`);
+   * absent on gateways before the bars setting */
+  has_bars?: boolean;
+  /** Lifelike removes the bars (default true when bars are found) */
+  remove_bars?: boolean;
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */
@@ -1277,6 +1282,8 @@ export interface UpdateProjectRequest {
   /** switching to classic on a source past Classic's length cap → 400
    * source_too_long_for_method */
   method?: Method;
+  /** owner 2026-11-04: keep (false) or remove (true) the black bars */
+  remove_bars?: boolean;
 }
 
 export interface UpdateScenesRequest {

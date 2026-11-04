@@ -4064,7 +4064,14 @@ export const handlers = [
       pinned?: boolean;
       archived?: boolean;
       method?: Method;
+      remove_bars?: boolean;
     };
+    // owner 2026-11-04: keep or remove the black bars
+    if (body.remove_bars !== undefined) {
+      if (typeof body.remove_bars !== "boolean") return err(400, "invalid_request", "remove_bars is true or false");
+      if (p.has_bars !== true) return err(400, "invalid_request", "this video has no black bars");
+      p.remove_bars = body.remove_bars;
+    }
     if (body.method !== undefined) {
       if (body.method !== "lifelike" && body.method !== "classic") {
         return err(400, "invalid_request", "method must be lifelike|classic");

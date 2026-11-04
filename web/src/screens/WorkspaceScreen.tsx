@@ -385,6 +385,7 @@ export default function WorkspaceScreen({
                       ? applyProjectUpdate
                       : undefined
                   }
+                  onProjectUpdated={applyProjectUpdate}
                 />
               ) : page === "scenes" ? (
                 <>

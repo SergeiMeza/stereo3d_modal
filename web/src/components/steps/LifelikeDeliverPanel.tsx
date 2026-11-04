@@ -28,7 +28,9 @@ import { useAccountSettings } from "@/lib/useAccountSettings";
 import { usePricing } from "@/lib/api/usePricing";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
-import { qualityChoices, resolutionName } from "@/lib/glossary";
+import { barSides } from "@/lib/bars";
+import { eyeSize, qualityChoices, resolutionName } from "@/lib/glossary";
+import { BarsToggle } from "@/components/workspace/BarsSetting";
 
 import {
   BitrateControl,
@@ -338,6 +340,16 @@ export function LifelikeDeliverPanel({
                   : undefined
             }
           />
+          {/* owner request 2026-11-04: the black bars setting, as on Overview */}
+          {barSides(project) !== null ? (
+            <div className="border-t border-edge pt-3">
+              <BarsToggle
+                project={project}
+                fullSize={probe && chosen?.eyeShort ? eyeSize(probe, chosen.eyeShort) : null}
+                onProjectChanged={() => change(() => onProjectChanged())}
+              />
+            </div>
+          ) : null}
           {eyeRequired || foveationOffered || addons?.master || addons?.express ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
