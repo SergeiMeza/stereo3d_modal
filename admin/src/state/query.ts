@@ -21,7 +21,8 @@ import { ApiError } from "@/lib/api";
 
 export type Load<T> =
   | { kind: "loading" }
-  | { kind: "error"; error: unknown }
+  /** `data`: what was on screen before a failed reload, if anything */
+  | { kind: "error"; error: unknown; data?: T }
   | { kind: "loaded"; data: T };
 
 interface Slot<T> {
@@ -53,6 +54,11 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/** The last data a load holds: loaded, or kept through a failed reload. */
+export function dataOf<T>(load: Load<T> | null | undefined): T | undefined {
+  return load && load.kind !== "loading" ? load.data : undefined;
+}
+
 export function keyOf(params: unknown): string {
   return params === undefined ? "" : JSON.stringify(params);
 }
@@ -71,7 +77,11 @@ export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T
       if (get(slot).seq === seq) set(slot, { seq, load: { kind: "loaded", data } });
       return data;
     } catch (error) {
-      if (get(slot).seq === seq) set(slot, { seq, load: { kind: "error", error } });
+      if (get(slot).seq === seq) {
+        const prev = get(slot).load;
+        const data = prev && prev.kind !== "loading" ? prev.data : undefined;
+        set(slot, { seq, load: { kind: "error", error, data } });
+      }
       throw error;
     }
   });
@@ -85,8 +95,9 @@ export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T
     set(slot, { seq: cur.seq + 1, load: { kind: "loaded", data } });
   });
 
-  /** The current value for params, for derived atoms. */
-  const value = (params: P) => atom((get) => get(slots(keyOf(params))).load);
+  /** The load for params, for derived atoms (one memoized atom per key). */
+  const values = atomFamily((key: string) => atom((get) => get(slots(key)).load));
+  const value = (params: P) => values(keyOf(params));
 
   return { slots, run, put, value };
 }

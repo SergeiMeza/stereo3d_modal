@@ -4,7 +4,7 @@ import { useHydrateAtoms } from "jotai/utils";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
-import { CommandContext, CommandMenu, SearchButton, useCommandShortcut } from "./components/CommandMenu";
+import { CommandMenu, SearchButton, useCommandShortcut, useOpenSearch } from "./components/CommandMenu";
 import { StateBox } from "./components/common";
 import { DisputeDueBanner } from "./components/DisputesAlert";
 import { NavList, PAGE_TITLES } from "./components/Nav";
@@ -20,7 +20,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./components/ui/sheet";
 import { Toaster } from "./components/ui/sonner";
 import type { AdminApi } from "./lib/api";
-import { AttentionProvider, useAttention } from "./lib/attention";
+import { useAttention, useAttentionPolling } from "./lib/attention";
 import type { AdminAuth } from "./lib/auth";
 import { servicesAtom, type Services } from "./state/services";
 import { Link, RouterProvider, paths, useRouter } from "./lib/router";
@@ -65,9 +65,7 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
         <HydrateServices services={{ api, auth, email }}>
           {signedIn ? (
             <RouterProvider initialPath={initialPath}>
-              <AttentionProvider>
-                <Shell />
-              </AttentionProvider>
+              <Shell />
             </RouterProvider>
           ) : (
             <SignInScreen auth={auth} state={state} api={api} />
@@ -105,19 +103,14 @@ function AccountMenu() {
 
 function Shell() {
   const { route } = useRouter();
+  useAttentionPolling();
   const attention = useAttention();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const openSearch = useCallback((query?: string) => {
-    setSearchQuery(typeof query === "string" ? query : "");
-    setSearchOpen(true);
-  }, []);
+  const openSearch = useOpenSearch();
   const openEmptySearch = useCallback(() => openSearch(), [openSearch]);
   useCommandShortcut(openEmptySearch);
   const title = PAGE_TITLES[route.name] ?? "Admin";
   return (
-    <CommandContext.Provider value={openSearch}>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 flex h-13 items-center gap-4 border-b border-border bg-card px-5 max-md:h-16 max-md:gap-1.5 max-md:px-3">
         <Button
@@ -172,7 +165,7 @@ function Shell() {
         </main>
       </div>
       <ReauthHost />
-      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
+      <CommandMenu />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
           <SheetTitle className="px-2">
@@ -183,6 +176,5 @@ function Shell() {
         </SheetContent>
       </Sheet>
     </div>
-    </CommandContext.Provider>
   );
 }

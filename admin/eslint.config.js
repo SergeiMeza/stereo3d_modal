@@ -58,9 +58,7 @@ const STATE_IN_ATOMS = [
 const STATE_ALLOWLIST = [
   "src/lib/router.tsx", // the router's provider (allowed: router)
   // migration in progress (ADR 0138): this list shrinks to the router
-  "src/lib/attention.tsx",
   "src/lib/useLoad.ts",
-  "src/components/CommandMenu.tsx",
   "src/screens/AccountPage.tsx",
   "src/screens/CasePage.tsx",
   "src/screens/CasesList.tsx",
