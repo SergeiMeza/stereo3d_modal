@@ -4,43 +4,36 @@
  * layout) and waits for it, so every "Get Pro" button keeps its call.
  */
 
+import { atom } from "jotai";
+
 import type { ProPlan } from "@/lib/pro/plans";
+import { appStore } from "@/lib/state/stores";
 
 export type ProCheckoutOutcome = "purchased" | "cancelled";
 
-interface Pending {
+export interface Pending {
   plan: ProPlan;
   resolve: (o: ProCheckoutOutcome) => void;
 }
 
-let pending: Pending | null = null;
-const listeners = new Set<() => void>();
-
-const emit = () => {
-  for (const l of listeners) l();
-};
-
-export function subscribeProCheckout(l: () => void): () => void {
-  listeners.add(l);
-  return () => listeners.delete(l);
-}
+/** ADR 0138: the Pro checkout waiting to be shown, in an app-store atom
+ * (it carries the plan and the promise's resolve, nothing secret). */
+export const proCheckoutAtom = atom<Pending | null>(null);
 
 export function pendingProCheckout(): Pending | null {
-  return pending;
+  return appStore.get(proCheckoutAtom);
 }
 
 /** Open the sheet for `plan`; resolves when it closes. */
 export function openProCheckout(plan: ProPlan): Promise<ProCheckoutOutcome> {
-  pending?.resolve("cancelled");
+  appStore.get(proCheckoutAtom)?.resolve("cancelled");
   return new Promise((resolve) => {
-    pending = { plan, resolve };
-    emit();
+    appStore.set(proCheckoutAtom, { plan, resolve });
   });
 }
 
 export function finishProCheckout(o: ProCheckoutOutcome): void {
-  const p = pending;
-  pending = null;
-  emit();
+  const p = appStore.get(proCheckoutAtom);
+  appStore.set(proCheckoutAtom, null);
   p?.resolve(o);
 }

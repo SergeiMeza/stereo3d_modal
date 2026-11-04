@@ -26,6 +26,7 @@ import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetAuthForTests } from "@/lib/auth";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
+import { resetProForTests } from "@/lib/pro/usePro";
 import { resetPaymentMethodsForTests } from "@/lib/api/usePaymentMethods";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import {
@@ -64,6 +65,7 @@ afterEach(() => {
   resetLimitsCache();
   resetPricingCache();
   resetBillingForTests();
+  resetProForTests();
   resetPlanChangesForTests();
   resetAuthForTests();
   resetAccountSettingsCache();

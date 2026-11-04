@@ -10,7 +10,9 @@
  */
 
 import { LockIcon } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+
+import { useAppAtomValue } from "@/lib/state/stores";
 import type { JSX } from "react";
 
 import {
@@ -35,18 +37,13 @@ import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import {
   finishProCheckout,
-  pendingProCheckout,
-  subscribeProCheckout,
+  proCheckoutAtom,
 } from "@/lib/pro/checkoutStore";
 import { introLine, planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export function ProCheckoutHost(): JSX.Element | null {
-  const p = useSyncExternalStore(
-    subscribeProCheckout,
-    pendingProCheckout,
-    () => null,
-  );
+  const p = useAppAtomValue(proCheckoutAtom);
   if (!p) return null;
   return <ProStripeSheet key={p.plan.id} plan={p.plan} />;
 }

@@ -11,15 +11,17 @@
  * gateway's state (window.__mockDb) instead of calling GET /v1/pro.
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { atom } from "jotai";
+import { useCallback, useEffect } from "react";
 
 import { clearStepQuotes } from "@/components/steps/checkoutStore";
 import { AUTH_MODE, useAuth } from "@/lib/auth";
 import { gatewayBaseUrl } from "@/lib/region";
 import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
-import { openProCheckout } from "@/lib/pro/checkoutStore";
+import { openProCheckout, proCheckoutAtom } from "@/lib/pro/checkoutStore";
 import { anchorLine, anchorPlan, plansFromPricing } from "@/lib/pro/plans";
+import { appStore, useAppAtomValue } from "@/lib/state/stores";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export interface ProStatus {
@@ -42,45 +44,49 @@ export interface ProStatus {
 }
 
 // ------------------------------------------------------------- signal
+//
+// ADR 0138: Pro's status, plans and "Pro changed" count live in app-store
+// atoms (no module caches or listener sets); the token getter and the
+// gateway client are passed to the loads, never stored.
 
-let epoch = 0;
-const listeners = new Set<() => void>();
+/** Bumps after every purchase in this page session; 0 until then. */
+export const proEpochAtom = atom(0);
+
+/** The signed-in person's status, for the account and epoch it was read
+ * for (loading while a read is on its way). */
+export const proStatusAtom = atom<{ uid: string; epoch: number; status: ProStatus | null; loading: boolean } | null>(
+  null,
+);
+
+/** The plans on sale, for the account they were read for. */
+export const proPlansAtom = atom<{ uid: string; v: PlansState; loading: boolean } | null>(null);
+
+/** the mock gateway's own purchase (mock auth only, tests and previews) */
 let mockPro = false;
 
 /** Pro just changed (a purchase): status and quotes ask again. */
 export function notifyProChanged(): void {
-  epoch += 1;
-  statusCache.clear();
+  // the status is read again for the new epoch; the last one shows
+  // meanwhile (a sheet open on it stays put)
+  appStore.set(proEpochAtom, (n) => n + 1);
   clearStepQuotes();
-  for (const fn of listeners) fn();
-}
-
-function subscribe(fn: () => void): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
 }
 
 /** Bumps after every purchase in this page session; 0 until then. */
 export function useProEpoch(): number {
-  return useSyncExternalStore(
-    subscribe,
-    () => epoch,
-    () => 0,
-  );
+  return useAppAtomValue(proEpochAtom);
 }
 
 /** Tests: forget everything. */
 export function resetProForTests(): void {
-  epoch = 0;
   mockPro = false;
-  statusCache.clear();
-  plansCache.clear();
-  listeners.clear();
+  appStore.set(proEpochAtom, 0);
+  appStore.set(proStatusAtom, null);
+  appStore.set(proPlansAtom, null);
+  appStore.set(proCheckoutAtom, null);
 }
 
 // ------------------------------------------------------------- status
-
-const statusCache = new Map<string, Promise<ProStatus>>();
 
 async function callGateway(
   getToken: () => Promise<string>,
@@ -128,35 +134,31 @@ async function callGateway(
   };
 }
 
+/** Read the status for `uid` unless it's read (or on its way) for this
+ * epoch. */
+async function loadStatus(uid: string, getToken: () => Promise<string>): Promise<void> {
+  const epoch = appStore.get(proEpochAtom);
+  const cur = appStore.get(proStatusAtom);
+  if (cur && cur.uid === uid && cur.epoch === epoch && (cur.status !== null || cur.loading)) return;
+  appStore.set(proStatusAtom, { uid, epoch, status: cur?.uid === uid ? cur.status : null, loading: true });
+  const status = await callGateway(getToken, false).catch(() => ({ pro: false, known: false }));
+  const now = appStore.get(proStatusAtom);
+  if (now?.uid === uid && now.epoch === epoch) appStore.set(proStatusAtom, { uid, epoch, status, loading: false });
+}
+
 /** The signed-in person's Pro status; null while loading or signed out. */
 export function useProStatus(): ProStatus | null {
   const { user, getToken } = useAuth();
   const uid = user?.uid ?? null;
-  const tick = useProEpoch();
-  const [status, setStatus] = useState<{ uid: string; s: ProStatus } | null>(
-    null,
-  );
+  const epoch = useProEpoch();
+  const s = useAppAtomValue(proStatusAtom);
   useEffect(() => {
-    if (uid === null) return;
-    let cancelled = false;
-    let p = statusCache.get(uid);
-    if (!p) {
-      p = callGateway(getToken, false).catch(() => ({ pro: false, known: false }));
-      statusCache.set(uid, p);
-    }
-    void p.then((s) => {
-      if (!cancelled) setStatus({ uid, s });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [uid, getToken, tick]);
-  return status !== null && status.uid === uid ? status.s : null;
+    if (uid !== null) void loadStatus(uid, getToken);
+  }, [uid, getToken, epoch, s]);
+  return s !== null && s.uid === uid ? s.status : null;
 }
 
 // -------------------------------------------------------------- plans
-
-const plansCache = new Map<string, Promise<ProPlan[]>>();
 
 /** gateway 00102: web Pro on our own Stripe subscriptions (pricing
  * pro_plans); nothing on sale when the list is empty. */
@@ -170,39 +172,29 @@ export type PlansState =
   | { state: "ready"; plans: ProPlan[] }
   | { state: "error"; message: string };
 
+/** Read the plans for `uid` unless they're read or on their way; a
+ * failure is tried again on the next reader's mount. */
+async function loadPlans(uid: string, gateway: GatewayClient): Promise<void> {
+  const cur = appStore.get(proPlansAtom);
+  if (cur && cur.uid === uid && (cur.loading || cur.v.state === "ready")) return;
+  appStore.set(proPlansAtom, { uid, v: cur?.uid === uid ? cur.v : { state: "loading" }, loading: true });
+  let v: PlansState;
+  try {
+    v = { state: "ready", plans: await loadPlansFor(gateway) };
+  } catch (e) {
+    v = { state: "error", message: e instanceof Error ? e.message : "Plans didn't load." };
+  }
+  if (appStore.get(proPlansAtom)?.uid === uid) appStore.set(proPlansAtom, { uid, v, loading: false });
+}
+
 /** The plans on sale to the signed-in person. */
 export function useProPlans(): PlansState {
   const { user } = useAuth();
   const gateway = useGateway();
   const uid = user?.uid ?? null;
-  const [st, setSt] = useState<{ uid: string; v: PlansState } | null>(null);
+  const st = useAppAtomValue(proPlansAtom);
   useEffect(() => {
-    if (uid === null) return;
-    let cancelled = false;
-    let p = plansCache.get(uid);
-    if (!p) {
-      p = loadPlansFor(gateway);
-      plansCache.set(uid, p);
-      p.catch(() => plansCache.delete(uid));
-    }
-    p.then(
-      (plans) => {
-        if (!cancelled) setSt({ uid, v: { state: "ready", plans } });
-      },
-      (e: unknown) => {
-        if (!cancelled)
-          setSt({
-            uid,
-            v: {
-              state: "error",
-              message: e instanceof Error ? e.message : "Plans didn't load.",
-            },
-          });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
+    if (uid !== null) void loadPlans(uid, gateway);
   }, [uid, gateway]);
   return st !== null && st.uid === uid ? st.v : { state: "loading" };
 }
