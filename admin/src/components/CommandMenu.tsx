@@ -18,19 +18,23 @@ import { dateOnly, money, words } from "@/lib/format";
 import { typeLabel } from "@/lib/labels";
 import { paths, useRouter } from "@/lib/router";
 import { useServices } from "@/lib/services";
-import type { AccountHit, CaseRow } from "@/lib/types";
+import type { AccountHit, CaseRow, RunLookup } from "@/lib/types";
 
 /**
  * ⌘K search (BL-29 redesign B): a case id jumps to the case, `uid:…` or a
  * bare Firebase uid to the account; anything else searches the cases list
  * (GET /v1/admin/cases?tab=all&q=…, which matches case ids, emails, run ids
  * and Stripe ids) and the accounts (GET /v1/admin/accounts?q=…: an exact
- * uid, then emails starting with it). Recent items are kept per browser.
+ * uid, then emails starting with it). A single word that could be a run id
+ * is also looked up (GET /v1/admin/runs/{id}; a 404 just shows nothing).
+ * Recent items are kept per browser.
  */
 
 const RECENT_KEY = "svs-admin.recent";
 const CASE_ID = /^CASE-\d{3,}$/i;
 const UID = /^[A-Za-z0-9]{20,40}$/;
+/** Worth a run lookup: one word, no @, not a case or Stripe object. */
+const RUN_LIKE = /^(?!(?:pi|ch|re|in|cus|dp|issfr)_)[A-Za-z0-9][\w-]{3,63}$/;
 
 interface Recent {
   label: string;
@@ -119,6 +123,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
   const [q, setQ] = useState("");
   const [cases, setCases] = useState<CaseRow[] | null>(null);
   const [accounts, setAccounts] = useState<AccountHit[] | null>(null);
+  const [run, setRun] = useState<RunLookup | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const term = q.trim();
@@ -128,24 +133,28 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
       setQ("");
       setCases(null);
       setAccounts(null);
+      setRun(null);
     }
   }, [open]);
 
   useEffect(() => {
     setCases(null);
     setAccounts(null);
+    setRun(null);
     setError(false);
     if (term.length < 2 || term.length > 320 || CASE_ID.test(term) || term.startsWith("uid:")) return;
     let live = true;
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const [acc, r] = await Promise.all([
+        const [acc, r, found] = await Promise.all([
           api.searchAccounts(term).catch(() => [] as AccountHit[]),
           term.length >= 3 ? api.listCases({ tab: "all", q: term }) : Promise.resolve({ cases: [], counts: { open: 0, overdue: 0, due_today: 0 } }),
+          RUN_LIKE.test(term) ? api.getRun(term).catch(() => null) : Promise.resolve(null),
         ]);
         if (!live) return;
         setAccounts(acc);
+        setRun(found);
         setCases((r.cases ?? []).slice(0, 8));
       } catch {
         if (live) setError(true);
@@ -174,7 +183,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
       <CommandMenuBody>
         <CommandInput placeholder="Account email or uid, case, run…" aria-label="Search" value={q} onValueChange={setQ} />
         <CommandList>
-          {term && !caseId && !uid && !busy && cases !== null && cases.length === 0 && !accounts?.length && (
+          {term && !caseId && !uid && !busy && cases !== null && cases.length === 0 && !accounts?.length && !run && (
             <CommandEmpty>Nothing matches “{term}”.</CommandEmpty>
           )}
           {error && <p className="px-3 py-3 text-sm text-destructive-foreground">Search didn't work. Try again.</p>}
@@ -204,6 +213,25 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                   <CommandShortcut className="font-mono tracking-normal">{a.uid.slice(0, 6)}…</CommandShortcut>
                 </CommandItem>
               ))}
+            </CommandGroup>
+          )}
+          {run && (
+            <CommandGroup heading="Runs">
+              <CommandItem value={`run ${run.id}`} onSelect={() => go({ label: `Run ${run.id}`, to: paths.account(run.uid) })}>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium">
+                    <span className="font-mono">{run.id}</span>
+                    {run.kind ? ` · ${words(run.kind)}` : ""} · {words(run.status)}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {dateOnly(run.created_at)}
+                    {run.method ? ` · ${words(run.method)}` : ""} · open the account
+                  </span>
+                </span>
+                <CommandShortcut className="font-mono tracking-normal tabular-nums">
+                  {typeof run.amount_cents === "number" ? money(run.amount_cents) : "—"}
+                </CommandShortcut>
+              </CommandItem>
             </CommandGroup>
           )}
           {busy && (

@@ -654,3 +654,16 @@ export interface AccountHit {
   created_at?: string | null;
   plan?: string | null;
 }
+
+/** GET /v1/admin/runs/{id} (BL-29 ⌘K); 404 run_not_found. */
+export interface RunLookup {
+  id: string;
+  uid: string;
+  project_id?: string | null;
+  status: string;
+  created_at: string;
+  amount_cents?: number | null;
+  currency?: string | null;
+  kind?: string | null;
+  method?: string | null;
+}

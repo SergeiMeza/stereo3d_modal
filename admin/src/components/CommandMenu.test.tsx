@@ -50,6 +50,28 @@ describe("⌘K search (BL-29 redesign B)", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/accounts/abc123"));
   });
 
+  it("a run id finds the run (GET /v1/admin/runs/{id}) and opens its account; a 404 shows nothing", async () => {
+    const { calls } = renderApp("/cases", {
+      ...routes,
+      "GET /v1/admin/runs/c_7Hk2Qm": () => ({
+        json: { run: { id: "c_7Hk2Qm", uid: "uid_9", project_id: "p1", status: "SUCCEEDED", created_at: "2026-11-03T21:40:00Z", amount_cents: 4250, currency: "usd", kind: "lifelike", method: "card" } },
+      }),
+      "GET /v1/admin/runs/zzzz": () => ({ status: 404, json: { error: "run_not_found", message: "no run" } }),
+    });
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    const dialog = await screen.findByRole("dialog", { name: "Search" });
+    const input = within(dialog).getByRole("combobox", { name: "Search" });
+    await userEvent.type(input, "zzzz");
+    await waitFor(() => expect(calls.some((c) => c.path === "/v1/admin/runs/zzzz")).toBe(true));
+    expect(within(dialog).queryByRole("group", { name: "Runs" })).toBeNull();
+    await userEvent.clear(input);
+    await userEvent.type(input, "c_7Hk2Qm");
+    const opt = await within(dialog).findByRole("option", { name: /c_7Hk2Qm · lifelike · SUCCEEDED/ });
+    expect(opt).toHaveTextContent("$42.50");
+    await userEvent.click(opt);
+    await waitFor(() => expect(window.location.pathname).toBe("/accounts/uid_9"));
+  });
+
   it("isn't there before sign-in", () => {
     renderApp("/cases", {}, undefined, noSession());
     expect(screen.getByRole("button", { name: "Use your passkey" })).toBeInTheDocument();

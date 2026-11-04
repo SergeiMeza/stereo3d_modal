@@ -24,6 +24,7 @@ import type {
   RevokeResult,
   OpenCaseBody,
   AccountHit,
+  RunLookup,
   PasskeyAdoption,
   PolicyResponse,
   Tab,
@@ -329,6 +330,17 @@ export class AdminApi {
   async searchAccounts(q: string): Promise<AccountHit[]> {
     const r = await this.json<{ accounts: AccountHit[] | null }>("GET", `/v1/admin/accounts?q=${encodeURIComponent(q)}`);
     return r.accounts ?? [];
+  }
+
+  /** One run by id (gateway rev 00114); null on 404 run_not_found. */
+  async getRun(id: string): Promise<RunLookup | null> {
+    try {
+      const r = await this.json<{ run: RunLookup }>("GET", `/v1/admin/runs/${encodeURIComponent(id)}`);
+      return r.run ?? null;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
   }
 
   /** Customer passkey adoption (gateway rev 00113). */
