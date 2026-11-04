@@ -219,7 +219,7 @@ func (s *Service) HandleAdminFeedback(w http.ResponseWriter, r *http.Request, a 
 	if colls[0] != "app_feedback" {
 		colls = append(colls, "app_feedback")
 	}
-	var rows []map[string]any
+	var rows, items []map[string]any
 	for _, c := range colls {
 		docs, err := s.Store.ListFeedback(ctx, c, since, 500)
 		if err != nil {
@@ -232,11 +232,16 @@ func (s *Service) HandleAdminFeedback(w http.ResponseWriter, r *http.Request, a 
 				continue
 			}
 			rows = append(rows, feedbackRow(d))
+			items = append(items, feedbackItem(d))
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i]["created_at"].(string) > rows[j]["created_at"].(string) })
+	sort.Slice(items, func(i, j int) bool { return items[i]["created_at"].(string) > items[j]["created_at"].(string) })
+	if items == nil {
+		items = []map[string]any{}
+	}
 	s.audit(ctx, a, "feedback_list", map[string]any{"days": days, "platform": platform})
-	httpx.WriteOK(w, map[string]any{"days": days, "feedback": rows, "generated_at": time.Now().UTC().Format(time.RFC3339)})
+	httpx.WriteOK(w, map[string]any{"days": days, "feedback": rows, "items": items, "generated_at": time.Now().UTC().Format(time.RFC3339)})
 }
 
 // feedbackRow is one message for the admin, app and web alike.
@@ -256,4 +261,36 @@ func feedbackRow(d map[string]any) map[string]any {
 	_, mailed := d["mailedAt"]
 	out["mailed"] = mailed
 	return out
+}
+
+// webKinds maps the stored kind back to the web's words for web messages.
+var webKinds = map[string]string{"suggestion": "idea", "problem": "problem", "other": "other"}
+
+// feedbackItem is one message in the web admin's shape: {platform, kind,
+// message, email, ok_to_contact, app_version, context, created_at}.
+func feedbackItem(d map[string]any) map[string]any {
+	str := func(k string) string { v, _ := d[k].(string); return v }
+	kind := str("kind")
+	if str("platform") == "web" {
+		if k, ok := webKinds[kind]; ok {
+			kind = k
+		}
+	}
+	ctx := map[string]any{}
+	for out, in := range map[string]string{"route": "route", "project_id": "projectId", "run_id": "runId", "locale": "locale",
+		"user_agent": "userAgent", "plan": "plan", "device": "device", "rating": "rating", "company": "company", "uid": "uid"} {
+		if v, ok := d[in]; ok {
+			ctx[out] = v
+		}
+	}
+	if v, ok := d["isPro"]; ok {
+		ctx["isPro"] = v
+	}
+	at := ""
+	if t, ok := d["createdAt"].(time.Time); ok {
+		at = t.UTC().Format(time.RFC3339)
+	}
+	return map[string]any{"id": str("id"), "platform": str("platform"), "kind": kind, "message": str("text"),
+		"email": nilIfEmpty(str("email")), "ok_to_contact": d["okToContact"] == true, "app_version": nilIfEmpty(str("version")),
+		"context": ctx, "created_at": at}
 }

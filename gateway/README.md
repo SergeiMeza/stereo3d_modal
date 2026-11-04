@@ -885,7 +885,10 @@ is ignored without such a plan.
   feedback[{id, collection, created_at, platform, kind, rating?, text,
   email?, company?, isPro, plan?, version, build, device, locale, uid,
   route?, projectId?, runId?, okToContact?, mailed, mailError?}],
-  generated_at}`, newest first; on test it reads `app_feedback_test` and
+  items[{id, platform, kind (web: idea|problem|other), message, email,
+  ok_to_contact, app_version, context {route, project_id, run_id, locale,
+  user_agent, plan, isPro, …}, created_at}], generated_at}` (items: the
+  web admin's shape), newest first; on test it reads `app_feedback_test` and
   the app's `app_feedback` (read only).
 
 ### Business/Studio setup (owner 2026-11-04)
@@ -900,8 +903,10 @@ is ignored without such a plan.
   other), headsets?}` replaces the answers, `null` clears them.
 - **`GET /v1/admin/onboarding/business_funnel?days=30`** (admin) →
   `{days, steps[{step, people, events, rate_from_previous}],
-  by_plan[{step, plan, people}], answers {accounts, by_main_use[{main_use,
-  count}], by_team_size[{team_size, count}]}, generated_at}`.
+  by_plan[{step, plan, people}], business_setup[{step, people, by_plan
+  {business, studio}}], answers {accounts, by_main_use[{main_use, count}],
+  by_team_size[{team_size, count}]}, generated_at}`; the onboarding
+  headsets report carries the same `business_setup`.
 - **Company details** (existing): `GET /v1/billing/company` → `{name,
   address {line1, line2, city, state, postal_code, country}, tax_ids[{id,
   type, value, verification}]}`; `PUT /v1/billing/company {name?,

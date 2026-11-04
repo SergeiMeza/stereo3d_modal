@@ -189,6 +189,13 @@ func businessFunnelReport(events []store.Event, answers []store.BusinessSetup) m
 		}
 		return out
 	}
-	return map[string]any{"steps": steps, "by_plan": planRows,
+	// The web admin's shape: business_setup[{step, people, by_plan
+	// {business, studio}}].
+	setup := []map[string]any{}
+	for _, n := range businessSteps {
+		bp := map[string]int{"business": len(byPlan[pk{n, "business"}]), "studio": len(byPlan[pk{n, "studio"}])}
+		setup = append(setup, map[string]any{"step": n, "people": len(people[n]), "by_plan": bp})
+	}
+	return map[string]any{"steps": steps, "by_plan": planRows, "business_setup": setup,
 		"answers": map[string]any{"accounts": len(answers), "by_main_use": rows(uses, "main_use"), "by_team_size": rows(sizes, "team_size")}}
 }

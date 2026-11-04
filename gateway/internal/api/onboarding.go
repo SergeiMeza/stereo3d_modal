@@ -309,6 +309,15 @@ func (s *Service) HandleAdminOnboardingHeadsets(w http.ResponseWriter, r *http.R
 	}
 	out := s.headsetReport(ctx, events)
 	out["days"], out["generated_at"] = days, now.Format(time.RFC3339)
+	// The Business/Studio setup funnel, as the web admin's onboarding view
+	// reads it (also at /v1/admin/onboarding/business_funnel).
+	var bevents []store.Event
+	for _, n := range businessSteps {
+		if evs, berr := s.Store.ListEventsSince(ctx, n, now.AddDate(0, 0, -days), 50000); berr == nil {
+			bevents = append(bevents, evs...)
+		}
+	}
+	out["business_setup"] = businessFunnelReport(bevents, nil)["business_setup"]
 	s.audit(ctx, a, "onboarding_headsets", map[string]any{"days": days})
 	httpx.WriteOK(w, out)
 }

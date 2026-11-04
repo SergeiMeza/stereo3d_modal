@@ -74,7 +74,9 @@ func TestFeedback(t *testing.T) {
 	// admin: newest first, platform filter
 	rec := httptest.NewRecorder()
 	s.HandleAdminFeedback(rec, httptest.NewRequest("GET", "/?days=1&platform=web", nil), &AdminUser{Email: "a@x"})
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Make 8K faster") || !strings.Contains(rec.Body.String(), `"platform":"web"`) {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Make 8K faster") || !strings.Contains(rec.Body.String(), `"platform":"web"`) ||
+		!strings.Contains(rec.Body.String(), `"message":"Make 8K faster"`) || !strings.Contains(rec.Body.String(), `"kind":"idea"`) ||
+		!strings.Contains(rec.Body.String(), `"ok_to_contact":true`) || !strings.Contains(rec.Body.String(), `"app_version":"28d7aab"`) {
 		t.Fatalf("admin %d %.300s", rec.Code, rec.Body)
 	}
 }

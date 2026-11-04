@@ -72,6 +72,9 @@ func TestBusinessFunnel(t *testing.T) {
 		fmt.Sprint(a["by_team_size"]) != "[map[count:2 team_size:2-5]]" {
 		t.Fatalf("answers %v", a)
 	}
+	if got := fmt.Sprint(rep["business_setup"]); got != "[map[by_plan:map[business:0 studio:0] people:4 step:business_setup_opened] map[by_plan:map[business:1 studio:1] people:2 step:business_setup_plan_picked] map[by_plan:map[business:0 studio:0] people:1 step:business_setup_details_done] map[by_plan:map[business:1 studio:0] people:1 step:business_setup_checkout_started] map[by_plan:map[business:1 studio:0] people:1 step:business_setup_purchased]]" {
+		t.Fatalf("business_setup %s", got)
+	}
 	if !ValidTaxIDRef("txi_1Abc23") || ValidTaxIDRef("0123456789ab") || ValidTaxIDRef("txi_a/b") {
 		t.Fatal("tax id ref")
 	}
