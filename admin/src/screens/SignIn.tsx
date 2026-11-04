@@ -216,10 +216,22 @@ function PasskeyStep({
     setBusy(true);
     setError("");
     try {
-      await createPasskey(api);
+      try {
+        await createPasskey(api);
+      } catch (e) {
+        // The first passkey needs a Google sign-in within 5 minutes
+        // (401 reauth_required {method: "google"}): sign in again, retry once.
+        if (!(e instanceof ApiError) || e.code !== "reauth_required" || e.details?.method === "passkey") throw e;
+        if ((await auth.reauthenticate()) === "code") throw new Error("Finish with your authenticator code, then set up the passkey.");
+        await createPasskey(api);
+      }
       await prepare(true);
     } catch (e) {
-      setError(passkeyErrorMessage(e));
+      setError(
+        e instanceof ApiError && e.code === "passkey_exists"
+          ? "This device already has a passkey for the console. Use it to sign in."
+          : passkeyErrorMessage(e),
+      );
     } finally {
       setBusy(false);
     }

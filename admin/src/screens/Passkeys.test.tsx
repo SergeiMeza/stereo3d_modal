@@ -68,6 +68,33 @@ describe("passkey sign-in (ADR 0135)", () => {
     expect(await screen.findByRole("heading", { name: "Cases" })).toBeInTheDocument();
   });
 
+  it("the first passkey asks for Google again when the sign-in is older than 5 minutes", async () => {
+    let reg = 0;
+    const auth = googleDone();
+    const { calls } = renderApp(
+      "/cases",
+      {
+        ...cases,
+        "POST /v1/admin/session/options": () =>
+          calls.some((c) => c.path === "/v1/admin/passkeys/register/verify")
+            ? { json: { options: { publicKey: requestOptions }, expires_at: "x" } }
+            : apiError(409, "no_passkey", "No passkey on this account yet."),
+        "POST /v1/admin/passkeys/register/options": () => {
+          reg++;
+          return reg === 1
+            ? { status: 401, json: { success: false, error: "reauth_required", message: "sign in again", details: { method: "google" } } }
+            : { json: { options: { publicKey: creationOptions }, expires_at: "x" } };
+        },
+        "POST /v1/admin/passkeys/register/verify": () => ({ status: 201, json: { passkey: { id: "pk_1", name: "Mac", created_at: "2026-11-04T10:00:00Z", last_used_at: null } } }),
+      },
+      auth,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Set up a passkey" }));
+    expect(await screen.findByText("Passkey added. Use it to sign in.")).toBeInTheDocument();
+    expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
+    expect(wa.create).toHaveBeenCalledTimes(1);
+  });
+
   it("a closed passkey prompt says so and fetches a fresh challenge", async () => {
     let options = 0;
     renderApp(
