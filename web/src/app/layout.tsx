@@ -97,8 +97,12 @@ export default function RootLayout({
               >
                 Pricing
               </Link>
-              <FeedbackLink />
-              <UserMenu />
+              {/* owner 2026-11-04: Feedback sits on the right, beside Sign in
+                  (icon only on phones, labelled for screen readers) */}
+              <div className="ml-auto flex min-w-0 items-center gap-2">
+                <FeedbackLink />
+                <UserMenu />
+              </div>
             </nav>
           </header>
           {/* The whole app is centered at one max width (wide enough that
