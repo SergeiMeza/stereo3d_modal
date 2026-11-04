@@ -30,7 +30,7 @@ import type {
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { formatClock } from "@/lib/format";
-import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
+import { headsetPreviewFormats, isHeadset, type Client } from "@/lib/headset";
 import {
   clipRange,
   frameToSeconds,
@@ -149,7 +149,7 @@ function ReadyPreviewPanel({
   // side-by-side (the gateway's per-quality formats)
   const offered = lifelikeFormatsFor(choice ?? { preset });
   const wanted: Format[] = isHeadset(client)
-    ? HEADSET_PREVIEW_FORMATS[client as Exclude<Client, "desktop">]
+    ? headsetPreviewFormats(client as Exclude<Client, "desktop">, preset)
     : ["sbs"];
   const fits = wanted.filter((f) => offered.includes(f));
   // the side-by-side plays here; the Vision Pro file comes too, so a

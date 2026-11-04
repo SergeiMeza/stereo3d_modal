@@ -24,7 +24,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { formatBytes, formatClock } from "@/lib/format";
 import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
-import type { Client } from "@/lib/headset";
+import { questSbsFormat, type Client } from "@/lib/headset";
 
 import { priceEpochAtom } from "./checkoutStore";
 import { HIGHEST_QUALITY_TAG } from "./methods";
@@ -102,11 +102,11 @@ export const DEVICES: readonly { id: Device; label: string }[] = [
 ];
 
 /** The files each device needs; "Not sure" gets the two that play almost
- * anywhere. */
-const DEVICE_FORMATS: Record<Device, Format[]> = {
+ * anywhere. Meta Quest's depends on the quality (questSbsFormat, owner
+ * 2026-11-04). */
+const DEVICE_FORMATS: Record<Exclude<Device, "quest">, Format[]> = {
   avp: ["mvhevc"],
   galaxyxr: ["sbs"],
-  quest: ["half_sbs"],
   pico: ["sbs"],
   steamframe: ["sbs"],
   glasses: ["sbs"],
@@ -114,12 +114,21 @@ const DEVICE_FORMATS: Record<Device, Format[]> = {
   unsure: ["mvhevc", "sbs"],
 };
 
-/** The files a set of devices needs, in the offered order. */
+/** The files a set of devices needs at a quality, in the offered order.
+ * Only a preselection: every file stays the person's to tick or untick. */
 export function formatsForDevices(
   devices: readonly Device[],
   offered: readonly Format[],
+  preset?: Preset | null,
 ): Format[] {
-  const want = new Set(devices.flatMap((d) => DEVICE_FORMATS[d]));
+  const want = new Set(
+    devices.flatMap((d): Format[] => {
+      if (d !== "quest") return DEVICE_FORMATS[d];
+      const q = questSbsFormat(preset);
+      // a quality without a full side-by-side file (6K, 8K) gets the half one
+      return [q === "sbs" && !offered.includes("sbs") ? "half_sbs" : q];
+    }),
+  );
   return offered.filter((f) => want.has(f));
 }
 
@@ -181,8 +190,8 @@ export function WatchPicker({
 
 const FORMAT_FOR: Partial<Record<Format, string>> = {
   mvhevc: "For Apple Vision Pro",
-  sbs: "For Galaxy XR, Pico, Steam Frame and XR glasses",
-  half_sbs: "For Meta Quest, 3D TVs and projectors",
+  sbs: "For Meta Quest, Galaxy XR, Pico, Steam Frame and XR glasses",
+  half_sbs: "For 3D TVs, projectors, and Meta Quest at 4K and above",
   anaglyph: "Any screen, with red-cyan glasses",
 };
 
@@ -211,6 +220,7 @@ export function FileTiles({
             <span className="flex flex-col gap-0.5">
               <span className="font-medium">{FORMAT_NAMES[f]}</span>
               <span className="text-xs text-fg-muted">{FORMAT_FOR[f]}</span>
+
             </span>
           </label>
         );

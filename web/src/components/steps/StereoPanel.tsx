@@ -97,7 +97,7 @@ import {
   parseRational,
   type RationalFPS,
 } from "@/lib/frames";
-import { HEADSET_PREVIEW_FORMATS, isHeadset, type Client } from "@/lib/headset";
+import { headsetPreviewFormats, isHeadset, type Client } from "@/lib/headset";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -157,7 +157,7 @@ export function StereoPanel({
   const viewer = useClient();
   const [formats, setFormats] = useState<Format[]>(() =>
     isHeadset(viewer)
-      ? HEADSET_PREVIEW_FORMATS[viewer as Exclude<Client, "desktop">]
+      ? headsetPreviewFormats(viewer as Exclude<Client, "desktop">, "1080p")
       : ["sbs"],
   );
   // Edge style (S3D-29): stretched (default) | filled

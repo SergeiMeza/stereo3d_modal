@@ -11,15 +11,34 @@
  *   (Galaxy XR: the model SM-I61x or "Android XR"; Chrome's reduced user
  *   agent may hide the model, so useClient also asks userAgentData). They show side by
  *   side in 3D once the user picks that mode in the browser's own player
- *   (a page can't switch it): half side by side on Quest (its browser
- *   unsqueezes it), full side by side on Pico.
+ *   (a page can't switch it). Quest plays full side by side (owner
+ *   2026-11-04), and half side by side at 4K and above (questSbsFormat);
+ *   Pico and Galaxy XR full side by side.
  * - Full screen goes on the <video> itself, from the user's tap, with the
  *   webkit fallbacks; exiting goes through whichever API entered.
  *
  * A WebXR player is out of scope (a later option).
  */
 
-import type { Format } from "@/lib/api/types";
+import type { Format, Preset } from "@/lib/api/types";
+
+/**
+ * Owner decision 2026-11-04: Meta Quest plays full side by side, so Quest
+ * gets the full side-by-side file up to and including this quality, and
+ * half side by side above it. Full 4K side by side is 7680 px wide, and
+ * older Quest 2 decoders may not play it. The owner's Quest test may move
+ * this line: change it here only.
+ */
+export const QUEST_FULL_SBS_MAX_PRESET: Preset = "3k";
+
+const PRESET_ORDER: readonly Preset[] = ["draft", "1080p", "qhd", "3k", "4k", "5k", "6k", "8k"];
+
+/** The side-by-side file for Meta Quest at a quality: full up to
+ * QUEST_FULL_SBS_MAX_PRESET, half above it (unknown quality: full). */
+export function questSbsFormat(preset?: Preset | null): Format {
+  if (!preset) return "sbs";
+  return PRESET_ORDER.indexOf(preset) > PRESET_ORDER.indexOf(QUEST_FULL_SBS_MAX_PRESET) ? "half_sbs" : "sbs";
+}
 
 export type Client = "vision" | "quest" | "pico" | "galaxyxr" | "desktop";
 
@@ -49,13 +68,17 @@ export function isHeadset(c: Client): boolean {
   return c !== "desktop";
 }
 
-/** The one format a headset's previews ask for. */
-export const HEADSET_PREVIEW_FORMATS: Record<Exclude<Client, "desktop">, Format[]> = {
-  vision: ["mvhevc"],
-  quest: ["half_sbs"],
-  pico: ["sbs"],
-  galaxyxr: ["sbs"],
-};
+/** The one format a headset's previews ask for, at a quality. */
+export function headsetPreviewFormats(c: Exclude<Client, "desktop">, preset?: Preset | null): Format[] {
+  switch (c) {
+    case "vision":
+      return ["mvhevc"];
+    case "quest":
+      return [questSbsFormat(preset)];
+    default:
+      return ["sbs"];
+  }
+}
 
 /** The formats this client shows in 3D, best first; empty on a desktop. */
 export function stereoFormatsFor(c: Client): Format[] {
@@ -63,7 +86,9 @@ export function stereoFormatsFor(c: Client): Format[] {
     case "vision":
       return ["mvhevc"];
     case "quest":
-      return ["half_sbs", "sbs"];
+      // owner 2026-11-04: full side by side first; a run that has only the
+      // half file (4K and above) plays that
+      return ["sbs", "half_sbs"];
     case "pico":
     case "galaxyxr":
       return ["sbs", "half_sbs"];

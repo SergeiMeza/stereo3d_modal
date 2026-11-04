@@ -48,11 +48,11 @@ describe("View in 3D (S3D-47)", () => {
     expect(full.mock.contexts[0]).toBe(video);
   });
 
-  it("on Quest plays the half side by side with the one-line hint", () => {
+  it("on Quest plays the full side by side with the one-line hint (owner 2026-11-04)", () => {
     asBrowser(QUEST);
     HTMLElement.prototype.requestFullscreen = vi.fn(() => Promise.resolve());
     render(<ViewIn3D files={FILES} />);
-    expect(screen.getByTestId("view-in-3d").getAttribute("data-format")).toBe("half_sbs");
+    expect(screen.getByTestId("view-in-3d").getAttribute("data-format")).toBe("sbs");
     expect(screen.getByTestId("view-in-3d-hint").textContent).toBe(
       "In the player's view options, choose 3D side by side.",
     );

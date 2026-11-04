@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectClient, playChoice } from "./headset";
+import { detectClient, headsetPreviewFormats, playChoice, QUEST_FULL_SBS_MAX_PRESET, questSbsFormat } from "./headset";
 
 const MAC_SAFARI =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
@@ -42,7 +42,9 @@ describe("headset detection (S3D-47)", () => {
   it("plays the file each headset shows in 3D, and falls back to full screen", () => {
     const all = { mvhevc: "m", sbs: "s", half_sbs: "h" };
     expect(playChoice("vision", all)).toEqual({ format: "mvhevc", url: "m", stereo: true });
-    expect(playChoice("quest", all)).toEqual({ format: "half_sbs", url: "h", stereo: true });
+    // owner 2026-11-04: Quest plays full side by side first
+    expect(playChoice("quest", all)).toEqual({ format: "sbs", url: "s", stereo: true });
+    expect(playChoice("quest", { half_sbs: "h" })).toEqual({ format: "half_sbs", url: "h", stereo: true });
     expect(playChoice("pico", all)).toEqual({ format: "sbs", url: "s", stereo: true });
     expect(playChoice("quest", { sbs: "s" })).toEqual({ format: "sbs", url: "s", stereo: true });
     // Vision Pro with only side by side: flat
@@ -50,5 +52,13 @@ describe("headset detection (S3D-47)", () => {
     // a computer plays a side by side picture flat
     expect(playChoice("desktop", all)).toEqual({ format: "sbs", url: "s", stereo: false });
     expect(playChoice("desktop", { depth: "d" })).toBeNull();
+  });
+
+  it("Meta Quest: full side by side up to 3K, half above (owner 2026-11-04)", () => {
+    expect(QUEST_FULL_SBS_MAX_PRESET).toBe("3k");
+    for (const p of ["1080p", "qhd", "3k"] as const) expect(questSbsFormat(p)).toBe("sbs");
+    for (const p of ["4k", "5k", "6k", "8k"] as const) expect(questSbsFormat(p)).toBe("half_sbs");
+    expect(headsetPreviewFormats("quest", "qhd")).toEqual(["sbs"]);
+    expect(headsetPreviewFormats("quest", "4k")).toEqual(["half_sbs"]);
   });
 });

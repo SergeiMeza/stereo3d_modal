@@ -651,6 +651,7 @@ describe("in a headset browser (S3D-47)", () => {
     await waitFor(() =>
       expect(quotes.some((q) => q.step === "lifelike_preview")).toBe(true),
     );
+    // a 4K project: Quest gets half side by side above 3K (owner 2026-11-04)
     expect(quotes.find((q) => q.step === "lifelike_preview")).toMatchObject({
       formats: ["half_sbs", "mvhevc"],
     });
@@ -669,7 +670,53 @@ describe("in a headset browser (S3D-47)", () => {
         .getAllByRole("checkbox")
         .filter((c) => (c as HTMLInputElement).checked)
         .map((c) => c.getAttribute("aria-label")),
-    ).toEqual(["Side by side (half size)"]);
+    ).toEqual(["Side by side (half size)"]); // a 4K project
+  });
+});
+
+describe("Meta Quest: full side by side up to 3K (owner decision 2026-11-04)", () => {
+  const QUEST =
+    "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/35.0 Chrome/126.0 Safari/537.36";
+  afterEach(() => vi.restoreAllMocks());
+  const checkedFiles = () =>
+    within(screen.getByRole("group", { name: "Files you'll get" }))
+      .getAllByRole("checkbox")
+      .filter((c) => (c as HTMLInputElement).checked)
+      .map((c) => c.getAttribute("aria-label"));
+
+  it("Quest at 1440p preselects full side by side", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject({ width: 2560, height: 1440 })} onProjectChanged={() => {}} />,
+    );
+    expect(checkedFiles()).toEqual(["Side by side"]);
+  });
+
+  it("Quest at 4K preselects half side by side, and 1080p switches back to full", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject({ width: 3840, height: 2160 })} onProjectChanged={() => {}} />,
+    );
+    expect(checkedFiles()).toEqual(["Side by side (half size)"]);
+    fireEvent.click(within(screen.getByTestId("quality-1080p")).getByRole("radio"));
+    expect(checkedFiles()).toEqual(["Side by side"]);
+  });
+
+  it("the preselection never locks: any file can be ticked or unticked, and stays so", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(QUEST);
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject({ width: 3840, height: 2160 })} onProjectChanged={() => {}} />,
+    );
+    const files = within(screen.getByRole("group", { name: "Files you'll get" }));
+    for (const c of files.getAllByRole("checkbox")) expect((c as HTMLInputElement).disabled).toBe(false);
+    fireEvent.click(files.getByLabelText("Side by side (half size)"));
+    fireEvent.click(files.getByLabelText("Side by side"));
+    expect(checkedFiles()).toEqual(["Side by side"]);
+    // the person's own pick survives a quality change
+    fireEvent.click(within(screen.getByTestId("quality-1080p")).getByRole("radio"));
+    expect(checkedFiles()).toEqual(["Side by side"]);
+    fireEvent.click(files.getByLabelText("Vision Pro spatial video"));
+    expect(checkedFiles()).toEqual(["Vision Pro spatial video", "Side by side"]);
   });
 });
 
@@ -852,7 +899,7 @@ describe("Where will you watch it? options (S3D-51)", () => {
     };
     expect(only("Apple Vision Pro")).toEqual(["Vision Pro spatial video"]);
     expect(only("Samsung Galaxy XR")).toEqual(["Side by side"]);
-    expect(only("Meta Quest")).toEqual(["Side by side (half size)"]);
+    expect(only("Meta Quest")).toEqual(["Side by side (half size)"]); // 4K: half
     expect(only("Pico")).toEqual(["Side by side"]);
     expect(only("Steam Frame")).toEqual(["Side by side"]);
     expect(only("XR glasses (XREAL, VITURE, RayNeo)")).toEqual(["Side by side"]);

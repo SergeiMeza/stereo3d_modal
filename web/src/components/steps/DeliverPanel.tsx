@@ -82,9 +82,13 @@ export function DeliverPanel({
     const d = deviceForClient(client);
     return d ? [d] : [];
   });
-  const [formats, setFormats] = useState<Format[]>(() =>
-    devices.length > 0 ? formatsForDevices(devices, CLASSIC_FORMATS) : DEFAULT_MAKE_FORMATS,
-  );
+  // the devices preselect the files for the chosen quality (Meta Quest:
+  // full side by side up to 3K, half above; owner 2026-11-04) until the
+  // person ticks or unticks a file themselves
+  const [formatsChoice, setFormats] = useState<Format[] | null>(null);
+  const formats: Format[] =
+    formatsChoice ??
+    (devices.length > 0 ? formatsForDevices(devices, CLASSIC_FORMATS, preset) : DEFAULT_MAKE_FORMATS);
   // S3D-29: two equal edge styles, Stretched first and preselected
   const [edge, setEdge] = useState<EdgeMode>("stretched");
   const [fromScratch, setFromScratch] = useState(false);
@@ -185,7 +189,7 @@ export function DeliverPanel({
               onChange={(next) =>
                 change(() => {
                   setDevices(next);
-                  if (next.length > 0) setFormats(formatsForDevices(next, CLASSIC_FORMATS));
+                  if (next.length > 0) setFormats(null);
                 })
               }
             />
@@ -197,8 +201,8 @@ export function DeliverPanel({
               formats={formats}
               onToggle={(f) =>
                 change(() =>
-                  setFormats((prev) =>
-                    prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+                  setFormats(
+                    formats.includes(f) ? formats.filter((x) => x !== f) : [...formats, f],
                   ),
                 )
               }

@@ -48,7 +48,7 @@ import {
   WatchPicker,
   type Device,
 } from "./makeControls";
-import { LIFELIKE_FORMATS, lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
+import { lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
 import {
   BusinessNote,
   CinemaTierPrices,
@@ -139,10 +139,15 @@ export function LifelikeDeliverPanel({
   const devices: Device[] =
     devicesChoice ??
     ((headsets ?? []).filter((h): h is Device => DEVICES.some((d) => d.id === h)));
+  // the devices preselect the files for the chosen quality (Meta Quest:
+  // full side by side up to 3K, half above; owner 2026-11-04) until the
+  // person ticks or unticks a file themselves
   const [formatsChoice, setFormats] = useState<Format[] | null>(null);
   const formats: Format[] =
     formatsChoice ??
-    (devices.length > 0 ? formatsForDevices(devices, LIFELIKE_FORMATS) : DEFAULT_MAKE_FORMATS);
+    (devices.length > 0
+      ? formatsForDevices(devices, lifelikeFormatsFor(choices.find((q) => q.preset === preset) ?? { preset }), preset)
+      : DEFAULT_MAKE_FORMATS);
   // S3D-06: preselected; only asked (and only sent) when the quote says the
   // output runs past 15 minutes
   const [split, setSplit] = useState(true);
@@ -262,7 +267,8 @@ export function LifelikeDeliverPanel({
               change(() => {
                 setDevices(next);
                 if (next.length > 0) {
-                  setFormats(formatsForDevices(next, LIFELIKE_FORMATS));
+                  // back to the preselection for the new devices
+                  setFormats(null);
                 }
               })
             }
