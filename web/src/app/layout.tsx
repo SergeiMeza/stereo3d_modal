@@ -41,6 +41,9 @@ export const metadata: Metadata = {
   },
   description,
   applicationName: SITE_NAME,
+  // which build is live: <meta name="build" content="8f2fe30"> (Vercel's
+  // commit, read on the server; "local" in dev and tests)
+  other: { build: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7) },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
