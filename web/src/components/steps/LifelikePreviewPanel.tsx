@@ -51,6 +51,8 @@ import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { PlansSheet, usePlansSheet } from "@/components/plans/PlansSheet";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
+import { withoutBars } from "@/lib/bars";
+
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
@@ -147,7 +149,8 @@ function ReadyPreviewPanel({
   const sourceFps = parseRational(probe.fps_rational);
   const clock = (f: number) => formatClock(frameToSeconds(f, sourceFps));
   const halfRate = Math.round((sourceFps.num / sourceFps.den / 2) * 100) / 100;
-  const presets = qualityChoices(project);
+  // the size each quality makes, without the bars when they're removed
+  const presets = withoutBars(qualityChoices(project), project);
   const preset = chosenPreset ?? presets.at(-1)?.preset ?? "1080p";
   const choice = presets.find((q) => q.preset === preset);
   const cuts = project.scenes?.cuts ?? [];

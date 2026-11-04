@@ -26,8 +26,8 @@ import { useAccountSettings } from "@/lib/useAccountSettings";
 import { usePricing } from "@/lib/api/usePricing";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
-import { barSides, removesBars, sizeWithoutBars } from "@/lib/bars";
-import { eyeSize, qualityChoices, resolutionName, type QualityChoice } from "@/lib/glossary";
+import { barSides, withoutBars } from "@/lib/bars";
+import { eyeSize, qualityChoices, resolutionName } from "@/lib/glossary";
 import { BarsToggle } from "@/components/workspace/BarsSetting";
 
 import {
@@ -127,17 +127,7 @@ export function hdrLine(formats: readonly Format[]): string {
     : base;
 }
 
-/** owner 2026-11-05: with the bars removed, each quality says the size
- * it makes (1920×866), as the bars setting does. */
-export function withoutBars(choices: QualityChoice[], project: Project): QualityChoice[] {
-  const probe = project.probe;
-  if (!probe || !removesBars(project) || barSides(project) === null) return choices;
-  return choices.map((q) => {
-    const full = q.eyeShort ? eyeSize(probe, q.eyeShort) : null;
-    const size = full ? sizeWithoutBars(probe, project.crop, full) : null;
-    return size ? { ...q, hint: `${size.width}×${size.height} per eye` } : q;
-  });
-}
+export { withoutBars } from "@/lib/bars";
 
 export function LifelikeDeliverPanel({
   project,

@@ -2,7 +2,8 @@
  * QA 2026-11-05 batch 2 (a free preview took 7 s to start and nothing
  * moved): the button is busy and disabled from the click to the answer, a
  * double click creates one run, and once it's created the run shows under
- * Earlier previews and the free previews left are priced again.
+ * Earlier previews and the free previews left are priced again. The
+ * Preview tab's sizes follow Remove black bars.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { delay, http } from "msw";
@@ -126,5 +127,19 @@ describe("starting a free preview", () => {
     expect(await screen.findByText(/Something went wrong|request failed/)).toBeTruthy();
     await waitFor(() => expect(main.disabled).toBe(false));
     expect(main.textContent).not.toBe(STARTING);
+  });
+});
+
+describe("the Preview tab and black bars", () => {
+  it("names the size without the bars while they're removed", async () => {
+    // the fixture: 3840×2160 with the picture at 3840×1606
+    render(
+      <AuthProvider>
+        <LifelikePreviewPanel project={project({ has_bars: true, remove_bars: true })} onProjectChanged={() => {}} />
+      </AuthProvider>,
+    );
+    const line = await screen.findByTestId("preview-moment");
+    expect(line.textContent).toContain("3840×1606 per eye");
+    expect(line.textContent).not.toContain("3840×2160");
   });
 });

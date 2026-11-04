@@ -9,6 +9,7 @@
 
 import type { Probe, Project } from "@/lib/api/types";
 import { parseCrop } from "@/components/workspace/utils";
+import { eyeSize, type QualityChoice } from "@/lib/glossary";
 
 export type BarSides = "top_bottom" | "sides" | "all";
 
@@ -59,4 +60,16 @@ export function sizeWithoutBars(
     width: even((c.width / probe.width) * full.width),
     height: even((c.height / probe.height) * full.height),
   };
+}
+
+/** owner 2026-11-05: with the bars removed, each quality says the size
+ * it makes (1920×866), as the bars setting does. */
+export function withoutBars(choices: QualityChoice[], project: Project): QualityChoice[] {
+  const probe = project.probe;
+  if (!probe || !removesBars(project) || barSides(project) === null) return choices;
+  return choices.map((q) => {
+    const full = q.eyeShort ? eyeSize(probe, q.eyeShort) : null;
+    const size = full ? sizeWithoutBars(probe, project.crop, full) : null;
+    return size ? { ...q, hint: `${size.width}×${size.height} per eye` } : q;
+  });
 }
