@@ -718,6 +718,13 @@ describe("Meta Quest: full side by side up to 3K (owner decision 2026-11-04)", (
     fireEvent.click(files.getByLabelText("Vision Pro spatial video"));
     expect(checkedFiles()).toEqual(["Vision Pro spatial video", "Side by side"]);
   });
+
+  it("Half SBS says what it's for, for any device", () => {
+    renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    expect(screen.getByTestId("half-sbs-size-hint").textContent).toBe(
+      "About half the file size of full side-by-side. Handy when a file is too big to copy or stream.",
+    );
+  });
 });
 
 describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {

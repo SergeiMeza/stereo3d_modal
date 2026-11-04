@@ -195,6 +195,10 @@ const FORMAT_FOR: Partial<Record<Format, string>> = {
   anaglyph: "Any screen, with red-cyan glasses",
 };
 
+/** Owner 2026-11-04: beside Half SBS, for any device. */
+export const HALF_SBS_SIZE_HINT =
+  "About half the file size of full side-by-side. Handy when a file is too big to copy or stream.";
+
 export function FileTiles({
   offered,
   formats,
@@ -220,7 +224,11 @@ export function FileTiles({
             <span className="flex flex-col gap-0.5">
               <span className="font-medium">{FORMAT_NAMES[f]}</span>
               <span className="text-xs text-fg-muted">{FORMAT_FOR[f]}</span>
-
+              {f === "half_sbs" ? (
+                <span className="text-xs text-fg-muted" data-testid="half-sbs-size-hint">
+                  {HALF_SBS_SIZE_HINT}
+                </span>
+              ) : null}
             </span>
           </label>
         );
