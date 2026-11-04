@@ -1,3 +1,4 @@
+import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { useOpenSearch } from "@/components/CommandMenu";
@@ -13,9 +14,9 @@ import type { CaseListQuery } from "../lib/api";
 import { ageHours, dateOnly, dateTime, money, time, until, words } from "../lib/format";
 import { CASE_TYPES, REASONS, typeLabel, typeTone } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
-import { useServices } from "../lib/services";
 import type { CaseRow, Tab } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { casesQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "open", label: "Open" },
@@ -33,6 +34,21 @@ const EMPTY: Record<Tab, string> = {
   all: "No cases.",
 };
 
+/**
+ * The list's filters and the selected case (ADR 0138): atoms, so coming
+ * back from a case finds the same tab, filters and row.
+ */
+const casesFilterAtom = atom<CaseListQuery>({ tab: "open" });
+const casesSelectedAtom = atom<string | null>(null);
+/** Changes the filters; a new filter starts again at the top. */
+const updateCasesFilterAtom = atom(null, (get, set, update: (q: CaseListQuery) => CaseListQuery) => {
+  const q = get(casesFilterAtom);
+  const next = update(q);
+  if (next === q) return;
+  set(casesFilterAtom, next);
+  set(casesSelectedAtom, null);
+});
+
 /** Typing in these never moves the list. */
 function editable(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
@@ -47,32 +63,32 @@ function editable(t: EventTarget | null): boolean {
  * sheet, E opens the account.
  */
 export function CasesList() {
-  const { api } = useServices();
   const { navigate } = useRouter();
-  const [query, setQuery] = useState<CaseListQuery>({ tab: "open" });
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(0);
+  const query = useAtomValue(casesFilterAtom);
+  const setQuery = useSetAtom(updateCasesFilterAtom);
+  const [selectedId, setSelectedId] = useAtom(casesSelectedAtom);
+  // the search box's text before its debounce: local UI
+  const [search, setSearch] = useState(query.q ?? "");
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setQuery((q) => (q.q === search ? q : { ...q, q: search })), 300);
+    const t = setTimeout(() => setQuery((q) => ((q.q ?? "") === search ? q : { ...q, q: search })), 300);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, setQuery]);
 
-  const { state, retry } = useLoad(() => api.listCases(query), [api, JSON.stringify(query)]);
+  const { state, retry } = useQuery(casesQuery, query);
   const counts = state.kind === "loaded" ? state.data.counts : null;
   const rows = state.kind === "loaded" ? state.data.cases ?? [] : [];
-  const current = rows[Math.min(selected, rows.length - 1)] ?? null;
-
-  useEffect(() => setSelected(0), [JSON.stringify(query)]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const found = rows.findIndex((r) => r.id === selectedId);
+  const selected = found < 0 ? 0 : found;
+  const current = rows[selected] ?? null;
 
   const filter = (k: "type" | "reason" | "mode" | "cap", v: string) => setQuery((q) => ({ ...q, [k]: v || undefined }));
 
   const move = (to: number) => {
     if (!rows.length) return;
     const i = Math.max(0, Math.min(rows.length - 1, to));
-    setSelected(i);
+    setSelectedId(rows[i].id);
     listRef.current?.querySelectorAll<HTMLElement>("[data-case-link]")[i]?.focus();
   };
 
@@ -168,9 +184,9 @@ export function CasesList() {
               className="list-none overflow-hidden rounded-xl border border-border bg-card"
               data-testid="case-list"
             >
-              {rows.map((r, i) => (
+              {rows.map((r) => (
                 <li key={r.id} data-testid="case-row">
-                  <CaseRowLink row={r} selected={current?.id === r.id} onFocus={() => setSelected(i)} />
+                  <CaseRowLink row={r} selected={current?.id === r.id} onFocus={() => setSelectedId(r.id)} />
                 </li>
               ))}
             </ul>

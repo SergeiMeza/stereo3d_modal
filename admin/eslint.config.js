@@ -61,7 +61,6 @@ const STATE_ALLOWLIST = [
   "src/lib/useLoad.ts",
   "src/screens/AccountPage.tsx",
   "src/screens/CasePage.tsx",
-  "src/screens/CasesList.tsx",
   "src/screens/Security.tsx",
   "src/screens/SignIn.tsx",
 ];
