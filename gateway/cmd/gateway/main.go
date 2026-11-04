@@ -234,6 +234,8 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets))    // onboarding 2026-11-04
 	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))              // plans surfaces 2026-11-04
 	mux.HandleFunc("GET /v1/admin/feedback", admin(svc.HandleAdminFeedback))                         // web and app feedback, read only
+	mux.HandleFunc("GET /v1/admin/feedback/seen", admin(svc.HandleAdminFeedbackSeen))                // BL-29
+	mux.HandleFunc("POST /v1/admin/feedback/seen", admin(svc.HandleAdminFeedbackSeenSet))            // BL-29
 	mux.HandleFunc("GET /v1/admin/onboarding/business_funnel", admin(svc.HandleAdminBusinessFunnel)) // business setup 2026-11-04
 	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 

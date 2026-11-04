@@ -890,6 +890,12 @@ is ignored without such a plan.
   user_agent, plan, isPro, …}, created_at}], generated_at}` (items: the
   web admin's shape), newest first; on test it reads `app_feedback_test` and
   the app's `app_feedback` (read only).
+  BL-29: rows and items add `plan_tier` (studio | business | pro | free:
+  the sender's active web plan, else the message's isPro/plan). `GET
+  /v1/admin/feedback/seen` → `{seen_at, updated_at}` (null when never
+  set) and `POST /v1/admin/feedback/seen {seen_at}` keep one console-wide
+  "seen up to" marker (`admin_state_{env}/feedback_seen`, no admin
+  identity stored; a future time is taken as now).
 
 ### Business/Studio setup (owner 2026-11-04)
 

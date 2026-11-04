@@ -220,6 +220,7 @@ func (s *Service) HandleAdminFeedback(w http.ResponseWriter, r *http.Request, a 
 		colls = append(colls, "app_feedback")
 	}
 	var rows, items []map[string]any
+	tiers := map[string]string{} // uid → plan tier, read once per request
 	for _, c := range colls {
 		docs, err := s.Store.ListFeedback(ctx, c, since, 500)
 		if err != nil {
@@ -231,8 +232,10 @@ func (s *Service) HandleAdminFeedback(w http.ResponseWriter, r *http.Request, a 
 			if platform != "" && !strings.EqualFold(p, platform) {
 				continue
 			}
-			rows = append(rows, feedbackRow(d))
-			items = append(items, feedbackItem(d))
+			tier := s.feedbackPlanTier(ctx, d, tiers)
+			row, item := feedbackRow(d), feedbackItem(d)
+			row["plan_tier"], item["plan_tier"] = tier, tier
+			rows, items = append(rows, row), append(items, item)
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i]["created_at"].(string) > rows[j]["created_at"].(string) })
@@ -242,6 +245,74 @@ func (s *Service) HandleAdminFeedback(w http.ResponseWriter, r *http.Request, a 
 	}
 	s.audit(ctx, a, "feedback_list", map[string]any{"days": days, "platform": platform})
 	httpx.WriteOK(w, map[string]any{"days": days, "feedback": rows, "items": items, "generated_at": time.Now().UTC().Format(time.RFC3339)})
+}
+
+// feedbackPlanTier: the sender's plan tier (studio | business | pro |
+// free): the account's active web plan, else the message's own isPro or
+// plan, else free.
+func (s *Service) feedbackPlanTier(ctx context.Context, d map[string]any, cache map[string]string) string {
+	uid, _ := d["uid"].(string)
+	if uid != "" {
+		if t, ok := cache[uid]; ok && t != "" {
+			return t
+		}
+		if c, err := s.Store.GetCustomer(ctx, uid); err == nil && c.Plan != nil && c.Plan.Active(time.Now()) {
+			cache[uid] = c.Plan.Tier
+			return c.Plan.Tier
+		}
+	}
+	plan, _ := d["plan"].(string)
+	switch p := strings.ToLower(plan); {
+	case strings.Contains(p, "studio"):
+		return "studio"
+	case strings.Contains(p, "business"):
+		return "business"
+	case d["isPro"] == true || strings.Contains(p, "pro"):
+		return "pro"
+	}
+	return "free"
+}
+
+// GET /v1/admin/feedback/seen → {seen_at, updated_at}: how far the
+// console has read (one marker for the console; null when never set).
+func (s *Service) HandleAdminFeedbackSeen(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	m, err := s.Store.GetAdminMarker(r.Context(), "feedback_seen")
+	if err != nil {
+		httpx.WriteErr(r.Context(), w, httpx.ErrServer())
+		return
+	}
+	if m == nil {
+		httpx.WriteOK(w, map[string]any{"seen_at": nil, "updated_at": nil})
+		return
+	}
+	httpx.WriteOK(w, map[string]any{"seen_at": m.At, "updated_at": m.UpdatedAt})
+}
+
+// POST /v1/admin/feedback/seen {seen_at: RFC 3339} → {seen_at,
+// updated_at}; a time in the future is taken as now.
+func (s *Service) HandleAdminFeedbackSeenSet(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	ctx := r.Context()
+	var req struct {
+		SeenAt string `json:"seen_at"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	t, err := time.Parse(time.RFC3339, strings.TrimSpace(req.SeenAt))
+	if err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("seen_at: an RFC 3339 time"))
+		return
+	}
+	now := time.Now().UTC()
+	if t.After(now) {
+		t = now
+	}
+	if err := s.Store.SetAdminMarker(ctx, "feedback_seen", t.UTC()); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrServer())
+		return
+	}
+	httpx.WriteOK(w, map[string]any{"seen_at": t.UTC(), "updated_at": now})
 }
 
 // feedbackRow is one message for the admin, app and web alike.

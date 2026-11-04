@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -168,5 +169,52 @@ func TestAdminOpenEFWs(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Fatalf("efws %v", got)
+	}
+}
+
+// Feedback carries the sender's plan tier; the console's seen-up-to
+// marker round-trips.
+func TestAdminFeedbackTierAndSeen(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	biz := "u" + store.NewID()
+	end := time.Now().Add(20 * 24 * time.Hour)
+	s.Store.PutCustomer(ctx, biz, &store.Customer{StripeCustomerID: "cus_1", Plan: &store.Plan{Tier: "business", Status: "active", CurrentPeriodEnd: &end}})
+	tag := store.NewID()
+	coll := store.FeedbackCol(s.envName())
+	for _, d := range []map[string]any{
+		{"platform": "web", "kind": "idea", "text": "biz " + tag, "uid": biz, "createdAt": time.Now()},
+		{"platform": "ios", "kind": "problem", "text": "pro " + tag, "isPro": true, "createdAt": time.Now()},
+		{"platform": "ios", "kind": "problem", "text": "free " + tag, "createdAt": time.Now()},
+	} {
+		if _, err := s.Store.AddFeedback(ctx, coll, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := adminGet(t, s.HandleAdminFeedback, "/v1/admin/feedback?days=1")
+	want := map[string]string{"biz " + tag: "business", "pro " + tag: "pro", "free " + tag: "free"}
+	n := 0
+	for _, x := range out["items"].([]any) {
+		m := x.(map[string]any)
+		if tier, ok := want[m["message"].(string)]; ok {
+			n++
+			if m["plan_tier"] != tier {
+				t.Fatalf("%v: tier %v, want %s", m["message"], m["plan_tier"], tier)
+			}
+		}
+	}
+	if n != 3 {
+		t.Fatalf("found %d of 3", n)
+	}
+	if out := adminGet(t, s.HandleAdminFeedbackSeen, "/"); out["seen_at"] != nil {
+		t.Fatalf("seen before %v", out)
+	}
+	w := httptest.NewRecorder()
+	s.HandleAdminFeedbackSeenSet(w, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"seen_at":"2026-11-01T10:00:00Z"}`)), bl29Admin())
+	if w.Code != 200 {
+		t.Fatalf("set %d %s", w.Code, w.Body)
+	}
+	if out := adminGet(t, s.HandleAdminFeedbackSeen, "/"); out["seen_at"] != "2026-11-01T10:00:00Z" {
+		t.Fatalf("seen after %v", out)
 	}
 }
