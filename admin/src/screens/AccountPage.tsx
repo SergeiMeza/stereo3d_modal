@@ -1,10 +1,18 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import { ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox } from "@/components/common";
 import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldControl, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +24,7 @@ import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
 import type { AccountAction, AccountActionBody, AccountPage as Page } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
+import { cn } from "../lib/utils";
 import { GrantsSection, PromoRegrants } from "./Grants";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
@@ -78,6 +87,7 @@ export function AccountPage({ uid }: { uid: string }) {
   const { api } = useServices();
   const { state, retry, set } = useLoad(() => api.getAccount(uid), [api, uid]);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [granting, setGranting] = useState(false);
 
   if (state.kind === "loading") return <LoadingBlock label="Loading the account" />;
   if (state.kind === "error") {
@@ -98,42 +108,122 @@ export function AccountPage({ uid }: { uid: string }) {
 
   const act = (action: AccountAction) => setSheet({ kind: "action", action });
 
+  const openCases = cases.filter((c) => c.status !== "closed");
+  const openDisputes = openCases.filter((c) => c.type === "dispute").length;
+  const activeGrants = (p.grants ?? []).filter((g) => g.status === "active" || g.status === "granting");
+  const stats: { label: string; value: string; sub: string; tone?: "red" | "amber" }[] = [
+    { label: "Lifetime paid", value: money(b.lifetime_paid_cents ?? 0), sub: `${charges.length} ${charges.length === 1 ? "payment" : "payments"}` },
+    { label: "Balance", value: bal ? money(bal.available_cents) : "—", sub: bal ? `${money(bal.balance_cents)} in total` : "no balance" },
+    { label: "Owed", value: money(p.owed_cents), sub: p.owed_cents > 0 ? "to collect or write off" : "nothing owed", tone: p.owed_cents > 0 ? "red" : undefined },
+    {
+      label: "Cases",
+      value: String(cases.length),
+      sub: openDisputes ? `${openDisputes} dispute${openDisputes === 1 ? "" : "s"} open` : `${openCases.length} open`,
+      tone: openDisputes ? "red" : openCases.length ? "amber" : undefined,
+    },
+    {
+      label: "Passkeys",
+      value: typeof p.passkey_count === "number" ? String(p.passkey_count) : "—",
+      sub: typeof p.passkey_count === "number" ? (p.passkey_count ? "for signing in" : "signs in without one") : "not reported",
+    },
+  ];
+
   return (
     <>
       <Link to={paths.accounts()} className="w-fit text-xs text-muted-foreground hover:text-foreground">← Accounts</Link>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{a.email || a.uid}</h1>
-          {a.deleted && <Badge variant="muted">Deleted</Badge>}
-          {a.blocked && <Badge variant="red">Blocked</Badge>}
-          {b.under_review && <Badge variant="amber">Under review</Badge>}
-          {b.sheet_only && <Badge variant="amber">Sheet-only</Badge>}
-          {p.owed_cents > 0 && <Badge variant="red">Owes {money(p.owed_cents)}</Badge>}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="truncate text-2xl font-semibold">{a.email || a.uid}</h1>
+            {a.deleted && <Badge variant="muted">Deleted</Badge>}
+            {a.blocked && <Badge variant="red">Blocked</Badge>}
+            {b.under_review && <Badge variant="amber">Under review</Badge>}
+            {b.sheet_only && <Badge variant="amber">Sheet-only</Badge>}
+            {p.owed_cents > 0 && <Badge variant="red">Owes {money(p.owed_cents)}</Badge>}
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">
+            uid {a.uid}
+            {typeof p.passkey_count === "number" && ` · ${p.passkey_count} ${p.passkey_count === 1 ? "passkey" : "passkeys"}`}
+            {a.stripe_customer_id && ` · ${a.stripe_customer_id}`}
+          </span>
         </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
-          <span>UID <B mono>{a.uid}</B></span>
-          {a.stripe_customer_id && <span>Stripe <B mono>{a.stripe_customer_id}</B></span>}
-          <span>Paid in total <B>{money(b.lifetime_paid_cents ?? 0)}</B></span>
-          {p.plan && (
-            <span>
-              Plan <B>{p.plan.name ?? p.plan.plan}</B> · {p.plan.status}
-              {p.plan.cancel_at_period_end ? " · cancels at period end" : ""}
-            </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2" role="group" aria-label="Account actions">
+          {p.owed_cents > 0 && <Button onClick={() => act("write_off_owed")}>Write off {money(p.owed_cents)}…</Button>}
+          <Button onClick={() => act("adjust_balance")}>Adjust balance…</Button>
+          <Button variant="default" onClick={() => setGranting(true)}>Grant a plan…</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label="More account actions">
+                More <ChevronDownIcon className="size-3.5" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setSheet({ kind: "open_case" })}>Open a case…</DropdownMenuItem>
+              {b.under_review && <DropdownMenuItem onSelect={() => act("clear_review")}>Clear review</DropdownMenuItem>}
+              {b.sheet_only && <DropdownMenuItem onSelect={() => act("clear_sheet_only")}>Clear sheet-only</DropdownMenuItem>}
+              {p.owed_cents > 0 && <DropdownMenuItem onSelect={() => act("resend_e2")}>Resend E2</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant={a.blocked ? "default" : "destructive"} onSelect={() => act(a.blocked ? "unblock" : "block")}>
+                {a.blocked ? "Remove from block list" : "Add to block list"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <dl
+        className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-px overflow-hidden rounded-xl border border-border bg-border"
+        data-testid="account-stats"
+      >
+        {stats.map((st) => (
+          <div key={st.label} className="flex flex-col gap-1 bg-card px-3.5 py-3">
+            <dt className="text-xs text-muted-foreground">{st.label}</dt>
+            <dd className="font-mono text-lg tabular-nums">{st.value}</dd>
+            <dd
+              className={cn(
+                "text-xs",
+                st.tone === "red" ? "text-destructive-foreground" : st.tone === "amber" ? "text-warning-foreground" : "text-muted-foreground",
+              )}
+            >
+              {st.sub}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-3.5">
+        <Panel title="Entitlements">
+          {!p.plan && activeGrants.length === 0 ? (
+            <EmptyRow>No plan and no active grants.</EmptyRow>
+          ) : (
+            <ul className="flex list-none flex-col gap-2.5 px-4 py-3" data-testid="entitlements">
+              {p.plan && (
+                <li className="flex justify-between gap-2.5 text-sm">
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{p.plan.name ?? p.plan.plan}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Our checkout
+                      {p.plan.monthly_cents ? ` · ${money(p.plan.monthly_cents)}/mo` : ""}
+                      {p.plan.current_period_end ? ` · ${p.plan.cancel_at_period_end ? "ends" : "renews"} ${dateOnly(p.plan.current_period_end)}` : ""}
+                    </span>
+                  </span>
+                  <Badge variant={p.plan.status === "active" ? "green" : "plain"} className="self-start">{p.plan.status ?? "—"}</Badge>
+                </li>
+              )}
+              {activeGrants.map((g) => (
+                <li key={g.id} className="flex justify-between gap-2.5 text-sm">
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{g.entitlement.charAt(0).toUpperCase() + g.entitlement.slice(1)} grant</span>
+                    <span className="text-xs text-muted-foreground">
+                      {g.reason} · until {dateOnly(g.ends_at)} · by {g.granted_by}
+                    </span>
+                  </span>
+                  <Badge variant="green" className="self-start">{g.status}</Badge>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Account actions">
-        {b.under_review && <Button onClick={() => act("clear_review")}>Clear review</Button>}
-        {b.sheet_only && <Button onClick={() => act("clear_sheet_only")}>Clear sheet-only</Button>}
-        {p.owed_cents > 0 && <Button onClick={() => act("write_off_owed")}>Write off {money(p.owed_cents)}…</Button>}
-        {p.owed_cents > 0 && <Button onClick={() => act("resend_e2")}>Resend E2</Button>}
-        <Button onClick={() => act(a.blocked ? "unblock" : "block")}>{a.blocked ? "Remove from block list" : "Add to block list"}</Button>
-        <Button onClick={() => act("adjust_balance")}>Adjust balance…</Button>
-        <Button variant="default" onClick={() => setSheet({ kind: "open_case" })}>Open a case…</Button>
-      </div>
-
-      <div className="grid grid-cols-3 items-start gap-4 max-[1000px]:grid-cols-1">
+        </Panel>
         <CompanyCard company={p.company ?? null} changes={p.company_changes ?? []} />
         <Panel title="Billing state">
           <KV>
@@ -260,7 +350,7 @@ export function AccountPage({ uid }: { uid: string }) {
         )}
       </Panel>
 
-      <GrantsSection uid={a.uid} initial={p.grants ?? []} />
+      <GrantsSection uid={a.uid} initial={p.grants ?? []} granting={granting} setGranting={setGranting} />
       <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} onPage={set} />
 
       <Panel title="Balance ledger" note="latest 50">
@@ -301,9 +391,6 @@ export function AccountPage({ uid }: { uid: string }) {
   );
 }
 
-function B({ children, mono }: { children: ReactNode; mono?: boolean }) {
-  return <b className={mono ? "font-mono font-medium text-foreground" : "font-medium text-foreground tabular-nums"}>{children}</b>;
-}
 
 
 /** Money and blocking: an AlertDialog. */

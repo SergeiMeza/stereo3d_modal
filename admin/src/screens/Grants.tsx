@@ -71,9 +71,19 @@ export function endInRange(d: Date, now = new Date()): boolean {
   return d.getTime() >= min && d.getTime() <= max.getTime();
 }
 
-export function GrantsSection({ uid, initial }: { uid: string; initial: Grant[] }) {
+export function GrantsSection({
+  uid,
+  initial,
+  granting,
+  setGranting,
+}: {
+  uid: string;
+  initial: Grant[];
+  /** the page's "Grant a plan…" opens the same sheet */
+  granting: boolean;
+  setGranting: (v: boolean) => void;
+}) {
   const [grants, setGrants] = useState<Grant[]>(initial);
-  const [granting, setGranting] = useState(false);
   const [revoking, setRevoking] = useState<Grant | null>(null);
   const upsert = (g: Grant) =>
     setGrants((list) => [g, ...list.filter((x) => x.id !== g.id)].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));

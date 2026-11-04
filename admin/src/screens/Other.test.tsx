@@ -86,6 +86,28 @@ describe("account page (A3)", () => {
     expect(screen.getByTestId("company-changes")).toHaveTextContent("at checkout · company name, address");
   });
 
+  it("shows the stats strip with passkeys (rev 00113) and the plan and grants as entitlements", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          passkey_count: 2,
+          plan: { plan: "business", name: "Business · monthly", status: "active", monthly_cents: 29900, current_period_end: "2026-12-01T00:00:00Z" },
+          grants: [{ id: "gr_1", uid: "uid_123", entitlement: "pro", ends_at: "2026-11-30T00:00:00Z", granted_by: "owner@example.com", reason: "Goodwill", created_at: "2026-11-01T00:00:00Z", status: "active" }],
+        },
+      }),
+    });
+    const stats = await screen.findByTestId("account-stats");
+    expect(stats).toHaveTextContent("Passkeys2");
+    expect(stats).toHaveTextContent("Owed$1.25");
+    expect(screen.getByText(/uid uid_123 · 2 passkeys/)).toBeInTheDocument();
+    const ents = screen.getByTestId("entitlements");
+    expect(ents).toHaveTextContent("Business · monthly");
+    expect(ents).toHaveTextContent("Pro grant");
+    await userEvent.click(screen.getByRole("button", { name: "Grant a plan…" }));
+    expect(await screen.findByRole("alertdialog", { name: "Grant Pro" })).toBeInTheDocument();
+  });
+
   it("shows 'No account with that ID.'", async () => {
     renderApp("/accounts/nobody", { "GET /v1/admin/accounts/nobody": () => apiError(404, "no_account", "No account with that ID.") });
     expect(await screen.findByText("No account with that ID.")).toBeInTheDocument();

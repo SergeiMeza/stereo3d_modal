@@ -194,7 +194,11 @@ try {
       2,
     );
     await check(page, "Revoke alert", failures, () => button("Revoke…").click());
-    await check(page, "Open a case sheet", failures, () => button("Open a case…").click());
+    await check(page, "More actions menu (right edge)", failures, () => button("More account actions").click());
+    await check(page, "Open a case sheet", failures, async () => {
+      await button("More account actions").click();
+      await page.getByRole("menuitem", { name: "Open a case…" }).click();
+    });
 
     // Disputes: the "?" popover and the months select (right side)
     await page.goto(`${base}/disputes`);
