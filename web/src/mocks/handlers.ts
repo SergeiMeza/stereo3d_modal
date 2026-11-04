@@ -410,6 +410,10 @@ interface DB {
   events: { name: string; props: Record<string, unknown>; at: string }[];
   /** POST /v1/feedback, newest last (signed_in: a token came with it) */
   feedback: { body: Record<string, unknown>; signed_in: boolean; at: string }[];
+  /** GET /v1/pro as the browser mock reports it (null = the default) */
+  proStatus: { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null;
+  /** POST /v1/plans/change received */
+  planChanges: string[];
   /** the next feedback post fails with this status */
   nextFeedbackStatus: number | null;
   /** 00081: POST /v1/conversions/{id}/plays received */
@@ -797,6 +801,8 @@ function seed(): DB {
     sampleSeeded: false,
     events: [],
     feedback: [],
+    proStatus: null as { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null,
+    planChanges: [] as string[],
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -828,6 +834,8 @@ export const mockDb = {
     this.sampleSeeded = fresh.sampleSeeded;
     this.events = fresh.events;
     this.feedback = fresh.feedback;
+    this.proStatus = fresh.proStatus;
+    this.planChanges = fresh.planChanges;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -2909,6 +2917,41 @@ export const handlers = [
     return HttpResponse.json({ sent: true });
   }),
 
+  // attribution: the gateway reads the Pro state again after a purchase
+  http.post(`${GATEWAY}/v1/pro/refresh`, () => HttpResponse.json({ pro: mockDb.pro === true, known: true })),
+
+  // owner 2026-11-04: web Pro → Business/Studio, priced before confirming
+  http.post(`${GATEWAY}/v1/plans/preview-change`, async ({ request }) => {
+    const { to } = (await request.json().catch(() => ({}))) as { to?: string };
+    const def = to === "business" || to === "studio" ? TIERS.plans[to] : null;
+    if (!def) return err(400, "invalid_request", "unknown plan");
+    const price = (def as { price_cents?: number; monthly_cents: number }).price_cents ?? def.monthly_cents;
+    const unused = 450;
+    const renews = new Date();
+    if ((def as { interval?: string }).interval === "year") renews.setFullYear(renews.getFullYear() + 1);
+    else renews.setMonth(renews.getMonth() + 1);
+    return HttpResponse.json({
+      to,
+      today_cents: price - unused,
+      new_plan_cents: price,
+      unused_credit_cents: unused,
+      renews_at: renews.toISOString(),
+      currency: "usd",
+    });
+  }),
+  http.post(`${GATEWAY}/v1/plans/change`, async ({ request }) => {
+    const { to, confirm } = (await request.json().catch(() => ({}))) as { to?: string; confirm?: boolean };
+    if (confirm !== true) return err(400, "invalid_request", "confirm is required");
+    if (to !== "business" && to !== "studio") return err(400, "invalid_request", "unknown plan");
+    mockDb.planChanges.push(to);
+    const def = TIERS.plans[to];
+    mockDb.billing.plan = {
+      plan: to, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
+      credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: false,
+    };
+    return HttpResponse.json({ plan: to, status: "active" });
+  }),
+
   // owner 2026-11-04: in-app feedback, the app's store (mocked until it lands)
   http.post(`${GATEWAY}/v1/feedback`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -2934,7 +2977,9 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as { name?: string; props?: Record<string, unknown> };
     if (!body.name) return err(400, "invalid_request", "name is required");
     // gateway 00093: onboarding_headsets and the plans_surface_* events
-    if (body.name !== "onboarding_headsets" && !body.name.startsWith("plans_surface_")) {
+    // owner 2026-11-04: the Business/Studio setup funnel too
+    const SETUP_EVENTS = ["business_setup_opened", "business_setup_plan_picked", "business_setup_details_done", "business_setup_checkout_started", "business_setup_purchased"];
+    if (body.name !== "onboarding_headsets" && !body.name.startsWith("plans_surface_") && !SETUP_EVENTS.includes(body.name)) {
       return err(400, "unknown_event", "unknown event");
     }
     if (body.name.startsWith("plans_surface_") && !PLANS_PLACEMENTS.includes(String(body.props?.placement))) {

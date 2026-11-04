@@ -428,6 +428,10 @@ export interface OnboardingHeadsets {
    * and device; converted when the gateway counts it (absent on older
    * gateways) */
   by_variant?: { variant: string; device: string; count: number; converted?: number }[] | null;
+  /** owner 2026-11-04: the Business/Studio setup funnel — people per step
+   * (opened, plan_picked, details_done, checkout_started, purchased), by
+   * plan where the step has one */
+  business_setup?: { step: string; people: number; by_plan?: Partial<Record<"business" | "studio", number>> }[] | null;
   generated_at: string;
 }
 

@@ -25,6 +25,11 @@ export interface ProStatus {
   via?: string;
   /** false when RevenueCat couldn't tell */
   known: boolean;
+  /** where this Pro is billed (owner 2026-11-04): the App Store, the Mac
+   * App Store, the web, included with a plan, or simulated */
+  source?: "app_store" | "mac_app_store" | "rc_billing" | "stripe" | "plan" | "simulated" | string | null;
+  /** the store's subscription page (App Store sources) */
+  management_url?: string | null;
   /** gateway 00096: the free previews this Pro includes */
   free_previews?: { allowance: number; per_period?: number; period?: string } | null;
 }
@@ -76,9 +81,21 @@ async function callGateway(
 ): Promise<ProStatus> {
   if (AUTH_MODE === "mock") {
     // the mock gateway's "Simulate app Pro" (test only): Pro from the app
-    const db = (globalThis as { __mockDb?: { accountSettings?: { simulate_app_pro?: boolean } } }).__mockDb;
+    const db = (
+      globalThis as {
+        __mockDb?: { accountSettings?: { simulate_app_pro?: boolean }; proStatus?: ProStatus | null };
+      }
+    ).__mockDb;
+    // tests and screenshots: a fixed Pro (an App Store or web subscription)
+    if (db?.proStatus) return db.proStatus;
     if (db?.accountSettings?.simulate_app_pro) {
-      return { pro: true, via: "simulated_app_pro", known: true, free_previews: { allowance: 20, per_period: 20, period: "month" } };
+      return {
+        pro: true,
+        via: "simulated_app_pro",
+        known: true,
+        source: "simulated",
+        free_previews: { allowance: 20, per_period: 20, period: "month" },
+      };
     }
     return { pro: mockPro, known: true };
   }
@@ -92,7 +109,14 @@ async function callGateway(
   );
   if (!res.ok) return { pro: false, known: false };
   const body = (await res.json()) as Partial<ProStatus>;
-  return { pro: body.pro === true, via: body.via, known: body.known === true, free_previews: body.free_previews ?? null };
+  return {
+    pro: body.pro === true,
+    via: body.via,
+    known: body.known === true,
+    free_previews: body.free_previews ?? null,
+    source: body.source ?? null,
+    management_url: body.management_url ?? null,
+  };
 }
 
 /** The signed-in person's Pro status; null while loading or signed out. */

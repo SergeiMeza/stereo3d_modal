@@ -182,6 +182,11 @@ describe("onboarding answers (owner 2026-11-04)", () => {
             { device: "avp", people: 3, converted: 1 },
             { device: "quest", people: 5, converted: 1 },
           ],
+          business_setup: [
+            { step: "opened", people: 20 },
+            { step: "plan_picked", people: 10, by_plan: { business: 8, studio: 2 } },
+            { step: "purchased", people: 2, by_plan: { business: 2 } },
+          ],
           by_variant: [
             { variant: "default", device: "quest", count: 5, converted: 1 },
             { variant: "app_pro", device: "avp", count: 3, converted: 1 },
@@ -199,6 +204,9 @@ describe("onboarding answers (owner 2026-11-04)", () => {
     expect(variants).toHaveTextContent("App Pro welcome");
     expect(variants).toHaveTextContent("Web welcome");
     expect(variants).toHaveTextContent("Converted1 · 33%1 · 20%");
+    const funnel = screen.getByTestId("onboarding-setup-funnel");
+    expect(funnel).toHaveTextContent("Picked a plan1050%82");
+    expect(funnel).toHaveTextContent("Bought210%2—");
     expect(calls.at(-1)!.url).toContain("days=90");
   });
 });

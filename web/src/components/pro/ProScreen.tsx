@@ -24,6 +24,7 @@ import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { proManagementUrl, useProStatus } from "@/lib/pro/usePro";
+import { ProBusinessLine } from "@/components/business/BusinessEntry";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 function safeNext(raw: string | null): string | null {
@@ -127,6 +128,8 @@ export function ProScreen(): JSX.Element {
       ) : (
         <ProPlans onPurchased={() => setJustBought(true)} />
       )}
+      {/* owner 2026-11-04: Business and Studio, one line at the bottom */}
+      <ProBusinessLine />
     </section>
   );
 }

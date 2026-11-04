@@ -142,6 +142,17 @@ export function normalizeDownloads(raw: unknown): Downloads {
 export const UPLOAD_AGAIN = "Upload the video again to make new 3D";
 export const FILES_DELETED_MESSAGE = `This project's files have been deleted. ${UPLOAD_AGAIN}.`;
 
+/** POST /v1/plans/preview-change: today's charge is the new plan less
+ * the unused days of the current one. */
+export interface PlanChangePreview {
+  to: string;
+  today_cents: number;
+  new_plan_cents: number;
+  unused_credit_cents: number;
+  renews_at: string;
+  currency?: string;
+}
+
 export type FeedbackKind = "idea" | "problem" | "other";
 
 export interface FeedbackBody {
@@ -366,6 +377,23 @@ export class GatewayClient {
     team_size?: string;
   }): Promise<{ sent: boolean }> {
     return this.request("POST", "/v1/contact", body);
+  }
+
+  /** Ask the gateway to read the Pro state again (after a purchase; it
+   * attributes the plan start). */
+  refreshPro(): Promise<{ pro?: boolean }> {
+    return this.request("POST", "/v1/pro/refresh", {});
+  }
+
+  /** Owner 2026-11-04: what changing a web Pro to `to` costs today, before
+   * anything is charged. */
+  previewPlanChange(to: string): Promise<PlanChangePreview> {
+    return this.request("POST", "/v1/plans/preview-change", { to });
+  }
+
+  /** Change the plan after the person confirmed the preview. */
+  changePlan(to: string): Promise<{ plan: string; status?: string }> {
+    return this.request("POST", "/v1/plans/change", { to, confirm: true });
   }
 
   /** In-app feedback (owner 2026-11-04; the app's store): with the

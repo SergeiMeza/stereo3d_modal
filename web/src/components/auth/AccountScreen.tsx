@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ResetPlansSurfaces } from "@/components/plans/ResetPlansSurfaces";
+import { AppStoreProLine, BusinessEntry } from "@/components/business/BusinessEntry";
 
 function CardShell({
   title,
@@ -234,6 +235,8 @@ export default function AccountScreen() {
         </div>
       </CardShell>
 
+      <BusinessEntry />
+
       <CardShell title="Billing">
         <p className="text-fg-muted">
           Your card and purchase history are on{" "}
@@ -242,6 +245,7 @@ export default function AccountScreen() {
           </Link>
           .
         </p>
+        <AppStoreProLine />
       </CardShell>
 
       <CardShell title="Session">

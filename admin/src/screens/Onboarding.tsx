@@ -149,7 +149,49 @@ function Headsets({ data }: { data: OnboardingHeadsets }) {
       </div>
 
       <ByVariant rows={data.by_variant ?? []} />
+      <SetupFunnel rows={data.business_setup ?? []} />
     </>
+  );
+}
+
+const SETUP_STEPS: { id: string; label: string }[] = [
+  { id: "opened", label: "Opened the setup" },
+  { id: "plan_picked", label: "Picked a plan" },
+  { id: "details_done", label: "Company details done" },
+  { id: "checkout_started", label: "Started checkout" },
+  { id: "purchased", label: "Bought" },
+];
+
+/** Business/Studio setup: people per step and the share of those who
+ * opened it. */
+function SetupFunnel({ rows }: { rows: NonNullable<OnboardingHeadsets["business_setup"]> }) {
+  if (rows.length === 0) return null;
+  const at = (id: string) => rows.find((r) => r.step === id || r.step === `business_setup_${id}`);
+  const opened = at("opened")?.people ?? 0;
+  return (
+    <section className="card">
+      <div className="sh"><b>Business and Studio setup</b><span className="xs muted">people per step</span></div>
+      <div className="scroll-x">
+        <table className="at" data-testid="onboarding-setup-funnel">
+          <thead><tr><th>Step</th><th className="num">People</th><th className="num">Of opened</th><th className="num">Business</th><th className="num">Studio</th></tr></thead>
+          <tbody>
+            {SETUP_STEPS.map((s) => {
+              const r = at(s.id);
+              const n = r?.people ?? 0;
+              return (
+                <tr key={s.id}>
+                  <td>{s.label}</td>
+                  <td className="num">{n}</td>
+                  <td className="num">{pct(opened ? n / opened : 0, 0)}</td>
+                  <td className="num">{r?.by_plan?.business ?? "—"}</td>
+                  <td className="num">{r?.by_plan?.studio ?? "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
