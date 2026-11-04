@@ -50,16 +50,16 @@ func TestSourceDynamicRange(t *testing.T) {
 		json.Unmarshal(raw, &out)
 		return out
 	}
-	if out := view(iphone); out["dynamic_range"] != nil || out["hdr_source"] != nil || out["hdr_available"] != false ||
+	if out := view(iphone); out["dynamic_range"] != nil || out["hdr_source"] != nil || out["hdr_available"] != false || out["hdr_output"] != false ||
 		out["probe"].(map[string]any)["dynamic_range"] != nil {
 		t.Fatalf("hidden while off %v", out)
 	}
 	s.Pricing = pricing.NewStatic(on)
-	if out := view(iphone); out["dynamic_range"] != "dv_8" || out["hdr_source"] != true || out["hdr_available"] != true {
+	if out := view(iphone); out["dynamic_range"] != "dv_8" || out["hdr_source"] != true || out["hdr_available"] != true || out["hdr_output"] != true {
 		t.Fatalf("on %v", out)
 	}
 	sdr := foldDynamic(t, s, `{"streams":[{"profile":"High","color_transfer":"bt709"}]}`)
-	if out := view(sdr); out["dynamic_range"] != "sdr" || out["hdr_source"] != false || out["hdr_available"] != false {
+	if out := view(sdr); out["dynamic_range"] != "sdr" || out["hdr_source"] != false || out["hdr_available"] != false || out["hdr_output"] != false {
 		t.Fatalf("sdr %v", out)
 	}
 	// unread (projects analyzed before, or ffprobe failed): nothing shown

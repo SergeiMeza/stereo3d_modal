@@ -1712,6 +1712,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	} else {
 		resp["hdr_available"] = false
 	}
+	// hdr_output: this project's Lifelike runs come out in HDR (automatic,
+	// owner 2026-11-05), so the web can say "Your 3D will be in HDR".
+	resp["hdr_output"] = resp["hdr_available"]
 	resp["bars_removal_available"] = projectMethod(p) == store.MethodLifelike && s.sourceCropOn(context.Background())
 	if p.PreviewURL != "" {
 		resp["preview_url"] = p.PreviewURL
