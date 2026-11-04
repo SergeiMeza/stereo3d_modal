@@ -43,3 +43,27 @@ func TestAdminCaseRowsUID(t *testing.T) {
 	}
 	t.Fatalf("no row with the uid: %v", out["cases"])
 }
+
+// ⌘K: accounts by email prefix (any case) or exact uid, cases or not.
+func TestAdminAccountSearch(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	a, b := "u"+store.NewID(), "u"+store.NewID()
+	tag := store.NewID()
+	s.Store.PutCustomer(ctx, a, &store.Customer{StripeCustomerID: "cus_1", Email: "ann." + tag + "@example.com", CreatedAt: time.Now()})
+	s.Store.PutCustomer(ctx, b, &store.Customer{StripeCustomerID: "cus_2", Email: "bob." + tag + "@example.com"})
+	out := adminGet(t, s.HandleAdminAccountSearch, "/v1/admin/accounts?q=ANN."+tag)
+	accs := out["accounts"].([]any)
+	if len(accs) != 1 || accs[0].(map[string]any)["uid"] != a || accs[0].(map[string]any)["created_at"] == nil {
+		t.Fatalf("by email %v", accs)
+	}
+	out = adminGet(t, s.HandleAdminAccountSearch, "/v1/admin/accounts?q="+b)
+	if accs := out["accounts"].([]any); len(accs) != 1 || accs[0].(map[string]any)["email"] != "bob."+tag+"@example.com" {
+		t.Fatalf("by uid %v", accs)
+	}
+	w := httptest.NewRecorder()
+	s.HandleAdminAccountSearch(w, httptest.NewRequest(http.MethodGet, "/v1/admin/accounts?q=a", nil), bl29Admin())
+	if w.Code != 400 {
+		t.Fatalf("too short %d", w.Code)
+	}
+}

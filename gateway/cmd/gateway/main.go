@@ -203,6 +203,7 @@ func main() {
 	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
 	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
+	mux.HandleFunc("GET /v1/admin/accounts", admin(svc.HandleAdminAccountSearch)) // ?q= email prefix or uid (BL-29)
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrants, "uid")))    // Grant Pro 2026-11-04
