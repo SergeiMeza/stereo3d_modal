@@ -24,7 +24,13 @@ import { qualityName } from "@/lib/glossary";
 import { introLine, planCadence, planName } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 
-import { proPct, useDismissal, usePaywallEvents, usePlanTier, useViewEvent } from "./upsell";
+import {
+  proPct,
+  useDismissal,
+  usePaywallEvents,
+  usePlanTier,
+  useViewEvent,
+} from "./upsell";
 
 export const SESSION_KEY = "svs-plans-sheet-shown";
 
@@ -45,7 +51,10 @@ function markShown(): void {
 }
 
 /** Opens the sheet once when `trigger` turns true (and it may show). */
-export function usePlansSheet(trigger: boolean): { open: boolean; close: () => void } {
+export function usePlansSheet(trigger: boolean): {
+  open: boolean;
+  close: () => void;
+} {
   const tier = usePlanTier();
   const { dismissed, dismiss } = useDismissal("plans_sheet", 1);
   const [open, setOpen] = useState(false);
@@ -91,7 +100,10 @@ export function PlansSheet({
   const listPer = rates?.list?.[preset];
   const proPer = rates?.pro?.[preset];
   const list = plans.state === "ready" ? plans.plans : [];
-  const plan = list.find((p) => p.id === picked) ?? list.find((p) => p.kind === "monthly") ?? list[0];
+  const plan =
+    list.find((p) => p.id === picked) ??
+    list.find((p) => p.kind === "monthly") ??
+    list[0];
   const biz = pricing?.plans?.business;
   const maxFps = biz?.max_fps ?? pricing?.fps.max_fps_with_plan;
 
@@ -140,13 +152,21 @@ export function PlansSheet({
           >
             Keep paying per video
           </button>
-          <p className="text-center text-xs text-fg-muted">USD, excl. tax · cancel any time in Account</p>
+          <p className="text-center text-xs text-fg-muted">
+            USD, excl. tax · cancel any time in Account
+          </p>
         </div>
       }
     >
       <div className="flex flex-col gap-3">
-        <div role="radiogroup" aria-label="Pro plan" className="flex flex-col gap-2">
-          {plans.state === "loading" ? <div className="h-40 animate-pulse rounded-xl bg-surface-2" /> : null}
+        <div
+          role="radiogroup"
+          aria-label="Pro plan"
+          className="flex flex-col gap-2"
+        >
+          {plans.state === "loading" ? (
+            <div className="h-40 animate-pulse rounded-xl bg-surface-2" />
+          ) : null}
           {list.map((p) => {
             const on = plan?.id === p.id;
             const intro = introLine(p);
@@ -159,7 +179,9 @@ export function PlansSheet({
                 data-testid={`plans-sheet-${p.kind}`}
                 onClick={() => setPicked(p.id)}
                 className={`flex min-h-[60px] items-center gap-3 rounded-[10px] border px-3.5 py-2 text-left ${
-                  on ? "border-primary bg-primary/10" : "border-edge hover:border-fg-muted"
+                  on
+                    ? "border-primary bg-primary/10"
+                    : "border-edge hover:border-fg-muted"
                 }`}
               >
                 <span
@@ -169,13 +191,18 @@ export function PlansSheet({
                 <span className="flex flex-1 flex-col">
                   <span className="text-[15px] text-fg">{planName(p)}</span>
                   <span className="text-xs text-fg-muted">
-                    {intro ? `${intro}, then ${p.price}` : `${p.price} ${planCadence(p)}`}
-                    {p.kind === "monthly" && pricing?.free_previews?.allowances?.pro_monthly
+                    {intro
+                      ? `${intro}, then ${p.price}`
+                      : `${p.price} ${planCadence(p)}`}
+                    {p.kind === "monthly" &&
+                    pricing?.free_previews?.allowances?.pro_monthly
                       ? ` · ${pricing.free_previews.allowances.pro_monthly} free previews a month`
                       : ""}
                   </span>
                 </span>
-                <span className="font-mono text-sm text-fg">{p.intro?.price ?? p.price}</span>
+                <span className="font-mono text-sm text-fg">
+                  {p.intro?.price ?? p.price}
+                </span>
               </button>
             );
           })}
@@ -193,8 +220,9 @@ export function PlansSheet({
             <span className="flex flex-1 flex-col">
               <span className="font-medium text-fg">Business for teams</span>
               <span className="text-xs text-fg-muted">
-                {formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month with {formatCentsShort(biz.credit_cents)} of usage,{" "}
-                {biz.seats} people{maxFps && maxFps > 30 ? `, ${maxFps} fps` : ""}, invoices
+                {formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month
+                with {formatCentsShort(biz.credit_cents)} of usage, {biz.seats}{" "}
+                people{maxFps && maxFps > 30 ? `, ${maxFps} fps` : ""}, invoices
               </span>
             </span>
             <ChevronRight className="size-4 text-fg-muted" aria-hidden />

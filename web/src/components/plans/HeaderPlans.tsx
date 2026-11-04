@@ -12,7 +12,12 @@ import type { JSX } from "react";
 
 import { usePricing } from "@/lib/api/usePricing";
 
-import { saveRange, usePaywallEvents, usePlanTier, useViewEvent } from "./upsell";
+import {
+  saveRange,
+  usePaywallEvents,
+  usePlanTier,
+  useViewEvent,
+} from "./upsell";
 
 export function HeaderPlans(): JSX.Element {
   const tier = usePlanTier();

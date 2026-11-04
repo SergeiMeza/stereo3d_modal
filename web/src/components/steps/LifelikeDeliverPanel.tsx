@@ -49,7 +49,14 @@ import {
   type Device,
 } from "./makeControls";
 import { LIFELIKE_FORMATS, lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
-import { BusinessNote, ProCheckoutSheet, QuoteProChoice, useQuoteProChoice, type PayMode } from "@/components/plans/QuotePlans";
+import {
+  BusinessNote,
+  CinemaTierPrices,
+  ProCheckoutSheet,
+  QuoteProChoice,
+  useQuoteProChoice,
+  type PayMode,
+} from "@/components/plans/QuotePlans";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
@@ -475,7 +482,8 @@ export function LifelikeDeliverPanel({
           beforeButton={(q) => (
             <>
               <QuoteProChoice quote={q} mode={payMode} onMode={setPayMode} />
-              <BusinessNote quote={q} />
+              <CinemaTierPrices quote={q} projectId={project.project_id} />
+              <BusinessNote quote={q} projectId={project.project_id} probe={project.probe} />
             </>
           )}
           primary={withPro ? { label: "Subscribe and convert", onClick: () => setProSheet(true) } : null}

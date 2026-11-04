@@ -24,7 +24,13 @@ import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 
-import { isCompanyEmail, useDismissal, usePaywallEvents, usePlanTier, useViewEvent } from "./upsell";
+import {
+  isCompanyEmail,
+  useDismissal,
+  usePaywallEvents,
+  usePlanTier,
+  useViewEvent,
+} from "./upsell";
 
 export function TalkToUs(): JSX.Element | null {
   const { user } = useAuth();
@@ -39,9 +45,18 @@ export function TalkToUs(): JSX.Element | null {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const show =
-    (tier === "none" || tier === "pro") && dismissed === false && isCompanyEmail(user?.email) && !!biz;
-  useViewEvent("business_banner", tier, show, { variant: "talk_to_us" });
-  const send = usePaywallEvents("business_banner", tier, { variant: "talk_to_us" });
+    (tier === "none" || tier === "pro") &&
+    dismissed === false &&
+    isCompanyEmail(user?.email) &&
+    !!biz;
+  useViewEvent("business_banner", tier, show, {
+    variant: "talk_to_us",
+    reason: "company_email",
+  });
+  const send = usePaywallEvents("business_banner", tier, {
+    variant: "talk_to_us",
+    reason: "company_email",
+  });
   if (!show || !biz) return null;
 
   async function submit(): Promise<void> {
@@ -60,13 +75,18 @@ export function TalkToUs(): JSX.Element | null {
       if (e instanceof GatewayError && (e.status === 400 || e.status === 429)) {
         setError(
           e.status === 429
-            ? e.message || "Too many messages today. Please write to support instead."
+            ? e.message ||
+                "Too many messages today. Please write to support instead."
             : "Please check the message and try again.",
         );
         return;
       }
       // the route itself failed: the person's own mail app, same words
-      const body = [message.trim(), company.trim() && `Company: ${company.trim()}`, teamSize.trim() && `Team size: ${teamSize.trim()}`]
+      const body = [
+        message.trim(),
+        company.trim() && `Company: ${company.trim()}`,
+        teamSize.trim() && `Team size: ${teamSize.trim()}`,
+      ]
         .filter(Boolean)
         .join("\n\n");
       window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(
@@ -86,8 +106,9 @@ export function TalkToUs(): JSX.Element | null {
       {step === "banner" ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="min-w-60 flex-1 text-fg">
-            Using Spatial Video Studio at work? Business gives {biz.seats} people{" "}
-            {formatCentsShort(biz.credit_cents)} of usage a month, commercial use and invoices.
+            Using Spatial Video Studio at work? Business gives {biz.seats}{" "}
+            people {formatCentsShort(biz.credit_cents)} of usage a month,
+            commercial use and invoices.
           </p>
           <Button
             size="sm"
@@ -99,7 +120,11 @@ export function TalkToUs(): JSX.Element | null {
           >
             Talk to us
           </Button>
-          <Link href="/plans" onClick={() => send("click", { target: "/plans" })} className="text-primary hover:underline">
+          <Link
+            href="/plans"
+            onClick={() => send("click", { target: "/plans" })}
+            className="text-primary hover:underline"
+          >
             See Business
           </Link>
           <button
@@ -124,7 +149,8 @@ export function TalkToUs(): JSX.Element | null {
         >
           <p className="font-medium text-fg">Talk to us</p>
           <p className="text-xs text-fg-muted">
-            A person replies by email, usually within a working day. Your projects stay open while you wait.
+            A person replies by email, usually within a working day. Your
+            projects stay open while you wait.
           </p>
           <label className="flex flex-col gap-1 text-xs text-fg-muted">
             What do you make, and how much a month?
@@ -163,15 +189,29 @@ export function TalkToUs(): JSX.Element | null {
             </label>
           </div>
           {error ? (
-            <p role="alert" data-testid="talk-to-us-error" className="text-xs text-destructive">
+            <p
+              role="alert"
+              data-testid="talk-to-us-error"
+              className="text-xs text-destructive"
+            >
               {error}
             </p>
           ) : null}
           <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={busy || !message.trim()} data-testid="talk-to-us-send">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={busy || !message.trim()}
+              data-testid="talk-to-us-send"
+            >
               Send
             </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setStep("banner")}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setStep("banner")}
+            >
               Cancel
             </Button>
           </div>

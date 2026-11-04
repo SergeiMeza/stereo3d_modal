@@ -63,13 +63,18 @@ export function ResetPlansSurfaces(): JSX.Element | null {
   if (!TEST_ENV) return null;
   const simulated = settings?.simulate_app_pro === true;
   return (
-    <div data-testid="reset-plans" className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-amber-500/50 p-3 text-xs">
+    <div
+      data-testid="reset-plans"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-amber-500/50 p-3 text-xs"
+    >
       <span className="text-amber-300">Test only</span>
       <Button
         size="sm"
         variant="outline"
         onClick={() => {
-          update({ dismissed: Object.fromEntries(PLACEMENTS.map((p) => [p, null])) });
+          update({
+            dismissed: Object.fromEntries(PLACEMENTS.map((p) => [p, null])),
+          });
           try {
             window.sessionStorage.removeItem(SESSION_KEY);
           } catch {
@@ -96,7 +101,11 @@ export function ResetPlansSurfaces(): JSX.Element | null {
               refresh();
             })
             .catch(() => setDone("Couldn't change the simulation."));
-          setDone(simulated ? "App Pro simulation off." : "Simulating app Pro. Open Projects for the welcome.");
+          setDone(
+            simulated
+              ? "App Pro simulation off."
+              : "Simulating app Pro. Open Projects for the welcome.",
+          );
         }}
       >
         Simulate app Pro: {simulated ? "on" : "off"}
@@ -106,7 +115,9 @@ export function ResetPlansSurfaces(): JSX.Element | null {
         variant="outline"
         data-testid="show-welcome-again"
         onClick={() => {
-          update({ onboarding: { welcome_done: false, app_pro_welcome_done: false } });
+          update({
+            onboarding: { welcome_done: false, app_pro_welcome_done: false },
+          });
           try {
             window.sessionStorage.setItem(WELCOME_AGAIN_KEY, "1");
           } catch {

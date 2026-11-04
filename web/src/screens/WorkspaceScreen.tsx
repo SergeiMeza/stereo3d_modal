@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/tooltip";
 import { GatewayError } from "@/lib/api/client";
 import { loadErrorText, SampleProvider } from "@/components/steps/loadError";
+import { SourceBusinessLine } from "@/components/plans/SourceBusinessLine";
 import {
   canChooseMethod,
   methodOf,
@@ -343,6 +344,8 @@ export default function WorkspaceScreen({
             </Tooltip>
           </div>
         </header>
+        {/* owner 2026-11-04: high-end sources are guided to Business */}
+        <SourceBusinessLine project={project} />
 
         {filesDeleted ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

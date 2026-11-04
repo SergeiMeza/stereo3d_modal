@@ -32,20 +32,29 @@ export function PlansBanner(): JSX.Element | null {
   const pct = proPct(pricing);
   const range = saveRange(pricing);
   const previews = pricing?.free_previews?.allowances?.pro_monthly;
-  const eligible = tier === "none" && dismissed !== null && pct !== null && range !== null;
+  const eligible =
+    tier === "none" && dismissed !== null && pct !== null && range !== null;
   const full = eligible && dismissed === false;
   const line = eligible && dismissed === true;
   useViewEvent("projects_banner", tier, full, { variant: "banner" });
   useViewEvent("projects_banner", tier, line, { variant: "line" });
-  const send = usePaywallEvents("projects_banner", tier, { variant: full ? "banner" : "line" });
+  const send = usePaywallEvents("projects_banner", tier, {
+    variant: full ? "banner" : "line",
+  });
   if (!eligible) return null;
 
   if (line) {
     return (
       <p data-testid="plans-line" className="text-sm text-fg-muted">
-        <span className="hidden sm:inline">Save {range} on every video with a plan.</span>
+        <span className="hidden sm:inline">
+          Save {range} on every video with a plan.
+        </span>
         <span className="sm:hidden">Save {range} with a plan.</span>{" "}
-        <Link href="/plans" onClick={() => send("click", { target: "/plans" })} className="text-primary hover:underline">
+        <Link
+          href="/plans"
+          onClick={() => send("click", { target: "/plans" })}
+          className="text-primary hover:underline"
+        >
           See plans
         </Link>
       </p>
@@ -60,7 +69,10 @@ export function PlansBanner(): JSX.Element | null {
       <p className="flex-1 text-fg">
         Pro takes {pct}% off every video.
         {typeof previews === "number" && previews > 0 ? (
-          <span className="hidden sm:inline"> Monthly also includes {previews} free previews a month.</span>
+          <span className="hidden sm:inline">
+            {" "}
+            Monthly also includes {previews} free previews a month.
+          </span>
         ) : null}
       </p>
       <Link

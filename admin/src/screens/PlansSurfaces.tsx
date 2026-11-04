@@ -18,6 +18,14 @@ const NAMES: Record<string, string> = {
   plans_hint: "Plans page hint",
 };
 
+const REASONS: Record<string, string> = {
+  source_8k: "Source above 4K",
+  source_fps: "Source above 30 fps",
+  quote_size: "Quote $50 or more",
+  run_length: "Run over 10 min",
+  company_email: "Company email",
+};
+
 const products = (by: Partial<Record<string, number>>) =>
   (["pro", "business", "studio"] as const)
     .filter((k) => (by[k] ?? 0) > 0)
@@ -93,6 +101,48 @@ function Table({ data }: { data: PlansSurfaces }) {
         Plan starts with no click in the 7 days before: {data.unattributed.conversions}
         {products(data.unattributed.by_product) ? ` (${products(data.unattributed.by_product)})` : ""}.
       </p>
+      <ByReason rows={data.by_reason ?? []} />
     </>
+  );
+}
+
+/** Business guidance by why it showed (owner 2026-11-04). */
+function ByReason({ rows }: { rows: NonNullable<PlansSurfaces["by_reason"]> }) {
+  if (rows.length === 0) return null;
+  const sorted = [...rows].sort((a, b) => b.views - a.views);
+  return (
+    <section className="card">
+      <div className="sh"><b>By reason</b><span className="xs muted">why a Business surface showed</span></div>
+      <div className="scroll-x">
+        <table className="at" data-testid="plans-surfaces-reasons">
+          <thead>
+            <tr>
+              <th>Placement</th>
+              <th>Reason</th>
+              <th className="num">Views</th>
+              <th className="num">Dismissed</th>
+              <th className="num">Clicks</th>
+              <th className="num">Click rate</th>
+              <th className="num">Plan starts</th>
+              <th>By plan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r) => (
+              <tr key={`${r.placement}:${r.reason}`}>
+                <td>{NAMES[r.placement] ?? r.placement}</td>
+                <td>{REASONS[r.reason] ?? r.reason}</td>
+                <td className="num">{r.views}</td>
+                <td className="num">{r.dismissals}</td>
+                <td className="num">{r.clicks}</td>
+                <td className="num">{pct(r.click_rate ?? (r.views ? r.clicks / r.views : 0), 1)}</td>
+                <td className="num">{r.conversions}</td>
+                <td className="xs muted">{products(r.conversions_by_product ?? {})}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

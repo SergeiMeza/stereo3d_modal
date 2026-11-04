@@ -451,6 +451,13 @@ export interface PlansSurfaces {
   generated_at: string;
   placements: PlansSurfaceRow[] | null;
   unattributed: { conversions: number; by_product: Partial<Record<"pro" | "business" | "studio", number>> };
+  /** owner 2026-11-04: the same counts per placement and reason
+   * (source_8k, source_fps, quote_size, run_length, company_email); absent
+   * on older gateways */
+  by_reason?: (Omit<PlansSurfaceRow, "conversions_by_product"> & {
+    reason: string;
+    conversions_by_product?: PlansSurfaceRow["conversions_by_product"];
+  })[] | null;
 }
 
 export interface DisputeSummary {

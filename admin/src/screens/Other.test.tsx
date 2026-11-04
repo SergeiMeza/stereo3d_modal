@@ -215,12 +215,16 @@ describe("plans surfaces (owner 2026-11-04)", () => {
             { placement: "header", views: 900, viewers: 300, dismissals: 0, clicks: 40, conversions: 2, conversions_by_product: { pro: 2 }, click_rate: 0.044, conversion_rate: 0.002 },
           ],
           unattributed: { conversions: 3, by_product: { pro: 3 } },
+          by_reason: [
+            { placement: "business_note", reason: "source_8k", views: 40, viewers: 30, dismissals: 4, clicks: 8, conversions: 1, conversions_by_product: { business: 1 }, click_rate: 0.2, conversion_rate: 0.025 },
+          ],
         },
       }),
     });
     const table = await screen.findByTestId("plans-surfaces");
     expect(table).toHaveTextContent("Quote · pay once or with Pro");
     expect(table).toHaveTextContent("Pro 5 · Business 1");
+    expect(screen.getByTestId("plans-surfaces-reasons")).toHaveTextContent("Source above 4K");
     expect(screen.getByText(/Plan starts with no click in the 7 days before: 3/)).toBeInTheDocument();
     expect(calls.at(-1)!.url).toContain("days=30");
   });
