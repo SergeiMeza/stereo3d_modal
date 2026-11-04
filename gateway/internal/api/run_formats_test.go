@@ -135,7 +135,8 @@ func TestRunFormatsRepack(t *testing.T) {
 	b := stub.bodies[0]
 	src := b["source"].(map[string]any)
 	if b["target_format"] != "mvhevc" || src["format"] != "sbs" || !strings.HasPrefix(src["url"].(string), "https://signed/GET/stereo3d/test/outputs/"+c.Modal.JobID+"/sbs.mp4") ||
-		b["output_upload_url"] != "https://signed/PUT/stereo3d/test/outputs/"+c.Modal.JobID+"/repack_mvhevc.mov" || b["preset"] != "4k" || b["fps"] != float64(30) || b["job_id"] != c.Modal.JobID {
+		b["output_upload_url"] != "https://signed/PUT/stereo3d/test/outputs/"+c.Modal.JobID+"/repack_mvhevc.mov" || b["preset"] != "4k" || b["fps"] != float64(30) || b["job_id"] != c.Modal.JobID ||
+		b["output_bitrate_bps"] != nil {
 		t.Fatalf("repack body %v", b)
 	}
 	if code, out := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"mvhevc"}`); code != 409 || out["error"] != "format_in_progress" {
@@ -197,6 +198,16 @@ func TestRunFormatsRepack(t *testing.T) {
 	}
 	if st := s.runFormatsOf(ctx, finishedRun(t, s, uid, "4k", "mvhevc", "half_sbs")); st.Sources["sbs"] != "mvhevc" || strings.Join(st.Available, ",") != "sbs" {
 		t.Fatalf("mvhevc + half %+v", st)
+	}
+	// A run with its own bitrate (Master) sends it along.
+	master := finishedRun(t, s, uid, "4k", "sbs")
+	s.Store.Transition(ctx, master.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Params.Bitrate, x.Params.OutputBitrateBps = bitrateMaster, 150_000_000
+		return nil
+	})
+	stub.status = "running"
+	if code, _ := formatsCall(s, uid, master.ID, http.MethodPost, `{"format":"half_sbs"}`); code != 202 || stub.bodies[len(stub.bodies)-1]["output_bitrate_bps"] != float64(150_000_000) {
+		t.Fatalf("bitrate %d %v", code, stub.bodies[len(stub.bodies)-1])
 	}
 	// Admin history.
 	if h := repacksHistory(got); len(h) != 1 || h[0]["format"] != "half_sbs" {

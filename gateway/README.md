@@ -1369,7 +1369,9 @@ Classic runs get none (Classic is retired).
   counts as use of the project (the keep clock restarts).
 - **Lifelike call.** `POST /repack {job_id, source: {url: signed GET of
   the stored output, format}, target_format, output_upload_url: signed
-  PUT of outputs/<job>/repack_<format>.mp4|.mov, preset, fps}` →
+  PUT of outputs/<job>/repack_<format>.mp4|.mov, preset, fps,
+  output_bitrate_bps?}` (the run's own bitrate when it chose one: Master
+  or an explicit rate; absent otherwise) →
   `{repack_id}`; `GET /repack/{id}` → `{status: queued | running | done |
   failed (completed = done; error, cancelled = failed), output: {bytes,
   width, height, frames, level}, cost_stage}`, polled by the reconciler every

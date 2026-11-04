@@ -19,6 +19,9 @@ type RepackRequest struct {
 	OutputUploadURL string       `json:"output_upload_url"`
 	Preset          string       `json:"preset,omitempty"`
 	FPS             float64      `json:"fps,omitempty"`
+	// OutputBitrateBps: the run's own target (Master or an explicit
+	// choice); 0 leaves the pipeline's default.
+	OutputBitrateBps int64 `json:"output_bitrate_bps,omitempty"`
 }
 
 // RepackSource is the stored output the repack reads.
@@ -61,6 +64,9 @@ func (c *Client) SubmitRepack(ctx context.Context, req RepackRequest) (string, e
 	}
 	if req.FPS > 0 {
 		body["fps"] = req.FPS
+	}
+	if req.OutputBitrateBps > 0 {
+		body["output_bitrate_bps"] = req.OutputBitrateBps
 	}
 	var out struct {
 		RepackID string `json:"repack_id"`

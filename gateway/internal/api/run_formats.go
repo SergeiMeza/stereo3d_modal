@@ -55,7 +55,7 @@ func repackExt(format string) (ext, contentType string) {
 // runFormats is what a run has, what it can get, and why not.
 type runFormats struct {
 	Have, Available, Pending []string
-	Reason                   string // files_erased | half_only | run_failed | classic_retired | split_run
+	Reason                   string            // files_erased | half_only | run_failed | classic_retired | split_run
 	Sources                  map[string]string // target → the output its repack reads
 	Project                  *store.Project
 }
@@ -240,7 +240,8 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 			fps = c.Source.FPS
 		}
 		repackID, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: st.Sources[req.Format]},
-			TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps})
+			TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps,
+			OutputBitrateBps: c.Params.OutputBitrateBps}) // the run's own bitrate when it chose one
 	}
 	if err != nil {
 		slog.WarnContext(ctx, "repack not started", "conversion_id", c.ID, "format", req.Format, "err", err)
