@@ -942,18 +942,23 @@ is ignored without such a plan.
     new_plan_cents, effective_at, quote_at}`.
   - `POST /v1/plans/change {to, confirm: true, quote_at?}` → `{change,
     plan}`; 400 `confirm_required`; 409 `quote_expired` (quote_at older
-    than 15 min), `same_plan`, `change_on_hold` (Business → Studio, on
-    hold), `change_scheduled`; 402 `payment_failed` (nothing changed).
+    than 15 min), `same_plan`, `change_scheduled`; 402 `payment_failed`
+    (nothing changed). Business → Studio is a step-up like the others (a
+    full Studio year from that day).
   - **Step-up**: now, a full new period from today on every step-up
     (`billing_cycle_anchor=now`, `proration_behavior=none`,
     `payment_behavior=error_if_incomplete`); today's charge = new price −
-    `oldPlanCredit` (what the old period's plan line actually cost after
-    discounts × the share of the period left; a pending negative invoice
-    item on the switch invoice, removed if the payment fails). The
-    preview and the change use the same quote at `quote_at`, so the
-    preview equals the charge to the cent. The new plan's credit and free
-    previews come in full that day. `oldPlanCredit` takes the usage share
-    as an input for a rule not in force yet.
+    `oldPlanCredit` = what the old period's plan line actually cost after
+    discounts (an intro) × min(share of the period's time left, share of
+    its usage left), rounded half up to the cent (usage: Business/Studio,
+    plan credit left ÷ the month's credit; Pro, free previews left ÷ the
+    period's allowance; unknown usage = time alone). A pending negative
+    invoice item on the switch invoice, removed if the payment fails. The
+    preview (`credit_basis {time_share, usage_share, paid_cents}`) and the
+    change use the same quote at `quote_at`, so the preview equals the
+    charge to the cent. The new plan's credit and free previews come in
+    full that day; the old plan's leftover credit ends then (replace, not
+    carry) and a Business entitlement is swapped for Studio's (pro kept).
   - **Step-down**: at the end of the paid period, a subscription schedule
     (phase 1 to `current_period_end`, phase 2 the new price with metadata
     `change_kind: step_down`, released after); → `pay_per_video`:

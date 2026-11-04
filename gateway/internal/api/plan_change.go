@@ -28,7 +28,9 @@ import (
 //     subscription schedule switches the price then (→ none:
 //     cancel_at_period_end). No charge, no refund; the current plan's
 //     grants run to that date, the new one's start then.
-//   - Business → Studio is on hold (proposal B): 409 change_on_hold.
+//   - Business → Studio is a step-up like the others (owner 2026-11-04):
+//     a full Studio year from that day; the month's leftover Business
+//     credit ends when Studio's is granted.
 // POST /v1/plans/preview-change {to} quotes it; POST /v1/plans/change {to,
 // confirm: true, quote_at?} applies it (nothing changes without confirm);
 // DELETE /v1/plans/scheduled-change takes a waiting step-down back.
@@ -44,20 +46,29 @@ var planOrder = []string{planNone, "pro_weekly", "pro_monthly", "pro_yearly", pr
 
 func planRank(id string) int { return slices.Index(planOrder, id) }
 
-// creditShares are what's left of the old plan's period: time today;
-// usage (the plan's credit and free previews) for a rule not in force yet.
+// creditShares are what's left of the old plan's period: its time, and
+// its usage (Business/Studio: the plan's usage credit; Pro: the period's
+// free previews); nil usage = unknown, time alone counts.
 type creditShares struct {
 	TimeLeft  float64
-	UsageLeft *float64 // nil: not used by today's rule
+	UsageLeft *float64
 }
 
-// oldPlanCredit is the credit for the old plan's unused part on a step-up:
-// what they paid for the period (intro prices as paid) × the share of the
-// period left. A pending owner rule may make it min(time, usage).
+// share is min(time, usage), clamped to [0, 1].
+func (sh creditShares) share() float64 {
+	share := sh.TimeLeft
+	if sh.UsageLeft != nil {
+		share = min(share, *sh.UsageLeft)
+	}
+	return max(0, min(1, share))
+}
+
+// oldPlanCredit is the credit for the old plan's unused part on a step-up
+// (owner 2026-11-04): what they actually paid for the period (intro prices
+// as paid) × min(share of time left, share of usage left), rounded half up
+// to the cent.
 func oldPlanCredit(paidCents int64, sh creditShares) int64 {
-	share := sh.TimeLeft // later: min(sh.TimeLeft, *sh.UsageLeft)
-	share = max(0, min(1, share))
-	return int64(math.Round(float64(paidCents) * share))
+	return int64(math.Floor(float64(paidCents)*sh.share() + 0.5 + 1e-9))
 }
 
 // timeLeftShare of the plan's current period at t.
@@ -111,6 +122,8 @@ type planChangeQuote struct {
 	RenewsAt    time.Time
 	EffectiveAt time.Time
 	QuoteAt     time.Time
+	Shares      creditShares
+	PaidCents   int64
 }
 
 func (q planChangeQuote) json() map[string]any {
@@ -118,6 +131,11 @@ func (q planChangeQuote) json() map[string]any {
 		"new_plan_cents": q.To.PriceCents, "quote_at": q.QuoteAt.Unix()}
 	if q.Kind == changeStepUp {
 		out["unused_credit_cents"], out["renews_at"] = q.CreditCents, q.RenewsAt.Format(time.RFC3339)
+		basis := map[string]any{"time_share": math.Round(q.Shares.TimeLeft*10000) / 10000, "usage_share": nil, "paid_cents": q.PaidCents}
+		if q.Shares.UsageLeft != nil {
+			basis["usage_share"] = math.Round(*q.Shares.UsageLeft*10000) / 10000
+		}
+		out["credit_basis"] = basis
 	} else {
 		out["effective_at"] = q.EffectiveAt.Format(time.RFC3339)
 	}
@@ -136,7 +154,7 @@ func nextRenewal(at time.Time, interval string) time.Time {
 }
 
 // quotePlanChange: the one place both the preview and the change price it.
-func (s *Service) quotePlanChange(ctx context.Context, cust *store.Customer, to string, at time.Time) (*planChangeQuote, *httpx.APIError) {
+func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.Customer, to string, at time.Time) (*planChangeQuote, *httpx.APIError) {
 	if cust == nil || cust.Plan == nil || !cust.Plan.Active(at) || cust.Plan.SubscriptionID == "" {
 		return nil, httpx.Err(http.StatusNotFound, "no_plan", "you don't have a plan to change")
 	}
@@ -154,9 +172,6 @@ func (s *Service) quotePlanChange(ctx context.Context, cust *store.Customer, to 
 	if target.ID == from.ID {
 		return nil, httpx.Err(http.StatusConflict, "same_plan", "that's your plan already")
 	}
-	if from.ID == pricing.TierBusiness && target.ID == pricing.TierStudio {
-		return nil, httpx.Err(http.StatusConflict, "change_on_hold", "Business to Studio isn't available yet")
-	}
 	q := &planChangeQuote{From: from, To: target, QuoteAt: at}
 	if planRank(target.ID) > planRank(from.ID) {
 		paid := cust.Plan.PeriodPaidCents
@@ -164,7 +179,9 @@ func (s *Service) quotePlanChange(ctx context.Context, cust *store.Customer, to 
 			paid = from.PriceCents
 		}
 		q.Kind = changeStepUp
-		q.CreditCents = oldPlanCredit(paid, creditShares{TimeLeft: timeLeftShare(cust.Plan, at)})
+		q.Shares = creditShares{TimeLeft: timeLeftShare(cust.Plan, at), UsageLeft: s.usageLeftShare(ctx, uid, from)}
+		q.PaidCents = paid
+		q.CreditCents = oldPlanCredit(paid, q.Shares)
 		q.TodayCents = max(0, target.PriceCents-q.CreditCents)
 		q.RenewsAt = nextRenewal(at, target.Interval)
 		return q, nil
@@ -190,7 +207,7 @@ func (s *Service) HandlePreviewPlanChange(w http.ResponseWriter, r *http.Request
 		return
 	}
 	cust, _ := s.Store.GetCustomer(ctx, user.UID)
-	q, qerr := s.quotePlanChange(ctx, cust, req.To, time.Now().UTC().Truncate(time.Second))
+	q, qerr := s.quotePlanChange(ctx, user.UID, cust, req.To, time.Now().UTC().Truncate(time.Second))
 	if qerr != nil {
 		httpx.WriteErr(ctx, w, qerr)
 		return
@@ -226,7 +243,7 @@ func (s *Service) HandlePlanChange(w http.ResponseWriter, r *http.Request, user 
 		}
 	}
 	cust, _ := s.Store.GetCustomer(ctx, user.UID)
-	q, qerr := s.quotePlanChange(ctx, cust, req.To, at)
+	q, qerr := s.quotePlanChange(ctx, user.UID, cust, req.To, at)
 	if qerr != nil {
 		httpx.WriteErr(ctx, w, qerr)
 		return
@@ -390,13 +407,7 @@ func (s *Service) stepDownApplied(ctx context.Context, uid string, sub *stripex.
 			return nil
 		})
 	}
-	if (from == pricing.TierBusiness || from == pricing.TierStudio) && from != cust.Plan.Tier && s.RevenueCat.CanGrant() {
-		rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := s.RevenueCat.RevokePromotionals(rctx, uid, from); err != nil {
-			s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` after a step-down: %v", from, uid, err))
-		}
-	}
+	s.planSwapEntitlement(ctx, uid, from, cust.Plan.Tier)
 }
 
 // scheduledChangeJSON is the plan block's scheduled_change (nil = none).
@@ -454,4 +465,42 @@ func (s *Service) proIntroCycle(ctx context.Context, raw json.RawMessage) {
 		}
 		return nil
 	})
+}
+
+// usageLeftShare is what's left of the old plan's usage this period:
+// Business/Studio, the plan credit left ÷ the period's (month's) credit;
+// Pro, the free previews left ÷ the period's allowance. nil when unknown.
+func (s *Service) usageLeftShare(ctx context.Context, uid string, from planTarget) *float64 {
+	if from.Tier == pricing.TierPro {
+		at := s.accountTier(ctx, uid)
+		fp := s.freePreviewStatus(ctx, uid, at, 0)
+		if fp.Allowance <= 0 {
+			return nil
+		}
+		v := float64(fp.Remaining) / float64(fp.Allowance)
+		return &v
+	}
+	def, ok := s.rates(ctx).Plan(from.Tier)
+	if !ok || def.CreditCents <= 0 {
+		return nil
+	}
+	b, err := s.Store.GetBalance(ctx, uid)
+	if err != nil {
+		return nil
+	}
+	v := float64(b.PlanCreditCents()) / float64(def.CreditCents)
+	return &v
+}
+
+// planSwapEntitlement: a Business or Studio entitlement the new plan
+// doesn't carry goes (pro stays: the new plan's grant covers it).
+func (s *Service) planSwapEntitlement(ctx context.Context, uid, from, newTier string) {
+	if (from != pricing.TierBusiness && from != pricing.TierStudio) || from == newTier || !s.RevenueCat.CanGrant() {
+		return
+	}
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	if err := s.RevenueCat.RevokePromotionals(rctx, uid, from); err != nil {
+		s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` after a plan change: %v", from, uid, err))
+	}
 }

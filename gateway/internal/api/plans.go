@@ -220,6 +220,7 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		TotalDiscountAmounts []struct {
 			Amount int64 `json:"amount"`
 		} `json:"total_discount_amounts"`
+		BillingReason string `json:"billing_reason"`
 	}
 	if json.Unmarshal(raw, &inv) != nil {
 		return
@@ -255,6 +256,13 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		key, source = "plan:"+sub.ID+":"+cmp.Or(sub.Metadata["plan_id"], tier), "change" // a plan change starts the new one
 	}
 	s.planPeriodPaid(ctx, uid, sub, pricePaid)
+	if from := sub.Metadata["changed_from"]; sub.Metadata["change_kind"] == changeStepUp && from != "" &&
+		(inv.BillingReason == "subscription_update" || inv.BillingReason == "") {
+		// Replace, not carry: the old plan's leftover credit ends as the new
+		// plan's comes; its Business/Studio entitlement gives way.
+		s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, sub.ID, "", "replaced by "+tierLabel(tier), "plancredit_replaced_"+inv.ID)
+		s.planSwapEntitlement(ctx, uid, from, tier)
+	}
 	if sub.Metadata["change_kind"] == changeStepDown {
 		s.stepDownApplied(ctx, uid, sub) // the switch date: the old plan's entitlement goes
 	} else if s.attributePlanStart(ctx, uid, tier, source, key, time.Now().UTC()) {

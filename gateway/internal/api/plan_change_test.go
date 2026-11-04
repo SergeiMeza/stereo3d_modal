@@ -13,7 +13,22 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
+func f64(v float64) *float64 { return &v }
+
 func TestOldPlanCredit(t *testing.T) {
+	// the owner's cases (2026-11-04)
+	if got := oldPlanCredit(29900, creditShares{TimeLeft: 0.5, UsageLeft: f64(50.0 / 400)}); got != 3738 {
+		t.Fatalf("Business $350 of $400 used: %d", got)
+	}
+	if got := oldPlanCredit(29900, creditShares{TimeLeft: 0.5, UsageLeft: f64(300.0 / 400)}); got != 14950 {
+		t.Fatalf("Business $100 used: %d", got)
+	}
+	if got := oldPlanCredit(899, creditShares{TimeLeft: 20.0 / 30, UsageLeft: f64(2.0 / 20)}); got != 90 {
+		t.Fatalf("Pro Monthly 18 of 20 previews: %d", got)
+	}
+	if oldPlanCredit(899, creditShares{TimeLeft: 0.5, UsageLeft: f64(1)}) != 450 || oldPlanCredit(29900, creditShares{TimeLeft: 0.9, UsageLeft: f64(0)}) != 0 {
+		t.Fatal("no usage = time share; all used = 0")
+	}
 	if got := oldPlanCredit(399, creditShares{TimeLeft: 0.5}); got != 200 { // Weekly at the intro price
 		t.Fatalf("weekly intro %d", got)
 	}
@@ -174,9 +189,6 @@ func TestStepDowns(t *testing.T) {
 
 func TestPlanChangeRules(t *testing.T) {
 	f := newPlanFixture(t, "business", "business", 29900, 5, 30)
-	if code, out := f.post(f.s.HandlePreviewPlanChange, `{"to":"studio"}`); code != 409 || out["error"] != "change_on_hold" {
-		t.Fatalf("on hold %d %v", code, out)
-	}
 	if code, out := f.post(f.s.HandlePreviewPlanChange, `{"to":"business"}`); code != 409 || out["error"] != "same_plan" {
 		t.Fatalf("same %d %v", code, out)
 	}
@@ -246,5 +258,65 @@ func TestProStatusWebPlan(t *testing.T) {
 	code, res := g.post(g.s.HandlePlanChange, `{"to":"pay_per_video","confirm":true}`)
 	if sc, _ := res["plan"].(map[string]any)["scheduled_change"].(map[string]any); code != 200 || sc["to"] != "none" {
 		t.Fatalf("pay per video %d %v", code, res)
+	}
+}
+
+// Business → Studio, day 15 of 30: the credit uses the plan credit left;
+// today = $11,988 − credit; Business's leftover ends when Studio's comes.
+func TestBusinessToStudio(t *testing.T) {
+	for _, tc := range []struct {
+		used, credit, today int64
+	}{{35000, 3738, 1195062}, {10000, 14950, 1183850}} {
+		f := newPlanFixture(t, "business", "business", 29900, 15, 30)
+		ctx := context.Background()
+		end := time.Now().Add(15 * 24 * time.Hour)
+		f.s.Store.BalanceTx(ctx, f.uid, func(b *store.Balance) ([]store.BalanceOp, error) {
+			return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: 40000 - tc.used, EntryID: "plancredit_x_" + store.NewID(), Ref: f.sub, ExpiresAt: &end}}, nil
+		})
+		code, prev := f.post(f.s.HandlePreviewPlanChange, `{"to":"studio"}`)
+		basis, _ := prev["credit_basis"].(map[string]any)
+		if code != 200 || prev["unused_credit_cents"] != float64(tc.credit) || prev["today_cents"] != float64(tc.today) ||
+			basis["paid_cents"] != float64(29900) || basis["usage_share"] == nil {
+			t.Fatalf("used %d: preview %d %v", tc.used, code, prev)
+		}
+		code, out := f.post(f.s.HandlePlanChange, `{"to":"studio","confirm":true,"quote_at":`+itoa(int(prev["quote_at"].(float64)))+`}`)
+		var item int64
+		for _, a := range f.fake.invItems {
+			item = a
+		}
+		if code != 200 || 1198800+item != tc.today {
+			t.Fatalf("used %d: change %d %v item %d", tc.used, code, out, item)
+		}
+		// the switch invoice: Business's leftover goes, Studio's month comes
+		inv, _ := json.Marshal(map[string]any{"id": "in_sw_" + store.NewID(), "subscription": f.sub, "billing_reason": "subscription_update",
+			"lines": map[string]any{"data": []any{map[string]any{"amount": 1198800}, map[string]any{"amount": item}}}})
+		f.fake.subs[f.sub]["items"] = map[string]any{"data": []any{map[string]any{"id": "si_1", "price": map[string]any{"id": "price_1UXjsfAVV5NpxADIVWtelcNn", "recurring": map[string]any{"interval": "year"}}}}}
+		f.fake.subs[f.sub]["current_period_end"] = time.Now().AddDate(1, 0, 0).Unix()
+		f.s.handlePlanInvoicePaid(ctx, inv)
+		b, _ := f.s.Store.GetBalance(ctx, f.uid)
+		if b.PlanCreditCents() != 150000 {
+			t.Fatalf("used %d: plan credit %d, want Studio's 150000 alone", tc.used, b.PlanCreditCents())
+		}
+	}
+}
+
+// Pro Monthly, 18 of 20 previews used by day 10: credit $0.90.
+func TestProToBusinessUsageShare(t *testing.T) {
+	f := newPlanFixture(t, "pro_monthly", "pro", 899, 10, 30)
+	ctx := context.Background()
+	at := f.s.accountTier(ctx, f.uid)
+	allowance := f.s.freePreviewStatus(ctx, f.uid, at, 0).Allowance
+	if allowance != 20 {
+		t.Skipf("pro_monthly allowance is %d, not 20", allowance)
+	}
+	for i := 0; i < 18; i++ { // 18 used, over two days so no daily cap bites
+		day := "d" + itoa(i%9)
+		if ok, err := f.s.Store.ConsumeFreePreviews(ctx, f.uid, at.PeriodKey, day, 1, allowance, 100, false); err != nil || !ok {
+			t.Fatalf("consume %d: %v %v", i, ok, err)
+		}
+	}
+	_, prev := f.post(f.s.HandlePreviewPlanChange, `{"to":"business"}`)
+	if prev["unused_credit_cents"] != float64(90) {
+		t.Fatalf("pro usage credit %v", prev)
 	}
 }
