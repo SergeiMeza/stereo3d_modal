@@ -204,6 +204,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	if c, ok := barsCrop(p); ok && removeBars(p) { // BL-03: the run keeps what it took off
 		params.RemoveBars, params.SourceCrop = true, &c
 	}
+	params.OutputWidth, params.OutputHeight = outputDims(p, params) // the size it delivers
 	if req.Formats != nil && len(req.Formats) == 0 {
 		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
 	}
@@ -506,12 +507,64 @@ const qualityFull = "full"
 const originalEyeAboveShortSide = 2160
 
 // sourceShortSide is the source's short side, rotation-proof (min of the
-// two sides), rounded down to even; 0 before analysis.
+// two sides), rounded down to even; 0 before analysis. When the run takes
+// black bars off (BL-03) it is the short side of the 16:9 frame the
+// picture inside fills (the larger of its short side and 9/16 of its long
+// side), so a letterboxed 4K film (3840x1600 inside) still reaches 4K:
+// the size steps keep their long edge and follow the picture's aspect
+// (outputDims).
 func sourceShortSide(p *store.Project) int {
+	if c, ok := barsCrop(p); ok && removeBars(p) {
+		long, short := max(c.W, c.H), min(c.W, c.H)
+		return max(short, (long*9+15)/16) &^ 1
+	}
 	if p.Probe == nil || p.Probe.Width <= 0 || p.Probe.Height <= 0 {
 		return 0
 	}
 	return min(p.Probe.Width, p.Probe.Height) &^ 1
+}
+
+// contentDims is the picture a Lifelike run renders, displayed pixels:
+// the crop inside the bars when the run takes them off, else the frame
+// (turned to the crop's orientation when analysis saw it rotated).
+func contentDims(p *store.Project) (w, h int) {
+	if c, ok := barsCrop(p); ok && removeBars(p) {
+		return c.W, c.H
+	}
+	return displayedFrame(p)
+}
+
+func evenRound(v float64) int { return int(math.Round(v/2)) * 2 }
+
+// outputDims is a run's output picture per eye, displayed pixels (0, 0
+// before analysis). Without bars removed: the step's short side
+// (outputShortSide) and the frame's aspect. With bars removed (BL-03,
+// working rule until Lifelike confirms the mapping): the picture fitted
+// inside the step's 16:9 box (long edge = 16/9 of its short side, turned
+// like the picture), never upscaled, rounded to even: 3840x1600 inside
+// a 4K frame stays 3840x1600 at 4K, 1920x800 at 1080p.
+func outputDims(p *store.Project, params store.Params) (w, h int) {
+	cw, ch := contentDims(p)
+	if cw <= 0 || ch <= 0 {
+		return 0, 0
+	}
+	long, short := float64(max(cw, ch)), float64(min(cw, ch))
+	var outLong, outShort int
+	if params.RemoveBars {
+		boxShort := float64(presetOutputHeight[params.Preset])
+		if boxShort <= 0 {
+			return 0, 0
+		}
+		scale := min(boxShort*16/9/long, boxShort/short, 1)
+		outLong, outShort = evenRound(long*scale), evenRound(short*scale)
+	} else {
+		outShort = outputShortSide(p, params)
+		outLong = evenRound(long * float64(outShort) / short)
+	}
+	if cw >= ch {
+		return outLong, outShort
+	}
+	return outShort, outLong
 }
 
 // lifelikeQualities lists what a project's source can be rendered at,

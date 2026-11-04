@@ -162,3 +162,69 @@ func TestLifelikeBodySourceCrop(t *testing.T) {
 		t.Fatal("whole frame sends no source_crop")
 	}
 }
+
+// With bars off, the size steps keep their long edge and follow the
+// picture inside (never upscaled); without, the step's short side and
+// the frame's aspect, turned like the picture.
+func TestOutputDimsWithBars(t *testing.T) {
+	all := pricing.LifelikePresets
+	for _, tc := range []struct {
+		name           string
+		w, h           int
+		crop, preset   string
+		short, ow, oh  int
+		remove, reach4 bool
+	}{
+		{"letterbox 4k", 3840, 2160, "3840:1600:0:280", "4k", 2160, 3840, 1600, true, true},
+		{"letterbox 1080p", 3840, 2160, "3840:1600:0:280", "1080p", 2160, 1920, 800, true, true},
+		{"pillarbox 1080p", 1920, 1080, "1440:1080:240:0", "1080p", 1080, 1440, 1080, true, false},
+		{"rotated letterbox", 1920, 1080, "800:1920:140:0", "1080p", 1080, 800, 1920, true, false},
+		{"rotated full frame", 1920, 1080, "1080:1920:0:0", "1080p", 1080, 1080, 1920, false, false},
+		{"no crop", 3840, 2160, "", "4k", 2160, 3840, 2160, false, true},
+	} {
+		p := barsProject(tc.w, tc.h, tc.crop)
+		if got := sourceShortSide(p); got != tc.short {
+			t.Errorf("%s: short side %d", tc.name, got)
+		}
+		params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: tc.preset}, p, all)
+		if err != nil || params.RemoveBars != tc.remove || params.OutputWidth != tc.ow || params.OutputHeight != tc.oh {
+			t.Errorf("%s: %+v %v", tc.name, params, err)
+		}
+		_, err = resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "4k"}, p, all)
+		if (err == nil) != tc.reach4 {
+			t.Errorf("%s: 4k reachable %v", tc.name, err)
+		}
+	}
+	// keeping the bars: the whole frame again
+	p := barsProject(3840, 2160, "3840:1600:0:280")
+	keep := false
+	p.RemoveBars = &keep
+	if params, _ := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "4k"}, p, all); params.OutputWidth != 3840 || params.OutputHeight != 2160 {
+		t.Fatalf("kept %+v", params)
+	}
+}
+
+// The quote shows the cropped output size, and the run records it.
+func TestQuoteShowsCroppedSize(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	uid := "u" + store.NewID()
+	c := projCaller{t, s, &AuthedUser{UID: uid}}
+	p := barsProject(3840, 2160, "3840:1600:0:280")
+	p.ID, p.UID, p.Source.GCSKey, p.Analyze.State = store.NewID(), uid, "stereo3d/test/uploads/x.mp4", store.AnalyzeSucceeded
+	p.Scenes = &store.Scenes{Version: 1, Cuts: []int{}}
+	s.Store.CreateProject(ctx, p)
+	code, body := c.do(s.HandleQuoteStep, p.ID, `{"step":"production","preset":"4k"}`)
+	var out map[string]any
+	json.Unmarshal([]byte(body), &out)
+	if code != 200 || out["output_width"] != float64(3840) || out["output_height"] != float64(1600) || out["remove_bars"] != true {
+		t.Fatalf("quote %d %s", code, body)
+	}
+	c.do(s.HandleUpdateProject, p.ID, `{"remove_bars":false}`)
+	_, body = c.do(s.HandleQuoteStep, p.ID, `{"step":"production","preset":"4k"}`)
+	json.Unmarshal([]byte(body), &out)
+	if out["output_height"] != float64(2160) || out["remove_bars"] != false {
+		t.Fatalf("kept %s", body)
+	}
+}

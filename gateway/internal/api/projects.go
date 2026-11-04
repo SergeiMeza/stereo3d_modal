@@ -1329,6 +1329,12 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	}
 	if method == store.MethodLifelike {
 		resp["output_short_side"] = outputShortSide(p, params)
+		if w, h := outputDims(p, params); w > 0 {
+			// per eye, displayed pixels: the picture inside the bars when
+			// the run takes them off (BL-03)
+			resp["output_width"], resp["output_height"] = w, h
+			resp["remove_bars"] = params.RemoveBars
+		}
 		resp["original_eye_required"] = outputShortSide(p, params) > originalEyeAboveShortSide
 		resp["qualities"] = lifelikeQualities(p, rates.EnabledLifelikePresets())
 	}

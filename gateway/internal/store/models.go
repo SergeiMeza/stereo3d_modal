@@ -247,6 +247,11 @@ type Params struct {
 	// source_crop). False / nil: the whole frame.
 	RemoveBars bool  `firestore:"remove_bars,omitempty" json:"remove_bars,omitempty"`
 	SourceCrop *Crop `firestore:"source_crop,omitempty" json:"source_crop,omitempty"`
+	// OutputWidth / OutputHeight: the Lifelike output picture per eye,
+	// displayed pixels, as quoted (BL-03: the picture inside the bars
+	// when they come off); 0 = unknown (runs before, or before analysis).
+	OutputWidth  int `firestore:"output_width,omitempty" json:"output_width,omitempty"`
+	OutputHeight int `firestore:"output_height,omitempty" json:"output_height,omitempty"`
 	// IntroS / IntroLanguage: the Lifelike brand intro (BL-25) fixed at
 	// creation: nil = none sent (the flag was off), 0 = a plan's opt-out,
 	// 3 (previews) or 4 seconds. Never billed, never shown to clients.
