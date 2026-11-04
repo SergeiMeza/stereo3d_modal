@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { casesResponse } from "../test/fixtures";
+import { casePage, casesResponse } from "../test/fixtures";
 import { apiError, renderApp } from "../test/harness";
 
 describe("cases list (A1)", () => {
@@ -13,7 +13,7 @@ describe("cases list (A1)", () => {
     expect(counts).toHaveTextContent("7 open");
     expect(counts).toHaveTextContent("1 overdue");
     expect(counts).toHaveTextContent("2 due today");
-    const rows = screen.getAllByRole("row").slice(1);
+    const rows = screen.getAllByTestId("case-row");
     expect(within(rows[0]).getByText("CASE-0051")).toBeInTheDocument();
     expect(within(rows[0]).getByText(/dispute due/)).toBeInTheDocument();
     expect(within(rows[1]).getByText("$49.72")).toBeInTheDocument();
@@ -54,5 +54,33 @@ describe("cases list (A1)", () => {
     await userEvent.click(await screen.findByText("CASE-0042"));
     expect(await screen.findByText("No case CASE-0042.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/cases/CASE-0042");
+  });
+});
+
+describe("cases list keys and preview (BL-29 redesign B)", () => {
+  it("J / K and the arrows move the selection and the preview; D opens the decision; typing in search doesn't", async () => {
+    const { calls } = renderApp("/cases", {
+      "GET /v1/admin/cases": () => ({ json: casesResponse }),
+      "GET /v1/admin/cases/CASE-0051": () => ({ json: casePage({}, { id: "CASE-0051" }) }),
+      "GET /v1/admin/cases/CASE-0042": () => ({ json: casePage() }),
+    });
+    const list = await screen.findByTestId("case-list");
+    const preview = screen.getByRole("region", { name: "Case preview" });
+    expect(within(preview).getByRole("heading")).toHaveTextContent("CASE-0051");
+    const links = within(list).getAllByRole("link");
+    links[0].focus();
+    await userEvent.keyboard("j");
+    expect(links[1]).toHaveFocus();
+    expect(links[1]).toHaveAttribute("aria-current", "true");
+    expect(within(preview).getByRole("heading")).toHaveTextContent("CASE-0042");
+    expect(await within(preview).findByText(/please refund/)).toBeInTheDocument();
+    await userEvent.keyboard("{ArrowUp}");
+    expect(links[0]).toHaveFocus();
+    await userEvent.type(screen.getByLabelText("Search cases"), "jk");
+    expect(links[0]).toHaveAttribute("aria-current", "true");
+    links[1].focus();
+    await userEvent.keyboard("d");
+    expect(window.location.pathname + window.location.search).toBe("/cases/CASE-0042?decide=1");
+    expect(calls.some((c) => c.path === "/v1/admin/cases/CASE-0042")).toBe(true);
   });
 });

@@ -42,6 +42,7 @@ const passkeys = [
 const ROUTES: Record<string, (path: string) => unknown> = {
   "GET /v1/admin/cases": () => casesResponse,
   "GET /v1/admin/cases/CASE-0042": () => casePage(),
+  "GET /v1/admin/cases/CASE-0051": () => casePage({ max_refundable_cents: 0, actions: ["accept_dispute", "counter_dispute", "note", "close"] }, { id: "CASE-0051", type: "dispute", reason: "dispute" }),
   "GET /v1/admin/mail-previews": () => mailPreviews,
   "GET /v1/admin/disputes/summary": () => ({ ...disputes, open_efws: 1 }),
   "GET /v1/admin/accounts/uid_123": () => account,
