@@ -13,7 +13,6 @@ import type { CasesResponse, DisputeSummary, FeedbackItem } from "./types";
  */
 
 export const ATTENTION_POLL_MS = 60_000;
-const FEEDBACK_SEEN_KEY = "svs-admin.feedback-seen";
 
 export interface Attention {
   cases: CasesResponse | null;
@@ -23,7 +22,7 @@ export interface Attention {
   /** open cases whose refund failed (reason refund_failed) */
   failedRefunds: number;
   feedback: FeedbackItem[] | null;
-  /** feedback since this browser last opened Feedback */
+  /** feedback since the console last opened Feedback (the gateway's marker) */
   feedbackNew: number;
   updatedAt: number | null;
   refresh: () => void;
@@ -38,21 +37,13 @@ export function useAttention(): Attention {
   return v;
 }
 
-function readSeen(): number {
-  try {
-    const v = window.localStorage.getItem(FEEDBACK_SEEN_KEY);
-    return v ? Date.parse(v) || 0 : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export function AttentionProvider({ children }: { children: ReactNode }) {
   const { api } = useServices();
   const [cases, setCases] = useState<CasesResponse | null>(null);
   const [disputes, setDisputes] = useState<DisputeSummary | null>(null);
   const [feedback, setFeedback] = useState<FeedbackItem[] | null>(null);
-  const [seen, setSeen] = useState(readSeen);
+  /** the gateway's "seen up to" marker: 0 when never set, null while unknown */
+  const [seen, setSeen] = useState<number | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -61,6 +52,11 @@ export function AttentionProvider({ children }: { children: ReactNode }) {
       // quiet: the Disputes page shows the error when it's opened
       api.disputes(3).then(setDisputes, () => {}),
       api.feedback(7, "").then((f) => setFeedback(f.items ?? []), () => {}),
+      // never move the marker back (a mark made while this was in flight wins)
+      api.feedbackSeen().then((m) => {
+        const at = m.seen_at ? Date.parse(m.seen_at) || 0 : 0;
+        setSeen((cur) => Math.max(cur ?? 0, at));
+      }, () => {}),
     ]);
     setUpdatedAt(Date.now());
   }, [api]);
@@ -79,12 +75,10 @@ export function AttentionProvider({ children }: { children: ReactNode }) {
   const markFeedbackSeen = useCallback(() => {
     const now = new Date();
     setSeen(now.getTime());
-    try {
-      window.localStorage.setItem(FEEDBACK_SEEN_KEY, now.toISOString());
-    } catch {
-      // private window: the badge just resets per tab
-    }
-  }, []);
+    api.setFeedbackSeen(now.toISOString()).catch(() => {
+      // quiet: the badge comes back on the next poll
+    });
+  }, [api]);
 
   const value = useMemo<Attention>(() => {
     const rows = cases?.cases ?? [];
@@ -95,7 +89,7 @@ export function AttentionProvider({ children }: { children: ReactNode }) {
       lanes: cases || disputes ? buildLanes(rows, disputes) : [],
       failedRefunds: rows.filter((r) => r.reason === "refund_failed").length,
       feedback,
-      feedbackNew: (feedback ?? []).filter((f) => Date.parse(f.created_at) > seen).length,
+      feedbackNew: seen === null ? 0 : (feedback ?? []).filter((f) => Date.parse(f.created_at) > seen).length,
       updatedAt,
       refresh: () => void load(),
       markFeedbackSeen,

@@ -237,7 +237,8 @@ function NewFeedback() {
             <li key={f.id} className="flex flex-col gap-0.5">
               <span className="line-clamp-2 text-sm [overflow-wrap:anywhere]">“{f.message}”</span>
               <span className="text-xs text-muted-foreground">
-                {f.platform === "web" ? "Web" : "App"} · {ago(f.created_at)}
+                {f.platform === "web" ? "Web" : "App"}
+                {f.plan_tier ? ` · ${f.plan_tier.charAt(0).toUpperCase()}${f.plan_tier.slice(1)}` : ""} · {ago(f.created_at)}
               </span>
             </li>
           ))}

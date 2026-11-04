@@ -96,7 +96,12 @@ const ROUTES: Record<string, (path: string) => unknown> = {
       { uid: "uid_456", email: "app.user@example.com", product: "pro", plan: null, source: "app_store", price_cents: null, started_at: "2026-11-03T08:00:00Z", placement: null },
     ],
   }),
-  "GET /v1/admin/feedback": () => ({ days: 30, items: [] }),
+  "GET /v1/admin/feedback": () => ({
+    days: 30,
+    items: [{ id: "f1", created_at: "2026-11-04T06:00:00Z", platform: "web", kind: "problem", message: "Export finished but the email never came.", plan_tier: "business" }],
+  }),
+  "GET /v1/admin/feedback/seen": () => ({ seen_at: "2026-11-01T00:00:00Z", updated_at: "2026-11-01T00:00:00Z" }),
+  "POST /v1/admin/feedback/seen": () => ({ seen_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
   "GET /v1/admin/onboarding/headsets": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),
   "GET /v1/admin/onboarding/business_funnel": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),
 };

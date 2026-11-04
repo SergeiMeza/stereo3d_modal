@@ -602,6 +602,8 @@ export interface MailPreviewsResponse {
  * sent from the web app and the apps, newest first. */
 export interface FeedbackItem {
   id: string;
+  /** BL-29: studio | business | pro | free (the sender's web plan, else the app's) */
+  plan_tier?: string | null;
   created_at: string;
   /** "web", or the app's platform ("ios", "macos", "visionos"…) */
   platform: string;
@@ -764,4 +766,10 @@ export interface OpenEfw {
   amount_cents?: number | null;
   created?: string | null;
   case_id?: string | null;
+}
+
+/** GET/POST /v1/admin/feedback/seen (BL-29): one console-wide marker. */
+export interface FeedbackSeen {
+  seen_at: string | null;
+  updated_at?: string | null;
 }

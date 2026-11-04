@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows, StateBox } from "@/components/common";
+import { ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows, StateBox, type Tone } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { dateTime } from "../lib/format";
@@ -10,6 +11,8 @@ import type { FeedbackItem } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
 
 const KINDS: Record<string, string> = { idea: "Idea", problem: "Problem", other: "Something else" };
+const TIERS: Record<string, string> = { studio: "Studio", business: "Business", pro: "Pro", free: "Free" };
+const TIER_TONE: Record<string, Tone> = { studio: "violet", business: "blue", pro: "green", free: "plain" };
 const PLATFORMS: Record<string, string> = { web: "Web", ios: "iPhone/iPad", macos: "Mac", visionos: "Vision Pro", app: "App" };
 
 /** Feedback (owner 2026-11-04): what people sent from the web app and the
@@ -84,6 +87,11 @@ function List({ items }: { items: FeedbackItem[] }) {
                 <TableCell>
                   {PLATFORMS[f.platform] ?? f.platform}
                   {f.app_version ? <span className="text-xs text-muted-foreground"> {f.app_version}</span> : null}
+                  {f.plan_tier ? (
+                    <Badge variant={TIER_TONE[f.plan_tier] ?? "plain"} className="ml-1.5">
+                      {TIERS[f.plan_tier] ?? f.plan_tier}
+                    </Badge>
+                  ) : null}
                 </TableCell>
                 <TableCell>{KINDS[f.kind] ?? f.kind}</TableCell>
                 <TableCell className="max-w-120 min-w-60 whitespace-pre-wrap [overflow-wrap:anywhere]">{f.message}</TableCell>

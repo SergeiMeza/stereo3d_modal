@@ -482,6 +482,7 @@ describe("sign-in and session states (A0)", () => {
     renderApp("/cases", {
       "GET /v1/admin/cases": () => ({ json: { cases: [failed], counts: { open: 1, overdue: 0, due_today: 0 } } }),
       "GET /v1/admin/feedback": () => ({ json: { days: 7, items: [{ id: "f1", created_at: new Date().toISOString(), platform: "web", kind: "idea", message: "hi" }] } }),
+      "GET /v1/admin/feedback/seen": () => ({ json: { seen_at: null, updated_at: null } }),
     });
     expect(await screen.findByRole("link", { name: "Cases, 1 failed refund" })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Feedback: 1 new" })).toBeInTheDocument();
@@ -607,6 +608,26 @@ describe("plans surfaces (owner 2026-11-04)", () => {
 });
 
 describe("feedback (owner 2026-11-04)", () => {
+  it("shows the sender's plan tier, and opening Feedback moves the console-wide seen marker (BL-29)", async () => {
+    const posted: unknown[] = [];
+    const { calls } = renderApp("/feedback", {
+      "GET /v1/admin/feedback": () => ({
+        json: { days: 30, items: [{ id: "f1", created_at: new Date(Date.now() - 60_000).toISOString(), platform: "web", kind: "idea", message: "hi", plan_tier: "business" }] },
+      }),
+      "GET /v1/admin/feedback/seen": () => ({ json: { seen_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" } }),
+      "POST /v1/admin/feedback/seen": ({ body }) => {
+        posted.push(body);
+        return { json: { seen_at: (body as { seen_at: string }).seen_at } };
+      },
+    });
+    const table = await screen.findByTestId("feedback-list");
+    expect(table).toHaveTextContent("WebBusiness");
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(Date.parse((posted[0] as { seen_at: string }).seen_at)).toBeGreaterThan(Date.now() - 60_000);
+    await waitFor(() => expect(calls.some((c) => c.method === "GET" && c.path === "/v1/admin/feedback/seen")).toBe(true));
+    expect(screen.getByRole("link", { name: "Feedback" })).toBeInTheDocument(); // no "new" badge after the visit
+  });
+
   it("lists web and app feedback, read only, by platform", async () => {
     const { calls } = renderApp("/feedback", {
       "GET /v1/admin/feedback": () => ({

@@ -24,6 +24,7 @@ import type {
   RevokeResult,
   OpenCaseBody,
   AccountHit,
+  FeedbackSeen,
   OpenEfw,
   AdminGrant,
   RunLookup,
@@ -360,6 +361,15 @@ export class AdminApi {
   async openEfws(): Promise<OpenEfw[]> {
     const r = await this.json<{ efws: OpenEfw[] | null }>("GET", "/v1/admin/efws");
     return r.efws ?? [];
+  }
+
+  /** How far the console has read the feedback (gateway rev 00114). */
+  feedbackSeen(): Promise<FeedbackSeen> {
+    return this.json("GET", "/v1/admin/feedback/seen");
+  }
+
+  setFeedbackSeen(seenAt: string): Promise<FeedbackSeen> {
+    return this.json("POST", "/v1/admin/feedback/seen", { seen_at: seenAt });
   }
 
   /** Customer passkey adoption (gateway rev 00113). */
