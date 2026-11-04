@@ -132,8 +132,11 @@ func TestStudioYearly(t *testing.T) {
 func TestPlanInvoiceDescriptor(t *testing.T) {
 	s, fake := e0Service(t)
 	ctx := context.Background()
-	if stripex.WebStatementDescriptor != "SPATIAL AI* SV STUDIO" || len(stripex.WebStatementDescriptor) > 22 {
-		t.Fatalf("descriptor %q", stripex.WebStatementDescriptor)
+	if d := stripex.WebStatementDescriptor("SPATIALVID"); d != "SPATIALVID* SV STUDIO" {
+		t.Fatalf("descriptor %q", d)
+	}
+	if d := stripex.WebStatementDescriptor("SPATIAL VIDEO ST"); len(d) > 22 {
+		t.Fatalf("long prefix %q", d)
 	}
 	fake.subs["sub_d1"] = map[string]any{"id": "sub_d1", "status": "active", "customer": "cus_1",
 		"metadata": map[string]string{"product": "svs-web", "env": "test", "user_id": "u1", "plan": "studio", "kind": "plan"}}
@@ -149,7 +152,7 @@ func TestPlanInvoiceDescriptor(t *testing.T) {
 		return b
 	}
 	s.handlePlanInvoiceCreated(ctx, event("in_draft", "draft", "sub_d1"))
-	if fake.invs["in_draft"]["statement_descriptor"] != "SPATIAL AI* SV STUDIO" || fake.descriptorSets != 1 {
+	if fake.invs["in_draft"]["statement_descriptor"] != "SPATIALVID* SV STUDIO" || fake.descriptorSets != 1 {
 		t.Fatalf("draft %v sets=%d", fake.invs["in_draft"], fake.descriptorSets)
 	}
 	s.handlePlanInvoiceCreated(ctx, event("in_draft", "draft", "sub_d1")) // redelivered: already set
@@ -162,7 +165,7 @@ func TestPlanInvoiceDescriptor(t *testing.T) {
 	b, _ := json.Marshal(map[string]any{"id": "in_md", "status": "draft", "parent": map[string]any{"subscription_details": map[string]any{
 		"subscription": "sub_gone", "metadata": map[string]string{"product": "svs-web", "env": "test", "plan": "business"}}}})
 	s.handlePlanInvoiceCreated(ctx, b)
-	if fake.invs["in_md"]["statement_descriptor"] != "SPATIAL AI* SV STUDIO" {
+	if fake.invs["in_md"]["statement_descriptor"] != "SPATIALVID* SV STUDIO" {
 		t.Fatalf("metadata path %v", fake.invs["in_md"])
 	}
 }

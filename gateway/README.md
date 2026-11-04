@@ -58,15 +58,17 @@ confirmCardPayment fallback). The default card is cached on
   one-shot; mobile ids without a key are unchanged).
 - **P4** `statement_descriptor_suffix` on every PaymentIntent: `SV STUDIO`
   (web, `metadata.product=svs-web`; was `STEREO3D` until the web app was
-  renamed Spatial Video Studio, owner 2026-11-04: "SPATIAL AI* SV STUDIO",
-  21 of 22; "SPATIALVIDEO" would make 24), `SVS CLOUD` (the app's cloud
-  runs); the account prefix is `SPATIAL AI` (account settings are never
-  changed: the account is shared). Plan subscriptions take no suffix
-  (Checkout in subscription mode has none), so `invoice.created` sets the
-  whole line `statement_descriptor = "SPATIAL AI* SV STUDIO"` on a
-  Business/Studio invoice while it's a draft (renewals; idempotent). The
-  first invoice, which Checkout finalizes at once, keeps the account's
-  default. The webhook endpoint must send `invoice.created`.
+  renamed Spatial Video Studio, owner 2026-11-04), `SVS CLOUD` (the app's
+  cloud runs). The account prefix is `SPATIALVID` (owner 2026-11-04; was
+  `SPATIAL AI`), so a web charge reads "SPATIALVID* SV STUDIO" (21 of
+  22). The gateway never changes account settings (the account is
+  shared). Plan subscriptions take no suffix (Checkout in subscription
+  mode has none), so `invoice.created` sets the whole line as
+  `statement_descriptor` on a Business/Studio invoice while it's a draft
+  (renewals; idempotent), built from the account's prefix read live
+  (cached 1 h, fallback `SPATIALVID`) and cut to 22. The first invoice,
+  which Checkout finalizes at once, keeps the account's default. The
+  webhook endpoint must send `invoice.created`.
 - **P5** Customer creation carries the key `customer_{env}_{uid}`.
 - **P6** "payment method", never "card", in messages.
 - **P7** `DefaultMethod`: any reusable type (card, Link, PayPal); an

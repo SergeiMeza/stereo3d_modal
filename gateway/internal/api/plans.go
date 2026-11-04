@@ -275,7 +275,7 @@ func (s *Service) planCreditSweep(ctx context.Context) int {
 
 // handlePlanInvoiceCreated (invoice.created): a Business or Studio
 // subscription invoice still in draft gets the web's statement line
-// ("SPATIAL AI* SV STUDIO"); Checkout in subscription mode takes no
+// ("SPATIALVID* SV STUDIO", from the account's prefix); Checkout in subscription mode takes no
 // suffix, so plan charges otherwise showed the account's default.
 // Idempotent: a draft that already has it, or an invoice past draft (the
 // first one, which Checkout finalizes at once), is left alone.
@@ -292,7 +292,11 @@ func (s *Service) handlePlanInvoiceCreated(ctx context.Context, raw json.RawMess
 			} `json:"subscription_details"`
 		} `json:"parent"`
 	}
-	if json.Unmarshal(raw, &inv) != nil || inv.Status != "draft" || inv.StatementDescriptor == stripex.WebStatementDescriptor {
+	if json.Unmarshal(raw, &inv) != nil || inv.Status != "draft" {
+		return
+	}
+	line := stripex.WebStatementDescriptor(s.Stripe.DescriptorPrefix())
+	if inv.StatementDescriptor == line {
 		return
 	}
 	md := inv.Parent.SubscriptionDetails.Metadata
@@ -311,7 +315,7 @@ func (s *Service) handlePlanInvoiceCreated(ctx context.Context, raw json.RawMess
 	if md["product"] != "svs-web" || md["env"] != s.Cfg.Env || md["plan"] == "" {
 		return
 	}
-	if err := s.Stripe.SetInvoiceDescriptor(inv.ID, stripex.WebStatementDescriptor); err != nil {
+	if err := s.Stripe.SetInvoiceDescriptor(inv.ID, line); err != nil {
 		slog.WarnContext(ctx, "plan invoice descriptor not set", "invoice", inv.ID, "err", err)
 	}
 }

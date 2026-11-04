@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"slices"
 	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -121,21 +123,60 @@ type Job struct {
 	Web bool
 }
 
-// Statement descriptor suffixes (P4): the account's prefix ("SPATIAL AI",
-// 10 characters) + "* " + suffix stays within the 22 a statement shows.
-// Web: "SPATIAL AI* SV STUDIO" (21; "SPATIALVIDEO" would make 24). Set
-// per payment; the account's own name and descriptor are never changed
-// (the account is shared with other products).
+// Statement descriptor suffixes (P4): the account's prefix + "* " +
+// suffix stays within the 22 a statement shows. Web: "SPATIALVID* SV
+// STUDIO" (21; the prefix was "SPATIAL AI" until the owner renamed the
+// account 2026-11-04). Set per payment; the account's own name and
+// descriptor are never changed here (the account is shared).
 const (
-	DescriptorPrefix    = "SPATIAL AI" // the account's; read, never set here
 	DescriptorSuffixWeb = "SV STUDIO"
 	DescriptorSuffixApp = "SVS CLOUD"
 )
 
-// WebStatementDescriptor is the full line a web charge shows ("SPATIAL
-// AI* SV STUDIO", 21 of 22), set as the statement_descriptor of plan
-// invoices, which take a whole descriptor rather than a suffix.
-const WebStatementDescriptor = DescriptorPrefix + "* " + DescriptorSuffixWeb
+// defaultDescriptorPrefix stands in when the account can't be read.
+const defaultDescriptorPrefix = "SPATIALVID"
+
+var prefixCache struct {
+	sync.Mutex
+	value string
+	at    time.Time
+}
+
+// DescriptorPrefix is the account's card statement prefix, read from the
+// account (cached for an hour), so a dashboard change needs no deploy.
+func (c *Client) DescriptorPrefix() string {
+	prefixCache.Lock()
+	defer prefixCache.Unlock()
+	if prefixCache.value != "" && time.Since(prefixCache.at) < time.Hour {
+		return prefixCache.value
+	}
+	var acct struct {
+		Settings struct {
+			CardPayments struct {
+				Prefix string `json:"statement_descriptor_prefix"`
+			} `json:"card_payments"`
+		} `json:"settings"`
+	}
+	if err := webCall(http.MethodGet, "/v1/account", nil, "", &acct); err != nil || acct.Settings.CardPayments.Prefix == "" {
+		if prefixCache.value != "" {
+			return prefixCache.value
+		}
+		return defaultDescriptorPrefix
+	}
+	prefixCache.value, prefixCache.at = acct.Settings.CardPayments.Prefix, time.Now()
+	return prefixCache.value
+}
+
+// WebStatementDescriptor is the full line a web charge shows ("SPATIALVID*
+// SV STUDIO"), set as the statement_descriptor of plan invoices, which
+// take a whole descriptor rather than a suffix. Cut to 22.
+func WebStatementDescriptor(prefix string) string {
+	d := prefix + "* " + DescriptorSuffixWeb
+	if len(d) > 22 {
+		d = strings.TrimSpace(d[:22])
+	}
+	return d
+}
 
 // DescriptorSuffix is the suffix for a web or app charge.
 func DescriptorSuffix(web bool) string {
