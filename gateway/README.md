@@ -1324,9 +1324,9 @@ agree. No address or no Resend key → logged only.
 
 ### Admin passkeys (ADR 0135)
 
-The admin console's second factor is a passkey (WebAuthn, go-webauthn).
-The Identity Platform TOTP sign-in still works as an alternative until
-the owner retires it.
+The admin console's only second factor is a passkey (WebAuthn,
+go-webauthn). Owner 2026-11-04: no authenticator codes, and the project
+never moves to Identity Platform.
 
 - **Relying parties.** Prod `admin.stereo3d.studio` (origin
   `https://admin.stereo3d.studio`); test `admin-test.stereo3d.studio`
@@ -1348,7 +1348,7 @@ the owner retires it.
     needs `X-Admin-Session` with an assertion within 5 minutes (401
     `reauth_required {method: "passkey"}`).
   - `POST /v1/admin/passkeys/register/verify {name?, response}` (the
-    `PublicKeyCredential` JSON; `credential` also accepted) → 201 `{passkey: {id, name, created_at,
+    `PublicKeyCredential` JSON) → 201 `{passkey: {id, name, created_at,
     last_used_at}}`; 400 `challenge_invalid` | `passkey_invalid`; 409
     `passkey_exists`. Slack `admin_passkey_added` (uid, name, origin,
     country).
@@ -1367,21 +1367,19 @@ the owner retires it.
     or RP, used meanwhile), `passkey_clone_suspected` (the sign count
     didn't go up; Slack), 400 `challenge_invalid` (replayed, expired, or
     another purpose's or account's).
-  - `POST /v1/admin/session/reassert {response}` with the session: the
-    same as verify with purpose reassert (kept for older consoles).
   - `GET /v1/admin/passkeys` → `{passkeys: [{id, name, created_at,
     last_used_at}]}`.
   - `DELETE /v1/admin/passkeys/{id}`: an assertion within 5 minutes; 409
     `last_passkey`; Slack `admin_passkey_removed`.
-- **Admin auth.** Every other admin route takes token + valid
-  `X-Admin-Session` for the same uid (method passkey) or the TOTP sign-in
-  (method totp). A session header that doesn't verify is 401
-  `session_expired` or `invalid_session` (bad signature, another
-  account's, revoked by a reset), with `{method: "passkey"}`; neither
-  factor is 401 `session_required {methods: ["passkey", "totp"]}`. The
-  console drops its token on all three. Money actions need the
-  last assertion within 5 minutes (TOTP: auth_time), else 401
-  `reauth_required {method: "passkey"}`.
+- **Admin auth.** Every other admin route takes the token with a valid
+  `X-Admin-Session` for the same uid, nothing else. A session header that
+  doesn't verify is 401 `session_expired` or `invalid_session` (bad
+  signature, another account's, revoked by a reset), with `{method:
+  "passkey"}`; no session is 401 `session_required {methods:
+  ["passkey"]}`. The console drops its token on all three. Money actions
+  need the last assertion within 5 minutes, else 401 `reauth_required
+  {method: "passkey"}`; svs-admin, run locally with the operator's own
+  credentials, isn't asked.
 - **Break-glass.** `gateway/scripts/admin-passkeys-reset.sh <test|prod>
   <uid> [--dry-run]`, run locally with your gcloud login: deletes that
   uid's passkeys and pending challenges, bumps its session epoch (every
@@ -1460,11 +1458,12 @@ manual case/dispute), O2–O4 reminders/overdue, O5 refund failed.
 **Admin API** — only for `ADMIN_ORIGINS` (default
 `https://admin.stereo3d.studio`; test adds
 `https://admin-test.stereo3d.studio`, `http://localhost:5174`), a
-Firebase ID token with custom claim `svs_admin: true` and a second
-factor (`firebase.sign_in_second_factor`). Errors: 403
-`origin_not_allowed`, 401 `invalid_token`, 403 `no_access`, 403
-`mfa_required`; money actions need `auth_time` within 5 minutes (401
-`reauth_required`). Every call is audited in `admin_audit_{env}`;
+Firebase ID token with custom claim `svs_admin: true` and a passkey
+admin session (`X-Admin-Session`, see "Admin passkeys (ADR 0135)").
+Errors: 403 `origin_not_allowed`, 401 `invalid_token`, 403 `no_access`,
+401 `session_required` | `session_expired` | `invalid_session`; money
+actions need a passkey assertion within 5 minutes (401 `reauth_required
+{method: "passkey"}`). Every call is audited in `admin_audit_{env}`;
 responses are `no-store`.
 
 | route | |
