@@ -1,7 +1,11 @@
+import { fileURLToPath } from "node:url";
+
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
+import { cspStrictDeps } from "./src/build/cspStrictDeps.ts";
 import { buildCsp } from "./src/lib/csp.ts";
 import { GATEWAYS } from "./src/lib/gateways.ts";
 
@@ -30,7 +34,14 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const gateway = env.VITE_GATEWAY_URL || TEST_GATEWAY;
   return {
-    plugins: [react(), cspMeta(gateway)],
+    plugins: [react(), tailwindcss(), cspStrictDeps(), cspMeta(gateway)],
+    resolve: {
+      alias: [
+        { find: /^@\//, replacement: fileURLToPath(new URL("./src/", import.meta.url)) },
+        // react-remove-scroll's <style> tag breaks style-src 'self'; see the file
+        { find: /^react-style-singleton$/, replacement: fileURLToPath(new URL("./src/lib/styleSingleton.ts", import.meta.url)) },
+      ],
+    },
     define: {
       "import.meta.env.VITE_GATEWAY_URL": JSON.stringify(gateway),
     },

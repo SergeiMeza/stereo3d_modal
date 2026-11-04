@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { AdminApi } from "./lib/api";
 import { createFirebaseAuth } from "./lib/firebaseAuth";
+import "./index.css";
 import "./styles.css";
 
 const auth = createFirebaseAuth();

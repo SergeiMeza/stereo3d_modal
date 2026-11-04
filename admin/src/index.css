@@ -1,0 +1,228 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* sonner's own stylesheet, bundled: its runtime <style> injection is
+ * stripped from the build (src/build/cspStrictDeps.ts) for the CSP */
+@import "sonner/dist/styles.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/**
+ * Spatial Video Studio admin console: tokens.
+ *
+ * Every colour the console uses is a CSS variable here, so a visual
+ * direction is applied by changing tokens, not components. The console is
+ * dark today: :root holds that palette. `.dark` is supported (Tailwind's
+ * `dark:` variant follows the class) and repeats the same values until a
+ * light theme exists; nothing turns it on.
+ */
+:root {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #e7e7ea;
+  --foreground-2: #c4c4cc; /* secondary text in tables and notes */
+  --card: #101013;
+  --card-foreground: #e7e7ea;
+  --popover: #18181d;
+  --popover-foreground: #e7e7ea;
+  --primary: #4f8cff;
+  --primary-foreground: #ffffff;
+  --secondary: #18181d;
+  --secondary-foreground: #e7e7ea;
+  --muted: #18181d;
+  --muted-foreground: #8b8b93;
+  --accent: #1e1e24;
+  --accent-foreground: #e7e7ea;
+  --border: #26262c;
+  --input: #26262c;
+  --ring: #4f8cff;
+  --table-head: #0e0e11;
+  --link: #9dbcff;
+  /* status tones: the base colour, and its readable text on dark */
+  --info: #4f8cff;
+  --info-foreground: #93b8ff;
+  --success: #34d399;
+  --success-foreground: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
+  --destructive: #f87171;
+  --destructive-foreground: #fca5a5;
+  --violet: #a78bfa;
+  --violet-foreground: #c4b5fd;
+  /* charts */
+  --chart-1: #3a82ea; /* bars, won */
+  --chart-2: #e0622a; /* lost */
+  --chart-3: #55555f; /* open */
+  --chart-grid: #1f1f25;
+  --radius: 0.625rem;
+  --font-system: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-code: ui-monospace, "SF Mono", "Geist Mono", Menlo, Consolas, monospace;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #e7e7ea;
+  --foreground-2: #c4c4cc;
+  --card: #101013;
+  --card-foreground: #e7e7ea;
+  --popover: #18181d;
+  --popover-foreground: #e7e7ea;
+  --primary: #4f8cff;
+  --primary-foreground: #ffffff;
+  --secondary: #18181d;
+  --secondary-foreground: #e7e7ea;
+  --muted: #18181d;
+  --muted-foreground: #8b8b93;
+  --accent: #1e1e24;
+  --accent-foreground: #e7e7ea;
+  --border: #26262c;
+  --input: #26262c;
+  --ring: #4f8cff;
+  --table-head: #0e0e11;
+  --link: #9dbcff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-foreground-2: var(--foreground-2);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-table-head: var(--table-head);
+  --color-link: var(--link);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-grid: var(--chart-grid);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.2);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-code);
+  --font-heading: var(--font-system);
+}
+
+/* Type scale: a dense desktop console. */
+@theme {
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.4;
+  --text-sm: 13px;
+  --text-sm--line-height: 1.45;
+  --text-base: 13.5px;
+  --text-base--line-height: 1.45;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.35;
+  --text-xl: 20px;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 1.2;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-base text-foreground antialiased;
+  }
+  /* Keyboard focus is always visible. */
+  a:focus-visible,
+  summary:focus-visible,
+  [role="row"]:focus-visible {
+    @apply rounded-sm outline-2 outline-offset-2 outline-ring;
+  }
+}
+
+/* Radix Select's own scrollbar rule; its runtime <style> is stripped for the
+ * CSP (src/build/cspStrictDeps.ts). */
+[data-radix-select-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+[data-radix-select-viewport]::-webkit-scrollbar {
+  display: none;
+}
+
+/* The app icon as a CSS background, so customer-text checks for <img>
+ * stay meaningful. */
+.brand-icon {
+  background: url(/app-icon.png) center / cover;
+}
+
+/* SVG charts on the Disputes page. */
+@layer components {
+  .chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: 8px 12px 4px;
+  }
+  .chart .grid {
+    stroke: var(--chart-grid);
+    stroke-width: 1;
+  }
+  .chart .axis {
+    fill: var(--muted-foreground);
+    font-size: 11px;
+  }
+  .chart .bar,
+  .barcell .bar {
+    fill: var(--chart-1);
+  }
+  .chart .bar.over {
+    fill: var(--destructive);
+  }
+  .chart .bar.partial {
+    opacity: 0.45;
+  }
+  .chart .refline {
+    stroke: var(--destructive);
+    stroke-width: 1.25;
+    stroke-dasharray: 6 4;
+  }
+  .chart .reflabel {
+    fill: var(--foreground-2);
+    font-size: 11px;
+  }
+  .chart .seg.won {
+    fill: var(--chart-1);
+  }
+  .chart .seg.lost {
+    fill: var(--chart-2);
+  }
+  .chart .seg.open {
+    fill: var(--chart-3);
+  }
+}
