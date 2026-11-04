@@ -64,10 +64,19 @@ describe("AdminApi", () => {
     expect(onSessionProblem).not.toHaveBeenCalled();
   });
 
-  it.each(["no_access", "mfa_required"])("reports %s as a session problem", async (code) => {
-    const { api, onSessionProblem } = make({ "GET /v1/admin/policy": () => apiError(403, code, "nope") });
-    await expect(api.policy()).rejects.toMatchObject({ code });
-    expect(onSessionProblem).toHaveBeenCalledWith(code);
+  it("reports no_access as a session problem", async () => {
+    const { api, onSessionProblem } = make({ "GET /v1/admin/policy": () => apiError(403, "no_access", "nope") });
+    await expect(api.policy()).rejects.toMatchObject({ code: "no_access" });
+    expect(onSessionProblem).toHaveBeenCalledWith("no_access");
+  });
+
+  it("drops the passkey session on session_required, whatever methods say (ADR 0135)", async () => {
+    const { api } = make({
+      "GET /v1/admin/policy": () => apiError(401, "session_required", "Confirm with your passkey.", { methods: ["passkey", "totp"] }),
+    });
+    api.session.set("sess_1");
+    await expect(api.policy()).rejects.toMatchObject({ code: "session_required" });
+    expect(api.session.get()).toBeNull();
   });
 
   it("downloads the disputes CSV as a blob", async () => {

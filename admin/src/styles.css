@@ -97,7 +97,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height: 1.45; }
 .input.bad { box-shadow: 0 0 0 1px var(--red) inset; }
 .input.num { text-align: right; font-family: var(--mono); width: 96px; }
-.input.code { text-align: center; font-size: 20px; letter-spacing: 0.3em; height: 44px; }
 .input.search { width: 280px; }
 .fsel { height: 30px; padding: 0 8px; border-radius: 8px; border: 0; background: var(--secondary); box-shadow: 0 0 0 1px var(--border) inset; color: var(--text-2); font-size: 12.5px; }
 .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--secondary); box-shadow: 0 0 0 1px var(--border) inset; }
@@ -225,8 +224,6 @@ ol.ctl p { grid-column: 2; }
 .gbtn { height: 44px; width: 100%; border-radius: 10px; border: 0; background: #fff; color: #1f1f1f; font-weight: 500; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
 .gbtn[disabled] { opacity: 0.6; cursor: progress; }
 .gbtn svg { width: 18px; height: 18px; }
-.qr { border-radius: 8px; background: #fff; padding: 6px; }
-.secret { display: block; font-family: var(--mono); font-size: 12.5px; padding: 8px; border-radius: 8px; background: var(--secondary); overflow-wrap: anywhere; user-select: all; }
 
 /* Disputes */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }

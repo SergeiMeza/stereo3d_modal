@@ -87,7 +87,7 @@ describe("case page (A2)", () => {
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(2);
   });
 
-  it("reauth_required: asks the owner to sign in again, then runs the action once more", async () => {
+  it("reauth_required {method: google}: a Google sign-in, then the action once more", async () => {
     let posts = 0;
     const auth = new FakeAuth();
     renderApp(
@@ -96,7 +96,7 @@ describe("case page (A2)", () => {
         ...base(),
         "POST /v1/admin/cases/CASE-0042/actions": () => {
           posts++;
-          return posts === 1 ? apiError(401, "reauth_required", "confirm it's you again") : { json: casePage() };
+          return posts === 1 ? apiError(401, "reauth_required", "confirm it's you again", { method: "google" }) : { json: casePage() };
         },
       },
       auth,
@@ -108,30 +108,6 @@ describe("case page (A2)", () => {
     await waitFor(() => expect(posts).toBe(2));
     expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  it("reauth with a code step", async () => {
-    let posts = 0;
-    const auth = new FakeAuth();
-    auth.reauthResult = "code";
-    renderApp(
-      "/cases/CASE-0042",
-      {
-        ...base(),
-        "POST /v1/admin/cases/CASE-0042/actions": () => {
-          posts++;
-          return posts === 1 ? apiError(401, "reauth_required", "again") : { json: casePage() };
-        },
-      },
-      auth,
-    );
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Sign in with Google" }));
-    await userEvent.type(await screen.findByLabelText("Code from your authenticator app"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
-    await waitFor(() => expect(posts).toBe(2));
-    expect(auth.submitReauthCode).toHaveBeenCalledWith("123456");
   });
 
   it("cancelling the re-auth says nothing moved", async () => {

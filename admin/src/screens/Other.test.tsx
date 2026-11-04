@@ -4,6 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { disputes } from "../test/fixtures";
 import { apiError, FakeAuth, renderApp } from "../test/harness";
+import { installWebAuthn, requestOptions } from "../test/webauthn";
+
+/** The passkey re-assertion routes, as the gateway answers them. */
+const passkeyRoutes = {
+  "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
+  "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2", expires_at: "2099-01-01T00:00:00Z", last_assertion_at: "2026-11-04T10:00:00Z" } }),
+};
 
 describe("disputes and fraud (A4)", () => {
   it("shows the rate against the reference line, open disputes and breakdowns", async () => {
@@ -174,7 +181,8 @@ describe("grants (00106)", () => {
     expect(screen.queryByRole("button", { name: "Restore promotional grants…" })).toBeNull();
   });
 
-  it("grants Pro for a preset with a reason, signing in again when asked", async () => {
+  it("grants Pro for a preset with a reason, confirming with the passkey when asked", async () => {
+    const wa = installWebAuthn();
     let posts = 0;
     const auth = new FakeAuth();
     const { calls } = renderApp(
@@ -183,10 +191,11 @@ describe("grants (00106)", () => {
         "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, grants: [] } }),
         "POST /v1/admin/accounts/uid_123/grants": ({ body }) => {
           posts++;
-          if (posts === 1) return apiError(401, "reauth_required", "again");
+          if (posts === 1) return apiError(401, "reauth_required", "again", { method: "passkey" });
           const b = body as { entitlement: string; ends_at: string; reason: string };
           return { status: 201, json: { grant: grant({ id: "gr_9", entitlement: b.entitlement, ends_at: b.ends_at, reason: b.reason }) } };
         },
+        ...passkeyRoutes,
       },
       auth,
     );
@@ -200,9 +209,11 @@ describe("grants (00106)", () => {
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "conference speaker");
     await userEvent.click(within(sheet).getByRole("button", { name: "Grant Business" }));
     const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
-    await userEvent.click(within(reauth).getByRole("button", { name: "Sign in with Google" }));
+    await userEvent.click(within(reauth).getByRole("button", { name: "Use your passkey" }));
     await waitFor(() => expect(posts).toBe(2));
-    expect(auth.reauthenticate).toHaveBeenCalledTimes(1);
+    expect(wa.get).toHaveBeenCalledTimes(1);
+    expect(auth.reauthenticate).not.toHaveBeenCalled();
+    wa.uninstall();
     const body = calls.filter((c) => c.method === "POST").at(-1)!.body as { entitlement: string; ends_at: string; reason: string };
     expect(body.entitlement).toBe("business");
     expect(body.reason).toBe("conference speaker");
@@ -290,14 +301,16 @@ describe("grants (00106)", () => {
       case_id: "CASE-0051",
       created_at: "2026-11-01T00:00:00Z",
     };
+    const wa = installWebAuthn();
     const auth = new FakeAuth();
     const { calls } = renderApp(
       "/accounts/uid_123",
       {
+        ...passkeyRoutes,
         "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, promo_regrants: [lost] } }),
         "POST /v1/admin/accounts/uid_123/actions": () => {
           posts++;
-          if (posts === 1) return apiError(401, "reauth_required", "again");
+          if (posts === 1) return apiError(401, "reauth_required", "again", { method: "passkey" });
           return {
             json: {
               ...account,
@@ -316,8 +329,9 @@ describe("grants (00106)", () => {
     expect(within(sheet).getByRole("button", { name: "Restore" })).toBeDisabled();
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "bank error");
     await userEvent.click(within(sheet).getByRole("button", { name: "Restore" }));
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Confirm it's you" })).getByRole("button", { name: "Sign in with Google" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Confirm it's you" })).getByRole("button", { name: "Use your passkey" }));
     await waitFor(() => expect(screen.getByTestId("regrant-pr_2")).toHaveTextContent("Restored by owner@example.com: bank error"));
+    wa.uninstall();
     expect(calls.filter((c) => c.method === "POST").at(-1)!.body).toEqual({ action: "restore_promo_grants", note: "bank error" });
     expect(screen.queryByRole("button", { name: "Restore promotional grants…" })).toBeNull();
   });
@@ -364,38 +378,13 @@ describe("sign-in and session states (A0)", () => {
     expect(auth.signOut).toHaveBeenCalled();
   });
 
-  it("enrolment prompt shows the QR code and key, then turns the factor on", async () => {
-    const auth = new FakeAuth({ kind: "enrol", email: "owner@example.com", hasFactor: false });
-    renderApp("/cases", {}, auth);
-    await userEvent.click(screen.getByRole("button", { name: "Set up an authenticator app" }));
-    expect(await screen.findByAltText("QR code for your authenticator app")).toBeInTheDocument();
-    expect(screen.getByText("ABCDEF")).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText("Code"), "654321");
-    await userEvent.click(screen.getByRole("button", { name: "Turn on" }));
-    expect(auth.finishEnrolment).toHaveBeenCalledWith("654321");
-  });
-
-  it("code step after Google", async () => {
-    const auth = new FakeAuth({ kind: "code", label: "Authenticator app" });
-    renderApp("/cases", {}, auth);
-    await userEvent.type(screen.getByLabelText("Code"), "111222");
-    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(auth.submitCode).toHaveBeenCalledWith("111222");
-  });
-
-  it("a gateway mfa_required moves the session to enrolment", async () => {
-    const auth = new FakeAuth();
-    renderApp("/cases", { "GET /v1/admin/cases": () => apiError(403, "mfa_required", "sign in with your second factor") }, auth);
-    await waitFor(() => expect(auth.reportProblem).toHaveBeenCalledWith("mfa_required"));
-  });
-
   it("an expired token that can't refresh ends the session", async () => {
     const auth = new FakeAuth();
     renderApp("/cases", { "GET /v1/admin/cases": () => apiError(401, "invalid_token", "expired") }, auth);
     await waitFor(() => expect(auth.reportProblem).toHaveBeenCalledWith("invalid_token"));
   });
 
-  it("ready: the nav shows the open count", async () => {
+  it("signed in: the nav shows the open count", async () => {
     renderApp("/cases", {
       "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 3, overdue: 0, due_today: 0 } } }),
     });

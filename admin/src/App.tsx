@@ -28,9 +28,8 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
   useEffect(() => {
     if (state.kind === "signed_out" || state.kind === "no_access") api.session.clear();
   }, [state.kind, api]);
-  // ready: Google with the authenticator code; passkey: Google, then the
-  // passkey session (ADR 0135).
-  const signedIn = state.kind === "ready" || (state.kind === "passkey" && session !== null);
+  // Signed in = Google with the claim, then the passkey session (ADR 0135).
+  const signedIn = state.kind === "passkey" && session !== null;
   if (!signedIn) return <SignInScreen auth={auth} state={state} api={api} />;
   return (
     <ServicesProvider api={api} auth={auth} email={state.email}>
@@ -71,7 +70,7 @@ function Shell() {
         </nav>
         <span className="grow" />
         <DisputeBadge alert={disputeAlert} />
-        <span className="muted small">MFA on</span>
+        <span className="muted small">Passkey on</span>
         <span className="avatar" title={email} aria-label={email}>
           {(email[0] ?? "A").toUpperCase()}
         </span>

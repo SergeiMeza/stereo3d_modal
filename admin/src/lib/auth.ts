@@ -1,52 +1,31 @@
-import type { SessionProblem, SessionProblemDetails } from "./api";
+import type { SessionProblem } from "./api";
 
 /**
- * Sign-in state for the console (A0). The Firebase implementation lives in
- * firebaseAuth.ts; tests pass a fake.
+ * Sign-in state for the console (A0): Google (Firebase), then the passkey
+ * (ADR 0135; the passkey session lives in AdminSession). The Firebase
+ * implementation lives in firebaseAuth.ts; tests pass a fake.
  */
 export type AuthState =
   | { kind: "loading" }
   | {
       kind: "signed_out";
-      /** expired: the session ended; enrolled: a factor was just added. */
-      notice?: "expired" | "enrolled";
+      /** expired: the session ended. */
+      notice?: "expired";
       error?: string;
     }
-  /** Google is done; the authenticator code is next. */
-  | { kind: "code"; label: string; error?: string }
-  /** Google is done and the claim is there; the passkey is next (ADR 0135).
-   * The authenticator code stays available while the gateway accepts it. */
-  | {
-      kind: "passkey";
-      email: string;
-      uid: string;
-      hasFactor: boolean;
-      /** the gateway's second factors (401 session_required); unknown = both */
-      methods?: string[];
-    }
-  /** Signed in with the claim but no second factor yet. */
-  | { kind: "enrol"; email: string; hasFactor: boolean; error?: string }
-  | { kind: "no_access"; email: string }
-  | { kind: "ready"; email: string; uid: string };
-
-export interface Enrolment {
-  qrDataUrl: string;
-  secretKey: string;
-}
+  /** Google is done and the claim is there; the passkey is next. */
+  | { kind: "passkey"; email: string; uid: string }
+  | { kind: "no_access"; email: string };
 
 export interface AdminAuth {
   getState(): AuthState;
   subscribe(listener: () => void): () => void;
   signIn(): Promise<void>;
-  submitCode(code: string): Promise<void>;
-  startEnrolment(): Promise<Enrolment>;
-  finishEnrolment(code: string): Promise<void>;
-  /** Fresh sign-in for money actions: "code" when a code is needed next. */
-  reauthenticate(): Promise<"done" | "code">;
-  submitReauthCode(code: string): Promise<void>;
+  /** A fresh Google sign-in (the first passkey needs one within 5 minutes). */
+  reauthenticate(): Promise<void>;
   getToken(force?: boolean): Promise<string | null>;
-  /** The gateway refused the session (expired token, no claim, no MFA). */
-  reportProblem(problem: SessionProblem, details?: SessionProblemDetails): void;
+  /** The gateway refused the Google session (expired token, no claim). */
+  reportProblem(problem: SessionProblem): void;
   /** Re-reads the claims (after the owner sets svs_admin). */
   recheck(): Promise<void>;
   signOut(): Promise<void>;
@@ -60,16 +39,6 @@ export function authErrorMessage(code: string | undefined): string {
       return "Sign-in was closed before it finished.";
     case "auth/popup-blocked":
       return "The browser blocked the sign-in window. Allow pop-ups for this site and try again.";
-    case "auth/invalid-verification-code":
-    case "auth/invalid-totp-code":
-    case "auth/missing-code":
-      return "That code didn't work. Enter the current code from your authenticator app.";
-    case "auth/operation-not-allowed":
-    case "auth/admin-restricted-operation":
-    case "auth/unsupported-first-factor":
-      return "Second factors aren't turned on for this Firebase project yet (BL-23).";
-    case "auth/requires-recent-login":
-      return "Sign in again, then add the second factor.";
     case "auth/user-mismatch":
       return "That was a different Google account. Sign in with the admin account.";
     case "auth/network-request-failed":

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { Button, Field, Sheet } from "../components/ui";
+import { Button, Sheet } from "../components/ui";
 import { AdminApi, ApiError } from "./api";
 import type { AdminAuth } from "./auth";
 import { assertPasskey, PASSKEY_COPY, passkeyErrorMessage } from "./passkeys";
@@ -21,9 +21,8 @@ interface Services {
   email: string;
   /**
    * Runs a money action; on 401 reauth_required asks the owner to confirm
-   * (the passkey when the gateway names {method: "passkey"} or the session
-   * is a passkey one, ADR 0135; otherwise Google, then the code) and runs
-   * it once more.
+   * with the passkey (ADR 0135; a Google sign-in when the gateway names
+   * {method: "google"}) and runs it once more.
    */
   withReauth: <T>(fn: () => Promise<T>) => Promise<T>;
 }
@@ -68,13 +67,12 @@ export function ServicesProvider({
         return await fn();
       } catch (err) {
         if (!(err instanceof ApiError) || err.code !== "reauth_required") throw err;
-        const method = err.details?.method;
-        how = method === "passkey" || (method === undefined && api.session.get()) ? "passkey" : "google";
+        how = err.details?.method === "google" ? "google" : "passkey";
       }
       await ask(how);
       return fn();
     },
-    [ask, api],
+    [ask],
   );
 
   const finish = (err?: Error) => {
@@ -142,39 +140,16 @@ function PasskeyReauthSheet({ api, onDone, onCancel }: { api: AdminApi; onDone: 
   );
 }
 
-function ReauthSheet({
-  auth,
-  onDone,
-  onCancel,
-}: {
-  auth: AdminAuth;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [step, setStep] = useState<"start" | "code">("start");
-  const [code, setCode] = useState("");
+/** A fresh Google sign-in, when the gateway asks for one
+ * ({method: "google"}); then the action runs again. */
+function ReauthSheet({ auth, onDone, onCancel }: { auth: AdminAuth; onDone: () => void; onCancel: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
   const start = async () => {
     setBusy(true);
     setError("");
     try {
-      const r = await auth.reauthenticate();
-      if (r === "done") onDone();
-      else setStep("code");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submit = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await auth.submitReauthCode(code);
+      await auth.reauthenticate();
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -182,42 +157,22 @@ function ReauthSheet({
       setBusy(false);
     }
   };
-
   return (
     <Sheet
       title="Confirm it's you"
-      subtitle="Money actions need a sign-in within the last 5 minutes."
+      subtitle="This needs a Google sign-in within the last 5 minutes."
       onClose={onCancel}
       busy={busy}
       footer={
         <>
           <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
-          {step === "start" ? (
-            <Button variant="primary" onClick={start} disabled={busy}>
-              {busy ? "Working…" : "Sign in with Google"}
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={submit} disabled={busy || code.trim().length < 6}>
-              {busy ? "Working…" : "Confirm"}
-            </Button>
-          )}
+          <Button variant="primary" onClick={() => void start()} disabled={busy}>
+            {busy ? "Working…" : "Sign in with Google"}
+          </Button>
         </>
       }
     >
-      {step === "code" && (
-        <Field label="Code from your authenticator app">
-          <input
-            className="input mono"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={8}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            onKeyDown={(e) => e.key === "Enter" && code.length >= 6 && void submit()}
-          />
-        </Field>
-      )}
-      {step === "start" && <p className="muted small">Then the action runs again.</p>}
+      <p className="muted small">Then the action runs again.</p>
       {error && <p className="err small" role="alert">{error}</p>}
     </Sheet>
   );

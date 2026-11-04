@@ -3,10 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AdminSession, memoryStorage } from "../lib/adminSession";
-import { apiError, FakeAuth, renderApp } from "../test/harness";
+import { apiError, FakeAuth, noSession, renderApp } from "../test/harness";
 import { creationOptions, installWebAuthn, notAllowed, requestOptions } from "../test/webauthn";
 
-const googleDone = () => new FakeAuth({ kind: "passkey", email: "owner@example.com", uid: "owner", hasFactor: false });
+const googleDone = () => new FakeAuth({ kind: "passkey", email: "owner@example.com", uid: "owner" });
 const cases = { "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 0, overdue: 0, due_today: 0 } } }) };
 
 let wa: ReturnType<typeof installWebAuthn>;
@@ -27,6 +27,7 @@ describe("passkey sign-in (ADR 0135)", () => {
         }),
       },
       googleDone(),
+      noSession(),
     );
     expect(await screen.findByText("Use your passkey to finish signing in.")).toBeInTheDocument();
     expect(screen.getByText(/A passkey uses Face ID, Touch ID, your phone or a security key. Nothing to type./)).toBeInTheDocument();
@@ -57,6 +58,7 @@ describe("passkey sign-in (ADR 0135)", () => {
         "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2" } }),
       },
       googleDone(),
+      noSession(),
     );
     await userEvent.click(await screen.findByRole("button", { name: "Set up a passkey" }));
     expect(await screen.findByText("Passkey added. Use it to sign in.")).toBeInTheDocument();
@@ -88,6 +90,7 @@ describe("passkey sign-in (ADR 0135)", () => {
         "POST /v1/admin/passkeys/register/verify": () => ({ status: 201, json: { passkey: { id: "pk_1", name: "Mac", created_at: "2026-11-04T10:00:00Z", last_used_at: null } } }),
       },
       auth,
+      noSession(),
     );
     await userEvent.click(await screen.findByRole("button", { name: "Set up a passkey" }));
     expect(await screen.findByText("Passkey added. Use it to sign in.")).toBeInTheDocument();
@@ -107,6 +110,7 @@ describe("passkey sign-in (ADR 0135)", () => {
         },
       },
       googleDone(),
+      noSession(),
     );
     wa.fail.get = notAllowed();
     await waitFor(() => expect(screen.getByRole("button", { name: "Use your passkey" })).toBeEnabled());
@@ -115,41 +119,15 @@ describe("passkey sign-in (ADR 0135)", () => {
     await waitFor(() => expect(options).toBe(2));
   });
 
-  it("keeps the authenticator code one link away", async () => {
-    renderApp("/cases", { "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }) }, googleDone());
-    await userEvent.click(await screen.findByRole("button", { name: "Use an authenticator code instead" }));
-    expect(screen.getByRole("button", { name: "Set up an authenticator app" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Use a passkey instead" }));
+  it("401 session_required shows the passkey step whatever methods say, with no other option", async () => {
+    renderApp("/cases", {
+      "GET /v1/admin/cases": () =>
+        apiError(401, "session_required", "Confirm with your passkey (or sign in with your second factor).", { methods: ["passkey", "totp"] }),
+      "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "x" } }),
+    });
     expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
-  });
-
-  it("401 session_required {methods: passkey, totp}: the passkey step with the code link", async () => {
-    const auth = new FakeAuth();
-    renderApp(
-      "/cases",
-      {
-        "GET /v1/admin/cases": () =>
-          apiError(401, "session_required", "Confirm with your passkey (or sign in with your second factor).", { methods: ["passkey", "totp"] }),
-        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "x" } }),
-      },
-      auth,
-    );
-    expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
-    expect(auth.problems).toContain("session_required");
-    expect(screen.getByRole("button", { name: "Use an authenticator code instead" })).toBeInTheDocument();
-  });
-
-  it("no TOTP link when the gateway takes only the passkey", async () => {
-    renderApp(
-      "/cases",
-      {
-        "GET /v1/admin/cases": () => apiError(401, "session_required", "Confirm with your passkey.", { methods: ["passkey"] }),
-        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "x" } }),
-      },
-      new FakeAuth(),
-    );
-    expect(await screen.findByRole("button", { name: "Use your passkey" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use an authenticator code instead" })).toBeNull();
+    expect(screen.queryByText(/authenticator/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /code/i })).toBeNull();
   });
 
   it("an ended passkey session asks for the passkey again", async () => {

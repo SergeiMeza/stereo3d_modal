@@ -42,9 +42,10 @@ export class FakeAuth implements AdminAuth {
   tokens = 0;
   reauths = 0;
   problems: string[] = [];
-  reauthResult: "done" | "code" = "done";
 
-  constructor(state: AuthState = { kind: "ready", email: "owner@example.com", uid: "owner" }) {
+  /** Google done with the claim; with a passkey session (renderApp's
+   * default) the console is open. */
+  constructor(state: AuthState = { kind: "passkey", email: "owner@example.com", uid: "owner" }) {
     this.state = state;
   }
   set(s: AuthState) {
@@ -57,24 +58,15 @@ export class FakeAuth implements AdminAuth {
     return () => this.listeners.delete(l);
   };
   signIn = vi.fn(async () => {});
-  submitCode = vi.fn(async () => {});
-  startEnrolment = vi.fn(async () => ({ qrDataUrl: "data:image/png;base64,AAAA", secretKey: "ABCDEF" }));
-  finishEnrolment = vi.fn(async () => {});
   reauthenticate = vi.fn(async () => {
     this.reauths++;
-    return this.reauthResult;
   });
-  submitReauthCode = vi.fn(async () => {});
   getToken = vi.fn(async (force?: boolean) => {
     if (force) this.tokens++;
     return `token-${this.tokens}`;
   });
-  reportProblem = vi.fn((p: string, d?: { methods?: string[] }) => {
+  reportProblem = vi.fn((p: string) => {
     this.problems.push(p);
-    // like the Firebase auth: no second factor on a call → the passkey step
-    if (p === "session_required" && (this.state.kind === "ready" || this.state.kind === "passkey")) {
-      this.set({ kind: "passkey", email: this.state.email, uid: this.state.uid, hasFactor: false, methods: d?.methods });
-    }
   });
   recheck = vi.fn(async () => {});
   signOut = vi.fn(async () => {
@@ -82,17 +74,29 @@ export class FakeAuth implements AdminAuth {
   });
 }
 
+/** A passkey session, as after "Use your passkey". */
+export function passkeySession(token = "sess_test") {
+  const s = new AdminSession(memoryStorage());
+  s.set(token);
+  return s;
+}
+
+/** No passkey session yet: the passkey step shows. */
+export function noSession() {
+  return new AdminSession(memoryStorage());
+}
+
 export function renderApp(
   path: string,
   routes: Record<string, Handler>,
   auth = new FakeAuth(),
-  session = new AdminSession(memoryStorage()),
+  session = passkeySession(),
 ) {
   const { fetch, calls } = fakeFetch(routes);
   const api = new AdminApi({
     baseUrl: GATEWAY,
     getToken: (f) => auth.getToken(f),
-    onSessionProblem: (p, d) => (d ? auth.reportProblem(p, d) : auth.reportProblem(p)),
+    onSessionProblem: (p) => auth.reportProblem(p),
     fetchImpl: fetch,
     session,
   });

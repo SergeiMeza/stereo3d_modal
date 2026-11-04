@@ -10,7 +10,7 @@ const auth = createFirebaseAuth();
 const api = new AdminApi({
   baseUrl: import.meta.env.VITE_GATEWAY_URL as string,
   getToken: (force) => auth.getToken(force),
-  onSessionProblem: (p, d) => auth.reportProblem(p, d),
+  onSessionProblem: (p) => auth.reportProblem(p),
 });
 
 createRoot(document.getElementById("root")!).render(
