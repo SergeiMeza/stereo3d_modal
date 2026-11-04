@@ -8,6 +8,7 @@ import type {
   MailPreviewsResponse,
   OnboardingHeadsets,
   PlansSurfaces,
+  FeedbackList,
   OpenCaseBody,
   PolicyResponse,
   Tab,
@@ -176,6 +177,12 @@ export class AdminApi {
       `/v1/admin/accounts/${encodeURIComponent(uid)}/actions`,
       body,
     );
+  }
+
+  /** Feedback from the web and the apps, read only (owner 2026-11-04). */
+  feedback(days: number, platform: string): Promise<FeedbackList> {
+    const q = new URLSearchParams({ days: String(days), ...(platform ? { platform } : {}) });
+    return this.json("GET", `/v1/admin/feedback?${q.toString()}`);
   }
 
   plansSurfaces(days: number): Promise<PlansSurfaces> {

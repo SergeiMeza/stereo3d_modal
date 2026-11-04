@@ -7,7 +7,7 @@
 
 import type { Metadata } from "next";
 
-import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { FEEDBACK_EMAIL } from "@/lib/contact";
 import { LandingContent } from "@/components/landing/LandingContent";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 

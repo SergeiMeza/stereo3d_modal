@@ -229,3 +229,24 @@ describe("plans surfaces (owner 2026-11-04)", () => {
     expect(calls.at(-1)!.url).toContain("days=30");
   });
 });
+
+describe("feedback (owner 2026-11-04)", () => {
+  it("lists web and app feedback, read only, by platform", async () => {
+    const { calls } = renderApp("/feedback", {
+      "GET /v1/admin/feedback": () => ({
+        json: {
+          days: 30,
+          items: [
+            { id: "f1", created_at: "2026-11-04T01:00:00Z", platform: "web", kind: "problem", message: "Preview stalls", email: "a@b.com", ok_to_contact: true, context: { route: "/projects/p1", project_id: "p1" } },
+            { id: "f2", created_at: "2026-11-03T01:00:00Z", platform: "ios", kind: "idea", message: "Batch export", app_version: "10.5.3" },
+          ],
+        },
+      }),
+    });
+    const table = await screen.findByTestId("feedback-list");
+    expect(table).toHaveTextContent("Preview stalls");
+    expect(table).toHaveTextContent("iPhone/iPad 10.5.3");
+    expect(table).toHaveTextContent("project p1");
+    expect(calls.at(-1)!.url).toContain("days=30");
+  });
+});

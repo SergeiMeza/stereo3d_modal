@@ -501,3 +501,24 @@ export interface MailPreviewsResponse {
   mails: MailPreview[] | null;
   deny_templates: Record<string, string> | null;
 }
+
+/** GET /v1/admin/feedback?days=&platform= (owner 2026-11-04): what people
+ * sent from the web app and the apps, newest first. */
+export interface FeedbackItem {
+  id: string;
+  created_at: string;
+  /** "web", or the app's platform ("ios", "macos", "visionos"…) */
+  platform: string;
+  kind: string;
+  message: string;
+  email?: string | null;
+  uid?: string | null;
+  ok_to_contact?: boolean;
+  app_version?: string | null;
+  context?: { route?: string; project_id?: string; run_id?: string; locale?: string } | null;
+}
+
+export interface FeedbackList {
+  days: number;
+  items: FeedbackItem[] | null;
+}

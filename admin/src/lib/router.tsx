@@ -20,6 +20,7 @@ export type Route =
   | { name: "disputes" }
   | { name: "onboarding" }
   | { name: "plans" }
+  | { name: "feedback" }
   | { name: "mails" }
   | { name: "policy" }
   | { name: "not_found" };
@@ -35,6 +36,7 @@ export function parseRoute(pathname: string): Route {
   if (a === "disputes" && parts.length === 1) return { name: "disputes" };
   if (a === "onboarding" && parts.length === 1) return { name: "onboarding" };
   if (a === "plans" && parts.length === 1) return { name: "plans" };
+  if (a === "feedback" && parts.length === 1) return { name: "feedback" };
   if (a === "mails" && parts.length === 1) return { name: "mails" };
   if (a === "policy" && parts.length === 1) return { name: "policy" };
   return { name: "not_found" };
@@ -48,6 +50,7 @@ export const paths = {
   disputes: () => "/disputes",
   onboarding: () => "/onboarding",
   plans: () => "/plans",
+  feedback: () => "/feedback",
   mails: () => "/mails",
   policy: () => "/policy",
 };

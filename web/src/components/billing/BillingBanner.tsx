@@ -17,7 +17,7 @@
 import { AlertCircleIcon, LockIcon } from "lucide-react";
 import type { JSX } from "react";
 
-import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { FEEDBACK_EMAIL } from "@/lib/contact";
 import {
   CONFIRMING,
   PAYMENT_PROBLEM as PROBLEM,

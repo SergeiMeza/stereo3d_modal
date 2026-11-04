@@ -22,7 +22,7 @@
 import { Eye, Focus, Layers, Maximize2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
-import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { openFeedback } from "@/components/FeedbackLink";
 import { HeroLoop } from "@/components/landing/HeroLoop";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { ProductTour } from "@/components/landing/ProductTour";
@@ -287,13 +287,16 @@ export function LandingContent() {
         </p>
         <p className="mt-8 text-xs text-fg-muted">
           Something missing or broken?{" "}
-          <a
-            href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Spatial Video Studio on the web feedback")}`}
-            onClick={() => track("lp_feedback_click")}
+          <button
+            type="button"
+            onClick={() => {
+              track("lp_feedback_click");
+              openFeedback();
+            }}
             className="text-primary hover:underline"
           >
             Tell us
-          </a>
+          </button>
           .
         </p>
       </section>
@@ -315,12 +318,9 @@ export function LandingContent() {
             <Link href="/terms" className="transition-colors hover:text-fg">
               Terms of Use
             </Link>
-            <a
-              href={`mailto:${FEEDBACK_EMAIL}`}
-              className="transition-colors hover:text-fg"
-            >
-              {FEEDBACK_EMAIL}
-            </a>
+            <button type="button" onClick={openFeedback} className="transition-colors hover:text-fg">
+              Feedback
+            </button>
           </div>
           <p>© {new Date().getFullYear()} Spatial AI Labs Ltd</p>
         </div>

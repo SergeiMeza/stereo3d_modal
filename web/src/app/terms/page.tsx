@@ -10,7 +10,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { FEEDBACK_EMAIL } from "@/lib/contact";
 import { LEGAL_EFFECTIVE_DATE } from "@/components/legal/effectiveDate";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 

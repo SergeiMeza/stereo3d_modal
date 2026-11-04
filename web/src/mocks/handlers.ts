@@ -408,6 +408,10 @@ interface DB {
   sampleSeeded: boolean;
   /** POST /v1/events, newest last */
   events: { name: string; props: Record<string, unknown>; at: string }[];
+  /** POST /v1/feedback, newest last (signed_in: a token came with it) */
+  feedback: { body: Record<string, unknown>; signed_in: boolean; at: string }[];
+  /** the next feedback post fails with this status */
+  nextFeedbackStatus: number | null;
   /** 00081: POST /v1/conversions/{id}/plays received */
   plays: { conversion_id: string; file: string; kind: string }[];
   /** free previews used: this period, today, and the intro one */
@@ -792,6 +796,8 @@ function seed(): DB {
     sampleSeeding: !(typeof process !== "undefined" && process.env?.VITEST),
     sampleSeeded: false,
     events: [],
+    feedback: [],
+    nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
 }
@@ -821,6 +827,8 @@ export const mockDb = {
     this.sampleSeeding = fresh.sampleSeeding;
     this.sampleSeeded = fresh.sampleSeeded;
     this.events = fresh.events;
+    this.feedback = fresh.feedback;
+    this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
     this.gpuWaitPolls = fresh.gpuWaitPolls;
@@ -2899,6 +2907,26 @@ export const handlers = [
     }
     mockDb.events.push({ name: "contact", props: { ...body }, at: new Date().toISOString() });
     return HttpResponse.json({ sent: true });
+  }),
+
+  // owner 2026-11-04: in-app feedback, the app's store (mocked until it lands)
+  http.post(`${GATEWAY}/v1/feedback`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const signedIn = (request.headers.get("Authorization") ?? "").startsWith("Bearer ");
+    if (mockDb.nextFeedbackStatus) {
+      const status = mockDb.nextFeedbackStatus;
+      mockDb.nextFeedbackStatus = null;
+      return err(status, status === 429 ? "rate_limited" : "server_error", "couldn't send");
+    }
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (!["idea", "problem", "other"].includes(String(body.kind)) || message.length < 1 || message.length > 5000) {
+      return err(400, "invalid_request", "kind and a message of 1–5000 characters are required");
+    }
+    if (!signedIn && !(typeof body.email === "string" && body.email.includes("@"))) {
+      return err(400, "invalid_request", "email is required when signed out");
+    }
+    mockDb.feedback.push({ body, signed_in: signedIn, at: new Date().toISOString() });
+    return HttpResponse.json({ sent: true, id: `fb${mockDb.feedback.length}` });
   }),
 
   // our own product events (onboarding answers): stored with the account

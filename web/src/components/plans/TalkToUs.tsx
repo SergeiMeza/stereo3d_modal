@@ -16,7 +16,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { JSX } from "react";
 
-import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
+import { FEEDBACK_EMAIL } from "@/lib/contact";
 import { formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { usePricing } from "@/lib/api/usePricing";

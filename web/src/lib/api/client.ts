@@ -142,6 +142,16 @@ export function normalizeDownloads(raw: unknown): Downloads {
 export const UPLOAD_AGAIN = "Upload the video again to make new 3D";
 export const FILES_DELETED_MESSAGE = `This project's files have been deleted. ${UPLOAD_AGAIN}.`;
 
+export type FeedbackKind = "idea" | "problem" | "other";
+
+export interface FeedbackBody {
+  kind: FeedbackKind;
+  message: string;
+  email?: string;
+  ok_to_contact: boolean;
+  context: { route: string; project_id?: string; run_id?: string; locale: string };
+}
+
 export class GatewayError extends Error {
   constructor(
     public readonly code: string,
@@ -356,6 +366,12 @@ export class GatewayClient {
     team_size?: string;
   }): Promise<{ sent: boolean }> {
     return this.request("POST", "/v1/contact", body);
+  }
+
+  /** In-app feedback (owner 2026-11-04; the app's store): with the
+   * account's token when signed in, without one otherwise. */
+  sendFeedback(body: FeedbackBody, opts: { signedIn: boolean }): Promise<{ sent?: boolean; id?: string }> {
+    return this.request("POST", "/v1/feedback", body, undefined, { anonymous: !opts.signedIn });
   }
 
   /** Our own product events (onboarding answers etc.), stored by the
