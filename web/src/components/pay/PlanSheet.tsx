@@ -7,6 +7,7 @@
  */
 
 import { LockIcon } from "lucide-react";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
@@ -17,6 +18,9 @@ import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { isWebPro, useProStatus, type ProStatus } from "@/lib/pro/usePro";
+import { planChangeAtom, previewPlanChangeAtom } from "@/components/billing/planChangeAtoms";
+import { upgradeLine } from "@/components/billing/planChangeCopy";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -35,6 +39,35 @@ export function planStarted(def: PlanDef): string {
   return `${def.name} is on. ${formatCentsShort(def.credit_cents)} of usage is ready.`;
 }
 
+/** QA 2026-11-05: the Pro this account already has, before a plan starts
+ * (copy only: prices and plan logic don't change). */
+export function proNoteFor(pro: ProStatus | null, planName: string): string | null {
+  if (!pro?.pro) return null;
+  if (pro.source === "app_store") return "Your App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+  if (pro.source === "mac_app_store")
+    return "Your Mac App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+  if (pro.source === "promotional") return `Your Pro from Spatial Video Studio keeps running alongside ${planName}.`;
+  return null;
+}
+
+/** A web Pro: what the plan-change preview says about the Pro it replaces. */
+function WebProNote({ plan, name }: { plan: "business" | "studio"; name: string }): JSX.Element | null {
+  const gateway = useGateway();
+  const change = useAtomValue(planChangeAtom(SCOPE));
+  const preview = useSetAtom(previewPlanChangeAtom);
+  useEffect(() => {
+    void preview({ scope: SCOPE, client: gateway, to: plan });
+  }, [preview, gateway, plan]);
+  if (change.to !== plan || !change.preview) return null;
+  return (
+    <p data-testid="plan-pro-note" className="text-sm text-fg-muted">
+      {upgradeLine(change.preview, { from: "Pro", to: name })}
+    </p>
+  );
+}
+
+const SCOPE = "plan-sheet";
+
 export function PlanSheet({
   plan,
   def,
@@ -46,6 +79,8 @@ export function PlanSheet({
 }): JSX.Element {
   const gateway = useGateway();
   const billing = useBilling();
+  const pro = useProStatus();
+  const proNote = proNoteFor(pro, def.name);
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +185,13 @@ export function PlanSheet({
             }
           >
             <div className={`flex flex-col gap-4 ${paying ? "pointer-events-none opacity-60" : ""}`}>
+              {proNote ? (
+                <p data-testid="plan-pro-note" className="text-sm text-fg-muted">
+                  {proNote}
+                </p>
+              ) : isWebPro(pro) ? (
+                <WebProNote plan={plan} name={def.name} />
+              ) : null}
               {body}
               {phase.kind === "ready" && phase.notice ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
