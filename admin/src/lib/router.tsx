@@ -23,6 +23,7 @@ export type Route =
   | { name: "feedback" }
   | { name: "mails" }
   | { name: "policy" }
+  | { name: "security" }
   | { name: "not_found" };
 
 export function parseRoute(pathname: string): Route {
@@ -39,6 +40,7 @@ export function parseRoute(pathname: string): Route {
   if (a === "feedback" && parts.length === 1) return { name: "feedback" };
   if (a === "mails" && parts.length === 1) return { name: "mails" };
   if (a === "policy" && parts.length === 1) return { name: "policy" };
+  if (a === "security" && parts.length === 1) return { name: "security" };
   return { name: "not_found" };
 }
 
@@ -53,6 +55,7 @@ export const paths = {
   feedback: () => "/feedback",
   mails: () => "/mails",
   policy: () => "/policy",
+  security: () => "/security",
 };
 
 interface RouterValue {

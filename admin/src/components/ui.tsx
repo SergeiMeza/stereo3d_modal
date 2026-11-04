@@ -127,6 +127,7 @@ export function Sheet({
   footer,
   wide,
   busy,
+  alert,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -135,6 +136,8 @@ export function Sheet({
   footer: ReactNode;
   wide?: boolean;
   busy?: boolean;
+  /** A confirm for something that can't be undone: role alertdialog. */
+  alert?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
@@ -158,7 +161,7 @@ export function Sheet({
       <div
         ref={ref}
         className={`sheet ${wide ? "wide" : ""}`}
-        role="dialog"
+        role={alert ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-labelledby={titleId}
       >

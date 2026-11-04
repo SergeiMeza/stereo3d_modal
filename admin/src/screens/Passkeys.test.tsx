@@ -192,3 +192,99 @@ describe("money actions re-assert with the passkey (ADR 0135)", () => {
     expect(await screen.findByText(/Not confirmed. Nothing was charged or refunded./)).toBeInTheDocument();
   });
 });
+
+describe("Security: passkeys (ADR 0135)", () => {
+  const keys = [
+    { id: "pk_1", name: "Mac · Safari", created_at: "2026-11-01T10:00:00Z", last_used_at: "2026-11-04T09:00:00Z" },
+    { id: "pk_2", name: "iPhone · Safari", created_at: "2026-11-02T10:00:00Z", last_used_at: null },
+  ];
+  const signedIn = () => {
+    const session = new AdminSession(memoryStorage());
+    session.set("sess_1");
+    return session;
+  };
+
+  it("lists passkeys with created and last used", async () => {
+    renderApp("/security", { "GET /v1/admin/passkeys": () => ({ json: { passkeys: keys } }) }, googleDone(), signedIn());
+    const first = await screen.findByTestId("passkey-pk_1");
+    expect(first).toHaveTextContent("Mac · Safari");
+    expect(screen.getByTestId("passkey-pk_2")).toHaveTextContent("Never");
+    expect(screen.getByRole("link", { name: "Security" })).toHaveAttribute("href", "/security");
+  });
+
+  it("adds a passkey after a fresh assertion", async () => {
+    let list = [keys[0]];
+    let regOptions = 0;
+    const { calls } = renderApp(
+      "/security",
+      {
+        "GET /v1/admin/passkeys": () => ({ json: { passkeys: list } }),
+        "POST /v1/admin/passkeys/register/options": () => {
+          regOptions++;
+          return regOptions === 1
+            ? { status: 401, json: { success: false, error: "reauth_required", message: "again", method: "passkey" } }
+            : { json: { options: creationOptions } };
+        },
+        "POST /v1/admin/passkeys/register/verify": ({ body }) => {
+          list = [...list, { id: "pk_3", name: (body as { name: string }).name, created_at: "2026-11-04T10:00:00Z", last_used_at: null }];
+          return { json: { passkey: list.at(-1) } };
+        },
+        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2" } }),
+      },
+      googleDone(),
+      signedIn(),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Add a passkey" }));
+    const sheet = screen.getByRole("dialog", { name: "Add a passkey" });
+    const name = within(sheet).getByLabelText(/Name/);
+    await userEvent.clear(name);
+    await userEvent.type(name, "YubiKey");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Add passkey" }));
+    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Use your passkey" }));
+    expect(await screen.findByTestId("passkey-pk_3")).toHaveTextContent("YubiKey");
+    expect(wa.get).toHaveBeenCalledTimes(1);
+    expect(wa.create).toHaveBeenCalledTimes(1);
+    expect(calls.find((c) => c.path === "/v1/admin/passkeys/register/verify")!.body).toMatchObject({ name: "YubiKey" });
+    expect(screen.getByRole("status")).toHaveTextContent("Passkey added.");
+  });
+
+  it("removes a passkey after a confirm", async () => {
+    let list = keys;
+    const { calls } = renderApp(
+      "/security",
+      {
+        "GET /v1/admin/passkeys": () => ({ json: { passkeys: list } }),
+        "DELETE /v1/admin/passkeys/pk_2": () => {
+          list = [keys[0]];
+          return { json: {} };
+        },
+      },
+      googleDone(),
+      signedIn(),
+    );
+    const row = await screen.findByTestId("passkey-pk_2");
+    await userEvent.click(within(row).getByRole("button", { name: "Remove…" }));
+    const confirm = screen.getByRole("alertdialog", { name: 'Remove "iPhone · Safari"?' });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove passkey" }));
+    await waitFor(() => expect(screen.queryByTestId("passkey-pk_2")).toBeNull());
+    expect(calls.some((c) => c.method === "DELETE")).toBe(true);
+  });
+
+  it("the last passkey can't be removed", async () => {
+    renderApp(
+      "/security",
+      {
+        "GET /v1/admin/passkeys": () => ({ json: { passkeys: [keys[0]] } }),
+        "DELETE /v1/admin/passkeys/pk_1": () => apiError(409, "last_passkey", "last one"),
+      },
+      googleDone(),
+      signedIn(),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Remove…" }));
+    const confirm = screen.getByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove passkey" }));
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent("Add another passkey before removing this one.");
+  });
+});

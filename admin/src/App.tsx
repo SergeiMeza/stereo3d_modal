@@ -16,6 +16,7 @@ import { PlansSurfacesPanel } from "./screens/PlansSurfaces";
 import { FeedbackPanel } from "./screens/Feedback";
 import { MailPreviews } from "./screens/MailPreviews";
 import { PolicyPage } from "./screens/Policy";
+import { SecurityPage } from "./screens/Security";
 import { SignInScreen } from "./screens/SignIn";
 
 const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
@@ -66,6 +67,7 @@ function Shell() {
           {tab("accounts", paths.accounts(), "Accounts")}
           {tab("mails", paths.mails(), "Mail previews")}
           {tab("policy", paths.policy(), "Refund policy")}
+          {tab("security", paths.security(), "Security")}
         </nav>
         <span className="grow" />
         <DisputeBadge alert={disputeAlert} />
@@ -89,6 +91,7 @@ function Shell() {
         {route.name === "feedback" && <FeedbackPanel />}
         {route.name === "mails" && <MailPreviews />}
         {route.name === "policy" && <PolicyPage />}
+        {route.name === "security" && <SecurityPage />}
         {route.name === "not_found" && (
           <StateBox title="Nothing here.">
             <Link to={paths.cases()} className="link">Back to cases</Link>
