@@ -24,7 +24,7 @@
 
 /* eslint-disable @next/next/no-img-element -- fallback GCS thumbnail URLs. */
 
-import { useAtom } from "jotai";
+import { useAppAtom } from "@/lib/state/stores";
 import { useState, type ReactNode, type RefObject } from "react";
 
 import { PlayerBadge } from "@/components/steps/PlayerBadge";
@@ -80,7 +80,7 @@ export function PreviewViewer({
   // ~30% of the viewport height so the timeline and controls below stay on
   // screen. The box is aspect-ratio-sized off its width, so the cap is a
   // width limit: 30vh × aspect per player (the aside doubles it, + gap-2).
-  const [compact, setCompact] = useAtom(compactPlayerAtom);
+  const [compact, setCompact] = useAppAtom(compactPlayerAtom);
   const aspect = probe.width / probe.height;
   const compactMaxWidth = aside
     ? `calc(60vh * ${aspect} + 0.5rem)`

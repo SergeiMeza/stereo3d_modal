@@ -16,8 +16,10 @@
  * is authoritative; a localStorage copy could only ever be stale.
  */
 
-import { atom, getDefaultStore, type PrimitiveAtom } from "jotai";
+import { atom, type PrimitiveAtom } from "jotai";
 import { atomFamily } from "jotai-family";
+
+import { forEachStore } from "@/lib/state/stores";
 
 import type {
   Conversion,
@@ -109,22 +111,24 @@ export const priceEpochAtom = atom(0);
  * did too). A panel with no quote asks for a new one, and the attempt key
  * goes with the quote, as invalidate() does. Runs in flight are untouched. */
 export function clearStepQuotes(): void {
-  const store = getDefaultStore();
-  // the quality and edge tiles price again too (their own quotes)
-  store.set(priceEpochAtom, (n) => n + 1);
-  for (const k of checkoutFamily.getParams()) {
-    const a = checkoutFamily(k);
-    const s = store.get(a);
-    if (s.quote !== null || s.attemptKey !== null || s.pendingKey) {
-      // an answer still on its way was priced before the change: dropped
-      store.set(a, {
-        ...s,
-        quote: null,
-        previous: s.quote ?? s.previous ?? null,
-        attemptKey: null,
-        pendingKey: null,
-        seq: (s.seq ?? 0) + 1,
-      });
+  // the app store and every open project page's store (ADR 0138)
+  forEachStore((store) => {
+    // the quality and edge tiles price again too (their own quotes)
+    store.set(priceEpochAtom, (n) => n + 1);
+    for (const k of checkoutFamily.getParams()) {
+      const a = checkoutFamily(k);
+      const s = store.get(a);
+      if (s.quote !== null || s.attemptKey !== null || s.pendingKey) {
+        // an answer still on its way was priced before the change: dropped
+        store.set(a, {
+          ...s,
+          quote: null,
+          previous: s.quote ?? s.previous ?? null,
+          attemptKey: null,
+          pendingKey: null,
+          seq: (s.seq ?? 0) + 1,
+        });
+      }
     }
-  }
+  });
 }

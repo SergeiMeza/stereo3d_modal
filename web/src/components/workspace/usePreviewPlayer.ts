@@ -23,7 +23,7 @@
  * object (jsdom renders <video> but never plays; that's fine).
  */
 
-import { useAtom } from "jotai";
+import { useAppAtom } from "@/lib/state/stores";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -104,8 +104,8 @@ export function usePreviewPlayer(
   // unmount on every switch, and these should follow the user across tabs.
   // muted defaults to true (autoplay policy) — React only applies the
   // `muted` prop on mount, so changes go through the element, like speed.
-  const [speed, setSpeedState] = useAtom(playbackSpeedAtom);
-  const [muted, setMutedState] = useAtom(mutedAtom);
+  const [speed, setSpeedState] = useAppAtom(playbackSpeedAtom);
+  const [muted, setMutedState] = useAppAtom(mutedAtom);
   const onFrameRef = useRef(onFrame);
   const fpsRef = useRef(fps);
   useEffect(() => {

@@ -19,6 +19,7 @@ import { useEffect, useMemo } from "react";
 import type { GatewayClient } from "@/lib/api/client";
 import type { StepConversionRequest, StepQuoteResponse } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useAppAtomValue } from "@/lib/state/stores";
 
 import { priceEpochAtom } from "./checkoutStore";
 
@@ -78,7 +79,7 @@ export function useVariantQuotes(
   delayMs = 300,
 ): Record<string, PriceEntry | null> {
   const client = useGateway();
-  const epoch = useAtomValue(priceEpochAtom);
+  const epoch = useAppAtomValue(priceEpochAtom);
   const fetchPrice = useSetAtom(fetchPriceAtom);
   const sig = JSON.stringify(variants);
   const keys = useMemo(
