@@ -289,6 +289,8 @@ export function resolutionName(probe: { width: number; height: number }): string
 export function videoFacts(project: {
   probe?: Probe;
   scenes?: { cuts: number[] | null };
+  hdr_source?: boolean;
+  hdr_available?: boolean;
 }): string {
   const p = project.probe;
   if (!p) return "";
@@ -299,6 +301,8 @@ export function videoFacts(project: {
     resolutionName(p),
     `${fps} fps`,
     project.scenes ? `${scenes} scene${scenes === 1 ? "" : "s"}` : null,
+    // owner 2026-11-05: only once HDR output is on
+    project.hdr_available === true && project.hdr_source === true ? "HDR video" : null,
   ]
     .filter(Boolean)
     .join(" · ");

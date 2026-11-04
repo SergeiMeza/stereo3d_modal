@@ -239,6 +239,12 @@ export interface Project {
   has_bars?: boolean;
   /** Lifelike removes the bars (default true when bars are found) */
   remove_bars?: boolean;
+  /** owner 2026-11-05: the source's picture range; hdr_source = an HDR
+   * video; hdr_available = HDR output is on (until then nothing about HDR
+   * shows anywhere) */
+  dynamic_range?: "sdr" | "hlg" | "pq" | "dv_8" | "dv_5" | string;
+  hdr_source?: boolean;
+  hdr_available?: boolean;
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */
@@ -295,6 +301,8 @@ export interface Params {
   foveation?: "static" | null;
   /** pricing 2026-11: Express run (first in line) */
   express?: boolean;
+  /** owner 2026-11-05: an HDR run */
+  hdr?: boolean;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -340,8 +348,9 @@ export interface QuoteBreakdown {
   free_preview?: boolean;
 }
 
-/** Pricing 2026-11 add-ons: Foveated Detail, Master bitrate, Express. */
-export type AddOn = "foveated" | "master" | "express";
+/** Pricing 2026-11 add-ons: Foveated Detail, Master bitrate, Express;
+ * HDR output (owner 2026-11-05: included on every plan, +30% otherwise). */
+export type AddOn = "foveated" | "master" | "express" | "hdr";
 
 /** Pricing 2026-11 tiers; "" = list price. */
 export type Tier = "" | "pro" | "business" | "studio";
@@ -676,6 +685,8 @@ export interface PlanDef {
   seats?: number;
   free_previews_per_period: number;
   express_included: boolean;
+  /** owner 2026-11-05: HDR output included (sent only while it is on) */
+  hdr_included?: boolean;
   /** owner 2026-11-04: the plan's highest output frame rate (120) */
   max_fps?: number;
   /** how the plan bills ("year" for Studio; absent/"month" otherwise) and
@@ -1324,6 +1335,8 @@ export interface StepConversionRequest {
   bitrate?: Bitrate;
   /** pricing 2026-11: Express (+50%, included in Business and Studio) */
   express?: boolean;
+  /** owner 2026-11-05: HDR output (included on every plan) */
+  hdr?: boolean;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
   /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent

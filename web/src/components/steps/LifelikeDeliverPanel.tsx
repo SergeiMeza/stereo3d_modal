@@ -29,6 +29,7 @@ import { usePricing } from "@/lib/api/usePricing";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
 import { barSides } from "@/lib/bars";
+import { formatCents } from "./money";
 import { eyeSize, qualityChoices, resolutionName } from "@/lib/glossary";
 import { BarsToggle } from "@/components/workspace/BarsSetting";
 
@@ -169,6 +170,7 @@ export function LifelikeDeliverPanel({
   // included in Business and Studio, where it starts ticked)
   const addons = usePricing()?.addons;
   const [master, setMaster] = useState(false);
+  const [hdr, setHdr] = useState(false);
   const [expressChoice, setExpress] = useState<boolean | null>(null);
   // plans canvas, Quote A: pay once (always first) or with Pro
   const [payMode, setPayMode] = useState<PayMode>("once");
@@ -193,6 +195,13 @@ export function LifelikeDeliverPanel({
   const tier = ck.quote?.tier ?? "";
   const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
   const express = expressChoice ?? expressIncluded;
+  // owner 2026-11-05: HDR output for an HDR video, only once the gateway
+  // turns it on (hdr_available); off by default, included on every plan
+  const hdrOffered = project.hdr_available === true && project.hdr_source === true;
+  const hdrBreakdown = ck.quote?.quote.breakdown as Record<string, unknown> | undefined;
+  const hdrIncluded =
+    hdrBreakdown?.hdr_included === true || addons?.hdr?.included_in?.includes(tier) === true;
+  const hdrQuoted = ck.quote?.quote.breakdown?.addons?.hdr ?? hdrBreakdown?.hdr_cents;
   const plain: StepConversionRequest = {
     step: "production",
     preset,
@@ -201,6 +210,7 @@ export function LifelikeDeliverPanel({
     ...(originalEye ? { original_eye: originalEye } : {}),
     ...(addons?.master && master ? { bitrate: "master" as const } : bitrateField(bitrate)),
     ...(addons?.express && express ? { express: true } : {}),
+    ...(hdrOffered && hdr ? { hdr: true } : {}),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
@@ -350,7 +360,7 @@ export function LifelikeDeliverPanel({
               />
             </div>
           ) : null}
-          {eyeRequired || foveationOffered || addons?.master || addons?.express ? (
+          {eyeRequired || foveationOffered || addons?.master || addons?.express || hdrOffered ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -385,6 +395,28 @@ export function LifelikeDeliverPanel({
                 hint="Higher-bitrate files."
                 checked={master}
                 onChange={(v) => change(() => setMaster(v))}
+              />
+            ) : null}
+            {hdrOffered ? (
+              <AddOnRow
+                testId="addon-hdr"
+                label="HDR"
+                price={
+                  hdrIncluded
+                    ? "Included"
+                    : typeof hdrQuoted === "number" && hdrQuoted > 0
+                      ? `+${formatCents(hdrQuoted)}`
+                      : addons?.hdr
+                        ? `+${Math.round(addons.hdr.pct * 100)}%`
+                        : ""
+                }
+                hint={
+                  hdrIncluded
+                    ? "Keeps the bright highlights and rich colour of your HDR video. Looks best on Apple Vision Pro."
+                    : "Keeps the bright highlights and rich colour of your HDR video. Looks best on Apple Vision Pro. Included with Pro, Business and Studio."
+                }
+                checked={hdr}
+                onChange={(v) => change(() => setHdr(v))}
               />
             ) : null}
             {addons?.express ? (

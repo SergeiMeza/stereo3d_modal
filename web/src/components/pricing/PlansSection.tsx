@@ -36,6 +36,8 @@ export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?
     "Commercial use of your videos",
     `${def.free_previews_per_period} free previews a month`,
     ...(def.express_included ? ["Express included"] : []),
+    // owner 2026-11-05: sent only while HDR output is on
+    ...(def.hdr_included ? ["HDR included"] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
     ...(maxFps && maxFps > 30 ? [`Up to ${maxFps} fps`] : []),
     // owner 2026-11-04: no seat counts until team accounts exist

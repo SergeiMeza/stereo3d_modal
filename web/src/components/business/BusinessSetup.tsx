@@ -97,6 +97,8 @@ export function planIncludes(
     "Turn the Spatial Video Studio intro on or off",
     "Invoices with your company details",
     ...(def.express_included ? ["Express included"] : []),
+    // owner 2026-11-05: sent only while HDR output is on
+    ...(def.hdr_included ? ["HDR included"] : []),
   ];
 }
 

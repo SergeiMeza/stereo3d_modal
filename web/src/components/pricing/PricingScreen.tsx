@@ -119,6 +119,8 @@ function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
     ...(a.foveated ? ([["Foveated Detail", pct(a.foveated.pct), "More detail where you look"]] as [string, string, string][]) : []),
     ...(a.master ? ([["Master bitrate", pct(a.master.pct), "Higher-bitrate files"]] as [string, string, string][]) : []),
     ...(a.express ? ([["Express", pct(a.express.pct), "Up to about 2× faster on longer videos"]] as [string, string, string][]) : []),
+    // owner 2026-11-05: listed only once the gateway sells HDR output
+    ...(a.hdr ? ([["HDR", pct(a.hdr.pct), "For HDR videos. Included with Pro, Business and Studio"]] as [string, string, string][]) : []),
   ];
   const card = "flex flex-col gap-3 rounded-xl border border-edge bg-card p-5";
   return (
