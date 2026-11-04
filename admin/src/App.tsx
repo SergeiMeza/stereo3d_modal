@@ -24,7 +24,7 @@ import { AttentionProvider, useAttention } from "./lib/attention";
 import type { AdminAuth } from "./lib/auth";
 import { servicesAtom, type Services } from "./state/services";
 import { Link, RouterProvider, paths, useRouter } from "./lib/router";
-import { ServicesProvider, useServices } from "./lib/services";
+import { ReauthHost, useServices } from "./lib/services";
 import { AccountLookup, AccountPage } from "./screens/AccountPage";
 import { CasePage } from "./screens/CasePage";
 import { CasesList } from "./screens/CasesList";
@@ -64,13 +64,11 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
       <Provider key={signedIn ? `in:${email}` : "out"}>
         <HydrateServices services={{ api, auth, email }}>
           {signedIn ? (
-            <ServicesProvider api={api} auth={auth} email={email}>
-              <RouterProvider initialPath={initialPath}>
-                <AttentionProvider>
-                  <Shell />
-                </AttentionProvider>
-              </RouterProvider>
-            </ServicesProvider>
+            <RouterProvider initialPath={initialPath}>
+              <AttentionProvider>
+                <Shell />
+              </AttentionProvider>
+            </RouterProvider>
           ) : (
             <SignInScreen auth={auth} state={state} api={api} />
           )}
@@ -173,6 +171,7 @@ function Shell() {
           )}
         </main>
       </div>
+      <ReauthHost />
       <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
