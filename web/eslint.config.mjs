@@ -38,7 +38,8 @@ const STATE_IN_ATOMS = [
   },
   {
     selector:
-      "CallExpression[callee.name='useState'] TSTypeReference > Identifier[name=/^(Project|Conversion|Conversions|BillingStatus|BillingMethods|BillingHistory|SavedMethod|PublicPricing|GatewayLimits|AccountSettings|StepQuoteResponse|PlanChangePreview|CheckoutStart|RunFormatJob|Downloads|AccountPlan|Passkey)$/]",
+      // any server type, also inside an object or union (useState<{ uid; s: ProStatus }>)
+      "CallExpression[callee.name='useState'] TSTypeReference > Identifier[name=/^(Project|Conversion|Conversions|BillingStatus|BillingMethods|BillingHistory|BillingRow|SavedMethod|PublicPricing|GatewayLimits|AccountSettings|StepQuoteResponse|PlanChangePreview|CheckoutStart|RunFormats|RunFormatJob|Downloads|DownloadFile|AccountPlan|Passkey|ProStatus|ProPlan|PlansState|ProDiscount|InvoiceRow|CompanyDetails)$/]",
     message: "Server data in useState (ADR 0138): keep fetch results in a jotai atom (see lib/state/sharedFetch, priceAtoms, workspaceAtoms).",
   },
   {

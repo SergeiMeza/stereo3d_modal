@@ -76,7 +76,9 @@ export function ProPeriodChange(): JSX.Element | null {
   const gateway = useGateway();
   const status = useProStatus();
   const plans = useProPlans();
-  const [target, setTarget] = useState<ProPlan | null>(null);
+  // the plan being switched to, by id (its row comes from the plans)
+  const [targetId, setTarget] = useState<string | null>(null);
+  const target = plans.state === "ready" ? (plans.plans.find((p) => p.id === targetId) ?? null) : null;
   const billing = useBilling();
   // ADR 0138: the preview and the confirm live in the plan change atom
   const change = useAtomValue(planChangeAtom(SCOPE));
@@ -97,7 +99,7 @@ export function ProPeriodChange(): JSX.Element | null {
   if (others.length === 0) return null;
 
   function open(p: ProPlan): void {
-    setTarget(p);
+    setTarget(p.id);
     void previewChange({ scope: SCOPE, client: gateway, to: p.id });
   }
 

@@ -58,8 +58,6 @@ import type {
   BillingMethods,
   BillingRow,
   BillingRowStatus,
-  CompanyDetails,
-  InvoiceRow,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
@@ -67,7 +65,14 @@ import { billingUidAtom, useBilling } from "@/lib/billing";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import { qualityName } from "@/lib/glossary";
 
-import { billingHistoryAtom, loadBillingHistoryAtom } from "./billingHistoryAtoms";
+import {
+  billingHistoryAtom,
+  companyAtom,
+  invoicesAtom,
+  loadBillingHistoryAtom,
+  loadCompanyAtom,
+  loadInvoicesAtom,
+} from "./billingHistoryAtoms";
 
 const STATUS: Record<BillingRowStatus, { label: string; cls: string; help?: string }> = {
   paid: { label: "Paid", cls: "text-emerald-300" },
@@ -458,22 +463,15 @@ function MethodMenu({
  * → Business details (owner 2026-11-04). */
 function CompanySection(): JSX.Element {
   const gateway = useGateway();
-  const [company, setCompany] = useState<CompanyDetails | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  // ADR 0138: the business details live in an app-store atom
+  const state = useAppAtomValue(companyAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const loadCompany = useAppSetAtom(loadCompanyAtom);
   useEffect(() => {
-    let live = true;
-    gateway.getCompany().then(
-      (c) => {
-        if (!live) return;
-        setCompany(c);
-        setLoaded(true);
-      },
-      () => live && setLoaded(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway]);
+    void loadCompany(gateway);
+  }, [loadCompany, gateway, uid]);
+  const company = state.uid === uid ? state.company : null;
+  const loaded = state.uid === uid && state.loaded;
   const summary = companySummary(company);
   return (
     <section aria-labelledby="company" className="flex items-center gap-4 rounded-xl border border-edge bg-surface-1 px-5 py-4">
@@ -497,37 +495,22 @@ function CompanySection(): JSX.Element {
  * their invoice. */
 function InvoicesTab(): JSX.Element {
   const gateway = useGateway();
-  const [rows, setRows] = useState<InvoiceRow[] | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState(false);
+  // ADR 0138: the invoices live in an app-store atom
+  const state = useAppAtomValue(invoicesAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const mine = state.uid === uid;
+  const rows = mine ? state.rows : null;
+  const hasMore = mine && state.hasMore;
+  const error = mine && state.error;
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadInvoices = useAppSetAtom(loadInvoicesAtom);
   const load = useCallback(
-    async (after?: string) => {
-      try {
-        const l = await gateway.getInvoices(after);
-        setRows((prev) => (after && prev ? [...prev, ...l.invoices] : l.invoices));
-        setHasMore(l.has_more === true);
-        setError(false);
-      } catch {
-        if (!after) setError(true);
-      }
-    },
-    [gateway],
+    (after?: string): Promise<void> => loadInvoices({ client: gateway, after }),
+    [gateway, loadInvoices],
   );
   useEffect(() => {
-    let live = true;
-    gateway.getInvoices().then(
-      (l) => {
-        if (!live) return;
-        setRows(l.invoices);
-        setHasMore(l.has_more === true);
-      },
-      () => live && setError(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway]);
+    void load();
+  }, [load, uid]);
   if (error) {
     return (
       <div className="flex items-center gap-3 text-sm">
