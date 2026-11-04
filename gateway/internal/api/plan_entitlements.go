@@ -156,7 +156,7 @@ func (s *Service) planOwnerOfPI(pi string) (uid string, pay *stripex.PlanPayment
 // on a PaymentIntent that paid a plan invoice: a full refund removes the
 // unspent credit, a dispute or warning freezes it; all three revoke the
 // plan's app entitlement. A partial refund only alerts Slack.
-func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, cents int64) {
+func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, cents int64, caseID string) {
 	uid, pay := s.planOwnerOfPI(pi)
 	if uid == "" {
 		return
@@ -176,7 +176,7 @@ func (s *Service) planEarlyEnd(ctx context.Context, pi, why, ref string, cents i
 		if cents == 0 {
 			cents = pay.AmountPaid
 		}
-		s.promoHold(ctx, uid, "dispute:"+ref, why+" on "+pay.InvoiceID, cents, "")
+		s.promoHold(ctx, uid, "dispute:"+ref, why+" on "+pay.InvoiceID, cents, caseID)
 	case "fraud warning":
 		s.planCreditOp(ctx, uid, store.EntryPlanCreditFreeze, "efw:"+ref, "", "early fraud warning on the plan invoice", "plancredit_freeze_"+ref)
 		s.setGrantsPaused(ctx, uid, "efw:"+ref)

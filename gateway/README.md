@@ -1171,9 +1171,44 @@ dispute case (`case.promo {record_id, snapshot, status}`).
   `revoke_failed` | `regrant_failed`; nightly M3 takes it up again
   (`promo_regrant_retry`). Statuses: `started`, `snapshotted`, `held`,
   `regranting`, `done`, `kept_removed`, `merged`, and the failures.
+- A dispute on a plan invoice opens a manual dispute case like a run's
+  (`related.pi_ids`, `dispute_id`, evidence, owner notice O1) with the
+  snapshot on `case.promo`; its updates and close follow the run cases.
+  The promo outcome is written before the case closes (a closed case
+  takes no writes; a later owner restore shows on the record only).
+- The rule for disputes sits in `disputePromoPolicy` (the owner may still
+  change it).
 - Admin `GET /v1/admin/accounts/{uid}` adds `promo_regrants` (the
   records, with snapshot, `ours`, `regranted`, `skipped`, `to_grant`,
   `uncertain`, `outcome`).
+
+**Admin → Grant Pro (owner 2026-11-04).** **Runbook: never grant Pro
+from the RevenueCat dashboard; use Admin → Grant Pro.** Dashboard grants
+leave no record, and a refund or dispute can then only guess at them.
+
+- `GET /v1/admin/accounts/{uid}/grants` → `{grants: [{id, uid,
+  entitlement, ends_at, granted_by, reason, created_at, status: active |
+  expired | revoked | failed | granting, rc_error?, revoked_at?,
+  revoked_by?, revoke_reason?}]}`, newest first (also `grants` on the
+  admin account view).
+- `POST /v1/admin/accounts/{uid}/grants {entitlement: pro | business |
+  studio, ends_at: RFC 3339 (1 h to 5 years ahead), reason (≤ 500)}`,
+  fresh sign-in (401 `reauth_required`): the record on
+  `promo_grants_{env}/{id}` first, then a RevenueCat promotional grant
+  with `end_time_ms` = ends_at; audited and logged. 201 `{grant}`; 400
+  invalid; 404 `no_account` (neither a web account nor an app user); 502
+  `grant_failed {message, grant}` (record kept as `failed`); 503
+  `rc_unavailable`.
+- `DELETE /v1/admin/accounts/{uid}/grants/{id} {reason}`, fresh sign-in:
+  the record is marked revoked, then the promo flow revokes the
+  entitlement and gives every other grant back (`revoke:{id}`). 200
+  `{grant, regrant {id, status, regranted, skipped}}`; 202 when the
+  revoke or a re-grant failed (Slack, nightly retry); 404; 409
+  `grant_not_active`.
+- Refund and dispute snapshots add every active admin grant of the
+  revoked entitlements that RevenueCat's collapsed view doesn't show, so
+  a support grant hidden under a plan's grant comes back with its own end
+  (no longer `uncertain`).
 
 **Plan credit when a plan ends early (owner rules 2026-11-03).** Each
 freeze, unfreeze and removal is a balance ledger entry

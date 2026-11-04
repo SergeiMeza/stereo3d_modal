@@ -41,6 +41,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 	if recs := s.promoGrantsJSON(ctx, uid); len(recs) > 0 {
 		out["promo_regrants"] = recs
 	}
+	out["grants"] = s.adminGrantsJSON(ctx, uid)
 	if entries, _, err := s.Store.ListEntries(ctx, uid, 50, ""); err == nil {
 		out["ledger"] = entries
 	}

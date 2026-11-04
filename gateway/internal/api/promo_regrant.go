@@ -187,6 +187,8 @@ func (s *Service) promoAdvance(ctx context.Context, rec *store.PromoRegrant) {
 		for _, g := range grants {
 			snap = append(snap, store.PromoGrant{Entitlement: g.Entitlement, Product: g.Product, ExpiresAt: g.ExpiresAt})
 		}
+		// Support grants (Admin → Grant Pro) RevenueCat's collapsed view hides.
+		snap = s.withAdminGrants(ctx, rec.UID, rec.Revoked, snap)
 		if rec, err = s.Store.UpdatePromoRegrant(ctx, key, func(r *store.PromoRegrant) error {
 			if r.Status != "started" && r.Status != "snapshot_failed" {
 				return errPromoSkip

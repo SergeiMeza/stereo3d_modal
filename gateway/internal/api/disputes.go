@@ -84,22 +84,18 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 	if pi == "" && d.Charge != "" {
 		pi, _ = s.Stripe.ChargePI(d.Charge)
 	}
-	o, ok := s.ownerOfPI(pi)
-	if !ok || o.UID == "" {
-		switch eventType { // a plan invoice's payment: its credit and app entitlement
-		case "charge.dispute.created":
-			s.planEarlyEnd(ctx, pi, "dispute", d.ID, d.Amount)
-		case "charge.dispute.closed":
-			s.planDisputeClosed(ctx, pi, d.ID, disputeKept(d.Status))
-		}
-		return nil
-	}
 	var due *time.Time
 	if d.EvidenceDetails.DueBy > 0 {
 		t := time.Unix(d.EvidenceDetails.DueBy, 0).UTC()
 		due = &t
 	}
 	info := &store.DisputeInfo{ID: d.ID, Amount: d.Amount, Reason: d.Reason, Status: d.Status, DueBy: due}
+	o, ok := s.ownerOfPI(pi)
+	if !ok || o.UID == "" {
+		// A plan invoice's payment: a review case like a run's (with the
+		// promo snapshot on it), its credit and app entitlements.
+		return s.handlePlanDispute(ctx, eventType, pi, d, info, due)
+	}
 	runs := s.runsOf(ctx, o)
 	switch eventType {
 	case "charge.dispute.created":
@@ -156,6 +152,13 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 			})
 		}
 	case "charge.dispute.closed":
+		// Promotional Pro first: the closed case takes no more writes.
+		if disputeKept(d.Status) {
+			s.resumeGrantsIf(ctx, o.UID, "dispute:"+d.ID)
+			s.promoResolve(ctx, "dispute:"+d.ID, "won")
+		} else {
+			s.promoResolve(ctx, "dispute:"+d.ID, "lost")
+		}
 		cs := s.disputeCase(ctx, pi, d.ID)
 		outcome := "lost"
 		if d.Status == "won" {
@@ -188,12 +191,6 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 				return ops, nil
 			})
 		}
-		if disputeKept(d.Status) {
-			s.resumeGrantsIf(ctx, o.UID, "dispute:"+d.ID)
-			s.promoResolve(ctx, "dispute:"+d.ID, "won")
-		} else {
-			s.promoResolve(ctx, "dispute:"+d.ID, "lost")
-		}
 		if outcome == "won" {
 			for _, id := range runs {
 				s.setRunDispute(ctx, id, "")
@@ -206,6 +203,67 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 					return nil
 				})
 			}
+		}
+	}
+	return nil
+}
+
+// handlePlanDispute: a dispute on a plan invoice's payment opens a
+// manual dispute case (owner 2026-11-04), freezes the credit and holds
+// every promotional Pro; updates and the close follow the run cases.
+func (s *Service) handlePlanDispute(ctx context.Context, eventType, pi string, d stripex.Dispute, info *store.DisputeInfo, due *time.Time) error {
+	uid, pay := s.planOwnerOfPI(pi)
+	if uid == "" {
+		return nil
+	}
+	switch eventType {
+	case "charge.dispute.created":
+		cs, err := s.openCase(ctx, &store.Case{UID: uid, Type: store.CaseDispute, Reason: ReasonDispute, Mode: "manual", Source: "stripe_webhook",
+			Status: store.CaseOpen, DedupeKey: "dispute:" + d.ID, RequestedCents: d.Amount, Dispute: info, DeadlineAt: due,
+			Related: store.CaseRelated{PIIDs: []string{pi}, DisputeID: d.ID}},
+			"system", "plan invoice "+pay.InvoiceID+" disputed: "+d.Reason)
+		if err != nil {
+			return err
+		}
+		// openCase noticed the owner (O1) when it made the case.
+		s.planEarlyEnd(ctx, pi, "dispute", d.ID, d.Amount, cs.ID)
+	case "charge.dispute.updated", "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated":
+		if cs := s.disputeCase(ctx, pi, d.ID); cs != nil {
+			s.Store.UpdateCase(ctx, cs.ID, "system", func(c *store.Case) error {
+				if c.Dispute == nil {
+					c.Dispute = info
+				}
+				c.Dispute.Status, c.Dispute.DueBy = d.Status, due
+				switch eventType {
+				case "charge.dispute.funds_withdrawn":
+					c.Dispute.FundsOut = true
+				case "charge.dispute.funds_reinstated":
+					c.Dispute.FundsOut = false
+				}
+				return nil
+			})
+		}
+	case "charge.dispute.closed":
+		outcome := "lost"
+		if disputeKept(d.Status) {
+			outcome = "won"
+		}
+		// Before the case closes (a closed case takes no more writes, and
+		// the promo outcome goes on it).
+		s.planDisputeClosed(ctx, pi, d.ID, disputeKept(d.Status))
+		if cs := s.disputeCase(ctx, pi, d.ID); cs != nil && cs.Open {
+			s.Store.UpdateCase(ctx, cs.ID, "system", func(c *store.Case) error {
+				if c.Dispute == nil {
+					c.Dispute = info
+				}
+				c.Dispute.Status, c.Dispute.Outcome = d.Status, outcome
+				c.Status, c.Result = store.CaseClosed, "dispute_"+outcome
+				if outcome == "lost" {
+					c.DecidedCents = d.Amount
+				}
+				return nil
+			})
+			s.Store.AddCaseEvent(ctx, cs.ID, store.CaseEvent{Who: "system", Kind: "closed", Text: "dispute " + outcome})
 		}
 	}
 	return nil
@@ -300,7 +358,7 @@ func (s *Service) handleEFW(ctx context.Context, raw json.RawMessage) error {
 	}
 	o, ok := s.ownerOfPI(pi)
 	if !ok || o.UID == "" {
-		s.planEarlyEnd(ctx, pi, "fraud warning", w.ID, 0)
+		s.planEarlyEnd(ctx, pi, "fraud warning", w.ID, 0, "")
 		return nil
 	}
 	s.Store.UpdateCustomer(ctx, o.UID, func(c *store.Customer) error {
@@ -375,7 +433,7 @@ func (s *Service) handleRefundEvent(ctx context.Context, eventType string, raw j
 		// Maybe a plan invoice's payment: a full refund ends the plan's
 		// app entitlement early.
 		if f, ferr := s.Stripe.PaymentFactsOf(re.PaymentIntent); ferr == nil && f.Refunded > 0 {
-			s.planEarlyEnd(ctx, re.PaymentIntent, "refund", re.ID, f.Refunded)
+			s.planEarlyEnd(ctx, re.PaymentIntent, "refund", re.ID, f.Refunded, "")
 		}
 		return nil
 	}

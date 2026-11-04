@@ -296,6 +296,10 @@ func TestPromoDisputeWon(t *testing.T) {
 	if rec == nil || rec.Status != "held" || len(rec.Snapshot) != 5 || rec.AmountCents != 29900 || !sink.has("promo_grants_removed") {
 		t.Fatalf("hold %+v", rec)
 	}
+	cs := s.disputeCase(ctx, pi, dp) // a plan dispute gets a review case with the snapshot
+	if cs == nil || cs.Type != store.CaseDispute || cs.Mode != "manual" || cs.Promo == nil || len(cs.Promo.Snapshot) != 5 || cs.Promo.Status != "held" {
+		t.Fatalf("plan dispute case %+v", cs)
+	}
 	n := rc.count()
 	s.handleDisputeEvent(ctx, "charge.dispute.created", opened)
 	if rc.count() != n {
@@ -315,6 +319,9 @@ func TestPromoDisputeWon(t *testing.T) {
 	}
 	if cust, _ := s.Store.GetCustomer(ctx, uid); cust.Plan.RCRevokedAt != nil {
 		t.Fatal("M3 looks after the plan's grant again")
+	}
+	if cs = s.disputeCase(ctx, pi, dp); cs.Open || cs.Result != "dispute_won" || cs.Promo.Status != "done" {
+		t.Fatalf("case after won %+v", cs)
 	}
 	n = rc.count()
 	s.handleDisputeEvent(ctx, "charge.dispute.closed", closed)
@@ -385,5 +392,95 @@ func TestPromoEFWAndOverlap(t *testing.T) {
 	s.promoResolve(ctx, "dispute:d2"+uid, "won")
 	if pro := rc.ends(uid, "pro"); len(pro) != 2 || !(pro[0].Equal(campaign) || pro[1].Equal(campaign)) {
 		t.Fatalf("after both: pro %v", pro)
+	}
+}
+
+func grantCall(s *Service, method, uid, id, body string, fresh bool) (int, map[string]any) {
+	at := time.Now()
+	if !fresh {
+		at = at.Add(-time.Hour)
+	}
+	a := &AdminUser{UID: "admin", Email: "owner@x", AuthTime: at}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(method, "/v1/admin/accounts/"+uid+"/grants", strings.NewReader(body))
+	switch method {
+	case http.MethodPost:
+		s.HandleAdminGrantPro(w, r, a, uid)
+	case http.MethodDelete:
+		s.HandleAdminRevokeGrant(w, r, a, uid, id)
+	default:
+		s.HandleAdminGrants(w, r, a, uid)
+	}
+	var out map[string]any
+	json.Unmarshal(w.Body.Bytes(), &out)
+	return w.Code, out
+}
+
+// Admin → Grant Pro: a record, then a RevenueCat grant to ends_at. A
+// refund's snapshot adds the record RevenueCat's collapsed view hides
+// (no longer uncertain); a revoke gives every other grant back.
+func TestAdminGrantPro(t *testing.T) {
+	s, _, rc, _ := promoService(t)
+	ctx := context.Background()
+	uid, _, campaign, _ := promoAccount(t, s, rc)
+	support := ms(time.Now().Add(10 * 24 * time.Hour)) // ends before the plan's pro: hidden under it
+	body := `{"entitlement":"pro","ends_at":"` + support.Format(time.RFC3339Nano) + `","reason":"app crash on export, goodwill"}`
+	if code, out := grantCall(s, http.MethodPost, uid, "", body, false); code != http.StatusUnauthorized || out["error"] != "reauth_required" {
+		t.Fatalf("stale sign-in %d %v", code, out)
+	}
+	if code, _ := grantCall(s, http.MethodPost, uid, "", `{"entitlement":"trial","ends_at":"`+support.Format(time.RFC3339)+`","reason":"x"}`, true); code != 400 {
+		t.Fatalf("entitlement %d", code)
+	}
+	if code, _ := grantCall(s, http.MethodPost, "u"+store.NewID(), "", body, true); code != 404 {
+		t.Fatalf("unknown account %d", code)
+	}
+	code, out := grantCall(s, http.MethodPost, uid, "", body, true)
+	g, _ := out["grant"].(map[string]any)
+	if code != http.StatusCreated || g["status"] != "active" || g["granted_by"] != "owner@x" {
+		t.Fatalf("grant %d %v", code, out)
+	}
+	gid := g["id"].(string)
+	found := false
+	for _, e := range rc.ends(uid, "pro") {
+		found = found || e.Equal(support)
+	}
+	if !found {
+		t.Fatalf("RevenueCat grant to ends_at: %v", rc.ends(uid, "pro"))
+	}
+	// A refund of the plan: its pro goes; the campaign's and the support
+	// grant (from its record) come back.
+	s.revokeRefundedPlan(ctx, uid, "in_g1")
+	pro := rc.ends(uid, "pro")
+	has := func(want time.Time) bool {
+		for _, e := range pro {
+			if e.Equal(want) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(pro) != 2 || !has(campaign) || !has(support) {
+		t.Fatalf("after the refund pro %v (campaign %v support %v)", pro, campaign, support)
+	}
+	rec, _ := s.Store.GetPromoRegrant(ctx, "refund:in_g1")
+	if rec.Uncertain || len(rec.Regranted) != 2 {
+		t.Fatalf("record %+v", rec)
+	}
+	// Revoke: a reason is required; the campaign's Pro stays.
+	if code, _ := grantCall(s, http.MethodDelete, uid, gid, `{}`, true); code != 400 {
+		t.Fatalf("no reason %d", code)
+	}
+	code, out = grantCall(s, http.MethodDelete, uid, gid, `{"reason":"granted to the wrong account"}`, true)
+	if g, _ := out["grant"].(map[string]any); code != 200 || g["status"] != "revoked" || g["revoke_reason"] != "granted to the wrong account" {
+		t.Fatalf("revoke %d %v", code, out)
+	}
+	if pro = rc.ends(uid, "pro"); len(pro) != 1 || !pro[0].Equal(campaign) {
+		t.Fatalf("after the revoke pro %v", pro)
+	}
+	if code, _ := grantCall(s, http.MethodDelete, uid, gid, `{"reason":"again"}`, true); code != http.StatusConflict {
+		t.Fatalf("second revoke %d", code)
+	}
+	if code, out := grantCall(s, http.MethodGet, uid, "", "", false); code != 200 || len(out["grants"].([]any)) != 1 {
+		t.Fatalf("list %d %v", code, out)
 	}
 }

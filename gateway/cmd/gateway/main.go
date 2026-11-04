@@ -153,6 +153,16 @@ func main() {
 	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrants, "uid")))    // Grant Pro 2026-11-04
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrantPro, "uid"))) // fresh sign-in
+	mux.HandleFunc("DELETE /v1/admin/accounts/{uid}/grants/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidResourceID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("grant"))
+			return
+		}
+		svc.HandleAdminRevokeGrant(w, r, a, r.PathValue("uid"), id)
+	}))
 	mux.HandleFunc("GET /v1/admin/disputes/summary", admin(svc.HandleAdminDisputes))
 	mux.HandleFunc("GET /v1/admin/policy", admin(svc.HandleAdminPolicy))
 	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
