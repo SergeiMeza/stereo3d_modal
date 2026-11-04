@@ -104,7 +104,14 @@ export function PlanSheet({
     const s = { secret: phase.secret, publishableKey: phase.publishableKey };
     const paying = phase.kind === "paying";
     return (
-      <CheckoutPane clientSecret={s.secret} publishableKey={s.publishableKey} big={big} showSaveLine={false} returnQuery={`plan=${plan}`}>
+      <CheckoutPane
+        clientSecret={s.secret}
+        publishableKey={s.publishableKey}
+        big={big}
+        showSaveLine={false}
+        returnQuery={`plan=${plan}`}
+        billingAddress
+      >
         {(form, body) => (
           <SheetFrame
             open

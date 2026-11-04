@@ -46,6 +46,13 @@ function renderPricing() {
   );
 }
 
+/** gateway 00105: Business/Studio need a billing address before paying. */
+function fillBillingAddress(): void {
+  fireEvent.change(screen.getByLabelText("Address"), { target: { value: "1 King St" } });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
+  fireEvent.change(screen.getByLabelText("Postal code"), { target: { value: "EC2V 8AU" } });
+}
+
 describe("Pricing 2026-11", () => {
   it("list prices with Pro beside them, add-ons, free previews and top-ups", async () => {
     renderPricing();
@@ -81,8 +88,16 @@ describe("Pricing 2026-11", () => {
     expect(screen.getByTestId("plan-studio").textContent).toContain("$11,988 a year$1,500 of usage every month");
     fireEvent.click(await within(biz).findByTestId("choose-business"));
     const main = await screen.findByTestId("plan-main");
+    // gateway 00105: no billing address, no payment
+    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByTestId("mock-billing-address")).toBeTruthy();
+    expect(screen.getByText("Tax ID (optional)")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("plan-main"));
+    expect(await screen.findByText("Enter your billing address.")).toBeTruthy();
+    expect(mockDb.billing.plan).toBeFalsy();
     expect(main.textContent).toContain("Start Business · $299.00");
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    fillBillingAddress();
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
     expect(mockDb.billing.plan?.plan).toBe("business");
@@ -124,6 +139,7 @@ describe("Pricing 2026-11", () => {
     const year = String(new Date().getFullYear() + 1);
     expect(sheet.textContent).toMatch(new RegExp(`Billed yearly\\. Renews on \\d+ \\w+ ${year} until you cancel\\.`));
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    fillBillingAddress();
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
     cleanup();

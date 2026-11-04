@@ -6,6 +6,10 @@
  * "or pay another way", the Payment Element, and the Tax ID Element behind
  * "Add business details". Themed from the app's tokens (Appearance API).
  *
+ * Business and Studio (gateway 00105): the session requires a billing
+ * address, so the pane shows Stripe's Billing Address Element (wired into
+ * the session), and the optional business name and tax ID right away.
+ *
  * A render prop hands the sheet a `PayForm` (ready, confirm, selected
  * method) so the sheet owns the one main button and the states.
  *
@@ -15,6 +19,7 @@
  */
 
 import {
+  BillingAddressElement,
   CheckoutElementsProvider,
   ExpressCheckoutElement,
   PaymentElement,
@@ -97,10 +102,14 @@ export function CheckoutPane({
   returnQuery,
   setup = false,
   collapseCards = false,
+  billingAddress = false,
   children,
 }: {
   clientSecret: string;
   publishableKey?: string;
+  /** Business/Studio: the session requires a billing address, and offers
+   * the business name and tax ID */
+  billingAddress?: boolean;
   /** headset: bigger type and targets */
   big?: boolean;
   /** P2 pays with saved methods: no save line */
@@ -116,7 +125,13 @@ export function CheckoutPane({
 }): JSX.Element {
   if (isMockSecret(clientSecret)) {
     return (
-      <MockPane clientSecret={clientSecret} showSaveLine={showSaveLine} setup={setup} collapseCards={collapseCards}>
+      <MockPane
+        clientSecret={clientSecret}
+        showSaveLine={showSaveLine}
+        setup={setup}
+        collapseCards={collapseCards}
+        billingAddress={billingAddress}
+      >
         {children}
       </MockPane>
     );
@@ -130,6 +145,7 @@ export function CheckoutPane({
       returnQuery={returnQuery}
       setup={setup}
       collapseCards={collapseCards}
+      billingAddress={billingAddress}
     >
       {children}
     </StripePane>
@@ -144,6 +160,7 @@ function StripePane({
   returnQuery,
   setup,
   collapseCards,
+  billingAddress,
   children,
 }: {
   clientSecret: string;
@@ -153,6 +170,7 @@ function StripePane({
   returnQuery?: string;
   setup: boolean;
   collapseCards: boolean;
+  billingAddress: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -168,6 +186,7 @@ function StripePane({
         returnQuery={returnQuery}
         setup={setup}
         collapseCards={collapseCards}
+        billingAddress={billingAddress}
       >
         {children}
       </StripeForm>
@@ -181,6 +200,7 @@ function StripeForm({
   returnQuery,
   setup,
   collapseCards,
+  billingAddress,
   children,
 }: {
   big: boolean;
@@ -188,6 +208,7 @@ function StripeForm({
   returnQuery?: string;
   setup: boolean;
   collapseCards: boolean;
+  billingAddress: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const result = useCheckoutElements();
@@ -258,7 +279,11 @@ function StripeForm({
           ) : wallets !== false ? (
             <CardsToggle big={big} onOpen={() => setCardsOpen(true)} />
           ) : null}
-          {!setup && cardsOpen ? (
+          {billingAddress && cardsOpen ? (
+            // gateway 00105: required; the element writes it into the session
+            <BillingAddressElement />
+          ) : null}
+          {!setup && !billingAddress && cardsOpen ? (
             <button
               type="button"
               onClick={() => setBusiness((b) => !b)}
@@ -267,7 +292,8 @@ function StripeForm({
               {business ? REMOVE_BUSINESS : ADD_BUSINESS}
             </button>
           ) : null}
-          {business && !setup && cardsOpen ? (
+          {(billingAddress || business) && !setup && cardsOpen ? (
+            // the session's optional business name and tax ID
             <TaxIdElement options={{ visibility: "always", fields: { businessName: "always" } }} />
           ) : null}
           {showSaveLine && savable && cardsOpen ? <SaveLine /> : null}
@@ -284,26 +310,37 @@ function MockPane({
   showSaveLine,
   setup = false,
   collapseCards = false,
+  billingAddress = false,
   children,
 }: {
   clientSecret: string;
   showSaveLine: boolean;
   setup?: boolean;
   collapseCards?: boolean;
+  billingAddress?: boolean;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const [selected, setSelected] = useState<string>("card");
+  const [address, setAddress] = useState({ country: "US", line1: "", city: "", postal_code: "" });
+  const [message, setMessage] = useState<string | null>(null);
+  const addressDone = !billingAddress || (address.line1.trim() !== "" && address.city.trim() !== "" && address.postal_code.trim() !== "");
   const [business, setBusiness] = useState(false);
   const [wallets] = useState(mockWallets);
   const [cardsOpen, setCardsOpen] = useState(!collapseCards);
   const form: PayForm = {
     ready: true,
     selected,
-    message: null,
+    message,
     wallets,
     cardsOpen,
     openCards: () => setCardsOpen(true),
     confirm: async () => {
+      // like Stripe: the session won't confirm without its billing address
+      if (!addressDone) {
+        setMessage("Enter your billing address.");
+        return "declined";
+      }
+      setMessage(null);
       const res = await fetch(
         `${GATEWAY}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
         { method: "POST" },
@@ -345,7 +382,28 @@ function MockPane({
             4242 4242 4242 4242
           </div>
         ) : null}
-        {!setup ? (
+        {billingAddress ? (
+          <fieldset data-testid="mock-billing-address" className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm text-fg">Billing address</legend>
+            {(
+              [
+                ["line1", "Address"],
+                ["city", "City"],
+                ["postal_code", "Postal code"],
+              ] as const
+            ).map(([k, label]) => (
+              <input
+                key={k}
+                aria-label={label}
+                placeholder={label}
+                value={address[k]}
+                onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
+                className="h-11 rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg"
+              />
+            ))}
+          </fieldset>
+        ) : null}
+        {!setup && !billingAddress ? (
           <button
             type="button"
             onClick={() => setBusiness((b) => !b)}
@@ -354,9 +412,14 @@ function MockPane({
             {business ? REMOVE_BUSINESS : ADD_BUSINESS}
           </button>
         ) : null}
-        {business && !setup ? (
-          <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
-            Tax ID
+        {(business || billingAddress) && !setup ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
+              Business name (optional)
+            </div>
+            <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
+              Tax ID (optional)
+            </div>
           </div>
         ) : null}
         {showSaveLine && selected !== "alipay" ? <SaveLine /> : null}
