@@ -22,11 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GatewayError } from "@/lib/api/client";
-import type { Conversion, Format, RunFormats } from "@/lib/api/types";
+import type { Conversion, Format, Preset, RunFormats } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
 import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
+import { NO_FULL_SBS_PRESETS } from "./methods";
 
 /** How often the GET is asked while a format is being made. */
 export const FORMAT_POLL_MS = 3000;
@@ -36,12 +37,17 @@ export const UNAVAILABLE_COPY: Record<string, string | null> = {
   half_only: "This run only has the half-size file. Make a new conversion for other formats.",
   files_erased: "These files were erased after 90 days without use.",
   split_run: "This run is in parts, so other formats can't be made from it. Make a new conversion for other formats.",
-  too_wide: "This run is too large for other formats. Make a new conversion for other formats.",
+  // too_wide only rules out full side by side at 6K/8K, never the control
+  too_wide: null,
   classic_retired: null,
   run_failed: null,
 };
 
 const FAILED = "That didn't work. Try again.";
+
+/** 409 format_unavailable {reason: "too_wide"} on a start. */
+export const TOO_WIDE_COPY =
+  "Full side by side isn't made at 6K and 8K. Pick Side by side (half size) or Spatial video.";
 
 const nameOf = (f: Format) => FORMAT_NAMES[f] ?? f;
 
@@ -119,7 +125,7 @@ export function AnotherFormat({
         await load().catch(() => {});
       } else if (e instanceof GatewayError && e.code === "format_unavailable") {
         const reason = typeof e.details?.reason === "string" ? e.details.reason : "";
-        setNotice(UNAVAILABLE_COPY[reason] ?? FAILED);
+        setNotice(reason === "too_wide" ? TOO_WIDE_COPY : (UNAVAILABLE_COPY[reason] ?? FAILED));
         await load().catch(() => {});
       } else if (e instanceof GatewayError && e.code === "rate_limited") {
         setNotice("Too many tries. Wait a few minutes.");
@@ -142,7 +148,11 @@ export function AnotherFormat({
         .map(([f]) => f) as Format[]),
     ]),
   ];
-  const offered = data.available.filter((f) => !failed.includes(f) && f !== starting);
+  // 6K and 8K make no full side-by-side file: never offered there
+  const noFullSbs = NO_FULL_SBS_PRESETS.includes(conversion.params.preset as Preset);
+  const offered = data.available.filter(
+    (f) => !failed.includes(f) && f !== starting && !(f === "sbs" && noFullSbs),
+  );
   const reason = data.unavailable_reason ? UNAVAILABLE_COPY[data.unavailable_reason] : undefined;
 
   if (offered.length === 0 && making.length === 0 && failed.length === 0 && starting === null) {

@@ -6,6 +6,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { http, HttpResponse } from "msw";
+
 import type { Conversion } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -14,7 +16,7 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { AnotherFormat, FORMAT_POLL_MS } from "./AnotherFormat";
+import { AnotherFormat, FORMAT_POLL_MS, TOO_WIDE_COPY } from "./AnotherFormat";
 import { RunFiles } from "./RunFiles";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -108,6 +110,32 @@ describe("Get another format (ADR 0137)", () => {
     fireEvent.click(await screen.findByTestId("another-format-sbs"));
     const failed = await screen.findByTestId("another-format-failed-sbs");
     expect(within(failed).getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("6K/8K: full side by side is left out; too_wide says to pick half size or spatial", async () => {
+    // a gateway that still lists full side by side at 8K, and refuses it
+    server.use(
+      http.get("*/v1/runs/:id/formats", () =>
+        HttpResponse.json({ available: ["sbs", "half_sbs"], have: ["mvhevc"], pending: [], price_cents: 0, jobs: {} }),
+      ),
+      http.post("*/v1/runs/:id/formats", () =>
+        HttpResponse.json(
+          { success: false, error: "format_unavailable", message: "too wide", details: { reason: "too_wide" } },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderRun(run({ params: { preset: "8k", formats: ["mvhevc"] } }));
+    await openMenu();
+    expect(await screen.findByTestId("another-format-half_sbs")).toBeTruthy();
+    expect(screen.queryByTestId("another-format-sbs")).toBeNull();
+    fireEvent.click(screen.getByTestId("another-format-half_sbs"));
+    expect(await screen.findByText(TOO_WIDE_COPY)).toBeTruthy();
+    expect(TOO_WIDE_COPY).toBe(
+      "Full side by side isn't made at 6K and 8K. Pick Side by side (half size) or Spatial video.",
+    );
+    // never a reason for the whole control
+    expect(screen.queryByTestId("another-format-unavailable")).toBeNull();
   });
 
   it("half_only: says why, in plain words", async () => {
