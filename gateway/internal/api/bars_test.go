@@ -3,6 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"slices"
+	"strings"
 	"testing"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -245,5 +248,55 @@ func TestCropOutputSizeMatchesLifelike(t *testing.T) {
 		if w, h := cropOutputSize(tc[0], tc[1], tc[2]); w != tc[3] || h != tc[4] {
 			t.Errorf("%v: %dx%d", tc, w, h)
 		}
+	}
+}
+
+// A near-square crop at 5K doubles past H.264 level 6.2 for full SBS:
+// the size lists no sbs, a run asking for it is refused (a preview swaps
+// to half SBS) and Get another format hides it, like 6K/8K; 4K of the
+// same crop still has it.
+func TestFullSBSLevelWithCrop(t *testing.T) {
+	all := pricing.LifelikePresets
+	p := barsProject(7680, 4320, "4320:4320:1680:0")
+	if !fullSBSFits(3840, 3840) || fullSBSFits(4320, 4320) || !fullSBSFits(3840, 2160) {
+		t.Fatal("level 6.2 frame size")
+	}
+	byPreset := map[string][]string{}
+	for _, q := range lifelikeQualities(p, all) {
+		byPreset[q.Preset] = q.Formats
+	}
+	if !slices.Contains(byPreset["4k"], "sbs") || slices.Contains(byPreset["5k"], "sbs") || !slices.Contains(byPreset["5k"], "half_sbs") {
+		t.Fatalf("qualities %v", byPreset)
+	}
+	if _, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "5k", Formats: []string{"sbs"}}, p, all); err == nil || err.Code != "format_unavailable" {
+		t.Fatalf("5k sbs %v", err)
+	}
+	prev, err := resolveLifelikeParams(&stepConvReq{Step: store.StepLifelikePreview, Preset: "5k", FromFrame: 0, ToFrame: 120}, p, all)
+	if err != nil || !slices.Equal(prev.Formats, []string{"half_sbs", "mvhevc"}) || prev.OutputWidth != 4320 {
+		t.Fatalf("5k preview %+v %v", prev, err)
+	}
+	if params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "4k", Formats: []string{"sbs"}}, p, all); err != nil || params.OutputWidth != 3840 {
+		t.Fatalf("4k sbs %+v %v", params, err)
+	}
+	// keeping the bars: without a crop the rule is the preset's alone
+	keep := false
+	p.RemoveBars = &keep
+	if params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "5k", Formats: []string{"sbs"}}, p, all); err != nil || fullSBSRefused(params) {
+		t.Fatalf("kept bars 5k sbs %+v %v", params, err)
+	}
+	// Get another format on a finished cropped 5K run
+	s, _ := formatsService(t)
+	uid := "u" + store.NewID()
+	c := finishedRun(t, s, uid, "5k", "mvhevc")
+	s.Store.Transition(context.Background(), c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Params.RemoveBars, x.Params.SourceCrop = true, &store.Crop{X: 1680, W: 4320, H: 4320}
+		x.Params.OutputWidth, x.Params.OutputHeight = 4320, 4320
+		return nil
+	})
+	if _, out := formatsCall(s, uid, c.ID, http.MethodGet, ""); strings.Join(strs(out["available"]), ",") != "half_sbs" {
+		t.Fatalf("formats %v", out)
+	}
+	if code, out := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"sbs"}`); code != 409 || out["details"].(map[string]any)["reason"] != "too_wide" {
+		t.Fatalf("post sbs %d %v", code, out)
 	}
 }

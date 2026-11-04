@@ -170,7 +170,7 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 		return st
 	}
 	for _, f := range repackFormats {
-		if slices.Contains(st.Have, f) || slices.Contains(st.Pending, f) || (f == "sbs" && sbsTooWide[c.Params.Preset]) {
+		if slices.Contains(st.Have, f) || slices.Contains(st.Pending, f) || (f == "sbs" && fullSBSRefused(c.Params)) {
 			continue
 		}
 		for _, src := range repackSources[f] {

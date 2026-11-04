@@ -216,7 +216,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.Formats = req.Formats
 	}
-	if sbsTooWide[q.Preset] && slices.Contains(params.Formats, "sbs") {
+	if fullSBSRefused(params) && slices.Contains(params.Formats, "sbs") {
 		if req.Step == store.StepLifelikePreview {
 			// the preview's look, at a width that works
 			params.Formats = slices.DeleteFunc(slices.Clone(params.Formats), func(f string) bool { return f == "sbs" || f == "half_sbs" })
@@ -487,6 +487,26 @@ type quality struct {
 // sbsTooWide: Lifelike refuses full-width SBS for these presets (400).
 var sbsTooWide = map[string]bool{"6k": true, "8k": true}
 
+// h264MaxFrameMBs: H.264's largest frame (Level 6.2 MaxFS, macroblocks),
+// Lifelike's H264_MAX_FRAME_MBS: a full-width side by side above it has
+// no level and Lifelike answers 400 "use half_sbs".
+const h264MaxFrameMBs = 139_264
+
+// fullSBSFits: a full-width side by side of these eyes has an H.264 level.
+func fullSBSFits(eyeW, eyeH int) bool {
+	return (2*eyeW+15)/16*((eyeH+15)/16) <= h264MaxFrameMBs
+}
+
+// fullSBSRefused: Lifelike won't make full-width SBS for the run: 6K/8K
+// always, and a cropped picture (BL-03) whose doubled frame passes level
+// 6.2 (a near-square crop at 5K: 2 x 4320 x 4320).
+func fullSBSRefused(params store.Params) bool {
+	if sbsTooWide[params.Preset] {
+		return true
+	}
+	return params.RemoveBars && params.OutputWidth > 0 && !fullSBSFits(params.OutputWidth, params.OutputHeight)
+}
+
 // formatsFor lists the Lifelike formats a preset can be delivered in.
 func formatsFor(preset string) []string {
 	if sbsTooWide[preset] {
@@ -603,7 +623,7 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 		}
 		h := presetOutputHeight[preset]
 		if short == 0 || h <= short {
-			out = append(out, newQuality(preset, h, preset, preset))
+			out = append(out, croppedFormats(p, newQuality(preset, h, preset, preset)))
 			below = preset
 			continue
 		}
@@ -619,7 +639,7 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 				w, h := cropOutputSize(c.W, c.H, presetOutputHeight[preset])
 				label = min(w, h) // what the cropped picture comes out at
 			}
-			out = append(out, newQuality(qualityFull, label, preset, price))
+			out = append(out, croppedFormats(p, newQuality(qualityFull, label, preset, price)))
 		}
 		break
 	}

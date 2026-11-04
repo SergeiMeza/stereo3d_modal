@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -108,4 +109,18 @@ func runBarsJSON(c *store.Conversion) any {
 		return nil
 	}
 	return c.Params.SourceCrop
+}
+
+// croppedFormats drops full-width SBS from a size the cropped picture
+// makes too big for it (fullSBSRefused), as 6K/8K never list it.
+func croppedFormats(p *store.Project, q quality) quality {
+	c, ok := barsCrop(p)
+	if !ok || !removeBars(p) || !slices.Contains(q.Formats, "sbs") {
+		return q
+	}
+	w, h := cropOutputSize(c.W, c.H, presetOutputHeight[q.Preset])
+	if !fullSBSFits(w, h) {
+		q.Formats = slices.DeleteFunc(slices.Clone(q.Formats), func(f string) bool { return f == "sbs" })
+	}
+	return q
 }

@@ -796,6 +796,13 @@ is asked when bars are found and can keep them.
   removing bars changes the price only when it changes the steps offered.
   Quotes add `output_width`, `output_height` (per eye, displayed pixels)
   and `remove_bars`; runs record `params.output_width` / `output_height`.
+- **Full SBS and the H.264 level.** A full-width side by side doubles the
+  eye's width; when the cropped picture's doubled frame passes H.264
+  level 6.2 (139,264 macroblocks, Lifelike's `H264_MAX_FRAME_MBS`; a
+  near-square crop at 5K: 2 x 4320 x 4320) Lifelike answers 400 "use
+  half_sbs". The gateway treats it like 6K/8K: the size lists no `sbs`,
+  a production asking for it is 400 `format_unavailable`, a preview swaps
+  to half SBS, and Get another format answers `too_wide`.
 
 ### Lifelike brand intro (BL-25)
 
