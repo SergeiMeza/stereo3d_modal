@@ -36,16 +36,11 @@
  */
 
 import type { AuthCredential, User, UserCredential } from "firebase/auth";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { atom } from "jotai";
+import { useEffect, useMemo } from "react";
 
 import { track, upgradeSession } from "@/lib/analytics";
+import { appStore, useAppAtomValue } from "@/lib/state/stores";
 import {
   EmailCodeError,
   RESEND_AFTER_S,
@@ -454,9 +449,345 @@ async function mockSignOut(): Promise<void> {
 
 // -------------------------------------------------------------- context
 
-const AuthContext = createContext<AuthContextValue | null>(null);
-
 type ActiveMode = "mock" | "firebase" | "gateway" | "pending";
+
+/** ADR 0138: the session's auth state (no token in it: getToken asks
+ * Firebase or the gateway session each time), in the app store. */
+interface AuthState {
+  mode: ActiveMode;
+  user: AuthUser | null;
+  ready: boolean;
+  pendingLink: PendingLink | null;
+  redirectError: string | null;
+}
+
+const INITIAL_AUTH: AuthState = {
+  mode: AUTH_MODE === "mock" ? "mock" : "pending",
+  user: AUTH_MODE === "mock" ? MOCK_USER : null,
+  ready: AUTH_MODE === "mock",
+  pendingLink: null,
+  redirectError: null,
+};
+
+export const authStateAtom = atom<AuthState>(INITIAL_AUTH);
+
+function setAuth(patch: Partial<AuthState>): void {
+  appStore.set(authStateAtom, (s) => ({ ...s, ...patch }));
+}
+function setAuthUser(user: AuthUser | null): void {
+  setAuth({ user });
+}
+function setAuthPending(pendingLink: PendingLink | null): void {
+  setAuth({ pendingLink });
+}
+
+/** Test hook: the auth state as a fresh page load has it. */
+export function resetAuthForTests(): void {
+  appStore.set(authStateAtom, INITIAL_AUTH);
+}
+
+// ------------------------------------------------------------ actions
+
+const signInWithGoogle = async () => {
+  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const auth = await getFirebaseAuth();
+    const { GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup } =
+      await import("firebase/auth");
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
+    track(isNewUser ? "sign_up" : "login", { method: "google" });
+    logSignInEvent("google");
+    if (isNewUser) upgradeSession("new-account");
+  } catch (e) {
+    const p = await capturePending(e, "google.com");
+    if (p) {
+      setAuthPending(p);
+      throw new AccountExistsError(p);
+    }
+    throw friendlyAuthError(e);
+  }
+};
+
+const signInWithApple = async () => {
+  if (viaGateway() || !APPLE_SIGNIN) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const auth = await getFirebaseAuth();
+    const provider = await appleProvider();
+    const { signInWithPopup, signInWithRedirect } =
+      await import("firebase/auth");
+    if (prefersRedirect()) {
+      session()?.setItem(
+        REDIRECT_KEY,
+        JSON.stringify({ op: "signin", providerId: "apple.com" }),
+      );
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+    trackSignIn(await signInWithPopup(auth, provider), "apple.com");
+  } catch (e) {
+    const p = await capturePending(e, "apple.com");
+    if (p) {
+      setAuthPending(p);
+      throw new AccountExistsError(p);
+    }
+    throw friendlyAuthError(e);
+  }
+};
+
+const sendEmailCode = async (email: string) => {
+  try {
+    return await startEmailCode(email);
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const signInWithEmailCode = async (email: string, code: string) => {
+    try {
+      if (viaGateway()) {
+        const answer = await verifyEmailCode(email, code, true);
+        gatewayAdoptSession(answer);
+        track(answer.is_new_user ? "sign_up" : "login", {
+          method: "email_code",
+        });
+        logSignInEvent("email_code");
+        if (answer.is_new_user) upgradeSession("new-account");
+        return;
+      }
+      const answer = await verifyEmailCode(email, code, false);
+      if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+      const auth = await getFirebaseAuth();
+      const { linkWithCredential, signInWithCustomToken } =
+        await import("firebase/auth");
+      const result = await signInWithCustomToken(auth, answer.custom_token);
+      track(answer.is_new_user ? "sign_up" : "login", {
+        method: "email_code",
+      });
+      logSignInEvent("email_code");
+      if (answer.is_new_user) upgradeSession("new-account");
+      // S3D-69: Apple/Google said this address had an account; now that
+      // the person proved it, link that sign-in onto it.
+      const pending = readPending();
+      if (
+        pending &&
+        pending.email.toLowerCase() === email.trim().toLowerCase()
+      ) {
+        const cred = await pendingCredentialNow();
+        if (cred) {
+          try {
+            await linkWithCredential(result.user, cred);
+            track("link_provider", { method: pending.providerId });
+          } catch (e) {
+            if (errorCode(e) !== "auth/provider-already-linked") {
+              console.warn("auth: pending link failed", errorCode(e));
+            }
+          }
+        }
+        dropPending();
+        setAuthPending(null);
+        await result.user.reload();
+        setAuthUser(toAuthUser(auth.currentUser ?? result.user));
+      }
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  };
+
+const signInWithPasskey = async (opts?: { autofill?: boolean }) => {
+  const gw = viaGateway();
+  // PasskeyError carries its own plain message (not a Firebase code)
+  const answer = await passkeySignIn({ autofill: opts?.autofill, session: gw });
+  if (gw) {
+    gatewayAdoptSession(answer);
+    track("login", { method: "passkey" });
+    return;
+  }
+  if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+  try {
+    const auth = await getFirebaseAuth();
+    const { signInWithCustomToken } = await import("firebase/auth");
+    await signInWithCustomToken(auth, answer.custom_token);
+    track("login", { method: "passkey" });
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const reauthenticate = async (id: LinkableProvider) => {
+  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const current = await requireFirebaseUser();
+    const provider = await providerFor(id);
+    const { reauthenticateWithPopup } = await import("firebase/auth");
+    await reauthenticateWithPopup(current, provider);
+    await current.getIdToken(true);
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const clearPendingLink = () => {
+  dropPending();
+  setAuthPending(null);
+};
+
+const linkProvider = async (id: LinkableProvider) => {
+  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const current = await requireFirebaseUser();
+    const provider = await providerFor(id);
+    const { linkWithPopup, linkWithRedirect } = await import("firebase/auth");
+    if (prefersRedirect()) {
+      session()?.setItem(
+        REDIRECT_KEY,
+        JSON.stringify({ op: "link", providerId: id }),
+      );
+      await linkWithRedirect(current, provider);
+      return;
+    }
+    try {
+      await linkWithPopup(current, provider);
+      track("link_provider", { method: id });
+    } catch (e) {
+      if (errorCode(e) !== "auth/provider-already-linked") throw e;
+    }
+    await current.reload();
+    const auth = await getFirebaseAuth();
+    setAuthUser(toAuthUser(auth.currentUser ?? current));
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const unlinkProvider = async (id: string) => {
+  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const current = await requireFirebaseUser();
+    const { unlink } = await import("firebase/auth");
+    await unlink(current, id);
+    track("unlink_provider", { method: id });
+    await current.reload();
+    const auth = await getFirebaseAuth();
+    setAuthUser(toAuthUser(auth.currentUser ?? current));
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const signInWithEmail = async (email: string, password: string) => {
+    try {
+      if (viaGateway()) {
+        await gatewaySignIn(email, password);
+      } else {
+        const auth = await getFirebaseAuth();
+        const { signInWithEmailAndPassword } = await import("firebase/auth");
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      track("login", { method: "password" });
+      logSignInEvent("password");
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  };
+
+const signUpWithEmail = async (email: string, password: string) => {
+    try {
+      if (viaGateway()) {
+        await gatewaySignUp(email, password);
+      } else {
+        const auth = await getFirebaseAuth();
+        const { createUserWithEmailAndPassword } =
+          await import("firebase/auth");
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+      track("sign_up", { method: "password" });
+      logSignInEvent("password");
+      upgradeSession("new-account");
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  };
+
+const resetPassword = async (email: string) => {
+  try {
+    if (viaGateway()) {
+      await gatewayResetPassword(email);
+      return;
+    }
+    const auth = await getFirebaseAuth();
+    const { sendPasswordResetEmail } = await import("firebase/auth");
+    await sendPasswordResetEmail(auth, email);
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const signOutUser = async () => {
+  if (viaGateway()) {
+    gatewaySignOut();
+    return;
+  }
+  try {
+    const auth = await getFirebaseAuth();
+    const { signOut } = await import("firebase/auth");
+    await signOut(auth);
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const updateDisplayName = async (name: string) => {
+  try {
+    if (viaGateway()) {
+      await gatewayUpdateDisplayName(name);
+      return;
+    }
+    const current = await requireFirebaseUser();
+    const { updateProfile } = await import("firebase/auth");
+    await updateProfile(current, { displayName: name });
+    setAuthUser(toAuthUser(current));
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+
+const LIVE = {
+  getToken: getLiveToken,
+  signInWithApple,
+  sendEmailCode,
+  signInWithEmailCode,
+  clearPendingLink,
+  linkProvider,
+  unlinkProvider,
+  signInWithGoogle,
+  signInWithPasskey,
+  reauthenticate,
+  signInWithEmail,
+  signUpWithEmail,
+  resetPassword,
+  signOutUser,
+  updateDisplayName,
+};
+
+const MOCK = {
+  getToken: getMockToken,
+  signInWithApple: mockNoop,
+  sendEmailCode: mockSendCode,
+  signInWithEmailCode: mockNoop,
+  clearPendingLink: noop,
+  linkProvider: mockNoop,
+  unlinkProvider: mockNoop,
+  signInWithGoogle: mockNoop,
+  signInWithPasskey: mockNoop,
+  reauthenticate: mockNoop,
+  signInWithEmail: mockNoop,
+  signUpWithEmail: mockNoop,
+  resetPassword: mockNoop,
+  signOutUser: mockSignOut,
+  updateDisplayName: mockNoop,
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const region = useRegion();
@@ -469,12 +800,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? "gateway"
           : "firebase";
 
-  const [user, setUser] = useState<AuthUser | null>(
-    AUTH_MODE === "mock" ? MOCK_USER : null,
-  );
-  const [ready, setReady] = useState(AUTH_MODE === "mock");
-  const [pendingLink, setPendingLink] = useState<PendingLink | null>(null);
-  const [redirectError, setRedirectError] = useState<string | null>(null);
+  // ADR 0138: the session's state lives in the app-store auth atom
+  useEffect(() => {
+    if (appStore.get(authStateAtom).mode !== mode) setAuth({ mode });
+  }, [mode]);
 
   // Back from an Apple redirect (phones, headsets): settle its answer.
   useEffect(() => {
@@ -497,11 +826,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const result = await getRedirectResult(auth);
         if (op === "signin") trackSignIn(result, providerId);
-        if (result?.user) setUser(toAuthUser(result.user));
+        if (result?.user) setAuthUser(toAuthUser(result.user));
       } catch (e) {
         const p = await capturePending(e, providerId);
-        if (p) setPendingLink(p);
-        else setRedirectError(friendlyAuthError(e).message);
+        if (p) setAuthPending(p);
+        else setAuth({ redirectError: friendlyAuthError(e).message });
       }
     })();
   }, [mode]);
@@ -515,10 +844,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { onAuthStateChanged } = await import("firebase/auth");
       if (cancelled) return;
       unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u ? toAuthUser(u) : null);
-        setReady(true);
+        setAuth({ user: u ? toAuthUser(u) : null, ready: true });
         // a link waiting from before a redirect or a reload in this tab
-        setPendingLink((p) => p ?? readPending());
+        if (appStore.get(authStateAtom).pendingLink === null) setAuthPending(readPending());
       });
     })();
     return () => {
@@ -533,8 +861,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (mode !== "gateway") return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const follow = (s: GatewaySession | null) => {
-      setUser(s ? sessionToAuthUser(s) : null);
-      setReady(true);
+      setAuth({ user: s ? sessionToAuthUser(s) : null, ready: true });
       if (timer !== undefined) clearTimeout(timer);
       timer = undefined;
       if (s === null) return;
@@ -554,354 +881,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [mode]);
 
-  const signInWithGoogle = useCallback(async () => {
-    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
-    try {
-      const auth = await getFirebaseAuth();
-      const { GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup } =
-        await import("firebase/auth");
-      const result = await signInWithPopup(auth, new GoogleAuthProvider());
-      const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
-      track(isNewUser ? "sign_up" : "login", { method: "google" });
-      logSignInEvent("google");
-      if (isNewUser) upgradeSession("new-account");
-    } catch (e) {
-      const p = await capturePending(e, "google.com");
-      if (p) {
-        setPendingLink(p);
-        throw new AccountExistsError(p);
-      }
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const signInWithApple = useCallback(async () => {
-    if (viaGateway() || !APPLE_SIGNIN) throw new Error(EMAIL_ONLY_MESSAGE);
-    try {
-      const auth = await getFirebaseAuth();
-      const provider = await appleProvider();
-      const { signInWithPopup, signInWithRedirect } =
-        await import("firebase/auth");
-      if (prefersRedirect()) {
-        session()?.setItem(
-          REDIRECT_KEY,
-          JSON.stringify({ op: "signin", providerId: "apple.com" }),
-        );
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-      trackSignIn(await signInWithPopup(auth, provider), "apple.com");
-    } catch (e) {
-      const p = await capturePending(e, "apple.com");
-      if (p) {
-        setPendingLink(p);
-        throw new AccountExistsError(p);
-      }
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const sendEmailCode = useCallback(async (email: string) => {
-    try {
-      return await startEmailCode(email);
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const signInWithEmailCode = useCallback(
-    async (email: string, code: string) => {
-      try {
-        if (viaGateway()) {
-          const answer = await verifyEmailCode(email, code, true);
-          gatewayAdoptSession(answer);
-          track(answer.is_new_user ? "sign_up" : "login", {
-            method: "email_code",
-          });
-          logSignInEvent("email_code");
-          if (answer.is_new_user) upgradeSession("new-account");
-          return;
-        }
-        const answer = await verifyEmailCode(email, code, false);
-        if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
-        const auth = await getFirebaseAuth();
-        const { linkWithCredential, signInWithCustomToken } =
-          await import("firebase/auth");
-        const result = await signInWithCustomToken(auth, answer.custom_token);
-        track(answer.is_new_user ? "sign_up" : "login", {
-          method: "email_code",
-        });
-        logSignInEvent("email_code");
-        if (answer.is_new_user) upgradeSession("new-account");
-        // S3D-69: Apple/Google said this address had an account; now that
-        // the person proved it, link that sign-in onto it.
-        const pending = readPending();
-        if (
-          pending &&
-          pending.email.toLowerCase() === email.trim().toLowerCase()
-        ) {
-          const cred = await pendingCredentialNow();
-          if (cred) {
-            try {
-              await linkWithCredential(result.user, cred);
-              track("link_provider", { method: pending.providerId });
-            } catch (e) {
-              if (errorCode(e) !== "auth/provider-already-linked") {
-                console.warn("auth: pending link failed", errorCode(e));
-              }
-            }
-          }
-          dropPending();
-          setPendingLink(null);
-          await result.user.reload();
-          setUser(toAuthUser(auth.currentUser ?? result.user));
-        }
-      } catch (e) {
-        throw friendlyAuthError(e);
-      }
-    },
-    [],
-  );
-
-  const signInWithPasskey = useCallback(async (opts?: { autofill?: boolean }) => {
-    const gw = viaGateway();
-    // PasskeyError carries its own plain message (not a Firebase code)
-    const answer = await passkeySignIn({ autofill: opts?.autofill, session: gw });
-    if (gw) {
-      gatewayAdoptSession(answer);
-      track("login", { method: "passkey" });
-      return;
-    }
-    if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
-    try {
-      const auth = await getFirebaseAuth();
-      const { signInWithCustomToken } = await import("firebase/auth");
-      await signInWithCustomToken(auth, answer.custom_token);
-      track("login", { method: "passkey" });
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const reauthenticate = useCallback(async (id: LinkableProvider) => {
-    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
-    try {
-      const current = await requireFirebaseUser();
-      const provider = await providerFor(id);
-      const { reauthenticateWithPopup } = await import("firebase/auth");
-      await reauthenticateWithPopup(current, provider);
-      await current.getIdToken(true);
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const clearPendingLink = useCallback(() => {
-    dropPending();
-    setPendingLink(null);
-  }, []);
-
-  const linkProvider = useCallback(async (id: LinkableProvider) => {
-    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
-    try {
-      const current = await requireFirebaseUser();
-      const provider = await providerFor(id);
-      const { linkWithPopup, linkWithRedirect } = await import("firebase/auth");
-      if (prefersRedirect()) {
-        session()?.setItem(
-          REDIRECT_KEY,
-          JSON.stringify({ op: "link", providerId: id }),
-        );
-        await linkWithRedirect(current, provider);
-        return;
-      }
-      try {
-        await linkWithPopup(current, provider);
-        track("link_provider", { method: id });
-      } catch (e) {
-        if (errorCode(e) !== "auth/provider-already-linked") throw e;
-      }
-      await current.reload();
-      const auth = await getFirebaseAuth();
-      setUser(toAuthUser(auth.currentUser ?? current));
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const unlinkProvider = useCallback(async (id: string) => {
-    if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
-    try {
-      const current = await requireFirebaseUser();
-      const { unlink } = await import("firebase/auth");
-      await unlink(current, id);
-      track("unlink_provider", { method: id });
-      await current.reload();
-      const auth = await getFirebaseAuth();
-      setUser(toAuthUser(auth.currentUser ?? current));
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const signInWithEmail = useCallback(
-    async (email: string, password: string) => {
-      try {
-        if (viaGateway()) {
-          await gatewaySignIn(email, password);
-        } else {
-          const auth = await getFirebaseAuth();
-          const { signInWithEmailAndPassword } = await import("firebase/auth");
-          await signInWithEmailAndPassword(auth, email, password);
-        }
-        track("login", { method: "password" });
-        logSignInEvent("password");
-      } catch (e) {
-        throw friendlyAuthError(e);
-      }
-    },
-    [],
-  );
-
-  const signUpWithEmail = useCallback(
-    async (email: string, password: string) => {
-      try {
-        if (viaGateway()) {
-          await gatewaySignUp(email, password);
-        } else {
-          const auth = await getFirebaseAuth();
-          const { createUserWithEmailAndPassword } =
-            await import("firebase/auth");
-          await createUserWithEmailAndPassword(auth, email, password);
-        }
-        track("sign_up", { method: "password" });
-        logSignInEvent("password");
-        upgradeSession("new-account");
-      } catch (e) {
-        throw friendlyAuthError(e);
-      }
-    },
-    [],
-  );
-
-  const resetPassword = useCallback(async (email: string) => {
-    try {
-      if (viaGateway()) {
-        await gatewayResetPassword(email);
-        return;
-      }
-      const auth = await getFirebaseAuth();
-      const { sendPasswordResetEmail } = await import("firebase/auth");
-      await sendPasswordResetEmail(auth, email);
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const signOutUser = useCallback(async () => {
-    if (viaGateway()) {
-      gatewaySignOut();
-      return;
-    }
-    try {
-      const auth = await getFirebaseAuth();
-      const { signOut } = await import("firebase/auth");
-      await signOut(auth);
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const updateDisplayName = useCallback(async (name: string) => {
-    try {
-      if (viaGateway()) {
-        await gatewayUpdateDisplayName(name);
-        return;
-      }
-      const current = await requireFirebaseUser();
-      const { updateProfile } = await import("firebase/auth");
-      await updateProfile(current, { displayName: name });
-      setUser(toAuthUser(current));
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  }, []);
-
-  const value = useMemo<AuthContextValue>(
-    () =>
-      mode === "mock"
-        ? {
-            user,
-            ready,
-            getToken: getMockToken,
-            appleEnabled: false,
-            signInWithApple: mockNoop,
-            sendEmailCode: mockSendCode,
-            signInWithEmailCode: mockNoop,
-            pendingLink: null,
-            clearPendingLink: noop,
-            redirectError: null,
-            linkProvider: mockNoop,
-            unlinkProvider: mockNoop,
-            signInWithGoogle: mockNoop,
-            signInWithPasskey: mockNoop,
-            reauthenticate: mockNoop,
-            signInWithEmail: mockNoop,
-            signUpWithEmail: mockNoop,
-            resetPassword: mockNoop,
-            signOutUser: mockSignOut,
-            updateDisplayName: mockNoop,
-          }
-        : {
-            user,
-            ready,
-            getToken: getLiveToken,
-            appleEnabled: APPLE_SIGNIN && mode === "firebase",
-            signInWithApple,
-            sendEmailCode,
-            signInWithEmailCode,
-            pendingLink,
-            clearPendingLink,
-            redirectError,
-            linkProvider,
-            unlinkProvider,
-            signInWithGoogle,
-            signInWithPasskey,
-            reauthenticate,
-            signInWithEmail,
-            signUpWithEmail,
-            resetPassword,
-            signOutUser,
-            updateDisplayName,
-          },
-    [
-      mode,
-      user,
-      ready,
-      signInWithApple,
-      sendEmailCode,
-      signInWithEmailCode,
-      pendingLink,
-      clearPendingLink,
-      redirectError,
-      linkProvider,
-      unlinkProvider,
-      signInWithGoogle,
-      signInWithPasskey,
-      reauthenticate,
-      signInWithEmail,
-      signUpWithEmail,
-      resetPassword,
-      signOutUser,
-      updateDisplayName,
-    ],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <>{children}</>;
 }
 
+/** The session's auth: state from the app-store atom, actions as plain
+ * functions (ADR 0138: no context). */
 export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
-  return ctx;
+  const s = useAppAtomValue(authStateAtom);
+  return useMemo<AuthContextValue>(
+    () =>
+      s.mode === "mock" || AUTH_MODE === "mock"
+        ? { ...MOCK, user: s.user, ready: s.ready, appleEnabled: false, pendingLink: null, redirectError: null }
+        : {
+            ...LIVE,
+            user: s.user,
+            ready: s.ready,
+            appleEnabled: APPLE_SIGNIN && s.mode === "firebase",
+            pendingLink: s.pendingLink,
+            redirectError: s.redirectError,
+          },
+    [s],
+  );
 }

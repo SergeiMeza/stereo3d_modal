@@ -18,6 +18,7 @@ import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
 import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms";
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
+import { resetAuthForTests } from "@/lib/auth";
 import { resetBillingForTests } from "@/lib/billing";
 import { resetPaymentMethodsForTests } from "@/lib/api/usePaymentMethods";
 import { resetPricingCache } from "@/lib/api/usePricing";
@@ -53,6 +54,7 @@ afterEach(() => {
   resetLimitsCache();
   resetPricingCache();
   resetBillingForTests();
+  resetAuthForTests();
   resetPaymentMethodsForTests();
 });
 
