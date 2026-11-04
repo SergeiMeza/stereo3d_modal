@@ -109,12 +109,12 @@ func (errUnauthorizedType) Error() string { return "unauthorized" }
 func IsUnauthorized(err error) bool { return err == errUnauthorized }
 
 // Admin is a verified admin-console caller (spec M1): the svs_admin
-// custom claim, a second factor at sign-in, and when they signed in.
+// custom claim and when they signed in. The second factor is a passkey
+// session the API checks (ADR 0135), never a Firebase one.
 type Admin struct {
 	UID      string
 	Email    string
 	IsAdmin  bool
-	MFA      bool
 	AuthTime time.Time
 }
 
@@ -139,10 +139,5 @@ func adminOf(token *fbauth.Token) *Admin {
 		a.Email = email
 	}
 	a.IsAdmin, _ = token.Claims["svs_admin"].(bool)
-	if fb, ok := token.Claims["firebase"].(map[string]any); ok {
-		if f, ok := fb["sign_in_second_factor"].(string); ok && f != "" {
-			a.MFA = true
-		}
-	}
 	return a
 }

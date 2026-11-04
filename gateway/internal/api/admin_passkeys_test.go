@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -93,7 +94,7 @@ func (c *pkClient) call(h func(http.ResponseWriter, *http.Request, *AdminUser), 
 	if c.session != "" {
 		r.Header.Set("X-Admin-Session", c.session)
 	}
-	a, _, _ := c.s.AdminUserFor(r, c.uid, "owner@x", c.authTime, false)
+	a, _, _ := c.s.AdminUserFor(r, c.uid, "owner@x", c.authTime)
 	w := httptest.NewRecorder()
 	h(w, r, a)
 	var out map[string]any
@@ -180,7 +181,7 @@ func TestAdminPasskeys(t *testing.T) {
 	// Money freshness: a session whose last assertion is 10 minutes old.
 	r := httptest.NewRequest(http.MethodPost, "/", nil)
 	r.Header.Set("X-Admin-Session", tok)
-	a, ok, err := s.AdminUserFor(r, c.uid, "owner@x", time.Now(), false)
+	a, ok, err := s.AdminUserFor(r, c.uid, "owner@x", time.Now())
 	if !ok || err != nil || a.Method != "passkey" || !a.FreshAuth() {
 		t.Fatalf("fresh session %+v %v %v", a, ok, err)
 	}
@@ -205,7 +206,7 @@ func TestAdminPasskeys(t *testing.T) {
 	}
 	c.session = out["session"].(string)
 	r.Header.Set("X-Admin-Session", c.session)
-	if a, _, _ := s.AdminUserFor(r, c.uid, "", time.Now(), false); !a.FreshAuth() || a.Session.ID != stale.ID || a.Session.ExpiresAt != stale.ExpiresAt {
+	if a, _, _ := s.AdminUserFor(r, c.uid, "", time.Now()); !a.FreshAuth() || a.Session.ID != stale.ID || a.Session.ExpiresAt != stale.ExpiresAt {
 		t.Fatalf("reasserted session %+v", a.Session)
 	}
 
@@ -225,7 +226,7 @@ func TestAdminPasskeys(t *testing.T) {
 	if err := s.Store.BumpSessionEpoch(ctx, c.uid); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); ok || err == nil {
+	if _, ok, err := s.AdminUserFor(r, c.uid, "", time.Now()); ok || err == nil {
 		t.Fatal("session after the epoch bump")
 	}
 }
@@ -319,21 +320,23 @@ func TestAdminPasskeyConsoleShapes(t *testing.T) {
 	}
 	// Session error codes.
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); err != nil {
-		t.Fatalf("no header is no error: %v", err)
+	// No session: no second factor at all (no other kind exists), and a
+	// fresh Google sign-in alone never passes for a money action.
+	if a, ok, err := s.AdminUserFor(r, c.uid, "", time.Now()); err != nil || ok || a.FreshAuth() || errMethod(map[string]any{"details": a.reauthErr().(*httpx.APIError).Details}) != "passkey" {
+		t.Fatalf("no session: ok %v err %v", ok, err)
 	}
 	expired, _ := s.signAdminSession(AdminSession{UID: c.uid, IssuedAt: time.Now().Add(-13 * time.Hour).Unix(), ExpiresAt: time.Now().Add(-time.Hour).Unix()})
 	r.Header.Set("X-Admin-Session", expired)
-	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "session_expired" {
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now()); SessionErrCode(err) != "session_expired" {
 		t.Fatalf("expired: %v", err)
 	}
 	r.Header.Set("X-Admin-Session", c.session+"x")
-	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "invalid_session" {
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now()); SessionErrCode(err) != "invalid_session" {
 		t.Fatalf("tampered: %v", err)
 	}
 	s.Store.BumpSessionEpoch(ctx, c.uid)
 	r.Header.Set("X-Admin-Session", c.session)
-	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now(), false); SessionErrCode(err) != "invalid_session" {
+	if _, _, err := s.AdminUserFor(r, c.uid, "", time.Now()); SessionErrCode(err) != "invalid_session" {
 		t.Fatalf("revoked: %v", err)
 	}
 }

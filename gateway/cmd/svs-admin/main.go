@@ -87,7 +87,7 @@ func main() {
 	if who == "" {
 		who = "owner"
 	}
-	admin := &api.AdminUser{UID: "cli", Email: "cli:" + who, AuthTime: time.Now()}
+	admin := &api.AdminUser{UID: "cli", Email: "cli:" + who, AuthTime: time.Now(), Method: "cli"} // the operator's own credentials
 
 	cmd, args := flag.Arg(0), flag.Args()[1:]
 	switch cmd {

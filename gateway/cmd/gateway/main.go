@@ -117,9 +117,9 @@ func main() {
 		}
 	}
 	// Admin console routes (spec M1): its own origin only, the svs_admin
-	// claim, a second factor: a passkey session (X-Admin-Session, ADR
-	// 0135) or the Identity Platform TOTP sign-in; money actions check
-	// freshness inside. adminToken (the passkey routes) needs the token
+	// claim and a passkey session (X-Admin-Session, ADR 0135; the only
+	// second factor); money actions check the assertion's freshness
+	// inside. adminToken (the passkey routes) needs the token
 	// alone: the passkey is what they set up or prove.
 	adminWith := func(secondFactor bool, h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func main() {
 				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "no_access", "This account has no access."))
 				return
 			}
-			au, ok, serr := svc.AdminUserFor(r, a.UID, a.Email, a.AuthTime, a.MFA)
+			au, ok, serr := svc.AdminUserFor(r, a.UID, a.Email, a.AuthTime)
 			if secondFactor && serr != nil { // session_expired | invalid_session: the console drops its token
 				e := httpx.Err(http.StatusUnauthorized, api.SessionErrCode(serr), "Your admin session ended. Confirm with your passkey again.")
 				e.Details = map[string]any{"method": "passkey"}
@@ -146,8 +146,8 @@ func main() {
 				return
 			}
 			if secondFactor && !ok {
-				e := httpx.Err(http.StatusUnauthorized, "session_required", "Confirm with your passkey (or sign in with your second factor).")
-				e.Details = map[string]any{"methods": []string{"passkey", "totp"}}
+				e := httpx.Err(http.StatusUnauthorized, "session_required", "Confirm with your passkey.")
+				e.Details = map[string]any{"methods": []string{"passkey"}}
 				httpx.WriteErr(r.Context(), w, e)
 				return
 			}

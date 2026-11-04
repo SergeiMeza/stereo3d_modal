@@ -16,7 +16,7 @@ import (
 func caseAction(s *Service, id, body string) (int, map[string]any) {
 	w := httptest.NewRecorder()
 	s.HandleAdminCaseAction(w, httptest.NewRequest(http.MethodPost, "/v1/admin/cases/"+id+"/actions", strings.NewReader(body)),
-		&AdminUser{UID: "admin", Email: "owner@x", AuthTime: time.Now()}, id)
+		&AdminUser{UID: "admin", Email: "owner@x", Method: "passkey", AssertedAt: time.Now()}, id)
 	var out map[string]any
 	json.Unmarshal(w.Body.Bytes(), &out)
 	return w.Code, out
@@ -69,7 +69,7 @@ func TestClosedCaseLock(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	s.HandleAdminAccountAction(w, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"action":"adjust_balance","cents":100,"case_id":"`+cs.ID+`","note":"x"}`)),
-		&AdminUser{UID: "admin", AuthTime: time.Now()}, uid)
+		&AdminUser{UID: "admin", Method: "passkey", AssertedAt: time.Now()}, uid)
 	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "case_closed") {
 		t.Fatalf("adjustment on a closed case: %d %s", w.Code, w.Body)
 	}

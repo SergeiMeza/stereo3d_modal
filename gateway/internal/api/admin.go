@@ -28,8 +28,10 @@ type AdminUser struct {
 	Email    string
 	AuthTime time.Time // the Firebase token's auth_time
 	// Method: "passkey" when a valid X-Admin-Session came with the call
-	// (ADR 0135), else "totp" (the Identity Platform second factor).
-	// AssertedAt: the session's last passkey assertion.
+	// (ADR 0135; the only second factor), "cli" for svs-admin run locally
+	// with the operator's own credentials, "" otherwise (the passkey
+	// routes, which need the token alone). AssertedAt: the session's last
+	// passkey assertion.
 	Method     string
 	AssertedAt time.Time
 	Session    *AdminSession
@@ -38,23 +40,23 @@ type AdminUser struct {
 // adminFresh is how recent the proof must be for money actions.
 const adminFresh = 5 * time.Minute
 
-// FreshAuth: money actions need a passkey assertion (or, on the TOTP
-// path, a sign-in) within the last 5 minutes.
+// FreshAuth: money actions need a passkey assertion within the last 5
+// minutes (svs-admin on the operator's machine always may).
 func (a *AdminUser) FreshAuth() bool {
-	if a.Method == "passkey" {
+	switch a.Method {
+	case "passkey":
 		return time.Since(a.AssertedAt) <= adminFresh
+	case "cli":
+		return true
 	}
-	return time.Since(a.AuthTime) <= adminFresh
+	return false
 }
 
-// reauthErr is 401 reauth_required naming how to prove it again.
+// reauthErr is 401 reauth_required {method: "passkey"}.
 func (a *AdminUser) reauthErr() error {
-	if a != nil && a.Method == "passkey" {
-		e := httpx.Err(http.StatusUnauthorized, "reauth_required", "confirm it's you again with your passkey")
-		e.Details = map[string]any{"method": "passkey"}
-		return e
-	}
-	return errReauth()
+	e := httpx.Err(http.StatusUnauthorized, "reauth_required", "confirm it's you again with your passkey")
+	e.Details = map[string]any{"method": "passkey"}
+	return e
 }
 
 func (a *AdminUser) who() string {
@@ -62,10 +64,6 @@ func (a *AdminUser) who() string {
 		return a.Email
 	}
 	return a.UID
-}
-
-func errReauth() error {
-	return httpx.Err(http.StatusUnauthorized, "reauth_required", "confirm it's you again: sign in within the last 5 minutes for money actions")
 }
 
 func (s *Service) audit(ctx context.Context, a *AdminUser, action string, data map[string]any) {

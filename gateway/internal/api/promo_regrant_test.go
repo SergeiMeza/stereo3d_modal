@@ -348,7 +348,7 @@ func TestPromoDisputeLostAndRestore(t *testing.T) {
 	act := func(body string) int {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/v1/admin/accounts/"+uid+"/actions", strings.NewReader(body))
-		s.HandleAdminAccountAction(w, r, &AdminUser{UID: "admin", Email: "owner@x", AuthTime: time.Now()}, uid)
+		s.HandleAdminAccountAction(w, r, &AdminUser{UID: "admin", Email: "owner@x", Method: "passkey", AssertedAt: time.Now()}, uid)
 		return w.Code
 	}
 	if code := act(`{"action":"restore_promo_grants"}`); code != http.StatusBadRequest {
@@ -439,7 +439,7 @@ func grantCall(s *Service, method, uid, id, body string, fresh bool) (int, map[s
 	if !fresh {
 		at = at.Add(-time.Hour)
 	}
-	a := &AdminUser{UID: "admin", Email: "owner@x", AuthTime: at}
+	a := &AdminUser{UID: "admin", Email: "owner@x", Method: "passkey", AssertedAt: at}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(method, "/v1/admin/accounts/"+uid+"/grants", strings.NewReader(body))
 	switch method {

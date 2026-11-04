@@ -90,7 +90,7 @@ func TestCompanyDetails(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	s.HandleAdminAccount(w, httptest.NewRequest(http.MethodGet, "/v1/admin/accounts/"+uid, nil), &AdminUser{UID: "admin", AuthTime: time.Now()}, uid)
+	s.HandleAdminAccount(w, httptest.NewRequest(http.MethodGet, "/v1/admin/accounts/"+uid, nil), &AdminUser{UID: "admin", Method: "passkey", AssertedAt: time.Now()}, uid)
 	var adm map[string]any
 	json.Unmarshal(w.Body.Bytes(), &adm)
 	co, _ := adm["company"].(map[string]any)

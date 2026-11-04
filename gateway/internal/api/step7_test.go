@@ -433,7 +433,7 @@ func TestPlanCreditEarlyEnd(t *testing.T) {
 	k := newPlan("in_k"+store.NewID(), "pi_k"+store.NewID(), "sub_k"+store.NewID(), 0)
 	act := func(action string) {
 		rec := httptest.NewRecorder()
-		s.HandleAdminAccountAction(rec, httptest.NewRequest("POST", "/", strings.NewReader(`{"action":"`+action+`"}`)), &AdminUser{Email: "owner@x", AuthTime: time.Now()}, k)
+		s.HandleAdminAccountAction(rec, httptest.NewRequest("POST", "/", strings.NewReader(`{"action":"`+action+`"}`)), &AdminUser{Email: "owner@x", Method: "passkey", AssertedAt: time.Now()}, k)
 		if rec.Code != 200 {
 			t.Fatalf("%s: %d %s", action, rec.Code, rec.Body)
 		}

@@ -24,9 +24,8 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// Admin passkeys (ADR 0135): the admin console's second factor, in place
-// of the Identity Platform TOTP plan (which keeps working as an
-// alternative until the owner retires it).
+// Admin passkeys (ADR 0135): the admin console's only second factor
+// (owner 2026-11-04: no authenticator codes, no Identity Platform).
 //
 //   - Relying parties: prod admin.stereo3d.studio; test
 //     admin-test.stereo3d.studio and localhost (http://localhost:5174);
@@ -232,19 +231,18 @@ func (s *Service) AdminSessionOf(ctx context.Context, r *http.Request, uid strin
 }
 
 // AdminUserFor builds the caller of an admin route from a verified
-// Firebase admin token: a valid X-Admin-Session makes the method
-// "passkey"; without one, totp says whether the token carries the old
-// second factor. ok=false: no second factor at all; sessErr: a session
-// header that didn't verify.
-func (s *Service) AdminUserFor(r *http.Request, uid, email string, authTime time.Time, totp bool) (a *AdminUser, ok bool, sessErr error) {
-	a = &AdminUser{UID: uid, Email: email, AuthTime: authTime, Method: "totp"}
+// Firebase admin token: a valid X-Admin-Session for the same uid makes
+// the method "passkey" (ok). Without a session, ok is false and sessErr
+// nil; a session header that didn't verify is sessErr.
+func (s *Service) AdminUserFor(r *http.Request, uid, email string, authTime time.Time) (a *AdminUser, ok bool, sessErr error) {
+	a = &AdminUser{UID: uid, Email: email, AuthTime: authTime}
 	sess, err := s.AdminSessionOf(r.Context(), r, uid)
 	switch {
 	case err == nil:
 		a.Method, a.AssertedAt, a.Session = "passkey", time.Unix(sess.LastAssertionAt, 0).UTC(), sess
 		return a, true, nil
 	case errors.Is(err, errNoSession):
-		return a, totp, nil
+		return a, false, nil
 	}
 	return a, false, err
 }
