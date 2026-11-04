@@ -253,7 +253,6 @@ func main() {
 	mux.HandleFunc("GET /v1/runs/{id}/formats", authed(withID(svc.HandleRunFormats)))
 	mux.HandleFunc("POST /v1/runs/{id}/formats", authed(withID(svc.HandleRunFormatAdd)))
 
-
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
 	mux.HandleFunc("GET /v1/billing", authed(svc.HandleGetBilling))
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))

@@ -1336,6 +1336,45 @@ per line; when the line empties, one "GPU line cleared" mail with the
 longest wait. The throttle lives in `ops_{env}/gpu_line`, so instances
 agree. No address or no Resend key → logged only.
 
+### Get another format (ADR 0137)
+
+A finished Lifelike run's stored output is re-packed into a format it
+doesn't have by the Lifelike service (it encodes like the pipeline);
+Classic runs get none (Classic is retired).
+
+- `GET /v1/runs/{id}/formats` → `{available: [fmt], have: [fmt],
+  pending: [fmt], unavailable_reason?: files_erased | half_only |
+  run_failed | classic_retired | split_run, price_cents: 0, jobs:
+  {fmt: {job_id, status: pending | processing | succeeded | failed,
+  source, price_cents, requested_at, finished_at, error?}}}`. fmt is
+  mvhevc | sbs | half_sbs. The GET also polls a running repack.
+- `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, status, format,
+  source, price_cents}`. 409 `format_exists` | `format_in_progress` |
+  `format_unavailable` with `details.reason` (the reasons above, or
+  `too_wide`: full side-by-side at 6K/8K); 400 unknown format; 429
+  `rate_limited` (10 an hour per account); 502/503 `repack_unavailable`
+  (the Lifelike service didn't take it; the attempt is recorded as
+  failed and can be retried).
+- **Rules.** Only a succeeded run whose project isn't deleted and whose
+  files aren't erased (`file_keep_days`). The source is the run's full
+  side-by-side, else its spatial file; half side-by-side alone can't make
+  a fuller format. One per format per run; a failed one can be retried.
+  Free for now (`price_cents: 0`, ADR 0137's open question). Starting one
+  counts as use of the project (the keep clock restarts).
+- **Lifelike call.** `POST /repack {job_id, source: {url: signed GET of
+  the stored output, format}, target_format, output_upload_url: signed
+  PUT of outputs/<job>/repack_<format>.mp4|.mov, preset, fps}` →
+  `{repack_id}`; `GET /repack/{id}` → `{status, output: {bytes, width,
+  height, frames, level}, cost_stage}`, polled by the reconciler every
+  minute (`conversion.repack_pending`) and by the GET; 3 h without an end
+  fails it. Signed URLs live 6 h.
+- **Then.** The new file joins `conversion.outputs[format]`, so it lists
+  and downloads like the others (same naming, SBS/TB markers).
+  `conversion.repacks[format]` keeps the record; events
+  `run_format_requested`, `run_format_added`, `run_format_failed`; the
+  admin case page's run rows and the account view's runs show
+  `formats_added`.
+
 ### Customer passkeys (ADR 0136)
 
 An extra way to sign in to an existing account (made with Apple, Google

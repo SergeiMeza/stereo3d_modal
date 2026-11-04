@@ -438,11 +438,11 @@ type Conversion struct {
 	// (the reconciler polls those).
 	Repacks       map[string]*Repack `firestore:"repacks,omitempty" json:"-"`
 	RepackPending bool               `firestore:"repack_pending,omitempty" json:"-"`
-	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
-	ExpiresAt *time.Time `firestore:"expires_at,omitempty" json:"-"`
-	Lease     *Lease     `firestore:"lease,omitempty" json:"-"`
-	CreatedAt time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `firestore:"updated_at" json:"updated_at"`
+	Payments      []Payment          `firestore:"payments,omitempty" json:"-"`
+	ExpiresAt     *time.Time         `firestore:"expires_at,omitempty" json:"-"`
+	Lease         *Lease             `firestore:"lease,omitempty" json:"-"`
+	CreatedAt     time.Time          `firestore:"created_at" json:"created_at"`
+	UpdatedAt     time.Time          `firestore:"updated_at" json:"updated_at"`
 }
 
 // Support tracks runs that outlive their estimate. On 2026-10-27 runs sat
