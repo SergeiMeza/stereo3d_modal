@@ -19,12 +19,13 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { proPercent } from "@/components/pricing/ProOffer";
+import { proMembership } from "@/components/pro/proMembership";
 import { ProPlans } from "@/components/pro/ProPlans";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
-import { isWebPro, useProStatus } from "@/lib/pro/usePro";
+import { isWebPro, useProStatus, type ProStatus } from "@/lib/pro/usePro";
 import { ScheduledChange } from "@/components/billing/PlanChange";
-import { isTeamPlan } from "@/lib/api/types";
+import { isTeamPlan, type AccountPlan } from "@/lib/api/types";
 import { ProBusinessLine } from "@/components/business/BusinessEntry";
 import { ProPeriodChange } from "@/components/pro/ProPeriodChange";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -103,6 +104,7 @@ export function ProScreen(): JSX.Element {
               </p>
             </div>
           </div>
+          <MembershipLine status={status} plan={plan} />
           {/* gateway 00102: a Pro step-down waits for the period's end */}
           {plan?.plan === "pro" ? <ScheduledChange plan={plan} /> : null}
           <ProPeriodChange />
@@ -131,5 +133,36 @@ export function ProScreen(): JSX.Element {
       {/* owner 2026-11-04: Business and Studio, one line at the bottom */}
       <ProBusinessLine />
     </section>
+  );
+}
+
+/** QA 2026-11-05: where this Pro comes from, its period and dates, and
+ * where to manage it (nothing to manage for a grant). */
+function MembershipLine({
+  status,
+  plan,
+}: {
+  status: ProStatus | null;
+  plan: AccountPlan | null | undefined;
+}): JSX.Element | null {
+  const m = proMembership(status, plan);
+  if (!m) return null;
+  return (
+    <p data-testid="pro-membership" className="text-sm text-fg">
+      {m.text}{" "}
+      {m.manage === "billing" ? (
+        <Link href="/account/billing" className="text-primary hover:underline">
+          Manage in Billing
+        </Link>
+      ) : m.manage === "apple" ? (
+        status?.management_url ? (
+          <a href={status.management_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            Manage in your Apple ID settings
+          </a>
+        ) : (
+          <span className="text-fg-muted">Manage in your Apple ID settings.</span>
+        )
+      ) : null}
+    </p>
   );
 }
