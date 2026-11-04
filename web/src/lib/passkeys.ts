@@ -60,6 +60,17 @@ export interface PasskeySignInAnswer {
 }
 
 export const NOT_REGISTERED_MESSAGE = "This passkey isn't registered here. Sign in another way.";
+
+/** The gateway's sign-in refusals in plain words (rev 00113). */
+const SIGN_IN_MESSAGES: Record<string, string> = {
+  passkey_not_registered: NOT_REGISTERED_MESSAGE,
+  passkey_invalid: "That didn't work. Try again.",
+  challenge_invalid: "That didn't work. Try again.",
+  passkey_clone_suspected: "This passkey can't be used. Sign in another way.",
+  account_unavailable: "This account has been disabled.",
+  sign_in_unavailable: "Sign-in isn't available right now. Try again.",
+  rate_limited: "Too many tries. Wait a few minutes.",
+};
 const CLOSED_MESSAGE = "The passkey prompt was closed before it finished. Try again.";
 const UNSUPPORTED_MESSAGE = "This browser can't use passkeys. Sign in another way.";
 
@@ -145,11 +156,7 @@ async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     const code = typeof parsed.error === "string" ? parsed.error : "passkey_failed";
     const message =
-      code === "passkey_not_registered"
-        ? NOT_REGISTERED_MESSAGE
-        : typeof parsed.message === "string"
-          ? parsed.message
-          : `request failed (${res.status})`;
+      SIGN_IN_MESSAGES[code] ?? (typeof parsed.message === "string" ? parsed.message : `request failed (${res.status})`);
     throw new PasskeyError(code, message, res.status);
   }
   return parsed as T;
@@ -160,7 +167,10 @@ async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
  * autofill, the email field's suggestions), then the gateway's check.
  * session: true asks for the session tokens (China mode).
  */
-export async function passkeySignIn(opts: { autofill?: boolean; session?: boolean } = {}): Promise<PasskeySignInAnswer> {
+export async function passkeySignIn(
+  opts: { autofill?: boolean; session?: boolean } = {},
+  retried = false,
+): Promise<PasskeySignInAnswer> {
   if (!passkeysSupported()) throw new PasskeyError("unsupported", UNSUPPORTED_MESSAGE, 0);
   const optionsJSON = optionsOf<PublicKeyCredentialRequestOptionsJSON>(
     await anonymousPost(PASSKEY_ROUTES.signInOptions, {}),
@@ -171,10 +181,16 @@ export async function passkeySignIn(opts: { autofill?: boolean; session?: boolea
   } catch (e) {
     throw toPasskeyError(e);
   }
-  return anonymousPost<PasskeySignInAnswer>(PASSKEY_ROUTES.signInVerify, {
-    response,
-    ...(opts.session ? { session: true } : {}),
-  });
+  try {
+    return await anonymousPost<PasskeySignInAnswer>(PASSKEY_ROUTES.signInVerify, {
+      response,
+      ...(opts.session ? { session: true } : {}),
+    });
+  } catch (e) {
+    // an expired or used challenge: once more with fresh options
+    if (!retried && e instanceof PasskeyError && e.code === "challenge_invalid") return passkeySignIn(opts, true);
+    throw e;
+  }
 }
 
 /** Stop a waiting autofill request (before the button's own prompt). */

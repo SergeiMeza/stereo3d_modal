@@ -430,6 +430,8 @@ interface DB {
   passkeys: { id: string; name: string; device_hint: string | null; created_at: string; last_used_at: string | null }[];
   /** ADR 0136: adding a passkey answers 401 reauth_required (sign-in too old) */
   passkeyReauthNeeded: boolean;
+  /** ADR 0136: refusals the next passkey sign-in checks answer, in order */
+  passkeyVerifyErrors: { status: number; code: string }[];
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -917,6 +919,7 @@ function seed(): DB {
     nextChangeExpired: false,
     passkeys: [] as typeof mockDb.passkeys,
     passkeyReauthNeeded: false,
+    passkeyVerifyErrors: [] as { status: number; code: string }[],
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -953,6 +956,7 @@ export const mockDb = {
     this.nextChangeExpired = fresh.nextChangeExpired;
     this.passkeys = fresh.passkeys;
     this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
+    this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -3191,6 +3195,8 @@ export const handlers = [
   ),
   http.post(`${GATEWAY}/v1/auth/passkey/verify`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { response?: { id?: string }; session?: boolean };
+    const refusal = mockDb.passkeyVerifyErrors.shift();
+    if (refusal) return err(refusal.status, refusal.code, refusal.code);
     const key = mockDb.passkeys.find((p) => p.id === body.response?.id);
     if (!key) return err(404, "passkey_not_registered", "This passkey isn't registered here.");
     key.last_used_at = new Date().toISOString();
@@ -3198,7 +3204,12 @@ export const handlers = [
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
   http.post(`${GATEWAY}/v1/account/passkeys/register/options`, () => {
-    if (mockDb.passkeyReauthNeeded) return err(401, "reauth_required", "Sign in again to add a passkey.");
+    if (mockDb.passkeyReauthNeeded) {
+      return HttpResponse.json(
+        { success: false, error: "reauth_required", message: "Sign in again to add a passkey.", details: { method: "firebase" } },
+        { status: 401 },
+      );
+    }
     return HttpResponse.json({
       options: {
         publicKey: {
