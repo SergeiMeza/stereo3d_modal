@@ -496,9 +496,9 @@ func formatsFor(preset string) []string {
 }
 
 // newQuality builds an offered size; above 4K the source is always one
-// eye and the result experimental (S3D-65).
+// eye and the result experimental (S3D-65), by the preset it renders.
 func newQuality(id string, shortSide int, preset, pricePreset string) quality {
-	above4K := shortSide > originalEyeAboveShortSide
+	above4K := presetOutputHeight[preset] > originalEyeAboveShortSide
 	return quality{ID: id, LabelShortSide: shortSide, Preset: preset, PricePreset: pricePreset,
 		OriginalEyeRequired: above4K, Experimental: above4K, Formats: formatsFor(preset)}
 }
@@ -509,17 +509,18 @@ const qualityFull = "full"
 // 2160) always keep the source as one eye (S3D-65).
 const originalEyeAboveShortSide = 2160
 
+// presetLongEdge: a size step's 16:9 width (1080 → 1920, 2160 → 3840).
+func presetLongEdge(short int) int { return short * 16 / 9 }
+
 // sourceShortSide is the source's short side, rotation-proof (min of the
 // two sides), rounded down to even; 0 before analysis. When the run takes
-// black bars off (BL-03) it is the short side of the 16:9 frame the
-// picture inside fills (the larger of its short side and 9/16 of its long
-// side), so a letterboxed 4K film (3840x1600 inside) still reaches 4K:
-// the size steps keep their long edge and follow the picture's aspect
-// (outputDims).
+// black bars off (BL-03) the steps go by their long edge (Lifelike's
+// crop_output_size), so it is the short side of the 16:9 frame as wide as
+// the picture inside: a letterboxed 4K film (3840x1600 inside) still
+// reaches 4K, a 1440x1080 pillarbox renders whole at 1080p.
 func sourceShortSide(p *store.Project) int {
 	if c, ok := barsCrop(p); ok && removeBars(p) {
-		long, short := max(c.W, c.H), min(c.W, c.H)
-		return max(short, (long*9+15)/16) &^ 1
+		return (max(c.W, c.H) * 9 / 16) &^ 1
 	}
 	if p.Probe == nil || p.Probe.Width <= 0 || p.Probe.Height <= 0 {
 		return 0
@@ -539,31 +540,48 @@ func contentDims(p *store.Project) (w, h int) {
 
 func evenRound(v float64) int { return int(math.Round(v/2)) * 2 }
 
+// cropOutputSize is Lifelike's crop_output_size (1d23c0e), integer for
+// integer: the crop's long edge at the step's long edge, never above its
+// own, even; the other side from the crop's aspect, rounded half up to
+// even, never above the crop's. 3840x1600 inside a 4K frame: 3840x1600
+// at 4K, 1920x800 at 1080p; a 4:3 2880x2160 crop at 1080p: 1920x1440.
+func cropOutputSize(cropW, cropH, stepShort int) (w, h int) {
+	longIn, shortIn := max(cropW, cropH), min(cropW, cropH)
+	long := min(presetLongEdge(stepShort), longIn)
+	long -= long % 2
+	short := min(2*((long*shortIn+longIn)/(2*longIn)), shortIn-shortIn%2)
+	short = max(2, short)
+	if cropW >= cropH {
+		return long, short
+	}
+	return short, long
+}
+
 // outputDims is a run's output picture per eye, displayed pixels (0, 0
 // before analysis). Without bars removed: the step's short side
-// (outputShortSide) and the frame's aspect. With bars removed (BL-03,
-// working rule until Lifelike confirms the mapping): the picture fitted
-// inside the step's 16:9 box (long edge = 16/9 of its short side, turned
-// like the picture), never upscaled, rounded to even: 3840x1600 inside
-// a 4K frame stays 3840x1600 at 4K, 1920x800 at 1080p.
+// (outputShortSide) and the frame's aspect. With bars removed (BL-03):
+// cropOutputSize of the run's crop.
 func outputDims(p *store.Project, params store.Params) (w, h int) {
+	if params.RemoveBars {
+		step := presetOutputHeight[params.Preset]
+		c := params.SourceCrop
+		if c == nil {
+			if bc, ok := barsCrop(p); ok {
+				c = &bc
+			}
+		}
+		if c == nil || step <= 0 {
+			return 0, 0
+		}
+		return cropOutputSize(c.W, c.H, step)
+	}
 	cw, ch := contentDims(p)
 	if cw <= 0 || ch <= 0 {
 		return 0, 0
 	}
 	long, short := float64(max(cw, ch)), float64(min(cw, ch))
-	var outLong, outShort int
-	if params.RemoveBars {
-		boxShort := float64(presetOutputHeight[params.Preset])
-		if boxShort <= 0 {
-			return 0, 0
-		}
-		scale := min(boxShort*16/9/long, boxShort/short, 1)
-		outLong, outShort = evenRound(long*scale), evenRound(short*scale)
-	} else {
-		outShort = outputShortSide(p, params)
-		outLong = evenRound(long * float64(outShort) / short)
-	}
+	outShort := outputShortSide(p, params)
+	outLong := evenRound(long * float64(outShort) / short)
 	if cw >= ch {
 		return outLong, outShort
 	}
@@ -596,7 +614,12 @@ func lifelikeQualities(p *store.Project, enabled []string) []quality {
 			if price == "" {
 				price = pricing.LifelikePresets[0] // below 1080: the 1080p price
 			}
-			out = append(out, newQuality(qualityFull, short, preset, price))
+			label := short
+			if c, ok := barsCrop(p); ok && removeBars(p) {
+				w, h := cropOutputSize(c.W, c.H, presetOutputHeight[preset])
+				label = min(w, h) // what the cropped picture comes out at
+			}
+			out = append(out, newQuality(qualityFull, label, preset, price))
 		}
 		break
 	}
@@ -629,8 +652,13 @@ func pickQuality(offered []quality, requested string, short int, enabled []strin
 }
 
 // outputShortSide is what a Lifelike run will deliver per eye: the preset,
-// clamped to the source.
+// clamped to the source; with bars removed, the cropped picture's short
+// side (outputDims).
 func outputShortSide(p *store.Project, params store.Params) int {
+	if params.RemoveBars {
+		w, h := outputDims(p, params)
+		return min(w, h)
+	}
 	h := presetOutputHeight[params.Preset]
 	if short := sourceShortSide(p); short > 0 && short < h {
 		return short

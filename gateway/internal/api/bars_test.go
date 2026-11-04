@@ -32,6 +32,8 @@ func TestHasBars(t *testing.T) {
 		{"rotated full frame", 1920, 1080, "1080:1920:0:0", false, 0, 0},
 		{"rotated letterbox", 1920, 1080, "800:1920:140:0", true, 800, 1920},
 		{"malformed", 3840, 2160, "not-a-crop", false, 0, 0},
+		{"under 20% of a side (dark video)", 3840, 2160, "3840:400:0:880", false, 0, 0},
+		{"off the frame", 3840, 2160, "3840:1600:0:600", false, 0, 0},
 	} {
 		p := barsProject(tc.w, tc.h, tc.crop)
 		c, ok := barsCrop(p)
@@ -163,9 +165,9 @@ func TestLifelikeBodySourceCrop(t *testing.T) {
 	}
 }
 
-// With bars off, the size steps keep their long edge and follow the
-// picture inside (never upscaled); without, the step's short side and
-// the frame's aspect, turned like the picture.
+// With bars off, sizes are Lifelike's crop_output_size (the steps keep
+// their long edge, the picture's aspect, never upscaled); without, the
+// step's short side and the frame's aspect, turned like the picture.
 func TestOutputDimsWithBars(t *testing.T) {
 	all := pricing.LifelikePresets
 	for _, tc := range []struct {
@@ -177,7 +179,10 @@ func TestOutputDimsWithBars(t *testing.T) {
 	}{
 		{"letterbox 4k", 3840, 2160, "3840:1600:0:280", "4k", 2160, 3840, 1600, true, true},
 		{"letterbox 1080p", 3840, 2160, "3840:1600:0:280", "1080p", 2160, 1920, 800, true, true},
-		{"pillarbox 1080p", 1920, 1080, "1440:1080:240:0", "1080p", 1080, 1440, 1080, true, false},
+		{"pillarbox 1080p", 1920, 1080, "1440:1080:240:0", "1080p", 810, 1440, 1080, true, false},
+		// Lifelike's rule keeps the long edge: a 4:3 crop at 1080p is 1920x1440
+		{"4:3 pillarbox 1080p", 3840, 2160, "2880:2160:480:0", "1080p", 1620, 1920, 1440, true, false},
+		{"4:3 pillarbox 3k", 3840, 2160, "2880:2160:480:0", "3k", 1620, 2880, 2160, true, false},
 		{"rotated letterbox", 1920, 1080, "800:1920:140:0", "1080p", 1080, 800, 1920, true, false},
 		{"rotated full frame", 1920, 1080, "1080:1920:0:0", "1080p", 1080, 1080, 1920, false, false},
 		{"no crop", 3840, 2160, "", "4k", 2160, 3840, 2160, false, true},
@@ -226,5 +231,19 @@ func TestQuoteShowsCroppedSize(t *testing.T) {
 	json.Unmarshal([]byte(body), &out)
 	if out["output_height"] != float64(2160) || out["remove_bars"] != false {
 		t.Fatalf("kept %s", body)
+	}
+}
+
+// cropOutputSize gives Lifelike's crop_output_size numbers (values from
+// its formula, stereo_math.py at 1d23c0e).
+func TestCropOutputSizeMatchesLifelike(t *testing.T) {
+	for _, tc := range [][5]int{
+		{3840, 1600, 2160, 3840, 1600}, {3840, 1600, 1080, 1920, 800}, {1440, 1080, 1080, 1440, 1080},
+		{2880, 2160, 1080, 1920, 1440}, {1998, 1080, 1080, 1920, 1038}, {800, 1920, 1080, 800, 1920},
+		{4320, 4320, 2880, 4320, 4320}, {3600, 1500, 2160, 3600, 1500}, {1918, 817, 1080, 1918, 816},
+	} {
+		if w, h := cropOutputSize(tc[0], tc[1], tc[2]); w != tc[3] || h != tc[4] {
+			t.Errorf("%v: %dx%d", tc, w, h)
+		}
 	}
 }

@@ -22,6 +22,7 @@ import (
 const (
 	barsMinSidePx   = 8    // a side at least this much shorter is bars
 	barsMinAreaLoss = 0.02 // or at least this share of the picture
+	barsMinKeep     = 0.20 // Lifelike's MIN_CROP_SHARE: a crop keeps at least this of each side
 )
 
 // parseCrop reads project.crop; ok false when absent or malformed.
@@ -54,6 +55,11 @@ func barsCrop(p *store.Project) (store.Crop, bool) {
 	c, ok := parseCrop(p.Crop)
 	fw, fh := displayedFrame(p)
 	if !ok || fw == 0 || c.W > fw || c.H > fh {
+		return store.Crop{}, false
+	}
+	// Lifelike refuses a crop off the frame or keeping under 20% of a side
+	// (MIN_CROP_SHARE): cropdetect on a dark video, not bars.
+	if c.X+c.W > fw || c.Y+c.H > fh || float64(c.W) < barsMinKeep*float64(fw) || float64(c.H) < barsMinKeep*float64(fh) {
 		return store.Crop{}, false
 	}
 	area, full := float64(c.W)*float64(c.H), float64(fw)*float64(fh)

@@ -783,17 +783,19 @@ is asked when bars are found and can keep them.
   previews, split runs (one submit) and Express. Absent = the whole
   frame. Lifelike ignores unknown keys, so test runs keep working until
   3DS ships it (feat/source-crop).
-- **Sizes and price.** With bars off, the size steps are judged on the
-  16:9 frame the picture inside fills (short side = the larger of its
-  short side and 9/16 of its long side), so a letterboxed 4K film
-  (3840x1600 inside) still offers 4K; the output is the picture fitted in
-  the step's 16:9 box, never upscaled, rounded to even (4K: 3840x1600,
-  1080p: 1920x800; a 1440x1080 pillarbox stays 1440x1080 at 1080p). This
-  is the working rule until Lifelike confirms its mapping. Lifelike's
-  price is per step and output minute, so removing bars changes the price
-  only when it changes the steps offered. Quotes add `output_width`,
-  `output_height` (per eye, displayed pixels) and `remove_bars`; runs
-  record `params.output_width` / `output_height`.
+- **Sizes and price.** With bars off, sizes are Lifelike's
+  `crop_output_size` (live on lifelike3d-test, 1d23c0e), integer for
+  integer: the crop's long edge at the step's long edge (16:9 of its
+  short side), never above its own, the other side from the crop's
+  aspect rounded half up to even (4K: 3840x1600 from a 3840x1600 crop,
+  1080p: 1920x800; a 4:3 2880x2160 crop at 1080p: 1920x1440). The steps
+  offered go by that long edge (a step is reached when its long edge fits
+  the crop), and a full option's label is its real short side. A crop
+  keeping under 20% of a side, or off the frame, isn't bars (Lifelike
+  refuses it). Lifelike's price is per step and output minute, so
+  removing bars changes the price only when it changes the steps offered.
+  Quotes add `output_width`, `output_height` (per eye, displayed pixels)
+  and `remove_bars`; runs record `params.output_width` / `output_height`.
 
 ### Lifelike brand intro (BL-25)
 

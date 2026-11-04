@@ -1339,7 +1339,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 			resp["output_width"], resp["output_height"] = w, h
 			resp["remove_bars"] = params.RemoveBars
 		}
-		resp["original_eye_required"] = outputShortSide(p, params) > originalEyeAboveShortSide
+		resp["original_eye_required"] = presetOutputHeight[params.Preset] > originalEyeAboveShortSide
 		resp["qualities"] = lifelikeQualities(p, rates.EnabledLifelikePresets())
 	}
 	httpx.WriteOK(w, resp)
