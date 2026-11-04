@@ -180,6 +180,11 @@ func (r *Rates) Plan(tier string) (PlanDef, bool) {
 	return p, ok
 }
 
+// FreePreviewPeriods: how often each allowance resets (week | month |
+// year | pass = once per pass).
+var FreePreviewPeriods = map[string]string{"pro_weekly": "week", "pro_monthly": "month", "pro_yearly": "year",
+	"pro_pass_3m": "pass", "pro_pass_6m": "pass", "pro_lifetime": "month", TierBusiness: "month", TierStudio: "month"}
+
 // FreePreviewAllowance is the number of free previews for an allowance
 // key (pro_monthly, business, intro, …).
 func (r *Rates) FreePreviewAllowance(key string) int {
@@ -434,7 +439,7 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 	out["free_previews"] = map[string]any{
 		"enabled":       r.FreePreviewsEnabled,
 		"allowances":    allow, // per period; intro = a non-subscriber's first project
-		"periods":       map[string]string{"pro_weekly": "week", "pro_monthly": "month", "pro_yearly": "year", "pro_pass_3m": "pass", "pro_pass_6m": "pass", "pro_lifetime": "month", TierBusiness: "month", TierStudio: "month"},
+		"periods":       FreePreviewPeriods,
 		"unit_seconds":  r.FreePreviewSeconds(),
 		"counts_double": []string{"5k", "6k", "8k", "60fps"},
 		"daily_cap":     r.FreePreviewDailyCap(),

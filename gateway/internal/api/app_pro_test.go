@@ -107,7 +107,7 @@ func TestSimulateAppPro(t *testing.T) {
 
 func TestHeadsetsFromApp(t *testing.T) {
 	for _, tc := range []struct {
-		av                   *store.AppViewing
+		av                  *store.AppViewing
 		ids, source, answer string
 	}{
 		{nil, "[]", "", ""},
@@ -144,8 +144,32 @@ func TestOnboardingVariantEvents(t *testing.T) {
 		return store.Event{UID: uid, Name: "onboarding_headsets", At: time.Now(), Props: props}
 	}
 	rep := s.headsetReport(context.Background(), []store.Event{ev("a", "app_pro", "avp"), ev("a", "app_pro", "avp"), ev("b", "", "avp", "quest")})
-	if got := fmt.Sprint(rep["by_variant"]); !strings.Contains(got, "map[count:1 device:avp variant:app_pro]") ||
-		!strings.Contains(got, "map[count:1 device:avp variant:default]") || !strings.Contains(got, "map[count:1 device:quest variant:default]") {
+	if got := fmt.Sprint(rep["by_variant"]); !strings.Contains(got, "map[converted:0 count:1 device:avp variant:app_pro]") ||
+		!strings.Contains(got, "map[converted:0 count:1 device:avp variant:default]") || !strings.Contains(got, "map[converted:0 count:1 device:quest variant:default]") {
 		t.Fatalf("by_variant %s", got)
+	}
+}
+
+// GET /v1/pro names the Pro holder's free previews from our own table.
+func TestProStatusFreePreviews(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	s.RevenueCat = rcWith(t, "svs_pro_weekly", "app_store", "")
+	uid := "u" + store.NewID()
+	get := func() map[string]any {
+		_, out := callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleProStatus(w, r, &AuthedUser{UID: uid}) }, "GET", "")
+		return out
+	}
+	out := get()
+	fp, _ := out["free_previews"].(map[string]any)
+	want := s.rates(ctx).FreePreviewAllowance("pro_weekly")
+	if out["pro"] != true || fp["allowance"] != "pro_weekly" || fp["period"] != "week" || fp["per_period"] != float64(want) {
+		t.Fatalf("weekly %v (want %d)", out, want)
+	}
+	s.RevenueCat = revenuecat.New("") // not configured: nothing known
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", SimulateAppPro: true})
+	if out := get(); out["via"] != "simulated_app_pro" || out["free_previews"].(map[string]any)["allowance"] != "pro_monthly" {
+		t.Fatalf("simulated %v", out)
 	}
 }

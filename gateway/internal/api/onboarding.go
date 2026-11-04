@@ -377,7 +377,13 @@ func (s *Service) headsetReport(ctx context.Context, events []store.Event) map[s
 	})
 	variantRows := []map[string]any{}
 	for k, uids := range byVariant {
-		variantRows = append(variantRows, map[string]any{"variant": k.plan, "device": k.device, "count": len(uids)})
+		n := 0
+		for uid := range uids {
+			if converted[uid] {
+				n++
+			}
+		}
+		variantRows = append(variantRows, map[string]any{"variant": k.plan, "device": k.device, "count": len(uids), "converted": n})
 	}
 	sort.Slice(variantRows, func(i, j int) bool {
 		if variantRows[i]["variant"] != variantRows[j]["variant"] {

@@ -828,7 +828,12 @@ is ignored without such a plan.
   and ignores a stored switch.
 - **Events**: `onboarding_headsets` takes `props.variant` (`default` |
   `app_pro`, `default` when absent); the admin onboarding report adds
-  `by_variant[{variant, device, count}]`.
+  `by_variant[{variant, device, count, converted}]`.
+- **`GET /v1/pro`** and **`POST /v1/pro/refresh`** add `free_previews
+  {allowance, per_period, period: week|month|year|pass}` for a Pro holder,
+  from the gateway's own table (`pricing.FreePreviewPeriods`,
+  `FreePreviewAllowance`); the test switch reads as Pro there too (`via:
+  simulated_app_pro`, Pro Monthly's allowance).
 
 ### Plans surfaces (owner 2026-11-04)
 
