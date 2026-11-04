@@ -441,6 +441,9 @@ const serversBusyError = "All our servers are busy right now"
 // failureCopy is a failed run's error code and user message. Either way
 // the money comes back (refund) or was never taken; the copy says which.
 func failureCopy(c *store.Conversion, internalErr string) (code, msg string) {
+	if code, msg, ok := cropFailureCopy(c, internalErr); ok {
+		return code, msg
+	}
 	if strings.Contains(internalErr, fpsTooHighError) {
 		return "source_fps_too_high", "This video's frame rate is above 120 fps, which isn't supported."
 	}
@@ -492,6 +495,7 @@ func (s *Service) rejectSubmit(ctx context.Context, conv *store.Conversion, up *
 		code = "preset_unavailable"
 		msg = fmt.Sprintf("%s isn't available yet; choose 4K or lower", strings.ToUpper(conv.Params.Preset))
 	}
+	cropCode, cropMsg, isCrop := cropFailureCopy(conv, up.Body)
 	now := time.Now().UTC()
 	failed, err := s.Store.Transition(ctx, conv.ID, []string{store.StatePaid}, func(c *store.Conversion) error {
 		c.State = store.StateFailed
@@ -502,6 +506,9 @@ func (s *Service) rejectSubmit(ctx context.Context, conv *store.Conversion, up *
 			UserMessage:     msg + " — " + notChargedPhrase(c) + ".",
 			InternalMessage: fmt.Sprintf("submit rejected (%d): %s", up.StatusCode, up.Body),
 		}
+		if isCrop { // BL-03: the crop's own words
+			c.Error.Code, c.Error.UserMessage = cropCode, cropMsg
+		}
 		return nil
 	})
 	if err != nil {
@@ -510,6 +517,9 @@ func (s *Service) rejectSubmit(ctx context.Context, conv *store.Conversion, up *
 	s.Slack.ConversionFailed(ctx, conv.ID, conv.UID, "submit", "lifelike refused the submit: "+up.Body)
 	if released, rerr := s.releaseHold(ctx, failed); rerr == nil && released != nil {
 		failed = released
+	}
+	if isCrop {
+		code, msg = cropCode, cropMsg
 	}
 	return &submitRejected{Code: code, Message: msg, Conv: failed}
 }

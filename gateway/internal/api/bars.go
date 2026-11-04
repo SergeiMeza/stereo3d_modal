@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -137,4 +138,26 @@ func croppedFormats(p *store.Project, q quality) quality {
 		q.Formats = slices.DeleteFunc(slices.Clone(q.Formats), func(f string) bool { return f == "sbs" })
 	}
 	return q
+}
+
+// Lifelike's crop refusals (LIFELIKE_API.md "Black bars"): a 400 at submit
+// ("source_crop must …", "full-width sbs of … use half_sbs") or, when the
+// submit couldn't read the file in time, a failed job before any GPU work
+// with these sentences. Either way the run fails on the normal path
+// (nothing charged, a free preview given back) and can be run again.
+const (
+	cropUnfitText   = "The crop area doesn't fit this video."
+	cropFullSBSText = "Full-width side by side isn't available at this video's size."
+)
+
+// cropFailureCopy: the code and plain message of a crop refusal.
+func cropFailureCopy(c *store.Conversion, upstream string) (code, msg string, ok bool) {
+	charged := strings.ToUpper(notChargedPhrase(c)[:1]) + notChargedPhrase(c)[1:]
+	switch {
+	case strings.Contains(upstream, cropFullSBSText) || strings.Contains(upstream, "full-width sbs"):
+		return "format_unavailable", cropFullSBSText + " " + charged + ". Try again with half side-by-side.", true
+	case strings.Contains(upstream, cropUnfitText) || strings.Contains(upstream, "source_crop"):
+		return "source_crop_unfit", cropUnfitText + " " + charged + ". Try again, or keep the black bars.", true
+	}
+	return "", "", false
 }

@@ -780,6 +780,14 @@ is asked when bars are found and can keep them.
   half_sbs". The gateway treats it like 6K/8K: the size lists no `sbs`,
   a production asking for it is 400 `format_unavailable`, a preview swaps
   to half SBS, and Get another format answers `too_wide`.
+- **Crop refusals.** Lifelike checks the crop at submit (400) or, when it
+  can't read the file within 4 s, at plan time before any GPU work (a
+  failed job: "The crop area doesn't fit this video." or "Full-width side
+  by side isn't available at this video's size."). Both fail the run on
+  the normal path (hold released or refunded, a free preview given back)
+  with code `source_crop_unfit` ("… Try again, or keep the black bars.")
+  or `format_unavailable` ("… Try again with half side-by-side."); a new
+  run can be started at once.
 
 ### HDR output (owner 2026-11-05)
 

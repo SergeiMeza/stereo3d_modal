@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
@@ -323,5 +326,71 @@ func TestSourceCropIsEven(t *testing.T) {
 		if sc[k]%2 != 0 {
 			t.Fatalf("odd %s in %v", k, sc)
 		}
+	}
+}
+
+// A crop refusal, as a failed job (the cold check at plan time) or a 400
+// at submit, fails the run on the normal path: hold released, a free
+// preview given back, the crop's words on the run.
+func TestCropRefusalFailsCleanly(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	jobErr := cropUnfitText
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": "failed", "error": jobErr})
+	}))
+	t.Cleanup(srv.Close)
+	s.Lifelike = modalapi.New(srv.URL, "", "")
+	uid := "u" + store.NewID()
+	p := &store.Project{ID: store.NewID(), UID: uid, Method: store.MethodLifelike,
+		Probe: &store.Probe{FPS: 30, NumFrames: 3000, DurationS: 100}, Analyze: store.Analyze{State: store.AnalyzeSucceeded}}
+	s.Store.CreateProject(ctx, p)
+	params := store.Params{Preset: "4k", Formats: []string{"sbs"}, RemoveBars: true, SourceCrop: &store.Crop{Y: 280, W: 3840, H: 1600}}
+	run := func(pi string, fp *store.FreePreview) *store.Conversion {
+		now := time.Now()
+		c := &store.Conversion{ID: store.NewID(), UID: uid, ProjectID: p.ID, Kind: "video", Method: store.MethodLifelike,
+			Step: store.StepProduction, State: store.StateProcessing, Source: store.Source{FPS: 30, Frames: 3000},
+			Params: params, Quote: store.Quote{AmountCents: 1200, Currency: "usd"}, FreePreview: fp,
+			Modal: store.Modal{JobID: "j1", SubmittedAt: &now}}
+		if pi != "" {
+			fake.pis[pi] = map[string]any{"status": "requires_capture", "amount_received": int64(0)}
+			c.Stripe = store.Stripe{PaymentIntentID: pi, PIStatus: "requires_capture"}
+		}
+		if err := s.Store.CreateConversion(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	got, err := s.refreshFromModal(ctx, run("pi_crop", nil))
+	if err != nil || got.State != store.StateFailed || got.Error.Code != "source_crop_unfit" ||
+		got.Error.UserMessage != "The crop area doesn't fit this video. You were not charged. Try again, or keep the black bars." {
+		t.Fatalf("crop %+v %v", got.Error, err)
+	}
+	if fake.pis["pi_crop"]["status"] != "canceled" || got.Stripe.CapturedCents != 0 {
+		t.Fatalf("hold %v %+v", fake.pis["pi_crop"], got.Stripe)
+	}
+	// a free preview's units come back
+	day := time.Now().UTC().Format("2006-01-02")
+	if ok, err := s.Store.ConsumeFreePreviews(ctx, uid, "intro", day, 1, 1, 5, true); !ok || err != nil {
+		t.Fatalf("consume %v %v", ok, err)
+	}
+	jobErr = cropFullSBSText
+	got, _ = s.refreshFromModal(ctx, run("", &store.FreePreview{Units: 1, PeriodKey: "intro", DayKey: day}))
+	if got.Error.Code != "format_unavailable" || !strings.HasPrefix(got.Error.UserMessage, cropFullSBSText) || !got.FreePreview.Returned {
+		t.Fatalf("sbs %+v %+v", got.Error, got.FreePreview)
+	}
+	if u, _ := s.Store.GetPreviewUsage(ctx, uid, "intro", day); u.IntroUsed || u.DayUsed != 0 {
+		t.Fatalf("preview not given back %+v", u)
+	}
+	// a 400 at submit reads the same
+	c := &store.Conversion{Params: params}
+	if code, msg, ok := cropFailureCopy(c, `{"detail":"source_crop must fit inside the video's 1080x1920 displayed frame"}`); !ok || code != "source_crop_unfit" || !strings.HasPrefix(msg, cropUnfitText) {
+		t.Fatalf("400 %s %s", code, msg)
+	}
+	if code, _, ok := cropFailureCopy(c, `{"detail":"full-width sbs of 8640x4320 isn't available (no video level covers it); use half_sbs"}`); !ok || code != "format_unavailable" {
+		t.Fatalf("400 sbs %s", code)
+	}
+	if _, _, ok := cropFailureCopy(c, "CUDA out of memory"); ok {
+		t.Fatal("other failures keep their copy")
 	}
 }
