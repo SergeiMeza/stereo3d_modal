@@ -1525,7 +1525,7 @@ responses are `no-store`.
 
 | route | |
 |---|---|
-| `GET /v1/admin/cases?tab=open\|waiting\|decided\|closed\|all&type=&reason=&mode=&cap=over\|under&q=` | `{cases:[{id,type,reason,mode,status,result,opened_at,age_hours,email_masked,requested_cents,max_refundable_cents,deadline_at,deadline_red,dispute_due,last_activity_at}], counts:{open,overdue,due_today}}`; disputes first, then EFW/refund_failed, then oldest |
+| `GET /v1/admin/cases?tab=open\|waiting\|decided\|closed\|all&type=&reason=&mode=&cap=over\|under&q=` | `{cases:[{id,uid,type,reason,mode,status,result,opened_at,age_hours,email_masked,requested_cents,max_refundable_cents,deadline_at,deadline_red,dispute_due,last_activity_at}], counts:{open,overdue,due_today}}`; disputes first, then EFW/refund_failed, then oldest |
 | `POST /v1/admin/cases` `{uid, conversion_ids, reason, text, topup_id}` | opens cases (balance reasons need `topup_id` for withdrawals) → `{cases:[page]}` |
 | `GET /v1/admin/cases/{id}` | page: `{case, runs, max_refundable_cents, events, evidence, related_cases, hints, banners, account, refunds, actions}` |
 | `POST /v1/admin/cases/{id}/actions` `{action, items, expected_max_cents, template, text, method, reference}` | actions `note, customer_reply, refresh_evidence, ask, approve, partial, waive, deny, no_refund, mark_out_of_band, assign, stop_run, accept_dispute, counter_dispute, counter_with_refund_proof, close` (`accept_dispute` closes the dispute in Stripe and the webhook closes the case; counters are filed in the Stripe Dashboard and recorded here); 409 `action_unavailable`, 409 `amount_changed` when the maximum moved → the page |

@@ -146,7 +146,7 @@ func (s *Service) HandleAdminCases(w http.ResponseWriter, r *http.Request, a *Ad
 		if search != "" && !caseMatches(c, email, search) {
 			continue
 		}
-		row := map[string]any{"id": c.ID, "type": c.Type, "reason": c.Reason, "mode": c.Mode, "status": c.Status, "result": c.Result,
+		row := map[string]any{"id": c.ID, "uid": c.UID, "type": c.Type, "reason": c.Reason, "mode": c.Mode, "status": c.Status, "result": c.Result,
 			"opened_at": c.OpenedAt, "age_hours": int(now.Sub(c.OpenedAt).Hours()), "email_masked": maskEmail(email),
 			"requested_cents": c.RequestedCents, "deadline_at": c.DeadlineAt, "last_activity_at": c.LastActivityAt}
 		if c.DeadlineAt != nil {
