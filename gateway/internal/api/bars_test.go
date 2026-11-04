@@ -329,15 +329,17 @@ func TestSourceCropIsEven(t *testing.T) {
 	}
 }
 
-// A crop refusal, as a failed job (the cold check at plan time) or a 400
-// at submit, fails the run on the normal path: hold released, a free
-// preview given back, the crop's words on the run.
+// A crop refusal, as a failed job at plan time (error_code
+// source_crop_invalid, e348dab) or a 400 at submit, fails the run on the
+// normal path: hold released, a free preview given back, the crop's
+// words on the run.
 func TestCropRefusalFailsCleanly(t *testing.T) {
 	s, fake := e0Service(t)
 	ctx := context.Background()
 	jobErr := cropUnfitText
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": "failed", "error": jobErr})
+		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": "failed", "error": jobErr,
+			"error_code": "source_crop_invalid", "cost_summary": map[string]any{"total_usd": 0}}) // e348dab
 	}))
 	t.Cleanup(srv.Close)
 	s.Lifelike = modalapi.New(srv.URL, "", "")
@@ -389,6 +391,19 @@ func TestCropRefusalFailsCleanly(t *testing.T) {
 	}
 	if code, _, ok := cropFailureCopy(c, `{"detail":"full-width sbs of 8640x4320 isn't available (no video level covers it); use half_sbs"}`); !ok || code != "format_unavailable" {
 		t.Fatalf("400 sbs %s", code)
+	}
+	// e348dab: the frame rules fail the job with error_code source_crop_invalid
+	// (the gateway's internal error carries the code beside the sentence)
+	if code, msg, ok := cropFailureCopy(c, cropUnfitText+" (error_code source_crop_invalid)"); !ok || code != "source_crop_unfit" ||
+		msg != "The crop area doesn't fit this video. You were not charged. Try again, or keep the black bars." {
+		t.Fatalf("plan-time unfit %s %s", code, msg)
+	}
+	if code, msg, ok := cropFailureCopy(c, cropFullSBSText+" (error_code source_crop_invalid)"); !ok || code != "format_unavailable" ||
+		msg != "Full-width side by side isn't available at this video's size. You were not charged. Try again with half side-by-side." {
+		t.Fatalf("plan-time sbs %s %s", code, msg)
+	}
+	if code, _, ok := cropFailureCopy(c, "something new (error_code source_crop_invalid)"); !ok || code != "source_crop_unfit" {
+		t.Fatalf("code alone %s", code)
 	}
 	if _, _, ok := cropFailureCopy(c, "CUDA out of memory"); ok {
 		t.Fatal("other failures keep their copy")

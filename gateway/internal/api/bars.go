@@ -140,14 +140,17 @@ func croppedFormats(p *store.Project, q quality) quality {
 	return q
 }
 
-// Lifelike's crop refusals (LIFELIKE_API.md "Black bars"): a 400 at submit
-// ("source_crop must …", "full-width sbs of … use half_sbs") or, when the
-// submit couldn't read the file in time, a failed job before any GPU work
-// with these sentences. Either way the run fails on the normal path
+// Lifelike's crop refusals (LIFELIKE_API.md "Black bars"): since e348dab
+// the frame rules (off the frame, under 20%, the sbs level) fail the job
+// at plan time, at $0 with no GPU, with error_code source_crop_invalid
+// and these sentences; a malformed value is still a 400 at submit
+// ("source_crop must …"; older builds also 400'd "full-width sbs of …
+// use half_sbs"). Either way the run fails on the normal path
 // (nothing charged, a free preview given back) and can be run again.
 const (
 	cropUnfitText   = "The crop area doesn't fit this video."
 	cropFullSBSText = "Full-width side by side isn't available at this video's size."
+	cropErrorCode   = "source_crop_invalid"
 )
 
 // cropFailureCopy: the code and plain message of a crop refusal.
@@ -156,7 +159,7 @@ func cropFailureCopy(c *store.Conversion, upstream string) (code, msg string, ok
 	switch {
 	case strings.Contains(upstream, cropFullSBSText) || strings.Contains(upstream, "full-width sbs"):
 		return "format_unavailable", cropFullSBSText + " " + charged + ". Try again with half side-by-side.", true
-	case strings.Contains(upstream, cropUnfitText) || strings.Contains(upstream, "source_crop"):
+	case strings.Contains(upstream, cropUnfitText) || strings.Contains(upstream, "source_crop"): // incl. error_code source_crop_invalid
 		return "source_crop_unfit", cropUnfitText + " " + charged + ". Try again, or keep the black bars.", true
 	}
 	return "", "", false
