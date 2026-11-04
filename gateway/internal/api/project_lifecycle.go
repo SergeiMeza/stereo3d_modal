@@ -16,7 +16,10 @@ import (
 // GETs, its runs and downloads all answer 404); the record stays, and its
 // stored files are purged deleted_project_purge_days (30) later (kept for
 // disputes, not restorable by the customer; file_keeping.go).
-// Refused while a run is active. DELETE /v1/projects/{id} stays archive.
+// Only an archived project can be deleted (owner 2026-11-04): 409
+// project_not_archived otherwise; refused while a run is active (409
+// project_has_active_run). DELETE /v1/projects/{id} stays archive.
+// Account deletion and admin tooling don't come through here.
 // Money already owed is untouched: batched and failed charges stay on the
 // account's balance and settle through /v1/billing as before.
 func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
@@ -24,6 +27,14 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if p.Sample {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "sample_not_deletable", "The sample can't be deleted. You can archive it."))
+		return
+	}
+	if !p.Archived {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "project_not_archived", "Archive the project first, then delete it."))
 		return
 	}
 	if err := s.requireNoActiveConversions(ctx, id, "deleting the project"); err != nil {

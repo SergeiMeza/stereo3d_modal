@@ -795,15 +795,18 @@ is ignored without such a plan.
   Thumbnails are the web's own poster path. Quotes, runs, analyze,
   profile, depth map, scene edits and method switches answer 422
   `sample_project` ("This is a sample project. Add your own video to make
-  3D."); archive, unarchive, rename, pin and delete work as usual; file
+  3D."); archive, unarchive, rename and pin work as usual, delete is 409
+  `sample_not_deletable` ("The sample can't be deleted. You can archive
+  it."); file
   keeping never schedules or purges it; it's left out of `GET
   /v1/conversions`, the usage CSV, the month's spend, the download log
   and the onboarding steps. Its project and run ids are fixed per account
   (12 hex characters from a hash, like every id the routes take), so it's
-  added once and never again after a delete. The first samples (before
-  2026-11-04 05:00 UTC) had `smp…` ids that every route refused (404
-  "conversion not found"); the next list retires such a sample and adds
-  one with proper ids. For the sample's run, `GET /v1/conversions/{id}`,
+  kept as account state: a sample that went missing (deleted under the
+  earlier rule, or an old `smp…` id the routes refused, from before
+  2026-11-04 05:00 UTC) comes back on the next list with proper ids,
+  archived if it was archived; this also covers accounts from before the
+  cutoff that had one. Account deletion takes it for good. For the sample's run, `GET /v1/conversions/{id}`,
   `/downloads` and `/plays` answer 200 (plays aren't logged), and
   `/handoff` answers 200 `{sample: true, nothing_to_pay: true}`.
 - **`/v1/pricing`** plans add `max_fps: 120`.
@@ -840,6 +843,21 @@ is ignored without such a plan.
   from the gateway's own table (`pricing.FreePreviewPeriods`,
   `FreePreviewAllowance`); the test switch reads as Pro there too (`via:
   simulated_app_pro`, Pro Monthly's allowance).
+
+### Archive before delete (owner 2026-11-04)
+
+- `POST /v1/projects/{id}/delete` (Delete) needs an archived project: 409
+  `project_not_archived` ("Archive the project first, then delete it.").
+  `DELETE /v1/projects/{id}` is archive, as before.
+- Archiving (`DELETE /v1/projects/{id}` or PATCH `archived: true`) and
+  deleting are refused while any run of the project isn't finished
+  (created: waiting for payment or approval, a card hold included; paid;
+  processing: in line for a GPU or rendering): 409
+  `project_has_active_run` ("This project has a run in progress. Wait
+  for it to finish, or cancel it, before archiving."). Was the same rule
+  with code `conflict`.
+- Account deletion and admin tooling don't use the route (the account is
+  flagged and the sign-in removed; projects stay as records).
 
 ### Plans surfaces (owner 2026-11-04)
 

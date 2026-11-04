@@ -364,7 +364,10 @@ func (s *Service) requireNoActiveConversions(ctx context.Context, projectID, act
 	}
 	for _, c := range convs {
 		if !store.IsTerminal(c.State) {
-			return httpx.ErrConflict("this project has an active conversion — wait for it to finish (or cancel it) before " + action)
+			// created (waiting for payment or approval, a card hold
+			// included), paid, processing (in line for a GPU or rendering)
+			return httpx.Err(http.StatusConflict, "project_has_active_run",
+				"This project has a run in progress. Wait for it to finish, or cancel it, before "+action+".")
 		}
 	}
 	return nil

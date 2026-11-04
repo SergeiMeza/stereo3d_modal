@@ -298,3 +298,21 @@ func (s *Store) GetProjectsByID(ctx context.Context, ids []string) (map[string]*
 	}
 	return out, nil
 }
+
+// ListUserSamples is every onboarding sample of uid, deleted ones too
+// (equality filters only: no composite index).
+func (s *Store) ListUserSamples(ctx context.Context, uid string) ([]*Project, error) {
+	snaps, err := s.fs.Collection(projectsCol(s.env)).Where("uid", "==", uid).Where("sample", "==", true).Limit(20).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Project, 0, len(snaps))
+	for _, sn := range snaps {
+		var p Project
+		if sn.DataTo(&p) == nil {
+			p.ID = sn.Ref.ID
+			out = append(out, &p)
+		}
+	}
+	return out, nil
+}
