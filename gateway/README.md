@@ -1322,6 +1322,62 @@ per line; when the line empties, one "GPU line cleared" mail with the
 longest wait. The throttle lives in `ops_{env}/gpu_line`, so instances
 agree. No address or no Resend key → logged only.
 
+### Customer passkeys (ADR 0136)
+
+An extra way to sign in to an existing account (made with Apple, Google
+or email first), with the admin WebAuthn code but its own relying party
+and store.
+
+- **Relying party.** RP ID `stereo3d.studio` for `https://stereo3d.studio`,
+  `https://www.stereo3d.studio` and `https://staging.stereo3d.studio`; on
+  test also RP `localhost` for `http://localhost:3000` (the web's dev
+  server; a localhost page can't use the stereo3d.studio RP ID). User
+  verification required, discoverable credentials (usernameless
+  sign-in), attestation none, 5-minute single-use challenges bound to
+  the purpose, origin and (for adding) the account.
+- **Storage.** `customer_passkeys_{env}/{credId}` {uid, name,
+  device_hint, public_key, sign_count, aaguid, transports, rp_id,
+  created_at, last_used_at, credential}; test and prod apart, so a
+  staging passkey offered on www is `passkey_not_registered` there.
+  `customer_passkey_challenges_{env}`, `passkey_suggestions_{env}/{uid}`.
+- **Routes.**
+  - `POST /v1/passkeys/register/options {name?}` (signed in) →
+    `{options: {publicKey}, expires_at}`; the ID token's auth_time must be
+    within 5 minutes, else 401 `reauth_required {method: "firebase"}`.
+  - `POST /v1/passkeys/register/verify {response, name?}` (signed in, the
+    same rule) → 201 `{passkey: {id, name, device_hint, created_at,
+    last_used_at}}`; the name defaults to the device hint (the
+    authenticator by AAGUID, else browser and system from the user agent,
+    such as "Safari on iPhone"). 400 `challenge_invalid` |
+    `passkey_invalid`; 409 `passkey_exists`.
+  - `POST /v1/passkeys/signin/options` (no sign-in) → `{options:
+    {publicKey}, expires_at}`, no allowCredentials, so it also serves
+    autofill (the web sets mediation "conditional").
+  - `POST /v1/passkeys/signin/verify {response}` (no sign-in) →
+    `{custom_token}` for `signInWithCustomToken`. 404
+    `passkey_not_registered` ("This passkey isn't registered here"); 401
+    `passkey_invalid`, `passkey_clone_suspected` (the sign count went
+    backwards: logged, Slack, refused); 403 `account_unavailable`
+    (deleted or blocked); 502 `sign_in_unavailable` (token not minted).
+  - `GET /v1/passkeys` → `{passkeys: [{id, name, device_hint, created_at,
+    last_used_at}]}`; `PATCH /v1/passkeys/{id} {name}` → `{passkey}`;
+    `DELETE /v1/passkeys/{id}` → `{removed}` (404 for another account's).
+  - `GET /v1/passkeys/suggestion` → `{show, passkeys, dismissed_at}`
+    (show: no passkey and never dismissed); `POST
+    /v1/passkeys/suggestion/dismiss` → `{show: false, dismissed_at}`.
+  - All 429 `rate_limited` past 60 an hour per IP, and adding or signing
+    in past 20 an hour per account (per instance).
+- **Around them.** Events `passkey_added`, `passkey_removed`,
+  `passkey_renamed`, `passkey_suggestion_dismissed` and `sign_in
+  {method: "passkey"}`; the web logs its other sign-ins as `POST
+  /v1/events {name: "sign_in", props: {method: google | apple | email |
+  password | email_code}}`. A plain security mail (S1 added, S2 removed;
+  the subject names Spatial Video Studio; on test it goes to the owner's
+  alert address only). Account deletion removes the account's passkeys.
+- **Admin.** `GET /v1/admin/passkey-adoption` → `{accounts_with_passkey,
+  passkeys, sign_ins: {"7d": {method: count}, "30d": {…}},
+  generated_at}`; the admin account view adds `passkey_count`.
+
 ### Admin passkeys (ADR 0135)
 
 The admin console's only second factor is a passkey (WebAuthn,
