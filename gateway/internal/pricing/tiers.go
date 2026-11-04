@@ -43,7 +43,6 @@ type PlanDef struct {
 	MonthlyCents    int64  `firestore:"monthly_cents" json:"monthly_cents"`
 	CreditCents     int64  `firestore:"credit_cents" json:"credit_cents"`
 	MaxActiveRuns   int    `firestore:"max_active_runs" json:"max_active_runs"`
-	Seats           int    `firestore:"seats" json:"seats"`
 	FreePreviews    int    `firestore:"free_previews" json:"free_previews_per_period"`
 	ExpressIncluded bool   `firestore:"express_included" json:"express_included"`
 	StripePriceID   string `firestore:"stripe_price_id" json:"-"`
@@ -90,12 +89,12 @@ func defaultAddOnPct() map[string]float64 {
 // made 2026-11-03 in test mode only).
 func testPlans() map[string]PlanDef {
 	return map[string]PlanDef{
-		TierBusiness: {Name: "Business", MonthlyCents: 29900, CreditCents: 40000, MaxActiveRuns: 3, Seats: 3,
+		TierBusiness: {Name: "Business", MonthlyCents: 29900, CreditCents: 40000, MaxActiveRuns: 3,
 			FreePreviews: 50, ExpressIncluded: true, Interval: "month", PriceCents: 29900, CreditInterval: "month",
 			LookupKey: "svs_web_business_monthly", StripePriceID: "price_1UXaxSAVV5NpxADIFAwxnmfV"},
 		// Studio bills yearly (owner 2026-11-04): $11,988 (12 × $999), with
 		// $1,500 of credit and 200 free previews every month of the year.
-		TierStudio: {Name: "Studio", MonthlyCents: 99900, CreditCents: 150000, MaxActiveRuns: 8, Seats: 10,
+		TierStudio: {Name: "Studio", MonthlyCents: 99900, CreditCents: 150000, MaxActiveRuns: 8,
 			FreePreviews: 200, ExpressIncluded: true, Interval: "year", PriceCents: 1198800, CreditInterval: "month",
 			LookupKey: "svs_web_studio_yearly", StripePriceID: "price_1UXjsfAVV5NpxADIVWtelcNn"},
 	}
