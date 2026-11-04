@@ -275,7 +275,7 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -(months - 1), 0)
 	type month struct {
 		charges, disputesAct, disputesPay, won, lost, accepted, countered, efw, efwRefunded, efwDisputed int
-		disputedCents, lostCents, feeCents, efwCents                                                     int64
+		disputedCents, lostCents, wonCents, feeCents, efwCents                                           int64
 	}
 	key := func(t time.Time) string { return t.UTC().Format("2006-01") }
 	ms := map[string]*month{}
@@ -339,6 +339,7 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 			switch d.Status {
 			case "won":
 				m.won++
+				m.wonCents += d.Amount // recovered: the disputed amount came back
 			case "lost":
 				m.lost++
 				m.lostCents += d.Amount
@@ -410,11 +411,12 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 		}
 		rows = append(rows, map[string]any{"month": k, "charges": m.charges, "disputes_activity": m.disputesAct,
 			"disputed_cents_activity": m.disputedCents, "disputes_by_payment": m.disputesPay, "activity_pct": pct,
-			"won": m.won, "lost": m.lost, "accepted": m.accepted, "countered": m.countered, "lost_cents": m.lostCents,
+			"won": m.won, "lost": m.lost, "accepted": m.accepted, "countered": m.countered, "lost_cents": m.lostCents, "won_cents": m.wonCents,
 			"dispute_fees_cents": m.feeCents, "efw": m.efw, "efw_cents": m.efwCents, "efw_refunded": m.efwRefunded,
 			"efw_became_disputes": m.efwDisputed})
 		tot.won, tot.lost, tot.countered = tot.won+m.won, tot.lost+m.lost, tot.countered+m.countered
 		tot.disputesAct += m.disputesAct
+		tot.wonCents, tot.lostCents = tot.wonCents+m.wonCents, tot.lostCents+m.lostCents
 	}
 	winRate, counterRate := 0.0, 0.0
 	if tot.won+tot.lost > 0 {
@@ -434,6 +436,8 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 		"months":        rows,
 		"reference_pct": s.policy(ctx).DisputeAlertPct,
 		"win_rate":      winRate,
+		"won_cents":     tot.wonCents, // recovered over the window
+		"lost_cents":    tot.lostCents,
 		"counter_rate":  counterRate,
 		"open":          open,
 		"by_method":     byMethod,
