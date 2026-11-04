@@ -36,6 +36,9 @@ type RepackStatus struct {
 	Error     string        `json:"error,omitempty"`
 	Output    *RepackOutput `json:"output,omitempty"`
 	CostStage string        `json:"cost_stage,omitempty"`
+	// Progress: 0-1 (download 0.05, encode to 0.9, upload, 1); nil when
+	// the record doesn't say.
+	Progress *float64 `json:"progress,omitempty"`
 }
 
 // RepackOutput describes the new file.

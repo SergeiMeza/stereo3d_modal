@@ -221,7 +221,10 @@ func repackJSON(r *store.Repack) map[string]any {
 		if p.RepackID != "" {
 			ids = append(ids, p.RepackID)
 		}
-		row := map[string]any{"index": p.Index, "name": p.Name, "job_id": nilIfEmpty(p.RepackID), "status": p.Status}
+		row := map[string]any{"index": p.Index, "name": p.Name, "job_id": nilIfEmpty(p.RepackID), "status": p.Status, "progress": nil}
+		if p.Progress != nil {
+			row["progress"] = math.Round(*p.Progress*100) / 100
+		}
 		if p.Error != "" {
 			row["error"] = p.Error
 		}
@@ -231,12 +234,51 @@ func repackJSON(r *store.Repack) map[string]any {
 	if len(ids) > 0 {
 		first = ids[0]
 	}
+	progress, remaining := repackProgress(r, parts, time.Now())
 	out := map[string]any{"job_id": first, "job_ids": ids, "status": r.Status, "source": r.Source, "price_cents": r.PriceCents,
-		"requested_at": r.RequestedAt, "finished_at": r.FinishedAt, "parts": pj}
+		"requested_at": r.RequestedAt, "finished_at": r.FinishedAt, "parts": pj,
+		"progress": progress, "remaining_seconds": remaining}
 	if r.Error != "" {
 		out["error"] = r.Error
 	}
 	return out
+}
+
+// repackProgress is a format's progress (0-1, the parts' mean; nil when
+// no part has reported one) and, while it runs, the seconds left from
+// it: each running part's time so far × (1 − p) / p, the longest; nil
+// until every running part has reported progress above 0.
+func repackProgress(r *store.Repack, parts []store.RepackPart, now time.Time) (progress, remaining any) {
+	if len(parts) == 0 {
+		return nil, nil
+	}
+	sum, known, longest, allKnown := 0.0, false, 0.0, true
+	for _, p := range parts {
+		switch {
+		case p.Status == "succeeded":
+			sum, known = sum+1, true
+		case p.Progress != nil:
+			sum, known = sum+*p.Progress, true
+			if repackRunning(&store.Repack{Status: p.Status}) {
+				if *p.Progress <= 0 {
+					allKnown = false
+					continue
+				}
+				ran := now.Sub(r.RequestedAt).Seconds()
+				longest = max(longest, ran*(1-*p.Progress) / *p.Progress)
+			}
+		case repackRunning(&store.Repack{Status: p.Status}):
+			allKnown = false
+		}
+	}
+	if !known {
+		return nil, nil
+	}
+	progress = math.Round(sum/float64(len(parts))*100) / 100
+	if !repackRunning(r) || !allKnown || longest <= 0 {
+		return progress, nil
+	}
+	return progress, int64(math.Ceil(longest))
 }
 
 func (st runFormats) json(c *store.Conversion) map[string]any {
@@ -423,11 +465,12 @@ func formatUnavailableText(reason string) string {
 }
 
 // partResult is what happened to one part: started (a repack id), done
-// (the new file) or failed (why).
+// (the new file), progress (still running) or failed (why).
 type partResult struct {
-	started string
-	done    *modalapi.RepackOutput
-	failed  string
+	started  string
+	done     *modalapi.RepackOutput
+	progress *float64 // still running: its new progress
+	failed   string
 }
 
 // applyRepackResults writes the parts' news and the format's state: done
@@ -457,8 +500,11 @@ func (s *Service) applyRepackResults(ctx context.Context, convID, format string,
 			case res.started != "":
 				p.RepackID, p.Status = res.started, "processing"
 			case res.done != nil:
-				p.Status, p.Error, p.FinishedAt = "succeeded", "", &now
+				one := 1.0
+				p.Status, p.Error, p.FinishedAt, p.Progress = "succeeded", "", &now, &one
 				p.Bytes, p.Width, p.Height, p.Frames, p.Level = res.done.Bytes, res.done.Width, res.done.Height, res.done.Frames, res.done.Level
+			case res.progress != nil:
+				p.Status, p.Progress = "processing", res.progress
 			default:
 				p.Status, p.Error, p.FinishedAt = "failed", res.failed, &now
 			}
@@ -549,6 +595,9 @@ func (s *Service) pollRepacks(ctx context.Context, c *store.Conversion) *store.C
 				results[p.Index] = partResult{failed: firstNonEmpty(st.Error, st.Status)}
 			case time.Since(r.RequestedAt) > timeout:
 				results[p.Index] = partResult{failed: "timed out"}
+			case st.Progress != nil && (p.Progress == nil || *st.Progress-*p.Progress >= 0.01):
+				v := min(max(*st.Progress, 0), 1)
+				results[p.Index] = partResult{progress: &v} // written in steps of 1%
 			}
 		}
 		if u := s.applyRepackResults(ctx, c.ID, f, results); u != nil {

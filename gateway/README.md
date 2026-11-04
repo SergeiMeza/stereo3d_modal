@@ -1450,11 +1450,15 @@ Classic runs get none (Classic is retired).
   pending: [fmt], unavailable_reason?: files_erased | half_only |
   run_failed | classic_retired, price_cents: 0, jobs:
   {fmt: {job_id, job_ids, status: pending | processing | succeeded |
-  failed, source, price_cents, estimated_seconds, requested_at,
-  finished_at, error?, parts:
-  [{index, name, job_id, status, error?}]}}}`. `job_id` is the first
-  part's; `index` 0 is a run's single file. fmt is
+  failed, source, price_cents, estimated_seconds, progress,
+  remaining_seconds, requested_at, finished_at, error?, parts:
+  [{index, name, job_id, status, progress, error?}]}}}`. `job_id` is the
+  first part's; `index` 0 is a run's single file. fmt is
   mvhevc | sbs | half_sbs. The GET also polls a running repack.
+  `progress` is Lifelike's 0-1 (the parts' mean, null until one
+  reports; stored in steps of 1%); `remaining_seconds`, while it runs,
+  is each running part's time so far × (1 − p) / p, the longest (null
+  until every running part reports progress above 0).
 - `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, job_ids, status,
   format, source, price_cents, estimated_seconds}`. `estimated_seconds`
   (measured, 2026-11-05): side-by-side ≈ 1.6× the run's length at 1080p,

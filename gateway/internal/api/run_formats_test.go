@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -20,12 +21,13 @@ import (
 // lifelikeStub answers POST /repack and GET /repack/{id} like the
 // Lifelike service; status says what a poll answers.
 type lifelikeStub struct {
-	mu      sync.Mutex
-	bodies  []map[string]any
-	status  string
-	failNew bool
-	ids     []string          // repack ids handed out, in order
-	byID    map[string]string // a status for one repack over status
+	mu       sync.Mutex
+	bodies   []map[string]any
+	status   string
+	progress *float64
+	failNew  bool
+	ids      []string          // repack ids handed out, in order
+	byID     map[string]string // a status for one repack over status
 }
 
 func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +52,9 @@ func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status = st
 		}
 		out := map[string]any{"status": status, "cost_stage": "repack"}
+		if l.progress != nil {
+			out["progress"] = *l.progress
+		}
 		if status == "done" || status == "completed" {
 			out["output"] = map[string]any{"bytes": 1000, "width": 3840, "height": 2160, "frames": 240, "level": "5.1"}
 		}
@@ -416,5 +421,47 @@ func TestSampleRunFormats(t *testing.T) {
 	s.ensureSampleRun(ctx, fresh, fp)
 	if c, _ := s.Store.GetConversion(ctx, sampleRunID(fresh)); len(c.Outputs) != 3 || len(c.Params.Formats) != 3 {
 		t.Fatalf("new sample %v %v", c.Outputs, c.Params.Formats)
+	}
+}
+
+// GET formats passes Lifelike's progress through per job (null until it
+// says) with the seconds left from it, and a job is never gone from
+// pending before its file is in have.
+func TestRunFormatsProgress(t *testing.T) {
+	s, stub := formatsService(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	c := finishedRun(t, s, uid, "4k", "sbs", "half_sbs")
+	if code, _ := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"mvhevc"}`); code != 202 {
+		t.Fatalf("post %d", code)
+	}
+	job := func() map[string]any {
+		_, out := formatsCall(s, uid, c.ID, http.MethodGet, "")
+		return out["jobs"].(map[string]any)["mvhevc"].(map[string]any)
+	}
+	if j := job(); j["progress"] != nil || j["remaining_seconds"] != nil || j["status"] != "processing" {
+		t.Fatalf("before progress %v", j)
+	}
+	// 40 s in at 0.4: 60 s left
+	s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Repacks["mvhevc"].RequestedAt = time.Now().Add(-40 * time.Second)
+		return nil
+	})
+	p := 0.4
+	stub.progress = &p
+	j := job()
+	if j["progress"] != 0.4 || j["remaining_seconds"] == nil || j["remaining_seconds"].(float64) < 59 || j["remaining_seconds"].(float64) > 62 {
+		t.Fatalf("at 0.4 %v", j)
+	}
+	if parts := j["parts"].([]any); parts[0].(map[string]any)["progress"] != 0.4 {
+		t.Fatalf("part %v", parts)
+	}
+	// done: in have and the job succeeded in the same answer, progress 1
+	stub.status = "done"
+	_, out := formatsCall(s, uid, c.ID, http.MethodGet, "")
+	j = out["jobs"].(map[string]any)["mvhevc"].(map[string]any)
+	if !slices.Contains(strs(out["have"]), "mvhevc") || slices.Contains(strs(out["pending"]), "mvhevc") || j["status"] != "succeeded" ||
+		j["progress"] != 1.0 || j["remaining_seconds"] != nil {
+		t.Fatalf("done %v", out)
 	}
 }

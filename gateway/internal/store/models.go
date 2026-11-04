@@ -978,13 +978,16 @@ type Repack struct {
 
 // RepackPart is one output file's repack.
 type RepackPart struct {
-	Index      int        `firestore:"index"`  // 0 = the run's single file, else the part number
-	Name       string     `firestore:"name"`   // the output it becomes (sbs, sbs_part2)
-	Source     string     `firestore:"source"` // the output it reads (mvhevc, mvhevc_part2)
-	RepackID   string     `firestore:"repack_id,omitempty"`
-	Status     string     `firestore:"status"` // pending | processing | succeeded | failed
-	Key        string     `firestore:"key"`
-	Error      string     `firestore:"error,omitempty"`
+	Index    int    `firestore:"index"`  // 0 = the run's single file, else the part number
+	Name     string `firestore:"name"`   // the output it becomes (sbs, sbs_part2)
+	Source   string `firestore:"source"` // the output it reads (mvhevc, mvhevc_part2)
+	RepackID string `firestore:"repack_id,omitempty"`
+	Status   string `firestore:"status"` // pending | processing | succeeded | failed
+	Key      string `firestore:"key"`
+	Error    string `firestore:"error,omitempty"`
+	// Progress: Lifelike's 0-1 for this part while it runs (nil: not
+	// reported yet), 1 once done.
+	Progress   *float64   `firestore:"progress,omitempty"`
 	Bytes      int64      `firestore:"bytes,omitempty"`
 	Width      int        `firestore:"width,omitempty"`
 	Height     int        `firestore:"height,omitempty"`
