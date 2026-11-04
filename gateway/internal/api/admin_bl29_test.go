@@ -122,3 +122,25 @@ func TestAdminPlanStarts(t *testing.T) {
 		t.Fatalf("app start %v", store_)
 	}
 }
+
+// Every grant, active first.
+func TestAdminAllGrants(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", Email: "g@example.com"})
+	old := &store.AdminGrant{UID: uid, Entitlement: "pro", EndsAt: time.Now().Add(-time.Hour), GrantedBy: "owner@x", Reason: "old", CreatedAt: time.Now().Add(-48 * time.Hour), State: "granted"}
+	cur := &store.AdminGrant{UID: uid, Entitlement: "business", EndsAt: time.Now().Add(48 * time.Hour), GrantedBy: "owner@x", Reason: "now", CreatedAt: time.Now().Add(-72 * time.Hour), State: "granted"}
+	s.Store.CreateAdminGrant(ctx, old)
+	s.Store.CreateAdminGrant(ctx, cur)
+	out := adminGet(t, s.HandleAdminAllGrants, "/v1/admin/grants")
+	var mine []map[string]any
+	for _, x := range out["grants"].([]any) {
+		if m := x.(map[string]any); m["uid"] == uid {
+			mine = append(mine, m)
+		}
+	}
+	if len(mine) != 2 || mine[0]["id"] != cur.ID || mine[0]["status"] != "active" || mine[0]["kind"] != "business" || mine[0]["email"] != "g@example.com" || mine[1]["status"] != "expired" {
+		t.Fatalf("grants %v", mine)
+	}
+}

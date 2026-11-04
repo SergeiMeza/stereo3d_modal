@@ -1228,6 +1228,10 @@ leave no record, and a refund or dispute can then only guess at them.
   `{grant, regrant {id, status, regranted, skipped}}`; 202 when the
   revoke or a re-grant failed (Slack, nightly retry); 404; 409
   `grant_not_active`.
+- `GET /v1/admin/grants` (BL-29) → `{grants: [{id, uid, email, kind,
+  granted_by, start, end, status, reason, revoked_at?, revoked_by?,
+  revoke_reason?}]}`: every grant, active first, then newest (kind = the
+  entitlement).
 - Refund and dispute snapshots add every active admin grant of the
   revoked entitlements that RevenueCat's collapsed view doesn't show, so
   a support grant hidden under a plan's grant comes back with its own end

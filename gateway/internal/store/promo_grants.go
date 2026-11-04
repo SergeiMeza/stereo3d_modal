@@ -113,3 +113,20 @@ func (s *Store) ListUserAdminGrants(ctx context.Context, uid string, limit int) 
 	}
 	return out, nil
 }
+
+// ListAllAdminGrants is every admin grant (newest first is the caller's).
+func (s *Store) ListAllAdminGrants(ctx context.Context, limit int) ([]*AdminGrant, error) {
+	snaps, err := adminGrantCol(s).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*AdminGrant, 0, len(snaps))
+	for _, sn := range snaps {
+		var g AdminGrant
+		if sn.DataTo(&g) == nil {
+			g.ID = sn.Ref.ID
+			out = append(out, &g)
+		}
+	}
+	return out, nil
+}

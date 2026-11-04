@@ -233,3 +233,40 @@ func (s *Service) withAdminGrants(ctx context.Context, uid string, ents []string
 	}
 	return snap
 }
+
+// GET /v1/admin/grants → {grants: [{id, uid, email, kind, granted_by,
+// start, end, status, reason, revoked_at?, revoked_by?, revoke_reason?}]}:
+// every Admin → Grant Pro grant, active ones first, then newest.
+func (s *Service) HandleAdminAllGrants(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	ctx := r.Context()
+	gs, err := s.Store.ListAllAdminGrants(ctx, 2000)
+	if err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrServer())
+		return
+	}
+	now := time.Now().UTC()
+	sort.Slice(gs, func(i, j int) bool {
+		ai, aj := gs[i].Status(now) == "active", gs[j].Status(now) == "active"
+		if ai != aj {
+			return ai
+		}
+		return gs[i].CreatedAt.After(gs[j].CreatedAt)
+	})
+	emails := map[string]string{}
+	out := make([]map[string]any, 0, len(gs))
+	for _, g := range gs {
+		e, ok := emails[g.UID]
+		if !ok {
+			e = s.accountEmail(ctx, g.UID)
+			emails[g.UID] = e
+		}
+		row := map[string]any{"id": g.ID, "uid": g.UID, "email": nilIfEmpty(e), "kind": g.Entitlement, "granted_by": g.GrantedBy,
+			"start": g.CreatedAt, "end": g.EndsAt, "status": g.Status(now), "reason": g.Reason}
+		if g.RevokedAt != nil {
+			row["revoked_at"], row["revoked_by"], row["revoke_reason"] = g.RevokedAt, g.RevokedBy, g.RevokeReason
+		}
+		out = append(out, row)
+	}
+	s.audit(ctx, a, "grants_list", map[string]any{"count": len(out)})
+	httpx.WriteOK(w, map[string]any{"grants": out})
+}

@@ -204,6 +204,7 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
 	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
 	mux.HandleFunc("GET /v1/admin/accounts", admin(svc.HandleAdminAccountSearch)) // ?q= email prefix or uid (BL-29)
+	mux.HandleFunc("GET /v1/admin/grants", admin(svc.HandleAdminAllGrants))       // every Grant Pro grant (BL-29)
 	mux.HandleFunc("GET /v1/admin/runs/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
 		id := r.PathValue("id")
 		if !api.ValidResourceID(id) {
