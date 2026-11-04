@@ -35,6 +35,13 @@ func TestOldPlanCredit(t *testing.T) {
 	if got := oldPlanCredit(4799, creditShares{TimeLeft: 0.25}); got != 1200 { // Yearly at the intro price
 		t.Fatalf("yearly intro %d", got)
 	}
+	// Docs/payments/plan-changes.md worked examples (Business $299 today).
+	if got := oldPlanCredit(899, creditShares{TimeLeft: 20.0 / 30, UsageLeft: f64(15.0 / 20)}); got != 599 || 29900-got != 29301 {
+		t.Fatalf("Pro Monthly → Business, day 10, 5 of 20 previews: %d", got)
+	}
+	if got := oldPlanCredit(4799, creditShares{TimeLeft: 200.0 / 365, UsageLeft: f64(190.0 / 240)}); got != 2630 || 29900-got != 27270 {
+		t.Fatalf("Pro Yearly intro → Business, 200 of 365 days, 50 of 240 previews: %d", got)
+	}
 	if oldPlanCredit(899, creditShares{TimeLeft: 1.4}) != 899 || oldPlanCredit(899, creditShares{TimeLeft: -1}) != 0 {
 		t.Fatal("clamped")
 	}
