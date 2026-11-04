@@ -434,7 +434,7 @@ interface DB {
   passkeyVerifyErrors: { status: number; code: string }[];
   /** ADR 0137: another format for a finished run: jobs per run, the GETs
    * a job takes to finish, and whether the next ones fail */
-  formatJobs: Map<string, Partial<Record<string, { job_id: string; status: string; polls: number; requested_at: string; finished_at: string | null; error?: string }>>>;
+  formatJobs: Map<string, Partial<Record<string, { job_id: string; status: string; polls: number; requested_at: string; finished_at: string | null; error?: string; estimated_seconds?: number }>>>;
   formatJobPolls: number;
   formatJobsFail: boolean;
   formatServiceDown: boolean;
@@ -1065,7 +1065,7 @@ function runFormats(c: Conversion, advance: boolean) {
     jobs: Object.fromEntries(
       Object.entries(jobs).map(([f, j]) => [
         f,
-        { job_id: j!.job_id, status: j!.status, source: "repack", price_cents: 0, requested_at: j!.requested_at, finished_at: j!.finished_at, ...(j!.error ? { error: j!.error } : {}) },
+        { job_id: j!.job_id, status: j!.status, source: "repack", price_cents: 0, requested_at: j!.requested_at, finished_at: j!.finished_at, ...(j!.error ? { error: j!.error } : {}), ...(j!.estimated_seconds ? { estimated_seconds: j!.estimated_seconds } : {}) },
       ]),
     ),
   };
@@ -4523,9 +4523,12 @@ export const handlers = [
     if (mockDb.formatServiceDown) return err(503, "repack_unavailable", "formats can't be made right now");
     const jobs = mockDb.formatJobs.get(c.conversion_id) ?? {};
     const job_id = `job_${c.conversion_id}_${format}_${Date.now()}`;
-    jobs[format] = { job_id, status: "pending", polls: 0, requested_at: new Date().toISOString(), finished_at: null };
+    // a rough estimate: Spatial video takes longest, parts add up
+    const parts = c.parts && c.parts.length > 1 ? c.parts.length : 1;
+    const estimated_seconds = (format === "mvhevc" ? 240 : 45) * parts;
+    jobs[format] = { job_id, status: "pending", polls: 0, requested_at: new Date().toISOString(), finished_at: null, estimated_seconds };
     mockDb.formatJobs.set(c.conversion_id, jobs);
-    return HttpResponse.json({ job_id, status: "pending", format, source: "repack", price_cents: 0 }, { status: 202 });
+    return HttpResponse.json({ job_id, status: "pending", format, source: "repack", price_cents: 0, estimated_seconds }, { status: 202 });
   }),
 
   http.get(`${GATEWAY}/v1/conversions/:id/downloads`, ({ params }) => {

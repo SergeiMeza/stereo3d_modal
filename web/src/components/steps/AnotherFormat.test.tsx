@@ -16,7 +16,7 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { AnotherFormat, FORMAT_POLL_MS, TOO_WIDE_COPY } from "./AnotherFormat";
+import { aboutMinutes, AnotherFormat, FORMAT_POLL_MS, FORMAT_POLL_SLOW_MS, LONG_WAIT_COPY, TOO_WIDE_COPY } from "./AnotherFormat";
 import { RunFiles } from "./RunFiles";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -167,4 +167,44 @@ describe("Get another format (ADR 0137)", () => {
     await screen.findByTestId("run-files");
     expect(screen.queryByTestId("another-format")).toBeNull();
   });
+
+  it("Spatial video: an estimate and that it can take a while", async () => {
+    mockDb.formatJobPolls = 100; // still being made
+    renderRun(run({ outputs: ["sbs"], params: { preset: "1080p", formats: ["sbs"] } }));
+    await openMenu();
+    fireEvent.click(await screen.findByTestId("another-format-mvhevc"));
+    const making = await screen.findByTestId("another-format-making-mvhevc");
+    await waitFor(() => expect(making.textContent).toContain("About 4 minutes"));
+    expect(making.textContent).toContain("Making it…");
+    expect(making.textContent).toContain(LONG_WAIT_COPY);
+    expect(LONG_WAIT_COPY).toBe("This can take a while. You can leave this page; the file appears here when it's ready.");
+  });
+
+  it("a short one shows its estimate without the long-wait line", async () => {
+    mockDb.formatJobPolls = 100;
+    renderRun(run());
+    await openMenu();
+    fireEvent.click(await screen.findByTestId("another-format-half_sbs"));
+    const making = await screen.findByTestId("another-format-making-half_sbs");
+    await waitFor(() => expect(making.textContent).toContain("About 1 minute"));
+    expect(making.textContent).not.toContain(LONG_WAIT_COPY);
+    expect(aboutMinutes(150)).toBe("About 3 minutes");
+  });
+
+  it("keeps asking every 3 s, then every 15 s after the first minute", async () => {
+    mockDb.formatJobPolls = 100;
+    const timers = vi.spyOn(globalThis, "setTimeout");
+    renderRun(run());
+    await openMenu();
+    fireEvent.click(await screen.findByTestId("another-format-sbs"));
+    await screen.findByTestId("another-format-making-sbs");
+    await waitFor(() => expect(timers.mock.calls.some((c) => c[1] === FORMAT_POLL_MS)).toBe(true));
+    // a minute later
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
+    await waitFor(() => expect(timers.mock.calls.some((c) => c[1] === FORMAT_POLL_SLOW_MS)).toBe(true), {
+      timeout: FORMAT_POLL_MS * 3,
+    });
+    vi.restoreAllMocks();
+  }, 15_000);
 });

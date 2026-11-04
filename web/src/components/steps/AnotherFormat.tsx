@@ -29,8 +29,21 @@ import { FORMAT_NAMES } from "@/lib/glossary";
 import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
 import { NO_FULL_SBS_PRESETS } from "./methods";
 
-/** How often the GET is asked while a format is being made. */
+/** How often the GET is asked while a format is being made: every 3 s for
+ * the first minute, then every 15 s. */
 export const FORMAT_POLL_MS = 3000;
+export const FORMAT_POLL_SLOW_MS = 15_000;
+const FAST_POLL_FOR_MS = 60_000;
+
+/** Beside "Making it…" for Spatial video or anything over ~2 minutes. */
+export const LONG_WAIT_COPY = "This can take a while. You can leave this page; the file appears here when it's ready.";
+const LONG_WAIT_S = 120;
+
+/** "About 4 minutes" from an estimate in seconds. */
+export function aboutMinutes(seconds: number): string {
+  const n = Math.max(1, Math.round(seconds / 60));
+  return `About ${n} minute${n === 1 ? "" : "s"}`;
+}
 
 /** Why nothing can be made, in plain words; null hides the control. */
 export const UNAVAILABLE_COPY: Record<string, string | null> = {
@@ -67,6 +80,10 @@ export function AnotherFormat({
   const [starting, setStarting] = useState<Format | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const seenDone = useRef<Set<string> | null>(null);
+  /** the POST's estimate per format, until the GET's jobs carry one */
+  const [estimates, setEstimates] = useState<Partial<Record<Format, number>>>({});
+  /** when the current making began (for the slower polls after a minute) */
+  const makingSince = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     const next = await gateway.getRunFormats(id);
@@ -104,12 +121,17 @@ export function AnotherFormat({
   }, [gateway, id]);
 
   const making = data?.pending ?? [];
-  // poll while something is being made
+  // poll while something is being made: every 3 s, every 15 s after a minute
   useEffect(() => {
-    if (making.length === 0) return;
+    if (making.length === 0) {
+      makingSince.current = null;
+      return;
+    }
+    makingSince.current ??= Date.now();
+    const wait = Date.now() - makingSince.current < FAST_POLL_FOR_MS ? FORMAT_POLL_MS : FORMAT_POLL_SLOW_MS;
     const t = setTimeout(() => {
       void load().catch(() => {});
-    }, FORMAT_POLL_MS);
+    }, wait);
     return () => clearTimeout(t);
   }, [making.length, data, load]);
 
@@ -118,7 +140,10 @@ export function AnotherFormat({
     setNotice(null);
     setStartFailed((l) => l.filter((f) => f !== format));
     try {
-      await gateway.requestRunFormat(id, format);
+      const job = await gateway.requestRunFormat(id, format);
+      if (typeof job.estimated_seconds === "number") {
+        setEstimates((e) => ({ ...e, [format]: job.estimated_seconds as number }));
+      }
       await load();
     } catch (e) {
       if (e instanceof GatewayError && (e.code === "format_exists" || e.code === "format_in_progress")) {
@@ -197,12 +222,20 @@ export function AnotherFormat({
         <span className="text-xs text-fg-muted">Made from this run&apos;s files.</span>
       </div>
 
-      {[...new Set([...(starting ? [starting] : []), ...making])].map((f) => (
-        <p key={f} role="status" data-testid={`another-format-making-${f}`} className="flex items-center gap-2 text-xs text-fg">
-          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-          {nameOf(f)}: Making it…
-        </p>
-      ))}
+      {[...new Set([...(starting ? [starting] : []), ...making])].map((f) => {
+        const est = jobs[f]?.estimated_seconds ?? estimates[f] ?? null;
+        const long = f === "mvhevc" || (est !== null && est > LONG_WAIT_S);
+        return (
+          <div key={f} role="status" data-testid={`another-format-making-${f}`} className="flex flex-col gap-0.5 text-xs">
+            <p className="flex items-center gap-2 text-fg">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              {nameOf(f)}: Making it…
+              {est !== null ? <span className="text-fg-muted">{aboutMinutes(est)}</span> : null}
+            </p>
+            {long ? <p className="pl-5.5 text-fg-muted">{LONG_WAIT_COPY}</p> : null}
+          </div>
+        );
+      })}
       {failed.map((f) => (
         <p key={f} data-testid={`another-format-failed-${f}`} className="flex flex-wrap items-center gap-2 text-xs">
           <span role="alert" className="text-destructive">

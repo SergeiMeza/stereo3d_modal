@@ -1358,6 +1358,8 @@ export interface RunFormatJob {
   requested_at?: string;
   finished_at?: string | null;
   error?: string | null;
+  /** rough time to make it (seconds), when the gateway can say */
+  estimated_seconds?: number | null;
 }
 
 export type RunFormatsUnavailable =
