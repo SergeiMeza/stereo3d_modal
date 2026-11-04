@@ -24,6 +24,8 @@ pnpm install          # pnpm 12; build scripts are set in pnpm-workspace.yaml
 cp .env.example .env.local   # optional: the defaults point at the test gateway
 pnpm dev              # http://localhost:5174 (fixed port: the gateway admits it)
 pnpm test             # unit tests with mocked gateway responses
+pnpm lint             # ESLint, with the rule against hand-rolled overlays
+pnpm test:overlays    # Playwright: overlays inside the viewport at 390 and 1280 px, no CSP violations
 pnpm build && pnpm preview   # production build on :5174, served with the CSP headers
 ```
 
@@ -75,9 +77,12 @@ is its own commit naming the feature and its ADR or BL.
 | --- | --- | --- |
 | Sign-in (A0, ADR 0135): Google, then the passkey ("Set up a passkey" on the first visit); no access; session ended | any | Firebase Auth, `POST /v1/admin/session/options`, `…/session/verify`, `POST /v1/admin/passkeys/register/options`, `…/register/verify` |
 | Security (ADR 0135): passkeys (name, created, last used), add one (fresh passkey), remove with a confirm; the last one can't go | `/security` | `GET /v1/admin/passkeys`, `DELETE /v1/admin/passkeys/{id}`, register routes |
-| Disputes badge (header, every page): open disputes and EFWs, refreshed every 60 s and on focus, links to Disputes; red banner when disputes are due within 3 days | all pages | `GET /v1/admin/disputes/summary` (`open`, `open_efws`) |
-| Cases (A1): tabs, filters, search, counts (open, overdue, due today), disputes, EFW and failed refunds first | `/cases` | `GET /v1/admin/cases` |
-| Case (A2): header, banners, per-run table, decisions with a confirm sheet (amount per run, what's left after it, the mail), evidence (M7), timeline and notes, related cases, refunds | `/cases/:id` | `GET /v1/admin/cases/{id}`, `POST …/actions`, `GET /v1/admin/mail-previews` |
+| Shell (BL-29): left nav in groups (Support, Money, Product, System; a Menu sheet on phones), ⌘K search, attention badges refreshed every 60 s and on focus: Needs attention (Now + Today), Cases (overdue + due today, red when overdue; a red dot for open `refund_failed` cases), Disputes (open + `open_efws`), Feedback (new since this browser last opened it); red banner when disputes are due within 3 days | all pages | `GET /v1/admin/cases?tab=open`, `GET /v1/admin/disputes/summary`, `GET /v1/admin/feedback?days=7` |
+| Needs attention (BL-29): Next up, then Now / Today / This week from the open cases and the disputes summary; plan starts in 7 days by plan; new feedback; customer passkey adoption | `/` | the above, `GET /v1/admin/plans/surfaces?days=7`, `GET /v1/admin/passkey-adoption` |
+| ⌘K search (BL-29): `CASE-…` and `uid:…` jump; other text searches cases (emails, run ids, Stripe ids); an email's account comes from its newest case | all pages | `GET /v1/admin/cases?tab=all&q=`, `GET /v1/admin/cases/{id}` |
+| Cases (A1): tabs, filters, search, counts (open, overdue, due today), disputes, EFW and failed refunds first; a preview pane on wide screens; keys J/K or ↓/↑, Enter opens, D decides, E opens the account | `/cases` | `GET /v1/admin/cases`, `GET /v1/admin/cases/{id}` (preview) |
+| Grants page: opens the account to grant on (no gateway list of all grants yet) | `/grants` | (accounts) |
+| Case (A2): header, banners, per-run table, Decide opens the decision sheet (step 1), money decisions confirm in an AlertDialog (step 2: amount per run, what's left after it, the mail, whether the passkey will be asked), evidence (M7), timeline and notes, related cases, refunds; `?decide=1` opens the sheet | `/cases/:id` | `GET /v1/admin/cases/{id}`, `POST …/actions`, `GET /v1/admin/mail-previews` |
 | Plan-invoice disputes as cases, with the promo snapshot | `/cases/:id` | (webhooks) |
 | Closed cases: notes and decisions refused (409 `case_closed`: "Reopen the case to add notes"); "Follow-up of CASE-…" on the new case and its follow-ups on the closed one | `/cases/:id` | `follow_up_of`, `follow_up_ids` |
 | "Promotional grants restored by X" event on closed dispute cases | `/cases/:id` | case `events` (kind `promo_restored`) |
@@ -183,16 +188,49 @@ To go live, on the owner's go:
 The owner's own setup steps (the `svs_admin` claim, the first passkey,
 Firebase) are in BL-23 (SVS a9ffc582).
 
+## UI (BL-29)
+
+shadcn on Radix, Tailwind 4, the same versions as `web/`. Primitives live
+in `src/components/ui/`, the console's composites (Modal, Panel,
+FilterSelect, states) in `src/components/common.tsx`.
+
+- **Overlays** come from `components/ui` only: `pnpm lint` fails on a
+  hand-rolled dialog, menu, listbox or tooltip, a document-level click or
+  key listener (the ⌘K shortcut has a documented exception), a positioned
+  `z-50`, and `dangerouslySetInnerHTML`.
+- **Money** confirms in an AlertDialog (refund, partial, waive, deny, no
+  refund, refunded outside Stripe, assign, stop run, grant, revoke,
+  restore, write off, adjust balance, block); forms open a Dialog or a
+  Sheet.
+- **Tokens**: every colour is a CSS variable in `src/index.css`: the web
+  app's dark tokens ("Night desk"), with red, amber and grey attention
+  tones. `src/lib/contrast.test.ts` checks them at WCAG AA. `.dark` is
+  supported and carries the same palette.
+- **CSP**: unchanged and strict. React's `style` props go through CSSOM and
+  are allowed; `<style>` elements with text are not. Sonner and Radix
+  Select add one at runtime, so the production build strips them
+  (`src/build/cspStrictDeps.ts`, which fails the build if their code
+  changes) and `index.css` carries the rules; react-remove-scroll's scroll
+  lock uses `src/lib/styleSingleton.ts` (constructed stylesheets) through
+  a Vite alias for `react-style-singleton`. `pnpm test:overlays` serves
+  the production bundle with the real CSP header against a mock gateway
+  (`vite build --mode overlays`, `src/dev/`, never in a production build)
+  and fails on any violation.
+
 ## Layout
 
 ```
 admin/
   index.html, vite.config.ts, vercel.json, pnpm-workspace.yaml
   src/
-    main.tsx, App.tsx, styles.css
-    lib/       api client, auth (interface + Firebase), adminSession, passkeys, csp, router, types, format, links
-    screens/   SignIn, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage (+ Grants),
-               Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy, Security
-    components/ ui.tsx, Brand, DisputesAlert (header badge and due banner)
+    main.tsx, App.tsx (shell), index.css (Tailwind and tokens)
+    lib/       api client, auth (interface + Firebase), adminSession, passkeys, csp, router, types, format, links,
+               attention (badges and lanes), lanes, styleSingleton
+    screens/   SignIn, Overview, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage (+ Grants),
+               GrantsPage, Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy, Security
+    components/ ui/ (shadcn), common.tsx, Nav, CommandMenu, PasskeyNote, Brand, DisputesAlert
+    build/     cspStrictDeps (Vite plugin)
+    dev/       the overlays-mode mock gateway
+  scripts/     overlay-bounds.mjs
     test/      fixtures, harness (fake fetch and fake auth), webauthn (fake navigator.credentials)
 ```
