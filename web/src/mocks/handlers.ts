@@ -475,6 +475,10 @@ function tierQuoteExtras(
   return out;
 }
 
+/** gateway 00101: 409 project_has_active_run */
+const ARCHIVE_BLOCKED =
+  "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
+
 /** Web Pro on Stripe (owner 2026-11-04): the same prices as the app's
  * Pro — Weekly $5.99 ($3.99 for 4 weeks), Monthly $8.99, Yearly $79.99
  * ($47.99 the first year). */
@@ -3784,18 +3788,14 @@ export const handlers = [
       else delete p.pinned;
     }
     if (body.archived !== undefined) {
-      p.archived = body.archived;
-      // archiving cancels the project's active conversions, like the gateway
-      if (body.archived) {
-        for (const c of mockDb.conversions.values()) {
-          if (
-            c.project_id === p.project_id &&
-            !["succeeded", "failed", "canceled", "expired"].includes(c.state)
-          ) {
-            c.state = "canceled";
-          }
-        }
+      // gateway 00101: archiving is blocked while any run is unfinished
+      const active = [...mockDb.conversions.values()].some(
+        (c) => c.project_id === p.project_id && !["succeeded", "failed", "canceled", "expired"].includes(c.state),
+      );
+      if (body.archived && active) {
+        return err(409, "project_has_active_run", ARCHIVE_BLOCKED);
       }
+      p.archived = body.archived;
     }
     p.updated_at = new Date().toISOString();
     return HttpResponse.json(projectDetail(p));

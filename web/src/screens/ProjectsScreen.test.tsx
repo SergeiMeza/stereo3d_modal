@@ -527,9 +527,8 @@ describe("ProjectsScreen management", () => {
     renderScreen();
     await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
     fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
-    expect(
-      await screen.findByText(/A run still in progress is cancelled/),
-    ).toBeTruthy();
+    expect(await screen.findByText("Archive this project? You can restore it later.")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/is cancelled|won't be charged/);
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
     await waitFor(() =>
       expect(mockDb.projects.get(FIXTURE_ID)?.archived).toBe(true),
@@ -582,6 +581,25 @@ describe("ProjectsScreen management", () => {
     expect(await screen.findByRole("button", { name: "Restore project" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
     expect(screen.getByTestId("card-sample-note").textContent).toBe("The sample can't be deleted. Unarchive it any time.");
+  });
+
+  it("a project with a run in progress can't be archived, and says why", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID)!;
+    p.summary = { ...(p.summary ?? {}), latest_state: "processing" } as typeof p.summary;
+    mockDb.conversions.set("convactive001", {
+      conversion_id: "convactive001",
+      project_id: FIXTURE_ID,
+      state: "processing",
+      step: "production",
+      params: { preset: "1080p", formats: ["sbs"] },
+      quote: { amount_cents: 300, currency: "usd" },
+    } as never);
+    renderScreen();
+    const archive = await screen.findByRole("button", { name: "Archive project" });
+    expect((archive as HTMLButtonElement).disabled).toBe(true);
+    expect(archive.getAttribute("aria-description")).toBe(
+      "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.",
+    );
   });
 
   it("lists archived projects behind the toggle and restores back to active", async () => {

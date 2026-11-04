@@ -36,6 +36,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -165,6 +170,12 @@ export function filesDeleteSoon(
   return Number.isFinite(t) && t - now < DELETE_WARNING_MS;
 }
 
+/** gateway 00101: 409 project_has_active_run */
+export const ARCHIVE_BLOCKED =
+  "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
+
+const FINISHED = new Set(["succeeded", "failed", "canceled", "expired"]);
+
 export function ProjectCard({
   project,
   onUpdate,
@@ -183,6 +194,10 @@ export function ProjectCard({
   const [dialog, setDialog] = useState<"rename" | "archive" | "delete" | null>(
     null,
   );
+  // gateway 00101: no archiving while a run is unfinished
+  const activeRun =
+    project.summary?.latest_state !== undefined &&
+    !FINISHED.has(project.summary.latest_state);
   const deletable =
     project.archived === true &&
     project.sample !== true &&
@@ -401,16 +416,30 @@ export function ProjectCard({
                 ) : null}
               </>
             ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Archive project"
-                disabled={busy}
-                onClick={() => setDialog("archive")}
-              >
-                <Archive />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* a disabled button gets no hover: the span carries the reason */}
+                  <span
+                    tabIndex={activeRun ? 0 : -1}
+                    data-testid="archive-wrap"
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Archive project"
+                      aria-description={activeRun ? ARCHIVE_BLOCKED : undefined}
+                      disabled={busy || activeRun}
+                      onClick={() => setDialog("archive")}
+                    >
+                      <Archive />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {activeRun ? (
+                  <TooltipContent side="top">{ARCHIVE_BLOCKED}</TooltipContent>
+                ) : null}
+              </Tooltip>
             )}
           </div>
         ) : null}
@@ -490,8 +519,7 @@ export function ProjectCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Archive project</AlertDialogTitle>
             <AlertDialogDescription>
-              Archive this project? You can restore it later. A run still in
-              progress is cancelled, and you won&apos;t be charged for it.
+              Archive this project? You can restore it later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
