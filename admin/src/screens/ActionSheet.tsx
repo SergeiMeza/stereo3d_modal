@@ -358,6 +358,9 @@ export function ActionSheet({
             return o;
           });
         }
+      } else if (err instanceof ApiError && err.code === "case_closed") {
+        setError("Reopen the case to add notes or decisions.");
+        void onReload().catch(() => {});
       } else if (err instanceof ApiError && err.code === "action_unavailable") {
         setError("That action isn't available on this case now. The page has been reloaded.");
         void onReload().catch(() => {});

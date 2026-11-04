@@ -57,6 +57,8 @@ export interface CaseRelated {
   linked_case_ids?: string[];
   superseded_by?: string;
   duplicate_of?: string;
+  follow_up_of?: string;
+  follow_up_ids?: string[] | null;
 }
 
 export interface CaseDecision {
@@ -109,6 +111,10 @@ export interface Case {
   decided_at?: string;
   closed_at?: string;
   status_since: string;
+  /** The closed case a customer message reopened as this one (00107). */
+  follow_up_of?: string;
+  /** Cases opened as follow-ups of this one. */
+  follow_up_ids?: string[] | null;
 }
 
 export interface RunRow {
@@ -239,6 +245,7 @@ export interface RelatedCase {
   reason: string;
   status: string;
   result?: string;
+  follow_up_of?: string;
 }
 
 export type CaseAction =

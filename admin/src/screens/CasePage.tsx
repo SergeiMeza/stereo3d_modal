@@ -90,6 +90,17 @@ function CaseBody({
     return m;
   })();
 
+  // A customer message on a closed case opens a new linked case (gateway
+  // 00107): the new one names follow_up_of, the closed one lists it.
+  const followUpOf = c.follow_up_of || c.related.follow_up_of || "";
+  const followUps = [
+    ...new Set([
+      ...(c.follow_up_ids ?? []),
+      ...(c.related.follow_up_ids ?? []),
+      ...(page.related_cases ?? []).filter((r) => r.follow_up_of === c.id).map((r) => r.id),
+    ]),
+  ].filter((id) => id && id !== followUpOf);
+
   const done = (next: Page) => {
     onPage(next);
     setSheet(null);
@@ -174,6 +185,22 @@ function CaseBody({
       {c.related.superseded_by && (
         <p className="small">
           Superseded by <Link className="link mono" to={paths.case(c.related.superseded_by)}>{c.related.superseded_by}</Link>
+        </p>
+      )}
+      {followUpOf && (
+        <p className="small" data-testid="follow-up-of">
+          Follow-up of <Link className="link mono" to={paths.case(followUpOf)}>{followUpOf}</Link>
+        </p>
+      )}
+      {followUps.length > 0 && (
+        <p className="small" data-testid="follow-ups">
+          Follow-up{followUps.length > 1 ? "s" : ""}:{" "}
+          {followUps.map((id, i) => (
+            <span key={id}>
+              {i > 0 && ", "}
+              <Link className="link mono" to={paths.case(id)}>{id}</Link>
+            </span>
+          ))}
         </p>
       )}
       {c.related.duplicate_of && (
@@ -360,7 +387,11 @@ function NoteBox({ caseId, onPage }: { caseId: string; onPage: (p: Page) => void
       onPage(await api.caseAction(caseId, { action: "note", text: text.trim() }));
       setText("");
     } catch (e) {
-      setErr(`That didn't work: ${errorMessage(e)}`);
+      setErr(
+        e instanceof ApiError && e.code === "case_closed"
+          ? "Reopen the case to add notes."
+          : `That didn't work: ${errorMessage(e)}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -397,10 +428,33 @@ function Timeline({ page }: { page: Page }) {
             <span className="t">
               {dateTime(e.at)} · {words(e.kind)}
             </span>
-            {e.text && <PlainText text={e.text} />}
+            {e.kind === "promo_restored" && e.data ? <PromoRestored data={e.data} /> : e.text && <PlainText text={e.text} />}
           </li>
         );
       })}
     </ol>
+  );
+}
+
+type PromoGrantRow = { entitlement?: string; ends_at?: string | null };
+
+/** An owner's restore of promotional grants on a closed dispute case (gateway 00107). */
+function PromoRestored({ data }: { data: Record<string, unknown> }) {
+  const rows = (v: unknown): PromoGrantRow[] => (Array.isArray(v) ? (v as PromoGrantRow[]) : []);
+  const one = (g: PromoGrantRow) => {
+    const name = words(g.entitlement || "pro");
+    const ent = name.charAt(0).toUpperCase() + name.slice(1);
+    return g.ends_at ? `${ent} until ${dateOnly(g.ends_at)}` : `${ent}, no end date`;
+  };
+  const regranted = rows(data.regranted);
+  const skipped = rows(data.skipped);
+  const by = typeof data.by === "string" ? data.by : "the owner";
+  const reason = typeof data.reason === "string" ? data.reason : "";
+  return (
+    <div className="xs" data-testid="promo-restored">
+      <PlainText text={`Promotional grants restored by ${by}${reason ? `: ${reason}` : ""}`} />
+      <div>Given back: {regranted.length ? regranted.map(one).join(", ") : "none"}</div>
+      {skipped.length > 0 && <div className="muted">Skipped (already ended): {skipped.map(one).join(", ")}</div>}
+    </div>
   );
 }

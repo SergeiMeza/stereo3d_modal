@@ -260,3 +260,77 @@ describe("case page (A2)", () => {
     expect(screen.getByRole("dialog", { name: "Stop the run now" })).toBeInTheDocument();
   });
 });
+
+describe("closed cases and follow-ups (00107)", () => {
+  it("renders an owner's promo restore in the timeline", async () => {
+    const page = casePage(
+      {
+        events: [
+          {
+            id: "promo_restored_x",
+            at: "2026-11-04T06:00:00Z",
+            who: "owner@example.com",
+            kind: "promo_restored",
+            text: "promotional Pro restored by owner@example.com: bank error",
+            data: {
+              type: "promo_restored",
+              by: "owner@example.com",
+              at: "2026-11-04T06:00:00Z",
+              reason: "bank error",
+              restore_id: "promo_restored_x",
+              regranted: [
+                { entitlement: "pro", ends_at: "2026-12-31T00:00:00Z" },
+                { entitlement: "pro", ends_at: null },
+              ],
+              skipped: [{ entitlement: "pro", ends_at: "2026-10-01T00:00:00Z" }],
+            },
+          },
+        ],
+      },
+      { status: "closed", open: false },
+    );
+    renderApp("/cases/CASE-0042", base(page));
+    const ev = await screen.findByTestId("promo-restored");
+    expect(ev).toHaveTextContent("Promotional grants restored by owner@example.com: bank error");
+    expect(ev).toHaveTextContent(/Given back: Pro until .*2026, Pro, no end date/);
+    expect(ev).toHaveTextContent(/Skipped \(already ended\): Pro until/);
+  });
+
+  it("a note on a closed case says to reopen it", async () => {
+    renderApp("/cases/CASE-0042", {
+      ...base(casePage({ actions: ["note"] }, { status: "closed", open: false })),
+      "POST /v1/admin/cases/CASE-0042/actions": () => apiError(409, "case_closed", "case is closed"),
+    });
+    await userEvent.type(await screen.findByLabelText("Add a note"), "late info");
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Reopen the case to add notes.");
+  });
+
+  it("a decision on a closed case says to reopen it", async () => {
+    renderApp("/cases/CASE-0042", {
+      ...base(),
+      "POST /v1/admin/cases/CASE-0042/actions": () => apiError(409, "case_closed", "case is closed"),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
+    const dialog = screen.getByRole("dialog", { name: "Deny refund" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await within(dialog).findByText("Reopen the case to add notes or decisions.")).toBeInTheDocument();
+  });
+
+  it("links a follow-up to the closed case and back", async () => {
+    renderApp("/cases/CASE-0042", base(casePage({}, { follow_up_of: "CASE-0031" })));
+    const link = within(await screen.findByTestId("follow-up-of")).getByRole("link", { name: "CASE-0031" });
+    expect(link).toHaveAttribute("href", "/cases/CASE-0031");
+  });
+
+  it("the closed case lists its follow-ups", async () => {
+    const page = casePage(
+      { related_cases: [{ id: "CASE-0050", type: "refund", reason: "support_request", status: "open", follow_up_of: "CASE-0042" }] },
+      { status: "closed", open: false, follow_up_ids: ["CASE-0049"] },
+    );
+    renderApp("/cases/CASE-0042", base(page));
+    const row = await screen.findByTestId("follow-ups");
+    expect(row).toHaveTextContent("Follow-ups: CASE-0049, CASE-0050");
+    expect(within(row).getByRole("link", { name: "CASE-0050" })).toHaveAttribute("href", "/cases/CASE-0050");
+  });
+});
