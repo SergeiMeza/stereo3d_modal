@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
 import { planPrice } from "@/components/pricing/planCopy";
@@ -14,9 +14,8 @@ import { planPrice } from "@/components/pricing/planCopy";
 import { PlanChangeMenu, ScheduledChange } from "./PlanChange";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
-import type { AccountSettings } from "@/lib/api/types";
-import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { useAccountSettings } from "@/lib/useAccountSettings";
 
 function longDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -106,23 +105,12 @@ export function PlanCard(): JSX.Element | null {
  * reads the settings again.
  */
 export function IntroSwitch(): JSX.Element | null {
-  const gateway = useGateway();
   const billing = useBilling();
-  const [settings, setSettings] = useState<AccountSettings | null>(null);
-  const [reads, setReads] = useState(0);
+  // ADR 0138: the account's settings atom (useAccountSettings), shared
+  // with onboarding and Make 3D
+  const { settings, replace, save, refresh } = useAccountSettings();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    gateway.getAccountSettings().then(
-      (s) => live && setSettings(s),
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway, reads]);
 
   if (!settings?.lifelike_intro_editable) return null;
   const on = settings.lifelike_intro;
@@ -130,19 +118,19 @@ export function IntroSwitch(): JSX.Element | null {
   async function toggle(): Promise<void> {
     if (!settings || saving) return;
     const before = settings;
-    setSettings({ ...before, lifelike_intro: !on });
+    replace({ ...before, lifelike_intro: !on });
     setSaving(true);
     setError(false);
     try {
-      setSettings(await gateway.patchAccountSettings({ lifelike_intro: !on }));
+      await save({ lifelike_intro: !on });
     } catch (e) {
       if (e instanceof GatewayError && e.code === "plan_required") {
         // the plan ended meanwhile: no switch, and the page catches up
-        setSettings({ ...before, lifelike_intro_editable: false });
-        setReads((n) => n + 1);
+        replace({ ...before, lifelike_intro_editable: false });
+        refresh();
         void billing.refresh();
       } else {
-        setSettings(before);
+        replace(before);
         setError(true);
       }
     } finally {

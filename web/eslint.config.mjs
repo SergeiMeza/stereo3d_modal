@@ -56,7 +56,6 @@ const STATE_IN_ATOMS = [
 const STATE_ALLOWLIST = [
   "src/components/auth/Passkeys.tsx",
   "src/components/billing/BillingScreen.tsx",
-  "src/components/billing/PlanCard.tsx",
   "src/screens/ProjectsScreen.tsx",
 ];
 

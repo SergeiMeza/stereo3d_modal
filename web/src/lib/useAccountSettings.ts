@@ -9,34 +9,30 @@
  * server-side, not localStorage).
  */
 
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { atom } from "jotai";
+import { useCallback, useEffect } from "react";
 
 import type { AccountSettings, AccountSettingsPatch } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
+import { appStore, useAppAtomValue } from "@/lib/state/stores";
 
+/** ADR 0138: the account's settings in an app-store atom, for the account
+ * they were read for. */
 interface Cache {
   uid: string;
   settings: AccountSettings | null;
-  loading: Promise<void> | null;
+  loading: boolean;
 }
 
-let cache: Cache | null = null;
-const listeners = new Set<() => void>();
+export const accountSettingsAtom = atom<Cache | null>(null);
 
-function emit(): void {
-  for (const l of listeners) l();
-}
-
-function subscribe(l: () => void): () => void {
-  listeners.add(l);
-  return () => listeners.delete(l);
-}
+const get = (): Cache | null => appStore.get(accountSettingsAtom);
+const put = (c: Cache | null): void => appStore.set(accountSettingsAtom, c);
 
 /** Tests: forget the loaded settings. */
 export function resetAccountSettingsCache(): void {
-  cache = null;
-  emit();
+  put(null);
 }
 
 function merge(s: AccountSettings, patch: AccountSettingsPatch): AccountSettings {
@@ -73,39 +69,33 @@ export interface AccountSettingsApi {
   update: (patch: AccountSettingsPatch) => void;
   /** reload (e.g. after a run finishes, for the getting-started steps) */
   refresh: () => void;
+  /** show these settings now (an optimistic change, or putting one back) */
+  replace: (settings: AccountSettings) => void;
+  /** save a change and show what the gateway answered; throws on failure */
+  save: (patch: AccountSettingsPatch) => Promise<AccountSettings>;
 }
 
 export function useAccountSettings(): AccountSettingsApi {
   const gateway = useGateway();
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const snapshot = useSyncExternalStore(
-    subscribe,
-    () => cache,
-    () => null,
-  );
+  const snapshot = useAppAtomValue(accountSettingsAtom);
 
   const load = useCallback(
     (force = false) => {
       if (uid === null) return;
-      if (!force && cache?.uid === uid && (cache.settings !== null || cache.loading !== null)) return;
-      const entry: Cache = { uid, settings: cache?.uid === uid ? cache.settings : null, loading: null };
-      entry.loading = gateway
+      const c = get();
+      if (!force && c?.uid === uid && (c.settings !== null || c.loading)) return;
+      put({ uid, settings: c?.uid === uid ? c.settings : null, loading: true });
+      gateway
         .getAccountSettings()
-        .then((s) => {
-          if (cache === entry) {
-            cache = { ...entry, settings: s, loading: null };
-            emit();
-          }
+        .then((settings) => {
+          if (get()?.uid === uid) put({ uid, settings, loading: false });
         })
         .catch(() => {
-          if (cache === entry) {
-            cache = { ...entry, loading: null };
-            emit();
-          }
+          const now = get();
+          if (now?.uid === uid) put({ ...now, loading: false });
         });
-      cache = entry;
-      emit();
     },
     [gateway, uid],
   );
@@ -117,23 +107,35 @@ export function useAccountSettings(): AccountSettingsApi {
   const update = useCallback(
     (patch: AccountSettingsPatch) => {
       if (uid === null) return;
-      if (cache?.uid === uid && cache.settings) {
-        cache = { ...cache, settings: merge(cache.settings, patch) };
-        emit();
-      }
+      const c = get();
+      if (c?.uid === uid && c.settings) put({ ...c, settings: merge(c.settings, patch) });
       gateway
         .patchAccountSettings(patch)
-        .then((s) => {
-          if (cache?.uid === uid) {
-            cache = { ...cache, settings: s };
-            emit();
-          }
+        .then((settings) => {
+          const now = get();
+          if (now?.uid === uid) put({ ...now, settings });
         })
         .catch(() => {});
     },
     [gateway, uid],
   );
 
+  const replace = useCallback(
+    (settings: AccountSettings) => {
+      if (uid !== null) put({ uid, settings, loading: false });
+    },
+    [uid],
+  );
+
+  const save = useCallback(
+    async (patch: AccountSettingsPatch) => {
+      const settings = await gateway.patchAccountSettings(patch);
+      if (uid !== null && get()?.uid === uid) put({ uid, settings, loading: false });
+      return settings;
+    },
+    [gateway, uid],
+  );
+
   const settings = snapshot && snapshot.uid === uid ? snapshot.settings : null;
-  return { settings, update, refresh: () => load(true) };
+  return { settings, update, refresh: () => load(true), replace, save };
 }
