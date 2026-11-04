@@ -15,6 +15,8 @@ import { LifelikeDeliverPanel } from "@/components/steps/LifelikeDeliverPanel";
 import type { Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
+import { resetPricingCache } from "@/lib/api/usePricing";
+import { resetProForTests } from "@/lib/pro/usePro";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
@@ -87,6 +89,60 @@ describe("welcome after sign-up", () => {
     renderProjects();
     expect(await screen.findByTestId("get-started")).toBeTruthy();
     expect(screen.queryByTestId("welcome")).toBeNull();
+  });
+});
+
+describe("app Pro welcome (owner 2026-11-04)", () => {
+  beforeEach(() => {
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
+    resetProForTests();
+    resetPricingCache();
+    mockDb.tierPricing = true;
+    mockDb.accountSettings.simulate_app_pro = true;
+    mockDb.pro = true;
+  });
+  afterEach(() => {
+    delete (globalThis as { __mockDb?: typeof mockDb }).__mockDb;
+  });
+
+  it("new account: Pro lines, headsets from the app, then the first project with one Business line", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    renderProjects();
+    const intro = await screen.findByTestId("welcome-app-pro");
+    expect(intro.textContent).toContain("Your Pro works here too");
+    // the share and the plan's previews arrive with /v1/pricing and /v1/pro
+    await waitFor(() => expect(intro.textContent).toContain("Pro prices on every video, 15% off."));
+    await waitFor(() => expect(intro.textContent).toContain("Your plan includes 20 free previews a month."));
+    expect(intro.textContent).toContain("Nothing new is billed.");
+    // prefilled from the app
+    expect(screen.getByTestId("welcome-device-avp").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByTestId("welcome-business")).toBeNull();
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    await waitFor(() => expect(mockDb.accountSettings.headsets).toEqual(["avp"]));
+    await waitFor(() => expect(mockDb.events.at(-1)?.name).toBe("onboarding_headsets"));
+    expect(mockDb.events.at(-1)?.props).toMatchObject({ devices: ["avp"], plan: "pro", variant: "app_pro" });
+    // straight to the first project; Business once, muted
+    expect(await screen.findByTestId("welcome-sample")).toBeTruthy();
+    expect(screen.getAllByTestId("welcome-business")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("welcome-later"));
+    await waitFor(() => expect(mockDb.accountSettings.onboarding).toMatchObject({ welcome_done: true, app_pro_welcome_done: true }));
+    // no Pro upsells for them
+    expect(screen.queryByTestId("plans-banner")).toBeNull();
+    expect(screen.queryByTestId("plans-line")).toBeNull();
+  });
+
+  it("an older web account that gains app Pro gets the Pro step alone, once", async () => {
+    mockDb.accountSettings.onboarding = { welcome_done: true };
+    renderProjects();
+    const intro = await screen.findByTestId("welcome-app-pro");
+    expect(intro.textContent).toContain("Your Pro works here too");
+    expect(screen.queryByTestId("welcome-device-avp")).toBeNull();
+    expect(screen.getAllByTestId("welcome-business")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("welcome-got-it"));
+    await waitFor(() => expect(mockDb.accountSettings.onboarding.app_pro_welcome_done).toBe(true));
+    expect(mockDb.accountSettings.onboarding.welcome_done).toBe(true);
+    await waitFor(() => expect(screen.queryByTestId("welcome")).toBeNull());
   });
 });
 

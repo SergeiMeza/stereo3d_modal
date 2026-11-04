@@ -703,11 +703,20 @@ export interface AccountSettings {
   onboarding?: OnboardingState;
   /** plans surfaces dismissed: placement → RFC 3339 time (gateway 00093) */
   dismissed?: Record<string, string>;
+  /** test environments only: the gateway treats the account as an app Pro
+   * subscriber (onboarding variant app_pro, GET /v1/pro true) */
+  simulate_app_pro?: boolean;
 }
 
 /** Account onboarding state, kept on the account (not in the browser). */
 export interface OnboardingState {
   welcome_done?: boolean;
+  /** owner 2026-11-04: "app_pro" for people whose Pro comes from the iPhone,
+   * iPad, Mac or Vision Pro app; they get their own welcome once */
+  variant?: "app_pro" | "default";
+  app_pro_welcome_done?: boolean;
+  /** where they watch, as the app knows it (may be empty) */
+  headsets_from_app?: string[] | null;
   checklist_hidden?: boolean;
   tips_done?: boolean;
   /** the gateway's view of the getting-started steps (read-only) */
@@ -726,7 +735,9 @@ export interface AccountSettingsPatch {
   headsets?: string[];
   /** ids to add to hints_seen */
   hints_seen_add?: string[];
-  onboarding?: Pick<OnboardingState, "welcome_done" | "checklist_hidden" | "tips_done">;
+  onboarding?: Pick<OnboardingState, "welcome_done" | "checklist_hidden" | "tips_done" | "app_pro_welcome_done">;
+  /** test environments only */
+  simulate_app_pro?: boolean;
   /** placement → true (now) | RFC 3339 time | null (clear) */
   dismissed?: Record<string, true | string | null>;
 }

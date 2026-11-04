@@ -72,7 +72,12 @@ async function callGateway(
   getToken: () => Promise<string>,
   fresh: boolean,
 ): Promise<ProStatus> {
-  if (AUTH_MODE === "mock") return { pro: mockPro, known: true };
+  if (AUTH_MODE === "mock") {
+    // the mock gateway's "Simulate app Pro" (test only): Pro from the app
+    const db = (globalThis as { __mockDb?: { accountSettings?: { simulate_app_pro?: boolean } } }).__mockDb;
+    if (db?.accountSettings?.simulate_app_pro) return { pro: true, via: "pro_subs_1m_v1", known: true };
+    return { pro: mockPro, known: true };
+  }
   const token = await getToken();
   const res = await fetch(
     `${gatewayBaseUrl()}/v1/pro${fresh ? "/refresh" : ""}`,

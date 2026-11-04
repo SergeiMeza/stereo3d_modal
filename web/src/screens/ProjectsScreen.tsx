@@ -17,6 +17,8 @@ import { GetStarted } from "@/components/onboarding/GetStarted";
 import { PlansBanner } from "@/components/plans/PlansBanner";
 import { TalkToUs } from "@/components/plans/TalkToUs";
 import { WelcomeDialog } from "@/components/onboarding/WelcomeDialog";
+import type { WelcomeVariant } from "@/components/onboarding/WelcomeDialog";
+import { clearWelcomeAgain, welcomeAgainRequested } from "@/components/plans/ResetPlansSurfaces";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
@@ -126,9 +128,20 @@ export default function ProjectsScreen() {
   // new accounts only: someone who already has their own projects
   // never gets the welcome (the gateway marks older accounts done too)
   const newAccount = projects !== null && projects.every((p) => p.sample === true);
+  // app Pro (owner 2026-11-04): their own welcome once, also for an older
+  // web account that later gets Pro in the app (then the Pro step alone).
+  // "Show welcome again" (test only) brings either back for this session.
+  const onboarding = settings?.onboarding;
+  const again = welcomeAgainRequested();
+  const appProDue = onboarding?.variant === "app_pro" && onboarding.app_pro_welcome_done !== true;
+  const firstDue = onboarding?.welcome_done !== true && (newAccount || again);
+  const welcomeVariant: WelcomeVariant = appProDue ? (firstDue ? "app_pro" : "app_pro_short") : "default";
+  // "Pick now" reopens the welcome the account would get
+  const shownVariant: WelcomeVariant = welcomeAgain
+    ? onboarding?.variant === "app_pro" ? "app_pro" : "default"
+    : welcomeVariant;
   const welcomeOpen =
-    welcomeAgain ||
-    (!welcomeClosed && settings !== null && settings.onboarding?.welcome_done !== true && newAccount);
+    welcomeAgain || (!welcomeClosed && settings !== null && projects !== null && (appProDue || firstDue));
   const pinned = sorted?.filter((p) => p.pinned === true) ?? [];
   const rest = sorted?.filter((p) => p.pinned !== true) ?? [];
 
@@ -148,9 +161,12 @@ export default function ProjectsScreen() {
       </div>
 
       <WelcomeDialog
+        key={shownVariant}
         open={welcomeOpen}
         sample={sample}
+        variant={shownVariant}
         onClose={() => {
+          clearWelcomeAgain();
           setWelcomeClosed(true);
           setWelcomeAgain(false);
         }}

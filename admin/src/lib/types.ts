@@ -424,6 +424,10 @@ export interface OnboardingHeadsets {
   by_plan: { plan: string; device: string; count: number }[] | null;
   /** people per device and how many of them converted */
   conversion: { device: string; people: number; converted: number }[] | null;
+  /** owner 2026-11-04: answers per welcome variant ("app_pro" | "default")
+   * and device; converted when the gateway counts it (absent on older
+   * gateways) */
+  by_variant?: { variant: string; device: string; count: number; converted?: number }[] | null;
   generated_at: string;
 }
 

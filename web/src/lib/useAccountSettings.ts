@@ -44,6 +44,7 @@ function merge(s: AccountSettings, patch: AccountSettingsPatch): AccountSettings
     ...s,
     ...(patch.lifelike_intro !== undefined ? { lifelike_intro: patch.lifelike_intro } : {}),
     ...(patch.locale !== undefined ? { locale: patch.locale } : {}),
+    ...(patch.simulate_app_pro !== undefined ? { simulate_app_pro: patch.simulate_app_pro } : {}),
     ...(patch.headsets !== undefined ? { headsets: patch.headsets } : {}),
     ...(patch.hints_seen_add
       ? { hints_seen: [...new Set([...(s.hints_seen ?? []), ...patch.hints_seen_add])] }

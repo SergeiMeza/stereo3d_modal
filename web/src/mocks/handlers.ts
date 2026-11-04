@@ -394,9 +394,11 @@ interface DB {
     locale: string | null;
     headsets: string[] | null;
     hints_seen: string[];
-    onboarding: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+    onboarding: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean; app_pro_welcome_done?: boolean };
     /** plans surfaces dismissed: placement → time (gateway 00093) */
     dismissed: Record<string, string>;
+    /** test only: act as an app Pro subscriber (onboarding variant app_pro) */
+    simulate_app_pro?: boolean;
   };
   /** the next settings save fails with a 500 */
   nextSettingsFails: boolean;
@@ -518,8 +520,14 @@ function accountSettings() {
   return {
     ...st,
     lifelike_intro_editable: mockDb.billing.plan?.active === true,
+    simulate_app_pro: st.simulate_app_pro === true,
     onboarding: {
       ...st.onboarding,
+      // owner 2026-11-04: app Pro subscribers get their own welcome; the
+      // app's headsets come along (the simulation says Vision Pro)
+      variant: st.simulate_app_pro ? "app_pro" : "default",
+      app_pro_welcome_done: st.onboarding.app_pro_welcome_done === true,
+      headsets_from_app: st.simulate_app_pro ? ["avp"] : [],
       // the getting-started steps, as the gateway works them out
       steps: {
         first_video: own.length > 0,
@@ -2914,10 +2922,16 @@ export const handlers = [
       locale?: string | null;
       headsets?: string[];
       hints_seen_add?: string[];
-      onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean };
+      onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean; app_pro_welcome_done?: boolean };
       dismissed?: Record<string, true | string | null>;
+      simulate_app_pro?: boolean;
     };
     const st = mockDb.accountSettings;
+    if (body.simulate_app_pro !== undefined) {
+      st.simulate_app_pro = body.simulate_app_pro;
+      // GET /v1/pro and the quotes follow, as on the test gateway
+      mockDb.pro = body.simulate_app_pro;
+    }
     if (body.dismissed) {
       for (const [k, v] of Object.entries(body.dismissed)) {
         if (!PLANS_PLACEMENTS.includes(k)) return err(400, "invalid_request", `dismissed: unknown placement "${k}"`);

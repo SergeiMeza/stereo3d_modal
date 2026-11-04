@@ -182,6 +182,10 @@ describe("onboarding answers (owner 2026-11-04)", () => {
             { device: "avp", people: 3, converted: 1 },
             { device: "quest", people: 5, converted: 1 },
           ],
+          by_variant: [
+            { variant: "default", device: "quest", count: 5, converted: 1 },
+            { variant: "app_pro", device: "avp", count: 3, converted: 1 },
+          ],
           generated_at: "2026-11-04T00:00:00Z",
         },
       }),
@@ -191,6 +195,10 @@ describe("onboarding answers (owner 2026-11-04)", () => {
     expect(table).toHaveTextContent("Apple Vision Pro31");
     expect(screen.getByText("device answers")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-plans")).toHaveTextContent("Pro");
+    const variants = screen.getByTestId("onboarding-variants");
+    expect(variants).toHaveTextContent("App Pro welcome");
+    expect(variants).toHaveTextContent("Web welcome");
+    expect(variants).toHaveTextContent("Converted1 · 33%1 · 20%");
     expect(calls.at(-1)!.url).toContain("days=90");
   });
 });

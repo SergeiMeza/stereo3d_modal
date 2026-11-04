@@ -27,6 +27,8 @@ const DEVICE_NAMES: Record<string, string> = {
 
 const PLAN_NAMES: Record<string, string> = { none: "No plan", pro: "Pro", business: "Business", studio: "Studio" };
 
+const VARIANT_NAMES: Record<string, string> = { default: "Web welcome", app_pro: "App Pro welcome" };
+
 const name = (d: string) => DEVICE_NAMES[d] ?? d;
 
 /** Onboarding: where new people watch (owner 2026-11-04) — answers by
@@ -145,6 +147,51 @@ function Headsets({ data }: { data: OnboardingHeadsets }) {
           </div>
         </section>
       </div>
+
+      <ByVariant rows={data.by_variant ?? []} />
     </>
+  );
+}
+
+/** The welcome variants side by side: answers per device, and how many
+ * converted when the gateway says. */
+function ByVariant({ rows }: { rows: NonNullable<OnboardingHeadsets["by_variant"]> }) {
+  if (rows.length === 0) return null;
+  const variants = [...new Set(rows.map((r) => r.variant))].sort();
+  const devices = [...new Set(rows.map((r) => r.device))];
+  const sum = (v: string, d?: string, f: "count" | "converted" = "count") =>
+    rows.filter((r) => r.variant === v && (d === undefined || r.device === d)).reduce((s, r) => s + (r[f] ?? 0), 0);
+  const hasConv = rows.some((r) => typeof r.converted === "number");
+  return (
+    <section className="card">
+      <div className="sh"><b>By welcome</b><span className="xs muted">web welcome or app Pro welcome</span></div>
+      <div className="scroll-x">
+        <table className="at" data-testid="onboarding-variants">
+          <thead><tr><th>Device</th>{variants.map((v) => <th key={v} className="num">{VARIANT_NAMES[v] ?? v}</th>)}</tr></thead>
+          <tbody>
+            {devices.map((d) => (
+              <tr key={d}>
+                <td>{name(d)}</td>
+                {variants.map((v) => <td key={v} className="num">{sum(v, d)}</td>)}
+              </tr>
+            ))}
+            <tr>
+              <td><b>All answers</b></td>
+              {variants.map((v) => <td key={v} className="num"><b>{sum(v)}</b></td>)}
+            </tr>
+            {hasConv ? (
+              <tr>
+                <td>Converted</td>
+                {variants.map((v) => {
+                  const n = sum(v);
+                  const c = sum(v, undefined, "converted");
+                  return <td key={v} className="num">{c} · {pct(n ? c / n : 0, 0)}</td>;
+                })}
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
