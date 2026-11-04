@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -117,5 +117,78 @@ describe("passkey sign-in (ADR 0135)", () => {
     renderApp("/cases", cases, auth, session);
     await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(session.get()).toBeNull());
+  });
+});
+
+describe("money actions re-assert with the passkey (ADR 0135)", () => {
+  const account = {
+    account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+    billing_state: { flow_state: "outstanding", sheet_only: false, lifetime_paid_cents: 0 },
+    owed_cents: 125,
+    balance: null,
+    methods: null,
+    cases: null,
+    charges: null,
+    refunds: null,
+    ledger: null,
+  };
+  const signedIn = () => {
+    const session = new AdminSession(memoryStorage());
+    session.set("sess_1");
+    return session;
+  };
+
+  it("401 reauth_required {method: passkey}: the passkey, then the action once more", async () => {
+    let posts = 0;
+    const auth = googleDone();
+    const session = signedIn();
+    const { calls } = renderApp(
+      "/accounts/uid_123",
+      {
+        "GET /v1/admin/accounts/uid_123": () => ({ json: account }),
+        "POST /v1/admin/accounts/uid_123/actions": () => {
+          posts++;
+          return posts === 1
+            ? { status: 401, json: { success: false, error: "reauth_required", message: "confirm it's you", method: "passkey" } }
+            : { json: { ...account, owed_cents: 0 } };
+        },
+        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2" } }),
+      },
+      auth,
+      session,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Write off $1.25…" }));
+    await userEvent.click(screen.getByRole("button", { name: "Write off" }));
+    const sheet = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(within(sheet).queryByRole("button", { name: "Sign in with Google" })).toBeNull();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Use your passkey" }));
+    await waitFor(() => expect(posts).toBe(2));
+    expect(auth.reauthenticate).not.toHaveBeenCalled();
+    expect(calls.find((c) => c.path === "/v1/admin/session/options")!.body).toEqual({ purpose: "reassert" });
+    expect(calls.find((c) => c.path === "/v1/admin/session/verify")!.body).toMatchObject({ purpose: "reassert" });
+    expect(calls.filter((c) => c.method === "POST" && c.path.endsWith("/actions")).at(-1)!.headers["X-Admin-Session"]).toBe("sess_2");
+    await waitFor(() => expect(screen.queryByText("Owes $1.25")).toBeNull());
+  });
+
+  it("cancelling the passkey says nothing moved", async () => {
+    renderApp(
+      "/accounts/uid_123",
+      {
+        "GET /v1/admin/accounts/uid_123": () => ({ json: account }),
+        "POST /v1/admin/accounts/uid_123/actions": () => ({
+          status: 401,
+          json: { success: false, error: "reauth_required", message: "again", method: "passkey" },
+        }),
+        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+      },
+      googleDone(),
+      signedIn(),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Write off $1.25…" }));
+    await userEvent.click(screen.getByRole("button", { name: "Write off" }));
+    const sheet = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText(/Not confirmed. Nothing was charged or refunded./)).toBeInTheDocument();
   });
 });
