@@ -22,7 +22,6 @@ export interface DevicePage {
 }
 
 const NOTE_SBS = `A ${FORMAT_NAMES.sbs} file: one picture for each eye.`;
-const NOTE_HALF = `A ${FORMAT_NAMES.half_sbs} file: one picture for each eye, each squeezed to half width.`;
 const NOTE_SPATIAL = `A ${FORMAT_NAMES.mvhevc} file: plays in 3D in Photos.`;
 
 const SBS = FORMAT_NAMES.sbs;
@@ -79,9 +78,11 @@ export const DEVICE_PAGES: readonly DevicePage[] = [
     title: "Watch 3D videos on Meta Quest",
     description:
       "Turn your 2D videos into side-by-side 3D and watch them on Meta Quest.",
-    fileNote: NOTE_HALF,
+    // owner 2026-11-04: Quest plays full side by side; half at 4K and up
+    fileNote: `A ${SBS} file: one picture for each eye. At 4K and above, or when a file is too large, pick ${HALF}.`,
     lines: [
-      `Make any video 3D and pick the ${HALF} file.`,
+      `Make any video 3D and pick the ${SBS} file.`,
+      `For 4K and above, or when the file is too large to copy or stream, pick ${HALF} instead.`,
       "Open this site in the Meta Quest Browser and select View in 3D, or open the file in a video player.",
       "In the player, choose 3D side by side.",
     ],

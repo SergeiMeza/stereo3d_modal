@@ -28,6 +28,14 @@ describe("device pages (S3D-51)", () => {
     for (const w of WORKS_WITH) if (w.slug) expect(devicePage(w.slug)).toBeDefined();
   });
 
+  it("Meta Quest: the full side-by-side file, Half SBS at 4K and above or when too large (owner 2026-11-04)", () => {
+    const q = devicePage("meta-quest")!;
+    expect(q.lines[0]).toBe("Make any video 3D and pick the Side by side file.");
+    expect(q.lines.join(" ")).toMatch(/For 4K and above, or when the file is too large to copy or stream, pick Side by side \(half size\) instead\./);
+    expect(q.lines).toContain("In the player, choose 3D side by side.");
+    expect(q.fileNote).toMatch(/^A Side by side file/);
+  });
+
   it("lists every device page in the sitemap", () => {
     const urls = sitemap().map((e) => e.url);
     for (const d of DEVICE_PAGES) {
