@@ -3168,8 +3168,12 @@ export const handlers = [
     // gateway 00093: onboarding_headsets and the plans_surface_* events
     // owner 2026-11-04: the Business/Studio setup funnel too
     const SETUP_EVENTS = ["business_setup_opened", "business_setup_plan_picked", "business_setup_details_done", "business_setup_checkout_started", "business_setup_purchased"];
-    if (body.name !== "onboarding_headsets" && !body.name.startsWith("plans_surface_") && !SETUP_EVENTS.includes(body.name)) {
+    if (body.name !== "onboarding_headsets" && body.name !== "sign_in" && !body.name.startsWith("plans_surface_") && !SETUP_EVENTS.includes(body.name)) {
       return err(400, "unknown_event", "unknown event");
+    }
+    // ADR 0136: the web's non-passkey sign-ins, by method
+    if (body.name === "sign_in" && !["google", "apple", "email", "password", "email_code"].includes(String(body.props?.method))) {
+      return err(400, "invalid_request", "method is google, apple, email, password or email_code");
     }
     if (body.name.startsWith("plans_surface_") && !PLANS_PLACEMENTS.includes(String(body.props?.placement))) {
       return err(400, "invalid_request", "placement is required");

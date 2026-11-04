@@ -71,7 +71,7 @@ import {
 import type { GatewaySession } from "@/lib/gatewayAuth";
 import { detectClient, isHeadset } from "@/lib/headset";
 import { passkeySignIn } from "@/lib/passkeys";
-import { currentRegion } from "@/lib/region";
+import { currentRegion, gatewayBaseUrl } from "@/lib/region";
 import { useRegion } from "@/lib/useRegion";
 
 export interface AuthUser {
@@ -404,8 +404,33 @@ async function providerFor(id: LinkableProvider) {
   return new GoogleAuthProvider();
 }
 
+/** ADR 0136: the gateway counts sign-ins by method for passkey adoption;
+ * passkey sign-ins it logs itself. Fire and forget, after the sign-in. */
+export type SignInEventMethod = "google" | "apple" | "email" | "password" | "email_code";
+
+export async function postSignInEvent(
+  method: SignInEventMethod,
+  getToken: () => Promise<string>,
+): Promise<void> {
+  try {
+    const token = await getToken();
+    await fetch(`${gatewayBaseUrl()}/v1/events`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "sign_in", props: { method } }),
+    });
+  } catch {
+    // the count is a nice-to-have; never in the way of a sign-in
+  }
+}
+
+function logSignInEvent(method: SignInEventMethod): void {
+  void postSignInEvent(method, getLiveToken);
+}
+
 function trackSignIn(result: UserCredential | null, method: string): void {
   if (!result) return;
+  logSignInEvent(method === "apple.com" ? "apple" : method === "google.com" ? "google" : "email");
   void import("firebase/auth").then(({ getAdditionalUserInfo }) => {
     const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
     track(isNewUser ? "sign_up" : "login", { method });
@@ -538,6 +563,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(auth, new GoogleAuthProvider());
       const isNewUser = getAdditionalUserInfo(result)?.isNewUser === true;
       track(isNewUser ? "sign_up" : "login", { method: "google" });
+      logSignInEvent("google");
       if (isNewUser) upgradeSession("new-account");
     } catch (e) {
       const p = await capturePending(e, "google.com");
@@ -592,6 +618,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           track(answer.is_new_user ? "sign_up" : "login", {
             method: "email_code",
           });
+          logSignInEvent("email_code");
           if (answer.is_new_user) upgradeSession("new-account");
           return;
         }
@@ -604,6 +631,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         track(answer.is_new_user ? "sign_up" : "login", {
           method: "email_code",
         });
+        logSignInEvent("email_code");
         if (answer.is_new_user) upgradeSession("new-account");
         // S3D-69: Apple/Google said this address had an account; now that
         // the person proved it, link that sign-in onto it.
@@ -727,6 +755,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signInWithEmailAndPassword(auth, email, password);
         }
         track("login", { method: "password" });
+        logSignInEvent("password");
       } catch (e) {
         throw friendlyAuthError(e);
       }
@@ -746,6 +775,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await createUserWithEmailAndPassword(auth, email, password);
         }
         track("sign_up", { method: "password" });
+        logSignInEvent("password");
         upgradeSession("new-account");
       } catch (e) {
         throw friendlyAuthError(e);
