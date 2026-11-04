@@ -241,7 +241,30 @@ func (s *Service) HandleAdminDisputes(w http.ResponseWriter, r *http.Request, a 
 		cw.Flush()
 		return
 	}
+	sum["open_efws"] = s.openEFWs(ctx)
 	httpx.WriteOK(w, sum)
+}
+
+// openEFWs counts early fraud warnings still unresolved: open efw cases,
+// and fraud-warning promo holds without a case (a plan invoice's warning,
+// held until clear_review).
+func (s *Service) openEFWs(ctx context.Context) int {
+	n := 0
+	if cases, err := s.Store.ListCasesByType(ctx, store.CaseEFW, 500); err == nil {
+		for _, c := range cases {
+			if c.Open {
+				n++
+			}
+		}
+	}
+	if recs, err := s.Store.ListPromoRegrantsByStatus(ctx, []string{"held"}, 500); err == nil {
+		for _, r := range recs {
+			if strings.HasPrefix(r.ID, "efw:") && r.CaseID == "" {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]any, error) {
