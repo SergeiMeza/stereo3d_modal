@@ -1,6 +1,9 @@
 import { useState } from "react";
 
-import { ErrorState, SkeletonRows } from "../components/ui";
+import type { ReactNode } from "react";
+
+import { EmptyRow, ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows } from "@/components/common";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { pct } from "../lib/format";
 import { useServices } from "../lib/services";
@@ -39,16 +42,23 @@ export function OnboardingPanel() {
   const { state, retry } = useLoad(() => api.onboardingHeadsets(days), [api, days]);
   return (
     <>
-      <div className="titlebar">
-        <h1>Onboarding</h1>
-        <span className="muted small">Where new people watch · from the welcome&apos;s first question</span>
-        <span className="grow" />
-        <select className="fsel" aria-label="Days" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-          <option value={365}>Last 12 months</option>
-        </select>
-      </div>
+      <PageHeader
+        title="Onboarding"
+        actions={
+          <FilterSelect
+            label="Days"
+            value={String(days)}
+            onChange={(v) => setDays(Number(v))}
+            options={[
+              { value: "30", label: "Last 30 days" },
+              { value: "90", label: "Last 90 days" },
+              { value: "365", label: "Last 12 months" },
+            ]}
+          />
+        }
+      >
+        <span className="text-sm text-muted-foreground">Where new people watch · from the welcome&apos;s first question</span>
+      </PageHeader>
       {state.kind === "loading" && <SkeletonRows rows={4} cols={4} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load the onboarding answers." message={errorMessage(state.error)} onRetry={retry} />
@@ -78,35 +88,33 @@ function SetupAnswers({ days }: { days: number }) {
   if (!a || (uses.length === 0 && sizes.length === 0)) return null;
   const total = (rows: { count: number }[]) => rows.reduce((s, r) => s + r.count, 0) || 1;
   return (
-    <div className="two even" data-testid="onboarding-setup-answers">
-      <section className="card">
-        <div className="sh"><b>Main use</b><span className="xs muted">Business and Studio setup · {a.accounts} accounts</span></div>
-        <table className="at">
-          <tbody>
+    <div className={TWO} data-testid="onboarding-setup-answers">
+      <Panel title="Main use" note={`Business and Studio setup · ${a.accounts} accounts`}>
+        <Table>
+          <TableBody>
             {[...uses].sort((x, y) => y.count - x.count).map((r) => (
-              <tr key={r.main_use}>
-                <td>{MAIN_USES[r.main_use] ?? r.main_use}</td>
-                <td className="num">{r.count}</td>
-                <td className="num">{pct(r.count / total(uses), 0)}</td>
-              </tr>
+              <TableRow key={r.main_use}>
+                <TableCell>{MAIN_USES[r.main_use] ?? r.main_use}</TableCell>
+                <TableCell numeric>{r.count}</TableCell>
+                <TableCell numeric>{pct(r.count / total(uses), 0)}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </section>
-      <section className="card">
-        <div className="sh"><b>Team size</b><span className="xs muted">as answered</span></div>
-        <table className="at">
-          <tbody>
+          </TableBody>
+        </Table>
+      </Panel>
+      <Panel title="Team size" note="as answered">
+        <Table>
+          <TableBody>
             {[...sizes].sort((x, y) => y.count - x.count).map((r) => (
-              <tr key={r.team_size}>
-                <td>{r.team_size}</td>
-                <td className="num">{r.count}</td>
-                <td className="num">{pct(r.count / total(sizes), 0)}</td>
-              </tr>
+              <TableRow key={r.team_size}>
+                <TableCell>{r.team_size}</TableCell>
+                <TableCell numeric>{r.count}</TableCell>
+                <TableCell numeric>{pct(r.count / total(sizes), 0)}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </section>
+          </TableBody>
+        </Table>
+      </Panel>
     </div>
   );
 }
@@ -132,73 +140,70 @@ function Headsets({ data }: { data: OnboardingHeadsets }) {
 
   return (
     <>
-      <div className="stats card">
-        <div className="stat"><div className="stat-v">{people}</div><div className="stat-l">device answers</div><div className="stat-s">{data.days} days</div></div>
-        <div className="stat"><div className="stat-v">{pct(people ? converted / people : 0, 0)}</div><div className="stat-l">converted</div><div className="stat-s">{converted} of {people}</div></div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Stat value={String(people)} label="device answers" sub={`${data.days} days`} />
+        <Stat value={pct(people ? converted / people : 0, 0)} label="converted" sub={`${converted} of ${people}`} />
       </div>
 
-      <section className="card">
-        <div className="sh"><b>Conversion by device</b><span className="xs muted">paid for a full 3D run after answering</span></div>
-        <div className="scroll-x">
-          <table className="at" data-testid="onboarding-conversion">
-            <thead><tr><th>Device</th><th className="num">People</th><th className="num">Converted</th><th className="num">Rate</th></tr></thead>
-            <tbody>
+      <Panel title="Conversion by device" note="paid for a full 3D run after answering">
+        {conv.length === 0 && <EmptyRow>No device answers in this window.</EmptyRow>}
+          <Table data-testid="onboarding-conversion">
+            <TableHeader><TableRow><TableHead>Device</TableHead><TableHead numeric>People</TableHead><TableHead numeric>Converted</TableHead><TableHead numeric>Rate</TableHead></TableRow></TableHeader>
+            <TableBody>
               {conv.map((c) => (
-                <tr key={c.device}>
-                  <td>{name(c.device)}</td>
-                  <td className="num">{c.people}</td>
-                  <td className="num">{c.converted}</td>
-                  <td className="num">{pct(c.people ? c.converted / c.people : 0, 0)}</td>
-                </tr>
+                <TableRow key={c.device}>
+                  <TableCell>{name(c.device)}</TableCell>
+                  <TableCell numeric>{c.people}</TableCell>
+                  <TableCell numeric>{c.converted}</TableCell>
+                  <TableCell numeric>{pct(c.people ? c.converted / c.people : 0, 0)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </TableBody>
+          </Table>
+      </Panel>
 
-      <div className="two even">
-        <section className="card">
-          <div className="sh"><b>Answers by device over time</b><span className="xs muted">per week</span></div>
-          <div className="scroll-x">
-            <table className="at" data-testid="onboarding-weeks">
-              <thead><tr><th>Device</th>{weeks.map((w) => <th key={w} className="num xs">{w.slice(5)}</th>)}</tr></thead>
-              <tbody>
+      <div className={TWO}>
+        <Panel title="Answers by device over time" note="per week">
+            <Table data-testid="onboarding-weeks">
+              <TableHeader><TableRow><TableHead>Device</TableHead>{weeks.map((w) => <TableHead key={w} numeric className="text-2xs">{w.slice(5)}</TableHead>)}</TableRow></TableHeader>
+              <TableBody>
                 {devices.map((d) => (
-                  <tr key={d}>
-                    <td>{name(d)}</td>
+                  <TableRow key={d}>
+                    <TableCell>{name(d)}</TableCell>
                     {weeks.map((w) => {
                       const v = cell(d, w);
                       return (
-                        <td key={w} className="num" title={`${v}`}>
-                          <span className="spark" style={{ height: `${Math.max(2, (v / max) * 24)}px` }} aria-hidden />
-                          <span className="xs">{v || ""}</span>
-                        </td>
+                        <TableCell key={w} numeric title={`${v}`}>
+                          {/* React sets the height through CSSOM, which the CSP allows */}
+                          <span
+                            className="mr-1 inline-block w-1.5 rounded-[2px] bg-primary/70 align-bottom"
+                            style={{ height: `${Math.max(2, (v / max) * 24)}px` }}
+                            aria-hidden
+                          />
+                          <span className="text-xs">{v || ""}</span>
+                        </TableCell>
                       );
                     })}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section className="card">
-          <div className="sh"><b>By plan</b><span className="xs muted">plan when they answered</span></div>
-          <div className="scroll-x">
-            <table className="at" data-testid="onboarding-plans">
-              <thead><tr><th>Device</th>{plans.map((p) => <th key={p} className="num">{PLAN_NAMES[p] ?? p}</th>)}</tr></thead>
-              <tbody>
+              </TableBody>
+            </Table>
+        </Panel>
+        <Panel title="By plan" note="plan when they answered">
+            <Table data-testid="onboarding-plans">
+              <TableHeader><TableRow><TableHead>Device</TableHead>{plans.map((p) => <TableHead key={p} numeric>{PLAN_NAMES[p] ?? p}</TableHead>)}</TableRow></TableHeader>
+              <TableBody>
                 {devices.map((d) => (
-                  <tr key={d}>
-                    <td>{name(d)}</td>
+                  <TableRow key={d}>
+                    <TableCell>{name(d)}</TableCell>
                     {plans.map((p) => (
-                      <td key={p} className="num">{byPlan.filter((r) => r.device === d && r.plan === p).reduce((s, r) => s + r.count, 0)}</td>
+                      <TableCell key={p} numeric>{byPlan.filter((r) => r.device === d && r.plan === p).reduce((s, r) => s + r.count, 0)}</TableCell>
                     ))}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              </TableBody>
+            </Table>
+        </Panel>
       </div>
 
       <ByVariant rows={data.by_variant ?? []} />
@@ -222,29 +227,26 @@ function SetupFunnel({ rows }: { rows: NonNullable<OnboardingHeadsets["business_
   const at = (id: string) => rows.find((r) => r.step === id || r.step === `business_setup_${id}`);
   const opened = at("opened")?.people ?? 0;
   return (
-    <section className="card">
-      <div className="sh"><b>Business and Studio setup</b><span className="xs muted">people per step</span></div>
-      <div className="scroll-x">
-        <table className="at" data-testid="onboarding-setup-funnel">
-          <thead><tr><th>Step</th><th className="num">People</th><th className="num">Of opened</th><th className="num">Business</th><th className="num">Studio</th></tr></thead>
-          <tbody>
+    <Panel title="Business and Studio setup" note="people per step">
+        <Table data-testid="onboarding-setup-funnel">
+          <TableHeader><TableRow><TableHead>Step</TableHead><TableHead numeric>People</TableHead><TableHead numeric>Of opened</TableHead><TableHead numeric>Business</TableHead><TableHead numeric>Studio</TableHead></TableRow></TableHeader>
+          <TableBody>
             {SETUP_STEPS.map((s) => {
               const r = at(s.id);
               const n = r?.people ?? 0;
               return (
-                <tr key={s.id}>
-                  <td>{s.label}</td>
-                  <td className="num">{n}</td>
-                  <td className="num">{pct(opened ? n / opened : 0, 0)}</td>
-                  <td className="num">{r?.by_plan?.business ?? "—"}</td>
-                  <td className="num">{r?.by_plan?.studio ?? "—"}</td>
-                </tr>
+                <TableRow key={s.id}>
+                  <TableCell>{s.label}</TableCell>
+                  <TableCell numeric>{n}</TableCell>
+                  <TableCell numeric>{pct(opened ? n / opened : 0, 0)}</TableCell>
+                  <TableCell numeric>{r?.by_plan?.business ?? "—"}</TableCell>
+                  <TableCell numeric>{r?.by_plan?.studio ?? "—"}</TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </TableBody>
+        </Table>
+    </Panel>
   );
 }
 
@@ -258,35 +260,44 @@ function ByVariant({ rows }: { rows: NonNullable<OnboardingHeadsets["by_variant"
     rows.filter((r) => r.variant === v && (d === undefined || r.device === d)).reduce((s, r) => s + (r[f] ?? 0), 0);
   const hasConv = rows.some((r) => typeof r.converted === "number");
   return (
-    <section className="card">
-      <div className="sh"><b>By welcome</b><span className="xs muted">web welcome or app Pro welcome</span></div>
-      <div className="scroll-x">
-        <table className="at" data-testid="onboarding-variants">
-          <thead><tr><th>Device</th>{variants.map((v) => <th key={v} className="num">{VARIANT_NAMES[v] ?? v}</th>)}</tr></thead>
-          <tbody>
+    <Panel title="By welcome" note="web welcome or app Pro welcome">
+        <Table data-testid="onboarding-variants">
+          <TableHeader><TableRow><TableHead>Device</TableHead>{variants.map((v) => <TableHead key={v} numeric>{VARIANT_NAMES[v] ?? v}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>
             {devices.map((d) => (
-              <tr key={d}>
-                <td>{name(d)}</td>
-                {variants.map((v) => <td key={v} className="num">{sum(v, d)}</td>)}
-              </tr>
+              <TableRow key={d}>
+                <TableCell>{name(d)}</TableCell>
+                {variants.map((v) => <TableCell key={v} numeric>{sum(v, d)}</TableCell>)}
+              </TableRow>
             ))}
-            <tr>
-              <td><b>All answers</b></td>
-              {variants.map((v) => <td key={v} className="num"><b>{sum(v)}</b></td>)}
-            </tr>
+            <TableRow>
+              <TableCell><b className="font-semibold">All answers</b></TableCell>
+              {variants.map((v) => <TableCell key={v} numeric><b>{sum(v)}</b></TableCell>)}
+            </TableRow>
             {hasConv ? (
-              <tr>
-                <td>Converted</td>
+              <TableRow>
+                <TableCell>Converted</TableCell>
                 {variants.map((v) => {
                   const n = sum(v);
                   const c = sum(v, undefined, "converted");
-                  return <td key={v} className="num">{c} · {pct(n ? c / n : 0, 0)}</td>;
+                  return <TableCell key={v} numeric>{c} · {pct(n ? c / n : 0, 0)}</TableCell>;
                 })}
-              </tr>
+              </TableRow>
             ) : null}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </TableBody>
+        </Table>
+    </Panel>
+  );
+}
+
+const TWO = "grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1";
+
+function Stat({ value, label, sub }: { value: string; label: string; sub?: ReactNode }) {
+  return (
+    <div className="border-r border-border p-4 last:border-r-0">
+      <div className="text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+      <div className="text-sm text-foreground-2">{label}</div>
+      {sub && <div className="text-2xs text-muted-foreground tabular-nums">{sub}</div>}
+    </div>
   );
 }
