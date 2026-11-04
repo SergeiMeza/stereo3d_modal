@@ -64,6 +64,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .ah nav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .ah nav a:hover { color: var(--foreground); }
 .ah nav a.on { color: var(--foreground); background: var(--secondary); }
+.dbadge { font-size: 12px; font-weight: 500; white-space: nowrap; border-radius: 99px; padding: 2px 10px; border: 1px solid rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.1); color: #fca5a5; }
+.dbadge:hover { background: rgba(248, 113, 113, 0.18); }
 .cnt { font-size: 11px; background: rgba(79, 140, 255, 0.18); color: #9dbcff; border-radius: 99px; padding: 0 6px; line-height: 17px; }
 .avatar { width: 28px; height: 28px; border-radius: 99px; background: #2a3550; color: #c9d7ff; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
 

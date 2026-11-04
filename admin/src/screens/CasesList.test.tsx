@@ -25,7 +25,7 @@ describe("cases list (A1)", () => {
     await screen.findByText("CASE-0042");
     await userEvent.click(screen.getByRole("tab", { name: "Waiting" }));
     await userEvent.selectOptions(screen.getByLabelText("Mode"), "manual");
-    await waitFor(() => expect(calls.at(-1)!.url).toContain("tab=waiting&mode=manual"));
+    await waitFor(() => expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("tab=waiting&mode=manual"));
   });
 
   it("shows the empty state", async () => {

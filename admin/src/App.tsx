@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore } from "react";
 
 import { Brand } from "./components/Brand";
+import { DisputeBadge, DisputeDueBanner, useDisputeAlert } from "./components/DisputesAlert";
 import { StateBox } from "./components/ui";
 import type { AdminApi } from "./lib/api";
 import type { AdminAuth } from "./lib/auth";
@@ -35,6 +36,7 @@ function Shell() {
   const { route } = useRouter();
   const { auth, email } = useServices();
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const disputeAlert = useDisputeAlert();
   const tab = (name: string, to: string, label: string, extra?: React.ReactNode) => (
     <Link to={to} className={route.name === name || route.name === name.replace(/s$/, "") ? "on" : ""}>
       {label}
@@ -58,6 +60,7 @@ function Shell() {
           {tab("policy", paths.policy(), "Refund policy")}
         </nav>
         <span className="grow" />
+        <DisputeBadge alert={disputeAlert} />
         <span className="muted small">MFA on</span>
         <span className="avatar" title={email} aria-label={email}>
           {(email[0] ?? "A").toUpperCase()}
@@ -67,6 +70,7 @@ function Shell() {
         </button>
       </header>
       <main className="a-main">
+        <DisputeDueBanner alert={disputeAlert} />
         {route.name === "cases" && <CasesList onCounts={(c) => setOpenCount(c.open)} />}
         {route.name === "case" && <CasePage id={route.id} key={route.id} />}
         {route.name === "accounts" && <AccountLookup />}

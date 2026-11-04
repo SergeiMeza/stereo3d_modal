@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -470,7 +470,7 @@ describe("onboarding answers (owner 2026-11-04)", () => {
     const funnel = screen.getByTestId("onboarding-setup-funnel");
     expect(funnel).toHaveTextContent("Picked a plan1050%82");
     expect(funnel).toHaveTextContent("Bought210%2—");
-    expect(calls.at(-1)!.url).toContain("days=90");
+    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=90");
   });
 });
 
@@ -497,7 +497,7 @@ describe("plans surfaces (owner 2026-11-04)", () => {
     expect(table).toHaveTextContent("Pro 5 · Business 1");
     expect(screen.getByTestId("plans-surfaces-reasons")).toHaveTextContent("Source above 4K");
     expect(screen.getByText(/Plan starts with no click in the 7 days before: 3/)).toBeInTheDocument();
-    expect(calls.at(-1)!.url).toContain("days=30");
+    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=30");
   });
 });
 
@@ -518,6 +518,69 @@ describe("feedback (owner 2026-11-04)", () => {
     expect(table).toHaveTextContent("Preview stalls");
     expect(table).toHaveTextContent("iPhone/iPad 10.5.3");
     expect(table).toHaveTextContent("project p1");
-    expect(calls.at(-1)!.url).toContain("days=30");
+    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=30");
+  });
+});
+
+describe("disputes badge and banner (header)", () => {
+  const day = 24 * 3600e3;
+  const summary = (over: Record<string, unknown> = {}) => ({
+    ...disputes,
+    open: [
+      { dispute_id: "dp_1", amount_cents: 2800, reason: "fraudulent", status: "needs_response", payment_intent: "pi_1", due_by: new Date(Date.now() + 2 * day).toISOString() },
+      { dispute_id: "dp_2", amount_cents: 1200, reason: "fraudulent", status: "needs_response", payment_intent: "pi_2", due_by: new Date(Date.now() + 1 * day).toISOString() },
+      { dispute_id: "dp_3", amount_cents: 900, reason: "general", status: "under_review", payment_intent: "pi_3", due_by: new Date(Date.now() + 1 * day).toISOString() },
+      { dispute_id: "dp_4", amount_cents: 900, reason: "general", status: "needs_response", payment_intent: "pi_4", due_by: new Date(Date.now() + 10 * day).toISOString() },
+    ],
+    open_efws: [{ efw_id: "issfr_1" }],
+    ...over,
+  });
+  const cases = { "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 0, overdue: 0, due_today: 0 } } }) };
+
+  it("shows open disputes and EFWs, links to Disputes, and warns about the ones due within 3 days", async () => {
+    renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => ({ json: summary() }) });
+    const badge = await screen.findByRole("link", { name: "Open: 4 disputes, 1 EFW" });
+    expect(badge).toHaveTextContent("4 disputes · 1 EFW");
+    expect(badge).toHaveAttribute("href", "/disputes");
+    const soonest = new Date(Date.now() + day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    expect(screen.getByText(`2 disputes need a response by ${soonest}.`)).toBeInTheDocument();
+  });
+
+  it("shows nothing for zero or an error", async () => {
+    const { calls } = renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => ({ json: summary({ open: [], open_efws: 0 }) }) });
+    await waitFor(() => expect(calls.some((c) => c.path === "/v1/admin/disputes/summary")).toBe(true));
+    expect(screen.queryByRole("link", { name: /^Open:/ })).toBeNull();
+    expect(screen.queryByText(/need a response|needs a response/)).toBeNull();
+  });
+
+  it("an error stays quiet", async () => {
+    const { calls } = renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => apiError(500, "internal", "boom") });
+    await waitFor(() => expect(calls.some((c) => c.path === "/v1/admin/disputes/summary")).toBe(true));
+    expect(screen.queryByRole("link", { name: /^Open:/ })).toBeNull();
+    expect(screen.queryByText("boom")).toBeNull();
+  });
+
+  it("refreshes every 60 s and when the window gets focus", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      let n = 0;
+      renderApp("/cases", {
+        ...cases,
+        "GET /v1/admin/disputes/summary": () => {
+          n++;
+          return { json: summary({ open: n === 1 ? [] : summary().open, open_efws: 0 }) };
+        },
+      });
+      await waitFor(() => expect(n).toBe(1));
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      await waitFor(() => expect(n).toBe(2));
+      expect(await screen.findByRole("link", { name: "Open: 4 disputes" })).toBeInTheDocument();
+      fireEvent.focus(window);
+      await waitFor(() => expect(n).toBe(3));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

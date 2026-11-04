@@ -488,6 +488,8 @@ export interface PlansSurfaces {
 
 export interface DisputeSummary {
   months: DisputeMonth[] | null;
+  /** open early fraud warnings: a list or a count (header badge) */
+  open_efws?: unknown[] | number | null;
   reference_pct: number;
   win_rate: number;
   counter_rate: number;
