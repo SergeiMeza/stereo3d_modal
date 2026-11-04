@@ -77,17 +77,14 @@ func cpkService(t *testing.T) *Service {
 }
 
 // Add (fresh sign-in only), usernameless sign-in from another origin of
-// the same RP → a custom token; list, rename, delete; the suggestion;
-// account deletion takes the passkeys; adoption counts.
+// the same RP → a custom token; list, rename, delete; account deletion
+// takes the passkeys; adoption counts; the suggestion's dismissed key.
 func TestCustomerPasskeys(t *testing.T) {
 	s := cpkService(t)
 	ctx := context.Background()
 	c := &cpkClient{t: t, s: s, uid: "u" + store.NewID(), authTime: time.Now().Add(-10 * time.Minute), origin: "https://stereo3d.studio", ip: "203.0.113.7"}
 	v := newVAuth(t)
 
-	if code, out := c.authed(s.HandlePasskeySuggestion, http.MethodGet, ""); code != 200 || out["show"] != true {
-		t.Fatalf("suggestion before %d %v", code, out)
-	}
 	if code, out := c.register(v, "My iPhone"); code != 401 || out["error"] != "reauth_required" || errMethod(out) != "firebase" {
 		t.Fatalf("stale sign-in %d %v", code, out)
 	}
@@ -98,13 +95,10 @@ func TestCustomerPasskeys(t *testing.T) {
 		t.Fatalf("register %d %v", code, out)
 	}
 	id := pk["id"].(string)
-	if code, out := c.authed(s.HandlePasskeySuggestion, http.MethodGet, ""); code != 200 || out["show"] != false {
-		t.Fatalf("suggestion after a passkey %d %v", code, out)
-	}
 
 	c.origin = "https://www.stereo3d.studio" // the same RP ID
 	code, out, _ = c.signIn(v, "stereo3d.studio")
-	if code != 200 || out["custom_token"] != "custom-"+c.uid {
+	if code != 200 || out["custom_token"] != "custom-"+c.uid || out["uid"] != c.uid {
 		t.Fatalf("sign-in %d %v", code, out)
 	}
 	code, out = c.authed(s.HandleCustomerPasskeys, http.MethodGet, "")
@@ -159,11 +153,9 @@ func TestCustomerPasskeys(t *testing.T) {
 		t.Fatalf("passkeys after account deletion: %d", len(ps))
 	}
 
-	// Suggestion dismissed for an account without passkeys.
-	d := &cpkClient{t: t, s: s, uid: "u" + store.NewID(), origin: c.origin, ip: c.ip}
-	d.authed(s.HandlePasskeySuggestionDismiss, http.MethodPost, "")
-	if code, out := d.authed(s.HandlePasskeySuggestion, http.MethodGet, ""); code != 200 || out["show"] != false || out["dismissed_at"] == nil {
-		t.Fatalf("dismissed %d %v", code, out)
+	// The suggestion is dismissed through the settings.
+	if !validDismissedKey("passkey_suggestion") {
+		t.Fatal("dismissed.passkey_suggestion refused")
 	}
 }
 

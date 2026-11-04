@@ -166,13 +166,11 @@ func main() {
 		return func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) { h(w, r, a, r.PathValue(key)) }
 	}
 	// Customer passkeys (ADR 0136): sign-in is unauthenticated.
-	mux.HandleFunc("POST /v1/passkeys/register/options", authed(svc.HandleCustomerPasskeyRegisterOptions))
-	mux.HandleFunc("POST /v1/passkeys/register/verify", authed(svc.HandleCustomerPasskeyRegisterVerify))
-	mux.HandleFunc("POST /v1/passkeys/signin/options", svc.HandleCustomerPasskeySignInOptions)
-	mux.HandleFunc("POST /v1/passkeys/signin/verify", svc.HandleCustomerPasskeySignInVerify)
-	mux.HandleFunc("GET /v1/passkeys", authed(svc.HandleCustomerPasskeys))
-	mux.HandleFunc("GET /v1/passkeys/suggestion", authed(svc.HandlePasskeySuggestion))
-	mux.HandleFunc("POST /v1/passkeys/suggestion/dismiss", authed(svc.HandlePasskeySuggestionDismiss))
+	mux.HandleFunc("POST /v1/auth/passkey/options", svc.HandleCustomerPasskeySignInOptions)
+	mux.HandleFunc("POST /v1/auth/passkey/verify", svc.HandleCustomerPasskeySignInVerify)
+	mux.HandleFunc("GET /v1/account/passkeys", authed(svc.HandleCustomerPasskeys))
+	mux.HandleFunc("POST /v1/account/passkeys/register/options", authed(svc.HandleCustomerPasskeyRegisterOptions))
+	mux.HandleFunc("POST /v1/account/passkeys/register/verify", authed(svc.HandleCustomerPasskeyRegisterVerify))
 	cpkID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
 		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 			id := r.PathValue("id")
@@ -183,8 +181,8 @@ func main() {
 			h(w, r, u, id)
 		}
 	}
-	mux.HandleFunc("PATCH /v1/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
-	mux.HandleFunc("DELETE /v1/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyDelete)))
+	mux.HandleFunc("PATCH /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
+	mux.HandleFunc("DELETE /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyDelete)))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 
 	// Admin passkeys and sessions (ADR 0135).

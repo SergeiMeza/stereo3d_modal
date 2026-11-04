@@ -11,9 +11,7 @@ import (
 
 // Customer passkeys (ADR 0136): customer_passkeys_{env}/{credId} and
 // customer_passkey_challenges_{env}/{challenge} (a sign-in challenge has
-// no uid: sign-in is usernameless), apart from the admins' store;
-// passkey_suggestions_{env}/{uid} holds a dismissed "Add a passkey"
-// suggestion.
+// no uid: sign-in is usernameless), apart from the admins' store.
 
 func (s *Store) CreateCustomerPasskey(ctx context.Context, p *Passkey) error {
 	_, err := s.kindCol(PasskeysCustomer).Doc(p.ID).Create(ctx, p)
@@ -155,29 +153,6 @@ func (s *Store) ConsumeCustomerPasskeyChallenge(ctx context.Context, challenge s
 		return tx.Delete(doc)
 	})
 	return out, err
-}
-
-// PasskeySuggestionDismissed: when the uid dismissed the suggestion (nil:
-// never).
-func (s *Store) PasskeySuggestionDismissed(ctx context.Context, uid string) (*time.Time, error) {
-	snap, err := s.fs.Collection("passkey_suggestions_" + s.env).Doc(uid).Get(ctx)
-	if status.Code(err) == codes.NotFound {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	v, _ := snap.DataAt("dismissed_at")
-	t, ok := v.(time.Time)
-	if !ok {
-		return nil, nil
-	}
-	return &t, nil
-}
-
-func (s *Store) DismissPasskeySuggestion(ctx context.Context, uid string, at time.Time) error {
-	_, err := s.fs.Collection("passkey_suggestions_"+s.env).Doc(uid).Set(ctx, map[string]any{"dismissed_at": at})
-	return err
 }
 
 // ListEventsByName: events of one name since t (equality on name, time

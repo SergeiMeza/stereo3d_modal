@@ -197,7 +197,7 @@ func cleanPasskeyName(n string) (string, bool) {
 	return n, true
 }
 
-// POST /v1/passkeys/register/options {name?} (signed in within 5
+// POST /v1/account/passkeys/register/options {name?} (signed in within 5
 // minutes) → {options: {publicKey}, expires_at}.
 func (s *Service) HandleCustomerPasskeyRegisterOptions(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
@@ -266,7 +266,7 @@ func (s *Service) takeCustomerChallenge(ctx context.Context, uid string, rp *pas
 	return c, &session, nil
 }
 
-// POST /v1/passkeys/register/verify {response, name?} (signed in within
+// POST /v1/account/passkeys/register/verify {response, name?} (signed in within
 // 5 minutes) → 201 {passkey: {id, name, device_hint, created_at,
 // last_used_at}}.
 func (s *Service) HandleCustomerPasskeyRegisterVerify(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
@@ -338,7 +338,7 @@ func (s *Service) HandleCustomerPasskeyRegisterVerify(w http.ResponseWriter, r *
 	writeJSON(w, http.StatusCreated, map[string]any{"passkey": customerPasskeyJSON(p)})
 }
 
-// POST /v1/passkeys/signin/options (no sign-in) → {options: {publicKey},
+// POST /v1/auth/passkey/options (no sign-in) → {options: {publicKey},
 // expires_at}: usernameless (no allowCredentials), so it also serves
 // passkey autofill (mediation "conditional", set by the web).
 func (s *Service) HandleCustomerPasskeySignInOptions(w http.ResponseWriter, r *http.Request) {
@@ -363,8 +363,8 @@ func (s *Service) HandleCustomerPasskeySignInOptions(w http.ResponseWriter, r *h
 	httpx.WriteOK(w, map[string]any{"options": assertion, "expires_at": time.Now().Add(passkeyTTL).UTC()})
 }
 
-// POST /v1/passkeys/signin/verify {response} (no sign-in) →
-// {custom_token}; 404 passkey_not_registered for a passkey this
+// POST /v1/auth/passkey/verify {response} (no sign-in) →
+// {uid, custom_token}; 404 passkey_not_registered for a passkey this
 // environment doesn't know.
 func (s *Service) HandleCustomerPasskeySignInVerify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -443,10 +443,10 @@ func (s *Service) HandleCustomerPasskeySignInVerify(w http.ResponseWriter, r *ht
 		return
 	}
 	s.passkeyEvent(ctx, p.UID, "sign_in", map[string]any{"method": "passkey", "passkey_id": p.ID})
-	httpx.WriteOK(w, map[string]any{"custom_token": tok})
+	httpx.WriteOK(w, map[string]any{"uid": p.UID, "custom_token": tok})
 }
 
-// GET /v1/passkeys → {passkeys: [{id, name, device_hint, created_at,
+// GET /v1/account/passkeys → {passkeys: [{id, name, device_hint, created_at,
 // last_used_at}]}, oldest first.
 func (s *Service) HandleCustomerPasskeys(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	all, err := s.Store.ListCustomerPasskeys(r.Context(), user.UID)
@@ -470,7 +470,7 @@ func (s *Service) ownCustomerPasskey(ctx context.Context, uid, id string) (*stor
 	return p, nil
 }
 
-// PATCH /v1/passkeys/{id} {name} → {passkey}.
+// PATCH /v1/account/passkeys/{id} {name} → {passkey}.
 func (s *Service) HandleCustomerPasskeyRename(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	var req struct {
@@ -496,7 +496,7 @@ func (s *Service) HandleCustomerPasskeyRename(w http.ResponseWriter, r *http.Req
 	httpx.WriteOK(w, map[string]any{"passkey": customerPasskeyJSON(p)})
 }
 
-// DELETE /v1/passkeys/{id} → {removed: id}.
+// DELETE /v1/account/passkeys/{id} → {removed: id}.
 func (s *Service) HandleCustomerPasskeyDelete(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	p, err := s.ownCustomerPasskey(ctx, user.UID, id)
@@ -513,34 +513,9 @@ func (s *Service) HandleCustomerPasskeyDelete(w http.ResponseWriter, r *http.Req
 	httpx.WriteOK(w, map[string]any{"removed": id})
 }
 
-// GET /v1/passkeys/suggestion → {show, passkeys, dismissed_at}: the
-// "Add a passkey" suggestion shows until it is dismissed or a passkey is
-// added.
-func (s *Service) HandlePasskeySuggestion(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
-	ctx := r.Context()
-	all, err := s.Store.ListCustomerPasskeys(ctx, user.UID)
-	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.ErrServer())
-		return
-	}
-	dismissed, err := s.Store.PasskeySuggestionDismissed(ctx, user.UID)
-	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.ErrServer())
-		return
-	}
-	httpx.WriteOK(w, map[string]any{"show": len(all) == 0 && dismissed == nil, "passkeys": len(all), "dismissed_at": dismissed})
-}
-
-// POST /v1/passkeys/suggestion/dismiss → {show: false, dismissed_at}.
-func (s *Service) HandlePasskeySuggestionDismiss(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
-	now := time.Now().UTC()
-	if err := s.Store.DismissPasskeySuggestion(r.Context(), user.UID, now); err != nil {
-		httpx.WriteErr(r.Context(), w, httpx.ErrServer())
-		return
-	}
-	s.passkeyEvent(r.Context(), user.UID, "passkey_suggestion_dismissed", nil)
-	httpx.WriteOK(w, map[string]any{"show": false, "dismissed_at": now})
-}
+// passkeySuggestionKey: the web dismisses the "Add a passkey"
+// suggestion through /v1/account/settings dismissed.passkey_suggestion.
+const passkeySuggestionKey = "passkey_suggestion"
 
 // mailPasskeyChange is the security notice (added | removed).
 func (s *Service) mailPasskeyChange(ctx context.Context, uid, email string, p *store.Passkey, added bool) {

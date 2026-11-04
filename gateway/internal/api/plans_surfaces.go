@@ -308,7 +308,7 @@ func dismissedProject(k string) string {
 }
 
 func validDismissedKey(k string) bool {
-	if slices.Contains(plansPlacements, k) {
+	if slices.Contains(plansPlacements, k) || k == passkeySuggestionKey {
 		return true
 	}
 	id := dismissedProject(k)
