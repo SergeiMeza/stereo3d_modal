@@ -25,7 +25,10 @@ import {
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ProSavingsCard } from "@/components/plans/ProSavingsCard";
 import { WorkspaceTips } from "@/components/onboarding/WorkspaceTips";
-import { DeleteProjectButton, HistoryList } from "@/components/steps/HistoryList";
+import {
+  DeleteProjectButton,
+  HistoryList,
+} from "@/components/steps/HistoryList";
 import { UPLOAD_AGAIN } from "@/lib/api/client";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { MethodBadge } from "@/components/workspace/MethodChooser";
@@ -49,6 +52,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GatewayError } from "@/lib/api/client";
+import { loadErrorText, SampleProvider } from "@/components/steps/loadError";
 import {
   canChooseMethod,
   methodOf,
@@ -113,7 +117,11 @@ export default function WorkspaceScreen({
       setLoadError(null);
     } catch (e) {
       setLoadError(
-        e instanceof GatewayError ? e.message : "Failed to load the project.",
+        loadErrorText(
+          e,
+          false,
+          "This project isn't available. It may have been removed.",
+        ),
       );
     }
   }, [gateway, projectId]);
@@ -252,190 +260,199 @@ export default function WorkspaceScreen({
   const filesDeleted = project.files_deleted_at !== undefined;
 
   return (
-    <section className="flex h-[calc(100vh-3rem)] flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-edge bg-surface-1 px-4 py-2">
-        <h1 className="text-sm font-semibold tracking-tight">
-          {project.name || "Untitled project"}
-        </h1>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => void copyProjectId()}
-              className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-muted hover:text-fg"
-            >
-              {idCopied ? "Copied" : "Support info"}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            Copies this project&apos;s id ({project.project_id}) — quote it to
-            support
-          </TooltipContent>
-        </Tooltip>
-        <MethodBadge
-          project={project}
-          onChanged={applyProjectUpdate}
-          allowMove={!filesDeleted && canChooseMethod(limits, project)}
-        />
-        {analyzing ? (
-          <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 animate-spin rounded-full border border-primary border-t-transparent"
-            />
-            {analyzeStageLabel(project.analyze.stage)}…
-            {analyzePercent(project.analyze) !== null ? (
-              <span className="font-mono">
-                {analyzePercent(project.analyze)}%
-              </span>
-            ) : null}
-            {project.analyze.eta_seconds !== undefined &&
-            project.analyze.eta_seconds > 0 ? (
-              <span>{formatEtaLeft(project.analyze.eta_seconds)}</span>
-            ) : null}
-          </span>
-        ) : project.analyze.state === "failed" && !filesDeleted ? (
-          <span className="flex items-center gap-2">
-            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
-              Analyze failed
-            </span>
-            <button
-              type="button"
-              disabled={retrying}
-              onClick={() => void retryAnalyze()}
-              className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {retrying ? "Retrying…" : "Retry analysis"}
-            </button>
-          </span>
-        ) : probe ? (
-          <span className="text-[11px] text-fg-muted">
-            {videoFacts(project)}
-          </span>
-        ) : null}
-        <div className="ml-auto flex items-center gap-2">
+    <SampleProvider sample={project.sample === true}>
+      <section className="flex h-[calc(100vh-3rem)] flex-col">
+        <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-edge bg-surface-1 px-4 py-2">
+          <h1 className="text-sm font-semibold tracking-tight">
+            {project.name || "Untitled project"}
+          </h1>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="Keyboard shortcuts"
-                onClick={() => setShortcutsOpen((o) => !o)}
-                className="rounded border border-edge bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-fg-muted hover:text-fg"
+                onClick={() => void copyProjectId()}
+                className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-muted hover:text-fg"
               >
-                ?
+                {idCopied ? "Copied" : "Support info"}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="flex items-center gap-1.5">
-              Keyboard shortcuts <kbd>?</kbd>
+            <TooltipContent side="bottom">
+              Copies this project&apos;s id ({project.project_id}) — quote it to
+              support
             </TooltipContent>
           </Tooltip>
-        </div>
-      </header>
-
-      {filesDeleted ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="mx-auto flex max-w-4xl flex-col gap-3">
-            <PageHeader
-              title="Files"
-              description={`Files deleted on ${new Intl.DateTimeFormat("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              }).format(new Date(project.files_deleted_at!))}`}
-              actions={<DeleteProjectButton project={project} />}
-            />
-            <p data-testid="files-deleted-line" className="text-sm text-fg-muted">
-              {UPLOAD_AGAIN}.
-            </p>
-            <HistoryList project={project} />
-          </div>
-        </div>
-      ) : (
-      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-        <PageTabs
-          tabs={tabsFor(method)}
-          active={page}
-          onChange={setTab}
-        />
-        {/* onboarding: four short tips the first time (owner 2026-11-04) */}
-        {method === "lifelike" ? <WorkspaceTips /> : null}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {page === "overview" ? (
-            <OverviewTab
-              project={project}
-              onNavigate={setTab}
-              onProjectChanged={
-                canChooseMethod(limits, project) ? applyProjectUpdate : undefined
-              }
-            />
-          ) : page === "scenes" ? (
-            <>
-            <FirstTimeHint id="scenes" className="mb-3" />
-            {project.analyze.state === "failed" ? (
-              <div
-                role="alert"
-                className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
+          <MethodBadge
+            project={project}
+            onChanged={applyProjectUpdate}
+            allowMove={!filesDeleted && canChooseMethod(limits, project)}
+          />
+          {analyzing ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 animate-spin rounded-full border border-primary border-t-transparent"
+              />
+              {analyzeStageLabel(project.analyze.stage)}…
+              {analyzePercent(project.analyze) !== null ? (
+                <span className="font-mono">
+                  {analyzePercent(project.analyze)}%
+                </span>
+              ) : null}
+              {project.analyze.eta_seconds !== undefined &&
+              project.analyze.eta_seconds > 0 ? (
+                <span>{formatEtaLeft(project.analyze.eta_seconds)}</span>
+              ) : null}
+            </span>
+          ) : project.analyze.state === "failed" && !filesDeleted ? (
+            <span className="flex items-center gap-2">
+              <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
+                Analyze failed
+              </span>
+              <button
+                type="button"
+                disabled={retrying}
+                onClick={() => void retryAnalyze()}
+                className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <p className="font-medium">Analysis failed.</p>
-                {project.analyze.error ? (
-                  <p className="mt-1 text-sm">{project.analyze.error}</p>
-                ) : null}
+                {retrying ? "Retrying…" : "Retry analysis"}
+              </button>
+            </span>
+          ) : probe ? (
+            <span className="text-[11px] text-fg-muted">
+              {videoFacts(project)}
+            </span>
+          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <button
                   type="button"
-                  disabled={retrying}
-                  onClick={() => void retryAnalyze()}
-                  className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Keyboard shortcuts"
+                  onClick={() => setShortcutsOpen((o) => !o)}
+                  className="rounded border border-edge bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-fg-muted hover:text-fg"
                 >
-                  {retrying ? "Retrying…" : "Retry analysis"}
+                  ?
                 </button>
-                {retryError ? (
-                  <p className="mt-2 text-sm">{retryError}</p>
-                ) : null}
-              </div>
-            ) : ready ? (
-              <SceneCutEditor
-                projectId={project.project_id}
-                projectName={project.name}
-                probe={probe}
-                scenes={scenes}
-                crop={project.crop}
-                previewUrl={project.preview_url}
-                stripThumbs={project.strip_thumbs ?? []}
-                sceneThumbs={project.scene_thumbs ?? []}
-                onProjectChanged={refetch}
-              />
-            ) : (
-              analyzingCard
-            )}
-            </>
-          ) : step ? (
-            <StepTab
-              step={step}
-              project={project}
-              onProjectChanged={() => void refetch()}
-              onNavigate={setTab}
-            />
-          ) : (
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="flex items-center gap-1.5"
+              >
+                Keyboard shortcuts <kbd>?</kbd>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
+
+        {filesDeleted ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto flex max-w-4xl flex-col gap-3">
               <PageHeader
                 title="Files"
-                description="Kept while you use this project; deleted after 90 days without use."
+                description={`Files deleted on ${new Intl.DateTimeFormat(
+                  "en-US",
+                  {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  },
+                ).format(new Date(project.files_deleted_at!))}`}
                 actions={<DeleteProjectButton project={project} />}
               />
-              {/* plans canvas, Receipt A */}
-              <ProSavingsCard project={project} />
+              <p
+                data-testid="files-deleted-line"
+                className="text-sm text-fg-muted"
+              >
+                {UPLOAD_AGAIN}.
+              </p>
               <HistoryList project={project} />
             </div>
-          )}
-        </div>
-      </div>
-      )}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+            <PageTabs tabs={tabsFor(method)} active={page} onChange={setTab} />
+            {/* onboarding: four short tips the first time (owner 2026-11-04) */}
+            {method === "lifelike" ? <WorkspaceTips /> : null}
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              {page === "overview" ? (
+                <OverviewTab
+                  project={project}
+                  onNavigate={setTab}
+                  onProjectChanged={
+                    canChooseMethod(limits, project)
+                      ? applyProjectUpdate
+                      : undefined
+                  }
+                />
+              ) : page === "scenes" ? (
+                <>
+                  <FirstTimeHint id="scenes" className="mb-3" />
+                  {project.analyze.state === "failed" ? (
+                    <div
+                      role="alert"
+                      className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
+                    >
+                      <p className="font-medium">Analysis failed.</p>
+                      {project.analyze.error ? (
+                        <p className="mt-1 text-sm">{project.analyze.error}</p>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={retrying}
+                        onClick={() => void retryAnalyze()}
+                        className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {retrying ? "Retrying…" : "Retry analysis"}
+                      </button>
+                      {retryError ? (
+                        <p className="mt-2 text-sm">{retryError}</p>
+                      ) : null}
+                    </div>
+                  ) : ready ? (
+                    <SceneCutEditor
+                      projectId={project.project_id}
+                      projectName={project.name}
+                      probe={probe}
+                      scenes={scenes}
+                      crop={project.crop}
+                      previewUrl={project.preview_url}
+                      stripThumbs={project.strip_thumbs ?? []}
+                      sceneThumbs={project.scene_thumbs ?? []}
+                      onProjectChanged={refetch}
+                    />
+                  ) : (
+                    analyzingCard
+                  )}
+                </>
+              ) : step ? (
+                <StepTab
+                  step={step}
+                  project={project}
+                  onProjectChanged={() => void refetch()}
+                  onNavigate={setTab}
+                />
+              ) : (
+                <div className="mx-auto flex max-w-4xl flex-col gap-3">
+                  <PageHeader
+                    title="Files"
+                    description="Kept while you use this project; deleted after 90 days without use."
+                    actions={<DeleteProjectButton project={project} />}
+                  />
+                  {/* plans canvas, Receipt A */}
+                  <ProSavingsCard project={project} />
+                  <HistoryList project={project} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-      <ShortcutsSheet
-        open={shortcutsOpen}
-        onOpenChange={setShortcutsOpen}
-        tabs={tabsFor(method)}
-      />
-    </section>
+        <ShortcutsSheet
+          open={shortcutsOpen}
+          onOpenChange={setShortcutsOpen}
+          tabs={tabsFor(method)}
+        />
+      </section>
+    </SampleProvider>
   );
 }

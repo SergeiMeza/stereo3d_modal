@@ -31,6 +31,7 @@ import { formatDuration, formatTimeLeft } from "@/lib/format";
 import { WAITING_IN_LINE_NOTE } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
+import { loadErrorText, useIsSample } from "./loadError";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
  * must not resume trackers for (or poll) conversions already done. */
@@ -190,6 +191,7 @@ export function ConversionTracker({
   const { openSettle } = useSettle();
   const [conv, setConv] = useState(conversion);
   const [error, setError] = useState<string | null>(null);
+  const sample = useIsSample();
   const [canceling, setCanceling] = useState(false);
   const settledRef = useRef(false);
   // Latest conv for the in-flight poll race check (a local terminal state,
@@ -219,14 +221,14 @@ export function ConversionTracker({
           onUpdate?.(next);
         })
         .catch((e: unknown) => {
-          setError(e instanceof Error ? e.message : "poll failed");
+          setError(loadErrorText(e, sample, "Couldn't check on this run. Retrying…"));
         })
         .finally(() => {
           inFlight = false;
         });
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [client, conv.conversion_id, terminal, onUpdate]);
+  }, [client, conv.conversion_id, terminal, onUpdate, sample]);
 
   // Terminal side effects (once): notify parent (RunFiles fetches the files).
   useEffect(() => {

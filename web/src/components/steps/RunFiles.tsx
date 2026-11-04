@@ -21,6 +21,7 @@ import { HEADSET_HINT, isHeadset, stereoFormatsFor } from "@/lib/headset";
 import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
+import { loadErrorText, useIsSample } from "./loadError";
 
 interface DeviceGroupCopy {
   device: string;
@@ -114,6 +115,7 @@ export function useRunFiles(conversion: Conversion | undefined): {
     expiresAt: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sample = useIsSample();
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -137,12 +139,12 @@ export function useRunFiles(conversion: Conversion | undefined): {
     if (id === null || stateRef.current?.id === id) return;
     let cancelled = false;
     load().catch((e: unknown) => {
-      if (!cancelled) setError(e instanceof Error ? e.message : "Couldn't load the files.");
+      if (!cancelled) setError(loadErrorText(e, sample, "Couldn't load the files."));
     });
     return () => {
       cancelled = true;
     };
-  }, [id, load]);
+  }, [id, load, sample]);
 
   const freshUrl = useCallback(
     async (name: string) => {

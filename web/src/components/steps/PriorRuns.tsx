@@ -18,6 +18,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
 import { StateChip } from "./StateChip";
+import { loadErrorText, useIsSample } from "./loadError";
 
 export interface PriorRunsProps {
   title: string;
@@ -60,6 +61,7 @@ function PriorRunRow({
   const [open, setOpen] = useState(false);
   const [downloads, setDownloads] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sample = useIsSample();
 
   async function toggle(): Promise<void> {
     const next = !open;
@@ -69,7 +71,7 @@ function PriorRunRow({
         const d = await client.getDownloads(c.conversion_id);
         setDownloads(d.downloads);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "failed to fetch downloads");
+        setError(loadErrorText(e, sample, "Couldn't load the files."));
       }
     }
   }

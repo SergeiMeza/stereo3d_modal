@@ -8,7 +8,8 @@
  *    the account (settings.headsets), preselects "Where will you watch it?"
  *    on Make 3D, and is logged as our own event "onboarding_headsets" with
  *    the plan (the gateway adds whether they later convert).
- * 2. How it works: three steps, you only pay at the end.
+ * 2. How it works: three steps, and the price before you pay, over the
+ *    site hero's 2D → 3D loop (poster only under reduced motion).
  * 3. Your first project: the upload, or the finished sample.
  *
  * Shown once per account (onboarding.welcome_done). Desktop: a centered
@@ -25,15 +26,22 @@
  * gets the Pro step alone. Shown once (onboarding.app_pro_welcome_done).
  */
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { LoopVideo } from "@/components/landing/LoopVideo";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
+import { methodLimitText, sentenceCase } from "@/components/steps/methods";
+import { useLimits } from "@/lib/api/useLimits";
 import type { Device } from "@/components/steps/makeControls";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
@@ -46,7 +54,11 @@ import { proPct } from "@/components/plans/upsell";
 
 /** The welcome's headset list, in the canvas's order, with the files each
  * one gets. Ids are Make 3D's device ids. */
-export const WELCOME_DEVICES: readonly { id: Device; name: string; files: string }[] = [
+export const WELCOME_DEVICES: readonly {
+  id: Device;
+  name: string;
+  files: string;
+}[] = [
   { id: "avp", name: "Apple Vision Pro", files: "Spatial video" },
   { id: "quest", name: "Meta Quest", files: "Side by side" },
   { id: "galaxyxr", name: "Samsung Galaxy XR", files: "Side by side" },
@@ -59,7 +71,10 @@ export const WELCOME_DEVICES: readonly { id: Device; name: string; files: string
 
 /** The plan a person is on, for the onboarding event: business | studio |
  * pro | none. */
-export function planOf(status: ReturnType<typeof useBilling>["status"], pro: boolean | null | undefined): string {
+export function planOf(
+  status: ReturnType<typeof useBilling>["status"],
+  pro: boolean | null | undefined,
+): string {
   if (status?.plan?.active) return status.plan.plan;
   return pro ? "pro" : "none";
 }
@@ -79,7 +94,9 @@ const STEPS: Record<WelcomeVariant, readonly Step[]> = {
 
 /** headsets_from_app as Make 3D device ids (gateway 00096 sends only
  * "avp"; anything else is dropped). */
-export function appHeadsets(ids: readonly string[] | null | undefined): Device[] {
+export function appHeadsets(
+  ids: readonly string[] | null | undefined,
+): Device[] {
   const known = new Set<string>(WELCOME_DEVICES.map((d) => d.id));
   return [...new Set((ids ?? []).filter((id) => known.has(id)))] as Device[];
 }
@@ -96,13 +113,28 @@ export function proPreviews(
 
 /** "Pro prices on every video, 15% off. Your plan includes 20 free previews
  * a month. Nothing new is billed." */
-function ProLines({ pct, previews }: { pct: number | null; previews: { count: number; period: string } | null }): JSX.Element {
+function ProLines({
+  pct,
+  previews,
+}: {
+  pct: number | null;
+  previews: { count: number; period: string } | null;
+}): JSX.Element {
   const when =
-    previews?.period === "pass" ? "with your pass" : previews ? `a ${previews.period}` : "";
+    previews?.period === "pass"
+      ? "with your pass"
+      : previews
+        ? `a ${previews.period}`
+        : "";
   return (
     <>
-      {pct ? `Pro prices on every video, ${pct}% off.` : "Pro prices on every video."}
-      {previews ? ` Your plan includes ${previews.count} free previews ${when}.` : ""} Nothing new is billed.
+      {pct
+        ? `Pro prices on every video, ${pct}% off.`
+        : "Pro prices on every video."}
+      {previews
+        ? ` Your plan includes ${previews.count} free previews ${when}.`
+        : ""}{" "}
+      Nothing new is billed.
     </>
   );
 }
@@ -110,7 +142,8 @@ function ProLines({ pct, previews }: { pct: number | null; previews: { count: nu
 const HOW: readonly { title: string; body: string; short: string }[] = [
   {
     title: "Add a video",
-    body: "Any length, up to 8K. We look at every scene and show you the price. Free.",
+    // "Any length, up to 4K." comes first, from the gateway's limits
+    body: "We look at every scene and show you the price. Free.",
     short: "See the price for free.",
   },
   {
@@ -141,6 +174,7 @@ export function WelcomeDialog({
   const billing = useBilling();
   const proStatus = useProStatus();
   const pricing = usePricing();
+  const limits = useLimits();
   const { settings, update } = useAccountSettings();
   const steps = STEPS[variant];
   const total = steps.length;
@@ -150,15 +184,23 @@ export function WelcomeDialog({
   const [picked, setPicked] = useState<Device[] | null>(null);
   const saved = (settings?.headsets ?? []) as Device[];
   // app Pro: what the app knows, when the web has nothing yet
-  const fromApp = appPro && saved.length === 0 ? appHeadsets(settings?.onboarding?.headsets_from_app) : [];
+  const fromApp =
+    appPro && saved.length === 0
+      ? appHeadsets(settings?.onboarding?.headsets_from_app)
+      : [];
   const chosen = picked ?? (saved.length > 0 ? saved : fromApp);
   const pct = proPct(pricing);
   const previews = proPreviews(proStatus?.free_previews);
   // the app knows they use another headset, not which: nothing preselected
-  const otherHeadset = appPro && saved.length === 0 && settings?.onboarding?.app_viewing_device === "other_headset";
+  const otherHeadset =
+    appPro &&
+    saved.length === 0 &&
+    settings?.onboarding?.app_viewing_device === "other_headset";
 
   function toggle(id: Device): void {
-    setPicked(chosen.includes(id) ? chosen.filter((d) => d !== id) : [...chosen, id]);
+    setPicked(
+      chosen.includes(id) ? chosen.filter((d) => d !== id) : [...chosen, id],
+    );
   }
 
   function saveHeadsets(): void {
@@ -202,7 +244,11 @@ export function WelcomeDialog({
         {/* phone: Skip at the top, as on the canvas */}
         <div className="flex items-center justify-end px-5 pt-4 sm:hidden">
           {step < total ? (
-            <button type="button" onClick={() => setStep(total)} className="text-sm text-fg-muted hover:text-fg">
+            <button
+              type="button"
+              onClick={() => setStep(total)}
+              className="text-sm text-fg-muted hover:text-fg"
+            >
               Skip
             </button>
           ) : null}
@@ -224,7 +270,10 @@ export function WelcomeDialog({
         ) : kind === "headsets" ? (
           <div className="flex flex-col">
             {appPro ? (
-              <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8" data-testid="welcome-app-pro">
+              <div
+                className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8"
+                data-testid="welcome-app-pro"
+              >
                 <p className="text-[13px] font-medium text-primary">Welcome</p>
                 <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
                   Your Pro works here too
@@ -232,7 +281,9 @@ export function WelcomeDialog({
                 <DialogDescription className="text-[15px] leading-normal text-fg-muted">
                   <ProLines pct={pct} previews={previews} />
                 </DialogDescription>
-                <p className="pt-2 text-[15px] text-fg">Where will you watch?</p>
+                <p className="pt-2 text-[15px] text-fg">
+                  Where will you watch?
+                </p>
               </div>
             ) : (
               <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
@@ -242,8 +293,8 @@ export function WelcomeDialog({
                 </DialogTitle>
                 <DialogDescription className="text-[15px] leading-normal text-fg-muted">
                   <span className="hidden sm:inline">
-                    Spatial Video Studio turns any 2D video into 3D you can watch in your headset.
-                    First, where will you watch?
+                    Spatial Video Studio turns any 2D video into 3D you can
+                    watch in your headset. First, where will you watch?
                   </span>
                   <span className="sm:hidden">Where will you watch?</span>
                 </DialogDescription>
@@ -264,7 +315,9 @@ export function WelcomeDialog({
                     data-testid={`welcome-device-${d.id}`}
                     onClick={() => toggle(d.id)}
                     className={`flex min-h-12 items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-left transition-colors sm:min-h-14 ${
-                      on ? "border-primary bg-primary/10" : "border-edge bg-surface-2 hover:border-fg-muted"
+                      on
+                        ? "border-primary bg-primary/10"
+                        : "border-edge bg-surface-2 hover:border-fg-muted"
                     }`}
                   >
                     <span
@@ -277,7 +330,9 @@ export function WelcomeDialog({
                     </span>
                     <span className="flex flex-col items-start gap-0.5">
                       <span className="text-[15px] text-fg">{d.name}</span>
-                      <span className="hidden text-xs text-fg-muted sm:block">{d.files}</span>
+                      <span className="hidden text-xs text-fg-muted sm:block">
+                        {d.files}
+                      </span>
                     </span>
                   </button>
                 );
@@ -293,28 +348,50 @@ export function WelcomeDialog({
           </div>
         ) : kind === "how" ? (
           <div className="flex flex-col">
-            <Image
-              src="/landing/hero/sunset-session-2d-3d.jpg"
-              alt="A singer in front of her band at sunset: the left half in 2D, the right half in 3D"
-              width={1120}
-              height={440}
-              className="hidden h-[220px] w-full object-cover sm:block"
-            />
+            <div
+              data-testid="welcome-loop"
+              className="relative aspect-[16/7] w-full overflow-hidden bg-black sm:h-[220px] sm:aspect-auto"
+            >
+              <LoopVideo
+                base="/landing/hero/sunset-session-2d-3d"
+                label="A singer in front of her band at sunset: on the left the 2D video, on the right the same moment in 3D"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            </div>
             <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-6">
-              <p className="text-[13px] font-medium text-primary">How it works</p>
+              <p className="text-[13px] font-medium text-primary">
+                How it works
+              </p>
               <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
-                <span className="hidden sm:inline">Three steps, and you only pay at the end.</span>
-                <span className="sm:hidden">You only pay at the end.</span>
+                <span className="hidden sm:inline">
+                  Three steps. You see the price before you pay.
+                </span>
+                <span className="sm:hidden">
+                  You see the price before you pay.
+                </span>
               </DialogTitle>
-              <DialogDescription className="sr-only">How Spatial Video Studio works</DialogDescription>
+              <DialogDescription className="sr-only">
+                How Spatial Video Studio works
+              </DialogDescription>
             </div>
             <ol className="flex flex-col gap-4 px-5 pt-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-9">
               {HOW.map((h, i) => (
                 <li key={h.title} className="flex flex-col gap-1">
-                  <span className="font-mono text-xs text-primary">{i + 1}</span>
-                  <span className="text-[15px] font-semibold text-fg">{h.title}</span>
-                  <span className="hidden text-[13px] leading-snug text-fg-muted sm:block">{h.body}</span>
-                  <span className="text-[13px] leading-snug text-fg-muted sm:hidden">{h.short}</span>
+                  <span className="font-mono text-xs text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="text-[15px] font-semibold text-fg">
+                    {h.title}
+                  </span>
+                  <span className="hidden text-[13px] leading-snug text-fg-muted sm:block">
+                    {i === 0
+                      ? `${sentenceCase(methodLimitText("lifelike", limits, pricing))}. `
+                      : ""}
+                    {h.body}
+                  </span>
+                  <span className="text-[13px] leading-snug text-fg-muted sm:hidden">
+                    {h.short}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -322,11 +399,15 @@ export function WelcomeDialog({
         ) : (
           <div className="flex flex-col">
             <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
-              <p className="text-[13px] font-medium text-primary">Your first project</p>
+              <p className="text-[13px] font-medium text-primary">
+                Your first project
+              </p>
               <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
                 Start with one of your videos.
               </DialogTitle>
-              <DialogDescription className="sr-only">Add a video or open the sample</DialogDescription>
+              <DialogDescription className="sr-only">
+                Add a video or open the sample
+              </DialogDescription>
             </div>
             <div className="px-5 pt-5 sm:px-9">
               <UploadDropzone />
@@ -334,7 +415,8 @@ export function WelcomeDialog({
             {sample ? (
               <div className="flex flex-col gap-2.5 px-5 pt-5 sm:px-9">
                 <span className="text-sm text-fg-muted">
-                  No video to hand? Open a finished sample and look around first.
+                  No video to hand? Open a finished sample and look around
+                  first.
                 </span>
                 <Link
                   href={`/projects/${sample.project_id}`}
@@ -364,22 +446,34 @@ export function WelcomeDialog({
 
         {/* phone: the buttons stay in reach at the bottom */}
         <div className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t border-edge bg-popover px-5 pt-4 pb-5 sm:static sm:mt-0 sm:border-t-0 sm:px-9 sm:pt-6 sm:pb-7">
-          <div className={`flex gap-1.5 ${total === 1 ? "invisible" : ""}`} aria-label={`Step ${step} of ${total}`}>
-            {steps.map((_, i) => i + 1).map((n) => (
-              <span
-                key={n}
-                aria-hidden
-                className={`block h-2 rounded-full ${n === step ? "w-[22px] bg-primary" : "w-2 bg-edge"}`}
-              />
-            ))}
+          <div
+            className={`flex gap-1.5 ${total === 1 ? "invisible" : ""}`}
+            aria-label={`Step ${step} of ${total}`}
+          >
+            {steps
+              .map((_, i) => i + 1)
+              .map((n) => (
+                <span
+                  key={n}
+                  aria-hidden
+                  className={`block h-2 rounded-full ${n === step ? "w-[22px] bg-primary" : "w-2 bg-edge"}`}
+                />
+              ))}
           </div>
           <div className="flex items-center gap-2">
             {total === 1 ? null : step === 1 ? (
-              <Button variant="ghost" className="hidden sm:inline-flex" onClick={() => setStep(total)}>
+              <Button
+                variant="ghost"
+                className="hidden sm:inline-flex"
+                onClick={() => setStep(total)}
+              >
                 Skip
               </Button>
             ) : (
-              <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))}>
+              <Button
+                variant="ghost"
+                onClick={() => setStep((s) => Math.max(1, s - 1))}
+              >
                 Back
               </Button>
             )}
@@ -392,7 +486,11 @@ export function WelcomeDialog({
                 Continue
               </Button>
             ) : (
-              <Button data-testid="welcome-later" variant="outline" onClick={finish}>
+              <Button
+                data-testid="welcome-later"
+                variant="outline"
+                onClick={finish}
+              >
                 I&apos;ll do it later
               </Button>
             )}
@@ -408,7 +506,10 @@ function BusinessLine(): JSX.Element {
   return (
     <p data-testid="welcome-business" className="text-[13px] text-fg-muted">
       Working with a team?{" "}
-      <Link href="/plans" className="underline underline-offset-2 hover:text-fg">
+      <Link
+        href="/plans"
+        className="underline underline-offset-2 hover:text-fg"
+      >
         Business
       </Link>{" "}
       adds seats, monthly usage and invoices.

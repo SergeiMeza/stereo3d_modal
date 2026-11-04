@@ -267,7 +267,7 @@ export function ProCheckoutSheet({
               <dd className="font-mono">{today(plan)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-fg-muted">This video, after it&apos;s done</dt>
+              <dt className="text-fg-muted">This video, at Pro prices</dt>
               <dd className="font-mono">{formatCents(proCents)}</dd>
             </div>
             <div className="flex justify-between text-emerald-400">

@@ -66,7 +66,7 @@ describe("welcome after sign-up", () => {
     await waitFor(() => expect(mockDb.accountSettings.headsets).toEqual(["quest", "avp"]));
     await waitFor(() => expect(mockDb.events.at(-1)?.name).toBe("onboarding_headsets"));
     expect(mockDb.events.at(-1)?.props).toMatchObject({ devices: ["quest", "avp"], plan: "none" });
-    expect(await screen.findByText("Three steps, and you only pay at the end.")).toBeTruthy();
+    expect(await screen.findByText("Three steps. You see the price before you pay.")).toBeTruthy();
     fireEvent.click(screen.getByTestId("welcome-next"));
     expect(await screen.findByTestId("welcome-sample")).toBeTruthy();
     fireEvent.click(screen.getByTestId("welcome-later"));
