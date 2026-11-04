@@ -14,19 +14,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
-import { money, words } from "@/lib/format";
+import { dateOnly, money, words } from "@/lib/format";
 import { typeLabel } from "@/lib/labels";
 import { paths, useRouter } from "@/lib/router";
 import { useServices } from "@/lib/services";
-import type { CaseRow } from "@/lib/types";
+import type { AccountHit, CaseRow } from "@/lib/types";
 
 /**
  * ⌘K search (BL-29 redesign B): a case id jumps to the case, `uid:…` or a
  * bare Firebase uid to the account; anything else searches the cases list
  * (GET /v1/admin/cases?tab=all&q=…, which matches case ids, emails, run ids
- * and Stripe ids). For an email, the account comes from its newest case
- * (GET /v1/admin/cases/{id} carries the uid): the gateway has no account
- * search by email. Recent items are kept per browser.
+ * and Stripe ids) and the accounts (GET /v1/admin/accounts?q=…: an exact
+ * uid, then emails starting with it). Recent items are kept per browser.
  */
 
 const RECENT_KEY = "svs-admin.recent";
@@ -119,7 +118,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
   const { navigate } = useRouter();
   const [q, setQ] = useState("");
   const [cases, setCases] = useState<CaseRow[] | null>(null);
-  const [account, setAccount] = useState<{ uid: string; email: string } | null>(null);
+  const [accounts, setAccounts] = useState<AccountHit[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const term = q.trim();
@@ -128,27 +127,26 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
     if (!open) {
       setQ("");
       setCases(null);
-      setAccount(null);
+      setAccounts(null);
     }
   }, [open]);
 
   useEffect(() => {
     setCases(null);
-    setAccount(null);
+    setAccounts(null);
     setError(false);
-    if (term.length < 3 || CASE_ID.test(term) || term.startsWith("uid:")) return;
+    if (term.length < 2 || term.length > 320 || CASE_ID.test(term) || term.startsWith("uid:")) return;
     let live = true;
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const r = await api.listCases({ tab: "all", q: term });
+        const [acc, r] = await Promise.all([
+          api.searchAccounts(term).catch(() => [] as AccountHit[]),
+          term.length >= 3 ? api.listCases({ tab: "all", q: term }) : Promise.resolve({ cases: [], counts: { open: 0, overdue: 0, due_today: 0 } }),
+        ]);
         if (!live) return;
-        const rows = (r.cases ?? []).slice(0, 8);
-        setCases(rows);
-        if (term.includes("@") && rows[0]) {
-          const page = await api.getCase(rows[0].id).catch(() => null);
-          if (live && page?.case.uid) setAccount({ uid: page.case.uid, email: page.account.email || term });
-        }
+        setAccounts(acc);
+        setCases((r.cases ?? []).slice(0, 8));
       } catch {
         if (live) setError(true);
       } finally {
@@ -176,7 +174,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
       <CommandMenuBody>
         <CommandInput placeholder="Account email or uid, case, run…" aria-label="Search" value={q} onValueChange={setQ} />
         <CommandList>
-          {term && !caseId && !uid && !busy && cases !== null && cases.length === 0 && !account && (
+          {term && !caseId && !uid && !busy && cases !== null && cases.length === 0 && !accounts?.length && (
             <CommandEmpty>Nothing matches “{term}”.</CommandEmpty>
           )}
           {error && <p className="px-3 py-3 text-sm text-destructive-foreground">Search didn't work. Try again.</p>}
@@ -188,22 +186,24 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
               </CommandItem>
             </CommandGroup>
           )}
-          {(uid || account) && (
+          {(uid || !!accounts?.length) && (
             <CommandGroup heading="Accounts">
-              {uid && (
+              {uid && !accounts?.some((a) => a.uid === uid) && (
                 <CommandItem value={`uid ${uid}`} onSelect={() => go({ label: `Account ${uid}`, to: paths.account(uid) })}>
                   Open the account <span className="font-mono text-xs text-muted-foreground">{uid}</span>
                 </CommandItem>
               )}
-              {account && (
-                <CommandItem value={`account ${account.uid}`} onSelect={() => go({ label: account.email, to: paths.account(account.uid) })}>
+              {(accounts ?? []).map((a) => (
+                <CommandItem key={a.uid} value={`account ${a.uid}`} onSelect={() => go({ label: a.email || a.uid, to: paths.account(a.uid) })}>
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">{account.email}</span>
-                    <span className="text-xs text-muted-foreground">from its newest case</span>
+                    <span className="truncate font-medium">{a.email || a.uid}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {[a.plan ? words(a.plan) : "no plan", a.created_at ? `since ${dateOnly(a.created_at)}` : ""].filter(Boolean).join(" · ")}
+                    </span>
                   </span>
-                  <CommandShortcut className="font-mono tracking-normal">{account.uid.slice(0, 6)}…</CommandShortcut>
+                  <CommandShortcut className="font-mono tracking-normal">{a.uid.slice(0, 6)}…</CommandShortcut>
                 </CommandItem>
-              )}
+              ))}
             </CommandGroup>
           )}
           {busy && (

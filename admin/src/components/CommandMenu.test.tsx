@@ -9,6 +9,8 @@ const routes = {
   "GET /v1/admin/cases": ({ path }: { path: string }) =>
     path.includes("q=") ? { json: { cases: casesResponse.cases!.slice(1), counts: casesResponse.counts } } : { json: casesResponse },
   "GET /v1/admin/cases/CASE-0042": () => ({ json: casePage() }),
+  "GET /v1/admin/accounts": ({ path }: { path: string }) =>
+    path.includes("q=jane") ? { json: { accounts: [{ uid: "uid_123", email: "jane@example.com", created_at: "2026-07-12T00:00:00Z", plan: "business" }] } } : { json: { accounts: [] } },
 };
 
 describe("⌘K search (BL-29 redesign B)", () => {
@@ -22,14 +24,16 @@ describe("⌘K search (BL-29 redesign B)", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/cases/CASE-0042"));
   });
 
-  it("an email finds its cases and the account through the newest case", async () => {
+  it("an email finds its accounts (GET /v1/admin/accounts) and its cases", async () => {
     const { calls } = renderApp("/cases", routes);
     await userEvent.click(await screen.findByRole("button", { name: "Search accounts, cases, runs" }));
     const dialog = await screen.findByRole("dialog", { name: "Search" });
     await userEvent.type(within(dialog).getByRole("combobox", { name: "Search" }), "jane@example.com");
     expect(await within(dialog).findByRole("option", { name: /CASE-0042/ })).toBeInTheDocument();
-    const acct = await within(dialog).findByRole("option", { name: /from its newest case/ });
+    const acct = await within(dialog).findByRole("option", { name: /jane@example\.com.*business · since Jul 12, 2026/ });
     expect(calls.some((c) => c.path === "/v1/admin/cases" && c.url.includes("q=jane%40example.com") && c.url.includes("tab=all"))).toBe(true);
+    expect(calls.some((c) => c.path === "/v1/admin/accounts" && c.url.includes("q=jane%40example.com"))).toBe(true);
+    expect(calls.some((c) => c.path === "/v1/admin/cases/CASE-0042")).toBe(false);
     await userEvent.click(acct);
     await waitFor(() => expect(window.location.pathname).toBe("/accounts/uid_123"));
   });

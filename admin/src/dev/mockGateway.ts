@@ -40,6 +40,7 @@ const passkeys = [
 ];
 
 const ROUTES: Record<string, (path: string) => unknown> = {
+  "GET /v1/admin/accounts": () => ({ accounts: [{ uid: "uid_123", email: "jane@example.com", created_at: "2026-07-12T00:00:00Z", plan: "business" }] }),
   "GET /v1/admin/cases": () => casesResponse,
   "GET /v1/admin/cases/CASE-0042": () => casePage(),
   "GET /v1/admin/cases/CASE-0051": () => casePage({ max_refundable_cents: 0, actions: ["accept_dispute", "counter_dispute", "note", "close"] }, { id: "CASE-0051", type: "dispute", reason: "dispute" }),

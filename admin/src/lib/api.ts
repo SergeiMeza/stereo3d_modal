@@ -23,6 +23,7 @@ import type {
   GrantBody,
   RevokeResult,
   OpenCaseBody,
+  AccountHit,
   PasskeyAdoption,
   PolicyResponse,
   Tab,
@@ -322,6 +323,12 @@ export class AdminApi {
   /** 409 last_passkey: the last one can't go. */
   async removePasskey(id: string): Promise<void> {
     await this.raw("DELETE", PASSKEY_ROUTES.remove(id));
+  }
+
+  /** ⌘K account search (gateway rev 00114): q is 2–320 characters. */
+  async searchAccounts(q: string): Promise<AccountHit[]> {
+    const r = await this.json<{ accounts: AccountHit[] | null }>("GET", `/v1/admin/accounts?q=${encodeURIComponent(q)}`);
+    return r.accounts ?? [];
   }
 
   /** Customer passkey adoption (gateway rev 00113). */

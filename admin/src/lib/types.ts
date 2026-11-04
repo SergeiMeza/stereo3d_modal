@@ -646,3 +646,11 @@ export interface PasskeyAdoption {
   sign_ins: Partial<Record<"7d" | "30d", Record<string, number>>>;
   generated_at: string;
 }
+
+/** GET /v1/admin/accounts?q= (BL-29 ⌘K): an exact uid first, then emails starting with q, at most 20. */
+export interface AccountHit {
+  uid: string;
+  email: string;
+  created_at?: string | null;
+  plan?: string | null;
+}
