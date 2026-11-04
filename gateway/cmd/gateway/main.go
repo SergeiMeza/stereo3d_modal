@@ -113,7 +113,7 @@ func main() {
 			// waits up to an hour, takes the conversion over.
 			ctx, cancel := context.WithTimeout(r.Context(), appRequestBudget)
 			defer cancel()
-			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email})
+			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email, AuthTime: u.AuthTime})
 		}
 	}
 	// Admin console routes (spec M1): its own origin only, the svs_admin
@@ -165,6 +165,28 @@ func main() {
 	adminID := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser, string), key string) func(http.ResponseWriter, *http.Request, *api.AdminUser) {
 		return func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) { h(w, r, a, r.PathValue(key)) }
 	}
+	// Customer passkeys (ADR 0136): sign-in is unauthenticated.
+	mux.HandleFunc("POST /v1/passkeys/register/options", authed(svc.HandleCustomerPasskeyRegisterOptions))
+	mux.HandleFunc("POST /v1/passkeys/register/verify", authed(svc.HandleCustomerPasskeyRegisterVerify))
+	mux.HandleFunc("POST /v1/passkeys/signin/options", svc.HandleCustomerPasskeySignInOptions)
+	mux.HandleFunc("POST /v1/passkeys/signin/verify", svc.HandleCustomerPasskeySignInVerify)
+	mux.HandleFunc("GET /v1/passkeys", authed(svc.HandleCustomerPasskeys))
+	mux.HandleFunc("GET /v1/passkeys/suggestion", authed(svc.HandlePasskeySuggestion))
+	mux.HandleFunc("POST /v1/passkeys/suggestion/dismiss", authed(svc.HandlePasskeySuggestionDismiss))
+	cpkID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
+		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+			id := r.PathValue("id")
+			if !api.ValidPasskeyID(id) {
+				httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("passkey"))
+				return
+			}
+			h(w, r, u, id)
+		}
+	}
+	mux.HandleFunc("PATCH /v1/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
+	mux.HandleFunc("DELETE /v1/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyDelete)))
+	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
+
 	// Admin passkeys and sessions (ADR 0135).
 	mux.HandleFunc("POST /v1/admin/passkeys/register/options", adminToken(svc.HandlePasskeyRegisterOptions))
 	mux.HandleFunc("POST /v1/admin/passkeys/register/verify", adminToken(svc.HandlePasskeyRegisterVerify))

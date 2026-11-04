@@ -76,10 +76,16 @@ type Service struct {
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
 
-	// pkRPs: the admin passkey relying parties by origin (ADR 0135),
-	// built once.
-	pkOnce sync.Once
-	pkRPs  map[string]*passkeyRP
+	// MintToken mints a Firebase custom token (customer passkey sign-in,
+	// ADR 0136); nil = Auth.CustomToken.
+	MintToken func(ctx context.Context, uid string) (string, error)
+
+	// pkRPs: the admin passkey relying parties by origin (ADR 0135), and
+	// cpkRPs the customers' (ADR 0136), each built once.
+	pkOnce  sync.Once
+	pkRPs   map[string]*passkeyRP
+	cpkOnce sync.Once
+	cpkRPs  map[string]*passkeyRP
 }
 
 // ---------------------------------------------------------------- submission
