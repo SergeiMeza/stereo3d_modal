@@ -139,6 +139,36 @@ describe("account page (A3)", () => {
     expect(await screen.findByRole("alertdialog", { name: "Grant Pro" })).toBeInTheDocument();
   });
 
+  it("shows sign-in, usage and the runs, paging older runs with runs_before (rev 00114)", async () => {
+    const run = (id: string, status = "SUCCEEDED") => ({ id, project_id: "p1", status, kind: "lifelike", created_at: "2026-11-03T10:00:00Z", amount_cents: 4250 });
+    const { calls } = renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": ({ path }) =>
+        path.includes("runs_before=r2")
+          ? { json: { ...account, runs: { count: 3, items: [run("r3", "FAILED")], next_before: null } } }
+          : {
+              json: {
+                ...account,
+                account: { ...account.account, created_at: "2026-07-12T00:00:00Z" },
+                runs: { count: 3, items: [run("r1"), run("r2")], next_before: "r2" },
+                usage: { period: "plan", period_start: "2026-11-01T00:00:00Z", period_end: "2026-12-01T00:00:00Z", tier: "business", runs: 5, succeeded: 4, spent_cents: 11400, plan_credit_left_cents: 18800 },
+                sign_in: { methods: ["apple", "passkey"], passkey_count: 2, firebase_created_at: "2026-07-12T00:00:00Z", last_sign_in_at: new Date().toISOString() },
+              },
+            },
+    });
+    const sub = await screen.findByTestId("account-subline");
+    expect(sub).toHaveTextContent("Apple, passkey · 2 passkeys · since Jul 12, 2026 · last sign-in just now");
+    const stats = screen.getByTestId("account-stats");
+    expect(stats).toHaveTextContent("Usage this period4 / 5 runs$114.00 spent · plan period · resets Dec 1 · $188.00 credit left");
+    expect(stats).toHaveTextContent("Runs3");
+    const runs = screen.getByTestId("account-runs");
+    expect(within(runs).getAllByRole("row")).toHaveLength(3);
+    await userEvent.click(screen.getByRole("button", { name: "Older runs" }));
+    await waitFor(() => expect(within(runs).getAllByRole("row")).toHaveLength(4));
+    expect(runs).toHaveTextContent("failed");
+    expect(screen.queryByRole("button", { name: "Older runs" })).toBeNull();
+    expect(calls.some((c) => c.url.includes("runs_limit=20&runs_before=r2"))).toBe(true);
+  });
+
   it("shows 'No account with that ID.'", async () => {
     renderApp("/accounts/nobody", { "GET /v1/admin/accounts/nobody": () => apiError(404, "no_account", "No account with that ID.") });
     expect(await screen.findByText("No account with that ID.")).toBeInTheDocument();

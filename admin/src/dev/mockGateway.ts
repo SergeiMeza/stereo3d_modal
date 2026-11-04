@@ -7,7 +7,17 @@ import { casePage, casesResponse, disputes, mailPreviews } from "../test/fixture
  */
 
 const account = {
-  account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+  account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false, created_at: "2026-07-12T00:00:00Z" },
+  runs: {
+    count: 37,
+    items: [
+      { id: "c_7Hk2Qm", project_id: "p1", status: "SUCCEEDED", kind: "lifelike", created_at: "2026-11-03T21:40:00Z", amount_cents: 4972 },
+      { id: "c_3Pw9Lx", project_id: "p2", status: "FAILED", kind: "classic", created_at: "2026-10-30T14:12:00Z", amount_cents: null },
+    ],
+    next_before: "c_3Pw9Lx",
+  },
+  usage: { period: "plan", period_start: "2026-11-01T00:00:00Z", period_end: "2026-12-01T00:00:00Z", tier: "business", runs: 12, succeeded: 11, spent_cents: 11400, plan_credit_cents: 30000, plan_credit_left_cents: 18600 },
+  sign_in: { methods: ["apple", "passkey"], passkey_count: 2, firebase_created_at: "2026-07-12T00:00:00Z", last_sign_in_at: "2026-11-04T07:00:00Z" },
   billing_state: { flow_state: "outstanding", sheet_only: true, sheet_only_reason: "dispute", under_review: true, lifetime_paid_cents: 9000 },
   owed_cents: 125,
   balance: null,

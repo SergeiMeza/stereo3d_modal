@@ -316,6 +316,47 @@ export interface BalanceSummary {
   currency: string;
 }
 
+/** BL-29 (gateway rev 00114): the account's runs, newest first, paged. */
+export interface AccountRun {
+  id: string;
+  project_id?: string | null;
+  status: string;
+  kind?: string | null;
+  created_at: string;
+  amount_cents?: number | null;
+}
+
+export interface AccountRuns {
+  count: number;
+  items: AccountRun[] | null;
+  /** pass as ?runs_before= for the next page; null at the end */
+  next_before?: string | null;
+}
+
+/** BL-29: usage in the plan period, or the calendar month without a plan. */
+export interface AccountUsage {
+  period: "plan" | "month" | string;
+  period_start?: string | null;
+  period_end?: string | null;
+  tier?: string | null;
+  runs: number;
+  succeeded: number;
+  spent_cents: number;
+  free_preview_runs?: number | null;
+  free_previews?: { allowance?: number; used?: number; remaining?: number } | null;
+  plan_credit_cents?: number | null;
+  plan_credit_left_cents?: number | null;
+  plan_credit_used_cents?: number | null;
+}
+
+/** BL-29: from Firebase Authentication; methods null when it can't be read. */
+export interface AccountSignIn {
+  methods: string[] | null;
+  passkey_count?: number | null;
+  firebase_created_at?: string | null;
+  last_sign_in_at?: string | null;
+}
+
 export interface AccountPage {
   account: {
     uid: string;
@@ -323,7 +364,12 @@ export interface AccountPage {
     stripe_customer_id?: string;
     deleted?: boolean;
     blocked?: boolean;
+    /** BL-29 */
+    created_at?: string | null;
   };
+  runs?: AccountRuns | null;
+  usage?: AccountUsage | null;
+  sign_in?: AccountSignIn | null;
   billing_state: {
     flow_state?: string;
     sheet_only?: boolean;

@@ -246,8 +246,13 @@ export class AdminApi {
     return { ...body, partial: res.status === 202 };
   }
 
-  getAccount(uid: string): Promise<AccountPage> {
-    return this.json("GET", `/v1/admin/accounts/${encodeURIComponent(uid)}`);
+  /** One account; `runs` pages its runs list (gateway rev 00114). */
+  getAccount(uid: string, runs?: { limit?: number; before?: string }): Promise<AccountPage> {
+    const q = new URLSearchParams();
+    if (runs?.limit) q.set("runs_limit", String(runs.limit));
+    if (runs?.before) q.set("runs_before", runs.before);
+    const qs = q.toString();
+    return this.json("GET", `/v1/admin/accounts/${encodeURIComponent(uid)}${qs ? `?${qs}` : ""}`);
   }
 
   accountAction(uid: string, body: AccountActionBody): Promise<AccountPage> {

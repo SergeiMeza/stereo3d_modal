@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox } from "@/components/common";
+import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox, type Tone } from "@/components/common";
 import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,11 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
-import { dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
+import { ago, dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
-import type { AccountAction, AccountActionBody, AccountPage as Page } from "../lib/types";
+import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRun, AccountRuns } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
 import { cn } from "../lib/utils";
 import { GrantsSection, PromoRegrants } from "./Grants";
@@ -111,6 +111,18 @@ export function AccountPage({ uid }: { uid: string }) {
   const openCases = cases.filter((c) => c.status !== "closed");
   const openDisputes = openCases.filter((c) => c.type === "dispute").length;
   const activeGrants = (p.grants ?? []).filter((g) => g.status === "active" || g.status === "granting");
+  const si = p.sign_in ?? null;
+  const passkeys = typeof si?.passkey_count === "number" ? si.passkey_count : typeof p.passkey_count === "number" ? p.passkey_count : null;
+  const u = p.usage ?? null;
+  const usageSub = u
+    ? [
+        u.period === "plan" ? "plan period" : "this month",
+        u.period_end ? `resets ${dateOnly(u.period_end).replace(/, \d{4}$/, "")}` : "",
+        typeof u.plan_credit_left_cents === "number" ? `${money(u.plan_credit_left_cents)} credit left` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "not reported";
   const stats: { label: string; value: string; sub: string; tone?: "red" | "amber" }[] = [
     { label: "Lifetime paid", value: money(b.lifetime_paid_cents ?? 0), sub: `${charges.length} ${charges.length === 1 ? "payment" : "payments"}` },
     { label: "Balance", value: bal ? money(bal.available_cents) : "—", sub: bal ? `${money(bal.balance_cents)} in total` : "no balance" },
@@ -122,9 +134,20 @@ export function AccountPage({ uid }: { uid: string }) {
       tone: openDisputes ? "red" : openCases.length ? "amber" : undefined,
     },
     {
+      label: "Usage this period",
+      value: u ? `${u.succeeded} / ${u.runs} runs` : "—",
+      sub: u ? `${money(u.spent_cents)} spent · ${usageSub}` : usageSub,
+      tone: u && u.runs > u.succeeded ? "amber" : undefined,
+    },
+    {
+      label: "Runs",
+      value: p.runs ? String(p.runs.count) : "—",
+      sub: p.runs ? "all time" : "not reported",
+    },
+    {
       label: "Passkeys",
-      value: typeof p.passkey_count === "number" ? String(p.passkey_count) : "—",
-      sub: typeof p.passkey_count === "number" ? (p.passkey_count ? "for signing in" : "signs in without one") : "not reported",
+      value: passkeys === null ? "—" : String(passkeys),
+      sub: passkeys === null ? "not reported" : passkeys ? "for signing in" : "signs in without one",
     },
   ];
 
@@ -141,9 +164,12 @@ export function AccountPage({ uid }: { uid: string }) {
             {b.sheet_only && <Badge variant="amber">Sheet-only</Badge>}
             {p.owed_cents > 0 && <Badge variant="red">Owes {money(p.owed_cents)}</Badge>}
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground" data-testid="account-subline">
             uid {a.uid}
-            {typeof p.passkey_count === "number" && ` · ${p.passkey_count} ${p.passkey_count === 1 ? "passkey" : "passkeys"}`}
+            {si?.methods && si.methods.length > 0 && ` · ${si.methods.map(signInMethod).join(", ")}`}
+            {passkeys !== null && ` · ${passkeys} ${passkeys === 1 ? "passkey" : "passkeys"}`}
+            {(a.created_at || si?.firebase_created_at) && ` · since ${dateOnly(a.created_at || si?.firebase_created_at)}`}
+            {si?.last_sign_in_at && ` · last sign-in ${ago(si.last_sign_in_at)}`}
             {a.stripe_customer_id && ` · ${a.stripe_customer_id}`}
           </span>
         </div>
@@ -296,6 +322,8 @@ export function AccountPage({ uid }: { uid: string }) {
           </Table>
         )}
       </Panel>
+
+      {p.runs && <RunsPanel uid={a.uid} initial={p.runs} />}
 
       <Panel title="Payment history" note={`${charges.length} charges · ${refunds.length} refunds`}>
         {charges.length === 0 ? (
@@ -600,6 +628,83 @@ function CompanyCard({ company: c, changes }: { company: Page["company"]; change
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+const METHODS: Record<string, string> = { google: "Google", apple: "Apple", password: "password", phone: "phone", passkey: "passkey" };
+function signInMethod(m: string): string {
+  return METHODS[m] ?? words(m);
+}
+
+function runTone(status: string): Tone {
+  const s = status.toUpperCase();
+  if (s === "SUCCEEDED") return "green";
+  if (s === "FAILED" || s === "CANCELLED" || s === "CANCELED") return "amber";
+  return "plain";
+}
+
+/** The account's runs, newest first, 20 at a time (runs_before paging). */
+function RunsPanel({ uid, initial }: { uid: string; initial: AccountRuns }) {
+  const { api } = useServices();
+  const [items, setItems] = useState<AccountRun[]>(initial.items ?? []);
+  const [next, setNext] = useState<string | null>(initial.next_before ?? null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const more = async () => {
+    if (!next) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const page = await api.getAccount(uid, { limit: 20, before: next });
+      setItems((cur) => [...cur, ...(page.runs?.items ?? []).filter((r) => !cur.some((c) => c.id === r.id))]);
+      setNext(page.runs?.next_before ?? null);
+    } catch (e) {
+      setErr(`Couldn't load more runs: ${errorMessage(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel title="Runs" note={<span className="tabular-nums">{initial.count} in total</span>}>
+      {items.length === 0 ? (
+        <EmptyRow>No runs.</EmptyRow>
+      ) : (
+        <Table data-testid="account-runs">
+          <TableHeader>
+            <TableRow>
+              <TableHead>When</TableHead>
+              <TableHead>Run</TableHead>
+              <TableHead>Kind</TableHead>
+              <TableHead numeric>Amount</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-xs text-muted-foreground">{dateTime(r.created_at)}</TableCell>
+                <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                <TableCell>{r.kind ? words(r.kind) : "—"}</TableCell>
+                <TableCell numeric>{typeof r.amount_cents === "number" ? money(r.amount_cents) : "—"}</TableCell>
+                <TableCell>
+                  <Badge variant={runTone(r.status)}>{words(r.status).toLowerCase()}</Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      {(next || err) && (
+        <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
+          {next && (
+            <Button size="sm" onClick={() => void more()} disabled={busy}>
+              {busy ? "Loading…" : "Older runs"}
+            </Button>
+          )}
+          {err && <Note tone="error">{err}</Note>}
         </div>
       )}
     </Panel>
