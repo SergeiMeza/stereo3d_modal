@@ -65,6 +65,14 @@ func plansSurfaceProps(in map[string]any) (map[string]any, bool) {
 		}
 		out["quote_cents"] = int64(f)
 	}
+	if v, ok := in["reason"].(string); ok {
+		// why the surface showed: source_8k | source_fps | quote_size |
+		// run_length | company_email (an id of at most 32)
+		if len(v) > 32 || !slugRE.MatchString(v) {
+			return nil, false
+		}
+		out["reason"] = v
+	}
 	if v, ok := in["target"].(string); ok {
 		if !targetRE.MatchString(v) || strings.Contains(v, "//") {
 			return nil, false
@@ -104,6 +112,7 @@ func (s *Service) attributePlanStart(ctx context.Context, uid, product, source, 
 		pc.Placement, _ = last.Props["placement"].(string)
 		pc.Variant, _ = last.Props["variant"].(string)
 		pc.ClickPlan, _ = last.Props["plan"].(string)
+		pc.Reason, _ = last.Props["reason"].(string)
 		t := last.At
 		pc.ClickAt = &t
 	}
@@ -174,15 +183,24 @@ func (s *Service) HandleAdminPlansSurfaces(w http.ResponseWriter, r *http.Reques
 }
 
 func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[string]any {
+	type reasonRow struct{ views, clicks, conversions int }
 	type row struct {
 		views, dismissals, clicks, conversions int
 		viewers                                map[string]bool
 		byProduct                              map[string]int
+		byReason                               map[string]*reasonRow
+	}
+	reasonOf := func(v any) string {
+		if s, _ := v.(string); s != "" {
+			return s
+		}
+		return "none"
 	}
 	rows := map[string]*row{}
 	get := func(p string) *row {
 		if rows[p] == nil {
-			rows[p] = &row{viewers: map[string]bool{}, byProduct: map[string]int{"pro": 0, "business": 0, "studio": 0}}
+			rows[p] = &row{viewers: map[string]bool{}, byProduct: map[string]int{"pro": 0, "business": 0, "studio": 0},
+				byReason: map[string]*reasonRow{}}
 		}
 		return rows[p]
 	}
@@ -195,14 +213,20 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 			continue
 		}
 		r := get(p)
+		reason := reasonOf(e.Props["reason"])
+		if r.byReason[reason] == nil {
+			r.byReason[reason] = &reasonRow{}
+		}
 		switch e.Name {
 		case "plans_surface_view":
 			r.views++
 			r.viewers[e.UID] = true
+			r.byReason[reason].views++
 		case "plans_surface_dismiss":
 			r.dismissals++
 		case "plans_surface_click":
 			r.clicks++
+			r.byReason[reason].clicks++
 		}
 	}
 	unattributed := map[string]int{"pro": 0, "business": 0, "studio": 0}
@@ -216,6 +240,11 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 		r := get(c.Placement)
 		r.conversions++
 		r.byProduct[c.Product]++
+		reason := reasonOf(c.Reason)
+		if r.byReason[reason] == nil {
+			r.byReason[reason] = &reasonRow{}
+		}
+		r.byReason[reason].conversions++
 	}
 	rate := func(a, b int) float64 {
 		if b == 0 {
@@ -231,8 +260,18 @@ func plansSurfaceReport(events []store.Event, convs []store.PlanConversion) map[
 	list := make([]map[string]any, 0, len(names))
 	for _, p := range names {
 		r := rows[p]
+		reasons := make([]string, 0, len(r.byReason))
+		for k := range r.byReason {
+			reasons = append(reasons, k)
+		}
+		sort.Strings(reasons)
+		byReason := make([]map[string]any, 0, len(reasons))
+		for _, k := range reasons {
+			rr := r.byReason[k]
+			byReason = append(byReason, map[string]any{"reason": k, "views": rr.views, "clicks": rr.clicks, "conversions": rr.conversions})
+		}
 		list = append(list, map[string]any{"placement": p, "views": r.views, "viewers": len(r.viewers), "dismissals": r.dismissals,
-			"clicks": r.clicks, "conversions": r.conversions, "conversions_by_product": r.byProduct,
+			"clicks": r.clicks, "conversions": r.conversions, "conversions_by_product": r.byProduct, "by_reason": byReason,
 			"click_rate": rate(r.clicks, r.views), "conversion_rate": rate(r.conversions, r.clicks)})
 	}
 	return map[string]any{"placements": list, "unattributed": map[string]any{"conversions": nUnattributed, "by_product": unattributed}}

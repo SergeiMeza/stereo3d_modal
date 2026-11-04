@@ -161,3 +161,35 @@ func TestSettingsDismissed(t *testing.T) {
 		t.Fatalf("clear %v", d)
 	}
 }
+
+// reason: why the surface showed; the report splits each placement by it
+// and the attribution keeps the click's.
+func TestPlansSurfaceReason(t *testing.T) {
+	if _, ok := plansSurfaceProps(map[string]any{"placement": "quote", "reason": strings.Repeat("a", 33)}); ok {
+		t.Fatal("long reason")
+	}
+	if _, ok := plansSurfaceProps(map[string]any{"placement": "quote", "reason": "Source 8K"}); ok {
+		t.Fatal("charset")
+	}
+	if p, ok := plansSurfaceProps(map[string]any{"placement": "quote", "reason": "source_8k"}); !ok || p["reason"] != "source_8k" {
+		t.Fatal("source_8k")
+	}
+	ev := func(name, placement, reason string) store.Event {
+		props := map[string]any{"placement": placement}
+		if reason != "" {
+			props["reason"] = reason
+		}
+		return store.Event{UID: "a", Name: name, Props: props}
+	}
+	events := []store.Event{ev("plans_surface_view", "quote", "source_8k"), ev("plans_surface_view", "quote", "source_8k"),
+		ev("plans_surface_click", "quote", "source_8k"), ev("plans_surface_view", "quote", "")}
+	convs := []store.PlanConversion{{UID: "a", Product: "business", Placement: "quote", Reason: "source_8k"}}
+	for _, p := range plansSurfaceReport(events, convs)["placements"].([]map[string]any) {
+		if p["placement"] != "quote" {
+			continue
+		}
+		if got := fmt.Sprint(p["by_reason"]); got != "[map[clicks:0 conversions:0 reason:none views:1] map[clicks:1 conversions:1 reason:source_8k views:2]]" {
+			t.Fatalf("by_reason %s", got)
+		}
+	}
+}

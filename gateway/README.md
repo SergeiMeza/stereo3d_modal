@@ -798,8 +798,12 @@ is ignored without such a plan.
   3D."); archive, unarchive, rename, pin and delete work as usual; file
   keeping never schedules or purges it; it's left out of `GET
   /v1/conversions`, the usage CSV, the month's spend, the download log
-  and the onboarding steps. The id is fixed per account
-  (`smp` + hash), so it's added once and never again after a delete.
+  and the onboarding steps. Its project and run ids are fixed per account
+  (12 hex characters from a hash, like every id the routes take), so it's
+  added once and never again after a delete. The first samples (before
+  2026-11-04 05:00 UTC) had `smp…` ids that every route refused (404
+  "conversion not found"); the next list retires such a sample and adds
+  one with proper ids.
 - **`/v1/pricing`** plans add `max_fps: 120`.
 
 ### App Pro onboarding variant (owner 2026-11-04, test)
@@ -842,7 +846,9 @@ is ignored without such a plan.
   variant?, plan?, quote_cents?, target?}`. `placement` is one of
   `header | projects_banner | quote | receipt | plans_sheet |
   business_note | business_banner | plans_hint`; `variant` and `plan` are
-  ids (`[a-z0-9_.-]`, 60); `quote_cents` a whole number up to 100,000,000;
+  ids (`[a-z0-9_.-]`, 60); `reason` an id of at most 32 (`source_8k |
+  source_fps | quote_size | run_length | company_email`); `quote_cents` a
+  whole number up to 100,000,000;
   `target` an id or a web path (`/plans#studio`, 80, never a URL). Other
   props are dropped; a bad value is 400. These three have 120 an hour per
   account of their own (the other events keep 30).
@@ -855,7 +861,8 @@ is ignored without such a plan.
   `click_plan`, `click_at`; none = unattributed).
 - **`GET /v1/admin/plans/surfaces?days=30`** (admin) → `{days,
   placements[{placement, views, viewers, dismissals, clicks, conversions,
-  conversions_by_product {pro, business, studio}, click_rate,
+  conversions_by_product {pro, business, studio}, by_reason[{reason,
+  views, clicks, conversions}] (reason "none" when absent), click_rate,
   conversion_rate}], unattributed {conversions, by_product},
   generated_at}`; every placement is listed; counts are events, viewers
   are people; `click_rate` = clicks ÷ views, `conversion_rate` =

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"strings"
 	"syscall"
 	"time"
 
@@ -166,9 +165,7 @@ func main() {
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
 		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 			id := r.PathValue("id")
-			if len(id) != 12 || strings.ContainsFunc(id, func(c rune) bool {
-				return !strings.ContainsRune("0123456789abcdef", c)
-			}) {
+			if !api.ValidResourceID(id) {
 				httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("conversion"))
 				return
 			}

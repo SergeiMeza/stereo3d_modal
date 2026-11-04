@@ -215,6 +215,9 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 	}
 	listed := make([]*store.Project, 0, len(projects))
 	for _, p := range projects {
+		if p.Sample && !ValidResourceID(p.ID) {
+			continue // an old "smp…" sample, retired by ensureSample
+		}
 		if p.Archived == wantArchived && !p.Deleted {
 			listed = append(listed, p)
 		}

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,11 +51,26 @@ func errSampleProject() *httpx.APIError {
 	return httpx.Err(http.StatusUnprocessableEntity, "sample_project", "This is a sample project. Add your own video to make 3D.")
 }
 
-// sampleProjectID is the account's sample's fixed id, so seeding is
-// idempotent across racing lists.
+// ValidResourceID: project and conversion ids in routes are 12 lowercase
+// hex characters (store.NewID); anything else is 404 before a lookup.
+func ValidResourceID(id string) bool {
+	return len(id) == 12 && !strings.ContainsFunc(id, func(c rune) bool {
+		return !strings.ContainsRune("0123456789abcdef", c)
+	})
+}
+
+// sampleProjectID and sampleRunID are the account's sample's fixed ids
+// (12 hex, like every id the routes take), so seeding is idempotent
+// across racing lists. Samples made before 2026-11-04 05:00 UTC had
+// "smp…" ids the routes refused; ensureSample replaces them.
 func sampleProjectID(uid string) string {
 	h := sha256.Sum256([]byte("sample:sunset-session:" + uid))
-	return "smp" + hex.EncodeToString(h[:])[:9]
+	return hex.EncodeToString(h[:])[:12]
+}
+
+func sampleRunID(uid string) string {
+	h := sha256.Sum256([]byte("sample-run:sunset-session:" + uid))
+	return hex.EncodeToString(h[:])[:12]
 }
 
 // existingAccount: the account was in use before onboarding shipped (a
@@ -75,16 +92,34 @@ func existingAccount(cust *store.Customer, projects []*store.Project) bool {
 // (archived and deleted included).
 func (s *Service) ensureSample(ctx context.Context, uid string, projects []*store.Project) (*store.Project, bool) {
 	id := sampleProjectID(uid)
+	var legacy *store.Project
 	for _, p := range projects {
 		if p.ID == id {
 			return nil, false // seeded before (archived or deleted stays so)
 		}
+		if p.Sample {
+			if p.Deleted {
+				return nil, false // they deleted the earlier one
+			}
+			legacy = p
+		}
 	}
-	if _, known := oldAccounts.Load(uid); known || existingAccount(nil, projects) {
+	if legacy != nil {
+		// An "smp…" sample the routes couldn't open: retire it for one
+		// with a proper id (the account is new by construction).
+		if _, err := s.Store.UpdateProject(ctx, legacy.ID, func(pp *store.Project) error {
+			pp.Deleted = true
+			return nil
+		}); err != nil {
+			slog.WarnContext(ctx, "legacy sample not retired", "uid", uid, "project_id", legacy.ID, "err", err)
+			return nil, false
+		}
+		projects = slices.DeleteFunc(slices.Clone(projects), func(p *store.Project) bool { return p.ID == legacy.ID })
+	} else if _, known := oldAccounts.Load(uid); known || existingAccount(nil, projects) {
 		return nil, false
 	}
 	cust, _ := s.Store.GetCustomer(ctx, uid)
-	if existingAccount(cust, projects) {
+	if legacy == nil && existingAccount(cust, projects) {
 		oldAccounts.Store(uid, true)
 		return nil, false
 	}
@@ -107,7 +142,7 @@ func (s *Service) ensureSample(ctx context.Context, uid string, projects []*stor
 	if err := s.Store.CreateProject(ctx, p); err != nil {
 		return nil, false // a racing list made it
 	}
-	run := &store.Conversion{ID: id + "3d", UID: uid, Env: s.Cfg.Env, Sample: true, Kind: "video", ProjectID: id,
+	run := &store.Conversion{ID: sampleRunID(uid), UID: uid, Env: s.Cfg.Env, Sample: true, Kind: "video", ProjectID: id,
 		Step: store.StepProduction, Method: store.MethodLifelike, State: store.StateSucceeded,
 		Source: p.Source, Params: store.Params{Preset: "4k", Formats: []string{"mvhevc", "sbs"}},
 		Quote: store.Quote{AmountCents: 0, Currency: "usd", Breakdown: map[string]any{

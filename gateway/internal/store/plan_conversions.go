@@ -21,6 +21,7 @@ type PlanConversion struct {
 	Placement string     `firestore:"placement,omitempty" json:"placement,omitempty"` // "" = no click in the window
 	Variant   string     `firestore:"variant,omitempty" json:"variant,omitempty"`
 	ClickPlan string     `firestore:"click_plan,omitempty" json:"click_plan,omitempty"`
+	Reason    string     `firestore:"reason,omitempty" json:"reason,omitempty"`
 	ClickAt   *time.Time `firestore:"click_at,omitempty" json:"click_at,omitempty"`
 }
 
