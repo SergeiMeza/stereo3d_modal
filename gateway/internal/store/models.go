@@ -731,6 +731,12 @@ type Probe struct {
 	// the source, from the first run that reports it (for support cases).
 	SourceVFR           *bool `firestore:"source_vfr,omitempty" json:"source_vfr,omitempty"`
 	SourceCountedFrames int   `firestore:"source_counted_frames,omitempty" json:"source_counted_frames,omitempty"`
+	// DynamicRange (owner 2026-11-05): sdr | hlg | pq | dv_8 | dv_5 ("" =
+	// not read: projects analyzed before); DynamicRangeBase the base
+	// layer of dv_8 (hlg | pq | sdr). Read by the gateway's ffprobe at
+	// analysis; shown only while HDR output is on (projectResponse).
+	DynamicRange     string `firestore:"dynamic_range,omitempty" json:"-"`
+	DynamicRangeBase string `firestore:"dynamic_range_base,omitempty" json:"-"`
 }
 
 // CountedFPS is the counted frames over the duration (0 = not counted).

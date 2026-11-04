@@ -30,6 +30,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
@@ -967,6 +968,13 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			return s.rejectSource(ctx, p, fmt.Sprintf(
 				"this video runs at %.0f fps; videos can be at most 120 fps", r))
 		}
+		// Dynamic range (owner 2026-11-05): Dolby Vision without a
+		// displayable base layer can't be converted, refused before any
+		// charge (worded without HDR, which may be hidden).
+		dr := s.dynamicRangeOf(ctx, p)
+		if dr != nil && dr.Range == probe.RangeDV5 {
+			return s.rejectSource(ctx, p, errDolbyVision5Text)
+		}
 		credit := rates.AnalyzeCreditCents
 		now := time.Now().UTC()
 		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
@@ -985,6 +993,9 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			if counted > 0 {
 				pp.Probe.CountedFrames = counted
 				pp.Probe.VFR = pp.Probe.CountedFPS() > pp.Probe.FPS*1.01
+			}
+			if dr != nil {
+				pp.Probe.DynamicRange, pp.Probe.DynamicRangeBase = dr.Range, dr.Base
 			}
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL

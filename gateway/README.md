@@ -667,6 +667,18 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   `hdr_included` on the plans and Pro plans. All of it is hidden while
   `lifelike_hdr_output_enabled` is off (code default off on test and
   prod).
+- **Source dynamic range** (owner 2026-11-05): analysis runs the
+  gateway's ffprobe on the source (`color_transfer` arib-std-b67 = `hlg`,
+  smpte2084 = `pq`, else `sdr`; the Dolby Vision record's `dv_profile`
+  and `dv_bl_signal_compatibility_id`: profile 8 = `dv_8` with its base
+  hlg/pq/sdr, profile 5 or compatibility 0 = `dv_5`) and stores
+  `probe.dynamic_range` / `dynamic_range_base`. Projects show
+  `dynamic_range` and `hdr_source` (HLG, PQ, or DV 8 on an HLG/PQ base)
+  only while HDR output is on; `hdr_available` is always there (false
+  while off). `dv_5` has no displayable base layer: analysis refuses it
+  before any charge, whatever the switch, with "This video uses a Dolby
+  Vision format that can't be converted…" (422 `source_unsupported` on a
+  quote or run of a project that has it stored).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express

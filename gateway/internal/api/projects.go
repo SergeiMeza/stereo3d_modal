@@ -1704,6 +1704,14 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	// on by default), and whether the gateway can yet.
 	resp["has_bars"] = hasBars(p)
 	resp["remove_bars"] = hasBars(p) && (p.RemoveBars == nil || *p.RemoveBars)
+	// HDR output (owner 2026-11-05): the source's range and whether a run
+	// may ask for HDR, only while the switch is on.
+	if hdrOn := s.hdrOn(context.Background()); hdrOn && p.Probe != nil && p.Probe.DynamicRange != "" {
+		resp["dynamic_range"], resp["hdr_source"] = p.Probe.DynamicRange, hdrSource(p)
+		resp["hdr_available"] = projectMethod(p) == store.MethodLifelike && hdrSource(p)
+	} else {
+		resp["hdr_available"] = false
+	}
 	resp["bars_removal_available"] = projectMethod(p) == store.MethodLifelike && s.sourceCropOn(context.Background())
 	if p.PreviewURL != "" {
 		resp["preview_url"] = p.PreviewURL

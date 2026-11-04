@@ -667,6 +667,9 @@ func checkPreviewSpan(p *store.Project, params store.Params, rule pricing.Previe
 func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
 	var params store.Params
 	var err *httpx.APIError
+	if dolbyVision5(p) { // refused at analysis; a guard for the record
+		return params, httpx.Err(http.StatusUnprocessableEntity, "source_unsupported", errDolbyVision5Text)
+	}
 	if projectMethod(p) == store.MethodLifelike {
 		params, err = resolveLifelikeParams(req, p, s.Pricing.Rates(ctx).EnabledLifelikePresets())
 	} else {
