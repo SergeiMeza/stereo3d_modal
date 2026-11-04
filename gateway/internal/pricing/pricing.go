@@ -268,14 +268,16 @@ type Rates struct {
 const MaxGPUWorkersPerJob = 8
 
 // LifelikeETA: eta = overhead + render_gpu_s_per_minute × output minutes
-// (at 24 fps; frames scale it) / GPUs + a flat encode tail. The Spatial 3D
-// Studio team's numbers on test (ml-sharp-modal ADR-0019 § Estimates): the
-// encode now runs in parallel chunks, so production's tail after rendering
-// is ~150 s whatever the length (encode_tail_s); a preview encodes inline
-// in its one container (~27 s measured; preview_tail_s). Zero or missing
-// values use the defaults. The model has no per-preset term (conversion,
-// not output size, dominates a unit — ADR-0019), so 5k/6k/8k (S3D-48) use
-// it as measured at 4K until Spatial 3D Studio measures them.
+// (at 24 fps; frames scale it) / GPUs + an encode tail. The Spatial 3D
+// Studio team's numbers on test (ml-sharp-modal ADR-0019 § Estimates):
+// planning and start-up ~70 s (overhead_s); the encode runs in parallel
+// chunks, so production's tail after rendering doesn't grow with the
+// length, but it does with the picture and the rate: encode_tail_s is the
+// tail at 1080p with the pipeline's own rate (150 s), times the preset's
+// short side over 1080 and 1 + the run's bitrate over that preset's Master
+// rate (3DS 2026-11-05: ~300 s at 1080p Master; 4K Master 150 ~600 s). A
+// preview encodes inline in its one container (~27 s measured;
+// preview_tail_s). Zero or missing values use the defaults.
 type LifelikeETA struct {
 	RenderGPUSecondsPerMinute float64 `firestore:"render_gpu_s_per_minute"`
 	OverheadSeconds           float64 `firestore:"overhead_s"`
@@ -286,7 +288,7 @@ type LifelikeETA struct {
 func defaultLifelikeETA() LifelikeETA {
 	return LifelikeETA{
 		RenderGPUSecondsPerMinute: 530,
-		OverheadSeconds:           45,
+		OverheadSeconds:           70, // 3DS 2026-11-05 (was 45)
 		EncodeTailSeconds:         150,
 		PreviewTailSeconds:        30,
 	}
@@ -1294,11 +1296,33 @@ type LifelikeInputs struct {
 	// GPUs working at once: max_gpu_workers for production, 1 for a
 	// preview (it runs in one container).
 	GPUs int
+	// OutputBitrateBps / MasterBitrateBps: the run's chosen rate (0 =
+	// the pipeline's own) and its preset's Master rate, for the tail.
+	OutputBitrateBps, MasterBitrateBps int64
+}
+
+// lifelikePresetShort: each preset's output short side (the encode
+// tail's picture term; 1080 when unknown).
+var lifelikePresetShort = map[string]float64{"draft": 1080, "1080p": 1080, "qhd": 1440, "3k": 1620, "4k": 2160,
+	"5k": 2880, "6k": 3240, "8k": 4320}
+
+// encodeTailFactor scales the production tail by the picture and the rate.
+func encodeTailFactor(in LifelikeInputs) float64 {
+	short := lifelikePresetShort[in.Preset]
+	if short == 0 {
+		short = 1080
+	}
+	f := short / 1080
+	if in.OutputBitrateBps > 0 && in.MasterBitrateBps > 0 {
+		f *= 1 + float64(in.OutputBitrateBps)/float64(in.MasterBitrateBps)
+	}
+	return f
 }
 
 // EstimateLifelikeETA predicts a Lifelike run's wall-clock seconds (see
-// LifelikeETA). 1 minute on 4 GPUs: 45 + 530/4 + 150 ≈ 328 s; a 5 s
-// preview on its one GPU: 45 + 44 + 30 ≈ 119 s (measured 89-138).
+// LifelikeETA). 1 minute of 1080p on 4 GPUs: 70 + 530/4 + 150 ≈ 353 s;
+// at 1080p Master the tail is 300 s; a 5 s preview on its one GPU:
+// 70 + 44 + 30 ≈ 144 s.
 func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) int64 {
 	e := s.Rates(ctx).LifelikeETA
 	d := defaultLifelikeETA()
@@ -1315,7 +1339,7 @@ func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) in
 	frames := in.OutputSeconds * fps
 	gpus := float64(max(in.GPUs, 1))
 	render := pick(e.RenderGPUSecondsPerMinute, d.RenderGPUSecondsPerMinute) * frames / (60 * fpsBase) / gpus
-	tail := pick(e.EncodeTailSeconds, d.EncodeTailSeconds)
+	tail := pick(e.EncodeTailSeconds, d.EncodeTailSeconds) * encodeTailFactor(in)
 	if in.Step == StepLifelikePreview {
 		tail = pick(e.PreviewTailSeconds, d.PreviewTailSeconds)
 	}

@@ -556,8 +556,11 @@ Source files: `POST /v1/uploads` may send `bytes` and `method` to be refused
 up front over that method's cap (`lifelike_max_source_bytes`, 25 GiB;
 Classic `max_source_bytes`, 8 GiB); project creation and a switch of method
 check the stored size (400 `source_too_large`). ETA: `overhead_s + render_gpu_s_per_minute ×
-output minutes (24 fps) / GPUs + encode_tail_s` (the encode runs in
-parallel chunks, so the tail is flat; previews use `preview_tail_s`). Overdue judging adds the
+output minutes (24 fps) / GPUs + encode_tail_s × preset short side / 1080
+× (1 + bitrate / the preset's Master rate)` (the encode runs in parallel
+chunks, so the tail is flat in length but grows with the picture and the
+rate: 300 s at 1080p Master, 600 s at 4K Master; the pipeline's own rate
+counts as 0; previews use `preview_tail_s`; 3DS 2026-11-05). Overdue judging adds the
 run's `queued_s`, and a run may process for max(24 h, 3 × its estimate).
 
 Billing (both methods): pro steps quoted above `precharge_threshold_cents`
@@ -582,7 +585,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` (test: all seven) |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
-| `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 45 · `encode_tail_s` 150 · `preview_tail_s` 30 |
+| `lifelike_eta` | `render_gpu_s_per_minute` 530 · `overhead_s` 70 · `encode_tail_s` 150 (at 1080p, the pipeline's rate) · `preview_tail_s` 30 |
 | `gpu_cap_per_app` | 8 — GPUs per Modal app, the "busy N of cap" in the GPU-line mail |
 | `gpu_cap_per_workspace` | `{}` — per-workspace override of `gpu_cap_per_app` (S3D-40) |
 | `pro_discount_enabled` / `pro_discount_pct` | false (test: true) / 0.20 — S3D-67 |

@@ -373,6 +373,7 @@ func (s *Service) stepETA(ctx context.Context, p *store.Project, params store.Pa
 		return s.Pricing.EstimateLifelikeETA(ctx, pricing.LifelikeInputs{
 			Step: step, Preset: params.Preset, OutputSeconds: billable,
 			EffectiveFPS: in.EffectiveFPS, GPUs: gpus,
+			OutputBitrateBps: params.OutputBitrateBps, MasterBitrateBps: masterBitrateBps(params.Preset),
 		})
 	}
 	in.ReuseStages = reuseStages

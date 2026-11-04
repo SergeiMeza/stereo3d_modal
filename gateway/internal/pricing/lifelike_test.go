@@ -78,28 +78,50 @@ func TestQuoteLifelikeRejectsClassicSteps(t *testing.T) {
 func TestEstimateLifelikeETA(t *testing.T) {
 	ctx := context.Background()
 	s := defaultsService(nil)
-	// 1 minute on 4 GPUs: 45 + 530/4 + 150 = 327.5
-	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 328 {
-		t.Errorf("1 min on 4 GPUs: want 328, got %d", got)
+	eta := func(in LifelikeInputs) int64 { return s.EstimateLifelikeETA(ctx, in) }
+	// 1 minute of 1080p on 4 GPUs, the pipeline's rate: 70 + 530/4 + 150 = 352.5
+	if got := eta(LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 353 {
+		t.Errorf("1 min 1080p on 4 GPUs: want 353, got %d", got)
 	}
-	// the tail is flat: 60 min on 8 GPUs = 45 + 31,800/8 + 150 = 4170
-	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 3600, EffectiveFPS: 24, GPUs: 8}); got != 4170 {
-		t.Errorf("60 min on 8 GPUs: want 4170, got %d", got)
+	// the tail follows the picture: 4K doubles it (70 + 132.5 + 300)
+	if got := eta(LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 503 {
+		t.Errorf("1 min 4K on 4 GPUs: want 503, got %d", got)
 	}
-	// a 5 s preview on one GPU: 45 + 530 × 120/1440 + 30 = 119
-	if got := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: StepLifelikePreview, Preset: "4k", OutputSeconds: 5, EffectiveFPS: 24, GPUs: 1}); got != 119 {
-		t.Errorf("5 s preview: want 119, got %d", got)
+	// and the rate: 1080p Master (60 Mbit/s) ~300 s, 4K Master 150 ~600 s
+	master := LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4,
+		OutputBitrateBps: 60_000_000, MasterBitrateBps: 60_000_000}
+	if got := eta(master); got != 503 {
+		t.Errorf("1080p Master: want 503 (70 + 132.5 + 300), got %d", got)
+	}
+	master.Preset, master.OutputBitrateBps, master.MasterBitrateBps = "4k", 150_000_000, 150_000_000
+	if got := eta(master); got != 803 {
+		t.Errorf("4K Master: want 803 (70 + 132.5 + 600), got %d", got)
+	}
+	// the owner's run (kc32a3bc174ea16f): 4 min of 1080p Master at 30 fps,
+	// Express (8 GPUs): 70 + 530 × 4 × 30/24 / 8 + 300 ≈ 701 s (~11.7 min;
+	// ~11.3 measured without the preemption bug; quoted 449 before)
+	if got := eta(LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 240, EffectiveFPS: 30, GPUs: 8,
+		OutputBitrateBps: 60_000_000, MasterBitrateBps: 60_000_000}); got != 701 {
+		t.Errorf("owner's run: want 701, got %d", got)
+	}
+	// the tail is flat in length: 60 min of 1080p on 8 GPUs = 70 + 31,800/8 + 150
+	if got := eta(LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 3600, EffectiveFPS: 24, GPUs: 8}); got != 4195 {
+		t.Errorf("60 min on 8 GPUs: want 4195, got %d", got)
+	}
+	// a 5 s preview on one GPU: 70 + 530 × 120/1440 + 30 = 144
+	if got := eta(LifelikeInputs{Step: StepLifelikePreview, Preset: "4k", OutputSeconds: 5, EffectiveFPS: 24, GPUs: 1}); got != 144 {
+		t.Errorf("5 s preview: want 144, got %d", got)
 	}
 	// Frames, not seconds: 48 fps doubles the render term only.
-	a := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 24, GPUs: 1})
-	b := s.EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 48, GPUs: 1})
-	if b-195 != 2*(a-195) {
+	a := eta(LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 24, GPUs: 1})
+	b := eta(LifelikeInputs{Step: "production", Preset: "qhd", OutputSeconds: 30, EffectiveFPS: 48, GPUs: 1})
+	if fixed := int64(70 + 200); b-fixed != 2*(a-fixed) {
 		t.Errorf("48 fps should double the render term: %d vs %d", a, b)
 	}
 	// Config overrides take effect; zero values keep the defaults.
 	r := defaults()
 	r.LifelikeETA = LifelikeETA{OverheadSeconds: 100, EncodeTailSeconds: 200}
-	if got := defaultsService(r).EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "4k", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 433 {
+	if got := defaultsService(r).EstimateLifelikeETA(ctx, LifelikeInputs{Step: "production", Preset: "1080p", OutputSeconds: 60, EffectiveFPS: 24, GPUs: 4}); got != 433 {
 		t.Errorf("overrides: want 433 (100 + 132.5 + 200), got %d", got)
 	}
 }
