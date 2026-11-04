@@ -1045,12 +1045,15 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		in.Preset = pricePreset(params)
 		in.Foveated = params.Foveation != ""
 		in.CreditCents = creditCents
-		at := s.accountTier(ctx, p.UID)
+		at, alt := quoteTierOverride(ctx)
+		if !alt {
+			at = s.accountTier(ctx, p.UID)
+		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.EffectiveFPS)
-			in.FreePreview = allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
+			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
 		}
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
@@ -1233,6 +1236,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
 		"fps":           s.fpsInfo(ctx, p, params),
+	}
+	if alt := s.altPrices(ctx, p, params, req.Step, credit); alt != nil {
+		resp["alt_prices"] = alt // the same run at Pro, Business and Studio
 	}
 	// C1 for this account and amount (spec v6 F): after | precharge |
 	// paynow | china, with why the sheet is needed; charge_timing follows.

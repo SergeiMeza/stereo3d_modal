@@ -831,6 +831,23 @@ is ignored without such a plan.
   (`{}` by default); PATCH `dismissed {placement: true (now) | time |
   null (clear)}`, placements as above, a future time clamped to now.
 
+### Alt prices and sales contact (owner 2026-11-04)
+
+- **`alt_prices {pro, business, studio}`** (cents) on Lifelike quotes:
+  the same run priced at each tier through the same quote (whole minutes,
+  fps factor, Express/Master/foveation, analyze credit, rounding); free
+  previews left out. Absent on Classic quotes (each would ask the
+  pipeline about reuse again).
+- **`POST /v1/contact {topic: business|studio|other, message, company?,
+  team_size?}`** → `{sent: true}` (signed in): message 1–2000
+  characters, company and team size (a number or text) 120 each. Stored
+  in `contacts_{env}`; Slack `sales_contact` (topic, email, uid, plan,
+  company, team, the first 500 characters); a mail to the owner's alert
+  address (`OWNER_ALERT_EMAIL`, sergei@spatial-ai-labs.com) "Spatial
+  Video Studio: business enquiry from <email>" (`(test)` on test, as the
+  other test mails to the owner), reply-to the sender. Five a day per
+  account (429 `rate_limited`).
+
 ### Pro discount (S3D-67)
 
 Spatial Video Studio Pro customers get `pro_discount_pct` (20%) off every

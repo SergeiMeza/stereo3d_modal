@@ -41,3 +41,40 @@ func (s *Store) ListEventsSince(ctx context.Context, name string, since time.Tim
 	}
 	return out, nil
 }
+
+// Contact is a sales enquiry from the web (POST /v1/contact):
+// contacts_{env}/{auto_id}.
+type Contact struct {
+	UID      string    `firestore:"uid"`
+	Email    string    `firestore:"email,omitempty"`
+	Plan     string    `firestore:"plan,omitempty"`
+	Topic    string    `firestore:"topic"`
+	Message  string    `firestore:"message"`
+	Company  string    `firestore:"company,omitempty"`
+	TeamSize string    `firestore:"team_size,omitempty"`
+	At       time.Time `firestore:"at"`
+}
+
+func contactsCol(env string) string { return "contacts_" + env }
+
+// AddContact stores one enquiry.
+func (s *Store) AddContact(ctx context.Context, c Contact) error {
+	_, _, err := s.fs.Collection(contactsCol(s.env)).Add(ctx, c)
+	return err
+}
+
+// CountContactsSince is how many enquiries uid sent since t.
+func (s *Store) CountContactsSince(ctx context.Context, uid string, since time.Time) (int, error) {
+	snaps, err := s.fs.Collection(contactsCol(s.env)).Where("uid", "==", uid).Limit(200).Documents(ctx).GetAll()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, sn := range snaps {
+		var c Contact
+		if sn.DataTo(&c) == nil && !c.At.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
