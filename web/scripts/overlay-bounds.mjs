@@ -7,9 +7,10 @@
  *   node scripts/overlay-bounds.mjs            # starts `next dev` (mock) itself
  *   BASE_URL=http://localhost:3931 node …      # against a running dev server
  *
- * Needs Playwright with Chromium. It is not a dependency of the web app;
- * point PLAYWRIGHT_MODULE at an install (e.g. …/node_modules/playwright).
- * Without it the check says so and exits 0, unless REQUIRE_OVERLAY_CHECK=1.
+ * `pnpm test:overlays` installs Chromium for the pinned `playwright`
+ * devDependency and runs this with REQUIRE_OVERLAY_CHECK=1 (CI runs it).
+ * PLAYWRIGHT_MODULE can point at another install. Without Playwright the
+ * check says so and exits 0, unless REQUIRE_OVERLAY_CHECK=1.
  */
 
 import { spawn } from "node:child_process";

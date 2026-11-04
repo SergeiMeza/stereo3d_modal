@@ -47,10 +47,11 @@ Add a missing shadcn component to `components/ui` rather than building one.
   `mousedown|click|keydown|pointerdown` listeners and `absolute|fixed … z-50`
   classes. A real exception (keyboard shortcuts, a full-width bar) takes an
   `eslint-disable-next-line no-restricted-syntax -- <reason>`.
-- `pnpm test` ends with `scripts/overlay-bounds.mjs`: at 390 and 1280 px it
-  opens the popovers, menus and sheets against the mock gateway and fails if
-  any leaves the viewport. It needs Playwright (`PLAYWRIGHT_MODULE=…/playwright`);
-  without it the step is skipped (`REQUIRE_OVERLAY_CHECK=1` makes it fail).
+- `pnpm test:overlays` (run in CI next to `pnpm test`) installs Chromium for
+  the pinned `playwright` devDependency and runs `scripts/overlay-bounds.mjs`:
+  at 390 and 1280 px it opens the popovers, menus and sheets against the mock
+  gateway (it starts `next dev` itself, or uses `BASE_URL`) and fails if any
+  leaves the viewport.
 - Radix menus and tabs open on pointer or keyboard events, not `click`: in
   tests use `fireEvent.keyDown(trigger, { key: "Enter" })` for menus and
   `fireEvent.mouseDown(tab)` for tabs.

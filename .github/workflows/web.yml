@@ -1,0 +1,36 @@
+# Web app checks (owner 2026-11-04): unit tests, lint, types, and the
+# overlay-bounds check (every popover, menu and sheet stays inside the
+# viewport at 390 and 1280 px) with REQUIRE_OVERLAY_CHECK on.
+name: web
+
+on:
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+  push:
+    branches: [feat/lifelike-web, staging]
+    paths: ["web/**", ".github/workflows/web.yml"]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit -p .
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:overlays
+        env:
+          REQUIRE_OVERLAY_CHECK: "1"
