@@ -249,6 +249,10 @@ func main() {
 			h(w, r, u, id)
 		}
 	}
+	// "Get another format" for a finished run (ADR 0137).
+	mux.HandleFunc("GET /v1/runs/{id}/formats", authed(withID(svc.HandleRunFormats)))
+	mux.HandleFunc("POST /v1/runs/{id}/formats", authed(withID(svc.HandleRunFormatAdd)))
+
 
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
 	mux.HandleFunc("GET /v1/billing", authed(svc.HandleGetBilling))

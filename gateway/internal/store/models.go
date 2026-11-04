@@ -433,6 +433,11 @@ type Conversion struct {
 	DisputeID string `firestore:"dispute_id,omitempty" json:"-"`
 	// Payments are every payment object the run ever had (for E0-2's
 	// late-money check and support).
+	// Repacks (ADR 0137): formats made later from the run's stored output,
+	// by format (mvhevc | sbs | half_sbs); RepackPending while one runs
+	// (the reconciler polls those).
+	Repacks       map[string]*Repack `firestore:"repacks,omitempty" json:"-"`
+	RepackPending bool               `firestore:"repack_pending,omitempty" json:"-"`
 	Payments  []Payment  `firestore:"payments,omitempty" json:"-"`
 	ExpiresAt *time.Time `firestore:"expires_at,omitempty" json:"-"`
 	Lease     *Lease     `firestore:"lease,omitempty" json:"-"`
@@ -906,4 +911,23 @@ type Project struct {
 	Pinned        bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
 	CreatedAt     time.Time  `firestore:"created_at" json:"created_at"`
 	UpdatedAt     time.Time  `firestore:"updated_at" json:"updated_at"`
+}
+
+// Repack is one format made from a finished run's stored output (ADR 0137).
+type Repack struct {
+	Format      string     `firestore:"format"`
+	Source      string     `firestore:"source"` // the output it was made from
+	RepackID    string     `firestore:"repack_id,omitempty"`
+	Status      string     `firestore:"status"` // pending | processing | succeeded | failed
+	Key         string     `firestore:"key"`    // where the new file goes
+	Error       string     `firestore:"error,omitempty"`
+	PriceCents  int64      `firestore:"price_cents"`
+	Bytes       int64      `firestore:"bytes,omitempty"`
+	Width       int        `firestore:"width,omitempty"`
+	Height      int        `firestore:"height,omitempty"`
+	Frames      int        `firestore:"frames,omitempty"`
+	Level       string     `firestore:"level,omitempty"`
+	Attempts    int        `firestore:"attempts"`
+	RequestedAt time.Time  `firestore:"requested_at"`
+	FinishedAt  *time.Time `firestore:"finished_at,omitempty"`
 }

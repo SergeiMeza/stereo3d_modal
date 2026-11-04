@@ -432,3 +432,8 @@ func snapToConversion(snap *firestore.DocumentSnapshot) (*Conversion, error) {
 	c.ID = snap.Ref.ID
 	return &c, nil
 }
+
+// ListRepackPending: runs with a repack still running (ADR 0137).
+func (s *Store) ListRepackPending(ctx context.Context, limit int) ([]*Conversion, error) {
+	return s.collect(s.fs.Collection(conversionsCol(s.env)).Where("repack_pending", "==", true).Limit(limit).Documents(ctx))
+}
