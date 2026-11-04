@@ -26,7 +26,7 @@ import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { BrowserFrame } from "@/components/landing/BrowserFrame";
 import { PipelineSteps } from "@/components/landing/PipelineSteps";
 import { WorkflowTabs } from "@/components/landing/WorkflowTabs";
-import { Logo } from "@/components/Logo";
+import { AppIcon } from "@/components/AppIcon";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 
@@ -164,7 +164,7 @@ export function LandingContent() {
           <div className="relative">
             <BrowserFrame
               src="/landing/stereo-tab.webp"
-              alt="Stereo3D Studio's Stereo page: source footage beside its live depth map, with per-scene 3D classification and overrides"
+              alt="Spatial Video Studio's Stereo page: source footage beside its live depth map, with per-scene 3D classification and overrides"
               priority
               aspect="aspect-[16/9]"
               sizes="(max-width: 1024px) 100vw, 1024px"
@@ -319,7 +319,7 @@ export function LandingContent() {
               {signedIn ? "Open studio" : "Start converting"}
             </Link>
             <a
-              href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Stereo3D Studio feedback")}`}
+              href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Spatial Video Studio on the web feedback")}`}
               onClick={() => track("lp_feedback_click")}
               className="flex items-center gap-2 rounded-lg border border-edge bg-background px-6 py-3 font-medium text-fg transition-colors hover:border-primary/40"
             >
@@ -334,10 +334,10 @@ export function LandingContent() {
       <footer className="border-t border-edge">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-xs text-fg-muted">
           <p className="flex items-center gap-2">
-            <Logo className="size-4 text-fg" />
+            <AppIcon className="size-5" />
             <span>
-              Stereo3D <span className="text-primary">Studio</span> · a
-              Spatial AI Labs Ltd product
+              Spatial Video <span className="text-primary">Studio</span> on
+              the web · a Spatial AI Labs Ltd product
             </span>
           </p>
           <div className="flex items-center gap-4">

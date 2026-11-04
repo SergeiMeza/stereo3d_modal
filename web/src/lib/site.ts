@@ -10,4 +10,6 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.stereo3d.studio";
 
-export const SITE_NAME = "Stereo3D Studio";
+/** Owner 2026-11-04: the web app carries the App Store app's name; the
+ * stereo3d.studio domain and URLs stay. */
+export const SITE_NAME = "Spatial Video Studio";

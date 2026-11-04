@@ -216,6 +216,11 @@ def process_video_job(job_id: str, request: dict) -> dict:
                      # lower = higher bitrate. Default 23 (encode_mvhevc_x265)
                      # default ["sbs", "half_sbs"]; anaglyph only when
                      # explicitly requested (VR-first product)
+      "output_bitrate_bps": None,  # int [2_000_000, 300_000_000]: target
+                     # TOTAL video bitrate of every output format (mvhevc
+                     # covers both views), VBV maxrate 1.5x / bufsize 2x.
+                     # null/absent = quality-based defaults (x264 CRF 17,
+                     # x265 CRF / NVENC CQ). Wins over mvhevc_crf
       "include_audio": true,
       "output_depth": true,
       "depth_only": false,       # stop after the depth stage: publish
@@ -879,6 +884,10 @@ def process_video_job(job_id: str, request: dict) -> dict:
         # sbs+half_sbs+anaglyph that nobody requested — ~12min of waste on a
         # full-fps 4K mvhevc-only job.)
         sbs_formats = [f for f in formats if f != "mvhevc"]
+        # target total video bitrate for every format (None = CRF defaults)
+        output_bitrate_bps = request.get("output_bitrate_bps")
+        if output_bitrate_bps is not None:
+            output_bitrate_bps = int(output_bitrate_bps)
         if sbs_formats:
             encoded = encode_outputs.remote(
                 job_id,
@@ -887,6 +896,7 @@ def process_video_job(job_id: str, request: dict) -> dict:
                 formats=sbs_formats,
                 include_audio=request.get("include_audio", True),
                 audio_trim=audio_trim,
+                output_bitrate_bps=output_bitrate_bps,
             )
             outputs = dict(encoded["outputs"])
         else:
@@ -900,10 +910,13 @@ def process_video_job(job_id: str, request: dict) -> dict:
             # x265 = Apple spatial badge (default); nvenc = fast, for custom players
             nvenc = request.get("mvhevc_encoder") == "nvenc"
             encoder_fn = encode_mvhevc if nvenc else encode_mvhevc_x265
-            # quality knob (x265 only): absent keeps the encoder's default
+            # quality knob (x265 only): absent keeps the encoder's default.
+            # A target bitrate (either encoder) wins over the CRF.
             quality = {}
             if not nvenc and request.get("mvhevc_crf") is not None:
                 quality["crf"] = int(request["mvhevc_crf"])
+            if output_bitrate_bps is not None:
+                quality["bitrate_bps"] = output_bitrate_bps
             mv_kwargs = dict(
                 sbs_path=stereo["sbs_path"],
                 original_path=pre["source_path"] if request.get("include_audio", True) else None,

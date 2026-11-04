@@ -75,7 +75,7 @@ export default function OnboardingScreen(): JSX.Element {
           Set up pay-as-you-go billing
         </h1>
         <p className="text-fg-muted">
-          Stereo3D Studio has no subscription. Save a card once; each
+          Spatial Video Studio on the web has no subscription. Save a card once; each
           conversion step shows its exact price up front and bills the card
           automatically <em>only when it succeeds</em>. Failed runs are never
           charged.
