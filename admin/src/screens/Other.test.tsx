@@ -385,12 +385,23 @@ describe("sign-in and session states (A0)", () => {
     await waitFor(() => expect(auth.reportProblem).toHaveBeenCalledWith("invalid_token"));
   });
 
-  it("signed in: the nav shows the open count", async () => {
+  it("signed in: the Cases badge counts what's overdue or due today, red when something is overdue", async () => {
     renderApp("/cases", {
-      "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 3, overdue: 0, due_today: 0 } } }),
+      "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 7, overdue: 1, due_today: 2 } } }),
     });
-    const nav = screen.getByRole("navigation", { name: "Sections" });
-    await waitFor(() => expect(nav).toHaveTextContent("Cases3"));
+    const link = await screen.findByRole("link", { name: "Cases: 1 overdue, 2 due today" });
+    expect(link).toHaveTextContent("Cases3");
+    expect(link.querySelector('[title="1 overdue, 2 due today"]')).toHaveClass("text-destructive-foreground");
+  });
+
+  it("failed refunds get a red dot on Cases, and new feedback a grey badge", async () => {
+    const failed = { id: "CASE-0060", type: "refund", reason: "refund_failed", mode: "auto", status: "open", opened_at: "2026-11-03T00:00:00Z", age_hours: 2, email_masked: "a•••@b.com", requested_cents: 500, last_activity_at: "2026-11-03T00:00:00Z" };
+    renderApp("/cases", {
+      "GET /v1/admin/cases": () => ({ json: { cases: [failed], counts: { open: 1, overdue: 0, due_today: 0 } } }),
+      "GET /v1/admin/feedback": () => ({ json: { days: 7, items: [{ id: "f1", created_at: new Date().toISOString(), platform: "web", kind: "idea", message: "hi" }] } }),
+    });
+    expect(await screen.findByRole("link", { name: "Cases, 1 failed refund" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Feedback: 1 new" })).toBeInTheDocument();
   });
 });
 
@@ -508,7 +519,7 @@ describe("plans surfaces (owner 2026-11-04)", () => {
     expect(table).toHaveTextContent("Pro 5 · Business 1");
     expect(screen.getByTestId("plans-surfaces-reasons")).toHaveTextContent("Source above 4K");
     expect(screen.getByText(/Plan starts with no click in the 7 days before: 3/)).toBeInTheDocument();
-    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=30");
+    expect(calls.filter((c) => c.path === "/v1/admin/plans/surfaces").at(-1)!.url).toContain("days=30");
   });
 });
 
@@ -529,7 +540,8 @@ describe("feedback (owner 2026-11-04)", () => {
     expect(table).toHaveTextContent("Preview stalls");
     expect(table).toHaveTextContent("iPhone/iPad 10.5.3");
     expect(table).toHaveTextContent("project p1");
-    expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("days=30");
+    // the page asks for 30 days (the nav badge asks for 7 on its own)
+    expect(calls.some((c) => c.path === "/v1/admin/feedback" && c.url.includes("days=30"))).toBe(true);
   });
 });
 
@@ -550,8 +562,8 @@ describe("disputes badge and banner (header)", () => {
 
   it("shows open disputes and EFWs, links to Disputes, and warns about the ones due within 3 days", async () => {
     renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => ({ json: summary() }) });
-    const badge = await screen.findByRole("link", { name: "Open: 4 disputes, 1 EFW" });
-    expect(badge).toHaveTextContent("4 disputes · 1 EFW");
+    const badge = await screen.findByRole("link", { name: "Disputes: 4 disputes, 1 EFW" });
+    expect(badge).toHaveTextContent("Disputes5");
     expect(badge).toHaveAttribute("href", "/disputes");
     const soonest = new Date(Date.now() + day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     expect(screen.getByText(`2 disputes need a response by ${soonest}.`)).toBeInTheDocument();
@@ -560,14 +572,14 @@ describe("disputes badge and banner (header)", () => {
   it("shows nothing for zero or an error", async () => {
     const { calls } = renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => ({ json: summary({ open: [], open_efws: 0 }) }) });
     await waitFor(() => expect(calls.some((c) => c.path === "/v1/admin/disputes/summary")).toBe(true));
-    expect(screen.queryByRole("link", { name: /^Open:/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Disputes" })).toBeInTheDocument();
     expect(screen.queryByText(/need a response|needs a response/)).toBeNull();
   });
 
   it("an error stays quiet", async () => {
     const { calls } = renderApp("/cases", { ...cases, "GET /v1/admin/disputes/summary": () => apiError(500, "internal", "boom") });
     await waitFor(() => expect(calls.some((c) => c.path === "/v1/admin/disputes/summary")).toBe(true));
-    expect(screen.queryByRole("link", { name: /^Open:/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Disputes" })).toBeInTheDocument();
     expect(screen.queryByText("boom")).toBeNull();
   });
 
@@ -587,7 +599,7 @@ describe("disputes badge and banner (header)", () => {
         vi.advanceTimersByTime(60_000);
       });
       await waitFor(() => expect(n).toBe(2));
-      expect(await screen.findByRole("link", { name: "Open: 4 disputes" })).toBeInTheDocument();
+      expect(await screen.findByRole("link", { name: "Disputes: 4 disputes" })).toBeInTheDocument();
       fireEvent.focus(window);
       await waitFor(() => expect(n).toBe(3));
     } finally {

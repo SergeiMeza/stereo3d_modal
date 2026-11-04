@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows, StateBox } from "@/components/common";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { dateTime } from "../lib/format";
+import { useAttention } from "../lib/attention";
 import { useServices } from "../lib/services";
 import type { FeedbackItem } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
@@ -18,6 +19,9 @@ export function FeedbackPanel() {
   const [days, setDays] = useState(30);
   const [platform, setPlatform] = useState("");
   const { state, retry } = useLoad(() => api.feedback(days, platform), [api, days, platform]);
+  const { markFeedbackSeen } = useAttention();
+  // opening Feedback clears the "new" badge (per browser)
+  useEffect(() => markFeedbackSeen(), [markFeedbackSeen]);
   return (
     <>
       <PageHeader

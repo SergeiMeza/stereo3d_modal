@@ -58,7 +58,10 @@ describe("csp", () => {
 
 describe("routes", () => {
   it("parses paths", () => {
-    expect(parseRoute("/")).toEqual({ name: "cases" });
+    expect(parseRoute("/")).toEqual({ name: "overview" });
+    expect(parseRoute("/cases")).toEqual({ name: "cases" });
+    expect(parseRoute("/cases/CASE-0042?decide=1")).toEqual({ name: "case", id: "CASE-0042" });
+    expect(parseRoute("/grants")).toEqual({ name: "grants" });
     expect(parseRoute("/cases/CASE-0042")).toEqual({ name: "case", id: "CASE-0042" });
     expect(parseRoute("/accounts/uid%2F1")).toEqual({ name: "account", uid: "uid/1" });
     expect(parseRoute("/disputes")).toEqual({ name: "disputes" });

@@ -32,7 +32,7 @@ const EMPTY: Record<Tab, string> = {
 };
 
 /** A1: the start page. The gateway sorts disputes, EFW and failed refunds first. */
-export function CasesList({ onCounts }: { onCounts?: (c: CasesResponse["counts"]) => void }) {
+export function CasesList({ onCounts }: { onCounts?: (c: CasesResponse["counts"]) => void } = {}) {
   const { api } = useServices();
   const [query, setQuery] = useState<CaseListQuery>({ tab: "open" });
   const [search, setSearch] = useState("");

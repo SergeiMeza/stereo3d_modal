@@ -161,6 +161,7 @@ try {
     await page.goto(`${base}/cases`);
     await page.getByText("CASE-0042").first().waitFor();
     await check(page, "Account menu", failures, () => button("Account menu").click());
+    if (width < 768) await check(page, "Phone nav sheet", failures, () => button("Menu").click());
     await check(page, "Type filter", failures, () => combobox("Type").click());
     const search = page.getByRole("button", { name: /^Search/ }).first();
     if (await search.count()) await check(page, "Command palette", failures, () => search.click());

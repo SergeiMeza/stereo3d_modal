@@ -1,9 +1,11 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
 import { StateBox } from "./components/common";
-import { DisputeBadge, DisputeDueBanner, useDisputeAlert } from "./components/DisputesAlert";
+import { DisputeDueBanner } from "./components/DisputesAlert";
+import { NavList, PAGE_TITLES } from "./components/Nav";
+import { Button } from "./components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,20 +14,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./components/ui/sheet";
 import { Toaster } from "./components/ui/sonner";
 import type { AdminApi } from "./lib/api";
+import { AttentionProvider, useAttention } from "./lib/attention";
 import type { AdminAuth } from "./lib/auth";
 import { Link, RouterProvider, paths, useRouter } from "./lib/router";
 import { ServicesProvider, useServices } from "./lib/services";
-import { cn } from "./lib/utils";
 import { AccountLookup, AccountPage } from "./screens/AccountPage";
 import { CasePage } from "./screens/CasePage";
 import { CasesList } from "./screens/CasesList";
 import { DisputesPanel } from "./screens/Disputes";
+import { FeedbackPanel } from "./screens/Feedback";
+import { GrantsPage } from "./screens/GrantsPage";
+import { MailPreviews } from "./screens/MailPreviews";
 import { OnboardingPanel } from "./screens/Onboarding";
 import { PlansSurfacesPanel } from "./screens/PlansSurfaces";
-import { FeedbackPanel } from "./screens/Feedback";
-import { MailPreviews } from "./screens/MailPreviews";
 import { PolicyPage } from "./screens/Policy";
 import { SecurityPage } from "./screens/Security";
 import { SignInScreen } from "./screens/SignIn";
@@ -46,7 +50,9 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
       {signedIn ? (
         <ServicesProvider api={api} auth={auth} email={state.email}>
           <RouterProvider initialPath={initialPath}>
-            <Shell />
+            <AttentionProvider>
+              <Shell />
+            </AttentionProvider>
           </RouterProvider>
         </ServicesProvider>
       ) : (
@@ -57,96 +63,93 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
   );
 }
 
-function NavLink({ to, active, children }: { to: string; active: boolean; children: ReactNode }) {
+function AccountMenu() {
+  const { auth, email } = useServices();
+  const { navigate } = useRouter();
   return (
-    <Link
-      to={to}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap text-muted-foreground hover:text-foreground",
-        active && "bg-secondary text-foreground",
-      )}
-    >
-      {children}
-    </Link>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Account menu"
+        className="inline-flex h-9 items-center gap-1 rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="grid size-7 place-items-center rounded-full bg-info-bg text-xs font-semibold text-info-foreground" aria-hidden>
+          {(email[0] ?? "A").toUpperCase()}
+        </span>
+        <ChevronDownIcon className="size-3.5 text-muted-foreground" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel className="max-w-64 truncate">{email}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate(paths.security())}>Security and passkeys</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void auth.signOut()}>Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 function Shell() {
-  const { route, navigate } = useRouter();
-  const { auth, email } = useServices();
-  const [openCount, setOpenCount] = useState<number | null>(null);
-  const disputeAlert = useDisputeAlert();
-  const tab = (name: string, to: string, label: string, extra?: ReactNode) => (
-    <NavLink to={to} active={route.name === name || route.name === name.replace(/s$/, "")}>
-      {label}
-      {extra}
-    </NavLink>
-  );
+  const { route } = useRouter();
+  const attention = useAttention();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const title = PAGE_TITLES[route.name] ?? "Admin";
   return (
-    <>
-      <header className="sticky top-0 z-20 flex h-13 items-center gap-5 overflow-x-auto border-b border-border bg-card px-5 max-[1000px]:gap-3 max-[1000px]:px-3">
-        <Link to={paths.cases()} aria-label="Cases" className="rounded-md">
+    <div className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-20 flex h-13 items-center gap-4 border-b border-border bg-card px-5 max-md:h-16 max-md:gap-1.5 max-md:px-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 md:hidden"
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(true)}
+        >
+          <MenuIcon className="size-5" />
+        </Button>
+        <Link to={paths.overview()} aria-label="Needs attention" className="rounded-md max-md:hidden">
           <Brand env={ENV} />
         </Link>
-        <nav aria-label="Sections" className="flex gap-1 overflow-x-auto">
-          {tab(
-            "cases",
-            paths.cases(),
-            "Cases",
-            openCount !== null && (
-              <span className="rounded-full bg-primary/20 px-1.5 text-2xs leading-[17px] text-link tabular-nums">{openCount}</span>
-            ),
-          )}
-          {tab("disputes", paths.disputes(), "Disputes and fraud")}
-          {tab("onboarding", paths.onboarding(), "Onboarding")}
-          {tab("plans", paths.plans(), "Plans surfaces")}
-          {tab("feedback", paths.feedback(), "Feedback")}
-          {tab("accounts", paths.accounts(), "Accounts")}
-          {tab("mails", paths.mails(), "Mail previews")}
-          {tab("policy", paths.policy(), "Refund policy")}
-          {tab("security", paths.security(), "Security")}
-        </nav>
-        <span className="flex-1" />
-        <DisputeBadge alert={disputeAlert} />
-        <span className="text-sm whitespace-nowrap text-muted-foreground">Passkey on</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="Account menu"
-            className="inline-flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="grid size-7 place-items-center rounded-full bg-info-bg text-xs font-semibold text-info-foreground" aria-hidden>
-              {(email[0] ?? "A").toUpperCase()}
-            </span>
-            <ChevronDownIcon className="size-3.5 text-muted-foreground" aria-hidden />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel className="max-w-64 truncate">{email}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate(paths.security())}>Security and passkeys</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void auth.signOut()}>Sign out</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <span className="flex-1 truncate text-[17px] font-semibold md:hidden" aria-hidden="true">
+          {title}
+        </span>
+        <span className="flex-1 max-md:hidden" />
+        <span className="text-sm whitespace-nowrap text-muted-foreground max-lg:hidden">Signed in with a passkey</span>
+        <AccountMenu />
       </header>
-      <main className="flex max-w-[1440px] flex-col gap-3.5 px-6 pt-5 pb-12 max-[1000px]:p-4">
-        <DisputeDueBanner alert={disputeAlert} />
-        {route.name === "cases" && <CasesList onCounts={(c) => setOpenCount(c.open)} />}
-        {route.name === "case" && <CasePage id={route.id} key={route.id} />}
-        {route.name === "accounts" && <AccountLookup />}
-        {route.name === "account" && <AccountPage uid={route.uid} key={route.uid} />}
-        {route.name === "disputes" && <DisputesPanel />}
-        {route.name === "onboarding" && <OnboardingPanel />}
-        {route.name === "plans" && <PlansSurfacesPanel />}
-        {route.name === "feedback" && <FeedbackPanel />}
-        {route.name === "mails" && <MailPreviews />}
-        {route.name === "policy" && <PolicyPage />}
-        {route.name === "security" && <SecurityPage />}
-        {route.name === "not_found" && (
-          <StateBox title="Nothing here.">
-            <Link to={paths.cases()} className="text-link hover:underline">Back to cases</Link>
-          </StateBox>
-        )}
-      </main>
-    </>
+      <div className="flex flex-1">
+        <aside className="sticky top-13 h-[calc(100dvh-52px)] w-55 shrink-0 overflow-y-auto border-r border-border bg-card px-2.5 py-3.5 max-md:hidden">
+          <NavList route={route} />
+        </aside>
+        <main className="flex min-w-0 max-w-[1440px] flex-1 flex-col gap-4 px-7 pt-5.5 pb-12 max-md:px-4 max-md:pt-4">
+          <DisputeDueBanner alert={attention.alert} />
+          {route.name === "overview" && <CasesList />}
+          {route.name === "cases" && <CasesList />}
+          {route.name === "case" && <CasePage id={route.id} key={route.id} />}
+          {route.name === "accounts" && <AccountLookup />}
+          {route.name === "account" && <AccountPage uid={route.uid} key={route.uid} />}
+          {route.name === "disputes" && <DisputesPanel />}
+          {route.name === "grants" && <GrantsPage />}
+          {route.name === "onboarding" && <OnboardingPanel />}
+          {route.name === "plans" && <PlansSurfacesPanel />}
+          {route.name === "feedback" && <FeedbackPanel />}
+          {route.name === "mails" && <MailPreviews />}
+          {route.name === "policy" && <PolicyPage />}
+          {route.name === "security" && <SecurityPage />}
+          {route.name === "not_found" && (
+            <StateBox title="Nothing here.">
+              <Link to={paths.overview()} className="text-link hover:underline">Back to what needs attention</Link>
+            </StateBox>
+          )}
+        </main>
+      </div>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
+          <SheetTitle className="px-2">
+            <Brand env={ENV} />
+          </SheetTitle>
+          <SheetDescription className="sr-only">Sections of the admin console</SheetDescription>
+          <NavList route={route} big onNavigate={() => setMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

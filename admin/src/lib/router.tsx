@@ -10,9 +10,11 @@ import {
   type ReactNode,
 } from "react";
 
-/** A tiny history router: the console has six routes. */
+/** A tiny history router. */
 
 export type Route =
+  | { name: "overview" }
+  | { name: "grants" }
   | { name: "cases" }
   | { name: "case"; id: string }
   | { name: "accounts" }
@@ -27,9 +29,11 @@ export type Route =
   | { name: "not_found" };
 
 export function parseRoute(pathname: string): Route {
-  const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  if (parts.length === 0) return { name: "cases" };
+  const parts = pathname.split(/[?#]/)[0].split("/").filter(Boolean).map(decodeURIComponent);
+  if (parts.length === 0) return { name: "overview" };
   const [a, b] = parts;
+  if (a === "overview" && parts.length === 1) return { name: "overview" };
+  if (a === "grants" && parts.length === 1) return { name: "grants" };
   if (a === "cases" && parts.length === 1) return { name: "cases" };
   if (a === "cases" && parts.length === 2 && b) return { name: "case", id: b };
   if (a === "accounts" && parts.length === 1) return { name: "accounts" };
@@ -45,8 +49,10 @@ export function parseRoute(pathname: string): Route {
 }
 
 export const paths = {
+  overview: () => "/",
+  grants: () => "/grants",
   cases: () => "/cases",
-  case: (id: string) => `/cases/${encodeURIComponent(id)}`,
+  case: (id: string, opts?: { decide?: boolean }) => `/cases/${encodeURIComponent(id)}${opts?.decide ? "?decide=1" : ""}`,
   accounts: () => "/accounts",
   account: (uid: string) => `/accounts/${encodeURIComponent(uid)}`,
   disputes: () => "/disputes",
@@ -60,6 +66,8 @@ export const paths = {
 
 interface RouterValue {
   route: Route;
+  /** the query string of the current path, e.g. ?decide=1 */
+  search: URLSearchParams;
   navigate: (to: string) => void;
 }
 
@@ -73,19 +81,22 @@ export function RouterProvider({
   initialPath?: string;
 }) {
   const [path, setPath] = useState(
-    () => initialPath ?? window.location.pathname,
+    () => initialPath ?? window.location.pathname + window.location.search,
   );
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
+    const onPop = () => setPath(window.location.pathname + window.location.search);
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const navigate = useCallback((to: string) => {
-    if (to !== window.location.pathname) window.history.pushState(null, "", to);
+    if (to !== window.location.pathname + window.location.search) window.history.pushState(null, "", to);
     setPath(to);
     window.scrollTo?.(0, 0);
   }, []);
-  const value = useMemo(() => ({ route: parseRoute(path), navigate }), [path, navigate]);
+  const value = useMemo(
+    () => ({ route: parseRoute(path), search: new URLSearchParams(path.split("?")[1] ?? ""), navigate }),
+    [path, navigate],
+  );
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 }
 
