@@ -1339,36 +1339,37 @@ and store.
   device_hint, public_key, sign_count, aaguid, transports, rp_id,
   created_at, last_used_at, credential}; test and prod apart, so a
   staging passkey offered on www is `passkey_not_registered` there.
-  `customer_passkey_challenges_{env}`, `passkey_suggestions_{env}/{uid}`.
+  `customer_passkey_challenges_{env}`.
 - **Routes.**
-  - `POST /v1/passkeys/register/options {name?}` (signed in) →
+  - `POST /v1/account/passkeys/register/options {name?}` (signed in) →
     `{options: {publicKey}, expires_at}`; the ID token's auth_time must be
     within 5 minutes, else 401 `reauth_required {method: "firebase"}`.
-  - `POST /v1/passkeys/register/verify {response, name?}` (signed in, the
+  - `POST /v1/account/passkeys/register/verify {response, name?}` (signed in, the
     same rule) → 201 `{passkey: {id, name, device_hint, created_at,
     last_used_at}}`; the name defaults to the device hint (the
     authenticator by AAGUID, else browser and system from the user agent,
     such as "Safari on iPhone"). 400 `challenge_invalid` |
     `passkey_invalid`; 409 `passkey_exists`.
-  - `POST /v1/passkeys/signin/options` (no sign-in) → `{options:
+  - `POST /v1/auth/passkey/options` (no sign-in) → `{options:
     {publicKey}, expires_at}`, no allowCredentials, so it also serves
     autofill (the web sets mediation "conditional").
-  - `POST /v1/passkeys/signin/verify {response}` (no sign-in) →
-    `{custom_token}` for `signInWithCustomToken`. 404
+  - `POST /v1/auth/passkey/verify {response}` (no sign-in) →
+    `{uid, custom_token}` for `signInWithCustomToken`. 404
     `passkey_not_registered` ("This passkey isn't registered here"); 401
     `passkey_invalid`, `passkey_clone_suspected` (the sign count went
     backwards: logged, Slack, refused); 403 `account_unavailable`
     (deleted or blocked); 502 `sign_in_unavailable` (token not minted).
-  - `GET /v1/passkeys` → `{passkeys: [{id, name, device_hint, created_at,
-    last_used_at}]}`; `PATCH /v1/passkeys/{id} {name}` → `{passkey}`;
-    `DELETE /v1/passkeys/{id}` → `{removed}` (404 for another account's).
-  - `GET /v1/passkeys/suggestion` → `{show, passkeys, dismissed_at}`
-    (show: no passkey and never dismissed); `POST
-    /v1/passkeys/suggestion/dismiss` → `{show: false, dismissed_at}`.
+  - `GET /v1/account/passkeys` → `{passkeys: [{id, name, device_hint,
+    created_at, last_used_at}]}`; `PATCH /v1/account/passkeys/{id} {name}`
+    → `{passkey}`; `DELETE /v1/account/passkeys/{id}` → `{removed}` (404
+    for another account's).
+  - The "Add a passkey" suggestion is dismissed through `/v1/account/settings`
+    with `dismissed.passkey_suggestion` (an accepted key); the web shows
+    it while the account has no passkey and hasn't dismissed it.
   - All 429 `rate_limited` past 60 an hour per IP, and adding or signing
     in past 20 an hour per account (per instance).
 - **Around them.** Events `passkey_added`, `passkey_removed`,
-  `passkey_renamed`, `passkey_suggestion_dismissed` and `sign_in
+  `passkey_renamed` and `sign_in
   {method: "passkey"}`; the web logs its other sign-ins as `POST
   /v1/events {name: "sign_in", props: {method: google | apple | email |
   password | email_code}}`. A plain security mail (S1 added, S2 removed;
