@@ -40,13 +40,29 @@ one the customer web app uses (`src/lib/firebaseAuth.ts`).
 
 ## What's in it
 
+The feature list, with status and sources, lives in
+`spatial-video-studio/Docs/admin-console.md`; its **History** section
+names the commit for every change to the console. Each console change
+is its own commit naming the feature and its ADR or BL.
+
 | Screen | Route | Gateway |
 | --- | --- | --- |
-| Sign-in (A0): Google, then the authenticator code; set up a second factor; no access; session ended | any | Firebase Auth |
+| Sign-in (A0): Google, then the authenticator code; set up a second factor; no access; session ended; fresh sign-in for money actions | any | Firebase Auth |
+| Disputes badge (header, every page): open disputes and EFWs, refreshed every 60 s and on focus, links to Disputes; red banner when disputes are due within 3 days | all pages | `GET /v1/admin/disputes/summary` (`open`, `open_efws`) |
 | Cases (A1): tabs, filters, search, counts (open, overdue, due today), disputes, EFW and failed refunds first | `/cases` | `GET /v1/admin/cases` |
 | Case (A2): header, banners, per-run table, decisions with a confirm sheet (amount per run, what's left after it, the mail), evidence (M7), timeline and notes, related cases, refunds | `/cases/:id` | `GET /v1/admin/cases/{id}`, `POST …/actions`, `GET /v1/admin/mail-previews` |
+| Plan-invoice disputes as cases, with the promo snapshot | `/cases/:id` | (webhooks) |
+| Closed cases: notes and decisions refused (409 `case_closed`: "Reopen the case to add notes"); "Follow-up of CASE-…" on the new case and its follow-ups on the closed one | `/cases/:id` | `follow_up_of`, `follow_up_ids` |
+| "Promotional grants restored by X" event on closed dispute cases | `/cases/:id` | case `events` (kind `promo_restored`) |
 | Accounts (A3): billing state, balance, methods, cases, payment history, ledger; clear review, clear sheet-only, block or unblock, resend E2, write off owed, adjust balance, open a case | `/accounts`, `/accounts/:uid` | `GET/POST /v1/admin/accounts/{uid}(/actions)`, `POST /v1/admin/cases` |
+| Company details on the account: name, address, tax ID and verification, billing email, PO, and the change log | `/accounts/:uid` | admin account `company`, `company_changes` |
+| Grants: Grant Pro / Business / Studio (end date 1 week, 1 month, 3 months or custom; reason; fresh sign-in), the grants list with status, Revoke with a reason (re-grants the others) | `/accounts/:uid` | `GET/POST /v1/admin/accounts/{uid}/grants`, `DELETE …/grants/{id}` |
+| Re-grants: promotional grants a refund, dispute, fraud warning or plan end took and gave back; restore after a lost dispute (reason, fresh sign-in) | `/accounts/:uid` | admin account `promo_regrants`, action `restore_promo_grants` |
 | Disputes and fraud (A4): monthly rate against the 0.75% line, outcomes, money, EFWs, open disputes by due date, breakdowns, monthly table, CSV | `/disputes` | `GET /v1/admin/disputes/summary` |
+| Onboarding: headset answers by week and by plan, the welcome variants side by side (web / `app_pro`), conversion per device | `/onboarding` | `GET /v1/admin/onboarding/headsets` |
+| Business/Studio setup funnel (opened → plan → details → checkout → bought) and the answers by main use and team size | `/onboarding` | `GET /v1/admin/onboarding/headsets` (`business_setup`), `GET /v1/admin/onboarding/business_funnel` |
+| Plans surfaces: views, clicks, dismissals and plan starts per placement, and by trigger reason | `/plans` | `GET /v1/admin/plans/surfaces` |
+| Feedback: web and app feedback, read only, by platform | `/feedback` | `GET /v1/admin/feedback` |
 | Mail previews | `/mails` | `GET /v1/admin/mail-previews` |
 | Refund policy (read-only) | `/policy` | `GET /v1/admin/policy` |
 
@@ -59,6 +75,12 @@ Behaviour the gateway expects:
   amounts and "The amount changed to $X.", and you confirm again.
   Approve and Partial send `expected_max_cents`, the maximum the sheet showed.
 - **409 `action_unavailable`**: the case reloads and the sheet says so.
+- **409 `case_closed`** on a note or decision: "Reopen the case to add
+  notes."
+- **Grants**: 502 `grant_failed` keeps the failed record in the list with
+  the gateway's message; 503 `rc_unavailable` says nothing was granted;
+  202 on a revoke says some grants will be retried tonight; 409
+  `grant_not_active` and `nothing_to_restore` say so.
 - **401 `invalid_token`**: retried once with a fresh token, then the session
   ends ("Your session ended. Sign in again.").
 - **403 `no_access` / `mfa_required`**: the no-access screen, or the
@@ -128,7 +150,8 @@ admin/
   src/
     main.tsx, App.tsx, styles.css
     lib/       api client, auth (interface + Firebase), csp, router, types, format, links
-    screens/   SignIn, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage, Disputes, MailPreviews, Policy
-    components/ui.tsx
+    screens/   SignIn, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage (+ Grants),
+               Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy
+    components/ ui.tsx, Brand, DisputesAlert (header badge and due banner)
     test/      fixtures, harness (fake fetch and fake auth)
 ```
