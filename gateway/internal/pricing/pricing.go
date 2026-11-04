@@ -207,6 +207,11 @@ type Rates struct {
 	// picture inside. Code default off; on for test, where Lifelike
 	// ignores the key until it ships it.
 	LifelikeSourceCropEnabled bool `firestore:"lifelike_source_crop_enabled"`
+	// LifelikeHDROutputEnabled: HDR output on Lifelike runs from HDR
+	// sources (hdr_output on /convert, an add-on included in every plan;
+	// owner 2026-11-05). Code default off on test and prod; while off it
+	// is hidden entirely (no quote line, no plan perk, hdr: true is 422).
+	LifelikeHDROutputEnabled bool `firestore:"lifelike_hdr_output_enabled"`
 	// GPUCapPerApp: GPUs each pipeline app may hold at once (the Modal
 	// coordinators enforce it; the GPU-line alert reports usage against
 	// it). 0/absent = 8.
@@ -691,6 +696,9 @@ type StepInputs struct {
 	CreditCents  int64
 	// Foveated (Lifelike only): priced × FoveationMultiplier.
 	Foveated bool
+	// HDR (Lifelike only): HDR output, +AddOnPct(hdr) unless the tier
+	// includes it (owner 2026-11-05).
+	HDR bool
 	// Pro: the customer holds SVS Pro (S3D-67): production runs get
 	// ProDiscount off before the bulk discount.
 	Pro bool
@@ -1209,6 +1217,20 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 	if in.Foveated {
 		mult = rates.FoveationMultiplier()
 	}
+	// HDR output (owner 2026-11-05): included with Pro, else its share on
+	// top like foveation (only reachable while the switch is on).
+	hdrIncluded := in.Pro || HDRIncluded(in.Tier)
+	hdrPct := 0.0
+	if in.HDR && !hdrIncluded {
+		hdrPct = rates.AddOnPct(AddOnHDR)
+	}
+	var hdrCents int64
+	hdrKeys := func(bd map[string]any) map[string]any {
+		if rates.LifelikeHDROutputEnabled {
+			bd["hdr"], bd["hdr_included"], bd["hdr_cents"] = in.HDR, hdrIncluded, hdrCents
+		}
+		return bd
+	}
 	if in.Step == StepLifelikePreview {
 		// S3D-13: what the same frames cost in the final at this quality —
 		// the per-minute price / 1,440 per frame, times the frames the
@@ -1223,12 +1245,13 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		perFrame := float64(perMin) / (60 * fpsBase)
 		base := int64(math.Round(frames * perFrame))
 		fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
-		cents := max(base+fov, rates.MinimumFor(in.Step))
+		hdrCents = int64(math.Round(float64(base) * hdrPct))
+		cents := max(base+fov+hdrCents, rates.MinimumFor(in.Step))
 		return &Quote{
 			AmountCents: cents,
 			Currency:    rates.Currency,
 			RateVersion: rates.RateVersion,
-			Breakdown: map[string]any{
+			Breakdown: hdrKeys(map[string]any{
 				"step":                 in.Step,
 				"method":               MethodLifelike,
 				"preset":               in.Preset,
@@ -1239,13 +1262,14 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 				"foveation_multiplier": mult,
 				"foveation_cents":      fov,
 				"pro":                  in.Pro, // previews get no Pro discount
-			},
+			}),
 		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
 	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS) * float64(perMin) * fpsF))
 	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
-	subtotal := base + fov
+	hdrCents = int64(math.Round(float64(base) * hdrPct))
+	subtotal := base + fov + hdrCents
 	proDiscount := rates.proDiscountCents(in, subtotal)
 	afterPro := subtotal - proDiscount
 	bulkDiscount := int64(0)
@@ -1260,7 +1284,7 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		AmountCents: total,
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
-		Breakdown: map[string]any{
+		Breakdown: hdrKeys(map[string]any{
 			"step":                 in.Step,
 			"method":               MethodLifelike,
 			"foveation_multiplier": mult,
@@ -1275,7 +1299,7 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			"pro_discount_cents":   proDiscount,
 			"discount_cents":       bulkDiscount,
 			"analyze_credit_cents": in.CreditCents,
-		},
+		}),
 	}, nil
 }
 

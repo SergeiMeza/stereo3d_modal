@@ -659,6 +659,14 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay
   (`pro_discount_cents` = the tier's saving, `discount_cents` = bulk).
+- **HDR output** (owner 2026-11-05): `hdr: true` (Lifelike, HDR sources)
+  is +30% of the base (test price; prod waits for the owner), included in
+  every subscription: Pro (web or App Store), Business and Studio. Quotes
+  carry `hdr`, `hdr_included` (and `hdr_cents` on the table without
+  tiers); `GET /v1/pricing` lists `addons.hdr {pct, included_in}` and
+  `hdr_included` on the plans and Pro plans. All of it is hidden while
+  `lifelike_hdr_output_enabled` is off (code default off on test and
+  prod).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express

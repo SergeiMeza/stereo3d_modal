@@ -2,6 +2,8 @@ package pricing
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -92,3 +94,71 @@ func TestTierPricing(t *testing.T) {
 }
 
 func with(in StepInputs, f func(*StepInputs)) StepInputs { f(&in); return in }
+
+// HDR output (owner 2026-11-05): +30% of the base for everyone without a
+// subscription, included in Pro, Business and Studio; hidden while
+// lifelike_hdr_output_enabled is off.
+func TestHDRAddOn(t *testing.T) {
+	ctx := context.Background()
+	on := DefaultsFor("test")
+	on.LifelikeHDROutputEnabled = true
+	quote := func(r *Rates, in StepInputs) *Quote {
+		q, err := NewStatic(r).QuoteLifelike(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return q
+	}
+	min1 := StepInputs{Step: "production", Preset: "4k", BillableS: 60, EffectiveFPS: 24, HDR: true}
+	for _, c := range []struct {
+		name     string
+		in       StepInputs
+		want     int64
+		included bool
+	}{
+		{"list", min1, 1300, false},
+		{"pro (web or App Store)", with(min1, func(i *StepInputs) { i.Tier = TierPro }), 850, true},
+		{"pro flag", with(min1, func(i *StepInputs) { i.Pro = true }), 850, true},
+		{"business", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 800, true},
+		{"studio", with(min1, func(i *StepInputs) { i.Tier = TierStudio }), 750, true},
+		{"list without hdr", with(min1, func(i *StepInputs) { i.HDR = false }), 1000, false},
+	} {
+		q := quote(on, c.in)
+		if q.AmountCents != c.want || q.Breakdown["hdr_included"] != c.included || q.Breakdown["hdr"] != c.in.HDR {
+			t.Errorf("%s: %d %v", c.name, q.AmountCents, q.Breakdown)
+		}
+	}
+	if q := quote(on, min1); q.Breakdown["addons"].(map[string]int64)[AddOnHDR] != 300 {
+		t.Errorf("hdr line %v", q.Breakdown["addons"])
+	}
+	off := DefaultsFor("test")
+	if q := quote(off, with(min1, func(i *StepInputs) { i.HDR = false })); q.Breakdown["hdr"] != nil || q.Breakdown["hdr_included"] != nil {
+		t.Errorf("hidden while off %v", q.Breakdown)
+	}
+	// prod's table (no tiers): +30% unless Pro, same keys while on
+	prodOn := DefaultsFor("prod")
+	prodOn.LifelikeHDROutputEnabled = true
+	if q := quote(prodOn, min1); q.Breakdown["subtotal_cents"] != int64(1105) || q.Breakdown["hdr_cents"] != int64(255) {
+		t.Errorf("prod list %d %v", q.AmountCents, q.Breakdown)
+	}
+	if q := quote(prodOn, with(min1, func(i *StepInputs) { i.Pro = true })); q.Breakdown["hdr_included"] != true || q.Breakdown["hdr_cents"] != int64(0) {
+		t.Errorf("prod pro %v", q.Breakdown)
+	}
+	// GET /v1/pricing lists it, and the plans' perk, only while on
+	pub := NewStatic(on).Public(ctx)
+	hdr, _ := pub["addons"].(map[string]any)[AddOnHDR].(map[string]any)
+	if hdr == nil || hdr["pct"] != 0.30 || len(hdr["included_in"].([]string)) != 3 {
+		t.Fatalf("public on %v", pub["addons"])
+	}
+	if p := pub["plans"].(map[string]any)[TierBusiness].(PlanDef); !p.HDRIncluded {
+		t.Fatal("business perk")
+	}
+	if pp := pub["pro_plans"].([]ProPlanDef); len(pp) == 0 || !pp[0].HDRIncluded {
+		t.Fatal("pro perk")
+	}
+	pub = NewStatic(off).Public(ctx)
+	raw, _ := json.Marshal(pub)
+	if _, ok := pub["addons"].(map[string]any)[AddOnHDR]; ok || strings.Contains(string(raw), "hdr") {
+		t.Fatalf("public off mentions hdr")
+	}
+}
