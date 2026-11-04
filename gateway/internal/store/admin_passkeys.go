@@ -32,7 +32,22 @@ type AdminPasskey struct {
 	// Credential: the library's whole credential record (flags, the
 	// attestation format) as JSON, for the next assertion's checks.
 	Credential string `firestore:"credential" json:"-"`
+	// DeviceHint: customers' passkeys (ADR 0136) name where it lives
+	// (the authenticator by AAGUID, else the browser and system).
+	DeviceHint string `firestore:"device_hint,omitempty" json:"device_hint,omitempty"`
 }
+
+// Passkey is the record both stores keep (admin: ADR 0135; customers:
+// ADR 0136, customer_passkeys_{env}).
+type Passkey = AdminPasskey
+
+// PasskeyKind picks a store: admin passkeys or customer passkeys.
+type PasskeyKind string
+
+const (
+	PasskeysAdmin    PasskeyKind = "admin"
+	PasskeysCustomer PasskeyKind = "customer"
+)
 
 // PasskeyChallenge is one pending ceremony.
 type PasskeyChallenge struct {
@@ -49,9 +64,15 @@ type PasskeyChallenge struct {
 // replayed assertion).
 var ErrSignCountMoved = errors.New("passkey sign count moved")
 
-func passkeyCol(s *Store) *firestore.CollectionRef { return s.fs.Collection("admin_passkeys_" + s.env) }
-func challengeCol(s *Store) *firestore.CollectionRef {
-	return s.fs.Collection("admin_passkey_challenges_" + s.env)
+func passkeyCol(s *Store) *firestore.CollectionRef { return s.kindCol(PasskeysAdmin) }
+func challengeCol(s *Store) *firestore.CollectionRef { return s.kindChallenges(PasskeysAdmin) }
+
+func (s *Store) kindCol(k PasskeyKind) *firestore.CollectionRef {
+	return s.fs.Collection(string(k) + "_passkeys_" + s.env)
+}
+
+func (s *Store) kindChallenges(k PasskeyKind) *firestore.CollectionRef {
+	return s.fs.Collection(string(k) + "_passkey_challenges_" + s.env)
 }
 func epochDoc(s *Store, uid string) *firestore.DocumentRef {
 	return s.fs.Collection("admin_session_epochs_" + s.env).Doc(uid)

@@ -75,38 +75,68 @@ type passkeyRP struct {
 // origin may not use passkeys).
 func (s *Service) passkeyRPFor(origin string) *passkeyRP {
 	s.pkOnce.Do(func() {
-		s.pkRPs = map[string]*passkeyRP{}
-		pairs := [][2]string{{"admin.stereo3d.studio", "https://admin.stereo3d.studio"}}
+		specs := []rpSpec{{id: "admin.stereo3d.studio", origins: []string{"https://admin.stereo3d.studio"}}}
 		if s.Cfg.Env != "prod" {
-			pairs = [][2]string{{"admin-test.stereo3d.studio", "https://admin-test.stereo3d.studio"}, {"localhost", "http://localhost:5174"}}
+			specs = []rpSpec{{id: "admin-test.stereo3d.studio", origins: []string{"https://admin-test.stereo3d.studio"}},
+				{id: "localhost", origins: []string{"http://localhost:5174"}}}
 		}
-		for _, p := range pairs {
-			allowed := false
-			for _, o := range s.Cfg.AdminOrigins {
-				allowed = allowed || o == p[1]
+		s.pkRPs = buildPasskeyRPs("Spatial Video Studio Admin", specs, func(o string) bool {
+			for _, a := range s.Cfg.AdminOrigins {
+				if a == o {
+					return true
+				}
 			}
-			if !allowed {
-				continue
-			}
-			wa, err := webauthn.New(&webauthn.Config{
-				RPID: p[0], RPDisplayName: "Spatial Video Studio Admin", RPOrigins: []string{p[1]},
-				AttestationPreference: protocol.PreferNoAttestation,
-				AuthenticatorSelection: protocol.AuthenticatorSelection{
-					ResidentKey: protocol.ResidentKeyRequirementPreferred, UserVerification: protocol.VerificationRequired,
-				},
-				Timeouts: webauthn.TimeoutsConfig{
-					Login:        webauthn.TimeoutConfig{Enforce: true, Timeout: passkeyTTL, TimeoutUVD: passkeyTTL},
-					Registration: webauthn.TimeoutConfig{Enforce: true, Timeout: passkeyTTL, TimeoutUVD: passkeyTTL},
-				},
-			})
-			if err != nil {
-				slog.Error("passkey relying party not configured", "rp_id", p[0], "err", err)
-				continue
-			}
-			s.pkRPs[p[1]] = &passkeyRP{id: p[0], origin: p[1], wa: wa}
-		}
+			return false
+		}, protocol.ResidentKeyRequirementPreferred)
 	})
 	return s.pkRPs[origin]
+}
+
+// rpSpec is one relying party ID and the origins that may use it.
+type rpSpec struct {
+	id      string
+	origins []string
+}
+
+// buildPasskeyRPs makes one WebAuthn relying party per spec (user
+// verification required, attestation none, 5-minute ceremonies) and maps
+// each allowed origin to it; every ceremony is then bound to its origin.
+func buildPasskeyRPs(name string, specs []rpSpec, allowed func(string) bool, resident protocol.ResidentKeyRequirement) map[string]*passkeyRP {
+	out := map[string]*passkeyRP{}
+	for _, sp := range specs {
+		var origins []string
+		for _, o := range sp.origins {
+			if allowed(o) {
+				origins = append(origins, o)
+			}
+		}
+		if len(origins) == 0 {
+			continue
+		}
+		requireRK := protocol.ResidentKeyNotRequired()
+		if resident == protocol.ResidentKeyRequirementRequired {
+			requireRK = protocol.ResidentKeyRequired()
+		}
+		wa, err := webauthn.New(&webauthn.Config{
+			RPID: sp.id, RPDisplayName: name, RPOrigins: origins,
+			AttestationPreference: protocol.PreferNoAttestation,
+			AuthenticatorSelection: protocol.AuthenticatorSelection{
+				ResidentKey: resident, RequireResidentKey: requireRK, UserVerification: protocol.VerificationRequired,
+			},
+			Timeouts: webauthn.TimeoutsConfig{
+				Login:        webauthn.TimeoutConfig{Enforce: true, Timeout: passkeyTTL, TimeoutUVD: passkeyTTL},
+				Registration: webauthn.TimeoutConfig{Enforce: true, Timeout: passkeyTTL, TimeoutUVD: passkeyTTL},
+			},
+		})
+		if err != nil {
+			slog.Error("passkey relying party not configured", "rp_id", sp.id, "err", err)
+			continue
+		}
+		for _, o := range origins {
+			out[o] = &passkeyRP{id: sp.id, origin: o, wa: wa}
+		}
+	}
+	return out
 }
 
 // adminWAUser is an admin as the WebAuthn library sees them: the user
