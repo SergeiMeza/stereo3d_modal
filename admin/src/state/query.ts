@@ -126,7 +126,7 @@ export type Query<P, T> = ReturnType<typeof createQuery<P, T>>;
 
 /**
  * Reads a query for params and loads it when the params change (and when
- * `enabled` turns on). Replaces the old useState-based useLoad.
+ * `enabled` turns on).
  */
 export function useQuery<P, T>(q: Query<P, T>, params: P, enabled = true) {
   const key = keyOf(params);

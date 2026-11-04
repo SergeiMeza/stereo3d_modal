@@ -53,12 +53,11 @@ const STATE_IN_ATOMS = [
   },
 ];
 
-/** Files allowed a React Context or a response in useState. Non-state
- * providers stay (the router); the rest is migration left to do. */
+/** Files allowed a React Context: non-state providers only (ADR 0138).
+ * src/components/ui/field.tsx (ids for a label and its control) is exempt
+ * in the ui block below. */
 const STATE_ALLOWLIST = [
   "src/lib/router.tsx", // the router's provider (allowed: router)
-  // migration in progress (ADR 0138): this list shrinks to the router
-  "src/lib/useLoad.ts",
 ];
 
 export default defineConfig([
