@@ -7,14 +7,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PricingScreen } from "@/components/pricing/PricingScreen";
-import { ProSaveLink } from "@/components/pricing/ProOffer";
-import { ProScreen } from "@/components/pro/ProScreen";
 import { planLines } from "@/components/pricing/PlansSection";
 import type { PlanDef } from "@/lib/api/types";
-import { proIncludesHdr, resetPricingCache } from "@/lib/api/usePricing";
+import { resetPricingCache } from "@/lib/api/usePricing";
 import { AuthProvider } from "@/lib/auth";
 import { videoFacts } from "@/lib/glossary";
-import { resetProForTests } from "@/lib/pro/usePro";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -28,7 +25,6 @@ vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 30 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/pricing",
-  useSearchParams: () => new URLSearchParams(),
 }));
 
 const PID = (projectFixture as { project_id: string }).project_id;
@@ -41,7 +37,6 @@ afterEach(() => {
   server.resetHandlers();
   mockDb.reset();
   resetPricingCache();
-  resetProForTests();
 });
 afterAll(() => server.close());
 
@@ -182,51 +177,5 @@ describe("HDR elsewhere", () => {
       />,
     );
     expect(screen.getByTestId("quote-hdr").textContent).toBe("Included");
-  });
-
-  it("Pro includes HDR only when the gateway says so", () => {
-    expect(proIncludesHdr(null)).toBe(false);
-    expect(proIncludesHdr({ addons: { hdr: { pct: 0.3, included_in: ["business", "studio"] } } } as never)).toBe(false);
-    expect(proIncludesHdr({ addons: { hdr: { pct: 0.3, included_in: ["pro", "business"] } } } as never)).toBe(true);
-    expect(proIncludesHdr({ pro_plans: [{ id: "pro_monthly", interval: "month", price_cents: 999, hdr_included: true }] } as never)).toBe(true);
-  });
-
-  it("the Pro page says HDR included only while it is on", async () => {
-    const page = () =>
-      render(
-        <AuthProvider>
-          <ProScreen />
-        </AuthProvider>,
-      );
-    const first = page();
-    await screen.findByTestId("pro-plans");
-    expect(screen.queryByTestId("pro-hdr")).toBeNull();
-    expect(document.body.textContent).not.toMatch(/HDR/);
-    first.unmount();
-    mockDb.hdrOutput = true;
-    resetPricingCache();
-    resetProForTests();
-    page();
-    expect((await screen.findByTestId("pro-hdr")).textContent).toBe("HDR included");
-  });
-
-  it("the Pro sheet says HDR included only while it is on", async () => {
-    const sheet = async () => {
-      const r = render(
-        <AuthProvider>
-          <ProSaveLink step="production" />
-        </AuthProvider>,
-      );
-      fireEvent.click(await screen.findByTestId("pro-save-link"));
-      return { r, el: await screen.findByTestId("pro-sheet") };
-    };
-    const off = await sheet();
-    expect(off.el.textContent).not.toMatch(/HDR/);
-    off.r.unmount();
-    mockDb.hdrOutput = true;
-    mockDb.tierPricing = true;
-    resetPricingCache();
-    const on = await sheet();
-    expect(within(on.el).getByTestId("pro-sheet-hdr").textContent).toBe("HDR included");
   });
 });

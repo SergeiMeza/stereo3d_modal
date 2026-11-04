@@ -1357,8 +1357,6 @@ export interface ProPlanDef {
   price_cents: number;
   /** an introductory price for the first `cycles` periods */
   intro?: { price_cents: number; cycles: number } | null;
-  /** owner 2026-11-05: HDR output included (sent only while it is on) */
-  hdr_included?: boolean;
 }
 
 /** An active Business or Studio plan (not Pro). */

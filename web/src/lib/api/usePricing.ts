@@ -53,15 +53,6 @@ export function fpsFactor(p: PublicPricing, fps: number): number {
   return Math.min(p.fps.max_factor, Math.max(p.fps.min_factor, fps / p.fps.base));
 }
 
-/** owner 2026-11-05: Pro includes HDR output; the gateway says so (the
- * add-on's included_in or a Pro plan's hdr_included) only while it is on. */
-export function proIncludesHdr(p: PublicPricing | null | undefined): boolean {
-  return (
-    p?.addons?.hdr?.included_in?.includes("pro") === true ||
-    p?.pro_plans?.some((plan) => plan.hdr_included === true) === true
-  );
-}
-
 /** "30 fps +25% · 60 fps ×2.5 (Business and Studio)" (S3D-15), from /v1/pricing's fps rule. */
 export function fpsRule(p: PublicPricing): string {
   const f30 = fpsFactor(p, 30);

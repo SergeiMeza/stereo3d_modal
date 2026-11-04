@@ -3780,7 +3780,7 @@ export const handlers = [
       pro_discount: { ...MOCK_PRO, pct: mockProPct() },
       ...(mockDb.tierPricing ? publicTiers() : {}),
       // gateway 00102: web Pro on our own Stripe subscriptions
-      pro_plans: mockDb.hdrOutput ? MOCK_PRO_PLANS.map((p) => ({ ...p, hdr_included: true })) : MOCK_PRO_PLANS,
+      pro_plans: MOCK_PRO_PLANS,
     }),
   ),
 

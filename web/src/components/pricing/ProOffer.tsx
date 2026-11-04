@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Step } from "@/lib/api/types";
-import { proIncludesHdr, usePricing } from "@/lib/api/usePricing";
+import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { useProOffer } from "@/lib/pro/usePro";
 
@@ -41,9 +41,7 @@ export function proSaveLine(pct: number): string {
 
 /** The quiet link under a non-member's price for `step`, with its sheet. */
 export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
-  const pricing = usePricing();
-  const pro = pricing?.pro_discount;
-  const hdr = proIncludesHdr(pricing);
+  const pro = usePricing()?.pro_discount;
   const [open, setOpen] = useState(false);
   // Business and Studio include Pro: their quotes carry the plan's line
   const plan = useBilling().status?.plan;
@@ -69,11 +67,6 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
             <DialogDescription>
               One membership for Spatial Video Studio on the web and in the apps.
             </DialogDescription>
-            {hdr ? (
-              <p data-testid="pro-sheet-hdr" className="text-sm text-fg-muted">
-                HDR included
-              </p>
-            ) : null}
             {open ? <ProPriceLine /> : null}
           </DialogHeader>
           <Button asChild size="lg" className="w-full">

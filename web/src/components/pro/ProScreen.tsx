@@ -20,7 +20,7 @@ import type { JSX } from "react";
 
 import { proPercent } from "@/components/pricing/ProOffer";
 import { ProPlans } from "@/components/pro/ProPlans";
-import { proIncludesHdr, usePricing } from "@/lib/api/usePricing";
+import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { isWebPro, useProStatus } from "@/lib/pro/usePro";
 import { ScheduledChange } from "@/components/billing/PlanChange";
@@ -38,16 +38,6 @@ function safeNext(raw: string | null): string | null {
 function usePct(): number {
   const share = usePricing()?.pro_discount?.pct ?? 0;
   return share > 0 ? proPercent(share) : 15;
-}
-
-/** owner 2026-11-05: "HDR included", only while the gateway sells HDR. */
-function ProHdrLine(): JSX.Element | null {
-  if (!proIncludesHdr(usePricing())) return null;
-  return (
-    <p data-testid="pro-hdr" className="text-sm text-fg-muted">
-      HDR included
-    </p>
-  );
 }
 
 /** "Pro is included in your Business plan" · Billing. */
@@ -94,7 +84,6 @@ export function ProScreen(): JSX.Element {
         <p className="text-fg-muted">
           Plus Pro in the app on iPhone, iPad, Mac and Vision Pro.
         </p>
-        <ProHdrLine />
       </header>
 
       {included !== null ? (

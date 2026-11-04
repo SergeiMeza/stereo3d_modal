@@ -19,7 +19,7 @@ import { SheetFrame } from "@/components/pay/SheetFrame";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Preset } from "@/lib/api/types";
-import { proIncludesHdr, usePricing } from "@/lib/api/usePricing";
+import { usePricing } from "@/lib/api/usePricing";
 import { qualityName } from "@/lib/glossary";
 import { introLine, planCadence, planName } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
@@ -159,12 +159,6 @@ export function PlansSheet({
       }
     >
       <div className="flex flex-col gap-3">
-        {/* owner 2026-11-05: only while the gateway sells HDR output */}
-        {proIncludesHdr(pricing) ? (
-          <p data-testid="plans-sheet-hdr" className="text-sm text-fg-muted">
-            HDR included
-          </p>
-        ) : null}
         <div
           role="radiogroup"
           aria-label="Pro plan"
