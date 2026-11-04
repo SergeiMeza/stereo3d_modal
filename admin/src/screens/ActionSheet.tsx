@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import { useMemo, useState } from "react";
 
 import { Banner, ExtLink, Modal, Note } from "@/components/common";
@@ -12,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { ApiError, errorMessage } from "../lib/api";
 import { centsToInput, money, parseDollars } from "../lib/format";
 import { useServices } from "../lib/services";
+import { mailPreviewsQuery } from "@/state/queries";
+import { dataOf } from "@/state/query";
 import type {
   CaseAction,
   CaseActionBody,
@@ -181,19 +184,19 @@ function stripeDisputeUrl(page: CasePage): string | null {
 export function ActionSheet({
   action,
   page,
-  previews,
   onClose,
   onDone,
   onReload,
 }: {
   action: CaseAction;
   page: CasePage;
-  previews: MailPreviewsResponse | null;
   onClose: () => void;
   onDone: (page: CasePage) => void;
   onReload: () => Promise<CasePage>;
 }) {
   const { api, withReauth } = useServices();
+  // the case page loads these; without them the sheet just shows no mail
+  const previews = dataOf(useAtomValue(mailPreviewsQuery.value(null))) ?? null;
   const c = page.case;
   const rs = runs(page);
   const max = page.max_refundable_cents;

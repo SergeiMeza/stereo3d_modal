@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Banner, EmptyRow, ErrorState, LoadingBlock, MiniTable, Note, Panel, PlainText, StateBox } from "@/components/common";
@@ -15,20 +15,17 @@ import { dateOnly, dateTime, money, until, words } from "../lib/format";
 import { statusLabel, statusTone, typeLabel, typeTone } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
-import type { CaseAction, CasePage as Page, MailPreviewsResponse } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import type { CaseAction, CasePage as Page } from "../lib/types";
+import { caseQuery, mailPreviewsQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 import { ActionSheet, approveItems, isBalanceCase, owedTotal } from "./ActionSheet";
 import { deliveredChip, EvidencePanel } from "./CaseEvidence";
 
 /** A2: one case. */
 export function CasePage({ id }: { id: string }) {
-  const { api } = useServices();
-  const { state, retry, reload, set } = useLoad(() => api.getCase(id), [api, id]);
-  const [previews, setPreviews] = useState<MailPreviewsResponse | null>(null);
-
-  useEffect(() => {
-    api.mailPreviews().then(setPreviews).catch(() => setPreviews(null));
-  }, [api]);
+  const { state, retry, reload, set } = useQuery(caseQuery, id);
+  // loaded ahead for the action sheet's mail preview; a failure only hides it
+  useQuery(mailPreviewsQuery, null);
 
   return (
     <>
@@ -41,7 +38,7 @@ export function CasePage({ id }: { id: string }) {
           <ErrorState title="Couldn't load the case." message={errorMessage(state.error)} onRetry={retry} />
         ))}
       {state.kind === "loaded" && (
-        <CaseBody page={state.data} previews={previews} onPage={set} onReload={reload} />
+        <CaseBody page={state.data} onPage={set} onReload={reload} />
       )}
     </>
   );
@@ -63,12 +60,10 @@ const LABELS: Partial<Record<CaseAction, string>> = {
 
 function CaseBody({
   page,
-  previews,
   onPage,
   onReload,
 }: {
   page: Page;
-  previews: MailPreviewsResponse | null;
   onPage: (p: Page) => void;
   onReload: () => Promise<Page>;
 }) {
@@ -427,7 +422,6 @@ function CaseBody({
         <ActionSheet
           action={sheet}
           page={page}
-          previews={previews}
           onClose={() => setSheet(null)}
           onDone={done}
           onReload={onReload}

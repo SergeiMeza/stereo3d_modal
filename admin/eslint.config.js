@@ -60,7 +60,6 @@ const STATE_ALLOWLIST = [
   // migration in progress (ADR 0138): this list shrinks to the router
   "src/lib/useLoad.ts",
   "src/screens/AccountPage.tsx",
-  "src/screens/CasePage.tsx",
   "src/screens/Security.tsx",
   "src/screens/SignIn.tsx",
 ];
