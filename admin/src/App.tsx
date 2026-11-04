@@ -115,7 +115,7 @@ function Shell() {
             aria-label="Account menu"
             className="inline-flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="grid size-7 place-items-center rounded-full bg-[#2a3550] text-xs font-semibold text-[#c9d7ff]" aria-hidden>
+            <span className="grid size-7 place-items-center rounded-full bg-info-bg text-xs font-semibold text-info-foreground" aria-hidden>
               {(email[0] ?? "A").toUpperCase()}
             </span>
             <ChevronDownIcon className="size-3.5 text-muted-foreground" aria-hidden />

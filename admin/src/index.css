@@ -8,24 +8,31 @@
 @custom-variant dark (&:is(.dark *));
 
 /**
- * Spatial Video Studio admin console: tokens.
+ * Spatial Video Studio admin console: tokens (BL-29 redesign B, "Night
+ * desk"): the web app's dark studio tokens (web/src/app/globals.css) are the
+ * console's default theme. Every colour is a variable here, so a change of
+ * look is a change of tokens. `.dark` is supported (Tailwind's `dark:`
+ * follows the class) and carries the same palette.
  *
- * Every colour the console uses is a CSS variable here, so a visual
- * direction is applied by changing tokens, not components. The console is
- * dark today: :root holds that palette. `.dark` is supported (Tailwind's
- * `dark:` variant follows the class) and repeats the same values until a
- * light theme exists; nothing turns it on.
+ * Attention colours: red = money or a deadline at risk (overdue), amber =
+ * due today, grey = later or informational. Each tone has a solid
+ * background and a text colour that pass WCAG AA on it, on the card and on
+ * the page (src/lib/contrast.test.ts checks).
+ *
+ * One deviation from the web tokens: filled buttons use #2f6fe6, since
+ * white on the web's #4f8cff is 3.2:1; #4f8cff stays the focus ring and
+ * accent, and links use #7aa7ff.
  */
 :root {
   color-scheme: dark;
   --background: #09090b;
   --foreground: #e7e7ea;
-  --foreground-2: #c4c4cc; /* secondary text in tables and notes */
+  --foreground-2: #c4c4cc;
   --card: #101013;
   --card-foreground: #e7e7ea;
-  --popover: #18181d;
+  --popover: #202027;
   --popover-foreground: #e7e7ea;
-  --primary: #4f8cff;
+  --primary: #2f6fe6;
   --primary-foreground: #ffffff;
   --secondary: #18181d;
   --secondary-foreground: #e7e7ea;
@@ -34,23 +41,32 @@
   --accent: #1e1e24;
   --accent-foreground: #e7e7ea;
   --border: #26262c;
+  --border-soft: #1c1c21;
   --input: #26262c;
   --ring: #4f8cff;
   --table-head: #0e0e11;
-  --link: #9dbcff;
-  /* status tones: the base colour, and its readable text on dark */
+  --link: #7aa7ff;
+  /* status tones: base colour (dots, bars), solid chip background, text */
   --info: #4f8cff;
-  --info-foreground: #93b8ff;
+  --info-bg: #14254a;
+  --info-foreground: #9cc0ff;
   --success: #34d399;
+  --success-bg: #0d2e22;
   --success-foreground: #6ee7b7;
   --warning: #fbbf24;
+  --warning-bg: #3a2a0a;
   --warning-foreground: #fcd34d;
   --destructive: #f87171;
+  --destructive-bg: #3b1414;
   --destructive-foreground: #fca5a5;
   --violet: #a78bfa;
+  --violet-bg: #251a45;
   --violet-foreground: #c4b5fd;
+  --neutral: #52525b; /* the grey "later" dot */
+  --neutral-bg: #1e1e24;
+  --neutral-foreground: #c4c4cc;
   /* charts */
-  --chart-1: #3a82ea; /* bars, won */
+  --chart-1: #4f8cff; /* bars, won */
   --chart-2: #e0622a; /* lost */
   --chart-3: #55555f; /* open */
   --chart-grid: #1f1f25;
@@ -59,28 +75,9 @@
   --font-code: ui-monospace, "SF Mono", "Geist Mono", Menlo, Consolas, monospace;
 }
 
+/* Same palette under the class (the console is dark by default). */
 .dark {
   color-scheme: dark;
-  --background: #09090b;
-  --foreground: #e7e7ea;
-  --foreground-2: #c4c4cc;
-  --card: #101013;
-  --card-foreground: #e7e7ea;
-  --popover: #18181d;
-  --popover-foreground: #e7e7ea;
-  --primary: #4f8cff;
-  --primary-foreground: #ffffff;
-  --secondary: #18181d;
-  --secondary-foreground: #e7e7ea;
-  --muted: #18181d;
-  --muted-foreground: #8b8b93;
-  --accent: #1e1e24;
-  --accent-foreground: #e7e7ea;
-  --border: #26262c;
-  --input: #26262c;
-  --ring: #4f8cff;
-  --table-head: #0e0e11;
-  --link: #9dbcff;
 }
 
 @theme inline {
@@ -103,6 +100,15 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-table-head: var(--table-head);
+  --color-border-soft: var(--border-soft);
+  --color-info-bg: var(--info-bg);
+  --color-success-bg: var(--success-bg);
+  --color-warning-bg: var(--warning-bg);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-violet-bg: var(--violet-bg);
+  --color-neutral: var(--neutral);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-foreground: var(--neutral-foreground);
   --color-link: var(--link);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);

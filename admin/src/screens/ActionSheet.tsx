@@ -157,7 +157,7 @@ function MailBox({ plan }: { plan: MailPlan }) {
   if (!plan.mail) return plan.note ? <Note>{plan.note}</Note> : null;
   return (
     <>
-      <details className="rounded-lg bg-[#101014] ring-1 ring-border ring-inset">
+      <details className="rounded-lg bg-background ring-1 ring-border ring-inset">
         <summary className="cursor-pointer px-3 py-2.5 text-[12.5px]">
           Mail {plan.mail.id} · {plan.mail.subject}
         </summary>
@@ -408,7 +408,7 @@ export function ActionSheet({
       )}
 
       {showsBreakdown && (
-        <table className="w-full border-collapse text-[12.5px] [&_td]:border-b [&_td]:border-[#1c1c21] [&_td]:pr-2 [&_td]:text-foreground-2 [&_th]:border-b [&_th]:border-border [&_th]:py-1.5 [&_th]:pr-2 [&_th]:text-2xs [&_th]:font-medium [&_th]:text-muted-foreground">
+        <table className="w-full border-collapse text-[12.5px] [&_td]:border-b [&_td]:border-border-soft [&_td]:pr-2 [&_td]:text-foreground-2 [&_th]:border-b [&_th]:border-border [&_th]:py-1.5 [&_th]:pr-2 [&_th]:text-2xs [&_th]:font-medium [&_th]:text-muted-foreground">
           <thead>
             <tr>
               <th className="text-left">Run</th>

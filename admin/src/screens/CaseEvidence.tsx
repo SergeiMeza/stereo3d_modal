@@ -37,7 +37,7 @@ const STEP_T = "inline-block min-w-24 font-mono text-xs text-muted-foreground";
 
 function stepCls(tone?: "ok" | "bad") {
   return cn(
-    "relative pl-3.5 text-sm text-foreground-2 before:absolute before:top-1.5 before:-left-[4.5px] before:size-2 before:rounded-full before:bg-[#3a3a44]",
+    "relative pl-3.5 text-sm text-foreground-2 before:absolute before:top-1.5 before:-left-[4.5px] before:size-2 before:rounded-full before:bg-neutral",
     tone === "ok" && "before:bg-success",
     tone === "bad" && "text-destructive-foreground before:bg-destructive",
   );

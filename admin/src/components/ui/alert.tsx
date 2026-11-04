@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 const alertVariants = cva("flex w-full items-center gap-3 rounded-lg border px-3.5 py-2.5 text-sm", {
   variants: {
     variant: {
-      blue: "border-info/30 bg-info/8 text-info-foreground",
-      amber: "border-warning/30 bg-warning/8 text-warning-foreground",
-      red: "border-destructive/35 bg-destructive/8 text-destructive-foreground",
+      blue: "border-info/30 bg-info-bg text-info-foreground",
+      amber: "border-warning/30 bg-warning-bg text-warning-foreground",
+      red: "border-destructive/35 bg-destructive-bg text-destructive-foreground",
     },
   },
   defaultVariants: { variant: "blue" },
