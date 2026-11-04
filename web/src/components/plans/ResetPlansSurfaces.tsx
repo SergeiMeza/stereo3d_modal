@@ -73,9 +73,14 @@ export function ResetPlansSurfaces(): JSX.Element | null {
         size="sm"
         variant="outline"
         onClick={() => {
+          // the placements and every per-project Business note key
+          const perProject = Object.keys(settings?.dismissed ?? {}).filter((k) =>
+            k.startsWith("business_note:"),
+          );
           update({
-            dismissed: Object.fromEntries(PLACEMENTS.map((p) => [p, null])),
+            dismissed: Object.fromEntries([...PLACEMENTS, ...perProject].map((p) => [p, null])),
           });
+          clearLocalProjectDismissals();
           try {
             window.sessionStorage.removeItem(SESSION_KEY);
           } catch {
