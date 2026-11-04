@@ -86,7 +86,7 @@ func (s *Service) accountKnown(ctx context.Context, uid string) bool {
 func (s *Service) HandleAdminGrantPro(w http.ResponseWriter, r *http.Request, a *AdminUser, uid string) {
 	ctx := r.Context()
 	if !a.FreshAuth() {
-		httpx.WriteErr(ctx, w, errReauth())
+		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
 	var req struct {
@@ -156,7 +156,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 func (s *Service) HandleAdminRevokeGrant(w http.ResponseWriter, r *http.Request, a *AdminUser, uid, id string) {
 	ctx := r.Context()
 	if !a.FreshAuth() {
-		httpx.WriteErr(ctx, w, errReauth())
+		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
 	var req struct {

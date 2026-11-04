@@ -24,7 +24,7 @@ func (s *Service) HandleAdminReconcile(w http.ResponseWriter, r *http.Request, a
 	}
 	req.SinceHours = min(req.SinceHours, 720)
 	if !req.DryRun && !a.FreshAuth() { // it can refund
-		httpx.WriteErr(ctx, w, errReauth())
+		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
 	s.audit(ctx, a, "reconcile", map[string]any{"since_hours": req.SinceHours, "dry_run": req.DryRun})

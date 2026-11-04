@@ -26,11 +26,36 @@ import (
 type AdminUser struct {
 	UID      string
 	Email    string
-	AuthTime time.Time
+	AuthTime time.Time // the Firebase token's auth_time
+	// Method: "passkey" when a valid X-Admin-Session came with the call
+	// (ADR 0135), else "totp" (the Identity Platform second factor).
+	// AssertedAt: the session's last passkey assertion.
+	Method     string
+	AssertedAt time.Time
+	Session    *AdminSession
 }
 
-// FreshAuth: signed in within the last 5 minutes (money actions).
-func (a *AdminUser) FreshAuth() bool { return time.Since(a.AuthTime) <= 5*time.Minute }
+// adminFresh is how recent the proof must be for money actions.
+const adminFresh = 5 * time.Minute
+
+// FreshAuth: money actions need a passkey assertion (or, on the TOTP
+// path, a sign-in) within the last 5 minutes.
+func (a *AdminUser) FreshAuth() bool {
+	if a.Method == "passkey" {
+		return time.Since(a.AssertedAt) <= adminFresh
+	}
+	return time.Since(a.AuthTime) <= adminFresh
+}
+
+// reauthErr is 401 reauth_required naming how to prove it again.
+func (a *AdminUser) reauthErr() error {
+	if a != nil && a.Method == "passkey" {
+		e := httpx.Err(http.StatusUnauthorized, "reauth_required", "confirm it's you again with your passkey")
+		e.Details = map[string]any{"method": "passkey"}
+		return e
+	}
+	return errReauth()
+}
 
 func (a *AdminUser) who() string {
 	if a.Email != "" {
@@ -413,7 +438,7 @@ func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if moneyActions[req.Action] && !a.FreshAuth() {
-		httpx.WriteErr(ctx, w, errReauth())
+		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
 	c, err := s.Store.GetCase(ctx, id)

@@ -117,8 +117,11 @@ func main() {
 		}
 	}
 	// Admin console routes (spec M1): its own origin only, the svs_admin
-	// claim, a second factor; money actions check auth_time inside.
-	admin := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+	// claim, a second factor: a passkey session (X-Admin-Session, ADR
+	// 0135) or the Identity Platform TOTP sign-in; money actions check
+	// freshness inside. adminToken (the passkey routes) needs the token
+	// alone: the passkey is what they set up or prove.
+	adminWith := func(secondFactor bool, h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
@@ -135,18 +138,48 @@ func main() {
 				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "no_access", "This account has no access."))
 				return
 			}
-			if !a.MFA {
-				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "mfa_required", "sign in with your second factor"))
+			au, ok, serr := svc.AdminUserFor(r, a.UID, a.Email, a.AuthTime, a.MFA)
+			if secondFactor && serr != nil {
+				e := httpx.Err(http.StatusUnauthorized, "session_invalid", "Your admin session ended. Confirm with your passkey again.")
+				e.Details = map[string]any{"method": "passkey"}
+				httpx.WriteErr(r.Context(), w, e)
+				return
+			}
+			if secondFactor && !ok {
+				e := httpx.Err(http.StatusForbidden, "mfa_required", "confirm with your passkey (or sign in with your second factor)")
+				e.Details = map[string]any{"methods": []string{"passkey", "totp"}}
+				httpx.WriteErr(r.Context(), w, e)
 				return
 			}
 			ctx, cancel := context.WithTimeout(r.Context(), 55*time.Second)
 			defer cancel()
-			h(w, r.WithContext(ctx), &api.AdminUser{UID: a.UID, Email: a.Email, AuthTime: a.AuthTime})
+			h(w, r.WithContext(ctx), au)
 		}
+	}
+	admin := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return adminWith(true, h)
+	}
+	adminToken := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return adminWith(false, h)
 	}
 	adminID := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser, string), key string) func(http.ResponseWriter, *http.Request, *api.AdminUser) {
 		return func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) { h(w, r, a, r.PathValue(key)) }
 	}
+	// Admin passkeys and sessions (ADR 0135).
+	mux.HandleFunc("POST /v1/admin/passkeys/register/options", adminToken(svc.HandlePasskeyRegisterOptions))
+	mux.HandleFunc("POST /v1/admin/passkeys/register/verify", adminToken(svc.HandlePasskeyRegisterVerify))
+	mux.HandleFunc("GET /v1/admin/passkeys", adminToken(svc.HandleAdminPasskeys))
+	mux.HandleFunc("DELETE /v1/admin/passkeys/{id}", adminToken(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidPasskeyID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("passkey"))
+			return
+		}
+		svc.HandleAdminDeletePasskey(w, r, a, id)
+	}))
+	mux.HandleFunc("POST /v1/admin/session/options", adminToken(svc.HandleAdminSessionOptions))
+	mux.HandleFunc("POST /v1/admin/session/verify", adminToken(svc.HandleAdminSessionVerify))
+	mux.HandleFunc("POST /v1/admin/session/reassert", adminToken(svc.HandleAdminSessionReassert))
 	mux.HandleFunc("GET /v1/admin/cases", admin(svc.HandleAdminCases))
 	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))

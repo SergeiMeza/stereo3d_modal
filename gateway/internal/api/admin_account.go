@@ -90,7 +90,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants") && !a.FreshAuth() {
-		httpx.WriteErr(ctx, w, errReauth())
+		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
 	if _, err := s.Store.GetCustomer(ctx, uid); err != nil {

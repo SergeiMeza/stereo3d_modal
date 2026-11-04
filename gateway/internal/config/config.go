@@ -46,6 +46,9 @@ type Config struct {
 
 	SlackWebhookURL string // optional; failure notifications
 	ReconcileToken  string // shared secret for /internal/reconcile
+	// AdminSessionKey signs admin passkey sessions (ADR 0135; Secret
+	// Manager admin-session-key-{env}); "" = passkey sessions off.
+	AdminSessionKey string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
 	// /v1/auth/* routes that sign browsers in on their behalf (identity
@@ -122,6 +125,7 @@ func Load() (*Config, error) {
 
 		SlackWebhookURL: getenv("SLACK_WEBHOOK_URL", ""),
 		ReconcileToken:  getenv("RECONCILE_TOKEN", ""),
+		AdminSessionKey: getenv("ADMIN_SESSION_KEY", ""),
 
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),

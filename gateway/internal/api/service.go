@@ -17,6 +17,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -74,6 +75,11 @@ type Service struct {
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
+
+	// pkRPs: the admin passkey relying parties by origin (ADR 0135),
+	// built once.
+	pkOnce sync.Once
+	pkRPs  map[string]*passkeyRP
 }
 
 // ---------------------------------------------------------------- submission
