@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import { ErrorState, SkeletonRows } from "../components/ui";
+import { ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows, StateBox } from "@/components/common";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { dateTime } from "../lib/format";
 import { useServices } from "../lib/services";
@@ -19,21 +20,35 @@ export function FeedbackPanel() {
   const { state, retry } = useLoad(() => api.feedback(days, platform), [api, days, platform]);
   return (
     <>
-      <div className="titlebar">
-        <h1>Feedback</h1>
-        <span className="muted small">From the web app and the apps · read only</span>
-        <span className="grow" />
-        <select className="fsel" aria-label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-          <option value="">Web and app</option>
-          <option value="web">Web</option>
-          <option value="app">App</option>
-        </select>
-        <select className="fsel" aria-label="Days" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-        </select>
-      </div>
+      <PageHeader
+        title="Feedback"
+        actions={
+          <>
+            <FilterSelect
+              label="Platform"
+              allLabel="Web and app"
+              value={platform}
+              onChange={setPlatform}
+              options={[
+                { value: "web", label: "Web" },
+                { value: "app", label: "App" },
+              ]}
+            />
+            <FilterSelect
+              label="Days"
+              value={String(days)}
+              onChange={(v) => setDays(Number(v))}
+              options={[
+                { value: "7", label: "Last 7 days" },
+                { value: "30", label: "Last 30 days" },
+                { value: "90", label: "Last 90 days" },
+              ]}
+            />
+          </>
+        }
+      >
+        <span className="text-sm text-muted-foreground">From the web app and the apps · read only</span>
+      </PageHeader>
       {state.kind === "loading" && <SkeletonRows rows={6} cols={4} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load the feedback." message={errorMessage(state.error)} onRetry={retry} />
@@ -44,45 +59,43 @@ export function FeedbackPanel() {
 }
 
 function List({ items }: { items: FeedbackItem[] }) {
-  if (items.length === 0) return <p className="muted pad">No feedback in this window.</p>;
+  if (items.length === 0) return <StateBox title="No feedback in this window." />;
   return (
-    <section className="card">
-      <div className="scroll-x">
-        <table className="at" data-testid="feedback-list">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>From</th>
-              <th>Kind</th>
-              <th>Message</th>
-              <th>Contact</th>
-              <th>Page</th>
-            </tr>
-          </thead>
-          <tbody>
+    <Panel>
+        <Table data-testid="feedback-list">
+          <TableHeader>
+            <TableRow>
+              <TableHead>When</TableHead>
+              <TableHead>From</TableHead>
+              <TableHead>Kind</TableHead>
+              <TableHead>Message</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Page</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((f) => (
-              <tr key={f.id}>
-                <td className="xs">{dateTime(f.created_at)}</td>
-                <td>
+              <TableRow key={f.id}>
+                <TableCell className="text-xs">{dateTime(f.created_at)}</TableCell>
+                <TableCell>
                   {PLATFORMS[f.platform] ?? f.platform}
-                  {f.app_version ? <span className="xs muted"> {f.app_version}</span> : null}
-                </td>
-                <td>{KINDS[f.kind] ?? f.kind}</td>
-                <td style={{ whiteSpace: "pre-wrap", maxWidth: 480 }}>{f.message}</td>
-                <td className="xs">
+                  {f.app_version ? <span className="text-xs text-muted-foreground"> {f.app_version}</span> : null}
+                </TableCell>
+                <TableCell>{KINDS[f.kind] ?? f.kind}</TableCell>
+                <TableCell className="max-w-120 min-w-60 whitespace-pre-wrap [overflow-wrap:anywhere]">{f.message}</TableCell>
+                <TableCell className="text-xs">
                   {f.email ?? "—"}
-                  {f.email ? <span className="muted">{f.ok_to_contact ? " · OK to contact" : " · no contact"}</span> : null}
-                </td>
-                <td className="xs muted">
+                  {f.email ? <span className="text-muted-foreground">{f.ok_to_contact ? " · OK to contact" : " · no contact"}</span> : null}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
                   {[f.context?.route, f.context?.project_id && `project ${f.context.project_id}`, f.context?.run_id && `run ${f.context.run_id}`]
                     .filter(Boolean)
                     .join(" · ") || "—"}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </TableBody>
+        </Table>
+    </Panel>
   );
 }
