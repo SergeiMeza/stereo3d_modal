@@ -55,7 +55,6 @@ const STATE_IN_ATOMS = [
  * moves to atoms. Never add one. */
 const STATE_ALLOWLIST = [
   "src/components/auth/Passkeys.tsx",
-  "src/screens/ProjectsScreen.tsx",
 ];
 
 const eslintConfig = defineConfig([

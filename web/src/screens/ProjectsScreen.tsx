@@ -28,6 +28,13 @@ import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
 import { GatewayError } from "@/lib/api/client";
 import type { Project, UpdateProjectRequest } from "@/lib/api/types";
+import { billingUidAtom } from "@/lib/billing";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
+import {
+  loadProjectsAtom,
+  projectActionErrorAtom,
+  projectListAtom,
+} from "@/components/projects/projectsAtoms";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
@@ -38,11 +45,17 @@ const byNewest = (a: Project, b: Project) =>
 
 export default function ProjectsScreen() {
   const gateway = useGateway();
-  const [projects, setProjects] = useState<Project[] | null>(null);
-  const [archived, setArchived] = useState<Project[] | null>(null);
+  // ADR 0138: the list lives in app-store atoms (projectsAtoms)
+  const list = useAppAtomValue(projectListAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const mine = list.uid === uid;
+  const projects = mine ? list.projects : null;
+  const archived = mine ? list.archived : null;
+  const loadError = mine ? list.loadError : null;
+  const actionError = mine ? list.actionError : null;
+  const loadList = useAppSetAtom(loadProjectsAtom);
+  const setActionError = useAppSetAtom(projectActionErrorAtom);
   const [showArchived, setShowArchived] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   // onboarding (owner 2026-11-04): the welcome once per new account, then
   // the getting-started list; "Pick now" reopens the welcome
   const { settings } = useAccountSettings();
@@ -50,35 +63,17 @@ export default function ProjectsScreen() {
   const [welcomeClosed, setWelcomeClosed] = useState(false);
 
   const load = useCallback(() => {
-    gateway.listProjects().then(
-      (res) => {
-        setProjects(res.projects);
-        setLoadError(null);
-      },
-      (e: unknown) => {
-        setLoadError(
-          e instanceof GatewayError ? e.message : "Failed to load projects.",
-        );
-      },
-    );
-  }, [gateway]);
+    void loadList({ client: gateway });
+  }, [gateway, loadList]);
 
   const loadArchived = useCallback(() => {
-    gateway.listProjects(true).then(
-      (res) => setArchived(res.projects),
-      (e: unknown) => {
-        setActionError(
-          e instanceof GatewayError
-            ? e.message
-            : "Failed to load archived projects.",
-        );
-      },
-    );
-  }, [gateway]);
+    void loadList({ client: gateway, archived: true });
+  }, [gateway, loadList]);
 
+  // and again when the account changes
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, uid]);
 
   useEffect(() => {
     if (showArchived) loadArchived();
@@ -113,7 +108,7 @@ export default function ProjectsScreen() {
       load();
       if (showArchived) loadArchived();
     },
-    [gateway, load, loadArchived, showArchived],
+    [gateway, load, loadArchived, showArchived, setActionError],
   );
 
   // owner 2026-11-04: archive first, then delete (Archived view only); the
@@ -135,7 +130,7 @@ export default function ProjectsScreen() {
       load();
       if (showArchived) loadArchived();
     },
-    [gateway, load, loadArchived, showArchived],
+    [gateway, load, loadArchived, showArchived, setActionError],
   );
 
   const grid = (list: Project[]) => (
