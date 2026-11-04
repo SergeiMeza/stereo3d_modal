@@ -683,3 +683,20 @@ export interface RunLookup {
   kind?: string | null;
   method?: string | null;
 }
+
+/** GET /v1/admin/grants (BL-29, gateway rev 00114): every admin grant
+ * (Grant Pro), active first, then newest; kind is the entitlement. */
+export interface AdminGrant {
+  id: string;
+  uid: string;
+  email?: string | null;
+  kind: string;
+  granted_by: string;
+  start: string;
+  end: string;
+  status: GrantStatus | string;
+  reason: string;
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  revoke_reason?: string | null;
+}

@@ -24,6 +24,7 @@ import type {
   RevokeResult,
   OpenCaseBody,
   AccountHit,
+  AdminGrant,
   RunLookup,
   PasskeyAdoption,
   PolicyResponse,
@@ -341,6 +342,12 @@ export class AdminApi {
       if (e instanceof ApiError && e.status === 404) return null;
       throw e;
     }
+  }
+
+  /** Every admin grant, active first (gateway rev 00114). */
+  async allGrants(): Promise<AdminGrant[]> {
+    const r = await this.json<{ grants: AdminGrant[] | null }>("GET", "/v1/admin/grants");
+    return r.grants ?? [];
   }
 
   /** Customer passkey adoption (gateway rev 00113). */

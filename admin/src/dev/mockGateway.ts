@@ -43,6 +43,12 @@ const ROUTES: Record<string, (path: string) => unknown> = {
   "GET /v1/admin/runs/c_7Hk2Qm": () => ({
     run: { id: "c_7Hk2Qm", uid: "uid_123", project_id: "p1", status: "SUCCEEDED", created_at: "2026-11-03T21:40:00Z", amount_cents: 4972, currency: "usd", kind: "lifelike", method: "card" },
   }),
+  "GET /v1/admin/grants": () => ({
+    grants: [
+      { id: "gr_1", uid: "uid_123", email: "jane@example.com", kind: "pro", granted_by: "owner@example.com", start: "2026-11-04T10:00:00Z", end: "2026-12-04T10:00:00Z", status: "active", reason: "creator partnership" },
+      { id: "gr_0", uid: "uid_456", email: "app.user@example.com", kind: "business", granted_by: "owner@example.com", start: "2026-09-01T00:00:00Z", end: "2026-10-01T00:00:00Z", status: "expired", reason: "conference speaker" },
+    ],
+  }),
   "GET /v1/admin/accounts": () => ({ accounts: [{ uid: "uid_123", email: "jane@example.com", created_at: "2026-07-12T00:00:00Z", plan: "business" }] }),
   "GET /v1/admin/cases": () => casesResponse,
   "GET /v1/admin/cases/CASE-0042": () => casePage(),

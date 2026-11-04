@@ -25,7 +25,7 @@ import type { AccountPage as AccountPageData, Grant, GrantBody, GrantStatus, Pro
  * list as failed with the gateway's message.
  */
 
-const STATUS: Record<GrantStatus, { label: string; tone: Tone }> = {
+export const GRANT_STATUS: Record<GrantStatus, { label: string; tone: Tone }> = {
   active: { label: "Active", tone: "green" },
   granting: { label: "Granting", tone: "blue" },
   expired: { label: "Expired", tone: "muted" },
@@ -40,7 +40,7 @@ const ENTITLEMENTS: { id: GrantBody["entitlement"]; label: string }[] = [
 ];
 
 /** "pro" → "Pro", "some_state" → "Some state". */
-function label(v: string): string {
+export function label(v: string): string {
   const w = words(v);
   return w.charAt(0).toUpperCase() + w.slice(1);
 }
@@ -112,7 +112,7 @@ export function GrantsSection({
           </TableHeader>
           <TableBody>
             {grants.map((g) => {
-              const st = STATUS[g.status] ?? { label: label(g.status), tone: "plain" as Tone };
+              const st = GRANT_STATUS[g.status] ?? { label: label(g.status), tone: "plain" as Tone };
               return (
                 <TableRow key={g.id} data-testid={`grant-${g.id}`}>
                   <TableCell>{label(g.entitlement)}</TableCell>
