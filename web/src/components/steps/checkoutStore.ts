@@ -17,6 +17,7 @@
  */
 
 import { atom, getDefaultStore, type PrimitiveAtom } from "jotai";
+import { atomFamily } from "jotai-family";
 
 import type {
   Conversion,
@@ -43,7 +44,28 @@ export interface StepCheckoutState {
   /** the last quote received, kept while a change re-prices (its plan
    * tier and split offer stay steady instead of flickering) */
   previous?: StepQuoteResponse | null;
+  /** ADR 0138: the request the panel shows now (JSON); a quote counts as
+   * the price only when it answers this one */
+  wantKey?: string;
+  /** the request being priced now (JSON) */
+  pendingKey?: string | null;
+  /** why the last quote failed (timeout included); cleared by the next */
+  quoteError?: string | null;
+  /** latest-wins counter: an answer whose number isn't current is dropped */
+  seq?: number;
+  /** why the last Make 3D (convert) failed */
+  error?: string | null;
+  /** a 402 the convert hit (no method, overdue, declined) */
+  billingBlock?: BillingBlock | null;
+  /** a run waiting for its payment: the pay sheet is open (P1/P3) */
+  payNow?: Conversion | null;
 }
+
+/** 402 gate codes the panels route on (lib/api/types.ts APIErrorBody). */
+export type BillingBlock =
+  | "no_payment_method"
+  | "billing_overdue"
+  | "card_declined";
 
 export const EMPTY_CHECKOUT: StepCheckoutState = {
   quote: null,
@@ -52,7 +74,11 @@ export const EMPTY_CHECKOUT: StepCheckoutState = {
   settled: false,
 };
 
-const atoms = new Map<string, PrimitiveAtom<StepCheckoutState>>();
+/** ADR 0138: one checkout atom per "project/method/step". */
+const checkoutFamily = atomFamily((key: string) => {
+  void key;
+  return atom<StepCheckoutState>(EMPTY_CHECKOUT);
+});
 
 /** The surviving checkout state for one (project, step) panel. Both
  * methods have a production page, so it is keyed by method too — a
@@ -66,18 +92,13 @@ export function stepCheckoutAtom(
     method === "classic"
       ? `${projectId}/${step}`
       : `${projectId}/${method}/${step}`;
-  let a = atoms.get(key);
-  if (a === undefined) {
-    a = atom<StepCheckoutState>(EMPTY_CHECKOUT);
-    atoms.set(key, a);
-  }
-  return a;
+  return checkoutFamily(key);
 }
 
 /** Test hook (vitest.setup.ts afterEach): forget every panel's state. The
  * old atoms become unreachable, so their default-store values go with them. */
 export function resetStepCheckoutState(): void {
-  atoms.clear();
+  for (const k of [...checkoutFamily.getParams()]) checkoutFamily.remove(k);
 }
 
 /** Bumped whenever prices change for this account (Pro bought or ended):
@@ -91,10 +112,19 @@ export function clearStepQuotes(): void {
   const store = getDefaultStore();
   // the quality and edge tiles price again too (their own quotes)
   store.set(priceEpochAtom, (n) => n + 1);
-  for (const a of atoms.values()) {
+  for (const k of checkoutFamily.getParams()) {
+    const a = checkoutFamily(k);
     const s = store.get(a);
-    if (s.quote !== null || s.attemptKey !== null) {
-      store.set(a, { ...s, quote: null, previous: s.quote ?? s.previous ?? null, attemptKey: null });
+    if (s.quote !== null || s.attemptKey !== null || s.pendingKey) {
+      // an answer still on its way was priced before the change: dropped
+      store.set(a, {
+        ...s,
+        quote: null,
+        previous: s.quote ?? s.previous ?? null,
+        attemptKey: null,
+        pendingKey: null,
+        seq: (s.seq ?? 0) + 1,
+      });
     }
   }
 }

@@ -13,6 +13,9 @@ import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
+import { fpsPickAtom } from "@/components/steps/frameRate";
+import { resetMake3dForTests } from "@/components/steps/make3dAtoms";
+import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import {
@@ -33,6 +36,10 @@ afterEach(() => {
   // The per-(project, step) checkout state is likewise module-scoped and
   // would leak an in-flight tracker into the next test.
   resetStepCheckoutState();
+  // ADR 0138: the Make 3D picks, the cached side prices and the rate picks
+  resetMake3dForTests();
+  resetPricesForTests();
+  for (const k of [...fpsPickAtom.getParams()]) fpsPickAtom.remove(k);
   resetLimitsCache();
   resetPricingCache();
 });

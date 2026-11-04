@@ -7,8 +7,7 @@
  * section card. Native inputs underneath (tests and screen readers).
  */
 
-import { useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import type {
@@ -20,13 +19,12 @@ import type {
   StepConversionRequest,
   Thumb,
 } from "@/lib/api/types";
-import { useGateway } from "@/lib/api/useGateway";
 import { formatBytes, formatClock } from "@/lib/format";
 import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
 import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
 import { questSbsFormat, type Client } from "@/lib/headset";
 
-import { priceEpochAtom } from "./checkoutStore";
+import { centsOf, useVariantQuotes } from "./priceAtoms";
 import { HIGHEST_QUALITY_TAG } from "./methods";
 import { formatCents } from "./money";
 
@@ -252,45 +250,13 @@ export function usePresetPrices(
   /** fields one quality needs (S3D-65: original_eye at 5K-8K) */
   perPreset?: Partial<Record<Preset, Partial<StepConversionRequest>>>,
 ): Partial<Record<Preset, number>> {
-  const gateway = useGateway();
-  const [prices, setPrices] = useState<{
-    key: string;
-    cents: Partial<Record<Preset, number>>;
-  }>({ key: "", cents: {} });
   const { preset: _ignored, ...rest } = base;
   void _ignored;
-  // S3D-67/68: a Pro change re-prices the tiles
-  const epoch = useAtomValue(priceEpochAtom);
-  const key = JSON.stringify({ rest, presets, method, perPreset, epoch });
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(() => {
-      for (const p of presets) {
-        gateway
-          .quoteStep(project.project_id, { ...rest, ...perPreset?.[p], preset: p, method })
-          .then(
-            (q) => {
-              if (cancelled) return;
-              setPrices((prev) => ({
-                key,
-                cents: {
-                  ...(prev.key === key ? prev.cents : {}),
-                  [p]: q.quote.amount_cents,
-                },
-              }));
-            },
-            () => {},
-          );
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-    // key carries the request, presets and method
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, project.project_id, key]);
-  return prices.key === key ? prices.cents : {};
+  // ADR 0138: one cached quote per quality (priceAtoms), deduped
+  const variants = Object.fromEntries(
+    presets.map((p) => [p, { ...rest, ...perPreset?.[p], preset: p, method }]),
+  ) as Record<string, StepConversionRequest>;
+  return centsOf(useVariantQuotes(project.project_id, variants)) as Partial<Record<Preset, number>>;
 }
 
 /** This video's price for a few variants of one request (e.g. the edge
@@ -300,42 +266,17 @@ export function useVariantPrices(
   base: StepConversionRequest,
   variants: Record<string, Partial<StepConversionRequest>>,
 ): Record<string, number> {
-  const gateway = useGateway();
-  const [prices, setPrices] = useState<{ key: string; cents: Record<string, number> }>({
-    key: "",
-    cents: {},
-  });
-  const epoch = useAtomValue(priceEpochAtom);
-  const key = JSON.stringify({ base, variants, epoch });
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(() => {
-      for (const [name, over] of Object.entries(variants)) {
-        const req = { ...base, ...over };
-        // a variant drops fields it sets to undefined
-        for (const k of Object.keys(over) as (keyof StepConversionRequest)[]) {
-          if (over[k] === undefined) delete req[k];
-        }
-        gateway.quoteStep(project.project_id, req).then(
-          (q) => {
-            if (cancelled) return;
-            setPrices((prev) => ({
-              key,
-              cents: { ...(prev.key === key ? prev.cents : {}), [name]: q.quote.amount_cents },
-            }));
-          },
-          () => {},
-        );
+  const reqs = Object.fromEntries(
+    Object.entries(variants).map(([name, over]) => {
+      const req = { ...base, ...over };
+      // a variant drops fields it sets to undefined
+      for (const k of Object.keys(over) as (keyof StepConversionRequest)[]) {
+        if (over[k] === undefined) delete req[k];
       }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-    // key carries the base request and the variants
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, project.project_id, key]);
-  return prices.key === key ? prices.cents : {};
+      return [name, req];
+    }),
+  );
+  return centsOf(useVariantQuotes(project.project_id, reqs));
 }
 
 export function QualityTiles({

@@ -17,9 +17,7 @@ import type { JSX } from "react";
 
 import {
   conversionMethod,
-  type Bitrate,
   type Format,
-  type Preset,
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
@@ -57,9 +55,9 @@ import {
   ProCheckoutSheet,
   QuoteProChoice,
   useQuoteProChoice,
-  type PayMode,
 } from "@/components/plans/QuotePlans";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
+import { useMake3dChoice } from "./make3dAtoms";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 
@@ -148,24 +146,26 @@ export function LifelikeDeliverPanel({
   const ck = useStepCheckout(project, "production", onProjectChanged);
   const limits = useLimits();
   const choices = qualityChoices(project);
-  const [chosenPreset, setPreset] = useState<Preset | null>(null);
+  // ADR 0138: the picks live in one atom per project (make3dAtoms)
+  const pid = project.project_id;
+  const [chosenPreset, setPreset] = useMake3dChoice(pid, "preset");
   const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
   // S3D-47: in a headset browser, that headset comes preselected
   const client = useClient();
   // onboarding (owner 2026-11-04): otherwise the headsets the person
   // named in the welcome, until they change the pick here
   const headsets = useAccountSettings().settings?.headsets;
-  const [devicesChoice, setDevices] = useState<Device[] | null>(() => {
-    const d = deviceForClient(client);
-    return d ? [d] : null;
-  });
+  const [devicesChoice, setDevices] = useMake3dChoice(pid, "devices");
+  const inUse = deviceForClient(client);
   const devices: Device[] =
     devicesChoice ??
-    ((headsets ?? []).filter((h): h is Device => DEVICES.some((d) => d.id === h)));
+    (inUse
+      ? [inUse]
+      : (headsets ?? []).filter((h): h is Device => DEVICES.some((d) => d.id === h)));
   // the devices preselect the files for the chosen quality (Meta Quest:
   // full side by side up to 3K, half above; owner 2026-11-04) until the
   // person ticks or unticks a file themselves
-  const [formatsChoice, setFormats] = useState<Format[] | null>(null);
+  const [formatsChoice, setFormats] = useMake3dChoice(pid, "formats");
   const formats: Format[] =
     formatsChoice ??
     (devices.length > 0
@@ -173,26 +173,26 @@ export function LifelikeDeliverPanel({
       : DEFAULT_MAKE_FORMATS);
   // S3D-06: preselected; only asked (and only sent) when the quote says the
   // output runs past 15 minutes
-  const [split, setSplit] = useState(true);
+  const [split, setSplit] = useMake3dChoice(pid, "split");
   const numFrames = project.probe?.num_frames ?? 0;
-  const [trim, setTrim] = useState<[number, number] | null>(null);
+  const [trim, setTrim] = useMake3dChoice(pid, "trim");
   const range: [number, number] = trim ?? [0, numFrames];
   // S3D-48: under Advanced up to 4K, unticked; Left when ticked
-  const [optionalEye, setOptionalEye] = useState<"left" | "right" | null>(null);
+  const [optionalEye, setOptionalEye] = useMake3dChoice(pid, "optionalEye");
   // S3D-65: 5K, 6K and 8K keep one eye original — ticked and locked there,
   // Left by default; up to 4K it stays optional and unticked
-  const [requiredEye, setRequiredEye] = useState<"left" | "right">("left");
+  const [requiredEye, setRequiredEye] = useMake3dChoice(pid, "requiredEye");
   // S3D-50: Foveated Detail, ticked by default whenever it's shown
-  const [foveated, setFoveated] = useState(true);
+  const [foveated, setFoveated] = useMake3dChoice(pid, "foveated");
   // S3D-56: under a collapsed Advanced; no price change
-  const [bitrate, setBitrate] = useState<Bitrate>("auto");
+  const [bitrate, setBitrate] = useMake3dChoice(pid, "bitrate");
   // pricing 2026-11 add-ons: Master bitrate (+20%) and Express (+50%,
   // included in Business and Studio, where it starts ticked)
   const addons = usePricing()?.addons;
-  const [master, setMaster] = useState(false);
-  const [expressChoice, setExpress] = useState<boolean | null>(null);
+  const [master, setMaster] = useMake3dChoice(pid, "master");
+  const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
   // plans canvas, Quote A: pay once (always first) or with Pro
-  const [payMode, setPayMode] = useState<PayMode>("once");
+  const [payMode, setPayMode] = useMake3dChoice(pid, "payMode");
   const [proSheet, setProSheet] = useState(false);
   const proChoice = useQuoteProChoice(ck.quote);
   const withPro = payMode === "pro" && proChoice !== null;

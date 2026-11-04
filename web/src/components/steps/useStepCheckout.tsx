@@ -27,9 +27,9 @@
  * in-progress tracker survives refreshes too.
  */
 
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom, type PrimitiveAtom } from "jotai";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { PayToContinue, supportMailto } from "@/components/billing/BillingBanner";
@@ -68,7 +68,8 @@ import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
 
-import { stepCheckoutAtom } from "./checkoutStore";
+import { stepCheckoutAtom, type BillingBlock, type StepCheckoutState } from "./checkoutStore";
+import { invalidateQuoteAtom, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
@@ -89,11 +90,7 @@ function messageOf(e: unknown): string {
   return e instanceof Error ? e.message : "request failed";
 }
 
-/** 402 gate codes the panels route on (lib/api/types.ts APIErrorBody). */
-export type BillingBlock =
-  | "no_payment_method"
-  | "billing_overdue"
-  | "card_declined";
+export type { BillingBlock } from "./checkoutStore";
 
 function billingBlockOf(e: unknown): BillingBlock | null {
   if (e instanceof GatewayError) {
@@ -109,12 +106,11 @@ function billingBlockOf(e: unknown): BillingBlock | null {
   return null;
 }
 
-/** staging 2026-11-05: a quote that hasn't answered by now is an error
- * with Retry, never "Pricing…" forever. */
-export const QUOTE_TIMEOUT_MS = 10_000;
-export const QUOTE_TIMED_OUT = "Pricing is taking longer than usual.";
+export { QUOTE_TIMED_OUT, QUOTE_TIMEOUT_MS } from "./quoteAtoms";
 
 export interface StepCheckout {
+  /** ADR 0138: the checkout atom every reader of this panel shares */
+  scope: PrimitiveAtom<StepCheckoutState>;
   quote: StepQuoteResponse | null;
   /** the request `quote` answers (JSON); undefined when not known */
   quoteKey?: string;
@@ -166,16 +162,22 @@ export function useStepCheckout(
   const [state, setState] = useAtom(
     stepCheckoutAtom(project.project_id, step, method),
   );
-  const { quote, attemptKey, active, settled } = state;
-  // Transient request feedback — a remount clearing these is fine.
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
-  const quoting = pendingKey !== null;
-  // staging 2026-11-05: only the latest quote request counts; an older
-  // answer landing last never overwrites a newer one
-  const quoteSeq = useRef(0);
-  const [error, setError] = useState<string | null>(null);
-  const [billingBlock, setBillingBlock] = useState<BillingBlock | null>(null);
-  const [payNow, setPayNow] = useState<Conversion | null>(null);
+  const { attemptKey, active, settled } = state;
+  // ADR 0138: the price, its request and errors live in the checkout atom
+  // (quoteAtoms writes them), so every reader agrees
+  const view = quoteView(state);
+  const quote = view.quote;
+  const quoting = view.quoting;
+  const pendingKey = state.pendingKey ?? null;
+  const error = state.error ?? view.error;
+  const billingBlock = state.billingBlock ?? null;
+  const payNow = state.payNow ?? null;
+  const setError = (e: string | null): void => setState((s) => ({ ...s, error: e }));
+  const setBillingBlock = (b: BillingBlock | null): void => setState((s) => ({ ...s, billingBlock: b }));
+  const setPayNow = (c: Conversion | null): void => setState((s) => ({ ...s, payNow: c }));
+  const requestQuote = useSetAtom(requestQuoteAtom);
+  const invalidateQuote = useSetAtom(invalidateQuoteAtom);
+  const scope = stepCheckoutAtom(project.project_id, step, method);
   // Idempotency-Key, stable per attempt: minted lazily on the first Convert
   // click and reused on retries so a double-submit can't double-charge. The
   // ref mirrors the stored key for SYNCHRONOUS dedup (two clicks in the same
@@ -208,59 +210,25 @@ export function useStepCheckout(
     }
   }, [active, conversions, method, step, setState]);
 
-  // Stable (setState from useAtom is): panels call this from effects that
-  // watch priced inputs (e.g. the Depth page's passthrough set).
+  // Stable: panels call this from effects that watch priced inputs (e.g.
+  // the Depth page's passthrough set).
   const invalidate = useCallback((): void => {
     attemptKeyRef.current = null;
-    quoteSeq.current += 1; // a request in flight is now stale
-    setPendingKey(null);
-    setState((s) => ({
-      ...s,
-      quote: null,
-      previous: s.quote ?? s.previous ?? null,
-      attemptKey: null,
-    }));
-  }, [setState]);
+    invalidateQuote(scope);
+  }, [invalidateQuote, scope]);
 
   async function fetchQuote(
     req: StepConversionRequest,
     opts: { keepTracker?: boolean } = {},
   ): Promise<void> {
-    const mine = ++quoteSeq.current;
-    const reqKey = JSON.stringify(req);
-    setPendingKey(reqKey);
-    setError(null);
-    setBillingBlock(null);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const res = await Promise.race([
-        client.quoteStep(project.project_id, req),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new Error(QUOTE_TIMED_OUT)), QUOTE_TIMEOUT_MS);
-        }),
-      ]);
-      if (mine !== quoteSeq.current) return; // a newer request or a change took over
-      track("quote_received", {
-        step,
-        value: res.quote.amount_cents / 100,
-        currency: "USD",
-      });
-      attemptKeyRef.current = null; // fresh quote = fresh attempt
-      setState((s) => ({
-        ...s,
-        quote: res,
-        quoteKey: reqKey,
-        previous: res,
-        attemptKey: null,
-        // clear a finished run's tracker before a new attempt
-        ...(s.settled && !opts.keepTracker ? { active: null, settled: false } : {}),
-      }));
-    } catch (e) {
-      if (mine === quoteSeq.current) setError(messageOf(e));
-    } finally {
-      clearTimeout(timer);
-      if (mine === quoteSeq.current) setPendingKey(null);
-    }
+    await requestQuote({
+      scope,
+      client,
+      projectId: project.project_id,
+      req,
+      keepTracker: opts.keepTracker,
+      describe: messageOf,
+    });
   }
 
   async function convert(req: StepConversionRequest): Promise<void> {
@@ -388,9 +356,10 @@ export function useStepCheckout(
   const running = tracking && !settled;
 
   return {
+    scope,
     quote,
     quoteKey: state.quoteKey,
-    lastQuote: quote ?? state.previous ?? null,
+    lastQuote: view.last,
     quoting,
     pendingKey,
     error,
@@ -722,42 +691,32 @@ export function InstantCheckout({
   const status = useBilling().status;
   const underReview = status?.flow_state === "under_review";
   const stopQuoting = disabledReason !== undefined || underReview;
-  const limitReached = ck.quote?.spend_limit_reached === true || ck.error === SPEND_LIMIT_REACHED;
+  const key = JSON.stringify(quoteRequest ?? request);
+  // ADR 0138 (staging 2026-11-05): one checkout atom for the price box,
+  // QuoteView, the button and the pay sheet; a price shows only for the
+  // current selections ("Updating…" meanwhile), a run in progress still
+  // gets its price, and changes settle 250 ms before they're priced
+  const view = quoteView(useAtomValue(ck.scope), key);
+  const { quote, quoting, updating } = view;
+  const { running, fetchQuote } = ck;
+  const error = view.error ?? ck.error;
+  const limitReached = quote?.spend_limit_reached === true || error === SPEND_LIMIT_REACHED;
   const blocked = disabledReason !== undefined || underReview || limitReached;
   const paymentNeeded =
     outstandingCents(status) > 0 || ck.billingBlock === "billing_overdue";
-  const key = JSON.stringify(quoteRequest ?? request);
-  const lastKey = useRef<string | null>(null);
-  const { running, error, fetchQuote, pendingKey } = ck;
-  // staging 2026-11-05: a price shows only for the current selections;
-  // an older one waits behind "Updating…" while the new one comes
-  const fresh = ck.quote !== null && (ck.quoteKey === undefined || ck.quoteKey === key);
-  const quote = fresh ? ck.quote : null;
-  const quoting = pendingKey === key;
-  const updating = !fresh && ck.lastQuote !== null;
-  // ... and a run in progress still gets its price (staging 2026-11-05)
-  useEffect(() => {
-    if (stopQuoting || fresh || pendingKey === key) return;
-    // a failed quote waits for a change (or Retry) instead of looping
-    if (key === lastKey.current && error !== null) return;
-    // changes settle for 250 ms before they're priced
-    const t = setTimeout(() => {
-      lastKey.current = key;
-      void fetchQuote(JSON.parse(key) as StepConversionRequest, {
-        keepTracker: true,
-      });
-    }, 250);
-    return () => clearTimeout(t);
-    // fetchQuote is a fresh closure each render; key carries the request
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, stopQuoting, fresh, pendingKey, error]);
+  useAutoQuote({
+    scope: ck.scope,
+    key,
+    stop: stopQuoting,
+    quote: (req) => void fetchQuote(req, { keepTracker: true }),
+  });
   const retry = (): void =>
     void fetchQuote(JSON.parse(key) as StepConversionRequest, { keepTracker: true });
   const quoteError =
-    error !== null && !quoting && !fresh && error !== SPEND_LIMIT_REACHED ? (
+    view.error !== null && !quoting && view.error !== SPEND_LIMIT_REACHED ? (
       <span className="flex flex-wrap items-center gap-2">
         <span data-testid="quote-error" className="text-sm text-red-400">
-          {error}
+          {view.error}
         </span>
         <button
           type="button"
