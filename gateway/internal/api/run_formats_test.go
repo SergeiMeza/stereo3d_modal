@@ -456,6 +456,21 @@ func TestRunFormatsProgress(t *testing.T) {
 	if parts := j["parts"].([]any); parts[0].(map[string]any)["progress"] != 0.4 {
 		t.Fatalf("part %v", parts)
 	}
+	// a record that says succeeded with its file not yet listed reads as
+	// still being made (the GET never shows neither)
+	s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Repacks["mvhevc"].Status = "succeeded"
+		return nil
+	})
+	got, _ := s.Store.GetConversion(ctx, c.ID)
+	st := s.runFormatsOf(ctx, got)
+	if !slices.Contains(st.Pending, "mvhevc") || slices.Contains(st.Have, "mvhevc") || st.json(got)["jobs"].(map[string]any)["mvhevc"].(map[string]any)["status"] != "processing" {
+		t.Fatalf("gap %+v", st)
+	}
+	s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Repacks["mvhevc"].Status = "processing"
+		return nil
+	})
 	// done: in have and the job succeeded in the same answer, progress 1
 	stub.status = "done"
 	_, out := formatsCall(s, uid, c.ID, http.MethodGet, "")

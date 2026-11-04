@@ -1458,7 +1458,11 @@ Classic runs get none (Classic is retired).
   `progress` is Lifelike's 0-1 (the parts' mean, null until one
   reports; stored in steps of 1%); `remaining_seconds`, while it runs,
   is each running part's time so far × (1 − p) / p, the longest (null
-  until every running part reports progress above 0).
+  until every running part reports progress above 0). A format is in `have`
+  only once its files are listed in the run's outputs, and it stays in
+  `pending` (its job `processing`) until then: the record and the
+  outputs change in one transaction, and the GET applies a finished
+  Lifelike repack before it answers.
 - `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, job_ids, status,
   format, source, price_cents, estimated_seconds}`. `estimated_seconds`
   (measured, 2026-11-05): side-by-side ≈ 1.6× the run's length at 1080p,

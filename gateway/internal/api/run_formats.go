@@ -162,7 +162,9 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 	for _, f := range repackFormats {
 		if hasFormat(c, f, st.Parts) {
 			st.Have = append(st.Have, f)
-		} else if repackRunning(c.Repacks[f]) {
+		} else if r := c.Repacks[f]; repackRunning(r) || (r != nil && r.Status == "succeeded") {
+			// a job counts as made only once its files are listed: never
+			// gone from pending before it's in have
 			st.Pending = append(st.Pending, f)
 		}
 	}
@@ -285,6 +287,9 @@ func (st runFormats) json(c *store.Conversion) map[string]any {
 	jobs := map[string]any{}
 	for f, r := range c.Repacks {
 		j := repackJSON(r)
+		if r.Status == "succeeded" && !slices.Contains(st.Have, f) {
+			j["status"] = "processing" // done only once the files are listed
+		}
 		j["estimated_seconds"] = repackEstimate(c, f)
 		jobs[f] = j
 	}
