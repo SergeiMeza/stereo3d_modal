@@ -26,7 +26,6 @@ import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ProSavingsCard } from "@/components/plans/ProSavingsCard";
 import { WorkspaceTips } from "@/components/onboarding/WorkspaceTips";
 import {
-  DeleteProjectButton,
   HistoryList,
 } from "@/components/steps/HistoryList";
 import { UPLOAD_AGAIN } from "@/lib/api/client";
@@ -360,7 +359,6 @@ export default function WorkspaceScreen({
                     day: "numeric",
                   },
                 ).format(new Date(project.files_deleted_at!))}`}
-                actions={<DeleteProjectButton project={project} />}
               />
               <p
                 data-testid="files-deleted-line"
@@ -439,8 +437,7 @@ export default function WorkspaceScreen({
                   <PageHeader
                     title="Files"
                     description="Kept while you use this project; deleted after 90 days without use."
-                    actions={<DeleteProjectButton project={project} />}
-                  />
+                      />
                   {/* plans canvas, Receipt A */}
                   <ProSavingsCard project={project} />
                   <HistoryList project={project} />

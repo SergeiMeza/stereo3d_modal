@@ -13,7 +13,14 @@
  * usages (workspace) are unaffected.
  */
 
-import { Archive, ArchiveRestore, Pencil, Pin, PinOff } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Pencil,
+  Pin,
+  PinOff,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -89,9 +96,12 @@ export function cardState(project: Project): CardState {
     case "paid":
       return { label: "Waiting in line", tone: "working" };
     case "processing": {
-      if (s.latest_waiting_for_gpu) return { label: "Waiting in line", tone: "working" };
+      if (s.latest_waiting_for_gpu)
+        return { label: "Waiting in line", tone: "working" };
       const pct =
-        s.latest_progress !== undefined ? Math.round(s.latest_progress * 100) : null;
+        s.latest_progress !== undefined
+          ? Math.round(s.latest_progress * 100)
+          : null;
       return {
         label: `Making 3D${pct !== null ? ` · ${pct}%` : ""}`,
         tone: "working",
@@ -109,7 +119,11 @@ export function cardState(project: Project): CardState {
             tone: "attention",
             link: { label: "Update payment method", tab: "files" },
           }
-        : { label: "3D ready", tone: "ready", link: { label: "Files", tab: "files" } };
+        : {
+            label: "3D ready",
+            tone: "ready",
+            link: { label: "Files", tab: "files" },
+          };
     case "failed":
       return {
         label: "Failed, not charged",
@@ -133,7 +147,10 @@ const TONE: Record<CardState["tone"], string> = {
 const DELETE_WARNING_MS = 14 * 24 * 3600 * 1000;
 
 /** S3D-24: true when the files are scheduled to go within 14 days. */
-export function filesDeleteSoon(at: string | undefined, now = Date.now()): boolean {
+export function filesDeleteSoon(
+  at: string | undefined,
+  now = Date.now(),
+): boolean {
   if (at === undefined) return false;
   const t = Date.parse(at);
   return Number.isFinite(t) && t - now < DELETE_WARNING_MS;
@@ -142,20 +159,31 @@ export function filesDeleteSoon(at: string | undefined, now = Date.now()): boole
 export function ProjectCard({
   project,
   onUpdate,
+  onDelete,
 }: {
   project: Project;
   /** parent owns the API call + list refresh; absent = no action row */
   onUpdate?: (req: UpdateProjectRequest) => Promise<void>;
+  /** owner 2026-11-04: archived projects only (archive first, then
+   * delete); never the sample. Errors surface in the parent's banner. */
+  onDelete?: () => Promise<void>;
 }) {
   const gateway = useGateway();
   const [kept, setKept] = useState(false);
   const [keeping, setKeeping] = useState(false);
-  const [dialog, setDialog] = useState<"rename" | "archive" | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "archive" | "delete" | null>(
+    null,
+  );
+  const deletable =
+    project.archived === true &&
+    project.sample !== true &&
+    onDelete !== undefined;
   const [nameDraft, setNameDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
   const probe = project.probe;
-  const thumb = project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
+  const thumb =
+    project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
   const state = cardState(project);
   const method = methodOf(project);
   const href = `/projects/${project.project_id}`;
@@ -167,6 +195,17 @@ export function ProjectCard({
     setBusy(true);
     try {
       await onUpdate(req); // errors surface in the parent's banner
+    } finally {
+      setBusy(false);
+      setDialog(null);
+    }
+  };
+
+  const remove = async () => {
+    if (onDelete === undefined) return;
+    setBusy(true);
+    try {
+      await onDelete();
     } finally {
       setBusy(false);
       setDialog(null);
@@ -200,7 +239,9 @@ export function ProjectCard({
                 <span className="sr-only">Pinned</span>
               </>
             ) : null}
-            <span className="truncate">{project.name ?? "Untitled project"}</span>
+            <span className="truncate">
+              {project.name ?? "Untitled project"}
+            </span>
           </h2>
           <span>
             <Badge
@@ -216,7 +257,11 @@ export function ProjectCard({
               {method === "classic" ? " · Older method" : ""}
             </Badge>
             {project.sample ? (
-              <Badge variant="outline" data-testid="card-sample" className="ml-1.5 border-edge bg-surface-2 text-fg-muted">
+              <Badge
+                variant="outline"
+                data-testid="card-sample"
+                className="ml-1.5 border-edge bg-surface-2 text-fg-muted"
+              >
                 Sample
               </Badge>
             ) : null}
@@ -224,8 +269,13 @@ export function ProjectCard({
         </div>
       </Link>
       {project.sample ? (
-        <p data-testid="card-sample-note" className="px-3.5 text-xs text-fg-muted">
-          A finished example to look around. It&apos;s not billed and you can remove it.
+        <p
+          data-testid="card-sample-note"
+          className="px-3.5 text-xs text-fg-muted"
+        >
+          {project.archived === true
+            ? "The sample can't be deleted. Unarchive it any time."
+            : "A finished example to look around. It's not billed and you can archive it."}
         </p>
       ) : null}
 
@@ -261,8 +311,12 @@ export function ProjectCard({
       <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
         {/* S3D-35: no money on cards — the method chip and the state only */}
         {deleteSoon && !kept && project.files_deleted_at === undefined ? (
-          <span data-testid="card-files-delete" className="flex items-center gap-1.5 text-amber-300">
-            Files deleted on {DATE_FORMAT.format(new Date(project.files_delete_at!))}
+          <span
+            data-testid="card-files-delete"
+            className="flex items-center gap-1.5 text-amber-300"
+          >
+            Files deleted on{" "}
+            {DATE_FORMAT.format(new Date(project.files_delete_at!))}
             <span aria-hidden>·</span>
             <button
               type="button"
@@ -284,56 +338,73 @@ export function ProjectCard({
         ) : (
           <span>{DATE_FORMAT.format(new Date(project.created_at))}</span>
         )}
-      {onUpdate !== undefined ? (
-        <div className="flex items-center gap-0.5 text-fg-muted">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={project.pinned === true ? "Unpin project" : "Pin project"}
-            disabled={busy}
-            onClick={() => void run({ pinned: project.pinned !== true })}
-          >
-            {project.pinned === true ? <PinOff /> : <Pin />}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Rename project"
-            disabled={busy}
-            onClick={() => {
-              setNameDraft(project.name ?? "Untitled project");
-              setDialog("rename");
-            }}
-          >
-            <Pencil />
-          </Button>
-          {project.archived === true ? (
+        {onUpdate !== undefined ? (
+          <div className="flex items-center gap-0.5 text-fg-muted">
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label="Restore project"
+              aria-label={
+                project.pinned === true ? "Unpin project" : "Pin project"
+              }
               disabled={busy}
-              onClick={() => void run({ archived: false })}
+              onClick={() => void run({ pinned: project.pinned !== true })}
             >
-              <ArchiveRestore />
+              {project.pinned === true ? <PinOff /> : <Pin />}
             </Button>
-          ) : (
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label="Archive project"
+              aria-label="Rename project"
               disabled={busy}
-              onClick={() => setDialog("archive")}
+              onClick={() => {
+                setNameDraft(project.name ?? "Untitled project");
+                setDialog("rename");
+              }}
             >
-              <Archive />
+              <Pencil />
             </Button>
-          )}
-        </div>
-      ) : null}
+            {project.archived === true ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Restore project"
+                  disabled={busy}
+                  onClick={() => void run({ archived: false })}
+                >
+                  <ArchiveRestore />
+                </Button>
+                {deletable ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Delete project"
+                    data-testid="card-delete"
+                    disabled={busy}
+                    onClick={() => setDialog("delete")}
+                  >
+                    <Trash2 />
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Archive project"
+                disabled={busy}
+                onClick={() => setDialog("archive")}
+              >
+                <Archive />
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <Dialog
@@ -367,6 +438,40 @@ export function ProjectCard({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog === "delete"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent data-testid="delete-project-dialog">
+          <DialogHeader>
+            <DialogTitle>Delete this project for good?</DialogTitle>
+            <DialogDescription>
+              Its files are removed for good. You won&apos;t be able to download
+              them again, and this can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialog(null)}
+            >
+              Keep project
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              Delete for good
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

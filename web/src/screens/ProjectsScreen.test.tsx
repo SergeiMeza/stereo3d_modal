@@ -540,6 +540,50 @@ describe("ProjectsScreen management", () => {
     ).toBeNull();
   });
 
+  it("active projects have no Delete; an archived one deletes for good after the in-page confirmation", async () => {
+    renderScreen();
+    await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
+    expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+    mockDb.projects.get(FIXTURE_ID)!.archived = true;
+    fireEvent.click(screen.getByRole("button", { name: "Show archived" }));
+    await screen.findByRole("button", { name: "Restore project" });
+    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
+    const dialog = await screen.findByTestId("delete-project-dialog");
+    expect(dialog.textContent).toContain("Its files are removed for good.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete for good" }));
+    await waitFor(() =>
+      expect((mockDb.projects.get(FIXTURE_ID) as { deleted?: boolean }).deleted).toBe(true),
+    );
+  });
+
+  it("shows the gateway's words when it refuses a delete", async () => {
+    mockDb.projects.get(FIXTURE_ID)!.archived = true;
+    server.use(
+      http.post("*/v1/projects/:id/delete", () =>
+        HttpResponse.json(
+          { success: false, error: "project_not_archived", message: "Archive the project first, then delete it from Archived." },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderScreen();
+    fireEvent.click(await screen.findByRole("button", { name: "Show archived" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete project" }));
+    fireEvent.click(within(await screen.findByTestId("delete-project-dialog")).getByRole("button", { name: "Delete for good" }));
+    expect(await screen.findByText("Archive the project first, then delete it from Archived.")).toBeTruthy();
+  });
+
+  it("an archived sample offers Restore only, with its note", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID)!;
+    p.archived = true;
+    p.sample = true;
+    renderScreen();
+    fireEvent.click(await screen.findByRole("button", { name: "Show archived" }));
+    expect(await screen.findByRole("button", { name: "Restore project" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+    expect(screen.getByTestId("card-sample-note").textContent).toBe("The sample can't be deleted. Unarchive it any time.");
+  });
+
   it("lists archived projects behind the toggle and restores back to active", async () => {
     const p = mockDb.projects.get(FIXTURE_ID);
     if (!p) throw new Error("fixture project missing");

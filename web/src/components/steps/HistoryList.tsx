@@ -6,31 +6,19 @@
  * short line (quality · moment · parts · date), its state in a word and
  * its price with a word only for Refunded, Not charged or Payment needed.
  * Finished runs list their files by device (RunFiles), with View in 3D.
- * Files stay downloadable after a failed payment (S3D-22). The project
- * can be deleted from here (DeleteProjectButton).
+ * Files stay downloadable after a failed payment (S3D-22). Deleting a
+ * project happens only from the Archived view (owner 2026-11-04: archive
+ * first, then delete).
  */
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import type { JSX } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { track } from "@/lib/analytics";
 import {
   conversionMethod,
   methodOf,
   type Conversion,
   type Project,
 } from "@/lib/api/types";
-import { useGateway } from "@/lib/api/useGateway";
 import { paymentStatus } from "@/lib/billingCopy";
 import { formatClock } from "@/lib/format";
 import { frameToSeconds, parseRational } from "@/lib/frames";
@@ -49,7 +37,8 @@ export function paramsSummary(c: Conversion): string {
 /** "1080p · 0:45 – 0:50 · 3 parts · Nov 2" */
 export function runMeta(project: Project, c: Conversion): string {
   const fps = project.probe ? parseRational(project.probe.fps_rational) : null;
-  const clock = (f: number) => (fps ? formatClock(frameToSeconds(f, fps)) : null);
+  const clock = (f: number) =>
+    fps ? formatClock(frameToSeconds(f, fps)) : null;
   const preview = c.step !== "production";
   const range =
     preview &&
@@ -60,7 +49,9 @@ export function runMeta(project: Project, c: Conversion): string {
       : null;
   return [
     range,
-    c.step !== "depth_preview" ? qualityLabelFor(project, c.params.preset) : null,
+    c.step !== "depth_preview"
+      ? qualityLabelFor(project, c.params.preset)
+      : null,
     c.parts && c.parts.length > 1 ? `${c.parts.length} parts` : null,
     new Date(c.created_at).toLocaleDateString(undefined, {
       month: "short",
@@ -85,13 +76,16 @@ export function HistoryList({ project }: { project: Project }): JSX.Element {
     <section aria-label="Conversion history" className="flex flex-col gap-3">
       {conversions.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          Nothing here yet. Your 3D files appear here when they&apos;re
-          ready.
+          Nothing here yet. Your 3D files appear here when they&apos;re ready.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {conversions.map((c) => (
-            <HistoryRow key={c.conversion_id} project={project} conversion={c} />
+            <HistoryRow
+              key={c.conversion_id}
+              project={project}
+              conversion={c}
+            />
           ))}
         </ul>
       )}
@@ -139,7 +133,10 @@ function HistoryRow({
           >
             {state}
           </span>
-          <span data-testid="history-price" className="font-mono text-sm text-fg-muted">
+          <span
+            data-testid="history-price"
+            className="font-mono text-sm text-fg-muted"
+          >
             {formatCents(c.quote.amount_cents)}
             {word ? ` · ${word}` : ""}
           </span>
@@ -150,62 +147,10 @@ function HistoryRow({
         <RunFiles conversion={c} />
       ) : null}
       {c.state === "failed" ? (
-        <p className="text-xs text-fg-muted">Something went wrong on our side.</p>
+        <p className="text-xs text-fg-muted">
+          Something went wrong on our side.
+        </p>
       ) : null}
     </li>
-  );
-}
-
-/** "Delete project" with its confirmation (S3D-24). */
-export function DeleteProjectButton({ project }: { project: Project }): JSX.Element {
-  const gateway = useGateway();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function remove(): Promise<void> {
-    setBusy(true);
-    setError(null);
-    try {
-      await gateway.deleteProject(project.project_id);
-      track("project_deleted");
-      setOpen(false);
-      router.push("/projects");
-    } catch {
-      setError("Couldn't delete the project. Please try again.");
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="xs"
-        data-testid="delete-project"
-        onClick={() => setOpen(true)}
-      >
-        Delete project
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent data-testid="delete-project-dialog">
-          <DialogHeader>
-            <DialogTitle>Delete this project?</DialogTitle>
-            <DialogDescription>
-              Deleting this project deletes its files. You won&apos;t be able to
-              download them again.
-            </DialogDescription>
-          </DialogHeader>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Keep project
-            </Button>
-            <Button variant="destructive" onClick={() => void remove()} disabled={busy}>
-              Delete project
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }

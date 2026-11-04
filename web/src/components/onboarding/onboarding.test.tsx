@@ -74,7 +74,7 @@ describe("welcome after sign-up", () => {
     // the sample sits in Projects, marked and never billed
     expect(await screen.findByTestId("card-sample")).toBeTruthy();
     expect(screen.getByTestId("card-sample-note").textContent).toBe(
-      "A finished example to look around. It's not billed and you can remove it.",
+      "A finished example to look around. It's not billed and you can archive it.",
     );
     // getting started: the headset step is done, adding a video is next
     const list = await screen.findByTestId("get-started");

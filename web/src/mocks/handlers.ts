@@ -3329,6 +3329,13 @@ export const handlers = [
   http.post(`${GATEWAY}/v1/projects/:id/delete`, ({ params }) => {
     const p = mockDb.projects.get(params.id as string);
     if (!p || p.deleted) return err(404, "not_found", "project not found");
+    // owner 2026-11-04: archive first, then delete; the sample never
+    if (p.sample === true) {
+      return err(409, "sample_not_deletable", "The sample can't be deleted. Unarchive it any time.");
+    }
+    if (p.archived !== true) {
+      return err(409, "project_not_archived", "Archive the project first, then delete it from Archived.");
+    }
     const active = [...mockDb.conversions.values()].some(
       (c) =>
         c.project_id === p.project_id &&
