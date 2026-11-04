@@ -29,6 +29,13 @@ export const FORMAT_NAMES: Record<Format, string> = {
   half_tb: "Top-bottom (half size)",
 };
 
+/** The files a run makes, in words: "Vision Pro spatial video + Side by
+ * side" (owner 2026-11-05: the price box and the pay sheet say which
+ * files the run makes, before paying). */
+export function formatsText(formats: readonly string[] | undefined): string {
+  return (formats ?? []).map((f) => FORMAT_NAMES[f as Format] ?? f).join(" + ");
+}
+
 /** Non-format outputs a Classic run can have. */
 const OTHER_OUTPUT_NAMES: Record<string, string> = {
   depth: "Depth video",

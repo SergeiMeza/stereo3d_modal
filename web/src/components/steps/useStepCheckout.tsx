@@ -75,6 +75,7 @@ import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
 import { FPS_PLAN_REQUIRED, PICK_FRAME_RATE } from "./frameRate";
 import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView, runFacts } from "./QuoteView";
+import { formatsText } from "@/lib/glossary";
 
 function messageOf(e: unknown): string {
   // spec v7 N12: a run that would pass the monthly spend limit
@@ -380,6 +381,13 @@ export function useStepCheckout(
   };
 }
 
+/** The pay sheet's line: the run and the files it makes (staging
+ * 2026-11-05: what's paid for is visible before paying). */
+export function payLine(conv: Conversion): string {
+  const files = formatsText(conv.params?.formats);
+  return [runLine(conv, { price: false }), files].filter(Boolean).join(" · ");
+}
+
 /** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
   const plan = useBilling().status?.plan;
@@ -393,7 +401,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
         conversionId={conv.conversion_id}
         projectId={conv.project_id}
         amountCents={conv.quote.amount_cents}
-        subtitle={runLine(conv, { price: false })}
+        subtitle={payLine(conv)}
         onClose={(paid) => ck.closePayNow(paid)}
       />
     );
@@ -403,7 +411,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       conversionId={conv.conversion_id}
       amountCents={conv.quote.amount_cents}
       action={action}
-      subtitle={runLine(conv, { price: false })}
+      subtitle={payLine(conv)}
       billing={conv.billing}
       publishableKey={conv.publishable_key}
       projectId={conv.project_id}
@@ -761,11 +769,22 @@ export function InstantCheckout({
   // owner 2026-11-04: size, frame rate and billable length beside the
   // button, at the moment of paying ("4K · 60 fps · 3 min")
   const facts = quote && !blocked ? runFacts(quote.params, quote.quote.breakdown) : [];
+  // staging 2026-11-05: the files the quote is for, before paying
+  const files = quote && !blocked ? formatsText(quote.params?.formats) : "";
   const summary =
-    facts.length > 0 ? (
-      <p data-testid="run-summary" className="text-sm font-medium text-fg">
-        {facts.join(" · ")}
-      </p>
+    facts.length > 0 || files ? (
+      <div className="flex flex-col gap-0.5">
+        {facts.length > 0 ? (
+          <p data-testid="run-summary" className="text-sm font-medium text-fg">
+            {facts.join(" · ")}
+          </p>
+        ) : null}
+        {files ? (
+          <p data-testid="run-files" className="text-xs text-fg-muted">
+            You&apos;ll get: {files}
+          </p>
+        ) : null}
+      </div>
     ) : null;
   if (variant === "panel") {
     const chargeHint = quote && !owes && !underReview ? (
