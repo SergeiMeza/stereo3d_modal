@@ -15,8 +15,9 @@ import (
 )
 
 type User struct {
-	UID   string
-	Email string // empty for anonymous users
+	UID      string
+	Email    string    // empty for anonymous users
+	AuthTime time.Time // when they last signed in (the token's auth_time)
 }
 
 type Verifier struct {
@@ -46,7 +47,7 @@ func (v *Verifier) FromRequest(r *http.Request) (*User, error) {
 	if err != nil {
 		return nil, errUnauthorized
 	}
-	user := &User{UID: token.UID}
+	user := &User{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC()}
 	if email, ok := token.Claims["email"].(string); ok {
 		user.Email = email
 	}

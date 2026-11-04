@@ -1005,8 +1005,9 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 // ---------------------------------------------------------------- helpers
 
 type AuthedUser struct {
-	UID   string
-	Email string
+	UID      string
+	Email    string
+	AuthTime time.Time // the ID token's auth_time (zero when unknown)
 }
 
 func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id string) (*store.Conversion, error) {

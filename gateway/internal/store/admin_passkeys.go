@@ -64,7 +64,7 @@ type PasskeyChallenge struct {
 // replayed assertion).
 var ErrSignCountMoved = errors.New("passkey sign count moved")
 
-func passkeyCol(s *Store) *firestore.CollectionRef { return s.kindCol(PasskeysAdmin) }
+func passkeyCol(s *Store) *firestore.CollectionRef   { return s.kindCol(PasskeysAdmin) }
 func challengeCol(s *Store) *firestore.CollectionRef { return s.kindChallenges(PasskeysAdmin) }
 
 func (s *Store) kindCol(k PasskeyKind) *firestore.CollectionRef {
