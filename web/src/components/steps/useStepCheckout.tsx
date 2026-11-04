@@ -403,6 +403,8 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       projectId={conv.project_id}
       note={commercial ? undefined : PERSONAL_USE_LINE}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}
+      // the tracker's poll: an expired or paid run ends "Paying…"
+      run={ck.active?.conversion_id === conv.conversion_id ? ck.active : null}
     />
   );
 }

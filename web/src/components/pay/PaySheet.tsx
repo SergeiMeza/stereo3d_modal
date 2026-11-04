@@ -20,7 +20,7 @@ import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
-import type { CheckoutHandle, ConversionBilling } from "@/lib/api/types";
+import type { CheckoutHandle, Conversion, ConversionBilling } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
@@ -57,6 +57,23 @@ type Phase =
 /** How long the success check shows before the sheet closes. */
 export const SUCCESS_CLOSE_MS = 1500;
 
+/** staging 2026-11-05: a confirm that hasn't answered by now re-checks
+ * the run instead of spinning. */
+export const CONFIRM_TIMEOUT_MS = 60_000;
+
+/** What the run says about a payment in flight: gone (expired or
+ * canceled, nothing charged), paid (it's on its way), waiting for the
+ * processor, or nothing yet. */
+export function runPayOutcome(
+  run: Pick<Conversion, "state" | "billing"> | null | undefined,
+): "expired" | "paid" | "waiting" | null {
+  if (!run) return null;
+  if (run.state === "expired" || run.state === "canceled") return "expired";
+  if (run.state === "paid" || run.state === "processing" || run.state === "succeeded") return "paid";
+  if (run.billing?.status === "waiting_for_payment") return "waiting";
+  return null;
+}
+
 export function PaySheet({
   conversionId,
   amountCents,
@@ -68,6 +85,7 @@ export function PaySheet({
   projectId,
   note,
   onClose,
+  run,
 }: {
   conversionId: string;
   amountCents: number;
@@ -86,6 +104,9 @@ export function PaySheet({
   note?: string;
   /** paid = the run is on its way; open = closed with the payment open */
   onClose: (outcome: "paid" | "open") => void;
+  /** the run as last polled: while paying, an expired or paid run ends
+   * the wait (staging 2026-11-05) */
+  run?: Pick<Conversion, "state" | "billing"> | null;
 }): JSX.Element {
   const gateway = useGateway();
   const frame = useSheetFrame();
@@ -102,7 +123,10 @@ export function PaySheet({
       ? { kind: "ready", checkout, publishableKey: key }
       : { kind: "loading" };
   });
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   // P7: a headset can hand the payment to a phone or computer
   const [handoff, setHandoff] = useState(false);
 
@@ -115,28 +139,58 @@ export function PaySheet({
       .then((s) => live && setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key }))
       .catch((e: { code?: string }) => {
         if (!live) return;
-        if (e.code === "already_paid") finish(ALREADY_PAID);
+        if (e.code === "already_paid") setPhase({ kind: "done", text: ALREADY_PAID });
         else if (e.code === "expired") setPhase({ kind: "expired" });
         else setPhase({ kind: "unavailable" });
       });
     return () => {
       live = false;
     };
-    // finish is stable for this sheet's life
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase.kind, conversionId, gateway]);
 
-  useEffect(
-    () => () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-    },
-    [],
-  );
+  // the success check shows, then the sheet closes
+  useEffect(() => {
+    if (phase.kind !== "done") return;
+    const t = setTimeout(() => onCloseRef.current("paid"), SUCCESS_CLOSE_MS);
+    return () => clearTimeout(t);
+  }, [phase.kind]);
 
-  function finish(text: string): void {
-    setPhase({ kind: "done", text });
-    closeTimer.current = setTimeout(() => onClose("paid"), SUCCESS_CLOSE_MS);
-  }
+  // staging 2026-11-05: while paying (or waiting for the processor) the
+  // polled run can end the wait: expired or canceled shows Start again,
+  // paid or processing finishes. Adjusted during render, not in an effect.
+  const watched = phase.kind === "paying" || phase.kind === "waiting" ? runPayOutcome(run) : null;
+  if (watched === "expired") setPhase({ kind: "expired" });
+  else if (watched === "paid") setPhase({ kind: "done", text: PAID_STARTING });
+  else if (watched === "waiting" && phase.kind === "paying") setPhase({ kind: "waiting" });
+
+  // and a confirm that never answers re-checks the run after a minute
+  useEffect(() => {
+    if (phase.kind !== "paying") return;
+    const back: Phase = { kind: "ready", checkout: phase.checkout, publishableKey: phase.publishableKey };
+    let live = true;
+    const t = setTimeout(() => {
+      gateway
+        .getConversion(conversionId)
+        .then((conv) => runPayOutcome(conv))
+        .catch(() => null)
+        .then((outcome) => {
+          if (!live) return;
+          setPhase((p) => {
+            if (p.kind !== "paying") return p;
+            if (outcome === "expired") return { kind: "expired" };
+            if (outcome === "paid") return { kind: "done", text: PAID_STARTING };
+            if (outcome === "waiting") return { kind: "waiting" };
+            return back;
+          });
+        });
+    }, CONFIRM_TIMEOUT_MS);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // the phase object changes only with its kind while paying
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase.kind, conversionId, gateway]);
 
   async function startAgain(): Promise<void> {
     setPhase({ kind: "loading" });
@@ -149,22 +203,22 @@ export function PaySheet({
   }
 
   function handle(result: ConfirmResult, checkout: CheckoutHandle, publishableKey?: string): void {
-    switch (result) {
-      case "paid":
-        return finish(PAID_STARTING);
-      case "already_paid":
-        return finish(ALREADY_PAID);
-      case "processing":
-        return setPhase({ kind: "waiting" });
-      case "expired":
-        return setPhase({ kind: "expired" });
-      case "redirect":
-        return; // the browser is leaving for /pay/return
-      case "too_many":
-        return setPhase({ kind: "ready", checkout, publishableKey, notice: "too_many" });
-      default:
-        return setPhase({ kind: "ready", checkout, publishableKey, notice: "declined" });
-    }
+    if (result === "redirect") return; // the browser is leaving for /pay/return
+    const next: Phase =
+      result === "paid"
+        ? { kind: "done", text: PAID_STARTING }
+        : result === "already_paid"
+          ? { kind: "done", text: ALREADY_PAID }
+          : result === "processing"
+            ? { kind: "waiting" }
+            : result === "expired"
+              ? { kind: "expired" }
+              : { kind: "ready", checkout, publishableKey, notice: result === "too_many" ? "too_many" : "declined" };
+    // a late answer (after the run or the safety re-check moved on) only
+    // counts when it settles the payment
+    setPhase((p) =>
+      p.kind === "paying" || (p.kind === "ready" && next.kind !== "ready") ? next : p,
+    );
   }
 
   const confirmTitle = billing?.reason === "authentication" || billing?.reason === "declined";

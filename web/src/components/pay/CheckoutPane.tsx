@@ -90,6 +90,46 @@ function appearanceFromTokens(big: boolean): Appearance {
   };
 }
 
+/** Stripe Checkout's session status (open, expired, complete). */
+export interface SessionStatus {
+  type?: string;
+  paymentStatus?: string;
+}
+
+const SESSION_GONE =
+  /expired|no longer (?:active|available|valid|open)|not (?:active|open)|inactive|(?:was|been|is) cancel+ed|session (?:was |has been |is )?cancel+ed/i;
+const SESSION_DONE =
+  /already (?:been )?(?:paid|completed?)|(?:session|payment) (?:was |has been |is )?(?:already )?completed?\b/i;
+
+/** A confirm that came back with the session paid, unpaid or expired. */
+export function confirmSuccessResult(status: SessionStatus | undefined): ConfirmResult {
+  if (status?.type === "expired") return "expired";
+  if (status?.paymentStatus === "unpaid" || status?.type === "open") return "processing";
+  return "paid";
+}
+
+/** A confirm that failed. An expired, canceled or completed session is
+ * never a decline (staging 2026-11-05: a session that expired as Pay was
+ * pressed left the sheet on "Paying…"): expired shows Start again,
+ * completed reads as paid. Stripe's Checkout errors carry only `code:
+ * "paymentFailed"` or null, so the session's own status and the message
+ * decide. */
+export function confirmErrorResult(
+  error: { code?: string | null; message?: string },
+  now?: SessionStatus,
+): ConfirmResult {
+  if (now?.type === "expired") return "expired";
+  if (now?.type === "complete") return now.paymentStatus === "unpaid" ? "processing" : "already_paid";
+  const code = error.code ?? "";
+  const msg = error.message ?? "";
+  if (code.includes("rate_limit") || code === "too_many_attempts") return "too_many";
+  if (code !== "paymentFailed") {
+    if (code.includes("expired") || code.includes("cancel") || SESSION_GONE.test(msg)) return "expired";
+    if (code.includes("complete") || SESSION_DONE.test(msg)) return "already_paid";
+  }
+  return "declined";
+}
+
 function isMockSecret(secret: string): boolean {
   return secret.startsWith("cs_mock_");
 }
@@ -236,15 +276,17 @@ function StripeForm({
         returnUrl: `${window.location.origin}/pay/return${returnQuery ? `?${returnQuery}` : ""}`,
       });
       if (res.type === "error") {
-        const code = (res.error as { code?: string }).code ?? "";
-        if (code.includes("rate_limit") || code === "too_many_attempts") return "too_many";
-        if (code.includes("expired")) return "expired";
-        setMessage(res.error.message ?? null);
-        return "declined";
+        let now: SessionStatus | undefined;
+        try {
+          now = (result.checkout as { getSession?: () => { status?: SessionStatus } }).getSession?.()?.status;
+        } catch {
+          now = undefined;
+        }
+        const outcome = confirmErrorResult(res.error, now);
+        if (outcome === "declined") setMessage(res.error.message ?? null);
+        return outcome;
       }
-      const status = (res.session as { status?: { type?: string; paymentStatus?: string } }).status;
-      if (status?.paymentStatus === "unpaid" || status?.type === "open") return "processing";
-      return "paid";
+      return confirmSuccessResult((res.session as { status?: SessionStatus }).status);
     },
   };
 
