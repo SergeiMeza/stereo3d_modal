@@ -25,6 +25,8 @@ export interface ProStatus {
   via?: string;
   /** false when RevenueCat couldn't tell */
   known: boolean;
+  /** gateway 00096: the free previews this Pro includes */
+  free_previews?: { allowance: number; per_period?: number; period?: string } | null;
 }
 
 // ------------------------------------------------------------- signal
@@ -75,7 +77,9 @@ async function callGateway(
   if (AUTH_MODE === "mock") {
     // the mock gateway's "Simulate app Pro" (test only): Pro from the app
     const db = (globalThis as { __mockDb?: { accountSettings?: { simulate_app_pro?: boolean } } }).__mockDb;
-    if (db?.accountSettings?.simulate_app_pro) return { pro: true, via: "pro_subs_1m_v1", known: true };
+    if (db?.accountSettings?.simulate_app_pro) {
+      return { pro: true, via: "simulated_app_pro", known: true, free_previews: { allowance: 20, per_period: 20, period: "month" } };
+    }
     return { pro: mockPro, known: true };
   }
   const token = await getToken();
@@ -88,7 +92,7 @@ async function callGateway(
   );
   if (!res.ok) return { pro: false, known: false };
   const body = (await res.json()) as Partial<ProStatus>;
-  return { pro: body.pro === true, via: body.via, known: body.known === true };
+  return { pro: body.pro === true, via: body.via, known: body.known === true, free_previews: body.free_previews ?? null };
 }
 
 /** The signed-in person's Pro status; null while loading or signed out. */

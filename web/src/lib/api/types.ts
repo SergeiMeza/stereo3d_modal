@@ -715,8 +715,10 @@ export interface OnboardingState {
    * iPad, Mac or Vision Pro app; they get their own welcome once */
   variant?: "app_pro" | "default";
   app_pro_welcome_done?: boolean;
-  /** where they watch, as the app knows it (may be empty) */
+  /** where they watch, as the app knows it (00096: only ["avp"], or empty) */
   headsets_from_app?: string[] | null;
+  headsets_from_app_source?: "app_answer" | "app_device" | null;
+  app_viewing_device?: "apple_vision_pro" | "other_headset" | "screen_only" | null;
   checklist_hidden?: boolean;
   tips_done?: boolean;
   /** the gateway's view of the getting-started steps (read-only) */

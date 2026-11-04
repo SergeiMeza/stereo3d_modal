@@ -6,6 +6,7 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checklistSteps } from "@/components/onboarding/GetStarted";
@@ -130,6 +131,23 @@ describe("app Pro welcome (owner 2026-11-04)", () => {
     // no Pro upsells for them
     expect(screen.queryByTestId("plans-banner")).toBeNull();
     expect(screen.queryByTestId("plans-line")).toBeNull();
+  });
+
+  it("other_headset from the app preselects nothing and says so", async () => {
+    mockDb.projects.clear();
+    server.use(
+      http.get("*/v1/account/settings", async () => {
+        return HttpResponse.json({
+          lifelike_intro: true, lifelike_intro_editable: false, locale: null, headsets: null, hints_seen: [], dismissed: {},
+          simulate_app_pro: true,
+          onboarding: { variant: "app_pro", app_pro_welcome_done: false, headsets_from_app: [], headsets_from_app_source: null, app_viewing_device: "other_headset" },
+        });
+      }),
+    );
+    renderProjects();
+    await screen.findByTestId("welcome-app-pro");
+    expect(screen.getByTestId("welcome-device-avp").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText(/You told the app you use a headset\./)).toBeTruthy();
   });
 
   it("an older web account that gains app Pro gets the Pro step alone, once", async () => {

@@ -528,6 +528,8 @@ function accountSettings() {
       variant: st.simulate_app_pro ? "app_pro" : "default",
       app_pro_welcome_done: st.onboarding.app_pro_welcome_done === true,
       headsets_from_app: st.simulate_app_pro ? ["avp"] : [],
+      headsets_from_app_source: st.simulate_app_pro ? "app_answer" : null,
+      app_viewing_device: st.simulate_app_pro ? "apple_vision_pro" : null,
       // the getting-started steps, as the gateway works them out
       steps: {
         first_video: own.length > 0,

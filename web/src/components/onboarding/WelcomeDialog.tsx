@@ -20,7 +20,8 @@
  * video (the share from /v1/pricing), their plan's free previews when it
  * has them, "Nothing new is billed." — with the headset question prefilled
  * from the app, then the upload or the sample. Business is named once, as a
- * muted line in the last step. Someone who already had the web welcome
+ * muted line in the last step. Headsets prefill only from the app's
+ * answer ("avp"); "other_headset" preselects nothing and says so quietly. Someone who already had the web welcome
  * gets the Pro step alone. Shown once (onboarding.app_pro_welcome_done).
  */
 
@@ -33,11 +34,12 @@ import { UploadDropzone } from "@/components/projects/UploadDropzone";
 import type { Device } from "@/components/steps/makeControls";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import type { Project, PublicPricing } from "@/lib/api/types";
+import type { Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { useProStatus } from "@/lib/pro/usePro";
+import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
 import { proPct } from "@/components/plans/upsell";
@@ -75,53 +77,21 @@ const STEPS: Record<WelcomeVariant, readonly Step[]> = {
   app_pro_short: ["pro"],
 };
 
-/** The app's device names, as the app may send them, to Make 3D's ids. */
-const APP_DEVICE_ALIASES: Record<string, Device> = {
-  vision_pro: "avp",
-  apple_vision_pro: "avp",
-  meta_quest: "quest",
-  galaxy_xr: "galaxyxr",
-  steam_frame: "steamframe",
-  xr_glasses: "glasses",
-};
-
-/** headsets_from_app as Make 3D device ids (unknown ones dropped). */
+/** headsets_from_app as Make 3D device ids (gateway 00096 sends only
+ * "avp"; anything else is dropped). */
 export function appHeadsets(ids: readonly string[] | null | undefined): Device[] {
   const known = new Set<string>(WELCOME_DEVICES.map((d) => d.id));
-  const out: Device[] = [];
-  for (const raw of ids ?? []) {
-    const id = (APP_DEVICE_ALIASES[raw] ?? raw) as Device;
-    if (known.has(id) && !out.includes(id)) out.push(id);
-  }
-  return out;
+  return [...new Set((ids ?? []).filter((id) => known.has(id)))] as Device[];
 }
 
-/** The free previews a Pro product includes (from /v1/pricing's
- * allowances), by the product id GET /v1/pro names; null when it has none
- * or the product isn't recognised. */
+/** The free previews GET /v1/pro reports for the person's Pro (00096);
+ * null when the plan has none. */
 export function proPreviews(
-  via: string | undefined,
-  pricing: PublicPricing | null,
+  fp: ProStatus["free_previews"],
 ): { count: number; period: string } | null {
-  const fp = pricing?.free_previews;
-  if (!via || !fp) return null;
-  const v = via.toLowerCase();
-  const key = /lifetime/.test(v)
-    ? "pro_lifetime"
-    : /pass.?6|6m.?pass/.test(v)
-      ? "pro_pass_6m"
-      : /pass.?3|3m.?pass/.test(v)
-        ? "pro_pass_3m"
-        : /1w|week/.test(v)
-          ? "pro_weekly"
-          : /1m|month/.test(v)
-            ? "pro_monthly"
-            : /1y|year|annual/.test(v)
-              ? "pro_yearly"
-              : null;
-  const count = key ? fp.allowances?.[key] : undefined;
-  if (!key || typeof count !== "number" || count <= 0) return null;
-  return { count, period: fp.periods?.[key] ?? "month" };
+  const count = fp?.per_period ?? fp?.allowance;
+  if (typeof count !== "number" || count <= 0) return null;
+  return { count, period: fp?.period ?? "month" };
 }
 
 /** "Pro prices on every video, 15% off. Your plan includes 20 free previews
@@ -183,7 +153,9 @@ export function WelcomeDialog({
   const fromApp = appPro && saved.length === 0 ? appHeadsets(settings?.onboarding?.headsets_from_app) : [];
   const chosen = picked ?? (saved.length > 0 ? saved : fromApp);
   const pct = proPct(pricing);
-  const previews = proPreviews(proStatus?.via, pricing);
+  const previews = proPreviews(proStatus?.free_previews);
+  // the app knows they use another headset, not which: nothing preselected
+  const otherHeadset = appPro && saved.length === 0 && settings?.onboarding?.app_viewing_device === "other_headset";
 
   function toggle(id: Device): void {
     setPicked(chosen.includes(id) ? chosen.filter((d) => d !== id) : [...chosen, id]);
@@ -314,7 +286,9 @@ export function WelcomeDialog({
             <p className="px-5 pt-3 text-[13px] text-fg-muted sm:px-9">
               {appPro && picked === null && fromApp.length > 0
                 ? "From your app. We use this to pick the right files for you. You can change it on any project."
-                : "We use this to pick the right files for you. You can change it on any project."}
+                : otherHeadset && picked === null
+                  ? "You told the app you use a headset. We use this to pick the right files for you."
+                  : "We use this to pick the right files for you. You can change it on any project."}
             </p>
           </div>
         ) : kind === "how" ? (
