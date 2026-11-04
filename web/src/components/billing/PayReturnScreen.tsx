@@ -4,7 +4,7 @@
  * P4 Return page (`/pay/return`, spec v6 G2): where every redirect comes
  * back — Alipay, PayPal, a bank's page, a hosted payment page.
  *
- * ?conversion=&project= (a run) or ?settle=1 (what the account owed).
+ * ?conversion=&project= or ?c= (a run) or ?settle= (what the account owed).
  * Checking polls for up to 30 s; then Paid, Not paid, Slow or Expired.
  */
 
@@ -28,9 +28,12 @@ type State = "checking" | "paid" | "not_paid" | "slow" | "expired";
 export function PayReturnScreen(): JSX.Element {
   const gateway = useGateway();
   const params = useSearchParams();
-  const id = params.get("conversion");
-  const project = params.get("project");
-  const settle = params.get("settle") === "1";
+  // the gateway's session return_url says ?c={run} or ?settle={id}; the
+  // web's own links say ?conversion=&project= or ?settle=1
+  const id = params.get("conversion") ?? params.get("c");
+  const [runProject, setRunProject] = useState<string | null>(null);
+  const project = params.get("project") ?? runProject;
+  const settle = (params.get("settle") ?? "") !== "";
   // a redirect that came back refused says so in the URL
   const refused = params.get("redirect_status") === "failed";
   const [state, setState] = useState<State>(refused ? "not_paid" : "checking");
@@ -49,6 +52,7 @@ export function PayReturnScreen(): JSX.Element {
         }
         if (!id) return setState("not_paid");
         const c = await gateway.getConversion(id);
+        if (c.project_id) setRunProject(c.project_id);
         if (c.state === "expired") return setState("expired");
         if (c.state === "canceled" || c.state === "failed") return setState("not_paid");
         if (c.state !== "created") return setState("paid");

@@ -57,6 +57,20 @@ describe("Return page (P4)", () => {
     );
   });
 
+  it("the gateway's return address (?c=): finds the run and its project", async () => {
+    const id = seedRun("paid");
+    search.value = `c=${id}`;
+    render(
+      <AuthProvider>
+        <PayReturnScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByText("Payment received. Your 3D video is starting.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to your project" }).getAttribute("href")).toBe(
+      "/projects/a1b2c3d4e5f6#tab=make",
+    );
+  });
+
   it("a refused redirect: The payment didn't go through, with Try again", async () => {
     const id = seedRun("created");
     search.value = `conversion=${id}&project=a1b2c3d4e5f6&redirect_status=failed`;

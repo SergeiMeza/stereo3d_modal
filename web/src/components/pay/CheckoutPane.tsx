@@ -237,7 +237,6 @@ function StripePane({
 function StripeForm({
   big,
   showSaveLine,
-  returnQuery,
   setup,
   collapseCards,
   billingAddress,
@@ -245,6 +244,7 @@ function StripeForm({
 }: {
   big: boolean;
   showSaveLine: boolean;
+  /** unused: the gateway's session carries the return address */
   returnQuery?: string;
   setup: boolean;
   collapseCards: boolean;
@@ -271,10 +271,16 @@ function StripeForm({
     confirm: async () => {
       if (result.type !== "success") return "declined";
       setMessage(null);
-      const res = await result.checkout.confirm({
-        redirect: "if_required",
-        returnUrl: `${window.location.origin}/pay/return${returnQuery ? `?${returnQuery}` : ""}`,
-      });
+      // No returnUrl: the gateway sets return_url on every session, and
+      // Stripe refuses a confirm that passes one too (IntegrationError,
+      // thrown before any request; the sheet hung on "Paying…").
+      let res: Awaited<ReturnType<typeof result.checkout.confirm>>;
+      try {
+        res = await result.checkout.confirm({ redirect: "if_required" });
+      } catch (e) {
+        setMessage(e instanceof Error && e.message ? e.message : null);
+        return "declined";
+      }
       if (res.type === "error") {
         let now: SessionStatus | undefined;
         try {
