@@ -54,9 +54,8 @@ a9ffc582). Then:
    "google"}`): the console signs in with Google again and retries once.
 
 "A passkey uses Face ID, Touch ID, your phone or a security key. Nothing to
-type." An authenticator code (TOTP) is only a temporary fallback, one link
-away ("Use an authenticator code instead"), shown only while the gateway's
-401 `session_required {methods}` lists `"totp"`. The routes are the
+type." There is no other second step: authenticator codes (TOTP) are not
+used (ADR 0135). The routes are the
 gateway's (README "Admin passkeys", test rev 00110), kept in
 `PASSKEY_ROUTES` in `src/lib/api.ts`.
 
@@ -74,7 +73,7 @@ is its own commit naming the feature and its ADR or BL.
 
 | Screen | Route | Gateway |
 | --- | --- | --- |
-| Sign-in (A0, ADR 0135): Google, then the passkey (or set one up); the authenticator code behind a link; no access; session ended | any | Firebase Auth, `POST /v1/admin/session/options`, `…/session/verify`, `POST /v1/admin/passkeys/register/options`, `…/register/verify` |
+| Sign-in (A0, ADR 0135): Google, then the passkey ("Set up a passkey" on the first visit); no access; session ended | any | Firebase Auth, `POST /v1/admin/session/options`, `…/session/verify`, `POST /v1/admin/passkeys/register/options`, `…/register/verify` |
 | Security (ADR 0135): passkeys (name, created, last used), add one (fresh passkey), remove with a confirm; the last one can't go | `/security` | `GET /v1/admin/passkeys`, `DELETE /v1/admin/passkeys/{id}`, register routes |
 | Disputes badge (header, every page): open disputes and EFWs, refreshed every 60 s and on focus, links to Disputes; red banner when disputes are due within 3 days | all pages | `GET /v1/admin/disputes/summary` (`open`, `open_efws`) |
 | Cases (A1): tabs, filters, search, counts (open, overdue, due today), disputes, EFW and failed refunds first | `/cases` | `GET /v1/admin/cases` |
@@ -96,12 +95,12 @@ is its own commit naming the feature and its ADR or BL.
 
 Behaviour the gateway expects:
 - **401 `reauth_required`** on a money action: the console shows "Confirm it's
-  you". With `{method: "passkey"}` (or on a passkey session) that's "Use your
-  passkey" (a `reassert` assertion through the session routes); on a TOTP
-  session it's Google, then the code. Then the action runs once more. If
-  you cancel: "Not confirmed. Nothing was charged or refunded."
-- **401 `session_required {methods}`** (no second factor on the call): the
-  passkey step, with the code link only when `methods` has `"totp"`.
+  you" with "Use your passkey" (a `reassert` assertion through the session
+  routes; a Google sign-in instead when the gateway names
+  `{method: "google"}`). Then the action runs once more. If you cancel:
+  "Not confirmed. Nothing was charged or refunded."
+- **401 `session_required`** (no passkey session on the call): the token is
+  dropped and the passkey step shows, whatever `methods` the gateway lists.
 - **401 `session_expired` / `invalid_session`** (passkey session over or
   revoked): the token is dropped and the passkey step comes back.
 - **409 `no_passkey`** at sign-in: "Set up a passkey". **409
@@ -119,8 +118,7 @@ Behaviour the gateway expects:
   `grant_not_active` and `nothing_to_restore` say so.
 - **401 `invalid_token`**: retried once with a fresh token, then the session
   ends ("Your session ended. Sign in again.").
-- **403 `no_access`**: the no-access screen. (An older gateway's 403
-  `mfa_required` leads to the authenticator-code set-up.)
+- **403 `no_access`**: the no-access screen.
 
 Security:
 - **Customer text is plain text only.** Customer messages, notes, banners,
@@ -147,9 +145,9 @@ Security:
   `@simplewebauthn/browser` (pinned 13.3.0) is bundled into our own scripts,
   and its calls go to the gateway, already in `connect-src`. The
   Permissions-Policy names `publickey-credentials-get/create=(self)`.
-- The second step is the passkey (ADR 0135). The temporary TOTP fallback
-  uses an authenticator app; SMS would need reCAPTCHA scripts, which this
-  CSP doesn't allow.
+- The second step is the passkey (ADR 0135). TOTP and SMS factors are not
+  used (ADR 0135); Firebase multi-factor and Identity Platform aren't part
+  of the console.
 
 ## Deploy on Vercel
 
