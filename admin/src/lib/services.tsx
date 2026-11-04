@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { Button, Sheet } from "../components/ui";
+import { Modal, Note } from "@/components/common";
 import { AdminApi, ApiError } from "./api";
 import type { AdminAuth } from "./auth";
 import { assertPasskey, PASSKEY_COPY, passkeyErrorMessage } from "./passkeys";
@@ -120,23 +120,17 @@ function PasskeyReauthSheet({ api, onDone, onCancel }: { api: AdminApi; onDone: 
     }
   };
   return (
-    <Sheet
+    <Modal
       title="Confirm it's you"
       subtitle="Money actions need your passkey within the last 5 minutes."
       onClose={onCancel}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
-          <Button variant="primary" onClick={() => void go()} disabled={busy}>
-            {busy ? "Waiting for the passkey…" : "Use your passkey"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Waiting for the passkey…" : "Use your passkey"}
+      onConfirm={() => void go()}
     >
-      <p className="muted small">{PASSKEY_COPY} Then the action runs again.</p>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      <Note>{PASSKEY_COPY} Then the action runs again.</Note>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -158,22 +152,16 @@ function ReauthSheet({ auth, onDone, onCancel }: { auth: AdminAuth; onDone: () =
     }
   };
   return (
-    <Sheet
+    <Modal
       title="Confirm it's you"
       subtitle="This needs a Google sign-in within the last 5 minutes."
       onClose={onCancel}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
-          <Button variant="primary" onClick={() => void start()} disabled={busy}>
-            {busy ? "Working…" : "Sign in with Google"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Working…" : "Sign in with Google"}
+      onConfirm={() => void start()}
     >
-      <p className="muted small">Then the action runs again.</p>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      <Note>Then the action runs again.</Note>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }

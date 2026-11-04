@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, paths } from "../lib/router";
 import { useServices } from "../lib/services";
 import type { DisputeSummary } from "../lib/types";
-import { Banner } from "./ui";
+import { Banner } from "@/components/common";
 
 /**
  * Open disputes and early fraud warnings in the console header, so the
@@ -66,7 +66,11 @@ export function DisputeBadge({ alert }: { alert: DisputeAlert | null }) {
     alert.efws > 0 ? plural(alert.efws, "EFW", "EFWs") : "",
   ].filter(Boolean);
   return (
-    <Link to={paths.disputes()} className="dbadge" aria-label={`Open: ${parts.join(", ")}`}>
+    <Link
+      to={paths.disputes()}
+      className="rounded-full border border-destructive/35 bg-destructive/10 px-2.5 py-0.5 text-xs font-medium whitespace-nowrap text-destructive-foreground tabular-nums hover:bg-destructive/20"
+      aria-label={`Open: ${parts.join(", ")}`}
+    >
       {parts.join(" · ")}
     </Link>
   );
@@ -77,7 +81,7 @@ export function DisputeDueBanner({ alert }: { alert: DisputeAlert | null }) {
   const { count, by } = alert.dueSoon;
   const day = new Date(by).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return (
-    <Banner tone="red" action={<Link to={paths.disputes()} className="link">Open disputes</Link>}>
+    <Banner tone="red" action={<Link to={paths.disputes()} className="text-link hover:underline">Open disputes</Link>}>
       {count === 1 ? "1 dispute needs" : `${count} disputes need`} a response by {day}.
     </Banner>
   );

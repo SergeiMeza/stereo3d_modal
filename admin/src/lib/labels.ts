@@ -1,4 +1,4 @@
-import type { Tone } from "../components/ui";
+import type { Tone } from "@/components/common";
 
 export function typeTone(type: string): Tone {
   switch (type) {

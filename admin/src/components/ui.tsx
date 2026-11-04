@@ -28,7 +28,7 @@ export function Button({
 
 export type Tone = "blue" | "green" | "amber" | "red" | "violet" | "plain" | "muted";
 
-export function Chip({ tone = "plain", children }: { tone?: Tone; children: ReactNode }) {
+export function Chip({ tone = "plain", children }: { tone?: string; children: ReactNode }) {
   return <span className={`chip ${tone}`}>{children}</span>;
 }
 

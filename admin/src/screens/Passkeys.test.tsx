@@ -167,7 +167,8 @@ describe("passkey sign-in (ADR 0135)", () => {
     session.set("sess_1");
     const auth = googleDone();
     renderApp("/cases", cases, auth, session);
-    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => expect(session.get()).toBeNull());
   });
 });
