@@ -444,6 +444,9 @@ func failureCopy(c *store.Conversion, internalErr string) (code, msg string) {
 	if code, msg, ok := cropFailureCopy(c, internalErr); ok {
 		return code, msg
 	}
+	if strings.Contains(internalErr, dolbyVisionErrorCode) || strings.Contains(internalErr, dolbyVisionJobText) {
+		return dolbyVisionErrorCode, dolbyVisionJobMessage + " " + upperFirst(notChargedPhrase(c)) + "."
+	}
 	if strings.Contains(internalErr, fpsTooHighError) {
 		return "source_fps_too_high", "This video's frame rate is above 120 fps, which isn't supported."
 	}

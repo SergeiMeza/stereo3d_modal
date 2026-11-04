@@ -371,6 +371,9 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 	case "completed":
 		return s.settleSuccess(ctx, conv, job)
 	case "failed":
+		if job.ErrorCode != "" {
+			return s.settleFailure(ctx, conv, job.Error+" (error_code "+job.ErrorCode+")")
+		}
 		return s.settleFailure(ctx, conv, job.Error)
 	case "canceled":
 		// Lifelike: canceled upstream without our DELETE (ours claims the

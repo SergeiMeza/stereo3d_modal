@@ -20,6 +20,8 @@ func TestParseDynamic(t *testing.T) {
 		{"pq", `{"streams":[{"profile":"Main 10","color_transfer":"smpte2084"}]}`, RangePQ, "", true},
 		{"dv 8.1", `{"streams":[{"color_transfer":"smpte2084","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":8,"dv_bl_signal_compatibility_id":1}]}]}`, RangeDV8, RangePQ, true},
 		{"dv 8.2", `{"streams":[{"color_transfer":"bt709","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":8,"dv_bl_signal_compatibility_id":2}]}]}`, RangeDV8, RangeSDR, false},
+		{"dv 10.0 (AV1, no compatible base)", `{"streams":[{"color_transfer":"unknown","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":10,"dv_bl_signal_compatibility_id":0}]}]}`, RangeDV5, "", false},
+		{"dv 10.1 (HDR10 base)", `{"streams":[{"color_transfer":"smpte2084","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":10,"dv_bl_signal_compatibility_id":1}]}]}`, RangePQ, "", true},
 		{"dv 5", `{"streams":[{"color_transfer":"unknown","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":5,"dv_bl_signal_compatibility_id":0}]}]}`, RangeDV5, "", false},
 		{"other side data", `{"streams":[{"color_transfer":"smpte2084","side_data_list":[{"side_data_type":"Mastering display metadata"}]}]}`, RangePQ, "", true},
 	} {

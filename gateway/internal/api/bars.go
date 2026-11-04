@@ -152,7 +152,7 @@ const (
 
 // cropFailureCopy: the code and plain message of a crop refusal.
 func cropFailureCopy(c *store.Conversion, upstream string) (code, msg string, ok bool) {
-	charged := strings.ToUpper(notChargedPhrase(c)[:1]) + notChargedPhrase(c)[1:]
+	charged := upperFirst(notChargedPhrase(c))
 	switch {
 	case strings.Contains(upstream, cropFullSBSText) || strings.Contains(upstream, "full-width sbs"):
 		return "format_unavailable", cropFullSBSText + " " + charged + ". Try again with half side-by-side.", true

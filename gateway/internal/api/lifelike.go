@@ -719,7 +719,7 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	var params store.Params
 	var err *httpx.APIError
 	if dolbyVision5(p) { // refused at analysis; a guard for the record
-		return params, httpx.Err(http.StatusUnprocessableEntity, "source_unsupported", errDolbyVision5Text)
+		return params, httpx.Err(http.StatusUnprocessableEntity, dolbyVisionErrorCode, errDolbyVision5Text)
 	}
 
 	if projectMethod(p) == store.MethodLifelike {

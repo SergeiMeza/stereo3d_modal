@@ -3,8 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -74,7 +79,7 @@ func TestSourceDynamicRange(t *testing.T) {
 	}
 	stored := lifelikeProject()
 	stored.Probe.DynamicRange = probe.RangeDV5
-	if _, err := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction}, stored); err == nil || err.Status != 422 || err.Code != "source_unsupported" {
+	if _, err := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction}, stored); err == nil || err.Status != 422 || err.Code != "source_dolby_vision_unsupported" {
 		t.Fatalf("dv5 guard %v", err)
 	}
 }
@@ -138,5 +143,36 @@ func TestHDRAutomatic(t *testing.T) {
 		if params, b := run(hdr, req); params.HDR || b["hdr_output"] != nil {
 			t.Fatalf("switch off %+v: %+v", req, params)
 		}
+	}
+}
+
+// Lifelike's plan-time Dolby Vision refusal (error_code
+// source_dolby_vision_unsupported) fails the run plainly, nothing charged.
+func TestDolbyVisionJobRefusal(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"job_id": "j1", "status": "failed", "error_code": "source_dolby_vision_unsupported",
+			"error": "This Dolby Vision format isn't supported. Export the video as HDR10 or SDR and try again."})
+	}))
+	t.Cleanup(srv.Close)
+	s.Lifelike = modalapi.New(srv.URL, "", "")
+	fake.pis["pi_dv"] = map[string]any{"status": "requires_capture", "amount_received": int64(0)}
+	now := time.Now()
+	c := &store.Conversion{ID: store.NewID(), UID: "u" + store.NewID(), Kind: "video", Method: store.MethodLifelike,
+		Step: store.StepProduction, State: store.StateProcessing, Params: store.Params{Preset: "4k"},
+		Quote:  store.Quote{AmountCents: 1200, Currency: "usd"},
+		Stripe: store.Stripe{PaymentIntentID: "pi_dv", PIStatus: "requires_capture"}, Modal: store.Modal{JobID: "j1", SubmittedAt: &now}}
+	if err := s.Store.CreateConversion(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.refreshFromModal(ctx, c)
+	if err != nil || got.State != store.StateFailed || got.Error.Code != "source_dolby_vision_unsupported" ||
+		got.Error.UserMessage != "This Dolby Vision format isn't supported. Export the video as HDR10 or SDR and try again. You were not charged." ||
+		!strings.Contains(got.Error.InternalMessage, "error_code source_dolby_vision_unsupported") {
+		t.Fatalf("run %+v %v", got.Error, err)
+	}
+	if fake.pis["pi_dv"]["status"] != "canceled" || got.Stripe.CapturedCents != 0 {
+		t.Fatalf("hold %v", fake.pis["pi_dv"])
 	}
 }

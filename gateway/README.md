@@ -820,8 +820,14 @@ HDR sources get HDR output on Lifelike runs, automatically and free, behind
   now.
 - **dv_5.** No displayable base layer: analysis refuses it before any
   charge, whatever the switch, with "This video uses a Dolby Vision
-  format that can't be converted…" (422 `source_unsupported` on a quote
-  or run of a project that has it stored).
+  format that can't be converted…" (422 `source_dolby_vision_unsupported` on a quote
+  or run of a project that has it stored). dv_5 here is Lifelike's list:
+  `DOVI configuration record` with `dv_profile` 5, or compatibility id 0
+  (which covers profile 10.0). Should Lifelike refuse one itself (a
+  failed job with `error_code: source_dolby_vision_unsupported`), the run
+  fails on the normal path, nothing charged, with "This Dolby Vision
+  format isn't supported. Export the video as HDR10 or SDR and try
+  again." and the same code.
 
 ### Lifelike brand intro (BL-25)
 

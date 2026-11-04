@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
@@ -18,6 +19,23 @@ import (
 // errDolbyVision5Text is the refusal of a dv_5 source, without HDR.
 const errDolbyVision5Text = "This video uses a Dolby Vision format that can't be converted. " +
 	"Export it again from your camera or editing app as a standard video, then upload that."
+
+// Lifelike's refusal of a Dolby Vision source it can't show (profile 5,
+// or 10 with compatibility 0), a failed job before any GPU work
+// (LIFELIKE_API.md "HDR sources", a6128c6).
+const (
+	dolbyVisionErrorCode  = "source_dolby_vision_unsupported"
+	dolbyVisionJobText    = "This Dolby Vision format isn't supported."
+	dolbyVisionJobMessage = "This Dolby Vision format isn't supported. Export the video as HDR10 or SDR and try again."
+)
+
+// upperFirst capitalises a phrase's first letter.
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
 
 // dynamicSource reads a source's dynamic range (a variable so tests can
 // stand in for ffprobe); nil, nil without storage.

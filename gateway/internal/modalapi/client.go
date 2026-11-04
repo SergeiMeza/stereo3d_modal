@@ -59,6 +59,9 @@ type Job struct {
 	// video jobs carry probe/crop/av_sync/...). Decode per use.
 	Metadata json.RawMessage `json:"metadata"`
 	Error    string          `json:"error"`
+	// ErrorCode: Lifelike's code for a failure the gateway can name
+	// (today source_dolby_vision_unsupported); "" otherwise.
+	ErrorCode string `json:"error_code"`
 	// CostSummary: the pipeline's bill estimate. Lifelike's total_usd is
 	// the list-price model × its measured billing factor (1.2, ~the real
 	// bill since 2026-11-03); total_usd_raw keeps the model's own figure
