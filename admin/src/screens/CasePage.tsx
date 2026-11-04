@@ -91,15 +91,10 @@ function CaseBody({
   })();
 
   // A customer message on a closed case opens a new linked case (gateway
-  // 00107): the new one names follow_up_of, the closed one lists it.
-  const followUpOf = c.follow_up_of || c.related.follow_up_of || "";
-  const followUps = [
-    ...new Set([
-      ...(c.follow_up_ids ?? []),
-      ...(c.related.follow_up_ids ?? []),
-      ...(page.related_cases ?? []).filter((r) => r.follow_up_of === c.id).map((r) => r.id),
-    ]),
-  ].filter((id) => id && id !== followUpOf);
+  // 00107): the new one names follow_up_of, the closed one lists its
+  // follow_up_ids, both top-level on the case.
+  const followUpOf = c.follow_up_of || "";
+  const followUps = [...new Set(c.follow_up_ids ?? [])].filter((id) => id && id !== followUpOf);
 
   const done = (next: Page) => {
     onPage(next);

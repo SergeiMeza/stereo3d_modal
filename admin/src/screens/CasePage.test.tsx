@@ -324,10 +324,7 @@ describe("closed cases and follow-ups (00107)", () => {
   });
 
   it("the closed case lists its follow-ups", async () => {
-    const page = casePage(
-      { related_cases: [{ id: "CASE-0050", type: "refund", reason: "support_request", status: "open", follow_up_of: "CASE-0042" }] },
-      { status: "closed", open: false, follow_up_ids: ["CASE-0049"] },
-    );
+    const page = casePage({}, { status: "closed", open: false, follow_up_ids: ["CASE-0049", "CASE-0050"] });
     renderApp("/cases/CASE-0042", base(page));
     const row = await screen.findByTestId("follow-ups");
     expect(row).toHaveTextContent("Follow-ups: CASE-0049, CASE-0050");

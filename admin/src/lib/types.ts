@@ -57,8 +57,6 @@ export interface CaseRelated {
   linked_case_ids?: string[];
   superseded_by?: string;
   duplicate_of?: string;
-  follow_up_of?: string;
-  follow_up_ids?: string[] | null;
 }
 
 export interface CaseDecision {
@@ -245,7 +243,6 @@ export interface RelatedCase {
   reason: string;
   status: string;
   result?: string;
-  follow_up_of?: string;
 }
 
 export type CaseAction =
