@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { Chip, ErrorState, SkeletonRows, StateBox } from "../components/ui";
+import { ErrorState, FilterSelect, PageHeader, SkeletonRows, StateBox } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { CaseListQuery } from "../lib/api";
 import { ago, ageHours, dateOnly, dateTime, money, until, words } from "../lib/format";
 import { CASE_TYPES, REASONS, typeLabel, typeTone } from "../lib/labels";
@@ -47,52 +53,66 @@ export function CasesList({ onCounts }: { onCounts?: (c: CasesResponse["counts"]
 
   return (
     <>
-      <div className="titlebar">
-        <h1>Cases</h1>
+      <PageHeader title="Cases">
         {counts && (
-          <span className="kpis" aria-label="Case counts">
-            <span><b>{counts.open}</b> open</span>
-            <span className={counts.overdue ? "red" : ""}><b>{counts.overdue}</b> overdue</span>
-            <span className={counts.due_today ? "amber" : ""}><b>{counts.due_today}</b> due today</span>
+          <span className="flex gap-4 text-muted-foreground" aria-label="Case counts">
+            <span><b className="font-semibold text-foreground tabular-nums">{counts.open}</b> open</span>
+            <span className={cn(counts.overdue > 0 && "text-destructive")}>
+              <b className={cn("font-semibold tabular-nums", counts.overdue > 0 ? "text-destructive" : "text-foreground")}>{counts.overdue}</b> overdue
+            </span>
+            <span className={cn(counts.due_today > 0 && "text-warning")}>
+              <b className={cn("font-semibold tabular-nums", counts.due_today > 0 ? "text-warning" : "text-foreground")}>{counts.due_today}</b> due today
+            </span>
           </span>
         )}
-      </div>
-      <div className="tools">
-        <div className="seg" role="tablist" aria-label="Case status">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={query.tab === t.id}
-              className={query.tab === t.id ? "on" : ""}
-              onClick={() => setQuery((q) => ({ ...q, tab: t.id }))}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <select className="fsel" aria-label="Type" value={query.type ?? ""} onChange={(e) => filter("type", e.target.value)}>
-          <option value="">Type</option>
-          {CASE_TYPES.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}
-        </select>
-        <select className="fsel" aria-label="Reason" value={query.reason ?? ""} onChange={(e) => filter("reason", e.target.value)}>
-          <option value="">Reason</option>
-          {REASONS.map((r) => <option key={r} value={r}>{words(r)}</option>)}
-        </select>
-        <select className="fsel" aria-label="Mode" value={query.mode ?? ""} onChange={(e) => filter("mode", e.target.value)}>
-          <option value="">Mode</option>
-          <option value="manual">manual</option>
-          <option value="auto">auto</option>
-        </select>
-        <select className="fsel" aria-label="Cap" value={query.cap ?? ""} onChange={(e) => filter("cap", e.target.value)}>
-          <option value="">Cap</option>
-          <option value="over">Over the cap</option>
-          <option value="under">Under the cap</option>
-        </select>
-        <span className="grow" />
-        <input
-          className="input search"
+      </PageHeader>
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs value={query.tab} onValueChange={(t) => setQuery((q) => ({ ...q, tab: t as Tab }))}>
+          <TabsList aria-label="Case status">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.id} value={t.id} className="text-[12.5px]">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <FilterSelect
+          label="Type"
+          allLabel="Type"
+          value={query.type ?? ""}
+          onChange={(v) => filter("type", v)}
+          options={CASE_TYPES.map((t) => ({ value: t, label: typeLabel(t) }))}
+        />
+        <FilterSelect
+          label="Reason"
+          allLabel="Reason"
+          value={query.reason ?? ""}
+          onChange={(v) => filter("reason", v)}
+          options={REASONS.map((r) => ({ value: r, label: words(r) }))}
+        />
+        <FilterSelect
+          label="Mode"
+          allLabel="Mode"
+          value={query.mode ?? ""}
+          onChange={(v) => filter("mode", v)}
+          options={[
+            { value: "manual", label: "manual" },
+            { value: "auto", label: "auto" },
+          ]}
+        />
+        <FilterSelect
+          label="Cap"
+          allLabel="Cap"
+          value={query.cap ?? ""}
+          onChange={(v) => filter("cap", v)}
+          options={[
+            { value: "over", label: "Over the cap" },
+            { value: "under", label: "Under the cap" },
+          ]}
+        />
+        <span className="flex-1" />
+        <Input
+          className="w-70 max-[1000px]:w-full"
           type="search"
           placeholder="Case, email, run, pi_…, re_…"
           aria-label="Search cases"
@@ -114,56 +134,60 @@ export function CasesList({ onCounts }: { onCounts?: (c: CasesResponse["counts"]
 
 function Deadline({ row }: { row: CaseRow }) {
   if (row.dispute_due) {
-    return <span className="due bad">dispute due · {dateOnly(row.dispute_due)}</span>;
+    return (
+      <span className="rounded-full border border-destructive/40 bg-destructive/15 px-2 py-px text-xs whitespace-nowrap text-destructive-foreground">
+        dispute due · {dateOnly(row.dispute_due)}
+      </span>
+    );
   }
-  if (!row.deadline_at) return <span className="muted">—</span>;
+  if (!row.deadline_at) return <span className="text-muted-foreground">—</span>;
   const overdue = new Date(row.deadline_at).getTime() < Date.now();
   if (row.deadline_red || overdue) {
-    return <span className="due red">{until(row.deadline_at)}</span>;
+    return <span className="text-xs font-medium whitespace-nowrap text-destructive">{until(row.deadline_at)}</span>;
   }
-  return <span className="due">{dateTime(row.deadline_at)}</span>;
+  return <span className="text-xs whitespace-nowrap text-foreground-2">{dateTime(row.deadline_at)}</span>;
 }
 
 function CaseTable({ rows }: { rows: CaseRow[] }) {
   const { navigate } = useRouter();
   return (
-    <div className="card scroll-x">
-      <table className="at clickable">
-        <thead>
-          <tr>
-            <th>Case</th>
-            <th>Age</th>
-            <th>Account</th>
-            <th>Type · reason</th>
-            <th className="num">Requested</th>
-            <th className="num">Max refundable</th>
-            <th>Deadline</th>
-            <th>Last activity</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Case</TableHead>
+            <TableHead>Age</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead>Type · reason</TableHead>
+            <TableHead numeric>Requested</TableHead>
+            <TableHead numeric>Max refundable</TableHead>
+            <TableHead>Deadline</TableHead>
+            <TableHead>Last activity</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
-            <tr key={r.id} onClick={() => navigate(paths.case(r.id))}>
-              <td>
-                <Link to={paths.case(r.id)} className="cid mono" onClick={(e) => e.stopPropagation()}>
+            <TableRow key={r.id} className="cursor-pointer hover:bg-primary/5" onClick={() => navigate(paths.case(r.id))}>
+              <TableCell>
+                <Link to={paths.case(r.id)} className="font-mono font-medium text-link" onClick={(e) => e.stopPropagation()}>
                   {r.id}
                 </Link>
-              </td>
-              <td className="muted">{ageHours(r.age_hours)}</td>
-              <td>{r.email_masked || <span className="muted">—</span>}</td>
-              <td>
-                <Chip tone={typeTone(r.type)}>{typeLabel(r.type)}</Chip>{" "}
-                <span className="muted">{words(r.reason)}</span>
-                {r.mode === "auto" && <span className="muted"> · auto</span>}
-              </td>
-              <td className="num">{money(r.requested_cents)}</td>
-              <td className="num">{r.max_refundable_cents === undefined ? "—" : money(r.max_refundable_cents)}</td>
-              <td><Deadline row={r} /></td>
-              <td className="muted">{ago(r.last_activity_at)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">{ageHours(r.age_hours)}</TableCell>
+              <TableCell>{r.email_masked || <span className="text-muted-foreground">—</span>}</TableCell>
+              <TableCell>
+                <Badge variant={typeTone(r.type)}>{typeLabel(r.type)}</Badge>{" "}
+                <span className="text-muted-foreground">{words(r.reason)}</span>
+                {r.mode === "auto" && <span className="text-muted-foreground"> · auto</span>}
+              </TableCell>
+              <TableCell numeric>{money(r.requested_cents)}</TableCell>
+              <TableCell numeric>{r.max_refundable_cents === undefined ? "—" : money(r.max_refundable_cents)}</TableCell>
+              <TableCell><Deadline row={r} /></TableCell>
+              <TableCell className="text-muted-foreground">{ago(r.last_activity_at)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

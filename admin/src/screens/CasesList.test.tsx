@@ -24,7 +24,8 @@ describe("cases list (A1)", () => {
     const { calls } = renderApp("/cases", { "GET /v1/admin/cases": () => ({ json: casesResponse }) });
     await screen.findByText("CASE-0042");
     await userEvent.click(screen.getByRole("tab", { name: "Waiting" }));
-    await userEvent.selectOptions(screen.getByLabelText("Mode"), "manual");
+    await userEvent.click(screen.getByRole("combobox", { name: "Mode" }));
+    await userEvent.click(await screen.findByRole("option", { name: "manual" }));
     await waitFor(() => expect(calls.filter((c) => c.path !== "/v1/admin/disputes/summary").at(-1)!.url).toContain("tab=waiting&mode=manual"));
   });
 

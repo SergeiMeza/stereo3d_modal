@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -326,5 +327,48 @@ export function Modal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const ALL = "__all";
+
+/**
+ * A labelled Radix Select for filters and pickers. `value` "" is "no
+ * filter" (Radix items can't be empty, so it maps to a sentinel).
+ */
+export function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  allLabel,
+  size = "sm",
+  className,
+  id,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  /** the "no filter" item's text; without it there is no such item */
+  allLabel?: string;
+  size?: "sm" | "default";
+  className?: string;
+  id?: string;
+}) {
+  return (
+    <Select value={value === "" ? ALL : value} onValueChange={(v) => onChange(v === ALL ? "" : v)}>
+      <SelectTrigger id={id} size={size} aria-label={id ? undefined : label} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {allLabel !== undefined && <SelectItem value={ALL}>{allLabel}</SelectItem>}
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
