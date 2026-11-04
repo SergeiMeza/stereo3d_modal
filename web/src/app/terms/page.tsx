@@ -17,9 +17,12 @@ import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description:
-    "The terms that govern your use of Spatial Video Studio on the web, including content ownership, payment and beta conditions.",
+    "The terms that govern your use of Spatial Video Studio on the web, including content ownership, use of outputs and payment.",
   alternates: { canonical: "/terms" },
 };
+
+/** Infringement and abuse notices (owner 2026-11-04). */
+const LEGAL_EMAIL = "legal@spatial-ai-labs.com";
 
 export default function TermsPage() {
   return (
@@ -35,13 +38,12 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="2. The Service (beta)">
+      <LegalSection title="2. The Service">
         <p>
-          Spatial Video Studio on the web converts 2D video into stereoscopic 3D. The
-          Service is currently in <strong>beta</strong>: the limits on
-          source videos are shown in the app, limits and features may
-          change, and availability is not guaranteed. We
-          work hard to keep your projects intact, but during the beta you
+          Spatial Video Studio on the web converts 2D video into
+          stereoscopic 3D. The limits on source videos are shown in the
+          app; limits and features may change, and availability is not
+          guaranteed. We work hard to keep your projects intact, but you
           should keep your own copies of source material.
         </p>
       </LegalSection>
@@ -66,7 +68,8 @@ export default function TermsPage() {
           convert. Uploading content you do not own or have permission to
           use is a violation of these terms. We may remove content and
           suspend accounts in response to credible infringement reports or
-          unlawful material.
+          unlawful material. How you may use outputs commercially is set
+          out in section 5.
         </p>
       </LegalSection>
 
@@ -92,6 +95,11 @@ export default function TermsPage() {
           <li>process content you have no right to use;</li>
           <li>process unlawful content, or content that sexualizes or
             exploits minors (reported to authorities without notice);</li>
+          <li>make non-consensual intimate imagery, or deepfakes of real
+            people without their consent;</li>
+          <li>harass or impersonate anyone, or invade someone&rsquo;s
+            privacy;</li>
+          <li>break export control or sanctions law;</li>
           <li>probe, overload, or interfere with the Service or other
             users&rsquo; work;</li>
           <li>resell the Service itself. Converting client footage
@@ -99,6 +107,11 @@ export default function TermsPage() {
             plan;</li>
           <li>reverse engineer the Service except where law permits.</li>
         </ul>
+        <p>
+          We don&rsquo;t review content before or after processing and
+          aren&rsquo;t responsible for what users upload or make; you are
+          solely responsible for your content and outputs.
+        </p>
       </LegalSection>
 
       {/* Facts checked against the gateway README and BL-19 (2026-11-04):
@@ -154,6 +167,11 @@ export default function TermsPage() {
           Videos may start with a short Spatial Video Studio title. Business and
           Studio plans can turn it off.
         </p>
+        <p>
+          Outputs may carry metadata (content credentials) and an invisible
+          identifier showing they were made with Spatial Video Studio and
+          which run they came from.
+        </p>
       </LegalSection>
 
       <LegalSection title="9. Our intellectual property">
@@ -167,8 +185,7 @@ export default function TermsPage() {
       <LegalSection title="10. Feedback">
         <p>
           If you send us feedback or suggestions, we may use them without
-          restriction or obligation to you. (Please do — the Service is in
-          beta because we want it.)
+          restriction or obligation to you. Please do send feedback.
         </p>
       </LegalSection>
 
@@ -177,9 +194,8 @@ export default function TermsPage() {
           The Service is provided <strong>&ldquo;as is&rdquo; and
           &ldquo;as available&rdquo;</strong>, without warranties of any
           kind, express or implied, including fitness for a particular
-          purpose and non-infringement. Beta software has rough edges; we
-          do not warrant that the Service will be uninterrupted or
-          error-free.
+          purpose and non-infringement. We do not warrant that the Service
+          will be uninterrupted or error-free.
         </p>
       </LegalSection>
 
@@ -190,16 +206,21 @@ export default function TermsPage() {
           or for lost profits, data or goodwill. Our total liability for
           all claims arising out of the Service is limited to the amounts
           you paid us in the twelve months before the event giving rise to
-          the claim. Nothing in these terms limits liability that cannot be
+          the claim. This limit also covers our officers, directors and
+          staff. Nothing in these terms limits liability that cannot be
           limited by law.
+        </p>
+        <p>
+          The Service is provided by Spatial AI Labs Ltd; any claim
+          relating to the Service must be brought against the company.
         </p>
       </LegalSection>
 
       <LegalSection title="13. Indemnification">
         <p>
           You will indemnify us against third-party claims arising from
-          content you upload without sufficient rights, or from your
-          violation of these terms.
+          content you upload without sufficient rights, from your outputs
+          and how you use them, or from your violation of these terms.
         </p>
       </LegalSection>
 
@@ -208,12 +229,24 @@ export default function TermsPage() {
           You can stop using the Service and ask us to delete your account
           at any time. We may suspend or terminate accounts that violate
           these terms or create risk for the Service; where reasonable, we
-          will warn you first. Sections 4 (as to past processing), 5, 9, and
-          11–15 survive termination.
+          will warn you first. Sections 4 (as to past processing), 5, 9,
+          11–13 and 16 survive termination.
         </p>
       </LegalSection>
 
-      <LegalSection title="15. Governing law">
+      {/* [CHECK] legal@spatial-ai-labs.com: confirm the mailbox exists
+          (else use support@spatial-ai-labs.com). */}
+      <LegalSection title="15. Notice and takedown">
+        <p>
+          Send notices of infringement or abuse to{" "}
+          <a className="text-primary hover:underline" href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>.
+          We act on valid notices, may share account details with
+          authorities where the law requires, and close the accounts of
+          repeat infringers.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="16. Governing law">
         <p>
           These terms are governed by the laws of England and Wales, and
           disputes are subject to the exclusive jurisdiction of the courts
@@ -222,7 +255,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="16. Changes to these terms">
+      <LegalSection title="17. Changes to these terms">
         <p>
           We may update these terms as the Service evolves. Material
           changes will be announced in the app or by email, and continuing
@@ -231,7 +264,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="17. Contact">
+      <LegalSection title="18. Contact">
         <p>
           Spatial AI Labs Ltd, London, United Kingdom ·{" "}
           <a className="text-primary hover:underline" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>

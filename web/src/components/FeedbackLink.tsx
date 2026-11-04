@@ -1,5 +1,5 @@
 /**
- * Global "Feedback" affordance for the beta: a mailto link in the app
+ * Global "Feedback" affordance: a mailto link in the app
  * header (rendered on every page via the root layout), so users can always
  * reach us. Plain <a> — no client JS needed.
  */

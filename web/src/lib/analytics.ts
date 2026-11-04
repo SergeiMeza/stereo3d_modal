@@ -1,28 +1,27 @@
 "use client";
 
 /**
- * Product analytics core — Microsoft Clarity + Firebase/Google Analytics
- * (GA4) behind one gate and one consent model. Components call track() /
+ * Product analytics core — Microsoft Clarity behind one gate and one
+ * consent model (Google/Firebase Analytics removed, owner 2026-11-04). Components call track() /
  * upgradeSession() unconditionally; this module decides whether anything
  * actually leaves the browser.
  *
  * - Enabled only in a real production deployment: never dev, tests, the
  *   mock-gateway build, or Vercel previews. In development every call
  *   logs to the console instead, so instrumentation is verifiable.
- * - UK/EEA visitors must opt in before either SDK loads (the Analytics
+ * - UK/EEA visitors must opt in before Clarity loads (the Analytics
  *   component asks /api/geo and shows the consent banner); everyone else
  *   starts silently. Until startAnalytics() runs, track() drops events —
  *   no consent, no tracking.
- * - Clarity events carry only a name (no properties); GA4 gets the same
- *   name plus params. Clarity's upgrade API promotes engaged sessions
+ * - Clarity events carry only a name (no properties). Clarity's upgrade API promotes engaged sessions
  *   (upload, card saved, paid conversion) in recording priority.
- * - Both SDKs load lazily and failures are swallowed: ad blockers commonly
+ * - The SDK loads lazily and failures are swallowed: ad blockers commonly
  *   reject analytics scripts and must never break the product.
- * - China mode (lib/region.ts) never starts either SDK: they can't load
- *   there, and the Firebase SDK must stay out of that page entirely.
+ * - China mode (lib/region.ts) never starts it.
+ * - Outside the UK/EEA a stored "denied" (the Privacy page's switch) keeps
+ *   it off.
  */
 
-import { getFirebaseAnalytics } from "@/lib/firebase";
 import { currentRegion } from "@/lib/region";
 
 export const CLARITY_PROJECT_ID =
@@ -76,7 +75,7 @@ let started = false;
 // init and are silently dropped when analytics never started.
 let clarityPromise: Promise<ClarityClient> | null = null;
 
-/** Load and initialize both SDKs. `consented` is true when the user
+/** Load and initialize Clarity. `consented` is true when the user
  * explicitly opted in (UK/EEA banner); Clarity then gets its consentV2
  * signal — analytics granted, ads denied (we run no ads). Elsewhere the
  * API isn't called and Clarity's regional defaults apply. */
@@ -96,7 +95,6 @@ export function startAnalytics(opts: { consented: boolean }): void {
     },
   );
   clarityPromise.catch(() => {});
-  void getFirebaseAnalytics().catch(() => {});
 }
 
 // ---------------------------------------------------------------- events
@@ -109,26 +107,13 @@ const devLog = (message: string, params?: EventParams): void => {
   }
 };
 
-/** Record a product event in both tools. GA4 gets name + params; Clarity
- * gets the name (its events carry no properties — use tagSession for
- * filterable dimensions). Safe to call anywhere, any time: a no-op until
+/** Record a product event in Clarity (its events carry no properties —
+ * use tagSession for filterable dimensions; params show in dev logs). Safe to call anywhere, any time: a no-op until
  * startAnalytics() has run. */
 export function track(name: string, params?: EventParams): void {
   devLog(`event ${name}`, params);
   if (!started) return;
   clarityPromise?.then((c) => c.event(name)).catch(() => {});
-  void gaLogEvent(name, params);
-}
-
-async function gaLogEvent(name: string, params?: EventParams): Promise<void> {
-  try {
-    const analytics = await getFirebaseAnalytics();
-    if (analytics === null) return;
-    const { logEvent } = await import("firebase/analytics");
-    logEvent(analytics, name, params);
-  } catch {
-    // analytics must never throw into product code
-  }
 }
 
 /** Clarity's upgrade API: prioritize this session for recording over the

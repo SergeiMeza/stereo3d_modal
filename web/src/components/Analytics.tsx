@@ -11,8 +11,8 @@
  *     consent not required  → start silently
  *     consent required      → show the banner; start only on "Allow"
  * A failed geo lookup counts as consent-required — the privacy-safe way
- * around. In China mode (lib/region.ts) nothing runs at all: neither SDK
- * can load there, so no banner either.
+ * around. In China mode (lib/region.ts) nothing runs at all, so no banner
+ * either.
  */
 
 import Link from "next/link";
@@ -69,9 +69,9 @@ export function Analytics() {
     >
       <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 text-sm">
         <p className="min-w-64 flex-1 text-fg-muted">
-          Can we use analytics cookies? Google Analytics and Microsoft
-          Clarity show us how the studio is used so we can improve it — no
-          advertising, and never the content of your videos.{" "}
+          Can we use analytics cookies? Microsoft Clarity shows us how the
+          studio is used so we can improve it — no advertising, and never the
+          content of your videos.{" "}
           <Link href="/privacy" className="text-primary hover:underline">
             Privacy Policy
           </Link>

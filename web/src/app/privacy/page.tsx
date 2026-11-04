@@ -11,7 +11,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AnalyticsChoiceReset } from "@/components/AnalyticsChoice";
+import { AnalyticsChoice } from "@/components/AnalyticsChoice";
 import { FEEDBACK_EMAIL } from "@/components/FeedbackLink";
 import { LEGAL_EFFECTIVE_DATE } from "@/components/legal/effectiveDate";
 import { LegalSection, LegalShell } from "@/components/legal/LegalShell";
@@ -41,9 +41,10 @@ export default function PrivacyPage() {
       <LegalSection title="2. Information we collect">
         <p>
           <strong>Account information.</strong> When you sign in we receive
-          your email address and, if you use Google sign-in, your name and
-          profile photo from Google. We assign your account an internal user
-          ID.
+          your email address, and if you sign in with Apple, Google or
+          another provider, the basic profile details it shares (such as
+          your name; Apple may give us a private relay email). We assign
+          your account an internal user ID.
         </p>
         <p>
           <strong>Billing information.</strong> Payments are processed by
@@ -54,7 +55,13 @@ export default function PrivacyPage() {
           charges, refunds and receipts for the runs you make, and, if you
           use a prepaid balance, its top-ups, automatic reload settings,
           spending limit and every amount added or spent; Stripe holds the
-          matching payment records.
+          matching payment records. If you pay with a wallet or a regional
+          payment method (such as Apple Pay, Google Pay, Alipay or WeChat
+          Pay), we receive the same kind of short description. For Business
+          and Studio invoices we keep the company name, billing address and
+          VAT ID you give us. To prevent fraud we keep a card fingerprint, a
+          code Stripe derives from a card that recognises it again without
+          revealing its number.
         </p>
         <p>
           <strong>Plans and subscriptions.</strong> We record which plan you
@@ -68,7 +75,9 @@ export default function PrivacyPage() {
           <strong>Account settings.</strong> We keep the settings you choose
           in the app: your language, which we also use for the short title
           at the start of your videos, and whether that title is on (Business
-          and Studio plans can turn it off).
+          and Studio plans can turn it off), your answers to the welcome
+          questions (such as which headsets you watch on), and which tips
+          you&rsquo;ve already seen.
         </p>
         <p>
           <strong>Your content.</strong> The videos you upload and everything
@@ -77,7 +86,10 @@ export default function PrivacyPage() {
           download them. We also log each download link we issue and each
           time you play a result in the app, with the run, the file, the
           time, your country, your browser type and a one-way scrambled
-          form of your IP address (never the address itself).
+          form of your IP address (never the address itself). Outputs may
+          carry metadata (content credentials) and an invisible identifier
+          showing they were made
+          with Spatial Video Studio and which run they came from.
         </p>
         <p>
           <strong>Support, refunds and disputes.</strong> When you ask for
@@ -90,17 +102,18 @@ export default function PrivacyPage() {
           <strong>Usage and technical data.</strong> Standard server logs
           (IP address, browser type, request timestamps) and job records
           (what was run, how long it took, what it cost). We use these to
-          operate the Service, prevent abuse and debug problems. We also use
-          Google Analytics and Microsoft Clarity to understand how the app
-          is used — pages visited, clicks, scrolling and similar interaction
-          signals, including session replays of your use of the interface
-          (never the content of your videos beyond what is on screen) — so
-          we can find and fix rough edges. In the UK and the European
-          Economic Area these analytics stay off unless you allow them on
-          the consent banner, and you can{" "}
-          <AnalyticsChoiceReset /> at any time. We use cookies and similar
-          storage to keep you signed in and for these analytics — not for
-          advertising.
+          operate the Service, prevent abuse and debug problems, and we
+          record our own product events (for example which headsets people
+          pick when they start) to improve it. We also use Microsoft Clarity
+          to understand how the app is used — pages visited, clicks,
+          scrolling and similar interaction signals, including session
+          replays of your use of the interface (never the content of your
+          videos beyond what is on screen) — so we can find and fix rough
+          edges. In the UK and the European Economic Area Clarity stays off
+          unless you allow it on the consent banner. You can change your
+          choice at any time: <AnalyticsChoice />. We use cookies and
+          similar storage to keep you signed in and for these analytics —
+          not for advertising.
         </p>
       </LegalSection>
 
@@ -128,9 +141,12 @@ export default function PrivacyPage() {
 
       <LegalSection title="4. Where your data lives and who processes it">
         <p>
-          Your data is stored and processed on infrastructure in the United
-          States. Because we are a UK company, this means your data is
-          transferred outside the UK; those transfers rely on our
+          Your data is stored and processed mainly in the United States, and
+          where we use them, in regional data centres (for example in Europe
+          or Asia). In some regions we route traffic through regional relays
+          or infrastructure so the Service works where you are. Because we
+          are a UK company, this means your data is transferred outside the
+          UK; those transfers rely on our
           processors&rsquo; recognized safeguards (such as the UK
           extension to the EU&ndash;US Data Privacy Framework and standard
           contractual clauses). We use a small set of processors, each only
@@ -138,8 +154,7 @@ export default function PrivacyPage() {
         </p>
         <ul>
           <li><strong>Google Cloud / Firebase</strong> — authentication,
-            video and artifact storage, our database, and usage analytics
-            (Google Analytics).</li>
+            video and artifact storage, and our database.</li>
           <li><strong>Microsoft Clarity</strong> — usage analytics and
             session replay, so we can see where the interface confuses
             people.</li>

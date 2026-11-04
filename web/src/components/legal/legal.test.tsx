@@ -23,6 +23,12 @@ describe("PrivacyPage", () => {
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Terms of Use" })).toBeTruthy();
     expect(screen.getByText(/RevenueCat/, { selector: "p" })).toBeTruthy();
+    const text = document.body.textContent ?? "";
+    // owner 2026-11-04: no Google Analytics, provenance, regions
+    expect(text).not.toMatch(/Google Analytics/);
+    expect(text).toContain("content credentials");
+    expect(text).toContain("regional relays");
+    expect(text).toContain("Effective 1 November 2026");
   });
 });
 
@@ -35,7 +41,9 @@ describe("TermsPage", () => {
     expect(screen.getByText(/that is the most you are/)).toBeTruthy();
     expect(screen.getByText(/each started minute/)).toBeTruthy();
     expect(screen.getByText(/All other outputs are for personal, non-commercial use/)).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/Classic/);
+    expect(document.body.textContent).not.toMatch(/Classic|\bbeta\b/i);
+    expect(document.body.textContent).toContain("Notice and takedown");
+    expect(document.body.textContent).toContain("content credentials");
     expect(screen.getByRole("link", { name: "Privacy Policy" })).toBeTruthy();
   });
 });

@@ -8,12 +8,10 @@
  * public by design (Firebase web configs are not secrets) and hardcoding
  * keeps Vercel setup to a single env (NEXT_PUBLIC_AUTH_MODE=firebase).
  * NEXT_PUBLIC_FIREBASE_* envs override individual fields when pointing at
- * another project. Analytics (GA4 via measurementId) follows the same rule:
- * it is only loaded through getFirebaseAnalytics(), which lib/analytics.ts
- * calls once its production + consent gates pass.
+ * another project. No Google/Firebase Analytics (owner 2026-11-04): only
+ * authentication is loaded here.
  */
 
-import type { Analytics } from "firebase/analytics";
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
 
@@ -24,7 +22,6 @@ const DEFAULT_CONFIG = {
   storageBucket: "spatial-video-studio.firebasestorage.app",
   messagingSenderId: "151335782809",
   appId: "1:151335782809:web:3bc67dc51717ad72a76b08",
-  measurementId: "G-JSPE16JSLY",
 } as const;
 
 /** NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, or "self": this site's own host, whose
@@ -52,9 +49,6 @@ export function firebaseConfig() {
       process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ??
       DEFAULT_CONFIG.messagingSenderId,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? DEFAULT_CONFIG.appId,
-    measurementId:
-      process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ??
-      DEFAULT_CONFIG.measurementId,
   };
 }
 
@@ -77,16 +71,4 @@ export function getFirebaseAuth(): Promise<Auth> {
     return getAuth(app);
   })();
   return authPromise;
-}
-
-let analyticsPromise: Promise<Analytics | null> | null = null;
-
-/** Resolves null where GA4 can't run (unsupported browser, no cookies). */
-export function getFirebaseAnalytics(): Promise<Analytics | null> {
-  analyticsPromise ??= (async () => {
-    const app = await getFirebaseApp();
-    const { getAnalytics, isSupported } = await import("firebase/analytics");
-    return (await isSupported()) ? getAnalytics(app) : null;
-  })();
-  return analyticsPromise;
 }
