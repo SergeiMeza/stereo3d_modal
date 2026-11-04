@@ -78,3 +78,19 @@ func (s *Store) CountContactsSince(ctx context.Context, uid string, since time.T
 	}
 	return n, nil
 }
+
+// ListBusinessSetupsSince is every account's setup answers changed since t.
+func (s *Store) ListBusinessSetupsSince(ctx context.Context, since time.Time, limit int) ([]BusinessSetup, error) {
+	snaps, err := s.fs.Collection(customersCol(s.env)).Where("business_setup.updated_at", ">=", since).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BusinessSetup, 0, len(snaps))
+	for _, sn := range snaps {
+		var c Customer
+		if sn.DataTo(&c) == nil && c.BusinessSetup != nil {
+			out = append(out, *c.BusinessSetup)
+		}
+	}
+	return out, nil
+}

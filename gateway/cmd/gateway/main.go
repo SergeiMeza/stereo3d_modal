@@ -158,9 +158,10 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
 	mux.HandleFunc("POST /v1/admin/reconcile", admin(svc.HandleAdminReconcile)) // M3 on demand
 	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
-	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets)) // onboarding 2026-11-04
-	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))           // plans surfaces 2026-11-04
-	mux.HandleFunc("GET /v1/admin/feedback", admin(svc.HandleAdminFeedback))                      // web and app feedback, read only
+	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets))    // onboarding 2026-11-04
+	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))              // plans surfaces 2026-11-04
+	mux.HandleFunc("GET /v1/admin/feedback", admin(svc.HandleAdminFeedback))                         // web and app feedback, read only
+	mux.HandleFunc("GET /v1/admin/onboarding/business_funnel", admin(svc.HandleAdminBusinessFunnel)) // business setup 2026-11-04
 	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
@@ -199,7 +200,15 @@ func main() {
 	mux.HandleFunc("GET /v1/billing/company", authed(svc.HandleGetCompany))
 	mux.HandleFunc("PUT /v1/billing/company", authed(svc.HandlePutCompany))
 	mux.HandleFunc("POST /v1/billing/company/tax-ids", authed(svc.HandleAddTaxID))
-	mux.HandleFunc("DELETE /v1/billing/company/tax-ids/{id}", authed(withID(svc.HandleDeleteTaxID)))
+	// Stripe tax id ids (txi_…) aren't our 12-hex ids: their own check.
+	mux.HandleFunc("DELETE /v1/billing/company/tax-ids/{id}", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		id := r.PathValue("id")
+		if !api.ValidTaxIDRef(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("tax id"))
+			return
+		}
+		svc.HandleDeleteTaxID(w, r, u, id)
+	}))
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25

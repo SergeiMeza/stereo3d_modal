@@ -888,6 +888,27 @@ is ignored without such a plan.
   generated_at}`, newest first; on test it reads `app_feedback_test` and
   the app's `app_feedback` (read only).
 
+### Business/Studio setup (owner 2026-11-04)
+
+- **Events**: `business_setup_opened`, `business_setup_plan_picked
+  {plan}`, `business_setup_details_done`, `business_setup_checkout_started
+  {plan}`, `business_setup_purchased {plan}` (`plan`: business | studio,
+  optional).
+- **`settings.business_setup`**: GET `{team_size, main_use, headsets[],
+  updated_at}` or null; PATCH `business_setup {team_size? (a number or a
+  range like 2-5, 20+), main_use? (client_work | own_channel | stock |
+  other), headsets?}` replaces the answers, `null` clears them.
+- **`GET /v1/admin/onboarding/business_funnel?days=30`** (admin) →
+  `{days, steps[{step, people, events, rate_from_previous}],
+  by_plan[{step, plan, people}], answers {accounts, by_main_use[{main_use,
+  count}], by_team_size[{team_size, count}]}, generated_at}`.
+- **Company details** (existing): `GET /v1/billing/company` → `{name,
+  address {line1, line2, city, state, postal_code, country}, tax_ids[{id,
+  type, value, verification}]}`; `PUT /v1/billing/company {name?,
+  address?}` (new invoices only); `POST /v1/billing/company/tax-ids {type,
+  value}`; `DELETE /v1/billing/company/tax-ids/{txi_…}` (refused every id
+  until 2026-11-04: the route ran the 12-hex check).
+
 ### Plans surfaces (owner 2026-11-04)
 
 - **Events** (`POST /v1/events`): `plans_surface_view`,

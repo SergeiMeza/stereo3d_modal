@@ -444,6 +444,13 @@ func (s *Service) HandleAddTaxID(w http.ResponseWriter, r *http.Request, user *A
 	s.HandleGetCompany(w, r, user)
 }
 
+// ValidTaxIDRef: a Stripe tax id's id (txi_…), for the delete route.
+func ValidTaxIDRef(id string) bool {
+	return len(id) > 4 && len(id) <= 64 && strings.HasPrefix(id, "txi_") && !strings.ContainsFunc(id[4:], func(c rune) bool {
+		return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
+	})
+}
+
 // DELETE /v1/billing/company/tax-ids/{id}
 func (s *Service) HandleDeleteTaxID(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()

@@ -561,6 +561,17 @@ type Customer struct {
 	// reads as holding the app's Pro, for the onboarding variant and the
 	// Pro price tier.
 	SimulateAppPro bool `firestore:"simulate_app_pro,omitempty"`
+	// BusinessSetup: the Business/Studio setup's answers (owner
+	// 2026-11-04).
+	BusinessSetup *BusinessSetup `firestore:"business_setup,omitempty"`
+}
+
+// BusinessSetup is what the setup flow asked.
+type BusinessSetup struct {
+	TeamSize  string    `firestore:"team_size,omitempty"`
+	MainUse   string    `firestore:"main_use,omitempty"` // client_work | own_channel | stock | other
+	Headsets  []string  `firestore:"headsets,omitempty"`
+	UpdatedAt time.Time `firestore:"updated_at"`
 }
 
 // Onboarding is the account's onboarding flags; nil = never written (an

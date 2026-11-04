@@ -117,6 +117,7 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			Locale         json.RawMessage `json:"locale"`
 			Dismissed      json.RawMessage `json:"dismissed"`
 			SimulateAppPro *bool           `json:"simulate_app_pro"`
+			BusinessSetup  json.RawMessage `json:"business_setup"`
 			onboardingPatch
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
@@ -130,6 +131,11 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		dismissed, derr := parseDismissed(req.Dismissed, time.Now().UTC())
 		if derr != nil {
 			httpx.WriteErr(ctx, w, derr)
+			return
+		}
+		bsetup, bsSet, bsErr := parseBusinessSetup(req.BusinessSetup, time.Now().UTC())
+		if bsErr != nil {
+			httpx.WriteErr(ctx, w, bsErr)
 			return
 		}
 		var keepKeys map[string]bool
@@ -197,6 +203,9 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 				c.Locale = *locale
 			}
 			req.onboardingPatch.apply(c)
+			if bsSet {
+				c.BusinessSetup = bsetup
+			}
 			if req.SimulateAppPro != nil {
 				c.SimulateAppPro = *req.SimulateAppPro
 				slog.WarnContext(ctx, "TEST simulate_app_pro set", "uid", user.UID, "simulate_app_pro", c.SimulateAppPro, "env", s.Cfg.Env)
@@ -234,6 +243,7 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 	for k, v := range s.onboardingSettings(ctx, user.UID, cust) { // owner 2026-11-04
 		out[k] = v
 	}
-	out["dismissed"] = dismissedJSON(cust) // plans surfaces dismissed (placement → time)
+	out["dismissed"] = dismissedJSON(cust)          // plans surfaces dismissed (placement → time)
+	out["business_setup"] = businessSetupJSON(cust) // Business/Studio setup answers
 	httpx.WriteOK(w, out)
 }
