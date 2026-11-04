@@ -2,7 +2,9 @@ import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/brow
 import { useEffect, useState } from "react";
 
 import { Brand } from "../components/Brand";
-import { Button, Spinner } from "../components/ui";
+import { Note } from "@/components/common";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { ApiError, type AdminApi } from "../lib/api";
 import type { AdminAuth, AuthState } from "../lib/auth";
 import { assertPasskey, createPasskey, PASSKEY_COPY, passkeyErrorMessage } from "../lib/passkeys";
@@ -12,8 +14,8 @@ const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 /** A0: Google, then the passkey (ADR 0135), and no access. */
 export function SignInScreen({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: AdminApi }) {
   return (
-    <main className="signin">
-      <div className="signin-card">
+    <main className="grid min-h-dvh place-items-center p-4">
+      <div className="flex w-[380px] max-w-full flex-col items-center gap-4 rounded-2xl bg-card px-7 py-8 text-center shadow-2xl ring-1 ring-foreground/10">
         <Brand big env={ENV} />
         <Body auth={auth} state={state} api={api} />
       </div>
@@ -33,8 +35,8 @@ function Body({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: Ad
       return (
         <>
           <p>This account has no access.</p>
-          <p className="muted small">{state.email}</p>
-          <div className="row gap8">
+          <Note>{state.email}</Note>
+          <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => void auth.recheck()}>Check again</Button>
             <Button size="sm" variant="ghost" onClick={() => void auth.signOut()}>Sign out</Button>
           </div>
@@ -45,8 +47,13 @@ function Body({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: Ad
 
 function GoogleButton({ onClick, busy }: { onClick: () => void; busy: boolean }) {
   return (
-    <button type="button" className="gbtn" onClick={onClick} disabled={busy}>
-      <svg viewBox="0 0 48 48" aria-hidden="true">
+    <button
+      type="button"
+      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg bg-white text-[14.5px] font-medium text-[#1f1f1f] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-progress disabled:opacity-60"
+      onClick={onClick}
+      disabled={busy}
+    >
+      <svg viewBox="0 0 48 48" aria-hidden="true" className="size-4.5">
         <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
         <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
         <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
@@ -69,9 +76,9 @@ function SignedOut({ auth, state }: { auth: AdminAuth; state: Extract<AuthState,
   };
   return (
     <>
-      {state.notice === "expired" && <p className="notice">Your session ended. Sign in again.</p>}
+      {state.notice === "expired" && <p className="text-sm text-warning">Your session ended. Sign in again.</p>}
       <GoogleButton onClick={() => void go()} busy={busy} />
-      {state.error && <p className="err small" role="alert">{state.error}</p>}
+      {state.error && <Note tone="error">{state.error}</Note>}
     </>
   );
 }
@@ -160,22 +167,22 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
       {stage.kind === "setup" ? (
         <>
           <p>Set up a passkey to use the console.</p>
-          <p className="muted small">{email} · {PASSKEY_COPY}</p>
-          <Button variant="primary" className="full" onClick={() => void setup()} disabled={busy}>
+          <Note>{email} · {PASSKEY_COPY}</Note>
+          <Button variant="default" size="lg" className="w-full" onClick={() => void setup()} disabled={busy}>
             {busy ? "Waiting for the passkey…" : "Set up a passkey"}
           </Button>
         </>
       ) : (
         <>
-          {stage.kind === "use" && stage.added && <p className="notice">Passkey added. Use it to sign in.</p>}
+          {stage.kind === "use" && stage.added && <p className="text-sm text-warning" role="status">Passkey added. Use it to sign in.</p>}
           <p>Use your passkey to finish signing in.</p>
-          <p className="muted small">{email} · {PASSKEY_COPY}</p>
-          <Button variant="primary" className="full" onClick={() => void use()} disabled={busy || stage.kind === "checking"}>
+          <Note>{email} · {PASSKEY_COPY}</Note>
+          <Button variant="default" size="lg" className="w-full" onClick={() => void use()} disabled={busy || stage.kind === "checking"}>
             {busy ? "Waiting for the passkey…" : "Use your passkey"}
           </Button>
         </>
       )}
-      {error && <p className="err small" role="alert">{error}</p>}
+      {error && <Note tone="error">{error}</Note>}
       <Button size="sm" variant="ghost" onClick={() => void auth.signOut()}>Use another account</Button>
     </>
   );
