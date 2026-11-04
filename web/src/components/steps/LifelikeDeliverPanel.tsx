@@ -120,6 +120,15 @@ export interface LifelikeDeliverPanelProps {
   onProjectChanged: () => void;
 }
 
+/** owner 2026-11-05: HDR output is automatic and free (no control); the
+ * side-by-side files stay in standard colour for headsets without HDR. */
+export function hdrLine(formats: readonly Format[]): string {
+  const base = "Your 3D will be in HDR, so bright highlights and rich colour are kept. Free.";
+  return formats.some((f) => f === "sbs" || f === "half_sbs")
+    ? `${base} Side-by-side files are made in standard colour for headsets that don't show HDR.`
+    : base;
+}
+
 export function LifelikeDeliverPanel({
   project,
   onProjectChanged,
@@ -324,6 +333,11 @@ export function LifelikeDeliverPanel({
               )
             }
           />
+          {project.hdr_output === true ? (
+            <p data-testid="make-hdr" className="text-xs text-fg-muted">
+              {hdrLine(sentFormats)}
+            </p>
+          ) : null}
         </MakeSection>
 
         <MakeSection n={++n} title="Quality">

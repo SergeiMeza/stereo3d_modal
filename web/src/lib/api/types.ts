@@ -239,6 +239,10 @@ export interface Project {
   has_bars?: boolean;
   /** Lifelike removes the bars (default true when bars are found) */
   remove_bars?: boolean;
+  /** owner 2026-11-05: HDR output is automatic and free. true when the
+   * gateway's HDR output is on and the source is HDR; absent or false =
+   * nothing about HDR shows anywhere */
+  hdr_output?: boolean;
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */

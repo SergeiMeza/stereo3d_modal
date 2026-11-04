@@ -289,6 +289,7 @@ export function resolutionName(probe: { width: number; height: number }): string
 export function videoFacts(project: {
   probe?: Probe;
   scenes?: { cuts: number[] | null };
+  hdr_output?: boolean;
 }): string {
   const p = project.probe;
   if (!p) return "";
@@ -299,6 +300,8 @@ export function videoFacts(project: {
     resolutionName(p),
     `${fps} fps`,
     project.scenes ? `${scenes} scene${scenes === 1 ? "" : "s"}` : null,
+    // owner 2026-11-05: only while the gateway makes it in HDR
+    project.hdr_output === true ? "HDR video" : null,
   ]
     .filter(Boolean)
     .join(" · ");
