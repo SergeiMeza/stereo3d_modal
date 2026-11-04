@@ -690,7 +690,9 @@ export interface AccountSettings {
   lifelike_intro_editable: boolean;
   locale: string | null;
   /** onboarding (owner 2026-11-04): where they watch, from the welcome's
-   * first question; preselects "Where will you watch it?" on Make 3D */
+   * first question; preselects "Where will you watch it?" on Make 3D.
+   * Make 3D's device ids (avp, quest, galaxyxr, pico, steamframe, glasses,
+   * tv, unsure); gateway 00092 stores any slug, at most 12 */
   headsets?: string[] | null;
   /** first-time hints already dismissed (one id per page or tab) */
   hints_seen?: string[];

@@ -7,8 +7,14 @@ import { useServices } from "../lib/services";
 import type { OnboardingHeadsets } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
 
-/** The welcome's device names (web app WELCOME_DEVICES). */
+/** The welcome's device names. The web app sends Make 3D's device ids
+ * (WELCOME_DEVICES: avp, quest, galaxyxr, pico, steamframe, glasses, tv,
+ * unsure); the gateway stores any slug, so a few spelled-out aliases are
+ * named too. */
 const DEVICE_NAMES: Record<string, string> = {
+  vision_pro: "Apple Vision Pro",
+  galaxy_xr: "Samsung Galaxy XR",
+  steam_frame: "Steam Frame",
   avp: "Apple Vision Pro",
   quest: "Meta Quest",
   galaxyxr: "Samsung Galaxy XR",
