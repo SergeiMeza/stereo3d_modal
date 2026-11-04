@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { disputes } from "../test/fixtures";
-import { apiError, FakeAuth, renderApp } from "../test/harness";
+import { apiError, FakeAuth, findToast, renderApp } from "../test/harness";
 import { installWebAuthn, requestOptions } from "../test/webauthn";
 
 /** The passkey re-assertion routes, as the gateway answers them. */
@@ -201,10 +201,11 @@ describe("grants (00106)", () => {
     );
     expect(await screen.findByText("No grants.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Grant Pro…" }));
-    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Grant Pro" });
     const submit = within(sheet).getByRole("button", { name: "Grant Pro" });
     expect(submit).toBeDisabled(); // reason required
-    await userEvent.selectOptions(within(sheet).getByLabelText("Entitlement"), "business");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Entitlement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Business" }));
     await userEvent.click(within(sheet).getByLabelText("1 week"));
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "conference speaker");
     await userEvent.click(within(sheet).getByRole("button", { name: "Grant Business" }));
@@ -221,13 +222,13 @@ describe("grants (00106)", () => {
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThan(7.1);
     expect(await screen.findByTestId("grant-gr_9")).toHaveTextContent("Business");
-    expect(screen.getByRole("status")).toHaveTextContent("Business granted until");
+    expect(await findToast(/^Business granted until/)).toBeInTheDocument();
   });
 
   it("a custom end date outside 1 hour to 5 years can't be sent", async () => {
     renderApp("/accounts/uid_123", { "GET /v1/admin/accounts/uid_123": () => ({ json: account }) });
     await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
-    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Grant Pro" });
     await userEvent.click(within(sheet).getByLabelText("Custom"));
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "test");
     const date = within(sheet).getByLabelText(/End date/);
@@ -250,11 +251,11 @@ describe("grants (00106)", () => {
       }),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
-    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Grant Pro" });
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "support");
     await userEvent.click(within(sheet).getByRole("button", { name: "Grant Pro" }));
     expect(await screen.findByTestId("grant-gr_f")).toHaveTextContent("Failed");
-    expect(screen.getByRole("status")).toHaveTextContent("Not granted: RevenueCat said no");
+    expect(await findToast("Not granted: RevenueCat said no")).toBeInTheDocument();
   });
 
   it("503 rc_unavailable keeps the sheet open with a retry hint", async () => {
@@ -263,7 +264,7 @@ describe("grants (00106)", () => {
       "POST /v1/admin/accounts/uid_123/grants": () => apiError(503, "rc_unavailable", "down"),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Grant Pro…" }));
-    const sheet = screen.getByRole("dialog", { name: "Grant Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Grant Pro" });
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "support");
     await userEvent.click(within(sheet).getByRole("button", { name: "Grant Pro" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Nothing was granted");
@@ -281,12 +282,12 @@ describe("grants (00106)", () => {
       }),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Revoke…" }));
-    const sheet = screen.getByRole("dialog", { name: "Revoke Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Revoke Pro" });
     const revoke = within(sheet).getByRole("button", { name: "Revoke" });
     expect(revoke).toBeDisabled();
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "partnership ended");
     await userEvent.click(revoke);
-    expect(await screen.findByRole("status")).toHaveTextContent("Some grants will be retried tonight");
+    expect(await findToast("Revoked. Some grants will be retried tonight.")).toBeInTheDocument();
     expect(screen.getByTestId("grant-gr_1")).toHaveTextContent("Revoked");
     expect(calls.find((c) => c.method === "DELETE")!.body).toEqual({ reason: "partnership ended" });
   });
@@ -325,7 +326,7 @@ describe("grants (00106)", () => {
     expect(row).toHaveTextContent("Dispute");
     expect(within(row).getByRole("link", { name: "CASE-0051" })).toHaveAttribute("href", "/cases/CASE-0051");
     await userEvent.click(screen.getByRole("button", { name: "Restore promotional grants…" }));
-    const sheet = screen.getByRole("dialog", { name: "Restore promotional grants" });
+    const sheet = screen.getByRole("alertdialog", { name: "Restore promotional grants" });
     expect(within(sheet).getByRole("button", { name: "Restore" })).toBeDisabled();
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "bank error");
     await userEvent.click(within(sheet).getByRole("button", { name: "Restore" }));
@@ -344,7 +345,7 @@ describe("grants (00106)", () => {
       "POST /v1/admin/accounts/uid_123/actions": () => apiError(409, "nothing_to_restore", "No removed promotional grants on this account."),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Restore promotional grants…" }));
-    const sheet = screen.getByRole("dialog", { name: "Restore promotional grants" });
+    const sheet = screen.getByRole("alertdialog", { name: "Restore promotional grants" });
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "x");
     await userEvent.click(within(sheet).getByRole("button", { name: "Restore" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("No removed promotional grants on this account.");
@@ -356,7 +357,7 @@ describe("grants (00106)", () => {
       "DELETE /v1/admin/accounts/uid_123/grants/gr_1": () => apiError(409, "grant_not_active", "not active"),
     });
     await userEvent.click(await screen.findByRole("button", { name: "Revoke…" }));
-    const sheet = screen.getByRole("dialog", { name: "Revoke Pro" });
+    const sheet = screen.getByRole("alertdialog", { name: "Revoke Pro" });
     await userEvent.type(within(sheet).getByLabelText(/Reason/), "x");
     await userEvent.click(within(sheet).getByRole("button", { name: "Revoke" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("This grant isn't active any more.");

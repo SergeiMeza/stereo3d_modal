@@ -384,3 +384,8 @@ export function MiniTable({ head, children }: { head?: ReactNode; children: Reac
     </div>
   );
 }
+
+/** A definition list: labels on the left, values on the right. */
+export function KV({ children }: { children: ReactNode }) {
+  return <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 px-4 py-3 text-sm [&_dt]:text-muted-foreground">{children}</dl>;
+}

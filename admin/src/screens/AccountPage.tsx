@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
-import { Banner, Button, Chip, ErrorState, Field, Sheet, Spinner, StateBox } from "../components/ui";
+import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldControl, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
@@ -16,31 +23,31 @@ export function AccountLookup() {
   const [uid, setUid] = useState("");
   return (
     <>
-      <div className="titlebar"><h1>Accounts</h1></div>
+      <PageHeader title="Accounts" />
       <form
-        className="row gap8"
+        className="flex items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (uid.trim()) navigate(paths.account(uid.trim()));
         }}
       >
-        <input
-          className="input search"
+        <Input
+          className="w-70 max-[1000px]:w-full"
           placeholder="Firebase UID"
           aria-label="Firebase UID"
           value={uid}
           onChange={(e) => setUid(e.target.value)}
         />
-        <Button type="submit" variant="primary" disabled={!uid.trim()}>Open</Button>
+        <Button type="submit" variant="default" disabled={!uid.trim()}>Open</Button>
       </form>
-      <p className="muted small">
+      <p className="text-sm text-muted-foreground">
         To find an account by email, search the cases list, or look the UID up in Firebase Authentication.
       </p>
     </>
   );
 }
 
-type Sheet =
+type SheetState =
   | { kind: "action"; action: AccountAction }
   | { kind: "open_case" }
   | null;
@@ -69,10 +76,9 @@ const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: 
 export function AccountPage({ uid }: { uid: string }) {
   const { api } = useServices();
   const { state, retry, set } = useLoad(() => api.getAccount(uid), [api, uid]);
-  const [sheet, setSheet] = useState<Sheet>(null);
-  const [flash, setFlash] = useState("");
+  const [sheet, setSheet] = useState<SheetState>(null);
 
-  if (state.kind === "loading") return <div className="center pad"><Spinner label="Loading the account" /></div>;
+  if (state.kind === "loading") return <LoadingBlock label="Loading the account" />;
   if (state.kind === "error") {
     if (state.error instanceof ApiError && state.error.status === 404) {
       return <StateBox title="No account with that ID." />;
@@ -93,180 +99,189 @@ export function AccountPage({ uid }: { uid: string }) {
 
   return (
     <>
-      <Link to={paths.accounts()} className="xs muted back">← Accounts</Link>
-      <div className="ch">
-        <div className="row gap12 wrap">
-          <h1>{a.email || a.uid}</h1>
-          {a.deleted && <Chip tone="muted">Deleted</Chip>}
-          {a.blocked && <Chip tone="red">Blocked</Chip>}
-          {b.under_review && <Chip tone="amber">Under review</Chip>}
-          {b.sheet_only && <Chip tone="amber">Sheet-only</Chip>}
-          {p.owed_cents > 0 && <Chip tone="red">Owes {money(p.owed_cents)}</Chip>}
+      <Link to={paths.accounts()} className="w-fit text-xs text-muted-foreground hover:text-foreground">← Accounts</Link>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold">{a.email || a.uid}</h1>
+          {a.deleted && <Badge variant="muted">Deleted</Badge>}
+          {a.blocked && <Badge variant="red">Blocked</Badge>}
+          {b.under_review && <Badge variant="amber">Under review</Badge>}
+          {b.sheet_only && <Badge variant="amber">Sheet-only</Badge>}
+          {p.owed_cents > 0 && <Badge variant="red">Owes {money(p.owed_cents)}</Badge>}
         </div>
-        <div className="facts">
-          <span>UID <b className="mono">{a.uid}</b></span>
-          {a.stripe_customer_id && <span>Stripe <b className="mono">{a.stripe_customer_id}</b></span>}
-          <span>Paid in total <b>{money(b.lifetime_paid_cents ?? 0)}</b></span>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+          <span>UID <B mono>{a.uid}</B></span>
+          {a.stripe_customer_id && <span>Stripe <B mono>{a.stripe_customer_id}</B></span>}
+          <span>Paid in total <B>{money(b.lifetime_paid_cents ?? 0)}</B></span>
           {p.plan && (
             <span>
-              Plan <b>{p.plan.name ?? p.plan.plan}</b> · {p.plan.status}
+              Plan <B>{p.plan.name ?? p.plan.plan}</B> · {p.plan.status}
               {p.plan.cancel_at_period_end ? " · cancels at period end" : ""}
             </span>
           )}
         </div>
       </div>
 
-      <div className="acts">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Account actions">
         {b.under_review && <Button onClick={() => act("clear_review")}>Clear review</Button>}
         {b.sheet_only && <Button onClick={() => act("clear_sheet_only")}>Clear sheet-only</Button>}
         {p.owed_cents > 0 && <Button onClick={() => act("write_off_owed")}>Write off {money(p.owed_cents)}…</Button>}
         {p.owed_cents > 0 && <Button onClick={() => act("resend_e2")}>Resend E2</Button>}
         <Button onClick={() => act(a.blocked ? "unblock" : "block")}>{a.blocked ? "Remove from block list" : "Add to block list"}</Button>
         <Button onClick={() => act("adjust_balance")}>Adjust balance…</Button>
-        <Button variant="primary" onClick={() => setSheet({ kind: "open_case" })}>Open a case…</Button>
+        <Button variant="default" onClick={() => setSheet({ kind: "open_case" })}>Open a case…</Button>
       </div>
-      {flash && <p className="ok small" role="status">{flash}</p>}
 
-      <div className="grid3">
+      <div className="grid grid-cols-3 items-start gap-4 max-[1000px]:grid-cols-1">
         <CompanyCard company={p.company ?? null} changes={p.company_changes ?? []} />
-        <section className="card">
-          <div className="sh"><b>Billing state</b></div>
-          <dl className="kv pad">
+        <Panel title="Billing state">
+          <KV>
             <dt>Flow</dt><dd>{words(b.flow_state) || "—"}</dd>
             <dt>Sheet-only</dt><dd>{b.sheet_only ? `yes${b.sheet_only_reason ? ` · ${words(b.sheet_only_reason)}` : ""}` : "no"}</dd>
             <dt>All methods failed</dt><dd>{b.all_methods_failed ? "yes" : "no"}</dd>
-            <dt>Last good method</dt><dd className="mono">{b.last_good_method || "—"}</dd>
+            <dt>Last good method</dt><dd className="font-mono">{b.last_good_method || "—"}</dd>
             <dt>Under review</dt><dd>{b.under_review ? "yes" : "no"}</dd>
-            <dt>Owed</dt><dd>{money(p.owed_cents)}</dd>
-          </dl>
-        </section>
-        <section className="card">
-          <div className="sh"><b>Balance</b></div>
+            <dt>Owed</dt><dd className="tabular-nums">{money(p.owed_cents)}</dd>
+          </KV>
+        </Panel>
+        <Panel title="Balance">
           {bal ? (
-            <dl className="kv pad">
-              <dt>Balance</dt><dd>{money(bal.balance_cents)}</dd>
-              <dt>Held</dt><dd>{money(bal.held_cents)} · {bal.held_runs} runs</dd>
-              <dt>Frozen</dt><dd>{money(bal.frozen_cents)}</dd>
-              <dt>Available</dt><dd>{money(bal.available_cents)}</dd>
+            <KV>
+              <dt>Balance</dt><dd className="tabular-nums">{money(bal.balance_cents)}</dd>
+              <dt>Held</dt><dd className="tabular-nums">{money(bal.held_cents)} · {bal.held_runs} runs</dd>
+              <dt>Frozen</dt><dd className="tabular-nums">{money(bal.frozen_cents)}</dd>
+              <dt>Available</dt><dd className="tabular-nums">{money(bal.available_cents)}</dd>
               <dt>Expires</dt><dd>{bal.expired ? "expired" : dateOnly(bal.expires_at)}</dd>
               <dt>Auto-reload</dt>
-              <dd>
+              <dd className="tabular-nums">
                 {bal.auto_reload.enabled
                   ? `below ${money(bal.auto_reload.below_cents)} add ${money(bal.auto_reload.add_cents)}`
                   : "off"}
                 {bal.auto_reload.paused_reason ? ` · paused: ${words(bal.auto_reload.paused_reason)}` : ""}
               </dd>
-            </dl>
+            </KV>
           ) : (
-            <p className="muted xs pad">No balance.</p>
+            <EmptyRow>No balance.</EmptyRow>
           )}
-        </section>
-        <section className="card">
-          <div className="sh"><b>Saved methods</b></div>
+        </Panel>
+        <Panel title="Saved methods">
           {methods.length === 0 ? (
-            <p className="muted xs pad">None saved.</p>
+            <EmptyRow>None saved.</EmptyRow>
           ) : (
-            <ul className="plainlist pad">
+            <ul className="flex list-none flex-col gap-1.5 px-4 py-3">
               {methods.map((m, i) => (
                 <li key={m.id}>
-                  {m.label} <span className="muted xs">{m.type}{i === 0 ? " · default" : ""}</span>
+                  {m.label} <span className="text-xs text-muted-foreground">{m.type}{i === 0 ? " · default" : ""}</span>
                 </li>
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
       </div>
 
-      <section className="card">
-        <div className="sh"><b>Cases</b><span className="xs muted">{cases.length}</span></div>
+      <Panel title="Cases" note={<span className="tabular-nums">{cases.length}</span>}>
         {cases.length === 0 ? (
-          <p className="muted xs pad">No cases.</p>
+          <EmptyRow>No cases.</EmptyRow>
         ) : (
-          <table className="at">
-            <thead><tr><th>Case</th><th>Type · reason</th><th>Status</th><th className="num">Requested</th><th className="num">Decided</th><th>Opened</th></tr></thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Case</TableHead><TableHead>Type · reason</TableHead><TableHead>Status</TableHead>
+                <TableHead numeric>Requested</TableHead><TableHead numeric>Decided</TableHead><TableHead>Opened</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {cases.map((c) => (
-                <tr key={c.id}>
-                  <td><Link className="cid mono" to={paths.case(c.id)}>{c.id}</Link></td>
-                  <td>{words(c.type)} · <span className="muted">{words(c.reason)}</span></td>
-                  <td>{statusLabel(c.status, c.result)}</td>
-                  <td className="num">{money(c.requested_cents)}</td>
-                  <td className="num">{money(c.decided_cents)}</td>
-                  <td>{dateOnly(c.opened_at)}</td>
-                </tr>
+                <TableRow key={c.id}>
+                  <TableCell><Link className="font-mono font-medium text-link" to={paths.case(c.id)}>{c.id}</Link></TableCell>
+                  <TableCell>{words(c.type)} · <span className="text-muted-foreground">{words(c.reason)}</span></TableCell>
+                  <TableCell>{statusLabel(c.status, c.result)}</TableCell>
+                  <TableCell numeric>{money(c.requested_cents)}</TableCell>
+                  <TableCell numeric>{money(c.decided_cents)}</TableCell>
+                  <TableCell>{dateOnly(c.opened_at)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </Panel>
 
-      <section className="card">
-        <div className="sh"><b>Payment history</b><span className="xs muted">{charges.length} charges · {refunds.length} refunds</span></div>
+      <Panel title="Payment history" note={`${charges.length} charges · ${refunds.length} refunds`}>
         {charges.length === 0 ? (
-          <p className="muted xs pad">No charges.</p>
+          <EmptyRow>No charges.</EmptyRow>
         ) : (
-          <table className="at">
-            <thead><tr><th>Date</th><th>Kind</th><th>Runs</th><th className="num">Amount</th><th>Invoice</th></tr></thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead><TableHead>Kind</TableHead><TableHead>Runs</TableHead><TableHead numeric>Amount</TableHead><TableHead>Invoice</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {charges.map((ch) => (
-                <tr key={ch.charge_id}>
-                  <td>{dateTime(ch.paid_at)}</td>
-                  <td>{words(ch.kind)}</td>
-                  <td className="wrap">
+                <TableRow key={ch.charge_id}>
+                  <TableCell>{dateTime(ch.paid_at)}</TableCell>
+                  <TableCell>{words(ch.kind)}</TableCell>
+                  <TableCell className="whitespace-normal">
                     {(ch.lines ?? []).map((l) => (
-                      <div key={l.conversion_id} className="xs">
-                        <span className="mono muted">{l.conversion_id}</span> {l.description} · {money(l.amount_cents)}
+                      <div key={l.conversion_id} className="text-xs">
+                        <span className="font-mono text-muted-foreground">{l.conversion_id}</span> {l.description} ·{" "}
+                        <span className="tabular-nums">{money(l.amount_cents)}</span>
                       </div>
                     ))}
-                  </td>
-                  <td className="num">{money(ch.amount_cents)}</td>
-                  <td>{words(ch.invoice_state) || "—"}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell numeric>{money(ch.amount_cents)}</TableCell>
+                  <TableCell>{words(ch.invoice_state) || "—"}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
         {refunds.length > 0 && (
-          <table className="at">
-            <thead><tr><th>Refund</th><th>Case</th><th className="num">Amount</th><th>Status</th><th>Source</th><th>Date</th></tr></thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Refund</TableHead><TableHead>Case</TableHead><TableHead numeric>Amount</TableHead><TableHead>Status</TableHead><TableHead>Source</TableHead><TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {refunds.map((r) => (
-                <tr key={r.id}>
-                  <td className="mono">{r.re_id || r.id}</td>
-                  <td><Link className="link mono" to={paths.case(r.case_id)}>{r.case_id}</Link></td>
-                  <td className="num">{money(r.total_cents)}</td>
-                  <td>{words(r.status)}{r.fail_reason ? ` · ${r.fail_reason}` : ""}</td>
-                  <td>{r.source}</td>
-                  <td>{dateOnly(r.created_at)}</td>
-                </tr>
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono">{r.re_id || r.id}</TableCell>
+                  <TableCell><Link className="font-mono text-link hover:underline" to={paths.case(r.case_id)}>{r.case_id}</Link></TableCell>
+                  <TableCell numeric>{money(r.total_cents)}</TableCell>
+                  <TableCell>{words(r.status)}{r.fail_reason ? ` · ${r.fail_reason}` : ""}</TableCell>
+                  <TableCell>{r.source}</TableCell>
+                  <TableCell>{dateOnly(r.created_at)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </Panel>
 
       <GrantsSection uid={a.uid} initial={p.grants ?? []} />
       <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} onPage={set} />
 
-      <section className="card">
-        <div className="sh"><b>Balance ledger</b><span className="xs muted">latest 50</span></div>
+      <Panel title="Balance ledger" note="latest 50">
         {ledger.length === 0 ? (
-          <p className="muted xs pad">No entries.</p>
+          <EmptyRow>No entries.</EmptyRow>
         ) : (
-          <table className="at">
-            <thead><tr><th>When</th><th>Kind</th><th className="num">Amount</th></tr></thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow><TableHead>When</TableHead><TableHead>Kind</TableHead><TableHead numeric>Amount</TableHead></TableRow>
+            </TableHeader>
+            <TableBody>
               {ledger.map((e) => (
-                <tr key={e.id}>
-                  <td>{dateTime(e.at)}</td>
-                  <td>{words(e.kind)}</td>
-                  <td className="num">{money(e.cents)}</td>
-                </tr>
+                <TableRow key={e.id}>
+                  <TableCell>{dateTime(e.at)}</TableCell>
+                  <TableCell>{words(e.kind)}</TableCell>
+                  <TableCell numeric>{money(e.cents)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </Panel>
 
       {sheet?.kind === "action" && (
         <AccountActionSheet
@@ -276,7 +291,7 @@ export function AccountPage({ uid }: { uid: string }) {
           onDone={(next) => {
             set(next);
             setSheet(null);
-            setFlash("Done.");
+            toast.success("Done.");
           }}
         />
       )}
@@ -284,6 +299,14 @@ export function AccountPage({ uid }: { uid: string }) {
     </>
   );
 }
+
+function B({ children, mono }: { children: ReactNode; mono?: boolean }) {
+  return <b className={mono ? "font-mono font-medium text-foreground" : "font-medium text-foreground tabular-nums"}>{children}</b>;
+}
+
+
+/** Money and blocking: an AlertDialog. */
+const ALERT_ACTIONS: AccountAction[] = ["write_off_owed", "adjust_balance", "block"];
 
 function AccountActionSheet({
   page,
@@ -326,36 +349,42 @@ function AccountActionSheet({
     action === "write_off_owed" ? `Write off ${money(page.owed_cents)}` : isAdjust && cents ? `Adjust balance by ${money(cents)}` : copy.title;
 
   return (
-    <Sheet
+    <Modal
+      kind={ALERT_ACTIONS.includes(action) ? "alert" : "dialog"}
       title={title}
       subtitle={page.account.email || page.account.uid}
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" onClick={() => void confirm()} disabled={busy || blocked}>
-            {busy ? "Working…" : copy.button}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Working…" : copy.button}
+      onConfirm={() => void confirm()}
+      confirmDisabled={blocked}
     >
-      <p className="small">{copy.body}</p>
+      <p className="text-sm">{copy.body}</p>
       {isAdjust && (
         <>
-          <Field label="Amount (negative removes)" hint={page.balance ? `Balance now ${money(page.balance.balance_cents)}` : undefined}>
-            <input className="input num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Field>
+            <FieldLabel>Amount (negative removes)</FieldLabel>
+            <FieldControl>
+              <Input className="w-32 text-right font-mono tabular-nums" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </FieldControl>
+            {page.balance && <FieldDescription>Balance now {money(page.balance.balance_cents)}</FieldDescription>}
           </Field>
-          <Field label="Case">
-            <input className="input mono" placeholder="CASE-0042" value={caseId} onChange={(e) => setCaseId(e.target.value)} />
+          <Field>
+            <FieldLabel>Case</FieldLabel>
+            <FieldControl>
+              <Input className="font-mono" placeholder="CASE-0042" value={caseId} onChange={(e) => setCaseId(e.target.value)} />
+            </FieldControl>
           </Field>
-          <Field label="Reason">
-            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Field>
+            <FieldLabel>Reason</FieldLabel>
+            <FieldControl>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </FieldControl>
           </Field>
         </>
       )}
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -397,42 +426,57 @@ function OpenCaseSheet({ uid, onClose }: { uid: string; onClose: () => void }) {
   };
 
   return (
-    <Sheet
+    <Modal
+      kind="sheet"
       title="Open a case"
       subtitle="The policy classifies it: auto reasons refund at once, the rest wait for you."
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" onClick={() => void submit()} disabled={busy || blocked}>
-            {busy ? "Working…" : "Open case"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Working…" : "Open case"}
+      onConfirm={() => void submit()}
+      confirmDisabled={blocked}
     >
-      <Field label="Reason">
-        <select className="input" value={reason} onChange={(e) => setReason(e.target.value)}>
-          {OPEN_REASONS.map((r) => <option key={r} value={r}>{words(r)}</option>)}
-        </select>
+      <Field>
+        <FieldLabel>Reason</FieldLabel>
+        <FieldControl>
+          <FilterSelect
+            label="Reason"
+            size="default"
+            className="w-full"
+            value={reason}
+            onChange={setReason}
+            options={OPEN_REASONS.map((r) => ({ value: r, label: words(r) }))}
+          />
+        </FieldControl>
       </Field>
       {balanceReason ? (
-        <Field label="Top-up ID" hint={reason === "closure_balance" ? "Optional for a closure." : undefined}>
-          <input className="input mono" value={topup} onChange={(e) => setTopup(e.target.value)} />
+        <Field>
+          <FieldLabel>Top-up ID</FieldLabel>
+          <FieldControl>
+            <Input className="font-mono" value={topup} onChange={(e) => setTopup(e.target.value)} />
+          </FieldControl>
+          {reason === "closure_balance" && <FieldDescription>Optional for a closure.</FieldDescription>}
         </Field>
       ) : (
-        <Field label="Runs (conversion IDs)" hint="Separated by spaces or commas.">
-          <input className="input mono" value={ids} onChange={(e) => setIds(e.target.value)} />
+        <Field>
+          <FieldLabel>Runs (conversion IDs)</FieldLabel>
+          <FieldControl>
+            <Input className="font-mono" value={ids} onChange={(e) => setIds(e.target.value)} />
+          </FieldControl>
+          <FieldDescription>Separated by spaces or commas.</FieldDescription>
         </Field>
       )}
-      <Field label="What the customer asked (plain text)">
-        <textarea className="input" rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+      <Field>
+        <FieldLabel>What the customer asked (plain text)</FieldLabel>
+        <FieldControl>
+          <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+        </FieldControl>
       </Field>
       {reason === "support_request" && (
         <Banner tone="blue">A delivered run opens a manual case; an unfinished or failed one may refund at once.</Banner>
       )}
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -445,22 +489,21 @@ function CompanyCard({ company: c, changes }: { company: Page["company"]; change
         .join(", ")
     : "";
   return (
-    <section className="card" data-testid="account-company">
-      <div className="sh"><b>Business details</b><span className="xs muted">on invoices</span></div>
-      <dl className="kv pad">
+    <Panel title="Business details" note="on invoices" data-testid="account-company">
+      <KV>
         <dt>Company</dt><dd>{c.company_name || "—"}</dd>
         <dt>Address</dt><dd>{addr || "—"}</dd>
         <dt>Tax ID</dt>
-        <dd className="mono">
+        <dd className="font-mono">
           {c.tax_id ? `${c.tax_id.type} ${c.tax_id.value}${c.tax_id.verification ? ` · ${c.tax_id.verification}` : ""}` : "—"}
         </dd>
         <dt>Billing email</dt><dd>{c.billing_email || "—"}</dd>
         <dt>PO reference</dt><dd>{c.po_reference || "—"}</dd>
-      </dl>
+      </KV>
       {changes.length > 0 && (
-        <div className="pad" data-testid="company-changes">
-          <div className="field-label">Changes</div>
-          <ul className="xs">
+        <div className="px-4 pb-3" data-testid="company-changes">
+          <div className="text-xs text-muted-foreground">Changes</div>
+          <ul className="text-xs">
             {[...changes].reverse().map((ch, i) => (
               <li key={ch.at + i}>
                 {dateTime(ch.at)} · {ch.by === "checkout" ? "at checkout" : ch.by === "user" ? "by the customer" : ch.by} ·{" "}
@@ -470,6 +513,6 @@ function CompanyCard({ company: c, changes }: { company: Page["company"]; change
           </ul>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

@@ -1,7 +1,15 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
-import { Button, Chip, Field, Sheet } from "../components/ui";
-import type { Tone } from "../components/ui";
+import { EmptyRow, FilterSelect, Modal, Note, Panel, type Tone } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldControl, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, words } from "../lib/format";
 import { useServices } from "../lib/services";
@@ -66,74 +74,71 @@ export function GrantsSection({ uid, initial }: { uid: string; initial: Grant[] 
   const [grants, setGrants] = useState<Grant[]>(initial);
   const [granting, setGranting] = useState(false);
   const [revoking, setRevoking] = useState<Grant | null>(null);
-  const [flash, setFlash] = useState("");
-
   const upsert = (g: Grant) =>
     setGrants((list) => [g, ...list.filter((x) => x.id !== g.id)].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));
 
   return (
-    <section className="card" data-testid="grants">
-      <div className="sh">
-        <b>Grants</b>
-        <span className="xs muted">Pro, Business or Studio given by us</span>
-        <span className="grow" />
-        <Button variant="primary" onClick={() => setGranting(true)}>Grant Pro…</Button>
-      </div>
-      {flash && <p className="ok small pad" role="status">{flash}</p>}
+    <Panel
+      title="Grants"
+      note="Pro, Business or Studio given by us"
+      action={<Button variant="default" onClick={() => setGranting(true)}>Grant Pro…</Button>}
+      data-testid="grants"
+    >
       {grants.length === 0 ? (
-        <p className="muted xs pad">No grants.</p>
+        <EmptyRow>No grants.</EmptyRow>
       ) : (
-        <table className="at" data-testid="grants-table">
-          <thead>
-            <tr>
-              <th>Entitlement</th>
-              <th>Ends</th>
-              <th>Status</th>
-              <th>By</th>
-              <th>Reason</th>
-              <th>Created</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
+        <Table data-testid="grants-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Entitlement</TableHead>
+              <TableHead>Ends</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>By</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead><span className="sr-only">Actions</span></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {grants.map((g) => {
               const st = STATUS[g.status] ?? { label: label(g.status), tone: "plain" as Tone };
               return (
-                <tr key={g.id} data-testid={`grant-${g.id}`}>
-                  <td>{label(g.entitlement)}</td>
-                  <td>{dateOnly(g.ends_at)}</td>
-                  <td>
-                    <Chip tone={st.tone}>{st.label}</Chip>
-                    {g.status === "failed" && g.rc_error ? <div className="xs muted">{g.rc_error}</div> : null}
+                <TableRow key={g.id} data-testid={`grant-${g.id}`}>
+                  <TableCell>{label(g.entitlement)}</TableCell>
+                  <TableCell>{dateOnly(g.ends_at)}</TableCell>
+                  <TableCell>
+                    <Badge variant={st.tone}>{st.label}</Badge>
+                    {g.status === "failed" && g.rc_error ? <div className="text-xs text-muted-foreground">{g.rc_error}</div> : null}
                     {g.status === "revoked" && g.revoke_reason ? (
-                      <div className="xs muted">
+                      <div className="text-xs text-muted-foreground">
                         {g.revoked_by ? `${g.revoked_by}: ` : ""}
                         {g.revoke_reason}
                       </div>
                     ) : null}
-                  </td>
-                  <td className="xs">{g.granted_by}</td>
-                  <td className="xs wrap">{g.reason}</td>
-                  <td className="xs">{dateTime(g.created_at)}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="text-xs">{g.granted_by}</TableCell>
+                  <TableCell className="text-xs whitespace-normal">{g.reason}</TableCell>
+                  <TableCell className="text-xs">{dateTime(g.created_at)}</TableCell>
+                  <TableCell>
                     {g.status === "active" || g.status === "granting" ? (
-                      <Button onClick={() => setRevoking(g)}>Revoke…</Button>
+                      <Button size="sm" onClick={() => setRevoking(g)}>Revoke…</Button>
                     ) : null}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
       {granting && (
         <GrantSheet
           uid={uid}
           onClose={() => setGranting(false)}
-          onResult={(g, message) => {
+          onResult={(g, message, ok) => {
             upsert(g);
             setGranting(false);
-            setFlash(message);
+            if (ok) toast.success(message);
+            else toast.error(message);
           }}
         />
       )}
@@ -145,11 +150,11 @@ export function GrantsSection({ uid, initial }: { uid: string; initial: Grant[] 
           onDone={(g, partial) => {
             upsert(g);
             setRevoking(null);
-            setFlash(partial ? "Revoked. Some grants will be retried tonight." : "Revoked.");
+            toast.success(partial ? "Revoked. Some grants will be retried tonight." : "Revoked.");
           }}
         />
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -160,7 +165,7 @@ function GrantSheet({
 }: {
   uid: string;
   onClose: () => void;
-  onResult: (g: Grant, message: string) => void;
+  onResult: (g: Grant, message: string, ok: boolean) => void;
 }) {
   const { api, withReauth } = useServices();
   const [entitlement, setEntitlement] = useState<GrantBody["entitlement"]>("pro");
@@ -182,13 +187,13 @@ function GrantSheet({
       const g = await withReauth(() =>
         api.createGrant(uid, { entitlement, ends_at: end.toISOString(), reason: reason.trim() }),
       );
-      onResult(g, `${label(entitlement)} granted until ${dateOnly(g.ends_at)}.`);
+      onResult(g, `${label(entitlement)} granted until ${dateOnly(g.ends_at)}.`, true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "grant_failed") {
         // the record stays, as failed, with the gateway's message
         const g = err.details?.grant as Grant | undefined;
         if (g) {
-          onResult(g, `Not granted: ${err.message}`);
+          onResult(g, `Not granted: ${err.message}`, false);
           return;
         }
       }
@@ -205,55 +210,62 @@ function GrantSheet({
   };
 
   return (
-    <Sheet
+    <Modal
+      kind="alert"
       title="Grant Pro"
       subtitle={uid}
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" disabled={!ready || busy} onClick={confirm}>
-            {busy ? "Granting…" : `Grant ${label(entitlement)}`}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Granting…" : `Grant ${label(entitlement)}`}
+      onConfirm={() => void confirm()}
+      confirmDisabled={!ready}
     >
-      <Field label="Entitlement">
-        <select
-          className="input"
-          value={entitlement}
-          onChange={(e) => setEntitlement(e.target.value as GrantBody["entitlement"])}
-        >
-          {ENTITLEMENTS.map((e) => (
-            <option key={e.id} value={e.id}>{e.label}</option>
-          ))}
-        </select>
+      <Field>
+        <FieldLabel>Entitlement</FieldLabel>
+        <FieldControl>
+          <FilterSelect
+            label="Entitlement"
+            size="default"
+            className="w-full"
+            value={entitlement}
+            onChange={(v) => setEntitlement(v as GrantBody["entitlement"])}
+            options={ENTITLEMENTS.map((e) => ({ value: e.id, label: e.label }))}
+          />
+        </FieldControl>
       </Field>
-      <fieldset className="radios" aria-label="Ends">
-        <span className="field-label">Ends</span>
-        {PRESETS.map((p) => (
-          <label key={p.id} className="radio">
-            <input type="radio" name="ends" value={p.id} checked={preset === p.id} onChange={() => setPreset(p.id)} />
-            {p.label}
-          </label>
-        ))}
-      </fieldset>
+      <FieldSet>
+        <FieldLegend>Ends</FieldLegend>
+        <RadioGroup value={preset} onValueChange={(v) => setPreset(v as Preset)} aria-label="Ends" className="flex flex-wrap gap-x-4">
+          {PRESETS.map((p) => (
+            <div key={p.id} className="flex items-center gap-2">
+              <RadioGroupItem value={p.id} id={`ends-${p.id}`} />
+              <Label htmlFor={`ends-${p.id}`} className="text-sm text-foreground">{p.label}</Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </FieldSet>
       {preset === "custom" ? (
-        <Field label="End date" hint="1 hour to 5 years from now">
-          <input className="input" type="date" value={custom} onChange={(e) => setCustom(e.target.value)} />
+        <Field>
+          <FieldLabel>End date</FieldLabel>
+          <FieldControl>
+            <Input type="date" value={custom} onChange={(e) => setCustom(e.target.value)} />
+          </FieldControl>
+          <FieldDescription>1 hour to 5 years from now</FieldDescription>
+          <FieldError>{custom && !endOk ? "Pick a date from 1 hour to 5 years ahead." : null}</FieldError>
         </Field>
       ) : null}
       {end && endOk ? (
-        <span className="field-hint" data-testid="grant-ends">Ends {dateOnly(end.toISOString())}</span>
-      ) : preset === "custom" && custom ? (
-        <span className="err small">Pick a date from 1 hour to 5 years ahead.</span>
+        <span className="text-2xs text-muted-foreground" data-testid="grant-ends">Ends {dateOnly(end.toISOString())}</span>
       ) : null}
-      <Field label="Reason" hint="Required. Up to 500 characters.">
-        <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <Field>
+        <FieldLabel>Reason</FieldLabel>
+        <FieldControl>
+          <Textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </FieldControl>
+        <FieldDescription>Required. Up to 500 characters.</FieldDescription>
       </Field>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -291,26 +303,27 @@ function RevokeSheet({
   };
 
   return (
-    <Sheet
+    <Modal
+      kind="alert"
       title={`Revoke ${label(grant.entitlement)}`}
       subtitle={`Granted until ${dateOnly(grant.ends_at)} by ${grant.granted_by}`}
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" disabled={!reason.trim() || busy} onClick={confirm}>
-            {busy ? "Revoking…" : "Revoke"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Revoking…" : "Revoke"}
+      confirmVariant="destructive"
+      onConfirm={() => void confirm()}
+      confirmDisabled={!reason.trim()}
     >
-      <p className="small">The account loses this entitlement now. Other grants and purchases stay.</p>
-      <Field label="Reason" hint="Required.">
-        <textarea className="input" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <p className="text-sm">The account loses this entitlement now. Other grants and purchases stay.</p>
+      <Field>
+        <FieldLabel>Reason</FieldLabel>
+        <FieldControl>
+          <Textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </FieldControl>
+        <FieldDescription>Required.</FieldDescription>
       </Field>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -354,52 +367,52 @@ export function PromoRegrants({
   onPage: (p: AccountPageData) => void;
 }) {
   const [restoring, setRestoring] = useState(false);
-  const [flash, setFlash] = useState("");
   if (rows.length === 0) return null;
   const restorable = rows.some((r) => r.status === "kept_removed" || r.status === "held");
   return (
-    <section className="card" data-testid="promo-regrants">
-      <div className="sh">
-        <b>Re-grants</b>
-        <span className="xs muted">promotional grants taken away by a refund, dispute or fraud warning</span>
-        <span className="grow" />
-        {restorable && <Button onClick={() => setRestoring(true)}>Restore promotional grants…</Button>}
-      </div>
-      {flash && <p className="ok small pad" role="status">{flash}</p>}
-      <table className="at">
-        <thead>
-          <tr><th>Event</th><th>Status</th><th>Taken</th><th>Given back</th><th>Skipped</th><th>Case</th><th>Created</th></tr>
-        </thead>
-        <tbody>
+    <Panel
+      title="Re-grants"
+      note="promotional grants taken away by a refund, dispute or fraud warning"
+      action={restorable && <Button onClick={() => setRestoring(true)}>Restore promotional grants…</Button>}
+      data-testid="promo-regrants"
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Event</TableHead><TableHead>Status</TableHead><TableHead>Taken</TableHead><TableHead>Given back</TableHead>
+            <TableHead>Skipped</TableHead><TableHead>Case</TableHead><TableHead>Created</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
-            <tr key={r.id} data-testid={`regrant-${r.id}`}>
-              <td>{eventLabel(r.event)}</td>
-              <td>
-                <Chip tone={PROMO_TONE[r.status] ?? "plain"}>{label(r.status)}</Chip>
-                {r.restored_by ? <div className="xs muted">Restored by {r.restored_by}{r.restore_note ? `: ${r.restore_note}` : ""}</div> : null}
-                {r.last_error ? <div className="xs muted">{r.last_error}</div> : null}
-              </td>
-              <td className="xs wrap">{grantList(r.snapshot)}</td>
-              <td className="xs wrap">{grantList(r.regranted)}</td>
-              <td className="xs wrap">{grantList(r.skipped)}</td>
-              <td>{r.case_id ? <Link className="link mono" to={paths.case(r.case_id)}>{r.case_id}</Link> : "—"}</td>
-              <td className="xs">{dateTime(r.created_at)}</td>
-            </tr>
+            <TableRow key={r.id} data-testid={`regrant-${r.id}`}>
+              <TableCell>{eventLabel(r.event)}</TableCell>
+              <TableCell>
+                <Badge variant={PROMO_TONE[r.status] ?? "plain"}>{label(r.status)}</Badge>
+                {r.restored_by ? <div className="text-xs text-muted-foreground">Restored by {r.restored_by}{r.restore_note ? `: ${r.restore_note}` : ""}</div> : null}
+                {r.last_error ? <div className="text-xs text-muted-foreground">{r.last_error}</div> : null}
+              </TableCell>
+              <TableCell className="text-xs whitespace-normal">{grantList(r.snapshot)}</TableCell>
+              <TableCell className="text-xs whitespace-normal">{grantList(r.regranted)}</TableCell>
+              <TableCell className="text-xs whitespace-normal">{grantList(r.skipped)}</TableCell>
+              <TableCell>{r.case_id ? <Link className="font-mono text-link hover:underline" to={paths.case(r.case_id)}>{r.case_id}</Link> : "—"}</TableCell>
+              <TableCell className="text-xs">{dateTime(r.created_at)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {restoring && (
         <RestoreSheet
           uid={uid}
           onClose={() => setRestoring(false)}
           onDone={(p) => {
             setRestoring(false);
-            setFlash("Promotional grants restored.");
+            toast.success("Promotional grants restored.");
             onPage(p);
           }}
         />
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -424,24 +437,24 @@ function RestoreSheet({ uid, onClose, onDone }: { uid: string; onClose: () => vo
     }
   };
   return (
-    <Sheet
+    <Modal
+      kind="alert"
       title="Restore promotional grants"
       subtitle="Gives back what a lost dispute or a fraud warning took, up to each grant's original end. Expired ones are skipped."
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" disabled={!note.trim() || busy} onClick={confirm}>
-            {busy ? "Restoring…" : "Restore"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Restoring…" : "Restore"}
+      onConfirm={() => void confirm()}
+      confirmDisabled={!note.trim()}
     >
-      <Field label="Reason" hint="Required. Logged on the account and the dispute case.">
-        <textarea className="input" rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+      <Field>
+        <FieldLabel>Reason</FieldLabel>
+        <FieldControl>
+          <Textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        </FieldControl>
+        <FieldDescription>Required. Logged on the account and the dispute case.</FieldDescription>
       </Field>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }

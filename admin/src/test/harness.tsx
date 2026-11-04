@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { App } from "../App";
@@ -103,4 +103,9 @@ export function renderApp(
   window.history.replaceState(null, "", path);
   const utils = render(<App auth={auth} api={api} initialPath={path} />);
   return { ...utils, calls, auth, api };
+}
+
+/** A Sonner toast's title (toasts live in the aria-live Notifications region). */
+export function findToast(text: string | RegExp) {
+  return screen.findByText(text, { selector: "[data-sonner-toast] [data-title]" });
 }
