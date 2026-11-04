@@ -14,6 +14,9 @@ import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
+import { planSubtitle } from "@/components/pay/PlanSheet";
+import type { PlanDef } from "@/lib/api/types";
+
 import { planLines } from "./PlansSection";
 import { PricingScreen } from "./PricingScreen";
 
@@ -74,6 +77,16 @@ describe("Pricing 2026-11", () => {
     expect(document.body.textContent).not.toMatch(/Lifetime|depth map|splat|inpaint|Gaussian|no subscription/i);
   });
 
+  it("a cancelled plan runs to the end of the paid month or year (QA 2026-11-05)", () => {
+    const base: PlanDef = { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true };
+    expect(planSubtitle({ ...base, interval: "month", price_cents: 29900 })).toBe(
+      "$400 of usage every month · cancel any time; it runs to the end of the paid month",
+    );
+    expect(planSubtitle({ ...base, name: "Studio", credit_cents: 150000, interval: "year", price_cents: 1198800 })).toBe(
+      "$1,500 of usage every month · cancel any time; it runs to the end of the paid year",
+    );
+  });
+
   it("the saved business details start the billing address (QA 2026-11-05)", async () => {
     mockDb.billing.company = {
       company_name: "Acme Ltd",
@@ -106,6 +119,7 @@ describe("Pricing 2026-11", () => {
     const main = await screen.findByTestId("plan-main");
     // gateway 00105: no billing address, no payment
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByTestId("plan-sheet").textContent).toContain("cancel any time; it runs to the end of the paid month");
     const addressBlock = screen.getByTestId("mock-billing-address");
     expect(screen.getByText("Tax ID (optional)")).toBeTruthy();
     // QA 2026-11-05: the address comes before the payment fields

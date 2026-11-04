@@ -62,6 +62,14 @@ export function proNoteFor(pro: ProStatus | null, planName: string): string | nu
   }
 }
 
+/** "$1,500 of usage every month · cancel any time; it runs to the end of
+ * the paid year" (QA 2026-11-05, Terms: a cancelled plan runs to the end
+ * of the period you paid for). */
+export function planSubtitle(def: PlanDef): string {
+  const period = planPrice(def).yearly ? "year" : "month";
+  return `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time; it runs to the end of the paid ${period}`;
+}
+
 /** QA 2026-11-05: next to the button while the required address is missing. */
 export const FILL_ADDRESS = "Fill in your billing address";
 
@@ -158,7 +166,7 @@ export function PlanSheet({
   if (price.yearly) renewal.setFullYear(renewal.getFullYear() + 1);
   else renewal.setMonth(renewal.getMonth() + 1);
   const title = `${def.name} · ${formatCentsShort(price.cents)} ${price.per}`;
-  const subtitle = `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time`;
+  const subtitle = planSubtitle(def);
   const renewsLine = `${price.yearly ? "Billed yearly" : "Billed monthly"}. Renews on ${renewal.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} until you cancel.`;
 
   if (phase.kind === "ready" || phase.kind === "paying") {
