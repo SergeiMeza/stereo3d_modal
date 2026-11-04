@@ -131,6 +131,16 @@ describe("Pricing 2026-11", () => {
     expect(card.textContent).toMatch(new RegExp(`Billed yearly\\. Renews on \\d+ \\w+ ${year}\\.`));
   });
 
+  it("plan cards take the top frame rate from /v1/pricing fps when the plan omits it", () => {
+    expect(
+      planLines(
+        { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, seats: 3, free_previews_per_period: 50, express_included: true },
+        0.2,
+        120,
+      ),
+    ).toContain("Up to 120 fps");
+  });
+
   it("plan card lines", () => {
     expect(
       planLines(

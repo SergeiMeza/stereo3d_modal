@@ -623,7 +623,8 @@ export interface PublicPricing {
   /** every preview's floor (S3D-13/17); minimum_cents when absent */
   preview_minimum_cents?: number;
   precharge_threshold_cents: number;
-  balance: { window_hours: number; new_account_cap_cents: number };
+  /** older gateways only (absent on 00091) */
+  balance?: { window_hours: number; new_account_cap_cents: number };
   /** S3D-67: Pro's share off (0.15; 0 = off) and the step it applies to */
   pro_discount?: ProDiscount;
   /** owner 2026-11-04: false = Classic 3D takes no new projects (a create

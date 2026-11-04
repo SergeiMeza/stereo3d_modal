@@ -25,7 +25,10 @@ const PLAN_KEYS = ["business", "studio"] as const;
 type PlanKey = (typeof PLAN_KEYS)[number];
 
 /** The few lines a plan card shows. */
-export function planLines(def: PlanDef, pct: number | undefined): string[] {
+export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?: number): string[] {
+  // the plan's own max_fps, else /v1/pricing fps.max_fps_with_plan (test
+  // gateway 00091 sends only the latter)
+  const maxFps = def.max_fps ?? maxFpsWithPlan;
   return [
     `${formatCentsShort(def.credit_cents)} of usage every month`,
     ...(pct ? [`${Math.round(pct * 100)}% off every run`] : []),
@@ -34,7 +37,7 @@ export function planLines(def: PlanDef, pct: number | undefined): string[] {
     `${def.free_previews_per_period} free previews a month`,
     ...(def.express_included ? ["Express included"] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
-    ...(def.max_fps && def.max_fps > 30 ? [`Up to ${def.max_fps} fps`] : []),
+    ...(maxFps && maxFps > 30 ? [`Up to ${maxFps} fps`] : []),
     `${def.seats} people · invoices`,
   ];
 }
@@ -77,7 +80,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                 </p>
               </div>
               <ul className="flex flex-col gap-2 text-sm">
-                {planLines(def, pct).map((l) => (
+                {planLines(def, pct, pricing.fps.max_fps_with_plan).map((l) => (
                   <li key={l} className="flex items-center gap-2">
                     <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
                     {l}
