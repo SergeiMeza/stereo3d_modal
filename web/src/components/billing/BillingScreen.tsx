@@ -60,12 +60,14 @@ import type {
   BillingRowStatus,
   CompanyDetails,
   InvoiceRow,
-  SavedMethod,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
-import { useBilling } from "@/lib/billing";
+import { billingUidAtom, useBilling } from "@/lib/billing";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import { qualityName } from "@/lib/glossary";
+
+import { billingHistoryAtom, loadBillingHistoryAtom } from "./billingHistoryAtoms";
 
 const STATUS: Record<BillingRowStatus, { label: string; cls: string; help?: string }> = {
   paid: { label: "Paid", cls: "text-emerald-300" },
@@ -261,10 +263,12 @@ function MethodsSection(): JSX.Element {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [confirm, setConfirm] = useState<SavedMethod | null>(null);
+  // the method being removed, by id (its row comes from the list)
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
   const methods = list?.methods ?? null;
   const max = list?.max ?? 5;
+  const confirm = methods?.find((m) => m.id === confirmId) ?? null;
 
   async function change(id: string, run: () => Promise<BillingMethods>): Promise<void> {
     setBusy(id);
@@ -349,7 +353,7 @@ function MethodsSection(): JSX.Element {
                   {
                     label: "Remove",
                     run: () =>
-                      m.removable === false ? setBlocked(m.remove_blocked_reason ?? REMOVE_BLOCKED) : setConfirm(m),
+                      m.removable === false ? setBlocked(m.remove_blocked_reason ?? REMOVE_BLOCKED) : setConfirmId(m.id),
                   },
                 ]}
               />
@@ -384,7 +388,7 @@ function MethodsSection(): JSX.Element {
           }}
         />
       ) : null}
-      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
+      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirmId(null)}>
         <AlertDialogContent data-testid="remove-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {confirm ? methodLabel(confirm) : ""}?</AlertDialogTitle>
@@ -400,7 +404,7 @@ function MethodsSection(): JSX.Element {
               variant="destructive"
               onClick={() => {
                 const m = confirm;
-                setConfirm(null);
+                setConfirmId(null);
                 if (m) void change(m.id, () => gateway.removeMethod(m.id));
               }}
             >
@@ -582,43 +586,26 @@ export function BillingScreen(): JSX.Element {
   const review = useBilling().status?.flow_state === "under_review";
   const [tab, setTab] = useState<"history" | "usage" | "invoices">("history");
   const [month, setMonth] = useState(() => recentMonths()[0]);
-  const [rows, setRows] = useState<BillingRow[] | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [tax, setTax] = useState<BillingHistory["tax"]>("off");
-  const [error, setError] = useState(false);
+  // ADR 0138: the purchases live in an app-store atom (billingHistoryAtoms)
+  const history = useAppAtomValue(billingHistoryAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const mine = history.uid === uid;
+  const rows = mine ? history.rows : null;
+  const hasMore = mine && history.hasMore;
+  const tax = mine ? history.tax : "off";
+  const error = mine && history.error;
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadHistory = useAppSetAtom(loadBillingHistoryAtom);
 
   const load = useCallback(
-    async (after?: string): Promise<void> => {
-      try {
-        const h = await gateway.getBillingHistory(after);
-        const page = rowsOf(h);
-        setRows((prev) => (after && prev ? [...prev, ...page] : page));
-        setHasMore(h.has_more === true);
-        setTax(h.tax ?? "off");
-        setError(false);
-      } catch {
-        if (!after) setError(true);
-      }
-    },
-    [gateway],
+    (after?: string): Promise<void> => loadHistory({ client: gateway, rowsOf, after }),
+    [gateway, loadHistory],
   );
 
+  // the first page, and again when the account changes
   useEffect(() => {
-    let live = true;
-    void gateway.getBillingHistory().then(
-      (h) => {
-        if (!live) return;
-        setRows(rowsOf(h));
-        setHasMore(h.has_more === true);
-        setTax(h.tax ?? "off");
-      },
-      () => live && setError(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway]);
+    void load();
+  }, [load, uid]);
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
