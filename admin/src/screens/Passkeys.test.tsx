@@ -22,7 +22,9 @@ describe("passkey sign-in (ADR 0135)", () => {
       {
         ...cases,
         "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
-        "POST /v1/admin/session/verify": () => ({ json: { session: "sess_1", expires_at: "2026-11-04T20:00:00Z" } }),
+        "POST /v1/admin/session/verify": () => ({
+          json: { session: "sess_1", expires_at: "2099-11-04T22:00:00Z", last_assertion_at: "2026-11-04T10:00:00Z" },
+        }),
       },
       googleDone(),
     );

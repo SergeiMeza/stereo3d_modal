@@ -294,10 +294,14 @@ export class AdminApi {
 
   /** Verifies the assertion; the session token goes into `session`. */
   async sessionVerify(response: AuthenticationResponseJSON, purpose: PasskeyPurpose): Promise<void> {
-    const r = await this.json<{ session?: string; token?: string }>("POST", PASSKEY_ROUTES.sessionVerify, { purpose, response });
+    const r = await this.json<{ session?: string; token?: string; expires_at?: string; last_assertion_at?: string }>(
+      "POST",
+      PASSKEY_ROUTES.sessionVerify,
+      { purpose, response },
+    );
     const token = r.session ?? r.token;
     if (!token) throw new ApiError(502, "no_session", "The gateway didn't start a session. Try again.");
-    this.session.set(token);
+    this.session.set(token, { expires_at: r.expires_at, last_assertion_at: r.last_assertion_at });
   }
 
   async registerOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
