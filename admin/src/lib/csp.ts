@@ -8,6 +8,12 @@
  * - script-src https://apis.google.com (the SDK loads gapi for the popup);
  * - frame-src the Firebase auth domain (its hidden /__/auth/iframe);
  * - connect-src identitytoolkit and securetoken (sign-in and token refresh).
+ *
+ * Passkeys (ADR 0135) need nothing more: WebAuthn is a browser API with no
+ * CSP directive, @simplewebauthn/browser is bundled into our own scripts
+ * ('self', no remote script), and the passkey calls go to the gateway,
+ * already in connect-src. vercel.json's Permissions-Policy names
+ * publickey-credentials-get/create=(self) explicitly.
  */
 
 export const FIREBASE_AUTH_DOMAIN = "spatial-video-studio.firebaseapp.com";
