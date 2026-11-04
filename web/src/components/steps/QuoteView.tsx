@@ -328,13 +328,6 @@ export function QuoteView({
       ) : (b as Record<string, unknown>).express_included === true ? (
         <Line label="Express" value="Included" testId="quote-express" />
       ) : null}
-      {/* owner 2026-11-05: HDR output, priced or included with a plan */}
-      {addons.hdr ? (
-        <Line label={`HDR (${addonPct(addons.hdr, b)})`} value={`+${formatCents(addons.hdr)}`} testId="quote-hdr" />
-      ) : (b as Record<string, unknown>).hdr === true &&
-        (b as Record<string, unknown>).hdr_included === true ? (
-        <Line label="HDR" value="Included" testId="quote-hdr" />
-      ) : null}
       {reuseStages.length > 0 ? (
         <Line
           label={

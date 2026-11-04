@@ -380,9 +380,6 @@ interface DB {
   classicNewProjects: boolean;
   /** GET /v1/limits methods.lifelike.foveation (Foveated Detail) */
   lifelikeFoveation: boolean;
-  /** owner 2026-11-05: lifelike_hdr_output_enabled (GET /v1/pricing lists
-   * addons.hdr and the plans' hdr_included only while it is on) */
-  hdrOutput: boolean;
   /** S3D-67: quotes say pro true/false; null = the gateway says nothing */
   pro: boolean | null;
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
@@ -462,7 +459,7 @@ const TIERS = {
     studio: { "1080p": 300, qhd: 415, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100 },
   } as Record<string, Record<string, number>>,
   pct: { pro: 0.15, business: 0.2, studio: 0.25 } as Record<string, number>,
-  addons: { foveated: 0.3, master: 0.2, express: 0.5, hdr: 0.3 } as Record<string, number>,
+  addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
     business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
@@ -625,14 +622,9 @@ function publicTiers(): Record<string, unknown> {
       foveated: { pct: TIERS.addons.foveated, methods: ["lifelike"], enabled: mockDb.lifelikeFoveation },
       master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { bitrate: "master" } },
       express: { pct: TIERS.addons.express, methods: ["lifelike"], request: { express: true }, included_in: ["business", "studio"] },
-      ...(mockDb.hdrOutput
-        ? { hdr: { pct: TIERS.addons.hdr, methods: ["lifelike"], request: { hdr: true }, included_in: ["pro", "business", "studio"] } }
-        : {}),
     },
     discount: { ...TIERS.bulk, stacks_with_tier: false, rule: "a run gets the bigger of bulk and its tier price, never both" },
-    plans: mockDb.hdrOutput
-      ? { business: { ...TIERS.plans.business, hdr_included: true }, studio: { ...TIERS.plans.studio, hdr_included: true } }
-      : TIERS.plans,
+    plans: TIERS.plans,
     free_previews: {
       enabled: true,
       allowances: TIERS.allowances,
@@ -912,7 +904,6 @@ function seed(): DB {
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
     lifelikeFoveation: false,
-    hdrOutput: false,
     pro: null,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
     altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
@@ -959,7 +950,6 @@ export const mockDb = {
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     this.methodAvailable = fresh.methodAvailable;
     this.lifelikeFoveation = fresh.lifelikeFoveation;
-    this.hdrOutput = fresh.hdrOutput;
     this.pro = fresh.pro;
     this.tierPricing = fresh.tierPricing;
     this.altPricesFixed = fresh.altPricesFixed;
@@ -1873,9 +1863,6 @@ function lifelikeQuoteFor(
     const plan = tier === "business" || tier === "studio" ? TIERS.plans[tier] : null;
     const expressIncluded = req.express === true && plan?.express_included === true;
     if (req.express && !expressIncluded) addOns.push("express");
-    // owner 2026-11-05: HDR output is included on every plan; others pay +30%
-    const hdrOn = req.hdr === true && mockDb.hdrOutput && project.hdr_available === true && project.hdr_source === true;
-    if (hdrOn && !tier) addOns.push("hdr");
     const preview = req.step === "lifelike_preview";
     let q;
     if (preview) {
@@ -1916,7 +1903,6 @@ function lifelikeQuoteFor(
           pro_discount_pct: q.kind === "tier" ? q.dpct : 0,
           express: req.express === true,
           express_included: expressIncluded,
-          ...(hdrOn ? { hdr: true, hdr_included: !!tier } : {}),
           ...(q.adds.foveated ? { foveation_factor: 1.3, foveation_cents: q.adds.foveated } : {}),
           ...(free ? { free_preview: true, price_without_free_cents: priceWithoutFree } : {}),
           ...(preview ? { free_preview_units: units } : {}),
@@ -1936,7 +1922,6 @@ function lifelikeQuoteFor(
         ...(req.foveation ? { foveation: req.foveation } : {}),
         ...(req.bitrate ? { bitrate: req.bitrate } : {}),
         ...(req.express ? { express: true } : {}),
-        ...(hdrOn ? { hdr: true } : {}),
       },
       outputSeconds,
       eta: lifelikeEta(outputSeconds, probe.fps, preset),
