@@ -1065,7 +1065,6 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
-		in.HDR = params.HDR
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.EffectiveFPS)
 			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free

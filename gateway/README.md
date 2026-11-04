@@ -659,32 +659,8 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   the bigger of bulk and its tier. Quotes add `discount {kind: tier|bulk,
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay
   (`pro_discount_cents` = the tier's saving, `discount_cents` = bulk).
-- **HDR output** (owner 2026-11-05): `hdr: true` (Lifelike, HDR sources)
-  is +30% of the base (test price; prod waits for the owner), included in
-  every subscription: Pro (web or App Store), Business and Studio. Quotes
-  carry `hdr`, `hdr_included` (and `hdr_cents` on the table without
-  tiers); `GET /v1/pricing` lists `addons.hdr {pct, included_in}` and
-  `hdr_included` on the plans and Pro plans. All of it is hidden while
-  `lifelike_hdr_output_enabled` is off (code default off on test and
-  prod).
-- **Source dynamic range** (owner 2026-11-05): analysis runs the
-  gateway's ffprobe on the source (`color_transfer` arib-std-b67 = `hlg`,
-  smpte2084 = `pq`, else `sdr`; the Dolby Vision record's `dv_profile`
-  and `dv_bl_signal_compatibility_id`: profile 8 = `dv_8` with its base
-  hlg/pq/sdr, profile 5 or compatibility 0 = `dv_5`) and stores
-  `probe.dynamic_range` / `dynamic_range_base`. Projects show
-  `dynamic_range` and `hdr_source` (HLG, PQ, or DV 8 on an HLG/PQ base)
-  only while HDR output is on; `hdr_available` is always there (false
-  while off). `dv_5` has no displayable base layer: analysis refuses it
-  before any charge, whatever the switch, with "This video uses a Dolby
-  Vision format that can't be converted…" (422 `source_unsupported` on a
-  quote or run of a project that has it stored).
-- **HDR request** (owner 2026-11-05): quotes and runs take `hdr: true`, a
-  per-run toggle, default off. 422 `feature_unavailable` while the switch
-  is off, 422 `hdr_unavailable` on a Classic project or a source that
-  isn't HDR. The run records `params.hdr` and its `/convert` body carries
-  `hdr_output: true` (absent otherwise). Repack ("Get another format")
-  ignores it for now.
+- **HDR output** (owner 2026-11-05): automatic and free for everyone, no
+  add-on and no price line (see Source dynamic range below).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express

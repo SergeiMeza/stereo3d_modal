@@ -117,8 +117,9 @@ func TestHDRRequest(t *testing.T) {
 	if b := lifelikeBody(&store.Conversion{Params: params}, 4); b["hdr_output"] != true {
 		t.Fatalf("body %v", b)
 	}
+	// HDR is free (owner 2026-11-05): the quote is the plain price, no HDR line
 	q, _, qerr := s.quoteStep(ctx, hdr, params, store.StepProduction, 0)
-	if qerr != nil || q.Breakdown["hdr"] != true || q.Breakdown["hdr_included"] != false || q.AmountCents != 2600 { // 2 min of 4K list + 30%
+	if qerr != nil || q.AmountCents != 2000 || q.Breakdown["hdr"] != nil || q.Breakdown["hdr_included"] != nil {
 		t.Fatalf("quote %v %v", q, qerr)
 	}
 	// default off: no hdr_output, no HDR line
@@ -126,7 +127,7 @@ func TestHDRRequest(t *testing.T) {
 	if b := lifelikeBody(&store.Conversion{Params: plain}, 4); plain.HDR || b["hdr_output"] != nil {
 		t.Fatalf("default %+v", plain)
 	}
-	if q, _, _ := s.quoteStep(ctx, hdr, plain, store.StepProduction, 0); q.AmountCents != 2000 || q.Breakdown["hdr"] != false {
+	if q, _, _ := s.quoteStep(ctx, hdr, plain, store.StepProduction, 0); q.AmountCents != 2000 || q.Breakdown["hdr"] != nil {
 		t.Fatalf("default quote %v", q.Breakdown)
 	}
 }

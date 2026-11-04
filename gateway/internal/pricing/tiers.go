@@ -14,9 +14,7 @@ import (
 //     prices (production).
 //   - Add-ons ride on top of the run's price, as shares of its base:
 //     Foveated Detail +30%, Master bitrate +20%, Express +50% (included
-//     in Business and Studio), HDR output +30% (included in Pro, Business
-//     and Studio; owner 2026-11-05, test price, hidden while
-//     lifelike_hdr_output_enabled is off).
+//     in Business and Studio).
 //   - Bulk: bulk_pct off runs whose list total is over the threshold
 //     ($50). Never stacked: a run gets the bigger of bulk and its tier.
 //     The quote names the one discount that applied.
@@ -36,15 +34,7 @@ const (
 	AddOnFoveated = "foveated"
 	AddOnMaster   = "master"
 	AddOnExpress  = "express"
-	AddOnHDR      = "hdr"
 )
-
-// hdrIncludedIn: the tiers HDR output comes with (owner 2026-11-05): every
-// subscription, Pro from the web or the App Store, Business and Studio.
-var hdrIncludedIn = []string{TierPro, TierBusiness, TierStudio}
-
-// HDRIncluded: the tier gets HDR output at no extra price.
-func HDRIncluded(tier string) bool { return slices.Contains(hdrIncludedIn, tier) }
 
 // PlanDef is a web plan (Business, Studio): Stripe Billing subscription on
 // the web's own product, its monthly credit spent at the plan's prices.
@@ -55,9 +45,7 @@ type PlanDef struct {
 	MaxActiveRuns   int    `firestore:"max_active_runs" json:"max_active_runs"`
 	FreePreviews    int    `firestore:"free_previews" json:"free_previews_per_period"`
 	ExpressIncluded bool   `firestore:"express_included" json:"express_included"`
-	// HDRIncluded: set on GET /v1/pricing while HDR output is on.
-	HDRIncluded   bool   `firestore:"-" json:"hdr_included,omitempty"`
-	StripePriceID string `firestore:"stripe_price_id" json:"-"`
+	StripePriceID   string `firestore:"stripe_price_id" json:"-"`
 	// Interval: how the plan bills (month | year; "" = month); PriceCents
 	// what each bill is (Studio: $11,988 a year). The credit and the free
 	// previews always come every month (credit_interval).
@@ -80,8 +68,6 @@ type ProPlanDef struct {
 	Intro         *ProIntro `firestore:"intro,omitempty" json:"intro"`
 	StripePriceID string    `firestore:"stripe_price_id" json:"-"`
 	LookupKey     string    `firestore:"lookup_key" json:"-"`
-	// HDRIncluded: set on GET /v1/pricing while HDR output is on.
-	HDRIncluded bool `firestore:"-" json:"hdr_included,omitempty"`
 }
 
 // ProIntro: price_cents for each of the first cycles invoices.
@@ -147,7 +133,7 @@ func defaultTierPct() map[string]float64 {
 }
 
 func defaultAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50, AddOnHDR: 0.30}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50}
 }
 
 // Stripe TEST prices (products "Spatial Video Studio Business plan" /
@@ -354,10 +340,6 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 	if in.Master {
 		addOns = append(addOns, AddOnMaster)
 	}
-	hdrIncluded := HDRIncluded(in.Tier)
-	if in.HDR && !hdrIncluded {
-		addOns = append(addOns, AddOnHDR)
-	}
 	expressIncluded := false
 	if in.Express {
 		if p, ok := r.Plan(in.Tier); ok && p.ExpressIncluded {
@@ -373,9 +355,6 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		"tier": in.Tier, "pro": in.Tier != TierNone, "pricing": "tiers",
 		"express": in.Express, "express_included": expressIncluded,
 		"analyze_credit_cents": in.CreditCents,
-	}
-	if r.LifelikeHDROutputEnabled { // hidden while off (owner 2026-11-05)
-		bd["hdr"], bd["hdr_included"] = in.HDR, hdrIncluded
 	}
 	var q tierQuote
 	if in.Step == StepLifelikePreview {
@@ -480,13 +459,8 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 	plans := map[string]any{}
 	for _, t := range []string{TierBusiness, TierStudio} {
 		if p, ok := r.Plan(t); ok {
-			p.HDRIncluded = r.LifelikeHDROutputEnabled && HDRIncluded(t)
 			plans[t] = p
 		}
-	}
-	proPlans := r.ProPlanList()
-	for i := range proPlans {
-		proPlans[i].HDRIncluded = r.LifelikeHDROutputEnabled && HDRIncluded(TierPro)
 	}
 	allow := map[string]int{}
 	for _, k := range []string{"pro_weekly", "pro_monthly", "pro_yearly", "pro_pass_3m", "pro_pass_6m", "pro_lifetime", TierBusiness, TierStudio, "intro"} {
@@ -503,23 +477,18 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		"classic_pct": map[string]float64{TierPro: r.TierPct(TierPro), TierBusiness: r.TierPct(TierBusiness), TierStudio: r.TierPct(TierStudio)},
 		"pro_is":      "the SVS Pro entitlement or a running pass",
 	}
-	addons := map[string]any{
+	out["addons"] = map[string]any{
 		AddOnFoveated: map[string]any{"pct": r.AddOnPct(AddOnFoveated), "methods": []string{"lifelike"}, "enabled": r.FoveationEnabled},
 		AddOnMaster:   map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"}, "request": map[string]any{"bitrate": "master"}},
 		AddOnExpress: map[string]any{"pct": r.AddOnPct(AddOnExpress), "methods": []string{"lifelike"}, "request": map[string]any{"express": true},
 			"included_in": []string{TierBusiness, TierStudio}, "effect": "first in the GPU line"},
 		"on": "the run's price at its tier, before the bulk discount",
 	}
-	if r.LifelikeHDROutputEnabled { // hidden while off (owner 2026-11-05)
-		addons[AddOnHDR] = map[string]any{"pct": r.AddOnPct(AddOnHDR), "methods": []string{"lifelike"}, "request": map[string]any{"hdr": true},
-			"included_in": slices.Clone(hdrIncludedIn), "needs": "an HDR source (project hdr_source)"}
-	}
-	out["addons"] = addons
 	out["discount"] = map[string]any{"threshold_cents": r.DiscountThresholdCents, "pct": r.DiscountPct,
 		"stacks_with_tier": false, "rule": "a run gets the bigger of bulk and its tier price, never both"}
 	out["pro_discount"] = map[string]any{"pct": r.TierPct(TierPro), "applies_to": "production", "tiered": true}
 	out["plans"] = plans
-	out["pro_plans"] = proPlans // [{id, interval, price_cents, intro{price_cents, cycles}|null}]
+	out["pro_plans"] = r.ProPlanList() // [{id, interval, price_cents, intro{price_cents, cycles}|null}]
 	out["free_previews"] = map[string]any{
 		"enabled":       r.FreePreviewsEnabled,
 		"allowances":    allow, // per period; intro = a non-subscriber's first project
