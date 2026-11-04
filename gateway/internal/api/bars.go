@@ -24,7 +24,17 @@ const (
 	barsMinSidePx   = 8    // a side at least this much shorter is bars
 	barsMinAreaLoss = 0.02 // or at least this share of the picture
 	barsMinKeep     = 0.20 // Lifelike's MIN_CROP_SHARE: a crop keeps at least this of each side
+	barsMinPx       = 256  // Lifelike's smallest crop side
 )
+
+// evenCrop makes a crop Lifelike takes (yuv420: x, y, w, h even): x and
+// y up to even, w and h down to even, so it stays inside the picture.
+func evenCrop(c store.Crop) store.Crop {
+	dx, dy := c.X%2, c.Y%2
+	c.X, c.Y = c.X+dx, c.Y+dy
+	c.W, c.H = (c.W-dx)&^1, (c.H-dy)&^1
+	return c
+}
 
 // parseCrop reads project.crop; ok false when absent or malformed.
 func parseCrop(crop string) (c store.Crop, ok bool) {
@@ -56,6 +66,10 @@ func barsCrop(p *store.Project) (store.Crop, bool) {
 	c, ok := parseCrop(p.Crop)
 	fw, fh := displayedFrame(p)
 	if !ok || fw == 0 || c.W > fw || c.H > fh {
+		return store.Crop{}, false
+	}
+	c = evenCrop(c)
+	if c.W < barsMinPx || c.H < barsMinPx { // Lifelike's floor: not worth converting
 		return store.Crop{}, false
 	}
 	// Lifelike refuses a crop off the frame or keeping under 20% of a side

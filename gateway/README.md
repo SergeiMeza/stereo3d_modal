@@ -767,8 +767,9 @@ is asked when bars are found and can keep them.
   1080p: 1920x800; a 4:3 2880x2160 crop at 1080p: 1920x1440). The steps
   offered go by that long edge (a step is reached when its long edge fits
   the crop), and a full option's label is its real short side. A crop
-  keeping under 20% of a side, or off the frame, isn't bars (Lifelike
-  refuses it). Lifelike's price is per step and output minute, so
+  keeping under 20% of a side, under 256 px, or off the frame, isn't bars
+  (Lifelike refuses it); the crop sent is made even (x, y up, w, h down),
+  as Lifelike's yuv420 check needs. Lifelike's price is per step and output minute, so
   removing bars changes the price only when it changes the steps offered.
   Quotes add `output_width`, `output_height` (per eye, displayed pixels)
   and `remove_bars`; runs record `params.output_width` / `output_height`.

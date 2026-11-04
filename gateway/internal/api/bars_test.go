@@ -37,6 +37,8 @@ func TestHasBars(t *testing.T) {
 		{"malformed", 3840, 2160, "not-a-crop", false, 0, 0},
 		{"under 20% of a side (dark video)", 3840, 2160, "3840:400:0:880", false, 0, 0},
 		{"off the frame", 3840, 2160, "3840:1600:0:600", false, 0, 0},
+		{"odd values made even", 3840, 2160, "3839:1601:1:279", true, 3838, 1600},
+		{"under 256 px", 1280, 720, "1280:250:0:235", false, 0, 0},
 	} {
 		p := barsProject(tc.w, tc.h, tc.crop)
 		c, ok := barsCrop(p)
@@ -238,12 +240,14 @@ func TestQuoteShowsCroppedSize(t *testing.T) {
 }
 
 // cropOutputSize gives Lifelike's crop_output_size numbers (values from
-// its formula, stereo_math.py at 1d23c0e).
+// its formula, stereo_math.py at 1d23c0e, and the contract's table).
 func TestCropOutputSizeMatchesLifelike(t *testing.T) {
 	for _, tc := range [][5]int{
 		{3840, 1600, 2160, 3840, 1600}, {3840, 1600, 1080, 1920, 800}, {1440, 1080, 1080, 1440, 1080},
 		{2880, 2160, 1080, 1920, 1440}, {1998, 1080, 1080, 1920, 1038}, {800, 1920, 1080, 800, 1920},
 		{4320, 4320, 2880, 4320, 4320}, {3600, 1500, 2160, 3600, 1500}, {1918, 817, 1080, 1918, 816},
+		// LIFELIKE_API.md "Black bars" worked examples (2cca9a5)
+		{3840, 1600, 1440, 2560, 1066}, {1216, 2160, 1080, 1080, 1920}, {800, 1920, 2160, 800, 1920},
 	} {
 		if w, h := cropOutputSize(tc[0], tc[1], tc[2]); w != tc[3] || h != tc[4] {
 			t.Errorf("%v: %dx%d", tc, w, h)
@@ -298,5 +302,26 @@ func TestFullSBSLevelWithCrop(t *testing.T) {
 	}
 	if code, out := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"sbs"}`); code != 409 || out["details"].(map[string]any)["reason"] != "too_wide" {
 		t.Fatalf("post sbs %d %v", code, out)
+	}
+}
+
+// The crop sent is what Lifelike's submit checks take: even values,
+// inside the frame (LIFELIKE_API.md "Black bars", 2cca9a5).
+func TestSourceCropIsEven(t *testing.T) {
+	p := barsProject(3840, 2160, "3839:1601:1:279")
+	c, ok := barsCrop(p)
+	if !ok || c != (store.Crop{X: 2, Y: 280, W: 3838, H: 1600}) || c.X+c.W > 3840 || c.Y+c.H > 2160 {
+		t.Fatalf("crop %+v %v", c, ok)
+	}
+	params, err := resolveLifelikeParams(&stepConvReq{Step: store.StepProduction, Preset: "4k"}, p, pricing.LifelikePresets)
+	if err != nil || params.SourceCrop == nil || *params.SourceCrop != c {
+		t.Fatalf("params %+v %v", params, err)
+	}
+	b := lifelikeBody(&store.Conversion{Params: params}, 4)
+	sc := b["source_crop"].(map[string]int)
+	for _, k := range []string{"x", "y", "w", "h"} {
+		if sc[k]%2 != 0 {
+			t.Fatalf("odd %s in %v", k, sc)
+		}
 	}
 }
