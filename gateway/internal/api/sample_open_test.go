@@ -59,7 +59,7 @@ func TestSampleOpensEndToEnd(t *testing.T) {
 
 	code, dl := call(s.HandleDownloads, cid)
 	files, _ := dl["files"].([]any)
-	if code != 200 || len(files) != 2 {
+	if code != 200 || len(files) != 3 { // spatial, full and half SBS
 		t.Fatalf("downloads %d %v", code, dl)
 	}
 	for _, f := range files {

@@ -1023,7 +1023,7 @@ func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id stri
 	if conv.UID != user.UID || s.projectGone(ctx, conv, nil) {
 		return nil, httpx.ErrNotFound("conversion")
 	}
-	return conv, nil
+	return s.backfillSampleRun(ctx, conv), nil // a sample run stored before half_sbs joined
 }
 
 // conversionResponse is the single client-facing serialization. Firestore

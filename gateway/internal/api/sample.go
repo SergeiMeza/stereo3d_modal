@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -35,8 +36,82 @@ var sampleFiles = map[string]struct {
 	URL   string
 	Bytes int64
 }{
-	"mvhevc": {sampleCDN + "sunset-session-spatial.mov", 319_972_232},
-	"sbs":    {sampleCDN + "sunset-session-sbs.mp4", 299_105_920},
+	"mvhevc":   {sampleCDN + "sunset-session-spatial.mov", 319_972_232},
+	"sbs":      {sampleCDN + "sunset-session-sbs.mp4", 299_105_920},
+	"half_sbs": {sampleCDN + "sunset-session-half-sbs.mp4", 150_013_970}, // owner 2026-11-04, ADR 0137
+}
+
+// sampleFormats: the sample run has every format, so "Get another
+// format" never runs on it.
+var sampleFormats = []string{"mvhevc", "sbs", "half_sbs"}
+
+// backfillSampleRun adds the sampleFiles a stored sample run lacks (runs
+// stored before half_sbs joined) to its outputs and formats. Idempotent;
+// any other run is returned untouched.
+func (s *Service) backfillSampleRun(ctx context.Context, c *store.Conversion) *store.Conversion {
+	if c == nil || !c.Sample || c.State != store.StateSucceeded {
+		return c
+	}
+	missing := func(x *store.Conversion) bool {
+		for name := range sampleFiles {
+			if x.Outputs[name] == "" {
+				return true
+			}
+		}
+		for _, f := range sampleFormats {
+			if !slices.Contains(x.Params.Formats, f) {
+				return true
+			}
+		}
+		return false
+	}
+	if !missing(c) {
+		return c
+	}
+	updated, err := s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		if !x.Sample || !missing(x) {
+			return errNoChange
+		}
+		if x.Outputs == nil {
+			x.Outputs = map[string]string{}
+		}
+		for name, f := range sampleFiles {
+			if x.Outputs[name] == "" {
+				x.Outputs[name] = f.URL
+			}
+		}
+		for _, f := range sampleFormats {
+			if !slices.Contains(x.Params.Formats, f) {
+				x.Params.Formats = append(x.Params.Formats, f)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if !errors.Is(err, errNoChange) {
+			slog.WarnContext(ctx, "sample run not backfilled", "conversion_id", c.ID, "err", err)
+		}
+		if fresh, gerr := s.Store.GetConversion(ctx, c.ID); gerr == nil {
+			return fresh
+		}
+		return c
+	}
+	return updated
+}
+
+// backfilledSamples: uids whose sample run this instance has checked.
+var backfilledSamples sync.Map
+
+// backfillSampleOf checks the account's sample run once per instance (the
+// list path).
+func (s *Service) backfillSampleOf(ctx context.Context, uid string) {
+	if _, done := backfilledSamples.Load(uid); done {
+		return
+	}
+	if c, err := s.Store.GetConversion(ctx, sampleRunID(uid)); err == nil && c.UID == uid {
+		s.backfillSampleRun(ctx, c)
+	}
+	backfilledSamples.Store(uid, true)
 }
 
 // sampleSince: accounts that already existed before onboarding shipped
@@ -104,7 +179,8 @@ func (s *Service) ensureSample(ctx context.Context, uid string, projects []*stor
 	}
 	classify(projects)
 	if current != nil && !current.Deleted {
-		return nil, false // there, archived or not
+		s.backfillSampleOf(ctx, uid) // a run stored before half_sbs joined
+		return nil, false            // there, archived or not
 	}
 	if current == nil && legacy == nil {
 		if _, none := noSample.Load(uid); none {
@@ -186,7 +262,7 @@ func (s *Service) createSample(ctx context.Context, uid string, archived bool) (
 func (s *Service) ensureSampleRun(ctx context.Context, uid string, p *store.Project) {
 	run := &store.Conversion{ID: sampleRunID(uid), UID: uid, Env: s.Cfg.Env, Sample: true, Kind: "video", ProjectID: p.ID,
 		Step: store.StepProduction, Method: store.MethodLifelike, State: store.StateSucceeded,
-		Source: p.Source, Params: store.Params{Preset: "4k", Formats: []string{"mvhevc", "sbs"}},
+		Source: p.Source, Params: store.Params{Preset: "4k", Formats: slices.Clone(sampleFormats)},
 		Quote: store.Quote{AmountCents: 0, Currency: "usd", Breakdown: map[string]any{
 			"billable_seconds": 15.0, "billable_minutes": int64(1), "sample": true}},
 		Outputs: map[string]string{}}

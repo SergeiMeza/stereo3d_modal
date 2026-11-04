@@ -158,6 +158,10 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if c.Sample { // it has every format already (owner 2026-11-04)
+		httpx.WriteErr(ctx, w, errSampleProject())
+		return
+	}
 	st := s.runFormatsOf(ctx, c)
 	unavailable := func(code, reason, msg string) {
 		e := httpx.Err(http.StatusConflict, code, msg)

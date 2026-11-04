@@ -1351,7 +1351,10 @@ Classic runs get none (Classic is retired).
 - `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, status, format,
   source, price_cents}`. 409 `format_exists` | `format_in_progress` |
   `format_unavailable` with `details.reason` (the reasons above, or
-  `too_wide`: full side-by-side at 6K/8K); 400 unknown format; 429
+  `too_wide`: full side-by-side at 6K/8K); 422 `sample_project` for the
+  sample's run (it has all three: spatial, full and half side-by-side,
+  owner 2026-11-04; runs stored with two are backfilled from
+  `sampleFiles` when read or listed); 400 unknown format; 429
   `rate_limited` (10 an hour per account); 502/503 `repack_unavailable`
   (the Lifelike service didn't take it; the attempt is recorded as
   failed and can be retried).

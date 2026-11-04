@@ -349,7 +349,7 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 	}
 	convOut := make([]map[string]any, 0, len(convs))
 	for _, c := range convs {
-		convOut = append(convOut, s.conversionResponse(c, nil))
+		convOut = append(convOut, s.conversionResponse(s.backfillSampleRun(ctx, c), nil))
 	}
 	httpx.WriteOK(w, s.projectResponse(p, convOut))
 }

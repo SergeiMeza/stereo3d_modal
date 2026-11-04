@@ -248,3 +248,58 @@ func TestRunFormatsRules(t *testing.T) {
 		t.Fatalf("after a failed start %+v", got.Repacks["half_sbs"])
 	}
 }
+
+// The sample has every format: a run stored with two outputs is
+// backfilled (once, samples only) when it's read or listed; its formats
+// list nothing more and a POST is 422 sample_project.
+func TestSampleRunFormats(t *testing.T) {
+	s, stub := formatsService(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	p := &store.Project{ID: sampleProjectID(uid), UID: uid, Name: "Sunset session", Method: store.MethodLifelike, Sample: true}
+	if err := s.Store.CreateProject(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	old := &store.Conversion{ID: sampleRunID(uid), UID: uid, Sample: true, Kind: "video", ProjectID: p.ID, Method: store.MethodLifelike,
+		State: store.StateSucceeded, Params: store.Params{Preset: "4k", Formats: []string{"mvhevc", "sbs"}},
+		Outputs: map[string]string{"mvhevc": sampleFiles["mvhevc"].URL, "sbs": sampleFiles["sbs"].URL}}
+	if err := s.Store.CreateConversion(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	other := finishedRun(t, s, uid, "4k", "sbs")
+
+	// Listing: ensureSample sees the sample there and backfills its run.
+	if _, added := s.ensureSample(ctx, uid, []*store.Project{p}); added {
+		t.Fatal("the sample was there")
+	}
+	got, _ := s.Store.GetConversion(ctx, old.ID)
+	if got.Outputs["half_sbs"] != sampleFiles["half_sbs"].URL || strings.Join(got.Params.Formats, ",") != "mvhevc,sbs,half_sbs" {
+		t.Fatalf("backfill %v %v", got.Outputs, got.Params.Formats)
+	}
+	again := s.backfillSampleRun(ctx, got) // idempotent
+	if len(again.Outputs) != 3 || len(again.Params.Formats) != 3 {
+		t.Fatalf("twice %v %v", again.Outputs, again.Params.Formats)
+	}
+	if o := s.backfillSampleRun(ctx, other); len(o.Outputs) != 1 {
+		t.Fatalf("a non-sample run touched %v", o.Outputs)
+	}
+
+	code, out := formatsCall(s, uid, old.ID, http.MethodGet, "")
+	if code != 200 || len(strs(out["available"])) != 0 || len(strs(out["have"])) != 3 {
+		t.Fatalf("sample formats %d %v", code, out)
+	}
+	if code, out := formatsCall(s, uid, old.ID, http.MethodPost, `{"format":"half_sbs"}`); code != 422 || out["error"] != "sample_project" {
+		t.Fatalf("sample post %d %v", code, out)
+	}
+	if len(stub.bodies) != 0 {
+		t.Fatal("the sample never reaches the Lifelike service")
+	}
+
+	// A sample made now has all three.
+	fresh := "u" + store.NewID()
+	fp := &store.Project{ID: sampleProjectID(fresh), UID: fresh, Sample: true}
+	s.ensureSampleRun(ctx, fresh, fp)
+	if c, _ := s.Store.GetConversion(ctx, sampleRunID(fresh)); len(c.Outputs) != 3 || len(c.Params.Formats) != 3 {
+		t.Fatalf("new sample %v %v", c.Outputs, c.Params.Formats)
+	}
+}
