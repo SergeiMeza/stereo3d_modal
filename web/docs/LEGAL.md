@@ -14,7 +14,9 @@ Updated 2026-11-04 on `feat/lifelike-web` (owner decisions):
   plans, quote as the maximum, whole minutes, above 30 fps with a plan,
   prepaid balance, charge timing, cancel window, monthly credit, taxes, no
   retroactive changes). Facts checked against the gateway README and
-  BL-19; open points carry `[CHECK]` comments in the page source.
+  BL-19. Notices go to legal@spatial-ai-labs.com (confirmed by the owner).
+  One open point remains as a `[CHECK]` comment in the Privacy source: how
+  long review cases are kept.
 - Terms: the short Spatial Video Studio title at the start of videos.
 - Privacy: RevenueCat (plan status), account settings (language, title
   on/off), prepaid balance records with Stripe, review cases and the

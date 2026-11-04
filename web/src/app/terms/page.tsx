@@ -21,7 +21,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
 };
 
-/** Infringement and abuse notices (owner 2026-11-04). */
+/** Infringement and abuse notices (owner confirmed the mailbox,
+ * 2026-11-04). */
 const LEGAL_EMAIL = "legal@spatial-ai-labs.com";
 
 export default function TermsPage() {
@@ -234,8 +235,6 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      {/* [CHECK] legal@spatial-ai-labs.com: confirm the mailbox exists
-          (else use support@spatial-ai-labs.com). */}
       <LegalSection title="15. Notice and takedown">
         <p>
           Send notices of infringement or abuse to{" "}
