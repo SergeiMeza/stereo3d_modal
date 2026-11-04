@@ -564,6 +564,8 @@ type Customer struct {
 	// BusinessSetup: the Business/Studio setup's answers (owner
 	// 2026-11-04).
 	BusinessSetup *BusinessSetup `firestore:"business_setup,omitempty"`
+	// ProIntroUsed: the account has had web Pro's intro price (once).
+	ProIntroUsed bool `firestore:"pro_intro_used,omitempty"`
 }
 
 // BusinessSetup is what the setup flow asked.

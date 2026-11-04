@@ -43,8 +43,9 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		return
 	}
 	def, ok := s.rates(ctx).Plan(req.Plan)
-	if !ok {
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "unknown_plan", "plan must be business or studio"))
+	pro, isPro := s.rates(ctx).ProPlan(req.Plan)
+	if !ok && !isPro {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "unknown_plan", "plan must be business, studio, pro_weekly, pro_monthly or pro_yearly"))
 		return
 	}
 	customerID, err := s.ensureCustomerID(ctx, user)
@@ -61,9 +62,15 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "under_review", "we're checking a payment on your account; contact support to continue"))
 		return
 	}
-	priceID := def.StripePriceID
+	priceID, lookup, tier, planID, coupon := def.StripePriceID, planLookupKey(def, req.Plan), req.Plan, "", ""
+	if isPro {
+		priceID, lookup, tier, planID = pro.StripePriceID, pro.LookupKey, pricing.TierPro, pro.ID
+		if pro.Intro != nil && pro.Intro.CouponID != "" && (cust == nil || !cust.ProIntroUsed) {
+			coupon = pro.Intro.CouponID // the intro price, once per account
+		}
+	}
 	if priceID == "" {
-		if priceID, err = s.Stripe.PriceByLookupKey(planLookupKey(def, req.Plan)); err != nil || priceID == "" {
+		if priceID, err = s.Stripe.PriceByLookupKey(lookup); err != nil || priceID == "" {
 			httpx.Log(ctx).Error("plan price missing", "plan", req.Plan, "err", err)
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "plans aren't available right now"))
 			return
@@ -74,7 +81,8 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		ui = "hosted_page"
 	}
 	sess, err := s.Stripe.CreatePlanSession(stripex.PlanSessionSpec{
-		CustomerID: customerID, PMC: s.Cfg.StripePMCWeb, PriceID: priceID, UI: ui, Tier: req.Plan, UID: user.UID,
+		CustomerID: customerID, PMC: s.Cfg.StripePMCWeb, PriceID: priceID, UI: ui, Tier: tier, UID: user.UID,
+		PlanID: planID, Coupon: coupon,
 		ReturnURL: s.Cfg.SiteURL + "/account/billing?plan=" + req.Plan, // the web keeps /billing redirecting there
 		IdemKey:   fmt.Sprintf("plan_%s_%s_%s_%d", s.Cfg.Env, user.UID, req.Plan, time.Now().Unix()/60),
 	})
@@ -121,8 +129,10 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 		return nil
 	}
 	p := cust.Plan
-	out := map[string]any{"plan": p.Tier, "status": p.Status, "active": p.Active(time.Now()), "cancel_at_period_end": p.CancelAtPeriodEnd}
-	if def, ok := s.rates(ctx).Plan(p.Tier); ok {
+	out := map[string]any{"plan": p.Tier, "plan_id": p.Key(), "status": p.Status, "active": p.Active(time.Now()), "cancel_at_period_end": p.CancelAtPeriodEnd}
+	if pro, ok := s.rates(ctx).ProPlan(p.PlanID); ok && p.Tier == pricing.TierPro {
+		out["name"], out["interval"], out["price_cents"] = "Pro", pro.Interval, pro.PriceCents
+	} else if def, ok := s.rates(ctx).Plan(p.Tier); ok {
 		out["name"], out["monthly_cents"], out["credit_cents"] = def.Name, def.MonthlyCents, def.CreditCents
 		out["interval"], out["price_cents"], out["credit_interval"] = def.Interval, def.PriceCents, def.CreditInterval
 	}
@@ -132,6 +142,7 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 	if p.CurrentPeriodEnd != nil {
 		out["current_period_end"] = p.CurrentPeriodEnd.Format(time.RFC3339)
 	}
+	out["scheduled_change"] = scheduledChangeJSON(p) // {to, effective_at} or null
 	if b, berr := s.Store.GetBalance(ctx, uid); berr == nil {
 		out["credit_left_cents"] = b.PlanCreditCents()
 	}
@@ -153,13 +164,20 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			return nil // an older or incomplete subscription doesn't replace the live one
 		}
 		next := &store.Plan{Tier: tier, SubscriptionID: sub.ID, Status: sub.Status, CurrentPeriodStart: &start,
-			CurrentPeriodEnd: &end, CancelAtPeriodEnd: sub.CancelAtPeriodEnd, UpdatedAt: time.Now().UTC(), Interval: sub.Interval()}
+			CurrentPeriodEnd: &end, CancelAtPeriodEnd: sub.CancelAtPeriodEnd, UpdatedAt: time.Now().UTC(), Interval: sub.Interval(),
+			PlanID: sub.Metadata["plan_id"]}
+		if next.PlanID == tier {
+			next.PlanID = ""
+		}
 		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID { // keep the RevenueCat grant record
 			next.RCGrantInvoice, next.RCGrantedUntil, next.RCGrantError = c.Plan.RCGrantInvoice, c.Plan.RCGrantedUntil, c.Plan.RCGrantError
 			next.RCRevokedAt, next.RCRevokeReason = c.Plan.RCRevokedAt, c.Plan.RCRevokeReason
 			next.LastInvoiceID, next.LastCreditCents = c.Plan.LastInvoiceID, c.Plan.LastCreditCents
 			next.GrantsPaused = c.Plan.GrantsPaused
 			next.StartedAt, next.AppProChecked = c.Plan.StartedAt, c.Plan.AppProChecked
+			next.Intro, next.IntroInvoices = c.Plan.Intro, c.Plan.IntroInvoices
+			next.PeriodPaidCents = c.Plan.PeriodPaidCents
+			next.ScheduleID, next.ScheduledTo, next.ScheduledAt = c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt
 		}
 		c.Plan = next
 		return nil
@@ -194,9 +212,28 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 				Metadata     map[string]string `json:"metadata"`
 			} `json:"subscription_details"`
 		} `json:"parent"`
+		Lines struct {
+			Data []struct {
+				Amount int64 `json:"amount"`
+			} `json:"data"`
+		} `json:"lines"`
+		TotalDiscountAmounts []struct {
+			Amount int64 `json:"amount"`
+		} `json:"total_discount_amounts"`
 	}
 	if json.Unmarshal(raw, &inv) != nil {
 		return
+	}
+	// What the plan's period cost them: its own lines after discounts (an
+	// intro), leaving out our credit for an old plan.
+	var pricePaid int64
+	for _, l := range inv.Lines.Data {
+		if l.Amount > 0 {
+			pricePaid += l.Amount
+		}
+	}
+	for _, d := range inv.TotalDiscountAmounts {
+		pricePaid -= d.Amount
 	}
 	subID := inv.Subscription
 	if subID == "" {
@@ -213,8 +250,26 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
 	// A plan started: once per subscription, with the plans surface they
 	// last clicked (renewals find it recorded).
-	if s.attributePlanStart(ctx, uid, tier, "checkout", "plan:"+sub.ID, time.Now().UTC()) {
+	key, source := "plan:"+sub.ID, "checkout"
+	if from := sub.Metadata["changed_from"]; from != "" {
+		key, source = "plan:"+sub.ID+":"+cmp.Or(sub.Metadata["plan_id"], tier), "change" // a plan change starts the new one
+	}
+	s.planPeriodPaid(ctx, uid, sub, pricePaid)
+	if sub.Metadata["change_kind"] == changeStepDown {
+		s.stepDownApplied(ctx, uid, sub) // the switch date: the old plan's entitlement goes
+	} else if s.attributePlanStart(ctx, uid, tier, source, key, time.Now().UTC()) {
 		s.planStarted(ctx, uid, tier, sub.ID) // first invoice: started_at and the receipt mail
+	}
+	if tier == pricing.TierPro && sub.Metadata["changed_from"] == "" {
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			if !c.ProIntroUsed {
+				c.ProIntroUsed = true
+				if c.Plan != nil && c.Plan.SubscriptionID == sub.ID {
+					c.Plan.Intro = true // the intro coupon was on the first invoice when it existed
+				}
+			}
+			return nil
+		})
 	}
 	_, periodEnd := sub.Period()
 	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit

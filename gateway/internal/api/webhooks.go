@@ -84,6 +84,7 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 		if event.Type == "invoice.created" {
 			s.handlePlanInvoiceCreated(ctx, event.Data.Raw) // the web's statement line
+			s.proIntroCycle(ctx, event.Data.Raw)            // Weekly Pro's intro on its next cycles
 		}
 		httpx.WriteOK(w, map[string]bool{"received": true})
 	case "dispute":

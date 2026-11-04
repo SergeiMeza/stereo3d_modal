@@ -25,6 +25,11 @@ type ProStatus struct {
 	// manage it (RevenueCat's, else Apple's page for Apple stores).
 	Source        string `json:"source,omitempty"`
 	ManagementURL string `json:"management_url,omitempty"`
+	// PlanID and ScheduledChange: web Pro on our own Stripe (plan_id
+	// pro_weekly | pro_monthly | pro_yearly; a step-down waiting for the
+	// period's end, {to, effective_at}).
+	PlanID          string `json:"plan_id,omitempty"`
+	ScheduledChange any    `json:"scheduled_change,omitempty"`
 	// FreePreviews: the Pro holder's free Lifelike previews, from the
 	// gateway's own table (owner 2026-11-04): {allowance, per_period,
 	// period: week|month|year|pass}; absent when not Pro.
@@ -77,7 +82,7 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 		return
 	}
 	if !s.RevenueCat.Configured() {
-		httpx.WriteOK(w, ProStatus{})
+		httpx.WriteOK(w, s.withWebPlan(r.Context(), u.UID, ProStatus{}))
 		return
 	}
 	st, err := s.RevenueCat.Pro(r.Context(), u.UID)
@@ -87,7 +92,7 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "") // a start of Pro (plans count at checkout)
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpx.WriteOK(w, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err))
+	httpx.WriteOK(w, s.withWebPlan(r.Context(), u.UID, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err)))
 }
 
 // HandleProRefresh asks RevenueCat again, skipping the cache: the web calls
@@ -98,7 +103,7 @@ func (s *Service) HandleProRefresh(w http.ResponseWriter, r *http.Request, u *Au
 		return
 	}
 	if !s.RevenueCat.Configured() {
-		httpx.WriteOK(w, ProStatus{})
+		httpx.WriteOK(w, s.withWebPlan(r.Context(), u.UID, ProStatus{}))
 		return
 	}
 	st, err := s.RevenueCat.Fresh(r.Context(), u.UID)
@@ -109,7 +114,7 @@ func (s *Service) HandleProRefresh(w http.ResponseWriter, r *http.Request, u *Au
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "")
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpx.WriteOK(w, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err))
+	httpx.WriteOK(w, s.withWebPlan(r.Context(), u.UID, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err)))
 }
 
 // withSource adds where Pro comes from and where to manage it.
@@ -123,5 +128,24 @@ func (s *Service) withSource(ctx context.Context, uid string, ps ProStatus, st r
 	}
 	ps.Source = proSource(st, cust, time.Now().UTC())
 	ps.ManagementURL = managementURL(st, ps.Source)
+	return ps
+}
+
+// withWebPlan: a Pro plan on our own Stripe answers for itself (even when
+// RevenueCat is slow to show the grant): Pro, source plan, its plan id,
+// allowance and any waiting step-down.
+func (s *Service) withWebPlan(ctx context.Context, uid string, ps ProStatus) ProStatus {
+	if s.Store == nil {
+		return ps
+	}
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil || cust.Plan == nil || cust.Plan.Tier != pricing.TierPro || cust.Plan.PlanID == "" || !cust.Plan.Active(time.Now()) {
+		return ps
+	}
+	ps.Pro, ps.Known, ps.Source, ps.PlanID = true, true, "plan", cust.Plan.PlanID
+	ps.ScheduledChange = scheduledChangeJSON(cust.Plan)
+	if ps.FreePreviews == nil {
+		ps = s.withFreePreviews(ctx, ps, cust.Plan.PlanID)
+	}
 	return ps
 }

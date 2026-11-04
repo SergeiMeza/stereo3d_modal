@@ -39,6 +39,16 @@ func (s *Service) accountTier(ctx context.Context, uid string) accountTier {
 			// TEST: reads as the app's Pro (Pro Monthly's allowance).
 			best = accountTier{Tier: pricing.TierPro, AllowanceKey: "pro_monthly", PeriodKey: "simulated:" + now.Format("2006-01")}
 		}
+		if err == nil && cust.Plan.Active(now) && cust.Plan.Tier == pricing.TierPro && cust.Plan.PlanID != "" {
+			// Web Pro on our Stripe: Pro's prices, its plan's free previews
+			// per period.
+			start := ""
+			if cust.Plan.CurrentPeriodStart != nil {
+				start = cust.Plan.CurrentPeriodStart.Format(time.RFC3339)
+			}
+			best = accountTier{Tier: pricing.TierPro, AllowanceKey: cust.Plan.PlanID, Plan: cust.Plan,
+				PeriodKey: "plan:" + cust.Plan.SubscriptionID + ":" + start, PeriodEnd: cust.Plan.CurrentPeriodEnd}
+		}
 		if err == nil && cust.Plan.Active(now) {
 			if _, ok := s.rates(ctx).Plan(cust.Plan.Tier); ok {
 				best = accountTier{Tier: cust.Plan.Tier, AllowanceKey: cust.Plan.Tier, Plan: cust.Plan, PeriodEnd: cust.Plan.CurrentPeriodEnd}

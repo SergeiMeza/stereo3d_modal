@@ -58,6 +58,58 @@ type PlanDef struct {
 	MaxFPS int `firestore:"-" json:"max_fps"`
 }
 
+// ProPlanDef is a web Pro plan on our own Stripe (owner 2026-11-04): the
+// App Store's prices, an intro modelled as a once-coupon on the first
+// invoice (and, for Weekly, on the next cycles' draft invoices).
+type ProPlanDef struct {
+	ID            string    `firestore:"id" json:"id"`             // pro_weekly | pro_monthly | pro_yearly
+	Interval      string    `firestore:"interval" json:"interval"` // week | month | year
+	PriceCents    int64     `firestore:"price_cents" json:"price_cents"`
+	Intro         *ProIntro `firestore:"intro,omitempty" json:"intro"`
+	StripePriceID string    `firestore:"stripe_price_id" json:"-"`
+	LookupKey     string    `firestore:"lookup_key" json:"-"`
+}
+
+// ProIntro: price_cents for each of the first cycles invoices.
+type ProIntro struct {
+	PriceCents int64  `firestore:"price_cents" json:"price_cents"`
+	Cycles     int    `firestore:"cycles" json:"cycles"`
+	CouponID   string `firestore:"coupon_id" json:"-"`
+}
+
+// Stripe TEST product "Spatial Video Studio Pro" (prod_VZ4jvPAbtWTl2r) and
+// coupons svs_pro_weekly_intro / svs_pro_yearly_intro, made 2026-11-04.
+func testProPlans() map[string]ProPlanDef {
+	return map[string]ProPlanDef{
+		"pro_weekly": {ID: "pro_weekly", Interval: "week", PriceCents: 599, StripePriceID: "price_1UXwaTAVV5NpxADIYIOw5hyj",
+			LookupKey: "svs_web_pro_weekly", Intro: &ProIntro{PriceCents: 399, Cycles: 4, CouponID: "svs_pro_weekly_intro"}},
+		"pro_monthly": {ID: "pro_monthly", Interval: "month", PriceCents: 899, StripePriceID: "price_1UXwaUAVV5NpxADIQxAtOght",
+			LookupKey: "svs_web_pro_monthly"},
+		"pro_yearly": {ID: "pro_yearly", Interval: "year", PriceCents: 7999, StripePriceID: "price_1UXwaUAVV5NpxADIAknDdAHl",
+			LookupKey: "svs_web_pro_yearly", Intro: &ProIntro{PriceCents: 4799, Cycles: 1, CouponID: "svs_pro_yearly_intro"}},
+	}
+}
+
+// ProPlan is a web Pro plan by id.
+func (r *Rates) ProPlan(id string) (ProPlanDef, bool) {
+	if !r.PlansEnabled {
+		return ProPlanDef{}, false
+	}
+	p, ok := r.ProPlans[id]
+	return p, ok
+}
+
+// ProPlanList is the Pro plans in order (weekly, monthly, yearly).
+func (r *Rates) ProPlanList() []ProPlanDef {
+	out := []ProPlanDef{}
+	for _, id := range []string{"pro_weekly", "pro_monthly", "pro_yearly"} {
+		if p, ok := r.ProPlan(id); ok {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // PlanMaxFPS is the top output rate with a Business or Studio plan.
 const PlanMaxFPS = 120
 
@@ -120,6 +172,7 @@ func applyTestTierDefaults(r *Rates) {
 	r.FreePreviewsEnabled = true
 	r.PlansEnabled = true
 	r.Plans = testPlans()
+	r.ProPlans = testProPlans()
 	r.RateVersion = "2026-11-03.tiers-test"
 }
 
@@ -435,6 +488,7 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		"stacks_with_tier": false, "rule": "a run gets the bigger of bulk and its tier price, never both"}
 	out["pro_discount"] = map[string]any{"pct": r.TierPct(TierPro), "applies_to": "production", "tiered": true}
 	out["plans"] = plans
+	out["pro_plans"] = r.ProPlanList() // [{id, interval, price_cents, intro{price_cents, cycles}|null}]
 	out["free_previews"] = map[string]any{
 		"enabled":       r.FreePreviewsEnabled,
 		"allowances":    allow, // per period; intro = a non-subscriber's first project

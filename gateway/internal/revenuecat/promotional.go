@@ -145,6 +145,18 @@ func (c *Client) RevokePromotionals(ctx context.Context, uid, entitlement string
 	return err
 }
 
+// RevokeProPromotionals revokes every promotional "pro" grant: only for
+// web Pro on our own Stripe ending early (the caller names it; entitlement
+// is always pro).
+func (c *Client) RevokeProPromotionals(ctx context.Context, uid, _ string) error {
+	if !c.CanGrant() {
+		return &GrantError{Msg: "no secret key"}
+	}
+	err := c.call(ctx, "/v1/subscribers/"+url.PathEscape(uid)+"/entitlements/"+proEntitlement+"/revoke_promotionals", map[string]any{})
+	c.forget(uid)
+	return err
+}
+
 func (c *Client) forget(uid string) {
 	c.mu.Lock()
 	delete(c.cache, uid)

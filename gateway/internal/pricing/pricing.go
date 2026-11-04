@@ -237,16 +237,19 @@ type Rates struct {
 
 	// 2026-11 pricing (tiers.go; test only until the owner's go for prod).
 	// TierPricing: subscriber tiers, add-ons and the never-stacked bulk.
-	TierPricing            bool                        `firestore:"tier_pricing"`
-	LifelikeTierPrices     map[string]map[string]int64 `firestore:"lifelike_tier_prices"`
-	TierPctOverride        map[string]float64          `firestore:"tier_pct"`
-	AddOnPctOverride       map[string]float64          `firestore:"addon_pct"`
-	PlansEnabled           bool                        `firestore:"plans_enabled"`
-	Plans                  map[string]PlanDef          `firestore:"plans"`
-	FreePreviewsEnabled    bool                        `firestore:"free_previews_enabled"`
-	FreePreviewsOverride   map[string]int              `firestore:"free_previews"`
-	FreePreviewsPerDay     int                         `firestore:"free_previews_per_day"`
-	FreePreviewUnitSeconds float64                     `firestore:"free_preview_unit_s"`
+	TierPricing        bool                        `firestore:"tier_pricing"`
+	LifelikeTierPrices map[string]map[string]int64 `firestore:"lifelike_tier_prices"`
+	TierPctOverride    map[string]float64          `firestore:"tier_pct"`
+	AddOnPctOverride   map[string]float64          `firestore:"addon_pct"`
+	PlansEnabled       bool                        `firestore:"plans_enabled"`
+	Plans              map[string]PlanDef          `firestore:"plans"`
+	// ProPlans: web Pro on our own Stripe (owner 2026-11-04), by plan id
+	// (pro_weekly | pro_monthly | pro_yearly); behind PlansEnabled.
+	ProPlans               map[string]ProPlanDef `firestore:"pro_plans"`
+	FreePreviewsEnabled    bool                  `firestore:"free_previews_enabled"`
+	FreePreviewsOverride   map[string]int        `firestore:"free_previews"`
+	FreePreviewsPerDay     int                   `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds float64               `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held

@@ -87,6 +87,9 @@ type AppStoreSub struct {
 	Store     string // app_store | mac_app_store
 	ExpiresAt *time.Time
 	WillRenew bool // no unsubscribe_detected_at
+	// ManagementURL: this subscription's own (the top-level one follows
+	// the latest-expiring store, which may be another).
+	ManagementURL string
 }
 
 type entry struct {
@@ -162,6 +165,7 @@ type subscriber struct {
 			Store                 string     `json:"store"`
 			UnsubscribeDetectedAt *time.Time `json:"unsubscribe_detected_at"`
 			RefundedAt            *time.Time `json:"refunded_at"`
+			ManagementURL         string     `json:"management_url"`
 		} `json:"subscriptions"`
 		ManagementURL string `json:"management_url"`
 	} `json:"subscriber"`
@@ -202,7 +206,8 @@ func statusOf(b subscriber, now time.Time) Status {
 		if (sub.Store == "app_store" || sub.Store == "mac_app_store") && sub.RefundedAt == nil &&
 			(sub.ExpiresDate == nil || sub.ExpiresDate.After(now)) {
 			if st.AppStore == nil || (sub.ExpiresDate != nil && st.AppStore.ExpiresAt != nil && sub.ExpiresDate.After(*st.AppStore.ExpiresAt)) {
-				st.AppStore = &AppStoreSub{Product: product, Store: sub.Store, ExpiresAt: sub.ExpiresDate, WillRenew: sub.UnsubscribeDetectedAt == nil}
+				st.AppStore = &AppStoreSub{Product: product, Store: sub.Store, ExpiresAt: sub.ExpiresDate, WillRenew: sub.UnsubscribeDetectedAt == nil,
+					ManagementURL: sub.ManagementURL}
 			}
 		}
 	}

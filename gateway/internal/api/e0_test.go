@@ -25,21 +25,27 @@ import (
 // the payment layer makes, from in-memory objects.
 type fakeStripe struct {
 	mu             sync.Mutex
-	pis            map[string]map[string]any // id → {status, amount_received, payment_method}
-	sessions       map[string]map[string]any // id → {status, payment_status, payment_intent, expires_at}
-	refunds        []string                  // payment_intent ids refunded
-	pmPrints       map[string]string         // payment method id → card fingerprint
-	subs           map[string]map[string]any // subscription id → object
-	invPays        map[string]string         // payment intent → invoice id
-	invs           map[string]map[string]any // invoice id → object
-	descriptorSets int                       // POSTs that set an invoice statement_descriptor
+	pis            map[string]map[string]any    // id → {status, amount_received, payment_method}
+	sessions       map[string]map[string]any    // id → {status, payment_status, payment_intent, expires_at}
+	refunds        []string                     // payment_intent ids refunded
+	pmPrints       map[string]string            // payment method id → card fingerprint
+	subs           map[string]map[string]any    // subscription id → object
+	invPays        map[string]string            // payment intent → invoice id
+	invs           map[string]map[string]any    // invoice id → object
+	descriptorSets int                          // POSTs that set an invoice statement_descriptor
+	subUpdates     []map[string]string          // POST /v1/subscriptions/{id} forms
+	invItems       map[string]int64             // pending invoice item id → amount
+	schedules      map[string]map[string]string // schedule id → last phases form (and "released")
+	failNextChange bool                         // the next subscription update answers 402
+	sessionForms   []map[string]string          // POST /v1/checkout/sessions forms
 	expired        []string
 	created        int
 }
 
 func newFakeStripe() *fakeStripe {
 	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{},
-		subs: map[string]map[string]any{}, invPays: map[string]string{}, invs: map[string]map[string]any{}}
+		subs: map[string]map[string]any{}, invPays: map[string]string{}, invs: map[string]map[string]any{},
+		invItems: map[string]int64{}, schedules: map[string]map[string]string{}}
 }
 
 func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +66,14 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s["status"] = "expired"
 		f.expired = append(f.expired, id)
 		write(f.session(id))
+	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
+		form := map[string]string{}
+		for k := range r.Form {
+			form[k] = r.Form.Get(k)
+		}
+		f.sessionForms = append(f.sessionForms, form)
+		write(map[string]any{"id": fmt.Sprintf("cs_%d", len(f.sessionForms)), "client_secret": "cs_secret", "url": "https://checkout",
+			"expires_at": time.Now().Add(30 * time.Minute).Unix(), "status": "open"})
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
 	case strings.HasPrefix(p, "/v1/subscriptions/"):
@@ -67,7 +81,54 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			f.subs[id]["status"] = "canceled"
 		}
+		if r.Method == http.MethodPost && r.Form.Get("items[0][price]") != "" {
+			if f.failNextChange {
+				f.failNextChange = false
+				w.WriteHeader(402)
+				write(map[string]any{"error": map[string]any{"type": "card_error", "code": "card_declined", "message": "declined"}})
+				return
+			}
+			form := map[string]string{}
+			for k := range r.Form {
+				form[k] = r.Form.Get(k)
+			}
+			f.subUpdates = append(f.subUpdates, form)
+			md, _ := f.subs[id]["metadata"].(map[string]string)
+			for k, v := range form {
+				if strings.HasPrefix(k, "metadata[") {
+					md[strings.TrimSuffix(strings.TrimPrefix(k, "metadata["), "]")] = v
+				}
+			}
+			now := time.Now().Unix()
+			f.subs[id]["current_period_start"], f.subs[id]["current_period_end"] = now, now+30*86400
+			f.subs[id]["items"] = map[string]any{"data": []any{map[string]any{"id": "si_1", "price": map[string]any{"id": form["items[0][price]"]}}}}
+		} else if r.Method == http.MethodPost && r.Form.Get("cancel_at_period_end") != "" {
+			f.subs[id]["cancel_at_period_end"] = r.Form.Get("cancel_at_period_end") == "true"
+		}
 		write(f.subs[id])
+	case p == "/v1/invoiceitems" && r.Method == http.MethodPost:
+		amt, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
+		id := fmt.Sprintf("ii_%d", len(f.invItems)+1)
+		f.invItems[id] = amt
+		write(map[string]any{"id": id, "amount": amt})
+	case strings.HasPrefix(p, "/v1/invoiceitems/") && r.Method == http.MethodDelete:
+		delete(f.invItems, strings.TrimPrefix(p, "/v1/invoiceitems/"))
+		write(map[string]any{"deleted": true})
+	case p == "/v1/subscription_schedules":
+		id := fmt.Sprintf("sub_sched_%d", len(f.schedules)+1)
+		f.schedules[id] = map[string]string{"from": r.Form.Get("from_subscription")}
+		write(map[string]any{"id": id, "phases": []any{map[string]any{"start_date": 1000, "end_date": 2000,
+			"items": []any{map[string]any{"price": "price_old"}}}}})
+	case strings.HasPrefix(p, "/v1/subscription_schedules/"):
+		rest := strings.TrimPrefix(p, "/v1/subscription_schedules/")
+		if id, ok := strings.CutSuffix(rest, "/release"); ok {
+			f.schedules[id]["released"] = "true"
+		} else {
+			for k := range r.Form {
+				f.schedules[rest][k] = r.Form.Get(k)
+			}
+		}
+		write(map[string]any{"id": rest})
 	case p == "/v1/invoice_payments":
 		data := []any{}
 		if inv := f.invPays[r.URL.Query().Get("payment[payment_intent]")]; inv != "" {

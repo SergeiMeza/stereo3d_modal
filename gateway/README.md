@@ -914,6 +914,70 @@ is ignored without such a plan.
   value}`; `DELETE /v1/billing/company/tax-ids/{txi_…}` (refused every id
   until 2026-11-04: the route ran the 12-hex check).
 
+### Web Pro on our own Stripe, and plan changes (owner 2026-11-04, test)
+
+- **Pro plans**: product "Spatial Video Studio Pro" (test
+  `prod_VZ4jvPAbtWTl2r`), prices `svs_web_pro_weekly` $5.99,
+  `svs_web_pro_monthly` $8.99, `svs_web_pro_yearly` $79.99 (the App
+  Store's). Intros as once-coupons: Weekly $3.99 × 4 weeks
+  (`svs_pro_weekly_intro`, $2 off, on the Checkout's first invoice, then
+  put on the next 3 cycles' draft invoices at `invoice.created`), Yearly
+  $47.99 the first year (`svs_pro_yearly_intro`, $32 off); once per
+  account (`customers.pro_intro_used`).
+- **`/v1/pricing pro_plans[{id, interval, price_cents, intro{price_cents,
+  cycles}|null}]`**.
+- **`POST /v1/billing/plan {plan: pro_weekly|pro_monthly|pro_yearly|
+  business|studio, ui}`**: the same Checkout; subscription metadata `plan:
+  pro`, `plan_id`. The mirror reads `plan.tier: pro`, `plan.plan_id`;
+  quotes price at Pro with the plan's free previews per period
+  (allowance = plan id); `invoice.paid` grants RevenueCat "pro" alone to
+  period end + 3 days; an early end revokes promotional "pro" (which also
+  ends any other promotional pro on the account). `GET /v1/billing` plan
+  block adds `plan_id`, and for Pro `name`, `interval`, `price_cents`.
+- **Plan changes** (order pro_weekly < pro_monthly < pro_yearly <
+  business < studio; `pay_per_video`/`none` lowest):
+  - `POST /v1/plans/preview-change {to}` → step-up `{kind: "step_up",
+    from, to, today_cents, new_plan_cents, unused_credit_cents, renews_at,
+    quote_at}`; step-down `{kind: "step_down", from, to, today_cents: 0,
+    new_plan_cents, effective_at, quote_at}`.
+  - `POST /v1/plans/change {to, confirm: true, quote_at?}` → `{change,
+    plan}`; 400 `confirm_required`; 409 `quote_expired` (quote_at older
+    than 15 min), `same_plan`, `change_on_hold` (Business → Studio, on
+    hold), `change_scheduled`; 402 `payment_failed` (nothing changed).
+  - **Step-up**: now, a full new period from today on every step-up
+    (`billing_cycle_anchor=now`, `proration_behavior=none`,
+    `payment_behavior=error_if_incomplete`); today's charge = new price −
+    `oldPlanCredit` (what the old period's plan line actually cost after
+    discounts × the share of the period left; a pending negative invoice
+    item on the switch invoice, removed if the payment fails). The
+    preview and the change use the same quote at `quote_at`, so the
+    preview equals the charge to the cent. The new plan's credit and free
+    previews come in full that day. `oldPlanCredit` takes the usage share
+    as an input for a rule not in force yet.
+  - **Step-down**: at the end of the paid period, a subscription schedule
+    (phase 1 to `current_period_end`, phase 2 the new price with metadata
+    `change_kind: step_down`, released after); → `pay_per_video`:
+    `cancel_at_period_end`. No charge, no refund; the current plan's
+    grants run to then; at the switch invoice the new plan's grants start
+    and a Business/Studio entitlement it doesn't include is revoked.
+  - `GET /v1/billing` plan block and `GET /v1/pro` (Pro plans): 
+    `scheduled_change {to, effective_at}` or null. `DELETE
+    /v1/plans/scheduled-change` takes it back ("Keep Studio").
+- **`GET /v1/pro`** for a Pro plan on our Stripe: `pro: true, source:
+  "plan", plan_id, free_previews` from the plan, `scheduled_change`; for
+  App Store Pro, `management_url` is that subscription's own (RevenueCat
+  `subscriptions[product].management_url`), else Apple's page.
+
+**Runbook: the RevenueCat Web Billing Pro subscribers.** Two live people
+still pay for Pro through RC Web Billing (no Stripe subscription; RC
+charges each renewal itself). They stay there (no v2 key, no migration);
+the gateway reads their Pro from RC (`source: rc_billing`). If either
+steps up to Business/Studio: (a) in Stripe, create a one-off coupon worth
+their unused days, based on what they actually paid (RC's
+`subscriptions[product].price`, an intro included), and apply it to their
+plan Checkout; then (b) in the RC dashboard, cancel the RC subscription
+without a refund. Manual, two people.
+
 ### App Store Pro beside a plan (owner 2026-11-04)
 
 No refunds or credits from us for an App Store Pro when someone buys

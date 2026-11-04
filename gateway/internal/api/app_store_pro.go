@@ -1,10 +1,12 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
@@ -40,8 +42,12 @@ func proSource(st revenuecat.Status, cust *store.Customer, now time.Time) string
 	return st.Store
 }
 
-// managementURL: RevenueCat's, else Apple's page for an Apple store.
+// managementURL: for an Apple store, that subscription's own URL (else
+// Apple's page); otherwise RevenueCat's top-level one.
 func managementURL(st revenuecat.Status, source string) string {
+	if (source == "app_store" || source == "mac_app_store") && st.AppStore != nil {
+		return cmp.Or(st.AppStore.ManagementURL, appleSubscriptionsURL)
+	}
 	if st.ManagementURL != "" {
 		return st.ManagementURL
 	}
@@ -61,11 +67,7 @@ func (s *Service) appStorePro(ctx context.Context, uid string) (*revenuecat.AppS
 	if err != nil || st.AppStore == nil {
 		return nil, ""
 	}
-	u := st.ManagementURL
-	if u == "" {
-		u = appleSubscriptionsURL
-	}
-	return st.AppStore, u
+	return st.AppStore, cmp.Or(st.AppStore.ManagementURL, appleSubscriptionsURL)
 }
 
 func appStoreProLines(planName, link string) []string {
@@ -86,8 +88,10 @@ func (s *Service) planStarted(ctx context.Context, uid, tier, subID string) {
 		return nil
 	})
 	link := ""
-	if sub, l := s.appStorePro(ctx, uid); sub != nil {
-		link = l
+	if tier != pricing.TierPro {
+		if sub, l := s.appStorePro(ctx, uid); sub != nil {
+			link = l
+		}
 	}
 	s.mailCustomer(ctx, "plan_started:"+subID, uid, s.accountEmail(ctx, uid), planStartedMail(tier, link, s.Cfg.SiteURL))
 }
@@ -115,7 +119,7 @@ func (s *Service) appProReminderSweep(ctx context.Context, now time.Time) int {
 	sent := 0
 	for uid, c := range custs {
 		p := c.Plan
-		if p == nil || p.StartedAt == nil || p.AppProChecked == p.SubscriptionID || now.Sub(*p.StartedAt) < appProReminderAfter {
+		if p == nil || p.Tier == pricing.TierPro || p.StartedAt == nil || p.AppProChecked == p.SubscriptionID || now.Sub(*p.StartedAt) < appProReminderAfter {
 			continue
 		}
 		if s.remindAppPro(ctx, uid, c, now) {

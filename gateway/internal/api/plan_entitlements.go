@@ -31,7 +31,7 @@ const planEntitlementGrace = 72 * time.Hour
 
 // grantPlanEntitlements grants the plan's entitlements for invoiceID.
 func (s *Service) grantPlanEntitlements(ctx context.Context, uid, tier, invoiceID string, periodEnd time.Time) {
-	if uid == "" || (tier != pricing.TierBusiness && tier != pricing.TierStudio) || invoiceID == "" || s.Store == nil {
+	if uid == "" || (tier != pricing.TierBusiness && tier != pricing.TierStudio && tier != pricing.TierPro) || invoiceID == "" || s.Store == nil {
 		return
 	}
 	cust, err := s.Store.GetCustomer(ctx, uid)
@@ -72,8 +72,10 @@ func (s *Service) grantRC(ctx context.Context, uid, tier string, until time.Time
 	gctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
 	now := time.Now().UTC()
-	if err := s.RevenueCat.GrantPromotional(gctx, uid, tier, now, until); err != nil {
-		return fmt.Errorf("%s: %w", tier, err)
+	if tier != pricing.TierPro { // web Pro: the pro grant alone
+		if err := s.RevenueCat.GrantPromotional(gctx, uid, tier, now, until); err != nil {
+			return fmt.Errorf("%s: %w", tier, err)
+		}
 	}
 	if err := s.RevenueCat.GrantPromotional(gctx, uid, "pro", now, until); err != nil {
 		return fmt.Errorf("pro: %w", err)
@@ -88,7 +90,7 @@ func (s *Service) revokePlanEntitlement(ctx context.Context, uid, reason string)
 		return
 	}
 	cust, err := s.Store.GetCustomer(ctx, uid)
-	if err != nil || cust.Plan == nil || (cust.Plan.Tier != pricing.TierBusiness && cust.Plan.Tier != pricing.TierStudio) {
+	if err != nil || cust.Plan == nil || (cust.Plan.Tier != pricing.TierBusiness && cust.Plan.Tier != pricing.TierStudio && cust.Plan.Tier != pricing.TierPro) {
 		return
 	}
 	if cust.Plan.RCRevokedAt != nil && cust.Plan.RCGrantInvoice == "" {
@@ -100,7 +102,13 @@ func (s *Service) revokePlanEntitlement(ctx context.Context, uid, reason string)
 	}
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
-	if err := s.RevenueCat.RevokePromotionals(rctx, uid, cust.Plan.Tier); err != nil {
+	revoke := s.RevenueCat.RevokePromotionals
+	if cust.Plan.Tier == pricing.TierPro {
+		// Web Pro on our Stripe ended early: its pro grant goes (this also
+		// ends any other promotional pro on the account).
+		revoke = s.RevenueCat.RevokeProPromotionals
+	}
+	if err := revoke(rctx, uid, cust.Plan.Tier); err != nil {
 		s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` (%s): %v", cust.Plan.Tier, uid, reason, err))
 		return
 	}
@@ -188,7 +196,7 @@ func (s *Service) m3Plans(ctx context.Context, rep *M3Report, dryRun bool) {
 			rep.fail("revenuecat "+uid, err)
 			continue
 		}
-		if tierRank(st.Tier) >= tierRank(c.Plan.Tier) {
+		if tierRank(st.Tier) >= tierRank(c.Plan.Tier) || (c.Plan.Tier == pricing.TierPro && st.Pro) {
 			continue
 		}
 		f := M3Flag{Flag: "plan_entitlement_missing", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s plan, RevenueCat tier %q", c.Plan.Tier, st.Tier)}

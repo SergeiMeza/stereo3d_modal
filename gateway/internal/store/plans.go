@@ -42,6 +42,31 @@ type Plan struct {
 	// needed), once (owner 2026-11-04).
 	StartedAt     *time.Time `firestore:"started_at,omitempty" json:"-"`
 	AppProChecked string     `firestore:"app_pro_checked,omitempty" json:"-"`
+	// PlanID: pro_weekly | pro_monthly | pro_yearly for web Pro on our own
+	// Stripe ("" = Tier, Business/Studio). Intro: started with Pro's intro
+	// coupon; IntroInvoices: the later cycles' invoices it was put on.
+	PlanID        string   `firestore:"plan_id,omitempty" json:"-"`
+	Intro         bool     `firestore:"intro,omitempty" json:"-"`
+	IntroInvoices []string `firestore:"intro_invoices,omitempty" json:"-"`
+	// PeriodPaidCents: what the current period's plan line cost after
+	// discounts (an intro), for the old-plan credit on a step-up.
+	PeriodPaidCents int64 `firestore:"period_paid_cents,omitempty" json:"-"`
+	// A step-down waiting for the period's end: the schedule, the plan it
+	// switches to (none = pay per video, via cancel_at_period_end) and when.
+	ScheduleID  string     `firestore:"schedule_id,omitempty" json:"-"`
+	ScheduledTo string     `firestore:"scheduled_to,omitempty" json:"-"`
+	ScheduledAt *time.Time `firestore:"scheduled_at,omitempty" json:"-"`
+}
+
+// Key is the plan's id: PlanID, else Tier.
+func (p *Plan) Key() string {
+	if p == nil {
+		return ""
+	}
+	if p.PlanID != "" {
+		return p.PlanID
+	}
+	return p.Tier
 }
 
 // AddMonths is t plus n calendar months, the day clamped to the month's
@@ -235,7 +260,7 @@ func (s *Store) GiveBackFreePreview(ctx context.Context, uid string, fp *FreePre
 // ListPlanCustomers lists customers with a web plan on record (any
 // status; callers check Active).
 func (s *Store) ListPlanCustomers(ctx context.Context, limit int) (map[string]*Customer, error) {
-	snaps, err := s.fs.Collection(customersCol(s.env)).Where("plan.tier", "in", []string{"business", "studio"}).Limit(limit).Documents(ctx).GetAll()
+	snaps, err := s.fs.Collection(customersCol(s.env)).Where("plan.tier", "in", []string{"business", "studio", "pro"}).Limit(limit).Documents(ctx).GetAll()
 	if err != nil {
 		return nil, err
 	}

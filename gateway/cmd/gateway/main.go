@@ -188,6 +188,9 @@ func main() {
 	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
 	mux.HandleFunc("POST /v1/billing/plan", authed(svc.HandleStartPlan)) // pricing 2026-11
 	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(svc.HandleCancelPlan))
+	mux.HandleFunc("POST /v1/plans/preview-change", authed(svc.HandlePreviewPlanChange)) // plan changes 2026-11-04
+	mux.HandleFunc("POST /v1/plans/change", authed(svc.HandlePlanChange))
+	mux.HandleFunc("DELETE /v1/plans/scheduled-change", authed(svc.HandleCancelScheduledChange))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
 	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
