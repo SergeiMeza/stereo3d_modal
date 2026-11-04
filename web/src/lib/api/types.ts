@@ -437,6 +437,8 @@ export interface ConversionBilling {
 
 export interface Conversion {
   conversion_id: string;
+  /** the gateway's Stripe key, on a pay-first run's create response */
+  publishable_key?: string;
   state: ConversionState;
   kind: "video" | "image";
   params: Params;

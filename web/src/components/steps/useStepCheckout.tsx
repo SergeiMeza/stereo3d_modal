@@ -399,6 +399,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       action={action}
       subtitle={runLine(conv, { price: false })}
       billing={conv.billing}
+      publishableKey={conv.publishable_key}
       projectId={conv.project_id}
       note={commercial ? undefined : PERSONAL_USE_LINE}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}

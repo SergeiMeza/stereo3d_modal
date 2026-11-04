@@ -47,8 +47,8 @@ import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
   | { kind: "loading" }
-  | { kind: "ready"; checkout: CheckoutHandle; notice?: "declined" | "too_many" }
-  | { kind: "paying"; checkout: CheckoutHandle }
+  | { kind: "ready"; checkout: CheckoutHandle; publishableKey?: string; notice?: "declined" | "too_many" }
+  | { kind: "paying"; checkout: CheckoutHandle; publishableKey?: string }
   | { kind: "waiting" }
   | { kind: "done"; text: string }
   | { kind: "expired" }
@@ -64,6 +64,7 @@ export function PaySheet({
   subtitle,
   thumb,
   billing,
+  publishableKey,
   projectId,
   note,
   onClose,
@@ -77,6 +78,8 @@ export function PaySheet({
   thumb?: string;
   /** the run's billing: its open payment and why it waits */
   billing?: ConversionBilling;
+  /** the gateway's Stripe key, when the run's create response carried it */
+  publishableKey?: string;
   /** for the return page after a redirect */
   projectId?: string;
   /** one small muted line under the form (personal use without a plan) */
@@ -87,9 +90,18 @@ export function PaySheet({
   const gateway = useGateway();
   const frame = useSheetFrame();
   const big = frame === "headset";
-  const [phase, setPhase] = useState<Phase>(() =>
-    billing?.checkout ? { kind: "ready", checkout: billing.checkout } : { kind: "loading" },
-  );
+  // The form needs the gateway's publishable key: Stripe given an empty
+  // one never shows the form (staging, 2026-11-05). The run's billing
+  // block doesn't always carry it (Finish payment reads the run back), so
+  // without a key we go through pay-now, which reuses the open session and
+  // returns it. The mock gateway's sessions need no key.
+  const [phase, setPhase] = useState<Phase>(() => {
+    const key = publishableKey ?? billing?.publishable_key;
+    const checkout = billing?.checkout;
+    return checkout && (key || checkout.client_secret.startsWith("cs_mock_"))
+      ? { kind: "ready", checkout, publishableKey: key }
+      : { kind: "loading" };
+  });
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // P7: a headset can hand the payment to a phone or computer
   const [handoff, setHandoff] = useState(false);
@@ -100,7 +112,7 @@ export function PaySheet({
     let live = true;
     gateway
       .payNowCheckout(conversionId)
-      .then((s) => live && setPhase({ kind: "ready", checkout: s.checkout }))
+      .then((s) => live && setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key }))
       .catch((e: { code?: string }) => {
         if (!live) return;
         if (e.code === "already_paid") finish(ALREADY_PAID);
@@ -130,13 +142,13 @@ export function PaySheet({
     setPhase({ kind: "loading" });
     try {
       const s = await gateway.payNowCheckout(conversionId, true);
-      setPhase({ kind: "ready", checkout: s.checkout });
+      setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key });
     } catch {
       setPhase({ kind: "unavailable" });
     }
   }
 
-  function handle(result: ConfirmResult, checkout: CheckoutHandle): void {
+  function handle(result: ConfirmResult, checkout: CheckoutHandle, publishableKey?: string): void {
     switch (result) {
       case "paid":
         return finish(PAID_STARTING);
@@ -149,9 +161,9 @@ export function PaySheet({
       case "redirect":
         return; // the browser is leaving for /pay/return
       case "too_many":
-        return setPhase({ kind: "ready", checkout, notice: "too_many" });
+        return setPhase({ kind: "ready", checkout, publishableKey, notice: "too_many" });
       default:
-        return setPhase({ kind: "ready", checkout, notice: "declined" });
+        return setPhase({ kind: "ready", checkout, publishableKey, notice: "declined" });
     }
   }
 
@@ -187,6 +199,7 @@ export function PaySheet({
     return (
       <CheckoutPane
         clientSecret={checkout.client_secret}
+        publishableKey={phase.publishableKey}
         big={big}
         collapseCards={big}
         returnQuery={`conversion=${encodeURIComponent(conversionId)}${
@@ -231,8 +244,9 @@ export function PaySheet({
                       onClick={async () => {
                         // headset: the card fields first, then pay
                         if (!form.cardsOpen) return form.openCards();
-                        setPhase({ kind: "paying", checkout });
-                        handle(await form.confirm(), checkout);
+                        const key = phase.publishableKey;
+                        setPhase({ kind: "paying", checkout, publishableKey: key });
+                        handle(await form.confirm(), checkout, key);
                       }}
                     >
                       {locked ? (
