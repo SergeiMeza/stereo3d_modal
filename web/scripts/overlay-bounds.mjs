@@ -128,6 +128,11 @@ try {
           db = v;
           v.accountSettings.onboarding = { welcome_done: true, tips_done: true, checklist_hidden: true };
           v.accountSettings.hints_seen = ["billing", "usage", "invoices", "plans", "pricing", "pro", "account", "devices", "scenes"];
+          // ADR 0136: two passkeys, for Rename and Remove on /account
+          v.passkeys = [
+            { id: "pk_1", name: "iPhone", device_hint: "iPhone", created_at: "2026-11-01T10:00:00Z", last_used_at: "2026-11-03T10:00:00Z" },
+            { id: "pk_2", name: "A passkey with a rather long name for the edge", device_hint: null, created_at: "2026-11-02T10:00:00Z", last_used_at: null },
+          ];
         },
       });
     });
@@ -157,6 +162,22 @@ try {
       await assertInside(page, "Payment method menu", failures);
       await close(page);
     }
+
+    // Account → Sign-in & security: passkey dialogs (ADR 0136)
+    await page.goto(`${base}/account`, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("passkey-pk_2").waitFor({ state: "visible" });
+    const addKey = page.getByTestId("passkey-add");
+    if (await addKey.count()) {
+      await addKey.click();
+      await assertInside(page, "Add a passkey dialog", failures);
+      await close(page);
+    }
+    await page.getByRole("button", { name: /^Rename A passkey/ }).click();
+    await assertInside(page, "Rename passkey dialog", failures);
+    await close(page);
+    await page.getByRole("button", { name: /^Remove A passkey/ }).click();
+    await assertInside(page, "Remove passkey alert", failures);
+    await close(page);
 
     // Make 3D: the "?" beside the charge rule (right column) and the Pro sheet
     await page.goto(`${base}/projects`, { waitUntil: "domcontentloaded" });
