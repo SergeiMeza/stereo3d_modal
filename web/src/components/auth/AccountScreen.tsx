@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * /account — profile (with the ways to sign in, S3D-69), billing
- * explainer, session, danger zone. The UID row
+ * /account — profile, sign-in & security (the ways to sign in, S3D-69,
+ * and passkeys, ADR 0136), billing explainer, session, danger zone. The UID row
  * is click-to-copy because it's the support identifier: projects and
  * conversions are keyed to it, so "send us your account ID" must be one
  * click. Deleting the account requires typing DELETE (native input — the
@@ -17,6 +17,7 @@ import { useState } from "react";
 
 import Link from "next/link";
 
+import { PasskeysSection } from "@/components/auth/Passkeys";
 import { SignInMethods } from "@/components/auth/SignInMethods";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
@@ -216,8 +217,6 @@ export default function AccountScreen() {
           )}
         </form>
 
-        <SignInMethods />
-
         <div className="flex items-center justify-between gap-3 border-t border-edge pt-3">
           <div className="min-w-0">
             <p className="text-xs text-fg-muted">
@@ -234,6 +233,12 @@ export default function AccountScreen() {
             {copied ? "Copied" : "Copy ID"}
           </button>
         </div>
+      </CardShell>
+
+      {/* ADR 0136: the ways in, and passkeys */}
+      <CardShell title="Sign-in & security">
+        <SignInMethods />
+        <PasskeysSection />
       </CardShell>
 
       <BusinessEntry />
