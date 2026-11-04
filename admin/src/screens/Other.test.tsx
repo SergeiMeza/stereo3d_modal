@@ -553,7 +553,7 @@ describe("disputes badge and banner (header)", () => {
       { dispute_id: "dp_3", amount_cents: 900, reason: "general", status: "under_review", payment_intent: "pi_3", due_by: new Date(Date.now() + 1 * day).toISOString() },
       { dispute_id: "dp_4", amount_cents: 900, reason: "general", status: "needs_response", payment_intent: "pi_4", due_by: new Date(Date.now() + 10 * day).toISOString() },
     ],
-    open_efws: [{ efw_id: "issfr_1" }],
+    open_efws: 1,
     ...over,
   });
   const cases = { "GET /v1/admin/cases": () => ({ json: { cases: [], counts: { open: 0, overdue: 0, due_today: 0 } } }) };

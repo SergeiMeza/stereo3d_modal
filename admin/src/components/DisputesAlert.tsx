@@ -26,7 +26,7 @@ export interface DisputeAlert {
 
 export function alertFrom(s: DisputeSummary, now = Date.now()): DisputeAlert {
   const open = s.open ?? [];
-  const efws = Array.isArray(s.open_efws) ? s.open_efws.length : typeof s.open_efws === "number" ? s.open_efws : 0;
+  const efws = typeof s.open_efws === "number" && s.open_efws > 0 ? s.open_efws : 0;
   const soon = open
     .filter((d) => (!d.status || NEEDS_RESPONSE.has(d.status)) && d.due_by && Date.parse(d.due_by) - now <= DUE_SOON_MS)
     .map((d) => d.due_by as string)
