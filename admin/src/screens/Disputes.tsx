@@ -13,13 +13,14 @@ import { dateOnly, dateTime, money, monthLabel, pct, until, words } from "../lib
 import { Link, paths } from "../lib/router";
 import { useServices } from "../lib/services";
 import type { DisputeMonth, DisputeSummary } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import { disputesQuery, efwsQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 
 /** A4: disputes and fraud (BL-11 monitoring). */
 export function DisputesPanel() {
   const { api } = useServices();
   const [months, setMonths] = useState(12);
-  const { state, retry } = useLoad(() => api.disputes(months), [api, months]);
+  const { state, retry } = useQuery(disputesQuery, months);
   const [csvBusy, setCsvBusy] = useState(false);
   const [csvErr, setCsvErr] = useState("");
 
@@ -257,15 +258,22 @@ const TWO = "grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1";
 
 /** Every open early fraud warning (GET /v1/admin/efws), newest first. */
 function EfwList() {
-  const { api } = useServices();
-  const { state } = useLoad(() => api.openEfws(), [api]);
+  const { state, retry } = useQuery(efwsQuery, null);
   if (state.kind === "loading")
     return (
       <div className="px-4 py-3" aria-busy="true" aria-label="Loading">
         <Skeleton />
       </div>
     );
-  if (state.kind === "error") return <EmptyRow>Couldn't load the open warnings.</EmptyRow>;
+  if (state.kind === "error")
+    return (
+      <EmptyRow>
+        Couldn't load the open warnings.{" "}
+        <Button type="button" size="sm" variant="outline" onClick={retry}>
+          Retry
+        </Button>
+      </EmptyRow>
+    );
   if (state.data.length === 0) return <EmptyRow>No open early fraud warnings.</EmptyRow>;
   return (
     <ul className="list-none" data-testid="open-efws">

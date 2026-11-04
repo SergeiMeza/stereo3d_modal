@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { errorMessage } from "@/lib/api";
 import { dateOnly } from "@/lib/format";
 import { Link, paths, useRouter } from "@/lib/router";
-import { useServices } from "@/lib/services";
 import type { Tone } from "@/components/common";
-import { useLoad } from "@/lib/useLoad";
+import { grantsQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 import { GRANT_STATUS, label } from "./Grants";
 
 /**
@@ -20,9 +20,8 @@ import { GRANT_STATUS, label } from "./Grants";
  * on the account page.
  */
 export function GrantsPage() {
-  const { api } = useServices();
   const { navigate } = useRouter();
-  const { state, retry } = useLoad(() => api.allGrants(), [api]);
+  const { state, retry } = useQuery(grantsQuery, null);
   const [uid, setUid] = useState("");
   return (
     <>
