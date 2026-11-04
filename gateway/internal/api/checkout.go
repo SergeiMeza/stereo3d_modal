@@ -119,6 +119,17 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 	})
 }
 
+// minSessionLeft: a run's open Checkout Session is handed out again only
+// with at least this long left; otherwise a fresh one is opened.
+const minSessionLeft = 10 * time.Minute
+
+// sessionLapsing: the run's sheet session is missing or has less than
+// minSessionLeft left (by its stored expiry).
+func sessionLapsing(cp *store.Payment, now time.Time) bool {
+	return cp == nil || cp.Kind != store.PaymentCheckoutSession || cp.UI != "elements" ||
+		cp.ExpiresAt == nil || cp.ExpiresAt.Sub(now) < minSessionLeft
+}
+
 // payNowBilling is the billing block of a run waiting in the sheet:
 // requires_payment with why and the open session's client secret (and
 // the Stripe publishable key the sheet mounts with, so a run read back
@@ -187,10 +198,13 @@ func (s *Service) HandleRunPayNow(w http.ResponseWriter, r *http.Request, user *
 	}
 	if cp := conv.CurrentPayment; cp != nil && !req.Retry && cp.Kind == store.PaymentCheckoutSession && cp.UI == "elements" {
 		out, sess, gerr := s.Stripe.SessionOutcome(cp.ID)
-		if gerr == nil && sess.Status == "open" {
+		if gerr == nil && sess.Status == "open" && time.Until(sess.Expires()) >= minSessionLeft {
 			httpx.WriteOK(w, s.payNowResponse(conv))
 			return
 		}
+		// An open session about to lapse is replaced (same run, same
+		// amount): paying in its last minutes lost the payment when Stripe
+		// expired it under the customer (k1016a30746cb172, 2026-11-05).
 		if gerr == nil && (out.Paid || out.Processing) {
 			if paid, aerr := s.applyRunPayment(ctx, conv.ID, *cp, out); aerr == nil {
 				conv = paid
@@ -471,4 +485,24 @@ func (s *Service) publishableKey() string {
 		return ""
 	}
 	return s.Stripe.PublishableKey
+}
+
+// replayPayFirst answers a replayed create (the same Idempotency-Key) of a
+// run that pays first and is still waiting for it: its sheet, opened
+// afresh (same run, same amount) when the open session has under
+// minSessionLeft left or none was opened. false when prior isn't one.
+func (s *Service) replayPayFirst(ctx context.Context, w http.ResponseWriter, user *AuthedUser, prior *store.Conversion, pc payContext) bool {
+	if prior.State != store.StateCreated || prior.PaymentFlow != store.FlowPayNow || prior.Stripe.PIStatus == store.PIProcessing {
+		return false
+	}
+	if sessionLapsing(prior.CurrentPayment, time.Now()) {
+		opened, err := s.openRunSession(ctx, prior, "elements", pc.Device, pc.IP, user.Email)
+		if err == nil || errors.Is(err, errAlreadyPaid) {
+			prior = opened
+		} else {
+			httpx.Log(ctx).Warn("replayed run's sheet not refreshed", "conversion_id", prior.ID, "err", err)
+		}
+	}
+	httpx.WriteOK(w, s.payNowResponse(prior))
+	return true
 }

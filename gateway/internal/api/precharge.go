@@ -620,6 +620,10 @@ func (s *Service) startPayNowRun(ctx context.Context, w http.ResponseWriter, use
 	conv.ExpiresAt = &expiry
 	if err := s.Store.CreateConversion(ctx, conv); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
+			if prior, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil && prior.UID == user.UID &&
+				s.replayPayFirst(ctx, w, user, prior, pc) {
+				return
+			}
 			s.replayConversion(ctx, w, user, conv.ID)
 			return
 		}

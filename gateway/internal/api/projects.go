@@ -1370,12 +1370,18 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if ferr == nil {
+			if s.replayPayFirst(ctx, w, user, prior, payContextOf(r)) {
+				return
+			}
 			// Replays of a hold still awaiting 3DS re-serve the same billing
 			// material (client_secret is stored on the record).
 			httpx.WriteOK(w, s.conversionResponse(prior, nil))
 			return
 		}
 		if prior, gerr := s.Store.GetConversion(ctx, s.idempotentConversionID(user.UID, idemKey)); gerr == nil && prior.UID == user.UID {
+			if s.replayPayFirst(ctx, w, user, prior, payContextOf(r)) {
+				return
+			}
 			httpx.WriteOK(w, s.conversionResponse(prior, nil)) // P3
 			return
 		}

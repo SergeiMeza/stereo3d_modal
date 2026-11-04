@@ -124,7 +124,10 @@ confirmCardPayment fallback). The default card is cached on
   back with `GET /v1/conversions/{id}` can finish its payment), plus
   top-level `checkout`, `amount_cents`, `publishable_key`.
 - `POST /v1/conversions/{id}/pay-now {ui: "elements", replace?}`: the open
-  session, or a fresh one (E0-1 replace). 409 `already_paid` / `expired` /
+  session when it has at least 10 minutes left, else a fresh one for the
+  same run and amount (the old one closed); a fresh one with replace
+  (E0-1). A replayed pay-first create (the same Idempotency-Key) does the
+  same and answers like pay-now. 409 `already_paid` / `expired` /
   `payment_in_progress`. `{method}` (China) arrives with the China path.
 - A pre-charge that needs the bank's check or was declined opens the sheet
   for that run in the same request (P3).
