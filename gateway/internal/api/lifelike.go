@@ -721,11 +721,7 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	if dolbyVision5(p) { // refused at analysis; a guard for the record
 		return params, httpx.Err(http.StatusUnprocessableEntity, "source_unsupported", errDolbyVision5Text)
 	}
-	if req.HDR {
-		if herr := s.hdrRequestError(ctx, p); herr != nil {
-			return params, herr
-		}
-	}
+
 	if projectMethod(p) == store.MethodLifelike {
 		params, err = resolveLifelikeParams(req, p, s.Pricing.Rates(ctx).EnabledLifelikePresets())
 	} else {
@@ -735,7 +731,10 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		return params, err
 	}
 	rates := s.Pricing.Rates(ctx)
-	params.HDR = req.HDR // checked above
+	// HDR output is automatic and free (owner 2026-11-05): every Lifelike
+	// run of an HDR source gets it while the switch is on. A request's
+	// "hdr" (older web builds) is ignored.
+	params.HDR = rates.LifelikeHDROutputEnabled && projectMethod(p) == store.MethodLifelike && hdrSource(p)
 	if params.Foveation != "" && !rates.FoveationEnabled {
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "foveation is not available yet")
 	}

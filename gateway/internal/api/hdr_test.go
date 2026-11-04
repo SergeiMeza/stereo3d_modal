@@ -79,10 +79,12 @@ func TestSourceDynamicRange(t *testing.T) {
 	}
 }
 
-// hdr: true is 422 while off, on a non-HDR source or a Classic project;
-// recorded on the run, priced (included with a plan) and sent as
-// hdr_output; absent by default.
-func TestHDRRequest(t *testing.T) {
+// HDR output is automatic and free (owner 2026-11-05): while the switch
+// is on every Lifelike run of an HDR source (full, preview, split,
+// Express) records params.hdr and sends hdr_output; an SDR source, a
+// Classic project or the switch off change nothing; a request's "hdr"
+// (older web builds) is ignored, never a 422.
+func TestHDRAutomatic(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
 	off := pricing.DefaultsFor("test")
@@ -94,40 +96,47 @@ func TestHDRRequest(t *testing.T) {
 	sdr := lifelikeProject()
 	sdr.UID = hdr.UID
 	sdr.Probe.DynamicRange = probe.RangeSDR
-	req := &stepConvReq{Step: store.StepProduction, Preset: "4k", HDR: true}
-
-	s.Pricing = pricing.NewStatic(off)
-	if _, err := s.resolveParams(ctx, req, hdr); err == nil || err.Status != 422 {
-		t.Fatalf("off %v", err)
+	reqs := []stepConvReq{
+		{Step: store.StepProduction, Preset: "4k"},
+		{Step: store.StepLifelikePreview, Preset: "4k", FromFrame: 0, ToFrame: 120},
+		{Step: store.StepProduction, Preset: "4k", SplitMaxSeconds: 60},
+		{Step: store.StepProduction, Preset: "4k", Express: true},
+	}
+	run := func(p *store.Project, req stepConvReq) (store.Params, map[string]any) {
+		t.Helper()
+		params, err := s.resolveParams(ctx, &req, p)
+		if err != nil {
+			t.Fatalf("%+v: %v", req, err)
+		}
+		return params, lifelikeBody(&store.Conversion{Step: req.Step, Params: params}, 4)
 	}
 	s.Pricing = pricing.NewStatic(on)
-	if _, err := s.resolveParams(ctx, req, sdr); err == nil || err.Status != 422 || err.Code != "hdr_unavailable" {
-		t.Fatalf("sdr %v", err)
+	for _, req := range reqs {
+		if params, b := run(hdr, req); !params.HDR || b["hdr_output"] != true {
+			t.Fatalf("hdr source %+v: %+v %v", req, params, b)
+		}
+		if params, b := run(sdr, req); params.HDR || b["hdr_output"] != nil {
+			t.Fatalf("sdr source %+v: %+v", req, params)
+		}
 	}
-	classic := lifelikeProject()
-	classic.Method = store.MethodClassic
-	classic.Probe.DynamicRange = probe.RangePQ
-	if _, err := s.resolveParams(ctx, req, classic); err == nil || err.Status != 422 {
-		t.Fatalf("classic %v", err)
-	}
-	params, err := s.resolveParams(ctx, req, hdr)
-	if err != nil || !params.HDR {
-		t.Fatalf("hdr %+v %v", params, err)
-	}
-	if b := lifelikeBody(&store.Conversion{Params: params}, 4); b["hdr_output"] != true {
-		t.Fatalf("body %v", b)
-	}
-	// HDR is free (owner 2026-11-05): the quote is the plain price, no HDR line
+	// free: the same price as without it
+	params, _ := run(hdr, reqs[0])
 	q, _, qerr := s.quoteStep(ctx, hdr, params, store.StepProduction, 0)
-	if qerr != nil || q.AmountCents != 2000 || q.Breakdown["hdr"] != nil || q.Breakdown["hdr_included"] != nil {
+	if qerr != nil || q.AmountCents != 2000 || q.Breakdown["hdr"] != nil {
 		t.Fatalf("quote %v %v", q, qerr)
 	}
-	// default off: no hdr_output, no HDR line
-	plain, _ := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction, Preset: "4k"}, hdr)
-	if b := lifelikeBody(&store.Conversion{Params: plain}, 4); plain.HDR || b["hdr_output"] != nil {
-		t.Fatalf("default %+v", plain)
+	// an older web's "hdr" is ignored either way, never a 422
+	var old stepConvReq
+	if err := json.Unmarshal([]byte(`{"step":"production","preset":"4k","hdr":true}`), &old); err != nil {
+		t.Fatal(err)
 	}
-	if q, _, _ := s.quoteStep(ctx, hdr, plain, store.StepProduction, 0); q.AmountCents != 2000 || q.Breakdown["hdr"] != nil {
-		t.Fatalf("default quote %v", q.Breakdown)
+	if params, _ := run(sdr, old); params.HDR {
+		t.Fatal("hdr on an SDR source")
+	}
+	s.Pricing = pricing.NewStatic(off)
+	for _, req := range append(reqs, old) {
+		if params, b := run(hdr, req); params.HDR || b["hdr_output"] != nil {
+			t.Fatalf("switch off %+v: %+v", req, params)
+		}
 	}
 }

@@ -3,17 +3,15 @@ package api
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"time"
 
-	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
 // HDR output (owner 2026-11-05): analysis reads the source's dynamic
-// range; HDR sources may ask Lifelike for HDR output (hdr: true), an
-// add-on included in every plan. Hidden entirely while
+// range; every Lifelike run of an HDR source gets HDR output, automatic
+// and free (hdr_output on /convert). Hidden entirely while
 // lifelike_hdr_output_enabled is off. Dolby Vision without a displayable
 // base layer (dv_5) is refused whatever the switch.
 
@@ -68,18 +66,4 @@ func (s *Service) hdrOn(ctx context.Context) bool {
 // dolbyVision5: the project's source has no displayable base layer.
 func dolbyVision5(p *store.Project) bool {
 	return p.Probe != nil && p.Probe.DynamicRange == probe.RangeDV5
-}
-
-// hdrRequestError: why a run can't ask for HDR output (422), nil when it
-// can. Hidden while switched off; only Lifelike, only from an HDR source.
-func (s *Service) hdrRequestError(ctx context.Context, p *store.Project) *httpx.APIError {
-	switch {
-	case !s.hdrOn(ctx):
-		return httpx.Err(http.StatusUnprocessableEntity, "feature_unavailable", "hdr isn't available")
-	case projectMethod(p) != store.MethodLifelike:
-		return httpx.Err(http.StatusUnprocessableEntity, "hdr_unavailable", "HDR output is only for Lifelike 3D.")
-	case !hdrSource(p):
-		return httpx.Err(http.StatusUnprocessableEntity, "hdr_unavailable", "This video isn't HDR, so it can't get HDR output.")
-	}
-	return nil
 }
