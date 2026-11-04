@@ -62,6 +62,13 @@ if [[ -z "${STRIPE_PMC_WEB:-}" && "$ENV" == "test" ]]; then
 fi
 STRIPE_PMC_WEB="${STRIPE_PMC_WEB:-}"
 
+# Admin passkey sessions (ADR 0135): mounted when admin-session-key-{env}
+# exists, so an env without it still deploys (passkey sessions off there).
+SECRETS="STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RC_API_KEY_V1=RC_API_KEY_V1:latest"
+if gcloud secrets describe "admin-session-key-${ENV}" --project "$PROJECT" >/dev/null 2>&1; then
+  SECRETS="${SECRETS},ADMIN_SESSION_KEY=admin-session-key-${ENV}:latest"
+fi
+
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
   --source . \
@@ -70,7 +77,7 @@ gcloud run deploy "$SERVICE" \
   --min-instances 0 --max-instances 10 \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
   --set-env-vars "^|^APP_ENV=${ENV}|GCP_PROJECT_ID=${PROJECT}|MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run|CORS_ORIGINS=${CORS_ORIGINS}|FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}|LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}|MODAL_WORKSPACE_ID=${MODAL_WORKSPACE}|OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}|FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}|STRIPE_PMC_WEB=${STRIPE_PMC_WEB}" \
-  --set-secrets "STRIPE_SECRET_KEY=stripe-secret-key-${ENV}:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret-${ENV}:latest,STRIPE_PUBLISHABLE_KEY=stripe-publishable-key-${ENV}:latest,MODAL_TOKEN_ID=modal-token-id:latest,MODAL_TOKEN_SECRET=modal-token-secret:latest,RECONCILE_TOKEN=reconcile-token-${ENV}:latest,SLACK_WEBHOOK_URL=slack-webhook:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RC_API_KEY_V1=RC_API_KEY_V1:latest"
+  --set-secrets "$SECRETS"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
 echo "Deployed: $URL"

@@ -1322,6 +1322,67 @@ per line; when the line empties, one "GPU line cleared" mail with the
 longest wait. The throttle lives in `ops_{env}/gpu_line`, so instances
 agree. No address or no Resend key → logged only.
 
+### Admin passkeys (ADR 0135)
+
+The admin console's second factor is a passkey (WebAuthn, go-webauthn).
+The Identity Platform TOTP sign-in still works as an alternative until
+the owner retires it.
+
+- **Relying parties.** Prod `admin.stereo3d.studio` (origin
+  `https://admin.stereo3d.studio`); test `admin-test.stereo3d.studio`
+  (`https://admin-test.stereo3d.studio`) and `localhost`
+  (`http://localhost:5174`). Each accepts its own origin only (also
+  narrowed by `ADMIN_ORIGINS`). userVerification required, residentKey
+  preferred, attestation none.
+- **Storage.** `admin_passkeys_{env}/{credId}` {uid, name, public_key,
+  sign_count, aaguid, transports, rp_id, created_at, last_used_at,
+  credential}; challenges `admin_passkey_challenges_{env}/{challenge}`
+  (single use, 5 minutes, bound to uid, purpose register | session and
+  origin); `admin_session_epochs_{env}/{uid}`.
+- **Routes** (all: Firebase ID token with `svs_admin`, an admin origin;
+  the passkey routes don't need the second factor themselves):
+  - `POST /v1/admin/passkeys/register/options {name?}` → `{options:
+    {publicKey: PublicKeyCredentialCreationOptions}, expires_at}`. The
+    first passkey of a uid needs the token's auth_time within 5 minutes
+    (else 401 `reauth_required {method: "google"}`); a further one also
+    needs `X-Admin-Session` with an assertion within 5 minutes (401
+    `reauth_required {method: "passkey"}`).
+  - `POST /v1/admin/passkeys/register/verify {name?, credential}` (the
+    `PublicKeyCredential` JSON) → 201 `{passkey: {id, name, created_at,
+    last_used_at}}`; 400 `challenge_invalid` | `passkey_invalid`; 409
+    `passkey_exists`. Slack `admin_passkey_added` (uid, name, origin,
+    country).
+  - `POST /v1/admin/session/options` → `{options: {publicKey:
+    PublicKeyCredentialRequestOptions}, expires_at}`; 409 `no_passkey`.
+  - `POST /v1/admin/session/verify {credential}` → `{session,
+    expires_at, last_assertion_at}`. The session is HMAC-SHA256 signed with
+    `ADMIN_SESSION_KEY` (Secret Manager `admin-session-key-{env}`, mounted
+    by deploy.sh when it exists): claims uid, iat, exp (12 h),
+    last_assertion_at, the uid's epoch. The console sends it as
+    `X-Admin-Session`. 401 `passkey_invalid` (bad signature, wrong origin
+    or RP, used meanwhile), `passkey_clone_suspected` (the sign count
+    didn't go up; Slack), 400 `challenge_invalid` (replayed, expired, or
+    another purpose's or account's).
+  - `POST /v1/admin/session/reassert {credential}` with the session →
+    the same session (sid, exp) with `last_assertion_at` now.
+  - `GET /v1/admin/passkeys` → `{passkeys: [{id, name, created_at,
+    last_used_at}]}`.
+  - `DELETE /v1/admin/passkeys/{id}`: an assertion within 5 minutes; 409
+    `last_passkey`; Slack `admin_passkey_removed`.
+- **Admin auth.** Every other admin route takes token + valid
+  `X-Admin-Session` for the same uid (method passkey) or the TOTP sign-in
+  (method totp). A session header that doesn't verify is 401
+  `session_invalid {method: "passkey"}`; neither factor is 403
+  `mfa_required {methods: ["passkey", "totp"]}`. Money actions need the
+  last assertion within 5 minutes (TOTP: auth_time), else 401
+  `reauth_required {method: "passkey"}`.
+- **Break-glass.** `gateway/scripts/admin-passkeys-reset.sh <test|prod>
+  <uid> [--dry-run]`, run locally with your gcloud login: deletes that
+  uid's passkeys and pending challenges, bumps its session epoch (every
+  session ends), prints only the counts and posts Slack
+  `admin_passkeys_reset` (uid, who ran it). The admin then signs in with
+  Google and enrols a first passkey within 5 minutes.
+
 ### Refunds, cases, disputes and the admin API (spec v6.1 step 6)
 
 **Policy** (`config/refund_policy_{env}`, optional, cached 60 s; code
