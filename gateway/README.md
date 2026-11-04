@@ -660,7 +660,7 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   tier?, cents, pct}`, `tier`, `tier_label`; the older keys stay
   (`pro_discount_cents` = the tier's saving, `discount_cents` = bulk).
 - **HDR output** (owner 2026-11-05): automatic and free for everyone, no
-  add-on and no price line (see Source dynamic range below).
+  add-on and no price line (HDR output, below).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
   +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
   (`express: true`, Lifelike; included in Business and Studio). Express
@@ -779,6 +779,32 @@ is asked when bars are found and can keep them.
   half_sbs". The gateway treats it like 6K/8K: the size lists no `sbs`,
   a production asking for it is 400 `format_unavailable`, a preview swaps
   to half SBS, and Get another format answers `too_wide`.
+
+### HDR output (owner 2026-11-05)
+
+HDR sources get HDR output on Lifelike runs, automatically and free, behind
+`lifelike_hdr_output_enabled` (code default off on test and prod).
+
+- **Source dynamic range.** Analysis runs the gateway's ffprobe on the
+  source (`color_transfer` arib-std-b67 = `hlg`, smpte2084 = `pq`, else
+  `sdr`; the Dolby Vision record's `dv_profile` and
+  `dv_bl_signal_compatibility_id`: profile 8 = `dv_8` with its base
+  hlg/pq/sdr, profile 5 or compatibility 0 = `dv_5`) and stores
+  `probe.dynamic_range` / `dynamic_range_base`. An HDR source is HLG, PQ,
+  or DV 8 on an HLG/PQ base (DV 8.2's SDR base isn't).
+- **Project.** `dynamic_range` and `hdr_source` only while the switch is
+  on; `hdr_available` and `hdr_output` (the project's Lifelike runs come
+  out in HDR) always, false while off.
+- **Runs.** While on, every Lifelike run of an HDR source (full, preview,
+  split, Express) records `params.hdr: true` and its `/convert` body
+  carries `hdr_output: true`; SDR sources, Classic and the switch off
+  change nothing. A request's `hdr` (older web builds) is ignored, never
+  a 422. No price effect. Repack ("Get another format") ignores it for
+  now.
+- **dv_5.** No displayable base layer: analysis refuses it before any
+  charge, whatever the switch, with "This video uses a Dolby Vision
+  format that can't be converted…" (422 `source_unsupported` on a quote
+  or run of a project that has it stored).
 
 ### Lifelike brand intro (BL-25)
 
