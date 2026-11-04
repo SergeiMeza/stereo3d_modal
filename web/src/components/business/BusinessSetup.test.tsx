@@ -124,6 +124,42 @@ describe("Business and Studio setup", () => {
     );
   });
 
+  it("the answers are saved on the account; the funnel event carries none", async () => {
+    mockDb.billing.company = {
+      name: "Northlight Films",
+      address: { country: "GB", city: "London" },
+      tax_ids: [],
+    };
+    renderSetup();
+    fireEvent.click(await screen.findByTestId("setup-next"));
+    await waitFor(() =>
+      expect(screen.getByTestId("setup-company-summary").textContent).toContain(
+        "Northlight Films",
+      ),
+    );
+    fireEvent.click(screen.getByTestId("setup-next"));
+    fireEvent.change(await screen.findByTestId("setup-team-size"), {
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Client work" }));
+    fireEvent.click(screen.getByTestId("setup-headset-avp"));
+    fireEvent.click(screen.getByTestId("setup-next"));
+    await screen.findByTestId("setup-checkout");
+    await waitFor(() =>
+      expect(mockDb.accountSettings.business_setup).toEqual({
+        team_size: "4",
+        main_use: "client_work",
+        headsets: ["avp"],
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        mockDb.events.find((e) => e.name === "business_setup_details_done")
+          ?.props,
+      ).toEqual({}),
+    );
+  });
+
   it("no Pro: the price and terms, then the plan sheet; nothing charged before", async () => {
     await toCheckout();
     expect(screen.getByTestId("setup-terms").textContent).toContain(

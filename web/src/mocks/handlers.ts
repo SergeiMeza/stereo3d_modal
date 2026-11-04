@@ -399,6 +399,8 @@ interface DB {
     dismissed: Record<string, string>;
     /** test only: act as an app Pro subscriber (onboarding variant app_pro) */
     simulate_app_pro?: boolean;
+    /** the Business setup's optional answers */
+    business_setup?: { team_size?: string; main_use?: string; headsets?: string[] };
   };
   /** the next settings save fails with a 500 */
   nextSettingsFails: boolean;
@@ -3022,8 +3024,10 @@ export const handlers = [
       onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean; app_pro_welcome_done?: boolean };
       dismissed?: Record<string, true | string | null>;
       simulate_app_pro?: boolean;
+      business_setup?: { team_size?: string; main_use?: string; headsets?: string[] };
     };
     const st = mockDb.accountSettings;
+    if (body.business_setup) st.business_setup = { ...st.business_setup, ...body.business_setup };
     if (body.simulate_app_pro !== undefined) {
       st.simulate_app_pro = body.simulate_app_pro;
       // GET /v1/pro and the quotes follow, as on the test gateway

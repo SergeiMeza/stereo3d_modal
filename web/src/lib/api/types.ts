@@ -708,9 +708,18 @@ export interface AccountSettings {
   onboarding?: OnboardingState;
   /** plans surfaces dismissed: placement → RFC 3339 time (gateway 00093) */
   dismissed?: Record<string, string>;
+  /** owner 2026-11-04: the Business setup's optional answers */
+  business_setup?: BusinessSetupAnswers | null;
   /** test environments only: the gateway treats the account as an app Pro
    * subscriber (onboarding variant app_pro, GET /v1/pro true) */
   simulate_app_pro?: boolean;
+}
+
+/** The Business setup's optional questions (settings.business_setup). */
+export interface BusinessSetupAnswers {
+  team_size?: string;
+  main_use?: string;
+  headsets?: string[];
 }
 
 /** Account onboarding state, kept on the account (not in the browser). */
@@ -745,6 +754,7 @@ export interface AccountSettingsPatch {
   onboarding?: Pick<OnboardingState, "welcome_done" | "checklist_hidden" | "tips_done" | "app_pro_welcome_done">;
   /** test environments only */
   simulate_app_pro?: boolean;
+  business_setup?: BusinessSetupAnswers;
   /** placement → true (now) | RFC 3339 time | null (clear) */
   dismissed?: Record<string, true | string | null>;
 }

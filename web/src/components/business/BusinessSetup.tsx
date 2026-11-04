@@ -14,7 +14,8 @@
  *    Billing page's own sheet): company name and billing address; a VAT ID
  *    is optional.
  * 3. A few questions, all skippable: team size, main use, headsets
- *    (prefilled from onboarding).
+ *    (prefilled from onboarding), saved on the account (PATCH
+ *    settings.business_setup).
  * 4. Checkout: the price and the monthly/yearly terms before paying.
  *    "What happens to your Pro" — an App Store Pro gets Apple's cancel
  *    note; a web Pro gets today's charge from POST /v1/plans/preview-change
@@ -493,7 +494,7 @@ export function BusinessSetup(): JSX.Element {
               variant="outline"
               data-testid="setup-skip"
               onClick={() => {
-                log("business_setup_details_done", { skipped: true });
+                log("business_setup_details_done");
                 setStep("checkout");
               }}
             >
@@ -502,14 +503,21 @@ export function BusinessSetup(): JSX.Element {
             <Button
               data-testid="setup-next"
               onClick={() => {
-                if (headsets !== null) update({ headsets });
-                log("business_setup_details_done", {
+                const answers = {
                   ...(teamSize.trim() ? { team_size: teamSize.trim() } : {}),
                   ...(mainUse ? { main_use: mainUse } : {}),
                   ...(chosenHeadsets.length > 0
                     ? { headsets: chosenHeadsets }
                     : {}),
+                };
+                // the answers live on the account; the funnel event has none
+                update({
+                  ...(headsets !== null ? { headsets } : {}),
+                  ...(Object.keys(answers).length > 0
+                    ? { business_setup: answers }
+                    : {}),
                 });
+                log("business_setup_details_done");
                 setStep("checkout");
               }}
             >
