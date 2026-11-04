@@ -69,10 +69,14 @@ export const PASSKEY_ROUTES = {
 
 export type PasskeyPurpose = "sign_in" | "reassert";
 
-/** Options come as {options: …} or bare. */
-function optionsOf<T extends object>(r: unknown): T {
-  const o = r as { options?: T; publicKey?: T };
-  return (o.options ?? o.publicKey ?? (r as T)) as T;
+/** The gateway sends `{options: {publicKey: …}, expires_at}`; a wrapped
+ * `{options: …}`, a bare `{publicKey: …}` or the bare options also work.
+ * What @simplewebauthn takes as optionsJSON is the publicKey part. */
+export function optionsOf<T extends object>(r: unknown): T {
+  let o = r as Record<string, unknown> | null;
+  if (o && typeof o.options === "object" && o.options) o = o.options as Record<string, unknown>;
+  if (o && typeof o.publicKey === "object" && o.publicKey) o = o.publicKey as Record<string, unknown>;
+  return o as T;
 }
 
 export interface AdminApiOptions {

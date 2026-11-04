@@ -21,7 +21,7 @@ describe("passkey sign-in (ADR 0135)", () => {
       "/cases",
       {
         ...cases,
-        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
         "POST /v1/admin/session/verify": () => ({ json: { session: "sess_1", expires_at: "2026-11-04T20:00:00Z" } }),
       },
       googleDone(),
@@ -46,9 +46,9 @@ describe("passkey sign-in (ADR 0135)", () => {
         ...cases,
         "POST /v1/admin/session/options": () =>
           calls.some((c) => c.path === "/v1/admin/passkeys/register/verify")
-            ? { json: { options: requestOptions } }
+            ? { json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }
             : apiError(409, "no_passkey", "No passkey on this account yet."),
-        "POST /v1/admin/passkeys/register/options": () => ({ json: { options: creationOptions } }),
+        "POST /v1/admin/passkeys/register/options": () => ({ json: { options: { publicKey: creationOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
         "POST /v1/admin/passkeys/register/verify": () => ({
           json: { passkey: { id: "pk_1", name: "Mac · Safari", created_at: "2026-11-04T10:00:00Z" } },
         }),
@@ -74,7 +74,7 @@ describe("passkey sign-in (ADR 0135)", () => {
         ...cases,
         "POST /v1/admin/session/options": () => {
           options++;
-          return { json: { options: requestOptions } };
+          return { json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } };
         },
       },
       googleDone(),
@@ -87,7 +87,7 @@ describe("passkey sign-in (ADR 0135)", () => {
   });
 
   it("keeps the authenticator code one link away", async () => {
-    renderApp("/cases", { "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }) }, googleDone());
+    renderApp("/cases", { "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }) }, googleDone());
     await userEvent.click(await screen.findByRole("button", { name: "Use an authenticator code instead" }));
     expect(screen.getByRole("button", { name: "Set up an authenticator app" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Use a passkey instead" }));
@@ -101,7 +101,7 @@ describe("passkey sign-in (ADR 0135)", () => {
       "/cases",
       {
         "GET /v1/admin/cases": () => apiError(401, "session_expired", "Your passkey session ended."),
-        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
       },
       googleDone(),
       session,
@@ -152,7 +152,7 @@ describe("money actions re-assert with the passkey (ADR 0135)", () => {
             ? { status: 401, json: { success: false, error: "reauth_required", message: "confirm it's you", method: "passkey" } }
             : { json: { ...account, owed_cents: 0 } };
         },
-        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
         "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2" } }),
       },
       auth,
@@ -180,7 +180,7 @@ describe("money actions re-assert with the passkey (ADR 0135)", () => {
           status: 401,
           json: { success: false, error: "reauth_required", message: "again", method: "passkey" },
         }),
-        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
       },
       googleDone(),
       signedIn(),
@@ -223,13 +223,13 @@ describe("Security: passkeys (ADR 0135)", () => {
           regOptions++;
           return regOptions === 1
             ? { status: 401, json: { success: false, error: "reauth_required", message: "again", method: "passkey" } }
-            : { json: { options: creationOptions } };
+            : { json: { options: { publicKey: creationOptions }, expires_at: "2026-11-04T10:05:00Z" } };
         },
         "POST /v1/admin/passkeys/register/verify": ({ body }) => {
           list = [...list, { id: "pk_3", name: (body as { name: string }).name, created_at: "2026-11-04T10:00:00Z", last_used_at: null }];
           return { json: { passkey: list.at(-1) } };
         },
-        "POST /v1/admin/session/options": () => ({ json: { options: requestOptions } }),
+        "POST /v1/admin/session/options": () => ({ json: { options: { publicKey: requestOptions }, expires_at: "2026-11-04T10:05:00Z" } }),
         "POST /v1/admin/session/verify": () => ({ json: { session: "sess_2" } }),
       },
       googleDone(),

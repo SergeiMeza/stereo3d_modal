@@ -82,4 +82,13 @@ describe("AdminApi", () => {
     await api.getAccount("a/b");
     expect(calls[0].path).toBe("/v1/admin/accounts/a%2Fb");
   });
+
+  it("passes the publicKey part of passkey options, wrapped or bare (ADR 0135)", async () => {
+    const pk = { challenge: "Y2g", rpId: "localhost" };
+    const shapes = [{ options: { publicKey: pk }, expires_at: "x" }, { options: pk }, { publicKey: pk }, pk];
+    for (const shape of shapes) {
+      const { api } = make({ "POST /v1/admin/session/options": () => ({ json: shape }) });
+      expect(await api.sessionOptions("sign_in")).toEqual(pk);
+    }
+  });
 });
