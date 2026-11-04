@@ -554,6 +554,9 @@ type Customer struct {
 	HintsSeen      []string    `firestore:"hints_seen,omitempty"`
 	Onboarding     *Onboarding `firestore:"onboarding,omitempty"`
 	FirstWatchedAt *time.Time  `firestore:"first_watched_at,omitempty"`
+	// Dismissed: when each plans surface was last dismissed (placement →
+	// time), for the ones that come back (projects_banner after 7 days).
+	Dismissed map[string]time.Time `firestore:"dismissed,omitempty"`
 }
 
 // Onboarding is the account's onboarding flags; nil = never written (an

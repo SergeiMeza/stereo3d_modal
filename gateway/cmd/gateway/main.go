@@ -160,6 +160,7 @@ func main() {
 	mux.HandleFunc("POST /v1/admin/reconcile", admin(svc.HandleAdminReconcile)) // M3 on demand
 	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets)) // onboarding 2026-11-04
+	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))           // plans surfaces 2026-11-04
 	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {

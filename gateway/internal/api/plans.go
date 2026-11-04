@@ -210,6 +210,9 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	s.syncPlan(ctx, sub)
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
+	// A plan started: once per subscription, with the plans surface they
+	// last clicked (renewals find it recorded).
+	s.attributePlanStart(ctx, uid, tier, "checkout", "plan:"+sub.ID, time.Now().UTC())
 	_, periodEnd := sub.Period()
 	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit
 	def, ok := s.rates(ctx).Plan(tier)

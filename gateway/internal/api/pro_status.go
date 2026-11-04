@@ -34,6 +34,8 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 	st, err := s.RevenueCat.Pro(r.Context(), u.UID)
 	if err != nil {
 		slog.WarnContext(r.Context(), "pro status unknown", "uid", u.UID, "err", err)
+	} else {
+		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "") // a start of Pro (plans count at checkout)
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, proStatusOf(st, err))
@@ -51,6 +53,7 @@ func (s *Service) HandleProRefresh(w http.ResponseWriter, r *http.Request, u *Au
 		slog.WarnContext(r.Context(), "pro refresh failed", "uid", u.UID, "err", err)
 	} else {
 		slog.InfoContext(r.Context(), "pro refreshed", "uid", u.UID, "pro", st.Pro, "via", st.Via)
+		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "")
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, proStatusOf(st, err))

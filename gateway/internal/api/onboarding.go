@@ -216,9 +216,10 @@ type eventRate struct {
 
 var eventRates sync.Map // uid → *eventRate
 
-// eventAllowed: at most eventsPerHour per account per instance.
-func eventAllowed(uid string, now time.Time) bool {
-	v, _ := eventRates.LoadOrStore(uid, &eventRate{})
+// eventAllowed: at most limit an hour per key (account, or account and
+// event family) per instance.
+func eventAllowed(key string, limit int, now time.Time) bool {
+	v, _ := eventRates.LoadOrStore(key, &eventRate{})
 	r := v.(*eventRate)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -229,7 +230,7 @@ func eventAllowed(uid string, now time.Time) bool {
 		}
 	}
 	r.times = keep
-	if len(r.times) >= eventsPerHour {
+	if len(r.times) >= limit {
 		return false
 	}
 	r.times = append(r.times, now)
@@ -237,7 +238,8 @@ func eventAllowed(uid string, now time.Time) bool {
 }
 
 // POST /v1/events {name, props} → {logged: true}. Allow-listed names only
-// (400 unknown_event), a 4 KB body, 30 an hour per account (429).
+// (400 unknown_event), a 4 KB body, 30 an hour per account (429); the
+// plans_surface_* events have 120 an hour of their own.
 func (s *Service) HandleEvents(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
@@ -259,7 +261,11 @@ func (s *Service) HandleEvents(w http.ResponseWriter, r *http.Request, user *Aut
 		return
 	}
 	now := time.Now().UTC()
-	if !eventAllowed(user.UID, now) {
+	key, limit := user.UID, eventsPerHour
+	if isPlansSurfaceEvent(req.Name) {
+		key, limit = user.UID+"|plans", plansEventsPerHour // their own allowance
+	}
+	if !eventAllowed(key, limit, now) {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusTooManyRequests, "rate_limited", "too many events; try again later"))
 		return
 	}

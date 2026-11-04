@@ -113,6 +113,7 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		var req struct {
 			LifelikeIntro *bool           `json:"lifelike_intro"`
 			Locale        json.RawMessage `json:"locale"`
+			Dismissed     json.RawMessage `json:"dismissed"`
 			onboardingPatch
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
@@ -121,6 +122,11 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		}
 		if verr := req.onboardingPatch.validate(); verr != nil {
 			httpx.WriteErr(ctx, w, verr)
+			return
+		}
+		dismissed, derr := parseDismissed(req.Dismissed, time.Now().UTC())
+		if derr != nil {
+			httpx.WriteErr(ctx, w, derr)
 			return
 		}
 		if _, err := s.ensureCustomerID(ctx, user); err != nil {
@@ -161,6 +167,16 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 				c.Locale = *locale
 			}
 			req.onboardingPatch.apply(c)
+			for k, t := range dismissed {
+				if c.Dismissed == nil {
+					c.Dismissed = map[string]time.Time{}
+				}
+				if t == nil {
+					delete(c.Dismissed, k)
+				} else {
+					c.Dismissed[k] = *t
+				}
+			}
 			return nil
 		}); err != nil {
 			httpx.WriteErr(ctx, w, err)
@@ -176,5 +192,6 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 	for k, v := range s.onboardingSettings(ctx, user.UID, cust) { // owner 2026-11-04
 		out[k] = v
 	}
+	out["dismissed"] = dismissedJSON(cust) // plans surfaces dismissed (placement → time)
 	httpx.WriteOK(w, out)
 }
