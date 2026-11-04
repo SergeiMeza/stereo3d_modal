@@ -24,11 +24,20 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -441,66 +450,65 @@ export function ProjectCard({
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <AlertDialog
         open={dialog === "delete"}
         onOpenChange={(open) => {
           if (!open) setDialog(null);
         }}
       >
-        <DialogContent data-testid="delete-project-dialog">
-          <DialogHeader>
-            <DialogTitle>Delete this project for good?</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent data-testid="delete-project-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this project for good?</AlertDialogTitle>
+            <AlertDialogDescription>
               Its files are removed for good. You won&apos;t be able to download
               them again, and this can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDialog(null)}
-            >
-              Keep project
-            </Button>
-            <Button
-              type="button"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep project</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               disabled={busy}
-              onClick={() => void remove()}
+              onClick={(e) => {
+                e.preventDefault();
+                void remove();
+              }}
             >
               Delete for good
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <Dialog
+      <AlertDialog
         open={dialog === "archive"}
         onOpenChange={(open) => {
           if (!open) setDialog(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive project</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive project</AlertDialogTitle>
+            <AlertDialogDescription>
               Archive this project? You can restore it later. A run still in
               progress is cancelled, and you won&apos;t be charged for it.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter showCloseButton>
-            <Button
-              type="button"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               disabled={busy}
-              onClick={() => void run({ archived: true })}
+              onClick={(e) => {
+                e.preventDefault();
+                void run({ archived: true });
+              }}
             >
               Archive
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

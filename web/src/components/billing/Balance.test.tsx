@@ -216,7 +216,7 @@ describe("Usage tab (P10)", () => {
     };
     mockDb.conversions.set(c.conversion_id, c);
     renderBilling();
-    fireEvent.click(await screen.findByRole("tab", { name: "Usage" }));
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Usage" }));
     const row = await screen.findByTestId("usage-cusage000001");
     expect(row.textContent).toContain("Lifelike");
     expect(row.textContent).toContain("$6.75");

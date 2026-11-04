@@ -11,32 +11,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 
 import { UserAvatar } from "@/components/auth/UserAvatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 
 export function UserMenu() {
   const { user, ready, signOutUser } = useAuth();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   if (!ready) return null;
 
@@ -51,60 +39,51 @@ export function UserMenu() {
     );
   }
 
-  const item =
-    "block rounded-md px-3 py-1.5 text-left text-sm text-fg hover:bg-surface-2";
   return (
-    <div ref={ref} className="relative ml-auto min-w-0">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Account menu"
-        onClick={() => setOpen((o) => !o)}
-        className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-fg-muted transition-colors hover:text-fg"
-      >
-        <UserAvatar photoURL={user.photoURL} name={user.displayName ?? user.email} />
-        <span className="hidden max-w-40 truncate text-xs sm:block">
-          {user.email ?? user.displayName ?? "Account"}
-        </span>
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          data-testid="account-menu"
-          className="absolute top-full right-0 z-50 mt-1 flex w-56 flex-col gap-0.5 rounded-lg border border-edge bg-popover p-1.5 shadow-lg"
-        >
-          <p className="truncate px-3 py-1.5 text-xs text-fg-muted">
-            {user.email ?? user.displayName}
-          </p>
-          <Link role="menuitem" href="/account" className={item} onClick={() => setOpen(false)}>
-            Account
-          </Link>
-          <Link role="menuitem" href="/pro" className={item} onClick={() => setOpen(false)}>
-            Pro
-          </Link>
-          <Link
-            role="menuitem"
-            href="/account/billing"
-            className={item}
-            onClick={() => setOpen(false)}
-          >
-            Billing
-          </Link>
+    <div className="ml-auto min-w-0">
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
           <button
             type="button"
-            role="menuitem"
-            className={item}
-            onClick={async () => {
-              setOpen(false);
+            aria-label="Account menu"
+            className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-fg-muted transition-colors hover:text-fg"
+          >
+            <UserAvatar
+              photoURL={user.photoURL}
+              name={user.displayName ?? user.email}
+            />
+            <span className="hidden max-w-40 truncate text-xs sm:block">
+              {user.email ?? user.displayName ?? "Account"}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          data-testid="account-menu"
+          className="w-56"
+        >
+          <DropdownMenuLabel className="truncate">
+            {user.email ?? user.displayName}
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/account">Account</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/pro">Pro</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/account/billing">Billing</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={async () => {
               await signOutUser();
               router.replace("/");
             }}
           >
             Sign out
-          </button>
-        </div>
-      ) : null}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

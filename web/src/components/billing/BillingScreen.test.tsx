@@ -58,6 +58,11 @@ function renderBilling() {
   );
 }
 
+/** Radix menus open from the keyboard in jsdom (no pointer events). */
+function openMenu(trigger: HTMLElement): void {
+  fireEvent.keyDown(trigger, { key: "Enter" });
+}
+
 describe("Billing (S3D-57, S3D-62)", () => {
   it("methods with Default and the order line; one row per charge, refunds with a credit note (P10)", async () => {
     run("cbig00000001", 4972, { charge_timing: "before", updated_at: "2026-11-03T09:00:00Z" });
@@ -133,7 +138,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     renderBilling();
     const list = await screen.findByTestId("payment-methods");
     expect(within(list).getByTestId("method-expired")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Options for Mastercard •••• 5454" }));
+    openMenu(screen.getByRole("button", { name: "Options for Mastercard •••• 5454" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Make default" }));
     await waitFor(() => expect(mockDb.billing.methods[0].id).toBe("pm_mc"));
     await waitFor(() =>
@@ -141,11 +146,11 @@ describe("Billing (S3D-57, S3D-62)", () => {
         /Mastercard •••• 5454.*· Default/,
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Options for Visa •••• 4242" }));
+    openMenu(screen.getByRole("button", { name: "Options for Visa •••• 4242" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Move up" }));
     await waitFor(() => expect(mockDb.billing.methods[0].id).toBe("pm_mock_4242"));
     // remove asks first
-    fireEvent.click(await screen.findByRole("button", { name: "Options for Mastercard •••• 5454" }));
+    openMenu(await screen.findByRole("button", { name: "Options for Mastercard •••• 5454" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     const dialog = await screen.findByTestId("remove-confirm");
     expect(within(dialog).getByText("Remove Mastercard •••• 5454?")).toBeTruthy();
@@ -156,7 +161,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
   it("the only method can't be removed while a payment is pending (P10)", async () => {
     mockDb.billing.unpaid.push({ conversion_id: "cowed0000001", amount_cents: 725, currency: "usd", needs_action: false });
     renderBilling();
-    fireEvent.click(await screen.findByRole("button", { name: "Options for Visa •••• 4242" }));
+    openMenu(await screen.findByRole("button", { name: "Options for Visa •••• 4242" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     expect((await screen.findByTestId("remove-blocked")).textContent).toBe(
       "You can't remove your only payment method while a payment is pending. Pay it or add another one first.",
@@ -217,7 +222,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     run("cbig00000001", 4972, { charge_timing: "before" });
     run("crefund00001", 1838, { charge_timing: "before", state: "failed", billing: { status: "refunded", charged_cents: 1838 } });
     renderBilling();
-    fireEvent.click(await screen.findByRole("tab", { name: "Invoices" }));
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Invoices" }));
     const list = await screen.findByTestId("invoices");
     expect(list.textContent).toMatch(/S3D-\d{4}/);
     expect(within(list).getAllByRole("link", { name: "PDF ↗" }).length).toBeGreaterThanOrEqual(3);
@@ -230,7 +235,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
         <UserMenu />
       </AuthProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+    openMenu(screen.getByRole("button", { name: "Account menu" }));
     const menu = within(screen.getByTestId("account-menu"));
     expect(menu.getByRole("menuitem", { name: "Billing" }).getAttribute("href")).toBe(
       "/account/billing",

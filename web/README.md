@@ -33,6 +33,28 @@ SetupIntent) before `/projects` is reachable; paid steps then bill the
 saved card automatically — expensive runs hold-then-capture, cheap runs
 charge on success — with failures surfaced in-app (banner + 3DS confirm).
 
+## UI overlays and controls
+
+UI overlays and controls come from `src/components/ui` (shadcn on Radix);
+no hand-rolled overlays. Popovers, menus, dialogs, confirmations, sheets,
+tabs and tooltips use `Popover`, `DropdownMenu`, `Dialog`, `AlertDialog`,
+`SheetFrame`, `Tabs` and `Tooltip`: they portal, flip and shift to stay
+16 px inside the viewport, and handle focus, outside clicks and Escape.
+Add a missing shadcn component to `components/ui` rather than building one.
+
+- ESLint (`no-restricted-syntax`, outside `components/ui`) flags raw
+  `role="dialog|alertdialog|menu|listbox|tooltip"`, document/window-level
+  `mousedown|click|keydown|pointerdown` listeners and `absolute|fixed … z-50`
+  classes. A real exception (keyboard shortcuts, a full-width bar) takes an
+  `eslint-disable-next-line no-restricted-syntax -- <reason>`.
+- `pnpm test` ends with `scripts/overlay-bounds.mjs`: at 390 and 1280 px it
+  opens the popovers, menus and sheets against the mock gateway and fails if
+  any leaves the viewport. It needs Playwright (`PLAYWRIGHT_MODULE=…/playwright`);
+  without it the step is skipped (`REQUIRE_OVERLAY_CHECK=1` makes it fail).
+- Radix menus and tabs open on pointer or keyboard events, not `click`: in
+  tests use `fireEvent.keyDown(trigger, { key: "Enter" })` for menus and
+  `fireEvent.mouseDown(tab)` for tabs.
+
 ## Environments
 
 |              | web app                                                          | gateway                                                          | Stripe     | Firebase             |

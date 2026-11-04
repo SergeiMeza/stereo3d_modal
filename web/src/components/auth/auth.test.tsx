@@ -83,7 +83,7 @@ describe("landing page", () => {
     renderWithAuth(<Home />);
     // Make 3D opens first
     expect(screen.getByRole("tab", { name: "Make 3D" }).getAttribute("aria-selected")).toBe("true");
-    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Files" }));
     expect(screen.getByRole("tab", { name: "Files" }).getAttribute("aria-selected")).toBe("true");
     expect(
       screen.getByRole("tabpanel").querySelector("img")?.getAttribute("src"),

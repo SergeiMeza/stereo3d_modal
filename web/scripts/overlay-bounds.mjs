@@ -1,0 +1,192 @@
+#!/usr/bin/env node
+/**
+ * Overlay bounds check (owner 2026-11-04): at 390 px and 1280 px wide, open
+ * each popover, menu and sheet (some near the screen's edges) against the
+ * mock gateway and fail if any of them leaves the viewport.
+ *
+ *   node scripts/overlay-bounds.mjs            # starts `next dev` (mock) itself
+ *   BASE_URL=http://localhost:3931 node …      # against a running dev server
+ *
+ * Needs Playwright with Chromium. It is not a dependency of the web app;
+ * point PLAYWRIGHT_MODULE at an install (e.g. …/node_modules/playwright).
+ * Without it the check says so and exits 0, unless REQUIRE_OVERLAY_CHECK=1.
+ */
+
+import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
+import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const webDir = path.resolve(here, "..");
+const require = createRequire(import.meta.url);
+
+function loadPlaywright() {
+  for (const id of [process.env.PLAYWRIGHT_MODULE, "playwright", "@playwright/test"].filter(Boolean)) {
+    try {
+      return require(id);
+    } catch {
+      // next
+    }
+  }
+  return null;
+}
+
+const pw = loadPlaywright();
+if (!pw) {
+  const msg = "overlay-bounds: Playwright not found (set PLAYWRIGHT_MODULE); skipped.";
+  if (process.env.REQUIRE_OVERLAY_CHECK === "1") {
+    console.error(msg);
+    process.exit(1);
+  }
+  console.log(msg);
+  process.exit(0);
+}
+
+const freePort = () =>
+  new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.listen(0, () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+
+async function waitFor(url, ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    try {
+      const r = await fetch(url);
+      if (r.ok || r.status === 404) return true;
+    } catch {
+      // not yet
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+let server = null;
+let base = process.env.BASE_URL;
+if (!base) {
+  const port = await freePort();
+  base = `http://localhost:${port}`;
+  server = spawn("npx", ["next", "dev", "-p", String(port)], {
+    cwd: webDir,
+    env: { ...process.env, NEXT_PUBLIC_API_MOCK: "1" },
+    stdio: "ignore",
+    detached: true,
+  });
+  if (!(await waitFor(`${base}/pricing`, 180_000))) {
+    console.error("overlay-bounds: the dev server didn't start");
+    process.kill(-server.pid);
+    process.exit(1);
+  }
+}
+
+const OVERLAY = '[data-slot="popover-content"], [data-slot="dropdown-menu-content"], [role="dialog"], [role="alertdialog"]';
+
+/** Every open overlay's box must sit inside the viewport. */
+async function assertInside(page, label, failures) {
+  await page.waitForSelector(OVERLAY, { state: "visible", timeout: 15_000 });
+  await page.waitForTimeout(400); // let the open animation finish
+  const vp = page.viewportSize();
+  const boxes = await page.$$eval(OVERLAY, (els) =>
+    els
+      .filter((e) => e.getBoundingClientRect().width > 0)
+      .map((e) => {
+        const r = e.getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      }),
+  );
+  for (const b of boxes) {
+    const out = b.left < -0.5 || b.top < -0.5 || b.right > vp.width + 0.5 || b.bottom > vp.height + 0.5;
+    if (out) failures.push(`${label} @${vp.width}: ${JSON.stringify(b)}`);
+  }
+}
+
+async function close(page) {
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+}
+
+const failures = [];
+const browser = await pw.chromium.launch();
+try {
+  for (const width of [390, 1280]) {
+    const page = await browser.newPage({ viewport: { width, height: 844 }, colorScheme: "dark" });
+    page.setDefaultTimeout(30_000);
+    // a returning account: no welcome, tips or hints in the way
+    await page.addInitScript(() => {
+      let db;
+      Object.defineProperty(window, "__mockDb", {
+        configurable: true,
+        get: () => db,
+        set(v) {
+          db = v;
+          v.accountSettings.onboarding = { welcome_done: true, tips_done: true, checklist_hidden: true };
+          v.accountSettings.hints_seen = ["billing", "usage", "invoices", "plans", "pricing", "pro", "account", "devices", "scenes"];
+        },
+      });
+    });
+
+    // Pricing: "How pricing works"
+    await page.goto(`${base}/pricing`, { waitUntil: "domcontentloaded" });
+    const how = page.getByRole("button", { name: "How pricing works" }).first();
+    if (await how.count()) {
+      await how.click();
+      await assertInside(page, "How pricing works", failures);
+      await close(page);
+    }
+
+    // header: account menu (right edge) and feedback
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await assertInside(page, "Account menu", failures);
+    await close(page);
+    await page.getByTestId("feedback-open").click();
+    await assertInside(page, "Feedback", failures);
+    await close(page);
+
+    // Billing: a payment method's menu (right edge)
+    await page.goto(`${base}/account/billing`, { waitUntil: "domcontentloaded" });
+    const opts = page.getByRole("button", { name: /^Options for / }).first();
+    if (await opts.count().then((n) => n > 0).catch(() => false)) {
+      await opts.click();
+      await assertInside(page, "Payment method menu", failures);
+      await close(page);
+    }
+
+    // Make 3D: the "?" beside the charge rule (right column) and the Pro sheet
+    await page.goto(`${base}/projects`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.__mockDb && window.__mockDb.projects.size > 0);
+    const id = await page.evaluate(() => [...window.__mockDb.projects.keys()][0]);
+    await page.evaluate((pid) => {
+      window.__mockDb.projects.get(pid).method = "lifelike";
+    }, id);
+    await page.locator(`a[href="/projects/${id}"]`).first().click();
+    await page.getByTestId("tab-make").click();
+    const q = page.getByRole("button", { name: "?" }).last();
+    await q.waitFor({ state: "visible" });
+    await q.click();
+    await assertInside(page, "Make 3D ? popover", failures);
+    await close(page);
+    const withPro = page.getByTestId("pay-with-pro");
+    if (await withPro.count()) {
+      await withPro.click();
+      await page.getByTestId(width < 640 ? "checkout-main-phone" : "checkout-main").click();
+      await assertInside(page, "Pro checkout sheet", failures);
+      await close(page);
+    }
+    await page.close();
+  }
+} finally {
+  await browser.close();
+  if (server) process.kill(-server.pid);
+}
+
+if (failures.length) {
+  console.error(`overlay-bounds: ${failures.length} overlay(s) leave the viewport:\n  ${failures.join("\n  ")}`);
+  process.exit(1);
+}
+console.log("overlay-bounds: every overlay stays inside the viewport at 390 and 1280 px");

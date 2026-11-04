@@ -13,6 +13,8 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 interface Shot {
   id: string;
   label: string;
@@ -30,7 +32,8 @@ const SHOTS: Shot[] = [
   {
     id: "make-3d",
     label: "Make 3D",
-    detail: "Pick your headsets and the quality, up to 8K. The price shows first.",
+    detail:
+      "Pick your headsets and the quality, up to 8K. The price shows first.",
     alt: "Make 3D page with Apple Vision Pro and Meta Quest picked and quality options from 1080p to 8K",
   },
   {
@@ -58,42 +61,36 @@ export function ProductTour() {
     <div data-testid="product-tour">
       {/* 640 px and up: tabs over one large shot */}
       <div className="hidden sm:block">
-        <div role="tablist" aria-label="The app" className="flex flex-wrap gap-2">
-          {SHOTS.map((shot) => {
-            const selected = shot.id === active.id;
-            return (
-              <button
+        <Tabs value={active.id} onValueChange={setActiveId} className="gap-0">
+          <TabsList
+            aria-label="The app"
+            className="flex h-auto flex-wrap gap-2 border-0 bg-transparent p-0"
+          >
+            {SHOTS.map((shot) => (
+              <TabsTrigger
                 key={shot.id}
-                role="tab"
-                type="button"
-                aria-selected={selected}
-                aria-controls="tour-panel"
-                onClick={() => setActiveId(shot.id)}
-                className={`rounded-md border px-3.5 py-2 text-sm transition-colors ${
-                  selected
-                    ? "border-primary/60 bg-secondary text-fg"
-                    : "border-edge bg-card text-fg-muted hover:border-primary/40 hover:text-fg"
-                }`}
+                value={shot.id}
+                className="rounded-md border border-edge bg-card px-3.5 py-2 text-sm text-fg-muted transition-colors hover:border-primary/40 hover:text-fg data-[state=active]:border-primary/60 data-[state=active]:bg-secondary data-[state=active]:text-fg data-[state=active]:shadow-none"
               >
                 {shot.label}
-              </button>
-            );
-          })}
-        </div>
-        <div role="tabpanel" id="tour-panel" className="mt-5">
-          <p className="text-fg-muted">{active.detail}</p>
-          <div className={`mt-5 rounded-xl ${FRAME}`}>
-            <Image
-              key={active.id}
-              src={`/landing/ui/${active.id}.webp`}
-              alt={active.alt}
-              width={2240}
-              height={1400}
-              sizes="(max-width: 1152px) 100vw, 1120px"
-              className="block h-auto w-full"
-            />
-          </div>
-        </div>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value={active.id} className="mt-5">
+            <p className="text-fg-muted">{active.detail}</p>
+            <div className={`mt-5 rounded-xl ${FRAME}`}>
+              <Image
+                key={active.id}
+                src={`/landing/ui/${active.id}.webp`}
+                alt={active.alt}
+                width={2240}
+                height={1400}
+                sizes="(max-width: 1152px) 100vw, 1120px"
+                className="block h-auto w-full"
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* phones: every phone shot in a snap row */}

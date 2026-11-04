@@ -32,15 +32,24 @@ import { CompanyDetailsSheet, companySummary } from "@/components/pay/CompanyDet
 import { UNDER_REVIEW } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { formatCents } from "@/components/steps/money";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { GatewayError } from "@/lib/api/client";
 import type {
   BillingCharge,
@@ -375,19 +384,19 @@ function MethodsSection(): JSX.Element {
           }}
         />
       ) : null}
-      <Dialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
-        <DialogContent data-testid="remove-confirm" className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Remove {confirm ? methodLabel(confirm) : ""}?</DialogTitle>
+      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
+        <AlertDialogContent data-testid="remove-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {confirm ? methodLabel(confirm) : ""}?</AlertDialogTitle>
             {methods?.length === 1 ? (
-              <DialogDescription>Your next runs will ask how to pay each time.</DialogDescription>
-            ) : null}
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm(null)}>
-              Keep it
-            </Button>
-            <Button
+              <AlertDialogDescription>Your next runs will ask how to pay each time.</AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription className="sr-only">Remove this payment method</AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 const m = confirm;
@@ -396,10 +405,10 @@ function MethodsSection(): JSX.Element {
               }}
             >
               Remove
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -413,38 +422,31 @@ function MethodMenu({
   items: { label: string; run: () => void }[];
   disabled: boolean;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
   return (
-    <span className="relative">
-      <button
-        type="button"
-        aria-label={`Options for ${label}`}
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
-      >
-        <EllipsisIcon className="size-4" />
-      </button>
-      {open ? (
-        <span role="menu" className="absolute top-8 right-0 z-10 flex min-w-36 flex-col rounded-md border border-edge bg-popover py-1 shadow-lg">
-          {items.map((it) => (
-            <button
-              key={it.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                it.run();
-              }}
-              className={`px-3 py-1.5 text-left text-xs hover:bg-surface-2 ${it.label === "Remove" ? "text-red-300" : "text-fg"}`}
-            >
-              {it.label}
-            </button>
-          ))}
-        </span>
-      ) : null}
-    </span>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Options for ${label}`}
+          disabled={disabled}
+          className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
+        >
+          <EllipsisIcon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {items.map((it) => (
+          <DropdownMenuItem
+            key={it.label}
+            variant={it.label === "Remove" ? "destructive" : "default"}
+            onSelect={() => it.run()}
+            className="text-xs"
+          >
+            {it.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -645,26 +647,13 @@ export function BillingScreen(): JSX.Element {
 
       <section aria-label="Purchases and invoices" className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Billing records" className="flex gap-1 rounded-md border border-edge bg-surface-2 p-0.5 text-xs">
-          {(
-            [
-              ["history", "History"],
-              ["usage", "Usage"],
-              ["invoices", "Invoices"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={`rounded px-3 py-1 ${tab === id ? "bg-surface-0 text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList aria-label="Billing records" className="text-xs">
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="usage">Usage</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          </TabsList>
+        </Tabs>
         {tab === "usage" ? (
           <span className="ml-auto">
             <UsageTools month={month} onMonth={setMonth} />

@@ -66,6 +66,7 @@ export function usePlayerShortcuts({
         toggle();
       }
     }
+    // eslint-disable-next-line no-restricted-syntax -- player keyboard shortcuts, not an overlay
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);

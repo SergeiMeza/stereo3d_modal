@@ -295,6 +295,7 @@ export function SceneCutEditor({
         removeSelected();
       }
     }
+    // eslint-disable-next-line no-restricted-syntax -- editor keyboard shortcuts, not an overlay
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [removeSelected]);

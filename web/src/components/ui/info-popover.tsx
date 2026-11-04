@@ -2,11 +2,18 @@
 
 /**
  * A small "?" / "How pricing works" popover (S3D-45): details sit behind
- * it, not on the page. Click to open, click outside or Escape to close.
+ * it, not on the page. Built on the shadcn Popover (owner 2026-11-04): it
+ * opens on click or tap (touch and headset browsers too), is portalled,
+ * and flips and shifts to stay 16px inside the viewport.
  */
 
-import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function InfoPopover({
   label,
@@ -18,49 +25,31 @@ export function InfoPopover({
   label: ReactNode;
   children: ReactNode;
   className?: string;
+  /** which edge of the trigger the popover lines up with first */
   align?: "left" | "right";
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
   return (
-    <span ref={ref} className={`relative inline-block ${className}`}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className={
-          label === "?"
-            ? "inline-flex size-4 items-center justify-center rounded-full border border-edge text-[10px] text-fg-muted hover:text-fg"
-            : "text-xs text-primary hover:underline"
-        }
-      >
-        {label}
-      </button>
-      {open ? (
-        <span
-          role="dialog"
-          className={`absolute top-full z-50 mt-2 flex w-80 max-w-[90vw] flex-col gap-2 rounded-lg border border-edge bg-popover p-3 text-left text-xs leading-relaxed text-fg shadow-lg ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+    <span className={`inline-block ${className}`}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={
+              label === "?"
+                ? "inline-flex size-4 items-center justify-center rounded-full border border-edge text-[10px] text-fg-muted hover:text-fg"
+                : "text-xs text-primary hover:underline"
+            }
+          >
+            {label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align={align === "right" ? "end" : "start"}
+          className="flex flex-col gap-2 text-left text-fg"
         >
           {children}
-        </span>
-      ) : null}
+        </PopoverContent>
+      </Popover>
     </span>
   );
 }

@@ -190,6 +190,7 @@ export default function WorkspaceScreen({
         setShortcutsOpen(false);
       }
     }
+    // eslint-disable-next-line no-restricted-syntax -- workspace keyboard shortcuts, not an overlay
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setTab, tabOrder]);
