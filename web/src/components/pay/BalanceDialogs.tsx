@@ -13,7 +13,11 @@
  */
 
 import { CheckIcon, AlertCircleIcon, LockIcon, RefreshCwIcon, CreditCardIcon } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { appStore, useAppAtom } from "@/lib/state/stores";
+
+import { balanceDialogAtom } from "./payAtoms";
 import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
@@ -48,32 +52,34 @@ import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Which = "funds" | "reload" | "spending" | null;
 
-const Ctx = createContext<{ open: (w: Exclude<Which, null>) => void }>({ open: () => {} });
+/** ADR 0138: which dialog is open is an app-store atom (payAtoms). */
+const open = (w: Exclude<Which, null>) => (): void => appStore.set(balanceDialogAtom, w);
+const BALANCE_DIALOGS = {
+  openAddFunds: open("funds"),
+  openAutoReload: open("reload"),
+  openSpending: open("spending"),
+};
 
-/** Open P17, P18 or P19 from anywhere under BalanceDialogsProvider. */
+/** Open P17, P18 or P19 from anywhere (BalanceDialogsProvider shows it). */
 export function useBalanceDialogs(): {
   openAddFunds: () => void;
   openAutoReload: () => void;
   openSpending: () => void;
 } {
-  const { open } = useContext(Ctx);
-  return {
-    openAddFunds: () => open("funds"),
-    openAutoReload: () => open("reload"),
-    openSpending: () => open("spending"),
-  };
+  return BALANCE_DIALOGS;
 }
 
+/** Shows the open balance dialog (mounted once, in the layout). */
 export function BalanceDialogsProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [which, setWhich] = useState<Which>(null);
+  const [which, setWhich] = useAppAtom(balanceDialogAtom);
   const close = () => setWhich(null);
   return (
-    <Ctx.Provider value={{ open: setWhich }}>
+    <>
       {children}
       {which === "funds" ? <AddFundsSheet onClose={close} /> : null}
       {which === "reload" ? <AutoReloadDialog onClose={close} /> : null}
       {which === "spending" ? <SpendingDialog onClose={close} /> : null}
-    </Ctx.Provider>
+    </>
   );
 }
 

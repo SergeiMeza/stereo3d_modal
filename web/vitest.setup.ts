@@ -12,6 +12,7 @@
 import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
+import { balanceDialogAtom, settleOpenAtom } from "@/components/pay/payAtoms";
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
 import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms";
@@ -34,6 +35,8 @@ afterEach(() => {
   store.set(timelineZoomIndexAtom, null);
   store.set(compactPlayerAtom, false);
   store.set(compactTimelineAtom, false);
+  store.set(settleOpenAtom, false);
+  store.set(balanceDialogAtom, null);
   // The per-(project, step) checkout state is likewise module-scoped and
   // would leak an in-flight tracker into the next test.
   resetStepCheckoutState();

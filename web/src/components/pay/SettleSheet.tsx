@@ -8,7 +8,11 @@
  * `SettleProvider` lets anything under it open the sheet: `useSettle()`.
  */
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { appStore, useAppAtom } from "@/lib/state/stores";
+
+import { settleOpenAtom } from "./payAtoms";
 import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
@@ -47,38 +51,36 @@ type Phase =
   | { kind: "expired" }
   | { kind: "unavailable" };
 
-const SettleContext = createContext<{ openSettle: (then?: () => void) => void }>({
-  openSettle: () => {},
-});
+/** ADR 0138: the sheet's open state is an app-store atom (payAtoms, no
+ * context); what to do once paid is a callback, kept here. */
+let afterSettle: (() => void) | undefined;
 
-/** Open the settle sheet from anywhere under SettleProvider. */
-export function useSettle(): { openSettle: (then?: () => void) => void } {
-  return useContext(SettleContext);
+function openSettle(then?: () => void): void {
+  afterSettle = then;
+  appStore.set(settleOpenAtom, true);
 }
 
+/** Open the settle sheet from anywhere (SettleProvider shows it). */
+export function useSettle(): { openSettle: (then?: () => void) => void } {
+  return { openSettle };
+}
+
+/** Shows the settle sheet while it's open (mounted once, in the layout). */
 export function SettleProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [open, setOpen] = useState(false);
-  const after = useRef<(() => void) | undefined>(undefined);
+  const [open, setOpen] = useAppAtom(settleOpenAtom);
   return (
-    <SettleContext.Provider
-      value={{
-        openSettle: (then) => {
-          after.current = then;
-          setOpen(true);
-        },
-      }}
-    >
+    <>
       {children}
       {open ? (
         <SettleSheet
           onClose={(paid) => {
             setOpen(false);
-            if (paid) after.current?.();
-            after.current = undefined;
+            if (paid) afterSettle?.();
+            afterSettle = undefined;
           }}
         />
       ) : null}
-    </SettleContext.Provider>
+    </>
   );
 }
 
