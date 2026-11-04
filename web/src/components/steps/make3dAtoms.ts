@@ -19,6 +19,8 @@ import { atomFamily } from "jotai-family";
 import type { PayMode } from "@/components/plans/QuotePlans";
 import type { Bitrate, Format, Preset } from "@/lib/api/types";
 
+import { safeJSONStorage } from "@/lib/state/safeStorage";
+
 import type { Device } from "./makeControls";
 
 export interface Make3dChoices {
@@ -121,3 +123,10 @@ export function resetMake3dForTests(): void {
     make3dChoicesAtom.remove(id);
   }
 }
+
+/** The picked rate per `${projectId}/${step}` (ADR 0138): null until the
+ * person picks one (the last run's rate shows meanwhile); kept across
+ * reloads with the other Make 3D picks (owner 2026-11-05). */
+export const fpsPickAtom = atomFamily((key: string) =>
+  atomWithStorage<number | null>(`svs:fps:${key}`, null, safeJSONStorage<number | null>(), { getOnInit: true }),
+);

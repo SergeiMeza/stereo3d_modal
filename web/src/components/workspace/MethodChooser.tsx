@@ -14,7 +14,7 @@
  * video at the best quality each method reaches, default formats).
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
 import {
@@ -26,6 +26,7 @@ import {
   SWITCH_NOT_ALLOWED,
 } from "@/components/steps/methods";
 import { formatCents } from "@/components/steps/money";
+import { useVariantQuotes } from "@/components/steps/priceAtoms";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -132,59 +133,33 @@ export function useMethodQuotes(
   /** price a method at this quality instead of its best one */
   presets: Partial<Record<Method, Preset>> = {},
 ): Partial<Record<Method, MethodQuote>> {
-  const gateway = useGateway();
   const ready = project.analyze.state === "succeeded" && project.probe;
-  const [quotes, setQuotes] = useState<Partial<Record<Method, MethodQuote>>>(
-    {},
-  );
-  const key = `${project.project_id}:${ready ? "ready" : "wait"}:${methods.join(",")}:${JSON.stringify(presets)}`;
-  useEffect(() => {
-    if (!ready) return;
-    let cancelled = false;
+  // ADR 0138: the shared side-price cache (one quote per request)
+  const reqs: Record<string, StepConversionRequest> = {};
+  const presetOf: Partial<Record<Method, Preset>> = {};
+  if (ready) {
     for (const m of methods) {
       const preset = presets[m] ?? topPreset(project, m);
-      const req: StepConversionRequest = {
-        step: "production",
-        preset,
-        formats: ["mvhevc", "sbs"],
-        method: m,
-        platform: "web",
-      };
-      gateway.quoteStep(project.project_id, req).then(
-        (q) => {
-          if (cancelled) return;
-          setQuotes((prev) => ({
-            ...prev,
-            [m]: {
-              quote: q,
-              error: null,
-              qualityLabel: qualityLabelFor(project, preset),
-            },
-          }));
-        },
-        (e: unknown) => {
-          if (cancelled) return;
-          setQuotes((prev) => ({
-            ...prev,
-            [m]: {
-              quote: null,
-              error:
-                e instanceof GatewayError &&
-                e.code === "source_too_long_for_method"
-                  ? "This video is longer than Classic 3D can take."
-                  : "Price not available right now.",
-              qualityLabel: qualityLabelFor(project, preset),
-            },
-          }));
-        },
-      );
+      presetOf[m] = preset;
+      reqs[m] = { step: "production", preset, formats: ["mvhevc", "sbs"], method: m, platform: "web" };
     }
-    return () => {
-      cancelled = true;
-    };
-    // the key covers project id, readiness and the methods asked for
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, key]);
+  }
+  const entries = useVariantQuotes(project.project_id, reqs, 0);
+  const quotes: Partial<Record<Method, MethodQuote>> = {};
+  for (const m of methods) {
+    const e = entries[m];
+    const qualityLabel = qualityLabelFor(project, presetOf[m]);
+    if (e?.status === "done") quotes[m] = { quote: e.quote, error: null, qualityLabel };
+    else if (e?.status === "error")
+      quotes[m] = {
+        quote: null,
+        error:
+          e.code === "source_too_long_for_method"
+            ? "This video is longer than Classic 3D can take."
+            : "Price not available right now.",
+        qualityLabel,
+      };
+  }
   return quotes;
 }
 

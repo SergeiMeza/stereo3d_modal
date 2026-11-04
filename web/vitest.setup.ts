@@ -13,8 +13,8 @@ import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
-import { fpsPickAtom } from "@/components/steps/frameRate";
-import { resetMake3dForTests } from "@/components/steps/make3dAtoms";
+import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
+import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms";
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetBillingForTests } from "@/lib/billing";
@@ -39,6 +39,7 @@ afterEach(() => {
   resetStepCheckoutState();
   // ADR 0138: the Make 3D picks, the cached side prices and the rate picks
   resetMake3dForTests();
+  resetConversionsForTests();
   resetPricesForTests();
   for (const k of [...fpsPickAtom.getParams()]) fpsPickAtom.remove(k);
   // ... and what they keep across reloads

@@ -13,20 +13,20 @@
  * never name Red-cyan (owner note): it is a Make 3D format option only.
  */
 
-import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
 import { LIFELIKE_PREVIEW_SECONDS, METHOD_TAGS } from "@/components/steps/methods";
 import { formatCents } from "@/components/steps/money";
+import { useVariantQuotes } from "@/components/steps/priceAtoms";
 import { Button } from "@/components/ui/button";
 import {
   methodOf,
   type Method,
   type Project,
+  type StepConversionRequest,
   type StepQuoteResponse,
 } from "@/lib/api/types";
-import { useGateway } from "@/lib/api/useGateway";
 import { formatClock } from "@/lib/format";
 import { parseRational } from "@/lib/frames";
 import { METHOD_NAMES, qualityChoices, videoFacts } from "@/lib/glossary";
@@ -75,42 +75,26 @@ const STEPS: Record<Method, readonly StepLink[]> = {
 /** The price of the Preview page's default: the first seconds of the
  * video at the best quality it reaches. */
 function usePreviewQuote(project: Project, enabled: boolean): StepQuoteResponse | null {
-  const gateway = useGateway();
-  const [quote, setQuote] = useState<StepQuoteResponse | null>(null);
   const probe = project.probe;
   const ready = enabled && project.analyze.state === "succeeded" && !!probe;
   const top = qualityChoices(project).at(-1)?.preset ?? "1080p";
-  const key = `${project.project_id}:${ready}:${top}`;
-  useEffect(() => {
-    if (!ready || !probe) return;
-    let cancelled = false;
+  const reqs: Record<string, StepConversionRequest> = {};
+  if (ready && probe) {
     const fps = parseRational(probe.fps_rational);
     const span = Math.round((LIFELIKE_PREVIEW_SECONDS * fps.num) / fps.den);
-    gateway
-      .quoteStep(project.project_id, {
-        step: "lifelike_preview",
-        preset: top,
-        formats: ["sbs"],
-        from_frame: 0,
-        to_frame: Math.min(span, probe.num_frames),
-        method: "lifelike",
-        platform: "web",
-      })
-      .then(
-        (q) => {
-          if (!cancelled) setQuote(q);
-        },
-        () => {
-          if (!cancelled) setQuote(null);
-        },
-      );
-    return () => {
-      cancelled = true;
+    reqs.preview = {
+      step: "lifelike_preview",
+      preset: top,
+      formats: ["sbs"],
+      from_frame: 0,
+      to_frame: Math.min(span, probe.num_frames),
+      method: "lifelike",
+      platform: "web",
     };
-    // the key covers project id, readiness and the quality
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, key]);
-  return ready ? quote : null;
+  }
+  // ADR 0138: the shared side-price cache (one quote per request)
+  const e = useVariantQuotes(project.project_id, reqs, 0).preview;
+  return ready && e?.status === "done" ? e.quote : null;
 }
 
 function MethodChip({ method }: { method: Method }): JSX.Element {

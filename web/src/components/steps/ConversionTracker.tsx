@@ -11,6 +11,7 @@
  * that wait is never drawn as progress.
  */
 
+import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
@@ -31,6 +32,7 @@ import { formatDuration, formatTimeLeft } from "@/lib/format";
 import { WAITING_IN_LINE_NOTE } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
+import { conversionAtom } from "./conversionAtoms";
 import { loadErrorText, useIsSample } from "./loadError";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
@@ -189,7 +191,10 @@ export function ConversionTracker({
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
   const { openSettle } = useSettle();
-  const [conv, setConv] = useState(conversion);
+  // ADR 0138: the run as last polled, in one atom per run, so a remount
+  // (a tab switch) and every reader see the same state
+  const [polled, setConv] = useAtom(conversionAtom(conversion.conversion_id));
+  const conv = polled ?? conversion;
   const [error, setError] = useState<string | null>(null);
   const sample = useIsSample();
   const [canceling, setCanceling] = useState(false);
@@ -228,7 +233,7 @@ export function ConversionTracker({
         });
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [client, conv.conversion_id, terminal, onUpdate, sample]);
+  }, [client, conv.conversion_id, terminal, onUpdate, sample, setConv]);
 
   // Terminal side effects (once): notify parent (RunFiles fetches the files).
   useEffect(() => {
