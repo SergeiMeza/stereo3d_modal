@@ -1105,7 +1105,8 @@ is ignored without such a plan.
     `scheduled_change {to, effective_at}` or null. `DELETE
     /v1/plans/scheduled-change` takes it back ("Keep Studio").
 - **`GET /v1/pro`** for a Pro plan on our Stripe: `pro: true, source:
-  "plan", plan_id, free_previews` from the plan, `scheduled_change`; for
+  "web", source_detail: "plan", plan_id, free_previews` from the plan,
+  `scheduled_change`; for
   App Store Pro, `management_url` is that subscription's own (RevenueCat
   `subscriptions[product].management_url`), else Apple's page.
 
@@ -1124,9 +1125,16 @@ without a refund. Manual, two people.
 No refunds or credits from us for an App Store Pro when someone buys
 Business/Studio, only instructions.
 - **`GET /v1/pro`** (and refresh) add `source` (`app_store` |
-  `mac_app_store` | `rc_billing` | `promotional` | `plan` | `simulated`)
-  and `management_url` (RevenueCat's `subscriber.management_url`, else
-  `https://apps.apple.com/account/subscriptions` for Apple stores).
+  `mac_app_store` | `web` | `grant` | `unknown`; since 2026-11-05, with
+  the finer earlier value in `source_detail`: `app_store` |
+  `mac_app_store` | `rc_billing` | `promotional` | `plan` | `simulated`),
+  `period` (`weekly` | `monthly` | `yearly` | `lifetime` | `pass`; none
+  for a grant), `renews_at` or `ends_at` (ISO 8601, when known: the
+  entitlement's expiry, renewing unless RevenueCat saw an unsubscribe;
+  our Stripe plan's period end; a grant's end from our grant record) and
+  `management_url` (RevenueCat's `subscriber.management_url`, else
+  `https://apps.apple.com/account/subscriptions` for Apple stores). Never
+  the RevenueCat app user id.
 - **Plan receipt (E18)**, at the subscription's first paid invoice, once:
   "Spatial Video Studio: your Business plan has started"; with an active
   App Store Pro (found among all subscriptions, not hidden by the plan's

@@ -65,6 +65,9 @@ type Status struct {
 	// .purchase_date) — the free-preview allowance resets with it.
 	ExpiresAt   *time.Time
 	PeriodStart *time.Time
+	// WillRenew: the entitlement's subscription renews (no
+	// unsubscribe_detected_at); false for Lifetime, passes and grants.
+	WillRenew bool
 	// Tier: "studio" or "business" when a web plan makes the person Pro
 	// (its own entitlement, or a plan product behind "pro"); "" for Pro.
 	Tier string
@@ -224,6 +227,7 @@ func statusOfEntitlements(b subscriber, now time.Time) Status {
 		st := Status{Pro: true, Via: e.ProductIdentifier, ExpiresAt: e.ExpiresDate}
 		if sub, ok := b.Subscriber.Subscriptions[e.ProductIdentifier]; ok {
 			st.Store = sub.Store
+			st.WillRenew = sub.UnsubscribeDetectedAt == nil && sub.RefundedAt == nil && sub.Store != "promotional"
 			if !sub.PurchaseDate.IsZero() {
 				pd := sub.PurchaseDate
 				st.PeriodStart = &pd

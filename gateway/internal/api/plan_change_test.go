@@ -256,7 +256,8 @@ func TestProStatusWebPlan(t *testing.T) {
 	}
 	_, out := callJSON(t, func(w http.ResponseWriter, r *http.Request) { f.s.HandleProStatus(w, r, &AuthedUser{UID: f.uid}) }, "GET", "")
 	sc, _ := out["scheduled_change"].(map[string]any)
-	if out["pro"] != true || out["source"] != "plan" || out["plan_id"] != "pro_yearly" || sc == nil || sc["to"] != "pro_monthly" ||
+	if out["pro"] != true || out["source"] != "web" || out["source_detail"] != "plan" || out["period"] != "yearly" || out["renews_at"] == nil ||
+		out["plan_id"] != "pro_yearly" || sc == nil || sc["to"] != "pro_monthly" ||
 		out["free_previews"].(map[string]any)["allowance"] != "pro_yearly" {
 		t.Fatalf("pro status %v", out)
 	}

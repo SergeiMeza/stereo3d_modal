@@ -173,3 +173,74 @@ func TestProStatusFreePreviews(t *testing.T) {
 		t.Fatalf("simulated %v", out)
 	}
 }
+
+// GET /v1/pro names where Pro comes from, its period and when it renews
+// or ends (QA batch 3, 2026-11-05), and never the RevenueCat app user id.
+func TestProStatusSourceAndTerms(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	uid := "u" + store.NewID()
+	get := func() map[string]any {
+		_, out := callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleProStatus(w, r, &AuthedUser{UID: uid}) }, "GET", "")
+		return out
+	}
+	for _, tc := range []struct {
+		product, store, source, period string
+		renews                         bool
+	}{
+		{"svs_pro_monthly", "app_store", "app_store", "monthly", true},
+		{"svs_pro_yearly_mac", "mac_app_store", "mac_app_store", "yearly", true},
+		{"svs_pro_weekly", "app_store", "app_store", "weekly", true},
+		{"web_pro_monthly", "rc_billing", "web", "monthly", true},
+		{"rc_promo_pro_monthly", "promotional", "grant", "", false},
+	} {
+		s.RevenueCat = rcWith(t, tc.product, tc.store, "")
+		out := get()
+		if out["source"] != tc.source || out["period"] != tc.period && !(tc.period == "" && out["period"] == nil) {
+			t.Errorf("%s: %v", tc.product, out)
+		}
+		if tc.renews && (out["renews_at"] == nil || out["ends_at"] != nil) || !tc.renews && (out["ends_at"] == nil || out["renews_at"] != nil) {
+			t.Errorf("%s dates: %v", tc.product, out)
+		}
+		if (tc.source == "app_store" || tc.source == "mac_app_store") && out["management_url"] == nil {
+			t.Errorf("%s: no management url", tc.product)
+		}
+		if _, err := time.Parse(time.RFC3339, firstString(out["renews_at"], out["ends_at"])); err != nil {
+			t.Errorf("%s: date not ISO 8601: %v", tc.product, out)
+		}
+		raw, _ := json.Marshal(out)
+		if strings.Contains(string(raw), uid) || strings.Contains(string(raw), "app_user_id") {
+			t.Errorf("%s: leaks the id %s", tc.product, raw)
+		}
+	}
+	// a cancelled App Store subscription ends rather than renews
+	exp := time.Now().Add(9 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"subscriber": map[string]any{
+			"entitlements":  map[string]any{"pro": map[string]any{"expires_date": exp, "product_identifier": "svs_pro_monthly"}},
+			"subscriptions": map[string]any{"svs_pro_monthly": map[string]any{"purchase_date": time.Now().UTC().Format(time.RFC3339), "expires_date": exp, "store": "app_store", "unsubscribe_detected_at": time.Now().UTC().Format(time.RFC3339)}},
+		}})
+	}))
+	t.Cleanup(srv.Close)
+	s.RevenueCat = revenuecat.New("sk_test_fake").WithBase(srv.URL, time.Now)
+	if out := get(); out["ends_at"] != exp || out["renews_at"] != nil || out["period"] != "monthly" {
+		t.Fatalf("cancelled %v", out)
+	}
+	// a support grant's end comes from our grant record
+	s.RevenueCat = rcWith(t, "rc_promo_pro_monthly", "promotional", "")
+	end := time.Now().Add(60 * 24 * time.Hour).UTC().Truncate(time.Second)
+	s.Store.CreateAdminGrant(ctx, &store.AdminGrant{ID: store.NewID(), UID: uid, Entitlement: "pro", EndsAt: end, State: "granted", CreatedAt: time.Now()})
+	if out := get(); out["source"] != "grant" || out["ends_at"] != end.Format(time.RFC3339) {
+		t.Fatalf("grant %v", out)
+	}
+}
+
+func firstString(vs ...any) string {
+	for _, v := range vs {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
