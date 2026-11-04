@@ -32,12 +32,13 @@ function yearlySaving(plans: ProPlan[]): number | null {
   return pct >= 5 ? pct : null;
 }
 
-function useSandbox(): boolean {
+function useSandbox(revenueCat: boolean): boolean {
   const [sandbox, setSandbox] = useState(false);
   useEffect(() => {
-    if (AUTH_MODE === "mock") return;
+    // RevenueCat's test mode only; our own checkout says so itself
+    if (AUTH_MODE === "mock" || !revenueCat) return;
     void import("@/lib/pro/revenuecat").then((m) => setSandbox(m.isSandbox()));
-  }, []);
+  }, [revenueCat]);
   return sandbox;
 }
 
@@ -48,7 +49,7 @@ export function ProPlans({
 }): JSX.Element {
   const plans = useProPlans();
   const buy = useBuyPro();
-  const sandbox = useSandbox();
+  const sandbox = useSandbox(plans.state === "ready" && plans.plans.some((p) => p.billing !== "stripe"));
   const [chosen, setChosen] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);

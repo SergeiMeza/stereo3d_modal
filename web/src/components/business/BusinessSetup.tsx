@@ -569,7 +569,8 @@ export function BusinessSetup(): JSX.Element {
                 </p>
               ) : preview === "error" ? (
                 <p className="text-sm text-fg-muted">
-                  We&apos;ll take care of your web Pro. Details before you pay.
+                  Couldn&apos;t work out today&apos;s price. Nothing is charged
+                  until you confirm.
                 </p>
               ) : (
                 <p className="text-sm text-fg" data-testid="setup-preview">

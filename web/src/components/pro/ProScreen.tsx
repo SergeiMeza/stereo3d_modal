@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { proManagementUrl, useProStatus } from "@/lib/pro/usePro";
 import { ProBusinessLine } from "@/components/business/BusinessEntry";
+import { ProPeriodChange } from "@/components/pro/ProPeriodChange";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 function safeNext(raw: string | null): string | null {
@@ -66,6 +67,13 @@ export function ProScreen(): JSX.Element {
   useEffect(() => {
     if (!isPro || !user) return;
     let cancelled = false;
+    // our own Stripe Pro is managed on Billing (no RevenueCat)
+    if (status?.source === "stripe") {
+      void Promise.resolve().then(() => !cancelled && setManage("/account/billing"));
+      return () => {
+        cancelled = true;
+      };
+    }
     void proManagementUrl(user.uid)
       .then((u) => {
         if (!cancelled) setManage(u);
@@ -74,7 +82,7 @@ export function ProScreen(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [isPro, user]);
+  }, [isPro, user, status?.source]);
 
   return (
     <section className="mx-auto w-full max-w-md space-y-8 px-4 py-12">
@@ -106,6 +114,7 @@ export function ProScreen(): JSX.Element {
               </p>
             </div>
           </div>
+          <ProPeriodChange />
           <div className="flex flex-wrap gap-2">
             <Link
               href={next ?? "/projects"}

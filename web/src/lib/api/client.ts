@@ -409,7 +409,7 @@ export class GatewayClient {
   }
 
   /** pricing 2026-11: start a Business or Studio plan (409 plan_active) */
-  startPlan(plan: "business" | "studio"): Promise<{
+  startPlan(plan: "business" | "studio" | string): Promise<{
     plan: string;
     publishable_key?: string;
     checkout: { client_secret: string; expires_at: string };

@@ -412,6 +412,9 @@ interface DB {
   feedback: { body: Record<string, unknown>; signed_in: boolean; at: string }[];
   /** GET /v1/pro as the browser mock reports it (null = the default) */
   proStatus: { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null;
+  /** owner 2026-11-04: GET /v1/pricing sells web Pro (pro_plans) on our
+   * own Stripe checkout; off in unit tests that buy through the old path */
+  stripePro: boolean;
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -469,6 +472,15 @@ function tierQuoteExtras(
   }
   return out;
 }
+
+/** Web Pro on Stripe (owner 2026-11-04): the same prices as the app's
+ * Pro — Weekly $5.99 ($3.99 for 4 weeks), Monthly $8.99, Yearly $79.99
+ * ($47.99 the first year). */
+export const MOCK_PRO_PLANS: { id: string; interval: "week" | "month" | "year"; price_cents: number; intro: { price_cents: number; cycles: number } | null }[] = [
+  { id: "pro_weekly", interval: "week", price_cents: 599, intro: { price_cents: 399, cycles: 4 } },
+  { id: "pro_monthly", interval: "month", price_cents: 899, intro: null },
+  { id: "pro_yearly", interval: "year", price_cents: 7999, intro: { price_cents: 4799, cycles: 1 } },
+];
 
 /** gateway 00094: the same Lifelike run on each tier, in cents, without
  * free previews applied. */
@@ -803,6 +815,7 @@ function seed(): DB {
     feedback: [],
     proStatus: null as { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null,
     planChanges: [] as string[],
+    stripePro: !(typeof process !== "undefined" && process.env?.VITEST),
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -836,6 +849,7 @@ export const mockDb = {
     this.feedback = fresh.feedback;
     this.proStatus = fresh.proStatus;
     this.planChanges = fresh.planChanges;
+    this.stripePro = fresh.stripePro;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -2923,12 +2937,15 @@ export const handlers = [
   // owner 2026-11-04: web Pro → Business/Studio, priced before confirming
   http.post(`${GATEWAY}/v1/plans/preview-change`, async ({ request }) => {
     const { to } = (await request.json().catch(() => ({}))) as { to?: string };
+    const proTo = MOCK_PRO_PLANS.find((p) => p.id === to);
     const def = to === "business" || to === "studio" ? TIERS.plans[to] : null;
-    if (!def) return err(400, "invalid_request", "unknown plan");
-    const price = (def as { price_cents?: number; monthly_cents: number }).price_cents ?? def.monthly_cents;
+    if (!def && !proTo) return err(400, "invalid_request", "unknown plan");
+    const price = proTo ? proTo.price_cents : ((def as { price_cents?: number; monthly_cents: number }).price_cents ?? def!.monthly_cents);
     const unused = 450;
     const renews = new Date();
-    if ((def as { interval?: string }).interval === "year") renews.setFullYear(renews.getFullYear() + 1);
+    const interval = proTo ? proTo.interval : (def as { interval?: string }).interval;
+    if (interval === "year") renews.setFullYear(renews.getFullYear() + 1);
+    else if (interval === "week") renews.setDate(renews.getDate() + 7);
     else renews.setMonth(renews.getMonth() + 1);
     return HttpResponse.json({
       to,
@@ -2942,6 +2959,11 @@ export const handlers = [
   http.post(`${GATEWAY}/v1/plans/change`, async ({ request }) => {
     const { to, confirm } = (await request.json().catch(() => ({}))) as { to?: string; confirm?: boolean };
     if (confirm !== true) return err(400, "invalid_request", "confirm is required");
+    if (MOCK_PRO_PLANS.some((p) => p.id === to)) {
+      mockDb.planChanges.push(to!);
+      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: to };
+      return HttpResponse.json({ plan: to, status: "active" });
+    }
     if (to !== "business" && to !== "studio") return err(400, "invalid_request", "unknown plan");
     mockDb.planChanges.push(to);
     const def = TIERS.plans[to];
@@ -3034,6 +3056,21 @@ export const handlers = [
   // pricing 2026-11: Business / Studio subscription checkout
   http.post(`${GATEWAY}/v1/billing/plan`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { plan?: string; ui?: string };
+    // owner 2026-11-04: web Pro on the same checkout
+    const proDef = MOCK_PRO_PLANS.find((p) => p.id === body.plan);
+    if (proDef && mockDb.stripePro) {
+      if (mockDb.pro === true) return err(409, "plan_active", "you already have Pro");
+      const secret = `cs_mock_plan_${proDef.id}_${Math.random().toString(36).slice(2, 8)}`;
+      const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      mockDb.billing.checkouts.set(secret, {
+        kind: "plan",
+        plan: proDef.id as never,
+        amount_cents: proDef.intro?.price_cents ?? proDef.price_cents,
+        state: "open",
+        expires_at,
+      });
+      return HttpResponse.json({ plan: proDef.id, publishable_key: "pk_test_mock", checkout: { client_secret: secret, expires_at } });
+    }
     if (body.plan !== "business" && body.plan !== "studio") {
       return err(400, "unknown_plan", "plan must be business or studio");
     }
@@ -3066,6 +3103,13 @@ export const handlers = [
     if (!ch) return err(404, "not_found", "no such payment");
     if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    if (ch.kind === "plan" && String(ch.plan).startsWith("pro_")) {
+      ch.state = "paid";
+      mockDb.pro = true;
+      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: String(ch.plan) };
+      b.hasPaymentMethod = true;
+      return HttpResponse.json({ result: "paid" });
+    }
     if (ch.kind === "plan" && ch.plan) {
       ch.state = "paid";
       const def = TIERS.plans[ch.plan];
@@ -3395,6 +3439,7 @@ export const handlers = [
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
       pro_discount: { ...MOCK_PRO, pct: mockProPct() },
       ...(mockDb.tierPricing ? publicTiers() : {}),
+      ...(mockDb.stripePro ? { pro_plans: MOCK_PRO_PLANS } : {}),
     }),
   ),
 

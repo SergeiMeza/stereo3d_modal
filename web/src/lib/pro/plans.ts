@@ -10,11 +10,17 @@
  * holders are still Pro when the gateway says so (the `pro` entitlement).
  */
 
+import type { ProPlanDef } from "@/lib/api/types";
+
 export type PlanKind = "weekly" | "monthly" | "yearly";
 
 export interface ProPlan {
-  /** RevenueCat package identifier ($rc_monthly…) */
+  /** RevenueCat package identifier ($rc_monthly…), or our plan id
+   * (pro_monthly…) for a Stripe plan */
   id: string;
+  /** owner 2026-11-04: our own Stripe checkout (gateway pro_plans), or
+   * RevenueCat's until the gateway sells Pro itself */
+  billing?: "stripe" | "revenuecat";
   productId: string;
   kind: PlanKind;
   /** "$8.99" */
@@ -82,6 +88,31 @@ export function planFromPackage(p: PackageLike): ProPlan | null {
           }
         : null,
   };
+}
+
+const INTERVAL_KIND: Record<string, PlanKind> = { week: "weekly", month: "monthly", year: "yearly" };
+
+const usd = (cents: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+
+/** GET /v1/pricing pro_plans → the page's plans (Stripe checkout). */
+export function plansFromPricing(defs: readonly ProPlanDef[]): ProPlan[] {
+  const out: ProPlan[] = [];
+  for (const d of defs) {
+    const kind = INTERVAL_KIND[d.interval];
+    if (!kind || out.some((p) => p.kind === kind)) continue;
+    out.push({
+      id: d.id,
+      productId: d.id,
+      billing: "stripe",
+      kind,
+      price: usd(d.price_cents),
+      amountMicros: d.price_cents * 10_000,
+      currency: "USD",
+      intro: d.intro ? { price: usd(d.intro.price_cents), per: kind, cycles: Math.max(1, d.intro.cycles) } : null,
+    });
+  }
+  return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
 }
 
 /** Plans in page order, one per kind (the first package of a kind wins). */

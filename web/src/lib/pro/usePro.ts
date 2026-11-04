@@ -16,7 +16,10 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { clearStepQuotes } from "@/components/steps/checkoutStore";
 import { AUTH_MODE, useAuth } from "@/lib/auth";
 import { gatewayBaseUrl } from "@/lib/region";
-import { anchorLine, anchorPlan, MOCK_PLANS } from "@/lib/pro/plans";
+import type { GatewayClient } from "@/lib/api/client";
+import { useGateway } from "@/lib/api/useGateway";
+import { openProCheckout } from "@/lib/pro/checkoutStore";
+import { anchorLine, anchorPlan, MOCK_PLANS, plansFromPricing } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export interface ProStatus {
@@ -149,7 +152,11 @@ export function useProStatus(): ProStatus | null {
 
 const plansCache = new Map<string, Promise<ProPlan[]>>();
 
-async function loadPlansFor(uid: string): Promise<ProPlan[]> {
+async function loadPlansFor(uid: string, gateway: GatewayClient): Promise<ProPlan[]> {
+  // owner 2026-11-04: web Pro on our own Stripe subscriptions once the
+  // gateway sells it (pricing pro_plans); RevenueCat until then
+  const pricing = await gateway.getPricing().catch(() => null);
+  if (pricing?.pro_plans?.length) return plansFromPricing(pricing.pro_plans);
   if (AUTH_MODE === "mock") return MOCK_PLANS;
   const { loadPlans } = await import("@/lib/pro/revenuecat");
   return loadPlans(uid);
@@ -163,6 +170,7 @@ export type PlansState =
 /** The plans on sale to the signed-in person. */
 export function useProPlans(): PlansState {
   const { user } = useAuth();
+  const gateway = useGateway();
   const uid = user?.uid ?? null;
   const [st, setSt] = useState<{ uid: string; v: PlansState } | null>(null);
   useEffect(() => {
@@ -170,7 +178,7 @@ export function useProPlans(): PlansState {
     let cancelled = false;
     let p = plansCache.get(uid);
     if (!p) {
-      p = loadPlansFor(uid);
+      p = loadPlansFor(uid, gateway);
       plansCache.set(uid, p);
       p.catch(() => plansCache.delete(uid));
     }
@@ -192,7 +200,7 @@ export function useProPlans(): PlansState {
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, gateway]);
   return st !== null && st.uid === uid ? st.v : { state: "loading" };
 }
 
@@ -219,6 +227,19 @@ export function useBuyPro(): (
   return useCallback(
     async (plan: ProPlan) => {
       if (!user) throw new Error("Sign in to get Pro.");
+      if (plan.billing === "stripe") {
+        const outcome = await openProCheckout(plan);
+        if (outcome === "cancelled") return outcome;
+        // attribution and the new state: POST /v1/pro/refresh until it says Pro
+        for (let i = 0; i < 4; i++) {
+          const s = await callGateway(getToken, true).catch(() => null);
+          if (s?.pro) break;
+          await sleep(1500);
+        }
+        if (AUTH_MODE === "mock") mockPro = true;
+        notifyProChanged();
+        return outcome;
+      }
       if (AUTH_MODE === "mock") {
         await sleep(400);
         mockPro = true;

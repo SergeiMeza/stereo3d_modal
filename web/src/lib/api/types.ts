@@ -645,6 +645,9 @@ export interface PublicPricing {
   addons?: Partial<
     Record<AddOn, { pct: number; enabled?: boolean; methods?: string[]; request?: Record<string, unknown>; included_in?: string[] }>
   >;
+  /** owner 2026-11-04: web Pro on our own Stripe subscriptions — the
+   * plans on sale, in page order (absent until the gateway sells them) */
+  pro_plans?: ProPlanDef[];
   plans?: Partial<Record<"business" | "studio", PlanDef>>;
   free_previews?: {
     enabled?: boolean;
@@ -1304,4 +1307,14 @@ export interface StepConversionRequest {
   method?: Method;
   app_version?: string;
   platform?: string;
+}
+
+/** GET /v1/pricing pro_plans[] (web Pro on Stripe, owner 2026-11-04). */
+export interface ProPlanDef {
+  /** "pro_weekly" | "pro_monthly" | "pro_yearly": what POST /v1/billing/plan takes */
+  id: string;
+  interval: "week" | "month" | "year";
+  price_cents: number;
+  /** an introductory price for the first `cycles` periods */
+  intro?: { price_cents: number; cycles: number } | null;
 }

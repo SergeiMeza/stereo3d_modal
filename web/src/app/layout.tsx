@@ -7,6 +7,7 @@ import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import { Analytics } from "@/components/Analytics";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
+import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
 import { AppIcon } from "@/components/AppIcon";
 import { HeaderPlans } from "@/components/plans/HeaderPlans";
 import { AuthProvider } from "@/lib/auth";
@@ -117,6 +118,8 @@ export default function RootLayout({
               <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
             </SettleProvider>
           </main>
+          {/* owner 2026-11-04: web Pro's own checkout sheet (useBuyPro) */}
+          <ProCheckoutHost />
           </BillingProvider>
           </MswProvider>
         </AuthProvider>
