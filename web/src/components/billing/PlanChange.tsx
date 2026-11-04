@@ -15,11 +15,19 @@
  *   Studio" (DELETE /v1/plans/scheduled-change) until the date.
  */
 
+import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import type { JSX } from "react";
 
 import { planPrice } from "@/components/pricing/planCopy";
 import { formatCents } from "@/components/steps/money";
+
+import {
+  closePlanChangeAtom,
+  confirmPlanChangeAtom,
+  planChangeAtom,
+  previewPlanChangeAtom,
+} from "./planChangeAtoms";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +45,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { PlanChangePreview } from "@/lib/api/client";
 import type { AccountPlan, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
@@ -47,7 +54,6 @@ import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 
 import {
   changeDate,
-  confirmPlanChange,
   isStepDown,
   NOTHING_TODAY,
   REPRICED,
@@ -103,6 +109,8 @@ function planLabel(plan: AccountPlan): string {
   return plan.name ?? (plan.plan === "studio" ? "Studio" : "Business");
 }
 
+const SCOPE = "plan-menu";
+
 export function PlanChangeMenu({
   plan,
 }: {
@@ -113,10 +121,16 @@ export function PlanChangeMenu({
   const pricing = usePricing();
   const proPlans = useProPlans();
   const [target, setTarget] = useState<Option | null>(null);
-  const [preview, setPreview] = useState<PlanChangePreview | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // ADR 0138: the preview and the confirm live in the plan change atom
+  const change = useAtomValue(planChangeAtom(SCOPE));
+  const previewChange = useSetAtom(previewPlanChangeAtom);
+  const confirmChange = useSetAtom(confirmPlanChangeAtom);
+  const closeChange = useSetAtom(closePlanChangeAtom);
+  const preview = change.to === target?.id ? change.preview : null;
+  const error =
+    change.error ?? (change.previewFailed ? "Couldn't work out the change. Nothing was charged." : null);
+  const notice = change.repriced ? REPRICED : null;
+  const busy = change.busy;
 
   // our own Stripe Pro only: those are the ones a plan can step down to
   const pro =
@@ -144,29 +158,16 @@ export function PlanChangeMenu({
 
   function open(o: Option): void {
     setTarget(o);
-    setError(null);
-    setNotice(null);
-    setPreview(null);
-    gateway
-      .previewPlanChange(o.id)
-      .then(setPreview, () =>
-        setError("Couldn't work out the change. Nothing was charged."),
-      );
+    void previewChange({ scope: SCOPE, client: gateway, to: o.id });
   }
 
   async function confirm(): Promise<void> {
     if (!target || !preview) return;
-    setBusy(true);
-    setError(null);
-    const r = await confirmPlanChange(gateway, preview);
-    setBusy(false);
-    if (r.kind === "done") {
+    if ((await confirmChange({ scope: SCOPE, client: gateway })) === "done") {
       await billing.refresh();
       setTarget(null);
-    } else if (r.kind === "repriced") {
-      setPreview(r.preview);
-      setNotice(REPRICED);
-    } else setError(r.message);
+      closeChange(SCOPE);
+    }
   }
 
   return (
@@ -192,7 +193,11 @@ export function PlanChangeMenu({
       </DropdownMenu>
       <AlertDialog
         open={target !== null}
-        onOpenChange={(o) => !o && setTarget(null)}
+        onOpenChange={(o) => {
+          if (o) return;
+          setTarget(null);
+          closeChange(SCOPE);
+        }}
       >
         <AlertDialogContent data-testid="plan-change-dialog">
           <AlertDialogHeader>

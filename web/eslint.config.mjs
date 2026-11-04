@@ -57,9 +57,6 @@ const STATE_ALLOWLIST = [
   "src/components/auth/Passkeys.tsx",
   "src/components/billing/BillingScreen.tsx",
   "src/components/billing/PlanCard.tsx",
-  "src/components/billing/PlanChange.tsx",
-  "src/components/business/BusinessSetup.tsx",
-  "src/components/pro/ProPeriodChange.tsx",
   "src/screens/ProjectsScreen.tsx",
 ];
 

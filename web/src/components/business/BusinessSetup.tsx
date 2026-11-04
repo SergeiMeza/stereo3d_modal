@@ -30,15 +30,18 @@
 
 import { Check } from "lucide-react";
 import Link from "next/link";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { IntroSwitch } from "@/components/billing/PlanCard";
-import { StepUpDetails } from "@/components/billing/StepUpDetails";
 import {
-  confirmPlanChange,
-  REPRICED,
-} from "@/components/billing/planChangeCopy";
+  confirmPlanChangeAtom,
+  planChangeAtom,
+  previewPlanChangeAtom,
+} from "@/components/billing/planChangeAtoms";
+import { StepUpDetails } from "@/components/billing/StepUpDetails";
+import { REPRICED } from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
 import { PlanSheet } from "@/components/pay/PlanSheet";
 import { ContactSalesForm } from "@/components/plans/ContactSalesForm";
@@ -127,6 +130,8 @@ export function proCase(pro: ProStatus | null): "app_store" | "web" | null {
 export const APP_STORE_PRO_NOTE =
   "Your Pro is billed by Apple. Business includes everything Pro does, so cancel Pro in your iPhone's Settings → [your name] → Subscriptions to avoid paying for both.";
 
+const SCOPE = "business-setup";
+
 export function BusinessSetup(): JSX.Element {
   const gateway = useGateway();
   const pricing = usePricing();
@@ -143,11 +148,12 @@ export function BusinessSetup(): JSX.Element {
   const [mainUse, setMainUse] = useState<string | null>(null);
   const [headsets, setHeadsets] = useState<string[] | null>(null);
   const [paying, setPaying] = useState(false);
-  const [preview, setPreview] = useState<PlanChangePreview | null | "error">(
-    null,
-  );
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ADR 0138: the preview and the confirm live in the plan change atom
+  const change = useAtomValue(planChangeAtom(SCOPE));
+  const previewChange = useSetAtom(previewPlanChangeAtom);
+  const confirmPlan = useSetAtom(confirmPlanChangeAtom);
+  const confirming = change.busy;
+  const error = change.repriced ? REPRICED : change.error;
   const opened = useRef(false);
 
   const log = (name: string, props: Record<string, unknown> = {}) =>
@@ -168,18 +174,12 @@ export function BusinessSetup(): JSX.Element {
   const def = defs?.[plan];
 
   // a web Pro: today's price for the change, before anything is charged
+  const wantsPreview = step === "checkout" && (theCase === "web" || theCase === "business");
   useEffect(() => {
-    if (step !== "checkout" || (theCase !== "web" && theCase !== "business"))
-      return;
-    let live = true;
-    gateway.previewPlanChange(plan).then(
-      (p) => live && setPreview(p),
-      () => live && setPreview("error"),
-    );
-    return () => {
-      live = false;
-    };
-  }, [gateway, step, theCase, plan]);
+    if (wantsPreview) void previewChange({ scope: SCOPE, client: gateway, to: plan });
+  }, [wantsPreview, previewChange, gateway, plan]);
+  const preview: PlanChangePreview | null | "error" =
+    change.to !== plan ? null : change.previewFailed ? "error" : change.preview;
 
   if (tier === "studio") {
     if (step !== "welcome") {
@@ -227,16 +227,9 @@ export function BusinessSetup(): JSX.Element {
 
   async function confirmChange(): Promise<void> {
     if (!preview || preview === "error") return;
-    setConfirming(true);
-    setError(null);
-    const r = await confirmPlanChange(gateway, preview);
-    setConfirming(false);
-    if (r.kind === "done") purchased();
-    else if (r.kind === "repriced") {
-      // the quote ran out: the new amount shows, and they confirm again
-      setPreview(r.preview);
-      setError(REPRICED);
-    } else setError(r.message);
+    // a quote that ran out comes back repriced: the new amount shows, and
+    // they confirm again
+    if ((await confirmPlan({ scope: SCOPE, client: gateway })) === "done") purchased();
   }
 
   return (

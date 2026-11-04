@@ -12,6 +12,7 @@
 import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
+import { resetPlanChangesForTests } from "@/components/billing/planChangeAtoms";
 import { balanceDialogAtom, settleOpenAtom } from "@/components/pay/payAtoms";
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
@@ -54,6 +55,7 @@ afterEach(() => {
   resetLimitsCache();
   resetPricingCache();
   resetBillingForTests();
+  resetPlanChangesForTests();
   resetAuthForTests();
   resetPaymentMethodsForTests();
 });

@@ -9,11 +9,11 @@
  * confirm.
  */
 
+import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import type { JSX } from "react";
 
 import {
-  confirmPlanChange,
   isStepDown,
   NOTHING_TODAY,
   REPRICED,
@@ -35,6 +35,12 @@ import { Button } from "@/components/ui/button";
 import type { PlanChangePreview } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import {
+  closePlanChangeAtom,
+  confirmPlanChangeAtom,
+  planChangeAtom,
+  previewPlanChangeAtom,
+} from "@/components/billing/planChangeAtoms";
 import { StepUpExtras } from "@/components/billing/StepUpDetails";
 import { planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
@@ -64,16 +70,24 @@ export function previewLine(
   });
 }
 
+const SCOPE = "pro-period";
+
 export function ProPeriodChange(): JSX.Element | null {
   const gateway = useGateway();
   const status = useProStatus();
   const plans = useProPlans();
   const [target, setTarget] = useState<ProPlan | null>(null);
-  const [preview, setPreview] = useState<PlanChangePreview | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const billing = useBilling();
-  const [busy, setBusy] = useState(false);
+  // ADR 0138: the preview and the confirm live in the plan change atom
+  const change = useAtomValue(planChangeAtom(SCOPE));
+  const previewChange = useSetAtom(previewPlanChangeAtom);
+  const confirmChange = useSetAtom(confirmPlanChangeAtom);
+  const closeChange = useSetAtom(closePlanChangeAtom);
+  const preview = change.to === target?.id ? change.preview : null;
+  const error =
+    change.error ?? (change.previewFailed ? "Couldn't work out the price. Nothing was charged." : null);
+  const notice = change.repriced ? REPRICED : null;
+  const busy = change.busy;
   if (!isWebPro(status) || plans.state !== "ready") return null;
   // a step-down already waits for the period's end: Keep is on the page
   if (status?.scheduled_change) return null;
@@ -84,31 +98,18 @@ export function ProPeriodChange(): JSX.Element | null {
 
   function open(p: ProPlan): void {
     setTarget(p);
-    setPreview(null);
-    setError(null);
-    setNotice(null);
-    gateway
-      .previewPlanChange(p.id)
-      .then(setPreview, () =>
-        setError("Couldn't work out the price. Nothing was charged."),
-      );
+    void previewChange({ scope: SCOPE, client: gateway, to: p.id });
   }
 
   async function confirm(): Promise<void> {
     if (!target || !preview) return;
-    setBusy(true);
-    setError(null);
-    const r = await confirmPlanChange(gateway, preview);
-    setBusy(false);
-    if (r.kind === "done") {
+    if ((await confirmChange({ scope: SCOPE, client: gateway })) === "done") {
       void gateway.refreshPro().catch(() => {});
       notifyProChanged();
       void billing.refresh();
       setTarget(null);
-    } else if (r.kind === "repriced") {
-      setPreview(r.preview);
-      setNotice(REPRICED);
-    } else setError(r.message);
+      closeChange(SCOPE);
+    }
   }
 
   return (
@@ -120,7 +121,11 @@ export function ProPeriodChange(): JSX.Element | null {
       ))}
       <AlertDialog
         open={target !== null}
-        onOpenChange={(o) => !o && setTarget(null)}
+        onOpenChange={(o) => {
+          if (o) return;
+          setTarget(null);
+          closeChange(SCOPE);
+        }}
       >
         <AlertDialogContent data-testid="pro-change-dialog">
           <AlertDialogHeader>
