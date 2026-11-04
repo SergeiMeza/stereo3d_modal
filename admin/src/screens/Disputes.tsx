@@ -1,6 +1,12 @@
 import { useState } from "react";
 
-import { Button, ErrorState, ExtLink, SkeletonRows } from "../components/ui";
+import type { ReactNode } from "react";
+
+import { EmptyRow, ErrorState, ExtLink, FilterSelect, MiniTable, Note, PageHeader, Panel, SkeletonRows } from "@/components/common";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { errorMessage } from "../lib/api";
 import { dateOnly, dateTime, money, monthLabel, pct, until, words } from "../lib/format";
 import { Link, paths } from "../lib/router";
@@ -38,21 +44,30 @@ export function DisputesPanel() {
 
   return (
     <>
-      <div className="titlebar">
-        <h1>Disputes and fraud</h1>
-        <span className="muted small">Web app charges only · refreshed on load</span>
-        <span className="grow" />
-        <select className="fsel" aria-label="Months" value={months} onChange={(e) => setMonths(Number(e.target.value))}>
-          <option value={6}>Last 6 months</option>
-          <option value={12}>Last 12 months</option>
-          <option value={24}>Last 24 months</option>
-        </select>
-        <Button size="sm" onClick={() => void downloadCsv()} disabled={csvBusy}>
-          {csvBusy ? "Working…" : "CSV"}
-        </Button>
-        {state.kind === "loaded" && <ExtLink href={state.data.account_wide}>Whole Stripe account</ExtLink>}
-      </div>
-      {csvErr && <p className="err small" role="alert">{csvErr}</p>}
+      <PageHeader
+        title="Disputes and fraud"
+        actions={
+          <>
+            <FilterSelect
+              label="Months"
+              value={String(months)}
+              onChange={(v) => setMonths(Number(v))}
+              options={[
+                { value: "6", label: "Last 6 months" },
+                { value: "12", label: "Last 12 months" },
+                { value: "24", label: "Last 24 months" },
+              ]}
+            />
+            <Button size="sm" onClick={() => void downloadCsv()} disabled={csvBusy}>
+              {csvBusy ? "Working…" : "CSV"}
+            </Button>
+            {state.kind === "loaded" && <ExtLink href={state.data.account_wide}>Whole Stripe account</ExtLink>}
+          </>
+        }
+      >
+        <span className="text-sm text-muted-foreground">Web app charges only · refreshed on load</span>
+      </PageHeader>
+      {csvErr && <Note tone="error">{csvErr}</Note>}
       {state.kind === "loading" && <SkeletonRows rows={4} cols={4} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load disputes." message={errorMessage(state.error)} onRetry={retry} />
@@ -80,127 +95,136 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
 
   return (
     <>
-      <div className="stats card">
+      <Stats card>
         <Stat value={String(disputes)} label={`disputes, ${months} months`} sub="by dispute date" />
-        <Stat value={pct(avg)} label="dispute activity" sub={`${months}-month average · line ${pct(ref)}`} tone={avg >= ref ? "red" : undefined} />
+        <Stat
+          value={pct(avg)}
+          label="dispute activity"
+          sub={`${months}-month average · line ${pct(ref)}`}
+          tone={avg >= ref ? "red" : undefined}
+          info={
+            <>
+              Disputes opened in a month ÷ successful charges that month. Card networks treat {pct(ref)} as excessive; Visa
+              also counts early fraud warnings and can act below it.
+            </>
+          }
+        />
         <Stat value={pct(data.counter_rate, 0)} label="countered" sub={`${countered} of ${disputes}`} />
         <Stat value={pct(data.win_rate, 0)} label="won" sub={`${won} of ${won + lost} decided`} />
-      </div>
+      </Stats>
       {over.length > 0 && (
-        <p className="err small" role="alert">
-          Over the {pct(ref)} line in {over.map((r) => monthLabel(r.month)).join(", ")}.
-        </p>
+        <Note tone="error">Over the {pct(ref)} line in {over.map((r) => monthLabel(r.month)).join(", ")}.</Note>
       )}
 
-      <div className="two even">
-        <section className="card">
-          <div className="sh"><b>Dispute activity by month</b><span className="xs muted">disputes ÷ successful charges</span></div>
+      <div className={TWO}>
+        <Panel title="Dispute activity by month" note="disputes ÷ successful charges">
           <ActivityChart rows={rows} reference={ref} />
-        </section>
-        <section className="card">
-          <div className="sh"><b>Disputes by outcome</b><span className="xs muted">by dispute date</span></div>
+        </Panel>
+        <Panel title="Disputes by outcome" note="by dispute date">
           <OutcomeChart rows={rows} />
-        </section>
+        </Panel>
       </div>
 
-      <div className="two even">
-        <section className="card">
-          <div className="sh"><b>Money</b><span className="xs muted">fees in the account's currency</span></div>
-          <div className="stats inner">
+      <div className={TWO}>
+        <Panel title="Money" note="fees in the account's currency">
+          <Stats>
             <Stat value={money(sum(rows, "disputed_cents_activity"))} label="disputed" />
             <Stat value={money(sum(rows, "lost_cents"))} label="lost" />
             <Stat value={(sum(rows, "dispute_fees_cents") / 100).toFixed(2)} label="dispute fees" />
-          </div>
-        </section>
-        <section className="card">
-          <div className="sh"><b>Early fraud warnings</b><span className="xs muted">{months} months</span></div>
-          <div className="stats inner">
+          </Stats>
+        </Panel>
+        <Panel title="Early fraud warnings" note={`${months} months`}>
+          <Stats>
             <Stat value={String(sum(rows, "efw"))} label="early fraud warnings" />
             <Stat value={money(sum(rows, "efw_cents"))} label="amount" />
             <Stat value={String(sum(rows, "efw_refunded"))} label="refunded" />
             <Stat value={String(sum(rows, "efw_became_disputes"))} label="became disputes" />
-          </div>
-        </section>
+          </Stats>
+        </Panel>
       </div>
 
-      <section className="card">
-        <div className="sh"><b>Open disputes</b><span className="xs muted">by evidence due date</span></div>
+      <Panel title="Open disputes" note="by evidence due date">
         {open.length === 0 ? (
-          <p className="muted xs pad">No open disputes.</p>
+          <EmptyRow>No open disputes.</EmptyRow>
         ) : (
-          <div className="scroll-x">
-            <table className="at">
-              <thead>
-                <tr><th>Case</th><th>Evidence due</th><th className="num">Amount</th><th>Reason</th><th>Status</th><th>Dispute</th></tr>
-              </thead>
-              <tbody>
-                {open.map((d) => (
-                  <tr key={d.dispute_id}>
-                    <td>{d.case_id ? <Link className="cid mono" to={paths.case(d.case_id)}>{d.case_id}</Link> : <span className="muted">no case</span>}</td>
-                    <td>
-                      {d.due_by ? (
-                        <>
-                          {dateOnly(d.due_by)} <span className="muted xs">{until(d.due_by)}</span>
-                        </>
-                      ) : "—"}
-                    </td>
-                    <td className="num">{money(d.amount_cents)}</td>
-                    <td>{words(d.reason)}</td>
-                    <td>{words(d.status)}</td>
-                    <td className="mono xs">{d.dispute_id}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Case</TableHead><TableHead>Evidence due</TableHead><TableHead numeric>Amount</TableHead>
+                <TableHead>Reason</TableHead><TableHead>Status</TableHead><TableHead>Dispute</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {open.map((d) => (
+                <TableRow key={d.dispute_id}>
+                  <TableCell>
+                    {d.case_id ? (
+                      <Link className="font-mono font-medium text-link" to={paths.case(d.case_id)}>{d.case_id}</Link>
+                    ) : (
+                      <span className="text-muted-foreground">no case</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {d.due_by ? (
+                      <>
+                        {dateOnly(d.due_by)} <span className="text-xs text-muted-foreground">{until(d.due_by)}</span>
+                      </>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell numeric>{money(d.amount_cents)}</TableCell>
+                  <TableCell>{words(d.reason)}</TableCell>
+                  <TableCell>{words(d.status)}</TableCell>
+                  <TableCell className="font-mono text-xs">{d.dispute_id}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </Panel>
 
-      <div className="grid3">
+      <div className="grid grid-cols-3 items-start gap-4 max-[1000px]:grid-cols-1">
         <Breakdown title="By method" data={data.by_method} />
         <Breakdown title="By flow" data={data.by_flow} />
         <Breakdown title="By country" data={data.by_country} />
       </div>
 
-      <details className="card monthly">
-        <summary><b>Monthly table</b></summary>
-        <div className="scroll-x">
-          <table className="at">
-            <thead>
-              <tr>
-                <th>Month</th><th className="num">Charges</th><th className="num">Disputes</th><th className="num">By payment</th>
-                <th className="num">Activity</th><th className="num">Won</th><th className="num">Lost</th><th className="num">Accepted</th>
-                <th className="num">Countered</th><th className="num">Disputed</th><th className="num">Lost $</th><th className="num">Fees</th>
-                <th className="num">EFW</th><th className="num">EFW $</th><th className="num">EFW refunded</th><th className="num">EFW → dispute</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.month}>
-                  <td>{r.month}</td>
-                  <td className="num">{r.charges}</td>
-                  <td className="num">{r.disputes_activity}</td>
-                  <td className="num">{r.disputes_by_payment}</td>
-                  <td className={`num ${r.activity_pct >= ref ? "red" : ""}`}>{pct(r.activity_pct)}</td>
-                  <td className="num">{r.won}</td>
-                  <td className="num">{r.lost}</td>
-                  <td className="num">{r.accepted}</td>
-                  <td className="num">{r.countered}</td>
-                  <td className="num">{money(r.disputed_cents_activity)}</td>
-                  <td className="num">{money(r.lost_cents)}</td>
-                  <td className="num">{(r.dispute_fees_cents / 100).toFixed(2)}</td>
-                  <td className="num">{r.efw}</td>
-                  <td className="num">{money(r.efw_cents)}</td>
-                  <td className="num">{r.efw_refunded}</td>
-                  <td className="num">{r.efw_became_disputes}</td>
-                </tr>
+      <details className="group overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Monthly table</summary>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Month</TableHead>
+              {["Charges", "Disputes", "By payment", "Activity", "Won", "Lost", "Accepted", "Countered", "Disputed", "Lost $", "Fees", "EFW", "EFW $", "EFW refunded", "EFW → dispute"].map((h) => (
+                <TableHead key={h} numeric>{h}</TableHead>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.month}>
+                <TableCell>{r.month}</TableCell>
+                <TableCell numeric>{r.charges}</TableCell>
+                <TableCell numeric>{r.disputes_activity}</TableCell>
+                <TableCell numeric>{r.disputes_by_payment}</TableCell>
+                <TableCell numeric className={cn(r.activity_pct >= ref && "text-destructive")}>{pct(r.activity_pct)}</TableCell>
+                <TableCell numeric>{r.won}</TableCell>
+                <TableCell numeric>{r.lost}</TableCell>
+                <TableCell numeric>{r.accepted}</TableCell>
+                <TableCell numeric>{r.countered}</TableCell>
+                <TableCell numeric>{money(r.disputed_cents_activity)}</TableCell>
+                <TableCell numeric>{money(r.lost_cents)}</TableCell>
+                <TableCell numeric>{(r.dispute_fees_cents / 100).toFixed(2)}</TableCell>
+                <TableCell numeric>{r.efw}</TableCell>
+                <TableCell numeric>{money(r.efw_cents)}</TableCell>
+                <TableCell numeric>{r.efw_refunded}</TableCell>
+                <TableCell numeric>{r.efw_became_disputes}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </details>
 
-      <p className="muted xs">
+      <p className="text-xs text-muted-foreground">
         {data.scope}. Denominator: {data.denominator}. Visa also counts early fraud warnings and can act below{" "}
         {pct(ref)}. Generated {dateTime(data.generated_at)}.
       </p>
@@ -208,12 +232,40 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
   );
 }
 
-function Stat({ value, label, sub, tone }: { value: string; label: string; sub?: string; tone?: "red" }) {
+const TWO = "grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1";
+
+function Stats({ children, card = false }: { children: ReactNode; card?: boolean }) {
   return (
-    <div className="stat">
-      <div className={`stat-v ${tone ?? ""}`}>{value}</div>
-      <div className="stat-l">{label}</div>
-      {sub && <div className="stat-s">{sub}</div>}
+    <div
+      className={cn(
+        "grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] [&>*]:border-r [&>*]:border-border [&>*:last-child]:border-r-0",
+        card && "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Stat({ value, label, sub, tone, info }: { value: string; label: string; sub?: string; tone?: "red"; info?: ReactNode }) {
+  return (
+    <div className="p-4">
+      <div className={cn("text-2xl font-semibold tracking-tight tabular-nums", tone === "red" && "text-destructive")}>{value}</div>
+      <div className="flex items-center gap-1.5 text-sm text-foreground-2">
+        {label}
+        {info && (
+          <Popover>
+            <PopoverTrigger
+              aria-label={`About ${label}`}
+              className="inline-flex size-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              ?
+            </PopoverTrigger>
+            <PopoverContent align="start">{info}</PopoverContent>
+          </Popover>
+        )}
+      </div>
+      {sub && <div className="text-2xs text-muted-foreground tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -223,7 +275,7 @@ const H = 220;
 const PAD = { l: 44, r: 8, t: 16, b: 26 };
 
 function ActivityChart({ rows, reference }: { rows: DisputeMonth[]; reference: number }) {
-  if (rows.length === 0) return <p className="muted xs pad">No data.</p>;
+  if (rows.length === 0) return <EmptyRow>No data.</EmptyRow>;
   const top = Math.max(reference * 4 / 3, ...rows.map((r) => r.activity_pct * 1.1), 0.0001);
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
@@ -268,7 +320,7 @@ function ActivityChart({ rows, reference }: { rows: DisputeMonth[]; reference: n
 }
 
 function OutcomeChart({ rows }: { rows: DisputeMonth[] }) {
-  if (rows.length === 0) return <p className="muted xs pad">No data.</p>;
+  if (rows.length === 0) return <EmptyRow>No data.</EmptyRow>;
   const top = Math.max(1, ...rows.map((r) => r.disputes_activity));
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
@@ -279,10 +331,10 @@ function OutcomeChart({ rows }: { rows: DisputeMonth[] }) {
   for (let t = 0; t <= top; t += step) ticks.push(t);
   return (
     <>
-      <div className="legend">
-        <span><i className="sw won" />Won</span>
-        <span><i className="sw lost" />Lost</span>
-        <span><i className="sw open" />Open or pending</span>
+      <div className="flex gap-3.5 px-4 pt-2 text-xs text-foreground-2">
+        <span><i className="mr-1.5 inline-block size-2.25 rounded-[2px] bg-chart-1" />Won</span>
+        <span><i className="mr-1.5 inline-block size-2.25 rounded-[2px] bg-chart-2" />Lost</span>
+        <span><i className="mr-1.5 inline-block size-2.25 rounded-[2px] bg-chart-3" />Open or pending</span>
       </div>
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Disputes per month by outcome">
         {ticks.map((t) => (
@@ -321,28 +373,25 @@ function Breakdown({ title, data }: { title: string; data: Record<string, number
   const total = entries.reduce((s, [, v]) => s + v, 0);
   const top = entries[0]?.[1] ?? 0;
   return (
-    <section className="card">
-      <div className="sh"><b>{title}</b><span className="xs muted">disputes · share</span></div>
+    <Panel title={title} note="disputes · share">
       {entries.length === 0 ? (
-        <p className="muted xs pad">No disputes.</p>
+        <EmptyRow>No disputes.</EmptyRow>
       ) : (
-        <table className="mini pad-table">
-          <tbody>
-            {entries.map(([k, v]) => (
-              <tr key={k}>
-                <td>{words(k)}</td>
-                <td className="num">{v}</td>
-                <td className="num">{pct(total ? v / total : 0, 0)}</td>
-                <td className="barcell">
-                  <svg viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
-                    <rect className="bar" x="0" y="0" height="6" width={top ? (v / top) * 100 : 0} rx="1" />
-                  </svg>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <MiniTable>
+          {entries.map(([k, v]) => (
+            <tr key={k}>
+              <td>{words(k)}</td>
+              <td className="text-right font-mono tabular-nums">{v}</td>
+              <td className="text-right font-mono tabular-nums">{pct(total ? v / total : 0, 0)}</td>
+              <td className="barcell w-2/5">
+                <svg viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" className="block h-1.5 w-full">
+                  <rect className="bar" x="0" y="0" height="6" width={top ? (v / top) * 100 : 0} rx="1" />
+                </svg>
+              </td>
+            </tr>
+          ))}
+        </MiniTable>
       )}
-    </section>
+    </Panel>
   );
 }
