@@ -139,3 +139,26 @@ func TestRunParamsRecordBars(t *testing.T) {
 		t.Fatalf("no bars %+v", params)
 	}
 }
+
+// /convert gets source_crop on every Lifelike path when the run removes
+// bars, and nothing otherwise.
+func TestLifelikeBodySourceCrop(t *testing.T) {
+	crop := &store.Crop{X: 0, Y: 280, W: 3840, H: 1600}
+	for _, c := range []*store.Conversion{
+		{Step: store.StepProduction, Params: store.Params{Preset: "4k", RemoveBars: true, SourceCrop: crop}},
+		{Step: store.StepProduction, Params: store.Params{Preset: "4k", RemoveBars: true, SourceCrop: crop, SplitMaxSeconds: 60}},
+		{Step: store.StepProduction, Params: store.Params{Preset: "4k", RemoveBars: true, SourceCrop: crop, Express: true}},
+		{Step: store.StepLifelikePreview, Params: store.Params{Preset: "4k", RemoveBars: true, SourceCrop: crop, FromFrame: 24, ToFrame: 144}},
+	} {
+		raw, _ := json.Marshal(lifelikeBody(c, 4))
+		var b map[string]any
+		json.Unmarshal(raw, &b)
+		sc, _ := b["source_crop"].(map[string]any)
+		if sc == nil || sc["x"] != float64(0) || sc["y"] != float64(280) || sc["w"] != float64(3840) || sc["h"] != float64(1600) {
+			t.Fatalf("%s %+v: %s", c.Step, c.Params, raw)
+		}
+	}
+	if b := lifelikeBody(&store.Conversion{Params: store.Params{Preset: "4k"}}, 4); b["source_crop"] != nil {
+		t.Fatal("whole frame sends no source_crop")
+	}
+}

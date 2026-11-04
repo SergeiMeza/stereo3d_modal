@@ -296,6 +296,13 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
 	}
+	if c.Params.RemoveBars && c.Params.SourceCrop != nil {
+		// BL-03: the picture inside the black bars, displayed (post-rotation)
+		// source pixels, on every path (full runs, previews, split parts,
+		// Express); absent = the whole frame.
+		sc := c.Params.SourceCrop
+		body["source_crop"] = map[string]int{"x": sc.X, "y": sc.Y, "w": sc.W, "h": sc.H}
+	}
 	if c.Params.Express {
 		// Express (pricing 2026-11): the Lifelike slot scheduler gives
 		// freed GPU slots to "express" first and the caller passes the

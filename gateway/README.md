@@ -752,6 +752,11 @@ is asked when bars are found and can keep them.
   and `params.source_crop: {x, y, w, h}` (displayed source pixels, fixed
   at creation); the admin run rows show it as `bars_removed` (null when
   the run kept the whole frame).
+- **Lifelike call.** Such a run's `/convert` body carries `source_crop:
+  {x, y, w, h}` (the recorded crop, as is) on every path: full runs,
+  previews, split runs (one submit) and Express. Absent = the whole
+  frame. Lifelike ignores unknown keys, so test runs keep working until
+  3DS ships it (feat/source-crop).
 
 ### Lifelike brand intro (BL-25)
 
