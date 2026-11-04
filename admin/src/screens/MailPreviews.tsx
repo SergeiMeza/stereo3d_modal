@@ -1,4 +1,4 @@
-import { ErrorState, PlainText, SkeletonRows } from "../components/ui";
+import { ErrorState, KV, PageHeader, Panel, PlainText, SkeletonRows, StateBox } from "@/components/common";
 import { errorMessage } from "../lib/api";
 import { useServices } from "../lib/services";
 import { useLoad } from "../lib/useLoad";
@@ -9,37 +9,32 @@ export function MailPreviews() {
   const { state, retry } = useLoad(() => api.mailPreviews(), [api]);
   return (
     <>
-      <div className="titlebar">
-        <h1>Mail previews</h1>
-        <span className="muted small">Sample data · plain text as sent</span>
-      </div>
+      <PageHeader title="Mail previews">
+        <span className="text-sm text-muted-foreground">Sample data · plain text as sent</span>
+      </PageHeader>
       {state.kind === "loading" && <SkeletonRows rows={4} cols={2} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load the mail previews." message={errorMessage(state.error)} onRetry={retry} />
       )}
       {state.kind === "loaded" && (
         <>
+          {(state.data.mails ?? []).length === 0 && <StateBox title="No mail previews." />}
           {(state.data.mails ?? []).map((m) => (
-            <section className="card" key={m.id}>
-              <div className="sh">
-                <b>{m.id}</b>
-                <span className="small">{m.subject}</span>
-              </div>
-              <pre className="plain mailtext pad">{m.text}</pre>
-            </section>
+            <Panel key={m.id} title={m.id} note={<span className="text-sm text-foreground">{m.subject}</span>}>
+              <pre className="m-0 px-4 py-3 font-sans text-sm whitespace-pre-wrap text-foreground-2 [overflow-wrap:anywhere]">{m.text}</pre>
+            </Panel>
           ))}
           {Object.keys(state.data.deny_templates ?? {}).length > 0 && (
-            <section className="card">
-              <div className="sh"><b>Deny templates (E10)</b></div>
-              <dl className="kv pad">
+            <Panel title="Deny templates (E10)">
+              <KV>
                 {Object.entries(state.data.deny_templates ?? {}).map(([k, v]) => (
                   <div key={k} className="contents">
-                    <dt className="mono">{k}</dt>
-                    <dd><PlainText text={v} className="inline" /></dd>
+                    <dt className="font-mono">{k}</dt>
+                    <dd><PlainText text={v} inline /></dd>
                   </div>
                 ))}
-              </dl>
-            </section>
+              </KV>
+            </Panel>
           )}
         </>
       )}
