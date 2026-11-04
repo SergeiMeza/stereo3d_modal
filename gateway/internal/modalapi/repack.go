@@ -1,0 +1,82 @@
+package modalapi
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+)
+
+// Repack (ADR 0137): the Lifelike service re-packs a finished run's stored
+// output into another format (spatial MV-HEVC, full or half side-by-side)
+// with the pipeline's own encoding. The gateway hands it a signed GET of
+// the source and a signed PUT for the new file.
+
+// RepackRequest is POST /repack's body.
+type RepackRequest struct {
+	JobID           string       `json:"job_id"`
+	Source          RepackSource `json:"source"`
+	TargetFormat    string       `json:"target_format"`
+	OutputUploadURL string       `json:"output_upload_url"`
+	Preset          string       `json:"preset,omitempty"`
+	FPS             float64      `json:"fps,omitempty"`
+}
+
+// RepackSource is the stored output the repack reads.
+type RepackSource struct {
+	URL    string `json:"url"`
+	Format string `json:"format"` // mvhevc | sbs | half_sbs
+}
+
+// RepackStatus is GET /repack/{id}.
+type RepackStatus struct {
+	Status    string        `json:"status"` // pending | running | completed | failed
+	Error     string        `json:"error,omitempty"`
+	Output    *RepackOutput `json:"output,omitempty"`
+	CostStage string        `json:"cost_stage,omitempty"`
+}
+
+// RepackOutput describes the new file.
+type RepackOutput struct {
+	Bytes  int64  `json:"bytes"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Frames int    `json:"frames"`
+	Level  string `json:"level,omitempty"`
+}
+
+// Done and Failed read the repack's status words.
+func (r *RepackStatus) Done() bool { return r.Status == "completed" || r.Status == "succeeded" }
+func (r *RepackStatus) Failed() bool {
+	return r.Status == "failed" || r.Status == "error" || r.Status == "cancelled"
+}
+
+// SubmitRepack posts POST /repack → {repack_id}.
+func (c *Client) SubmitRepack(ctx context.Context, req RepackRequest) (string, error) {
+	body := map[string]any{"job_id": req.JobID, "source": map[string]any{"url": req.Source.URL, "format": req.Source.Format},
+		"target_format": req.TargetFormat, "output_upload_url": req.OutputUploadURL}
+	if req.Preset != "" {
+		body["preset"] = req.Preset
+	}
+	if req.FPS > 0 {
+		body["fps"] = req.FPS
+	}
+	var out struct {
+		RepackID string `json:"repack_id"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/repack", body, &out); err != nil {
+		return "", err
+	}
+	if out.RepackID == "" {
+		return "", &UpstreamError{StatusCode: http.StatusBadGateway, Body: "no repack_id"}
+	}
+	return out.RepackID, nil
+}
+
+// GetRepack reads GET /repack/{id}.
+func (c *Client) GetRepack(ctx context.Context, id string) (*RepackStatus, error) {
+	var out RepackStatus
+	if err := c.do(ctx, http.MethodGet, "/repack/"+url.PathEscape(id), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
