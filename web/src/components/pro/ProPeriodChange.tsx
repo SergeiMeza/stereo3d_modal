@@ -3,7 +3,8 @@
 /**
  * A web Pro (our own Stripe subscription) changes its period here (owner
  * 2026-11-04): POST /v1/plans/preview-change {to} first — "Today: $X (new
- * plan $A − $B for your unused Pro days). Renews on <date>" — then POST
+ * plan $A − $B for your unused Pro days). Renews on <date>", or for a
+ * shorter period the step-down at the end of the paid one — then POST
  * /v1/plans/change {to, confirm: true}. Nothing is charged before
  * confirm.
  */
@@ -11,6 +12,12 @@
 import { useState } from "react";
 import type { JSX } from "react";
 
+import {
+  isStepDown,
+  NOTHING_TODAY,
+  stepDownLine,
+  upgradeLine,
+} from "@/components/billing/planChangeCopy";
 import { formatCents } from "@/components/steps/money";
 import {
   AlertDialog,
@@ -30,16 +37,20 @@ import { planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import { notifyProChanged, useProPlans, useProStatus } from "@/lib/pro/usePro";
 
-/** "Today: $X (new plan $A − $B for your unused Pro days). Renews on 4 Dec 2026." */
-export function previewLine(p: PlanChangePreview): string {
-  const renews = new Date(p.renews_at).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  return `Today: ${formatCents(p.today_cents)} (new plan ${formatCents(p.new_plan_cents)} − ${formatCents(
-    p.unused_credit_cents,
-  )} for your unused Pro days). Renews on ${renews}.`;
+const PER = { weekly: "a week", monthly: "a month", yearly: "a year" } as const;
+
+/** The dialog's line: today's charge for a longer period, or for a
+ * shorter one "Your Pro Yearly stays on until … Pro Monthly starts then
+ * at $8.99 a month." */
+export function previewLine(
+  p: PlanChangePreview,
+  current: ProPlan | undefined,
+  target: ProPlan,
+): string {
+  if (isStepDown(p)) {
+    return `${stepDownLine(current ? `Pro ${planName(current)}` : "Pro", { name: `Pro ${planName(target)}`, per: PER[target.kind] }, p)} ${NOTHING_TODAY}`;
+  }
+  return upgradeLine(p);
 }
 
 export function ProPeriodChange(): JSX.Element | null {
@@ -55,6 +66,7 @@ export function ProPeriodChange(): JSX.Element | null {
   const others = plans.plans.filter(
     (p) => p.billing === "stripe" && p.id !== current,
   );
+  const currentPlan = plans.plans.find((p) => p.id === current);
   if (others.length === 0) return null;
 
   function open(p: ProPlan): void {
@@ -105,7 +117,9 @@ export function ProPeriodChange(): JSX.Element | null {
             </AlertDialogTitle>
             <AlertDialogDescription data-testid="pro-change-preview">
               {error ??
-                (preview ? previewLine(preview) : "Working out today's price…")}
+                (preview && target
+                  ? previewLine(preview, currentPlan, target)
+                  : "Working out today's price…")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -117,7 +131,7 @@ export function ProPeriodChange(): JSX.Element | null {
                 void confirm();
               }}
             >
-              {preview
+              {preview && !isStepDown(preview)
                 ? `Confirm and pay ${formatCents(preview.today_cents)}`
                 : "Confirm"}
             </AlertDialogAction>

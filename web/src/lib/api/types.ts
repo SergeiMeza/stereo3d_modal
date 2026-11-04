@@ -778,6 +778,8 @@ export interface AccountPlan {
   credit_interval?: string;
   month_index?: number;
   credit_resets_at?: string;
+  /** owner 2026-11-04: a step-down waiting for the end of the paid period */
+  scheduled_change?: { to: string; effective_at: string } | null;
 }
 
 export interface ProDiscount {

@@ -98,9 +98,14 @@ describe("Pricing 2026-11", () => {
     );
     const card = await screen.findByTestId("plan-card");
     expect(within(card).getByTestId("plan-credit").textContent).toBe("$400.00 of $400.00 usage left this month");
-    fireEvent.click(within(card).getByRole("button", { name: "Cancel plan" }));
+    // owner 2026-11-04: cancelling is "pay per video" in Change plan, at the period's end
+    fireEvent.keyDown(within(card).getByRole("button", { name: "Change plan" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Pay per video (cancel plan)" }));
+    const line = await screen.findByTestId("plan-change-line");
+    expect(line.textContent).toMatch(/^Your Business stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. After that you pay per video\. Nothing is charged today\.$/);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
     await waitFor(() => expect(mockDb.billing.plan?.cancel_at_period_end).toBe(true));
-    expect(await within(card).findByRole("button", { name: "Keep my plan" })).toBeTruthy();
+    expect(await within(card).findByRole("button", { name: "Keep Business" })).toBeTruthy();
   });
 
   it("Studio checks out yearly, renews a year out, and Billing says when usage resets", async () => {

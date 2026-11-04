@@ -29,6 +29,7 @@ import { useBilling } from "@/lib/billing";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ResetPlansSurfaces } from "@/components/plans/ResetPlansSurfaces";
 import { AppStoreProLine, BusinessEntry } from "@/components/business/BusinessEntry";
+import { AccountScheduledChange } from "@/components/billing/PlanChange";
 
 function CardShell({
   title,
@@ -245,6 +246,7 @@ export default function AccountScreen() {
           </Link>
           .
         </p>
+        <AccountScheduledChange />
         <AppStoreProLine />
       </CardShell>
 

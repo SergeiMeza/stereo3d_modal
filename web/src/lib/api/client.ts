@@ -148,8 +148,13 @@ export interface PlanChangePreview {
   to: string;
   today_cents: number;
   new_plan_cents: number;
-  unused_credit_cents: number;
-  renews_at: string;
+  /** upgrades: what the unused days of the current plan take off */
+  unused_credit_cents?: number;
+  renews_at?: string;
+  /** owner 2026-11-04: a step-down starts at the end of the paid period;
+   * nothing is charged today */
+  kind?: "upgrade" | "step_down";
+  effective_at?: string;
   currency?: string;
 }
 
@@ -389,6 +394,11 @@ export class GatewayClient {
    * anything is charged. */
   previewPlanChange(to: string): Promise<PlanChangePreview> {
     return this.request("POST", "/v1/plans/preview-change", { to });
+  }
+
+  /** Keep the current plan: drop a scheduled step-down. */
+  cancelScheduledChange(): Promise<unknown> {
+    return this.request("DELETE", "/v1/plans/scheduled-change");
   }
 
   /** Change the plan after the person confirmed the preview. */

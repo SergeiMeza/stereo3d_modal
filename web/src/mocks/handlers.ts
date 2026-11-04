@@ -475,6 +475,39 @@ function tierQuoteExtras(
   return out;
 }
 
+/** Plans from highest to lowest (owner 2026-11-04: lower = step-down). */
+const PLAN_RANK: Record<string, number> = {
+  studio: 40, business: 30, pro_yearly: 23, pro_monthly: 22, pro_weekly: 21, pay_per_video: 0,
+};
+
+function planTarget(to: string | undefined): { id: string; price: number; interval?: string } | null {
+  if (!to) return null;
+  if (to === "pay_per_video") return { id: to, price: 0 };
+  const pro = MOCK_PRO_PLANS.find((p) => p.id === to);
+  if (pro) return { id: to, price: pro.price_cents, interval: pro.interval };
+  if (to === "business" || to === "studio") {
+    const d = TIERS.plans[to] as { price_cents?: number; monthly_cents: number; interval?: string };
+    return { id: to, price: d.price_cents ?? d.monthly_cents, interval: d.interval };
+  }
+  return null;
+}
+
+/** The account's plan now: Business/Studio, else its web Pro, else none. */
+function currentPlanKey(): string {
+  if (mockDb.billing.plan?.active) return mockDb.billing.plan.plan;
+  const via = mockDb.proStatus?.via;
+  if (via && via in PLAN_RANK) return via;
+  return "pay_per_video";
+}
+
+function currentPeriodEnd(): string {
+  const end = mockDb.billing.plan?.current_period_end;
+  if (end) return end;
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString();
+}
+
 /** gateway 00101: 409 project_has_active_run */
 const ARCHIVE_BLOCKED =
   "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
@@ -2943,20 +2976,30 @@ export const handlers = [
   // owner 2026-11-04: web Pro → Business/Studio, priced before confirming
   http.post(`${GATEWAY}/v1/plans/preview-change`, async ({ request }) => {
     const { to } = (await request.json().catch(() => ({}))) as { to?: string };
-    const proTo = MOCK_PRO_PLANS.find((p) => p.id === to);
-    const def = to === "business" || to === "studio" ? TIERS.plans[to] : null;
-    if (!def && !proTo) return err(400, "invalid_request", "unknown plan");
-    const price = proTo ? proTo.price_cents : ((def as { price_cents?: number; monthly_cents: number }).price_cents ?? def!.monthly_cents);
+    const target = planTarget(to);
+    if (!target) return err(400, "invalid_request", "unknown plan");
+    const current = currentPlanKey();
+    // owner 2026-11-04: a step-down starts at the end of the paid period
+    if (PLAN_RANK[target.id] < PLAN_RANK[current]) {
+      return HttpResponse.json({
+        to,
+        kind: "step_down",
+        today_cents: 0,
+        new_plan_cents: target.price,
+        effective_at: currentPeriodEnd(),
+        currency: "usd",
+      });
+    }
     const unused = 450;
     const renews = new Date();
-    const interval = proTo ? proTo.interval : (def as { interval?: string }).interval;
-    if (interval === "year") renews.setFullYear(renews.getFullYear() + 1);
-    else if (interval === "week") renews.setDate(renews.getDate() + 7);
+    if (target.interval === "year") renews.setFullYear(renews.getFullYear() + 1);
+    else if (target.interval === "week") renews.setDate(renews.getDate() + 7);
     else renews.setMonth(renews.getMonth() + 1);
     return HttpResponse.json({
       to,
-      today_cents: price - unused,
-      new_plan_cents: price,
+      kind: "upgrade",
+      today_cents: target.price - unused,
+      new_plan_cents: target.price,
       unused_credit_cents: unused,
       renews_at: renews.toISOString(),
       currency: "usd",
@@ -2965,19 +3008,33 @@ export const handlers = [
   http.post(`${GATEWAY}/v1/plans/change`, async ({ request }) => {
     const { to, confirm } = (await request.json().catch(() => ({}))) as { to?: string; confirm?: boolean };
     if (confirm !== true) return err(400, "invalid_request", "confirm is required");
-    if (MOCK_PRO_PLANS.some((p) => p.id === to)) {
-      mockDb.planChanges.push(to!);
-      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: to };
-      return HttpResponse.json({ plan: to, status: "active" });
+    const target = planTarget(to);
+    if (!target) return err(400, "invalid_request", "unknown plan");
+    mockDb.planChanges.push(target.id);
+    const current = currentPlanKey();
+    if (PLAN_RANK[target.id] < PLAN_RANK[current]) {
+      const scheduled = { to: target.id, effective_at: currentPeriodEnd() };
+      if (mockDb.billing.plan?.active) mockDb.billing.plan.scheduled_change = scheduled;
+      return HttpResponse.json({ plan: current, status: "active", scheduled_change: scheduled });
     }
-    if (to !== "business" && to !== "studio") return err(400, "invalid_request", "unknown plan");
-    mockDb.planChanges.push(to);
-    const def = TIERS.plans[to];
+    if (target.id.startsWith("pro_")) {
+      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: target.id };
+      return HttpResponse.json({ plan: target.id, status: "active" });
+    }
+    const key = target.id as "business" | "studio";
+    const def = TIERS.plans[key];
     mockDb.billing.plan = {
-      plan: to, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
+      plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
       credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: false,
     };
-    return HttpResponse.json({ plan: to, status: "active" });
+    return HttpResponse.json({ plan: key, status: "active" });
+  }),
+  // keep the current plan: drop the scheduled step-down
+  http.delete(`${GATEWAY}/v1/plans/scheduled-change`, () => {
+    const plan = mockDb.billing.plan;
+    if (!plan?.scheduled_change) return err(404, "not_found", "no scheduled change");
+    plan.scheduled_change = null;
+    return HttpResponse.json(plan);
   }),
 
   // owner 2026-11-04: in-app feedback, the app's store (mocked until it lands)

@@ -34,6 +34,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { IntroSwitch } from "@/components/billing/PlanCard";
+import { upgradeLine } from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
 import {
   CompanyDetailsSheet,
@@ -582,16 +583,7 @@ export function BusinessSetup(): JSX.Element {
                 </p>
               ) : (
                 <p className="text-sm text-fg" data-testid="setup-preview">
-                  Today: {formatCents(preview.today_cents)} (new plan{" "}
-                  {formatCents(preview.new_plan_cents)} −{" "}
-                  {formatCents(preview.unused_credit_cents)} for your unused Pro
-                  days). Renews on{" "}
-                  {new Date(preview.renews_at).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                  .
+                  {upgradeLine(preview)}
                 </p>
               )}
             </div>
