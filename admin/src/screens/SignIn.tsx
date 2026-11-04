@@ -116,6 +116,7 @@ function PasskeyStep({ auth, api, email }: { auth: AdminAuth; api: AdminApi; ema
   useEffect(() => {
     void prepare();
     // once per mount: the step reopens after a sign-out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const use = async () => {

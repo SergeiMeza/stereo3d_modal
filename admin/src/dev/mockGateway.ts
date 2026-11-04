@@ -1,0 +1,68 @@
+import { casePage, casesResponse, disputes, mailPreviews } from "../test/fixtures";
+
+/**
+ * A canned gateway for `vite build --mode overlays` (scripts/overlay-bounds.mjs):
+ * the console renders signed in, against fixtures, with no network and no
+ * Firebase. Never part of a production build (main.tsx drops it).
+ */
+
+const account = {
+  account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+  billing_state: { flow_state: "outstanding", sheet_only: true, sheet_only_reason: "dispute", under_review: true, lifetime_paid_cents: 9000 },
+  owed_cents: 125,
+  balance: null,
+  methods: [{ id: "pm_1", label: "Visa •••• 4242", type: "card" }],
+  cases: [],
+  charges: [],
+  refunds: [],
+  ledger: [],
+  passkey_count: 2,
+  grants: [
+    {
+      id: "gr_1",
+      uid: "uid_123",
+      entitlement: "pro",
+      ends_at: "2026-12-04T10:00:00Z",
+      granted_by: "owner@example.com",
+      reason: "creator partnership",
+      created_at: "2026-11-04T10:00:00Z",
+      status: "active",
+    },
+  ],
+  promo_regrants: [
+    { id: "pr_2", event: "dispute:dp_1", status: "kept_removed", snapshot: [{ entitlement: "pro", expires_at: "2027-03-01T00:00:00Z" }], case_id: "CASE-0051", created_at: "2026-11-01T00:00:00Z" },
+  ],
+};
+
+const passkeys = [
+  { id: "pk_1", name: "Mac · Safari", created_at: "2026-11-01T10:00:00Z", last_used_at: "2026-11-04T09:00:00Z" },
+  { id: "pk_2", name: "A passkey with a rather long name for the edge", created_at: "2026-11-02T10:00:00Z", last_used_at: null },
+];
+
+const ROUTES: Record<string, (path: string) => unknown> = {
+  "GET /v1/admin/cases": () => casesResponse,
+  "GET /v1/admin/cases/CASE-0042": () => casePage(),
+  "GET /v1/admin/mail-previews": () => mailPreviews,
+  "GET /v1/admin/disputes/summary": () => ({ ...disputes, open_efws: 1 }),
+  "GET /v1/admin/accounts/uid_123": () => account,
+  "GET /v1/admin/passkeys": () => ({ passkeys }),
+  "GET /v1/admin/passkey-adoption": () => ({
+    accounts_with_passkey: 41,
+    passkeys: 57,
+    sign_ins: { "7d": { passkey: 120, password: 30, google: 210 }, "30d": { passkey: 430, password: 160, google: 900 } },
+    generated_at: "2026-11-04T00:00:00Z",
+  }),
+  "GET /v1/admin/plans/surfaces": () => ({ days: 30, generated_at: "2026-11-04T00:00:00Z", placements: [], unattributed: { conversions: 0, by_product: {} }, by_reason: [] }),
+  "GET /v1/admin/feedback": () => ({ days: 30, items: [] }),
+  "GET /v1/admin/onboarding/headsets": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),
+  "GET /v1/admin/onboarding/business_funnel": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),
+};
+
+export const mockFetch: typeof fetch = async (input, init) => {
+  const u = new URL(String(input));
+  const key = `${init?.method ?? "GET"} ${u.pathname}`;
+  const h = ROUTES[key];
+  await new Promise((r) => setTimeout(r, 30));
+  if (!h) return new Response(JSON.stringify({ error: "not_found", message: `no mock for ${key}` }), { status: 404 });
+  return new Response(JSON.stringify(h(u.pathname + u.search)), { status: 200, headers: { "Content-Type": "application/json" } });
+};
