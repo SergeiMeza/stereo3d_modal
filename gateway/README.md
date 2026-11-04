@@ -1344,12 +1344,14 @@ Classic runs get none (Classic is retired).
 
 - `GET /v1/runs/{id}/formats` → `{available: [fmt], have: [fmt],
   pending: [fmt], unavailable_reason?: files_erased | half_only |
-  run_failed | classic_retired | split_run, price_cents: 0, jobs:
-  {fmt: {job_id, status: pending | processing | succeeded | failed,
-  source, price_cents, requested_at, finished_at, error?}}}`. fmt is
+  run_failed | classic_retired, price_cents: 0, jobs:
+  {fmt: {job_id, job_ids, status: pending | processing | succeeded |
+  failed, source, price_cents, requested_at, finished_at, error?, parts:
+  [{index, name, job_id, status, error?}]}}}`. `job_id` is the first
+  part's; `index` 0 is a run's single file. fmt is
   mvhevc | sbs | half_sbs. The GET also polls a running repack.
-- `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, status, format,
-  source, price_cents}`. 409 `format_exists` | `format_in_progress` |
+- `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, job_ids, status,
+  format, source, price_cents}`. 409 `format_exists` | `format_in_progress` |
   `format_unavailable` with `details.reason` (the reasons above, or
   `too_wide`: full side-by-side at 6K/8K); 422 `sample_project` for the
   sample's run (it has all three: spatial, full and half side-by-side,
@@ -1359,17 +1361,21 @@ Classic runs get none (Classic is retired).
   (the Lifelike service didn't take it; the attempt is recorded as
   failed and can be retried).
 - **Rules.** Only a succeeded run whose project isn't deleted and whose
-  files aren't erased (`file_keep_days`); split runs are out of v1. The
+  files aren't erased (`file_keep_days`). The
   source depends on the target (`repackSources`): half side-by-side from
   spatial, else full side-by-side (full side-by-side files made before
   2026-11-04 carry a slight colour shift); spatial only from full
   side-by-side; full side-by-side only from spatial; half side-by-side alone can't make
   a fuller format. One per format per run; a failed one can be retried.
+  A split run gets one repack per part (`mvhevc_part2` →
+  `half_sbs_part2`); the format is done when every part is, failed when
+  none is running and one failed, and a retry repacks only the failed
+  parts (the made ones stay).
   Free for now (`price_cents: 0`, ADR 0137's open question). Starting one
   counts as use of the project (the keep clock restarts).
 - **Lifelike call.** `POST /repack {job_id, source: {url: signed GET of
   the stored output, format}, target_format, output_upload_url: signed
-  PUT of outputs/<job>/repack_<format>.mp4|.mov, preset, fps,
+  PUT of outputs/<job>/repack_<output>.mp4|.mov, preset, fps,
   output_bitrate_bps?}` (the run's own bitrate when it chose one: Master
   or an explicit rate; absent otherwise) →
   `{repack_id}`; `GET /repack/{id}` → `{status: queued | running | done |
@@ -1377,8 +1383,9 @@ Classic runs get none (Classic is retired).
   width, height, frames, level}, cost_stage}`, polled by the reconciler every
   minute (`conversion.repack_pending`) and by the GET; 3 h without an end
   fails it. Signed URLs live 6 h.
-- **Then.** The new file joins `conversion.outputs[format]`, so it lists
-  and downloads like the others (same naming, SBS/TB markers).
+- **Then.** The new files join `conversion.outputs` (`format`, or
+  `format_partN` per part, all at once when the last part is done), so
+  they list and download like the others (same naming, SBS/TB markers).
   `conversion.repacks[format]` keeps the record; events
   `run_format_requested`, `run_format_added`, `run_format_failed`; the
   admin case page's run rows and the account view's runs show

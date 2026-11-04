@@ -930,4 +930,25 @@ type Repack struct {
 	Attempts    int        `firestore:"attempts"`
 	RequestedAt time.Time  `firestore:"requested_at"`
 	FinishedAt  *time.Time `firestore:"finished_at,omitempty"`
+	// Parts: one repack per output file (a split run has one per part;
+	// otherwise one, index 0). The format is done when every part is.
+	// Records from before parts keep RepackID/Key above.
+	Parts []RepackPart `firestore:"parts,omitempty"`
+}
+
+// RepackPart is one output file's repack.
+type RepackPart struct {
+	Index      int        `firestore:"index"`  // 0 = the run's single file, else the part number
+	Name       string     `firestore:"name"`   // the output it becomes (sbs, sbs_part2)
+	Source     string     `firestore:"source"` // the output it reads (mvhevc, mvhevc_part2)
+	RepackID   string     `firestore:"repack_id,omitempty"`
+	Status     string     `firestore:"status"` // pending | processing | succeeded | failed
+	Key        string     `firestore:"key"`
+	Error      string     `firestore:"error,omitempty"`
+	Bytes      int64      `firestore:"bytes,omitempty"`
+	Width      int        `firestore:"width,omitempty"`
+	Height     int        `firestore:"height,omitempty"`
+	Frames     int        `firestore:"frames,omitempty"`
+	Level      string     `firestore:"level,omitempty"`
+	FinishedAt *time.Time `firestore:"finished_at,omitempty"`
 }

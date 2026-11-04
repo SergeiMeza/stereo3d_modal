@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
+	"fmt"
 	"log/slog"
 	"net/http"
 	"path"
 	"slices"
+	"sort"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -19,12 +20,13 @@ import (
 // "Get another format" (ADR 0137): a finished Lifelike run's stored
 // output is re-packed into a format the run doesn't have, by the Lifelike
 // service (POST /repack with a signed GET of the source and a signed PUT
-// for the new file beside it). Only while the files are stored; never
-// from half side-by-side alone (no quality is invented); no full
-// side-by-side at 6K/8K; one per format per run (a failed one can be
-// retried); free for now (price_cents 0); starting one counts as use of
-// the project. The new file joins the run's outputs and downloads like
-// the others.
+// for the new file beside it), once per output file: a split run's parts
+// each get their own repack, and the format is done when every part is.
+// Only while the files are stored; never from half side-by-side alone
+// (no quality is invented); no full side-by-side at 6K/8K; one per format
+// per run (failed parts can be retried); free for now (price_cents 0);
+// starting one counts as use of the project. The new files join the run's
+// outputs and download like the others.
 
 var repackFormats = []string{"mvhevc", "sbs", "half_sbs"}
 
@@ -52,20 +54,64 @@ func repackExt(format string) (ext, contentType string) {
 	return ".mp4", "video/mp4"
 }
 
+// outputPartName: format for the run's single file (part 0), else
+// format_partN, the way split runs name their outputs.
+func outputPartName(format string, part int) string {
+	if part == 0 {
+		return format
+	}
+	return fmt.Sprintf("%s_part%d", format, part)
+}
+
+// runPartNumbers: the part numbers a split run's outputs carry (sorted),
+// or [0] for a run with single files.
+func runPartNumbers(c *store.Conversion) []int {
+	seen := map[int]bool{}
+	for name := range c.Outputs {
+		if _, n := splitOutputName(name); n > 0 {
+			seen[n] = true
+		}
+	}
+	if len(seen) == 0 {
+		return []int{0}
+	}
+	out := make([]int, 0, len(seen))
+	for n := range seen {
+		out = append(out, n)
+	}
+	sort.Ints(out)
+	return out
+}
+
+// hasFormat: every part of the run has format.
+func hasFormat(c *store.Conversion, format string, parts []int) bool {
+	for _, n := range parts {
+		if c.Outputs[outputPartName(format, n)] == "" {
+			return false
+		}
+	}
+	return true
+}
+
 // runFormats is what a run has, what it can get, and why not.
 type runFormats struct {
 	Have, Available, Pending []string
-	Reason                   string            // files_erased | half_only | run_failed | classic_retired | split_run
+	Reason                   string            // files_erased | half_only | run_failed | classic_retired
 	Sources                  map[string]string // target → the output its repack reads
+	Parts                    []int
 	Project                  *store.Project
 }
 
+func repackRunning(r *store.Repack) bool {
+	return r != nil && (r.Status == "pending" || r.Status == "processing")
+}
+
 func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runFormats {
-	st := runFormats{Have: []string{}, Available: []string{}, Pending: []string{}, Sources: map[string]string{}}
+	st := runFormats{Have: []string{}, Available: []string{}, Pending: []string{}, Sources: map[string]string{}, Parts: runPartNumbers(c)}
 	for _, f := range repackFormats {
-		if c.Outputs[f] != "" {
+		if hasFormat(c, f, st.Parts) {
 			st.Have = append(st.Have, f)
-		} else if r := c.Repacks[f]; r != nil && (r.Status == "pending" || r.Status == "processing") {
+		} else if repackRunning(c.Repacks[f]) {
 			st.Pending = append(st.Pending, f)
 		}
 	}
@@ -75,9 +121,6 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 		return st
 	case c.Method != store.MethodLifelike:
 		st.Reason = "classic_retired"
-		return st
-	case len(c.Parts) > 0:
-		st.Reason = "split_run"
 		return st
 	}
 	if c.ProjectID != "" {
@@ -110,9 +153,35 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 	return st
 }
 
+// repackParts: a record's parts (a record from before parts is one).
+func repackParts(r *store.Repack) []store.RepackPart {
+	if len(r.Parts) > 0 || r.Key == "" {
+		return r.Parts
+	}
+	return []store.RepackPart{{Index: 0, Name: r.Format, Source: r.Source, RepackID: r.RepackID, Status: r.Status, Key: r.Key,
+		Error: r.Error, Bytes: r.Bytes, Width: r.Width, Height: r.Height, Frames: r.Frames, Level: r.Level, FinishedAt: r.FinishedAt}}
+}
+
 func repackJSON(r *store.Repack) map[string]any {
-	out := map[string]any{"job_id": nilIfEmpty(r.RepackID), "status": r.Status, "source": r.Source, "price_cents": r.PriceCents,
-		"requested_at": r.RequestedAt, "finished_at": r.FinishedAt}
+	parts := repackParts(r)
+	ids := []string{}
+	pj := make([]map[string]any, 0, len(parts))
+	for _, p := range parts {
+		if p.RepackID != "" {
+			ids = append(ids, p.RepackID)
+		}
+		row := map[string]any{"index": p.Index, "name": p.Name, "job_id": nilIfEmpty(p.RepackID), "status": p.Status}
+		if p.Error != "" {
+			row["error"] = p.Error
+		}
+		pj = append(pj, row)
+	}
+	var first any
+	if len(ids) > 0 {
+		first = ids[0]
+	}
+	out := map[string]any{"job_id": first, "job_ids": ids, "status": r.Status, "source": r.Source, "price_cents": r.PriceCents,
+		"requested_at": r.RequestedAt, "finished_at": r.FinishedAt, "parts": pj}
 	if r.Error != "" {
 		out["error"] = r.Error
 	}
@@ -132,7 +201,8 @@ func (st runFormats) json(c *store.Conversion) map[string]any {
 }
 
 // GET /v1/runs/{id}/formats → {available, have, pending,
-// unavailable_reason?, price_cents, jobs {format: {job_id, status, …}}}.
+// unavailable_reason?, price_cents, jobs {format: {job_id, job_ids,
+// status, parts, …}}}.
 func (s *Service) HandleRunFormats(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	c, err := s.ownedConversion(ctx, user, id)
@@ -150,8 +220,8 @@ func (s *Service) HandleRunFormats(w http.ResponseWriter, r *http.Request, user 
 
 var errRepackTaken = errors.New("repack: format taken")
 
-// POST /v1/runs/{id}/formats {format} → 202 {job_id, status, format,
-// source, price_cents}.
+// POST /v1/runs/{id}/formats {format} → 202 {job_id, job_ids, status,
+// format, source, price_cents}.
 func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	var req struct {
@@ -199,27 +269,44 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusServiceUnavailable, "repack_unavailable", "Getting another format isn't available right now."))
 		return
 	}
-	srcKey := c.Outputs[st.Sources[req.Format]]
+	src := st.Sources[req.Format]
 	ext, ctype := repackExt(req.Format)
-	key := path.Dir(srcKey) + "/repack_" + req.Format + ext
 	now := time.Now().UTC()
+	var todo []store.RepackPart
 	if _, err := s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
-		if x.Outputs[req.Format] != "" {
+		if hasFormat(x, req.Format, st.Parts) {
 			return errRepackTaken
 		}
 		prev := x.Repacks[req.Format]
 		if prev != nil && prev.Status != "failed" {
 			return errRepackTaken
 		}
-		attempts := 1
-		if prev != nil {
-			attempts = prev.Attempts + 1
+		rec := &store.Repack{Format: req.Format, Source: src, Status: "pending", PriceCents: repackPrice, Attempts: 1, RequestedAt: now}
+		done := map[int]store.RepackPart{}
+		if prev != nil { // a retry: the parts already made stay
+			rec.Attempts = prev.Attempts + 1
+			for _, p := range repackParts(prev) {
+				if p.Status == "succeeded" {
+					done[p.Index] = p
+				}
+			}
+		}
+		todo = nil
+		for _, n := range st.Parts {
+			if p, ok := done[n]; ok {
+				rec.Parts = append(rec.Parts, p)
+				continue
+			}
+			name, srcName := outputPartName(req.Format, n), outputPartName(src, n)
+			p := store.RepackPart{Index: n, Name: name, Source: srcName, Status: "pending",
+				Key: path.Dir(x.Outputs[srcName]) + "/repack_" + name + ext}
+			rec.Parts = append(rec.Parts, p)
+			todo = append(todo, p)
 		}
 		if x.Repacks == nil {
 			x.Repacks = map[string]*store.Repack{}
 		}
-		x.Repacks[req.Format] = &store.Repack{Format: req.Format, Source: st.Sources[req.Format], Status: "pending", Key: key, PriceCents: repackPrice,
-			Attempts: attempts, RequestedAt: now}
+		x.Repacks[req.Format] = rec
 		x.RepackPending = true
 		return nil
 	}); err != nil {
@@ -230,36 +317,41 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.ErrServer())
 		return
 	}
-	get, gerr := s.GCS.SignedGetURL(srcKey, repackURLExpiry)
-	put, perr := s.GCS.SignedPutURL(key, ctype, repackURLExpiry)
-	var repackID string
-	err = errors.Join(gerr, perr)
-	if err == nil {
-		fps := c.Params.TargetFPS
-		if fps <= 0 {
-			fps = c.Source.FPS
-		}
-		repackID, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: st.Sources[req.Format]},
-			TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps,
-			OutputBitrateBps: c.Params.OutputBitrateBps}) // the run's own bitrate when it chose one
+	fps := c.Params.TargetFPS
+	if fps <= 0 {
+		fps = c.Source.FPS
 	}
-	if err != nil {
-		slog.WarnContext(ctx, "repack not started", "conversion_id", c.ID, "format", req.Format, "err", err)
-		s.finishRepack(ctx, c.ID, req.Format, nil, "could not start: "+err.Error())
+	results := map[int]partResult{}
+	started := 0
+	for _, p := range todo {
+		get, gerr := s.GCS.SignedGetURL(c.Outputs[p.Source], repackURLExpiry)
+		put, perr := s.GCS.SignedPutURL(p.Key, ctype, repackURLExpiry)
+		err := errors.Join(gerr, perr)
+		var id string
+		if err == nil {
+			id, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: src},
+				TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps,
+				OutputBitrateBps: c.Params.OutputBitrateBps}) // the run's own bitrate when it chose one
+		}
+		if err != nil {
+			slog.WarnContext(ctx, "repack not started", "conversion_id", c.ID, "format", req.Format, "part", p.Index, "err", err)
+			results[p.Index] = partResult{failed: "could not start: " + err.Error()}
+			continue
+		}
+		results[p.Index] = partResult{started: id}
+		started++
+	}
+	updated := s.applyRepackResults(ctx, c.ID, req.Format, results)
+	if started == 0 {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "repack_unavailable", "Getting another format didn't start. Try again in a while."))
 		return
 	}
-	updated, _ := s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
-		if r := x.Repacks[req.Format]; r != nil && r.Status == "pending" {
-			r.RepackID, r.Status = repackID, "processing"
-		}
-		return nil
-	})
 	s.noteProjectUse(ctx, st.Project, true) // ADR 0137: counts as use
-	s.passkeyEvent(ctx, user.UID, "run_format_requested", map[string]any{"run_id": c.ID, "format": req.Format, "source": st.Sources[req.Format]})
-	out := map[string]any{"job_id": repackID, "status": "processing", "format": req.Format, "source": st.Sources[req.Format], "price_cents": repackPrice}
+	s.passkeyEvent(ctx, user.UID, "run_format_requested", map[string]any{"run_id": c.ID, "format": req.Format, "source": src, "parts": len(todo)})
+	out := map[string]any{"status": "processing", "format": req.Format, "source": src, "price_cents": repackPrice}
 	if updated != nil && updated.Repacks[req.Format] != nil {
-		out["status"] = updated.Repacks[req.Format].Status
+		j := repackJSON(updated.Repacks[req.Format])
+		out["status"], out["job_id"], out["job_ids"] = j["status"], j["job_id"], j["job_ids"]
 	}
 	writeJSON(w, http.StatusAccepted, out)
 }
@@ -272,38 +364,86 @@ func formatUnavailableText(reason string) string {
 		return "This run only has half side-by-side, which can't become a fuller format. Make a new run instead."
 	case "run_failed":
 		return "Only a finished run can get another format."
-	case "split_run":
-		return "A run made in parts can't get another format yet."
 	}
 	return "This run can't get another format."
 }
 
-// finishRepack records a repack's end: out non-nil = done (the file joins
-// the outputs), else failed with why.
-func (s *Service) finishRepack(ctx context.Context, convID, format string, out *modalapi.RepackOutput, why string) *store.Conversion {
+// partResult is what happened to one part: started (a repack id), done
+// (the new file) or failed (why).
+type partResult struct {
+	started string
+	done    *modalapi.RepackOutput
+	failed  string
+}
+
+// applyRepackResults writes the parts' news and the format's state: done
+// when every part is (the files join the outputs), failed when none is
+// still running and one failed (those parts can be retried).
+func (s *Service) applyRepackResults(ctx context.Context, convID, format string, results map[int]partResult) *store.Conversion {
+	if len(results) == 0 {
+		return nil
+	}
 	now := time.Now().UTC()
-	var uid, event string
+	var uid, event, why string
 	updated, err := s.Store.Transition(ctx, convID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
 		r := x.Repacks[format]
-		if r == nil || (r.Status != "pending" && r.Status != "processing") {
+		if !repackRunning(r) {
 			return errNoChange
 		}
-		r.FinishedAt = &now
-		if out != nil {
-			r.Status, r.Error = "succeeded", ""
-			r.Bytes, r.Width, r.Height, r.Frames, r.Level = out.Bytes, out.Width, out.Height, out.Frames, out.Level
+		parts := repackParts(r)
+		changed := false
+		for i := range parts {
+			p := &parts[i]
+			res, ok := results[p.Index]
+			if !ok || (p.Status != "pending" && p.Status != "processing") {
+				continue
+			}
+			changed = true
+			switch {
+			case res.started != "":
+				p.RepackID, p.Status = res.started, "processing"
+			case res.done != nil:
+				p.Status, p.Error, p.FinishedAt = "succeeded", "", &now
+				p.Bytes, p.Width, p.Height, p.Frames, p.Level = res.done.Bytes, res.done.Width, res.done.Height, res.done.Frames, res.done.Level
+			default:
+				p.Status, p.Error, p.FinishedAt = "failed", res.failed, &now
+			}
+		}
+		if !changed {
+			return errNoChange
+		}
+		r.Parts, r.RepackID, r.Key = parts, "", ""
+		running, failed := 0, 0
+		for _, p := range parts {
+			switch p.Status {
+			case "pending", "processing":
+				running++
+			case "failed":
+				failed++
+				why = p.Error
+			}
+		}
+		switch {
+		case running > 0:
+			r.Status = "processing"
+		case failed > 0:
+			r.Status, r.Error, r.FinishedAt = "failed", why, &now
+			event = "run_format_failed"
+		default:
+			r.Status, r.Error, r.FinishedAt = "succeeded", "", &now
 			if x.Outputs == nil {
 				x.Outputs = map[string]string{}
 			}
-			x.Outputs[format] = r.Key
+			for _, p := range parts {
+				x.Outputs[p.Name] = p.Key
+				r.Bytes += p.Bytes
+			}
+			r.Width, r.Height, r.Level = parts[0].Width, parts[0].Height, parts[0].Level
 			event = "run_format_added"
-		} else {
-			r.Status, r.Error = "failed", why
-			event = "run_format_failed"
 		}
 		x.RepackPending = false
 		for _, o := range x.Repacks {
-			if o.Status == "pending" || o.Status == "processing" {
+			if repackRunning(o) {
 				x.RepackPending = true
 			}
 		}
@@ -313,50 +453,55 @@ func (s *Service) finishRepack(ctx context.Context, convID, format string, out *
 	if err != nil {
 		return nil
 	}
-	s.passkeyEvent(ctx, uid, event, map[string]any{"run_id": convID, "format": format, "error": nilIfEmpty(why)})
-	slog.InfoContext(ctx, "repack finished", "conversion_id", convID, "format", format, "event", event)
+	if event != "" {
+		s.passkeyEvent(ctx, uid, event, map[string]any{"run_id": convID, "format": format, "error": nilIfEmpty(why)})
+		slog.InfoContext(ctx, "repack finished", "conversion_id", convID, "format", format, "event", event)
+	}
 	return updated
 }
 
-// pollRepacks asks the Lifelike service about c's running repacks;
-// the run as stored after (nil when nothing changed).
+// pollRepacks asks the Lifelike service about c's running repacks; the
+// run as stored after (nil when nothing changed).
 func (s *Service) pollRepacks(ctx context.Context, c *store.Conversion) *store.Conversion {
 	cl := s.modalFor(c)
 	var last *store.Conversion
 	for f, r := range c.Repacks {
-		if r.Status != "pending" && r.Status != "processing" {
+		if !repackRunning(r) {
 			continue
 		}
-		if r.RepackID == "" || cl == nil {
-			if time.Since(r.RequestedAt) > 10*time.Minute {
-				last = firstConv(s.finishRepack(ctx, c.ID, f, nil, "never started"), last)
+		timeout := repackTimeout
+		results := map[int]partResult{}
+		for _, p := range repackParts(r) {
+			if p.Status != "pending" && p.Status != "processing" {
+				continue
 			}
-			continue
+			if p.RepackID == "" || cl == nil {
+				if time.Since(r.RequestedAt) > 10*time.Minute {
+					results[p.Index] = partResult{failed: "never started"}
+				}
+				continue
+			}
+			st, err := cl.GetRepack(ctx, p.RepackID)
+			switch {
+			case err != nil:
+				if time.Since(r.RequestedAt) > timeout {
+					results[p.Index] = partResult{failed: "timed out"}
+				}
+			case st.Done() && st.Output != nil:
+				results[p.Index] = partResult{done: st.Output}
+			case st.Done():
+				results[p.Index] = partResult{failed: "finished without a file"}
+			case st.Failed():
+				results[p.Index] = partResult{failed: firstNonEmpty(st.Error, st.Status)}
+			case time.Since(r.RequestedAt) > timeout:
+				results[p.Index] = partResult{failed: "timed out"}
+			}
 		}
-		st, err := cl.GetRepack(ctx, r.RepackID)
-		switch {
-		case err != nil:
-			if time.Since(r.RequestedAt) > repackTimeout {
-				last = firstConv(s.finishRepack(ctx, c.ID, f, nil, "timed out"), last)
-			}
-		case st.Done() && st.Output != nil:
-			last = firstConv(s.finishRepack(ctx, c.ID, f, st.Output, ""), last)
-		case st.Done():
-			last = firstConv(s.finishRepack(ctx, c.ID, f, nil, "finished without a file"), last)
-		case st.Failed():
-			last = firstConv(s.finishRepack(ctx, c.ID, f, nil, firstNonEmpty(st.Error, st.Status)), last)
-		case time.Since(r.RequestedAt) > repackTimeout:
-			last = firstConv(s.finishRepack(ctx, c.ID, f, nil, "timed out"), last)
+		if u := s.applyRepackResults(ctx, c.ID, f, results); u != nil {
+			last = u
 		}
 	}
 	return last
-}
-
-func firstConv(a, b *store.Conversion) *store.Conversion {
-	if a != nil {
-		return a
-	}
-	return b
 }
 
 // pollAllRepacks is the reconciler's pass over runs with a repack going.

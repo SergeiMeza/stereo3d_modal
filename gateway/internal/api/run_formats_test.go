@@ -24,6 +24,8 @@ type lifelikeStub struct {
 	bodies  []map[string]any
 	status  string
 	failNew bool
+	ids     []string          // repack ids handed out, in order
+	byID    map[string]string // a status for one repack over status
 }
 
 func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -38,14 +40,20 @@ func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var b map[string]any
 		json.NewDecoder(r.Body).Decode(&b)
 		l.bodies = append(l.bodies, b)
+		id := "rp" + store.NewID()
+		l.ids = append(l.ids, id)
 		w.WriteHeader(202)
-		json.NewEncoder(w).Encode(map[string]any{"repack_id": "rp" + store.NewID()})
+		json.NewEncoder(w).Encode(map[string]any{"repack_id": id})
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repack/"):
-		out := map[string]any{"status": l.status, "cost_stage": "repack"}
-		if l.status == "done" || l.status == "completed" {
+		status := l.status
+		if st, ok := l.byID[strings.TrimPrefix(r.URL.Path, "/repack/")]; ok {
+			status = st
+		}
+		out := map[string]any{"status": status, "cost_stage": "repack"}
+		if status == "done" || status == "completed" {
 			out["output"] = map[string]any{"bytes": 1000, "width": 3840, "height": 2160, "frames": 240, "level": "5.1"}
 		}
-		if l.status == "failed" {
+		if status == "failed" {
 			out["error"] = "decoder"
 		}
 		json.NewEncoder(w).Encode(out)
@@ -79,7 +87,7 @@ func finishedRun(t *testing.T, s *Service, uid, preset string, outputs ...string
 	c.Modal.JobID = "job" + c.ID
 	for _, o := range outputs {
 		ext := ".mp4"
-		if o == "mvhevc" {
+		if strings.HasPrefix(o, "mvhevc") {
 			ext = ".mov"
 		}
 		c.Outputs[o] = "stereo3d/test/outputs/" + c.Modal.JobID + "/" + o + ext
@@ -263,6 +271,53 @@ func TestRunFormatsRules(t *testing.T) {
 	}
 	if got, _ := s.Store.GetConversion(ctx, wide.ID); got.Repacks["half_sbs"].Status != "failed" || got.RepackPending {
 		t.Fatalf("after a failed start %+v", got.Repacks["half_sbs"])
+	}
+}
+
+// A split run gets one repack per part; the format is done when every
+// part is, and a failed part is retried alone; part outputs are named
+// like split outputs (half_sbs_part1, half_sbs_part2).
+func TestRunFormatsSplitRun(t *testing.T) {
+	s, stub := formatsService(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	c := finishedRun(t, s, uid, "4k", "mvhevc_part1", "mvhevc_part2", "sbs_part1", "sbs_part2")
+	code, out := formatsCall(s, uid, c.ID, http.MethodGet, "")
+	if code != 200 || strings.Join(strs(out["have"]), ",") != "mvhevc,sbs" || strings.Join(strs(out["available"]), ",") != "half_sbs" || out["unavailable_reason"] != nil {
+		t.Fatalf("split formats %d %v", code, out)
+	}
+	code, out = formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"half_sbs"}`)
+	if code != 202 || len(strs(out["job_ids"])) != 2 || out["source"] != "mvhevc" {
+		t.Fatalf("split post %d %v", code, out)
+	}
+	if len(stub.bodies) != 2 || !strings.HasSuffix(stub.bodies[1]["source"].(map[string]any)["url"].(string), "/mvhevc_part2.mov") ||
+		!strings.HasSuffix(stub.bodies[1]["output_upload_url"].(string), "/repack_half_sbs_part2.mp4") {
+		t.Fatalf("split bodies %v", stub.bodies)
+	}
+	stub.byID = map[string]string{stub.ids[0]: "done", stub.ids[1]: "running"}
+	_, out = formatsCall(s, uid, c.ID, http.MethodGet, "")
+	if strings.Join(strs(out["pending"]), ",") != "half_sbs" {
+		t.Fatalf("one part done %v", out)
+	}
+	stub.byID[stub.ids[1]] = "failed"
+	_, out = formatsCall(s, uid, c.ID, http.MethodGet, "")
+	got, _ := s.Store.GetConversion(ctx, c.ID)
+	if r := got.Repacks["half_sbs"]; r.Status != "failed" || got.Outputs["half_sbs_part1"] != "" || r.Parts[0].Status != "succeeded" || r.Parts[1].Status != "failed" {
+		t.Fatalf("one part failed %+v %v", r, got.Outputs)
+	}
+	if strings.Join(strs(out["available"]), ",") != "half_sbs" {
+		t.Fatalf("retryable %v", out)
+	}
+	code, out = formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"half_sbs"}`)
+	if code != 202 || len(stub.bodies) != 3 || !strings.HasSuffix(stub.bodies[2]["output_upload_url"].(string), "/repack_half_sbs_part2.mp4") {
+		t.Fatalf("retry %d %v %d", code, out, len(stub.bodies))
+	}
+	stub.byID[stub.ids[2]] = "done"
+	_, out = formatsCall(s, uid, c.ID, http.MethodGet, "")
+	got, _ = s.Store.GetConversion(ctx, c.ID)
+	if strings.Join(strs(out["have"]), ",") != "mvhevc,sbs,half_sbs" || got.RepackPending || got.Repacks["half_sbs"].Attempts != 2 ||
+		!strings.HasSuffix(got.Outputs["half_sbs_part1"], "/repack_half_sbs_part1.mp4") || !strings.HasSuffix(got.Outputs["half_sbs_part2"], "/repack_half_sbs_part2.mp4") {
+		t.Fatalf("split done %v %v", out, got.Outputs)
 	}
 }
 
