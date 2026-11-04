@@ -92,9 +92,9 @@ func init() {
 
 // attributePlanStart records a start of product (pro | business | studio)
 // once per key, with the last plans_surface_click of the 7 days before.
-func (s *Service) attributePlanStart(ctx context.Context, uid, product, source, key string, at time.Time) {
+func (s *Service) attributePlanStart(ctx context.Context, uid, product, source, key string, at time.Time) bool {
 	if s.Store == nil || uid == "" {
-		return
+		return false
 	}
 	pc := store.PlanConversion{UID: uid, Product: product, Source: source, At: at}
 	events, err := s.Store.ListUserEvents(ctx, uid, at.Add(-attributionWindow), 2000)
@@ -116,9 +116,11 @@ func (s *Service) attributePlanStart(ctx context.Context, uid, product, source, 
 		t := last.At
 		pc.ClickAt = &t
 	}
-	if _, err := s.Store.AddPlanConversion(ctx, key, pc); err != nil {
+	added, err := s.Store.AddPlanConversion(ctx, key, pc)
+	if err != nil {
 		slog.WarnContext(ctx, "plan attribution not stored", "uid", uid, "key", key, "err", err)
 	}
+	return added
 }
 
 // proSeen: the Pro state this instance last stored per uid.

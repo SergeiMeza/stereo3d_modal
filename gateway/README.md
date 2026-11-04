@@ -909,6 +909,29 @@ is ignored without such a plan.
   value}`; `DELETE /v1/billing/company/tax-ids/{txi_…}` (refused every id
   until 2026-11-04: the route ran the 12-hex check).
 
+### App Store Pro beside a plan (owner 2026-11-04)
+
+No refunds or credits from us for an App Store Pro when someone buys
+Business/Studio, only instructions.
+- **`GET /v1/pro`** (and refresh) add `source` (`app_store` |
+  `mac_app_store` | `rc_billing` | `promotional` | `plan` | `simulated`)
+  and `management_url` (RevenueCat's `subscriber.management_url`, else
+  `https://apps.apple.com/account/subscriptions` for Apple stores).
+- **Plan receipt (E18)**, at the subscription's first paid invoice, once:
+  "Spatial Video Studio: your Business plan has started"; with an active
+  App Store Pro (found among all subscriptions, not hidden by the plan's
+  entitlement) it adds "Your Pro is billed by Apple. Business includes
+  everything Pro does, so cancel Pro in your iPhone's Settings → [your
+  name] → Subscriptions to avoid paying for both." and the management
+  link. `plan.started_at` is set then.
+- **Reminder (E19)**, from the balance sweep, once per subscription,
+  checked 3 days after `started_at`: only while the plan is active and
+  not set to cancel, and the App Store Pro is active and still renews
+  (no `unsubscribe_detected_at`): "Spatial Video Studio: cancel your App
+  Store Pro to avoid paying twice". `plan.app_pro_checked` records the
+  decision either way. On test, customer mails go to the owner's alert
+  address with "(test)".
+
 ### Plans surfaces (owner 2026-11-04)
 
 - **Events** (`POST /v1/events`): `plans_surface_view`,

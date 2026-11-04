@@ -72,6 +72,21 @@ type Status struct {
 	// (app_store | mac_app_store | stripe | rc_billing | promotional | …;
 	// "" unknown).
 	Store string
+	// ManagementURL: RevenueCat's subscriber.management_url (where the
+	// person manages their subscription; Apple's for App Store ones).
+	ManagementURL string
+	// AppStore: an active App Store or Mac App Store subscription, found
+	// among all subscriptions (a web plan's grant can hide it behind the
+	// entitlement); nil without one.
+	AppStore *AppStoreSub
+}
+
+// AppStoreSub is an active subscription billed by Apple.
+type AppStoreSub struct {
+	Product   string
+	Store     string // app_store | mac_app_store
+	ExpiresAt *time.Time
+	WillRenew bool // no unsubscribe_detected_at
 }
 
 type entry struct {
@@ -142,10 +157,13 @@ type subscriber struct {
 			Store        string    `json:"store"`
 		} `json:"non_subscriptions"`
 		Subscriptions map[string]struct {
-			PurchaseDate time.Time  `json:"purchase_date"`
-			ExpiresDate  *time.Time `json:"expires_date"`
-			Store        string     `json:"store"`
+			PurchaseDate          time.Time  `json:"purchase_date"`
+			ExpiresDate           *time.Time `json:"expires_date"`
+			Store                 string     `json:"store"`
+			UnsubscribeDetectedAt *time.Time `json:"unsubscribe_detected_at"`
+			RefundedAt            *time.Time `json:"refunded_at"`
 		} `json:"subscriptions"`
+		ManagementURL string `json:"management_url"`
 	} `json:"subscriber"`
 }
 
@@ -178,6 +196,20 @@ func (c *Client) fetch(ctx context.Context, uid string, now time.Time) (Status, 
 // its n months ago — passes sit outside the entitlement because a
 // one-off purchase never expires in RevenueCat.
 func statusOf(b subscriber, now time.Time) Status {
+	st := statusOfEntitlements(b, now)
+	st.ManagementURL = b.Subscriber.ManagementURL
+	for product, sub := range b.Subscriber.Subscriptions {
+		if (sub.Store == "app_store" || sub.Store == "mac_app_store") && sub.RefundedAt == nil &&
+			(sub.ExpiresDate == nil || sub.ExpiresDate.After(now)) {
+			if st.AppStore == nil || (sub.ExpiresDate != nil && st.AppStore.ExpiresAt != nil && sub.ExpiresDate.After(*st.AppStore.ExpiresAt)) {
+				st.AppStore = &AppStoreSub{Product: product, Store: sub.Store, ExpiresAt: sub.ExpiresDate, WillRenew: sub.UnsubscribeDetectedAt == nil}
+			}
+		}
+	}
+	return st
+}
+
+func statusOfEntitlements(b subscriber, now time.Time) Status {
 	active := func(name string) (Status, bool) {
 		e, ok := b.Subscriber.Entitlements[name]
 		if !ok || !(e.ExpiresDate == nil || e.ExpiresDate.After(now) ||

@@ -159,6 +159,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			next.RCRevokedAt, next.RCRevokeReason = c.Plan.RCRevokedAt, c.Plan.RCRevokeReason
 			next.LastInvoiceID, next.LastCreditCents = c.Plan.LastInvoiceID, c.Plan.LastCreditCents
 			next.GrantsPaused = c.Plan.GrantsPaused
+			next.StartedAt, next.AppProChecked = c.Plan.StartedAt, c.Plan.AppProChecked
 		}
 		c.Plan = next
 		return nil
@@ -212,7 +213,9 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
 	// A plan started: once per subscription, with the plans surface they
 	// last clicked (renewals find it recorded).
-	s.attributePlanStart(ctx, uid, tier, "checkout", "plan:"+sub.ID, time.Now().UTC())
+	if s.attributePlanStart(ctx, uid, tier, "checkout", "plan:"+sub.ID, time.Now().UTC()) {
+		s.planStarted(ctx, uid, tier, sub.ID) // first invoice: started_at and the receipt mail
+	}
 	_, periodEnd := sub.Period()
 	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit
 	def, ok := s.rates(ctx).Plan(tier)

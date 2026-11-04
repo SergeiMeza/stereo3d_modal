@@ -4,10 +4,12 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
+	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
 // ProStatus is GET /v1/pro and POST /v1/pro/refresh (S3D-68): whether the
@@ -18,6 +20,11 @@ type ProStatus struct {
 	Pro   bool   `json:"pro"`
 	Via   string `json:"via,omitempty"`
 	Known bool   `json:"known"`
+	// Source: where Pro comes from (app_store | mac_app_store |
+	// rc_billing | promotional | plan | simulated); ManagementURL: where to
+	// manage it (RevenueCat's, else Apple's page for Apple stores).
+	Source        string `json:"source,omitempty"`
+	ManagementURL string `json:"management_url,omitempty"`
 	// FreePreviews: the Pro holder's free Lifelike previews, from the
 	// gateway's own table (owner 2026-11-04): {allowance, per_period,
 	// period: week|month|year|pass}; absent when not Pro.
@@ -60,7 +67,7 @@ func (s *Service) simulatedProStatus(ctx context.Context, uid string) (ProStatus
 	if err != nil || !s.simulatedAppPro(cust) {
 		return ProStatus{}, false
 	}
-	return s.withFreePreviews(ctx, ProStatus{Pro: true, Via: "simulated_app_pro", Known: true}, "pro_monthly"), true
+	return s.withFreePreviews(ctx, ProStatus{Pro: true, Via: "simulated_app_pro", Known: true, Source: "simulated"}, "pro_monthly"), true
 }
 
 // HandleProStatus answers from the 10-minute cache.
@@ -80,7 +87,7 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "") // a start of Pro (plans count at checkout)
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpx.WriteOK(w, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()))
+	httpx.WriteOK(w, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err))
 }
 
 // HandleProRefresh asks RevenueCat again, skipping the cache: the web calls
@@ -102,5 +109,19 @@ func (s *Service) HandleProRefresh(w http.ResponseWriter, r *http.Request, u *Au
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "")
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpx.WriteOK(w, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()))
+	httpx.WriteOK(w, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err))
+}
+
+// withSource adds where Pro comes from and where to manage it.
+func (s *Service) withSource(ctx context.Context, uid string, ps ProStatus, st revenuecat.Status, err error) ProStatus {
+	if err != nil || !ps.Pro {
+		return ps
+	}
+	var cust *store.Customer
+	if s.Store != nil {
+		cust, _ = s.Store.GetCustomer(ctx, uid)
+	}
+	ps.Source = proSource(st, cust, time.Now().UTC())
+	ps.ManagementURL = managementURL(st, ps.Source)
+	return ps
 }

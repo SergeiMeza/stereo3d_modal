@@ -37,6 +37,11 @@ type Plan struct {
 	// or fraud warning on its invoice, a block); "" = granted.
 	Interval     string `firestore:"interval,omitempty" json:"interval,omitempty"`
 	GrantsPaused string `firestore:"grants_paused,omitempty" json:"-"`
+	// StartedAt: the subscription's first paid invoice; AppProChecked: the
+	// subscription whose App Store Pro reminder was decided (sent or not
+	// needed), once (owner 2026-11-04).
+	StartedAt     *time.Time `firestore:"started_at,omitempty" json:"-"`
+	AppProChecked string     `firestore:"app_pro_checked,omitempty" json:"-"`
 }
 
 // AddMonths is t plus n calendar months, the day clamped to the month's
