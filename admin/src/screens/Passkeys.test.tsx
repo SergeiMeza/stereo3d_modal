@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AdminSession, memoryStorage } from "../lib/adminSession";
-import { apiError, FakeAuth, noSession, renderApp } from "../test/harness";
+import { apiError, FakeAuth, findToast, noSession, renderApp } from "../test/harness";
 import { creationOptions, installWebAuthn, notAllowed, requestOptions } from "../test/webauthn";
 
 const googleDone = () => new FakeAuth({ kind: "passkey", email: "owner@example.com", uid: "owner" });
@@ -300,7 +300,7 @@ describe("Security: passkeys (ADR 0135)", () => {
     expect(wa.get).toHaveBeenCalledTimes(1);
     expect(wa.create).toHaveBeenCalledTimes(1);
     expect(calls.find((c) => c.path === "/v1/admin/passkeys/register/verify")!.body).toMatchObject({ name: "YubiKey" });
-    expect(screen.getByRole("status")).toHaveTextContent("Passkey added.");
+    expect(await findToast("Passkey added.")).toBeInTheDocument();
   });
 
   it("removes a passkey after a confirm", async () => {
@@ -318,7 +318,7 @@ describe("Security: passkeys (ADR 0135)", () => {
       signedIn(),
     );
     const row = await screen.findByTestId("passkey-pk_2");
-    await userEvent.click(within(row).getByRole("button", { name: "Remove…" }));
+    await userEvent.click(within(row).getByRole("button", { name: "Remove iPhone · Safari" }));
     const confirm = screen.getByRole("alertdialog", { name: 'Remove "iPhone · Safari"?' });
     await userEvent.click(within(confirm).getByRole("button", { name: "Remove passkey" }));
     await waitFor(() => expect(screen.queryByTestId("passkey-pk_2")).toBeNull());
@@ -335,7 +335,7 @@ describe("Security: passkeys (ADR 0135)", () => {
       googleDone(),
       signedIn(),
     );
-    await userEvent.click(await screen.findByRole("button", { name: "Remove…" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove Mac · Safari" }));
     const confirm = screen.getByRole("alertdialog");
     await userEvent.click(within(confirm).getByRole("button", { name: "Remove passkey" }));
     expect(await within(confirm).findByRole("alert")).toHaveTextContent("Add another passkey before removing this one.");

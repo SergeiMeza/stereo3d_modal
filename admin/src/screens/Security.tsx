@@ -1,6 +1,11 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
-import { Button, ErrorState, Field, Sheet, SkeletonRows } from "../components/ui";
+import { EmptyRow, ErrorState, Modal, Note, PageHeader, Panel, SkeletonRows } from "@/components/common";
+import { Button } from "@/components/ui/button";
+import { Field, FieldControl, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateTime } from "../lib/format";
 import { createPasskey, deviceName, PASSKEY_COPY, passkeyErrorMessage } from "../lib/passkeys";
@@ -19,42 +24,45 @@ export function SecurityPage() {
   const { state, retry, set } = useLoad(() => api.listPasskeys(), [api]);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Passkey | null>(null);
-  const [flash, setFlash] = useState("");
 
   return (
     <>
-      <div className="titlebar">
-        <h1>Security</h1>
-        <span className="muted small">Passkeys for signing in and confirming money actions</span>
-        <span className="grow" />
-        <Button variant="primary" onClick={() => setAdding(true)}>Add a passkey</Button>
-      </div>
-      {flash && <p className="ok small" role="status">{flash}</p>}
+      <PageHeader title="Security" actions={<Button variant="default" onClick={() => setAdding(true)}>Add a passkey</Button>}>
+        <span className="text-sm text-muted-foreground">Passkeys for signing in and confirming money actions</span>
+      </PageHeader>
       {state.kind === "loading" && <SkeletonRows rows={2} cols={4} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load the passkeys." message={errorMessage(state.error)} onRetry={retry} />
       )}
       {state.kind === "loaded" && (
-        <section className="card">
-          <div className="sh"><b>Passkeys</b><span className="xs muted">{PASSKEY_COPY}</span></div>
+        <Panel title="Passkeys" note={PASSKEY_COPY}>
           {state.data.length === 0 ? (
-            <p className="muted xs pad">No passkeys yet.</p>
+            <EmptyRow>No passkeys yet.</EmptyRow>
           ) : (
-            <table className="at" data-testid="passkeys">
-              <thead><tr><th>Name</th><th>Created</th><th>Last used</th><th /></tr></thead>
-              <tbody>
+            <Table data-testid="passkeys">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead><TableHead>Created</TableHead><TableHead>Last used</TableHead>
+                  <TableHead><span className="sr-only">Actions</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {state.data.map((p) => (
-                  <tr key={p.id} data-testid={`passkey-${p.id}`}>
-                    <td>{p.name}</td>
-                    <td className="xs">{dateTime(p.created_at)}</td>
-                    <td className="xs">{p.last_used_at ? dateTime(p.last_used_at) : "Never"}</td>
-                    <td><Button size="sm" onClick={() => setRemoving(p)}>Remove…</Button></td>
-                  </tr>
+                  <TableRow key={p.id} data-testid={`passkey-${p.id}`}>
+                    <TableCell className="max-w-72 truncate">{p.name}</TableCell>
+                    <TableCell className="text-xs">{dateTime(p.created_at)}</TableCell>
+                    <TableCell className="text-xs">{p.last_used_at ? dateTime(p.last_used_at) : "Never"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" aria-label={`Remove ${p.name}`} onClick={() => setRemoving(p)}>
+                        Remove…
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
-        </section>
+        </Panel>
       )}
       {adding && (
         <AddSheet
@@ -63,7 +71,7 @@ export function SecurityPage() {
             await withReauth(() => createPasskey(api, name));
             set(await api.listPasskeys());
             setAdding(false);
-            setFlash("Passkey added.");
+            toast.success("Passkey added.");
           }}
         />
       )}
@@ -75,7 +83,7 @@ export function SecurityPage() {
             await withReauth(() => api.removePasskey(removing.id));
             set(await api.listPasskeys());
             setRemoving(null);
-            setFlash("Passkey removed.");
+            toast.success("Passkey removed.");
           }}
         />
       )}
@@ -99,26 +107,24 @@ function AddSheet({ onClose, onAdd }: { onClose: () => void; onAdd: (name: strin
     }
   };
   return (
-    <Sheet
+    <Modal
       title="Add a passkey"
       subtitle={PASSKEY_COPY}
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" size="lg" onClick={() => void go()} disabled={busy}>
-            {busy ? "Waiting for the passkey…" : "Add passkey"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Waiting for the passkey…" : "Add passkey"}
+      onConfirm={() => void go()}
     >
-      <Field label="Name" hint="So you can tell your passkeys apart, e.g. the device.">
-        <input className="input" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+      <Field>
+        <FieldLabel>Name</FieldLabel>
+        <FieldControl>
+          <Input maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+        </FieldControl>
+        <FieldDescription>So you can tell your passkeys apart, e.g. the device.</FieldDescription>
       </Field>
-      <p className="muted small">You'll confirm with a passkey you already have first.</p>
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      <Note>You'll confirm with a passkey you already have first.</Note>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
 
@@ -141,22 +147,17 @@ function RemoveSheet({ passkey, onClose, onRemove }: { passkey: Passkey; onClose
     }
   };
   return (
-    <Sheet
-      alert
+    <Modal
+      kind="alert"
       title={`Remove "${passkey.name}"?`}
       subtitle="It can't sign in to the console or confirm money actions any more. This can't be undone."
       onClose={onClose}
       busy={busy}
-      footer={
-        <>
-          <Button variant="ghost" size="lg" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="danger" size="lg" onClick={() => void go()} disabled={busy}>
-            {busy ? "Removing…" : "Remove passkey"}
-          </Button>
-        </>
-      }
+      confirmLabel={busy ? "Removing…" : "Remove passkey"}
+      confirmVariant="destructive"
+      onConfirm={() => void go()}
     >
-      {error && <p className="err small" role="alert">{error}</p>}
-    </Sheet>
+      {error && <Note tone="error">{error}</Note>}
+    </Modal>
   );
 }
