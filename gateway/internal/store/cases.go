@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -103,7 +104,13 @@ type Case struct {
 	Dispute         *DisputeInfo     `firestore:"dispute,omitempty" json:"dispute,omitempty"`
 	// Promo: the account's promotional grants removed when the dispute
 	// opened (the promo_regrants record and its snapshot).
-	Promo          *CasePromo  `firestore:"promo,omitempty" json:"promo,omitempty"`
+	Promo *CasePromo `firestore:"promo,omitempty" json:"promo,omitempty"`
+	// FollowUpOf: the closed case a customer wrote to again (this case
+	// carries the message; the closed one is never written).
+	// FollowUpIDs: on a closed case, its follow-ups (read from their
+	// follow_up_of when the case page is built, never stored).
+	FollowUpOf     string      `firestore:"follow_up_of,omitempty" json:"follow_up_of,omitempty"`
+	FollowUpIDs    []string    `firestore:"-" json:"follow_up_ids"`
 	CustomerText   string      `firestore:"customer_text,omitempty" json:"customer_text,omitempty"`
 	EvidenceN      int         `firestore:"evidence_n" json:"evidence_n"`
 	EvidenceAt     *time.Time  `firestore:"evidence_at,omitempty" json:"evidence_at,omitempty"`
@@ -264,16 +271,101 @@ func (s *Store) UpdateCase(ctx context.Context, id, who string, mutate func(c *C
 	return out, err
 }
 
-// AddCaseEvent appends a timeline line.
+// ErrCaseClosed: the event isn't one a closed case takes.
+var ErrCaseClosed = errors.New("case closed")
+
+// closedCaseEvents are the system events a closed case still takes
+// through AddCaseEvent (owner 2026-11-04; everything else is refused with
+// ErrCaseClosed, and admins reopen a case before writing to it):
+//
+//   - closed: written right after the status change that closes it
+//   - refund_executed: the refund that closed it (card, balance, outside
+//     Stripe), recorded after the close
+//   - refund_failed: a refund failing after the close (a new linked
+//     refund_failed case takes the follow-up)
+//   - superseded: a dispute superseding the case, written after it closed
+//   - plan_ended: a plan refund's summary, written after the refund
+//     closed the case
+//   - promo_restored: the owner's restore after a lost dispute (written
+//     through AppendClosedCaseEvent, idempotent per restore)
+var closedCaseEvents = map[string]bool{
+	"closed": true, "refund_executed": true, "refund_failed": true, "superseded": true, "plan_ended": true,
+	CaseEventPromoRestored: true,
+}
+
+// ClosedCaseTakes: a closed case accepts an event of this kind.
+func ClosedCaseTakes(kind string) bool { return closedCaseEvents[kind] }
+
+// AddCaseEvent appends a timeline line; a closed case takes only the
+// allow-listed system events (ErrCaseClosed otherwise).
 func (s *Store) AddCaseEvent(ctx context.Context, id string, e CaseEvent) error {
 	if e.At.IsZero() {
 		e.At = time.Now().UTC()
 	}
-	_, err := s.caseDoc(id).Collection("events").NewDoc().Create(ctx, e)
-	if err == nil {
-		_, _ = s.caseDoc(id).Update(ctx, []firestore.Update{{Path: "last_activity_at", Value: e.At}})
+	return s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(s.caseDoc(id))
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if st, _ := snap.DataAt("status"); st == CaseClosed && !closedCaseEvents[e.Kind] {
+			return fmt.Errorf("%w: %w: %s takes no %s event", ErrStateConflict, ErrCaseClosed, id, e.Kind)
+		}
+		if err := tx.Create(s.caseDoc(id).Collection("events").NewDoc(), e); err != nil {
+			return err
+		}
+		return tx.Update(s.caseDoc(id), []firestore.Update{{Path: "last_activity_at", Value: e.At}})
+	})
+}
+
+// ListFollowUpIDs: the cases opened as follow-ups of id.
+func (s *Store) ListFollowUpIDs(ctx context.Context, id string) ([]string, error) {
+	snaps, err := s.fs.Collection(casesCol(s.env)).Where("follow_up_of", "==", id).Limit(50).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
 	}
-	return err
+	out := make([]string, 0, len(snaps))
+	for _, sn := range snaps {
+		out = append(out, sn.Ref.ID)
+	}
+	return out, nil
+}
+
+// ReopenCase opens a closed case again (an admin's explicit reopen, with
+// the reason on the timeline).
+func (s *Store) ReopenCase(ctx context.Context, id, who, reason string) (*Case, error) {
+	var out *Case
+	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(s.caseDoc(id))
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		c, err := snapToCase(snap)
+		if err != nil {
+			return err
+		}
+		if c.Status != CaseClosed {
+			return fmt.Errorf("%w: %s isn't closed", ErrStateConflict, id)
+		}
+		now := time.Now().UTC()
+		prevResult := c.Result
+		c.Status, c.Open, c.Result, c.ClosedAt, c.StatusSince, c.LastActivityAt = CaseOpen, true, "", nil, now, now
+		if err := tx.Create(s.caseDoc(id).Collection("events").NewDoc(), CaseEvent{At: now, Who: who, Kind: "status_change", Text: CaseClosed + " → " + CaseOpen}); err != nil {
+			return err
+		}
+		if err := tx.Create(s.caseDoc(id).Collection("events").NewDoc(), CaseEvent{At: now, Who: who, Kind: "reopened", Text: reason,
+			Data: map[string]any{"previous_result": prevResult}}); err != nil {
+			return err
+		}
+		out = c
+		return tx.Set(s.caseDoc(id), c)
+	})
+	return out, err
 }
 
 // CaseEventPromoRestored is the one event a closed case still takes

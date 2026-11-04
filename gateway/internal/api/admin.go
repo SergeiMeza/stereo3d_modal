@@ -287,6 +287,10 @@ func (s *Service) HandleAdminCase(w http.ResponseWriter, r *http.Request, a *Adm
 }
 
 func (s *Service) casePage(ctx context.Context, c *store.Case) map[string]any {
+	c.FollowUpIDs = []string{}
+	if ids, err := s.Store.ListFollowUpIDs(ctx, c.ID); err == nil {
+		c.FollowUpIDs = ids
+	}
 	runs, max := s.perRun(ctx, c)
 	events, _ := s.Store.ListCaseEvents(ctx, c.ID, 200)
 	evidence, _ := s.Store.LatestEvidence(ctx, c.ID)
@@ -360,8 +364,8 @@ func ifThen(ok bool, s string) string {
 
 // caseActions lists what the console offers on a case (A2's table).
 func caseActions(c *store.Case) []string {
-	if !c.Open {
-		return []string{"note"}
+	if !c.Open { // closed is final unless reopened; a customer's message opens a follow-up case
+		return []string{"reopen", "customer_reply"}
 	}
 	switch {
 	case c.Type == store.CaseDispute:
@@ -417,6 +421,10 @@ func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, 
 		httpx.WriteErr(ctx, w, httpx.ErrNotFound("case"))
 		return
 	}
+	if !c.Open {
+		s.closedCaseAction(w, r, a, c, req)
+		return
+	}
 	if !contains(caseActions(c), req.Action) {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "action_unavailable", "that action isn't available on this case now"))
 		return
@@ -436,6 +444,66 @@ func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, 
 	}
 	fresh, _ := s.Store.GetCase(ctx, id)
 	httpx.WriteOK(w, s.casePage(ctx, fresh))
+}
+
+func errCaseClosed() error {
+	return httpx.Err(http.StatusConflict, "case_closed", "This case is closed. Reopen it first (action reopen, with the reason).")
+}
+
+// closedCaseAction: a closed case takes reopen {text: the reason} and a
+// customer's message (customer_reply), which never writes to it but opens
+// a follow-up case (follow_up_of) and notices the owner as a new case
+// does; anything else is 409 case_closed.
+func (s *Service) closedCaseAction(w http.ResponseWriter, r *http.Request, a *AdminUser, c *store.Case, req caseActionReq) {
+	ctx := r.Context()
+	switch req.Action {
+	case "reopen":
+		reason := strings.TrimSpace(req.Text)
+		if reason == "" {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("say why the case reopens (text)"))
+			return
+		}
+		s.audit(ctx, a, "case_reopen", map[string]any{"case_id": c.ID, "reason": reason})
+		fresh, err := s.Store.ReopenCase(ctx, c.ID, a.who(), reason)
+		if err != nil {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "case_not_closed", "That case isn't closed."))
+			return
+		}
+		httpx.WriteOK(w, s.casePage(ctx, fresh))
+	case "customer_reply":
+		text := strings.TrimSpace(req.Text)
+		if text == "" {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("the customer's message (text)"))
+			return
+		}
+		s.audit(ctx, a, "case_customer_reply_follow_up", map[string]any{"case_id": c.ID})
+		nc, err := s.followUpCase(ctx, c, text, a.who())
+		if err != nil {
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, s.casePage(ctx, nc)) // case.follow_up_of names the closed one
+	default:
+		httpx.WriteErr(ctx, w, errCaseClosed())
+	}
+}
+
+// followUpCase opens (or finds the open) follow-up of a closed case for a
+// customer's message and puts the message on it.
+func (s *Service) followUpCase(ctx context.Context, old *store.Case, text, who string) (*store.Case, error) {
+	nc, err := s.openCase(ctx, &store.Case{UID: old.UID, Type: store.CaseSupport, Reason: ReasonSupport, Mode: "manual", Source: "customer_reply",
+		Status: store.CaseOpen, DedupeKey: "follow_up:" + old.ID, CustomerText: text,
+		Related: store.CaseRelated{ConversionIDs: old.Related.ConversionIDs, PIIDs: old.Related.PIIDs, ChargeIDs: old.Related.ChargeIDs,
+			TopupID: old.Related.TopupID, LinkedCaseIDs: []string{old.ID}}, FollowUpOf: old.ID},
+		who, "customer wrote again on closed case "+old.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Store.AddCaseEvent(ctx, nc.ID, store.CaseEvent{Who: "customer", Kind: "customer_message_in", Text: text,
+		Data: map[string]any{"follow_up_of": old.ID}}); err != nil {
+		return nil, err
+	}
+	return nc, nil
 }
 
 // applyCaseAction runs one A2 action (shared with svs-admin).
@@ -463,7 +531,11 @@ func (s *Service) applyCaseAction(ctx context.Context, c *store.Case, req caseAc
 	}
 	switch req.Action {
 	case "note":
-		return s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: who, Kind: "note", Text: req.Text})
+		if err := s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: who, Kind: "note", Text: req.Text}); errors.Is(err, store.ErrCaseClosed) {
+			return errCaseClosed()
+		} else {
+			return err
+		}
 	case "customer_reply":
 		s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: "customer", Kind: "customer_message_in", Text: req.Text})
 		_, err := s.Store.UpdateCase(ctx, c.ID, who, func(x *store.Case) error {

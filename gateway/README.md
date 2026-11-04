@@ -1179,9 +1179,22 @@ dispute case (`case.promo {record_id, snapshot, status}`).
   `promo_restored`, `data {type, by, at, reason, restore_id,
   regranted[{entitlement, ends_at}], skipped[{entitlement, ends_at}]}`,
   in the admin case timeline `events`); the case stays closed and
-  unchanged. That kind is the only exception to the closed-case guard
-  (`AppendClosedCaseEvent`, idempotent per restore id); `UpdateCase` on a
-  closed case is still refused.
+  unchanged (`AppendClosedCaseEvent`, idempotent per restore id).
+
+**Closed cases are locked (owner 2026-11-04).** `UpdateCase` refuses a
+closed case, and `AddCaseEvent` on one takes only these system events
+(`closedCaseEvents` in `store/cases.go`): `closed`, `refund_executed`,
+`refund_failed`, `superseded`, `plan_ended`, `promo_restored`; anything
+else is `ErrCaseClosed`. On a closed case the admin actions are:
+`reopen {text: reason}` (audited; timeline `status_change` + `reopened
+{previous_result}`), and `customer_reply {text}`, which never writes to
+the closed case but opens (or reuses the open) follow-up case: type
+`support`, reason `support_request`, `case.follow_up_of` = the closed
+case, `related.linked_case_ids`, the message as `customer_message_in`,
+the owner noticed (O1) as for any new case. Every other action (note,
+decisions, close) is 409 `case_closed`; so is `adjust_balance` naming a
+closed case. The case page shows `case.follow_up_ids[]` (read from the
+follow-ups, never stored on the closed case) and `case.follow_up_of`.
 - The rule for disputes sits in `disputePromoPolicy` (the owner may still
   change it).
 - Admin `GET /v1/admin/accounts/{uid}` adds `promo_regrants` (the

@@ -151,8 +151,11 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 			err = httpx.ErrInvalid("an adjustment needs an amount and a case")
 			break
 		}
-		if _, cerr := s.Store.GetCase(ctx, req.CaseID); cerr != nil {
+		if cs, cerr := s.Store.GetCase(ctx, req.CaseID); cerr != nil {
 			err = httpx.ErrInvalid("no case " + req.CaseID)
+			break
+		} else if !cs.Open {
+			err = errCaseClosed() // the adjustment's note goes on the case: reopen it first
 			break
 		}
 		var fx store.BalanceEffects
