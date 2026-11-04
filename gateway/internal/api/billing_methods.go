@@ -372,55 +372,6 @@ func (s *Service) ownedMethod(ctx context.Context, user *AuthedUser, id string) 
 
 // ------------------------------------------------------------ company
 
-// GET /v1/billing/company → {name, address, tax_ids: [{id, type, value, verification}]}
-func (s *Service) HandleGetCompany(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
-	ctx := r.Context()
-	customerID, err := s.ensureCustomerID(ctx, user)
-	if err != nil {
-		httpx.WriteErr(ctx, w, err)
-		return
-	}
-	c, err := s.Stripe.GetCompany(customerID)
-	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "couldn't load your company details; try again"))
-		return
-	}
-	httpx.WriteOK(w, c)
-}
-
-// PUT /v1/billing/company {name?, address?} — new invoices only.
-func (s *Service) HandlePutCompany(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
-	ctx := r.Context()
-	var req struct {
-		Name    *string           `json:"name"`
-		Address map[string]string `json:"address"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
-		return
-	}
-	addr := map[string]string{}
-	for _, k := range []string{"line1", "line2", "city", "state", "postal_code", "country"} {
-		if v, ok := req.Address[k]; ok {
-			addr[k] = strings.TrimSpace(v)
-		}
-	}
-	if req.Name != nil && len(*req.Name) > 200 {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("name is too long"))
-		return
-	}
-	customerID, err := s.ensureCustomerID(ctx, user)
-	if err != nil {
-		httpx.WriteErr(ctx, w, err)
-		return
-	}
-	if err := s.Stripe.UpdateCompany(customerID, req.Name, addr); err != nil {
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "invalid_company", stripex.ErrMessage(err)))
-		return
-	}
-	s.HandleGetCompany(w, r, user)
-}
-
 // POST /v1/billing/company/tax-ids {type, value}
 func (s *Service) HandleAddTaxID(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()

@@ -970,7 +970,7 @@ func (s *Service) mailTopup(ctx context.Context, t *store.Topup) {
 	lines = append(lines, "Your invoice will be in Billing shortly.")
 	s.mailCustomer(ctx, "E13_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), customerMail{
 		Kind: "E13", Subject: "Spatial Video Studio: " + kind + " · " + money(t.PaidCents), Lines: lines,
-		Button: "View billing", Link: s.Cfg.SiteURL + "/billing",
+		Button: "View billing", Link: s.Cfg.SiteURL + "/billing", Receipt: true,
 	})
 }
 

@@ -260,6 +260,7 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		PaymentStatus string            `json:"payment_status"`
 		Customer      string            `json:"customer"`
 		Metadata      map[string]string `json:"metadata"`
+		Details       checkoutDetails   `json:"customer_details"`
 	}
 	if err := json.Unmarshal(raw, &sess); err != nil {
 		return nil
@@ -277,6 +278,11 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		return s.applySettleSessionEvent(ctx, eventType, sess.ID, sess.Metadata["settle_id"])
 	case "topup":
 		return s.applyTopupSessionEvent(ctx, eventType, sess.ID, sess.Metadata["topup_id"])
+	case "plan": // the plan itself comes with invoice.paid; its company details here
+		if eventType == "checkout.session.completed" {
+			s.applyCheckoutCompany(ctx, sess.Metadata["user_id"], sess.Customer, sess.Metadata["plan"], sess.Details)
+		}
+		return nil
 	case "run":
 	default:
 		return nil

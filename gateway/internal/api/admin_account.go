@@ -44,6 +44,14 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 	if entries, _, err := s.Store.ListEntries(ctx, uid, 50, ""); err == nil {
 		out["ledger"] = entries
 	}
+	var sc *stripex.Company
+	if cust.StripeCustomerID != "" {
+		sc, _ = s.Stripe.GetCompany(cust.StripeCustomerID)
+	}
+	out["company"] = companyView(cust, sc)
+	if cust.Company != nil && len(cust.Company.Changes) > 0 {
+		out["company_changes"] = cust.Company.Changes
+	}
 	if cust.StripeCustomerID != "" {
 		if methods, err := s.Stripe.ListMethods(cust.StripeCustomerID); err == nil {
 			var ms []map[string]any

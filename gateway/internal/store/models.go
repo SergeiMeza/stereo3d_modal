@@ -564,8 +564,38 @@ type Customer struct {
 	// BusinessSetup: the Business/Studio setup's answers (owner
 	// 2026-11-04).
 	BusinessSetup *BusinessSetup `firestore:"business_setup,omitempty"`
+	// Company: the account's company details for invoices (from a plan
+	// Checkout or PUT /v1/billing/company); the Stripe Customer carries
+	// name, address, tax IDs and the PO custom field, kept in sync.
+	Company *CompanyDetails `firestore:"company,omitempty"`
 	// ProIntroUsed: the account has had web Pro's intro price (once).
 	ProIntroUsed bool `firestore:"pro_intro_used,omitempty"`
+}
+
+// CompanyDetails are the account's invoice details.
+type CompanyDetails struct {
+	CompanyName  string            `firestore:"company_name,omitempty"`
+	Address      map[string]string `firestore:"address,omitempty"` // line1, line2, city, postal_code, state, country
+	TaxIDs       []CompanyTaxID    `firestore:"tax_ids,omitempty"`
+	BillingEmail string            `firestore:"billing_email,omitempty"`
+	POReference  string            `firestore:"po_reference,omitempty"`
+	Source       string            `firestore:"source,omitempty"` // checkout | user
+	UpdatedAt    time.Time         `firestore:"updated_at"`
+	Changes      []CompanyChange   `firestore:"changes,omitempty"` // the last 20
+}
+
+// CompanyTaxID is one tax ID as entered.
+type CompanyTaxID struct {
+	Type  string `firestore:"type"`
+	Value string `firestore:"value"`
+}
+
+// CompanyChange is one change to the company details: when, by what
+// (checkout | user) and which fields.
+type CompanyChange struct {
+	At     time.Time `firestore:"at" json:"at"`
+	By     string    `firestore:"by" json:"by"`
+	Fields []string  `firestore:"fields" json:"fields"`
 }
 
 // BusinessSetup is what the setup flow asked.

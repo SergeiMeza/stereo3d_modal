@@ -41,7 +41,7 @@ func (s *Service) historyLink() string { return s.Cfg.SiteURL + "/billing" }
 // mailRefunded is E6 (to the card, out of band, to the balance, waive).
 func (s *Service) mailRefunded(ctx context.Context, cs *store.Case, cents int64, how string) {
 	what := s.caseRunsLabel(ctx, cs)
-	m := customerMail{Kind: "E6", Button: "View purchase history", Link: s.historyLink()}
+	m := customerMail{Kind: "E6", Button: "View purchase history", Link: s.historyLink(), Receipt: true}
 	switch how {
 	case "balance":
 		m.Subject = fmt.Sprintf("Spatial Video Studio: %s returned to your balance (%s)", money(cents), cs.ID)

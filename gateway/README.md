@@ -907,12 +907,35 @@ is ignored without such a plan.
   {business, studio}}], answers {accounts, by_main_use[{main_use, count}],
   by_team_size[{team_size, count}]}, generated_at}`; the onboarding
   headsets report carries the same `business_setup`.
-- **Company details** (existing): `GET /v1/billing/company` → `{name,
-  address {line1, line2, city, state, postal_code, country}, tax_ids[{id,
-  type, value, verification}]}`; `PUT /v1/billing/company {name?,
-  address?}` (new invoices only); `POST /v1/billing/company/tax-ids {type,
-  value}`; `DELETE /v1/billing/company/tax-ids/{txi_…}` (refused every id
-  until 2026-11-04: the route ran the 12-hex check).
+- **Company details** (owner 2026-11-04): Business and Studio Checkouts
+  require the billing address (`billing_address_collection: required`)
+  and offer an optional business name (`name_collection.business`) beside
+  tax ID collection (all of it works with `ui_mode: elements`; Pro keeps
+  the address optional). `checkout.session.completed` of a plan session
+  stores `customer_details` as `customer.company` (company name = business
+  name or name, address, tax IDs deduped, billing email = the Checkout
+  email unless one is set, PO null) and syncs the Stripe Customer (name,
+  address, tax IDs added if missing); a Pro Checkout counts only with a
+  business name or tax ID. **`GET /v1/billing/company`** →
+  `{company_name|null, address {line1, line2, city, postal_code, state,
+  country}, tax_id {type, value, verification}|null, billing_email|null,
+  po_reference|null}` plus the older `name`, `tax_ids[{id, type, value,
+  verification}]` (the Stripe Customer is the source for name, address
+  and tax ID; verification is Stripe's status: pending | verified |
+  unverified | unavailable). **`PUT /v1/billing/company`** with any of
+  those fields (absent = unchanged, null = cleared; `name` still accepted):
+  the tax ID is checked by Stripe first (400 `invalid_tax_id` with
+  Stripe's message, nothing changed) and replaces the others; name and
+  address update the Customer (400 `invalid_company`); `po_reference`
+  (≤ 100) becomes the Customer's invoice custom field `PO` on invoices
+  finalized from then on; `billing_email` is stored (400 `invalid_email`)
+  and copied (cc) on our receipt mails E1, E6, E13, since Stripe's API has
+  no extra invoice recipients (on test the copy is only named in the mail
+  to the owner). Every change is logged and kept on
+  `customer.company.changes[{at, by: checkout|user, fields}]` (last 20).
+  Admin `GET /v1/admin/accounts/{uid}` adds `company` (the same block) and
+  `company_changes`. The older `POST /v1/billing/company/tax-ids {type,
+  value}` and `DELETE /v1/billing/company/tax-ids/{txi_…}` stay.
 
 ### Web Pro on our own Stripe, and plan changes (owner 2026-11-04, test)
 

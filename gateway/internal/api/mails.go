@@ -33,6 +33,8 @@ type customerMail struct {
 	Lines   []string
 	Button  string
 	Link    string
+	// Receipt: a copy goes to the company's billing email when it has one.
+	Receipt bool
 }
 
 func (m customerMail) text() string {
@@ -59,10 +61,21 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 	}
 	to := email
 	msg := mail.Message{Subject: m.Subject, Text: m.text(), ReplyTo: supportInbox, IdempotencyKey: key}
+	cc := ""
+	if m.Receipt {
+		cc = s.billingEmailCopy(ctx, uid, email)
+	}
+	if cc != "" {
+		msg.Cc = []string{cc}
+	}
 	if s.Cfg.Env != "prod" {
-		to = s.Cfg.OwnerAlertEmail
+		to, msg.Cc = s.Cfg.OwnerAlertEmail, nil // test mails only ever reach the owner
 		msg.Subject += " (test)"
-		msg.Text = "[Test environment: this mail is for " + email + ".]\n\n" + msg.Text
+		head := "[Test environment: this mail is for " + email
+		if cc != "" {
+			head += ", copy to " + cc
+		}
+		msg.Text = head + ".]\n\n" + msg.Text
 	}
 	if to == "" || !s.Mail.Configured() {
 		slog.InfoContext(ctx, "customer mail not sent (no address or key)", "kind", m.Kind, "uid", uid)
@@ -103,7 +116,7 @@ func (s *Service) mailOrderConfirmation(ctx context.Context, c *store.Conversion
 			"It starts right away. You agreed that you lose your right to cancel once it's done.",
 			"Refunded in full if it fails.",
 		},
-		Button: "View your project", Link: s.Cfg.SiteURL + "/projects/" + c.ProjectID,
+		Button: "View your project", Link: s.Cfg.SiteURL + "/projects/" + c.ProjectID, Receipt: true,
 	})
 }
 

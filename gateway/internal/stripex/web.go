@@ -198,9 +198,20 @@ type Company struct {
 
 // TaxID is one of the customer's tax IDs.
 type TaxID struct {
-	ID    string `json:"id"`
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	ID           string `json:"id"`
+	Type         string `json:"type"`
+	Value        string `json:"value"`
+	Verification *struct {
+		Status string `json:"status"` // pending | verified | unverified | unavailable
+	} `json:"verification,omitempty"`
+}
+
+// VerificationStatus is Stripe's verification status ("" when none).
+func (t TaxID) VerificationStatus() string {
+	if t.Verification == nil {
+		return ""
+	}
+	return t.Verification.Status
 }
 
 // GetCompany reads the customer's company details.
@@ -244,6 +255,20 @@ func (c *Client) UpdateCompany(customerID string, name *string, address map[stri
 	}
 	if len(f) == 0 {
 		return nil
+	}
+	var out map[string]any
+	return webCall(http.MethodPost, "/v1/customers/"+url.PathEscape(customerID), f, "", &out)
+}
+
+// SetInvoicePO sets the customer's invoice custom field "PO" (shown on
+// every invoice finalized from now on); "" removes it.
+func (c *Client) SetInvoicePO(customerID, po string) error {
+	f := url.Values{}
+	if po == "" {
+		f.Set("invoice_settings[custom_fields]", "")
+	} else {
+		f.Set("invoice_settings[custom_fields][0][name]", "PO")
+		f.Set("invoice_settings[custom_fields][0][value]", po)
 	}
 	var out map[string]any
 	return webCall(http.MethodPost, "/v1/customers/"+url.PathEscape(customerID), f, "", &out)

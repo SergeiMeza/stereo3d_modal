@@ -28,6 +28,7 @@ const (
 // Message is one plain email.
 type Message struct {
 	To      string
+	Cc      []string // optional copies (a company's billing address on receipts)
 	Subject string
 	Text    string
 	HTML    string
@@ -83,6 +84,9 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 	}
 	if m.ReplyTo != "" {
 		payload["reply_to"] = m.ReplyTo
+	}
+	if len(m.Cc) > 0 {
+		payload["cc"] = m.Cc
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

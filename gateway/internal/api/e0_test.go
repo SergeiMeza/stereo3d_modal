@@ -38,6 +38,7 @@ type fakeStripe struct {
 	schedules      map[string]map[string]string // schedule id → last phases form (and "released")
 	failNextChange bool                         // the next subscription update answers 402
 	sessionForms   []map[string]string          // POST /v1/checkout/sessions forms
+	customers      map[string]*fakeCustomer     // customer id → name, address, tax IDs, PO
 	expired        []string
 	created        int
 }
@@ -45,7 +46,72 @@ type fakeStripe struct {
 func newFakeStripe() *fakeStripe {
 	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{},
 		subs: map[string]map[string]any{}, invPays: map[string]string{}, invs: map[string]map[string]any{},
-		invItems: map[string]int64{}, schedules: map[string]map[string]string{}}
+		invItems: map[string]int64{}, schedules: map[string]map[string]string{}, customers: map[string]*fakeCustomer{}}
+}
+
+type fakeCustomer struct {
+	name    string
+	address map[string]string
+	taxIDs  []map[string]any
+	po      string
+	n       int
+}
+
+// customer answers /v1/customers/{id}[/tax_ids[/{txi}]].
+func (f *fakeStripe) customer(w http.ResponseWriter, r *http.Request, rest string) {
+	write := func(v any) { _ = json.NewEncoder(w).Encode(v) }
+	parts := strings.Split(rest, "/")
+	c := f.customers[parts[0]]
+	if c == nil && (r.Method == http.MethodGet || len(parts) > 1 || r.Form.Get("name") == "" && r.Form.Get("address[country]") == "") {
+		w.WriteHeader(404) // only customers the company calls created (others' calls keep failing as before)
+		write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "unhandled /v1/customers/" + rest}})
+		return
+	}
+	if c == nil {
+		c = &fakeCustomer{address: map[string]string{}}
+		f.customers[parts[0]] = c
+	}
+	switch {
+	case len(parts) == 1:
+		if r.Method == http.MethodPost {
+			if _, ok := r.Form["name"]; ok {
+				c.name = r.Form.Get("name")
+			}
+			for _, k := range []string{"line1", "line2", "city", "postal_code", "state", "country"} {
+				if _, ok := r.Form["address["+k+"]"]; ok {
+					c.address[k] = r.Form.Get("address[" + k + "]")
+				}
+			}
+			if _, ok := r.Form["invoice_settings[custom_fields]"]; ok {
+				c.po = ""
+			}
+			if r.Form.Get("invoice_settings[custom_fields][0][name]") == "PO" {
+				c.po = r.Form.Get("invoice_settings[custom_fields][0][value]")
+			}
+		}
+		write(map[string]any{"id": parts[0], "name": c.name, "address": c.address})
+	case len(parts) == 2 && r.Method == http.MethodPost:
+		if strings.Contains(r.Form.Get("value"), "BAD") {
+			w.WriteHeader(400)
+			write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "Invalid value for eu_vat."}})
+			return
+		}
+		c.n++
+		t := map[string]any{"id": fmt.Sprintf("txi_%d", c.n), "type": r.Form.Get("type"), "value": r.Form.Get("value"), "verification": map[string]any{"status": "pending"}}
+		c.taxIDs = append(c.taxIDs, t)
+		write(t)
+	case len(parts) == 2:
+		write(map[string]any{"data": c.taxIDs})
+	case len(parts) == 3 && r.Method == http.MethodDelete:
+		kept := c.taxIDs[:0]
+		for _, t := range c.taxIDs {
+			if t["id"] != parts[2] {
+				kept = append(kept, t)
+			}
+		}
+		c.taxIDs = kept
+		write(map[string]any{"id": parts[2], "deleted": true})
+	}
 }
 
 func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +247,8 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(f.pi(id))
 	case strings.HasPrefix(p, "/v1/payment_intents/"):
 		write(f.pi(strings.TrimPrefix(p, "/v1/payment_intents/")))
+	case strings.HasPrefix(p, "/v1/customers/"):
+		f.customer(w, r, strings.TrimPrefix(p, "/v1/customers/"))
 	case p == "/v1/refunds":
 		f.refunds = append(f.refunds, r.Form.Get("payment_intent"))
 		amt, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
