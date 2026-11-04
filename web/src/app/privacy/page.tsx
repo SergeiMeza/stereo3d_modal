@@ -47,6 +47,11 @@ export default function PrivacyPage() {
           your account an internal user ID.
         </p>
         <p>
+          <strong>Passkeys.</strong>{" "}If you add a passkey, we store its
+          public key, its name and when it was last used. The private key
+          never leaves your device or password manager.
+        </p>
+        <p>
           <strong>Billing information.</strong>{" "}Payments are processed by
           Stripe. Your full payment details never touch our servers &mdash;
           Stripe stores them and gives us a customer reference plus a short
