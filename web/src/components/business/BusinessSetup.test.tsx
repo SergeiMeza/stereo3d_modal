@@ -1,6 +1,6 @@
 /**
  * Business and Studio setup (owner 2026-11-04): numbers from /v1/pricing,
- * no seat counts, company details before checkout, skippable questions,
+ * no seat counts, no company step (Checkout collects it), skippable questions,
  * the Pro slot per case, nothing charged before confirming, the funnel
  * events.
  */
@@ -68,20 +68,8 @@ function renderSetup() {
 const names = () => mockDb.events.map((e) => e.name);
 
 async function toCheckout(): Promise<void> {
-  mockDb.billing.company = {
-    name: "Northlight Films",
-    address: { country: "GB", city: "London" },
-    tax_ids: [],
-  };
   renderSetup();
   fireEvent.click(await screen.findByTestId("setup-next"));
-  await screen.findByTestId("setup-details");
-  await waitFor(() =>
-    expect(screen.getByTestId("setup-company-summary").textContent).toContain(
-      "Northlight Films",
-    ),
-  );
-  fireEvent.click(screen.getByTestId("setup-next"));
   fireEvent.click(await screen.findByTestId("setup-skip"));
   await screen.findByTestId("setup-checkout");
 }
@@ -103,19 +91,15 @@ describe("Business and Studio setup", () => {
     await waitFor(() => expect(names()).toContain("business_setup_opened"));
   });
 
-  it("company details come before the questions; the questions can be skipped", async () => {
+  it("plan, then the optional questions, then checkout; no company step", async () => {
     renderSetup();
     fireEvent.click(await screen.findByTestId("setup-plan-studio"));
     fireEvent.click(screen.getByTestId("setup-next"));
-    await screen.findByTestId("setup-details");
-    await waitFor(() =>
-      expect(screen.getByTestId("setup-company-summary").textContent).toBe(
-        "No company details yet.",
-      ),
+    expect(await screen.findByTestId("setup-questions")).toBeTruthy();
+    expect(screen.queryByTestId("setup-details")).toBeNull();
+    expect(screen.getByRole("list", { name: "Steps" }).textContent).toBe(
+      "1. Plan2. About you3. Pay",
     );
-    expect(
-      (screen.getByTestId("setup-next") as HTMLButtonElement).disabled,
-    ).toBe(true);
     await waitFor(() =>
       expect(
         mockDb.events.find((e) => e.name === "business_setup_plan_picked")
@@ -125,19 +109,8 @@ describe("Business and Studio setup", () => {
   });
 
   it("the answers are saved on the account; the funnel event carries none", async () => {
-    mockDb.billing.company = {
-      name: "Northlight Films",
-      address: { country: "GB", city: "London" },
-      tax_ids: [],
-    };
     renderSetup();
     fireEvent.click(await screen.findByTestId("setup-next"));
-    await waitFor(() =>
-      expect(screen.getByTestId("setup-company-summary").textContent).toContain(
-        "Northlight Films",
-      ),
-    );
-    fireEvent.click(screen.getByTestId("setup-next"));
     fireEvent.change(await screen.findByTestId("setup-team-size"), {
       target: { value: "4" },
     });
@@ -189,6 +162,9 @@ describe("Business and Studio setup", () => {
     expect(mockDb.planChanges).toEqual([]);
     fireEvent.click(screen.getByTestId("setup-confirm"));
     expect(await screen.findByTestId("setup-welcome")).toBeTruthy();
+    expect(screen.getByTestId("setup-company-link").getAttribute("href")).toBe(
+      "/account/business-details",
+    );
     expect(mockDb.planChanges).toEqual(["business"]);
     await waitFor(() => expect(names()).toContain("business_setup_purchased"));
     expect(

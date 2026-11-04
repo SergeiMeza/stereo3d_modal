@@ -59,7 +59,8 @@ export default function PrivacyPage() {
           payment method (such as Apple Pay, Google Pay, Alipay or WeChat
           Pay), we receive the same kind of short description. For Business
           and Studio invoices we keep the company name, billing address and
-          VAT ID you give us. To prevent fraud we keep a card fingerprint, a
+          VAT ID you give us, a billing email for invoice copies and an
+          optional purchase order reference. To prevent fraud we keep a card fingerprint, a
           code Stripe derives from a card that recognises it again without
           revealing its number.
         </p>

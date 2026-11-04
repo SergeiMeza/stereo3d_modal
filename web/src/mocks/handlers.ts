@@ -21,6 +21,7 @@ import downloadsFixture from "../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import { isTeamPlan } from "@/lib/api/types";
+import type { CompanyDetails } from "@/lib/api/types";
 import type {
   BillingCard,
   Format,
@@ -170,7 +171,7 @@ interface MockBilling {
   /** spec v6 B14: an account that hasn't saved or paid (P11) */
   limits?: { projects_left: number; bytes_left: number; reached?: boolean };
   /** spec v6.2 P16 */
-  company: { name?: string; address?: Record<string, string>; tax_ids: { id: string; type: string; value: string; verification?: string }[] };
+  company: CompanyDetails;
   /** what the next add-method confirm does */
   nextSetup: "saved" | "declined" | "too_many";
   /** spec v6 F hand-off codes (P7/P8) */
@@ -862,7 +863,7 @@ function seed(): DB {
       settling: false,
       checkouts: new Map(),
       nextConfirm: "paid",
-      company: { tax_ids: [] },
+      company: {},
       nextSetup: "saved",
       handoffs: new Map(),
       handoffRateLimited: false,
@@ -2895,31 +2896,20 @@ export const handlers = [
 
   http.get(`${GATEWAY}/v1/billing/company`, () => HttpResponse.json(mockDb.billing.company)),
 
+  // owner 2026-11-04: the business details on invoices; Stripe checks
+  // the tax ID (the mock: GB VAT is GB + 9 digits, EU VAT 2 letters + 8–12)
   http.put(`${GATEWAY}/v1/billing/company`, async ({ request }) => {
-    const body = (await request.json()) as { name?: string; address?: Record<string, string> };
-    Object.assign(mockDb.billing.company, body);
-    return HttpResponse.json(mockDb.billing.company);
-  }),
-
-  http.post(`${GATEWAY}/v1/billing/company/tax-ids`, async ({ request }) => {
-    const t = (await request.json()) as { type: string; value: string };
-    // the mock checks GB VAT only: GB + 9 digits
-    if (t.type === "gb_vat" && !/^GB\d{9}$/.test(t.value.replace(/\s/g, ""))) {
-      return err(400, "invalid_tax_id", "that tax ID doesn't fit its type");
+    const body = (await request.json()) as CompanyDetails;
+    const t = body.tax_id;
+    if (t?.value) {
+      const v = t.value.replace(/\s/g, "").toUpperCase();
+      const ok =
+        t.type === "gb_vat" ? /^GB\d{9}$/.test(v) : t.type === "eu_vat" ? /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(v) : v.length >= 4;
+      if (!ok) return err(400, "invalid_tax_id", `Invalid value for ${t.type}: ${t.value}. Check the number and its country.`);
+      body.tax_id = { type: t.type, value: v, verification: "pending" };
     }
-    mockDb.billing.company.tax_ids.push({
-      id: `txi_${Math.random().toString(36).slice(2, 8)}`,
-      type: t.type,
-      value: t.value.replace(/\s/g, ""),
-      verification: "pending",
-    });
+    mockDb.billing.company = { ...mockDb.billing.company, ...body };
     return HttpResponse.json(mockDb.billing.company);
-  }),
-
-  http.delete(`${GATEWAY}/v1/billing/company/tax-ids/:id`, ({ params }) => {
-    const c = mockDb.billing.company;
-    c.tax_ids = c.tax_ids.filter((t) => t.id !== params.id);
-    return HttpResponse.json(c);
   }),
 
   http.get(`${GATEWAY}/v1/billing/invoices`, () => {

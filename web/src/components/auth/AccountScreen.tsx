@@ -246,6 +246,13 @@ export default function AccountScreen() {
           </Link>
           .
         </p>
+        <p className="pt-2 text-fg-muted">
+          Invoices with your company name, tax ID and address:{" "}
+          <Link href="/account/business-details" className="text-primary hover:underline">
+            Business details
+          </Link>
+          .
+        </p>
         <AccountScheduledChange />
         <AppStoreProLine />
       </CardShell>

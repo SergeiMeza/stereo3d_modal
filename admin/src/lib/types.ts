@@ -344,6 +344,14 @@ export interface AccountPage {
     current_period_end?: string;
   } | null;
   ledger?: { id: string; kind: string; cents: number; at: string }[] | null;
+  /** owner 2026-11-04: the business details on the account's invoices */
+  company?: {
+    company_name?: string | null;
+    address?: { line1?: string; line2?: string; city?: string; postal_code?: string; state?: string; country?: string } | null;
+    tax_id?: { type: string; value: string; verification?: string } | null;
+    billing_email?: string | null;
+    po_reference?: string | null;
+  } | null;
   methods?: { id: string; label: string; type: string }[] | null;
   cases?: Case[] | null;
   charges?:

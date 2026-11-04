@@ -906,11 +906,16 @@ export interface BillingMethods {
   max?: number;
 }
 
-/** spec v6.2 P16: GET/PUT /v1/billing/company */
+/** GET/PUT /v1/billing/company (owner 2026-11-04): the business details
+ * on invoices, prefilled from Checkout; saving changes future invoices. */
 export interface CompanyDetails {
-  name?: string;
-  address?: CompanyAddress;
-  tax_ids: TaxId[];
+  company_name?: string | null;
+  address?: CompanyAddress | null;
+  tax_id?: { type: string; value: string; verification?: TaxId["verification"] } | null;
+  /** where invoice copies go */
+  billing_email?: string | null;
+  /** an optional purchase order reference printed on invoices */
+  po_reference?: string | null;
 }
 
 export interface CompanyAddress {
@@ -923,7 +928,7 @@ export interface CompanyAddress {
 }
 
 export interface TaxId {
-  id: string;
+  id?: string;
   /** Stripe's type, e.g. "gb_vat", "eu_vat", "us_ein" */
   type: string;
   value: string;

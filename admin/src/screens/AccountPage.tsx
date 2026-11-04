@@ -125,6 +125,7 @@ export function AccountPage({ uid }: { uid: string }) {
       {flash && <p className="ok small" role="status">{flash}</p>}
 
       <div className="grid3">
+        <CompanyCard company={p.company ?? null} />
         <section className="card">
           <div className="sh"><b>Billing state</b></div>
           <dl className="kv pad">
@@ -426,5 +427,30 @@ function OpenCaseSheet({ uid, onClose }: { uid: string; onClose: () => void }) {
       )}
       {error && <p className="err small" role="alert">{error}</p>}
     </Sheet>
+  );
+}
+
+/** The business details on the account's invoices (owner 2026-11-04). */
+function CompanyCard({ company: c }: { company: Page["company"] }) {
+  if (!c || !(c.company_name || c.tax_id || c.address || c.billing_email || c.po_reference)) return null;
+  const addr = c.address
+    ? [c.address.line1, c.address.line2, [c.address.postal_code, c.address.city].filter(Boolean).join(" "), c.address.state, c.address.country]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+  return (
+    <section className="card" data-testid="account-company">
+      <div className="sh"><b>Business details</b><span className="xs muted">on invoices</span></div>
+      <dl className="kv pad">
+        <dt>Company</dt><dd>{c.company_name || "—"}</dd>
+        <dt>Address</dt><dd>{addr || "—"}</dd>
+        <dt>Tax ID</dt>
+        <dd className="mono">
+          {c.tax_id ? `${c.tax_id.type} ${c.tax_id.value}${c.tax_id.verification ? ` · ${c.tax_id.verification}` : ""}` : "—"}
+        </dd>
+        <dt>Billing email</dt><dd>{c.billing_email || "—"}</dd>
+        <dt>PO reference</dt><dd>{c.po_reference || "—"}</dd>
+      </dl>
+    </section>
   );
 }

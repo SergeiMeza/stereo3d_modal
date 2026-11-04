@@ -16,7 +16,6 @@ import type {
   UsagePage,
   HandoffInfo,
   HandoffStart,
-  CompanyAddress,
   CompanyDetails,
   InvoiceList,
   APIErrorBody,
@@ -513,18 +512,12 @@ export class GatewayClient {
     return this.request("GET", "/v1/billing/company");
   }
 
-  putCompany(c: { name?: string; address?: CompanyAddress }): Promise<CompanyDetails> {
+  /** Saving changes the details on future invoices; a 400 carries
+   * Stripe's tax ID message. */
+  putCompany(c: CompanyDetails): Promise<CompanyDetails> {
     return this.request("PUT", "/v1/billing/company", c);
   }
 
-  /** 400 invalid_tax_id when the value doesn't fit the type */
-  addTaxId(t: { type: string; value: string }): Promise<CompanyDetails> {
-    return this.request("POST", "/v1/billing/company/tax-ids", t);
-  }
-
-  removeTaxId(id: string): Promise<CompanyDetails> {
-    return this.request("DELETE", `/v1/billing/company/tax-ids/${encodeURIComponent(id)}`);
-  }
 
   getInvoices(after?: string): Promise<InvoiceList> {
     const q = after ? `?limit=25&starting_after=${encodeURIComponent(after)}` : "?limit=25";

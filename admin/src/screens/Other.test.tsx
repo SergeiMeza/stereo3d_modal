@@ -51,6 +51,28 @@ describe("account page (A3)", () => {
     ledger: null,
   };
 
+  it("shows the business details on the account's invoices", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          company: {
+            company_name: "Northlight Films",
+            address: { line1: "1 King St", city: "London", postal_code: "EC2V 8AU", country: "GB" },
+            tax_id: { type: "gb_vat", value: "GB123456789", verification: "verified" },
+            billing_email: "accounts@northlight.example",
+            po_reference: "PO-2211",
+          },
+        },
+      }),
+    });
+    const card = await screen.findByTestId("account-company");
+    expect(card).toHaveTextContent("Northlight Films");
+    expect(card).toHaveTextContent("1 King St, EC2V 8AU London, GB");
+    expect(card).toHaveTextContent("gb_vat GB123456789 · verified");
+    expect(card).toHaveTextContent("PO-2211");
+  });
+
   it("shows 'No account with that ID.'", async () => {
     renderApp("/accounts/nobody", { "GET /v1/admin/accounts/nobody": () => apiError(404, "no_account", "No account with that ID.") });
     expect(await screen.findByText("No account with that ID.")).toBeInTheDocument();

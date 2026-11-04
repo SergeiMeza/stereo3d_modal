@@ -28,7 +28,7 @@ import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
-import { CompanyDetailsSheet, companySummary } from "@/components/pay/CompanyDetailsSheet";
+import { companySummary } from "@/lib/company";
 import { UNDER_REVIEW } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { formatCents } from "@/components/steps/money";
@@ -450,12 +450,12 @@ function MethodMenu({
   );
 }
 
-/** P10 Company details: a one-line summary and Edit (P16). */
+/** P10 Company details: a one-line summary and Edit, which opens Account
+ * → Business details (owner 2026-11-04). */
 function CompanySection(): JSX.Element {
   const gateway = useGateway();
   const [company, setCompany] = useState<CompanyDetails | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [editing, setEditing] = useState(false);
   useEffect(() => {
     let live = true;
     gateway.getCompany().then(
@@ -476,24 +476,15 @@ function CompanySection(): JSX.Element {
       <Building2Icon className="size-5 shrink-0 text-fg-muted" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 id="company" className="text-sm font-semibold text-fg">
-          Company details
+          Business details
         </h2>
         <p data-testid="company-summary" className="truncate text-xs text-fg-muted">
-          {!loaded ? "Loading…" : summary ?? "No company details. Add them to show on invoices."}
+          {!loaded ? "Loading…" : summary ?? "No business details. Add them to show on invoices."}
         </p>
       </div>
-      <Button variant="outline" size="sm" disabled={!loaded} onClick={() => setEditing(true)}>
-        Edit
+      <Button asChild variant="outline" size="sm">
+        <Link href="/account/business-details">Edit</Link>
       </Button>
-      {editing ? (
-        <CompanyDetailsSheet
-          initial={company ?? { tax_ids: [] }}
-          onClose={(saved) => {
-            setEditing(false);
-            if (saved) setCompany(saved);
-          }}
-        />
-      ) : null}
     </section>
   );
 }

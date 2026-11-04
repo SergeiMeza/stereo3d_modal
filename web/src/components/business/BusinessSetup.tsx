@@ -10,9 +10,9 @@
  *    rates up to the plan's max_fps, the intro switch, invoices, Express.
  *    No seat counts (no team accounts yet). Company emails also get Talk to
  *    us.
- * 2. Company details for invoices (GET/PUT /v1/billing/company, the
- *    Billing page's own sheet): company name and billing address; a VAT ID
- *    is optional.
+ * 2. (Owner 2026-11-04: no company step — Checkout collects the business
+ *    name, tax ID and billing address; the welcome links to Account →
+ *    Business details for the rest.)
  * 3. A few questions, all skippable: team size, main use, headsets
  *    (prefilled from onboarding), saved on the account (PATCH
  *    settings.business_setup).
@@ -40,10 +40,6 @@ import {
   REPRICED,
 } from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
-import {
-  CompanyDetailsSheet,
-  companySummary,
-} from "@/components/pay/CompanyDetailsSheet";
 import { PlanSheet } from "@/components/pay/PlanSheet";
 import { ContactSalesForm } from "@/components/plans/ContactSalesForm";
 import { isCompanyEmail, usePlanTier } from "@/components/plans/upsell";
@@ -58,7 +54,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PlanChangePreview } from "@/lib/api/client";
-import type { CompanyDetails, PlanDef, PublicPricing } from "@/lib/api/types";
+import type { PlanDef, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
@@ -68,11 +64,10 @@ import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
 type PlanKey = "business" | "studio";
-type Step = "plan" | "details" | "questions" | "checkout" | "welcome";
+type Step = "plan" | "questions" | "checkout" | "welcome";
 
 const STEPS: readonly { id: Exclude<Step, "welcome">; label: string }[] = [
   { id: "plan", label: "Plan" },
-  { id: "details", label: "Company" },
   { id: "questions", label: "About you" },
   { id: "checkout", label: "Pay" },
 ];
@@ -144,8 +139,6 @@ export function BusinessSetup(): JSX.Element {
   const [picked, setPlan] = useState<PlanKey>("business");
   const plan: PlanKey = tier === "business" ? "studio" : picked;
   const [talk, setTalk] = useState<"closed" | "form" | "sent">("closed");
-  const [company, setCompany] = useState<CompanyDetails | null>(null);
-  const [editingCompany, setEditingCompany] = useState(false);
   const [teamSize, setTeamSize] = useState("");
   const [mainUse, setMainUse] = useState<string | null>(null);
   const [headsets, setHeadsets] = useState<string[] | null>(null);
@@ -164,17 +157,6 @@ export function BusinessSetup(): JSX.Element {
     if (opened.current) return;
     opened.current = true;
     gateway.logEvent("business_setup_opened", {});
-  }, [gateway]);
-
-  useEffect(() => {
-    let live = true;
-    gateway.getCompany().then(
-      (c) => live && setCompany(c),
-      () => live && setCompany({ tax_ids: [] }),
-    );
-    return () => {
-      live = false;
-    };
   }, [gateway]);
 
   // owner 2026-11-04: Business → Studio is a step-up at once
@@ -232,7 +214,6 @@ export function BusinessSetup(): JSX.Element {
     );
   }
 
-  const companyReady = !!company?.name?.trim() && !!company.address?.country;
   const chosenHeadsets = headsets ?? settings?.headsets ?? [];
 
   function purchased(): void {
@@ -370,60 +351,10 @@ export function BusinessSetup(): JSX.Element {
               data-testid="setup-next"
               onClick={() => {
                 log("business_setup_plan_picked", { plan });
-                setStep("details");
+                setStep("questions");
               }}
             >
               Continue with {def.name}
-            </Button>
-          </Footer>
-        </section>
-      ) : step === "details" ? (
-        <section className="flex flex-col gap-4" data-testid="setup-details">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold text-fg">
-              Company details for your invoices
-            </h2>
-            <p className="text-sm text-fg-muted">
-              Company name and billing address. A VAT ID is optional.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl border border-edge bg-surface-1 p-4">
-            <p
-              className="flex-1 text-sm text-fg"
-              data-testid="setup-company-summary"
-            >
-              {company === null
-                ? "Loading…"
-                : (companySummary(company) ?? "No company details yet.")}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={company === null}
-              onClick={() => setEditingCompany(true)}
-            >
-              {companySummary(company) ? "Edit" : "Add details"}
-            </Button>
-          </div>
-          {editingCompany && company ? (
-            <CompanyDetailsSheet
-              initial={company}
-              onClose={(saved) => {
-                setEditingCompany(false);
-                if (saved) setCompany(saved);
-              }}
-            />
-          ) : null}
-          <Footer>
-            <Button variant="ghost" onClick={() => setStep("plan")}>
-              Back
-            </Button>
-            <Button
-              data-testid="setup-next"
-              disabled={!companyReady}
-              onClick={() => setStep("questions")}
-            >
-              Continue
             </Button>
           </Footer>
         </section>
@@ -502,7 +433,7 @@ export function BusinessSetup(): JSX.Element {
             </div>
           </fieldset>
           <Footer>
-            <Button variant="ghost" onClick={() => setStep("details")}>
+            <Button variant="ghost" onClick={() => setStep("plan")}>
               Back
             </Button>
             <Button
@@ -551,11 +482,10 @@ export function BusinessSetup(): JSX.Element {
               {termsLine(def)} Prices in USD, excl. tax. Nothing is charged
               until you confirm.
             </p>
-            {companySummary(company) ? (
-              <p className="text-xs text-fg-muted">
-                Invoices to {companySummary(company)}
-              </p>
-            ) : null}
+            <p className="text-xs text-fg-muted">
+              Checkout asks for your business name, tax ID and billing address
+              for the invoice.
+            </p>
           </div>
 
           {theCase !== null ? (
@@ -701,6 +631,16 @@ export function BusinessSetup(): JSX.Element {
           <div className="rounded-xl border border-edge bg-surface-1 p-4">
             <IntroSwitch />
           </div>
+          {/* owner 2026-11-04: optional, never blocking */}
+          <p className="text-sm text-fg-muted">
+            <Link
+              href="/account/business-details"
+              data-testid="setup-company-link"
+              className="text-primary hover:underline"
+            >
+              Add your company details for invoices
+            </Link>
+          </p>
           <Footer>
             <Button asChild size="lg" data-testid="setup-make">
               <Link href="/projects">Make your 3D video</Link>

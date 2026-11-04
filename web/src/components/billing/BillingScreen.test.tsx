@@ -197,22 +197,17 @@ describe("Billing (S3D-57, S3D-62)", () => {
     expect(screen.getByText("You can save up to 5 payment methods.")).toBeTruthy();
   });
 
-  it("company details: summary, edit, tax ID check and save (P16)", async () => {
+  it("business details: the summary, and Edit opens Account → Business details", async () => {
     renderBilling();
-    expect((await screen.findByText("No company details. Add them to show on invoices."))).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const sheet = await screen.findByTestId("company-sheet");
-    expect(within(sheet).getByText("New invoices show these details. Earlier invoices keep what they had.")).toBeTruthy();
-    fireEvent.change(within(sheet).getByLabelText("Company name"), { target: { value: "Kyoto Films Ltd" } });
-    fireEvent.change(within(sheet).getByLabelText("Country"), { target: { value: "GB" } });
-    fireEvent.change(within(sheet).getByLabelText("City"), { target: { value: "London" } });
-    fireEvent.change(within(sheet).getByLabelText("Add tax ID"), { target: { value: "GB12" } });
-    fireEvent.click(within(sheet).getByTestId("company-save"));
-    expect((await within(sheet).findByTestId("company-error")).textContent).toBe(
-      "That tax ID doesn't look right for United Kingdom.",
-    );
-    fireEvent.change(within(sheet).getByLabelText("Add tax ID"), { target: { value: "GB123456789" } });
-    fireEvent.click(within(sheet).getByTestId("company-save"));
+    expect(await screen.findByText("No business details. Add them to show on invoices.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Edit" }).getAttribute("href")).toBe("/account/business-details");
+    cleanup();
+    mockDb.billing.company = {
+      company_name: "Kyoto Films Ltd",
+      address: { country: "GB", city: "London" },
+      tax_id: { type: "gb_vat", value: "GB123456789" },
+    };
+    renderBilling();
     await waitFor(() =>
       expect(screen.getByTestId("company-summary").textContent).toBe("Kyoto Films Ltd · GB123456789 · London, UK"),
     );
