@@ -16,7 +16,8 @@
  * run keeps the source rate. A re-run starts from the last run's rate.
  */
 
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
+import { atomWithStorage } from "jotai/utils";
 import { atomFamily } from "jotai-family";
 import Link from "next/link";
 import type { JSX } from "react";
@@ -31,14 +32,16 @@ import {
 import { fpsFactor, usePricing } from "@/lib/api/usePricing";
 
 import { formatCents } from "./money";
+import { safeJSONStorage } from "@/lib/state/safeStorage";
+
 import { centsOf, useVariantQuotes } from "./priceAtoms";
 
-/** The picked rate per `${projectId}/${step}` (ADR 0138): undefined until
- * the person picks one (the last run's rate shows meanwhile). */
-export const fpsPickAtom = atomFamily((key: string) => {
-  void key;
-  return atom<number | null | undefined>(undefined);
-});
+/** The picked rate per `${projectId}/${step}` (ADR 0138): null until the
+ * person picks one (the last run's rate shows meanwhile); kept across
+ * reloads with the other Make 3D picks (owner 2026-11-05). */
+export const fpsPickAtom = atomFamily((key: string) =>
+  atomWithStorage<number | null>(`svs:fps:${key}`, null, safeJSONStorage<number | null>(), { getOnInit: true }),
+);
 
 /** Rates above this need a plan (the gateway's max_fps without one). */
 export const FREE_MAX_FPS = 30;
@@ -135,7 +138,7 @@ export function useFpsChoice(
   const src = project.probe?.fps ?? 0;
   const required = needsFpsChoice(src);
   const [pickedChoice, setPicked] = useAtom(fpsPickAtom(`${project.project_id}/${step}`));
-  const picked = pickedChoice !== undefined ? pickedChoice : required ? lastRate(project, step) : null;
+  const picked = pickedChoice !== null ? pickedChoice : required ? lastRate(project, step) : null;
   const { target_fps: _drop, ...rest } = base;
   void _drop;
   // every rate a plan allows, quoted once each; a 422 plan_required_fps

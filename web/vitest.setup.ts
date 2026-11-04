@@ -41,6 +41,10 @@ afterEach(() => {
   resetMake3dForTests();
   resetPricesForTests();
   for (const k of [...fpsPickAtom.getParams()]) fpsPickAtom.remove(k);
+  // ... and what they keep across reloads
+  for (const k of Object.keys(window.localStorage)) {
+    if (k.startsWith("svs:")) window.localStorage.removeItem(k);
+  }
   resetLimitsCache();
   resetPricingCache();
   resetBillingForTests();

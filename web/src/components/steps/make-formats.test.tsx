@@ -17,7 +17,10 @@ import { server } from "@/mocks/server";
 import projectFixture from "../../../fixtures/project.json";
 
 import { clearStepQuotes } from "./checkoutStore";
+import { ProjectStateProvider } from "@/lib/state/stores";
+
 import { LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
+import { make3dChoicesAtom } from "./make3dAtoms";
 import { DEVICES, formatsForDevices } from "./makeControls";
 import { lifelikeFormatsFor } from "./methods";
 import { payLine } from "./useStepCheckout";
@@ -167,5 +170,80 @@ describe("the pay sheet", () => {
   it("the pay sheet's line names its files", () => {
     expect(payLine(waiting(["mvhevc"]))).toMatch(/· Vision Pro spatial video$/);
     expect(payLine(waiting(["mvhevc", "sbs"]))).toMatch(/· Vision Pro spatial video \+ Side by side$/);
+  });
+});
+
+describe("Make 3D picks (owner 2026-11-05)", () => {
+  /** A project page as the app mounts it: its own store. */
+  function page(p: Project) {
+    return render(
+      <AuthProvider>
+        <ProjectStateProvider key={p.project_id} projectId={p.project_id}>
+          <LifelikeDeliverPanel project={p} onProjectChanged={() => {}} />
+        </ProjectStateProvider>
+      </AuthProvider>,
+    );
+  }
+
+  function spatialOnly(): void {
+    const files = screen.getByRole("group", { name: "Files you'll get" });
+    for (const box of within(files).getAllByRole("checkbox") as HTMLInputElement[]) {
+      const spatial = box.getAttribute("aria-label") === FORMAT_NAMES.mvhevc;
+      if (box.checked !== spatial) fireEvent.click(box);
+    }
+  }
+
+  /** A reload: the page's store and the in-memory atoms are gone. */
+  function reload(view: ReturnType<typeof page>, id: string): void {
+    view.unmount();
+    make3dChoicesAtom.remove(id);
+  }
+
+  it("survive a reload: spatial only stays spatial only", async () => {
+    const p = project();
+    const first = page(p);
+    await screen.findByTestId("addon-master");
+    pickDevices(["Samsung Galaxy XR", "XR glasses"]);
+    spatialOnly();
+    expect(ticked()).toEqual(["mvhevc"]);
+    reload(first, p.project_id);
+    page(p);
+    await screen.findByTestId("addon-master");
+    expect(ticked()).toEqual(["mvhevc"]);
+  });
+
+  it("don't carry over to another project", async () => {
+    const p = project();
+    const first = page(p);
+    await screen.findByTestId("addon-master");
+    pickDevices(["Apple Vision Pro"]);
+    spatialOnly();
+    first.unmount();
+    const other: Project = { ...p, project_id: "zz9other00001" };
+    mockDb.projects.set(other.project_id, structuredClone(other));
+    page(other);
+    await screen.findByTestId("addon-master");
+    // the other project starts from its own preselection
+    expect(ticked()).toEqual(expect.arrayContaining(["mvhevc"]));
+    expect(ticked().length).toBeGreaterThan(1);
+  });
+
+  it("a headset change never overwrites a file pick", async () => {
+    page(project());
+    await screen.findByTestId("addon-master");
+    spatialOnly();
+    pickDevices(["Samsung Galaxy XR", "XR glasses"]);
+    expect(ticked()).toEqual(["mvhevc"]);
+    pickDevices(["Meta Quest"]);
+    expect(ticked()).toEqual(["mvhevc"]);
+  });
+
+  it("the devices preselect the files while none were ticked by hand", async () => {
+    page(project());
+    await screen.findByTestId("addon-master");
+    pickDevices(["Apple Vision Pro"]);
+    expect(ticked()).toEqual(["mvhevc"]);
+    pickDevices(["Samsung Galaxy XR"]);
+    expect(ticked()).toEqual(["sbs"]);
   });
 });

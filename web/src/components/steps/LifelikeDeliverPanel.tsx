@@ -290,10 +290,8 @@ export function LifelikeDeliverPanel({
             onChange={(next) =>
               change(() => {
                 setDevices(next);
-                if (next.length > 0) {
-                  // back to the preselection for the new devices
-                  setFormats(null);
-                }
+                // owner 2026-11-05: the devices preselect the files only
+                // while none were ticked by hand; a pick is never overwritten
               })
             }
           />
