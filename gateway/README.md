@@ -859,6 +859,35 @@ is ignored without such a plan.
 - Account deletion and admin tooling don't use the route (the account is
   flagged and the sign-in removed; projects stay as records).
 
+### Web feedback (owner 2026-11-04)
+
+- **`POST /v1/feedback {kind: idea|problem|other, message (1–5000),
+  email?, ok_to_contact, context {route, project_id?, run_id?, locale,
+  user_agent, plan, isPro, app_version}}`** → `{id}`. Signed in or out
+  (out needs an email; a bad token is still 401). 5 an hour per IP and
+  per account (429 `rate_limited`).
+- Stored in the app's store and shape: `app_feedback` on prod,
+  `app_feedback_test` on test. Fields as the app writes them: `kind`
+  (idea → `suggestion`), `text`, `email`, `platform: "web"`, `version` and
+  `build` (the web commit), `device` (user agent, 64), `locale`, `isPro`,
+  `uid` and `revenueCatID` (= uid) when signed in, `createdAt`, `via:
+  "gateway"`; the web adds `okToContact`, `route`, `projectId`, `runId`
+  (12-hex ids only), `userAgent` (300) and `plan`. Signed in, plan and
+  isPro are the gateway's own; signed out, the page's.
+- Mailed by the gateway to the owner's alert address, reply-to the
+  sender: "[Spatial Video Studio] Suggestion · web <commit> · Pro (web)"
+  (+ " (test)" on test). The document carries `mailingAt` from the start,
+  the SVS backend's claim, so its app_feedback trigger doesn't mail it
+  again; `mailedAt` or `mailError` follows. The KPI stack doesn't read
+  app_feedback; the SVS backend's account deletion finds web documents by
+  `uid` like the app's.
+- **`GET /v1/admin/feedback?days=30&platform=`** (admin) → `{days,
+  feedback[{id, collection, created_at, platform, kind, rating?, text,
+  email?, company?, isPro, plan?, version, build, device, locale, uid,
+  route?, projectId?, runId?, okToContact?, mailed, mailError?}],
+  generated_at}`, newest first; on test it reads `app_feedback_test` and
+  the app's `app_feedback` (read only).
+
 ### Plans surfaces (owner 2026-11-04)
 
 - **Events** (`POST /v1/events`): `plans_surface_view`,

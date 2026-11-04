@@ -160,6 +160,7 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets)) // onboarding 2026-11-04
 	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))           // plans surfaces 2026-11-04
+	mux.HandleFunc("GET /v1/admin/feedback", admin(svc.HandleAdminFeedback))                      // web and app feedback, read only
 	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
 
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
@@ -204,6 +205,19 @@ func main() {
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
 	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04
 	mux.HandleFunc("POST /v1/contact", authed(svc.HandleContact))                   // sales enquiries 2026-11-04
+	// Feedback: signed in or out (an invalid token is still 401).
+	mux.HandleFunc("POST /v1/feedback", func(w http.ResponseWriter, r *http.Request) {
+		var user *api.AuthedUser
+		if r.Header.Get("Authorization") != "" {
+			u, err := verifier.FromRequest(r)
+			if err != nil {
+				httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
+				return
+			}
+			user = &api.AuthedUser{UID: u.UID, Email: u.Email}
+		}
+		svc.HandleFeedback(w, r, user)
+	})
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
 	}))
