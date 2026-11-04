@@ -325,16 +325,33 @@ func TestRunFormatsSplitRun(t *testing.T) {
 // scaled by pixels, plus 30 s per file; spatial's give-up is max(3 h,
 // 2× the estimate).
 func TestRepackEstimate(t *testing.T) {
-	c := &store.Conversion{Params: store.Params{Preset: "4k"}, Source: store.Source{DurationS: 60}}
-	if a, b := repackEstimate(c, "half_sbs"), repackEstimate(c, "mvhevc"); a != 150 || b != 630 {
+	// side-by-side: 1.6x at 1080p (+30 s): the 3:50 1080p run that took
+	// ~6.3 min (377 s) estimates 398 s, not "about 2 minutes"
+	c := &store.Conversion{Params: store.Params{Preset: "1080p"}, Source: store.Source{DurationS: 230}}
+	if got := repackEstimate(c, "sbs"); got != 398 {
+		t.Fatalf("1080p sbs %d", got)
+	}
+	// ≈ 2x at 4K: the 15 s 4K test (44-47 s with the start) estimates 61
+	c = &store.Conversion{Params: store.Params{Preset: "4k"}, Source: store.Source{DurationS: 15}}
+	if a, b := repackEstimate(c, "half_sbs"), repackEstimate(c, "mvhevc"); a != 61 || b != 180 { // mvhevc took 175-182 s
 		t.Fatalf("4k %d %d", a, b)
+	}
+	c = &store.Conversion{Params: store.Params{Preset: "4k"}, Source: store.Source{DurationS: 60}}
+	if got := repackEstimate(c, "mvhevc"); got != 630 {
+		t.Fatalf("4k mvhevc %d", got)
 	}
 	c.Params.Preset = "1080p"
 	if got := repackEstimate(c, "mvhevc"); got != 180 {
 		t.Fatalf("1080p %d", got)
 	}
+	// bars removed: the recorded output size counts
+	c.Params.Preset, c.Params.OutputWidth, c.Params.OutputHeight = "4k", 3840, 1600
+	if got := repackEstimate(c, "mvhevc"); got != 30+445 { // 60 × 10 × 1600/2160 = 444.4
+		t.Fatalf("cropped %d", got)
+	}
+	c.Params.OutputWidth, c.Params.OutputHeight = 0, 0
 	c.Outputs = map[string]string{"sbs_part1": "a", "sbs_part2": "b", "sbs_part3": "c"}
-	if got := repackEstimate(c, "half_sbs"); got != 30+90 { // 60 × 2 × ¼ + 3 parts × 30
+	if got := repackEstimate(c, "half_sbs"); got != 121+90 { // 60 × 2.02 + 3 parts × 30
 		t.Fatalf("split %d", got)
 	}
 	c.Outputs = nil

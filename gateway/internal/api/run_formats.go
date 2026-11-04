@@ -49,26 +49,44 @@ const (
 	repackPrice     = 0  // ADR 0137 open question: free until the owner decides
 )
 
-// repackEstimate: about how long making format takes (3DS, 2026-11-04):
-// side-by-side ≈ 2× the run's length, spatial ≈ 10× at 4K, scaled by
-// the output's pixels against 4K, plus repackOverhead per file (a split
-// run's parts each start their own container). The whole run's length,
-// so a split run's parts (which run side by side) usually finish sooner.
+// repackEstimate: about how long making format takes, from measured
+// repacks, plus repackOverhead per file (a split run's parts each start
+// their own container):
+//   - side-by-side ≈ 1.6× the run's length at 1080p (rp7a500d6f0fa242: a
+//     3:50 1080p run in ~6.3 min, 2026-11-05), growing slowly with the
+//     picture (its sixth root: ≈ 2× at 4K, as 3DS measured on a 24 s 4K
+//     run and our 15 s 4K test took);
+//   - spatial ≈ 10× at 4K, scaled by the pixels (x265 multiview; the 15 s
+//     4K test took 175-182 s).
+//
+// The whole run's length, so a split run's parts (which run side by
+// side) usually finish sooner.
 func repackEstimate(c *store.Conversion, format string) int {
 	secs := outputSecondsOf(c)
 	if secs <= 0 {
 		return 0
 	}
 	overhead := repackOverhead * len(runPartNumbers(c))
-	perSecond := 2.0
+	px := repackEyePixels(c)
+	var perSecond float64
 	if format == "mvhevc" {
-		perSecond = 10
+		perSecond = 10 * px / (3840 * 2160)
+	} else {
+		perSecond = 1.6 * math.Pow(px/(1920*1080), 1.0/6)
 	}
-	scale := 1.0
+	return int(math.Ceil(secs*perSecond)) + overhead
+}
+
+// repackEyePixels: the run's output picture per eye (its recorded size,
+// else its preset's 16:9 frame; 4K when unknown).
+func repackEyePixels(c *store.Conversion) float64 {
+	if c.Params.OutputWidth > 0 && c.Params.OutputHeight > 0 {
+		return float64(c.Params.OutputWidth) * float64(c.Params.OutputHeight)
+	}
 	if h := presetOutputHeight[c.Params.Preset]; h > 0 {
-		scale = float64(h) * float64(h) / (2160 * 2160)
+		return float64(presetLongEdge(h)) * float64(h)
 	}
-	return int(math.Ceil(secs*perSecond*scale)) + overhead
+	return 3840 * 2160
 }
 
 // repackTimeoutOf: 3 h without an end fails a repack; spatial gets

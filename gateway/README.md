@@ -1457,8 +1457,10 @@ Classic runs get none (Classic is retired).
   mvhevc | sbs | half_sbs. The GET also polls a running repack.
 - `POST /v1/runs/{id}/formats {format}` → 202 `{job_id, job_ids, status,
   format, source, price_cents, estimated_seconds}`. `estimated_seconds`
-  (3DS, 2026-11-04): side-by-side ≈ 2× the run's length, spatial ≈ 10×
-  at 4K, scaled by the preset's pixels against 4K, plus 30 s per file
+  (measured, 2026-11-05): side-by-side ≈ 1.6× the run's length at 1080p,
+  growing with the sixth root of the pixels (≈ 2× at 4K); spatial ≈ 10×
+  at 4K, scaled by the pixels (the run's recorded output size, else its
+  preset's 16:9 frame), plus 30 s per file
   (each split part starts its own container); the whole run's
   length, so a split run's parts often finish sooner. 409 `format_exists` | `format_in_progress` |
   `format_unavailable` with `details.reason` (the reasons above, or
