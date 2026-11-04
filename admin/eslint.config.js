@@ -31,6 +31,52 @@ const NO_HAND_ROLLED_OVERLAYS = [
   },
 ];
 
+/** ADR 0138 (owner 2026-11-05): shared state and gateway responses live in
+ * jotai atoms (src/state/); React Context only for non-state providers. */
+const STATE_IN_ATOMS = [
+  {
+    selector: "CallExpression[callee.name='createContext'], CallExpression[callee.property.name='createContext']",
+    message:
+      "ADR 0138: shared state goes in a jotai atom, not a React Context. Context is only for non-state providers (theme, Radix, router), in the allowlist below.",
+  },
+  {
+    selector: "CallExpression[callee.name=/^set[A-Z]/] > AwaitExpression",
+    message: "ADR 0138: a gateway response kept in useState: use a query atom (src/state/query.ts, useQuery).",
+  },
+  {
+    selector: "CallExpression[callee.property.name='then'] > Identifier[name=/^set[A-Z]/]",
+    message: "ADR 0138: a gateway response kept in useState: use a query atom (src/state/query.ts, useQuery).",
+  },
+  {
+    selector: "CallExpression[callee.name='useLoad']",
+    message: "ADR 0138: useLoad keeps a response in useState: use useQuery (src/state/query.ts).",
+  },
+];
+
+/** Files allowed a React Context or a response in useState. Non-state
+ * providers stay (the router); the rest is migration left to do. */
+const STATE_ALLOWLIST = [
+  "src/lib/router.tsx", // the router's provider (allowed: router)
+  // migration in progress (ADR 0138): this list shrinks to the router
+  "src/lib/services.tsx",
+  "src/lib/attention.tsx",
+  "src/lib/useLoad.ts",
+  "src/components/CommandMenu.tsx",
+  "src/screens/AccountPage.tsx",
+  "src/screens/CasePage.tsx",
+  "src/screens/CasesList.tsx",
+  "src/screens/Disputes.tsx",
+  "src/screens/Feedback.tsx",
+  "src/screens/GrantsPage.tsx",
+  "src/screens/MailPreviews.tsx",
+  "src/screens/Onboarding.tsx",
+  "src/screens/Overview.tsx",
+  "src/screens/PlansSurfaces.tsx",
+  "src/screens/Policy.tsx",
+  "src/screens/Security.tsx",
+  "src/screens/SignIn.tsx",
+];
+
 export default defineConfig([
   globalIgnores(["dist/**", "dist-overlays/**", "node_modules/**"]),
   {
@@ -47,7 +93,17 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
+    rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS, ...STATE_IN_ATOMS] },
+  },
+  {
+    files: STATE_ALLOWLIST,
     rules: { "no-restricted-syntax": ["error", ...NO_HAND_ROLLED_OVERLAYS] },
+  },
+  {
+    // shadcn primitives: Field's id plumbing is a non-state context
+    files: ["src/components/ui/**/*.tsx"],
+    ignores: ["src/components/ui/field.tsx"],
+    rules: { "no-restricted-syntax": ["error", STATE_IN_ATOMS[0]] },
   },
   {
     files: ["scripts/**/*.mjs"],

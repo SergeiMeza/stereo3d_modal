@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Provider } from "jotai";
+import { useHydrateAtoms } from "jotai/utils";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
@@ -20,6 +22,7 @@ import { Toaster } from "./components/ui/sonner";
 import type { AdminApi } from "./lib/api";
 import { AttentionProvider, useAttention } from "./lib/attention";
 import type { AdminAuth } from "./lib/auth";
+import { servicesAtom, type Services } from "./state/services";
 import { Link, RouterProvider, paths, useRouter } from "./lib/router";
 import { ServicesProvider, useServices } from "./lib/services";
 import { AccountLookup, AccountPage } from "./screens/AccountPage";
@@ -38,6 +41,12 @@ import { SignInScreen } from "./screens/SignIn";
 
 const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 
+/** Sets the services atom once per store (ADR 0138). */
+function HydrateServices({ services, children }: { services: Services; children: ReactNode }) {
+  useHydrateAtoms([[servicesAtom, services]]);
+  return children;
+}
+
 export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi; initialPath?: string }) {
   const state = useSyncExternalStore(auth.subscribe, auth.getState);
   const session = useSyncExternalStore(api.session.subscribe, api.session.get);
@@ -47,19 +56,26 @@ export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi
   }, [state.kind, api]);
   // Signed in = Google with the claim, then the passkey session (ADR 0135).
   const signedIn = state.kind === "passkey" && session !== null;
+  const email = state.kind === "passkey" ? state.email : "";
+  // One jotai store per signed-in session (ADR 0138): signing out, or in as
+  // someone else, starts from empty atoms, so no server data carries over.
   return (
     <>
-      {signedIn ? (
-        <ServicesProvider api={api} auth={auth} email={state.email}>
-          <RouterProvider initialPath={initialPath}>
-            <AttentionProvider>
-              <Shell />
-            </AttentionProvider>
-          </RouterProvider>
-        </ServicesProvider>
-      ) : (
-        <SignInScreen auth={auth} state={state} api={api} />
-      )}
+      <Provider key={signedIn ? `in:${email}` : "out"}>
+        <HydrateServices services={{ api, auth, email }}>
+          {signedIn ? (
+            <ServicesProvider api={api} auth={auth} email={email}>
+              <RouterProvider initialPath={initialPath}>
+                <AttentionProvider>
+                  <Shell />
+                </AttentionProvider>
+              </RouterProvider>
+            </ServicesProvider>
+          ) : (
+            <SignInScreen auth={auth} state={state} api={api} />
+          )}
+        </HydrateServices>
+      </Provider>
       <Toaster />
     </>
   );
