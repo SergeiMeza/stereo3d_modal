@@ -151,22 +151,6 @@ func (s *Store) ConsumePasskeyChallenge(ctx context.Context, challenge string) (
 	return out, err
 }
 
-// PeekPasskeyChallenge reads a challenge without taking it.
-func (s *Store) PeekPasskeyChallenge(ctx context.Context, challenge string) (*PasskeyChallenge, error) {
-	if challenge == "" || len(challenge) > 256 {
-		return nil, ErrNotFound
-	}
-	snap, err := challengeCol(s).Doc(challenge).Get(ctx)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-	var c PasskeyChallenge
-	if err := snap.DataTo(&c); err != nil {
-		return nil, err
-	}
-	return &c, nil
-}
-
 // SessionEpoch is the uid's session epoch (0 when never bumped).
 func (s *Store) SessionEpoch(ctx context.Context, uid string) (int64, error) {
 	snap, err := epochDoc(s, uid).Get(ctx)

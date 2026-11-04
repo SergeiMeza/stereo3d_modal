@@ -179,7 +179,6 @@ func main() {
 	}))
 	mux.HandleFunc("POST /v1/admin/session/options", adminToken(svc.HandleAdminSessionOptions))
 	mux.HandleFunc("POST /v1/admin/session/verify", adminToken(svc.HandleAdminSessionVerify))
-	mux.HandleFunc("POST /v1/admin/session/reassert", adminToken(svc.HandleAdminSessionReassert))
 	mux.HandleFunc("GET /v1/admin/cases", admin(svc.HandleAdminCases))
 	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))

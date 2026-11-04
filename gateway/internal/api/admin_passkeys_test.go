@@ -118,18 +118,19 @@ func (c *pkClient) register(v *vAuth, name string) (int, map[string]any) {
 		return code, out
 	}
 	cred := v.create(challengeFrom(c.t, out), c.origin, pkRPID)
-	return c.call(c.s.HandlePasskeyRegisterVerify, http.MethodPost, `{"name":"`+name+`","credential":`+string(cred)+`}`)
+	return c.call(c.s.HandlePasskeyRegisterVerify, http.MethodPost, `{"name":"`+name+`","response":`+string(cred)+`}`)
 }
 
-// assert runs session/options then h (verify or reassert) with v's answer.
-func (c *pkClient) assert(v *vAuth, h func(http.ResponseWriter, *http.Request, *AdminUser), signOrigin, signRP string) (int, map[string]any, json.RawMessage) {
-	code, out := c.call(c.s.HandleAdminSessionOptions, http.MethodPost, `{}`)
+// assert runs session/options and session/verify for purpose (sign_in
+// or reassert) with v's answer.
+func (c *pkClient) assert(v *vAuth, purpose, signOrigin, signRP string) (int, map[string]any, json.RawMessage) {
+	code, out := c.call(c.s.HandleAdminSessionOptions, http.MethodPost, `{"purpose":"`+purpose+`"}`)
 	if code != 200 {
 		return code, out, nil
 	}
 	v.count++
 	cred := v.get(challengeFrom(c.t, out), signOrigin, signRP, c.uid)
-	code, out = c.call(h, http.MethodPost, `{"credential":`+string(cred)+`}`)
+	code, out = c.call(c.s.HandleAdminSessionVerify, http.MethodPost, `{"purpose":"`+purpose+`","response":`+string(cred)+`}`)
 	return code, out, cred
 }
 
@@ -165,7 +166,7 @@ func TestAdminPasskeys(t *testing.T) {
 	if code, out := c.register(v2, "iPhone"); code != 401 || errMethod(out) != "passkey" {
 		t.Fatalf("second passkey without a session: %d %v", code, out)
 	}
-	code, out, _ := c.assert(v1, s.HandleAdminSessionVerify, pkOrigin, pkRPID)
+	code, out, _ := c.assert(v1, "sign_in", pkOrigin, pkRPID)
 	tok, _ := out["session"].(string)
 	if code != 200 || tok == "" || out["last_assertion_at"] == nil {
 		t.Fatalf("session: %d %v", code, out)
@@ -200,7 +201,7 @@ func TestAdminPasskeys(t *testing.T) {
 	}, http.MethodDelete, ""); code != 401 {
 		t.Fatalf("delete on a stale assertion: %d %v", code, out)
 	}
-	code, out, _ = c.assert(v1, s.HandleAdminSessionReassert, pkOrigin, pkRPID)
+	code, out, _ = c.assert(v1, "reassert", pkOrigin, pkRPID)
 	if code != 200 || out["session"] == nil {
 		t.Fatalf("reassert %d %v", code, out)
 	}
@@ -240,11 +241,11 @@ func TestAdminPasskeyRefusals(t *testing.T) {
 	if code, out := c.register(v, "Key"); code != 201 {
 		t.Fatalf("register %d %v", code, out)
 	}
-	code, out, cred := c.assert(v, s.HandleAdminSessionVerify, pkOrigin, pkRPID)
+	code, out, cred := c.assert(v, "sign_in", pkOrigin, pkRPID)
 	if code != 200 {
 		t.Fatalf("assert %d %v", code, out)
 	}
-	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"credential":`+string(cred)+`}`); code != 400 || out["error"] != "challenge_invalid" {
+	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"purpose":"sign_in","response":`+string(cred)+`}`); code != 400 || out["error"] != "challenge_invalid" {
 		t.Fatalf("replay %d %v", code, out)
 	}
 	// A request from an origin with no relying party.
@@ -253,19 +254,19 @@ func TestAdminPasskeyRefusals(t *testing.T) {
 		t.Fatalf("origin without an RP %d %v", code, out)
 	}
 	c.origin = pkOrigin
-	if code, out, _ := c.assert(v, s.HandleAdminSessionVerify, "https://evil.example", pkRPID); code != 401 {
+	if code, out, _ := c.assert(v, "sign_in", "https://evil.example", pkRPID); code != 401 {
 		t.Fatalf("signed for another origin %d %v", code, out)
 	}
-	if code, out, _ := c.assert(v, s.HandleAdminSessionVerify, pkOrigin, "evil.example"); code != 401 {
+	if code, out, _ := c.assert(v, "sign_in", pkOrigin, "evil.example"); code != 401 {
 		t.Fatalf("signed for another RP %d %v", code, out)
 	}
 	// Counter: up to 10, then an answer at 3.
 	v.count = 9
-	if code, out, _ := c.assert(v, s.HandleAdminSessionVerify, pkOrigin, pkRPID); code != 200 {
+	if code, out, _ := c.assert(v, "sign_in", pkOrigin, pkRPID); code != 200 {
 		t.Fatalf("count 10 %d %v", code, out)
 	}
 	v.count = 2
-	if code, out, _ := c.assert(v, s.HandleAdminSessionVerify, pkOrigin, pkRPID); code != 401 || out["error"] != "passkey_clone_suspected" {
+	if code, out, _ := c.assert(v, "sign_in", pkOrigin, pkRPID); code != 401 || out["error"] != "passkey_clone_suspected" {
 		t.Fatalf("counter regression %d %v", code, out)
 	}
 	// A registration challenge can't serve a session assertion.
@@ -276,7 +277,7 @@ func TestAdminPasskeyRefusals(t *testing.T) {
 	}
 	v.count = 20
 	wrong := v.get(challengeFrom(t, opt), pkOrigin, pkRPID, c.uid)
-	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"credential":`+string(wrong)+`}`); code != 400 || out["error"] != "challenge_invalid" {
+	if code, out := c.call(s.HandleAdminSessionVerify, http.MethodPost, `{"purpose":"sign_in","response":`+string(wrong)+`}`); code != 400 || out["error"] != "challenge_invalid" {
 		t.Fatalf("register challenge as a session %d %v", code, out)
 	}
 }
