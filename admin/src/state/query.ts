@@ -63,7 +63,12 @@ export function keyOf(params: unknown): string {
   return params === undefined ? "" : JSON.stringify(params);
 }
 
-export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T>, opts: { timeoutMs?: number } = {}) {
+export function createQuery<P, T>(
+  fetcher: (get: Getter, params: P) => Promise<T>,
+  /** `fresh`: a screen opening again always loads anew (a passkey
+   * challenge is single-use), never showing the last answer meanwhile. */
+  opts: { timeoutMs?: number; fresh?: boolean } = {},
+) {
   const timeoutMs = opts.timeoutMs ?? QUERY_TIMEOUT_MS;
   const slots = atomFamily((_key: string) => atom<Slot<T>>({ load: null, seq: 0 }));
 
@@ -76,7 +81,7 @@ export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T
     const slot = slots(keyOf(params));
     const seq = get(slot).seq + 1;
     const prev = get(slot).load;
-    const keep = mode === "keep" || (mode === "revisit" && prev?.kind === "loaded");
+    const keep = mode === "keep" || (mode === "revisit" && !opts.fresh && prev?.kind === "loaded");
     set(slot, { seq, load: keep ? prev : { kind: "loading" } });
     try {
       const data = await withTimeout(fetcher(get, params), timeoutMs);

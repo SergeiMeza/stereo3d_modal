@@ -38,8 +38,10 @@ interface PendingReauth {
 export const reauthAtom = atom<PendingReauth | null>(null);
 
 /** Session options (a fresh WebAuthn challenge) per purpose. */
-export const sessionOptionsQuery = createQuery<PasskeyPurpose, PublicKeyCredentialRequestOptionsJSON>((get, purpose) =>
-  apiOf(get(servicesAtom)).sessionOptions(purpose),
+/** A passkey challenge per purpose; single-use, so every opening loads anew. */
+export const sessionOptionsQuery = createQuery<PasskeyPurpose, PublicKeyCredentialRequestOptionsJSON>(
+  (get, purpose) => apiOf(get(servicesAtom)).sessionOptions(purpose),
+  { fresh: true },
 );
 
 export function useServices(): Services {

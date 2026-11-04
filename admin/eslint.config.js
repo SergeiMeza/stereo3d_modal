@@ -59,8 +59,6 @@ const STATE_ALLOWLIST = [
   "src/lib/router.tsx", // the router's provider (allowed: router)
   // migration in progress (ADR 0138): this list shrinks to the router
   "src/lib/useLoad.ts",
-  "src/screens/Security.tsx",
-  "src/screens/SignIn.tsx",
 ];
 
 export default defineConfig([
