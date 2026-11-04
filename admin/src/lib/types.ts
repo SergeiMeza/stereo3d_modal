@@ -630,3 +630,11 @@ export interface BusinessFunnel {
   } | null;
   generated_at: string;
 }
+
+/** A passkey on the admin account (ADR 0135). */
+export interface Passkey {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at?: string | null;
+}

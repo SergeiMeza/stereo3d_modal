@@ -14,6 +14,9 @@ export type AuthState =
     }
   /** Google is done; the authenticator code is next. */
   | { kind: "code"; label: string; error?: string }
+  /** Google is done and the claim is there; the passkey is next (ADR 0135).
+   * The authenticator code stays available while the gateway accepts it. */
+  | { kind: "passkey"; email: string; uid: string; hasFactor: boolean }
   /** Signed in with the claim but no second factor yet. */
   | { kind: "enrol"; email: string; hasFactor: boolean; error?: string }
   | { kind: "no_access"; email: string }

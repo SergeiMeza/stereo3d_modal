@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { App } from "../App";
+import { memoryStorage, AdminSession } from "../lib/adminSession";
 import { AdminApi } from "../lib/api";
 import type { AdminAuth, AuthState } from "../lib/auth";
 
@@ -77,13 +78,19 @@ export class FakeAuth implements AdminAuth {
   });
 }
 
-export function renderApp(path: string, routes: Record<string, Handler>, auth = new FakeAuth()) {
+export function renderApp(
+  path: string,
+  routes: Record<string, Handler>,
+  auth = new FakeAuth(),
+  session = new AdminSession(memoryStorage()),
+) {
   const { fetch, calls } = fakeFetch(routes);
   const api = new AdminApi({
     baseUrl: GATEWAY,
     getToken: (f) => auth.getToken(f),
     onSessionProblem: (p) => auth.reportProblem(p),
     fetchImpl: fetch,
+    session,
   });
   window.history.replaceState(null, "", path);
   const utils = render(<App auth={auth} api={api} initialPath={path} />);

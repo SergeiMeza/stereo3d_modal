@@ -1,25 +1,31 @@
-import { useState } from "react";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { useEffect, useState } from "react";
 
 import { Brand } from "../components/Brand";
 import { Button, Field, Spinner } from "../components/ui";
+import { ApiError, type AdminApi } from "../lib/api";
 import type { AdminAuth, AuthState, Enrolment } from "../lib/auth";
+import { assertPasskey, createPasskey, PASSKEY_COPY, passkeyErrorMessage } from "../lib/passkeys";
 
 const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 
-/** A0: sign-in, the code step, second-factor enrolment and no access. */
-export function SignInScreen({ auth, state }: { auth: AdminAuth; state: AuthState }) {
+/** A0: sign-in, the passkey (ADR 0135), the code step, second-factor
+ * enrolment and no access. */
+export function SignInScreen({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: AdminApi }) {
   return (
     <main className="signin">
       <div className="signin-card">
         <Brand big env={ENV} />
-        <Body auth={auth} state={state} />
+        <Body auth={auth} state={state} api={api} />
       </div>
     </main>
   );
 }
 
-function Body({ auth, state }: { auth: AdminAuth; state: AuthState }) {
+function Body({ auth, state, api }: { auth: AdminAuth; state: AuthState; api: AdminApi }) {
   switch (state.kind) {
+    case "passkey":
+      return <PasskeyStep auth={auth} api={api} email={state.email} hasFactor={state.hasFactor} />;
     case "loading":
     case "ready":
       return <Spinner />;
@@ -124,6 +130,118 @@ function CodeStep({ auth, label, error }: { auth: AdminAuth; label: string; erro
         {busy ? "Working…" : "Continue"}
       </Button>
       {error && <p className="err small" role="alert">{error}</p>}
+      <Button size="sm" variant="ghost" onClick={() => void auth.signOut()}>Use another account</Button>
+    </>
+  );
+}
+
+type PasskeyStage =
+  | { kind: "checking" }
+  | { kind: "use"; options: PublicKeyCredentialRequestOptionsJSON | null; added?: boolean }
+  | { kind: "setup" }
+  | { kind: "totp" };
+
+/**
+ * After Google: "Use your passkey". The options are fetched as the step
+ * opens, so the browser's passkey prompt opens straight from the click.
+ * No passkey on the account yet (409 no_passkey): "Set up a passkey", then
+ * sign in with it. The authenticator code stays one link away while the
+ * gateway still takes it.
+ */
+function PasskeyStep({ auth, api, email, hasFactor }: { auth: AdminAuth; api: AdminApi; email: string; hasFactor: boolean }) {
+  const [stage, setStage] = useState<PasskeyStage>({ kind: "checking" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const prepare = async (added = false) => {
+    setError("");
+    try {
+      const options = await api.sessionOptions("sign_in");
+      setStage({ kind: "use", options, added });
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "no_passkey") setStage({ kind: "setup" });
+      else {
+        setStage({ kind: "use", options: null, added });
+        setError(passkeyErrorMessage(e));
+      }
+    }
+  };
+
+  useEffect(() => {
+    void prepare();
+    // once per mount: the step reopens after a sign-out
+  }, []);
+
+  const use = async () => {
+    if (stage.kind !== "use") return;
+    setBusy(true);
+    setError("");
+    try {
+      await assertPasskey(api, "sign_in", stage.options ?? undefined);
+      // the session is set; the console opens
+    } catch (e) {
+      setError(passkeyErrorMessage(e));
+      // a used or expired challenge can't be tried again
+      void api.sessionOptions("sign_in").then(
+        (options) => setStage({ kind: "use", options }),
+        () => setStage({ kind: "use", options: null }),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setup = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await createPasskey(api);
+      await prepare(true);
+    } catch (e) {
+      setError(passkeyErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (stage.kind === "totp") {
+    return (
+      <>
+        <Enrol auth={auth} email={email} hasFactor={hasFactor} />
+        <Button size="sm" variant="ghost" onClick={() => {
+            setStage({ kind: "checking" });
+            void prepare();
+          }}>
+          Use a passkey instead
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {stage.kind === "setup" ? (
+        <>
+          <p>Set up a passkey to use the console.</p>
+          <p className="muted small">{email} · {PASSKEY_COPY}</p>
+          <Button variant="primary" className="full" onClick={() => void setup()} disabled={busy}>
+            {busy ? "Waiting for the passkey…" : "Set up a passkey"}
+          </Button>
+        </>
+      ) : (
+        <>
+          {stage.kind === "use" && stage.added && <p className="notice">Passkey added. Use it to sign in.</p>}
+          <p>Use your passkey to finish signing in.</p>
+          <p className="muted small">{email} · {PASSKEY_COPY}</p>
+          <Button variant="primary" className="full" onClick={() => void use()} disabled={busy || stage.kind === "checking"}>
+            {busy ? "Waiting for the passkey…" : "Use your passkey"}
+          </Button>
+        </>
+      )}
+      {error && <p className="err small" role="alert">{error}</p>}
+      <Button size="sm" variant="ghost" onClick={() => setStage({ kind: "totp" })}>
+        Use an authenticator code instead
+      </Button>
       <Button size="sm" variant="ghost" onClick={() => void auth.signOut()}>Use another account</Button>
     </>
   );

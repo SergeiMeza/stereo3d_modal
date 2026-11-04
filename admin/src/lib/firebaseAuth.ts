@@ -83,9 +83,12 @@ export function createFirebaseAuth(): AdminAuth {
     }
     const fb = token.claims.firebase as { sign_in_second_factor?: string } | undefined;
     if (!fb?.sign_in_second_factor) {
+      // ADR 0135: the passkey is the second step; the authenticator code
+      // (enrol) stays one link away on that screen.
       set({
-        kind: "enrol",
+        kind: "passkey",
         email,
+        uid: user.uid,
         hasFactor: multiFactor(user).enrolledFactors.length > 0,
       });
       return;

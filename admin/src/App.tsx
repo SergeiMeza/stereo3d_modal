@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Brand } from "./components/Brand";
 import { DisputeBadge, DisputeDueBanner, useDisputeAlert } from "./components/DisputesAlert";
@@ -22,7 +22,15 @@ const ENV = import.meta.env.VITE_ENV_LABEL as string | undefined;
 
 export function App({ auth, api, initialPath }: { auth: AdminAuth; api: AdminApi; initialPath?: string }) {
   const state = useSyncExternalStore(auth.subscribe, auth.getState);
-  if (state.kind !== "ready") return <SignInScreen auth={auth} state={state} />;
+  const session = useSyncExternalStore(api.session.subscribe, api.session.get);
+  // Signed out of Google: the passkey session goes too.
+  useEffect(() => {
+    if (state.kind === "signed_out" || state.kind === "no_access") api.session.clear();
+  }, [state.kind, api]);
+  // ready: Google with the authenticator code; passkey: Google, then the
+  // passkey session (ADR 0135).
+  const signedIn = state.kind === "ready" || (state.kind === "passkey" && session !== null);
+  if (!signedIn) return <SignInScreen auth={auth} state={state} api={api} />;
   return (
     <ServicesProvider api={api} auth={auth} email={state.email}>
       <RouterProvider initialPath={initialPath}>

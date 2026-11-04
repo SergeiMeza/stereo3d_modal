@@ -1,5 +1,14 @@
 import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/browser";
+
+import { AdminSession } from "./adminSession";
+import type {
   AccountActionBody,
+  Passkey,
   BusinessFunnel,
   AccountPage,
   CaseActionBody,
@@ -41,12 +50,39 @@ export class ApiError extends Error {
 /** Codes that end or block the whole session rather than one request. */
 export type SessionProblem = "invalid_token" | "no_access" | "mfa_required";
 
+/** The gateway's answer when the passkey session is missing or over: the
+ * token is dropped and the console asks for the passkey again. */
+const SESSION_CODES = new Set(["session_required", "session_expired", "invalid_session"]);
+
+/**
+ * Passkey routes (ADR 0135). The gateway is still building them; these are
+ * the console's working shape until it sends its own, kept in one place.
+ */
+export const PASSKEY_ROUTES = {
+  sessionOptions: "/v1/admin/session/options",
+  sessionVerify: "/v1/admin/session/verify",
+  registerOptions: "/v1/admin/passkeys/register/options",
+  registerVerify: "/v1/admin/passkeys/register/verify",
+  list: "/v1/admin/passkeys",
+  remove: (id: string) => `/v1/admin/passkeys/${encodeURIComponent(id)}`,
+};
+
+export type PasskeyPurpose = "sign_in" | "reassert";
+
+/** Options come as {options: …} or bare. */
+function optionsOf<T extends object>(r: unknown): T {
+  const o = r as { options?: T; publicKey?: T };
+  return (o.options ?? o.publicKey ?? (r as T)) as T;
+}
+
 export interface AdminApiOptions {
   baseUrl: string;
   /** Firebase ID token; `force` refreshes it (after a 401 or a re-auth). */
   getToken: (force?: boolean) => Promise<string | null>;
   onSessionProblem?: (problem: SessionProblem) => void;
   fetchImpl?: typeof fetch;
+  /** The passkey session token (ADR 0135); a new sessionStorage-backed one by default. */
+  session?: AdminSession;
 }
 
 export interface CaseListQuery {
@@ -63,8 +99,11 @@ export class AdminApi {
   private readonly getToken: AdminApiOptions["getToken"];
   private readonly onSessionProblem?: AdminApiOptions["onSessionProblem"];
   private readonly fetchImpl: typeof fetch;
+  /** X-Admin-Session, sent on every admin call when there is one. */
+  readonly session: AdminSession;
 
   constructor(opts: AdminApiOptions) {
+    this.session = opts.session ?? new AdminSession();
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this.getToken = opts.getToken;
     this.onSessionProblem = opts.onSessionProblem;
@@ -86,6 +125,8 @@ export class AdminApi {
       Accept: "application/json, text/csv",
     };
     if (body !== undefined) headers["Content-Type"] = "application/json";
+    const session = this.session.get();
+    if (session) headers["X-Admin-Session"] = session;
     return this.fetchImpl(this.baseUrl + path, {
       method,
       headers,
@@ -110,6 +151,7 @@ export class AdminApi {
     }
     if (res.status === 401) {
       const err = await toApiError(res);
+      if (SESSION_CODES.has(err.code)) this.session.clear();
       if (err.code !== "invalid_token") throw err;
       // A token can expire between the SDK's refreshes: retry once with a
       // fresh one before calling the session over.
@@ -238,6 +280,41 @@ export class AdminApi {
     return res.blob();
   }
 
+  /** Passkey sign-in or re-assertion options; 409 no_passkey when the
+   * account has none yet. */
+  async sessionOptions(purpose: PasskeyPurpose): Promise<PublicKeyCredentialRequestOptionsJSON> {
+    const r = await this.json<{ registered?: boolean }>("POST", PASSKEY_ROUTES.sessionOptions, { purpose });
+    if (r && r.registered === false) throw new ApiError(409, "no_passkey", "No passkey on this account yet.");
+    return optionsOf<PublicKeyCredentialRequestOptionsJSON>(r);
+  }
+
+  /** Verifies the assertion; the session token goes into `session`. */
+  async sessionVerify(response: AuthenticationResponseJSON, purpose: PasskeyPurpose): Promise<void> {
+    const r = await this.json<{ session?: string; token?: string }>("POST", PASSKEY_ROUTES.sessionVerify, { purpose, response });
+    const token = r.session ?? r.token;
+    if (!token) throw new ApiError(502, "no_session", "The gateway didn't start a session. Try again.");
+    this.session.set(token);
+  }
+
+  async registerOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    return optionsOf<PublicKeyCredentialCreationOptionsJSON>(await this.json("POST", PASSKEY_ROUTES.registerOptions, {}));
+  }
+
+  async registerVerify(response: RegistrationResponseJSON, name: string): Promise<Passkey | null> {
+    const r = await this.json<{ passkey?: Passkey }>("POST", PASSKEY_ROUTES.registerVerify, { response, name });
+    return r.passkey ?? null;
+  }
+
+  async listPasskeys(): Promise<Passkey[]> {
+    const r = await this.json<{ passkeys?: Passkey[] | null }>("GET", PASSKEY_ROUTES.list);
+    return r.passkeys ?? [];
+  }
+
+  /** 409 last_passkey: the last one can't go. */
+  async removePasskey(id: string): Promise<void> {
+    await this.raw("DELETE", PASSKEY_ROUTES.remove(id));
+  }
+
   policy(): Promise<PolicyResponse> {
     return this.json("GET", "/v1/admin/policy");
   }
@@ -264,7 +341,10 @@ async function toApiError(res: Response): Promise<ApiError> {
       : // 502 grant_failed carries the failed grant beside the message
         extra.grant && typeof extra.grant === "object"
         ? { grant: extra.grant }
-        : null;
+        : // 401 reauth_required names the method: {method: "passkey"}
+          typeof extra.method === "string"
+          ? { method: extra.method }
+          : null;
   return new ApiError(res.status, code, message, details);
 }
 
