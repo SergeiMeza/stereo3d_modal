@@ -1057,7 +1057,7 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	}
 	resp["progress"] = c.Modal.Progress
 	resp["stage"] = c.Modal.Stage
-	resp["eta_seconds"] = c.Modal.ETASeconds
+	resp["eta_seconds"], resp["eta_source"] = runETA(c, time.Now())
 	resp["waiting_for_gpu"] = c.Modal.WaitingForGPU && !store.IsTerminal(c.State)
 	// 5K-8K Lifelike outputs are experimental (the job says so once done).
 	if c.Modal.Experimental || (store.MethodOr(c.Method) == store.MethodLifelike && presetOutputHeight[c.Params.Preset] > originalEyeAboveShortSide) {

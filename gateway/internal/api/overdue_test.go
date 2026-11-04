@@ -53,3 +53,37 @@ func TestIsOverdue(t *testing.T) {
 		t.Error("10 min into a 5 min estimate is still within the slack")
 	}
 }
+
+// Once Lifelike reports a live eta_seconds it is the run's time left;
+// until then the run's own estimate less the time it ran (not the GPU
+// wait), at least a minute.
+func TestRunETA(t *testing.T) {
+	now := time.Now()
+	started := now.Add(-200 * time.Second)
+	c := &store.Conversion{State: store.StateProcessing, Support: store.Support{ExpectedSeconds: 701},
+		Modal: store.Modal{SubmittedAt: &started}}
+	if eta, src := runETA(c, now); eta != 501 || src != "estimate" {
+		t.Fatalf("estimate %d %s", eta, src)
+	}
+	c.Modal.QueuedS = 100 // waited for a GPU: not counted as running
+	if eta, _ := runETA(c, now); eta != 601 {
+		t.Fatalf("after a GPU wait %d", eta)
+	}
+	c.Modal.WaitingForGPU = true
+	if eta, _ := runETA(c, now); eta != 701 {
+		t.Fatalf("waiting %d", eta)
+	}
+	c.Modal.WaitingForGPU, c.Modal.ETASeconds = false, 900 // live, even when longer
+	if eta, src := runETA(c, now); eta != 900 || src != "live" {
+		t.Fatalf("live %d %s", eta, src)
+	}
+	c.Modal.ETASeconds, c.Modal.QueuedS = 0, 0
+	long := now.Add(-2 * time.Hour)
+	c.Modal.SubmittedAt = &long
+	if eta, _ := runETA(c, now); eta != etaFloorSeconds {
+		t.Fatalf("past the estimate %d", eta)
+	}
+	if eta, src := runETA(&store.Conversion{State: store.StateSucceeded}, now); eta != 0 || src != "" {
+		t.Fatalf("ended %d %s", eta, src)
+	}
+}

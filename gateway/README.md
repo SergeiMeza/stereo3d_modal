@@ -560,7 +560,10 @@ output minutes (24 fps) / GPUs + encode_tail_s × preset short side / 1080
 × (1 + bitrate / the preset's Master rate)` (the encode runs in parallel
 chunks, so the tail is flat in length but grows with the picture and the
 rate: 300 s at 1080p Master, 600 s at 4K Master; the pipeline's own rate
-counts as 0; previews use `preview_tail_s`; 3DS 2026-11-05). Overdue judging adds the
+counts as 0; previews use `preview_tail_s`; 3DS 2026-11-05). A run's `eta_seconds` is Lifelike's live
+figure once the job reports one (`eta_source: "live"`); until then the
+run's own estimate less the time it has run, without its GPU wait, at
+least 60 s (`eta_source: "estimate"`). Overdue judging adds the
 run's `queued_s`, and a run may process for max(24 h, 3 × its estimate).
 
 Billing (both methods): pro steps quoted above `precharge_threshold_cents`
