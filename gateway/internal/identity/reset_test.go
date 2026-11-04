@@ -86,7 +86,7 @@ func TestResetThroughRelayMailsTheSiteLink(t *testing.T) {
 	if m.To != "ann@example.com" || !strings.Contains(m.Text, link) || !strings.Contains(m.HTML, link) {
 		t.Fatalf("mail: %+v", m)
 	}
-	if !strings.Contains(m.Subject, "Stereo3D Studio") {
+	if !strings.Contains(m.Subject, "Spatial Video Studio") {
 		t.Fatalf("subject must name the app: %q", m.Subject)
 	}
 	if len(codes.calls) != 1 || codes.calls[0] != "ann@example.com" {
@@ -164,7 +164,7 @@ func TestResetMailWording(t *testing.T) {
 			}
 		}
 	}
-	if m.Subject != "Reset your Stereo3D Studio password" {
+	if m.Subject != "Reset your Spatial Video Studio password" {
 		t.Errorf("subject: %q", m.Subject)
 	}
 }

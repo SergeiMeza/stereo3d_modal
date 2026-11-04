@@ -38,6 +38,39 @@ logger = get_logger(__name__)
 MVHEVC_GPU = "L4"
 
 
+MVHEVC_VIEWS = 2
+
+
+def _x265_rate_args(crf: int, bitrate_bps: int | None = None) -> list[str]:
+    """x265 CLI rate control: CRF by default; with a target bitrate (TOTAL
+    for the two-view file) average-bitrate mode capped by VBV, in kbit/s.
+    The bitrate wins over the CRF when both are given.
+
+    x265 multiview rate-controls each view on its own: --bitrate 20000 gave
+    a 35.4 Mbit/s two-view file (test job 384ccd9d836c, 2026-11-03), so the
+    total target and its VBV caps are split evenly across the views."""
+    if bitrate_bps is None:
+        return ["--crf", str(crf)]
+    from app.stages.media import bitrate_vbv
+
+    target, maxrate, bufsize = (v // MVHEVC_VIEWS // 1000 for v in bitrate_vbv(bitrate_bps))
+    return ["--bitrate", str(target), "--vbv-maxrate", str(maxrate),
+            "--vbv-bufsize", str(bufsize)]
+
+
+def _nvenc_rate_args(quality: int, bitrate_bps: int | None = None) -> list[str]:
+    """hevc_nvenc rate control: constant-quality VBR (-cq) by default, or
+    VBR at a target bitrate with VBV caps. The frame-sequential input
+    carries both views, so the bitrate is the file's total."""
+    if bitrate_bps is None:
+        return ["-rc", "vbr", "-cq", str(quality)]
+    from app.stages.media import bitrate_vbv
+
+    target, maxrate, bufsize = bitrate_vbv(bitrate_bps)
+    return ["-rc", "vbr", "-b:v", str(target), "-maxrate", str(maxrate),
+            "-bufsize", str(bufsize)]
+
+
 def _container_cpus(default: int = 16) -> int:
     """Cores actually allocated to THIS container (the Modal cpu= request),
     for sizing x265's --pools. os.cpu_count() reports the host's cores on
@@ -88,6 +121,7 @@ def encode_mvhevc(
     original_path: str | None = None,
     spatial: dict | None = None,
     audio_trim: tuple[float, float] | None = None,
+    bitrate_bps: int | None = None,
 ) -> dict:
     """Encode a full-width SBS video into Apple spatial video:
     MV-HEVC (NVENC) → MP4Box mux (hvcC+lhvC) → vexu/hfov injection.
@@ -95,6 +129,8 @@ def encode_mvhevc(
     spatial: {"hero": "left"|"right"|None, "baseline_mm": float,
               "hfov_deg": float, "dadj": int} — see app/stages/vexu.py
     for defaults (iPhone-15-Pro-like).
+    bitrate_bps: target total video bitrate (both views); replaces the
+    -cq quality mode when set.
     """
     from app.common.debug import job_logger
 
@@ -110,9 +146,13 @@ def encode_mvhevc(
     from app.stages.media import probe_video
 
     fps = probe_video(sbs)["fps"]
-    jlog.info(f"🎯 MV-HEVC encode: {sbs.name} @ {fps:.3f} fps, cq={quality}, spatial={spatial}")
+    jlog.info(
+        f"🎯 MV-HEVC encode: {sbs.name} @ {fps:.3f} fps, "
+        f"{f'bitrate={bitrate_bps}' if bitrate_bps else f'cq={quality}'}, spatial={spatial}"
+    )
 
-    with jobs.stage_timer(job_id, "encode_mvhevc", gpu=MVHEVC_GPU, quality=quality):
+    with jobs.stage_timer(job_id, "encode_mvhevc", gpu=MVHEVC_GPU, quality=quality,
+                          bitrate_bps=bitrate_bps):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             raw = tmp_dir / "video.hevc"
@@ -131,7 +171,7 @@ def encode_mvhevc(
                     "[left][right]framepack=frameseq[v]",
                     "-map", "[v]",
                     "-c:v", "hevc_nvenc", "-profile:v", "mv", "-tune", "hq",
-                    "-rc", "vbr", "-cq", str(quality), "-b_ref_mode", "0",
+                    *_nvenc_rate_args(quality, bitrate_bps), "-b_ref_mode", "0",
                     "-f", "hevc", str(raw),
                 ],
                 capture_output=True, text=True,
@@ -257,6 +297,7 @@ def encode_mvhevc_x265(
     original_path: str | None = None,
     spatial: dict | None = None,
     audio_trim: tuple[float, float] | None = None,
+    bitrate_bps: int | None = None,
 ) -> dict:
     """Apple-recognized spatial video via x265 MV-HEVC (CPU).
 
@@ -264,6 +305,9 @@ def encode_mvhevc_x265(
     Apple's spatial classifier accepts — NVENC output (encode_mvhevc)
     plays in players but never earns the Photos/Files spatial badge.
     Same downstream chain: MP4Box mux (hvcC+lhvC) + vexu/hfov injection.
+
+    bitrate_bps: target total video bitrate (both views), VBV-capped;
+    overrides ``crf`` when set.
     """
     from app.common.debug import job_logger
     from app.stages.media import probe_video
@@ -287,11 +331,13 @@ def encode_mvhevc_x265(
     # allocation), clamped to a sane range.
     n_cores = _container_cpus()
     jlog.info(
-        f"🎯 x265 MV-HEVC: {eye_w}x{eye_h}/eye, {num_frames}f, crf={crf}, "
+        f"🎯 x265 MV-HEVC: {eye_w}x{eye_h}/eye, {num_frames}f, "
+        f"{f'bitrate={bitrate_bps}' if bitrate_bps else f'crf={crf}'}, "
         f"preset={preset}, pools={n_cores}"
     )
 
-    with jobs.stage_timer(job_id, "encode_mvhevc_x265", crf=crf, preset=preset):
+    with jobs.stage_timer(job_id, "encode_mvhevc_x265", crf=crf, preset=preset,
+                          bitrate_bps=bitrate_bps):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             left_yuv = tmp_dir / "left.yuv"
@@ -328,7 +374,7 @@ def encode_mvhevc_x265(
                  "--frames", str(num_frames), "--profile", "main",
                  "--colorprim", "bt709", "--transfer", "bt709",
                  "--colormatrix", "bt709", "--range", "limited",
-                 "--preset", preset, "--crf", str(crf),
+                 "--preset", preset, *_x265_rate_args(crf, bitrate_bps),
                  "--keyint", str(keyint), "--min-keyint", str(keyint),
                  "--no-open-gop", "--repeat-headers",
                  # adaptive scene-cut I-frames are asymmetric between the

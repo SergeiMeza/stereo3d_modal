@@ -95,6 +95,7 @@ Only `input_path` is required. Everything else defaults as below.
 |---|---|---|---|
 | `input_path` | string | — (required) | bucket-relative path or `gs://` URI |
 | `formats` | list | `["sbs", "half_sbs", "anaglyph"]` | any of `sbs`, `half_sbs`, `tb`, `half_tb`, `anaglyph`, `mvhevc`. `mvhevc` is encoded by a separate stage from the raw stereo master; a request with **only** `mvhevc` skips the SBS-family encode entirely |
+| `output_bitrate_bps` | int \| null | `null` | target **total** video bitrate of every output format, **[2000000, 300000000]** bit/s (else 400). Bitrate mode with VBV: maxrate 1.5×, bufsize 2× the target. SBS-family formats (`sbs`, `half_sbs`, `tb`, `half_tb`, `anaglyph`) encode libx264 at it instead of CRF 17; `mvhevc` encodes at it instead of the x265 CRF / NVENC CQ, the value covering **both views**. Wins over `mvhevc_crf`. `null`/absent = the quality-based defaults |
 | `include_audio` | bool | `true` | mux source audio into outputs (trim-aware) |
 | `output_depth` | bool | `true` | also publish the gray16 depth video as `outputs.depth` (and register it for content-addressed reuse), **plus** a browser-playable 8-bit preview as `outputs.depth_vis` (yuv420p H.264, short side ≤ 720, no upscale — produced even when the depth itself was reused; never part of the reuse key) |
 | `stereo_mode` | string | `"both"` | `both` \| `left` \| `right` — which eye(s) are synthesized (`m2svid` defaults to `right`; its left eye is always the original frame) |
@@ -142,6 +143,7 @@ byte-exact vexu/hfov injection.
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `mvhevc_encoder` | string | `"x265"` | `x265` = Apple spatial badge (CPU); `nvenc` = fast L4 GPU path (plays in custom players, no Photos badge) |
+| `mvhevc_crf` | int | `23` | x265 CRF of the spatial file, **[0, 51]**; lower = higher bitrate. Ignored when `output_bitrate_bps` is set (x265 only) |
 | `spatial.hero` | string | `"left"` | `left` \| `right` \| `null` — hero eye |
 | `spatial.baseline_mm` | float | `19.24` | virtual camera baseline |
 | `spatial.hfov_deg` | float | `63.4` | horizontal field of view |

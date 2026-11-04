@@ -487,6 +487,7 @@ def encode_outputs(
     formats: list[str] | None = None,
     include_audio: bool = True,
     audio_trim: tuple[float, float] | None = None,
+    output_bitrate_bps: int | None = None,
 ) -> dict:
     """Stage 3: derive deliverables from the full-width SBS master and
     publish them to the bucket.
@@ -494,6 +495,9 @@ def encode_outputs(
     formats ⊆ {"sbs", "half_sbs", "tb", "half_tb", "anaglyph", "depth"}
     (the SBS master is always published; "depth" is handled by the
     caller since it lives in a separate file).
+
+    output_bitrate_bps: target total video bitrate of every format (VBV:
+    maxrate 1.5x, bufsize 2x); None keeps the CRF 17 default.
     """
     # VR-first default: no anaglyph unless explicitly requested
     formats = formats or ["sbs", "half_sbs"]
@@ -530,7 +534,8 @@ def encode_outputs(
     jlog = job_logger(job_id)
     jlog.info(
         f"🎯 encoding {formats} from {sbs.name} "
-        f"(audio={'yes' if audio_args else 'no'})"
+        f"(audio={'yes' if audio_args else 'no'}, "
+        f"bitrate={output_bitrate_bps or 'crf 17'})"
     )
 
     av_sync: dict[str, float | None] = {}
@@ -558,6 +563,7 @@ def encode_outputs(
             encode_one_format.spawn(
                 job_id, str(sbs), fmt, original_path,
                 include_audio=include_audio, audio_trim=audio_trim,
+                output_bitrate_bps=output_bitrate_bps,
             )
             for fmt in todo
         ]
@@ -587,6 +593,7 @@ def encode_one_format(
     original_path: str | None = None,
     include_audio: bool = True,
     audio_trim: tuple[float, float] | None = None,
+    output_bitrate_bps: int | None = None,
 ) -> dict:
     """Encode ONE SBS-family deliverable from the full-width SBS master and
     publish it. Fanned out by encode_outputs (one container per format) so a
@@ -618,13 +625,7 @@ def encode_one_format(
     out_dir = job_output_dir(job_id)
     with tempfile.TemporaryDirectory() as tmp:
         local = Path(tmp) / f"{fmt}.mp4"
-        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
-        cmd += audio_args
-        vf = recipes[fmt]
-        if vf:
-            cmd += ["-vf", vf]
-        cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "17",
-                "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(local)]
+        cmd = _format_cmd(sbs, local, recipes[fmt], audio_args, output_bitrate_bps)
         subprocess.run(cmd, check=True)
         dst = out_dir / f"{fmt}.mp4"
         dst.write_bytes(local.read_bytes())
@@ -632,6 +633,46 @@ def encode_one_format(
         url = public_url(dst)
         jlog.info(f"✔ {fmt}: {local.stat().st_size / 1e6:.1f} MB, av_sync={sync} ms → {url}")
     return {"fmt": fmt, "url": url, "av_sync_ms": sync}
+
+
+# Target-bitrate encoding (request ``output_bitrate_bps``): VBV-capped
+# bitrate mode instead of the quality-based CRF default. The target is the
+# file's TOTAL video bitrate; peaks may reach 1.5x it, over a 2x buffer.
+VBV_MAXRATE_FACTOR = 1.5
+VBV_BUFSIZE_FACTOR = 2.0
+
+
+def bitrate_vbv(bitrate_bps: int) -> tuple[int, int, int]:
+    """(target, maxrate, bufsize) in bit/s for a target video bitrate."""
+    target = int(bitrate_bps)
+    return target, int(target * VBV_MAXRATE_FACTOR), int(target * VBV_BUFSIZE_FACTOR)
+
+
+def _h264_rate_args(bitrate_bps: int | None) -> list[str]:
+    """libx264 rate control for an SBS-family deliverable: CRF 17 by
+    default, or bitrate + VBV when a target bitrate is set."""
+    if bitrate_bps is None:
+        return ["-crf", "17"]
+    target, maxrate, bufsize = bitrate_vbv(bitrate_bps)
+    return ["-b:v", str(target), "-maxrate", str(maxrate), "-bufsize", str(bufsize)]
+
+
+def _format_cmd(
+    sbs: str | Path,
+    dst: str | Path,
+    vf: str | None,
+    audio_args: list[str] | None = None,
+    bitrate_bps: int | None = None,
+) -> list[str]:
+    """ffmpeg command for ONE SBS-family deliverable (H.264 yuv420p,
+    faststart) from the full-width SBS master."""
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(sbs)]
+    cmd += audio_args or []
+    if vf:
+        cmd += ["-vf", vf]
+    cmd += ["-c:v", "libx264", "-preset", "fast", *_h264_rate_args(bitrate_bps),
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-y", str(dst)]
+    return cmd
 
 
 def _av_sync_ms(path: Path) -> float | None:
