@@ -1,3 +1,4 @@
+import { useSetAtom } from "jotai";
 import { useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -22,10 +23,11 @@ import { ago, dateOnly, dateTime, money, parseSignedDollars, words } from "../li
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
-import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRun, AccountRuns } from "../lib/types";
-import { useLoad } from "../lib/useLoad";
+import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRuns } from "../lib/types";
+import { accountQuery } from "@/state/queries";
+import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
-import { GrantsSection, PromoRegrants } from "./Grants";
+import { grantSheetAtom, GrantsSection, PromoRegrants } from "./Grants";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
 export function AccountLookup() {
@@ -84,10 +86,9 @@ const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: 
 
 /** A3: one account. */
 export function AccountPage({ uid }: { uid: string }) {
-  const { api } = useServices();
-  const { state, retry, set } = useLoad(() => api.getAccount(uid), [api, uid]);
+  const { state, retry, set } = useQuery(accountQuery, uid);
   const [sheet, setSheet] = useState<SheetState>(null);
-  const [granting, setGranting] = useState(false);
+  const openGrantSheet = useSetAtom(grantSheetAtom);
 
   if (state.kind === "loading") return <LoadingBlock label="Loading the account" />;
   if (state.kind === "error") {
@@ -176,7 +177,7 @@ export function AccountPage({ uid }: { uid: string }) {
         <div className="ml-auto flex flex-wrap items-center gap-2" role="group" aria-label="Account actions">
           {p.owed_cents > 0 && <Button onClick={() => act("write_off_owed")}>Write off {money(p.owed_cents)}…</Button>}
           <Button onClick={() => act("adjust_balance")}>Adjust balance…</Button>
-          <Button variant="default" onClick={() => setGranting(true)}>Grant a plan…</Button>
+          <Button variant="default" onClick={() => openGrantSheet(a.uid)}>Grant a plan…</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button aria-label="More account actions">
@@ -323,7 +324,7 @@ export function AccountPage({ uid }: { uid: string }) {
         )}
       </Panel>
 
-      {p.runs && <RunsPanel uid={a.uid} initial={p.runs} />}
+      {p.runs && <RunsPanel uid={a.uid} runs={p.runs} />}
 
       <Panel title="Payment history" note={`${charges.length} charges · ${refunds.length} refunds`}>
         {charges.length === 0 ? (
@@ -378,8 +379,8 @@ export function AccountPage({ uid }: { uid: string }) {
         )}
       </Panel>
 
-      <GrantsSection uid={a.uid} initial={p.grants ?? []} granting={granting} setGranting={setGranting} />
-      <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} onPage={set} />
+      <GrantsSection uid={a.uid} grants={p.grants ?? []} />
+      <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} />
 
       <Panel title="Balance ledger" note="latest 50">
         {ledger.length === 0 ? (
@@ -647,10 +648,12 @@ function runTone(status: string): Tone {
 }
 
 /** The account's runs, newest first, 20 at a time (runs_before paging). */
-function RunsPanel({ uid, initial }: { uid: string; initial: AccountRuns }) {
+function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
   const { api } = useServices();
-  const [items, setItems] = useState<AccountRun[]>(initial.items ?? []);
-  const [next, setNext] = useState<string | null>(initial.next_before ?? null);
+  // older pages go into the account's atom, after the runs already there
+  const updateAccount = useSetAtom(accountQuery.update);
+  const items = runs.items ?? [];
+  const next = runs.next_before ?? null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const more = async () => {
@@ -659,8 +662,11 @@ function RunsPanel({ uid, initial }: { uid: string; initial: AccountRuns }) {
     setErr("");
     try {
       const page = await api.getAccount(uid, { limit: 20, before: next });
-      setItems((cur) => [...cur, ...(page.runs?.items ?? []).filter((r) => !cur.some((c) => c.id === r.id))]);
-      setNext(page.runs?.next_before ?? null);
+      updateAccount(uid, (p) => {
+        const cur = p.runs?.items ?? [];
+        const older = (page.runs?.items ?? []).filter((r) => !cur.some((c) => c.id === r.id));
+        return { ...p, runs: { ...runs, ...p.runs, items: [...cur, ...older], next_before: page.runs?.next_before ?? null } };
+      });
     } catch (e) {
       setErr(`Couldn't load more runs: ${errorMessage(e)}`);
     } finally {
@@ -668,7 +674,7 @@ function RunsPanel({ uid, initial }: { uid: string; initial: AccountRuns }) {
     }
   };
   return (
-    <Panel title="Runs" note={<span className="tabular-nums">{initial.count} in total</span>}>
+    <Panel title="Runs" note={<span className="tabular-nums">{runs.count} in total</span>}>
       {items.length === 0 ? (
         <EmptyRow>No runs.</EmptyRow>
       ) : (

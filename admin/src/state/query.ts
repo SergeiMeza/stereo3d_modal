@@ -101,11 +101,20 @@ export function createQuery<P, T>(fetcher: (get: Getter, params: P) => Promise<T
     set(slot, { seq: cur.seq + 1, load: { kind: "loaded", data } });
   });
 
+  /** Changes loaded data in place (a new grant, an older page of runs);
+   * nothing happens when it hasn't loaded. Any load in flight loses. */
+  const update = atom(null, (get, set, params: P, fn: (prev: T) => T) => {
+    const slot = slots(keyOf(params));
+    const cur = get(slot);
+    if (cur.load?.kind !== "loaded") return;
+    set(slot, { seq: cur.seq + 1, load: { kind: "loaded", data: fn(cur.load.data) } });
+  });
+
   /** The load for params, for derived atoms (one memoized atom per key). */
   const values = atomFamily((key: string) => atom((get) => get(slots(key)).load));
   const value = (params: P) => values(keyOf(params));
 
-  return { slots, run, put, value };
+  return { slots, run, put, update, value };
 }
 
 export type Query<P, T> = ReturnType<typeof createQuery<P, T>>;
