@@ -57,7 +57,17 @@ const ROUTES: Record<string, (path: string) => unknown> = {
     sign_ins: { "7d": { passkey: 120, password: 30, google: 210 }, "30d": { passkey: 430, password: 160, google: 900 } },
     generated_at: "2026-11-04T00:00:00Z",
   }),
-  "GET /v1/admin/plans/surfaces": () => ({ days: 30, generated_at: "2026-11-04T00:00:00Z", placements: [], unattributed: { conversions: 0, by_product: {} }, by_reason: [] }),
+  "GET /v1/admin/plans/surfaces": () => ({
+    days: 7,
+    generated_at: "2026-11-04T00:00:00Z",
+    placements: [],
+    unattributed: { conversions: 2, by_product: { business: 1, pro: 1 } },
+    by_reason: [],
+    starts: [
+      { uid: "uid_123", email: "jane@example.com", product: "business", plan: "business_monthly", source: "checkout", price_cents: 29900, started_at: "2026-11-04T08:00:00Z", placement: "quote" },
+      { uid: "uid_456", email: "app.user@example.com", product: "pro", plan: null, source: "app_store", price_cents: null, started_at: "2026-11-03T08:00:00Z", placement: null },
+    ],
+  }),
   "GET /v1/admin/feedback": () => ({ days: 30, items: [] }),
   "GET /v1/admin/onboarding/headsets": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),
   "GET /v1/admin/onboarding/business_funnel": () => ({ days: 90, generated_at: "2026-11-04T00:00:00Z" }),

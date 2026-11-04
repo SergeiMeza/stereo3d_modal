@@ -471,8 +471,24 @@ export interface PlansSurfaceRow {
   conversion_rate: number;
 }
 
+/** A plan start in the window (BL-29, gateway rev 00114), newest first. */
+export interface PlanStart {
+  uid: string;
+  email: string;
+  product: "pro" | "business" | "studio" | string;
+  /** the web plan id for a Checkout start */
+  plan?: string | null;
+  source: string;
+  /** what the first period cost; null for an App Store start */
+  price_cents: number | null;
+  started_at: string;
+  placement?: string | null;
+}
+
 export interface PlansSurfaces {
   days: number;
+  /** BL-29: absent on older gateways */
+  starts?: PlanStart[] | null;
   generated_at: string;
   placements: PlansSurfaceRow[] | null;
   unattributed: { conversions: number; by_product: Partial<Record<"pro" | "business" | "studio", number>> };

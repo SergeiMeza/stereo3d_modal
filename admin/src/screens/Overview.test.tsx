@@ -69,7 +69,11 @@ describe("Needs attention (Overview)", () => {
     "GET /v1/admin/cases": () => ({ json: cases }),
     "GET /v1/admin/disputes/summary": () => ({ json: { ...disputes, open: [], open_efws: 1 } }),
     "GET /v1/admin/plans/surfaces": () => ({
-      json: { days: 7, generated_at: "x", placements: [{ placement: "quote", views: 9, viewers: 9, dismissals: 0, clicks: 2, conversions: 2, conversions_by_product: { business: 2 }, click_rate: 0.2, conversion_rate: 0.2 }], unattributed: { conversions: 1, by_product: { studio: 1 } } },
+      json: { days: 7, generated_at: "x", placements: [{ placement: "quote", views: 9, viewers: 9, dismissals: 0, clicks: 2, conversions: 2, conversions_by_product: { business: 2 }, click_rate: 0.2, conversion_rate: 0.2 }], unattributed: { conversions: 1, by_product: { studio: 1 } },
+        starts: [
+          { uid: "u1", email: "kim.visual@example.com", product: "business", plan: "business_monthly", source: "checkout", price_cents: 29900, started_at: "2026-11-04T08:00:00Z", placement: "quote" },
+          { uid: "u2", email: "app.user@example.com", product: "pro", plan: null, source: "app_store", price_cents: null, started_at: "2026-11-03T08:00:00Z", placement: null },
+        ] },
     }),
     "GET /v1/admin/passkey-adoption": () => ({
       json: { accounts_with_passkey: 41, passkeys: 57, sign_ins: { "7d": { passkey: 30, google: 70 }, "30d": { passkey: 100, google: 300 } }, generated_at: "x" },
@@ -85,7 +89,11 @@ describe("Needs attention (Overview)", () => {
     expect(within(screen.getByTestId("lane-now")).getByText("CASE-1039")).toBeInTheDocument();
     expect(within(screen.getByTestId("lane-today")).getByText("CASE-1042")).toBeInTheDocument();
     expect(within(screen.getByTestId("lane-week")).getByText("CASE-1041")).toBeInTheDocument();
-    expect(await screen.findByTestId("plan-starts")).toHaveTextContent("All plans3");
+    const starts = await screen.findByTestId("plan-starts");
+    expect(starts).toHaveTextContent("kim.visual@example.comBusiness · $299.00");
+    expect(starts).toHaveTextContent("app.user@example.comPro · App Store");
+    expect(within(starts).getByRole("link", { name: "kim.visual@example.com" })).toHaveAttribute("href", "/accounts/u1");
+    expect(screen.getByText("+$299.00")).toBeInTheDocument();
     expect(await screen.findByTestId("passkey-adoption")).toHaveTextContent("41");
     expect(screen.getByTestId("passkey-adoption")).toHaveTextContent("30%");
     // the nav total: Now + Today

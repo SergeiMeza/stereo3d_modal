@@ -4,7 +4,7 @@ import { EmptyRow, Panel, StateBox } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAttention } from "@/lib/attention";
-import { ago, money, pct, time } from "@/lib/format";
+import { ago, money, pct, time, words } from "@/lib/format";
 import { nextUpCopy, type Lane, type LaneItem } from "@/lib/lanes";
 import { Link, paths, useRouter } from "@/lib/router";
 import { useServices } from "@/lib/services";
@@ -173,12 +173,18 @@ function NextUp({ item, remaining, onSkip }: { item: LaneItem; remaining: number
   );
 }
 
-/** Plan starts in the last 7 days, by plan (the gateway's plans surfaces). */
+/** Plan starts in the last 7 days (plans surfaces' starts, newest first). */
 function PlanStarts() {
   const { api } = useServices();
   const { state } = useLoad(() => api.plansSurfaces(7), [api]);
+  const starts = state.kind === "loaded" ? state.data.starts ?? [] : [];
+  const paid = starts.reduce((s, x) => s + (x.price_cents ?? 0), 0);
   return (
-    <Panel title="Plan starts this week" action={<Link to={paths.plans()} className="text-sm text-link hover:underline">Surfaces</Link>}>
+    <Panel
+      title="Plan starts this week"
+      note={paid > 0 ? <span className="font-mono text-sm text-success-foreground tabular-nums">+{money(paid)}</span> : undefined}
+      action={<Link to={paths.plans()} className="text-sm text-link hover:underline">Surfaces</Link>}
+    >
       {state.kind === "loading" && (
         <div className="px-4 py-3" aria-busy="true" aria-label="Loading">
           <Skeleton />
@@ -186,30 +192,24 @@ function PlanStarts() {
       )}
       {state.kind === "error" && <EmptyRow>Couldn't load the plan starts.</EmptyRow>}
       {state.kind === "loaded" &&
-        (() => {
-          const by: Record<string, number> = {};
-          for (const r of state.data.placements ?? [])
-            for (const [k, v] of Object.entries(r.conversions_by_product ?? {})) by[k] = (by[k] ?? 0) + (v ?? 0);
-          for (const [k, v] of Object.entries(state.data.unattributed?.by_product ?? {})) by[k] = (by[k] ?? 0) + (v ?? 0);
-          const total = Object.values(by).reduce((s, v) => s + v, 0);
-          if (!total) return <EmptyRow>No plan starts in the last 7 days.</EmptyRow>;
-          return (
-            <dl className="flex flex-col gap-1.5 px-4 py-3 text-sm" data-testid="plan-starts">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">All plans</dt>
-                <dd className="font-mono font-medium tabular-nums">{total}</dd>
-              </div>
-              {(Object.keys(PRODUCTS) as (keyof typeof PRODUCTS)[])
-                .filter((k) => by[k])
-                .map((k) => (
-                  <div key={k} className="flex justify-between">
-                    <dt>{PRODUCTS[k]}</dt>
-                    <dd className="font-mono tabular-nums">{by[k]}</dd>
-                  </div>
-                ))}
-            </dl>
-          );
-        })()}
+        (starts.length === 0 ? (
+          <EmptyRow>No plan starts in the last 7 days.</EmptyRow>
+        ) : (
+          <ul className="flex list-none flex-col gap-2 px-4 py-3 text-sm" data-testid="plan-starts">
+            {starts.slice(0, 6).map((st) => (
+              <li key={`${st.uid}-${st.started_at}`} className="flex justify-between gap-2">
+                <Link to={paths.account(st.uid)} className="min-w-0 truncate hover:underline">
+                  {st.email || st.uid}
+                </Link>
+                <span className="shrink-0 text-muted-foreground">
+                  {PRODUCTS[st.product as keyof typeof PRODUCTS] ?? words(st.product)} ·{" "}
+                  <span className="font-mono tabular-nums">{st.price_cents === null ? "App Store" : money(st.price_cents)}</span>
+                </span>
+              </li>
+            ))}
+            {starts.length > 6 && <li className="text-xs text-muted-foreground">and {starts.length - 6} more</li>}
+          </ul>
+        ))}
     </Panel>
   );
 }
