@@ -60,7 +60,13 @@ const ROUTES: Record<string, (path: string) => unknown> = {
   "GET /v1/admin/cases/CASE-0042": () => casePage(),
   "GET /v1/admin/cases/CASE-0051": () => casePage({ max_refundable_cents: 0, actions: ["accept_dispute", "counter_dispute", "note", "close"] }, { id: "CASE-0051", type: "dispute", reason: "dispute" }),
   "GET /v1/admin/mail-previews": () => mailPreviews,
-  "GET /v1/admin/disputes/summary": () => ({ ...disputes, open_efws: 1 }),
+  "GET /v1/admin/disputes/summary": () => ({
+    ...disputes,
+    months: (disputes.months ?? []).map((m) => ({ ...m, won_cents: m.won * 2800 })),
+    won_cents: 2800,
+    lost_cents: 2000,
+    open_efws: 2,
+  }),
   "GET /v1/admin/accounts/uid_123": () => account,
   "GET /v1/admin/passkeys": () => ({ passkeys }),
   "GET /v1/admin/passkey-adoption": () => ({

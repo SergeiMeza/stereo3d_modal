@@ -93,6 +93,8 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
   const countered = sum(rows, "countered");
   const open = data.open ?? [];
   const over = rows.filter((r) => r.activity_pct >= ref);
+  const lostCents = data.lost_cents ?? sum(rows, "lost_cents");
+  const wonCents = data.won_cents ?? sum(rows, "won_cents");
 
   return (
     <>
@@ -145,7 +147,7 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
           <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm">
             <p className="text-xs text-muted-foreground tabular-nums">
               {months} months: {sum(rows, "efw")} warnings, {money(sum(rows, "efw_cents"))}, {sum(rows, "efw_refunded")} refunded,{" "}
-              {sum(rows, "efw_became_disputes")} became disputes. Outcomes: {won} won, {lost} lost, {money(sum(rows, "lost_cents"))} lost.
+              {sum(rows, "efw_became_disputes")} became disputes. Outcomes: {won} won ({money(wonCents)} recovered), {lost} lost ({money(lostCents)}).
             </p>
           </div>
         </Panel>
@@ -185,7 +187,8 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
         <Panel title="Money" note="fees in the account's currency">
           <Stats>
             <Stat value={money(sum(rows, "disputed_cents_activity"))} label="disputed" />
-            <Stat value={money(sum(rows, "lost_cents"))} label="lost" />
+            <Stat value={money(lostCents)} label="lost" />
+            <Stat value={money(wonCents)} label="won (recovered)" />
             <Stat value={(sum(rows, "dispute_fees_cents") / 100).toFixed(2)} label="dispute fees" />
           </Stats>
         </Panel>
@@ -211,7 +214,7 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
           <TableHeader>
             <TableRow>
               <TableHead>Month</TableHead>
-              {["Charges", "Disputes", "By payment", "Activity", "Won", "Lost", "Accepted", "Countered", "Disputed", "Lost $", "Fees", "EFW", "EFW $", "EFW refunded", "EFW → dispute"].map((h) => (
+              {["Charges", "Disputes", "By payment", "Activity", "Won", "Lost", "Accepted", "Countered", "Disputed", "Lost $", "Won $", "Fees", "EFW", "EFW $", "EFW refunded", "EFW → dispute"].map((h) => (
                 <TableHead key={h} numeric>{h}</TableHead>
               ))}
             </TableRow>
@@ -230,6 +233,7 @@ function Summary({ data, months }: { data: DisputeSummary; months: number }) {
                 <TableCell numeric>{r.countered}</TableCell>
                 <TableCell numeric>{money(r.disputed_cents_activity)}</TableCell>
                 <TableCell numeric>{money(r.lost_cents)}</TableCell>
+                <TableCell numeric>{money(r.won_cents ?? 0)}</TableCell>
                 <TableCell numeric>{(r.dispute_fees_cents / 100).toFixed(2)}</TableCell>
                 <TableCell numeric>{r.efw}</TableCell>
                 <TableCell numeric>{money(r.efw_cents)}</TableCell>

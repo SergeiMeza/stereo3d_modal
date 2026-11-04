@@ -30,6 +30,14 @@ describe("disputes and fraud (A4)", () => {
     expect(screen.getByTestId("open-disputes")).toHaveTextContent("product not received");
   });
 
+  it("shows won (recovered) beside lost, from the window totals", async () => {
+    renderApp("/disputes", { "GET /v1/admin/disputes/summary": () => ({ json: { ...disputes, won_cents: 41200, lost_cents: 2000 } }) });
+    const won = await screen.findByText("won (recovered)");
+    expect(won.parentElement).toHaveTextContent("$412.00");
+    expect(screen.getByText("lost").parentElement).toHaveTextContent("$20.00");
+    expect(screen.getByText(/1 won \(\$412\.00 recovered\)/)).toBeInTheDocument();
+  });
+
   it("lists the open early fraud warnings, linking the case when there is one", async () => {
     renderApp("/disputes", {
       "GET /v1/admin/disputes/summary": () => ({ json: disputes }),

@@ -416,6 +416,8 @@ export interface DisputeMonth {
   accepted: number;
   countered: number;
   lost_cents: number;
+  /** BL-29: recovered by won disputes; absent on older gateways */
+  won_cents?: number;
   dispute_fees_cents: number;
   efw: number;
   efw_cents: number;
@@ -507,6 +509,9 @@ export interface DisputeSummary {
   open_efws?: number | null;
   reference_pct: number;
   win_rate: number;
+  /** BL-29 window totals: won = recovered */
+  won_cents?: number | null;
+  lost_cents?: number | null;
   counter_rate: number;
   open: OpenDispute[] | null;
   by_method: Record<string, number> | null;
