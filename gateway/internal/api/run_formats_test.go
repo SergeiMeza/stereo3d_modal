@@ -42,7 +42,7 @@ func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"repack_id": "rp" + store.NewID()})
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repack/"):
 		out := map[string]any{"status": l.status, "cost_stage": "repack"}
-		if l.status == "completed" {
+		if l.status == "done" || l.status == "completed" {
 			out["output"] = map[string]any{"bytes": 1000, "width": 3840, "height": 2160, "frames": 240, "level": "5.1"}
 		}
 		if l.status == "failed" {
@@ -145,7 +145,7 @@ func TestRunFormatsRepack(t *testing.T) {
 		t.Fatal("counts as use")
 	}
 	// The reconciler's poll: completed → the file joins the outputs.
-	stub.status = "completed"
+	stub.status = "done"
 	if n := s.pollAllRepacks(ctx); n < 1 {
 		t.Fatal("not polled")
 	}
@@ -180,6 +180,17 @@ func TestRunFormatsRepack(t *testing.T) {
 	}
 	if got, _ = s.Store.GetConversion(ctx, d.ID); got.Repacks["half_sbs"].Attempts != 2 {
 		t.Fatalf("attempts %d", got.Repacks["half_sbs"].Attempts)
+	}
+	// queued is in progress; the preference is one constant.
+	stub.status = "queued"
+	if got := s.pollRepacks(ctx, got); got != nil {
+		t.Fatalf("queued changed the run: %+v", got.Repacks["half_sbs"])
+	}
+	defer func(p []string) { repackSourcePreference = p }(repackSourcePreference)
+	repackSourcePreference = []string{"mvhevc", "sbs"}
+	both := finishedRun(t, s, uid, "4k", "sbs", "mvhevc")
+	if st := s.runFormatsOf(ctx, both); st.Source != "mvhevc" || strings.Join(st.Available, ",") != "half_sbs" {
+		t.Fatalf("flipped preference %+v", st)
 	}
 	// Admin history.
 	if h := repacksHistory(got); len(h) != 1 || h[0]["format"] != "half_sbs" {

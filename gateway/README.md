@@ -1356,16 +1356,18 @@ Classic runs get none (Classic is retired).
   (the Lifelike service didn't take it; the attempt is recorded as
   failed and can be retried).
 - **Rules.** Only a succeeded run whose project isn't deleted and whose
-  files aren't erased (`file_keep_days`). The source is the run's full
-  side-by-side, else its spatial file; half side-by-side alone can't make
+  files aren't erased (`file_keep_days`); split runs are out of v1. The
+  source is the run's full side-by-side, else its spatial file (one
+  constant, `repackSourcePreference`, in case 3DS flips it); half side-by-side alone can't make
   a fuller format. One per format per run; a failed one can be retried.
   Free for now (`price_cents: 0`, ADR 0137's open question). Starting one
   counts as use of the project (the keep clock restarts).
 - **Lifelike call.** `POST /repack {job_id, source: {url: signed GET of
   the stored output, format}, target_format, output_upload_url: signed
   PUT of outputs/<job>/repack_<format>.mp4|.mov, preset, fps}` →
-  `{repack_id}`; `GET /repack/{id}` → `{status, output: {bytes, width,
-  height, frames, level}, cost_stage}`, polled by the reconciler every
+  `{repack_id}`; `GET /repack/{id}` → `{status: queued | running | done |
+  failed (completed = done; error, cancelled = failed), output: {bytes,
+  width, height, frames, level}, cost_stage}`, polled by the reconciler every
   minute (`conversion.repack_pending`) and by the GET; 3 h without an end
   fails it. Signed URLs live 6 h.
 - **Then.** The new file joins `conversion.outputs[format]`, so it lists

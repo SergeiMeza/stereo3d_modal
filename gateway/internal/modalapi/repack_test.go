@@ -41,3 +41,22 @@ func TestRepackCalls(t *testing.T) {
 		t.Fatalf("status %+v %v", st, err)
 	}
 }
+
+// 3DS's words: queued | running | done | failed (completed = done; error
+// and cancelled = failed).
+func TestRepackStatusWords(t *testing.T) {
+	for word, want := range map[string]string{"queued": "running", "running": "running", "done": "done", "completed": "done",
+		"failed": "failed", "error": "failed", "cancelled": "failed"} {
+		st := RepackStatus{Status: word}
+		got := "running"
+		switch {
+		case st.Done():
+			got = "done"
+		case st.Failed():
+			got = "failed"
+		}
+		if got != want {
+			t.Fatalf("%s: %s, want %s", word, got, want)
+		}
+	}
+}

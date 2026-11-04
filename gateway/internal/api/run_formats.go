@@ -28,6 +28,10 @@ import (
 
 var repackFormats = []string{"mvhevc", "sbs", "half_sbs"}
 
+// repackSourcePreference: the outputs a repack may read, best first (3DS
+// may flip full SBS and spatial; half SBS is never a source).
+var repackSourcePreference = []string{"sbs", "mvhevc"}
+
 const (
 	repackPerHour   = 10
 	repackTimeout   = 3 * time.Hour
@@ -79,12 +83,13 @@ func (s *Service) runFormatsOf(ctx context.Context, c *store.Conversion) runForm
 		st.Reason = "files_erased"
 		return st
 	}
-	switch {
-	case slices.Contains(st.Have, "sbs"):
-		st.Source = "sbs"
-	case slices.Contains(st.Have, "mvhevc"):
-		st.Source = "mvhevc"
-	default:
+	for _, src := range repackSourcePreference {
+		if slices.Contains(st.Have, src) {
+			st.Source = src
+			break
+		}
+	}
+	if st.Source == "" {
 		st.Reason = "half_only"
 		return st
 	}

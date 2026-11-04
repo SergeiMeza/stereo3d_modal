@@ -29,7 +29,7 @@ type RepackSource struct {
 
 // RepackStatus is GET /repack/{id}.
 type RepackStatus struct {
-	Status    string        `json:"status"` // pending | running | completed | failed
+	Status    string        `json:"status"` // queued | running | done | failed
 	Error     string        `json:"error,omitempty"`
 	Output    *RepackOutput `json:"output,omitempty"`
 	CostStage string        `json:"cost_stage,omitempty"`
@@ -44,8 +44,10 @@ type RepackOutput struct {
 	Level  string `json:"level,omitempty"`
 }
 
-// Done and Failed read the repack's status words.
-func (r *RepackStatus) Done() bool { return r.Status == "completed" || r.Status == "succeeded" }
+// Done and Failed read the repack's status words (3DS: queued | running |
+// done | failed; completed is kept as an alias of done, and error or
+// cancelled count as failed). Anything else is still in progress.
+func (r *RepackStatus) Done() bool { return r.Status == "done" || r.Status == "completed" }
 func (r *RepackStatus) Failed() bool {
 	return r.Status == "failed" || r.Status == "error" || r.Status == "cancelled"
 }
