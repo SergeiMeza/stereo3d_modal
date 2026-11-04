@@ -48,14 +48,15 @@ export function deviceGroup(format: string, step?: Step | null): DeviceGroupCopy
   switch (format) {
     case "mvhevc":
       return { device: "Apple Vision Pro", how: "AirDrop or Files. Shows in Photos." };
+    // owner decision 2026-11-04: Meta Quest plays full side by side
     case "sbs":
       return {
-        device: "Galaxy XR, Pico, Steam Frame, XR glasses",
+        device: "Meta Quest, Galaxy XR, Pico, Steam Frame, XR glasses",
         how: "Open in the player and choose 3D side by side.",
       };
     case "half_sbs":
       return {
-        device: "Meta Quest, 3D TVs and projectors",
+        device: "3D TVs, projectors, Meta Quest at 4K and above",
         how: "Open in the player and choose 3D side by side.",
       };
     case "anaglyph":
