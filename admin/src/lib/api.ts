@@ -62,10 +62,7 @@ export interface SessionProblemDetails {
  * passkeys, so the step then offers "Set up a passkey"). */
 const SESSION_CODES = new Set(["session_required", "session_expired", "invalid_session"]);
 
-/**
- * Passkey routes (ADR 0135). The gateway is still building them; these are
- * the console's working shape until it sends its own, kept in one place.
- */
+/** Passkey routes (ADR 0135), as the gateway serves them (test rev 00110). */
 export const PASSKEY_ROUTES = {
   sessionOptions: "/v1/admin/session/options",
   sessionVerify: "/v1/admin/session/verify",

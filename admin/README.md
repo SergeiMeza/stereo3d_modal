@@ -37,23 +37,28 @@ Firebase) are in BL-23,
 a9ffc582). Then:
 
 1. **Google** (Firebase popup).
-2. **"Use your passkey"**: `POST /v1/admin/session/options` (fetched as the
-   step opens, so the browser's prompt opens straight from the click), the
-   passkey through `@simplewebauthn/browser`, then
-   `POST /v1/admin/session/verify`. The gateway's session token is kept in
-   `sessionStorage` only and sent as `X-Admin-Session` on every admin call;
-   401 `session_expired` drops it and asks for the passkey again, and a
-   Google sign-out drops it too.
+2. **"Use your passkey"**: `POST /v1/admin/session/options` →
+   `{options: {publicKey}, expires_at}` (fetched as the step opens, so the
+   browser's prompt opens straight from the click), the passkey through
+   `@simplewebauthn/browser` (the `publicKey` part is its optionsJSON),
+   then `POST /v1/admin/session/verify` → `{session, expires_at,
+   last_assertion_at}`. The session is kept in `sessionStorage` only, with
+   its expiry, and sent as `X-Admin-Session` on every admin call. The
+   console ends it two minutes before `expires_at` (12 h) and asks for the
+   passkey again; 401 `session_expired` or `invalid_session` (also after a
+   break-glass reset) drops it, and so does a Google sign-out.
 3. **No passkey yet** (409 `no_passkey`): "Set up a passkey" right after
    Google (`POST /v1/admin/passkeys/register/options`, create,
-   `…/register/verify`), then sign in with it.
+   `…/register/verify`), then sign in with it. The first passkey needs a
+   Google sign-in within 5 minutes (401 `reauth_required {method:
+   "google"}`): the console signs in with Google again and retries once.
 
 "A passkey uses Face ID, Touch ID, your phone or a security key. Nothing to
 type." An authenticator code (TOTP) is only a temporary fallback, one link
-away ("Use an authenticator code instead"), while the gateway still accepts
-it. The
-passkey routes are the console's working shape (`PASSKEY_ROUTES` in
-`src/lib/api.ts`) until the gateway sends its own.
+away ("Use an authenticator code instead"), shown only while the gateway's
+401 `session_required {methods}` lists `"totp"`. The routes are the
+gateway's (README "Admin passkeys", test rev 00110), kept in
+`PASSKEY_ROUTES` in `src/lib/api.ts`.
 
 `VITE_GATEWAY_URL` picks the gateway, and `VITE_ENV_LABEL` (`test` or `prod`)
 is shown next to "admin" in the header. Neither is secret. The Firebase web
@@ -95,8 +100,10 @@ Behaviour the gateway expects:
   passkey" (a `reassert` assertion through the session routes); on a TOTP
   session it's Google, then the code. Then the action runs once more. If
   you cancel: "Not confirmed. Nothing was charged or refunded."
-- **401 `session_expired`** (passkey session over): the token is dropped and
-  the passkey step comes back.
+- **401 `session_required {methods}`** (no second factor on the call): the
+  passkey step, with the code link only when `methods` has `"totp"`.
+- **401 `session_expired` / `invalid_session`** (passkey session over or
+  revoked): the token is dropped and the passkey step comes back.
 - **409 `no_passkey`** at sign-in: "Set up a passkey". **409
   `last_passkey`** on Security: "Add another passkey before removing this
   one."
@@ -112,8 +119,8 @@ Behaviour the gateway expects:
   `grant_not_active` and `nothing_to_restore` say so.
 - **401 `invalid_token`**: retried once with a fresh token, then the session
   ends ("Your session ended. Sign in again.").
-- **403 `no_access` / `mfa_required`**: the no-access screen, or the
-  authenticator-code fallback.
+- **403 `no_access`**: the no-access screen. (An older gateway's 403
+  `mfa_required` leads to the authenticator-code set-up.)
 
 Security:
 - **Customer text is plain text only.** Customer messages, notes, banners,
