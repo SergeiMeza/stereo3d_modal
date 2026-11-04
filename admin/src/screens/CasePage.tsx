@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, money, until, words } from "../lib/format";
 import { statusLabel, statusTone, typeLabel, typeTone } from "../lib/labels";
-import { Link, paths } from "../lib/router";
+import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
 import type { CaseAction, CasePage as Page, MailPreviewsResponse } from "../lib/types";
 import { useLoad } from "../lib/useLoad";
@@ -72,7 +73,10 @@ function CaseBody({
   onReload: () => Promise<Page>;
 }) {
   const { api } = useServices();
+  const { search } = useRouter();
   const [sheet, setSheet] = useState<CaseAction | null>(null);
+  // /cases/:id?decide=1 (Overview's Next up, the list's D) opens the decision sheet
+  const [deciding, setDeciding] = useState(() => search.get("decide") === "1");
   const [inlineErr, setInlineErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const c = page.case;
@@ -127,13 +131,16 @@ function CaseBody({
     (a) => !primary.includes(a) && !["note", "refresh_evidence", "close", "approve", "waive"].includes(a),
   );
   const approveDisabled = max <= 0 || Object.keys(approveItems(page)).length === 0 && !isBalanceCase(page);
+  const decisions = [...primary, ...secondary];
+  const decisionLabel = (a: CaseAction) =>
+    a === "approve" ? `Approve ${money(max)}` : a === "waive" ? `Waive ${money(owedTotal(page))}` : LABELS[a] ?? words(a);
 
   const linkCls = "font-mono text-link hover:underline";
   return (
     <>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{c.id}</h1>
+          <h1 className="font-mono text-2xl font-medium">{c.id}</h1>
           <Badge variant={typeTone(c.type)}>{typeLabel(c.type)}</Badge>
           <span className="text-muted-foreground">{words(c.reason)} · {c.mode}</span>
           <Badge variant={statusTone(c.status, c.result)}>{statusLabel(c.status, c.result)}</Badge>
@@ -141,7 +148,7 @@ function CaseBody({
             <span
               className={cn(
                 "ml-auto text-xs whitespace-nowrap tabular-nums",
-                new Date(c.deadline_at).getTime() - Date.now() < 12 * 3600e3 ? "font-medium text-destructive" : "text-foreground-2",
+                new Date(c.deadline_at).getTime() - Date.now() < 12 * 3600e3 ? "font-medium text-destructive-foreground" : "text-warning-foreground",
               )}
             >
               Due {dateTime(c.deadline_at)} · {until(c.deadline_at)}
@@ -285,23 +292,14 @@ function CaseBody({
         </p>
       ))}
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Decisions">
-        {primary.map((a) => (
-          <Button
-            key={a}
-            variant="default"
-            onClick={() => setSheet(a)}
-            disabled={a === "approve" && approveDisabled}
-            className="tabular-nums"
-          >
-            {a === "approve" ? `Approve ${money(max)}` : a === "waive" ? `Waive ${money(owedTotal(page))}` : LABELS[a]}
+      <div className="flex flex-wrap items-center gap-2">
+        {decisions.length > 0 ? (
+          <Button variant="default" size="lg" onClick={() => setDeciding(true)} className="tabular-nums">
+            Decide{has("approve") && !approveDisabled ? ` · up to ${money(max)}` : ""}
           </Button>
-        ))}
-        {secondary.map((a) => (
-          <Button key={a} onClick={() => setSheet(a)}>
-            {LABELS[a] ?? words(a)}
-          </Button>
-        ))}
+        ) : (
+          <span className="text-sm text-muted-foreground">No decisions on this case now.</span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           {has("refresh_evidence") && (
             <Button variant="ghost" size="sm" onClick={() => void refresh()} disabled={refreshing}>
@@ -375,6 +373,55 @@ function CaseBody({
           )}
         </Panel>
       </div>
+
+      <Sheet open={deciding && decisions.length > 0} onOpenChange={setDeciding}>
+        <SheetContent className="sm:max-w-[460px]">
+          <SheetHeader>
+            <span className="text-xs text-muted-foreground">Step 1 of 2 · Choose</span>
+            <SheetTitle>Decide {c.id}</SheetTitle>
+            <SheetDescription>
+              {typeLabel(c.type)} · {words(c.reason)}. Money moves only after you confirm the next step.
+            </SheetDescription>
+          </SheetHeader>
+          <SheetBody>
+            <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 rounded-lg border border-border bg-secondary p-3.5 text-sm [&_dt]:text-muted-foreground">
+              <dt>{waive ? "Owed" : "Refundable now"}</dt>
+              <dd className="font-mono tabular-nums">{money(waive ? owedTotal(page) : max)}</dd>
+              {pm && (
+                <>
+                  <dt>Method</dt>
+                  <dd>{pm}</dd>
+                </>
+              )}
+              <dt>Customer</dt>
+              <dd className="truncate">{page.account.email || c.uid || "none"}</dd>
+              {c.deadline_at && c.open && (
+                <>
+                  <dt>Due</dt>
+                  <dd className="tabular-nums">{dateTime(c.deadline_at)} · {until(c.deadline_at)}</dd>
+                </>
+              )}
+            </dl>
+            <div className="flex flex-col gap-2" role="group" aria-label="Decisions">
+              {decisions.map((a) => (
+                <Button
+                  key={a}
+                  variant={primary.includes(a) ? "default" : "outline"}
+                  size="lg"
+                  className="w-full justify-start tabular-nums"
+                  disabled={a === "approve" && approveDisabled}
+                  onClick={() => {
+                    setDeciding(false);
+                    setSheet(a);
+                  }}
+                >
+                  {decisionLabel(a)}
+                </Button>
+              ))}
+            </div>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
 
       {sheet && (
         <ActionSheet

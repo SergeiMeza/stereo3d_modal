@@ -166,12 +166,18 @@ try {
     const search = page.getByRole("button", { name: /^Search/ }).first();
     if (await search.count()) await check(page, "Command palette", failures, () => search.click());
 
-    // Case: money confirms (AlertDialog), a Sheet and a Dialog
+    // Case: the decision sheet, money confirms (AlertDialog), a Sheet and a Dialog
     await page.goto(`${base}/cases/CASE-0042`);
-    await button("Approve $49.72").waitFor();
-    await check(page, "Approve alert", failures, () => button("Approve $49.72").click());
-    await check(page, "Partial alert", failures, () => button("Partial…").click());
-    await check(page, "Ask sheet", failures, () => button("Ask the customer…").click());
+    const decideBtn = page.getByRole("button", { name: /^Decide/ }).first();
+    await decideBtn.waitFor();
+    const pick = async (name) => {
+      await decideBtn.click();
+      await page.getByRole("dialog", { name: /^Decide CASE-/ }).getByRole("button", { name, exact: true }).click();
+    };
+    await check(page, "Decision sheet", failures, () => decideBtn.click());
+    await check(page, "Approve alert", failures, () => pick("Approve $49.72"));
+    await check(page, "Partial alert", failures, () => pick("Partial…"));
+    await check(page, "Ask sheet", failures, () => pick("Ask the customer…"));
     await check(page, "Close dialog", failures, () => button("Close").click());
 
     // Account: grant (alert with a select inside), revoke, open a case (sheet)

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { Banner, ExtLink, Modal, Note } from "@/components/common";
+import { PasskeyNote } from "@/components/PasskeyNote";
 import { Button } from "@/components/ui/button";
 import { Field, FieldControl, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -574,6 +575,7 @@ export function ActionSheet({
       )}
 
       <MailBox plan={plan} />
+      {kind === "alert" && <PasskeyNote />}
 
       {blocker && !busy && (editable || action === "deny" || action === "ask" || action === "customer_reply") && (
         <Note>{blocker}</Note>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyRow, FilterSelect, Modal, Note, Panel, type Tone } from "@/components/common";
+import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldControl, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -264,6 +265,7 @@ function GrantSheet({
         </FieldControl>
         <FieldDescription>Required. Up to 500 characters.</FieldDescription>
       </Field>
+      <PasskeyNote />
       {error && <Note tone="error">{error}</Note>}
     </Modal>
   );
@@ -322,6 +324,7 @@ function RevokeSheet({
         </FieldControl>
         <FieldDescription>Required.</FieldDescription>
       </Field>
+      <PasskeyNote />
       {error && <Note tone="error">{error}</Note>}
     </Modal>
   );
@@ -454,6 +457,7 @@ function RestoreSheet({ uid, onClose, onDone }: { uid: string; onClose: () => vo
         </FieldControl>
         <FieldDescription>Required. Logged on the account and the dispute case.</FieldDescription>
       </Field>
+      <PasskeyNote />
       {error && <Note tone="error">{error}</Note>}
     </Modal>
   );

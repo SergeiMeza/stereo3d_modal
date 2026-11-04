@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox } from "@/components/common";
+import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldControl, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -383,6 +384,7 @@ function AccountActionSheet({
           </Field>
         </>
       )}
+      {(action === "write_off_owed" || isAdjust) && <PasskeyNote />}
       {error && <Note tone="error">{error}</Note>}
     </Modal>
   );

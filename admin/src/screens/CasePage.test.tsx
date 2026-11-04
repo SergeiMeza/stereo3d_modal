@@ -10,6 +10,13 @@ const base = (page = casePage()) => ({
   "GET /v1/admin/mail-previews": () => ({ json: mailPreviews }),
 });
 
+/** Decisions live in the decision sheet (BL-29 redesign B): open it, pick one. */
+async function decide(name: string | RegExp) {
+  await userEvent.click(await screen.findByRole("button", { name: /^Decide/ }));
+  const sheet = await screen.findByRole("dialog", { name: /^Decide CASE-/ });
+  await userEvent.click(within(sheet).getByRole("button", { name }));
+}
+
 describe("case page (A2)", () => {
   it("shows the header, the per-run table and the evidence", async () => {
     renderApp("/cases/CASE-0042", base());
@@ -18,7 +25,7 @@ describe("case page (A2)", () => {
     const run = screen.getByText("Kyoto walk · 3D video · 4K").closest("tr")!;
     expect(within(run).getAllByText("$49.72")).toHaveLength(2);
     expect(within(run).getByText("Partly · 3 of 4")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve $49.72" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Decide · up to $49.72" })).toBeEnabled();
     expect(screen.getByText(/not recorded yet/)).toBeInTheDocument();
     // Timeline newest first.
     const items = screen.getAllByRole("listitem").filter((li) => li.closest('[data-testid="timeline"]'));
@@ -42,7 +49,7 @@ describe("case page (A2)", () => {
       ...base(),
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: after }),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await decide("Approve $49.72");
     const dialog = screen.getByRole("alertdialog", { name: "Refund $49.72 to Visa •••• 4242" });
     expect(within(dialog).getByText("Refundable after this").nextSibling).toHaveTextContent("$0.00");
     expect(within(dialog).getByText(/Mail E6 · Stereo3D Studio: we refunded \$49.72 \(CASE-0042\)/)).toBeInTheDocument();
@@ -77,7 +84,7 @@ describe("case page (A2)", () => {
         return { json: smaller };
       },
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await decide("Approve $49.72");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByText(/The amount changed to \$37.29/)).toBeInTheDocument();
     expect(screen.getByRole("alertdialog", { name: "Refund $37.29 to Visa •••• 4242" })).toBeInTheDocument();
@@ -101,7 +108,7 @@ describe("case page (A2)", () => {
       },
       auth,
     );
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await decide("Approve $49.72");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await userEvent.click(within(reauth).getByRole("button", { name: "Sign in with Google" }));
@@ -116,7 +123,7 @@ describe("case page (A2)", () => {
       ...base(),
       "POST /v1/admin/cases/CASE-0042/actions": () => apiError(401, "reauth_required", "again"),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await decide("Approve $49.72");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     const reauth = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await userEvent.click(within(reauth).getByRole("button", { name: "Cancel" }));
@@ -128,7 +135,7 @@ describe("case page (A2)", () => {
       ...base(),
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage() }),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Partial…" }));
+    await decide("Partial…");
     const dialog = screen.getByRole("alertdialog");
     const input = within(dialog).getByLabelText("Amount for c_7Hk2Qm");
     await userEvent.clear(input);
@@ -153,7 +160,7 @@ describe("case page (A2)", () => {
       ...base(),
       "POST /v1/admin/cases/CASE-0042/actions": () => ({ json: casePage({}, { status: "closed", open: false }) }),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
+    await decide("Deny…");
     const dialog = screen.getByRole("alertdialog", { name: "Deny refund" });
     await userEvent.click(within(dialog).getByText(/Mail E10/));
     expect(within(dialog).getByText(/delivered as described/)).toBeInTheDocument();
@@ -175,7 +182,7 @@ describe("case page (A2)", () => {
       "POST /v1/admin/cases/CASE-0042/actions": () =>
         apiError(502, "action_failed", "That didn't work: stripe down. Nothing was charged or refunded."),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Approve $49.72" }));
+    await decide("Approve $49.72");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That didn't work: stripe down. Nothing was charged or refunded.");
   });
@@ -190,7 +197,7 @@ describe("case page (A2)", () => {
       { id: "CASE-0042", type: "waive", reason: "unpaid_run" },
     );
     renderApp("/cases/CASE-0042", base(page));
-    await userEvent.click(await screen.findByRole("button", { name: "Waive $1.00" }));
+    await decide("Waive $1.00");
     const dialog = screen.getByRole("alertdialog", { name: "Waive $1.00" });
     expect(within(dialog).getByText("Owed after this").nextSibling).toHaveTextContent("$0.00");
     expect(within(dialog).getByText(/we won't charge you \$1.00/)).toBeInTheDocument();
@@ -206,10 +213,20 @@ describe("case page (A2)", () => {
       { type: "dispute", reason: "dispute", dispute: { id: "dp_1", amount_cents: 4972, reason: "fraudulent", status: "needs_response", funds_withdrawn: true, due_by: "2026-11-09T00:00:00Z" } },
     );
     renderApp("/cases/CASE-0042", base(page));
-    const btn = await screen.findByRole("button", { name: "Counter with refund proof" });
+    await userEvent.click(await screen.findByRole("button", { name: /^Decide/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Decide CASE-0042" });
+    const btn = within(sheet).getByRole("button", { name: "Counter with refund proof" });
     expect(btn).toHaveAttribute("data-variant", "default");
     expect(screen.getByText(/counter with the refund proof\./)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: /Approve/ })).toBeNull();
+  });
+
+  it("?decide=1 opens the decision sheet; money confirms mention the passkey step", async () => {
+    renderApp("/cases/CASE-0042?decide=1", base());
+    const sheet = await screen.findByRole("dialog", { name: "Decide CASE-0042" });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Approve $49.72" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Refund $49.72 to Visa •••• 4242" });
+    expect(within(confirm).getByTestId("passkey-note")).toHaveTextContent(/you'll be asked for it when you confirm/);
   });
 
   it("adds a note", async () => {
@@ -225,7 +242,8 @@ describe("case page (A2)", () => {
   it("closed cases offer no decisions", async () => {
     renderApp("/cases/CASE-0042", base(casePage({ actions: ["note"] }, { status: "closed", open: false, result: "refunded" })));
     expect(await screen.findByText("Closed · refunded")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Decide/ })).toBeNull();
+    expect(screen.getByText("No decisions on this case now.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
   });
 
@@ -288,7 +306,7 @@ describe("closed cases and follow-ups (00107)", () => {
       ...base(),
       "POST /v1/admin/cases/CASE-0042/actions": () => apiError(409, "case_closed", "case is closed"),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Deny…" }));
+    await decide("Deny…");
     const dialog = screen.getByRole("alertdialog", { name: "Deny refund" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
     expect(await within(dialog).findByText("Reopen the case to add notes or decisions.")).toBeInTheDocument();
