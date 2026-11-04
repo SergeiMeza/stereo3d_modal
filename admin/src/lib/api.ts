@@ -23,6 +23,7 @@ import type {
   GrantBody,
   RevokeResult,
   OpenCaseBody,
+  PasskeyAdoption,
   PolicyResponse,
   Tab,
 } from "./types";
@@ -321,6 +322,11 @@ export class AdminApi {
   /** 409 last_passkey: the last one can't go. */
   async removePasskey(id: string): Promise<void> {
     await this.raw("DELETE", PASSKEY_ROUTES.remove(id));
+  }
+
+  /** Customer passkey adoption (gateway rev 00113). */
+  passkeyAdoption(): Promise<PasskeyAdoption> {
+    return this.json("GET", "/v1/admin/passkey-adoption");
   }
 
   policy(): Promise<PolicyResponse> {

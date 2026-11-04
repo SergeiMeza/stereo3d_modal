@@ -29,6 +29,7 @@ import { FeedbackPanel } from "./screens/Feedback";
 import { GrantsPage } from "./screens/GrantsPage";
 import { MailPreviews } from "./screens/MailPreviews";
 import { OnboardingPanel } from "./screens/Onboarding";
+import { OverviewPage } from "./screens/Overview";
 import { PlansSurfacesPanel } from "./screens/PlansSurfaces";
 import { PolicyPage } from "./screens/Policy";
 import { SecurityPage } from "./screens/Security";
@@ -121,7 +122,7 @@ function Shell() {
         </aside>
         <main className="flex min-w-0 max-w-[1440px] flex-1 flex-col gap-4 px-7 pt-5.5 pb-12 max-md:px-4 max-md:pt-4">
           <DisputeDueBanner alert={attention.alert} />
-          {route.name === "overview" && <CasesList />}
+          {route.name === "overview" && <OverviewPage />}
           {route.name === "cases" && <CasesList />}
           {route.name === "case" && <CasePage id={route.id} key={route.id} />}
           {route.name === "accounts" && <AccountLookup />}

@@ -335,6 +335,8 @@ export interface AccountPage {
     backup_order?: string[] | null;
   };
   owed_cents: number;
+  /** the account's passkeys (gateway rev 00113); absent on older gateways */
+  passkey_count?: number | null;
   balance?: BalanceSummary | null;
   plan?: {
     plan: string;
@@ -634,4 +636,13 @@ export interface Passkey {
   name: string;
   created_at: string;
   last_used_at?: string | null;
+}
+
+/** GET /v1/admin/passkey-adoption (gateway rev 00113): customer passkeys
+ * (ADR 0136) and sign-ins by method over 7 and 30 days. */
+export interface PasskeyAdoption {
+  accounts_with_passkey: number;
+  passkeys: number;
+  sign_ins: Partial<Record<"7d" | "30d", Record<string, number>>>;
+  generated_at: string;
 }
