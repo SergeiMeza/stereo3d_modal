@@ -204,6 +204,14 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
 	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
 	mux.HandleFunc("GET /v1/admin/accounts", admin(svc.HandleAdminAccountSearch)) // ?q= email prefix or uid (BL-29)
+	mux.HandleFunc("GET /v1/admin/runs/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidResourceID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusNotFound, "run_not_found", "No run with that ID."))
+			return
+		}
+		svc.HandleAdminRun(w, r, a, id)
+	}))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrants, "uid")))    // Grant Pro 2026-11-04

@@ -67,3 +67,27 @@ func TestAdminAccountSearch(t *testing.T) {
 		t.Fatalf("too short %d", w.Code)
 	}
 }
+
+// A run by its id.
+func TestAdminRunLookup(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	c := &store.Conversion{ID: store.NewID(), UID: "u" + store.NewID(), State: store.StateSucceeded, Kind: "video", ProjectID: "p1",
+		Quote: store.Quote{AmountCents: 1234, Currency: "usd"}}
+	if err := s.Store.CreateConversion(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	s.HandleAdminRun(w, httptest.NewRequest(http.MethodGet, "/", nil), bl29Admin(), c.ID)
+	var out map[string]any
+	json.Unmarshal(w.Body.Bytes(), &out)
+	run, _ := out["run"].(map[string]any)
+	if w.Code != 200 || run["uid"] != c.UID || run["status"] != store.StateSucceeded || run["amount_cents"] != float64(1234) || run["project_id"] != "p1" {
+		t.Fatalf("run %d %v", w.Code, out)
+	}
+	w = httptest.NewRecorder()
+	s.HandleAdminRun(w, httptest.NewRequest(http.MethodGet, "/", nil), bl29Admin(), store.NewID())
+	if w.Code != 404 {
+		t.Fatalf("unknown run %d", w.Code)
+	}
+}

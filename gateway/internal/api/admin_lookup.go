@@ -73,3 +73,18 @@ func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Reques
 	s.audit(ctx, a, "account_search", map[string]any{"results": len(out)}) // not the query
 	httpx.WriteOK(w, map[string]any{"accounts": out})
 }
+
+// GET /v1/admin/runs/{id} → {run: {id, uid, project_id, status,
+// created_at, amount_cents, currency, kind, method}}; 404 run_not_found.
+func (s *Service) HandleAdminRun(w http.ResponseWriter, r *http.Request, a *AdminUser, id string) {
+	ctx := r.Context()
+	c, err := s.Store.GetConversion(ctx, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusNotFound, "run_not_found", "No run with that ID."))
+		return
+	}
+	s.audit(ctx, a, "run_view", map[string]any{"conversion_id": id})
+	httpx.WriteOK(w, map[string]any{"run": map[string]any{"id": c.ID, "uid": c.UID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State,
+		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "currency": nilIfEmpty(c.Quote.Currency), "kind": c.Kind,
+		"method": nilIfEmpty(c.Method)}})
+}
