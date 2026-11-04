@@ -27,11 +27,29 @@ pnpm test             # unit tests with mocked gateway responses
 pnpm build && pnpm preview   # production build on :5174, served with the CSP headers
 ```
 
-Signing in needs an account with the `svs_admin` custom claim and an
-authenticator-app second factor. See
-`spatial-video-studio/Docs/backlog/BL-23-admin-console-setup.md`. Without them
-the console stops at "This account has no access." or at the second-factor
-set-up screen.
+## Signing in (ADR 0135)
+
+Signing in needs an account with the `svs_admin` custom claim (see
+`spatial-video-studio/Docs/backlog/BL-23-admin-console-setup.md`; without it
+the console stops at "This account has no access."). Then:
+
+1. **Google** (Firebase popup).
+2. **"Use your passkey"**: `POST /v1/admin/session/options` (fetched as the
+   step opens, so the browser's prompt opens straight from the click), the
+   passkey through `@simplewebauthn/browser`, then
+   `POST /v1/admin/session/verify`. The gateway's session token is kept in
+   `sessionStorage` only and sent as `X-Admin-Session` on every admin call;
+   401 `session_expired` drops it and asks for the passkey again, and a
+   Google sign-out drops it too.
+3. **No passkey yet** (409 `no_passkey`): "Set up a passkey" right after
+   Google (`POST /v1/admin/passkeys/register/options`, create,
+   `…/register/verify`), then sign in with it.
+
+"A passkey uses Face ID, Touch ID, your phone or a security key. Nothing to
+type." The authenticator code (TOTP) stays one link away ("Use an
+authenticator code instead") while the gateway still accepts it. The
+passkey routes are the console's working shape (`PASSKEY_ROUTES` in
+`src/lib/api.ts`) until the gateway sends its own.
 
 `VITE_GATEWAY_URL` picks the gateway, and `VITE_ENV_LABEL` (`test` or `prod`)
 is shown next to "admin" in the header. Neither is secret. The Firebase web
@@ -47,7 +65,8 @@ is its own commit naming the feature and its ADR or BL.
 
 | Screen | Route | Gateway |
 | --- | --- | --- |
-| Sign-in (A0): Google, then the authenticator code; set up a second factor; no access; session ended; fresh sign-in for money actions | any | Firebase Auth |
+| Sign-in (A0, ADR 0135): Google, then the passkey (or set one up); the authenticator code behind a link; no access; session ended | any | Firebase Auth, `POST /v1/admin/session/options`, `…/session/verify`, `POST /v1/admin/passkeys/register/options`, `…/register/verify` |
+| Security (ADR 0135): passkeys (name, created, last used), add one (fresh passkey), remove with a confirm; the last one can't go | `/security` | `GET /v1/admin/passkeys`, `DELETE /v1/admin/passkeys/{id}`, register routes |
 | Disputes badge (header, every page): open disputes and EFWs, refreshed every 60 s and on focus, links to Disputes; red banner when disputes are due within 3 days | all pages | `GET /v1/admin/disputes/summary` (`open`, `open_efws`) |
 | Cases (A1): tabs, filters, search, counts (open, overdue, due today), disputes, EFW and failed refunds first | `/cases` | `GET /v1/admin/cases` |
 | Case (A2): header, banners, per-run table, decisions with a confirm sheet (amount per run, what's left after it, the mail), evidence (M7), timeline and notes, related cases, refunds | `/cases/:id` | `GET /v1/admin/cases/{id}`, `POST …/actions`, `GET /v1/admin/mail-previews` |
@@ -68,9 +87,15 @@ is its own commit naming the feature and its ADR or BL.
 
 Behaviour the gateway expects:
 - **401 `reauth_required`** on a money action: the console shows "Confirm it's
-  you" (Google, then the code if asked), refreshes the token and runs the
-  action once more. If you cancel: "Not confirmed. Nothing was charged or
-  refunded."
+  you". With `{method: "passkey"}` (or on a passkey session) that's "Use your
+  passkey" (a `reassert` assertion through the session routes); on a TOTP
+  session it's Google, then the code. Then the action runs once more. If
+  you cancel: "Not confirmed. Nothing was charged or refunded."
+- **401 `session_expired`** (passkey session over): the token is dropped and
+  the passkey step comes back.
+- **409 `no_passkey`** at sign-in: "Set up a passkey". **409
+  `last_passkey`** on Security: "Add another passkey before removing this
+  one."
 - **409 `amount_changed`**: the case reloads, the sheet stays open with the new
   amounts and "The amount changed to $X.", and you confirm again.
   Approve and Partial send `expected_max_cents`, the maximum the sheet showed.
@@ -93,9 +118,10 @@ Security:
 - **Outbound links** (Stripe Dashboard, Cloud Logging, Modal) are links only
   when they're `https` on an allowed host (`src/lib/links.ts`). Anything else
   is shown as text.
-- **Sessions** use Firebase `browserSessionPersistence`, so closing the tab
-  signs you out. Requests carry a bearer token, `credentials: "omit"`, and no
-  cookies.
+- **Sessions** use Firebase `browserSessionPersistence` and the passkey
+  session token lives in `sessionStorage`, so closing the tab signs you out.
+  Requests carry a bearer token and `X-Admin-Session`, `credentials: "omit"`,
+  and no cookies.
 - **CSP** (`src/lib/csp.ts`) is sent as a header by `vercel.json` (both
   gateways, plus `frame-ancestors 'none'`) and as a meta tag in the build
   (only this build's gateway). The browser enforces both, so a build can only
@@ -106,7 +132,11 @@ Security:
   no CSP, because Vite's hot reload uses inline scripts. A test keeps
   `vercel.json` in step with `csp.ts`. If you change `csp.ts` or the
   gateways, regenerate `vercel.json`.
-- The second factor is an authenticator app (TOTP). SMS would need
+- **Passkeys** need no CSP change: WebAuthn has no directive,
+  `@simplewebauthn/browser` (pinned 13.3.0) is bundled into our own scripts,
+  and its calls go to the gateway, already in `connect-src`. The
+  Permissions-Policy names `publickey-credentials-get/create=(self)`.
+- The fallback second factor is an authenticator app (TOTP). SMS would need
   reCAPTCHA scripts, which this CSP doesn't allow.
 
 ## Deploy on Vercel (the owner creates the project and DNS)
@@ -149,9 +179,9 @@ admin/
   index.html, vite.config.ts, vercel.json, pnpm-workspace.yaml
   src/
     main.tsx, App.tsx, styles.css
-    lib/       api client, auth (interface + Firebase), csp, router, types, format, links
+    lib/       api client, auth (interface + Firebase), adminSession, passkeys, csp, router, types, format, links
     screens/   SignIn, CasesList, CasePage (+ ActionSheet, CaseEvidence), AccountPage (+ Grants),
-               Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy
+               Disputes, Onboarding, PlansSurfaces, Feedback, MailPreviews, Policy, Security
     components/ ui.tsx, Brand, DisputesAlert (header badge and due banner)
-    test/      fixtures, harness (fake fetch and fake auth)
+    test/      fixtures, harness (fake fetch and fake auth), webauthn (fake navigator.credentials)
 ```
