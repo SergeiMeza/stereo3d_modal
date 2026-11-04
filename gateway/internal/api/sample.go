@@ -123,9 +123,18 @@ func errSampleProject() *httpx.APIError {
 }
 
 // ValidResourceID: project and conversion ids in routes are 12 lowercase
-// hex characters (store.NewID); anything else is 404 before a lookup.
+// hex characters (store.NewID), or "k" + 15 for a run started with an
+// Idempotency-Key (store.IdemConversionID); anything else is 404 before a
+// lookup.
 func ValidResourceID(id string) bool {
-	return len(id) == 12 && !strings.ContainsFunc(id, func(c rune) bool {
+	if len(id) == 16 && id[0] == 'k' {
+		return isLowerHex(id[1:])
+	}
+	return len(id) == 12 && isLowerHex(id)
+}
+
+func isLowerHex(s string) bool {
+	return !strings.ContainsFunc(s, func(c rune) bool {
 		return !strings.ContainsRune("0123456789abcdef", c)
 	})
 }
