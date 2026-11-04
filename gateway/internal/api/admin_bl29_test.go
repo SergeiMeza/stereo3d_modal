@@ -91,3 +91,34 @@ func TestAdminRunLookup(t *testing.T) {
 		t.Fatalf("unknown run %d", w.Code)
 	}
 }
+
+// Plan starts: who, plan, price, when.
+func TestAdminPlanStarts(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	end := time.Now().Add(20 * 24 * time.Hour)
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", Email: "ann@example.com",
+		Plan: &store.Plan{Tier: "pro", PlanID: "pro_weekly", Status: "active", CurrentPeriodEnd: &end, PeriodPaidCents: 399}})
+	s.Store.AddPlanConversion(ctx, "plan:sub_"+uid, store.PlanConversion{UID: uid, Product: "pro", Source: "checkout", At: time.Now()})
+	app := "u" + store.NewID()
+	s.Store.AddPlanConversion(ctx, "pro:"+app, store.PlanConversion{UID: app, Product: "pro", Source: "revenuecat", At: time.Now().Add(-time.Hour)})
+	out := adminGet(t, s.HandleAdminPlansSurfaces, "/v1/admin/plans/surfaces?days=7")
+	starts := out["starts"].([]any)
+	var web, store_ map[string]any
+	for _, x := range starts {
+		m := x.(map[string]any)
+		switch m["uid"] {
+		case uid:
+			web = m
+		case app:
+			store_ = m
+		}
+	}
+	if web == nil || web["plan"] != "pro_weekly" || web["price_cents"] != float64(399) || web["email"] != "ann@example.com" || web["started_at"] == nil {
+		t.Fatalf("web start %v", web)
+	}
+	if store_ == nil || store_["price_cents"] != nil || store_["source"] != "revenuecat" {
+		t.Fatalf("app start %v", store_)
+	}
+}

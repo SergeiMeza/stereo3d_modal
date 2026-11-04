@@ -1058,7 +1058,11 @@ Business/Studio, only instructions.
   click_rate, conversion_rate}], unattributed {conversions, by_product},
   generated_at}`; every placement is listed; counts are events, viewers
   are people; `click_rate` = clicks ÷ views, `conversion_rate` =
-  conversions ÷ clicks (4 decimals, 0 when the divisor is 0).
+  conversions ÷ clicks (4 decimals, 0 when the divisor is 0). BL-29 adds
+  `starts[{uid, email, product, plan, source, price_cents, started_at,
+  placement}]`, the window's plan starts newest first (at most 200; plan
+  is the web plan id for a Checkout start; price_cents what its first
+  period cost, null for an App Store start). `?days=7` is this week.
 - **`/v1/account/settings` `dismissed`**: GET `{placement: RFC 3339}`
   (`{}` by default); PATCH `dismissed {placement: true (now) | time |
   null (clear)}`, placements as above, a future time clamped to now;

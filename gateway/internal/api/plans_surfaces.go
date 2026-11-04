@@ -179,9 +179,55 @@ func (s *Service) HandleAdminPlansSurfaces(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	out := plansSurfaceReport(events, convs)
+	out["starts"] = s.planStarts(ctx, convs, now)
 	out["days"], out["generated_at"] = days, now.Format(time.RFC3339)
 	s.audit(ctx, a, "plans_surfaces", map[string]any{"days": days})
 	httpx.WriteOK(w, out)
+}
+
+// planStarts lists the window's plan starts, newest first (at most 200):
+// [{uid, email, product, plan, source, price_cents, started_at,
+// placement}]. plan is the web plan id (pro_monthly, business…) when the
+// start was a web Checkout; price_cents what its first period cost (null
+// for an App Store start, which RevenueCat reports without a price).
+func (s *Service) planStarts(ctx context.Context, convs []store.PlanConversion, now time.Time) []map[string]any {
+	sorted := append([]store.PlanConversion(nil), convs...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].At.After(sorted[j].At) })
+	if len(sorted) > 200 {
+		sorted = sorted[:200]
+	}
+	rates := s.rates(ctx)
+	custs := map[string]*store.Customer{}
+	out := make([]map[string]any, 0, len(sorted))
+	for _, c := range sorted {
+		cust, ok := custs[c.UID]
+		if !ok {
+			cust, _ = s.Store.GetCustomer(ctx, c.UID)
+			custs[c.UID] = cust
+		}
+		row := map[string]any{"uid": c.UID, "email": nil, "product": c.Product, "plan": c.Product, "source": c.Source,
+			"price_cents": nil, "started_at": c.At, "placement": nilIfEmpty(c.Placement)}
+		if cust != nil {
+			row["email"] = nilIfEmpty(cust.Email)
+		}
+		if c.Source == "checkout" && cust != nil && cust.Plan != nil {
+			row["plan"] = cust.Plan.Key()
+			switch {
+			case cust.Plan.PeriodPaidCents > 0:
+				row["price_cents"] = cust.Plan.PeriodPaidCents
+			case cust.Plan.Tier == "pro":
+				if def, ok := rates.ProPlan(cust.Plan.Key()); ok {
+					row["price_cents"] = def.PriceCents
+				}
+			default:
+				if def, ok := rates.Plan(cust.Plan.Tier); ok {
+					row["price_cents"] = def.PriceCents
+				}
+			}
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // surfaceRow accumulates one placement, or one reason within it.
