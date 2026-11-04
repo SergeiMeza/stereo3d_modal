@@ -146,28 +146,37 @@ Security:
 
 ## Deploy on Vercel
 
-The Vercel project **`stereo3d-admin`** exists, on the same repository and
-Git integration as the web app, with **Root Directory** `admin`.
-`vercel.json` sets the framework (Vite), the install command
-(`npx --yes pnpm@12.15.0 install --frozen-lockfile`), the build command
-(`npm run build`), the output (`dist`), the SPA rewrite and the security
-headers (Node 22 or newer).
+What exists now:
 
-- **Test**: every push to the branch `staging` builds
-  `https://admin-test.stereo3d.studio` (Preview env, test gateway). Keep
-  `staging` a fast-forward of `feat/lifelike-web`.
-- **Prod** (`admin.stereo3d.studio`, branch `main`) is held by the project's
-  Ignored Build Step, so a push to `main` doesn't publish the console. It
-  opens with the web launch, once the gateway's admin routes are live on
-  prod.
-- **Environment variables** (nothing secret): `VITE_GATEWAY_URL` and
-  `VITE_ENV_LABEL`, test for Preview and prod for Production (the gateway
-  URLs are in the table at the top).
+- **Project** `stereo3d-admin`, Root Directory `admin/`, Node 24, on the
+  same repository and Git integration as the web app. `vercel.json` sets the
+  framework (Vite), the install command
+  (`npx --yes pnpm@12.15.0 install --frozen-lockfile`), the build command
+  (`npm run build`), the output (`dist`), the SPA rewrite and the security
+  headers.
+- **Environment variables** (nothing secret):
+  - Production: `VITE_GATEWAY_URL=https://stereo3d-gateway-prod-151335782809.us-central1.run.app`, `VITE_ENV_LABEL=prod`
+  - Preview and Development: `VITE_GATEWAY_URL=https://stereo3d-gateway-test-151335782809.us-central1.run.app`, `VITE_ENV_LABEL=test`
+- **Test**: `admin-test.stereo3d.studio` is assigned to the branch
+  `staging`, with Vercel team sign-in in front (then Google and the
+  passkey). Every push to `staging` rebuilds it; keep `staging` a
+  fast-forward of `feat/lifelike-web`.
+- **Prod**: `admin.stereo3d.studio` is attached to Production, but the
+  project's Ignored Build Step skips every production build until the owner
+  says go, so a push to `main` publishes nothing.
+- **DNS**: CNAMEs `admin` and `admin-test` → `cname.vercel-dns.com` at the
+  `stereo3d.studio` registrar.
 - **CSP**: if you change `src/lib/csp.ts` or the gateways, regenerate
   `vercel.json` (a test checks they match).
 
-The owner's remaining steps (Firebase, the `svs_admin` claim, the first
-passkey, DNS checks) are in BL-23 (SVS a9ffc582).
+To go live, on the owner's go:
+
+1. Put the gateway's passkey and admin routes on prod.
+2. Remove the Ignored Build Step from `stereo3d-admin`.
+3. Deploy `main`.
+
+The owner's own setup steps (the `svs_admin` claim, the first passkey,
+Firebase) are in BL-23 (SVS a9ffc582).
 
 ## Layout
 
