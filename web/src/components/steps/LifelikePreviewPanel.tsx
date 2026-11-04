@@ -126,7 +126,14 @@ function ReadyPreviewPanel({
   const [mode, setMode] = useState<CheckMode>("sbs");
   const [shownId, setShownId] = useState<string | null>(null);
 
-  const runs = (project.conversions ?? [])
+  // QA 2026-11-05 batch 2: a preview just started shows at once (the
+  // project's list catches up on its next read)
+  const listed = project.conversions ?? [];
+  const fresh =
+    ck.active && ck.active.step === "lifelike_preview" && !listed.some((c) => c.conversion_id === ck.active!.conversion_id)
+      ? [ck.active]
+      : [];
+  const runs = [...fresh, ...listed]
     .filter((c) => c.step === "lifelike_preview")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const succeeded = runs.filter((c) => c.state === "succeeded");

@@ -61,6 +61,8 @@ export interface StepCheckoutState {
   billingBlock?: BillingBlock | null;
   /** a run waiting for its payment: the pay sheet is open (P1/P3) */
   payNow?: Conversion | null;
+  /** a run is being created (QA 2026-11-05: the button is busy) */
+  converting?: boolean;
 }
 
 /** 402 gate codes the panels route on (lib/api/types.ts APIErrorBody). */

@@ -93,6 +93,9 @@ function messageOf(e: unknown): string {
 
 export type { BillingBlock } from "./checkoutStore";
 
+/** The run button while its run is being created. */
+export const STARTING = "Starting…";
+
 function billingBlockOf(e: unknown): BillingBlock | null {
   if (e instanceof GatewayError) {
     if (e.code === "no_payment_method" || e.code === "card_declined") {
@@ -110,6 +113,8 @@ function billingBlockOf(e: unknown): BillingBlock | null {
 export { QUOTE_TIMED_OUT, QUOTE_TIMEOUT_MS } from "./quoteAtoms";
 
 export interface StepCheckout {
+  /** a run is being created (the button is busy) */
+  converting: boolean;
   /** ADR 0138: the checkout atom every reader of this panel shares */
   scope: PrimitiveAtom<StepCheckoutState>;
   quote: StepQuoteResponse | null;
@@ -185,6 +190,7 @@ export function useStepCheckout(
   // render must mint one key); the store carries it across remounts. Every
   // writer below updates BOTH; the effect only covers external store writes.
   const attemptKeyRef = useRef(attemptKey);
+  const convertingRef = useRef(false);
   useEffect(() => {
     attemptKeyRef.current = attemptKey;
   }, [attemptKey]);
@@ -233,6 +239,20 @@ export function useStepCheckout(
   }
 
   async function convert(req: StepConversionRequest): Promise<void> {
+    // QA 2026-11-05 batch 2: one create at a time (a double click or a slow
+    // answer never starts two runs); the button shows it's starting
+    if (convertingRef.current) return;
+    convertingRef.current = true;
+    setState((s) => ({ ...s, converting: true }));
+    try {
+      await convertOnce(req);
+    } finally {
+      convertingRef.current = false;
+      setState((s) => ({ ...s, converting: false }));
+    }
+  }
+
+  async function convertOnce(req: StepConversionRequest): Promise<void> {
     if (attemptKeyRef.current === null) {
       attemptKeyRef.current = crypto.randomUUID();
       const minted = attemptKeyRef.current;
@@ -254,6 +274,10 @@ export function useStepCheckout(
       });
       upgradeSession("paid-conversion");
       setState((s) => ({ ...s, active: conv, settled: false }));
+      // the new run shows in the lists (Earlier previews, Files) and the
+      // free previews left are priced again
+      onProjectChanged();
+      invalidate();
       // spec v7 N5: a hold on the balance (maybe after an auto-reload)
       if (conv.billing?.status === "balance_hold") void billing.refresh();
       // a pay-now method: the run waits for this payment (S3D-60/61)
@@ -357,6 +381,7 @@ export function useStepCheckout(
   const running = tracking && !settled;
 
   return {
+    converting: state.converting === true,
     scope,
     quote,
     quoteKey: state.quoteKey,
@@ -838,11 +863,11 @@ export function InstantCheckout({
               size="lg"
               data-testid="checkout-main"
               className="w-full"
-              disabled={blocked || quote === null || running}
+              disabled={blocked || quote === null || running || ck.converting}
+              aria-busy={ck.converting}
               onClick={() => void ck.convert(request)}
             >
-              {label}
-              {price ? ` · ${price}` : ""}
+              {ck.converting ? STARTING : `${label}${price ? ` · ${price}` : ""}`}
             </Button>
           )}
           {runNote}
@@ -871,10 +896,11 @@ export function InstantCheckout({
               size="lg"
               data-testid="checkout-main-phone"
               className="w-full"
-              disabled={blocked || quote === null}
+              disabled={blocked || quote === null || ck.converting}
+              aria-busy={ck.converting}
               onClick={primary ? primary.onClick : () => void ck.convert(request)}
             >
-              {primary ? primary.label : `${label}${price ? ` · ${price}` : ""}`}
+              {ck.converting ? STARTING : primary ? primary.label : `${label}${price ? ` · ${price}` : ""}`}
             </Button>
           </div>
         ) : null}
@@ -899,11 +925,11 @@ export function InstantCheckout({
         <Button
           size="lg"
           data-testid="checkout-main"
-          disabled={blocked || quote === null || running}
+          disabled={blocked || quote === null || running || ck.converting}
+          aria-busy={ck.converting}
           onClick={() => void ck.convert(request)}
         >
-          {label}
-          {price ? ` · ${price}` : ""}
+          {ck.converting ? STARTING : `${label}${price ? ` · ${price}` : ""}`}
         </Button>
         {underReview ? (
           <UnderReview />

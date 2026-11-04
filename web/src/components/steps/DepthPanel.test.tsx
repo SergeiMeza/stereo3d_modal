@@ -414,7 +414,9 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
 
     await screen.findByText("Making your 3D", undefined, { timeout: 3000 });
     await screen.findByText("Ready", undefined, { timeout: 3000 });
-    await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(1));
+    // once when the run is created (QA 2026-11-05: the lists show it),
+    // once when it's done
+    await waitFor(() => expect(onProjectChanged).toHaveBeenCalledTimes(2));
 
     // the step joined the account's pending balance (batched billing)
     const conv = [...mockDb.conversions.values()][0];
@@ -518,7 +520,8 @@ describe("DepthPanel conversion lifecycle (shared useStepCheckout)", () => {
     await screen.findByText("Cancelled · not charged", undefined, { timeout: 3000 });
     const conv = [...mockDb.conversions.values()][0];
     expect(conv.state).toBe("canceled");
-    expect(onProjectChanged).not.toHaveBeenCalled();
+    // only for the create (the lists show the run), not for the cancel
+    expect(onProjectChanged).toHaveBeenCalledTimes(1);
   });
 });
 
