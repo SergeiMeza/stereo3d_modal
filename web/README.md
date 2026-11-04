@@ -56,6 +56,43 @@ Add a missing shadcn component to `components/ui` rather than building one.
   tests use `fireEvent.keyDown(trigger, { key: "Enter" })` for menus and
   `fireEvent.mouseDown(tab)` for tabs.
 
+## State
+
+Shared state lives in jotai atoms (ADR 0138, owner 2026-11-05: "react
+context and react vanilla state management is too bug-prone").
+
+- **jotai for anything two components read**, and for every server answer
+  (a project, a run, a quote, billing, pricing). `useState` is only for
+  truly local, short-lived UI: an input draft, a hover, an open/closed
+  toggle nobody else reads. No new React context for state; context stays
+  for non-state needs (theme, Stripe Elements' own provider, Next/Radix).
+- **Where atoms live**: next to their feature, in `*Atoms.ts`
+  (`components/steps/quoteAtoms.ts`, `make3dAtoms.ts`, `priceAtoms.ts`,
+  `conversionAtoms.ts`, `components/workspace/workspaceAtoms.ts`,
+  `components/pay/payAtoms.ts`); the plumbing is in `lib/state`.
+- **Two kinds of store**: the app store (jotai's default) holds the
+  session's state (auth, billing, pricing, limits, viewer prefs; read it
+  with `useAppAtomValue`/`useAppAtom`), and each project page gets its own
+  store (`ProjectStateProvider`, keyed by the project id) for the project,
+  its runs, the checkout and Make 3D's picks, so opening another project
+  starts clean. Per-item atoms use `atomFamily` from `jotai-family`, keyed by
+  id; tests reset them in `vitest.setup.ts` (`family.remove`).
+- **Async is latest-wins**: action atoms are the only writers of server
+  state; each request takes a sequence number and an answer that isn't the
+  latest is dropped (`requestQuoteAtom`), or answers are cached per request
+  key and readers only look up their current key (`priceAtoms`). Changes
+  settle (debounce) before they're fetched, a fetch has a timeout and an
+  error state with Retry, and a price shows only for the selections it
+  answers ("Updating…" meanwhile).
+- **Nothing secret in an atom**: no tokens, no API clients (pass the
+  gateway client to an action as an argument), and only plain UI state is
+  persisted (`atomWithStorage` with `lib/state/safeStorage`, e.g. Make 3D's
+  picks per project).
+- ESLint (`no-restricted-syntax`) flags `createContext`, `useState` typed
+  with a server type, and `setX(await …)` / `.then((x) => setX(x))`. Files
+  not migrated yet are on `STATE_ALLOWLIST` in `eslint.config.mjs`, which
+  only shrinks.
+
 ## Environments
 
 |              | web app                                                          | gateway                                                          | Stripe     | Firebase             |
