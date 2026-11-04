@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import { ErrorState, SkeletonRows } from "../components/ui";
+import { EmptyRow, ErrorState, FilterSelect, PageHeader, Panel, SkeletonRows } from "@/components/common";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "../lib/api";
 import { pct } from "../lib/format";
 import { useServices } from "../lib/services";
@@ -40,64 +41,70 @@ export function PlansSurfacesPanel() {
   const { state, retry } = useLoad(() => api.plansSurfaces(days), [api, days]);
   return (
     <>
-      <div className="titlebar">
-        <h1>Plans surfaces</h1>
-        <span className="muted small">Views, dismissals, clicks and plan starts per placement · last click within 7 days</span>
-        <span className="grow" />
-        <select className="fsel" aria-label="Days" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-        </select>
-      </div>
+      <PageHeader
+        title="Plans surfaces"
+        actions={
+          <FilterSelect
+            label="Days"
+            value={String(days)}
+            onChange={(v) => setDays(Number(v))}
+            options={[
+              { value: "7", label: "Last 7 days" },
+              { value: "30", label: "Last 30 days" },
+              { value: "90", label: "Last 90 days" },
+            ]}
+          />
+        }
+      >
+        <span className="text-sm text-muted-foreground">Views, dismissals, clicks and plan starts per placement · last click within 7 days</span>
+      </PageHeader>
       {state.kind === "loading" && <SkeletonRows rows={6} cols={6} />}
       {state.kind === "error" && (
         <ErrorState title="Couldn't load the plans surfaces." message={errorMessage(state.error)} onRetry={retry} />
       )}
-      {state.kind === "loaded" && <Table data={state.data} />}
+      {state.kind === "loaded" && <Placements data={state.data} />}
     </>
   );
 }
 
-function Table({ data }: { data: PlansSurfaces }) {
+function Placements({ data }: { data: PlansSurfaces }) {
   const rows = [...(data.placements ?? [])].sort((a, b) => b.views - a.views);
   return (
     <>
-      <section className="card">
-        <div className="scroll-x">
-          <table className="at" data-testid="plans-surfaces">
-            <thead>
-              <tr>
-                <th>Placement</th>
-                <th className="num">Views</th>
-                <th className="num">People</th>
-                <th className="num">Dismissed</th>
-                <th className="num">Clicks</th>
-                <th className="num">Click rate</th>
-                <th className="num">Plan starts</th>
-                <th className="num">Start rate</th>
-                <th>By plan</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Panel>
+        {rows.length === 0 && <EmptyRow>No placement was shown in this window.</EmptyRow>}
+          <Table data-testid="plans-surfaces">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Placement</TableHead>
+                <TableHead numeric>Views</TableHead>
+                <TableHead numeric>People</TableHead>
+                <TableHead numeric>Dismissed</TableHead>
+                <TableHead numeric>Clicks</TableHead>
+                <TableHead numeric>Click rate</TableHead>
+                <TableHead numeric>Plan starts</TableHead>
+                <TableHead numeric>Start rate</TableHead>
+                <TableHead>By plan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.placement}>
-                  <td>{NAMES[r.placement] ?? r.placement}</td>
-                  <td className="num">{r.views}</td>
-                  <td className="num">{r.viewers}</td>
-                  <td className="num">{r.dismissals}</td>
-                  <td className="num">{r.clicks}</td>
-                  <td className="num">{pct(r.click_rate, 1)}</td>
-                  <td className="num">{r.conversions}</td>
-                  <td className="num">{pct(r.conversion_rate, 1)}</td>
-                  <td className="xs muted">{products(r.conversions_by_product)}</td>
-                </tr>
+                <TableRow key={r.placement}>
+                  <TableCell>{NAMES[r.placement] ?? r.placement}</TableCell>
+                  <TableCell numeric>{r.views}</TableCell>
+                  <TableCell numeric>{r.viewers}</TableCell>
+                  <TableCell numeric>{r.dismissals}</TableCell>
+                  <TableCell numeric>{r.clicks}</TableCell>
+                  <TableCell numeric>{pct(r.click_rate, 1)}</TableCell>
+                  <TableCell numeric>{r.conversions}</TableCell>
+                  <TableCell numeric>{pct(r.conversion_rate, 1)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{products(r.conversions_by_product)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <p className="muted small pad">
+            </TableBody>
+          </Table>
+      </Panel>
+      <p className="px-4 text-sm text-muted-foreground">
         Plan starts with no click in the 7 days before: {data.unattributed.conversions}
         {products(data.unattributed.by_product) ? ` (${products(data.unattributed.by_product)})` : ""}.
       </p>
@@ -111,38 +118,35 @@ function ByReason({ rows }: { rows: NonNullable<PlansSurfaces["by_reason"]> }) {
   if (rows.length === 0) return null;
   const sorted = [...rows].sort((a, b) => b.views - a.views);
   return (
-    <section className="card">
-      <div className="sh"><b>By reason</b><span className="xs muted">why a Business surface showed</span></div>
-      <div className="scroll-x">
-        <table className="at" data-testid="plans-surfaces-reasons">
-          <thead>
-            <tr>
-              <th>Placement</th>
-              <th>Reason</th>
-              <th className="num">Views</th>
-              <th className="num">Dismissed</th>
-              <th className="num">Clicks</th>
-              <th className="num">Click rate</th>
-              <th className="num">Plan starts</th>
-              <th>By plan</th>
-            </tr>
-          </thead>
-          <tbody>
+    <Panel title="By reason" note="why a Business surface showed">
+        <Table data-testid="plans-surfaces-reasons">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Placement</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead numeric>Views</TableHead>
+              <TableHead numeric>Dismissed</TableHead>
+              <TableHead numeric>Clicks</TableHead>
+              <TableHead numeric>Click rate</TableHead>
+              <TableHead numeric>Plan starts</TableHead>
+              <TableHead>By plan</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {sorted.map((r) => (
-              <tr key={`${r.placement}:${r.reason}`}>
-                <td>{NAMES[r.placement] ?? r.placement}</td>
-                <td>{REASONS[r.reason] ?? r.reason}</td>
-                <td className="num">{r.views}</td>
-                <td className="num">{r.dismissals}</td>
-                <td className="num">{r.clicks}</td>
-                <td className="num">{pct(r.click_rate ?? (r.views ? r.clicks / r.views : 0), 1)}</td>
-                <td className="num">{r.conversions}</td>
-                <td className="xs muted">{products(r.conversions_by_product ?? {})}</td>
-              </tr>
+              <TableRow key={`${r.placement}:${r.reason}`}>
+                <TableCell>{NAMES[r.placement] ?? r.placement}</TableCell>
+                <TableCell>{REASONS[r.reason] ?? r.reason}</TableCell>
+                <TableCell numeric>{r.views}</TableCell>
+                <TableCell numeric>{r.dismissals}</TableCell>
+                <TableCell numeric>{r.clicks}</TableCell>
+                <TableCell numeric>{pct(r.click_rate ?? (r.views ? r.clicks / r.views : 0), 1)}</TableCell>
+                <TableCell numeric>{r.conversions}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{products(r.conversions_by_product ?? {})}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </TableBody>
+        </Table>
+    </Panel>
   );
 }
