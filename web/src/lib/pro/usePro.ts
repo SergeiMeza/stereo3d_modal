@@ -2,13 +2,13 @@
 
 /**
  * Pro on the web (S3D-68): the person's status (gateway GET /v1/pro, the
- * same RevenueCat rule the quotes use), the plans (RevenueCat Web Billing),
- * the purchase, and a "Pro changed" signal quotes listen to so the next
- * price carries the discount.
+ * same rule the quotes use), the plans (GET /v1/pricing pro_plans, gateway
+ * 00102), the purchase (our own payment sheet, POST /v1/pro/refresh after
+ * it), and a "Pro changed" signal quotes listen to so the next price
+ * carries the discount.
  *
- * Mock auth mode (tests, the dev preview) never loads the SDK or calls the
- * gateway: it shows MOCK_PLANS, and a mock purchase flips the dev preview's
- * mock gateway to Pro (window.__mockDb.pro) so its quotes show the line.
+ * Mock auth mode (tests, the dev preview) reads its status from the mock
+ * gateway's state (window.__mockDb) instead of calling GET /v1/pro.
  */
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
@@ -19,20 +19,24 @@ import { gatewayBaseUrl } from "@/lib/region";
 import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { openProCheckout } from "@/lib/pro/checkoutStore";
-import { anchorLine, anchorPlan, MOCK_PLANS, plansFromPricing } from "@/lib/pro/plans";
+import { anchorLine, anchorPlan, plansFromPricing } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export interface ProStatus {
   pro: boolean;
   /** what makes them Pro: a product id ("pro_subs_1y_v1"; App Store passes count too) */
   via?: string;
-  /** false when RevenueCat couldn't tell */
+  /** false when the gateway couldn't tell */
   known: boolean;
   /** where this Pro is billed (owner 2026-11-04): the App Store, the Mac
    * App Store, the web, included with a plan, or simulated */
   source?: "app_store" | "mac_app_store" | "rc_billing" | "stripe" | "plan" | "simulated" | string | null;
   /** the store's subscription page (App Store sources) */
   management_url?: string | null;
+  /** gateway 00102: source "plan" — our own plan's id (pro_monthly,
+   * business…) and a step-down waiting for the period's end */
+  plan_id?: string | null;
+  scheduled_change?: { to: string; effective_at: string } | null;
   /** gateway 00096: the free previews this Pro includes */
   free_previews?: { allowance: number; per_period?: number; period?: string } | null;
 }
@@ -119,6 +123,8 @@ async function callGateway(
     free_previews: body.free_previews ?? null,
     source: body.source ?? null,
     management_url: body.management_url ?? null,
+    plan_id: body.plan_id ?? null,
+    scheduled_change: body.scheduled_change ?? null,
   };
 }
 
@@ -152,14 +158,11 @@ export function useProStatus(): ProStatus | null {
 
 const plansCache = new Map<string, Promise<ProPlan[]>>();
 
-async function loadPlansFor(uid: string, gateway: GatewayClient): Promise<ProPlan[]> {
-  // owner 2026-11-04: web Pro on our own Stripe subscriptions once the
-  // gateway sells it (pricing pro_plans); RevenueCat until then
-  const pricing = await gateway.getPricing().catch(() => null);
-  if (pricing?.pro_plans?.length) return plansFromPricing(pricing.pro_plans);
-  if (AUTH_MODE === "mock") return MOCK_PLANS;
-  const { loadPlans } = await import("@/lib/pro/revenuecat");
-  return loadPlans(uid);
+/** gateway 00102: web Pro on our own Stripe subscriptions (pricing
+ * pro_plans); nothing on sale when the list is empty. */
+async function loadPlansFor(gateway: GatewayClient): Promise<ProPlan[]> {
+  const pricing = await gateway.getPricing();
+  return plansFromPricing(pricing.pro_plans ?? []);
 }
 
 export type PlansState =
@@ -178,7 +181,7 @@ export function useProPlans(): PlansState {
     let cancelled = false;
     let p = plansCache.get(uid);
     if (!p) {
-      p = loadPlansFor(uid, gateway);
+      p = loadPlansFor(gateway);
       plansCache.set(uid, p);
       p.catch(() => plansCache.delete(uid));
     }
@@ -227,36 +230,15 @@ export function useBuyPro(): (
   return useCallback(
     async (plan: ProPlan) => {
       if (!user) throw new Error("Sign in to get Pro.");
-      if (plan.billing === "stripe") {
-        const outcome = await openProCheckout(plan);
-        if (outcome === "cancelled") return outcome;
-        // attribution and the new state: POST /v1/pro/refresh until it says Pro
-        for (let i = 0; i < 4; i++) {
-          const s = await callGateway(getToken, true).catch(() => null);
-          if (s?.pro) break;
-          await sleep(1500);
-        }
-        if (AUTH_MODE === "mock") mockPro = true;
-        notifyProChanged();
-        return outcome;
-      }
-      if (AUTH_MODE === "mock") {
-        await sleep(400);
-        mockPro = true;
-        const db = (globalThis as { __mockDb?: { pro?: boolean } }).__mockDb;
-        if (db) db.pro = true;
-        notifyProChanged();
-        return "purchased";
-      }
-      const { purchasePlan } = await import("@/lib/pro/revenuecat");
-      const outcome = await purchasePlan(user.uid, plan.id, user.email);
+      const outcome = await openProCheckout(plan);
       if (outcome === "cancelled") return outcome;
-      // RevenueCat may take a moment to report the new purchase.
+      // attribution and the new state: POST /v1/pro/refresh until it says Pro
       for (let i = 0; i < 4; i++) {
         const s = await callGateway(getToken, true).catch(() => null);
         if (s?.pro) break;
         await sleep(1500);
       }
+      if (AUTH_MODE === "mock") mockPro = true;
       notifyProChanged();
       return outcome;
     },
@@ -264,9 +246,10 @@ export function useBuyPro(): (
   );
 }
 
-/** Where a web subscriber manages the plan; null otherwise. */
-export async function proManagementUrl(uid: string): Promise<string | null> {
-  if (AUTH_MODE === "mock") return null;
-  const { managementUrl } = await import("@/lib/pro/revenuecat");
-  return managementUrl(uid);
+/** Pro on our own Stripe subscription (gateway 00102: source "plan" with a
+ * pro_* plan_id; "stripe" from the mock before it). */
+export function isWebPro(s: ProStatus | null | undefined): boolean {
+  if (!s?.pro) return false;
+  if (s.source === "stripe" || s.source === "rc_billing") return true;
+  return s.source === "plan" && (s.plan_id ?? "").startsWith("pro_");
 }

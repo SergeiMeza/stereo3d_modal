@@ -761,7 +761,10 @@ export interface AccountSettingsPatch {
 
 /** GET /v1/billing plan (Business / Studio) */
 export interface AccountPlan {
-  plan: "business" | "studio";
+  /** gateway 00102: web Pro on Stripe has a plan block too */
+  plan: "business" | "studio" | "pro";
+  /** "business" | "studio" | "pro_weekly" | "pro_monthly" | "pro_yearly" */
+  plan_id?: string;
   name?: string;
   status: string;
   active: boolean;
@@ -773,7 +776,7 @@ export interface AccountPlan {
   /** Studio yearly (gateway 00089): billing interval and price, the
    * credit's interval, which month of the year this is (1–12) and when
    * this month's usage resets */
-  interval?: "month" | "year" | "";
+  interval?: "week" | "month" | "year" | "";
   price_cents?: number;
   credit_interval?: string;
   month_index?: number;
@@ -1329,4 +1332,11 @@ export interface ProPlanDef {
   price_cents: number;
   /** an introductory price for the first `cycles` periods */
   intro?: { price_cents: number; cycles: number } | null;
+}
+
+/** An active Business or Studio plan (not Pro). */
+export function isTeamPlan(
+  p: AccountPlan | null | undefined,
+): p is AccountPlan & { plan: "business" | "studio" } {
+  return p?.active === true && (p.plan === "business" || p.plan === "studio");
 }

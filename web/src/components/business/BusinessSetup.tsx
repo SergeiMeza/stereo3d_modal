@@ -34,7 +34,11 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { IntroSwitch } from "@/components/billing/PlanCard";
-import { upgradeLine } from "@/components/billing/planChangeCopy";
+import {
+  confirmPlanChange,
+  REPRICED,
+  upgradeLine,
+} from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
 import {
   CompanyDetailsSheet,
@@ -53,14 +57,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { GatewayError } from "@/lib/api/client";
 import type { PlanChangePreview } from "@/lib/api/client";
 import type { CompanyDetails, PlanDef, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
-import { notifyProChanged, useProStatus } from "@/lib/pro/usePro";
+import { isWebPro, notifyProChanged, useProStatus } from "@/lib/pro/usePro";
 import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
@@ -116,13 +119,13 @@ function termsLine(def: PlanDef): string {
 }
 
 const APP_STORE_SOURCES = new Set(["app_store", "mac_app_store"]);
-const WEB_PRO_SOURCES = new Set(["rc_billing", "stripe"]);
 
 /** Which "What happens to your Pro" applies. */
 export function proCase(pro: ProStatus | null): "app_store" | "web" | null {
   if (!pro?.pro) return null;
   if (pro.source && APP_STORE_SOURCES.has(pro.source)) return "app_store";
-  if (pro.source && WEB_PRO_SOURCES.has(pro.source)) return "web";
+  // web Pro (our own plan); Pro included with Business/Studio or simulated: no note
+  if (isWebPro(pro)) return "web";
   return null;
 }
 
@@ -236,20 +239,17 @@ export function BusinessSetup(): JSX.Element {
   }
 
   async function confirmChange(): Promise<void> {
+    if (!preview || preview === "error") return;
     setConfirming(true);
     setError(null);
-    try {
-      await gateway.changePlan(plan);
-      purchased();
-    } catch (e) {
-      setError(
-        e instanceof GatewayError && e.message
-          ? e.message
-          : "Couldn't change your plan. Nothing was charged.",
-      );
-    } finally {
-      setConfirming(false);
-    }
+    const r = await confirmPlanChange(gateway, preview);
+    setConfirming(false);
+    if (r.kind === "done") purchased();
+    else if (r.kind === "repriced") {
+      // the quote ran out: the new amount shows, and they confirm again
+      setPreview(r.preview);
+      setError(REPRICED);
+    } else setError(r.message);
   }
 
   return (

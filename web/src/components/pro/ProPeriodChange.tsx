@@ -13,8 +13,10 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import {
+  confirmPlanChange,
   isStepDown,
   NOTHING_TODAY,
+  REPRICED,
   stepDownLine,
   upgradeLine,
 } from "@/components/billing/planChangeCopy";
@@ -30,12 +32,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { GatewayError } from "@/lib/api/client";
 import type { PlanChangePreview } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { useBilling } from "@/lib/billing";
 import { planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
-import { notifyProChanged, useProPlans, useProStatus } from "@/lib/pro/usePro";
+import {
+  isWebPro,
+  notifyProChanged,
+  useProPlans,
+  useProStatus,
+} from "@/lib/pro/usePro";
 
 const PER = { weekly: "a week", monthly: "a month", yearly: "a year" } as const;
 
@@ -60,12 +67,14 @@ export function ProPeriodChange(): JSX.Element | null {
   const [target, setTarget] = useState<ProPlan | null>(null);
   const [preview, setPreview] = useState<PlanChangePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const billing = useBilling();
   const [busy, setBusy] = useState(false);
-  if (status?.source !== "stripe" || plans.state !== "ready") return null;
-  const current = status.via;
-  const others = plans.plans.filter(
-    (p) => p.billing === "stripe" && p.id !== current,
-  );
+  if (!isWebPro(status) || plans.state !== "ready") return null;
+  // a step-down already waits for the period's end: Keep is on the page
+  if (status?.scheduled_change) return null;
+  const current = status?.plan_id ?? status?.via;
+  const others = plans.plans.filter((p) => p.id !== current);
   const currentPlan = plans.plans.find((p) => p.id === current);
   if (others.length === 0) return null;
 
@@ -73,6 +82,7 @@ export function ProPeriodChange(): JSX.Element | null {
     setTarget(p);
     setPreview(null);
     setError(null);
+    setNotice(null);
     gateway
       .previewPlanChange(p.id)
       .then(setPreview, () =>
@@ -81,22 +91,20 @@ export function ProPeriodChange(): JSX.Element | null {
   }
 
   async function confirm(): Promise<void> {
-    if (!target) return;
+    if (!target || !preview) return;
     setBusy(true);
-    try {
-      await gateway.changePlan(target.id);
+    setError(null);
+    const r = await confirmPlanChange(gateway, preview);
+    setBusy(false);
+    if (r.kind === "done") {
       void gateway.refreshPro().catch(() => {});
       notifyProChanged();
+      void billing.refresh();
       setTarget(null);
-    } catch (e) {
-      setError(
-        e instanceof GatewayError && e.message
-          ? e.message
-          : "Couldn't change your plan. Nothing was charged.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    } else if (r.kind === "repriced") {
+      setPreview(r.preview);
+      setNotice(REPRICED);
+    } else setError(r.message);
   }
 
   return (
@@ -121,6 +129,11 @@ export function ProPeriodChange(): JSX.Element | null {
                   ? previewLine(preview, currentPlan, target)
                   : "Working out today's price…")}
             </AlertDialogDescription>
+            {notice ? (
+              <p role="status" className="text-xs text-amber-300">
+                {notice}
+              </p>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep my plan</AlertDialogCancel>

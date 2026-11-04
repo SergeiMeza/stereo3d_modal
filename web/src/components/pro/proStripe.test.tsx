@@ -46,7 +46,6 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => {
   resetPricingCache();
   resetProForTests();
-  mockDb.stripePro = true;
   (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
 });
 afterEach(() => {
@@ -70,12 +69,10 @@ const wrap = (el: React.ReactElement) =>
 describe("web Pro on Stripe", () => {
   it("maps pro_plans with their intros", () => {
     const plans = plansFromPricing(MOCK_PRO_PLANS);
-    expect(
-      plans.map((p) => [p.id, p.kind, p.price, p.intro?.price, p.billing]),
-    ).toEqual([
-      ["pro_weekly", "weekly", "$5.99", "$3.99", "stripe"],
-      ["pro_monthly", "monthly", "$8.99", undefined, "stripe"],
-      ["pro_yearly", "yearly", "$79.99", "$47.99", "stripe"],
+    expect(plans.map((p) => [p.id, p.kind, p.price, p.intro?.price])).toEqual([
+      ["pro_weekly", "weekly", "$5.99", "$3.99"],
+      ["pro_monthly", "monthly", "$8.99", undefined],
+      ["pro_yearly", "yearly", "$79.99", "$47.99"],
     ]);
   });
 

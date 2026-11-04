@@ -4,64 +4,46 @@ import {
   anchorLine,
   anchorPlan,
   introLine,
-  MOCK_PLANS,
   planCadence,
-  planFromPackage,
   planName,
-  plansFromPackages,
+  plansFromPricing,
   planTerms,
 } from "@/lib/pro/plans";
-import type { PackageLike } from "@/lib/pro/plans";
 
-function pkg(
-  identifier: string,
-  packageType: string,
-  productId: string,
-  productType: string,
-  price: string,
-  micros: number,
-  period: string | null,
-  intro: PackageLike["webBillingProduct"]["introPricePhase"] = null,
-): PackageLike {
-  return {
-    identifier,
-    packageType,
-    webBillingProduct: {
-      identifier: productId,
-      productType,
-      currentPrice: { formattedPrice: price, amountMicros: micros, currency: "USD" },
-      normalPeriodDuration: period,
-      introPricePhase: intro,
-    },
-  };
-}
-
-const PKGS: PackageLike[] = [
-  pkg("$rc_annual", "$rc_annual", "web_pro_subs_1y_v2", "subscription", "$79.99", 79_990_000, "P1Y", {
-    price: { formattedPrice: "$47.99" },
-    periodDuration: "P1Y",
-    cycleCount: 1,
-  }),
-  pkg("pass_3m", "custom", "web_pro_pass_3m_v1", "non_consumable", "$29.99", 29_990_000, null),
-  pkg("$rc_weekly", "$rc_weekly", "web_pro_subs_1w_v2", "subscription", "$5.99", 5_990_000, "P1W", {
-    price: { formattedPrice: "$3.99" },
-    periodDuration: "P1W",
-    cycleCount: 4,
-  }),
-  pkg("$rc_lifetime", "$rc_lifetime", "web_pro_subs_lifetime_v2", "non_consumable", "$149.99", 149_990_000, null),
-  pkg("$rc_monthly", "$rc_monthly", "web_pro_subs_1m_v2", "subscription", "$8.99", 8_990_000, "P1M"),
+/** gateway 00102 /v1/pricing pro_plans */
+const DEFS = [
+  {
+    id: "pro_yearly",
+    interval: "year" as const,
+    price_cents: 7999,
+    intro: { price_cents: 4799, cycles: 1 },
+  },
+  {
+    id: "pro_weekly",
+    interval: "week" as const,
+    price_cents: 599,
+    intro: { price_cents: 399, cycles: 4 },
+  },
+  {
+    id: "pro_monthly",
+    interval: "month" as const,
+    price_cents: 899,
+    intro: null,
+  },
 ];
 
-describe("plans from RevenueCat packages", () => {
+describe("Pro plans from /v1/pricing", () => {
   it("maps kinds and orders them Weekly first, as the app does", () => {
-    const plans = plansFromPackages(PKGS);
-    // Weekly, Monthly, Yearly only: no Lifetime and no pass, even when
-    // the offering carries them (owner, 2026-11-03)
-    expect(plans.map((p) => p.id)).toEqual(["$rc_weekly", "$rc_monthly", "$rc_annual"]);
+    const plans = plansFromPricing(DEFS);
+    expect(plans.map((p) => [p.id, p.kind, p.price])).toEqual([
+      ["pro_weekly", "weekly", "$5.99"],
+      ["pro_monthly", "monthly", "$8.99"],
+      ["pro_yearly", "yearly", "$79.99"],
+    ]);
   });
 
   it("labels intro offers, cadence and terms", () => {
-    const [weekly, monthly, yearly] = plansFromPackages(PKGS);
+    const [weekly, monthly, yearly] = plansFromPricing(DEFS);
     expect(introLine(weekly)).toBe("$3.99 / week for 4 weeks");
     expect(introLine(yearly)).toBe("$47.99 the first year");
     expect(introLine(monthly)).toBeNull();
@@ -71,18 +53,10 @@ describe("plans from RevenueCat packages", () => {
   });
 
   it("anchors the quote's sheet on Monthly", () => {
-    const plans = plansFromPackages(PKGS);
+    const plans = plansFromPricing(DEFS);
     expect(anchorLine(anchorPlan(plans)!)).toBe("$8.99 a month");
-    // without Monthly: the cheapest per month (Yearly)
     const noMonthly = plans.filter((p) => p.kind !== "monthly");
     expect(anchorLine(anchorPlan(noMonthly)!)).toBe("$79.99 a year");
     expect(anchorPlan([])).toBeNull();
-  });
-
-  it("mock plans carry the approved US prices (S3D-68)", () => {
-    expect(MOCK_PLANS.map((p) => p.price)).toEqual(["$5.99", "$8.99", "$79.99"]);
-    expect(planFromPackage(PKGS[0])?.kind).toBe("yearly");
-    expect(planFromPackage(PKGS[1])).toBeNull(); // pass_3m
-    expect(planFromPackage(PKGS[3])).toBeNull(); // $rc_lifetime
   });
 });

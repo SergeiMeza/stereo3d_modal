@@ -17,8 +17,8 @@
  * - Cinema prices: a 5K–8K quote lists the Business and Studio prices
  *   from the quote's alt_prices beside Pay once (which stays selected).
  *
- * Prices: the quote, and /v1/pricing tier rates (tierPriceFor); RevenueCat
- * for what Pro costs.
+ * Prices: the quote, and /v1/pricing tier rates (tierPriceFor) and
+ * pro_plans for what Pro costs.
  */
 
 import { X } from "lucide-react";

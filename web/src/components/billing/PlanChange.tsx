@@ -35,18 +35,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GatewayError } from "@/lib/api/client";
 import type { PlanChangePreview } from "@/lib/api/client";
 import type { AccountPlan, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { planName as proPeriodName } from "@/lib/pro/plans";
-import { useProPlans } from "@/lib/pro/usePro";
+import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 
-import { changeDate, NOTHING_TODAY, stepDownLine } from "./planChangeCopy";
+import {
+  changeDate,
+  confirmPlanChange,
+  NOTHING_TODAY,
+  REPRICED,
+  stepDownLine,
+} from "./planChangeCopy";
 
 export const PAY_PER_VIDEO = "pay_per_video";
+
+/** Highest to lowest (owner 2026-11-04: a lower plan is a step-down). */
+const PLAN_RANK: Record<string, number> = {
+  studio: 40,
+  business: 30,
+  pro_yearly: 23,
+  pro_monthly: 22,
+  pro_weekly: 21,
+  pay_per_video: 0,
+};
 
 interface Option {
   id: string;
@@ -95,25 +110,26 @@ export function PlanChangeMenu({
   const [target, setTarget] = useState<Option | null>(null);
   const [preview, setPreview] = useState<PlanChangePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // our own Stripe Pro only: those are the ones a plan can step down to
   const pro =
     proPlans.state === "ready"
-      ? proPlans.plans
-          .filter((p) => p.billing === "stripe")
-          .map((p) => ({
-            id: p.id,
-            name: `Pro ${proPeriodName(p)}`,
-            per: PRO_PER[p.kind],
-          }))
+      ? proPlans.plans.map((p) => ({
+          id: p.id,
+          name: `Pro ${proPeriodName(p)}`,
+          per: PRO_PER[p.kind],
+        }))
       : [];
   const proNames = new Map(pro.map((o) => [o.id, o]));
+  // only lower plans (Business → Studio is on hold; upgrades go through setup)
+  const rank = PLAN_RANK[plan.plan_id ?? plan.plan] ?? 0;
   const lower: Option[] = [
     ...(plan.plan === "studio"
       ? [optionFor("business", pricing, proNames)]
       : []),
-    ...pro,
+    ...pro.filter((o) => (PLAN_RANK[o.id] ?? 0) < rank),
     { id: PAY_PER_VIDEO, name: null },
   ];
   if (plan.scheduled_change || plan.cancel_at_period_end) return null;
@@ -122,20 +138,8 @@ export function PlanChangeMenu({
   function open(o: Option): void {
     setTarget(o);
     setError(null);
+    setNotice(null);
     setPreview(null);
-    if (o.id === PAY_PER_VIDEO) {
-      // cancelling ends the plan at the end of the period: nothing to price
-      setPreview({
-        to: o.id,
-        kind: "step_down",
-        today_cents: 0,
-        new_plan_cents: 0,
-        ...(plan.current_period_end
-          ? { effective_at: plan.current_period_end }
-          : {}),
-      });
-      return;
-    }
     gateway
       .previewPlanChange(o.id)
       .then(setPreview, () =>
@@ -144,23 +148,18 @@ export function PlanChangeMenu({
   }
 
   async function confirm(): Promise<void> {
-    if (!target) return;
+    if (!target || !preview) return;
     setBusy(true);
     setError(null);
-    try {
-      if (target.id === PAY_PER_VIDEO) await gateway.cancelPlan(false);
-      else await gateway.changePlan(target.id);
+    const r = await confirmPlanChange(gateway, preview);
+    setBusy(false);
+    if (r.kind === "done") {
       await billing.refresh();
       setTarget(null);
-    } catch (e) {
-      setError(
-        e instanceof GatewayError && e.message
-          ? e.message
-          : "Couldn't change your plan. Nothing was charged.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    } else if (r.kind === "repriced") {
+      setPreview(r.preview);
+      setNotice(REPRICED);
+    } else setError(r.message);
   }
 
   return (
@@ -196,6 +195,11 @@ export function PlanChangeMenu({
                   ? `${stepDownLine(current, target.name ? { name: target.name, per: target.per } : null, preview)} ${NOTHING_TODAY}`
                   : "Working out the change…")}
             </AlertDialogDescription>
+            {notice ? (
+              <p role="status" className="text-xs text-amber-300">
+                {notice}
+              </p>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep {current}</AlertDialogCancel>
@@ -245,9 +249,10 @@ export function ScheduledChange({
     setBusy(true);
     setError(false);
     try {
-      if (sc && sc.to !== PAY_PER_VIDEO) await gateway.cancelScheduledChange();
+      if (sc) await gateway.cancelScheduledChange();
       else await gateway.cancelPlan(true);
       await billing.refresh();
+      notifyProChanged();
     } catch {
       setError(true);
     } finally {

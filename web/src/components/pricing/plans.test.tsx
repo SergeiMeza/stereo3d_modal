@@ -102,10 +102,16 @@ describe("Pricing 2026-11", () => {
     fireEvent.keyDown(within(card).getByRole("button", { name: "Change plan" }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Pay per video (cancel plan)" }));
     const line = await screen.findByTestId("plan-change-line");
-    expect(line.textContent).toMatch(/^Your Business stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. After that you pay per video\. Nothing is charged today\.$/);
+    await waitFor(() =>
+      expect(line.textContent).toMatch(/^Your Business stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. After that you pay per video\. Nothing is charged today\.$/),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
-    await waitFor(() => expect(mockDb.billing.plan?.cancel_at_period_end).toBe(true));
-    expect(await within(card).findByRole("button", { name: "Keep Business" })).toBeTruthy();
+    // gateway 00102: to pay_per_video, scheduled for the period's end
+    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("pay_per_video"));
+    const notice = await within(card).findByTestId("scheduled-change");
+    expect(notice.textContent).toMatch(/^Your Business ends on /);
+    fireEvent.click(within(notice).getByRole("button", { name: "Keep Business" }));
+    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change).toBeNull());
   });
 
   it("Studio checks out yearly, renews a year out, and Billing says when usage resets", async () => {

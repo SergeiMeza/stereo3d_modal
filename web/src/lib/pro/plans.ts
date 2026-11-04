@@ -1,13 +1,10 @@
 /**
- * Pro plans as the web shows them (S3D-68), read from RevenueCat Web
- * Billing packages. Pure: the mapping and the labels are tested without the
- * SDK. Prices are RevenueCat's formatted strings in the buyer's currency;
- * nothing here hardcodes an amount except the mock plans.
+ * Pro plans as the web shows them (S3D-68), from GET /v1/pricing pro_plans
+ * (gateway 00102: web Pro on our own Stripe subscriptions). Pure: the
+ * mapping and the labels are tested on their own. Prices are USD.
  *
- * Web Pro is Weekly, Monthly and Yearly only (owner, 2026-11-03): the
- * $rc_weekly, $rc_monthly and $rc_annual packages. Any other package in
- * the offering (Lifetime, a pass) is skipped. App Store Lifetime and pass
- * holders are still Pro when the gateway says so (the `pro` entitlement).
+ * Web Pro is Weekly, Monthly and Yearly only (owner, 2026-11-03). App
+ * Store Lifetime and pass holders are still Pro when the gateway says so.
  */
 
 import type { ProPlanDef } from "@/lib/api/types";
@@ -15,12 +12,8 @@ import type { ProPlanDef } from "@/lib/api/types";
 export type PlanKind = "weekly" | "monthly" | "yearly";
 
 export interface ProPlan {
-  /** RevenueCat package identifier ($rc_monthly…), or our plan id
-   * (pro_monthly…) for a Stripe plan */
+  /** our plan id: pro_weekly | pro_monthly | pro_yearly */
   id: string;
-  /** owner 2026-11-04: our own Stripe checkout (gateway pro_plans), or
-   * RevenueCat's until the gateway sells Pro itself */
-  billing?: "stripe" | "revenuecat";
   productId: string;
   kind: PlanKind;
   /** "$8.99" */
@@ -31,66 +24,14 @@ export interface ProPlan {
   intro: { price: string; per: PlanKind | null; cycles: number } | null;
 }
 
-/** The parts of a purchases-js Package this reads. */
-export interface PackageLike {
-  identifier: string;
-  packageType: string;
-  webBillingProduct: {
-    identifier: string;
-    productType: string;
-    currentPrice: { formattedPrice: string; amountMicros: number; currency: string };
-    normalPeriodDuration: string | null;
-    introPricePhase?: {
-      price: { formattedPrice: string } | null;
-      periodDuration: string | null;
-      cycleCount: number;
-    } | null;
-  };
-}
-
-const PERIOD_KIND: Record<string, PlanKind> = {
-  P1W: "weekly",
-  P7D: "weekly",
-  P1M: "monthly",
-  P1Y: "yearly",
-  P12M: "yearly",
-};
-
-const PACKAGE_KIND: Record<string, PlanKind> = {
-  $rc_weekly: "weekly",
-  $rc_monthly: "monthly",
-  $rc_annual: "yearly",
-};
-
 /** Order on the page: the app's paywall leads with Weekly (PRC-05). */
 const ORDER: PlanKind[] = ["weekly", "monthly", "yearly"];
 
-export function planFromPackage(p: PackageLike): ProPlan | null {
-  const prod = p.webBillingProduct;
-  // only the three subscription packages; Lifetime, passes and anything
-  // custom aren't sold on the web
-  const kind = PACKAGE_KIND[p.identifier] ?? PACKAGE_KIND[p.packageType];
-  if (!kind || prod.productType !== "subscription") return null;
-  const ip = prod.introPricePhase;
-  return {
-    id: p.identifier,
-    productId: prod.identifier,
-    kind,
-    price: prod.currentPrice.formattedPrice,
-    amountMicros: prod.currentPrice.amountMicros,
-    currency: prod.currentPrice.currency,
-    intro:
-      ip?.price != null
-        ? {
-            price: ip.price.formattedPrice,
-            per: PERIOD_KIND[ip.periodDuration ?? ""] ?? null,
-            cycles: Math.max(1, ip.cycleCount || 1),
-          }
-        : null,
-  };
-}
-
-const INTERVAL_KIND: Record<string, PlanKind> = { week: "weekly", month: "monthly", year: "yearly" };
+const INTERVAL_KIND: Record<string, PlanKind> = {
+  week: "weekly",
+  month: "monthly",
+  year: "yearly",
+};
 
 const usd = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -104,7 +45,6 @@ export function plansFromPricing(defs: readonly ProPlanDef[]): ProPlan[] {
     out.push({
       id: d.id,
       productId: d.id,
-      billing: "stripe",
       kind,
       price: usd(d.price_cents),
       amountMicros: d.price_cents * 10_000,
@@ -113,16 +53,6 @@ export function plansFromPricing(defs: readonly ProPlanDef[]): ProPlan[] {
     });
   }
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
-}
-
-/** Plans in page order, one per kind (the first package of a kind wins). */
-export function plansFromPackages(pkgs: PackageLike[]): ProPlan[] {
-  const byKind = new Map<PlanKind, ProPlan>();
-  for (const p of pkgs) {
-    const plan = planFromPackage(p);
-    if (plan && !byKind.has(plan.kind)) byKind.set(plan.kind, plan);
-  }
-  return ORDER.flatMap((k) => (byKind.has(k) ? [byKind.get(k)!] : []));
 }
 
 const NAME: Record<PlanKind, string> = {
@@ -180,34 +110,3 @@ export function anchorPlan(plans: ProPlan[]): ProPlan | null {
 export function anchorLine(p: ProPlan): string {
   return `${p.price} a ${UNIT[p.kind]}`;
 }
-
-/** The approved web price list (S3D-68), for mock mode and the dev preview. */
-export const MOCK_PLANS: ProPlan[] = [
-  {
-    id: "$rc_weekly",
-    productId: "web_pro_subs_1w_v2",
-    kind: "weekly",
-    price: "$5.99",
-    amountMicros: 5_990_000,
-    currency: "USD",
-    intro: { price: "$3.99", per: "weekly", cycles: 4 },
-  },
-  {
-    id: "$rc_monthly",
-    productId: "web_pro_subs_1m_v2",
-    kind: "monthly",
-    price: "$8.99",
-    amountMicros: 8_990_000,
-    currency: "USD",
-    intro: null,
-  },
-  {
-    id: "$rc_annual",
-    productId: "web_pro_subs_1y_v2",
-    kind: "yearly",
-    price: "$79.99",
-    amountMicros: 79_990_000,
-    currency: "USD",
-    intro: { price: "$47.99", per: "yearly", cycles: 1 },
-  },
-];

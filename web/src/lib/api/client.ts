@@ -145,7 +145,10 @@ export const FILES_DELETED_MESSAGE = `This project's files have been deleted. ${
 /** POST /v1/plans/preview-change: today's charge is the new plan less
  * the unused days of the current one. */
 export interface PlanChangePreview {
+  from?: string;
   to: string;
+  /** pass back to POST /v1/plans/change; valid 15 minutes (gateway 00102) */
+  quote_at?: string;
   today_cents: number;
   new_plan_cents: number;
   /** upgrades: what the unused days of the current plan take off */
@@ -153,7 +156,7 @@ export interface PlanChangePreview {
   renews_at?: string;
   /** owner 2026-11-04: a step-down starts at the end of the paid period;
    * nothing is charged today */
-  kind?: "upgrade" | "step_down";
+  kind?: "step_up" | "step_down";
   effective_at?: string;
   currency?: string;
 }
@@ -402,8 +405,15 @@ export class GatewayClient {
   }
 
   /** Change the plan after the person confirmed the preview. */
-  changePlan(to: string): Promise<{ plan: string; status?: string }> {
-    return this.request("POST", "/v1/plans/change", { to, confirm: true });
+  changePlan(
+    to: string,
+    quoteAt?: string,
+  ): Promise<{ plan: string; status?: string }> {
+    return this.request("POST", "/v1/plans/change", {
+      to,
+      confirm: true,
+      ...(quoteAt ? { quote_at: quoteAt } : {}),
+    });
   }
 
   /** In-app feedback (owner 2026-11-04; the app's store): with the

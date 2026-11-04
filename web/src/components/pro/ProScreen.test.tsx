@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { getDefaultStore } from "jotai";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
 import { ProScreen } from "@/components/pro/ProScreen";
 import { stepCheckoutAtom } from "@/components/steps/checkoutStore";
 import type { StepQuoteResponse } from "@/lib/api/types";
@@ -23,6 +24,7 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   resetProForTests();
+  mockDb.reset();
 });
 afterAll(() => server.close());
 
@@ -58,13 +60,25 @@ describe("/pro (mock mode)", () => {
       active: null,
       settled: false,
     });
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
     render(
       <AuthProvider>
         <ProScreen />
+        <ProCheckoutHost />
       </AuthProvider>,
     );
     fireEvent.click(await screen.findByTestId("pro-get"));
-    expect(await screen.findByTestId("pro-member")).toBeTruthy();
+    // gateway 00102: our own payment sheet, nothing charged before Start Pro
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("pro-stripe-pay") as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId("pro-stripe-pay"));
+    expect(
+      await screen.findByTestId("pro-member", undefined, { timeout: 5000 }),
+    ).toBeTruthy();
+    delete (globalThis as { __mockDb?: typeof mockDb }).__mockDb;
     expect(screen.getByText("Welcome to Pro")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to your video" }).getAttribute("href")).toBe(
       "/projects/abc123abc123",

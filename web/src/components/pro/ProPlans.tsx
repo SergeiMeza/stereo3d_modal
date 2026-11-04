@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * The plans and the Get Pro button (S3D-68). Prices are RevenueCat's
- * (lib/pro), in the buyer's currency; the checkout is RevenueCat's own
- * sheet (card, Apple Pay, Google Pay). Little text: name, intro offer,
- * price; one line under the button says how the chosen plan renews.
+ * The plans and the Get Pro button (S3D-68). Prices are GET /v1/pricing
+ * pro_plans (gateway 00102, USD); Get Pro opens our own payment sheet
+ * (ProCheckoutHost). Little text: name, intro offer, price; one line under
+ * the button says how the chosen plan renews.
  */
 
 import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
-import { AUTH_MODE } from "@/lib/auth";
 import {
   introLine,
   monthlyMicros,
@@ -32,16 +31,6 @@ function yearlySaving(plans: ProPlan[]): number | null {
   return pct >= 5 ? pct : null;
 }
 
-function useSandbox(revenueCat: boolean): boolean {
-  const [sandbox, setSandbox] = useState(false);
-  useEffect(() => {
-    // RevenueCat's test mode only; our own checkout says so itself
-    if (AUTH_MODE === "mock" || !revenueCat) return;
-    void import("@/lib/pro/revenuecat").then((m) => setSandbox(m.isSandbox()));
-  }, [revenueCat]);
-  return sandbox;
-}
-
 export function ProPlans({
   onPurchased,
 }: {
@@ -49,7 +38,6 @@ export function ProPlans({
 }): JSX.Element {
   const plans = useProPlans();
   const buy = useBuyPro();
-  const sandbox = useSandbox(plans.state === "ready" && plans.plans.some((p) => p.billing !== "stripe"));
   const [chosen, setChosen] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,10 +139,7 @@ export function ProPlans({
       >
         {buying ? "Opening checkout…" : "Get Pro"}
       </button>
-      <p className="text-center text-xs text-fg-muted">
-        {planTerms(selected)}
-        {sandbox && " · Test mode"}
-      </p>
+      <p className="text-center text-xs text-fg-muted">{planTerms(selected)}</p>
       {error !== null && (
         <p role="alert" className="text-center text-sm text-destructive">
           {error}

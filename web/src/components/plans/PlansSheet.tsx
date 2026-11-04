@@ -6,7 +6,7 @@
  * the free previews are used up — at most once per browser session, never
  * for Pro, Business or Studio — and closes with one tap ("Keep paying per
  * video", ×, or outside). Closing also keeps it away for a day on the
- * account. Get Pro opens RevenueCat's checkout; nothing is bought without
+ * account. Get Pro opens our own payment sheet; nothing is bought without
  * that tap. Larger targets in a headset browser (SheetFrame).
  */
 

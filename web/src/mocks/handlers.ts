@@ -20,6 +20,7 @@ import { HttpResponse, http } from "msw";
 import downloadsFixture from "../../fixtures/downloads_succeeded.json";
 import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
+import { isTeamPlan } from "@/lib/api/types";
 import type {
   BillingCard,
   Format,
@@ -413,10 +414,17 @@ interface DB {
   /** POST /v1/feedback, newest last (signed_in: a token came with it) */
   feedback: { body: Record<string, unknown>; signed_in: boolean; at: string }[];
   /** GET /v1/pro as the browser mock reports it (null = the default) */
-  proStatus: { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null;
-  /** owner 2026-11-04: GET /v1/pricing sells web Pro (pro_plans) on our
-   * own Stripe checkout; off in unit tests that buy through the old path */
-  stripePro: boolean;
+  proStatus: {
+    pro: boolean;
+    known: boolean;
+    source?: string;
+    management_url?: string;
+    via?: string;
+    plan_id?: string;
+    scheduled_change?: { to: string; effective_at: string } | null;
+  } | null;
+  /** the next POST /v1/plans/change answers 409 quote_expired */
+  nextChangeExpired: boolean;
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -492,9 +500,42 @@ function planTarget(to: string | undefined): { id: string; price: number; interv
   return null;
 }
 
+/** gateway 00102: web Pro on Stripe has a /v1/billing plan block, and
+ * GET /v1/pro says source "plan" with its plan_id. */
+function startMockPro(planId: string): void {
+  const def = MOCK_PRO_PLANS.find((p) => p.id === planId)!;
+  const end = new Date();
+  if (def.interval === "year") end.setUTCFullYear(end.getUTCFullYear() + 1);
+  else if (def.interval === "week") end.setUTCDate(end.getUTCDate() + 7);
+  else end.setUTCMonth(end.getUTCMonth() + 1);
+  const name = `Pro ${def.interval === "week" ? "Weekly" : def.interval === "year" ? "Yearly" : "Monthly"}`;
+  mockDb.pro = true;
+  mockDb.proStatus = {
+    pro: true,
+    known: true,
+    source: "plan",
+    plan_id: planId,
+    via: planId,
+    scheduled_change: null,
+  };
+  mockDb.billing.plan = {
+    plan: "pro",
+    plan_id: planId,
+    name,
+    status: "active",
+    active: true,
+    cancel_at_period_end: false,
+    current_period_end: end.toISOString(),
+    interval: def.interval,
+    price_cents: def.price_cents,
+    scheduled_change: null,
+  };
+}
+
 /** The account's plan now: Business/Studio, else its web Pro, else none. */
 function currentPlanKey(): string {
-  if (mockDb.billing.plan?.active) return mockDb.billing.plan.plan;
+  if (mockDb.billing.plan?.active)
+    return mockDb.billing.plan.plan_id ?? mockDb.billing.plan.plan;
   const via = mockDb.proStatus?.via;
   if (via && via in PLAN_RANK) return via;
   return "pay_per_video";
@@ -578,7 +619,7 @@ function accountSettings() {
   const st = mockDb.accountSettings;
   return {
     ...st,
-    lifelike_intro_editable: mockDb.billing.plan?.active === true,
+    lifelike_intro_editable: isTeamPlan(mockDb.billing.plan),
     simulate_app_pro: st.simulate_app_pro === true,
     onboarding: {
       ...st.onboarding,
@@ -852,9 +893,9 @@ function seed(): DB {
     sampleSeeded: false,
     events: [],
     feedback: [],
-    proStatus: null as { pro: boolean; known: boolean; source?: string; management_url?: string; via?: string } | null,
+    proStatus: null as typeof mockDb.proStatus,
     planChanges: [] as string[],
-    stripePro: !(typeof process !== "undefined" && process.env?.VITEST),
+    nextChangeExpired: false,
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -888,7 +929,7 @@ export const mockDb = {
     this.feedback = fresh.feedback;
     this.proStatus = fresh.proStatus;
     this.planChanges = fresh.planChanges;
-    this.stripePro = fresh.stripePro;
+    this.nextChangeExpired = fresh.nextChangeExpired;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -2980,9 +3021,12 @@ export const handlers = [
     if (!target) return err(400, "invalid_request", "unknown plan");
     const current = currentPlanKey();
     // owner 2026-11-04: a step-down starts at the end of the paid period
+    const quote_at = new Date().toISOString();
     if (PLAN_RANK[target.id] < PLAN_RANK[current]) {
       return HttpResponse.json({
+        from: current,
         to,
+        quote_at,
         kind: "step_down",
         today_cents: 0,
         new_plan_cents: target.price,
@@ -2996,8 +3040,10 @@ export const handlers = [
     else if (target.interval === "week") renews.setDate(renews.getDate() + 7);
     else renews.setMonth(renews.getMonth() + 1);
     return HttpResponse.json({
+      from: current,
       to,
-      kind: "upgrade",
+      quote_at,
+      kind: "step_up",
       today_cents: target.price - unused,
       new_plan_cents: target.price,
       unused_credit_cents: unused,
@@ -3006,19 +3052,50 @@ export const handlers = [
     });
   }),
   http.post(`${GATEWAY}/v1/plans/change`, async ({ request }) => {
-    const { to, confirm } = (await request.json().catch(() => ({}))) as { to?: string; confirm?: boolean };
-    if (confirm !== true) return err(400, "invalid_request", "confirm is required");
+    const { to, confirm } = (await request.json().catch(() => ({}))) as {
+      to?: string;
+      confirm?: boolean;
+      quote_at?: string;
+    };
+    if (confirm !== true)
+      return err(400, "confirm_required", "confirm is required");
     const target = planTarget(to);
     if (!target) return err(400, "invalid_request", "unknown plan");
-    mockDb.planChanges.push(target.id);
+    if (mockDb.nextChangeExpired) {
+      mockDb.nextChangeExpired = false;
+      return err(
+        409,
+        "quote_expired",
+        "That price is out of date. Check the new one.",
+      );
+    }
     const current = currentPlanKey();
+    if (target.id === current)
+      return err(409, "same_plan", "You're already on that plan.");
+    if (mockDb.billing.plan?.scheduled_change)
+      return err(
+        409,
+        "change_scheduled",
+        "A change is already scheduled. Keep your plan first.",
+      );
+    mockDb.planChanges.push(target.id);
     if (PLAN_RANK[target.id] < PLAN_RANK[current]) {
       const scheduled = { to: target.id, effective_at: currentPeriodEnd() };
-      if (mockDb.billing.plan?.active) mockDb.billing.plan.scheduled_change = scheduled;
-      return HttpResponse.json({ plan: current, status: "active", scheduled_change: scheduled });
+      if (mockDb.billing.plan?.active)
+        mockDb.billing.plan.scheduled_change = scheduled;
+      if (mockDb.proStatus)
+        mockDb.proStatus = {
+          ...mockDb.proStatus,
+          scheduled_change: scheduled,
+        } as typeof mockDb.proStatus;
+      return HttpResponse.json({
+        plan: current,
+        status: "active",
+        scheduled_change: scheduled,
+      });
     }
     if (target.id.startsWith("pro_")) {
-      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: target.id };
+      startMockPro(target.id);
       return HttpResponse.json({ plan: target.id, status: "active" });
     }
     const key = target.id as "business" | "studio";
@@ -3034,6 +3111,8 @@ export const handlers = [
     const plan = mockDb.billing.plan;
     if (!plan?.scheduled_change) return err(404, "not_found", "no scheduled change");
     plan.scheduled_change = null;
+    if (mockDb.proStatus)
+      mockDb.proStatus = { ...mockDb.proStatus, scheduled_change: null };
     return HttpResponse.json(plan);
   }),
 
@@ -3107,7 +3186,12 @@ export const handlers = [
     if (body.hints_seen_add) st.hints_seen = [...new Set([...st.hints_seen, ...body.hints_seen_add])];
     if (body.onboarding) st.onboarding = { ...st.onboarding, ...body.onboarding };
     if (body.lifelike_intro !== undefined) {
-      if (!mockDb.billing.plan?.active) return err(409, "plan_required", "a Business or Studio plan is needed for that");
+      if (!isTeamPlan(mockDb.billing.plan))
+        return err(
+          409,
+          "plan_required",
+          "a Business or Studio plan is needed for that",
+        );
       if (mockDb.nextSettingsFails) {
         mockDb.nextSettingsFails = false;
         return err(500, "server_error", "couldn't save");
@@ -3123,8 +3207,9 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as { plan?: string; ui?: string };
     // owner 2026-11-04: web Pro on the same checkout
     const proDef = MOCK_PRO_PLANS.find((p) => p.id === body.plan);
-    if (proDef && mockDb.stripePro) {
-      if (mockDb.pro === true) return err(409, "plan_active", "you already have Pro");
+    if (proDef) {
+      if (mockDb.pro === true)
+        return err(409, "plan_active", "you already have Pro");
       const secret = `cs_mock_plan_${proDef.id}_${Math.random().toString(36).slice(2, 8)}`;
       const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
       mockDb.billing.checkouts.set(secret, {
@@ -3139,7 +3224,12 @@ export const handlers = [
     if (body.plan !== "business" && body.plan !== "studio") {
       return err(400, "unknown_plan", "plan must be business or studio");
     }
-    if (mockDb.billing.plan?.active) return err(409, "plan_active", "you already have a plan; cancel it before choosing another");
+    if (mockDb.billing.plan?.active)
+      return err(
+        409,
+        "plan_active",
+        "you already have a plan; change it instead",
+      );
     const secret = `cs_mock_plan_${body.plan}_${Math.random().toString(36).slice(2, 8)}`;
     const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     mockDb.billing.checkouts.set(secret, {
@@ -3170,8 +3260,7 @@ export const handlers = [
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
     if (ch.kind === "plan" && String(ch.plan).startsWith("pro_")) {
       ch.state = "paid";
-      mockDb.pro = true;
-      mockDb.proStatus = { pro: true, known: true, source: "stripe", via: String(ch.plan) };
+      startMockPro(String(ch.plan));
       b.hasPaymentMethod = true;
       return HttpResponse.json({ result: "paid" });
     }
@@ -3504,7 +3593,8 @@ export const handlers = [
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
       pro_discount: { ...MOCK_PRO, pct: mockProPct() },
       ...(mockDb.tierPricing ? publicTiers() : {}),
-      ...(mockDb.stripePro ? { pro_plans: MOCK_PRO_PLANS } : {}),
+      // gateway 00102: web Pro on our own Stripe subscriptions
+      pro_plans: MOCK_PRO_PLANS,
     }),
   ),
 

@@ -11,9 +11,6 @@ importers:
       '@microsoft/clarity':
         specifier: ^1.0.2
         version: 1.0.2
-      '@revenuecat/purchases-js':
-        specifier: 1.71.0
-        version: 1.71.0
       '@stripe/react-stripe-js':
         specifier: ^6.7.0
         version: 6.7.0(@stripe/stripe-js@9.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1670,9 +1667,6 @@ packages:
 
   '@radix-ui/rect@1.1.2':
     resolution: {integrity: sha512-xnXE7wG13PI+cxieVssYXlQJuYVRhH9NBoxt3KNwzghDIA69GMm7d4wXRouHIYjE+KvS6U/MsMO73NdS2MH9ZA==}
-
-  '@revenuecat/purchases-js@1.71.0':
-    resolution: {integrity: sha512-FC118I8NvBh1gvFCw/JtL6oRoZwXws4TnfGtUY7YFPZIA39+kTpmWkGxQwSwn9XXqXPtBVD1b3Hvs7d+OgBpHQ==}
 
   '@rolldown/binding-android-arm64@1.1.4':
     resolution: {integrity: sha512-EZLpf/8y7GXkkra90ML47kzik/GMP3EMcE9bPyHmRfxLC6z9+aW5A8poCsoxjrT5GfEcNAAvWwUHjvP1pUQkfw==}
@@ -6457,8 +6451,6 @@ snapshots:
       '@types/react-dom': 19.2.3(@types/react@19.2.17)
 
   '@radix-ui/rect@1.1.2': {}
-
-  '@revenuecat/purchases-js@1.71.0': {}
 
   '@rolldown/binding-android-arm64@1.1.4':
     optional: true

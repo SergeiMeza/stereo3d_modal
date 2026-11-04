@@ -31,6 +31,7 @@ import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import { PlanCard } from "./PlanCard";
+import { ScheduledChange } from "./PlanChange";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -42,7 +43,6 @@ beforeEach(() => {
   resetPricingCache();
   resetProForTests();
   mockDb.tierPricing = true;
-  mockDb.stripePro = true;
   (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
 });
 afterEach(() => {
@@ -160,5 +160,35 @@ describe("step-downs", () => {
       ),
     );
     expect(screen.getByRole("button", { name: "Confirm" })).toBeTruthy();
+  });
+
+  it("an expired quote is priced again and confirmed again; nothing changes before", async () => {
+    studio();
+    mockDb.nextChangeExpired = true;
+    wrap(<PlanCard />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Business" }));
+    await waitFor(() => expect(screen.getByTestId("plan-change-line").textContent).toContain("Business starts then"));
+    fireEvent.click(screen.getByRole("button", { name: "Change to Business" }));
+    expect(await screen.findByText("The price was updated. Check it and confirm again.")).toBeTruthy();
+    expect(mockDb.billing.plan?.scheduled_change ?? null).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Change to Business" }));
+    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("business"));
+  });
+
+  it("a web Pro's step-down shows on its plan with Keep", async () => {
+    mockDb.proStatus = { pro: true, known: true, source: "plan", plan_id: "pro_yearly", via: "pro_yearly" };
+    mockDb.billing.plan = {
+      plan: "pro", plan_id: "pro_yearly", name: "Pro Yearly", status: "active", active: true,
+      cancel_at_period_end: false, current_period_end: "2027-11-04T00:00:00Z", interval: "year", price_cents: 7999,
+      scheduled_change: { to: "pro_monthly", effective_at: "2027-11-04T00:00:00Z" },
+    };
+    wrap(<ScheduledChange plan={mockDb.billing.plan} />);
+    const notice = await screen.findByTestId("scheduled-change");
+    await waitFor(() =>
+      expect(notice.textContent).toContain("Pro Monthly starts on Nov 4, 2027. Your Pro Yearly stays on until then."),
+    );
+    fireEvent.click(within(notice).getByRole("button", { name: "Keep Pro Yearly" }));
+    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change).toBeNull());
   });
 });

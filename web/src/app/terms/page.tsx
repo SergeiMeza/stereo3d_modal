@@ -117,7 +117,7 @@ export default function TermsPage() {
 
       {/* Facts checked against the gateway README and BL-19 (2026-11-04):
           Pro on the web is a Weekly, Monthly or Yearly subscription
-          (RevenueCat Web Billing, no passes); Studio bills yearly and its
+          (our own Stripe subscriptions, no passes); Studio bills yearly and its
           usage credit comes each month (gateway 00089). */}
       <LegalSection title="7. Fees and payment">
         <p>

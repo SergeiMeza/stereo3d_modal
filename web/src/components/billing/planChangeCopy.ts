@@ -8,7 +8,8 @@
  */
 
 import { formatCents, formatCentsShort } from "@/components/steps/money";
-import type { PlanChangePreview } from "@/lib/api/client";
+import { GatewayError } from "@/lib/api/client";
+import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
 
 export const NOTHING_TODAY = "Nothing is charged today.";
 
@@ -48,4 +49,54 @@ export function stepDownLine(
 
 export function isStepDown(p: PlanChangePreview): boolean {
   return p.kind === "step_down";
+}
+
+export type ConfirmOutcome =
+  | { kind: "done" }
+  | { kind: "repriced"; preview: PlanChangePreview }
+  | { kind: "error"; message: string };
+
+/** Shown when the quote ran out and the price was worked out again. */
+export const REPRICED = "The price was updated. Check it and confirm again.";
+
+/** POST /v1/plans/change with the preview's quote_at. A 409 quote_expired
+ * previews again and hands back the new amount to confirm; 402
+ * payment_failed and the 409s (same_plan, change_on_hold,
+ * change_scheduled) come back as the gateway's words. */
+export async function confirmPlanChange(
+  gateway: Pick<GatewayClient, "changePlan" | "previewPlanChange">,
+  preview: PlanChangePreview,
+): Promise<ConfirmOutcome> {
+  try {
+    await gateway.changePlan(preview.to, preview.quote_at);
+    return { kind: "done" };
+  } catch (e) {
+    if (e instanceof GatewayError && e.code === "quote_expired") {
+      try {
+        return {
+          kind: "repriced",
+          preview: await gateway.previewPlanChange(preview.to),
+        };
+      } catch {
+        return {
+          kind: "error",
+          message: "Couldn't work out the new price. Nothing was charged.",
+        };
+      }
+    }
+    if (e instanceof GatewayError && e.code === "payment_failed") {
+      return {
+        kind: "error",
+        message:
+          e.message || "Your payment didn't go through. Nothing changed.",
+      };
+    }
+    return {
+      kind: "error",
+      message:
+        e instanceof GatewayError && e.message
+          ? e.message
+          : "Couldn't change your plan. Nothing was charged.",
+    };
+  }
 }

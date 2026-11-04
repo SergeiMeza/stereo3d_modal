@@ -3,8 +3,8 @@
 /**
  * /pro (S3D-68): Spatial Video Studio Pro, sold on the web. Members save on
  * every 3D video here (the quote's "Pro −20%", S3D-67) and have Pro in the
- * app too: the web and the app share the account, so the purchase lands on
- * the same RevenueCat customer.
+ * app too: the web and the app share the account. Web Pro is our own
+ * Stripe subscription (gateway 00102).
  *
  * A member sees that they're Pro (and, for a web plan, where to manage
  * it); everyone else sees the plans. After a purchase the quotes are asked
@@ -15,15 +15,16 @@
 import { BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
 import { proPercent } from "@/components/pricing/ProOffer";
 import { ProPlans } from "@/components/pro/ProPlans";
 import { usePricing } from "@/lib/api/usePricing";
-import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
-import { proManagementUrl, useProStatus } from "@/lib/pro/usePro";
+import { isWebPro, useProStatus } from "@/lib/pro/usePro";
+import { ScheduledChange } from "@/components/billing/PlanChange";
+import { isTeamPlan } from "@/lib/api/types";
 import { ProBusinessLine } from "@/components/business/BusinessEntry";
 import { ProPeriodChange } from "@/components/pro/ProPeriodChange";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -53,36 +54,24 @@ export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element
 }
 
 export function ProScreen(): JSX.Element {
-  const { user } = useAuth();
   const status = useProStatus();
   const pct = usePct();
   const next = safeNext(useSearchParams().get("next"));
   const [justBought, setJustBought] = useState(false);
-  const [manage, setManage] = useState<string | null>(null);
 
   // Business and Studio include Pro (owner, 2026-11): nothing to sell
   const plan = useBilling().status?.plan;
-  const included = plan?.active ? (plan.name ?? (plan.plan === "studio" ? "Studio" : "Business")) : null;
+  const included = isTeamPlan(plan)
+    ? (plan.name ?? (plan.plan === "studio" ? "Studio" : "Business"))
+    : null;
   const isPro = justBought || status?.pro === true;
-  useEffect(() => {
-    if (!isPro || !user) return;
-    let cancelled = false;
-    // our own Stripe Pro is managed on Billing (no RevenueCat)
-    if (status?.source === "stripe") {
-      void Promise.resolve().then(() => !cancelled && setManage("/account/billing"));
-      return () => {
-        cancelled = true;
-      };
-    }
-    void proManagementUrl(user.uid)
-      .then((u) => {
-        if (!cancelled) setManage(u);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isPro, user, status?.source]);
+  // web Pro is managed on Billing; an App Store Pro in the App Store
+  const manage =
+    isWebPro(status) || plan?.plan === "pro"
+      ? "/account/billing"
+      : status?.source === "app_store" || status?.source === "mac_app_store"
+        ? (status.management_url ?? null)
+        : null;
 
   return (
     <section className="mx-auto w-full max-w-md space-y-8 px-4 py-12">
@@ -114,6 +103,8 @@ export function ProScreen(): JSX.Element {
               </p>
             </div>
           </div>
+          {/* gateway 00102: a Pro step-down waits for the period's end */}
+          {plan?.plan === "pro" ? <ScheduledChange plan={plan} /> : null}
           <ProPeriodChange />
           <div className="flex flex-wrap gap-2">
             <Link

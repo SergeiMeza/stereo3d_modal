@@ -40,8 +40,14 @@ export function planPrice(p: {
   interval?: string;
   price_cents?: number;
   monthly_cents?: number;
-}): { cents: number; per: "a year" | "a month"; yearly: boolean } {
+}): { cents: number; per: "a year" | "a month" | "a week"; yearly: boolean } {
   const yearly = p.interval === "year";
-  const cents = p.price_cents ?? (yearly ? (p.monthly_cents ?? 0) * 12 : (p.monthly_cents ?? 0));
-  return { cents, per: yearly ? "a year" : "a month", yearly };
+  const cents =
+    p.price_cents ??
+    (yearly ? (p.monthly_cents ?? 0) * 12 : (p.monthly_cents ?? 0));
+  return {
+    cents,
+    per: yearly ? "a year" : p.interval === "week" ? "a week" : "a month",
+    yearly,
+  };
 }
