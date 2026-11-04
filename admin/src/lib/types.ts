@@ -32,6 +32,8 @@ export interface CaseRow {
   opened_at: string;
   age_hours: number;
   email_masked: string;
+  /** BL-29 (gateway rev 00114): the account, for the preview and E */
+  uid?: string | null;
   requested_cents: number;
   max_refundable_cents?: number;
   deadline_at?: string | null;

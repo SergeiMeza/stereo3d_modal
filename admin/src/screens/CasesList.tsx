@@ -1,21 +1,20 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { ErrorState, FilterSelect, PlainText, StateBox } from "@/components/common";
+import { ErrorState, FilterSelect, StateBox } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { ApiError, errorMessage, type CaseListQuery } from "../lib/api";
+import type { CaseListQuery } from "../lib/api";
 import { ageHours, dateOnly, dateTime, money, time, until, words } from "../lib/format";
 import { CASE_TYPES, REASONS, typeLabel, typeTone } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
 import { useServices } from "../lib/services";
-import type { CasePage, CaseRow, Tab } from "../lib/types";
-import { useLoad, type Load } from "../lib/useLoad";
+import type { CaseRow, Tab } from "../lib/types";
+import { useLoad } from "../lib/useLoad";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "open", label: "Open" },
@@ -66,8 +65,6 @@ export function CasesList() {
 
   useEffect(() => setSelected(0), [JSON.stringify(query)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const preview = useLoad(() => (current ? api.getCase(current.id) : Promise.resolve(null)), [api, current?.id]);
-  const previewUid = preview.state.kind === "loaded" ? preview.state.data?.case.uid : undefined;
 
   const filter = (k: "type" | "reason" | "mode" | "cap", v: string) => setQuery((q) => ({ ...q, [k]: v || undefined }));
 
@@ -86,7 +83,7 @@ export function CasesList() {
     if (k === "j" || k === "ArrowDown") move(selected + 1);
     else if (k === "k" || k === "ArrowUp") move(selected - 1);
     else if (k === "d") navigate(paths.case(current.id, { decide: true }));
-    else if (k === "e" && previewUid) navigate(paths.account(previewUid));
+    else if (k === "e" && current.uid) navigate(paths.account(current.uid));
     else return;
     e.preventDefault();
   };
@@ -176,7 +173,7 @@ export function CasesList() {
                 </li>
               ))}
             </ul>
-            <Preview row={current} state={preview.state} />
+            <Preview row={current} />
           </div>
         ))}
     </div>
@@ -249,7 +246,9 @@ function CaseRowLink({ row: r, selected, onFocus }: { row: CaseRow; selected: bo
   );
 }
 
-function Preview({ row, state }: { row: CaseRow | null; state: Load<CasePage | null> }) {
+/** The selected row, from the list itself (rows carry the uid since
+ * gateway rev 00114): no request per selection. */
+function Preview({ row }: { row: CaseRow | null }) {
   if (!row) return null;
   const u = urgency(row);
   return (
@@ -262,53 +261,46 @@ function Preview({ row, state }: { row: CaseRow | null; state: Load<CasePage | n
           <Link to={paths.case(row.id, { decide: true })}>Decide</Link>
         </Button>
       </div>
-      {state.kind === "loading" && <Spinner label="Loading the preview" />}
-      {state.kind === "error" && (
-        <p className="text-sm text-muted-foreground">
-          {state.error instanceof ApiError && state.error.status === 404 ? "This case is gone." : `Couldn't load the preview: ${errorMessage(state.error)}`}
-        </p>
-      )}
-      {state.kind === "loaded" && state.data && (
-        <>
-          <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-sm max-xl:grid-cols-1 [&_dt]:text-xs [&_dt]:text-muted-foreground">
-            <div>
-              <dt>Customer</dt>
-              <dd>
-                {state.data.case.uid ? (
-                  <Link to={paths.account(state.data.case.uid)} className="text-link hover:underline">
-                    {state.data.account.email || state.data.case.uid}
-                  </Link>
-                ) : (
-                  state.data.account.email || "—"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Runs</dt>
-              <dd className="font-mono text-xs">{(state.data.runs ?? []).map((r) => r.conversion_id).join(", ") || "—"}</dd>
-            </div>
-            <div>
-              <dt>Refundable now</dt>
-              <dd className="font-mono tabular-nums">
-                {money(state.data.max_refundable_cents)}
-                {state.data.account.payment_method ? ` · ${state.data.account.payment_method}` : ""}
-              </dd>
-            </div>
-            <div>
-              <dt>Earlier cases</dt>
-              <dd className="tabular-nums">{(state.data.related_cases ?? []).length || "none"}</dd>
-            </div>
-          </dl>
-          {state.data.case.customer_text && (
-            <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-3.5 py-3">
-              <span className="text-xs text-muted-foreground">Customer's message · {dateTime(state.data.case.opened_at)}</span>
-              <PlainText text={state.data.case.customer_text} className="text-sm text-foreground" />
-            </div>
-          )}
-        </>
-      )}
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-sm max-xl:grid-cols-1 [&_dt]:text-xs [&_dt]:text-muted-foreground">
+        <div>
+          <dt>Customer</dt>
+          <dd>
+            {row.uid ? (
+              <Link to={paths.account(row.uid)} className="text-link hover:underline">
+                {row.email_masked || row.uid}
+              </Link>
+            ) : (
+              row.email_masked || "—"
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Reason</dt>
+          <dd>
+            {words(row.reason)} · {row.mode}
+          </dd>
+        </div>
+        <div>
+          <dt>Requested</dt>
+          <dd className="font-mono tabular-nums">{money(row.requested_cents)}</dd>
+        </div>
+        <div>
+          <dt>Refundable now</dt>
+          <dd className="font-mono tabular-nums">{row.max_refundable_cents === undefined ? "—" : money(row.max_refundable_cents)}</dd>
+        </div>
+        <div>
+          <dt>Opened</dt>
+          <dd className="tabular-nums">
+            {dateTime(row.opened_at)} · {ageHours(row.age_hours)} ago
+          </dd>
+        </div>
+        <div>
+          <dt>Last activity</dt>
+          <dd className="tabular-nums">{dateTime(row.last_activity_at)}</dd>
+        </div>
+      </dl>
       <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <Kbd>J</Kbd> <Kbd>K</Kbd> to move, <Kbd>↵</Kbd> to open, <Kbd>D</Kbd> to decide, <Kbd>E</Kbd> for the account.
+        <Kbd>J</Kbd> <Kbd>K</Kbd> to move, <Kbd>↵</Kbd> to open, <Kbd>D</Kbd> to decide{row.uid ? <>, <Kbd>E</Kbd> for the account</> : null}.
       </p>
     </section>
   );

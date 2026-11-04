@@ -61,7 +61,6 @@ describe("cases list keys and preview (BL-29 redesign B)", () => {
   it("J / K and the arrows move the selection and the preview; D opens the decision; typing in search doesn't", async () => {
     const { calls } = renderApp("/cases", {
       "GET /v1/admin/cases": () => ({ json: casesResponse }),
-      "GET /v1/admin/cases/CASE-0051": () => ({ json: casePage({}, { id: "CASE-0051" }) }),
       "GET /v1/admin/cases/CASE-0042": () => ({ json: casePage() }),
     });
     const list = await screen.findByTestId("case-list");
@@ -73,11 +72,26 @@ describe("cases list keys and preview (BL-29 redesign B)", () => {
     expect(links[1]).toHaveFocus();
     expect(links[1]).toHaveAttribute("aria-current", "true");
     expect(within(preview).getByRole("heading")).toHaveTextContent("CASE-0042");
-    expect(await within(preview).findByText(/please refund/)).toBeInTheDocument();
+    // the preview comes from the row (uid since rev 00114): no request per selection
+    expect(within(preview).getByRole("link", { name: "j•••@gmail.com" })).toHaveAttribute("href", "/accounts/uid_123");
+    expect(calls.some((c) => /^\/v1\/admin\/cases\/CASE-/.test(c.path))).toBe(false);
     await userEvent.keyboard("{ArrowUp}");
     expect(links[0]).toHaveFocus();
     await userEvent.type(screen.getByLabelText("Search cases"), "jk");
     expect(links[0]).toHaveAttribute("aria-current", "true");
+    links[1].focus();
+    await userEvent.keyboard("e");
+    expect(window.location.pathname).toBe("/accounts/uid_123");
+    window.history.back();
+  });
+
+  it("D opens the selected case with the decision sheet", async () => {
+    const { calls } = renderApp("/cases", {
+      "GET /v1/admin/cases": () => ({ json: casesResponse }),
+      "GET /v1/admin/cases/CASE-0042": () => ({ json: casePage() }),
+    });
+    const list = await screen.findByTestId("case-list");
+    const links = within(list).getAllByRole("link");
     links[1].focus();
     await userEvent.keyboard("d");
     expect(window.location.pathname + window.location.search).toBe("/cases/CASE-0042?decide=1");
