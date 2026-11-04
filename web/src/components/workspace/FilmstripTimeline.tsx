@@ -38,7 +38,7 @@
    data-URLs at fixed strip height; next/image adds nothing for tiny
    repeated tiles. */
 
-import { useAtom } from "jotai";
+import { useAppAtom } from "@/lib/state/stores";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -123,8 +123,8 @@ export function FilmstripTimeline({
   // across tabs. Until they zoom (null), each strip uses its own default:
   // editable strips open fully zoomed IN, centered on the playhead — the
   // Cut page is a precision tool; readOnly (Media) opens at Fit for context.
-  const [storedZoomIndex, setZoomIndex] = useAtom(timelineZoomIndexAtom);
-  const [compact, setCompact] = useAtom(compactTimelineAtom);
+  const [storedZoomIndex, setZoomIndex] = useAppAtom(timelineZoomIndexAtom);
+  const [compact, setCompact] = useAppAtom(compactTimelineAtom);
   const zoomIndex = Math.min(
     storedZoomIndex ?? (readOnly ? 0 : levels.length - 1),
     levels.length - 1,

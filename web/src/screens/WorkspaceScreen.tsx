@@ -14,6 +14,7 @@
  * History lists every conversion.
  */
 
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -50,8 +51,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GatewayError } from "@/lib/api/client";
-import { loadErrorText, SampleProvider } from "@/components/steps/loadError";
+import {
+  applyProjectUpdateAtom,
+  loadProjectAtom,
+  projectAtom,
+  retryAnalyzeAtom,
+  workspaceTabAtom,
+} from "@/components/workspace/workspaceAtoms";
+import { ProjectStateProvider } from "@/lib/state/stores";
 import { SourceBusinessLine } from "@/components/plans/SourceBusinessLine";
 import {
   canChooseMethod,
@@ -86,73 +93,62 @@ export interface WorkspaceScreenProps {
   pollIntervalMs?: number;
 }
 
-export default function WorkspaceScreen({
+/** ADR 0138: each project page has its own store, so opening another
+ * project starts clean while its tabs share one. */
+export default function WorkspaceScreen(props: WorkspaceScreenProps) {
+  return (
+    <ProjectStateProvider key={props.projectId} projectId={props.projectId}>
+      <Workspace {...props} />
+    </ProjectStateProvider>
+  );
+}
+
+function Workspace({
   projectId,
   pollIntervalMs = ANALYZE_POLL_MS,
 }: WorkspaceScreenProps) {
   const gateway = useGateway();
-  const [project, setProject] = useState<Project | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTabState] = useState<WorkspaceTabId>(initialTab);
+  // ADR 0138: the project, its load error and the analysis retry live in
+  // the project's atom (workspaceAtoms); the action atoms write them
+  const { project, loadError, retrying, retryError } = useAtomValue(projectAtom(projectId));
+  const load = useSetAtom(loadProjectAtom);
+  const applyUpdate = useSetAtom(applyProjectUpdateAtom);
+  const retry = useSetAtom(retryAnalyzeAtom);
+  const [tabChoice, setTabState] = useAtom(workspaceTabAtom);
+  const tab = tabChoice ?? initialTab();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const [retryError, setRetryError] = useState<string | null>(null);
 
-  const setTab = useCallback((t: WorkspaceTabId) => {
-    setTabState(t);
-    window.history.replaceState(null, "", `#tab=${t}`);
-  }, []);
+  const setTab = useCallback(
+    (t: WorkspaceTabId) => {
+      setTabState(t);
+      window.history.replaceState(null, "", `#tab=${t}`);
+    },
+    [setTabState],
+  );
 
   // Follow external hash changes (back/forward, pasted #tab=… links).
   useEffect(() => {
     const onHashChange = () => setTabState(initialTab());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+  }, [setTabState]);
 
-  const refetch = useCallback(async () => {
-    try {
-      setProject(await gateway.getProject(projectId));
-      setLoadError(null);
-    } catch (e) {
-      setLoadError(
-        loadErrorText(
-          e,
-          false,
-          "This project isn't available. It may have been removed.",
-        ),
-      );
-    }
-  }, [gateway, projectId]);
+  const refetch = useCallback(
+    async () => load({ client: gateway, projectId }),
+    [load, gateway, projectId],
+  );
 
-  // A PATCH answer (method switch) is the project without its runs on some
-  // gateways — keep the runs we have until the next load.
-  const applyProjectUpdate = useCallback((next: Project) => {
-    setProject((prev) => ({
-      ...next,
-      conversions: next.conversions ?? prev?.conversions,
-    }));
-  }, []);
+  // A PATCH answer (method switch) keeps the runs we have
+  const applyProjectUpdate = useCallback((next: Project) => applyUpdate(next), [applyUpdate]);
 
   // Failed analyses are retryable (transient upstream failures shouldn't
   // force a re-upload); success flips analyze back to running, which
   // restarts the poll loop below.
-  const retryAnalyze = useCallback(async () => {
-    setRetrying(true);
-    setRetryError(null);
-    try {
-      setProject(await gateway.retryAnalyze(projectId));
-    } catch (e) {
-      setRetryError(
-        e instanceof GatewayError
-          ? e.message
-          : "Could not restart the analysis — please try again.",
-      );
-    } finally {
-      setRetrying(false);
-    }
-  }, [gateway, projectId]);
+  const retryAnalyze = useCallback(
+    async () => retry({ client: gateway, projectId }),
+    [retry, gateway, projectId],
+  );
 
   useEffect(() => {
     // Initial load; deferred a tick so state updates stay out of the
@@ -261,10 +257,16 @@ export default function WorkspaceScreen({
   const filesDeleted = project.files_deleted_at !== undefined;
 
   return (
-    <SampleProvider sample={project.sample === true}>
+    <>
       <section className="flex h-[calc(100vh-3rem)] flex-col">
         <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-edge bg-surface-1 px-4 py-2">
-          <h1 className="text-sm font-semibold tracking-tight">
+          {/* owner 2026-11-05 (iPhone): a long file name without spaces
+              made the page scroll sideways; it truncates instead */}
+          <h1
+            data-testid="workspace-title"
+            title={project.name || undefined}
+            className="min-w-0 max-w-full truncate text-sm font-semibold tracking-tight"
+          >
             {project.name || "Untitled project"}
           </h1>
           <Tooltip>
@@ -455,6 +457,6 @@ export default function WorkspaceScreen({
           tabs={tabsFor(method)}
         />
       </section>
-    </SampleProvider>
+    </>
   );
 }

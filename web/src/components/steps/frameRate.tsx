@@ -16,12 +16,11 @@
  * run keeps the source rate. A re-run starts from the last run's rate.
  */
 
-import { useAtomValue } from "jotai";
+import { atom, useAtom } from "jotai";
+import { atomFamily } from "jotai-family";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { useGateway } from "@/lib/api/useGateway";
 import {
   conversionMethod,
   type Project,
@@ -31,8 +30,15 @@ import {
 } from "@/lib/api/types";
 import { fpsFactor, usePricing } from "@/lib/api/usePricing";
 
-import { priceEpochAtom } from "./checkoutStore";
 import { formatCents } from "./money";
+import { centsOf, useVariantQuotes } from "./priceAtoms";
+
+/** The picked rate per `${projectId}/${step}` (ADR 0138): undefined until
+ * the person picks one (the last run's rate shows meanwhile). */
+export const fpsPickAtom = atomFamily((key: string) => {
+  void key;
+  return atom<number | null | undefined>(undefined);
+});
 
 /** Rates above this need a plan (the gateway's max_fps without one). */
 export const FREE_MAX_FPS = 30;
@@ -125,75 +131,32 @@ export function useFpsChoice(
   step: Step,
   base: StepConversionRequest,
 ): FpsChoice {
-  const gateway = useGateway();
   const pricing = usePricing();
-  const epoch = useAtomValue(priceEpochAtom);
   const src = project.probe?.fps ?? 0;
   const required = needsFpsChoice(src);
-  const [picked, setPicked] = useState<number | null>(() =>
-    required ? lastRate(project, step) : null,
-  );
-  const [state, setState] = useState<{
-    key: string;
-    cents: Record<string, number>;
-    locked: Record<string, true>;
-    quote: StepQuoteResponse | null;
-  }>({ key: "", cents: {}, locked: {}, quote: null });
-
+  const [pickedChoice, setPicked] = useAtom(fpsPickAtom(`${project.project_id}/${step}`));
+  const picked = pickedChoice !== undefined ? pickedChoice : required ? lastRate(project, step) : null;
   const { target_fps: _drop, ...rest } = base;
   void _drop;
   // every rate a plan allows, quoted once each; a 422 plan_required_fps
-  // marks it locked for this account
+  // marks it locked for this account (ADR 0138: cached per request)
   const candidates = required
     ? shownRates(fpsDivisions(src, pricing?.fps.max_fps_with_plan ?? 120))
     : [];
-  const key = JSON.stringify({ rest, candidates, epoch, id: project.project_id });
-  useEffect(() => {
-    if (candidates.length === 0) return;
-    let cancelled = false;
-    const t = setTimeout(() => {
-      for (const v of candidates) {
-        gateway.quoteStep(project.project_id, { ...rest, target_fps: v }).then(
-          (q) => {
-            if (cancelled) return;
-            setState((prev) => {
-              const same = prev.key === key;
-              return {
-                key,
-                cents: { ...(same ? prev.cents : {}), [String(v)]: q.quote.amount_cents },
-                locked: same ? prev.locked : {},
-                quote: (same ? prev.quote : null) ?? q,
-              };
-            });
-          },
-          (e: { code?: string }) => {
-            if (cancelled || e.code !== "plan_required_fps") return;
-            setState((prev) => {
-              const same = prev.key === key;
-              return {
-                key,
-                cents: same ? prev.cents : {},
-                locked: { ...(same ? prev.locked : {}), [String(v)]: true },
-                quote: same ? prev.quote : null,
-              };
-            });
-          },
-        );
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-    // key carries the request and the candidates
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, key]);
-
+  const entries = useVariantQuotes(
+    project.project_id,
+    Object.fromEntries(candidates.map((v) => [String(v), { ...rest, target_fps: v }])),
+  );
   const now: {
     cents: Record<string, number>;
     locked: Record<string, true>;
     quote: StepQuoteResponse | null;
-  } = state.key === key ? state : { cents: {}, locked: {}, quote: null };
+  } = { cents: centsOf(entries), locked: {}, quote: null };
+  for (const v of candidates) {
+    const e = entries[String(v)];
+    if (e?.status === "error" && e.code === "plan_required_fps") now.locked[String(v)] = true;
+    if (e?.status === "done" && now.quote === null) now.quote = e.quote;
+  }
   const max = now.quote?.fps?.max_fps;
   const allowed = now.quote?.fps ? shownRates(now.quote.fps.target_fps_choices) : undefined;
   const isLocked = (v: number) =>

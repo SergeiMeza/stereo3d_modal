@@ -2,7 +2,9 @@
 /**
  * Overlay bounds check (owner 2026-11-04): at 390 px and 1280 px wide, open
  * each popover, menu and sheet (some near the screen's edges) against the
- * mock gateway and fail if any of them leaves the viewport.
+ * mock gateway and fail if any of them leaves the viewport; the project's
+ * Overview, Make 3D and Files pages (a long file name, black bars) must
+ * not scroll sideways (owner 2026-11-05, iPhone).
  *
  *   node scripts/overlay-bounds.mjs            # starts `next dev` (mock) itself
  *   BASE_URL=http://localhost:3931 node …      # against a running dev server
@@ -107,6 +109,20 @@ async function assertInside(page, label, failures) {
   }
 }
 
+/** owner 2026-11-05 (iPhone): the page itself never scrolls sideways. */
+async function assertNoSideScroll(page, label, failures) {
+  await page.waitForTimeout(600);
+  const vp = page.viewportSize();
+  const sw = await page.evaluate(() => document.scrollingElement.scrollWidth);
+  if (sw > vp.width + 0.5) {
+    const wide = await page.evaluate((w) => {
+      const el = [...document.querySelectorAll("body *")].find((e) => e.getBoundingClientRect().right > w + 0.5);
+      return el ? `${el.tagName}.${String(el.className).slice(0, 80)}` : "?";
+    }, vp.width);
+    failures.push(`${label} @${vp.width}: page is ${sw} px wide (${wide})`);
+  }
+}
+
 async function close(page) {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(250);
@@ -192,7 +208,12 @@ try {
     await page.waitForFunction(() => window.__mockDb && window.__mockDb.projects.size > 0);
     const id = await page.evaluate(() => [...window.__mockDb.projects.keys()][0]);
     await page.evaluate((pid) => {
-      window.__mockDb.projects.get(pid).method = "lifelike";
+      const p = window.__mockDb.projects.get(pid);
+      p.method = "lifelike";
+      // a long file name without spaces, and black bars (iPhone, 2026-11-05)
+      p.name = "2025_AUTUMN_CAMPAIGN_PREMIUMENDROLL(FHD)_FINAL_MASTER_EXPORT_v12";
+      p.has_bars = true;
+      p.remove_bars = true;
     }, id);
     // a finished run for the Files tab's "Get another format" (ADR 0137)
     await page.evaluate((pid) => {
@@ -212,7 +233,11 @@ try {
       });
     }, id);
     await page.locator(`a[href="/projects/${id}"]`).first().click();
+    await page.getByTestId("overview-tab").waitFor({ state: "visible" });
+    await assertNoSideScroll(page, "Project Overview", failures);
     await page.getByTestId("tab-make").click();
+    await page.getByTestId("lifelike-deliver-panel").waitFor({ state: "visible" });
+    await assertNoSideScroll(page, "Make 3D", failures);
     const q = page.getByRole("button", { name: "?" }).last();
     await q.waitFor({ state: "visible" });
     await q.click();
@@ -228,6 +253,8 @@ try {
 
     // Files: "Get another format" on a finished run (ADR 0137)
     await page.getByTestId("tab-files").click();
+    await page.waitForTimeout(800);
+    await assertNoSideScroll(page, "Files", failures);
     const another = page.getByTestId("another-format-open").first();
     await another.waitFor({ state: "visible" });
     await another.click();
@@ -244,4 +271,6 @@ if (failures.length) {
   console.error(`overlay-bounds: ${failures.length} overlay(s) leave the viewport:\n  ${failures.join("\n  ")}`);
   process.exit(1);
 }
-console.log("overlay-bounds: every overlay stays inside the viewport at 390 and 1280 px");
+console.log(
+  "overlay-bounds: every overlay stays inside the viewport, and the project pages don't scroll sideways, at 390 and 1280 px",
+);
