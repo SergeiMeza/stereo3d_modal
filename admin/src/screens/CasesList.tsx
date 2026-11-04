@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { ErrorState, FilterSelect, StateBox } from "@/components/common";
+import { useOpenSearch } from "@/components/CommandMenu";
+import { ErrorState, FilterSelect, PlainText, StateBox } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -246,9 +247,11 @@ function CaseRowLink({ row: r, selected, onFocus }: { row: CaseRow; selected: bo
   );
 }
 
-/** The selected row, from the list itself (rows carry the uid since
- * gateway rev 00114): no request per selection. */
+/** The selected row, from the list itself (uid since gateway rev 00114;
+ * message_excerpt and run_ids since cf7c121, absent on older gateways):
+ * no request per selection. A run id opens ⌘K's run lookup. */
 function Preview({ row }: { row: CaseRow | null }) {
+  const openSearch = useOpenSearch();
   if (!row) return null;
   const u = urgency(row);
   return (
@@ -298,7 +301,31 @@ function Preview({ row }: { row: CaseRow | null }) {
           <dt>Last activity</dt>
           <dd className="tabular-nums">{dateTime(row.last_activity_at)}</dd>
         </div>
+        {Array.isArray(row.run_ids) && row.run_ids.length > 0 && (
+          <div className="col-span-full">
+            <dt>Runs</dt>
+            <dd className="flex flex-wrap gap-x-3 gap-y-1" data-testid="preview-runs">
+              {row.run_ids.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="rounded-sm font-mono text-xs text-link outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Look up run ${id}`}
+                  onClick={() => openSearch(id)}
+                >
+                  {id}
+                </button>
+              ))}
+            </dd>
+          </div>
+        )}
       </dl>
+      {row.message_excerpt && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-3.5 py-3" data-testid="preview-message">
+          <span className="text-xs text-muted-foreground">Customer's message</span>
+          <PlainText text={row.message_excerpt} className="text-sm text-foreground" />
+        </div>
+      )}
       <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Kbd>J</Kbd> <Kbd>K</Kbd> to move, <Kbd>↵</Kbd> to open, <Kbd>D</Kbd> to decide{row.uid ? <>, <Kbd>E</Kbd> for the account</> : null}.
       </p>

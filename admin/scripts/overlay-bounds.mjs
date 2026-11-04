@@ -165,6 +165,13 @@ try {
     await check(page, "Type filter", failures, () => combobox("Type").click());
     const search = page.getByRole("button", { name: /^Search/ }).first();
     if (await search.count()) await check(page, "Command palette", failures, () => search.click());
+    if (width >= 1024) {
+      // the preview's run id opens ⌘K's run lookup
+      await check(page, "Run lookup from the preview", failures, async () => {
+        await page.getByTestId("case-list").getByRole("link").nth(1).focus();
+        await page.getByRole("button", { name: "Look up run c_7Hk2Qm" }).click();
+      });
+    }
 
     // Case: the decision sheet, money confirms (AlertDialog), a Sheet and a Dialog
     await page.goto(`${base}/cases/CASE-0042`);

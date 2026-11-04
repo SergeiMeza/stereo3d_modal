@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { SearchIcon } from "lucide-react";
 
 import {
@@ -117,10 +117,26 @@ export function SearchButton({ onClick, compact = false }: { onClick: () => void
   );
 }
 
-export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+/** Opens ⌘K from anywhere in the shell, optionally with a query (a run id). */
+export const CommandContext = createContext<(query?: string) => void>(() => {});
+
+export function useOpenSearch(): (query?: string) => void {
+  return useContext(CommandContext);
+}
+
+export function CommandMenu({
+  open,
+  onOpenChange,
+  initialQuery = "",
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  /** what the box starts with, e.g. a run id from the cases preview */
+  initialQuery?: string;
+}) {
   const { api } = useServices();
   const { navigate } = useRouter();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [cases, setCases] = useState<CaseRow[] | null>(null);
   const [accounts, setAccounts] = useState<AccountHit[] | null>(null);
   const [run, setRun] = useState<RunLookup | null>(null);
@@ -129,13 +145,14 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
   const term = q.trim();
 
   useEffect(() => {
-    if (!open) {
+    if (open) setQ(initialQuery);
+    else {
       setQ("");
       setCases(null);
       setAccounts(null);
       setRun(null);
     }
-  }, [open]);
+  }, [open, initialQuery]);
 
   useEffect(() => {
     setCases(null);

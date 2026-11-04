@@ -66,7 +66,14 @@ const ROUTES: Record<string, (path: string) => unknown> = {
     ],
   }),
   "GET /v1/admin/accounts": () => ({ accounts: [{ uid: "uid_123", email: "jane@example.com", created_at: "2026-07-12T00:00:00Z", plan: "business" }] }),
-  "GET /v1/admin/cases": () => casesResponse,
+  "GET /v1/admin/cases": () => ({
+    ...casesResponse,
+    cases: (casesResponse.cases ?? []).map((c) =>
+      c.id === "CASE-0042"
+        ? { ...c, message_excerpt: "Part 4 never finished and the 3D effect is weak in the second half. Can I get a refund for that part?", run_ids: ["c_7Hk2Qm"] }
+        : { ...c, message_excerpt: null, run_ids: [] },
+    ),
+  }),
   "GET /v1/admin/cases/CASE-0042": () => casePage(),
   "GET /v1/admin/cases/CASE-0051": () => casePage({ max_refundable_cents: 0, actions: ["accept_dispute", "counter_dispute", "note", "close"] }, { id: "CASE-0051", type: "dispute", reason: "dispute" }),
   "GET /v1/admin/mail-previews": () => mailPreviews,

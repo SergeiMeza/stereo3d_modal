@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ChevronDownIcon, MenuIcon } from "lucide-react";
 
 import { Brand } from "./components/Brand";
-import { CommandMenu, SearchButton, useCommandShortcut } from "./components/CommandMenu";
+import { CommandContext, CommandMenu, SearchButton, useCommandShortcut } from "./components/CommandMenu";
 import { StateBox } from "./components/common";
 import { DisputeDueBanner } from "./components/DisputesAlert";
 import { NavList, PAGE_TITLES } from "./components/Nav";
@@ -94,10 +94,16 @@ function Shell() {
   const attention = useAttention();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const openSearch = useCallback(() => setSearchOpen(true), []);
-  useCommandShortcut(openSearch);
+  const [searchQuery, setSearchQuery] = useState("");
+  const openSearch = useCallback((query?: string) => {
+    setSearchQuery(typeof query === "string" ? query : "");
+    setSearchOpen(true);
+  }, []);
+  const openEmptySearch = useCallback(() => openSearch(), [openSearch]);
+  useCommandShortcut(openEmptySearch);
   const title = PAGE_TITLES[route.name] ?? "Admin";
   return (
+    <CommandContext.Provider value={openSearch}>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 flex h-13 items-center gap-4 border-b border-border bg-card px-5 max-md:h-16 max-md:gap-1.5 max-md:px-3">
         <Button
@@ -117,10 +123,10 @@ function Shell() {
           {title}
         </span>
         <div className="flex flex-1 justify-center max-md:hidden">
-          <SearchButton onClick={openSearch} />
+          <SearchButton onClick={openEmptySearch} />
         </div>
         <span className="md:hidden">
-          <SearchButton compact onClick={openSearch} />
+          <SearchButton compact onClick={openEmptySearch} />
         </span>
         <span className="text-sm whitespace-nowrap text-muted-foreground max-lg:hidden">Signed in with a passkey</span>
         <AccountMenu />
@@ -151,7 +157,7 @@ function Shell() {
           )}
         </main>
       </div>
-      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} />
+      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-[min(320px,85vw)] gap-3 overflow-y-auto px-3 pt-4 pb-6">
           <SheetTitle className="px-2">
@@ -162,5 +168,6 @@ function Shell() {
         </SheetContent>
       </Sheet>
     </div>
+    </CommandContext.Provider>
   );
 }

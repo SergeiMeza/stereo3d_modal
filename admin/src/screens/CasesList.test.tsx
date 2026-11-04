@@ -98,3 +98,36 @@ describe("cases list keys and preview (BL-29 redesign B)", () => {
     expect(calls.some((c) => c.path === "/v1/admin/cases/CASE-0042")).toBe(true);
   });
 });
+
+describe("cases preview: excerpt and runs (BL-29, gateway cf7c121)", () => {
+  const withFields = {
+    ...casesResponse,
+    cases: casesResponse.cases!.map((c, i) =>
+      i === 0 ? { ...c, message_excerpt: "The 3D effect is too weak in the second half. Can I get a refund?…", run_ids: ["c_7Hk2Qm", "c_3Pw9Lx"] } : c,
+    ),
+  };
+
+  it("shows the customer's message excerpt and the run ids; a run id opens ⌘K's run lookup", async () => {
+    const { calls } = renderApp("/cases", {
+      "GET /v1/admin/cases": () => ({ json: withFields }),
+      "GET /v1/admin/runs/c_7Hk2Qm": () => ({
+        json: { run: { id: "c_7Hk2Qm", uid: "uid_9", project_id: "p1", status: "SUCCEEDED", created_at: "2026-11-03T21:40:00Z", amount_cents: 4250, currency: "usd", kind: "lifelike", method: "card" } },
+      }),
+    });
+    const preview = await screen.findByRole("region", { name: "Case preview" });
+    expect(within(preview).getByTestId("preview-message")).toHaveTextContent("The 3D effect is too weak");
+    await userEvent.click(within(preview).getByRole("button", { name: "Look up run c_7Hk2Qm" }));
+    const dialog = await screen.findByRole("dialog", { name: "Search" });
+    expect(within(dialog).getByRole("combobox", { name: "Search" })).toHaveValue("c_7Hk2Qm");
+    expect(await within(dialog).findByRole("option", { name: /c_7Hk2Qm · lifelike/ })).toBeInTheDocument();
+    expect(calls.some((c) => /^\/v1\/admin\/cases\/CASE-/.test(c.path))).toBe(false);
+  });
+
+  it("an older gateway without the fields shows neither, and fetches nothing extra", async () => {
+    const { calls } = renderApp("/cases", { "GET /v1/admin/cases": () => ({ json: casesResponse }) });
+    const preview = await screen.findByRole("region", { name: "Case preview" });
+    expect(within(preview).queryByTestId("preview-message")).toBeNull();
+    expect(within(preview).queryByTestId("preview-runs")).toBeNull();
+    expect(calls.some((c) => /^\/v1\/admin\/cases\/CASE-/.test(c.path))).toBe(false);
+  });
+});

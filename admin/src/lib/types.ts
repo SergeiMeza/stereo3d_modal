@@ -34,6 +34,10 @@ export interface CaseRow {
   email_masked: string;
   /** BL-29 (gateway rev 00114): the account, for the preview and E */
   uid?: string | null;
+  /** BL-29 (gateway cf7c121): the customer's message on one line (~280 chars, "…"), or null */
+  message_excerpt?: string | null;
+  /** BL-29 (gateway cf7c121): the case's runs, maybe empty */
+  run_ids?: string[] | null;
   requested_cents: number;
   max_refundable_cents?: number;
   deadline_at?: string | null;
