@@ -56,7 +56,10 @@ export interface SessionProblemDetails {
 }
 
 /** The gateway's answer when the passkey session is missing or over: the
- * token is dropped and the console asks for the passkey again. */
+ * token is dropped and the console asks for the passkey again.
+ * session_expired: past exp; invalid_session: bad signature, another
+ * account's, or ended by a break-glass reset (which also deletes the
+ * passkeys, so the step then offers "Set up a passkey"). */
 const SESSION_CODES = new Set(["session_required", "session_expired", "invalid_session"]);
 
 /**

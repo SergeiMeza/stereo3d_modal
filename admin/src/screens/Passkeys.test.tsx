@@ -141,6 +141,22 @@ describe("passkey sign-in (ADR 0135)", () => {
     expect(session.get()).toBeNull();
   });
 
+  it("invalid_session after a break-glass reset drops the token and offers a new passkey", async () => {
+    const session = new AdminSession(memoryStorage());
+    session.set("sess_old");
+    renderApp(
+      "/cases",
+      {
+        "GET /v1/admin/cases": () => apiError(401, "invalid_session", "Your admin session ended. Confirm with your passkey again.", { method: "passkey" }),
+        "POST /v1/admin/session/options": () => apiError(409, "no_passkey", "No passkey on this account yet."),
+      },
+      googleDone(),
+      session,
+    );
+    expect(await screen.findByRole("button", { name: "Set up a passkey" })).toBeInTheDocument();
+    expect(session.get()).toBeNull();
+  });
+
   it("signing out of Google drops the passkey session", async () => {
     const session = new AdminSession(memoryStorage());
     session.set("sess_1");
