@@ -50,7 +50,9 @@ export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?
 export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Element | null {
   const { user } = useAuth();
   const billing = useBilling();
-  const [open, setOpen] = useState<PlanKey | null>(null);
+  // the sheet is picked when it opens and kept: a purchase that makes the
+  // plan active must not swap the open sheet for another
+  const [open, setOpen] = useState<{ plan: PlanKey; from: string | null; change: boolean; team: boolean } | null>(null);
   const pro = useProStatus();
   const plans = pricing.plans;
   if (!plans || PLAN_KEYS.every((k) => !plans[k])) return null;
@@ -61,6 +63,10 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
   // for the unused Pro), never a second checkout
   // QA batch 3: only a Pro on our own Stripe plan moves by plan change
   const webPro = isStripePro(pro, billing.status?.plan);
+  // owner bug 2026-11-05: on Business, Studio is a plan change (a step-up
+  // now, credited for the unused Business), and Studio → Business waits
+  // for the paid year's end; never a dead button
+  const mineName = mine ? (teamPlan?.name ?? plans[mine]?.name ?? (mine === "studio" ? "Studio" : "Business")) : null;
   const proPeriod = periodWord(billing.status?.plan?.plan === "pro" ? billing.status.plan.plan_id : pro?.plan_id ?? pro?.via);
   const proName = `Pro${proPeriod ? ` ${proPeriod}` : ""}`;
   return (
@@ -110,10 +116,11 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                   data-testid={`choose-${k}`}
                   variant={k === "studio" ? "default" : "outline"}
                   className="mt-auto w-full"
-                  disabled={mine !== null}
-                  onClick={() => setOpen(k)}
+                  onClick={() =>
+                    setOpen({ plan: k, from: mineName ?? (webPro ? proName : null), change: mineName !== null || webPro, team: mineName !== null })
+                  }
                 >
-                  Choose {def.name}
+                  {mine ? `Change to ${def.name}` : `Choose ${def.name}`}
                 </Button>
               ) : (
                 <Button asChild variant={k === "studio" ? "default" : "outline"} className="mt-auto w-full">
@@ -124,11 +131,17 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
           );
         })}
       </div>
-      {open && plans[open] ? (
-        webPro ? (
-          <PlanChangeSheet plan={open} def={plans[open]!} from={proName} onClose={() => setOpen(null)} />
+      {open && plans[open.plan] ? (
+        open.change ? (
+          <PlanChangeSheet
+            plan={open.plan}
+            def={plans[open.plan]!}
+            from={open.from ?? ""}
+            handoverCreditCents={open.team ? plans[open.plan]!.credit_cents : null}
+            onClose={() => setOpen(null)}
+          />
         ) : (
-          <PlanSheet plan={open} def={plans[open]!} companyLink onClose={() => setOpen(null)} />
+          <PlanSheet plan={open.plan} def={plans[open.plan]!} companyLink onClose={() => setOpen(null)} />
         )
       ) : null}
     </section>

@@ -18,6 +18,7 @@ import { planSubtitle } from "@/components/pay/PlanSheet";
 import type { PlanDef } from "@/lib/api/types";
 
 import { planLines } from "./PlansSection";
+import { PlansScreen } from "./PlansScreen";
 import { PricingScreen } from "./PricingScreen";
 
 vi.mock("next/navigation", () => ({
@@ -48,6 +49,79 @@ function renderPricing() {
     </AuthProvider>,
   );
 }
+
+function onPlan(plan: "business" | "studio"): void {
+  const studio = plan === "studio";
+  mockDb.billing.plan = {
+    plan,
+    name: studio ? "Studio" : "Business",
+    status: "active",
+    active: true,
+    monthly_cents: studio ? 99900 : 29900,
+    credit_cents: studio ? 150000 : 40000,
+    credit_left_cents: studio ? 150000 : 40000,
+    cancel_at_period_end: false,
+    current_period_end: "2026-12-05T00:24:08Z",
+    interval: studio ? "year" : "month",
+    price_cents: studio ? 1198800 : 29900,
+  };
+}
+
+function renderPlans() {
+  render(
+    <AuthProvider>
+      <BillingProvider>
+        <PlansScreen />
+      </BillingProvider>
+    </AuthProvider>,
+  );
+}
+
+describe("between Business and Studio (owner bug 2026-11-05)", () => {
+  it("on Business, Change to Studio opens the step-up and changes the plan", async () => {
+    onPlan("business");
+    renderPlans();
+    const studio = await screen.findByTestId("plan-studio");
+    const choose = await within(studio).findByTestId("choose-studio");
+    await waitFor(() => expect(choose.textContent).toBe("Change to Studio"));
+    expect((choose as HTMLButtonElement).disabled).toBe(false);
+    expect(within(screen.getByTestId("plan-business")).getByRole("button", { name: "Your plan" })).toBeTruthy();
+    // the Pro card: included, nothing to buy
+    const proCard = screen.getByTestId("plan-pro");
+    expect(within(proCard).getByTestId("plan-pro-included").textContent).toBe("Included in Business");
+    expect(within(proCard).queryByRole("link", { name: "Get Pro" })).toBeNull();
+    fireEvent.click(choose);
+    const sheet = await screen.findByTestId("plan-change-sheet");
+    expect(sheet.textContent).toContain("Instead of your Business");
+    const line = await within(sheet).findByTestId("plan-change-line");
+    expect(line.textContent).toMatch(/^Today: \$[\d,.]+\. Studio \$11,988\.00 − \$[\d,.]+ for your unused Business\.$/);
+    expect(sheet.textContent).toContain("Your remaining Business usage this month ends when Studio's $1,500 starts.");
+    const main = screen.getByTestId("plan-change-main");
+    expect(main.textContent).toMatch(/^Pay \$[\d,.]+ and change$/);
+    fireEvent.click(main);
+    expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
+    await waitFor(() => expect(mockDb.billing.plan?.plan).toBe("studio"));
+  });
+
+  it("on Studio, Change to Business waits for the paid year's end and charges nothing today", async () => {
+    onPlan("studio");
+    renderPlans();
+    const choose = await within(await screen.findByTestId("plan-business")).findByTestId("choose-business");
+    await waitFor(() => expect(choose.textContent).toBe("Change to Business"));
+    expect(within(screen.getByTestId("plan-pro")).getByTestId("plan-pro-included").textContent).toBe("Included in Studio");
+    fireEvent.click(choose);
+    const line = await screen.findByTestId("plan-change-line");
+    expect(line.textContent).toMatch(
+      /^Your Studio stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. Business starts then at \$299 a month\. Nothing is charged today\.$/,
+    );
+    const main = screen.getByTestId("plan-change-main");
+    expect(main.textContent).toMatch(/^Change to Business on [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
+    fireEvent.click(main);
+    expect((await screen.findByTestId("pay-success")).textContent).toMatch(/^Business starts on .+\. Your Studio stays on until then\.$/);
+    await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("business"));
+    expect(mockDb.billing.plan?.plan).toBe("studio");
+  });
+});
 
 describe("Pricing 2026-11", () => {
   it("list prices with Pro beside them, add-ons, free previews and top-ups", async () => {

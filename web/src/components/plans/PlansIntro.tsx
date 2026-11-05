@@ -126,9 +126,16 @@ export function PayPerVideoAndPro({
             : ""}
           Up to {fps} fps
         </p>
-        <Button asChild className="mt-auto w-full">
-          <Link href="/pro">{tier === "pro" ? "Your plan" : "Get Pro"}</Link>
-        </Button>
+        {tier === "business" || tier === "studio" ? (
+          // owner 2026-11-05: Business and Studio include Pro, nothing to buy
+          <p data-testid="plan-pro-included" className="mt-auto pt-2 text-sm text-fg">
+            Included in {tier === "studio" ? "Studio" : "Business"}
+          </p>
+        ) : (
+          <Button asChild className="mt-auto w-full">
+            <Link href="/pro">{tier === "pro" ? "Your plan" : "Get Pro"}</Link>
+          </Button>
+        )}
       </div>
     </div>
   );

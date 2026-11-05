@@ -52,6 +52,26 @@ export const planChangeAtom = atomFamily((scope: string) => {
 
 type Client = Pick<GatewayClient, "previewPlanChange" | "changePlan">;
 
+/** owner bug 2026-11-05: a preview that never answers ends as failed (with
+ * Try again) instead of a button that waits forever. */
+export const PREVIEW_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(t);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      },
+    );
+  });
+}
+
 /** Price the change to `to` (and forget any earlier one). */
 export const previewPlanChangeAtom = atom(
   null,
@@ -60,7 +80,7 @@ export const previewPlanChangeAtom = atom(
     const mine = get(at).seq + 1;
     set(at, { ...EMPTY, to: a.to, seq: mine });
     try {
-      const preview = await a.client.previewPlanChange(a.to);
+      const preview = await withTimeout(a.client.previewPlanChange(a.to), PREVIEW_TIMEOUT_MS);
       if (get(at).seq === mine) set(at, (s) => ({ ...s, preview }));
     } catch {
       if (get(at).seq === mine) set(at, (s) => ({ ...s, previewFailed: true }));

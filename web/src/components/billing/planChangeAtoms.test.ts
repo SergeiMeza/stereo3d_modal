@@ -5,7 +5,7 @@
  * again and waits for a second confirm.
  */
 import { createStore } from "jotai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GatewayError, type PlanChangePreview } from "@/lib/api/client";
 
@@ -14,6 +14,7 @@ import {
   confirmPlanChangeAtom,
   planChangeAtom,
   previewPlanChangeAtom,
+  PREVIEW_TIMEOUT_MS,
 } from "./planChangeAtoms";
 
 function preview(to: string, cents: number, quoteAt = "q1"): PlanChangePreview {
@@ -95,5 +96,29 @@ describe("plan change atoms", () => {
     const s = store.get(planChangeAtom("t5"));
     expect(s.to).toBeNull();
     expect(s.preview).toBeNull();
+  });
+});
+
+describe("a preview that never answers (owner bug 2026-11-05)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("times out into previewFailed (the sheet offers Try again), and a later try still works", async () => {
+    vi.useFakeTimers();
+    const store = createStore();
+    const never = { previewPlanChange: () => new Promise<PlanChangePreview>(() => {}), changePlan: vi.fn() };
+    const p = store.set(previewPlanChangeAtom, { scope: "t", client: never, to: "studio" });
+    expect(store.get(planChangeAtom("t"))).toMatchObject({ to: "studio", preview: null, previewFailed: false });
+    await vi.advanceTimersByTimeAsync(PREVIEW_TIMEOUT_MS + 1);
+    await p;
+    expect(store.get(planChangeAtom("t"))).toMatchObject({ to: "studio", preview: null, previewFailed: true });
+    const answer = preview("studio", 1100000);
+    await store.set(previewPlanChangeAtom, {
+      scope: "t",
+      client: { previewPlanChange: async () => answer, changePlan: vi.fn() },
+      to: "studio",
+    });
+    expect(store.get(planChangeAtom("t"))).toMatchObject({ preview: answer, previewFailed: false });
   });
 });

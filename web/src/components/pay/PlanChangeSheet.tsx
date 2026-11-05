@@ -1,8 +1,11 @@
 "use client";
 
 /**
- * Business or Studio for a web Pro member (coordinator 2026-11-05): a plan
- * change, not a new plan checkout. POST /v1/plans/preview-change prices
+ * Business or Studio for a web Pro member (coordinator 2026-11-05), or the
+ * other team plan for a Business or Studio member (owner bug 2026-11-05:
+ * Choose Studio on Business did nothing): a plan change, not a new plan
+ * checkout. A step-up is paid now; a step-down (Studio → Business) waits
+ * for the end of the paid period and charges nothing today. POST /v1/plans/preview-change prices
  * it (today's amount: the plan less our credit for the unused Pro) and
  * POST /v1/plans/change with that quote makes it, at once, on the saved
  * payment method, so nobody pays twice. The same plan change atom as
@@ -21,7 +24,14 @@ import {
   planChangeAtom,
   previewPlanChangeAtom,
 } from "@/components/billing/planChangeAtoms";
-import { REPRICED, upgradeLine } from "@/components/billing/planChangeCopy";
+import {
+  changeDate,
+  isStepDown,
+  NOTHING_TODAY,
+  REPRICED,
+  stepDownLine,
+  upgradeLine,
+} from "@/components/billing/planChangeCopy";
 import { planPrice } from "@/components/pricing/planCopy";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
@@ -43,12 +53,15 @@ export function PlanChangeSheet({
   plan,
   def,
   from,
+  handoverCreditCents,
   onClose,
 }: {
   plan: "business" | "studio";
   def: PlanDef;
-  /** the Pro it replaces ("Pro Monthly") */
+  /** what it replaces ("Pro Monthly", "Business") */
   from: string;
+  /** between team plans: the new plan's monthly usage (the hand-over line) */
+  handoverCreditCents?: number | null;
   onClose: (changed: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
@@ -57,7 +70,7 @@ export function PlanChangeSheet({
   const preview = useSetAtom(previewPlanChangeAtom);
   const confirm = useSetAtom(confirmPlanChangeAtom);
   const close = useSetAtom(closePlanChangeAtom);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -69,6 +82,7 @@ export function PlanChangeSheet({
   }, [preview, close, gateway, plan]);
 
   const p = change.to === plan ? change.preview : null;
+  const down = p !== null && isStepDown(p);
   const price = planPrice(def);
   const title = `${def.name} · ${formatCentsShort(price.cents)} ${price.per}`;
 
@@ -78,14 +92,18 @@ export function PlanChangeSheet({
     void gateway.refreshPro().catch(() => {});
     notifyProChanged();
     void billing.refresh();
-    setDone(true);
+    setDone(
+      down && p
+        ? `${def.name} starts on ${p.effective_at ? changeDate(p.effective_at) : "your next renewal"}. Your ${from} stays on until then.`
+        : planStarted(def),
+    );
     timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
   }
 
-  if (done) {
+  if (done !== null) {
     return (
       <SheetFrame open onClose={() => onClose(true)} testId="plan-change-sheet" title={title}>
-        <Success text={planStarted(def)} />
+        <Success text={done} />
       </SheetFrame>
     );
   }
@@ -101,7 +119,7 @@ export function PlanChangeSheet({
       subtitle={`Instead of your ${from}`}
       footer={
         <MainButtonArea
-          lines={[CHARGED_IN_USD]}
+          lines={down ? [NOTHING_TODAY] : [CHARGED_IN_USD]}
           button={
             <Button
               size="lg"
@@ -110,7 +128,15 @@ export function PlanChangeSheet({
               disabled={p === null || change.busy}
               onClick={() => void pay()}
             >
-              {change.busy ? "Changing…" : p ? `Pay ${formatCents(p.today_cents)} and change` : "Working it out…"}
+              {change.busy
+                ? "Changing…"
+                : p
+                  ? down
+                    ? `Change to ${def.name} on ${p.effective_at ? changeDate(p.effective_at) : "renewal"}`
+                    : `Pay ${formatCents(p.today_cents)} and change`
+                  : error
+                    ? "Can't change right now"
+                    : "Working it out…"}
             </Button>
           }
         />
@@ -118,13 +144,30 @@ export function PlanChangeSheet({
     >
       <div className="flex flex-col gap-3 text-sm">
         {error ? (
-          <StateLine testId="plan-change-error" text={error} />
+          <>
+            <StateLine testId="plan-change-error" text={error} />
+            {change.previewFailed ? (
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="plan-change-retry"
+                className="w-fit"
+                onClick={() => void preview({ scope: SCOPE, client: gateway, to: plan })}
+              >
+                Try again
+              </Button>
+            ) : null}
+          </>
+        ) : p && down ? (
+          <p data-testid="plan-change-line" className="text-fg">
+            {stepDownLine(from, { name: def.name, per: price.per }, p)} {NOTHING_TODAY}
+          </p>
         ) : p ? (
           <>
             <p data-testid="plan-change-line" className="text-fg">
               {upgradeLine(p, { from, to: def.name })}
             </p>
-            <StepUpExtras preview={p} from={from} to={def.name} />
+            <StepUpExtras preview={p} from={from} to={def.name} handoverCreditCents={handoverCreditCents ?? null} />
           </>
         ) : (
           <div data-testid="pay-skeleton" className="h-16 animate-pulse rounded-lg bg-surface-2" />
