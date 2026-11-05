@@ -17,7 +17,6 @@ import type { JSX } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
 import { LIFELIKE_PREVIEW_SECONDS, METHOD_TAGS } from "@/components/steps/methods";
-import { formatCents } from "@/components/steps/money";
 import { useVariantQuotes } from "@/components/steps/priceAtoms";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +37,7 @@ import {
 } from "./MethodChooser";
 import type { WorkspaceTabId } from "./PageTabs";
 import { BarsNotice } from "./BarsSetting";
-import { OverviewSteps } from "./OverviewSteps";
+import { OverviewSteps, primaryAction, secondaryAction, useOverviewSteps } from "./OverviewSteps";
 
 /** What the summary says you'll get (the default files of a full run). */
 const YOU_GET = "Vision Pro spatial video + Side by side";
@@ -126,6 +125,12 @@ export function OverviewTab({
     project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
   const own = quotes[method];
   const ownPrice = priceAndTime(own);
+  const steps = useOverviewSteps(project, {
+    previewFree: previewQuote?.payment_flow === "free_preview",
+    previewCents: previewQuote ? previewQuote.quote.amount_cents : null,
+  });
+  const primary = primaryAction(steps);
+  const secondary = secondaryAction(steps, project);
 
   return (
     <div data-testid="overview-tab" className="mx-auto flex max-w-5xl flex-col gap-5">
@@ -186,49 +191,25 @@ export function OverviewTab({
                 </div>
               </dl>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {project.sample ? (
-                  // onboarding: the sample is finished; its files are the point
-                  <Button data-testid="overview-main" onClick={() => onNavigate("files")}>
-                    See the 3D files
+              {/* QA 2026-11-05: the card's main action is the current
+                  step's (one helper with Your steps), so they agree */}
+              {primary ? (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Button data-testid="overview-main" onClick={() => onNavigate(primary.tab)}>
+                    {primary.label}
                   </Button>
-                ) : method === "lifelike" ? (
-                  <>
-                    <Button
-                      data-testid="overview-main"
-                      onClick={() => onNavigate("preview")}
-                    >
-                      Preview a moment
-                      {previewQuote
-                        ? ` · ${formatCents(previewQuote.quote.amount_cents)}`
-                        : ""}
-                    </Button>
+                  {secondary ? (
                     <button
                       type="button"
-                      onClick={() => onNavigate("make")}
+                      data-testid="overview-secondary"
+                      onClick={() => onNavigate(secondary.tab)}
                       className="text-sm text-primary hover:underline"
                     >
-                      or go straight to Make 3D
+                      {secondary.label}
                     </button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      data-testid="overview-main"
-                      onClick={() => onNavigate("make")}
-                    >
-                      Make 3D
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate("look")}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      or check the 3D look first
-                    </button>
-                  </>
-                )}
-              </div>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           ) : (
             <div
@@ -264,17 +245,15 @@ export function OverviewTab({
         </div>
       </section>
 
+      {/* owner 2026-11-05: the flow as steps, right under the summary
+          (QA: above the black bars on a phone) */}
+      <OverviewSteps steps={steps} onNavigate={onNavigate} />
+
       {/* owner request 2026-11-04: say when the video has black bars */}
       {analyzed && onProjectUpdated ? (
         <BarsNotice project={project} onProjectChanged={onProjectUpdated} />
       ) : null}
 
-      {/* owner 2026-11-05: the flow as steps, not a breadcrumb */}
-      <OverviewSteps
-        project={project}
-        previewFree={previewQuote?.payment_flow === "free_preview"}
-        onNavigate={onNavigate}
-      />
 
       {onProjectChanged !== undefined && method === "classic" && analyzed ? (
         <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />

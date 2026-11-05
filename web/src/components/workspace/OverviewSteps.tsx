@@ -16,6 +16,7 @@ import type { JSX } from "react";
 import { analyzePercent } from "@/components/projects/AnalyzeBadge";
 import { conversionAtom } from "@/components/steps/conversionAtoms";
 import { Button } from "@/components/ui/button";
+import { formatCents } from "@/components/steps/money";
 import { methodOf, type Conversion, type Project, type Step } from "@/lib/api/types";
 
 import { tabIcon, type WorkspaceTabId } from "./PageTabs";
@@ -61,10 +62,14 @@ const ACTIVE = new Set(["created", "paid", "processing"]);
 
 /** The steps and their states, from the project (and the active run's
  * latest poll). */
-export function overviewSteps(
-  project: Project,
-  opts: { live?: Conversion | null; previewFree?: boolean } = {},
-): StepView[] {
+export interface StepsContext {
+  live?: Conversion | null;
+  previewFree?: boolean;
+  /** the Preview page default's price, when known */
+  previewCents?: number | null;
+}
+
+export function overviewSteps(project: Project, opts: StepsContext = {}): StepView[] {
   const method = methodOf(project) === "classic" ? "classic" : "lifelike";
   const flow = FLOWS[method];
   const runs = project.conversions ?? [];
@@ -105,37 +110,77 @@ export function overviewSteps(
           ...base,
           state: "current",
           status: "Ready",
-          action: opts.previewFree ? "Make a free preview" : "Make a preview",
+          action: opts.previewFree
+            ? "Make a free preview"
+            : typeof opts.previewCents === "number"
+              ? `Preview a moment · ${formatCents(opts.previewCents)}`
+              : "Preview a moment",
         };
       case "make": {
         if (running && active) {
           const pct = Math.round(Math.min(Math.max(active.progress ?? 0, 0), 1) * 100);
           const waiting = active.waiting_for_gpu === true || active.state !== "processing";
-          return { ...base, state: "current", status: waiting ? "Waiting in line" : `Making… ${pct}%` };
+          return {
+            ...base,
+            state: "current",
+            status: waiting ? "Waiting in line" : `Making… ${pct}%`,
+            action: "See progress",
+          };
         }
         return { ...base, state: "current", status: "Ready", action: "Make 3D" };
       }
       default:
-        return { ...base, state: "current", status: "Ready", action: "Download" };
+        return { ...base, state: "current", status: "Ready", action: project.sample ? "See the 3D files" : "Download" };
     }
   });
 }
 
-export function OverviewSteps({
-  project,
-  previewFree,
-  onNavigate,
-}: {
-  project: Project;
-  previewFree?: boolean;
-  onNavigate: (tab: WorkspaceTabId) => void;
-}): JSX.Element {
+/** The steps with the active run's latest poll (ADR 0138), for the
+ * stepper and the Overview card alike. */
+export function useOverviewSteps(project: Project, opts: Omit<StepsContext, "live"> = {}): StepView[] {
   const activeId =
     (project.conversions ?? []).find((c) => (c.step ?? "production") === "production" && ACTIVE.has(c.state))
       ?.conversion_id ?? "";
-  // the run's latest poll, when a tracker has one (ADR 0138)
   const live = useAtomValue(conversionAtom(activeId));
-  const steps = overviewSteps(project, { live, previewFree });
+  return overviewSteps(project, { ...opts, live });
+}
+
+export interface StepAction {
+  label: string;
+  tab: WorkspaceTabId;
+}
+
+/** QA 2026-11-05: the Overview card's main button is the current step's
+ * action, so the card and the stepper never disagree. */
+export function primaryAction(steps: readonly StepView[]): StepAction | null {
+  const cur = steps.find((s) => s.state === "current");
+  return cur?.action ? { label: cur.action, tab: cur.tab } : null;
+}
+
+/** The card's one quiet alternative to the main action. */
+export function secondaryAction(steps: readonly StepView[], project: Project): StepAction | null {
+  const cur = steps.find((s) => s.state === "current");
+  if (!cur || project.sample) return null;
+  const classic = methodOf(project) === "classic";
+  switch (cur.tab) {
+    case "preview":
+      return { label: "or go straight to Make 3D", tab: "make" };
+    case "make":
+      return cur.action === "Make 3D" && classic ? { label: "or check the 3D look first", tab: "look" } : null;
+    case "files":
+      return { label: "or make it in 3D again", tab: "make" };
+    default:
+      return null;
+  }
+}
+
+export function OverviewSteps({
+  steps,
+  onNavigate,
+}: {
+  steps: readonly StepView[];
+  onNavigate: (tab: WorkspaceTabId) => void;
+}): JSX.Element {
   const at = steps.findIndex((s) => s.state === "current");
   const cur = steps[at];
 
@@ -196,7 +241,7 @@ export function OverviewSteps({
               <button
                 type="button"
                 onClick={() => onNavigate(s.tab)}
-                className={`flex min-w-0 items-center gap-2 text-left text-sm ${
+                className={`flex min-w-0 items-start gap-2 text-left text-sm ${
                   s.state === "upcoming" || s.state === "skipped" ? "text-fg-muted" : "text-fg"
                 }`}
               >
@@ -215,12 +260,17 @@ export function OverviewSteps({
                 <span aria-hidden className="shrink-0 opacity-80">
                   {tabIcon(s.tab)}
                 </span>
-                <span className="min-w-0 truncate font-medium">{s.label}</span>
-                {s.optional ? (
-                  <span className="shrink-0 rounded-full border border-edge px-1.5 text-[10px] text-fg-muted">
-                    Optional
+                {/* QA 2026-11-05: names wrap, never cut; the tag goes under */}
+                <span className="flex min-w-0 flex-col items-start gap-0.5">
+                  <span data-testid="step-name" className="font-medium break-words">
+                    {s.label}
                   </span>
-                ) : null}
+                  {s.optional ? (
+                    <span className="rounded-full border border-edge px-1.5 text-[10px] text-fg-muted">
+                      Optional
+                    </span>
+                  ) : null}
+                </span>
               </button>
               {current && s.status ? (
                 <p data-testid="step-status" className="text-xs text-fg-muted">

@@ -13,7 +13,23 @@ import { appStore } from "@/lib/state/stores";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { OverviewSteps, overviewSteps } from "./OverviewSteps";
+import {
+  OverviewSteps,
+  overviewSteps,
+  primaryAction,
+  secondaryAction,
+  useOverviewSteps,
+  type StepsContext,
+} from "./OverviewSteps";
+
+/** The stepper as Overview mounts it (the run's atom read in the hook). */
+function Steps({
+  project,
+  onNavigate,
+  ...opts
+}: Omit<StepsContext, "live"> & { project: Project; onNavigate: (tab: string) => void }) {
+  return <OverviewSteps steps={useOverviewSteps(project, opts)} onNavigate={onNavigate} />;
+}
 
 afterEach(() => cleanup());
 
@@ -59,12 +75,12 @@ describe("the steps' states", () => {
       "make:upcoming",
       "files:upcoming",
     ]);
-    expect(overviewSteps(lifelike())[1].action).toBe("Make a preview");
+    expect(overviewSteps(lifelike())[1].action).toBe("Preview a moment");
   });
 
   it("a full run in progress: Make 3D is current with its progress, the passed preview is skipped", () => {
     const p = lifelike({ conversions: [run("production", "processing")] });
-    expect(states(p)).toEqual(["scenes:done", "preview:skipped", "make:current(Making… 40%)", "files:upcoming"]);
+    expect(states(p)).toEqual(["scenes:done", "preview:skipped", "make:current(Making… 40%)[See progress]", "files:upcoming"]);
     // the tracker's latest poll wins over the listed run
     const live = run("production", "processing", { progress: 0.85 });
     expect(overviewSteps(p, { live })[2].status).toBe("Making… 85%");
@@ -81,7 +97,7 @@ describe("Your steps", () => {
     const onNavigate = vi.fn();
     const p = lifelike({ conversions: [run("production", "processing")] });
     appStore.set(conversionAtom("c_production_processing"), run("production", "processing", { progress: 0.6 }));
-    render(<OverviewSteps project={p} previewFree onNavigate={onNavigate} />);
+    render(<Steps project={p} previewFree onNavigate={onNavigate} />);
     const full = screen.getByTestId("steps-full");
     expect(within(full).getByTestId("step-make").getAttribute("aria-current")).toBe("step");
     expect(within(full).getByTestId("step-status").textContent).toBe("Making… 60%");
@@ -99,9 +115,48 @@ describe("Your steps", () => {
 
   it("the current step's one action goes to its tab", () => {
     const onNavigate = vi.fn();
-    render(<OverviewSteps project={lifelike()} previewFree onNavigate={onNavigate} />);
+    render(<Steps project={lifelike()} previewFree onNavigate={onNavigate} />);
     fireEvent.click(screen.getByTestId("step-action"));
     expect(onNavigate).toHaveBeenLastCalledWith("preview");
     expect(screen.getByTestId("step-action").textContent).toBe("Make a free preview");
+  });
+});
+
+describe("the card and the stepper agree (QA 2026-11-05)", () => {
+  const both = (p: Project, opts: StepsContext = {}) => {
+    const steps = overviewSteps(p, opts);
+    const cur = steps.find((s) => s.state === "current")!;
+    return { stepper: cur.action ?? null, card: primaryAction(steps)?.label ?? null, secondary: secondaryAction(steps, p)?.label ?? null, tab: primaryAction(steps)?.tab };
+  };
+
+  it("in every state the card's main action is the current step's", () => {
+    const analysing = lifelike({ analyze: { state: "running", progress: 0.7 } as Project["analyze"], probe: undefined });
+    expect(both(analysing)).toMatchObject({ stepper: null, card: null });
+    expect(both(lifelike(), { previewFree: true })).toMatchObject({
+      stepper: "Make a free preview",
+      card: "Make a free preview",
+      secondary: "or go straight to Make 3D",
+      tab: "preview",
+    });
+    expect(both(lifelike(), { previewCents: 125 })).toMatchObject({ card: "Preview a moment · $1.25" });
+    const previewed = lifelike({ conversions: [run("lifelike_preview", "succeeded")] });
+    expect(both(previewed)).toMatchObject({ stepper: "Make 3D", card: "Make 3D", secondary: null, tab: "make" });
+    const running = lifelike({ conversions: [run("production", "processing")] });
+    expect(both(running)).toMatchObject({ stepper: "See progress", card: "See progress", tab: "make" });
+  });
+
+  it("a finished 3D: Download first, making it again second", () => {
+    const done = lifelike({ conversions: [run("production", "succeeded")] });
+    expect(both(done)).toEqual({ stepper: "Download", card: "Download", secondary: "or make it in 3D again", tab: "files" });
+  });
+
+  it("step names wrap, never cut; Optional sits under the name", () => {
+    render(<Steps project={lifelike()} previewFree onNavigate={vi.fn()} />);
+    const preview = screen.getByTestId("step-preview");
+    const name = within(preview).getByTestId("step-name");
+    expect(name.textContent).toBe("Preview");
+    expect(name.className).not.toContain("truncate");
+    expect(name.className).toContain("break-words");
+    expect(name.nextElementSibling?.textContent).toBe("Optional");
   });
 });

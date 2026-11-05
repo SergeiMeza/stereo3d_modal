@@ -147,11 +147,16 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
         /^\$\d+\.\d\d · about /,
       ),
     );
+    // QA 2026-11-05: the card's main action is the stepper's current one
     await waitFor(() =>
       expect(screen.getByTestId("overview-main").textContent).toMatch(
-        /^Preview a moment · \$\d+\.\d\d$/,
+        /^(Preview a moment · \$\d+\.\d\d|Make a free preview)$/,
       ),
     );
+    const current = within(screen.getByTestId("steps-full")).getByTestId("step-preview");
+    expect(within(current).getByTestId("step-action").textContent).toBe(screen.getByTestId("overview-main").textContent);
+    // and Your steps sits right under the summary (above the black bars)
+    expect(screen.getByTestId("overview-summary").nextElementSibling).toBe(screen.getByTestId("overview-steps"));
     expect(document.body.textContent).not.toMatch(/Classic|Older method|Red-cyan/);
     expect(
       within(screen.getByTestId("method-badge")).queryByText("Convert with Lifelike 3D"),
