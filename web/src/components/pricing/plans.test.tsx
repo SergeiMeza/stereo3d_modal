@@ -49,13 +49,6 @@ function renderPricing() {
   );
 }
 
-/** gateway 00105: Business/Studio need a billing address before paying. */
-function fillBillingAddress(): void {
-  fireEvent.change(screen.getByLabelText("Address"), { target: { value: "1 King St" } });
-  fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
-  fireEvent.change(screen.getByLabelText("Postal code"), { target: { value: "EC2V 8AU" } });
-}
-
 describe("Pricing 2026-11", () => {
   it("list prices with Pro beside them, add-ons, free previews and top-ups", async () => {
     renderPricing();
@@ -87,22 +80,6 @@ describe("Pricing 2026-11", () => {
     );
   });
 
-  it("the saved business details start the billing address (QA 2026-11-05)", async () => {
-    mockDb.billing.company = {
-      company_name: "Acme Ltd",
-      address: { country: "GB", line1: "1 King St", city: "London", postal_code: "EC2V 8AU" },
-    };
-    renderPricing();
-    fireEvent.click(await within(await screen.findByTestId("plan-business")).findByTestId("choose-business"));
-    await waitFor(() => expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe("1 King St"));
-    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("London");
-    expect((screen.getByLabelText("Postal code") as HTMLInputElement).value).toBe("EC2V 8AU");
-    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByTestId("plan-main"));
-    expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
-    expect(screen.queryByTestId("plan-address-hint")).toBeNull();
-  });
-
   it("Business and Studio cards; choosing one pays in our sheet and shows the plan on Billing", async () => {
     renderPricing();
     const biz = await screen.findByTestId("plan-business");
@@ -117,28 +94,16 @@ describe("Pricing 2026-11", () => {
     expect(screen.getByTestId("plan-studio").textContent).toContain("$11,988 a year$1,500 of usage every month");
     fireEvent.click(await within(biz).findByTestId("choose-business"));
     const main = await screen.findByTestId("plan-main");
-    // gateway 00105: no billing address, no payment
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
     expect(screen.getByTestId("plan-sheet").textContent).toContain("cancel any time; it runs to the end of the paid month");
-    const addressBlock = screen.getByTestId("mock-billing-address");
-    // owner 2026-11-05: no tax ID or business name in the sheet
-    expect(screen.queryByText(/Tax ID|Business name|Add business details/)).toBeNull();
-    // QA 2026-11-05: the address comes before the payment fields
-    const methods = screen.getByRole("radiogroup", { name: "Payment method" });
-    expect(addressBlock.compareDocumentPosition(methods) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // an early press shows and focuses the address, and pays nothing
-    fireEvent.click(screen.getByTestId("plan-main"));
-    expect((await screen.findByTestId("plan-address-hint")).textContent).toBe("Fill in your billing address");
-    expect(document.activeElement).toBe(screen.getByLabelText("Address"));
-    expect(mockDb.billing.plan).toBeFalsy();
     expect(main.textContent).toContain("Start Business · $299.00");
-    expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.change(screen.getByLabelText("Address"), { target: { value: "1 King St" } });
-    fireEvent.click(screen.getByTestId("plan-main"));
-    // the first empty field next
-    expect(document.activeElement).toBe(screen.getByLabelText("City"));
-    fillBillingAddress();
-    expect(screen.queryByTestId("plan-address-hint")).toBeNull();
+    // owner 2026-11-05: the method and country only; no address, company
+    // name or tax ID (Business details takes them after paying)
+    expect(screen.queryByTestId("mock-billing-address")).toBeNull();
+    expect(screen.queryByLabelText(/Address|City|Postal code/)).toBeNull();
+    expect(screen.queryByText(/Tax ID|Business name|Add business details|Billing address/)).toBeNull();
+    expect(screen.getByRole("radio", { name: "Card" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "JP" } });
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
     expect(mockDb.billing.plan?.plan).toBe("business");
@@ -180,7 +145,6 @@ describe("Pricing 2026-11", () => {
     const year = String(new Date().getFullYear() + 1);
     expect(sheet.textContent).toMatch(new RegExp(`Billed yearly\\. Renews on \\d+ \\w+ ${year} until you cancel\\.`));
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
-    fillBillingAddress();
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
     cleanup();

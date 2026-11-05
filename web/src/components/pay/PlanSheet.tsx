@@ -7,21 +7,19 @@
  */
 
 import { LockIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { companyAtom, loadCompanyAtom } from "@/components/billing/billingHistoryAtoms";
 import { planPrice } from "@/components/pricing/planCopy";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { billingUidAtom, useBilling } from "@/lib/billing";
-import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
+import { useBilling } from "@/lib/billing";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
 
-import { CheckoutPane, type ConfirmResult, type PayForm, type PrefillAddress } from "./CheckoutPane";
+import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { CHARGED_IN_USD, DECLINED, PAYING, TOO_MANY } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
@@ -70,9 +68,6 @@ export function planSubtitle(def: PlanDef): string {
   return `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time; it runs to the end of the paid ${period}`;
 }
 
-/** QA 2026-11-05: next to the button while the required address is missing. */
-export const FILL_ADDRESS = "Fill in your billing address";
-
 export function PlanSheet({
   plan,
   def,
@@ -89,21 +84,6 @@ export function PlanSheet({
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // "Start" pressed with the address missing: say so until it's filled
-  const [askedAddress, setAskedAddress] = useState(false);
-
-  // QA 2026-11-05: the saved business details start the billing address
-  const companyState = useAppAtomValue(companyAtom);
-  const uid = useAppAtomValue(billingUidAtom);
-  const loadCompany = useAppSetAtom(loadCompanyAtom);
-  useEffect(() => {
-    void loadCompany(gateway);
-  }, [loadCompany, gateway, uid]);
-  const company = companyState.uid === uid ? companyState.company : null;
-  const prefillAddress = useMemo<PrefillAddress | null>(
-    () => (company?.address ? { name: company.company_name ?? null, address: company.address } : null),
-    [company],
-  );
 
   useEffect(() => {
     let live = true;
@@ -146,20 +126,6 @@ export function PlanSheet({
     setPhase({ kind: "ready", ...s, notice: r === "too_many" ? TOO_MANY : DECLINED });
   }
 
-  async function start(form: PayForm, s: { secret: string; publishableKey?: string }): Promise<void> {
-    // QA 2026-11-05: the address sits above the fold's end on small
-    // screens; an early press shows and focuses it instead of a silent no
-    if (form.revealMissing()) {
-      setAskedAddress(true);
-      return;
-    }
-    setAskedAddress(false);
-    setPhase({ kind: "paying", ...s });
-    const r = await form.confirm();
-    handle(r, s);
-    if (r === "declined" && form.revealMissing()) setAskedAddress(true);
-  }
-
   // Studio bills yearly (gateway 00089); its usage still comes monthly
   const price = planPrice(def);
   const renewal = new Date();
@@ -179,8 +145,6 @@ export function PlanSheet({
         big={big}
         showSaveLine={false}
         returnQuery={`plan=${plan}`}
-        billingAddress
-        prefillAddress={prefillAddress}
       >
         {(form, body) => (
           <SheetFrame
@@ -194,24 +158,16 @@ export function PlanSheet({
               <MainButtonArea
                 big={big}
                 lines={[CHARGED_IN_USD, renewsLine]}
-                after={
-                  askedAddress && !form.addressComplete ? (
-                    <p
-                      data-testid="plan-address-hint"
-                      role="status"
-                      className={`text-center text-amber-300 ${big ? "text-lg" : "text-sm"}`}
-                    >
-                      {FILL_ADDRESS}
-                    </p>
-                  ) : null
-                }
                 button={
                   <Button
                     size="lg"
                     data-testid="plan-main"
                     className={`w-full tabular-nums ${big ? "h-14 text-xl" : "h-12 text-base"}`}
                     disabled={!form.ready || paying}
-                    onClick={() => void start(form, s)}
+                    onClick={async () => {
+                      setPhase({ kind: "paying", ...s });
+                      handle(await form.confirm(), s);
+                    }}
                   >
                     {paying ? (
                       PAYING

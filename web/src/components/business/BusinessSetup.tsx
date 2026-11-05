@@ -10,9 +10,9 @@
  *    rates up to the plan's max_fps, the intro switch, invoices, Express.
  *    No seat counts (no team accounts yet). Company emails also get Talk to
  *    us.
- * 2. (Owner 2026-11-04: no company step — Checkout collects the billing
- *    address; owner 2026-11-05: not the tax ID or business name, which the
- *    welcome's link to Account → Business details takes.)
+ * 2. (Owner 2026-11-04: no company step. Owner 2026-11-05: Checkout asks
+ *    only the method and country; the welcome's link to Account → Business
+ *    details takes the company name, address, tax ID and billing email.)
  * 3. A few questions, all skippable: team size, main use, headsets
  *    (prefilled from onboarding), saved on the account (PATCH
  *    settings.business_setup).
@@ -476,8 +476,8 @@ export function BusinessSetup(): JSX.Element {
               until you confirm.
             </p>
             <p className="text-xs text-fg-muted">
-              Checkout asks for your billing address for the invoice. Your
-              company name and tax ID can follow after.
+              Checkout asks only for your payment method and country. Your
+              company name, address and tax ID can follow after.
             </p>
           </div>
 
