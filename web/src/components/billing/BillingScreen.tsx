@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { supportMailto } from "@/components/billing/BillingBanner";
+import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
@@ -270,7 +271,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           {amount}
         </span>
         <span className="hidden min-w-0 items-center gap-2 text-xs text-fg sm:flex">
-          {row.payment_method ? <MethodBadge kind={badgeKind(row.payment_method.label)} /> : <span className="text-fg-muted">—</span>}
+          {row.payment_method?.label ? <MethodBadge kind={badgeKind(row.payment_method.label)} /> : <span className="text-fg-muted">—</span>}
           <span className="truncate">{row.payment_method?.label ?? ""}</span>
         </span>
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${s.cls}`}>
@@ -326,6 +327,15 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         </ul>
       ) : null}
     </li>
+  );
+}
+
+/** A History row inside its own boundary. */
+function RowBoundary({ row }: { row: BillingRow }): JSX.Element {
+  return (
+    <SectionBoundary listItem name={row.label ?? "A row"}>
+      <Row row={row} />
+    </SectionBoundary>
   );
 }
 
@@ -710,11 +720,20 @@ export function BillingScreen(): JSX.Element {
         </p>
       ) : null}
 
-      <BalanceCard />
-      <PlanCard />
+      {/* owner bug 2026-11-05: one section failing never takes the page */}
+      <SectionBoundary name="Balance">
+        <BalanceCard />
+      </SectionBoundary>
+      <SectionBoundary name="Plan">
+        <PlanCard />
+      </SectionBoundary>
 
-      <MethodsSection />
-      <CompanySection />
+      <SectionBoundary name="Payment methods">
+        <MethodsSection />
+      </SectionBoundary>
+      <SectionBoundary name="Business details">
+        <CompanySection />
+      </SectionBoundary>
 
       <section aria-label="Purchases and invoices" className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -735,9 +754,13 @@ export function BillingScreen(): JSX.Element {
         {tab === "usage" ? <FirstTimeHint id="usage" className="mb-3" /> : null}
         {tab === "invoices" ? <FirstTimeHint id="invoices" className="mb-3" /> : null}
         {tab === "usage" ? (
-          <UsageTab month={month} />
+          <SectionBoundary name="Usage">
+            <UsageTab month={month} />
+          </SectionBoundary>
         ) : tab === "invoices" ? (
-          <InvoicesTab />
+          <SectionBoundary name="Invoices">
+            <InvoicesTab />
+          </SectionBoundary>
         ) : error ? (
           <div className="flex items-center gap-3 text-sm">
             <span className="text-red-300">Couldn&apos;t load your purchases.</span>
@@ -753,7 +776,8 @@ export function BillingScreen(): JSX.Element {
           <>
             <ul data-testid="history">
               {rows.map((r) => (
-                <Row key={r.row_id} row={r} />
+                // one odd row shows its own line, the rest of History stays
+                <RowBoundary key={r.row_id} row={r} />
               ))}
             </ul>
             {hasMore ? (

@@ -10,6 +10,8 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
+import { SectionBoundary } from "@/components/SectionBoundary";
+
 import { BillingScreen } from "./BillingScreen";
 
 vi.mock("next/navigation", () => ({
@@ -214,6 +216,76 @@ describe("Billing (S3D-57, S3D-62)", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "History" }));
     expect(await screen.findByTestId("row-ch_cbig00000001")).toBeTruthy();
     server.events.removeAllListeners();
+  });
+
+  it("History renders every kind and status the gateway sends, unknown ones and rows without items (owner bug 2026-11-05)", async () => {
+    const kinds = ["charge", "refund", "outstanding", "topup", "plan", "plan_change", "credit", "some_new_kind", undefined];
+    const statuses = [
+      "paid", "processing", "payment_needed", "refund_requested", "refunded", "partially_refunded", "disputed",
+      "refund_failed", "failed", "applied", "scheduled", "some_new_status", "", undefined,
+    ];
+    const odd: Record<string, unknown>[] = [];
+    let n = 0;
+    for (const kind of kinds) {
+      for (const status of statuses) {
+        n += 1;
+        odd.push({
+          row_id: `odd_${n}`,
+          ...(kind ? { kind } : {}),
+          created_at: `2026-11-0${(n % 5) + 1}T00:00:00Z`,
+          amount_cents: n * 100,
+          currency: "usd",
+          ...(status !== undefined ? { status } : {}),
+          // a third of the rows without items, some with an empty method
+          ...(n % 3 === 0 ? {} : { items: [] }),
+          ...(n % 4 === 0 ? { payment_method: {} } : n % 4 === 1 ? { payment_method: { label: "Visa •••• 4242" } } : {}),
+          ...(n % 2 === 0 ? { label: `Row ${n}` } : {}),
+          ...(kind === "plan" && n % 2 === 0
+            ? { lines: [{ description: "Studio plan", amount_cents: 1198800 }, { description: "Unused", amount_cents: -1000 }] }
+            : {}),
+          ...(kind === "credit" && n % 2 === 0 ? { credit: { cents: 500, kind: n % 4 === 0 ? "granted" : "brand_new_kind" } } : {}),
+          ...(kind === "plan_change" && status === "scheduled" ? { change: { from: "studio", to: "business", kind: "step_down" } } : {}),
+        });
+      }
+    }
+    mockDb.billing.planHistory = odd;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderBilling();
+    const history = await screen.findByTestId("history");
+    await waitFor(() => expect(within(history).getAllByRole("listitem").length).toBeGreaterThanOrEqual(25));
+    // no row fell back to its boundary, and the rest of the page is there
+    expect(screen.queryAllByTestId("section-failed")).toHaveLength(0);
+    expect(screen.getByTestId("payment-methods")).toBeTruthy();
+    // an unknown status reads as plain words
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    await waitFor(() => expect(screen.queryAllByTestId("section-failed")).toHaveLength(0));
+    // every page, then
+    for (let i = 0; i < 6 && screen.queryByRole("button", { name: "Show more" }); i++) {
+      fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Loading…" })).toBeNull());
+    }
+    expect(screen.getAllByTestId(/^row-odd_/)).toHaveLength(odd.length);
+    expect(screen.getAllByText("Some new status").length).toBeGreaterThan(0);
+    expect(screen.queryAllByTestId("section-failed")).toHaveLength(0);
+    errors.mockRestore();
+  });
+
+  it("a section that throws shows its own line; the rest of Billing stays", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    function Boom(): never {
+      throw new Error("boom");
+    }
+    render(
+      <div>
+        <SectionBoundary name="Payment methods">
+          <Boom />
+        </SectionBoundary>
+        <p>still here</p>
+      </div>,
+    );
+    expect(screen.getByTestId("section-failed").textContent).toContain("Payment methods: This part couldn't be shown.");
+    expect(screen.getByText("still here")).toBeTruthy();
+    errors.mockRestore();
   });
 
   it("nothing yet: no saved methods and no purchases", async () => {
