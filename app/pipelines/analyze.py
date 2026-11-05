@@ -53,6 +53,34 @@ def _strip_indices(num_frames: int, count: int) -> list[int]:
     return sorted({round(i * (num_frames - 1) / (count - 1)) for i in range(count)})
 
 
+POSTER_MIN_LUMA = 0.08    # mean luma (0–1) a poster frame must pass …
+POSTER_MIN_SPREAD = 0.03  # … and its luma spread (std): not a near-uniform frame
+
+
+def _luma_stats(path: Path) -> tuple[float, float] | None:
+    """Mean and std of a JPEG's luma, 0–1 (None when unreadable)."""
+    import cv2
+
+    img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if img is None or img.size == 0:
+        return None
+    return float(img.mean()) / 255.0, float(img.std()) / 255.0
+
+
+def _pick_poster_frame(samples: list[tuple[int, Path]], num_frames: int,
+                       stats=_luma_stats) -> int:
+    """The project's poster frame (thumbnail, black-bars before/after):
+    the first sampled frame, in time order, that isn't black or flat
+    (mean luma > POSTER_MIN_LUMA and spread > POSTER_MIN_SPREAD), else the
+    middle of the video. A video that opens on black (an end roll, a fade
+    in) otherwise shows an all-black card (3DS QA 2026-11-05)."""
+    for frame, path in samples:
+        st = stats(path)
+        if st is not None and st[0] > POSTER_MIN_LUMA and st[1] > POSTER_MIN_SPREAD:
+            return frame
+    return max(0, num_frames // 2)
+
+
 def _make_proxy(src: Path, dest: Path, short_side: int) -> None:
     """Frame-exact 1:1 proxy transcode (scale only — no fps/trim filters, so
     proxy frame n IS source frame n). Audio rides along (AAC) when the source
@@ -102,13 +130,13 @@ def _detect_scenes_inline(path: Path) -> list[dict]:
 
 
 def _extract_frames(src: Path, indices: list[int], height: int,
-                    out_dir: Path, prefix: str) -> list[dict]:
+                    out_dir: Path, prefix: str, with_paths: bool = False) -> list[dict]:
     """ffmpeg passes over the proxy: keep exactly the frames in
     ``indices``, scale to ``height``. Batched (SELECT_BATCH eq() terms per
     pass) — one giant select expression overflows ffmpeg's expression
     parser. Output files number 1..k in ascending frame order (select
     preserves order), so file n maps to indices[n-1].
-    Returns [{"frame", "url"}, …]."""
+    Returns [{"frame", "url"}, …] (with "path" when ``with_paths``)."""
     from app.common.storage import public_url
 
     if not indices:
@@ -131,7 +159,10 @@ def _extract_frames(src: Path, indices: list[int], height: int,
     for n, frame in enumerate(indices, start=1):
         f = out_dir / f"{prefix}_{n:05d}.jpg"
         if f.exists():  # tail indices past a short container count may miss
-            thumbs.append({"frame": frame, "url": public_url(f)})
+            t = {"frame": frame, "url": public_url(f)}
+            if with_paths:
+                t["path"] = f
+            thumbs.append(t)
     return thumbs
 
 
@@ -204,8 +235,11 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             thumbs_dir = job_output_dir(job_id) / "thumbs"
             strip = _extract_frames(
                 proxy, _strip_indices(probe["num_frames"], strip_count),
-                STRIP_HEIGHT, thumbs_dir, "strip",
+                STRIP_HEIGHT, thumbs_dir, "strip", with_paths=True,
             )
+            poster_frame = _pick_poster_frame(
+                [(t["frame"], t.pop("path")) for t in strip], probe["num_frames"])
+            poster = _extract_frames(proxy, [poster_frame], PROXY_SHORT_SIDE, thumbs_dir, "poster")
             # per-scene keyframe: the middle frame is more representative
             # than the first (cuts often land on transitions/black frames)
             mids = [(s["start"] + max(s["start"], s["end"] - 1)) // 2 for s in scenes]
@@ -239,6 +273,8 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
                 "scene_cuts": cuts,        # source-frame indices, /v1/videos-ready
                 "thumbnails": {
                     "strip": strip,
+                    # the project's picture: a non-black frame (h=480)
+                    "poster": poster[0] if poster else None,
                     "scenes": [
                         {"scene": i, **t} for i, t in enumerate(keyframes)
                     ],
@@ -246,7 +282,7 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             },
         )
         jlog.info(f"🏁 analyze completed: {len(scenes)} scene(s), "
-                  f"{len(strip)} strip + {len(keyframes)} scene thumb(s)")
+                  f"{len(strip)} strip + {len(keyframes)} scene thumb(s), poster frame {poster_frame}")
         return {"job_id": job_id, "status": jobs.COMPLETED, "scenes": len(scenes)}
 
     except Exception as exc:

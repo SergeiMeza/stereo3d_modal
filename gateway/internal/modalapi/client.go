@@ -199,6 +199,13 @@ type AnalyzeMetadata struct {
 			Frame int    `json:"frame"`
 			URL   string `json:"url"`
 		} `json:"scenes"`
+		// Poster: the project's picture, the first sampled frame that
+		// isn't black or flat (else mid-video), h=480; absent before
+		// 2026-11-05.
+		Poster *struct {
+			Frame int    `json:"frame"`
+			URL   string `json:"url"`
+		} `json:"poster"`
 	} `json:"thumbnails"`
 }
 

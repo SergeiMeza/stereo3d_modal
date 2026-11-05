@@ -1729,6 +1729,9 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 		resp["strip_thumbs"] = p.StripThumbs
 		resp["scene_thumbs"] = p.SceneThumbs
 	}
+	if poster := projectPoster(p); poster != nil {
+		resp["poster"] = poster
+	}
 	// S3D-24: files_delete_at only once a deletion is scheduled;
 	// files_deleted_at once they're gone.
 	if at := s.filesDeleteAtFor(p); at != nil {
@@ -1772,4 +1775,19 @@ func probeHeight(p *store.Project) int {
 		return 0
 	}
 	return p.Probe.Height
+}
+
+// projectPoster is the project's picture {frame, url}: analyze's
+// non-black frame, else (projects analyzed before 2026-11-05) the first
+// scene's keyframe as before; nil without thumbnails.
+func projectPoster(p *store.Project) *store.Thumb {
+	switch {
+	case p.Poster != nil && p.Poster.URL != "":
+		return p.Poster
+	case len(p.SceneThumbs) > 0:
+		return &p.SceneThumbs[0]
+	case len(p.StripThumbs) > 0:
+		return &p.StripThumbs[0]
+	}
+	return nil
 }

@@ -1015,6 +1015,10 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			for _, t := range meta.Thumbnails.Scenes {
 				pp.SceneThumbs = append(pp.SceneThumbs, store.Thumb{Frame: t.Frame, URL: t.URL})
 			}
+			pp.Poster = nil
+			if t := meta.Thumbnails.Poster; t != nil && t.URL != "" {
+				pp.Poster = &store.Thumb{Frame: t.Frame, URL: t.URL}
+			}
 			return nil
 		})
 		if uerr != nil {

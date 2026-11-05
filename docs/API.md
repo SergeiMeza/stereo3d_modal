@@ -59,7 +59,9 @@ On completion, `metadata` carries:
   "scene_cuts": [233, 610, ...],      // source frames, /v1/videos-ready
   "thumbnails": {
     "strip":  [ {"frame": 0, "url": "https://..."}, ... ],   // ~strip_count timeline tiles (h=90)
-    "scenes": [ {"scene": 0, "frame": 116, "url": "https://..."}, ... ]  // mid-frame keyframes (h=480)
+    "scenes": [ {"scene": 0, "frame": 116, "url": "https://..."}, ... ], // mid-frame keyframes (h=480)
+    "poster": {"frame": 24, "url": "https://..."}  // the project's picture (h=480): the first strip frame
+                                                   // with mean luma > 0.08 and std > 0.03, else mid-video
   }
 }
 ```

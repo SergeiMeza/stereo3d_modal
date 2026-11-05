@@ -579,6 +579,12 @@ first tier, window AND cap (the larger tab is for a good paid record).
 steps answer 402 `payment_method_needed` until the card is fixed and the
 retry (settle / pay-now) succeeds; quotes stay open; the mobile one-shot
 keeps `billing_overdue`; account deletion still collects dues first.
+Projects (list and GET) carry `poster {frame, url}` (3DS QA 2026-11-05):
+the project's picture for the card, the overview and the black-bars
+before/after, a non-black frame picked by analyze (the first strip frame
+with mean luma > 0.08 and std > 0.03, else mid-video, h=480). Projects
+analyzed before then read their first scene's keyframe, as
+`scene_thumbs[0]` did. `strip_thumbs` and `scene_thumbs` are unchanged.
 `GET /v1/projects` items gain `summary: {latest_state, latest_step,
 spent_cents}` (spent counts charged, pre-charged, batched and owed runs; not
 refunded or uncharged ones). `POST /v1/projects/{id}/delete` soft-deletes a

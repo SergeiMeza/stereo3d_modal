@@ -240,6 +240,9 @@ func projectFileTargets(p *store.Project, convs []*store.Conversion, envPrefix s
 	for _, t := range p.SceneThumbs {
 		addURL(t.URL)
 	}
+	if p.Poster != nil {
+		addURL(p.Poster.URL)
+	}
 	addJob(p.Analyze.JobID)
 	if p.Profile != nil {
 		addJob(p.Profile.JobID)
@@ -524,7 +527,7 @@ func (s *Service) purgeProjectFiles(ctx context.Context, p *store.Project, live 
 	}
 	if _, err := s.Store.UpdateProjectQuiet(ctx, p.ID, func(pp *store.Project) error {
 		pp.FilesDeletedAt = &now
-		pp.PreviewURL, pp.StripThumbs, pp.SceneThumbs, pp.DepthUpload = "", nil, nil, nil
+		pp.PreviewURL, pp.StripThumbs, pp.SceneThumbs, pp.Poster, pp.DepthUpload = "", nil, nil, nil, nil
 		return nil
 	}); err != nil {
 		slog.WarnContext(ctx, "file keeping: erased but not recorded", "project_id", p.ID, "err", err)

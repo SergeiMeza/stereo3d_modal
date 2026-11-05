@@ -259,7 +259,7 @@ func (s *Service) createSample(ctx context.Context, uid string, archived bool) (
 		Analyze:     store.Analyze{State: store.AnalyzeSucceeded},
 		Scenes:      &store.Scenes{Version: 1, Cuts: []int{}},
 		PreviewURL:  sampleCDN + "sunset-session-2d.mp4",
-		StripThumbs: thumbs, SceneThumbs: []store.Thumb{{Frame: 0, URL: samplePoster}},
+		StripThumbs: thumbs, SceneThumbs: []store.Thumb{{Frame: 0, URL: samplePoster}}, Poster: &store.Thumb{Frame: 0, URL: samplePoster},
 	}
 	if err := s.Store.CreateProject(ctx, p); err != nil {
 		return nil, false // a racing list made it

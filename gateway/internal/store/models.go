@@ -917,7 +917,10 @@ type Project struct {
 	PreviewURL     string  `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
 	StripThumbs    []Thumb `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
 	SceneThumbs    []Thumb `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
-	Archived       bool    `firestore:"archived" json:"archived"`
+	// Poster: the project's picture (card, overview, black-bars before and
+	// after), a non-black frame from analyze; nil before 2026-11-05.
+	Poster   *Thumb `firestore:"poster,omitempty" json:"-"`
+	Archived bool   `firestore:"archived" json:"archived"`
 	// Deleted: removed by the user (POST /v1/projects/{id}/delete, S3D-24).
 	// Soft delete: the API answers 404 for the project and its runs at
 	// once; the record stays, its stored files are purged
