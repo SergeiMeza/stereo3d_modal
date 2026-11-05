@@ -111,7 +111,7 @@ func TestPlanRowInterval(t *testing.T) {
 	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "month"}); rows[0].Plan.Interval != "monthly" {
 		t.Fatalf("price first %+v", rows[0].Plan)
 	}
-	for in, want := range map[int64]string{0: "$0.00", 5: "$0.05", 99900: "$999.00", 1198800: "$11,988.00", 123456789: "$1,234,567.89", -150000: "-$1,500.00"} {
+	for in, want := range map[int64]string{0: "$0.00", 5: "$0.05", 99900: "$999.00", 1198800: "$11,988.00", 1169263: "$11,692.63", 100000: "$1,000.00", 99999: "$999.99", 123456789: "$1,234,567.89", -150000: "-$1,500.00"} {
 		if got := money(in); got != want {
 			t.Fatalf("money(%d) = %q, want %q", in, got, want)
 		}

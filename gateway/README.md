@@ -272,15 +272,17 @@ confirmCardPayment fallback). The default card is cached on
   payment_needed (open) | failed | refunded | partially_refunded,
   `invoice {hosted_invoice_url, invoice_pdf}`, `receipt_url` and
   `payment_method` (the PaymentIntent that paid it), `plan {tier, plan_id?,
-  interval weekly|monthly|yearly, reason first|renewal|change|other,
+  interval weekly|monthly|yearly (from the plan line's price's recurring
+  interval; without it, the plan's own: Studio yearly), reason first|renewal|change|other,
   invoice_id, invoice_number}`, `lines [{description, amount_cents}]`.
   `kind: plan_change` (no money, `amount_cents` 0): a step-up (its
   invoice), an applied step-down (the new plan's first invoice), and one
   waiting for the period's end (`status: scheduled`): `label` "Business →
-  Studio", `change {from, to (a plan key or none), kind step_up |
+  Studio", `change {from, to (a plan key or pay_per_video), kind step_up |
   step_down | cancel, effective_at}`. `kind: credit` (no money): the
   plans' usage credit from the ledger, `label` "Usage credit added ·
-  $400.00", `credit {cents (+/−), kind granted | expired | removed |
+  $400.00" (thousands grouped: "$1,500.00", like every gateway amount
+  label and mail), `credit {cents (+/−), kind granted | expired | removed |
   frozen | unfrozen}`.
 
 ### Prepaid balance (spec v7.1 §N, web only)
@@ -1156,7 +1158,9 @@ is ignored without such a plan.
     grants run to then; at the switch invoice the new plan's grants start
     and a Business/Studio entitlement it doesn't include is revoked.
   - `GET /v1/billing` plan block and `GET /v1/pro` (Pro plans): 
-    `scheduled_change {to, effective_at}` or null. `DELETE
+    `scheduled_change {to, effective_at}` or null; `to` is a plan id or
+    `pay_per_video` after a cancel (never `none`; the preview and change
+    answer `pay_per_video` too). `DELETE
     /v1/plans/scheduled-change` takes it back ("Keep Studio").
 - **`GET /v1/pro`** for a Pro plan on our Stripe: `pro: true, source:
   "web", source_detail: "plan", plan_id, free_previews` from the plan,
