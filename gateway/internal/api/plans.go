@@ -87,7 +87,7 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		IdemKey:   fmt.Sprintf("plan_%s_%s_%s_%d", s.Cfg.Env, user.UID, req.Plan, time.Now().Unix()/60),
 	})
 	if err != nil {
-		httpx.Log(ctx).Error("plan session failed", "plan", req.Plan, "err", stripex.ErrMessage(err))
+		httpx.Log(ctx).Error("plan session failed", append([]any{"plan", req.Plan}, stripex.FactsOf(err).LogArgs()...)...)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be opened; try again"))
 		return
 	}
@@ -115,7 +115,7 @@ func (s *Service) HandleCancelPlan(w http.ResponseWriter, r *http.Request, user 
 	}
 	sub, err := s.Stripe.SetCancelAtPeriodEnd(cust.Plan.SubscriptionID, !req.Resume)
 	if err != nil {
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "couldn't change the plan; try again"))
+		httpx.WriteErr(ctx, w, planStripeFailure(ctx, "cancel_plan", err, "couldn't change the plan; try again"))
 		return
 	}
 	s.syncPlan(ctx, sub)

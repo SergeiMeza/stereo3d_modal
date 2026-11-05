@@ -268,7 +268,10 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 		return httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "that plan isn't available right now")
 	}
 	sub, err := s.Stripe.GetSubscription(p.SubscriptionID)
-	if err != nil || sub.ItemID() == "" {
+	if err != nil {
+		return planStripeFailure(ctx, "read_subscription", err, "couldn't read your plan; try again")
+	}
+	if sub.ItemID() == "" {
 		return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't read your plan; try again")
 	}
 	if p.ScheduleID != "" { // a waiting step-down gives way
@@ -281,7 +284,7 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 	if q.CreditCents > 0 {
 		desc := fmt.Sprintf("Unused time on %s", q.From.Name)
 		if creditItem, err = s.Stripe.AddPendingCredit(cust.StripeCustomerID, p.SubscriptionID, q.CreditCents, desc, key+"_credit"); err != nil {
-			return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't change the plan; try again")
+			return planStripeFailure(ctx, "add_credit", err, "couldn't change the plan; try again")
 		}
 	}
 	updated, err := s.Stripe.ChangePlan(stripex.PlanChange{SubscriptionID: p.SubscriptionID, ItemID: sub.ItemID(), PriceID: priceID,
@@ -292,10 +295,7 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 				s.Slack.Alert(ctx, "plan_change_credit_left", fmt.Sprintf("pending credit %s left after a failed change on %s: %v", creditItem, p.SubscriptionID, derr))
 			}
 		}
-		if stripex.PaymentRequired(err) {
-			return httpx.Err(http.StatusPaymentRequired, "payment_failed", "the payment didn't go through; your plan hasn't changed")
-		}
-		return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't change the plan; try again")
+		return planStripeFailure(ctx, "change_plan", err, "couldn't change the plan; try again")
 	}
 	s.syncPlan(ctx, updated)
 	s.Store.UpdateCustomer(ctx, sub.Metadata["user_id"], func(c *store.Customer) error {
@@ -317,7 +317,7 @@ func (s *Service) scheduleStepDown(ctx context.Context, uid string, cust *store.
 	if q.To.ID == planNone {
 		sub, err := s.Stripe.SetCancelAtPeriodEnd(p.SubscriptionID, true)
 		if err != nil {
-			return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't change the plan; try again")
+			return planStripeFailure(ctx, "cancel_at_period_end", err, "couldn't change the plan; try again")
 		}
 		s.syncPlan(ctx, sub)
 	} else {
@@ -332,7 +332,7 @@ func (s *Service) scheduleStepDown(ctx context.Context, uid string, cust *store.
 			if scheduleID != "" {
 				s.Stripe.ReleaseSchedule(scheduleID)
 			}
-			return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't schedule the change; try again")
+			return planStripeFailure(ctx, "schedule_step_down", err, "couldn't schedule the change; try again")
 		}
 	}
 	eff := q.EffectiveAt
@@ -356,14 +356,14 @@ func (s *Service) HandleCancelScheduledChange(w http.ResponseWriter, r *http.Req
 	p := cust.Plan
 	if p.ScheduleID != "" {
 		if err := s.Stripe.ReleaseSchedule(p.ScheduleID); err != nil {
-			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "couldn't keep your plan; try again"))
+			httpx.WriteErr(ctx, w, planStripeFailure(ctx, "release_schedule", err, "couldn't keep your plan; try again"))
 			return
 		}
 	}
 	if p.CancelAtPeriodEnd {
 		sub, err := s.Stripe.SetCancelAtPeriodEnd(p.SubscriptionID, false)
 		if err != nil {
-			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "couldn't keep your plan; try again"))
+			httpx.WriteErr(ctx, w, planStripeFailure(ctx, "resume", err, "couldn't keep your plan; try again"))
 			return
 		}
 		s.syncPlan(ctx, sub)
@@ -503,4 +503,32 @@ func (s *Service) planSwapEntitlement(ctx context.Context, uid, from, newTier st
 	if err := s.RevenueCat.RevokePromotionals(rctx, uid, from); err != nil {
 		s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` after a plan change: %v", from, uid, err))
 	}
+}
+
+// planStripeFailure logs what Stripe said (type, code, param, message; no
+// ids of the person) and answers with the reason the web shows
+// (7054f08): 402 payment_failed with the decline_code for a declined
+// card, or reason requires_action when the card needs confirming; any
+// other failure stays 502 payment_error with its message.
+func planStripeFailure(ctx context.Context, op string, err error, message string) *httpx.APIError {
+	f := stripex.FactsOf(err)
+	httpx.Log(ctx).Warn("plan stripe call failed", append([]any{"op", op}, f.LogArgs()...)...)
+	switch {
+	case f.RequiresAction():
+		e := httpx.Err(http.StatusPaymentRequired, "payment_failed", "your card needs confirming; your plan hasn't changed")
+		e.Details = map[string]any{"reason": "requires_action", "requires_action": true, "code": f.Code}
+		return e
+	case f.Status == http.StatusPaymentRequired || f.Declined():
+		e := httpx.Err(http.StatusPaymentRequired, "payment_failed", "the payment didn't go through; your plan hasn't changed")
+		e.Details = map[string]any{"reason": "card_declined", "code": f.Code}
+		if f.DeclineCode != "" {
+			e.Details["decline_code"] = f.DeclineCode
+		}
+		return e
+	}
+	e := httpx.Err(http.StatusBadGateway, "payment_error", message)
+	if f.Code != "" {
+		e.Details = map[string]any{"code": f.Code}
+	}
+	return e
 }

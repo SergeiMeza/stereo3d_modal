@@ -231,7 +231,7 @@ func (s *Subscription) ItemID() string {
 }
 
 // PlanChange swaps a subscription's price now (owner 2026-11-04): a full
-// new period from today (billing_cycle_anchor=now), no Stripe proration
+// new period from today (billing_cycle_anchor[type]=now), no Stripe proration
 // (the old plan's credit is ours, a pending invoice item made first), paid
 // at once; a payment that fails leaves the subscription as it was
 // (payment_behavior=error_if_incomplete, 402).
@@ -242,17 +242,27 @@ type PlanChange struct {
 	Metadata       map[string]string // plan, plan_id, changed_from
 }
 
-// ChangePlan applies it (key: one change per caller's key).
-func (c *Client) ChangePlan(pc PlanChange, key string) (*Subscription, error) {
+// changePlanForm is the update's body. Under 2026-10-28.endive the
+// subscription's billing_cycle_anchor is an object on update: the old
+// string form (billing_cycle_anchor=now) is refused with 400 "Invalid
+// object" (param billing_cycle_anchor), so the anchor goes as
+// billing_cycle_anchor[type]=now (checked in test mode 2026-11-05).
+func changePlanForm(pc PlanChange) url.Values {
 	f := url.Values{}
 	f.Set("items[0][id]", pc.ItemID)
 	f.Set("items[0][price]", pc.PriceID)
 	f.Set("proration_behavior", "none")
-	f.Set("billing_cycle_anchor", "now")
+	f.Set("billing_cycle_anchor[type]", "now")
 	f.Set("payment_behavior", "error_if_incomplete")
 	for k, v := range pc.Metadata {
 		f.Set("metadata["+k+"]", v)
 	}
+	return f
+}
+
+// ChangePlan applies it (key: one change per caller's key).
+func (c *Client) ChangePlan(pc PlanChange, key string) (*Subscription, error) {
+	f := changePlanForm(pc)
 	var sub Subscription
 	if err := webCall(http.MethodPost, "/v1/subscriptions/"+url.PathEscape(pc.SubscriptionID), f, key, &sub); err != nil {
 		return nil, err

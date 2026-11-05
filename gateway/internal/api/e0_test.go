@@ -37,6 +37,7 @@ type fakeStripe struct {
 	invItems       map[string]int64             // pending invoice item id → amount
 	schedules      map[string]map[string]string // schedule id → last phases form (and "released")
 	failNextChange bool                         // the next subscription update answers 402
+	changeError    map[string]any               // the next subscription update answers 402 with this Stripe error
 	sessionForms   []map[string]string          // POST /v1/checkout/sessions forms
 	customers      map[string]*fakeCustomer     // customer id → name, address, tax IDs, PO
 	expired        []string
@@ -148,6 +149,18 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.subs[id]["status"] = "canceled"
 		}
 		if r.Method == http.MethodPost && r.Form.Get("items[0][price]") != "" {
+			if _, old := r.Form["billing_cycle_anchor"]; old { // 2026-10-28.endive: the anchor is an object on update
+				w.WriteHeader(400)
+				write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "param": "billing_cycle_anchor", "message": "Invalid object"}})
+				return
+			}
+			if f.changeError != nil {
+				e := f.changeError
+				f.changeError = nil
+				w.WriteHeader(402)
+				write(map[string]any{"error": e})
+				return
+			}
 			if f.failNextChange {
 				f.failNextChange = false
 				w.WriteHeader(402)

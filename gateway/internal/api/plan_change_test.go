@@ -123,7 +123,7 @@ func TestStepUpSameInterval(t *testing.T) {
 	if charge != int64(prev["today_cents"].(float64)) {
 		t.Fatalf("charge %d != preview %v", charge, prev["today_cents"])
 	}
-	if up["billing_cycle_anchor"] != "now" || up["proration_behavior"] != "none" || up["payment_behavior"] != "error_if_incomplete" ||
+	if up["billing_cycle_anchor[type]"] != "now" || up["proration_behavior"] != "none" || up["payment_behavior"] != "error_if_incomplete" ||
 		up["metadata[plan]"] != "business" || up["metadata[changed_from]"] != "pro_monthly" || up["metadata[change_kind]"] != "step_up" {
 		t.Fatalf("update %v", up)
 	}
@@ -148,6 +148,39 @@ func TestStepUpPaymentFails(t *testing.T) {
 	code, out := f.post(f.s.HandlePlanChange, `{"to":"pro_monthly","confirm":true}`)
 	if code != 402 || out["error"] != "payment_failed" || len(f.fake.invItems) != 0 {
 		t.Fatalf("failed change %d %v items %v", code, out, f.fake.invItems)
+	}
+}
+
+// A failed payment says why (7054f08 maps it): the decline_code for a
+// declined card, requires_action when the card needs confirming; our
+// credit is always taken back.
+func TestStepUpFailureReasons(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		stripe  map[string]any
+		details map[string]any
+	}{
+		{"declined", map[string]any{"type": "card_error", "code": "card_declined", "decline_code": "insufficient_funds",
+			"message": "Your card has insufficient funds."},
+			map[string]any{"reason": "card_declined", "code": "card_declined", "decline_code": "insufficient_funds"}},
+		{"confirm", map[string]any{"type": "card_error", "code": "subscription_payment_intent_requires_action",
+			"message": "Payment for this subscription requires additional user action"},
+			map[string]any{"reason": "requires_action", "requires_action": true, "code": "subscription_payment_intent_requires_action"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newPlanFixture(t, "pro_weekly", "pro", 399, 3, 7)
+			f.fake.changeError = tc.stripe
+			code, out := f.post(f.s.HandlePlanChange, `{"to":"pro_monthly","confirm":true}`)
+			if code != 402 || out["error"] != "payment_failed" || len(f.fake.invItems) != 0 {
+				t.Fatalf("%d %v items %v", code, out, f.fake.invItems)
+			}
+			d, _ := out["details"].(map[string]any)
+			for k, v := range tc.details {
+				if d[k] != v {
+					t.Fatalf("details %v, want %s=%v", d, k, v)
+				}
+			}
+		})
 	}
 }
 

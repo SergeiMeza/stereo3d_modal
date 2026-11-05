@@ -1124,10 +1124,17 @@ is ignored without such a plan.
   - `POST /v1/plans/change {to, confirm: true, quote_at?}` → `{change,
     plan}`; 400 `confirm_required`; 409 `quote_expired` (quote_at older
     than 15 min), `same_plan`, `change_scheduled`; 402 `payment_failed`
-    (nothing changed). Business → Studio is a step-up like the others (a
+    (nothing changed) with `details {reason: "card_declined", code,
+    decline_code?}` or `{reason: "requires_action", requires_action: true,
+    code}` (the card needs confirming); any other Stripe failure 502
+    `payment_error` with `details {code?}`. Every Stripe failure on the
+    plan routes is logged with Stripe's type, code, decline code, param
+    and message (ids masked). Business → Studio is a step-up like the others (a
     full Studio year from that day).
   - **Step-up**: now, a full new period from today on every step-up
-    (`billing_cycle_anchor=now`, `proration_behavior=none`,
+    (`billing_cycle_anchor[type]=now`: under `2026-10-28.endive` the
+    anchor is an object on update and the string form answers 400
+    "Invalid object"; `proration_behavior=none`,
     `payment_behavior=error_if_incomplete`); today's charge = new price −
     `oldPlanCredit` = what the old period's plan line actually cost after
     discounts (an intro) × min(share of the period's time left, share of
