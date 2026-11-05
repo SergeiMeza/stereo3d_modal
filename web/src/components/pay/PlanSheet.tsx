@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { useBilling } from "@/lib/billing";
+import { awaitPlanCredit } from "@/lib/billing";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
@@ -87,7 +87,6 @@ export function PlanSheet({
   companyLink?: boolean;
 }): JSX.Element {
   const gateway = useGateway();
-  const billing = useBilling();
   const pro = useProStatus();
   const proNote = proNoteFor(pro, def.name);
   const big = useSheetFrame() === "headset";
@@ -127,7 +126,8 @@ export function PlanSheet({
   function handle(r: ConfirmResult, s: { secret: string; publishableKey?: string }): void {
     if (r === "paid" || r === "already_paid" || r === "processing") {
       setPhase({ kind: "done" });
-      void billing.refresh();
+      // the plan's usage lands a moment later: read until it shows
+      void awaitPlanCredit();
       if (!companyLink) timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
       return;
     }

@@ -9,7 +9,7 @@ import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import type { BillingStatus, Conversion } from "@/lib/api/types";
 import { prepaidOf } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
-import { BillingProvider } from "@/lib/billing";
+import { awaitPlanCredit, BillingProvider, PLAN_CREDIT_POLL_MAX_MS, PLAN_CREDIT_POLL_MS } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -114,6 +114,61 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
     renderBilling();
     await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$0.00"));
     expect(screen.queryByTestId("balance-expires")).toBeNull();
+  });
+
+  it("after a change, reads again until the plan's usage lands, then stops (latest wins)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      business(0);
+      let reads = 0;
+      server.events.on("request:start", ({ request }) => {
+        if (new URL(request.url).pathname === "/v1/billing") reads += 1;
+      });
+      renderBilling();
+      await waitFor(() => expect(screen.getByTestId("plan-credit").textContent).toBe("$0.00 of $400.00 usage left this month"));
+      // two waits: the second wins, one read every 2 s
+      void awaitPlanCredit();
+      void awaitPlanCredit();
+      await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MS * 2 + 50);
+      const before = reads;
+      // the webhook's grant lands
+      mockDb.billing.plan!.credit_left_cents = 40000;
+      await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MS + 50);
+      await waitFor(() => expect(screen.getByTestId("plan-credit").textContent).toBe("$400.00 of $400.00 usage left this month"));
+      expect(screen.getByTestId("balance-plan-usage").textContent).toContain("$400 left this month");
+      const landed = reads;
+      expect(landed - before).toBeLessThanOrEqual(2);
+      // and then no more reads
+      await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MAX_MS);
+      expect(reads).toBe(landed);
+    } finally {
+      server.events.removeAllListeners();
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up after 20 s when the usage never lands", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      business(0);
+      let reads = 0;
+      server.events.on("request:start", ({ request }) => {
+        if (new URL(request.url).pathname === "/v1/billing") reads += 1;
+      });
+      renderBilling();
+      await screen.findByTestId("plan-credit");
+      const start = reads;
+      void awaitPlanCredit();
+      await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MAX_MS + PLAN_CREDIT_POLL_MS * 2);
+      const done = reads - start;
+      expect(done).toBeGreaterThanOrEqual(PLAN_CREDIT_POLL_MAX_MS / PLAN_CREDIT_POLL_MS - 1);
+      expect(done).toBeLessThanOrEqual(PLAN_CREDIT_POLL_MAX_MS / PLAN_CREDIT_POLL_MS + 1);
+      await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MS * 3);
+      expect(reads - start).toBe(done);
+    } finally {
+      server.events.removeAllListeners();
+      vi.useRealTimers();
+    }
   });
 
   it("no plan: no plan line, the whole balance", async () => {

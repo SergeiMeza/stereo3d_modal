@@ -105,7 +105,8 @@ describe("step-downs", () => {
     );
     const notice = await screen.findByTestId("scheduled-change");
     expect(notice.textContent).toContain(
-      "Business starts on Jan 10, 2027. Your Studio stays on until then.",
+      // owner 2026-11-05: the dialog's own wording (nextPlanLine)
+      "Your Studio stays on until Jan 10, 2027. Business starts then at $299 a month.",
     );
     expect(
       within(card).queryByRole("button", { name: "Change plan" }),
@@ -241,7 +242,7 @@ describe("step-downs", () => {
     const notice = await screen.findByTestId("scheduled-change");
     await waitFor(() =>
       expect(notice.textContent).toContain(
-        "Pro Monthly starts on Nov 4, 2027. Your Pro Yearly stays on until then.",
+        "Your Pro Yearly stays on until Nov 4, 2027. Pro Monthly starts then.",
       ),
     );
     fireEvent.click(

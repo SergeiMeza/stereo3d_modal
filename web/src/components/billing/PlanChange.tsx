@@ -48,13 +48,13 @@ import {
 import type { AccountPlan, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
-import { useBilling } from "@/lib/billing";
+import { awaitPlanCredit, useBilling } from "@/lib/billing";
 import { planName as proPeriodName } from "@/lib/pro/plans";
 import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 
 import {
-  changeDate,
   isStepDown,
+  nextPlanLine,
   NOTHING_TODAY,
   REPRICED,
   stepDownLine,
@@ -79,6 +79,8 @@ interface Option {
   /** "Business", "Pro Monthly", or null for pay per video */
   name: string | null;
   per?: string;
+  /** what it costs each period, when known (team plans) */
+  cents?: number;
 }
 
 const PRO_PER = {
@@ -100,6 +102,7 @@ export function optionFor(
       id,
       name: def?.name ?? (id === "studio" ? "Studio" : "Business"),
       per: def ? planPrice(def).per : undefined,
+      cents: def ? planPrice(def).cents : undefined,
     };
   }
   return proNames.get(id) ?? { id, name: "Pro" };
@@ -165,6 +168,8 @@ export function PlanChangeMenu({
     if (!target || !preview) return;
     if ((await confirmChange({ scope: SCOPE, client: gateway })) === "done") {
       await billing.refresh();
+      // a step-up's usage lands a moment later: keep reading until it shows
+      void awaitPlanCredit();
       setTarget(null);
       closeChange(SCOPE);
     }
@@ -296,10 +301,8 @@ export function ScheduledChange({
     }
   }
 
-  const line =
-    sc && to?.name
-      ? `${to.name} starts on ${changeDate(sc.effective_at)}. Your ${current} stays on until then.`
-      : `Your ${current} ends on ${changeDate(sc?.effective_at ?? plan.current_period_end!)}. After that you pay per video.`;
+  // one wording with the change dialog (nextPlanLine)
+  const line = nextPlanLine(current, sc?.effective_at ?? plan.current_period_end, sc && to?.name ? to : null);
 
   return (
     <div

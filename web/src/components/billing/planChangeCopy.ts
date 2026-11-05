@@ -48,21 +48,34 @@ export function usageHandoverLine(
   return `Your remaining ${from} usage this month ends when ${to}'s ${formatCentsShort(toCreditCents)} starts.`;
 }
 
-/** "Your Studio stays on until Jan 10, 2027. Business starts then at $299
- * a month." — or "After that you pay per video." */
+/** What comes after the current plan, in one wording for the change
+ * dialog, the waiting-change card and the sheet's success (owner
+ * 2026-11-05: the dialog said pay per video while the card said Pro):
+ * "Your Studio stays on until Jan 10, 2027. Business starts then at $299 a
+ * month." / "… Pro Monthly starts then." / "… After that you pay per
+ * video." `next` null is pay per video; `cents` only when it's known. */
+export function nextPlanLine(
+  current: string,
+  untilIso: string | null | undefined,
+  next: { name: string | null; per?: string; cents?: number | null } | null,
+): string {
+  const until = untilIso ? changeDate(untilIso) : "the end of this period";
+  const then =
+    next === null || next.name === null
+      ? "After that you pay per video."
+      : typeof next.cents === "number" && next.cents > 0
+        ? `${next.name} starts then at ${formatCentsShort(next.cents)}${next.per ? ` ${next.per}` : ""}.`
+        : `${next.name} starts then.`;
+  return `Your ${current} stays on until ${until}. ${then}`;
+}
+
+/** The change dialog's step-down line, from the preview. */
 export function stepDownLine(
   current: string,
   to: { name: string; per?: string } | null,
   p: PlanChangePreview,
 ): string {
-  const until = p.effective_at
-    ? changeDate(p.effective_at)
-    : "the end of this period";
-  const next =
-    to === null
-      ? "After that you pay per video."
-      : `${to.name} starts then at ${formatCentsShort(p.new_plan_cents)}${to.per ? ` ${to.per}` : ""}.`;
-  return `Your ${current} stays on until ${until}. ${next}`;
+  return nextPlanLine(current, p.effective_at, to === null ? null : { ...to, cents: p.new_plan_cents });
 }
 
 export function isStepDown(p: PlanChangePreview): boolean {

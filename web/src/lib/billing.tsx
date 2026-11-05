@@ -19,6 +19,7 @@ import { atom } from "jotai";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 
+import { isTeamPlan } from "@/lib/api/types";
 import type { BillingStatus } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
@@ -66,6 +67,42 @@ export const refreshBillingAtom = atom(null, async (get, set): Promise<BillingSt
   }
 });
 
+/** Owner 2026-11-05: after a plan purchase or change the plan card read
+ * "$0.00 of $1,500.00 usage left" until a reload, because the usage grant
+ * lands a moment later (the payment's webhook). Read again every 2 s, for
+ * up to 20 s, until a team plan's usage left is above zero; the latest
+ * wait wins (a newer one, or another account, ends this one). */
+export const PLAN_CREDIT_POLL_MS = 2_000;
+export const PLAN_CREDIT_POLL_MAX_MS = 20_000;
+
+export const planCreditWaitAtom = atom(0);
+
+function creditArrived(s: BillingStatus | null): boolean {
+  const plan = s?.plan;
+  return !isTeamPlan(plan) || (plan.credit_left_cents ?? 0) > 0;
+}
+
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+export const awaitPlanCreditAtom = atom(null, async (get, set): Promise<void> => {
+  const mine = get(planCreditWaitAtom) + 1;
+  set(planCreditWaitAtom, mine);
+  const uid = get(billingUidAtom);
+  const until = Date.now() + PLAN_CREDIT_POLL_MAX_MS;
+  for (;;) {
+    const s = await set(refreshBillingAtom);
+    if (get(planCreditWaitAtom) !== mine || get(billingUidAtom) !== uid) return;
+    if (creditArrived(s) || Date.now() + PLAN_CREDIT_POLL_MS > until) return;
+    await pause(PLAN_CREDIT_POLL_MS);
+    if (get(planCreditWaitAtom) !== mine) return;
+  }
+});
+
+/** Read billing again now and until a plan's usage has landed. */
+export function awaitPlanCredit(): Promise<void> {
+  return appStore.set(awaitPlanCreditAtom);
+}
+
 /** Keeps the billing atoms on the signed-in account (layout, once). */
 export function BillingProvider({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
@@ -100,6 +137,7 @@ export function useBilling(): BillingContextValue {
 
 /** Test hook: signed out, nothing fetched, no fetch registered. */
 export function resetBillingForTests(): void {
+  appStore.set(planCreditWaitAtom, (n) => n + 1);
   appStore.set(billingAtom, null);
   appStore.set(billingUidAtom, null);
   fetchBilling = null;

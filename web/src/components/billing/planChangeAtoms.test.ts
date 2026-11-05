@@ -16,7 +16,7 @@ import {
   previewPlanChangeAtom,
   PREVIEW_TIMEOUT_MS,
 } from "./planChangeAtoms";
-import { planChangeError } from "./planChangeCopy";
+import { nextPlanLine, planChangeError, stepDownLine } from "./planChangeCopy";
 
 function preview(to: string, cents: number, quoteAt = "q1"): PlanChangePreview {
   return { to, today_cents: cents, quote_at: quoteAt } as PlanChangePreview;
@@ -173,5 +173,24 @@ describe("a failed change in plain words (owner 2026-11-05)", () => {
       busy: false,
       error: "Couldn't change your plan. Try again. Nothing was charged.",
     });
+  });
+});
+
+describe("what comes after the plan, one wording (owner 2026-11-05)", () => {
+  it("the dialog's step-down line and the card's line agree for the same next plan", () => {
+    const p = { to: "business", today_cents: 0, new_plan_cents: 29900, kind: "step_down", effective_at: "2027-01-10T12:00:00Z" } as PlanChangePreview;
+    const dialog = stepDownLine("Studio", { name: "Business", per: "a month" }, p);
+    const card = nextPlanLine("Studio", "2027-01-10T12:00:00Z", { name: "Business", per: "a month", cents: 29900 });
+    expect(dialog).toBe(card);
+    expect(card).toBe("Your Studio stays on until Jan 10, 2027. Business starts then at $299 a month.");
+    expect(stepDownLine("Studio", null, { ...p, to: "pay_per_video" })).toBe(
+      nextPlanLine("Studio", "2027-01-10T12:00:00Z", null),
+    );
+    expect(nextPlanLine("Studio", "2027-11-05T00:00:00Z", { name: "Pro Yearly" })).toBe(
+      "Your Studio stays on until Nov 5, 2027. Pro Yearly starts then.",
+    );
+    expect(nextPlanLine("Business", "2026-12-05T00:00:00Z", null)).toBe(
+      "Your Business stays on until Dec 5, 2026. After that you pay per video.",
+    );
   });
 });

@@ -145,7 +145,9 @@ describe("between Business and Studio (owner bug 2026-11-05)", () => {
     const main = screen.getByTestId("plan-change-main");
     expect(main.textContent).toMatch(/^Change to Business on [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
     fireEvent.click(main);
-    expect((await screen.findByTestId("pay-success")).textContent).toMatch(/^Business starts on .+\. Your Studio stays on until then\.$/);
+    expect((await screen.findByTestId("pay-success")).textContent).toMatch(
+      /^Your Studio stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. Business starts then at \$299 a month\.$/,
+    );
     await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("business"));
     expect(mockDb.billing.plan?.plan).toBe("studio");
   });
@@ -251,7 +253,8 @@ describe("Pricing 2026-11", () => {
     // gateway 00102: to pay_per_video, scheduled for the period's end
     await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("pay_per_video"));
     const notice = await within(card).findByTestId("scheduled-change");
-    expect(notice.textContent).toMatch(/^Your Business ends on /);
+    // the card and the dialog say the same (nextPlanLine)
+    expect(notice.textContent).toMatch(/^Your Business stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. After that you pay per video\./);
     fireEvent.click(within(notice).getByRole("button", { name: "Keep Business" }));
     await waitFor(() => expect(mockDb.billing.plan?.scheduled_change).toBeNull());
   });

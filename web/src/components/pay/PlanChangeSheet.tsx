@@ -27,6 +27,7 @@ import {
 import {
   changeDate,
   isStepDown,
+  nextPlanLine,
   NOTHING_TODAY,
   REPRICED,
   stepDownLine,
@@ -38,7 +39,7 @@ import { Button } from "@/components/ui/button";
 import { SheetFrame } from "@/components/ui/sheet-frame";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { useBilling } from "@/lib/billing";
+import { awaitPlanCredit } from "@/lib/billing";
 import { notifyProChanged } from "@/lib/pro/usePro";
 
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -65,7 +66,6 @@ export function PlanChangeSheet({
   onClose: (changed: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
-  const billing = useBilling();
   const change = useAtomValue(planChangeAtom(SCOPE));
   const preview = useSetAtom(previewPlanChangeAtom);
   const confirm = useSetAtom(confirmPlanChangeAtom);
@@ -91,10 +91,11 @@ export function PlanChangeSheet({
     // the gateway reads the Pro state again right after
     void gateway.refreshPro().catch(() => {});
     notifyProChanged();
-    void billing.refresh();
+    // the new plan's usage lands a moment later: read until it shows
+    void awaitPlanCredit();
     setDone(
       down && p
-        ? `${def.name} starts on ${p.effective_at ? changeDate(p.effective_at) : "your next renewal"}. Your ${from} stays on until then.`
+        ? nextPlanLine(from, p.effective_at, { name: def.name, per: price.per, cents: p.new_plan_cents })
         : planStarted(def),
     );
     timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
