@@ -51,6 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   methodOf,
+  posterUrl,
   type Project,
   type UpdateProjectRequest,
 } from "@/lib/api/types";
@@ -207,7 +208,7 @@ export function ProjectCard({
 
   const probe = project.probe;
   const thumb =
-    project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
+    posterUrl(project);
   const state = cardState(project);
   const method = methodOf(project);
   const href = `/projects/${project.project_id}`;

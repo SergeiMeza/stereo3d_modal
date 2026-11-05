@@ -255,6 +255,9 @@ export interface Project {
   files_deleted_at?: string;
   strip_thumbs?: Thumb[]; // ~100 timeline tiles (h=90)
   scene_thumbs?: Thumb[]; // mid-frame keyframe per scene (h=480)
+  /** gateway 00140: the first frame that isn't black or flat (the black
+   * bars kept), for cards and the Overview */
+  poster?: { frame: number; url: string } | null;
   /** present after the first successful pro video conversion */
   scene_profile?: SceneProfile;
   /** free standalone profiling job state (POST .../profile) */
@@ -1439,4 +1442,12 @@ export interface RunFormats {
   unavailable_reason?: RunFormatsUnavailable | string | null;
   price_cents: number;
   jobs?: Partial<Record<Format, RunFormatJob>> | null;
+}
+
+/** A project's picture: the gateway's poster (00140), else the first
+ * scene's keyframe, else the first timeline tile. */
+export function posterUrl(
+  p: Pick<Project, "poster" | "scene_thumbs" | "strip_thumbs">,
+): string | undefined {
+  return p.poster?.url ?? p.scene_thumbs?.[0]?.url ?? p.strip_thumbs?.[0]?.url;
 }

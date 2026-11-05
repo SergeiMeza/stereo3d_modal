@@ -813,6 +813,10 @@
       "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00077.jpg"
     }
   ],
+  "poster": {
+    "frame": 132,
+    "url": "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/outputs/d4cc0ceff0a5/thumbs/scene_00001.jpg"
+  },
   "created_at": "2026-07-02T06:55:00Z",
   "updated_at": "2026-07-02T07:00:00Z"
 }

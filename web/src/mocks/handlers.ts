@@ -697,6 +697,7 @@ function seedSample(): void {
     probe: { ...p.probe!, width: 3840, height: 2160, fps, fps_rational: "25/1", duration_s: dur, num_frames: Math.round(dur * fps) },
     scenes: { ...p.scenes!, cuts: [] },
     scene_thumbs: [{ frame: 0, url: poster }],
+    poster: { frame: 0, url: poster },
     strip_thumbs: Array.from({ length: 30 }, (_, k) => ({ frame: Math.round((k * dur * fps) / 30), url: poster })),
     summary: { latest_state: "succeeded", latest_step: "production", spent_cents: 0 },
   });
@@ -3963,6 +3964,7 @@ export const handlers = [
       scenes: undefined,
       strip_thumbs: undefined,
       scene_thumbs: undefined,
+      poster: undefined,
       archived: false,
     };
     mockDb.projects.set(id, project);
@@ -4010,6 +4012,7 @@ export const handlers = [
           crop: t.crop,
           strip_thumbs: t.strip_thumbs,
           scene_thumbs: t.scene_thumbs,
+          poster: t.poster,
         });
         mockDb.analyzeTicks.delete(p.project_id);
       }

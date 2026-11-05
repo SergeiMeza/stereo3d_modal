@@ -31,7 +31,7 @@ import {
 import projectFixture from "../../fixtures/project.json";
 import { maxDurationFor } from "@/components/projects/UploadDropzone";
 import { GatewayClient, GatewayError } from "@/lib/api/client";
-import type { Project } from "@/lib/api/types";
+import { posterUrl, type Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
@@ -106,6 +106,19 @@ describe("ProjectsScreen list", () => {
     expect(within(box).queryByTestId("card-spent")).toBeNull();
     expect(box.textContent).not.toMatch(/\$|spent/i);
     void FIXTURE_SCENES;
+  });
+
+  it("the card shows the gateway's poster over the first scene's frame (gateway 00140)", async () => {
+    const p = mockDb.projects.get(FIXTURE_ID)!;
+    p.poster = { frame: 48, url: "https://example.test/poster.jpg" };
+    renderScreen();
+    const card = await screen.findByTestId("project-card");
+    await waitFor(() => expect(card.querySelector("img")?.getAttribute("src")).toBe("https://example.test/poster.jpg"));
+    expect(posterUrl({ poster: null, scene_thumbs: [{ frame: 1, url: "scene.jpg" }] })).toBe("scene.jpg");
+    expect(posterUrl({ scene_thumbs: [], strip_thumbs: [{ frame: 0, url: "tile.jpg" }] })).toBe("tile.jpg");
+    expect(
+      posterUrl({ poster: { frame: 48, url: "poster.jpg" }, scene_thumbs: [{ frame: 1, url: "scene.jpg" }] }),
+    ).toBe("poster.jpg");
   });
 
   it("past the free limits: the limits notice with Add payment method (P11)", async () => {

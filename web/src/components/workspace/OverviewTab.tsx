@@ -21,6 +21,7 @@ import { useVariantQuotes } from "@/components/steps/priceAtoms";
 import { Button } from "@/components/ui/button";
 import {
   methodOf,
+  posterUrl,
   type Method,
   type Project,
   type StepConversionRequest,
@@ -122,7 +123,7 @@ export function OverviewTab({
   const probe = project.probe;
   const analyzed = project.analyze.state === "succeeded" && !!probe;
   const thumb =
-    project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
+    posterUrl(project);
   const own = quotes[method];
   const ownPrice = priceAndTime(own);
   const steps = useOverviewSteps(project, {

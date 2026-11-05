@@ -15,7 +15,7 @@ import { useState } from "react";
 import type { CSSProperties, JSX } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { Project } from "@/lib/api/types";
+import { posterUrl, type Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { barSides, barsNotice, removesBars, sizeWithoutBars } from "@/lib/bars";
 
@@ -159,7 +159,7 @@ function BeforeAfter({ project, removing }: { project: Project; removing: boolea
   const probe = project.probe;
   const c = parseCrop(project.crop);
   if (!probe || !c) return null;
-  const thumb = project.scene_thumbs?.[0]?.url ?? project.strip_thumbs?.[0]?.url;
+  const thumb = posterUrl(project);
   const frame = (aspect: number, inner: CSSProperties | null, label: string) => (
     <figure className="flex flex-col items-center gap-1">
       <div
