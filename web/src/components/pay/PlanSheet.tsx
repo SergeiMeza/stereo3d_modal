@@ -7,6 +7,7 @@
  */
 
 import { LockIcon } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
@@ -68,14 +69,22 @@ export function planSubtitle(def: PlanDef): string {
   return `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time; it runs to the end of the paid ${period}`;
 }
 
+/** The setup welcome's optional link, word for word (BusinessSetup). */
+export const COMPANY_LINK = "Add your company details for invoices";
+
 export function PlanSheet({
   plan,
   def,
   onClose,
+  companyLink = false,
 }: {
   plan: "business" | "studio";
   def: PlanDef;
   onClose: (started: boolean) => void;
+  /** /pricing (owner 2026-11-05): no welcome follows, so the success
+   * screen carries the welcome's optional company details link and stays
+   * until closed */
+  companyLink?: boolean;
 }): JSX.Element {
   const gateway = useGateway();
   const billing = useBilling();
@@ -119,7 +128,7 @@ export function PlanSheet({
     if (r === "paid" || r === "already_paid" || r === "processing") {
       setPhase({ kind: "done" });
       void billing.refresh();
-      timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
+      if (!companyLink) timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
       return;
     }
     if (r === "redirect") return;
@@ -205,7 +214,20 @@ export function PlanSheet({
   return (
     <SheetFrame open onClose={() => onClose(phase.kind === "done")} testId="plan-sheet" title={title}>
       {phase.kind === "done" ? (
-        <Success text={planStarted(def)} />
+        <>
+          <Success text={planStarted(def)} />
+          {companyLink ? (
+            <p className="text-center text-sm text-fg-muted">
+              <Link
+                href="/account/business-details"
+                data-testid="plan-company-link"
+                className="text-primary hover:underline"
+              >
+                {COMPANY_LINK}
+              </Link>
+            </p>
+          ) : null}
+        </>
       ) : phase.kind === "error" ? (
         <StateLine testId="plan-error" text={phase.text} />
       ) : (

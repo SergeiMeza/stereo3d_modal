@@ -43,7 +43,7 @@ import {
 import { StepUpDetails } from "@/components/billing/StepUpDetails";
 import { REPRICED } from "@/components/billing/planChangeCopy";
 import { WELCOME_DEVICES } from "@/components/onboarding/WelcomeDialog";
-import { PlanSheet } from "@/components/pay/PlanSheet";
+import { COMPANY_LINK, PlanSheet } from "@/components/pay/PlanSheet";
 import { ContactSalesForm } from "@/components/plans/ContactSalesForm";
 import { isCompanyEmail, usePlanTier } from "@/components/plans/upsell";
 import { planPrice } from "@/components/pricing/planCopy";
@@ -631,7 +631,7 @@ export function BusinessSetup(): JSX.Element {
               data-testid="setup-company-link"
               className="text-primary hover:underline"
             >
-              Add your company details for invoices
+              {COMPANY_LINK}
             </Link>
           </p>
           <Footer>

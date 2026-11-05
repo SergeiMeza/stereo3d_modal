@@ -107,6 +107,13 @@ describe("Pricing 2026-11", () => {
     fireEvent.click(screen.getByTestId("plan-main"));
     expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
     expect(mockDb.billing.plan?.plan).toBe("business");
+    // owner 2026-11-05: the welcome's optional link, and the screen waits
+    // for it (no welcome follows on /pricing)
+    const link = screen.getByTestId("plan-company-link");
+    expect(link.textContent).toBe("Add your company details for invoices");
+    expect(link.getAttribute("href")).toBe("/account/business-details");
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(screen.getByTestId("plan-company-link")).toBeTruthy();
     cleanup();
     render(
       <AuthProvider>

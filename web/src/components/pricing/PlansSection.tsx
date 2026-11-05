@@ -128,7 +128,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
         webPro ? (
           <PlanChangeSheet plan={open} def={plans[open]!} from={proName} onClose={() => setOpen(null)} />
         ) : (
-          <PlanSheet plan={open} def={plans[open]!} onClose={() => setOpen(null)} />
+          <PlanSheet plan={open} def={plans[open]!} companyLink onClose={() => setOpen(null)} />
         )
       ) : null}
     </section>
