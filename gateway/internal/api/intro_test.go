@@ -32,6 +32,7 @@ func TestLifelikeIntro(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
 	rates := pricing.DefaultsFor("test")
+	rates.LifelikeIntroEnabled = false // on by default on test; the off case first
 	s.Pricing = pricing.NewStatic(rates)
 	uid := "u" + store.NewID()
 	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1", LifelikeIntroOff: true})
