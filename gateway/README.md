@@ -408,6 +408,15 @@ POST  /v1/projects/{id}/conversions    paid step conversion (depth_preview |
 DELETE /v1/projects/{id}               archive + cancel active conversions
 ```
 
+An analyze never stays running (2026-11-05): when its Modal job failed,
+was canceled or lost (404), its call history expired before it recorded
+an end, or it still reads running 2 h 15 min after it started (Modal stops
+the function at 2 h), the GET read-through or the 1-minute reconcile runs
+it once more on the same source under the same project (`analyze.retries`),
+then marks it failed (the Retry button re-runs it). Analyze writes its
+thumbnails on the container's disk and copies them to the bucket 16 at a
+time (one by one onto the bucket mount cost ~3.5 s each).
+
 The analyze step is free outright. (`analyze_credit_cents`, default 0 since
 2026-08-31, can re-enable the legacy credit-back: a discount on the
 project's first paid conversion, restored if that conversion ends without a

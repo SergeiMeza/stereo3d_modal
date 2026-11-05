@@ -796,6 +796,9 @@ type Analyze struct {
 	// ends without capture.
 	CreditCents      int64  `firestore:"credit_cents" json:"credit_cents"`
 	CreditConsumedBy string `firestore:"credit_consumed_by,omitempty" json:"-"`
+	// Retries: automatic re-runs after the analyze call ended without a
+	// result (failed, lost, or past the hard cap); one, then failed.
+	Retries int `firestore:"retries,omitempty" json:"-"`
 }
 
 // ProfileJob tracks the FREE standalone shot-profiling job (the Stereo

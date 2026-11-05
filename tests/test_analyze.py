@@ -75,3 +75,19 @@ def test_luma_stats_reads_jpegs(tmp_path):
     mean, std = _luma_stats(noise)
     assert 0.3 < mean < 0.7 and std > 0.1
     assert _luma_stats(tmp_path / "nope.jpg") is None
+
+
+def test_publish_copies_every_file(tmp_path):
+    from app.pipelines.analyze import _publish
+
+    src = tmp_path / "local"
+    src.mkdir()
+    files = []
+    for i in range(40):
+        f = src / f"strip_{i:05d}.jpg"
+        f.write_bytes(bytes([i]) * 10)
+        files.append(f)
+    dest = tmp_path / "bucket" / "thumbs"
+    _publish(files, dest)
+    assert sorted(p.name for p in dest.iterdir()) == sorted(f.name for f in files)
+    assert (dest / "strip_00007.jpg").read_bytes() == bytes([7]) * 10

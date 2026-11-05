@@ -59,6 +59,9 @@ type Job struct {
 	// video jobs carry probe/crop/av_sync/...). Decode per use.
 	Metadata json.RawMessage `json:"metadata"`
 	Error    string          `json:"error"`
+	// CreatedAt, UpdatedAt: the job record's unix times (0 when absent).
+	CreatedAt float64 `json:"created_at"`
+	UpdatedAt float64 `json:"updated_at"`
 	// ErrorCode: Lifelike's code for a failure the gateway can name
 	// (today source_dolby_vision_unsupported); "" otherwise.
 	ErrorCode string `json:"error_code"`

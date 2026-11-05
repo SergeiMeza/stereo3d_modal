@@ -9,6 +9,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,7 +44,12 @@ const (
 	paidTTL       = 2 * time.Hour    // paid but unsubmittable → fail + release hold
 	processingTTL = 24 * time.Hour   // hard ceiling (Modal orchestrator cap is 8h)
 	analyzeTTL    = 3 * time.Hour    // analyze polls failing this long → fail (Modal's cap is 2h)
-	uploadURLTTL  = 15 * time.Minute
+	// analyzeHardCap: an analyze job still "running" this long after it
+	// started has ended without telling (Modal stops the function at 2 h;
+	// a call whose history expired never updates its record).
+	analyzeHardCap = 2*time.Hour + 15*time.Minute
+	analyzeRetries = 1 // automatic re-runs before an ended analyze fails
+	uploadURLTTL   = 15 * time.Minute
 	// resumableSessionTTL is how long storage keeps a resumable upload
 	// session open.
 	resumableSessionTTL = 7 * 24 * time.Hour
@@ -921,14 +928,20 @@ func (s *Service) restoreCredit(ctx context.Context, conv *store.Conversion) {
 // result (probe, scenes, thumbnails, crop) into the project doc. Shared by
 // GET read-through and the reconciler sweep.
 func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.Project, error) {
-	if p.Analyze.State != store.AnalyzeRunning || p.Analyze.JobID == "" {
+	if p.Analyze.State != store.AnalyzeRunning {
+		return p, nil
+	}
+	if p.Analyze.JobID == "" { // running without a job: never submitted
+		if !p.CreatedAt.IsZero() && time.Since(p.CreatedAt) > analyzeHardCap {
+			return s.analyzeEnded(ctx, p, "running without an analyze job past "+analyzeHardCap.String())
+		}
 		return p, nil
 	}
 	job, err := s.projectJob(ctx, p, p.Analyze.JobID)
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
-			return s.failAnalyze(ctx, p, "job record lost upstream (404)")
+			return s.analyzeEnded(ctx, p, "job record lost upstream (404)")
 		}
 		if time.Since(p.UpdatedAt) > analyzeTTL {
 			// Modal's analyze function stops at 2 h; a job that could not be
@@ -1027,9 +1040,12 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		slog.InfoContext(ctx, "analyze succeeded",
 			"project_id", p.ID, "scenes", len(meta.SceneCuts)+1, "cost_usd", job.CostSummary.TotalUSD)
 		return updated, nil
-	case "failed":
-		return s.failAnalyze(ctx, p, job.Error)
+	case "failed", "canceled":
+		return s.analyzeEnded(ctx, p, cmp.Or(job.Error, "analyze job "+job.Status))
 	default:
+		if reason := analyzeStuck(job, time.Now()); reason != "" {
+			return s.analyzeEnded(ctx, p, reason)
+		}
 		// Still running — surface live progress to the caller (transient;
 		// see store.Analyze).
 		pp := *p
@@ -1130,6 +1146,57 @@ func formatMinSec(seconds float64) string {
 		return fmt.Sprintf("%dm", m)
 	}
 	return fmt.Sprintf("%dm %ds", m, sec)
+}
+
+// analyzeStuck says why a job that reads running has in fact ended: past
+// the hard cap since it started, or its Modal call's history expired
+// before it recorded an end ("" while it may still be running).
+func analyzeStuck(job *modalapi.Job, now time.Time) string {
+	if job.CreatedAt > 0 {
+		started := time.Unix(int64(job.CreatedAt), 0)
+		if now.Sub(started) > analyzeHardCap {
+			return "analyze job still " + cmp.Or(job.Status, "running") + " past " + analyzeHardCap.String()
+		}
+	}
+	if strings.Contains(job.Error, "call history expired") {
+		return job.Error
+	}
+	return ""
+}
+
+// analyzeEnded: the analyze call ended without a result. The first time
+// it runs again under the same project (a new job on the same source);
+// after analyzeRetries it fails, so a project never stays analyzing.
+func (s *Service) analyzeEnded(ctx context.Context, p *store.Project, reason string) (*store.Project, error) {
+	if p.Analyze.Retries >= analyzeRetries || p.Source.GCSKey == "" {
+		return s.failAnalyze(ctx, p, reason)
+	}
+	ws, err := s.projectWorkspace(p)
+	if err != nil {
+		return s.failAnalyze(ctx, p, reason+"; no workspace to re-run: "+err.Error())
+	}
+	resp, err := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
+	if err != nil {
+		slog.WarnContext(ctx, "analyze re-run not submitted", "project_id", p.ID, "reason", reason, "err", err)
+		return p, nil // the next sweep tries again
+	}
+	old := p.Analyze.JobID
+	updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
+		if pp.Analyze.State != store.AnalyzeRunning || pp.Analyze.JobID != old {
+			return store.ErrStateConflict // another poll got there first
+		}
+		pp.Analyze.JobID, pp.Analyze.Retries, pp.Analyze.Error = resp.JobID, pp.Analyze.Retries+1, ""
+		return nil
+	})
+	if uerr != nil {
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
+		if errors.Is(uerr, store.ErrStateConflict) {
+			return s.Store.GetProject(ctx, p.ID)
+		}
+		return nil, uerr
+	}
+	slog.WarnContext(ctx, "analyze re-run", "project_id", p.ID, "reason", reason, "old_job", old, "job", resp.JobID)
+	return updated, nil
 }
 
 func (s *Service) failAnalyze(ctx context.Context, p *store.Project, internalErr string) (*store.Project, error) {

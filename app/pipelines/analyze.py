@@ -129,14 +129,33 @@ def _detect_scenes_inline(path: Path) -> list[dict]:
     return scenes
 
 
+COPY_WORKERS = 16         # parallel thumbnail copies to the bucket mount
+
+
+def _publish(files: list[Path], dest_dir: Path) -> None:
+    """Copy local files into the bucket mount, in parallel. Each new object
+    on the mount costs a round trip (observed 2026-11-05: ~3.5 s apiece on
+    a 6 s clip, 100 strip tiles = 5.7 min when ffmpeg wrote them there one
+    by one)."""
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(max_workers=COPY_WORKERS) as pool:
+        list(pool.map(lambda f: shutil.copyfile(f, dest_dir / f.name), files))
+
+
 def _extract_frames(src: Path, indices: list[int], height: int,
-                    out_dir: Path, prefix: str, with_paths: bool = False) -> list[dict]:
+                    out_dir: Path, prefix: str, with_paths: bool = False,
+                    publish_dir: Path | None = None) -> list[dict]:
     """ffmpeg passes over the proxy: keep exactly the frames in
     ``indices``, scale to ``height``. Batched (SELECT_BATCH eq() terms per
     pass) — one giant select expression overflows ffmpeg's expression
     parser. Output files number 1..k in ascending frame order (select
-    preserves order), so file n maps to indices[n-1].
-    Returns [{"frame", "url"}, …] (with "path" when ``with_paths``)."""
+    preserves order), so file n maps to indices[n-1]. With ``publish_dir``
+    the frames are written to ``out_dir`` (local) and copied there in
+    parallel; the urls are the published ones.
+    Returns [{"frame", "url"}, …] (with the local "path" when ``with_paths``)."""
     from app.common.storage import public_url
 
     if not indices:
@@ -155,14 +174,16 @@ def _extract_frames(src: Path, indices: list[int], height: int,
             ],
             check=True,
         )
+    made = [(frame, out_dir / f"{prefix}_{n:05d}.jpg") for n, frame in enumerate(indices, start=1)]
+    made = [(frame, f) for frame, f in made if f.exists()]  # tail indices past a short container count may miss
+    if publish_dir is not None:
+        _publish([f for _, f in made], publish_dir)
     thumbs = []
-    for n, frame in enumerate(indices, start=1):
-        f = out_dir / f"{prefix}_{n:05d}.jpg"
-        if f.exists():  # tail indices past a short container count may miss
-            t = {"frame": frame, "url": public_url(f)}
-            if with_paths:
-                t["path"] = f
-            thumbs.append(t)
+    for frame, f in made:
+        t = {"frame": frame, "url": public_url(publish_dir / f.name if publish_dir is not None else f)}
+        if with_paths:
+            t["path"] = f
+        thumbs.append(t)
     return thumbs
 
 
@@ -232,18 +253,24 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             jobs.update_job(job_id, progress=0.7, stage="thumbnails")
             strip_count = int(request.get("strip_count", DEFAULT_STRIP_COUNT))
             strip_count = max(10, min(strip_count, MAX_STRIP_COUNT))
+            # written locally, then copied to the bucket in parallel
             thumbs_dir = job_output_dir(job_id) / "thumbs"
+            import tempfile
+
+            local_thumbs = Path(tempfile.mkdtemp(prefix=f"thumbs_{job_id}_"))  # container disk
             strip = _extract_frames(
                 proxy, _strip_indices(probe["num_frames"], strip_count),
-                STRIP_HEIGHT, thumbs_dir, "strip", with_paths=True,
+                STRIP_HEIGHT, local_thumbs, "strip", with_paths=True, publish_dir=thumbs_dir,
             )
             poster_frame = _pick_poster_frame(
                 [(t["frame"], t.pop("path")) for t in strip], probe["num_frames"])
-            poster = _extract_frames(proxy, [poster_frame], PROXY_SHORT_SIDE, thumbs_dir, "poster")
+            poster = _extract_frames(proxy, [poster_frame], PROXY_SHORT_SIDE, local_thumbs, "poster",
+                                     publish_dir=thumbs_dir)
             # per-scene keyframe: the middle frame is more representative
             # than the first (cuts often land on transitions/black frames)
             mids = [(s["start"] + max(s["start"], s["end"] - 1)) // 2 for s in scenes]
-            keyframes = _extract_frames(proxy, mids, PROXY_SHORT_SIDE, thumbs_dir, "scene")
+            keyframes = _extract_frames(proxy, mids, PROXY_SHORT_SIDE, local_thumbs, "scene",
+                                        publish_dir=thumbs_dir)
 
             # Publish the proxy as a browser-playable preview: h264/mp4 plays
             # everywhere (the SOURCE may be AV1/HEVC and unplayable in the
@@ -254,6 +281,7 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             preview_path = job_output_dir(job_id) / "preview.mp4"
             shutil.copyfile(proxy, preview_path)
             proxy.unlink(missing_ok=True)
+            shutil.rmtree(local_thumbs, ignore_errors=True)
 
         jobs.update_job(
             job_id,
