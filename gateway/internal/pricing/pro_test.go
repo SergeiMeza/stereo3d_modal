@@ -69,3 +69,14 @@ func TestProDiscount(t *testing.T) {
 		t.Error("pct override")
 	}
 }
+
+// The brand intro (BL-25) is on by default on test only; prod waits for
+// the Lifelike prod launch.
+func TestIntroDefaultTestOnly(t *testing.T) {
+	if !DefaultsFor("test").LifelikeIntroEnabled {
+		t.Error("test should send the intro by default")
+	}
+	if DefaultsFor("prod").LifelikeIntroEnabled {
+		t.Error("prod should stay off")
+	}
+}

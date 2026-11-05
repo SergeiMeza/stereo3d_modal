@@ -793,7 +793,8 @@ func Defaults() *Rates { return defaults() }
 
 // DefaultsFor is the code defaults of an environment: test switches on
 // what is being tried there before prod — every Lifelike size including
-// 5K-8K, foveation (S3D-50) and the Pro discount (S3D-67). A key in
+// 5K-8K, foveation (S3D-50), the Pro discount (S3D-67) and the brand
+// intro (BL-25). A key in
 // config/pricing_{env} still overrides each.
 func DefaultsFor(env string) *Rates {
 	r := defaults()
@@ -802,6 +803,7 @@ func DefaultsFor(env string) *Rates {
 		r.FoveationEnabled = true
 		r.ProDiscountEnabled = true
 		r.LifelikeSourceCropEnabled = true // BL-03
+		r.LifelikeIntroEnabled = true      // BL-25, live on lifelike3d-test
 		applyTestTierDefaults(r)           // 2026-11 pricing, test only
 	}
 	return r
