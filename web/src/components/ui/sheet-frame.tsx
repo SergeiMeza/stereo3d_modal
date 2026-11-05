@@ -109,7 +109,7 @@ export function SheetFrame({
                 {title}
               </DialogPrimitive.Title>
               {subtitle ? (
-                <p className={`mt-0.5 truncate text-fg-muted ${big ? "text-xl" : "text-xs"}`}>
+                <p className={`mt-0.5 line-clamp-2 break-words text-fg-muted ${big ? "text-xl" : "text-xs"}`}>
                   {subtitle}
                 </p>
               ) : null}
