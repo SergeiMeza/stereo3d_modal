@@ -169,7 +169,14 @@ function stem(filename: string): string {
   return filename.replace(/\.[^.]+$/, "");
 }
 
-export function UploadDropzone() {
+export const FIRST_PROJECT = "Drop a video to start your first project";
+
+export function UploadDropzone({
+  first = false,
+}: {
+  /** no projects yet: the drop zone is the empty state too (owner 2026-11-05) */
+  first?: boolean;
+} = {}) {
   const gateway = useGateway();
   const createdProject = useAppSetAtom(projectCreatedAtom);
   const router = useRouter();
@@ -332,13 +339,14 @@ export function UploadDropzone() {
   return (
     <div
       data-testid="upload-dropzone"
+      data-first={first || undefined}
       onDragOver={(e) => {
         e.preventDefault();
         if (!busy) setDragActive(true);
       }}
       onDragLeave={() => setDragActive(false)}
       onDrop={handleDrop}
-      className={`rounded-lg border border-dashed p-6 transition-colors ${
+      className={`rounded-lg border border-dashed ${first ? "p-8" : "p-6"} transition-colors ${
         dragActive ? "border-primary bg-surface-2" : "border-edge bg-surface-1"
       }`}
     >
@@ -352,8 +360,8 @@ export function UploadDropzone() {
         onChange={handleChange}
       />
       <div className="flex flex-col items-center gap-2 text-center">
-        <p className="text-fg">
-          Drag &amp; drop a video to start a project
+        <p className={first ? "font-medium text-fg" : "text-fg"}>
+          {first ? FIRST_PROJECT : "Drag & drop a video to start a project"}
         </p>
         <p data-testid="upload-limits" className="text-xs text-fg-muted">
           .mp4, .mov, .m4v or .webm · {lengthLimits(limits, pricing)}

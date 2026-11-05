@@ -11,88 +11,111 @@
  * for 30 days (kept on the account).
  */
 
-import { X } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { formatCentsShort } from "@/components/steps/money";
-import { Button } from "@/components/ui/button";
 import { ContactSalesForm } from "./ContactSalesForm";
+import { NUDGE_SURFACE, PlanNudge } from "./PlanNudge";
+import { companyAtom, loadCompanyAtom } from "@/components/billing/billingHistoryAtoms";
+import { prepaidOf } from "@/lib/api/types";
+import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
+import { billingUidAtom, useBilling } from "@/lib/billing";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import {
   isCompanyEmail,
+  type SurfaceReason,
   useDismissal,
   usePaywallEvents,
   usePlanTier,
   useViewEvent,
 } from "./upsell";
 
+/** A month's spend that looks like Business work (half its usage). */
+export const BUSINESS_SIZED_CENTS = 20_000;
+
+/** Whether the account looks like a business (owner 2026-11-05): a
+ * company email, business details saved, or Business-sized usage. null
+ * while unknown. */
+export function useBusinessReason(): SurfaceReason | null {
+  const { user } = useAuth();
+  const gateway = useGateway();
+  const company = useAppAtomValue(companyAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const loadCompany = useAppSetAtom(loadCompanyAtom);
+  const status = useBilling().status;
+  useEffect(() => {
+    if (uid !== null) void loadCompany(gateway);
+  }, [loadCompany, gateway, uid]);
+  if (isCompanyEmail(user?.email)) return "company_email";
+  const details = company.uid === uid ? company.company : null;
+  if (details?.company_name?.trim()) return "business_details";
+  if ((prepaidOf(status)?.month_spent_cents ?? 0) >= BUSINESS_SIZED_CENTS) return "business_usage";
+  return null;
+}
+
+/** The Business nudge shows: true, false, or null while unknown. */
+export function useBusinessNudgeShown(): boolean | null {
+  const tier = usePlanTier();
+  const biz = usePricing()?.plans?.business;
+  const { dismissed } = useDismissal("business_banner", 30);
+  const reason = useBusinessReason();
+  if (tier === null || dismissed === null) return null;
+  return (tier === "none" || tier === "pro") && dismissed === false && reason !== null && !!biz;
+}
+
 export function TalkToUs(): JSX.Element | null {
   const { user } = useAuth();
   const tier = usePlanTier();
   const biz = usePricing()?.plans?.business;
-  const { dismissed, dismiss } = useDismissal("business_banner", 30);
+  const { dismiss } = useDismissal("business_banner", 30);
   const [step, setStep] = useState<"banner" | "form" | "sent">("banner");
-  const show =
-    (tier === "none" || tier === "pro") &&
-    dismissed === false &&
-    isCompanyEmail(user?.email) &&
-    !!biz;
-  useViewEvent("business_banner", tier, show, {
+  const shown = useBusinessNudgeShown() === true;
+  const reason = useBusinessReason() ?? "company_email";
+  useViewEvent("business_banner", tier, shown, {
     variant: "talk_to_us",
-    reason: "company_email",
+    reason,
   });
   const send = usePaywallEvents("business_banner", tier, {
     variant: "talk_to_us",
-    reason: "company_email",
+    reason,
   });
-  if (!show || !biz) return null;
+  // the form and its thanks stay once opened
+  if ((!shown && step === "banner") || !biz) return null;
 
+  const onDismiss = () => {
+    send("dismiss");
+    dismiss();
+  };
+  if (step === "banner") {
+    return (
+      <PlanNudge
+        testId="talk-to-us"
+        text={
+          <>
+            Using Spatial Video Studio at work? Business gives you {formatCentsShort(biz.credit_cents)} of usage a month,
+            commercial use and invoices.
+          </>
+        }
+        action={{
+          label: "Talk to us",
+          testId: "talk-to-us-open",
+          onClick: () => {
+            send("click", { target: "talk" });
+            setStep("form");
+          },
+        }}
+        link={{ label: "See Business", href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
+        onDismiss={onDismiss}
+      />
+    );
+  }
   return (
-    <section
-      data-testid="talk-to-us"
-      className="flex flex-col gap-3 rounded-lg border border-edge bg-surface-1 px-4 py-3 text-sm"
-    >
-      {step === "banner" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="min-w-60 flex-1 text-fg">
-            Using Spatial Video Studio at work? Business gives you{" "}
-            {formatCentsShort(biz.credit_cents)} of usage a month, commercial
-            use and invoices.
-          </p>
-          <Button
-            size="sm"
-            data-testid="talk-to-us-open"
-            onClick={() => {
-              send("click", { target: "talk" });
-              setStep("form");
-            }}
-          >
-            Talk to us
-          </Button>
-          <Link
-            href="/plans"
-            onClick={() => send("click", { target: "/plans" })}
-            className="text-primary hover:underline"
-          >
-            See Business
-          </Link>
-          <button
-            type="button"
-            aria-label="Dismiss"
-            onClick={() => {
-              send("dismiss");
-              dismiss();
-            }}
-            className="rounded p-0.5 text-fg-muted hover:text-fg"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-      ) : step === "form" ? (
+    <section data-testid="talk-to-us" className={`flex flex-col gap-3 ${NUDGE_SURFACE}`}>
+      {step === "form" ? (
         <ContactSalesForm
           onSent={() => setStep("sent")}
           onCancel={() => setStep("banner")}

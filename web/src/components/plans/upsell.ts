@@ -164,7 +164,14 @@ export function useDismissal(
 
 /** Why a Business surface shows (00093 events props.reason). */
 export type SurfaceReason =
-  "source_8k" | "source_fps" | "quote_size" | "run_length" | "company_email";
+  | "source_8k"
+  | "source_fps"
+  | "quote_size"
+  | "run_length"
+  | "company_email"
+  /** owner 2026-11-05: business details saved, or Business-sized usage */
+  | "business_details"
+  | "business_usage";
 
 export interface SurfaceProps {
   variant?: string;

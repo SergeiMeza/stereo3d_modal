@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   afterAll,
@@ -26,7 +27,7 @@ import { LifelikeDeliverPanel } from "@/components/steps/LifelikeDeliverPanel";
 import type { Project, StepQuoteResponse } from "@/lib/api/types";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import { AuthProvider } from "@/lib/auth";
-import { BillingProvider } from "@/lib/billing";
+import { BillingProvider, resetBillingForTests } from "@/lib/billing";
 import { resetProForTests } from "@/lib/pro/usePro";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { mockDb } from "@/mocks/handlers";
@@ -49,6 +50,11 @@ import {
   sourceSizeWord,
   tierPriceFor,
 } from "./upsell";
+import { NUDGE_SURFACE } from "./PlanNudge";
+import { ProjectsNudge } from "./ProjectsNudge";
+import { BUSINESS_SIZED_CENTS } from "./TalkToUs";
+import { authStateAtom } from "@/lib/auth";
+import { appStore } from "@/lib/state/stores";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -522,5 +528,49 @@ describe("high-end sources guide to Business (owner 2026-11-04)", () => {
     );
     await new Promise((r) => setTimeout(r, 300));
     expect(screen.queryByTestId("cinema-tier-prices")).toBeNull();
+  });
+});
+
+describe("one plan nudge at a time on Projects (owner 2026-11-05)", () => {
+  it("Business for a business-looking account, Pro after it's dismissed, one look for both", async () => {
+    // the mock account's address is a company one (example.com)
+    wrap(<ProjectsNudge />);
+    const biz = await screen.findByTestId("talk-to-us");
+    expect(screen.queryByTestId("plans-banner")).toBeNull();
+    expect(within(biz).getAllByRole("button").map((b) => b.textContent)).toEqual(["Talk to us", ""]);
+    expect(within(biz).getAllByRole("link").map((l) => l.textContent)).toEqual(["See Business"]);
+    fireEvent.click(screen.getByTestId("talk-to-us-dismiss"));
+    const pro = await screen.findByTestId("plans-banner");
+    expect(screen.queryByTestId("talk-to-us")).toBeNull();
+    // the same surface, padding and type, the X in the same place
+    const surface = (el: HTMLElement) => el.className.split(" ").filter((c) => NUDGE_SURFACE.split(" ").includes(c)).sort();
+    expect(surface(pro)).toEqual(surface(biz));
+    expect(pro.lastElementChild?.getAttribute("aria-label")).toBe("Dismiss");
+    expect(biz.lastElementChild?.getAttribute("aria-label")).toBe("Dismiss");
+  });
+
+
+  it("a personal address gets Pro; saved business details or Business-sized usage make it Business", async () => {
+    const personal = () =>
+      appStore.set(authStateAtom, (a) => ({ ...a, user: a.user ? { ...a.user, email: "aiko@gmail.com" } : a.user }));
+    personal();
+    wrap(<ProjectsNudge />);
+    expect(await screen.findByTestId("plans-banner")).toBeTruthy();
+    expect(screen.queryByTestId("talk-to-us")).toBeNull();
+    cleanup();
+    resetAccountSettingsCache();
+    mockDb.billing.company = { company_name: "Kyoto Films KK" };
+    personal();
+    wrap(<ProjectsNudge />);
+    expect(await screen.findByTestId("talk-to-us")).toBeTruthy();
+    cleanup();
+    resetAccountSettingsCache();
+    mockDb.billing.company = {};
+    mockDb.billing.prepaid.month_spent_cents = BUSINESS_SIZED_CENTS;
+    // a fresh page load reads billing again
+    resetBillingForTests();
+    personal();
+    wrap(<ProjectsNudge />);
+    expect(await screen.findByTestId("talk-to-us")).toBeTruthy();
   });
 });

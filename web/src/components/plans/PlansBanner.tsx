@@ -8,11 +8,12 @@
  * banner returns 7 days after the dismissal (kept on the account).
  */
 
-import { X } from "lucide-react";
 import Link from "next/link";
 import type { JSX } from "react";
 
 import { usePricing } from "@/lib/api/usePricing";
+
+import { PlanNudge } from "./PlanNudge";
 
 import {
   proPct,
@@ -61,39 +62,21 @@ export function PlansBanner(): JSX.Element | null {
     );
   }
   return (
-    <div
-      role="note"
-      data-testid="plans-banner"
-      className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-4 py-2.5 text-sm"
-    >
-      <p className="flex-1 text-fg">
-        Pro takes {pct}% off every video.
-        {typeof previews === "number" && previews > 0 ? (
-          <span className="hidden sm:inline">
-            {" "}
-            Monthly also includes {previews} free previews a month.
-          </span>
-        ) : null}
-      </p>
-      <Link
-        href="/plans"
-        onClick={() => send("click", { target: "/plans" })}
-        className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-      >
-        See plans
-      </Link>
-      <button
-        type="button"
-        aria-label="Dismiss"
-        data-testid="plans-banner-dismiss"
-        onClick={() => {
-          send("dismiss");
-          dismiss();
-        }}
-        className="shrink-0 rounded p-0.5 text-fg-muted hover:text-fg"
-      >
-        <X className="size-4" aria-hidden />
-      </button>
-    </div>
+    <PlanNudge
+      testId="plans-banner"
+      text={
+        <>
+          Pro takes {pct}% off every video.
+          {typeof previews === "number" && previews > 0 ? (
+            <span className="hidden sm:inline"> Monthly also includes {previews} free previews a month.</span>
+          ) : null}
+        </>
+      }
+      action={{ label: "See plans", href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
+      onDismiss={() => {
+        send("dismiss");
+        dismiss();
+      }}
+    />
   );
 }

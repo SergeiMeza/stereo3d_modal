@@ -14,8 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { GetStarted } from "@/components/onboarding/GetStarted";
-import { PlansBanner } from "@/components/plans/PlansBanner";
-import { TalkToUs } from "@/components/plans/TalkToUs";
+import { ProjectsNudge } from "@/components/plans/ProjectsNudge";
 import { WelcomeDialog } from "@/components/onboarding/WelcomeDialog";
 import { track } from "@/lib/analytics";
 import type { WelcomeVariant } from "@/components/onboarding/WelcomeDialog";
@@ -256,9 +255,9 @@ export default function ProjectsScreen() {
       />
       <LimitsNotice />
       {/* plans canvas: Talk to us for company emails, then Projects A */}
-      <TalkToUs />
-      <PlansBanner />
-      <UploadDropzone />
+      <ProjectsNudge />
+      {/* owner 2026-11-05: an empty list is one card, the drop zone */}
+      <UploadDropzone first={sorted !== null && sorted.length === 0 && loadError === null} />
 
       {actionError !== null ? (
         <div className="flex items-center gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-400">
@@ -291,16 +290,7 @@ export default function ProjectsScreen() {
         loadError === null ? (
           <p className="text-fg-muted">Loading projects…</p>
         ) : null
-      ) : sorted.length === 0 ? (
-        loadError === null ? (
-          <div data-testid="projects-empty" className="rounded-lg border border-edge bg-surface-1 p-8 text-center">
-            <p className="font-medium text-fg">No projects yet</p>
-            <p className="mt-1 text-fg-muted">
-              Drop a video above to start your first 3D conversion.
-            </p>
-          </div>
-        ) : null
-      ) : pinned.length > 0 ? (
+      ) : sorted.length === 0 ? null : pinned.length > 0 ? (
         <>
           <h2 className="text-sm font-medium text-fg-muted">Pinned</h2>
           {grid(pinned)}

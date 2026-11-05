@@ -235,7 +235,7 @@ describe("ProjectsScreen list", () => {
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 
-  it("a failed list shows the error with Retry, never \"No projects yet\" (owner bug 2026-11-05)", async () => {
+  it("a failed list shows the error with Retry, never the empty state (owner bug 2026-11-05)", async () => {
     let fail = true;
     server.use(
       http.get(`${GATEWAY}/v1/projects`, ({ request }) =>
@@ -247,7 +247,7 @@ describe("ProjectsScreen list", () => {
     renderScreen();
     const err = await screen.findByTestId("projects-error");
     expect(err.textContent).toContain("Couldn't load your projects.");
-    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
     fail = false;
     fireEvent.click(within(err).getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) })).toBeTruthy();
@@ -257,32 +257,32 @@ describe("ProjectsScreen list", () => {
   it("an empty list, then a project made elsewhere: back on Projects it shows, no reload (owner bug 2026-11-05)", async () => {
     mockDb.projects.clear();
     renderScreen();
-    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    expect(await screen.findByText("Drop a video to start your first project")).toBeTruthy();
     // made from another page (or tab): the created project joins at once
     const made = { ...(projectFixture as unknown as Project), project_id: "made00000001", name: "IMG_2026" };
     act(() => appStore.set(projectCreatedAtom, made));
     expect(await screen.findByRole("link", { name: /IMG_2026/ })).toBeTruthy();
-    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
   });
 
   it("a page left open reads the list again when it comes back into view", async () => {
     mockDb.projects.clear();
     renderScreen();
-    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    expect(await screen.findByText("Drop a video to start your first project")).toBeTruthy();
     // uploaded and created on another device or tab meanwhile
     mockDb.projects.set(FIXTURE_ID, projectFixture as unknown as Project);
     act(() => {
       window.dispatchEvent(new Event("focus"));
     });
     expect(await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) })).toBeTruthy();
-    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
   });
 
   it("an answer without a list is an error too, never an empty list", async () => {
     server.use(http.get(`${GATEWAY}/v1/projects`, () => HttpResponse.json({ ok: true })));
     renderScreen();
     expect(await screen.findByTestId("projects-error")).toBeTruthy();
-    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
   });
 
   it("a list that never answers ends in the error after 15 s", async () => {
@@ -293,7 +293,7 @@ describe("ProjectsScreen list", () => {
       expect(await screen.findByText("Loading projects…")).toBeTruthy();
       await vi.advanceTimersByTimeAsync(15_001);
       expect(await screen.findByTestId("projects-error")).toBeTruthy();
-      expect(screen.queryByText("No projects yet")).toBeNull();
+      expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -302,10 +302,11 @@ describe("ProjectsScreen list", () => {
   it("shows an empty state inviting upload when there are no projects", async () => {
     mockDb.projects.clear();
     renderScreen();
-    expect(await screen.findByText("No projects yet")).toBeTruthy();
-    expect(
-      screen.getByText(/Drop a video above to start your first 3D conversion/),
-    ).toBeTruthy();
+    // owner 2026-11-05: one card, the drop zone, not a second empty card
+    expect(await screen.findByText("Drop a video to start your first project")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Choose video" })).toHaveLength(1);
+    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.getByTestId("upload-dropzone").dataset.first).toBe("true");
   });
 
   it("polls the list every 5s while a project is analyzing, and stops after", async () => {
@@ -600,7 +601,7 @@ describe("ProjectsScreen management", () => {
     await waitFor(() =>
       expect(mockDb.projects.get(FIXTURE_ID)?.archived).toBe(true),
     );
-    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    expect(await screen.findByText("Drop a video to start your first project")).toBeTruthy();
     expect(
       screen.queryByRole("link", { name: new RegExp(FIXTURE_NAME) }),
     ).toBeNull();
@@ -674,7 +675,7 @@ describe("ProjectsScreen management", () => {
     if (!p) throw new Error("fixture project missing");
     p.archived = true;
     renderScreen();
-    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    expect(await screen.findByText("Drop a video to start your first project")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Show archived" }));
     const card = await screen.findByRole("link", {
@@ -697,6 +698,6 @@ describe("ProjectsScreen management", () => {
     expect(
       screen.getByRole("button", { name: "Archive project" }),
     ).toBeTruthy();
-    expect(screen.queryByText("No projects yet")).toBeNull();
+    expect(screen.queryByText("Drop a video to start your first project")).toBeNull();
   });
 });
