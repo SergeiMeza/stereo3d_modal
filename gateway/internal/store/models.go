@@ -630,8 +630,9 @@ type BusinessSetup struct {
 	UpdatedAt time.Time `firestore:"updated_at"`
 }
 
-// Onboarding is the account's onboarding flags; nil = never written (an
-// account from before onboarding reads welcome_done).
+// Onboarding is the account's onboarding flags; nil = never written
+// (welcome_done reads false until the welcome saves it, older accounts
+// too).
 type Onboarding struct {
 	WelcomeDone     *bool `firestore:"welcome_done,omitempty"`
 	ChecklistHidden bool  `firestore:"checklist_hidden,omitempty"`

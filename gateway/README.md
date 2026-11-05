@@ -916,9 +916,11 @@ is ignored without such a plan.
   {first_video, first_preview, first_3d, watched}}`. The steps are worked
   out here and leave the sample out: a project of their own; a succeeded
   preview; a succeeded full run; their first play (`/plays`) or download
-  of a run of their own (`customers.first_watched_at`). Accounts from
-  before onboarding (a customer record or a project before 2026-11-04
-  03:00 UTC) read `welcome_done: true` until they set it.
+  of a run of their own (`customers.first_watched_at`). `welcome_done`
+  is true only once it was saved (PATCH): every account sees the welcome
+  once, accounts from before onboarding (a customer record or a project
+  before 2026-11-04 03:00 UTC) too (owner 2026-11-05); those still get
+  no sample.
 - **`PATCH`** takes `headsets` (replaces; ids `[a-z0-9_.-]`, at most 12),
   `hints_seen_add` (appends, at most 30 a call, 200 kept) and a partial
   `onboarding {welcome_done?, checklist_hidden?, tips_done?}`, besides

@@ -128,7 +128,9 @@ func (s *Service) onboardingSettings(ctx context.Context, uid string, cust *stor
 			steps["first_preview"] = true
 		}
 	}
-	welcome := existingAccount(cust, projects) // accounts from before onboarding
+	// welcome_done only once the welcome was saved as done (owner
+	// 2026-11-05): every account sees it once, older ones too.
+	welcome := false
 	ob := map[string]any{"checklist_hidden": false, "tips_done": false, "steps": steps}
 	var headsets any
 	hints := []string{}

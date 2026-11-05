@@ -115,7 +115,8 @@ func (s *Service) backfillSampleOf(ctx context.Context, uid string) {
 }
 
 // sampleSince: accounts that already existed before onboarding shipped
-// get no sample and read welcome_done (they've used the app).
+// get no sample (they've used the app); they still see the welcome once
+// (welcome_done is false until it's saved, owner 2026-11-05).
 var sampleSince = time.Date(2026, 11, 4, 3, 0, 0, 0, time.UTC)
 
 func errSampleProject() *httpx.APIError {

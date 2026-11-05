@@ -25,7 +25,7 @@ func callJSON(t *testing.T, h func(http.ResponseWriter, *http.Request), method, 
 
 // GET/PATCH /v1/account/settings: headsets, hints_seen, onboarding flags,
 // the steps worked out server-side without the sample; accounts from
-// before onboarding read welcome_done.
+// before onboarding see the welcome once too.
 func TestOnboardingSettings(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
@@ -87,12 +87,27 @@ func TestOnboardingSettings(t *testing.T) {
 		t.Fatal("watched not noted")
 	}
 
-	// An account from before onboarding: welcome_done unless it says.
+	// An account from before onboarding (customer and a project older
+	// than sampleSince): the welcome is still due until it's saved as done
+	// (owner 2026-11-05), and it still gets no sample.
 	old := "u" + store.NewID()
 	s.Store.PutCustomer(ctx, old, &store.Customer{StripeCustomerID: "cus_2", CreatedAt: sampleSince.Add(-time.Hour)})
-	_, out = callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleAccountSettings(w, r, &AuthedUser{UID: old}) }, "GET", "")
-	if out["onboarding"].(map[string]any)["welcome_done"] != true {
-		t.Fatalf("old account %v", out)
+	oldCtx := func(method, body string) (int, map[string]any) {
+		return callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleAccountSettings(w, r, &AuthedUser{UID: old}) }, method, body)
+	}
+	_, out = oldCtx("GET", "")
+	if out["onboarding"].(map[string]any)["welcome_done"] != false {
+		t.Fatalf("old account must see the welcome: %v", out)
+	}
+	if c, _ := s.Store.GetCustomer(ctx, old); c.Onboarding != nil && c.Onboarding.WelcomeDone != nil {
+		t.Fatal("a GET must not save welcome_done")
+	}
+	_, out = oldCtx("PATCH", `{"onboarding":{"welcome_done":true}}`)
+	if _, out = oldCtx("GET", ""); out["onboarding"].(map[string]any)["welcome_done"] != true {
+		t.Fatalf("saved welcome_done %v", out)
+	}
+	if !existingAccount(&store.Customer{CreatedAt: sampleSince.Add(-time.Hour)}, nil) {
+		t.Fatal("existingAccount still marks older accounts (sample, app Pro)")
 	}
 }
 
