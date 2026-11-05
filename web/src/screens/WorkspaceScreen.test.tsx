@@ -1130,11 +1130,21 @@ describe("WorkspaceScreen — pages", () => {
     // one main button
     expect(within(summary).getAllByRole("button", { name: /^Make 3D/ })).toHaveLength(1);
 
+    // owner 2026-11-05: "Your steps", the rail's order, a state each
     const steps = screen.getByTestId("overview-steps");
-    expect(steps.textContent).toBe(
-      "✓Scenes›Depth (optional)›3D look (optional)›Make 3D›Files",
-    );
-    fireEvent.click(within(steps).getByRole("button", { name: "Depth (optional)" }));
+    expect(within(steps).getByRole("heading", { name: "Your steps" })).toBeTruthy();
+    const full = within(steps).getByTestId("steps-full");
+    expect(within(full).getAllByRole("listitem").map((li) => [li.dataset.testid, li.dataset.state])).toEqual([
+      ["step-scenes", "done"],
+      ["step-depth", "skipped"],
+      ["step-look", "skipped"],
+      ["step-make", "current"],
+      ["step-files", "upcoming"],
+    ]);
+    expect(within(full).getByTestId("step-make").textContent).toContain("Make 3D");
+    expect(within(full).getByTestId("step-depth").textContent).toContain("Optional");
+    expect(full.textContent).not.toMatch(/\(optional\)|›/);
+    fireEvent.click(within(within(full).getByTestId("step-depth")).getByRole("button", { name: /Depth/ }));
     expect(screen.getByTestId("step-card-depth_preview")).toBeTruthy();
     expect(window.location.hash).toBe("#tab=depth");
   });

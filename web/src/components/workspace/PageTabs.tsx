@@ -142,6 +142,11 @@ const TAB_IDS: Record<Method, readonly WorkspaceTabId[]> = {
   lifelike: ["overview", "scenes", "preview", "make", "files"],
 };
 
+/** A tab's rail icon (the Overview stepper shows the same ones). */
+export function tabIcon(id: WorkspaceTabId): JSX.Element | null {
+  return ALL_TABS.find((t) => t.id === id)?.icon ?? null;
+}
+
 /** The rail for a project's method, in order. */
 export function tabsFor(method: Method): readonly TabDef[] {
   return TAB_IDS[method].map((id) => ALL_TABS.find((t) => t.id === id)!);

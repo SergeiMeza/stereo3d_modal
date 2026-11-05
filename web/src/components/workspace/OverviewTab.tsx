@@ -38,6 +38,7 @@ import {
 } from "./MethodChooser";
 import type { WorkspaceTabId } from "./PageTabs";
 import { BarsNotice } from "./BarsSetting";
+import { OverviewSteps } from "./OverviewSteps";
 
 /** What the summary says you'll get (the default files of a full run). */
 const YOU_GET = "Vision Pro spatial video + Side by side";
@@ -50,27 +51,6 @@ export function hasPaidRun(project: Project): boolean {
     (c) => c.state !== "failed" && c.state !== "canceled" && c.state !== "expired",
   );
 }
-
-interface StepLink {
-  tab: WorkspaceTabId;
-  label: string;
-}
-
-const STEPS: Record<Method, readonly StepLink[]> = {
-  lifelike: [
-    { tab: "scenes", label: "Scenes" },
-    { tab: "preview", label: "Preview (optional)" },
-    { tab: "make", label: "Make 3D" },
-    { tab: "files", label: "Files" },
-  ],
-  classic: [
-    { tab: "scenes", label: "Scenes" },
-    { tab: "depth", label: "Depth (optional)" },
-    { tab: "look", label: "3D look (optional)" },
-    { tab: "make", label: "Make 3D" },
-    { tab: "files", label: "Files" },
-  ],
-};
 
 /** The price of the Preview page's default: the first seconds of the
  * video at the best quality it reaches. */
@@ -289,33 +269,12 @@ export function OverviewTab({
         <BarsNotice project={project} onProjectChanged={onProjectUpdated} />
       ) : null}
 
-      <nav
-        data-testid="overview-steps"
-        aria-label="Steps"
-        className="flex flex-wrap items-center gap-y-1 pl-1 text-sm text-fg-muted"
-      >
-        {STEPS[method].map((s, i) => (
-          <span key={s.tab} className="flex items-center">
-            {i > 0 ? (
-              <span aria-hidden className="mx-1.5 text-fg-muted/50">
-                ›
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => onNavigate(s.tab)}
-              className="hover:text-fg"
-            >
-              {s.tab === "scenes" && project.scenes ? (
-                <span className="mr-1 text-emerald-400" aria-label="done">
-                  ✓
-                </span>
-              ) : null}
-              {s.label}
-            </button>
-          </span>
-        ))}
-      </nav>
+      {/* owner 2026-11-05: the flow as steps, not a breadcrumb */}
+      <OverviewSteps
+        project={project}
+        previewFree={previewQuote?.payment_flow === "free_preview"}
+        onNavigate={onNavigate}
+      />
 
       {onProjectChanged !== undefined && method === "classic" && analyzed ? (
         <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />
