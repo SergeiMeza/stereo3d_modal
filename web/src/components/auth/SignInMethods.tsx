@@ -13,10 +13,11 @@
  */
 
 import { Mail } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
+import { prepareApple } from "@/lib/appleJs";
 import { useAuth } from "@/lib/auth";
 import type { LinkableProvider } from "@/lib/auth";
 import {
@@ -40,6 +41,11 @@ export function SignInMethods(): JSX.Element | null {
   const cn = useRegion() === "cn";
   const [busy, setBusy] = useState<MethodId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // owner 2026-11-05: Apple's JS loads ahead of an Add Apple tap
+  const appleOffered = appleEnabled && !cn && user !== null && !user.providerIds.includes("apple.com");
+  useEffect(() => {
+    if (appleOffered) prepareApple();
+  }, [appleOffered]);
   if (user === null) return null;
 
   const methods = signInMethods(user, { apple: appleEnabled && !cn, google: !cn });

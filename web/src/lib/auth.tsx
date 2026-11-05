@@ -39,7 +39,9 @@ import type { AuthCredential, User, UserCredential } from "firebase/auth";
 import { atom } from "jotai";
 import { useEffect, useMemo } from "react";
 
+import { AuthDebugPanel } from "@/components/auth/AuthDebugPanel";
 import { track, upgradeSession } from "@/lib/analytics";
+import { runAppleFlow, type AppleAuthApi, type AppleOp } from "@/lib/appleSignIn";
 import { appStore, useAppAtomValue } from "@/lib/state/stores";
 import {
   EmailCodeError,
@@ -48,7 +50,17 @@ import {
   verifyEmailCode,
 } from "@/lib/emailCode";
 import type { CodeStart } from "@/lib/emailCode";
-import { getFirebaseAuth } from "@/lib/firebase";
+import {
+  authDebugAtom,
+  describeOutcome,
+  EMPTY_AUTH_DEBUG,
+  readIntent,
+  REDIRECT_KEY,
+  redirectPending,
+  settleRedirect,
+  type AuthDebug,
+} from "@/lib/authRedirect";
+import { firebaseConfig, getFirebaseAuth } from "@/lib/firebase";
 import {
   gatewayAdoptSession,
   gatewayResetPassword,
@@ -296,7 +308,6 @@ export class AccountExistsError extends Error {
 }
 
 const PENDING_KEY = "s3d-pending-link";
-const REDIRECT_KEY = "s3d-auth-redirect";
 
 /** Redirect on phones and headsets (popups open a new tab or get lost),
  * popup on desktop. */
@@ -484,6 +495,7 @@ function setAuthPending(pendingLink: PendingLink | null): void {
 /** Test hook: the auth state as a fresh page load has it. */
 export function resetAuthForTests(): void {
   appStore.set(authStateAtom, INITIAL_AUTH);
+  appStore.set(authDebugAtom, EMPTY_AUTH_DEBUG);
 }
 
 // ------------------------------------------------------------ actions
@@ -509,8 +521,74 @@ const signInWithGoogle = async () => {
   }
 };
 
+/** Apple's answer → the apple.com user (owner 2026-11-05: Apple's JS in a
+ * popup; the same user and sub as the app, so Pro carries over). */
+function appleAuthApi(): AppleAuthApi<User, UserCredential> {
+  return {
+    credential: async ({ idToken, rawNonce }) => {
+      const { OAuthProvider } = await import("firebase/auth");
+      return new OAuthProvider("apple.com").credential({ idToken, rawNonce });
+    },
+    signInWithCredential: async (cred) => {
+      const auth = await getFirebaseAuth();
+      const { signInWithCredential } = await import("firebase/auth");
+      return signInWithCredential(auth, cred as AuthCredential);
+    },
+    linkWithCredential: async (cred) => {
+      const current = await requireFirebaseUser();
+      const { linkWithCredential } = await import("firebase/auth");
+      try {
+        return await linkWithCredential(current, cred as AuthCredential);
+      } catch (e) {
+        if (errorCode(e) !== "auth/provider-already-linked") throw e;
+        return { user: current } as UserCredential;
+      }
+    },
+    updateDisplayName: async (user, name) => {
+      const { updateProfile } = await import("firebase/auth");
+      await updateProfile(user, { displayName: name });
+    },
+    settled: (result, op: AppleOp) => {
+      if (op === "signin") trackSignIn(result, "apple.com");
+      else track("link_provider", { method: "apple.com" });
+      void result.user.reload().catch(() => undefined).then(async () => {
+        const auth = await getFirebaseAuth();
+        setAuthUser(toAuthUser(auth.currentUser ?? result.user));
+      });
+    },
+  };
+}
+
+/** Apple's JS first; "fallback" when it couldn't load (use the redirect). */
+async function appleViaJs(op: AppleOp): Promise<"done" | "fallback"> {
+  let flow: Awaited<ReturnType<typeof runAppleFlow<User, UserCredential, PendingLink>>>;
+  try {
+    flow = await runAppleFlow(op, appleAuthApi(), {
+      capturePending: (e) => capturePending(e, "apple.com"),
+      track,
+    });
+  } catch (e) {
+    // an Apple token the auth service refused isn't "incorrect password"
+    if (errorCode(e) === "auth/invalid-credential" || errorCode(e) === "auth/missing-or-invalid-nonce") {
+      throw new Error("Sign in with Apple didn't work. Try again.");
+    }
+    throw e;
+  }
+  if (flow.kind === "pending") {
+    setAuthPending(flow.pending);
+    throw new AccountExistsError(flow.pending);
+  }
+  return flow.kind === "fallback" ? "fallback" : "done";
+}
+
 const signInWithApple = async () => {
   if (viaGateway() || !APPLE_SIGNIN) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    if ((await appleViaJs("signin")) === "done") return;
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+  // fallback: Apple's script didn't load
   try {
     const auth = await getFirebaseAuth();
     const provider = await appleProvider();
@@ -634,6 +712,13 @@ const clearPendingLink = () => {
 
 const linkProvider = async (id: LinkableProvider) => {
   if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (id === "apple.com") {
+    try {
+      if ((await appleViaJs("link")) === "done") return;
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }
   try {
     const current = await requireFirebaseUser();
     const provider = await providerFor(id);
@@ -805,32 +890,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (appStore.get(authStateAtom).mode !== mode) setAuth({ mode });
   }, [mode]);
 
-  // Back from an Apple redirect (phones, headsets): settle its answer.
+  // Back from a redirect (the Apple fallback, Google on phones): settle
+  // its answer, and say so when an expected one came back empty (owner
+  // bug 2026-11-05: iPhone Safari came back to nothing).
   useEffect(() => {
     if (mode !== "firebase") return;
-    type Intent = { op: string; providerId: LinkableProvider };
-    let intent: Intent | null = null;
-    try {
-      const raw = session()?.getItem(REDIRECT_KEY);
-      intent = raw ? (JSON.parse(raw) as Intent) : null;
-    } catch {
-      intent = null;
-    }
-    if (intent === null) return;
-    session()?.removeItem(REDIRECT_KEY);
-    const providerId = intent.providerId;
-    const op = intent.op;
+    const store = session();
+    const { intent, raw } = readIntent(store);
+    const pending = redirectPending(store, window.location.href);
+    store?.removeItem(REDIRECT_KEY);
+    const debug = (patch: Partial<AuthDebug>) =>
+      appStore.set(authDebugAtom, (d) => ({ ...d, ...patch, at: new Date().toISOString() }));
+    debug({ intent: raw, pending, ran: false, authDomain: firebaseConfig().authDomain, host: window.location.host });
     void (async () => {
       const auth = await getFirebaseAuth();
       const { getRedirectResult } = await import("firebase/auth");
-      try {
-        const result = await getRedirectResult(auth);
-        if (op === "signin") trackSignIn(result, providerId);
-        if (result?.user) setAuthUser(toAuthUser(result.user));
-      } catch (e) {
-        const p = await capturePending(e, providerId);
-        if (p) setAuthPending(p);
-        else setAuth({ redirectError: friendlyAuthError(e).message });
+      const outcome = await settleRedirect<User>({
+        intent,
+        pending,
+        getRedirectResult: () => getRedirectResult(auth),
+        currentUser: async () => {
+          await auth.authStateReady();
+          return auth.currentUser;
+        },
+      });
+      debug({ ran: outcome.kind !== "skipped", outcome: describeOutcome(outcome), currentUser: auth.currentUser !== null });
+      switch (outcome.kind) {
+        case "user":
+          if (intent?.op !== "link") trackSignIn(outcome.result as UserCredential, intent?.providerId ?? outcome.user.providerData[0]?.providerId ?? "");
+          setAuthUser(toAuthUser(outcome.user));
+          return;
+        case "unfinished":
+          track("redirect_unfinished", { op: intent?.op ?? "", method: intent?.providerId ?? "" });
+          setAuth({ redirectError: outcome.message });
+          return;
+        case "error": {
+          const p = await capturePending(outcome.error, intent?.providerId ?? "apple.com");
+          if (p) setAuthPending(p);
+          else setAuth({ redirectError: friendlyAuthError(outcome.error).message });
+          return;
+        }
+        default:
+          return;
       }
     })();
   }, [mode]);
@@ -881,7 +982,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [mode]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <AuthDebugPanel />
+    </>
+  );
 }
 
 /** The session's auth: state from the app-store atom, actions as plain

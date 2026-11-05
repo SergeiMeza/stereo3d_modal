@@ -30,6 +30,7 @@ import type { JSX } from "react";
 import { CodeInput } from "@/components/auth/CodeInput";
 import { PasskeyButton, usePasskeyAutofill, usePasskeysSupported } from "@/components/auth/PasskeySignIn";
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
+import { prepareApple } from "@/lib/appleJs";
 import { AccountExistsError, AUTH_MODE, useAuth } from "@/lib/auth";
 import type { PendingLink } from "@/lib/auth";
 import { CODE_LENGTH, EmailCodeError, RESEND_AFTER_S } from "@/lib/emailCode";
@@ -84,6 +85,12 @@ export default function SignInScreen() {
       router.replace(next);
     }
   }, [signedIn, pendingLink, router, next]);
+
+  // owner 2026-11-05: Apple's JS (popup) loads with the page, so the tap
+  // opens Apple's window at once
+  useEffect(() => {
+    if (appleEnabled && !emailOnly) prepareApple();
+  }, [appleEnabled, emailOnly]);
 
   const passkeys = usePasskeysSupported() && AUTH_MODE === "firebase" && !emailOnly;
   const passkeySignIn = useCallback(

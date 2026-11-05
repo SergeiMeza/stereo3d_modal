@@ -64,11 +64,28 @@ export function getFirebaseApp(): Promise<FirebaseApp> {
 
 let authPromise: Promise<Auth> | null = null;
 
+/** Owner bug 2026-11-05: the persistence and the popup/redirect resolver
+ * spelled out (what getAuth picks in a browser), so a redirect's answer
+ * survives Safari's storage rules: IndexedDB first, then localStorage. */
 export function getFirebaseAuth(): Promise<Auth> {
   authPromise ??= (async () => {
     const app = await getFirebaseApp();
-    const { getAuth } = await import("firebase/auth");
-    return getAuth(app);
+    const {
+      browserLocalPersistence,
+      browserPopupRedirectResolver,
+      getAuth,
+      indexedDBLocalPersistence,
+      initializeAuth,
+    } = await import("firebase/auth");
+    try {
+      return initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+        popupRedirectResolver: browserPopupRedirectResolver,
+      });
+    } catch {
+      // already initialized (a hot reload): the same instance
+      return getAuth(app);
+    }
   })();
   return authPromise;
 }
