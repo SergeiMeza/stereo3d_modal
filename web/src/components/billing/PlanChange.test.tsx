@@ -31,7 +31,7 @@ import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import { PlanCard } from "./PlanCard";
-import { ScheduledChange } from "./PlanChange";
+import { optionFor, ScheduledChange } from "./PlanChange";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -253,3 +253,34 @@ describe("step-downs", () => {
     );
   });
 });
+
+describe("the next plan from scheduled_change.to (gateway 00138)", () => {
+  function studioWaiting(to: string): void {
+    studio();
+    mockDb.billing.plan!.scheduled_change = { to, effective_at: "2027-01-10T12:00:00Z" };
+  }
+
+  it.each(["pay_per_video", "none"])("%s reads as pay per video, never Pro", async (to) => {
+    studioWaiting(to);
+    wrap(<ScheduledChange plan={mockDb.billing.plan!} />);
+    const notice = await screen.findByTestId("scheduled-change");
+    expect(notice.textContent).toContain("Your Studio stays on until Jan 10, 2027. After that you pay per video.");
+    expect(notice.textContent).not.toContain("Pro");
+  });
+
+  it("an id this build doesn't know names no plan", async () => {
+    studioWaiting("enterprise_2028");
+    wrap(<ScheduledChange plan={mockDb.billing.plan!} />);
+    const notice = await screen.findByTestId("scheduled-change");
+    expect(notice.textContent).toContain("Your Studio stays on until Jan 10, 2027.");
+    expect(notice.textContent).not.toMatch(/Pro|starts then|pay per video/);
+  });
+
+  it("optionFor: none is pay per video, an unknown id isn't Pro", () => {
+    expect(optionFor("none", null, new Map())).toEqual({ id: "pay_per_video", name: null });
+    expect(optionFor("pay_per_video", null, new Map())).toEqual({ id: "pay_per_video", name: null });
+    expect(optionFor("enterprise_2028", null, new Map())).toMatchObject({ name: null, unknown: true });
+    expect(optionFor("pro_monthly", null, new Map())).toMatchObject({ name: "Pro" });
+  });
+});
+

@@ -81,6 +81,8 @@ interface Option {
   per?: string;
   /** what it costs each period, when known (team plans) */
   cents?: number;
+  /** an id this build doesn't know: the line names no plan */
+  unknown?: boolean;
 }
 
 const PRO_PER = {
@@ -95,7 +97,8 @@ export function optionFor(
   pricing: PublicPricing | null,
   proNames: Map<string, Option>,
 ): Option {
-  if (id === PAY_PER_VIDEO) return { id, name: null };
+  // gateway 00138: "pay_per_video" (older answers said "none")
+  if (id === PAY_PER_VIDEO || id === "none" || id === "") return { id: PAY_PER_VIDEO, name: null };
   if (id === "business" || id === "studio") {
     const def = pricing?.plans?.[id];
     return {
@@ -105,7 +108,17 @@ export function optionFor(
       cents: def ? planPrice(def).cents : undefined,
     };
   }
-  return proNames.get(id) ?? { id, name: "Pro" };
+  const pro = proNames.get(id);
+  if (pro) return pro;
+  if (id.startsWith("pro_") || id === "pro") return { id, name: "Pro" };
+  // never guess: an unknown id names no plan
+  return { id, name: null, unknown: true };
+}
+
+/** An option as nextPlanLine takes it (null: pay per video). */
+export function nextOption(o: Option): { name: string | null; per?: string; cents?: number; unknown?: boolean } | null {
+  if (o.unknown) return { name: null, unknown: true };
+  return o.name === null ? null : { name: o.name, per: o.per, cents: o.cents };
 }
 
 function planLabel(plan: AccountPlan): string {
@@ -215,7 +228,8 @@ export function PlanChangeMenu({
               {error ??
                 (preview && target
                   ? isStepDown(preview)
-                    ? `${stepDownLine(current, target.name ? { name: target.name, per: target.per } : null, preview)} ${NOTHING_TODAY}`
+                    ? // gateway 00138: the preview's `to`, as the card reads scheduled_change.to
+                      `${stepDownLine(current, nextOption(optionFor(preview.to ?? target.id, pricing, proNames)), preview)} ${NOTHING_TODAY}`
                     : upgradeLine(preview, {
                         from: current,
                         to: target.name ?? "",
@@ -301,8 +315,9 @@ export function ScheduledChange({
     }
   }
 
-  // one wording with the change dialog (nextPlanLine)
-  const line = nextPlanLine(current, sc?.effective_at ?? plan.current_period_end, sc && to?.name ? to : null);
+  // one wording with the change dialog (nextPlanLine), from
+  // scheduled_change.to (gateway 00138); a plain cancel is pay per video
+  const line = nextPlanLine(current, sc?.effective_at ?? plan.current_period_end, to ? nextOption(to) : null);
 
   return (
     <div

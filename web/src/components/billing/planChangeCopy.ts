@@ -57,9 +57,11 @@ export function usageHandoverLine(
 export function nextPlanLine(
   current: string,
   untilIso: string | null | undefined,
-  next: { name: string | null; per?: string; cents?: number | null } | null,
+  next: { name: string | null; per?: string; cents?: number | null; unknown?: boolean } | null,
 ): string {
   const until = untilIso ? changeDate(untilIso) : "the end of this period";
+  // a next plan this build can't name: say only what's certain
+  if (next?.unknown) return `Your ${current} stays on until ${until}.`;
   const then =
     next === null || next.name === null
       ? "After that you pay per video."
@@ -72,7 +74,7 @@ export function nextPlanLine(
 /** The change dialog's step-down line, from the preview. */
 export function stepDownLine(
   current: string,
-  to: { name: string; per?: string } | null,
+  to: { name: string | null; per?: string; unknown?: boolean } | null,
   p: PlanChangePreview,
 ): string {
   return nextPlanLine(current, p.effective_at, to === null ? null : { ...to, cents: p.new_plan_cents });
