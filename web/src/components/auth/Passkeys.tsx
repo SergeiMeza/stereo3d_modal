@@ -44,7 +44,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import type { LinkableProvider } from "@/lib/auth";
 import { CODE_LENGTH, isAppleRelayEmail } from "@/lib/emailCode";
-import { addPasskey, deviceName, toPasskeyError } from "@/lib/passkeys";
+import { addPasskey, cancelPasskeyRequest, deviceName, toPasskeyError } from "@/lib/passkeys";
 import type { Passkey } from "@/lib/passkeys";
 import { billingUidAtom } from "@/lib/billing";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
@@ -233,6 +233,8 @@ function AddPasskeyBody({
   const [step, setStep] = useState<"name" | "reauth">("name");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // a prompt still open when the dialog goes is stopped (owner bug 2026-11-05)
+  useEffect(() => () => cancelPasskeyRequest(), []);
 
   async function add() {
     setBusy(true);

@@ -10,6 +10,19 @@
  * they live in PASSKEY_ROUTES. Options come as {options: {publicKey},
  * expires_at} (as the admin routes do); the publicKey part is what
  * @simplewebauthn takes as optionsJSON.
+ *
+ * Owner bug 2026-11-05 (iPad Safari: sign-in and Add passkey stayed on
+ * "Waiting for your passkey…", no sheet, no /verify): the email field's
+ * autofill request (a conditional get) could start after it had been
+ * cancelled — the cancel landed while its options were still on the way,
+ * so nothing was there to abort — and then nothing could ever abort it
+ * (the abort service keeps only the latest request). It outlived the page
+ * and Safari queued every later passkey prompt behind it. Now:
+ * - one autofill request at a time, and one cancelled while its options
+ *   load never starts (a generation count);
+ * - every prompt of our own first cancels the autofill request and waits
+ *   (briefly) until it has settled;
+ * - a prompt that hasn't finished in 60 s is aborted and says so.
  */
 
 import {
@@ -72,6 +85,12 @@ const SIGN_IN_MESSAGES: Record<string, string> = {
   rate_limited: "Too many tries. Wait a few minutes.",
 };
 const CLOSED_MESSAGE = "The passkey prompt was closed before it finished. Try again.";
+export const DIDNT_FINISH = "That didn't finish. Try again.";
+/** our own cap on a passkey prompt (the gateway's options say 5 minutes) */
+export const CEREMONY_TIMEOUT_MS = 60_000;
+/** how long a prompt waits for the autofill request to let go */
+const SETTLE_WAIT_MS = 250;
+
 const UNSUPPORTED_MESSAGE = "This browser can't use passkeys. Sign in another way.";
 
 /** A passkey step that didn't work, with the gateway's code when it said one. */
@@ -162,6 +181,70 @@ async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
   return parsed as T;
 }
 
+// ------------------------------------------------- the browser's prompt
+
+/** The autofill request in flight (at most one) and its generation: a
+ * cancel bumps the generation, so a request whose options are still
+ * loading never starts. */
+let conditional: Promise<unknown> | null = null;
+let generation = 0;
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function abortCeremony(): void {
+  try {
+    WebAuthnAbortService.cancelCeremony();
+  } catch {
+    // nothing waiting
+  }
+}
+
+/** Stop a waiting autofill request, including one still loading its
+ * options (on unmount, and before the button's own prompt). */
+export function cancelPasskeyRequest(): void {
+  generation += 1;
+  abortCeremony();
+}
+
+/** Cancel the autofill request and wait until it has let go (Safari keeps
+ * a new prompt waiting behind one that's still pending). */
+export async function settleAutofill(): Promise<void> {
+  const pending = conditional;
+  cancelPasskeyRequest();
+  if (pending) await Promise.race([pending.catch(() => undefined), sleep(SETTLE_WAIT_MS)]);
+  conditional = null;
+}
+
+
+/** A prompt of our own, never longer than CEREMONY_TIMEOUT_MS. */
+async function ceremony<T>(run: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abortCeremony();
+      reject(new PasskeyError("timeout", DIDNT_FINISH, 0));
+    }, CEREMONY_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([run(), timeout]);
+  } catch (e) {
+    throw toPasskeyError(e);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Options with our own timeout (the browser ends the prompt too). */
+function capped<T extends { timeout?: number }>(o: T): T {
+  return { ...o, timeout: Math.min(o.timeout ?? CEREMONY_TIMEOUT_MS, CEREMONY_TIMEOUT_MS) };
+}
+
+function fetchSignInOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+  return anonymousPost(PASSKEY_ROUTES.signInOptions, {}).then((r) =>
+    optionsOf<PublicKeyCredentialRequestOptionsJSON>(r),
+  );
+}
+
 /**
  * Sign in with a passkey: options, the browser's passkey prompt (or, with
  * autofill, the email field's suggestions), then the gateway's check.
@@ -172,14 +255,27 @@ export async function passkeySignIn(
   retried = false,
 ): Promise<PasskeySignInAnswer> {
   if (!passkeysSupported()) throw new PasskeyError("unsupported", UNSUPPORTED_MESSAGE, 0);
-  const optionsJSON = optionsOf<PublicKeyCredentialRequestOptionsJSON>(
-    await anonymousPost(PASSKEY_ROUTES.signInOptions, {}),
-  );
   let response: AuthenticationResponseJSON;
-  try {
-    response = await startAuthentication({ optionsJSON, useBrowserAutofill: opts.autofill === true });
-  } catch (e) {
-    throw toPasskeyError(e);
+  if (opts.autofill === true) {
+    // one autofill request at a time
+    await settleAutofill();
+    const mine = generation;
+    const optionsJSON = await fetchSignInOptions();
+    // cancelled while its options loaded: never start it
+    if (mine !== generation) throw new PasskeyError("cancelled", CLOSED_MESSAGE, 0, true);
+    const request = startAuthentication({ optionsJSON, useBrowserAutofill: true });
+    conditional = request;
+    try {
+      response = await request;
+    } catch (e) {
+      throw toPasskeyError(e);
+    } finally {
+      if (conditional === request) conditional = null;
+    }
+  } else {
+    await settleAutofill();
+    const optionsJSON = capped(await fetchSignInOptions());
+    response = await ceremony(() => startAuthentication({ optionsJSON }));
   }
   try {
     return await anonymousPost<PasskeySignInAnswer>(PASSKEY_ROUTES.signInVerify, {
@@ -193,13 +289,10 @@ export async function passkeySignIn(
   }
 }
 
-/** Stop a waiting autofill request (before the button's own prompt). */
-export function cancelPasskeyRequest(): void {
-  try {
-    WebAuthnAbortService.cancelCeremony();
-  } catch {
-    // nothing waiting
-  }
+/** Test hook: no autofill request. */
+export function resetPasskeysForTests(): void {
+  conditional = null;
+  generation = 0;
 }
 
 /** What adding a passkey needs from the gateway client (authenticated). */
@@ -208,16 +301,17 @@ export interface PasskeyAccountApi {
   passkeyRegisterVerify(response: RegistrationResponseJSON, name: string): Promise<{ passkey?: Passkey }>;
 }
 
+function fetchRegisterOptions(api: PasskeyAccountApi, name: string): Promise<PublicKeyCredentialCreationOptionsJSON> {
+  return api.passkeyRegisterOptions(name).then((r) => optionsOf<PublicKeyCredentialCreationOptionsJSON>(r));
+}
+
 /** Create a passkey on this device and save it on the account. */
 export async function addPasskey(api: PasskeyAccountApi, name: string): Promise<Passkey | null> {
   if (!passkeysSupported()) throw new PasskeyError("unsupported", "This browser can't add passkeys.", 0);
-  const optionsJSON = optionsOf<PublicKeyCredentialCreationOptionsJSON>(await api.passkeyRegisterOptions(name));
-  let response: RegistrationResponseJSON;
-  try {
-    response = await startRegistration({ optionsJSON });
-  } catch (e) {
-    throw toPasskeyError(e);
-  }
+  // a sign-in page's autofill request must not hold this prompt
+  await settleAutofill();
+  const optionsJSON = capped(await fetchRegisterOptions(api, name));
+  const response: RegistrationResponseJSON = await ceremony(() => startRegistration({ optionsJSON }));
   const r = await api.passkeyRegisterVerify(response, name);
   return r.passkey ?? null;
 }
