@@ -1252,3 +1252,84 @@ describe("3D look is never locked (S3D-28)", () => {
     expect(window.location.hash).toBe("#tab=files");
   });
 });
+
+describe("WorkspaceScreen — analysis never spins forever (owner bug 2026-11-05)", () => {
+  function analyzing(createdAt: string): Project {
+    const p = structuredClone(projectFixture) as unknown as Project;
+    p.analyze = {
+      state: "running",
+      error: "",
+      credit_cents: 0,
+      credit_available: false,
+      stage: "thumbnails",
+      progress: 0.7,
+    };
+    p.created_at = createdAt;
+    delete p.probe;
+    delete p.scenes;
+    delete p.strip_thumbs;
+    delete p.scene_thumbs;
+    return p;
+  }
+
+  it("an analysis running for over 10 minutes says it's taking longer than usual and keeps polling", async () => {
+    const stuck = analyzing(new Date(Date.now() - 11 * 60_000).toISOString());
+    let gets = 0;
+    server.use(
+      http.get(`${GATEWAY}/v1/projects/:id`, () => {
+        gets += 1;
+        return HttpResponse.json(stuck);
+      }),
+    );
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+      </AuthProvider>,
+    );
+    const notice = await screen.findByTestId("analyze-slow");
+    expect(notice.textContent).toContain("This is taking longer than usual.");
+    expect(within(notice).getByRole("button", { name: "Refresh" })).toBeTruthy();
+    const seen = gets;
+    await waitFor(() => expect(gets).toBeGreaterThan(seen + 1));
+    expect(screen.getByTestId("analyze-slow")).toBeTruthy();
+  });
+
+  it("a fresh analysis shows no slow notice", async () => {
+    server.use(
+      http.get(`${GATEWAY}/v1/projects/:id`, () =>
+        HttpResponse.json(analyzing(new Date().toISOString())),
+      ),
+    );
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+      </AuthProvider>,
+    );
+    await screen.findByTestId("analyzing-state");
+    expect(screen.queryByTestId("analyze-slow")).toBeNull();
+  });
+
+  it("a failed analysis says we couldn't analyze it; Try again restarts it", async () => {
+    const p = mockDb.projects.get(PID)!;
+    p.analyze = {
+      state: "failed",
+      error: "ffmpeg exited with status 1",
+      credit_cents: 0,
+      credit_available: false,
+    };
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+      </AuthProvider>,
+    );
+    const notice = await screen.findByTestId("analyze-failed");
+    expect(notice.textContent).toContain("We couldn't analyze this video.");
+    expect(notice.textContent).not.toContain("ffmpeg");
+    expect(
+      within(notice).getByRole("link", { name: "Contact support" }).getAttribute("href"),
+    ).toMatch(/^mailto:/);
+    fireEvent.click(within(notice).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByTestId("analyze-failed")).toBeNull());
+    expect(mockDb.projects.get(PID)!.analyze.state).not.toBe("failed");
+  });
+});

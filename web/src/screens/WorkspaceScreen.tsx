@@ -58,6 +58,7 @@ import {
   retryAnalyzeAtom,
   workspaceTabAtom,
 } from "@/components/workspace/workspaceAtoms";
+import { AnalyzeNotice } from "@/components/workspace/AnalyzeNotice";
 import { ProjectStateProvider } from "@/lib/state/stores";
 import { SourceBusinessLine } from "@/components/plans/SourceBusinessLine";
 import {
@@ -110,7 +111,8 @@ function Workspace({
   const gateway = useGateway();
   // ADR 0138: the project, its load error and the analysis retry live in
   // the project's atom (workspaceAtoms); the action atoms write them
-  const { project, loadError, retrying, retryError } = useAtomValue(projectAtom(projectId));
+  const projectState = useAtomValue(projectAtom(projectId));
+  const { project, loadError, retrying } = projectState;
   const load = useSetAtom(loadProjectAtom);
   const applyUpdate = useSetAtom(applyProjectUpdateAtom);
   const retry = useSetAtom(retryAnalyzeAtom);
@@ -378,6 +380,12 @@ function Workspace({
             {/* onboarding: four short tips the first time (owner 2026-11-04) */}
             {method === "lifelike" ? <WorkspaceTips /> : null}
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              {/* owner bug 2026-11-05: a slow or failed analysis says so */}
+              <AnalyzeNotice
+                state={projectState}
+                onRefresh={() => void refetch()}
+                onRetry={() => void retryAnalyze()}
+              />
               {page === "overview" ? (
                 <OverviewTab
                   project={project}
@@ -393,26 +401,8 @@ function Workspace({
                 <>
                   <FirstTimeHint id="scenes" className="mb-3" />
                   {project.analyze.state === "failed" ? (
-                    <div
-                      role="alert"
-                      className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
-                    >
-                      <p className="font-medium">Analysis failed.</p>
-                      {project.analyze.error ? (
-                        <p className="mt-1 text-sm">{project.analyze.error}</p>
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={retrying}
-                        onClick={() => void retryAnalyze()}
-                        className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {retrying ? "Retrying…" : "Retry analysis"}
-                      </button>
-                      {retryError ? (
-                        <p className="mt-2 text-sm">{retryError}</p>
-                      ) : null}
-                    </div>
+                    // the notice above says it and offers Try again
+                    null
                   ) : ready ? (
                     <SceneCutEditor
                       projectId={project.project_id}

@@ -18,14 +18,48 @@ import type { WorkspaceTabId } from "./PageTabs";
 
 import { loadErrorText } from "@/components/steps/loadErrorText";
 
+/** Owner bug 2026-11-05 (TEST sat on "Thumbnails… 70%" for minutes):
+ * how long the analysis may sit still, and run at all, before the page
+ * says it's taking longer than usual. */
+export const ANALYZE_STALL_MS = 3 * 60_000;
+export const ANALYZE_TOO_LONG_MS = 10 * 60_000;
+
+/** The running analysis as this page has watched it: what it last said
+ * (stage and progress), since when, and when it started. */
+export interface AnalyzeWatch {
+  key: string;
+  since: number;
+  started: number;
+}
+
 export interface ProjectState {
   project: Project | null;
   loadError: string | null;
   retrying: boolean;
   retryError: string | null;
+  analyzeWatch: AnalyzeWatch | null;
 }
 
-const EMPTY: ProjectState = { project: null, loadError: null, retrying: false, retryError: null };
+const EMPTY: ProjectState = { project: null, loadError: null, retrying: false, retryError: null, analyzeWatch: null };
+
+/** The watch after a fresh answer: a new stage or percent restarts "since";
+ * the start is the upload time when it's recent (a reload mid-analysis),
+ * else now. */
+export function watchAnalyze(prev: AnalyzeWatch | null, project: Project, now = Date.now()): AnalyzeWatch | null {
+  if (project.analyze.state !== "running") return null;
+  const key = `${project.analyze.stage ?? ""}|${project.analyze.progress ?? ""}`;
+  if (prev === null) {
+    const created = Date.parse(project.created_at);
+    const started = Number.isFinite(created) && now - created < 60 * 60_000 && created <= now ? created : now;
+    return { key, since: now, started };
+  }
+  return key === prev.key ? prev : { ...prev, key, since: now };
+}
+
+/** Taking longer than usual: still for 3 minutes, or running for 10. */
+export function analyzeSlow(w: AnalyzeWatch | null, now = Date.now()): boolean {
+  return w !== null && (now - w.since >= ANALYZE_STALL_MS || now - w.started >= ANALYZE_TOO_LONG_MS);
+}
 
 export const projectAtom = atomFamily((projectId: string) => {
   void projectId;
@@ -51,7 +85,7 @@ export const loadProjectAtom = atom(
     const at = projectAtom(a.projectId);
     try {
       const project = await a.client.getProject(a.projectId);
-      set(at, (s) => ({ ...s, project, loadError: null }));
+      set(at, (s) => ({ ...s, project, loadError: null, analyzeWatch: watchAnalyze(s.analyzeWatch, project) }));
     } catch (e) {
       set(at, (s) => ({ ...s, loadError: loadErrorText(e, false, NOT_AVAILABLE) }));
     }
@@ -75,7 +109,8 @@ export const retryAnalyzeAtom = atom(
     set(at, (s) => ({ ...s, retrying: true, retryError: null }));
     try {
       const project = await a.client.retryAnalyze(a.projectId);
-      set(at, (s) => ({ ...s, project, retrying: false }));
+      // a new analysis: its clock starts now
+      set(at, (s) => ({ ...s, project, retrying: false, analyzeWatch: watchAnalyze(null, { ...project, created_at: new Date().toISOString() }) }));
     } catch (e) {
       set(at, (s) => ({
         ...s,

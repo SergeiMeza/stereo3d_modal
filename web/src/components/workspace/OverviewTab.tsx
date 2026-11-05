@@ -232,9 +232,8 @@ export function OverviewTab({
                   </div>
                 </>
               ) : project.analyze.state === "failed" ? (
-                <p className="text-sm">
-                  We couldn&apos;t read this video. Try uploading it again.
-                </p>
+                // the notice above the page offers Try again and support
+                <p className="text-sm">We couldn&apos;t analyze this video.</p>
               ) : (
                 <p className="text-sm">
                   Your video is waiting to be looked through. Prices appear
