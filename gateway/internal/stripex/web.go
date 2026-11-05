@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,8 +28,11 @@ type SessionSpec struct {
 	// Klarna outside klarna_markets (v6.2 BL-10, empty at launch).
 	NoWeChat bool
 	NoKlarna bool
-	// SaveMethod forces saving card / Link / PayPal for later runs (C3).
+	// SaveMethod forces saving card / Link / PayPal for later runs (C3),
+	// except the types in SavedOnce (a Link or PayPal account already
+	// saved: saving again only makes a duplicate; owner bug 2026-11-05).
 	SaveMethod   bool
+	SavedOnce    []string
 	ReceiptEmail string
 	Description  string
 	Metadata     map[string]string // session and PaymentIntent metadata
@@ -57,7 +61,9 @@ func (c *Client) CreateWebSession(spec SessionSpec) (*Session, error) {
 	}
 	if spec.SaveMethod {
 		for _, m := range []string{"card", "link", "paypal"} {
-			f.Set("payment_method_options["+m+"][setup_future_usage]", "off_session")
+			if !slices.Contains(spec.SavedOnce, m) {
+				f.Set("payment_method_options["+m+"][setup_future_usage]", "off_session")
+			}
 		}
 		f.Set("consent_collection[payment_method_reuse_agreement][position]", "auto")
 	}
@@ -311,4 +317,33 @@ func (c *Client) CustomerUID(customerID string) (uid, env string, err error) {
 		return "", "", err
 	}
 	return cu.Metadata["firebase_uid"], cu.Metadata["env"], nil
+}
+
+// SubscriptionsUsingMethod lists the customer's live subscriptions whose
+// default payment method is pmID (so a duplicate isn't detached under a
+// renewal).
+func (c *Client) SubscriptionsUsingMethod(customerID, pmID string) ([]string, error) {
+	var page struct {
+		Data []struct {
+			ID                   string `json:"id"`
+			Status               string `json:"status"`
+			DefaultPaymentMethod string `json:"default_payment_method"`
+		} `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/subscriptions?status=all&limit=100&customer="+url.QueryEscape(customerID), nil, "", &page); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, s := range page.Data {
+		if s.DefaultPaymentMethod == pmID && s.Status != "canceled" && s.Status != "incomplete_expired" {
+			out = append(out, s.ID)
+		}
+	}
+	return out, nil
+}
+
+// SetSubscriptionMethod makes pmID a subscription's default method.
+func (c *Client) SetSubscriptionMethod(subID, pmID string) error {
+	var out map[string]any
+	return webCall(http.MethodPost, "/v1/subscriptions/"+url.PathEscape(subID), url.Values{"default_payment_method": {pmID}}, "", &out)
 }

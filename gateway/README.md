@@ -148,6 +148,15 @@ confirmCardPayment fallback). The default card is cached on
   one while anything is owed/open/charging; removing the default promotes
   the first backup), `GET/PUT /v1/billing/company`,
   `POST/DELETE /v1/billing/company/tax-ids`.
+  **One method per card or account** (owner bug 2026-11-05): a saved
+  method is the same as another with the card's fingerprint and expiry
+  (and wallet), or the Link or PayPal account's email. Every save
+  (`saveMethodFacts`: runs, top-ups, settles, setup) detaches the
+  duplicates, keeping the one just saved, after moving to it the account
+  default and any live subscription's default; the list shows one per
+  card or account whatever Stripe holds. Checkout doesn't save a Link or
+  PayPal account again when one is saved (no `setup_future_usage` for
+  that type); cards still save (the same card is deduped).
 - The test webhook endpoint carries every D5 event; `/webhook` is served
   as an alias of `/webhooks/stripe`.
 

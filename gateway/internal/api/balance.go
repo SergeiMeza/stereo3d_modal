@@ -230,7 +230,7 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 	}
 	sess, serr := s.Stripe.CreateWebSession(stripex.SessionSpec{
 		CustomerID: customerID, PMC: s.Cfg.StripePMCWeb, UI: ui, AmountCents: t.Cents, Currency: "usd",
-		Label: topupLabel(t.Cents), ReturnURL: returnURL, NoWeChat: clientDevice(r) != "computer", SaveMethod: true,
+		Label: topupLabel(t.Cents), ReturnURL: returnURL, NoWeChat: clientDevice(r) != "computer", SaveMethod: true, SavedOnce: s.savedOnceTypes(cust.StripeCustomerID),
 		NoKlarna: len(s.rates(ctx).KlarnaMarkets) == 0, Description: topupLabel(t.Cents), // no receipt_email: E13 is the receipt
 		Metadata: map[string]string{"kind": "topup", "topup_id": t.ID, "user_id": user.UID, "payment_flow": "topup", "attempt": "1"},
 		IdemKey:  fmt.Sprintf("topup_%s_%s_1", s.Cfg.Env, t.ID),

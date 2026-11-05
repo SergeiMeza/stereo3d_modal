@@ -128,6 +128,16 @@ func TestPlanSessionCompanyFields(t *testing.T) {
 			t.Fatalf("session %d %v", i, f)
 		}
 	}
+	// a Link account already saved isn't saved again (each save made a
+	// duplicate); cards still are
+	if _, err := s.Stripe.CreateWebSession(stripex.SessionSpec{CustomerID: "cus_1", UI: "elements", AmountCents: 500, Currency: "usd",
+		Label: "run", ReturnURL: "https://x/r", SaveMethod: true, SavedOnce: []string{"link"}}); err != nil {
+		t.Fatal(err)
+	}
+	if f := fake.sessionForms[len(fake.sessionForms)-1]; f["payment_method_options[link][setup_future_usage]"] != "" ||
+		f["payment_method_options[card][setup_future_usage]"] != "off_session" || f["payment_method_options[paypal][setup_future_usage]"] != "off_session" {
+		t.Fatalf("saved once %v", f)
+	}
 	for i, f := range fake.sessionForms {
 		for k := range f {
 			if strings.HasPrefix(k, "name_collection") || k == "customer_update[name]" {

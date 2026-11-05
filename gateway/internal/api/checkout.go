@@ -101,7 +101,7 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 		sess, err := s.Stripe.CreateWebSession(stripex.SessionSpec{
 			CustomerID: conv.Stripe.CustomerID, PMC: s.Cfg.StripePMCWeb, UI: ui,
 			AmountCents: conv.Quote.AmountCents, Currency: conv.Quote.Currency, Label: label,
-			ReturnURL: returnURL, NoWeChat: device != "computer", SaveMethod: true,
+			ReturnURL: returnURL, NoWeChat: device != "computer", SaveMethod: true, SavedOnce: s.savedOnceTypes(conv.Stripe.CustomerID),
 			NoKlarna:     len(s.rates(ctx).KlarnaMarkets) == 0, // per-market offer comes with local prices
 			ReceiptEmail: email, Description: piDescription(conv),
 			Metadata: map[string]string{
@@ -392,6 +392,7 @@ func (s *Service) saveMethodFacts(ctx context.Context, uid, customerID, pm, sess
 	if err := s.Stripe.SetTaxIP(customerID, ip); err != nil {
 		slog.WarnContext(ctx, "tax ip not set", "uid", uid, "err", err)
 	}
+	s.dedupeMethods(ctx, uid, customerID, pm) // the same card or account saved again: one stays
 }
 
 // handleChinaPay is the China path (pay-now {method, return_url}, B7): a

@@ -142,7 +142,8 @@ func (s *Service) HandleListMethods(w http.ResponseWriter, r *http.Request, user
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "couldn't load your payment methods; try again"))
 		return
 	}
-	ordered := orderMethods(methods, cust.DefaultPaymentMethod, cust.BackupOrder)
+	// one entry per card or account, whatever Stripe still holds
+	ordered := orderMethods(uniqueMethods(methods, cust.DefaultPaymentMethod), cust.DefaultPaymentMethod, cust.BackupOrder)
 	blocked := s.removeBlocked(ctx, user.UID, len(ordered))
 	now := time.Now()
 	out := make([]map[string]any, 0, len(ordered))
