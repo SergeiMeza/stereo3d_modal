@@ -15,9 +15,10 @@ import (
 // Raw calls at WebAPIVersion (attach_payment and credit-note refunds are
 // newer than the pinned SDK).
 
-// InvoiceFooter is the C6 footer (C3: the withdrawal line).
-const InvoiceFooter = "Spatial Video Studio on the web. It starts right away. " +
-	"You agreed that you lose your right to cancel once it's done."
+// Invoices carry no withdrawal line (owner 2026-11-05: it was on every
+// invoice; the express-consent confirmation is the run's receipt mail,
+// E1). A run's invoice has no footer of ours (the account's default, if
+// any, applies); a top-up's keeps its own.
 
 // TopupInvoiceFooter replaces the withdrawal line on a top-up's invoice
 // (v7 N12).
@@ -51,7 +52,7 @@ type InvoiceSpec struct {
 	Currency    string
 	EffectiveAt time.Time
 	Tax         bool   // tax_mode inclusive: automatic_tax
-	Footer      string // "" = InvoiceFooter
+	Footer      string // "" = none of ours (a top-up's: TopupInvoiceFooter)
 }
 
 // CreateInvoice creates the draft under key (C6 step 1).
@@ -62,13 +63,15 @@ func (c *Client) CreateInvoice(spec InvoiceSpec, key string) (*Invoice, error) {
 		"collection_method":              {"charge_automatically"},
 		"auto_advance":                   {"false"},
 		"pending_invoice_items_behavior": {"exclude"},
-		"footer":                         {orFooter(spec.Footer)},
 		"metadata[env]":                  {c.env},
 		"metadata[product]":              {"svs-web"},
 		"metadata[charge_id]":            {spec.ChargeID},
 	}
 	if !spec.EffectiveAt.IsZero() {
 		form.Set("effective_at", strconv.FormatInt(spec.EffectiveAt.Unix(), 10))
+	}
+	if spec.Footer != "" {
+		form.Set("footer", spec.Footer)
 	}
 	if spec.Tax {
 		form.Set("automatic_tax[enabled]", "true")
@@ -346,13 +349,6 @@ func (c *Client) ListCreditNotes(customerID string) ([]CreditNote, error) {
 		return nil, err
 	}
 	return page.Data, nil
-}
-
-func orFooter(f string) string {
-	if f == "" {
-		return InvoiceFooter
-	}
-	return f
 }
 
 // PlanInvoice is a subscription invoice of a web plan (Business, Studio,

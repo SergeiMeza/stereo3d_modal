@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -107,17 +109,33 @@ func (s *Service) mailOrderConfirmation(ctx context.Context, c *store.Conversion
 	if c.Step != store.StepProduction || c.Quote.AmountCents <= 0 {
 		return
 	}
-	label := s.runLabel(ctx, c)
-	s.mailCustomer(ctx, "E1_"+c.ID, c.UID, s.accountEmail(ctx, c.UID), customerMail{
-		Kind:    "E1",
-		Subject: "Spatial Video Studio: your 3D video is starting",
-		Lines: []string{
-			label + " · " + money(c.Quote.AmountCents) + ", charged now.",
-			"It starts right away. You agreed that you lose your right to cancel once it's done.",
-			"Refunded in full if it fails.",
-		},
-		Button: "View your project", Link: s.Cfg.SiteURL + "/projects/" + c.ProjectID, Receipt: true,
-	})
+	s.mailCustomer(ctx, "E1_"+c.ID, c.UID, s.accountEmail(ctx, c.UID),
+		orderConfirmationMail(s.runLabel(ctx, c), c.Quote.AmountCents, s.Cfg.SiteURL+"/projects/"+c.ProjectID, !s.onBusinessPlan(ctx, c.UID)))
+}
+
+// orderConfirmationMail is E1; consumer (no Business or Studio plan) adds
+// the express-consent line.
+func orderConfirmationMail(label string, cents int64, link string, consumer bool) customerMail {
+	lines := []string{label + " · " + money(cents) + ", charged now.", "Refunded in full if it fails."}
+	if consumer {
+		// The durable-medium confirmation of express consent (UK CCR / EU
+		// CRD), for consumers only.
+		lines = append(lines, expressConsentLine)
+	}
+	return customerMail{Kind: "E1", Subject: "Spatial Video Studio: your 3D video is starting", Lines: lines,
+		Button: "View your project", Link: link, Receipt: true}
+}
+
+// expressConsentLine closes a paid run's receipt (owner 2026-11-05).
+const expressConsentLine = "You asked us to start right away, so this run can't be cancelled once it's done."
+
+// onBusinessPlan: the account has an active Business or Studio plan.
+func (s *Service) onBusinessPlan(ctx context.Context, uid string) bool {
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil || cust.Plan == nil || !cust.Plan.Active(time.Now()) {
+		return false
+	}
+	return cust.Plan.Tier == pricing.TierBusiness || cust.Plan.Tier == pricing.TierStudio
 }
 
 // mailPaymentFailed is E2 (a group's whole backup loop failed), E3 (the

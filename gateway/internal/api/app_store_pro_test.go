@@ -122,3 +122,15 @@ func TestAppStoreProReceiptAndReminder(t *testing.T) {
 		t.Fatalf("app store sub %+v %q", sub, link)
 	}
 }
+
+// A paid run's receipt (E1) ends with the express-consent line for
+// consumers, not for Business or Studio, and never the old withdrawal
+// line.
+func TestOrderConfirmationConsentLine(t *testing.T) {
+	consumer := orderConfirmationMail("Beach · 4K", 1200, "https://site/projects/p1", true).text()
+	business := orderConfirmationMail("Beach · 4K", 1200, "https://site/projects/p1", false).text()
+	if !strings.Contains(consumer, "You asked us to start right away, so this run can't be cancelled once it's done.") ||
+		strings.Contains(business, "start right away") || strings.Contains(consumer+business, "right to cancel") {
+		t.Fatalf("consumer %q business %q", consumer, business)
+	}
+}

@@ -230,7 +230,11 @@ confirmCardPayment fallback). The default card is cached on
   `inv_{env}_{charge_id}_{n}`, `currency` explicit — an invoice otherwise
   takes the account's GBP and refuses USD items —, `auto_advance=false`,
   `pending_invoice_items_behavior=exclude`, `effective_at` = paid time,
-  the C3 footer, metadata `env/product/charge_id`; the id is stored at
+  no footer of ours (a top-up's keeps its own; the withdrawal line is on
+  no invoice since 2026-11-05: the express-consent confirmation is the
+  paid run's receipt mail E1, "You asked us to start right away, so this
+  run can't be cancelled once it's done.", for accounts without a
+  Business or Studio plan), metadata `env/product/charge_id`; the id is stored at
   once), one item per run (key `invitem_…_{conversion_id}`, missing lines
   only), total must equal `amount_received` (else Slack + `failed`, left as
   a draft), finalize, `attach_payment`, credit notes for refunds made
