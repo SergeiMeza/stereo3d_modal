@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +27,18 @@ const mailFooter = "Spatial Video Studio on the web · Help: support@spatial-ai-
 // supportInbox is the reply-to of every customer mail.
 const supportInbox = "support@spatial-ai-labs.com"
 
-func money(cents int64) string { return fmt.Sprintf("$%d.%02d", cents/100, cents%100) }
+// money: "$1,500.00" (thousands grouped).
+func money(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign, cents = "-", -cents
+	}
+	d := strconv.FormatInt(cents/100, 10)
+	for i := len(d) - 3; i > 0; i -= 3 {
+		d = d[:i] + "," + d[i:]
+	}
+	return fmt.Sprintf("%s$%s.%02d", sign, d, cents%100)
+}
 
 // customerMail is one G3 mail before addressing.
 type customerMail struct {

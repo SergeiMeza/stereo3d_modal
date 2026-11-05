@@ -202,7 +202,7 @@ func TestStepDowns(t *testing.T) {
 			t.Fatalf("%s→%s change %d %v (charged? %v %v)", tc.from, tc.to, code, out, f.fake.invItems, f.fake.subUpdates)
 		}
 		sc, _ := out["plan"].(map[string]any)["scheduled_change"].(map[string]any)
-		if sc == nil || sc["to"] != tc.to {
+		if sc == nil || sc["to"] != publicPlanID(tc.to) { // a cancel reads pay_per_video, never "none" (3DS 2026-11-05)
 			t.Fatalf("%s→%s scheduled %v", tc.from, tc.to, out["plan"])
 		}
 		if tc.to != "none" {
@@ -297,7 +297,7 @@ func TestProStatusWebPlan(t *testing.T) {
 	// pay_per_video is the same as cancelling at the period's end
 	g := newPlanFixture(t, "pro_monthly", "pro", 899, 3, 30)
 	code, res := g.post(g.s.HandlePlanChange, `{"to":"pay_per_video","confirm":true}`)
-	if sc, _ := res["plan"].(map[string]any)["scheduled_change"].(map[string]any); code != 200 || sc["to"] != "none" {
+	if sc, _ := res["plan"].(map[string]any)["scheduled_change"].(map[string]any); code != 200 || sc["to"] != "pay_per_video" || res["change"].(map[string]any)["to"] != "pay_per_video" {
 		t.Fatalf("pay per video %d %v", code, res)
 	}
 }

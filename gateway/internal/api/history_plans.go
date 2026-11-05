@@ -40,7 +40,7 @@ type planLine struct {
 }
 
 type planChangeInfo struct {
-	From        string     `json:"from"` // the plan key: business | studio | pro_monthly | none
+	From        string     `json:"from"` // the plan key: business | studio | pro_monthly | pay_per_video
 	To          string     `json:"to"`
 	Kind        string     `json:"kind"` // step_up | step_down | cancel
 	EffectiveAt *time.Time `json:"effective_at,omitempty"`
@@ -51,8 +51,19 @@ type creditInfo struct {
 	Kind  string `json:"kind"`  // granted | expired | removed | frozen | unfrozen
 }
 
-// planIntervalWord: weekly | monthly | yearly for a plan key or tier.
+// intervalWord: weekly | monthly | yearly for a Stripe recurring
+// interval ("" when it isn't one of those).
+func intervalWord(stripeInterval string) string {
+	return map[string]string{"week": "weekly", "month": "monthly", "year": "yearly"}[stripeInterval]
+}
+
+// planIntervalWord: weekly | monthly | yearly for a plan key or tier, when
+// the price's own interval isn't known. A plan_id that is a tier
+// ("studio" on a step-up's metadata) reads the tier's interval.
 func planIntervalWord(r *pricing.Rates, tier, planID string) string {
+	if _, ok := r.Plan(planID); ok {
+		tier, planID = planID, ""
+	}
 	switch {
 	case strings.Contains(planID, "week"):
 		return "weekly"
@@ -94,8 +105,10 @@ func planInvoiceStatus(inv stripex.PlanInvoice) string {
 }
 
 // planInvoiceRows turns the customer's plan invoices into history rows
-// (pure; the receipt and card come from the paying PaymentIntent).
-func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, pis map[string]string) []historyRow {
+// (pure; the receipt and card come from the paying PaymentIntent, the
+// interval from the plan line's price: intervals is price id → Stripe's
+// recurring interval).
+func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, pis, intervals map[string]string) []historyRow {
 	var out []historyRow
 	for _, inv := range invs {
 		md := inv.Parent.SubscriptionDetails.Metadata
@@ -104,7 +117,7 @@ func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, p
 			continue
 		}
 		tier, planID := md["plan"], md["plan_id"]
-		interval := planIntervalWord(r, tier, planID)
+		interval := cmp.Or(intervalWord(intervals[inv.PlanPriceID()]), planIntervalWord(r, tier, planID))
 		reason := map[string]string{"subscription_create": "first", "subscription_cycle": "renewal", "subscription_update": "change"}[inv.BillingReason]
 		if reason == "" {
 			reason = "other"
@@ -131,7 +144,7 @@ func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, p
 			to := cmp.Or(planID, tier)
 			out = append(out, historyRow{RowID: "plan_change_" + inv.ID, Kind: "plan_change", CreatedAt: at.Add(-time.Second),
 				Currency: inv.Currency, Status: "applied", Label: planChangeLabel(from, to), amounts: map[string]int64{},
-				Change: &planChangeInfo{From: from, To: to, Kind: md["change_kind"], EffectiveAt: &at}})
+				Change: &planChangeInfo{From: publicPlanID(from), To: publicPlanID(to), Kind: md["change_kind"], EffectiveAt: &at}})
 		}
 	}
 	return out
@@ -165,7 +178,7 @@ func scheduledChangeRow(p *store.Plan) *historyRow {
 	from := p.Key()
 	return &historyRow{RowID: "plan_change_scheduled_" + p.SubscriptionID, Kind: "plan_change", CreatedAt: p.UpdatedAt.UTC(),
 		Currency: "usd", Status: "scheduled", Label: planChangeLabel(from, to), amounts: map[string]int64{},
-		Change: &planChangeInfo{From: from, To: to, Kind: kind, EffectiveAt: at}}
+		Change: &planChangeInfo{From: publicPlanID(from), To: publicPlanID(to), Kind: kind, EffectiveAt: at}}
 }
 
 // creditRows are the plans' usage-credit movements from the ledger.
@@ -227,7 +240,19 @@ func (s *Service) planHistoryRows(ctx context.Context, uid string, cust *store.C
 				pis[inv.ID] = pi
 			}
 		}
-		out = append(out, planInvoiceRows(s.rates(ctx), s.Cfg.Env, invs, pis)...)
+		intervals := map[string]string{}
+		for _, inv := range invs {
+			if id := inv.PlanPriceID(); id != "" {
+				if _, done := intervals[id]; !done {
+					if iv, err := s.Stripe.PriceInterval(id); err == nil {
+						intervals[id] = iv
+					} else {
+						slog.WarnContext(ctx, "billing history: price interval unread", "err", stripex.ErrMessage(err))
+					}
+				}
+			}
+		}
+		out = append(out, planInvoiceRows(s.rates(ctx), s.Cfg.Env, invs, pis, intervals)...)
 	}
 	if cust != nil {
 		if r := scheduledChangeRow(cust.Plan); r != nil {

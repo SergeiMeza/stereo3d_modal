@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -372,11 +373,67 @@ type PlanInvoice struct {
 		} `json:"subscription_details"`
 	} `json:"parent"`
 	Lines struct {
-		Data []struct {
-			Description string `json:"description"`
-			Amount      int64  `json:"amount"`
-		} `json:"data"`
+		Data []PlanInvoiceLine `json:"data"`
 	} `json:"lines"`
+}
+
+// PlanInvoiceLine is one line (endive shape: the price under
+// pricing.price_details, the kind under parent.type).
+type PlanInvoiceLine struct {
+	Description string `json:"description"`
+	Amount      int64  `json:"amount"`
+	Parent      struct {
+		Type string `json:"type"` // subscription_item_details | invoice_item_details
+	} `json:"parent"`
+	Pricing struct {
+		PriceDetails struct {
+			Price string `json:"price"`
+		} `json:"price_details"`
+	} `json:"pricing"`
+}
+
+// PlanLine is a subscription line on a price (tests).
+func PlanLine(desc string, amount int64, priceID string) PlanInvoiceLine {
+	l := PlanInvoiceLine{Description: desc, Amount: amount}
+	l.Parent.Type, l.Pricing.PriceDetails.Price = "subscription_item_details", priceID
+	return l
+}
+
+// PlanPriceID is the price of the invoice's subscription line (the plan
+// itself, not a credit or other invoice item); "" when there's none.
+func (inv PlanInvoice) PlanPriceID() string {
+	for _, l := range inv.Lines.Data {
+		if l.Parent.Type == "subscription_item_details" && l.Pricing.PriceDetails.Price != "" {
+			return l.Pricing.PriceDetails.Price
+		}
+	}
+	return ""
+}
+
+// priceIntervals: price id → recurring interval (a price's interval never
+// changes).
+var priceIntervals sync.Map
+
+// PriceInterval is a price's recurring interval (day | week | month |
+// year), cached.
+func (c *Client) PriceInterval(priceID string) (string, error) {
+	if v, ok := priceIntervals.Load(priceID); ok {
+		return v.(string), nil
+	}
+	var p struct {
+		Recurring *struct {
+			Interval string `json:"interval"`
+		} `json:"recurring"`
+	}
+	if err := webCall(http.MethodGet, "/v1/prices/"+url.PathEscape(priceID), nil, "", &p); err != nil {
+		return "", err
+	}
+	iv := ""
+	if p.Recurring != nil {
+		iv = p.Recurring.Interval
+	}
+	priceIntervals.Store(priceID, iv)
+	return iv, nil
 }
 
 // ListPlanInvoices lists the customer's subscription invoices, newest

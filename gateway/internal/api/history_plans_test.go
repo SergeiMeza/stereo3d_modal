@@ -15,11 +15,12 @@ func planInv(id, status, reason string, paid int64, md map[string]string, lines 
 		InvoicePDF: "https://pay.stripe.com/invoice/" + id + "/pdf", BillingReason: reason}
 	inv.Parent.SubscriptionDetails.Subscription = "sub_1"
 	inv.Parent.SubscriptionDetails.Metadata = md
-	for _, l := range lines {
-		inv.Lines.Data = append(inv.Lines.Data, struct {
-			Description string `json:"description"`
-			Amount      int64  `json:"amount"`
-		}{Description: "line", Amount: l})
+	for i, l := range lines {
+		line := stripex.PlanInvoiceLine{Description: "line", Amount: l}
+		if i == 0 { // the plan's own line on its price
+			line = stripex.PlanLine("line", l, "price_"+md["plan"]+"_"+id)
+		}
+		inv.Lines.Data = append(inv.Lines.Data, line)
 	}
 	return inv
 }
@@ -32,7 +33,9 @@ func planInv(id, status, reason string, paid int64, md map[string]string, lines 
 func TestPlanHistoryRows(t *testing.T) {
 	r := pricing.DefaultsFor("test")
 	biz := map[string]string{"env": "test", "product": "svs-web", "kind": "plan", "plan": "business"}
-	studio := map[string]string{"env": "test", "product": "svs-web", "plan": "studio", "changed_from": "business", "change_kind": changeStepUp}
+	// a step-up's metadata carries plan_id "studio" (the tier), which read
+	// as monthly before (3DS 2026-11-05); the price's interval decides
+	studio := map[string]string{"env": "test", "product": "svs-web", "plan": "studio", "plan_id": "studio", "changed_from": "business", "change_kind": changeStepUp}
 	rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{
 		planInv("in_first", "paid", "subscription_create", 29900, biz, 29900),
 		planInv("in_up", "paid", "subscription_update", 1098800, studio, 1198800, -100000),
@@ -40,7 +43,8 @@ func TestPlanHistoryRows(t *testing.T) {
 		planInv("in_draft", "draft", "subscription_cycle", 29900, biz),
 		planInv("in_prod", "paid", "subscription_create", 29900, map[string]string{"env": "prod", "product": "svs-web", "plan": "business"}),
 		planInv("in_other", "paid", "subscription_create", 500, map[string]string{"env": "test", "product": "other"}),
-	}, map[string]string{"in_first": "pi_first", "in_up": "pi_up"})
+	}, map[string]string{"in_first": "pi_first", "in_up": "pi_up"},
+		map[string]string{"price_business_in_first": "month", "price_studio_in_up": "year", "price_business_in_renew": "month"})
 	byID := map[string]historyRow{}
 	for _, row := range rows {
 		byID[row.RowID] = row
@@ -69,7 +73,8 @@ func TestPlanHistoryRows(t *testing.T) {
 		sc.Status != "scheduled" || sc.Label != "Studio → Business" || !sc.Change.EffectiveAt.Equal(at) {
 		t.Fatalf("scheduled %+v", sc)
 	}
-	if sc := scheduledChangeRow(&store.Plan{Tier: "business", SubscriptionID: "sub_1", CancelAtPeriodEnd: true, CurrentPeriodEnd: &at}); sc == nil || sc.Change.Kind != "cancel" || sc.Label != "Business → Pay per video" {
+	if sc := scheduledChangeRow(&store.Plan{Tier: "business", SubscriptionID: "sub_1", CancelAtPeriodEnd: true, CurrentPeriodEnd: &at}); sc == nil || sc.Change.Kind != "cancel" ||
+		sc.Label != "Business → Pay per video" || sc.Change.To != "pay_per_video" {
 		t.Fatalf("cancel %+v", sc)
 	}
 	credit := creditRows([]store.Entry{{ID: "e1", Kind: store.EntryPlanCredit, Cents: 40000, Delta: 40000, At: at},
@@ -78,11 +83,37 @@ func TestPlanHistoryRows(t *testing.T) {
 		credit[0].Label != "Usage credit added · $400.00" {
 		t.Fatalf("credit %+v", credit)
 	}
+	if big := creditRows([]store.Entry{{ID: "e4", Kind: store.EntryPlanCredit, Cents: 150000, Delta: 150000, At: at}}); big[0].Label != "Usage credit added · $1,500.00" {
+		t.Fatalf("thousands %q", big[0].Label)
+	}
 	all := append(rows, credit...)
 	if got := filterRows(all, "plan"); len(got) != len(all) {
 		t.Fatalf("plan filter %d", len(got))
 	}
 	if got := filterRows(append(all, historyRow{Kind: "charge"}), "runs"); len(got) != 1 {
 		t.Fatalf("runs filter %d", len(got))
+	}
+}
+
+// The interval comes from the plan line's price; without it, a plan_id
+// that is a tier reads the tier's own interval (Studio is yearly).
+func TestPlanRowInterval(t *testing.T) {
+	r := pricing.DefaultsFor("test")
+	md := map[string]string{"env": "test", "product": "svs-web", "plan": "studio", "plan_id": "studio"}
+	inv := planInv("in_y", "paid", "subscription_update", 1198800, md, 1198800)
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "year"}); rows[0].Label != "Studio plan · yearly" || rows[0].Plan.Interval != "yearly" {
+		t.Fatalf("price interval %+v", rows[0])
+	}
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, nil); rows[0].Plan.Interval != "yearly" {
+		t.Fatalf("unread price %+v", rows[0].Plan)
+	}
+	// the price wins over the metadata (a monthly price on a "studio" id)
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "month"}); rows[0].Plan.Interval != "monthly" {
+		t.Fatalf("price first %+v", rows[0].Plan)
+	}
+	for in, want := range map[int64]string{0: "$0.00", 5: "$0.05", 99900: "$999.00", 1198800: "$11,988.00", 123456789: "$1,234,567.89", -150000: "-$1,500.00"} {
+		if got := money(in); got != want {
+			t.Fatalf("money(%d) = %q, want %q", in, got, want)
+		}
 	}
 }

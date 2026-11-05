@@ -39,12 +39,24 @@ const (
 	changeStepUp   = "step_up"
 	changeStepDown = "step_down"
 	planNone       = "none"
+	payPerVideo    = "pay_per_video"
 	quoteValidFor  = 15 * time.Minute
 )
 
 var planOrder = []string{planNone, "pro_weekly", "pro_monthly", "pro_yearly", pricing.TierBusiness, pricing.TierStudio}
 
 func planRank(id string) int { return slices.Index(planOrder, id) }
+
+// publicPlanID is a plan id as the routes answer it: no plan reads
+// pay_per_video (the web's id, also taken as input), never the internal
+// "none" (which the web read as an unknown Pro plan: "Pro starts on …"
+// after a cancel, 3DS 2026-11-05).
+func publicPlanID(id string) string {
+	if id == planNone {
+		return payPerVideo
+	}
+	return id
+}
 
 // creditShares are what's left of the old plan's period: its time, and
 // its usage (Business/Studio: the plan's usage credit; Pro: the period's
@@ -127,7 +139,7 @@ type planChangeQuote struct {
 }
 
 func (q planChangeQuote) json() map[string]any {
-	out := map[string]any{"kind": q.Kind, "from": q.From.ID, "to": q.To.ID, "today_cents": q.TodayCents,
+	out := map[string]any{"kind": q.Kind, "from": publicPlanID(q.From.ID), "to": publicPlanID(q.To.ID), "today_cents": q.TodayCents,
 		"new_plan_cents": q.To.PriceCents, "quote_at": q.QuoteAt.Unix()}
 	if q.Kind == changeStepUp {
 		out["unused_credit_cents"], out["renews_at"] = q.CreditCents, q.RenewsAt.Format(time.RFC3339)
@@ -162,7 +174,7 @@ func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.C
 	if !ok {
 		return nil, httpx.Err(http.StatusConflict, "plan_unknown", "your current plan can't be changed here")
 	}
-	if to == "pay_per_video" {
+	if to == payPerVideo {
 		to = planNone // the same as /v1/billing/plan/cancel
 	}
 	target, ok := s.planTarget(ctx, to)
@@ -416,9 +428,9 @@ func scheduledChangeJSON(p *store.Plan) any {
 	case p == nil:
 		return nil
 	case p.ScheduledTo != "" && p.ScheduledAt != nil:
-		return map[string]any{"to": p.ScheduledTo, "effective_at": p.ScheduledAt.Format(time.RFC3339)}
+		return map[string]any{"to": publicPlanID(p.ScheduledTo), "effective_at": p.ScheduledAt.Format(time.RFC3339)}
 	case p.CancelAtPeriodEnd && p.CurrentPeriodEnd != nil:
-		return map[string]any{"to": planNone, "effective_at": p.CurrentPeriodEnd.Format(time.RFC3339)}
+		return map[string]any{"to": payPerVideo, "effective_at": p.CurrentPeriodEnd.Format(time.RFC3339)}
 	}
 	return nil
 }
