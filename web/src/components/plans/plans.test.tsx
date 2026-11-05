@@ -35,6 +35,8 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
+import { UserMenu } from "@/components/auth/UserMenu";
+
 import { HeaderPlans } from "./HeaderPlans";
 import { PlansBanner } from "./PlansBanner";
 import { TalkToUs } from "./TalkToUs";
@@ -90,6 +92,33 @@ const wrap = (el: React.ReactElement) =>
       <BillingProvider>{el}</BillingProvider>
     </AuthProvider>,
   );
+
+function webPro(): void {
+  mockDb.billing.plan = {
+    plan: "pro",
+    plan_id: "pro_monthly",
+    name: "Pro Monthly",
+    status: "active",
+    active: true,
+    monthly_cents: 1499,
+    credit_cents: 0,
+    credit_left_cents: 0,
+    cancel_at_period_end: false,
+  } as never;
+}
+
+function studio(): void {
+  mockDb.billing.plan = {
+    plan: "studio",
+    name: "Studio",
+    status: "active",
+    active: true,
+    monthly_cents: 99900,
+    credit_cents: 150000,
+    credit_left_cents: 150000,
+    cancel_at_period_end: false,
+  };
+}
 
 function business(): void {
   mockDb.billing.plan = {
@@ -207,14 +236,52 @@ describe("header B", () => {
     );
   });
 
-  it("drops the chip with a plan", async () => {
-    business();
+  it("renders no link while the plan is still loading", () => {
     wrap(<HeaderPlans />);
-    await waitFor(() =>
-      expect(screen.getByTestId("header-plans")).toBeTruthy(),
-    );
+    expect(screen.queryByTestId("header-plans")).toBeNull();
+  });
+
+  it.each([
+    ["Business", business],
+    ["web Pro", webPro],
+    ["Studio", studio],
+  ])("a %s subscriber gets no header link", async (_name, setUp) => {
+    setUp();
+    wrap(<HeaderPlans />);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryByTestId("header-plans")).toBeNull();
+    // the header's paywall events only fire when the link renders
+    expect(mockDb.events.filter((e) => e.props.placement === "header")).toEqual([]);
+  });
+
+  it("signed-out visitors keep the Plans link, without the chip", async () => {
+    appStore.set(authStateAtom, (a) => ({ ...a, user: null, ready: true }));
+    wrap(<HeaderPlans />);
+    expect(screen.getByTestId("header-plans").getAttribute("href")).toBe("/plans");
+    // let the pricing answer land in this test, not the next one
     await new Promise((r) => setTimeout(r, 200));
     expect(screen.queryByTestId("header-save-chip")).toBeNull();
+  });
+});
+
+describe("account menu (owner 2026-11-05)", () => {
+  it.each([
+    ["no plan", () => {}],
+    ["Business", business],
+    ["web Pro", webPro],
+  ])("is Account, Plan & billing, Sign out with %s", async (_name, setUp) => {
+    setUp();
+    wrap(<UserMenu />);
+    fireEvent.keyDown(screen.getByRole("button", { name: "Account menu" }), { key: "Enter" });
+    const menu = within(screen.getByTestId("account-menu"));
+    expect(menu.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
+      "Account",
+      "Plan & billing",
+      "Sign out",
+    ]);
+    expect(menu.getByRole("menuitem", { name: "Plan & billing" }).getAttribute("href")).toBe(
+      "/account/billing",
+    );
   });
 });
 

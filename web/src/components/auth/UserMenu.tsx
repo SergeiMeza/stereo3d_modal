@@ -4,7 +4,9 @@
  * Right side of the sticky header — the client island inside the server
  * layout. Signed out (firebase mode): a "Sign in" link. Signed in (or mock
  * mode, whose fixed user looks signed in): the avatar + truncated email
- * opens the account menu — Account, Pro (S3D-68), Billing (S3D-57), Sign out. Renders
+ * opens the account menu — Account, Plan & billing, Sign out (owner
+ * 2026-11-05: one entry for the plan and the money; Pro and every other
+ * plan are on /plans, linked from there). Renders
  * nothing while the session is being restored so the header never
  * flashes the wrong state.
  */
@@ -69,10 +71,7 @@ export function UserMenu() {
             <Link href="/account">Account</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/pro">Pro</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/account/billing">Billing</Link>
+            <Link href="/account/billing">Plan &amp; billing</Link>
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={async () => {

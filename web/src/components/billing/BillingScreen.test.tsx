@@ -433,7 +433,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     );
     openMenu(screen.getByRole("button", { name: "Account menu" }));
     const menu = within(screen.getByTestId("account-menu"));
-    expect(menu.getByRole("menuitem", { name: "Billing" }).getAttribute("href")).toBe(
+    expect(menu.getByRole("menuitem", { name: "Plan & billing" }).getAttribute("href")).toBe(
       "/account/billing",
     );
     expect(menu.getByRole("menuitem", { name: "Account" })).toBeTruthy();

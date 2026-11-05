@@ -5,11 +5,17 @@
  * without a plan a "Save 15–25%" chip inside it (one link, no popover).
  * The range comes from /v1/pricing's tier shares. On phones the chip
  * stands alone beside the logo.
+ *
+ * Owner 2026-11-05: only people without a plan (and signed-out visitors)
+ * see it; subscribers find Plans in the account menu. Nothing renders
+ * while the session or the tier is still loading, so the link never
+ * flashes in and out.
  */
 
 import Link from "next/link";
 import type { JSX } from "react";
 
+import { useAuth } from "@/lib/auth";
 import { usePricing } from "@/lib/api/usePricing";
 
 import {
@@ -19,10 +25,25 @@ import {
   useViewEvent,
 } from "./upsell";
 
-export function HeaderPlans(): JSX.Element {
+/** Who gets the header link: "none" with the chip, signed out without,
+ * null for subscribers and while loading. */
+export function useHeaderPlans(): "none" | "signed_out" | null {
+  const { user, ready } = useAuth();
+  const tier = usePlanTier();
+  if (!ready) return null;
+  if (user === null) return "signed_out";
+  return tier === "none" ? "none" : null;
+}
+
+export function HeaderPlans(): JSX.Element | null {
+  const who = useHeaderPlans();
+  return who === null ? null : <HeaderPlansLink withChip={who === "none"} />;
+}
+
+function HeaderPlansLink({ withChip }: { withChip: boolean }): JSX.Element {
   const tier = usePlanTier();
   const range = saveRange(usePricing());
-  const chip = tier === "none" && range !== null;
+  const chip = withChip && range !== null;
   useViewEvent("header", tier, chip, { variant: "save_chip" });
   const send = usePaywallEvents("header", tier, { variant: "save_chip" });
   return (
