@@ -87,6 +87,35 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
     expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $312.50 left this month · resets on 5 Dec");
   });
 
+  it("the gateway's prepaid fields (a0efcfa) set the amount, the hold and the expiry", async () => {
+    business(40000);
+    topped(2500 + 40000);
+    mockDb.billing.prepaid.frozen_cents = 1000;
+    mockDb.billing.balanceExtra = {
+      frozen_cents: 41000,
+      expires_at: "2027-11-01T00:00:00Z",
+      prepaid_cents: 1500,
+      prepaid_frozen_cents: 1000,
+      prepaid_expires_at: "2027-05-01T00:00:00Z",
+      plan_credit_cents: 40000,
+    };
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$15.00"));
+    expect(screen.getByTestId("balance-frozen").textContent).toBe("$10.00 on hold while a payment is reviewed.");
+    expect(screen.getByTestId("balance-expires").textContent).toBe("Expires on 1 May 2027 unless you add funds.");
+    // the plan's credit keeps its own reset date
+    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $400 left this month · resets on 5 Dec");
+  });
+
+  it("no prepaid money: prepaid_expires_at null shows no expiry", async () => {
+    business(40000);
+    mockDb.billing.prepaid.balance_cents = 40000;
+    mockDb.billing.balanceExtra = { expires_at: "2027-11-01T00:00:00Z", prepaid_cents: 0, prepaid_expires_at: null };
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$0.00"));
+    expect(screen.queryByTestId("balance-expires")).toBeNull();
+  });
+
   it("no plan: no plan line, the whole balance", async () => {
     topped(2500);
     renderBilling();

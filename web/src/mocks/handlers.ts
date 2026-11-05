@@ -175,6 +175,8 @@ interface MockBilling {
   /** gateway ffac292: plan invoices, plan changes and usage credit rows
    * (merged into GET /v1/billing/history) */
   planHistory: Record<string, unknown>[];
+  /** tests: extra fields on GET /v1/billing's balance block */
+  balanceExtra: Record<string, unknown>;
   /** what the next add-method confirm does */
   nextSetup: "saved" | "declined" | "too_many";
   /** spec v6 F hand-off codes (P7/P8) */
@@ -240,6 +242,8 @@ function prepaidSummary() {
     spend_limit_cents: pp.spend_limit_cents,
     month_spent_cents: pp.month_spent_cents,
     low_balance_cents: pp.low_balance_cents,
+    // tests: fields a newer gateway adds (a0efcfa prepaid_*)
+    ...mockDb.billing.balanceExtra,
   };
 }
 
@@ -880,6 +884,7 @@ function seed(): DB {
       nextConfirm: "paid",
       company: {},
       planHistory: [],
+      balanceExtra: {},
       nextSetup: "saved",
       handoffs: new Map(),
       handoffRateLimited: false,

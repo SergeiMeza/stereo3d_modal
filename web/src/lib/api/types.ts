@@ -990,10 +990,16 @@ export type PaymentFlow = "after" | "precharge" | "paynow" | "balance" | "free_p
 export interface BalanceSummary {
   /** everything spendable, a plan's usage credit included */
   balance_cents: number;
-  /** owner 2026-11-05 (asked of the gateway): the prepaid top-ups that
-   * keep, without the plan's usage credit; until it's sent the page takes
-   * the plan's credit_left_cents off balance_cents */
+  /** gateway a0efcfa: the prepaid top-ups that keep, without the plan's
+   * usage credit (older gateways: the page takes the plan's
+   * credit_left_cents off balance_cents) */
   prepaid_cents?: number;
+  /** gateway a0efcfa: the prepaid part on hold */
+  prepaid_frozen_cents?: number;
+  /** gateway a0efcfa: when the prepaid money expires; null with none */
+  prepaid_expires_at?: string | null;
+  /** gateway a0efcfa: the plan's usage credit in the balance */
+  plan_credit_cents?: number;
   held_cents: number;
   frozen_cents: number;
   available_cents: number;

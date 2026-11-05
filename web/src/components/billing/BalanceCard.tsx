@@ -37,6 +37,16 @@ export function prepaidCents(b: BalanceSummary, plan: AccountPlan | null | undef
   return Math.max(b.balance_cents - credit, 0);
 }
 
+/** The prepaid part on hold, and when the prepaid money expires: the
+ * gateway's prepaid fields when sent (a0efcfa), else the whole balance's. */
+export function prepaidFrozenCents(b: BalanceSummary): number {
+  return typeof b.prepaid_frozen_cents === "number" ? b.prepaid_frozen_cents : b.frozen_cents;
+}
+
+export function prepaidExpiresAt(b: BalanceSummary): string | null {
+  return "prepaid_expires_at" in b ? (b.prepaid_expires_at ?? null) : (b.expires_at ?? null);
+}
+
 /** "Plan usage: $400 left this month · resets on 5 Dec" */
 export function planUsageLine(plan: AccountPlan): string {
   const left = plan.credit_left_cents ?? plan.credit_cents ?? 0;
@@ -65,6 +75,8 @@ export function BalanceCard(): JSX.Element | null {
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
   const plan = isTeamPlan(status.plan) ? status.plan : null;
   const prepaid = prepaidCents(b, plan);
+  const frozen = prepaidFrozenCents(b);
+  const expires = prepaidExpiresAt(b);
 
   return (
     <section
@@ -90,17 +102,19 @@ export function BalanceCard(): JSX.Element | null {
               {formatCents(b.held_cents)} reserved for {b.held_runs ?? 1} {(b.held_runs ?? 1) === 1 ? "run" : "runs"} in progress
             </p>
           ) : null}
-          {b.frozen_cents > 0 ? (
-            <p className="text-xs text-amber-200 tabular-nums">
-              {formatCents(b.frozen_cents)} on hold while a payment is reviewed.
+          {frozen > 0 ? (
+            <p data-testid="balance-frozen" className="text-xs text-amber-200 tabular-nums">
+              {formatCents(frozen)} on hold while a payment is reviewed.
             </p>
           ) : null}
           {b.expired && b.expires_at ? (
             <p className="text-xs text-fg-muted">Your balance expired on {longDate(b.expires_at)}.</p>
           ) : b.never_topped_up && prepaid === 0 ? (
             <p className="text-xs text-fg-muted">Add funds to pay for runs from your balance.</p>
-          ) : b.expires_at ? (
-            <p className="text-xs text-fg-muted">Expires on {longDate(b.expires_at)} unless you add funds.</p>
+          ) : expires ? (
+            <p data-testid="balance-expires" className="text-xs text-fg-muted">
+              Expires on {longDate(expires)} unless you add funds.
+            </p>
           ) : null}
         </div>
         <Button size="lg" data-testid="balance-add-funds" onClick={openAddFunds}>
