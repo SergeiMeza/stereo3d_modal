@@ -37,6 +37,14 @@ import { useAccountSettings } from "@/lib/useAccountSettings";
 
 const POLL_INTERVAL_MS = 5000;
 
+/** A modal dialog is open on the page. */
+function modalOpen(): boolean {
+  return (
+    typeof document !== "undefined" &&
+    document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="dialog"][data-open]') !== null
+  );
+}
+
 const byNewest = (a: Project, b: Project) =>
   b.created_at.localeCompare(a.created_at);
 
@@ -88,7 +96,11 @@ export default function ProjectsScreen() {
 
   useEffect(() => {
     if (!anyAnalyzing) return;
-    const id = setInterval(load, POLL_INTERVAL_MS);
+    // owner bug 2026-11-05: no list reloads under an open dialog (iOS
+    // Safari drops taps on long frames)
+    const id = setInterval(() => {
+      if (!modalOpen()) load();
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [anyAnalyzing, load]);
 
@@ -172,12 +184,20 @@ export default function ProjectsScreen() {
       ? "app_pro"
       : "default"
     : welcomeVariant;
-  const welcomeOpen =
+  const welcomeDue =
     welcomeAgain ||
     (!welcomeClosed &&
       settings !== null &&
       projects !== null &&
       (appProDue || firstDue));
+  // owner bug 2026-11-05 (taps lost in the welcome on a new account): once
+  // open, the welcome stays open with the variant it opened with until it
+  // closes; a list reload (projects null for a moment) or a variant that
+  // lands late no longer closes or remounts it
+  const [openedAs, setOpenedAs] = useState<WelcomeVariant | null>(null);
+  if (welcomeDue && openedAs === null) setOpenedAs(shownVariant);
+  const welcomeOpen = welcomeAgain || (openedAs !== null && !welcomeClosed);
+  const dialogVariant = openedAs ?? shownVariant;
   const pinned = sorted?.filter((p) => p.pinned === true) ?? [];
   const rest = sorted?.filter((p) => p.pinned !== true) ?? [];
 
@@ -197,17 +217,23 @@ export default function ProjectsScreen() {
       </div>
 
       <WelcomeDialog
-        key={shownVariant}
+        key={dialogVariant}
         open={welcomeOpen}
         sample={sample}
-        variant={shownVariant}
+        variant={dialogVariant}
         onClose={() => {
           clearWelcomeAgain();
           setWelcomeClosed(true);
           setWelcomeAgain(false);
+          setOpenedAs(null);
         }}
       />
-      <GetStarted onPickHeadset={() => setWelcomeAgain(true)} />
+      <GetStarted
+        onPickHeadset={() => {
+          setOpenedAs(null);
+          setWelcomeAgain(true);
+        }}
+      />
       <LimitsNotice />
       {/* plans canvas: Talk to us for company emails, then Projects A */}
       <TalkToUs />

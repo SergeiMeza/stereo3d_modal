@@ -66,7 +66,7 @@ export function Analytics() {
       role="region"
       aria-label="Analytics consent"
       // eslint-disable-next-line no-restricted-syntax -- a full-width bar pinned to the bottom edge, not an anchored overlay; it can't clip
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-surface-1/95 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-surface-1 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 text-sm">
         <p className="min-w-64 flex-1 text-fg-muted">

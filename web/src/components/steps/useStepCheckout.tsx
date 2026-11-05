@@ -880,11 +880,11 @@ export function InstantCheckout({
         {sheet}
         {/* phone (screen 11): the one button stays in reach at the bottom */}
         {owes ? (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1 p-3 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur lg:hidden">
             <PayToContinue />
           </div>
         ) : !running ? (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1/95 p-3 backdrop-blur lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface-1 p-3 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur lg:hidden">
             {facts.length > 0 ? (
               <p data-testid="run-summary-phone" className="mb-2 text-center text-xs text-fg-muted">
                 {facts.join(" · ")}

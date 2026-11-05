@@ -84,7 +84,7 @@ export default function RootLayout({
               header is inside both for the plans link (owner 2026-11-04). */}
           <MswProvider>
           <BillingProvider>
-          <header className="sticky top-0 z-40 border-b border-edge bg-surface-1/95 backdrop-blur">
+          <header className="sticky top-0 z-40 border-b border-edge bg-surface-1 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur">
             <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-3 px-4 sm:gap-6">
               <Link
                 href="/projects"

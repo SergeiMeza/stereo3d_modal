@@ -28,6 +28,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+
+import { welcomePicksAtom } from "@/components/onboarding/welcomeAtoms";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import type { JSX } from "react";
 
 import { LoopVideo } from "@/components/landing/LoopVideo";
@@ -45,7 +48,7 @@ import {
 import type { Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
-import { useBilling } from "@/lib/billing";
+import { billingUidAtom, useBilling } from "@/lib/billing";
 import { useProStatus } from "@/lib/pro/usePro";
 import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
@@ -181,7 +184,12 @@ export function WelcomeDialog({
   const [step, setStep] = useState(1);
   const kind = steps[Math.min(step, total) - 1];
   const appPro = variant !== "default";
-  const [picked, setPicked] = useState<Device[] | null>(null);
+  // ADR 0138: the picks live in an atom, so a remount keeps them
+  const uid = useAppAtomValue(billingUidAtom);
+  const picks = useAppAtomValue(welcomePicksAtom);
+  const setPicks = useAppSetAtom(welcomePicksAtom);
+  const picked = picks.uid === uid ? picks.picked : null;
+  const setPicked = (next: Device[] | null) => setPicks({ uid, picked: next });
   const saved = (settings?.headsets ?? []) as Device[];
   // app Pro: what the app knows, when the web has nothing yet
   const fromApp =

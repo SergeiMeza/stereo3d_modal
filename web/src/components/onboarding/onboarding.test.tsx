@@ -5,7 +5,7 @@
  * workspace tips and first-time hints are remembered on the account.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +18,9 @@ import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import { resetProForTests } from "@/lib/pro/usePro";
-import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
+import { accountSettingsAtom, resetAccountSettingsCache } from "@/lib/useAccountSettings";
+import { appStore } from "@/lib/state/stores";
+import { loadProjectsAtom, projectListAtom } from "@/components/projects/projectsAtoms";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 import ProjectsScreen from "@/screens/ProjectsScreen";
@@ -108,6 +110,33 @@ describe("welcome after sign-up", () => {
     renderProjects();
     expect(await screen.findByTestId("get-started")).toBeTruthy();
     expect(screen.queryByTestId("welcome")).toBeNull();
+  });
+});
+
+describe("the welcome keeps its taps (owner bug 2026-11-05)", () => {
+  it("a variant landing late and a list reload under it neither close, remount nor lose the picks", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    renderProjects();
+    const quest = await screen.findByTestId("welcome-device-quest");
+    const dialog = screen.getByTestId("welcome");
+    fireEvent.click(quest);
+    expect(quest.getAttribute("aria-pressed")).toBe("true");
+    // the onboarding data lands later and would make it the app Pro welcome
+    const c = appStore.get(accountSettingsAtom)!;
+    appStore.set(accountSettingsAtom, {
+      ...c,
+      settings: { ...c.settings!, onboarding: { ...c.settings!.onboarding, variant: "app_pro" } },
+    });
+    // the list empties for a moment and reloads (sample seeding, a refresh)
+    appStore.set(projectListAtom, (l) => ({ ...l, projects: null }));
+    await appStore.set(loadProjectsAtom, { client: { listProjects: async () => ({ projects: [] }) } as never });
+    await act(async () => {});
+    expect(screen.getByTestId("welcome")).toBe(dialog);
+    expect(screen.getByTestId("welcome-device-quest").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("welcome-device-avp"));
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    await waitFor(() => expect(mockDb.accountSettings.headsets).toEqual(["quest", "avp"]));
   });
 });
 

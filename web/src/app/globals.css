@@ -109,6 +109,22 @@
   html {
     @apply font-sans;
   }
+  /* owner bug 2026-11-05: no double-tap-to-zoom wait on taps (iOS Safari
+     dropped or delayed taps on the welcome's cards) */
+  button,
+  a,
+  label,
+  summary,
+  select,
+  input,
+  [role="button"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="option"],
+  [role="tab"],
+  [role="menuitem"] {
+    touch-action: manipulation;
+  }
 }
 
 /* Keyboard-shortcut keycaps (used in tooltips, hints, the shortcuts sheet). */

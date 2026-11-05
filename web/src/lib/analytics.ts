@@ -68,6 +68,33 @@ export function clearStoredConsent(): void {
 
 // ----------------------------------------------------------------- start
 
+/** Longest wait for a dialog to close before recording starts anyway. */
+const QUIET_MAX_MS = 120_000;
+
+function dialogOpen(): boolean {
+  return document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
+}
+
+/** Resolves when no dialog is open (checked every second, at most two
+ * minutes) and the browser is idle. */
+export function whenQuiet(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const until = Date.now() + QUIET_MAX_MS;
+  return new Promise<void>((resolve) => {
+    const idle = () => {
+      const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+      if (ric) ric(() => resolve(), { timeout: 3000 });
+      else setTimeout(resolve, 1000);
+    };
+    const check = () => {
+      if (!dialogOpen() || Date.now() > until) idle();
+      else setTimeout(check, 1000);
+    };
+    // let the first screens (and a welcome) mount before looking
+    setTimeout(check, 1500);
+  });
+}
+
 type ClarityClient = (typeof import("@microsoft/clarity"))["default"];
 
 let started = false;
@@ -82,7 +109,10 @@ let clarityPromise: Promise<ClarityClient> | null = null;
 export function startAnalytics(opts: { consented: boolean }): void {
   if (!ANALYTICS_ENABLED || started || currentRegion() === "cn") return;
   started = true;
-  clarityPromise = import("@microsoft/clarity").then(
+  // owner bug 2026-11-05: session recording starts once the page is quiet
+  // (no dialog open, the browser idle), never under a first-run welcome
+  // whose taps iOS Safari was dropping
+  clarityPromise = whenQuiet().then(() => import("@microsoft/clarity")).then(
     ({ default: Clarity }) => {
       Clarity.init(CLARITY_PROJECT_ID);
       if (opts.consented) {
