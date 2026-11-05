@@ -71,6 +71,7 @@ import { outstandingCents } from "@/lib/billingCopy";
 import { stepCheckoutAtom, type BillingBlock, type StepCheckoutState } from "./checkoutStore";
 import { invalidateQuoteAtom, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
+import { PinnedRun } from "./RunProgressCompact";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
 import { FPS_PLAN_REQUIRED, PICK_FRAME_RATE } from "./frameRate";
@@ -826,7 +827,7 @@ export function InstantCheckout({
       </span>
     ) : null;
     return (
-      <div className="flex flex-col gap-3">
+      <div data-run-panel className="flex flex-col gap-3">
         <section
           data-testid="price-card"
           className="flex flex-col gap-4 rounded-xl border border-edge bg-surface-1 p-5"
@@ -876,7 +877,12 @@ export function InstantCheckout({
           {error && quote && error !== chargeText ? <p className="text-sm text-red-400">{error}</p> : null}
           {ck.billingBlock ? <BillingBlockNotice block={ck.billingBlock} /> : null}
         </section>
-        {tracker}
+        {/* owner 2026-11-05: a run under the fold pins a compact copy */}
+        {tracker && ck.active && !TERMINAL_STATES.has(ck.active.state) ? (
+          <PinnedRun conversion={ck.active}>{tracker}</PinnedRun>
+        ) : (
+          tracker
+        )}
         {sheet}
         {/* phone (screen 11): the one button stays in reach at the bottom */}
         {owes ? (

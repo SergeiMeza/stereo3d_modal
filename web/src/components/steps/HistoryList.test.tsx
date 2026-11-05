@@ -26,6 +26,7 @@ import { server } from "@/mocks/server";
 import projectFixture from "../../../fixtures/project.json";
 
 import { HistoryList } from "./HistoryList";
+import { stageLabel as stageLabelFor } from "./stageLabels";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
@@ -229,5 +230,30 @@ describe("Files in a headset browser (S3D-47, screen 13b)", () => {
     const others = within(files).getByTestId("other-files") as HTMLDetailsElement;
     expect(others.open).toBe(false);
     expect(within(others).getByTestId("file-group-mvhevc")).toBeDefined();
+  });
+});
+
+describe("a running row says where it is (owner 2026-11-05)", () => {
+  it("the current step, a thin bar and the time left, from the run's own polls", async () => {
+    const running: Conversion = {
+      ...FAILED,
+      conversion_id: "conv0000running",
+      state: "processing",
+      stage: "render",
+      progress: 0.3,
+      eta_seconds: 360,
+      created_at: "2026-11-05T09:00:00Z",
+    };
+    renderWithHistory([running]);
+    const row = screen.getByTestId("history-conv0000running");
+    expect(within(row).getByTestId("run-compact-step").textContent).toBe("Making the 3D video · Rendering in 3D");
+    expect(within(row).getByTestId("run-compact-eta").textContent).toBe("about 6 min left");
+    expect(within(row).getByRole("progressbar")).toBeTruthy();
+    // one state chip: the row's own
+    expect(within(row).getAllByTestId("run-status")).toHaveLength(1);
+    // the run moves on (the mock's next poll): the row follows it
+    expect(
+      await within(row).findByText(`Making the 3D video · ${stageLabelFor("video_stereo")}`, undefined, { timeout: 4000 }),
+    ).toBeTruthy();
   });
 });

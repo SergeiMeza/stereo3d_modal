@@ -27,6 +27,7 @@ import { qualityLabelFor, runSummary, STEP_NAMES } from "@/lib/glossary";
 import { METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
 import { RunFiles } from "./RunFiles";
+import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
 
 /** One-line settings summary for a run, in customer words. */
@@ -142,6 +143,10 @@ function HistoryRow({
           </span>
         </span>
       </div>
+      {/* owner 2026-11-05: a running run says where it is */}
+      {c.state === "created" || c.state === "paid" || c.state === "processing" ? (
+        <RunProgressCompact conversion={c} poll chip={false} />
+      ) : null}
       {/* S3D-24: once the files are erased the run stays, its files don't */}
       {c.state === "succeeded" && project.files_deleted_at === undefined ? (
         <RunFiles conversion={c} />

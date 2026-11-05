@@ -94,7 +94,7 @@ export function cancelNote(conv: Conversion, secondsLeft: number | null): string
 }
 
 /** The three steps a run shows while it works (screen 08). */
-const STEP_LINES = ["Getting ready", "Making the 3D video", "Saving your files"];
+export const STEP_LINES = ["Getting ready", "Making the 3D video", "Saving your files"];
 
 /** Which of the three steps a raw stage belongs to. */
 export function stageStep(stage: string | null | undefined): number {
