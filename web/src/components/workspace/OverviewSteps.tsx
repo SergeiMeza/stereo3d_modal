@@ -3,9 +3,11 @@
 /**
  * "Your steps" on Overview (owner 2026-11-05: the breadcrumb row read
  * like a path, not the flow): the steps in the rail's order and icons,
- * numbered, each done ✓, current (highlighted, its short status and its
- * one action) or upcoming (muted); an optional step that was passed is
- * skipped. Each step goes to its tab. Phones get four dots and the
+ * numbered, each done ✓, current (highlighted, with its short status) or
+ * upcoming (muted); an optional step that was passed is skipped. Each step
+ * goes to its tab. The current step's action is the Overview card's main
+ * button (primaryAction), so the stepper itself carries none (QA
+ * 2026-11-05: no twin Download buttons). Phones get four dots and the
  * current step's name. Everything comes from the project and the run
  * atoms (ADR 0138); nothing is kept here.
  */
@@ -15,7 +17,6 @@ import type { JSX } from "react";
 
 import { analyzePercent } from "@/components/projects/AnalyzeBadge";
 import { conversionAtom } from "@/components/steps/conversionAtoms";
-import { Button } from "@/components/ui/button";
 import { formatCents } from "@/components/steps/money";
 import { methodOf, type Conversion, type Project, type Step } from "@/lib/api/types";
 
@@ -30,7 +31,7 @@ export interface StepView {
   state: StepState;
   /** the current step's short status ("Analyzing… 70%", "Ready") */
   status?: string;
-  /** the current step's one action */
+  /** the current step's one action (the Overview card's main button) */
   action?: string;
 }
 
@@ -212,11 +213,6 @@ export function OverviewSteps({
               {cur.status ? <span className="font-normal text-fg-muted"> · {cur.status}</span> : null}
             </span>
           </button>
-          {cur.action ? (
-            <Button size="sm" data-testid="step-action-compact" onClick={() => onNavigate(cur.tab)}>
-              {cur.action}
-            </Button>
-          ) : null}
         </div>
       </div>
 
@@ -276,11 +272,6 @@ export function OverviewSteps({
                 <p data-testid="step-status" className="text-xs text-fg-muted">
                   {s.status}
                 </p>
-              ) : null}
-              {current && s.action ? (
-                <Button size="sm" data-testid="step-action" className="w-fit" onClick={() => onNavigate(s.tab)}>
-                  {s.action}
-                </Button>
               ) : null}
             </li>
           );

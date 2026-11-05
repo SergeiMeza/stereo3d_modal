@@ -153,8 +153,10 @@ describe("no method chooser (S3D-01, S3D-14, S3D-30, S3D-44)", () => {
         /^(Preview a moment · \$\d+\.\d\d|Make a free preview)$/,
       ),
     );
+    // one main button: the card's; the stepper marks the step and its status
     const current = within(screen.getByTestId("steps-full")).getByTestId("step-preview");
-    expect(within(current).getByTestId("step-action").textContent).toBe(screen.getByTestId("overview-main").textContent);
+    expect(current.getAttribute("aria-current")).toBe("step");
+    expect(within(screen.getByTestId("overview-steps")).queryByText(screen.getByTestId("overview-main").textContent!)).toBeNull();
     // and Your steps sits right under the summary (above the black bars)
     expect(screen.getByTestId("overview-summary").nextElementSibling).toBe(screen.getByTestId("overview-steps"));
     expect(document.body.textContent).not.toMatch(/Classic|Older method|Red-cyan/);

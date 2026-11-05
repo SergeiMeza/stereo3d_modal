@@ -113,12 +113,21 @@ describe("Your steps", () => {
     expect(full.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "sm:grid"]));
   });
 
-  it("the current step's one action goes to its tab", () => {
+  it("no action buttons of its own (the card carries the main one); the current step keeps its status and opens its tab", () => {
     const onNavigate = vi.fn();
-    render(<Steps project={lifelike()} previewFree onNavigate={onNavigate} />);
-    fireEvent.click(screen.getByTestId("step-action"));
-    expect(onNavigate).toHaveBeenLastCalledWith("preview");
-    expect(screen.getByTestId("step-action").textContent).toBe("Make a free preview");
+    const done = lifelike({ conversions: [run("production", "succeeded")] });
+    render(<Steps project={done} onNavigate={onNavigate} />);
+    const steps = screen.getByTestId("overview-steps");
+    // QA 2026-11-05: never a second Download beside the card's
+    expect(within(steps).queryByText("Download")).toBeNull();
+    expect(screen.queryByTestId("step-action")).toBeNull();
+    const files = within(screen.getByTestId("steps-full")).getByTestId("step-files");
+    expect(within(files).getByTestId("step-status").textContent).toBe("Ready");
+    fireEvent.click(within(files).getByRole("button"));
+    expect(onNavigate).toHaveBeenLastCalledWith("files");
+    // phones: the current step is one tap to its tab too
+    fireEvent.click(within(screen.getByTestId("steps-compact")).getByRole("button"));
+    expect(onNavigate).toHaveBeenLastCalledWith("files");
   });
 });
 
