@@ -107,6 +107,13 @@ const CREDIT_STATUS: Record<NonNullable<BillingRow["credit"]>["kind"], string> =
   unfrozen: "Released",
 };
 
+/** "payment_needed" → "Payment needed"; "" → "—". */
+function humanize(v: string): string {
+  if (!v) return "—";
+  const t = v.replace(/_/g, " ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 /** A plan change or credit row: no money, only what happened. */
 function isNoMoney(row: BillingRow): boolean {
   return row.kind === "plan_change" || row.kind === "credit";
@@ -114,7 +121,7 @@ function isNoMoney(row: BillingRow): boolean {
 
 /** "Scheduled for Dec 5", "Changed", "Added". */
 export function noMoneyStatus(row: BillingRow): string {
-  if (row.kind === "credit") return row.credit ? CREDIT_STATUS[row.credit.kind] : "Done";
+  if (row.kind === "credit") return (row.credit && CREDIT_STATUS[row.credit.kind]) || "Done";
   if (row.status === "scheduled") {
     return row.change?.effective_at ? `Scheduled for ${shortDate(row.change.effective_at)}` : "Scheduled";
   }
@@ -222,19 +229,22 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
   const [open, setOpen] = useState(false);
   const { openSettle } = useSettle();
   if (isNoMoney(row)) return <NoMoneyRow row={row} />;
-  const s = STATUS[row.status];
+  // plan rows come without run items
+  const items = row.items ?? [];
+  // total: a status this build doesn't know shows as plain text, never a crash
+  const s = STATUS[row.status] ?? { label: humanize(String(row.status ?? "")), cls: "text-fg-muted" };
   const refund = row.kind === "refund";
   const planRow = row.kind === "plan";
   // a step-up's lines: the new plan and the credit for the unused one
   const lines = planRow && (row.lines?.length ?? 0) > 1 ? row.lines! : null;
-  const many = row.items.length > 1 || lines !== null;
+  const many = items.length > 1 || lines !== null;
   const what = planRow
     ? (row.label ?? "Plan")
-    : row.items.length === 0
+    : items.length === 0
       ? (row.label ?? "—")
-      : row.items.length > 1
-        ? `${row.items.length} items`
-        : itemLine(row.items[0]);
+      : items.length > 1
+        ? `${items.length} items`
+        : itemLine(items[0]);
   const amount = refund ? `−${formatCents(row.amount_cents)}` : formatCents(row.amount_cents);
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
@@ -302,7 +312,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         </ul>
       ) : open ? (
         <ul data-testid="row-items" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
-          {row.items.map((i) => (
+          {items.map((i) => (
             <li key={i.conversion_id} className="flex items-center gap-3">
               <Link
                 href={`/projects/${i.project_id}#tab=files`}
