@@ -325,7 +325,15 @@ confirmCardPayment fallback). The default card is cached on
   `{balance_cents, held_cents, held_runs, frozen_cents, available_cents,
   expires_at, expired, never_topped_up, auto_reload {enabled, below_cents,
   add_cents, paused_reason?}, spend_limit_cents, month_spent_cents,
-  low_balance_cents, reload_in_flight?, currency}`.
+  low_balance_cents, reload_in_flight?, currency, prepaid_cents,
+  prepaid_frozen_cents, prepaid_expires_at, plan_credit_cents}`.
+  `balance_cents`, `frozen_cents` and `expires_at` are the whole (top-ups
+  and a plan's usage credit together, as before); the `prepaid_*` fields
+  are the top-ups alone: `prepaid_cents` = balance − plan credit,
+  `prepaid_frozen_cents` its freezes (a plan-credit freeze left out),
+  `prepaid_expires_at` the 12 months after the last top-up (null with no
+  prepaid money). The plan's credit has its own end (plan block
+  `credit_left_cents`, `credit_resets_at`).
 - `PUT /v1/billing/balance/settings {auto_reload?, spend_limit_cents?
   (null clears), low_balance_cents?}` → the summary; 409 `method_needed`,
   409 `auto_reload_blocked {reason: under_review | dispute |

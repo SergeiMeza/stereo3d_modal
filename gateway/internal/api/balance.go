@@ -65,6 +65,18 @@ func (s *Service) balanceSummary(ctx context.Context, uid string, b *store.Balan
 	if b.ExpiresAt != nil && !b.Expired {
 		out["expires_at"] = b.ExpiresAt.Format(time.RFC3339)
 	}
+	// The prepaid part alone (top-ups, without a plan's usage credit, which
+	// the plan block shows): its own expiry (12 months after the last
+	// top-up) and freezes; balance_cents, frozen_cents and expires_at keep
+	// meaning the whole, as before.
+	prepaid := max(b.BalanceCents-b.PlanCreditCents(), 0)
+	out["prepaid_cents"] = prepaid
+	out["prepaid_frozen_cents"] = max(b.FrozenCents-b.PlanCreditFrozen(), 0)
+	out["plan_credit_cents"] = b.PlanCreditCents()
+	out["prepaid_expires_at"] = nil
+	if prepaid > 0 && b.ExpiresAt != nil && !b.Expired {
+		out["prepaid_expires_at"] = b.ExpiresAt.Format(time.RFC3339)
+	}
 	if b.Exists() {
 		out["month_spent_cents"] = s.monthSpent(ctx, uid, b)
 	}
