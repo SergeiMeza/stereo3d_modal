@@ -4,6 +4,7 @@
  * plan in our sheet and the plan on Billing.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BillingScreen } from "@/components/billing/BillingScreen";
@@ -101,6 +102,33 @@ describe("between Business and Studio (owner bug 2026-11-05)", () => {
     fireEvent.click(main);
     expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
     await waitFor(() => expect(mockDb.billing.plan?.plan).toBe("studio"));
+  });
+
+  it("a change the gateway refuses says why in plain words, and Try again works", async () => {
+    onPlan("business");
+    let fails = 1;
+    server.use(
+      // the first change fails; then the mock gateway answers as usual
+      http.post("*/v1/plans/change", () =>
+        fails-- > 0
+          ? HttpResponse.json({ error: "payment_error", message: "couldn't change the plan; try again" }, { status: 502 })
+          : undefined,
+      ),
+    );
+    renderPlans();
+    const choose = await within(await screen.findByTestId("plan-studio")).findByTestId("choose-studio");
+    await waitFor(() => expect(choose.textContent).toBe("Change to Studio"));
+    fireEvent.click(choose);
+    await screen.findByTestId("plan-change-line");
+    fireEvent.click(screen.getByTestId("plan-change-main"));
+    expect((await screen.findByTestId("plan-change-error")).textContent).toBe(
+      "Couldn't change your plan. Try again. Nothing was charged.",
+    );
+    expect(document.body.textContent).not.toContain("couldn't change the plan; try again");
+    const again = screen.getByTestId("plan-change-main");
+    expect(again.textContent).toBe("Try again");
+    fireEvent.click(again);
+    expect(await screen.findByText("Studio is on. $1,500 of usage is ready.")).toBeTruthy();
   });
 
   it("on Studio, Change to Business waits for the paid year's end and charges nothing today", async () => {

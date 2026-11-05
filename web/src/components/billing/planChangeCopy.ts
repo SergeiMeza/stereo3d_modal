@@ -77,6 +77,60 @@ export type ConfirmOutcome =
 /** Shown when the quote ran out and the price was worked out again. */
 export const REPRICED = "The price was updated. Check it and confirm again.";
 
+export const NOTHING_CHARGED = "Nothing was charged.";
+export const QUOTE_CHANGED = "The price changed, check the new total.";
+export const CARD_CONFIRM = "Your card needs confirming.";
+export const CARD_DECLINED = "Your card was declined.";
+
+/** Owner 2026-11-05: a failed change in plain words, sentence case, always
+ * "Nothing was charged." (it didn't apply). The gateway's reason when it
+ * gives one (its code, a decline or confirm reason in details or the
+ * message), never its raw lowercase text. */
+export function planChangeError(e: unknown): string {
+  const code = e instanceof GatewayError ? e.code : "";
+  const d = (e instanceof GatewayError ? e.details : undefined) ?? {};
+  const said = [d.reason, d.decline_code, d.code, d.status, e instanceof Error ? e.message : ""]
+    .filter((v): v is string => typeof v === "string")
+    .join(" ")
+    .toLowerCase();
+  const confirm = d.requires_action === true || /requires_action|authenticat|confirm/.test(said);
+  const declined = /declin|insufficient|card_error|do_not_honor|lost_card|stolen_card|expired_card/.test(said);
+  let reason: string;
+  switch (code) {
+    case "quote_expired":
+      reason = QUOTE_CHANGED;
+      break;
+    case "same_plan":
+      reason = "That's already your plan.";
+      break;
+    case "change_scheduled":
+      reason = "A change is already waiting. Take it back on Billing first.";
+      break;
+    case "change_on_hold":
+      reason = "Plan changes are on hold for your account. Contact support.";
+      break;
+    case "plan_unavailable":
+      reason = "That plan isn't available right now. Try again later.";
+      break;
+    case "no_plan":
+    case "plan_unknown":
+      reason = "Your plan can't be changed here.";
+      break;
+    case "confirm_required":
+      reason = "Couldn't change your plan. Try again.";
+      break;
+    default:
+      reason = confirm
+        ? CARD_CONFIRM
+        : declined
+          ? CARD_DECLINED
+          : code === "payment_failed"
+            ? "Your payment didn't go through."
+            : "Couldn't change your plan. Try again.";
+  }
+  return `${reason} ${NOTHING_CHARGED}`;
+}
+
 /** POST /v1/plans/change with the preview's quote_at. A 409 quote_expired
  * previews again and hands back the new amount to confirm; 402
  * payment_failed and the 409s (same_plan, change_on_hold,
@@ -96,25 +150,9 @@ export async function confirmPlanChange(
           preview: await gateway.previewPlanChange(preview.to),
         };
       } catch {
-        return {
-          kind: "error",
-          message: "Couldn't work out the new price. Nothing was charged.",
-        };
+        return { kind: "error", message: `${QUOTE_CHANGED} ${NOTHING_CHARGED}` };
       }
     }
-    if (e instanceof GatewayError && e.code === "payment_failed") {
-      return {
-        kind: "error",
-        message:
-          e.message || "Your payment didn't go through. Nothing changed.",
-      };
-    }
-    return {
-      kind: "error",
-      message:
-        e instanceof GatewayError && e.message
-          ? e.message
-          : "Couldn't change your plan. Nothing was charged.",
-    };
+    return { kind: "error", message: planChangeError(e) };
   }
 }

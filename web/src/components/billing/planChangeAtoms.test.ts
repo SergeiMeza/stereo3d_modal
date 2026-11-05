@@ -16,6 +16,7 @@ import {
   previewPlanChangeAtom,
   PREVIEW_TIMEOUT_MS,
 } from "./planChangeAtoms";
+import { planChangeError } from "./planChangeCopy";
 
 function preview(to: string, cents: number, quoteAt = "q1"): PlanChangePreview {
   return { to, today_cents: cents, quote_at: quoteAt } as PlanChangePreview;
@@ -120,5 +121,57 @@ describe("a preview that never answers (owner bug 2026-11-05)", () => {
       to: "studio",
     });
     expect(store.get(planChangeAtom("t"))).toMatchObject({ preview: answer, previewFailed: false });
+  });
+});
+
+describe("a failed change in plain words (owner 2026-11-05)", () => {
+  const fail = (code: string, message: string, status = 502, details?: Record<string, unknown>) =>
+    new GatewayError(code, message, status, details);
+
+  it("maps the gateway's reasons, sentence case, and always says nothing was charged", () => {
+    expect(planChangeError(fail("payment_error", "couldn't change the plan; try again"))).toBe(
+      "Couldn't change your plan. Try again. Nothing was charged.",
+    );
+    expect(planChangeError(fail("payment_failed", "the payment didn't go through; your plan hasn't changed", 402))).toBe(
+      "Your payment didn't go through. Nothing was charged.",
+    );
+    expect(planChangeError(fail("payment_failed", "x", 402, { decline_code: "insufficient_funds" }))).toBe(
+      "Your card was declined. Nothing was charged.",
+    );
+    expect(planChangeError(fail("payment_failed", "card_declined", 402))).toBe("Your card was declined. Nothing was charged.");
+    expect(planChangeError(fail("payment_failed", "x", 402, { reason: "requires_action" }))).toBe(
+      "Your card needs confirming. Nothing was charged.",
+    );
+    expect(planChangeError(fail("payment_error", "authentication_required"))).toBe(
+      "Your card needs confirming. Nothing was charged.",
+    );
+    expect(planChangeError(fail("quote_expired", "that price has expired; preview the change again", 409))).toBe(
+      "The price changed, check the new total. Nothing was charged.",
+    );
+    expect(planChangeError(fail("change_scheduled", "a change is already waiting; take it back first", 409))).toBe(
+      "A change is already waiting. Take it back on Billing first. Nothing was charged.",
+    );
+    expect(planChangeError(fail("confirm_required", "send confirm: true to change the plan", 400))).toBe(
+      "Couldn't change your plan. Try again. Nothing was charged.",
+    );
+    expect(planChangeError(new Error("Failed to fetch"))).toBe("Couldn't change your plan. Try again. Nothing was charged.");
+  });
+
+  it("a confirm that fails keeps the preview to try again, with the plain words", async () => {
+    const store = createStore();
+    const p = preview("studio", 1100000);
+    const client = {
+      previewPlanChange: async () => p,
+      changePlan: vi.fn(async () => {
+        throw fail("payment_error", "couldn't change the plan; try again");
+      }),
+    };
+    await store.set(previewPlanChangeAtom, { scope: "e", client, to: "studio" });
+    expect(await store.set(confirmPlanChangeAtom, { scope: "e", client })).toBe("error");
+    expect(store.get(planChangeAtom("e"))).toMatchObject({
+      preview: p,
+      busy: false,
+      error: "Couldn't change your plan. Try again. Nothing was charged.",
+    });
   });
 });

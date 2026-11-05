@@ -130,13 +130,15 @@ export function PlanChangeSheet({
             >
               {change.busy
                 ? "Changing…"
-                : p
-                  ? down
-                    ? `Change to ${def.name} on ${p.effective_at ? changeDate(p.effective_at) : "renewal"}`
-                    : `Pay ${formatCents(p.today_cents)} and change`
-                  : error
-                    ? "Can't change right now"
-                    : "Working it out…"}
+                : p && change.error
+                  ? "Try again"
+                  : p
+                    ? down
+                      ? `Change to ${def.name} on ${p.effective_at ? changeDate(p.effective_at) : "renewal"}`
+                      : `Pay ${formatCents(p.today_cents)} and change`
+                    : error
+                      ? "Can't change right now"
+                      : "Working it out…"}
             </Button>
           }
         />
