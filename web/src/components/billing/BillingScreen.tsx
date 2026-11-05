@@ -58,6 +58,7 @@ import type {
   BillingMethods,
   BillingRow,
   BillingRowStatus,
+  CompanyDetails,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
@@ -459,10 +460,21 @@ function MethodMenu({
   );
 }
 
+/** Owner 2026-11-05: a Business or Studio account whose invoices still
+ * lack a company name or address (Checkout asks only the method and
+ * country). A gentle line; it never blocks anything. */
+export const COMPANY_REMINDER = "Add company details to your invoices";
+
+export function companyMissing(c: CompanyDetails | null): boolean {
+  return !c?.company_name?.trim() || !c.address?.line1?.trim();
+}
+
 /** P10 Company details: a one-line summary and Edit, which opens Account
  * → Business details (owner 2026-11-04). */
 function CompanySection(): JSX.Element {
   const gateway = useGateway();
+  const plan = useBilling().status?.plan;
+  const teamPlan = plan?.active === true && (plan.plan === "business" || plan.plan === "studio");
   // ADR 0138: the business details live in an app-store atom
   const state = useAppAtomValue(companyAtom);
   const uid = useAppAtomValue(billingUidAtom);
@@ -473,6 +485,7 @@ function CompanySection(): JSX.Element {
   const company = state.uid === uid ? state.company : null;
   const loaded = state.uid === uid && state.loaded;
   const summary = companySummary(company);
+  const remind = teamPlan && loaded && companyMissing(company);
   return (
     <section aria-labelledby="company" className="flex items-center gap-4 rounded-xl border border-edge bg-surface-1 px-5 py-4">
       <Building2Icon className="size-5 shrink-0 text-fg-muted" aria-hidden />
@@ -483,6 +496,15 @@ function CompanySection(): JSX.Element {
         <p data-testid="company-summary" className="truncate text-xs text-fg-muted">
           {!loaded ? "Loading…" : summary ?? "No business details. Add them to show on invoices."}
         </p>
+        {remind ? (
+          <Link
+            href="/account/business-details"
+            data-testid="company-reminder"
+            className="w-fit text-xs text-primary hover:underline"
+          >
+            {COMPANY_REMINDER}
+          </Link>
+        ) : null}
       </div>
       <Button asChild variant="outline" size="sm">
         <Link href="/account/business-details">Edit</Link>

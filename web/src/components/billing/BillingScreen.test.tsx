@@ -48,6 +48,23 @@ function run(id: string, cents: number, over: Partial<Conversion> = {}): Convers
   return c;
 }
 
+function businessPlan(): void {
+  mockDb.tierPricing = true;
+  mockDb.billing.plan = {
+    plan: "business",
+    name: "Business",
+    status: "active",
+    active: true,
+    monthly_cents: 29900,
+    credit_cents: 40000,
+    credit_left_cents: 40000,
+    cancel_at_period_end: false,
+    current_period_end: "2026-12-05T12:00:00Z",
+    interval: "month",
+    price_cents: 29900,
+  };
+}
+
 function renderBilling() {
   render(
     <AuthProvider>
@@ -195,6 +212,34 @@ describe("Billing (S3D-57, S3D-62)", () => {
     await screen.findByTestId("payment-methods");
     expect((screen.getByTestId("add-method") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("You can save up to 5 payment methods.")).toBeTruthy();
+  });
+
+  it("no plan: no company reminder, even with nothing saved (owner 2026-11-05)", async () => {
+    renderBilling();
+    await screen.findByText("No business details. Add them to show on invoices.");
+    expect(screen.queryByTestId("company-reminder")).toBeNull();
+  });
+
+  it("a Business account missing company details gets a gentle line to Business details", async () => {
+    businessPlan();
+    // only a country from Checkout: missing
+    mockDb.billing.company = { address: { country: "JP" } };
+    renderBilling();
+    const line = await screen.findByTestId("company-reminder");
+    expect(line.textContent).toBe("Add company details to your invoices");
+    expect(line.getAttribute("href")).toBe("/account/business-details");
+  });
+
+  it("a Business account with its name and address saved gets no reminder", async () => {
+    businessPlan();
+    mockDb.billing.company = {
+      company_name: "Kyoto Films KK",
+      address: { country: "JP", line1: "1-2-3 Shijo", city: "Kyoto", postal_code: "600-8001" },
+    };
+    renderBilling();
+    await screen.findByTestId("plan-card");
+    await waitFor(() => expect(screen.getByTestId("company-summary").textContent).toContain("Kyoto Films KK"));
+    expect(screen.queryByTestId("company-reminder")).toBeNull();
   });
 
   it("business details: the summary, and Edit opens Account → Business details", async () => {
