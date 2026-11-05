@@ -33,6 +33,27 @@ export const projectListAtom = atom<ProjectListState>(EMPTY_PROJECT_LIST);
 
 type Lister = Pick<GatewayClient, "listProjects">;
 
+/** Owner bug 2026-11-05: a list that fails, hangs or answers without a
+ * list is an error with Retry, never "No projects yet". */
+export const PROJECTS_TIMEOUT_MS = 15_000;
+export const PROJECTS_FAILED = "Couldn't load your projects.";
+
+function inTime<T>(p: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), PROJECTS_TIMEOUT_MS);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(t);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      },
+    );
+  });
+}
+
 /** The projects (or the archived ones). */
 export const loadProjectsAtom = atom(
   null,
@@ -40,8 +61,9 @@ export const loadProjectsAtom = atom(
     const uid = get(billingUidAtom);
     const mine = (s: ProjectListState): ProjectListState => (s.uid === uid ? s : { ...EMPTY_PROJECT_LIST, uid });
     try {
-      const res = a.archived ? await a.client.listProjects(true) : await a.client.listProjects();
+      const res = await inTime(a.archived ? a.client.listProjects(true) : a.client.listProjects());
       if (get(billingUidAtom) !== uid) return;
+      if (!Array.isArray(res?.projects)) throw new Error("no list");
       set(projectListAtom, (s) =>
         a.archived
           ? { ...mine(s), archived: res.projects }
@@ -55,7 +77,10 @@ export const loadProjectsAtom = atom(
               ...mine(s),
               actionError: e instanceof GatewayError ? e.message : "Failed to load archived projects.",
             }
-          : { ...mine(s), loadError: e instanceof GatewayError ? e.message : "Failed to load projects." },
+          : {
+              ...mine(s),
+              loadError: e instanceof GatewayError && e.message ? `${PROJECTS_FAILED} ${e.message}` : PROJECTS_FAILED,
+            },
       );
     }
   },

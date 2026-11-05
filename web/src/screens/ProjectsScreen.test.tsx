@@ -232,6 +232,46 @@ describe("ProjectsScreen list", () => {
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 
+  it("a failed list shows the error with Retry, never \"No projects yet\" (owner bug 2026-11-05)", async () => {
+    let fail = true;
+    server.use(
+      http.get(`${GATEWAY}/v1/projects`, ({ request }) =>
+        fail && !new URL(request.url).searchParams.get("archived")
+          ? HttpResponse.json({ error: "server_error", message: "upstream timeout" }, { status: 502 })
+          : undefined,
+      ),
+    );
+    renderScreen();
+    const err = await screen.findByTestId("projects-error");
+    expect(err.textContent).toContain("Couldn't load your projects.");
+    expect(screen.queryByText("No projects yet")).toBeNull();
+    fail = false;
+    fireEvent.click(within(err).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) })).toBeTruthy();
+    expect(screen.queryByTestId("projects-error")).toBeNull();
+  });
+
+  it("an answer without a list is an error too, never an empty list", async () => {
+    server.use(http.get(`${GATEWAY}/v1/projects`, () => HttpResponse.json({ ok: true })));
+    renderScreen();
+    expect(await screen.findByTestId("projects-error")).toBeTruthy();
+    expect(screen.queryByText("No projects yet")).toBeNull();
+  });
+
+  it("a list that never answers ends in the error after 15 s", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      server.use(http.get(`${GATEWAY}/v1/projects`, () => new Promise<Response>(() => {})));
+      renderScreen();
+      expect(await screen.findByText("Loading projects…")).toBeTruthy();
+      await vi.advanceTimersByTimeAsync(15_001);
+      expect(await screen.findByTestId("projects-error")).toBeTruthy();
+      expect(screen.queryByText("No projects yet")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows an empty state inviting upload when there are no projects", async () => {
     mockDb.projects.clear();
     renderScreen();

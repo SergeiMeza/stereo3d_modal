@@ -228,7 +228,7 @@ export default function ProjectsScreen() {
       ) : null}
 
       {loadError !== null ? (
-        <div className="flex items-center gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-400">
+        <div data-testid="projects-error" className="flex items-center gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-400">
           <p className="flex-1">{loadError}</p>
           <button
             type="button"
@@ -238,15 +238,22 @@ export default function ProjectsScreen() {
             Retry
           </button>
         </div>
-      ) : sorted === null ? (
-        <p className="text-fg-muted">Loading projects…</p>
+      ) : null}
+      {/* owner bug 2026-11-05: "No projects yet" only after a list that
+          came back empty; a failed one keeps what was shown before */}
+      {sorted === null ? (
+        loadError === null ? (
+          <p className="text-fg-muted">Loading projects…</p>
+        ) : null
       ) : sorted.length === 0 ? (
-        <div className="rounded-lg border border-edge bg-surface-1 p-8 text-center">
-          <p className="font-medium text-fg">No projects yet</p>
-          <p className="mt-1 text-fg-muted">
-            Drop a video above to start your first 3D conversion.
-          </p>
-        </div>
+        loadError === null ? (
+          <div data-testid="projects-empty" className="rounded-lg border border-edge bg-surface-1 p-8 text-center">
+            <p className="font-medium text-fg">No projects yet</p>
+            <p className="mt-1 text-fg-muted">
+              Drop a video above to start your first 3D conversion.
+            </p>
+          </div>
+        ) : null
       ) : pinned.length > 0 ? (
         <>
           <h2 className="text-sm font-medium text-fg-muted">Pinned</h2>
