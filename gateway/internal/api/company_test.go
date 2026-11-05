@@ -99,8 +99,9 @@ func TestCompanyDetails(t *testing.T) {
 	}
 }
 
-// Business and Studio Checkouts require the billing address and offer a
-// business name; Pro keeps the address optional.
+// Every Checkout is a minimal sheet (owner 2026-11-05): no required
+// address, no business name, no tax ID; the address Stripe takes with the
+// card still goes onto the customer.
 func TestPlanSessionCompanyFields(t *testing.T) {
 	s, fake := e0Service(t)
 	for _, tier := range []string{"business", "pro"} {
@@ -109,8 +110,52 @@ func TestPlanSessionCompanyFields(t *testing.T) {
 		}
 	}
 	b, p := fake.sessionForms[0], fake.sessionForms[1]
-	if b["billing_address_collection"] != "required" || b["tax_id_collection[enabled]"] != "true" || b["name_collection[business][enabled]"] != "true" ||
-		b["name_collection[business][optional]"] != "true" || p["billing_address_collection"] != "auto" || p["name_collection[business][enabled]"] != "" {
-		t.Fatalf("business %v pro %v", b, p)
+	// owner 2026-11-05: a minimal sheet for Business too (no required
+	// address, no business name); details come after payment
+	for _, f := range []map[string]string{b, p} {
+		if f["billing_address_collection"] != "auto" || f["name_collection[business][enabled]"] != "" {
+			t.Fatalf("business %v pro %v", b, p)
+		}
+	}
+	// owner 2026-11-05: no tax ID in any payment form; the address still
+	// goes onto the customer (tax is reckoned from it)
+	if _, err := s.Stripe.CreateWebSession(stripex.SessionSpec{CustomerID: "cus_1", UI: "elements", AmountCents: 500, Currency: "usd",
+		Label: "run", ReturnURL: "https://x/r"}); err != nil {
+		t.Fatal(err)
+	}
+	for i, f := range fake.sessionForms {
+		if _, ok := f["tax_id_collection[enabled]"]; ok || f["customer_update[address]"] != "auto" {
+			t.Fatalf("session %d %v", i, f)
+		}
+	}
+	for i, f := range fake.sessionForms {
+		for k := range f {
+			if strings.HasPrefix(k, "name_collection") || k == "customer_update[name]" {
+				t.Fatalf("session %d asks for a name: %v", i, f)
+			}
+		}
+	}
+}
+
+// Business details take Japan's and the US's tax IDs (and any other
+// Stripe type): each PUT replaces the one before on the customer.
+func TestCompanyTaxIDTypes(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	uid, cus := "u"+store.NewID(), "cus_t"+store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: cus})
+	if code, _ := companyCall(s, s.HandlePutCompany, uid, http.MethodPut, `{"company_name":"Kabushiki Kaisha"}`); code != 200 {
+		t.Fatalf("name %d", code)
+	}
+	for _, tc := range [][2]string{{"jp_trn", "T1234567890123"}, {"jp_cn", "1234567891234"}, {"us_ein", "12-3456789"}, {"gb_vat", "GB123456789"}} {
+		code, out := companyCall(s, s.HandlePutCompany, uid, http.MethodPut, `{"tax_id":{"type":"`+tc[0]+`","value":"`+tc[1]+`"}}`)
+		tax, _ := out["tax_id"].(map[string]any)
+		if code != 200 || tax["type"] != tc[0] || tax["value"] != tc[1] || len(fake.customers[cus].taxIDs) != 1 {
+			t.Fatalf("%s: %d %v %v", tc[0], code, out, fake.customers[cus].taxIDs)
+		}
+		cust, _ := s.Store.GetCustomer(ctx, uid)
+		if len(cust.Company.TaxIDs) != 1 || cust.Company.TaxIDs[0].Type != tc[0] {
+			t.Fatalf("%s stored %+v", tc[0], cust.Company.TaxIDs)
+		}
 	}
 }

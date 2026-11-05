@@ -64,8 +64,9 @@ func (c *Client) CreateWebSession(spec SessionSpec) (*Session, error) {
 	f.Add("saved_payment_method_options[allow_redisplay_filters][]", "always")
 	f.Add("saved_payment_method_options[allow_redisplay_filters][]", "unspecified")
 	f.Set("saved_payment_method_options[payment_method_remove]", "disabled")
-	f.Set("tax_id_collection[enabled]", "true")
-	f.Set("customer_update[name]", "auto")
+	// No tax ID in the payment form (owner 2026-11-05: added or edited
+	// later in Business details); the address is still saved on the
+	// customer, which is what tax is reckoned from.
 	f.Set("customer_update[address]", "auto")
 	f.Set("billing_address_collection", "auto")
 	exp := spec.ExpiresIn

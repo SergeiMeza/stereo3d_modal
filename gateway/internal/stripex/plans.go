@@ -60,17 +60,13 @@ func (c *Client) CreatePlanSession(spec PlanSessionSpec) (*Session, error) {
 	if spec.PMC != "" {
 		f.Set("payment_method_configuration", spec.PMC)
 	}
-	f.Set("tax_id_collection[enabled]", "true")
-	f.Set("customer_update[name]", "auto")
+	// A minimal sheet for every plan (owner 2026-11-05): the card and what
+	// Stripe asks with it (the country, a postal code where cards need
+	// one); no full address, business name or tax ID. Invoice details come
+	// after payment in Business details (PUT /v1/billing/company). What
+	// the sheet collects is still saved on the customer.
 	f.Set("customer_update[address]", "auto")
 	f.Set("billing_address_collection", "auto")
-	if spec.Tier == "business" || spec.Tier == "studio" {
-		// Company details for the invoice (works in ui_mode=elements: the
-		// page shows the address, tax ID and business name fields).
-		f.Set("billing_address_collection", "required")
-		f.Set("name_collection[business][enabled]", "true")
-		f.Set("name_collection[business][optional]", "true")
-	}
 	f.Set("expires_at", strconv.FormatInt(time.Now().Add(31*time.Minute).Unix(), 10))
 	if spec.UI == "hosted_page" {
 		f.Set("success_url", spec.ReturnURL)

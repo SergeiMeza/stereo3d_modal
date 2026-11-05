@@ -1019,11 +1019,15 @@ is ignored without such a plan.
   {business, studio}}], answers {accounts, by_main_use[{main_use, count}],
   by_team_size[{team_size, count}]}, generated_at}`; the onboarding
   headsets report carries the same `business_setup`.
-- **Company details** (owner 2026-11-04): Business and Studio Checkouts
-  require the billing address (`billing_address_collection: required`)
-  and offer an optional business name (`name_collection.business`) beside
-  tax ID collection (all of it works with `ui_mode: elements`; Pro keeps
-  the address optional). `checkout.session.completed` of a plan session
+- **Company details** (owner 2026-11-04; the sheet made minimal
+  2026-11-05): every Checkout (plans, runs, top-ups, settle, setup) asks
+  only for the card and what Stripe takes with it (the country, a postal
+  code where the card needs one: `billing_address_collection: auto`); no
+  required address, business name or tax ID. Invoice details come after
+  payment in Business details (`PUT /v1/billing/company`, any Stripe tax
+  ID type: `jp_trn`, `jp_cn`, `us_ein`, `eu_vat`, `gb_vat`, …), written to
+  the Stripe Customer, so invoices finalized from then on carry them;
+  earlier invoices don't change. `checkout.session.completed` of a plan session
   stores `customer_details` as `customer.company` (company name = business
   name or name, address, tax IDs deduped, billing email = the Checkout
   email unless one is set, PO null) and syncs the Stripe Customer (name,
