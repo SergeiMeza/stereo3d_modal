@@ -38,7 +38,7 @@ vi.mock("@stripe/react-stripe-js/checkout", () => ({
   ExpressCheckoutElement: () => null,
   PaymentElement: () => null,
   BillingAddressElement: () => null,
-  TaxIdElement: () => null,
+  TaxIdElement: () => <div data-testid="tax-id-element" />,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -113,6 +113,13 @@ describe("the run pay sheet on Stripe Checkout", () => {
     expect(stripe.confirm.mock.calls[0][0]).not.toHaveProperty("returnUrl");
     expect(stripe.keys).toContain("pk_test_run");
     await waitFor(() => expect(onClose).toHaveBeenCalledWith("paid"), { timeout: 3000 });
+  });
+
+  it("asks for no tax ID or business name (owner 2026-11-05: Business details takes them)", async () => {
+    sheet(run("pk_test_run"));
+    expect(await screen.findByTestId("pay-main")).toBeTruthy();
+    expect(screen.queryByTestId("tax-id-element")).toBeNull();
+    expect(screen.queryByText(/Add business details|Tax ID|Business name/)).toBeNull();
   });
 
   it("a confirm that throws is a decline with the button back, never a spinner", async () => {

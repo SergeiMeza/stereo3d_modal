@@ -190,6 +190,35 @@ describe("business details", () => {
     ]);
   });
 
+  it("Japan offers the T number and the corporate number, and both save (owner 2026-11-05)", async () => {
+    renderForm();
+    await pickCountry("JP", "Japan");
+    const type = screen.getByLabelText("Type") as HTMLSelectElement;
+    expect([...type.options].map((o) => o.value)).toEqual(["jp_trn", "jp_cn", "jp_rn"]);
+    expect(type.value).toBe("jp_trn");
+    expect(type.options[0].textContent).toBe("Japanese tax registration number (T number)");
+    fireEvent.change(screen.getByLabelText("Number"), { target: { value: "T1234567890123" } });
+    fireEvent.click(screen.getByTestId("company-save"));
+    await screen.findByTestId("company-saved");
+    expect(mockDb.billing.company?.tax_id).toMatchObject({ type: "jp_trn", value: "T1234567890123" });
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "jp_cn" } });
+    fireEvent.change(screen.getByLabelText("Number"), { target: { value: "1234567890123" } });
+    fireEvent.click(screen.getByTestId("company-save"));
+    await waitFor(() => expect(mockDb.billing.company?.tax_id).toMatchObject({ type: "jp_cn", value: "1234567890123" }));
+    expect(mockDb.billing.company?.address?.country).toBe("JP");
+  });
+
+  it("the US offers the EIN and saves it", async () => {
+    renderForm();
+    await pickCountry("US", "United States");
+    expect(screen.queryByLabelText("Type")).toBeNull();
+    fireEvent.change(screen.getByLabelText("US employer ID (EIN)"), { target: { value: "12-3456789" } });
+    fireEvent.click(screen.getByTestId("company-save"));
+    await screen.findByTestId("company-saved");
+    expect(mockDb.billing.company?.tax_id).toMatchObject({ type: "us_ein", value: "12-3456789" });
+    expect(mockDb.billing.company?.address?.country).toBe("US");
+  });
+
   it("Kosovo can be picked and saved", async () => {
     renderForm();
     await pickCountry("XK", "Kosovo");

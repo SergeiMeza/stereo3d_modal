@@ -217,9 +217,10 @@ const TAX_TYPES: Record<string, [string, string][]> = {
     ["is_kt", "Icelandic ID number (kennitala)"],
   ],
   IT: [["it_cf", "Italian tax code (codice fiscale)"]],
+  // the T number on qualified invoices first (owner 2026-11-05)
   JP: [
+    ["jp_trn", "Japanese tax registration number (T number)"],
     ["jp_cn", "Japanese corporate number"],
-    ["jp_trn", "Japanese tax registration number"],
     ["jp_rn", "Japanese registered foreign business number"],
   ],
   KE: [["ke_pin", "Kenyan KRA PIN"]],

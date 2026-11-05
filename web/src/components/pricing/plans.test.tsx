@@ -121,7 +121,8 @@ describe("Pricing 2026-11", () => {
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
     expect(screen.getByTestId("plan-sheet").textContent).toContain("cancel any time; it runs to the end of the paid month");
     const addressBlock = screen.getByTestId("mock-billing-address");
-    expect(screen.getByText("Tax ID (optional)")).toBeTruthy();
+    // owner 2026-11-05: no tax ID or business name in the sheet
+    expect(screen.queryByText(/Tax ID|Business name|Add business details/)).toBeNull();
     // QA 2026-11-05: the address comes before the payment fields
     const methods = screen.getByRole("radiogroup", { name: "Payment method" });
     expect(addressBlock.compareDocumentPosition(methods) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

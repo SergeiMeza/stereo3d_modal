@@ -3,12 +3,14 @@
 /**
  * The payment form inside every sheet (spec v6 D1/G2): Checkout Elements
  * on the gateway's Checkout Session — the wallet row (Express Checkout),
- * "or pay another way", the Payment Element, and the Tax ID Element behind
- * "Add business details". Themed from the app's tokens (Appearance API).
+ * "or pay another way" and the Payment Element. Themed from the app's
+ * tokens (Appearance API). Owner 2026-11-05: no tax ID or business name
+ * here; they go in Business details after paying (the plan welcome links
+ * there), and the sessions no longer collect them.
  *
  * Business and Studio (gateway 00105): the session requires a billing
  * address, so the pane shows Stripe's Billing Address Element (wired into
- * the session), and the optional business name and tax ID right away.
+ * the session).
  * QA 2026-11-05: the address comes first, above the payment fields, is
  * prefilled from the saved business details, and `revealMissing` scrolls
  * to it and focuses it when the sheet's button is pressed too early.
@@ -26,7 +28,6 @@ import {
   CheckoutElementsProvider,
   ExpressCheckoutElement,
   PaymentElement,
-  TaxIdElement,
   useCheckoutElements,
 } from "@stripe/react-stripe-js/checkout";
 import type { Appearance, StripeAddressElement } from "@stripe/stripe-js";
@@ -36,7 +37,7 @@ import type { JSX, ReactNode } from "react";
 import { getStripe } from "@/components/billing/stripeLoader";
 import type { CompanyAddress } from "@/lib/api/types";
 
-import { ADD_BUSINESS, OR_PAY_ANOTHER_WAY, REMOVE_BUSINESS, SAVE_LINE } from "./payCopy";
+import { OR_PAY_ANOTHER_WAY, SAVE_LINE } from "./payCopy";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
@@ -289,7 +290,6 @@ function StripeForm({
 }): JSX.Element {
   const result = useCheckoutElements();
   const [selected, setSelected] = useState<string | null>(null);
-  const [business, setBusiness] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [wallets, setWallets] = useState<boolean | null>(null);
   const [cardsOpen, setCardsOpen] = useState(!collapseCards);
@@ -416,19 +416,6 @@ function StripeForm({
           ) : wallets !== false ? (
             <CardsToggle big={big} onOpen={() => setCardsOpen(true)} />
           ) : null}
-          {!setup && !billingAddress && cardsOpen ? (
-            <button
-              type="button"
-              onClick={() => setBusiness((b) => !b)}
-              className="w-fit text-sm text-primary hover:underline"
-            >
-              {business ? REMOVE_BUSINESS : ADD_BUSINESS}
-            </button>
-          ) : null}
-          {(billingAddress || business) && !setup && cardsOpen ? (
-            // the session's optional business name and tax ID
-            <TaxIdElement options={{ visibility: "always", fields: { businessName: "always" } }} />
-          ) : null}
           {showSaveLine && savable && cardsOpen ? <SaveLine /> : null}
         </>
       ) : null}
@@ -475,7 +462,6 @@ function MockPane({
     );
   }, [mockPrefill]);
   const addressDone = !billingAddress || (address.line1.trim() !== "" && address.city.trim() !== "" && address.postal_code.trim() !== "");
-  const [business, setBusiness] = useState(false);
   const [wallets] = useState(mockWallets);
   const [cardsOpen, setCardsOpen] = useState(!collapseCards);
   const form: PayForm = {
@@ -561,25 +547,6 @@ function MockPane({
         {selected === "card" ? (
           <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 font-mono text-sm text-fg-muted">
             4242 4242 4242 4242
-          </div>
-        ) : null}
-        {!setup && !billingAddress ? (
-          <button
-            type="button"
-            onClick={() => setBusiness((b) => !b)}
-            className="w-fit text-sm text-primary hover:underline"
-          >
-            {business ? REMOVE_BUSINESS : ADD_BUSINESS}
-          </button>
-        ) : null}
-        {(business || billingAddress) && !setup ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
-              Business name (optional)
-            </div>
-            <div className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg-muted">
-              Tax ID (optional)
-            </div>
           </div>
         ) : null}
         {showSaveLine && selected !== "alipay" ? <SaveLine /> : null}

@@ -11,8 +11,6 @@ export const WITHDRAWAL_LINE =
 export const REFUNDED_IF_FAILS = "Refunded in full if it fails.";
 export const SAVE_LINE = "Saved for your next runs. You can remove it in Billing.";
 export const OR_PAY_ANOTHER_WAY = "or pay another way";
-export const ADD_BUSINESS = "Add business details";
-export const REMOVE_BUSINESS = "Remove business details";
 
 // P1 states
 export const PAYING = "Paying…";
