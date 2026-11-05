@@ -19,10 +19,7 @@ import { TalkToUs } from "@/components/plans/TalkToUs";
 import { WelcomeDialog } from "@/components/onboarding/WelcomeDialog";
 import { track } from "@/lib/analytics";
 import type { WelcomeVariant } from "@/components/onboarding/WelcomeDialog";
-import {
-  clearWelcomeAgain,
-  welcomeAgainRequested,
-} from "@/components/plans/ResetPlansSurfaces";
+import { clearWelcomeAgain } from "@/components/plans/ResetPlansSurfaces";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { UploadDropzone } from "@/components/projects/UploadDropzone";
@@ -153,19 +150,17 @@ export default function ProjectsScreen() {
 
   const sorted = projects === null ? null : [...projects].sort(byNewest);
   const sample = projects?.find((p) => p.sample === true) ?? null;
-  // new accounts only: someone who already has their own projects
-  // never gets the welcome (the gateway marks older accounts done too)
-  const newAccount =
-    projects !== null && projects.every((p) => p.sample === true);
   // app Pro (owner 2026-11-04): their own welcome once, also for an older
   // web account that later gets Pro in the app (then the Pro step alone).
-  // "Show welcome again" (test only) brings either back for this session.
+  // "Show welcome again" (test only) resets the saved flags.
   const onboarding = settings?.onboarding;
-  const again = welcomeAgainRequested();
   const appProDue =
     onboarding?.variant === "app_pro" &&
     onboarding.app_pro_welcome_done !== true;
-  const firstDue = onboarding?.welcome_done !== true && (newAccount || again);
+  // owner 2026-11-05: every account sees the welcome once, older ones with
+  // their own projects too, until closing or finishing it saves
+  // welcome_done (the gateway's default is false unless it was saved)
+  const firstDue = onboarding?.welcome_done !== true;
   const welcomeVariant: WelcomeVariant = appProDue
     ? firstDue
       ? "app_pro"

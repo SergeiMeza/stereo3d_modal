@@ -86,7 +86,25 @@ describe("welcome after sign-up", () => {
     expect(screen.queryByTestId("get-started")).toBeNull();
   });
 
-  it("never shows to someone who already has projects", async () => {
+  it("an older account with its own projects and no saved welcome sees it once (owner 2026-11-05)", async () => {
+    // the fixture account already has projects of its own
+    expect([...mockDb.projects.values()].some((p) => p.sample !== true)).toBe(true);
+    renderProjects();
+    const welcome = await screen.findByTestId("welcome");
+    expect(welcome).toBeTruthy();
+    // closing it saves welcome_done, so it never comes back
+    fireEvent.keyDown(welcome, { key: "Escape" });
+    await waitFor(() => expect(mockDb.accountSettings.onboarding.welcome_done).toBe(true));
+    await waitFor(() => expect(screen.queryByTestId("welcome")).toBeNull());
+    cleanup();
+    resetAccountSettingsCache();
+    renderProjects();
+    expect(await screen.findByTestId("get-started")).toBeTruthy();
+    expect(screen.queryByTestId("welcome")).toBeNull();
+  });
+
+  it("an account that saved the welcome never sees it again", async () => {
+    mockDb.accountSettings.onboarding = { welcome_done: true };
     renderProjects();
     expect(await screen.findByTestId("get-started")).toBeTruthy();
     expect(screen.queryByTestId("welcome")).toBeNull();
