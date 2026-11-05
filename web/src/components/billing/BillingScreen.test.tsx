@@ -156,6 +156,10 @@ describe("Billing (S3D-57, S3D-62)", () => {
         lines: [{ description: "Business plan", amount_cents: 29900 }], items: [],
       },
       {
+        row_id: "credit_big", kind: "credit", created_at: "2026-11-05T00:24:09Z", amount_cents: 0, currency: "usd",
+        status: "applied", help_ref: "", label: "Usage credit added · $1500.00", credit: { cents: 150000, kind: "granted" }, items: [],
+      },
+      {
         row_id: "credit_e1", kind: "credit", created_at: "2026-11-04T00:24:09Z", amount_cents: 0, currency: "usd",
         status: "applied", help_ref: "", label: "Usage credit added · $400.00", credit: { cents: 40000, kind: "granted" }, items: [],
       },
@@ -197,9 +201,13 @@ describe("Billing (S3D-57, S3D-62)", () => {
     const up = screen.getByTestId("row-plan_in_up");
     fireEvent.click(within(up).getByRole("button", { name: /Studio plan · yearly/ }));
     expect(within(up).getByTestId("row-lines").textContent).toContain("Unused time on Business−$1,000.00");
+    expect(within(up).getByTestId("row-amount").textContent).toBe("$10,988.00");
     // no money: credit and changes say what happened
     const credit = screen.getByTestId("row-credit_e1");
     expect(credit.textContent).toContain("Usage credit added · $400.00");
+    // owner 2026-11-05: the gateway's "$1500.00" reads "$1,500.00"
+    expect(screen.getByTestId("row-credit_big").textContent).toContain("Usage credit added · $1,500.00");
+    expect(screen.getByTestId("row-credit_big").textContent).not.toContain("$1500.00");
     expect(within(credit).getByTestId("row-amount").textContent).toBe("—");
     expect(within(credit).getByTestId("row-status").textContent).toBe("Added");
     expect(within(screen.getByTestId("row-plan_change_in_up")).getByTestId("row-status").textContent).toBe("Changed");
@@ -210,7 +218,7 @@ describe("Billing (S3D-57, S3D-62)", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Plan" }));
     await waitFor(() => expect(screen.queryByTestId("row-ch_cbig00000001")).toBeNull());
     expect(await screen.findByTestId("row-plan_in_first")).toBeTruthy();
-    expect(within(screen.getByTestId("history")).getAllByRole("listitem").filter((li) => li.dataset.testid?.startsWith("row-"))).toHaveLength(5);
+    expect(within(screen.getByTestId("history")).getAllByRole("listitem").filter((li) => li.dataset.testid?.startsWith("row-"))).toHaveLength(6);
     expect(asked.some((u) => new URL(u).searchParams.get("filter") === "plan")).toBe(true);
     // and back
     fireEvent.mouseDown(screen.getByRole("tab", { name: "History" }));

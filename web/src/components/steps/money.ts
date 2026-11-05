@@ -13,6 +13,17 @@ export function formatCents(cents: number): string {
   return `${sign}$${dollars.toLocaleString("en-US")}.${String(rem).padStart(2, "0")}`;
 }
 
+/** Amounts written inside the gateway's text ("Usage credit added ·
+ * $1500.00") in the shared format ("$1,500.00"): owner 2026-11-05, every
+ * amount on Billing groups its thousands. */
+export function groupMoney(text: string): string {
+  return text.replace(/([−-]?)\$(\d+)(?:\.(\d{2}))?(?![\d,])/g, (_m, sign: string, whole: string, frac: string | undefined) => {
+    const cents = Number(whole) * 100 + (frac ? Number(frac) : 0);
+    const out = frac ? formatCents(cents) : formatCentsShort(cents);
+    return sign ? `−${out}` : out;
+  });
+}
+
 /** Round amounts in rules and headlines: 2500 → "$25", 1250 → "$12.50". */
 export function formatCentsShort(cents: number): string {
   return cents % 100 === 0 ? formatCents(cents).replace(/\.00$/, "") : formatCents(cents);

@@ -32,7 +32,7 @@ import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { UNDER_REVIEW } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
-import { formatCents } from "@/components/steps/money";
+import { formatCents, groupMoney } from "@/components/steps/money";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -210,7 +210,7 @@ function NoMoneyRow({ row }: { row: BillingRow }): JSX.Element {
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
         <span className="text-fg-muted">{shortDate(row.created_at)}</span>
-        <span className="min-w-0 truncate text-fg-muted">{row.label ?? (row.kind === "credit" ? "Usage credit" : "Plan change")}</span>
+        <span className="min-w-0 truncate text-fg-muted">{row.label ? groupMoney(row.label) : row.kind === "credit" ? "Usage credit" : "Plan change"}</span>
         <span data-testid="row-amount" className="text-right font-mono text-fg-muted">
           —
         </span>
@@ -240,9 +240,9 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
   const lines = planRow && (row.lines?.length ?? 0) > 1 ? row.lines! : null;
   const many = items.length > 1 || lines !== null;
   const what = planRow
-    ? (row.label ?? "Plan")
+    ? (row.label ? groupMoney(row.label) : "Plan")
     : items.length === 0
-      ? (row.label ?? "—")
+      ? (row.label ? groupMoney(row.label) : "—")
       : items.length > 1
         ? `${items.length} items`
         : itemLine(items[0]);
@@ -304,7 +304,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         <ul data-testid="row-lines" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
           {lines.map((l, i) => (
             <li key={i} className="flex items-center gap-3">
-              <span className="min-w-0 flex-1 truncate text-fg-muted">{l.description}</span>
+              <span className="min-w-0 flex-1 truncate text-fg-muted">{groupMoney(l.description)}</span>
               <span className="font-mono text-fg-muted tabular-nums">
                 {l.amount_cents < 0 ? `−${formatCents(-l.amount_cents)}` : formatCents(l.amount_cents)}
               </span>
