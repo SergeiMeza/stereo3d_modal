@@ -988,7 +988,12 @@ export type PaymentFlow = "after" | "precharge" | "paynow" | "balance" | "free_p
 
 /** spec v7 N13: the prepaid balance on GET /v1/billing */
 export interface BalanceSummary {
+  /** everything spendable, a plan's usage credit included */
   balance_cents: number;
+  /** owner 2026-11-05 (asked of the gateway): the prepaid top-ups that
+   * keep, without the plan's usage credit; until it's sent the page takes
+   * the plan's credit_left_cents off balance_cents */
+  prepaid_cents?: number;
   held_cents: number;
   frozen_cents: number;
   available_cents: number;

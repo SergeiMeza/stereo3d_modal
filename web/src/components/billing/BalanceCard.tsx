@@ -11,14 +11,37 @@ import { PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
-import { formatCents } from "@/components/steps/money";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
-import { prepaidOf } from "@/lib/api/types";
+import { isTeamPlan, prepaidOf } from "@/lib/api/types";
+import type { AccountPlan, BalanceSummary } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 
 function longDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** "5 Dec" */
+function dayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** Owner 2026-11-05: the Balance is the prepaid top-ups that keep; a
+ * plan's usage credit (it doesn't carry over) is its own line. The
+ * gateway's prepaid_cents when it sends it, else the balance less the
+ * plan's credit left. */
+export function prepaidCents(b: BalanceSummary, plan: AccountPlan | null | undefined): number {
+  if (typeof b.prepaid_cents === "number") return b.prepaid_cents;
+  const credit = isTeamPlan(plan) ? (plan.credit_left_cents ?? 0) : 0;
+  return Math.max(b.balance_cents - credit, 0);
+}
+
+/** "Plan usage: $400 left this month · resets on 5 Dec" */
+export function planUsageLine(plan: AccountPlan): string {
+  const left = plan.credit_left_cents ?? plan.credit_cents ?? 0;
+  const resets = plan.credit_resets_at ?? plan.current_period_end;
+  return `Plan usage: ${formatCentsShort(left)} left this month${resets ? ` · resets on ${dayMonth(resets)}` : ""}`;
 }
 
 const PAUSED: Record<string, string> = {
@@ -40,6 +63,8 @@ export function BalanceCard(): JSX.Element | null {
   const paused = ar.enabled && ar.paused_reason ? (PAUSED[ar.paused_reason] ?? PAUSED.declined) : null;
   const limit = b.spend_limit_cents ?? null;
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
+  const plan = isTeamPlan(status.plan) ? status.plan : null;
+  const prepaid = prepaidCents(b, plan);
 
   return (
     <section
@@ -53,8 +78,13 @@ export function BalanceCard(): JSX.Element | null {
             Balance
           </h2>
           <p data-testid="balance-amount" className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
-            {formatCents(b.balance_cents)}
+            {formatCents(prepaid)}
           </p>
+          {plan ? (
+            <p data-testid="balance-plan-usage" className="text-xs text-fg-muted tabular-nums">
+              {planUsageLine(plan)}
+            </p>
+          ) : null}
           {b.held_cents > 0 ? (
             <p className="text-xs text-fg-muted tabular-nums">
               {formatCents(b.held_cents)} reserved for {b.held_runs ?? 1} {(b.held_runs ?? 1) === 1 ? "run" : "runs"} in progress
@@ -67,7 +97,7 @@ export function BalanceCard(): JSX.Element | null {
           ) : null}
           {b.expired && b.expires_at ? (
             <p className="text-xs text-fg-muted">Your balance expired on {longDate(b.expires_at)}.</p>
-          ) : b.never_topped_up && b.balance_cents === 0 ? (
+          ) : b.never_topped_up && prepaid === 0 ? (
             <p className="text-xs text-fg-muted">Add funds to pay for runs from your balance.</p>
           ) : b.expires_at ? (
             <p className="text-xs text-fg-muted">Expires on {longDate(b.expires_at)} unless you add funds.</p>

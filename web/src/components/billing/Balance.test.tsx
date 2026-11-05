@@ -53,6 +53,48 @@ function topped(cents: number) {
   pp.topups = 1;
 }
 
+describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
+  function business(left: number): void {
+    mockDb.billing.plan = {
+      plan: "business",
+      name: "Business",
+      status: "active",
+      active: true,
+      monthly_cents: 29900,
+      credit_cents: 40000,
+      credit_left_cents: left,
+      cancel_at_period_end: false,
+      current_period_end: "2026-12-05T00:24:08Z",
+      interval: "month",
+      price_cents: 29900,
+    };
+  }
+
+  it("a fresh Business plan: Balance $0.00, its $400 on its own line", async () => {
+    business(40000);
+    // the gateway counts the plan's credit in the balance
+    mockDb.billing.prepaid.balance_cents = 40000;
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$0.00"));
+    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $400 left this month · resets on 5 Dec");
+  });
+
+  it("top-ups beside a plan: only what keeps is the Balance", async () => {
+    business(31250);
+    topped(2500 + 31250);
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$25.00"));
+    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $312.50 left this month · resets on 5 Dec");
+  });
+
+  it("no plan: no plan line, the whole balance", async () => {
+    topped(2500);
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$25.00"));
+    expect(screen.queryByTestId("balance-plan-usage")).toBeNull();
+  });
+});
+
 describe("prepaidOf", () => {
   it("tells the v7 balance from the old batch field", () => {
     expect(prepaidOf(null)).toBeNull();
