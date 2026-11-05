@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { welcomePicksAtom } from "@/components/onboarding/welcomeAtoms";
+import { useBusinessMention } from "@/components/plans/TalkToUs";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import type { JSX } from "react";
 
@@ -509,8 +510,12 @@ export function WelcomeDialog({
   );
 }
 
-/** App Pro's one mention of Business: a muted line in the last step. */
-function BusinessLine(): JSX.Element {
+/** App Pro's one mention of Business: a muted line in the last step;
+ * never for Business or Studio (owner 2026-11-05: the same rule as the
+ * Projects nudge, useBusinessMention). */
+function BusinessLine(): JSX.Element | null {
+  const show = useBusinessMention();
+  if (!show) return null;
   return (
     <p data-testid="welcome-business" className="text-[13px] text-fg-muted">
       Working for clients?{" "}

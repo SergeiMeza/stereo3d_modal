@@ -211,6 +211,56 @@ describe("app Pro welcome (owner 2026-11-04)", () => {
   });
 });
 
+describe("the welcome's Business line follows the nudge rule (QA 2026-11-05)", () => {
+  beforeEach(() => {
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
+    resetProForTests();
+    resetPricingCache();
+    mockDb.tierPricing = true;
+    mockDb.accountSettings.simulate_app_pro = true;
+  });
+  afterEach(() => {
+    delete (globalThis as { __mockDb?: typeof mockDb }).__mockDb;
+  });
+
+  async function lastStep(): Promise<void> {
+    mockDb.accountSettings.onboarding = { welcome_done: true };
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <ProjectsScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    await screen.findByTestId("welcome-app-pro");
+  }
+
+  it("a Studio account: no Business line", async () => {
+    mockDb.billing.plan = {
+      plan: "studio",
+      name: "Studio",
+      status: "active",
+      active: true,
+      credit_cents: 150000,
+      credit_left_cents: 150000,
+      cancel_at_period_end: false,
+      interval: "year",
+      price_cents: 1198800,
+    };
+    await lastStep();
+    // the plan has landed (the Pro card says it's included elsewhere)
+    await waitFor(() => expect(screen.queryByTestId("welcome-business")).toBeNull());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("welcome-business")).toBeNull();
+  });
+
+  it("no plan: the line shows", async () => {
+    mockDb.pro = false;
+    await lastStep();
+    expect(await screen.findByTestId("welcome-business")).toBeTruthy();
+  });
+});
+
 describe("getting-started steps", () => {
   it("follow the account and the gateway's steps", () => {
     const steps = checklistSteps({

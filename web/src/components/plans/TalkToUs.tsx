@@ -57,14 +57,31 @@ export function useBusinessReason(): SurfaceReason | null {
   return null;
 }
 
+/** The one rule for offering Business (owner 2026-11-05): no plan or Pro,
+ * and the account looks like a business. Never on Business or Studio.
+ * null while unknown. */
+export function useBusinessFits(): boolean | null {
+  const tier = usePlanTier();
+  const reason = useBusinessReason();
+  if (tier === null) return null;
+  return (tier === "none" || tier === "pro") && reason !== null;
+}
+
+/** Where Business may be mentioned in passing (the welcome's last step):
+ * when the rule picks it, or with no plan at all. */
+export function useBusinessMention(): boolean {
+  const tier = usePlanTier();
+  const fits = useBusinessFits();
+  return tier === "none" || fits === true;
+}
+
 /** The Business nudge shows: true, false, or null while unknown. */
 export function useBusinessNudgeShown(): boolean | null {
-  const tier = usePlanTier();
   const biz = usePricing()?.plans?.business;
   const { dismissed } = useDismissal("business_banner", 30);
-  const reason = useBusinessReason();
-  if (tier === null || dismissed === null) return null;
-  return (tier === "none" || tier === "pro") && dismissed === false && reason !== null && !!biz;
+  const fits = useBusinessFits();
+  if (fits === null || dismissed === null) return null;
+  return fits && dismissed === false && !!biz;
 }
 
 export function TalkToUs(): JSX.Element | null {
