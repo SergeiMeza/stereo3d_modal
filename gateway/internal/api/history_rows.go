@@ -33,7 +33,7 @@ type rowItem struct {
 
 type historyRow struct {
 	RowID         string            `json:"row_id"`
-	Kind          string            `json:"kind"` // charge | refund | outstanding
+	Kind          string            `json:"kind"` // charge | refund | outstanding | plan | plan_change | credit
 	CreatedAt     time.Time         `json:"created_at"`
 	AmountCents   int64             `json:"amount_cents"` // negative for refunds
 	Currency      string            `json:"currency"`
@@ -44,8 +44,13 @@ type historyRow struct {
 	CreditNoteURL string            `json:"credit_note_url,omitempty"`
 	HelpRef       string            `json:"help_ref"`
 	CaseID        string            `json:"case_id,omitempty"`
-	Label         string            `json:"label,omitempty"` // "Balance top-up · $25.00"
+	Label         string            `json:"label,omitempty"` // "Balance top-up · $25.00", "Business plan · monthly"
 	Items         []rowItem         `json:"items"`
+	// Plans (kind plan | plan_change | credit, owner bug 2026-11-05).
+	Plan   *planRowInfo    `json:"plan,omitempty"`
+	Lines  []planLine      `json:"lines,omitempty"`
+	Change *planChangeInfo `json:"change,omitempty"`
+	Credit *creditInfo     `json:"credit,omitempty"`
 
 	chargeID string // charges_{env} id for the invoice ("" for none)
 	pi       string
@@ -159,6 +164,11 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 			out = append(out, *refund)
 		}
 	}
+	return sortRows(out)
+}
+
+// sortRows: newest first, then by row id.
+func sortRows(out []historyRow) []historyRow {
 	slices.SortFunc(out, func(a, b historyRow) int {
 		if c := b.CreatedAt.Compare(a.CreatedAt); c != 0 {
 			return c
@@ -166,6 +176,21 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 		return strings.Compare(b.RowID, a.RowID)
 	})
 	return out
+}
+
+// filterRows keeps one kind of row: filter=plan (plan, plan_change,
+// credit) or runs (charge, refund, outstanding); "" or all = every row.
+func filterRows(all []historyRow, filter string) []historyRow {
+	var kinds []string
+	switch filter {
+	case "plan", "plans":
+		kinds = []string{"plan", "plan_change", "credit"}
+	case "runs":
+		kinds = []string{"charge", "refund", "outstanding"}
+	default:
+		return all
+	}
+	return slices.DeleteFunc(all, func(r historyRow) bool { return !slices.Contains(kinds, r.Kind) })
 }
 
 // pageRows returns the rows after startingAfter ("" = the first page).

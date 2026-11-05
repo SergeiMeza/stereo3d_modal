@@ -258,6 +258,26 @@ confirmCardPayment fallback). The default card is cached on
   paid aren't repeated), plus one "Payment needed" row on the first page
   while the account owes. `refund_requested`/`disputed` and `case_id`
   arrive with the refund layer.
+- **Plans in the history** (owner bug 2026-11-05): `filter=plan` (plan,
+  plan_change, credit rows) or `filter=runs` (charge, refund,
+  outstanding); none = all. `kind: plan`: every Business, Studio and web
+  Pro subscription invoice (first charge, renewal, step-up with its
+  credit line, Studio's yearly charge), read from Stripe's invoices on
+  the customer (so earlier ones show too): `label` "Business plan ·
+  monthly" / "Pro · weekly", `amount_cents` (paid), `status` paid |
+  payment_needed (open) | failed | refunded | partially_refunded,
+  `invoice {hosted_invoice_url, invoice_pdf}`, `receipt_url` and
+  `payment_method` (the PaymentIntent that paid it), `plan {tier, plan_id?,
+  interval weekly|monthly|yearly, reason first|renewal|change|other,
+  invoice_id, invoice_number}`, `lines [{description, amount_cents}]`.
+  `kind: plan_change` (no money, `amount_cents` 0): a step-up (its
+  invoice), an applied step-down (the new plan's first invoice), and one
+  waiting for the period's end (`status: scheduled`): `label` "Business →
+  Studio", `change {from, to (a plan key or none), kind step_up |
+  step_down | cancel, effective_at}`. `kind: credit` (no money): the
+  plans' usage credit from the ledger, `label` "Usage credit added ·
+  $400.00", `credit {cents (+/−), kind granted | expired | removed |
+  frozen | unfrozen}`.
 
 ### Prepaid balance (spec v7.1 §N, web only)
 

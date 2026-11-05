@@ -354,3 +354,72 @@ func orFooter(f string) string {
 	}
 	return f
 }
+
+// PlanInvoice is a subscription invoice of a web plan (Business, Studio,
+// web Pro) as the billing history shows it.
+type PlanInvoice struct {
+	ID                 string `json:"id"`
+	Number             string `json:"number"`
+	Status             string `json:"status"` // draft | open | paid | uncollectible | void
+	Total              int64  `json:"total"`
+	AmountPaid         int64  `json:"amount_paid"`
+	Currency           string `json:"currency"`
+	Created            int64  `json:"created"`
+	HostedInvoiceURL   string `json:"hosted_invoice_url"`
+	InvoicePDF         string `json:"invoice_pdf"`
+	BillingReason      string `json:"billing_reason"` // subscription_create | subscription_cycle | subscription_update | …
+	PostPaymentCredits int64  `json:"post_payment_credit_notes_amount"`
+	Parent             struct {
+		SubscriptionDetails struct {
+			Subscription string            `json:"subscription"`
+			Metadata     map[string]string `json:"metadata"`
+		} `json:"subscription_details"`
+	} `json:"parent"`
+	Lines struct {
+		Data []struct {
+			Description string `json:"description"`
+			Amount      int64  `json:"amount"`
+		} `json:"data"`
+	} `json:"lines"`
+}
+
+// ListPlanInvoices lists the customer's subscription invoices, newest
+// first (up to 100; plans bill monthly or yearly).
+func (c *Client) ListPlanInvoices(customerID string) ([]PlanInvoice, error) {
+	q := url.Values{"customer": {customerID}, "limit": {"100"}}
+	var page struct {
+		Data []PlanInvoice `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoices?"+q.Encode(), nil, "", &page); err != nil {
+		return nil, err
+	}
+	out := page.Data[:0]
+	for _, inv := range page.Data {
+		if inv.Parent.SubscriptionDetails.Subscription != "" {
+			out = append(out, inv)
+		}
+	}
+	return out, nil
+}
+
+// InvoicePaymentIntent is the PaymentIntent that paid an invoice ("" when
+// none did).
+func (c *Client) InvoicePaymentIntent(invoiceID string) (string, error) {
+	var page struct {
+		Data []struct {
+			Status  string `json:"status"`
+			Payment struct {
+				PaymentIntent string `json:"payment_intent"`
+			} `json:"payment"`
+		} `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/invoice_payments?invoice="+url.QueryEscape(invoiceID), nil, "", &page); err != nil {
+		return "", err
+	}
+	for _, p := range page.Data {
+		if p.Status == "paid" && p.Payment.PaymentIntent != "" {
+			return p.Payment.PaymentIntent, nil
+		}
+	}
+	return "", nil
+}

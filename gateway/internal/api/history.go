@@ -120,12 +120,15 @@ func (s *Service) HandleBillingHistory(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 	all := s.applyCases(ctx, user.UID, historyRows(batches, settles, convs, topups...))
+	cust, _ := s.Store.GetCustomer(ctx, user.UID)
+	all = sortRows(append(all, s.planHistoryRows(ctx, user.UID, cust)...)) // plans, their changes and credit
 	after := r.URL.Query().Get("starting_after")
 	if after == "" {
 		if out := s.outstandingRow(ctx, user.UID, batches, convs); out != nil {
 			all = append([]historyRow{*out}, all...)
 		}
 	}
+	all = filterRows(all, r.URL.Query().Get("filter"))
 	rows, more := pageRows(all, after, limit)
 	s.enrichRows(ctx, rows)
 	if rows == nil {
