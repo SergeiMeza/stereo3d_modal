@@ -140,6 +140,82 @@ describe("Billing (S3D-57, S3D-62)", () => {
     expect(within(row).getByRole("button", { name: "Pay $7.25" })).toBeTruthy();
   });
 
+  it("plan invoices, a step-up with its credit line, changes and credit; the Plan filter (gateway ffac292)", async () => {
+    run("cbig00000001", 4972, { charge_timing: "before", updated_at: "2026-11-03T09:00:00Z" });
+    const link = (id: string) => ({
+      invoice: { hosted_invoice_url: `https://invoice.stripe.com/i/${id}`, invoice_pdf: `https://pay.stripe.com/invoice/${id}/pdf` },
+      receipt_url: `https://pay.stripe.com/receipts/${id}`,
+    });
+    mockDb.billing.planHistory = [
+      {
+        row_id: "plan_in_first", kind: "plan", created_at: "2026-11-04T00:24:08Z", amount_cents: 29900, currency: "usd",
+        status: "paid", payment_method: { label: "Visa •••• 4242" }, ...link("in_first"), help_ref: "IRST",
+        label: "Business plan · monthly", plan: { tier: "business", interval: "monthly", reason: "first", invoice_id: "in_first" },
+        lines: [{ description: "Business plan", amount_cents: 29900 }], items: [],
+      },
+      {
+        row_id: "credit_e1", kind: "credit", created_at: "2026-11-04T00:24:09Z", amount_cents: 0, currency: "usd",
+        status: "applied", help_ref: "", label: "Usage credit added · $400.00", credit: { cents: 40000, kind: "granted" }, items: [],
+      },
+      {
+        row_id: "plan_in_up", kind: "plan", created_at: "2026-11-05T00:24:08Z", amount_cents: 1098800, currency: "usd",
+        status: "paid", payment_method: { label: "Visa •••• 4242" }, ...link("in_up"), help_ref: "N_UP",
+        label: "Studio plan · yearly", plan: { tier: "studio", interval: "yearly", reason: "change", invoice_id: "in_up" },
+        lines: [
+          { description: "Studio plan", amount_cents: 1198800 },
+          { description: "Unused time on Business", amount_cents: -100000 },
+        ],
+        items: [],
+      },
+      {
+        row_id: "plan_change_in_up", kind: "plan_change", created_at: "2026-11-05T00:24:07Z", amount_cents: 0, currency: "usd",
+        status: "applied", help_ref: "", label: "Business → Studio", change: { from: "business", to: "studio", kind: "step_up" }, items: [],
+      },
+      {
+        row_id: "plan_change_sched", kind: "plan_change", created_at: "2026-11-05T01:00:00Z", amount_cents: 0, currency: "usd",
+        status: "scheduled", help_ref: "", label: "Studio → Business",
+        change: { from: "studio", to: "business", kind: "step_down", effective_at: "2027-11-05T00:24:08Z" }, items: [],
+      },
+    ];
+    const asked: string[] = [];
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.includes("/v1/billing/history")) asked.push(request.url);
+    });
+    renderBilling();
+
+    // History: every row, the runs and the plans together
+    const first = await screen.findByTestId("row-plan_in_first");
+    expect(first.textContent).toContain("Business plan · monthly");
+    expect(within(first).getByTestId("row-amount").textContent).toBe("$299.00");
+    expect(within(first).getByTestId("row-status").textContent).toBe("Paid");
+    expect(within(first).getByRole("link", { name: "Invoice ↗" }).getAttribute("href")).toBe("https://invoice.stripe.com/i/in_first");
+    expect(within(first).getByRole("link", { name: "Receipt ↗" }).getAttribute("href")).toBe("https://pay.stripe.com/receipts/in_first");
+    expect(screen.getByTestId("row-ch_cbig00000001")).toBeTruthy();
+    // the step-up opens to its lines, the credit line negative
+    const up = screen.getByTestId("row-plan_in_up");
+    fireEvent.click(within(up).getByRole("button", { name: /Studio plan · yearly/ }));
+    expect(within(up).getByTestId("row-lines").textContent).toContain("Unused time on Business−$1,000.00");
+    // no money: credit and changes say what happened
+    const credit = screen.getByTestId("row-credit_e1");
+    expect(credit.textContent).toContain("Usage credit added · $400.00");
+    expect(within(credit).getByTestId("row-amount").textContent).toBe("—");
+    expect(within(credit).getByTestId("row-status").textContent).toBe("Added");
+    expect(within(screen.getByTestId("row-plan_change_in_up")).getByTestId("row-status").textContent).toBe("Changed");
+    expect(within(screen.getByTestId("row-plan_change_sched")).getByTestId("row-status").textContent).toMatch(/^Scheduled for /);
+    expect(within(credit).queryByRole("link")).toBeNull();
+
+    // Plan: filter=plan, only the plan rows
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Plan" }));
+    await waitFor(() => expect(screen.queryByTestId("row-ch_cbig00000001")).toBeNull());
+    expect(await screen.findByTestId("row-plan_in_first")).toBeTruthy();
+    expect(within(screen.getByTestId("history")).getAllByRole("listitem").filter((li) => li.dataset.testid?.startsWith("row-"))).toHaveLength(5);
+    expect(asked.some((u) => new URL(u).searchParams.get("filter") === "plan")).toBe(true);
+    // and back
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "History" }));
+    expect(await screen.findByTestId("row-ch_cbig00000001")).toBeTruthy();
+    server.events.removeAllListeners();
+  });
+
   it("nothing yet: no saved methods and no purchases", async () => {
     mockDb.billing.hasPaymentMethod = false;
     mockDb.billing.card = undefined;

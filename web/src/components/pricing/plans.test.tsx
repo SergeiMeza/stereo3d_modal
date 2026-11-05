@@ -126,6 +126,18 @@ describe("Pricing 2026-11", () => {
     );
     const card = await screen.findByTestId("plan-card");
     expect(within(card).getByTestId("plan-credit").textContent).toBe("$400.00 of $400.00 usage left this month");
+    // gateway ffac292: the purchase is a history row with its invoice and receipt
+    const bought = await screen.findByTestId("row-plan_in_mock_business_1");
+    expect(bought.textContent).toContain("Business plan · monthly");
+    expect(within(bought).getByTestId("row-amount").textContent).toBe("$299.00");
+    expect(within(bought).getByTestId("row-status").textContent).toBe("Paid");
+    expect(within(bought).getByRole("link", { name: "Invoice ↗" }).getAttribute("href")).toBe(
+      "https://invoice.stripe.com/i/mock/in_mock_business_1",
+    );
+    expect(within(bought).getByRole("link", { name: "Receipt ↗" }).getAttribute("href")).toBe(
+      "https://pay.stripe.com/receipts/mock/in_mock_business_1",
+    );
+    expect(screen.getByTestId("row-credit_in_mock_business_1").textContent).toContain("Usage credit added · $400.00");
     // owner 2026-11-04: cancelling is "pay per video" in Change plan, at the period's end
     fireEvent.keyDown(within(card).getByRole("button", { name: "Change plan" }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Pay per video (cancel plan)" }));

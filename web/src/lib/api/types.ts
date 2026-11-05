@@ -1108,13 +1108,20 @@ export type BillingRowStatus =
   | "refunded"
   | "partially_refunded"
   | "disputed"
-  | "refund_failed";
+  | "refund_failed"
+  /** a plan invoice that didn't go through (gateway ffac292) */
+  | "failed"
+  /** a plan change or credit row, done or waiting for the period's end */
+  | "applied"
+  | "scheduled";
 
 /** spec v6 F/P10: a purchase-history row. A refund row has a negative
  * meaning (kind "refund") and may carry a credit note. */
 export interface BillingRow {
   row_id: string;
-  kind?: "charge" | "refund" | "outstanding";
+  /** gateway ffac292: plan invoices (plan) and, without money, plan
+   * changes (plan_change) and the plans' usage credit (credit) */
+  kind?: "charge" | "refund" | "outstanding" | "plan" | "plan_change" | "credit";
   created_at: string;
   amount_cents: number;
   currency: string;
@@ -1127,8 +1134,32 @@ export interface BillingRow {
   /** quoted in "Get help with this payment" */
   help_ref?: string;
   case_id?: string;
+  /** "Balance top-up · $25.00", "Business plan · monthly", "Business →
+   * Studio", "Usage credit added · $400.00" */
+  label?: string;
+  plan?: {
+    tier: "pro" | "business" | "studio";
+    plan_id?: string;
+    interval: "weekly" | "monthly" | "yearly";
+    reason: "first" | "renewal" | "change" | "other";
+    invoice_id: string;
+    invoice_number?: string;
+  };
+  /** a plan invoice's lines (a step-up's credit line is negative) */
+  lines?: { description: string; amount_cents: number }[];
+  change?: {
+    /** a plan key: business | studio | pro_monthly | none */
+    from: string;
+    to: string;
+    kind: "step_up" | "step_down" | "cancel";
+    effective_at?: string;
+  };
+  credit?: { cents: number; kind: "granted" | "expired" | "removed" | "frozen" | "unfrozen" };
   items: BillingChargeItem[];
 }
+
+/** GET /v1/billing/history?filter= (gateway ffac292). */
+export type HistoryFilter = "plan" | "runs";
 
 export interface BillingCharge {
   charge_id: string;

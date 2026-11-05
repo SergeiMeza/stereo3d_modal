@@ -10,11 +10,13 @@
 import { atom } from "jotai";
 
 import type { GatewayClient } from "@/lib/api/client";
-import type { BillingHistory, BillingRow, CompanyDetails, InvoiceRow } from "@/lib/api/types";
+import type { BillingHistory, BillingRow, CompanyDetails, HistoryFilter, InvoiceRow } from "@/lib/api/types";
 import { billingUidAtom } from "@/lib/billing";
 
 export interface BillingHistoryState {
   uid: string | null;
+  /** what these rows were read for: every row, or the Plan tab's */
+  filter: HistoryFilter | null;
   rows: BillingRow[] | null;
   hasMore: boolean;
   tax: BillingHistory["tax"];
@@ -22,7 +24,7 @@ export interface BillingHistoryState {
   error: boolean;
 }
 
-export const EMPTY_HISTORY: BillingHistoryState = { uid: null, rows: null, hasMore: false, tax: "off", error: false };
+export const EMPTY_HISTORY: BillingHistoryState = { uid: null, filter: null, rows: null, hasMore: false, tax: "off", error: false };
 
 export const billingHistoryAtom = atom<BillingHistoryState>(EMPTY_HISTORY);
 
@@ -32,22 +34,30 @@ export const loadBillingHistoryAtom = atom(
   async (
     get,
     set,
-    a: { client: Pick<GatewayClient, "getBillingHistory">; rowsOf: (h: BillingHistory) => BillingRow[]; after?: string },
+    a: {
+      client: Pick<GatewayClient, "getBillingHistory">;
+      rowsOf: (h: BillingHistory) => BillingRow[];
+      after?: string;
+      /** gateway ffac292: "plan" for the Plan tab */
+      filter?: HistoryFilter | null;
+    },
   ): Promise<void> => {
     const uid = get(billingUidAtom);
+    const filter = a.filter ?? null;
     try {
-      const h = await a.client.getBillingHistory(a.after);
+      const h = await a.client.getBillingHistory(a.after, filter ?? undefined);
       if (get(billingUidAtom) !== uid) return;
       const page = a.rowsOf(h);
       set(billingHistoryAtom, (s) => ({
         uid,
-        rows: a.after && s.uid === uid && s.rows ? [...s.rows, ...page] : page,
+        filter,
+        rows: a.after && s.uid === uid && s.filter === filter && s.rows ? [...s.rows, ...page] : page,
         hasMore: h.has_more === true,
         tax: h.tax ?? "off",
         error: false,
       }));
     } catch {
-      if (!a.after && get(billingUidAtom) === uid) set(billingHistoryAtom, { ...EMPTY_HISTORY, uid, error: true });
+      if (!a.after && get(billingUidAtom) === uid) set(billingHistoryAtom, { ...EMPTY_HISTORY, uid, filter, error: true });
     }
   },
 );

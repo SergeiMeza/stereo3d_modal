@@ -25,6 +25,7 @@ import type {
   BillingSettleResult,
   BillingSetupTicket,
   BillingHistory,
+  HistoryFilter,
   BillingMethods,
   PayNowStart,
   BillingStatus,
@@ -305,9 +306,11 @@ export class GatewayClient {
 
   /** Card charges as on the statement (S3D-57). */
   /** spec v6 F: 25 rows a page; `after` = the last row_id seen. */
-  getBillingHistory(after?: string): Promise<BillingHistory> {
-    const q = after ? `?limit=25&starting_after=${encodeURIComponent(after)}` : "?limit=25";
-    return this.request("GET", `/v1/billing/history${q}`);
+  getBillingHistory(after?: string, filter?: HistoryFilter): Promise<BillingHistory> {
+    const q = new URLSearchParams({ limit: "25" });
+    if (after) q.set("starting_after", after);
+    if (filter) q.set("filter", filter);
+    return this.request("GET", `/v1/billing/history?${q.toString()}`);
   }
 
   /** SetupIntent material for the onboarding card capture. */

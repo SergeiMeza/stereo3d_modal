@@ -59,6 +59,7 @@ import type {
   BillingRow,
   BillingRowStatus,
   CompanyDetails,
+  HistoryFilter,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
@@ -92,7 +93,33 @@ const STATUS: Record<BillingRowStatus, { label: string; cls: string; help?: stri
   partially_refunded: { label: "Partly refunded", cls: "text-fg-muted" },
   disputed: { label: "Disputed with your bank", cls: "text-amber-300" },
   refund_failed: { label: "Refund didn't go through", cls: "text-red-300", help: "We've emailed you about it." },
+  failed: { label: "Payment failed", cls: "text-red-300" },
+  applied: { label: "Done", cls: "text-fg-muted" },
+  scheduled: { label: "Scheduled", cls: "text-amber-300" },
 };
+
+/** gateway ffac292: a credit row's state, in plain words. */
+const CREDIT_STATUS: Record<NonNullable<BillingRow["credit"]>["kind"], string> = {
+  granted: "Added",
+  expired: "Expired",
+  removed: "Ended",
+  frozen: "On hold",
+  unfrozen: "Released",
+};
+
+/** A plan change or credit row: no money, only what happened. */
+function isNoMoney(row: BillingRow): boolean {
+  return row.kind === "plan_change" || row.kind === "credit";
+}
+
+/** "Scheduled for Dec 5", "Changed", "Added". */
+export function noMoneyStatus(row: BillingRow): string {
+  if (row.kind === "credit") return row.credit ? CREDIT_STATUS[row.credit.kind] : "Done";
+  if (row.status === "scheduled") {
+    return row.change?.effective_at ? `Scheduled for ${shortDate(row.change.effective_at)}` : "Scheduled";
+  }
+  return "Changed";
+}
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -167,15 +194,49 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
   );
 }
 
+/** gateway ffac292: a plan change or a usage-credit row (no money), for
+ * the traceable credit history. */
+function NoMoneyRow({ row }: { row: BillingRow }): JSX.Element {
+  const scheduled = row.status === "scheduled";
+  return (
+    <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
+        <span className="text-fg-muted">{shortDate(row.created_at)}</span>
+        <span className="min-w-0 truncate text-fg-muted">{row.label ?? (row.kind === "credit" ? "Usage credit" : "Plan change")}</span>
+        <span data-testid="row-amount" className="text-right font-mono text-fg-muted">
+          —
+        </span>
+        <span className="hidden sm:block" />
+        <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${scheduled ? "text-amber-300" : "text-fg-muted"}`}>
+          <span aria-hidden className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
+          {noMoneyStatus(row)}
+        </span>
+        <span />
+        <span className="size-7" />
+      </div>
+    </li>
+  );
+}
+
 function Row({ row }: { row: BillingRow }): JSX.Element {
   const [open, setOpen] = useState(false);
   const { openSettle } = useSettle();
+  if (isNoMoney(row)) return <NoMoneyRow row={row} />;
   const s = STATUS[row.status];
   const refund = row.kind === "refund";
-  const many = row.items.length > 1;
-  const what = row.items.length === 0 ? "—" : many ? `${row.items.length} items` : itemLine(row.items[0]);
+  const planRow = row.kind === "plan";
+  // a step-up's lines: the new plan and the credit for the unused one
+  const lines = planRow && (row.lines?.length ?? 0) > 1 ? row.lines! : null;
+  const many = row.items.length > 1 || lines !== null;
+  const what = planRow
+    ? (row.label ?? "Plan")
+    : row.items.length === 0
+      ? (row.label ?? "—")
+      : row.items.length > 1
+        ? `${row.items.length} items`
+        : itemLine(row.items[0]);
   const amount = refund ? `−${formatCents(row.amount_cents)}` : formatCents(row.amount_cents);
-  const paid = row.status !== "payment_needed" && row.status !== "processing";
+  const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
@@ -193,7 +254,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
             </span>
           ) : null}
           {what}
-          {many ? <span className="text-fg-muted"> · {formatCents(row.amount_cents)}</span> : null}
+          {many && !planRow ? <span className="text-fg-muted"> · {formatCents(row.amount_cents)}</span> : null}
         </button>
         <span data-testid="row-amount" className="text-right font-mono tabular-nums text-fg">
           {amount}
@@ -208,7 +269,10 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           {s.help ? <span className="block text-[11px] text-fg-muted">{s.help}</span> : null}
         </span>
         <span className="flex items-center gap-3 text-xs">
-          {row.status === "payment_needed" ? (
+          {row.status === "payment_needed" && planRow && row.invoice?.hosted_invoice_url ? (
+            // a plan invoice is paid on its own page, not with the runs
+            <Ext href={row.invoice.hosted_invoice_url} label="Pay invoice" />
+          ) : row.status === "payment_needed" && !planRow ? (
             <Button
               size="sm"
               onClick={() => openSettle()}
@@ -225,7 +289,18 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         </span>
         <RowMenu row={row} />
       </div>
-      {open ? (
+      {open && lines ? (
+        <ul data-testid="row-lines" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
+          {lines.map((l, i) => (
+            <li key={i} className="flex items-center gap-3">
+              <span className="min-w-0 flex-1 truncate text-fg-muted">{l.description}</span>
+              <span className="font-mono text-fg-muted tabular-nums">
+                {l.amount_cents < 0 ? `−${formatCents(-l.amount_cents)}` : formatCents(l.amount_cents)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : open ? (
         <ul data-testid="row-items" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
           {row.items.map((i) => (
             <li key={i.conversion_id} className="flex items-center gap-3">
@@ -589,12 +664,14 @@ function InvoicesTab(): JSX.Element {
 export function BillingScreen(): JSX.Element {
   const gateway = useGateway();
   const review = useBilling().status?.flow_state === "under_review";
-  const [tab, setTab] = useState<"history" | "usage" | "invoices">("history");
+  const [tab, setTab] = useState<"history" | "plan" | "usage" | "invoices">("history");
+  // gateway ffac292: the Plan tab is the history with filter=plan
+  const filter: HistoryFilter | null = tab === "plan" ? "plan" : null;
   const [month, setMonth] = useState(() => recentMonths()[0]);
   // ADR 0138: the purchases live in an app-store atom (billingHistoryAtoms)
   const history = useAppAtomValue(billingHistoryAtom);
   const uid = useAppAtomValue(billingUidAtom);
-  const mine = history.uid === uid;
+  const mine = history.uid === uid && history.filter === filter;
   const rows = mine ? history.rows : null;
   const hasMore = mine && history.hasMore;
   const tax = mine ? history.tax : "off";
@@ -603,14 +680,15 @@ export function BillingScreen(): JSX.Element {
   const loadHistory = useAppSetAtom(loadBillingHistoryAtom);
 
   const load = useCallback(
-    (after?: string): Promise<void> => loadHistory({ client: gateway, rowsOf, after }),
-    [gateway, loadHistory],
+    (after?: string): Promise<void> => loadHistory({ client: gateway, rowsOf, after, filter }),
+    [gateway, loadHistory, filter],
   );
 
-  // the first page, and again when the account changes
+  // the first page, and again when the account or the filter changes
+  const listed = tab === "history" || tab === "plan";
   useEffect(() => {
-    void load();
-  }, [load, uid]);
+    if (listed) void load();
+  }, [load, uid, listed]);
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
@@ -633,6 +711,7 @@ export function BillingScreen(): JSX.Element {
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList aria-label="Billing records" className="text-xs">
             <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="plan">Plan</TabsTrigger>
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
           </TabsList>
@@ -659,7 +738,7 @@ export function BillingScreen(): JSX.Element {
         ) : rows === null ? (
           <SkeletonRows n={3} />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-fg-muted">No purchases yet.</p>
+          <p className="text-sm text-fg-muted">{tab === "plan" ? "No plan payments yet." : "No purchases yet."}</p>
         ) : (
           <>
             <ul data-testid="history">

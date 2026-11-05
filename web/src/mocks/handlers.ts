@@ -172,6 +172,9 @@ interface MockBilling {
   limits?: { projects_left: number; bytes_left: number; reached?: boolean };
   /** spec v6.2 P16 */
   company: CompanyDetails;
+  /** gateway ffac292: plan invoices, plan changes and usage credit rows
+   * (merged into GET /v1/billing/history) */
+  planHistory: Record<string, unknown>[];
   /** what the next add-method confirm does */
   nextSetup: "saved" | "declined" | "too_many";
   /** spec v6 F hand-off codes (P7/P8) */
@@ -876,6 +879,7 @@ function seed(): DB {
       checkouts: new Map(),
       nextConfirm: "paid",
       company: {},
+      planHistory: [],
       nextSetup: "saved",
       handoffs: new Map(),
       handoffRateLimited: false,
@@ -2711,10 +2715,24 @@ export const handlers = [
         });
       }
     }
-    const after = new URL(request.url).searchParams.get("starting_after");
-    const start = after ? rows.findIndex((r) => r.row_id === after) + 1 : 0;
-    const page = rows.slice(start, start + 25);
-    return HttpResponse.json({ rows: page, has_more: start + 25 < rows.length, tax: "off" });
+    // gateway ffac292: plan invoices, changes and credit, newest first;
+    // filter=plan keeps those, filter=runs the rest
+    const url = new URL(request.url);
+    const planKinds = ["plan", "plan_change", "credit"];
+    const merged = [...rows, ...mockDb.billing.planHistory].sort((a, b) =>
+      String(a.created_at) < String(b.created_at) ? 1 : String(a.created_at) > String(b.created_at) ? -1 : 0,
+    );
+    const filter = url.searchParams.get("filter");
+    const listed =
+      filter === "plan"
+        ? merged.filter((r) => planKinds.includes(String(r.kind)))
+        : filter === "runs"
+          ? merged.filter((r) => !planKinds.includes(String(r.kind)))
+          : merged;
+    const after = url.searchParams.get("starting_after");
+    const start = after ? listed.findIndex((r) => r.row_id === after) + 1 : 0;
+    const page = listed.slice(start, start + 25);
+    return HttpResponse.json({ rows: page, has_more: start + 25 < listed.length, tax: "off" });
   }),
 
   // SetupIntent material for the onboarding Payment Element.
@@ -3465,6 +3483,43 @@ export const handlers = [
         b.card = { ...MOCK_CARD };
         b.methods = [{ id: "pm_mock_4242", type: "card", ...MOCK_CARD, is_default: true }];
       }
+      // gateway ffac292: the first invoice and the usage credit as rows
+      const inv = `in_mock_${ch.plan}_${b.planHistory.length + 1}`;
+      const now = new Date().toISOString();
+      const usd = (c: number) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+      b.planHistory.push(
+        {
+          row_id: `plan_${inv}`,
+          kind: "plan",
+          created_at: now,
+          amount_cents: def.price_cents,
+          currency: "usd",
+          status: "paid",
+          payment_method: { label: `Visa •••• ${MOCK_CARD.last4}` },
+          invoice: {
+            hosted_invoice_url: `https://invoice.stripe.com/i/mock/${inv}`,
+            invoice_pdf: `https://pay.stripe.com/invoice/mock/${inv}/pdf`,
+          },
+          receipt_url: `https://pay.stripe.com/receipts/mock/${inv}`,
+          help_ref: inv.slice(-4).toUpperCase(),
+          label: `${def.name} plan · ${yearly ? "yearly" : "monthly"}`,
+          plan: { tier: ch.plan, interval: yearly ? "yearly" : "monthly", reason: "first", invoice_id: inv },
+          lines: [{ description: `${def.name} plan`, amount_cents: def.price_cents }],
+          items: [],
+        },
+        {
+          row_id: `credit_${inv}`,
+          kind: "credit",
+          created_at: now,
+          amount_cents: 0,
+          currency: "usd",
+          status: "applied",
+          help_ref: "",
+          label: `Usage credit added · ${usd(def.credit_cents)}`,
+          credit: { cents: def.credit_cents, kind: "granted" },
+          items: [],
+        },
+      );
       return HttpResponse.json({ result: "paid" });
     }
     if (ch.kind === "topup") {
