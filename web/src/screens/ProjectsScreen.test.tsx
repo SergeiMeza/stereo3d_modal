@@ -36,6 +36,9 @@ import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
+import { projectCreatedAtom } from "@/components/projects/projectsAtoms";
+import { appStore } from "@/lib/state/stores";
+
 import ProjectsScreen from "./ProjectsScreen";
 
 const push = vi.hoisted(() => vi.fn());
@@ -249,6 +252,30 @@ describe("ProjectsScreen list", () => {
     fireEvent.click(within(err).getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) })).toBeTruthy();
     expect(screen.queryByTestId("projects-error")).toBeNull();
+  });
+
+  it("an empty list, then a project made elsewhere: back on Projects it shows, no reload (owner bug 2026-11-05)", async () => {
+    mockDb.projects.clear();
+    renderScreen();
+    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    // made from another page (or tab): the created project joins at once
+    const made = { ...(projectFixture as unknown as Project), project_id: "made00000001", name: "IMG_2026" };
+    act(() => appStore.set(projectCreatedAtom, made));
+    expect(await screen.findByRole("link", { name: /IMG_2026/ })).toBeTruthy();
+    expect(screen.queryByText("No projects yet")).toBeNull();
+  });
+
+  it("a page left open reads the list again when it comes back into view", async () => {
+    mockDb.projects.clear();
+    renderScreen();
+    expect(await screen.findByText("No projects yet")).toBeTruthy();
+    // uploaded and created on another device or tab meanwhile
+    mockDb.projects.set(FIXTURE_ID, projectFixture as unknown as Project);
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) })).toBeTruthy();
+    expect(screen.queryByText("No projects yet")).toBeNull();
   });
 
   it("an answer without a list is an error too, never an empty list", async () => {

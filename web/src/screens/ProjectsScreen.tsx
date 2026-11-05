@@ -80,6 +80,26 @@ export default function ProjectsScreen() {
     load();
   }, [load, uid]);
 
+  // owner bug 2026-11-05: a page left open (another tab, the phone
+  // asleep, the back-forward cache) reads the list again when it comes
+  // back, so it never shows a list it already had
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState === "visible" && !modalOpen()) load();
+    };
+    const shown = (e: PageTransitionEvent) => {
+      if (e.persisted) load();
+    };
+    document.addEventListener("visibilitychange", again);
+    window.addEventListener("focus", again);
+    window.addEventListener("pageshow", shown);
+    return () => {
+      document.removeEventListener("visibilitychange", again);
+      window.removeEventListener("focus", again);
+      window.removeEventListener("pageshow", shown);
+    };
+  }, [load]);
+
   useEffect(() => {
     if (showArchived) loadArchived();
   }, [showArchived, loadArchived]);

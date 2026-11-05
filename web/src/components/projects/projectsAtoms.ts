@@ -86,6 +86,18 @@ export const loadProjectsAtom = atom(
   },
 );
 
+/** Owner bug 2026-11-05 (the list said "No projects yet" after an
+ * upload): a new project joins the list at once, whatever page made it;
+ * the next read confirms it. */
+export const projectCreatedAtom = atom(null, (get, set, project: Project) => {
+  const uid = get(billingUidAtom);
+  set(projectListAtom, (s) => {
+    if (s.uid !== uid || s.projects === null) return s;
+    if (s.projects.some((p) => p.project_id === project.project_id)) return s;
+    return { ...s, projects: [project, ...s.projects], loadError: null };
+  });
+});
+
 /** Show (or clear) the error of a project change. */
 export const projectActionErrorAtom = atom(null, (get, set, message: string | null) => {
   set(projectListAtom, (s) => ({ ...s, actionError: message }));

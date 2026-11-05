@@ -24,7 +24,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { projectCreatedAtom } from "@/components/projects/projectsAtoms";
 import { track, upgradeSession } from "@/lib/analytics";
+import { useAppSetAtom } from "@/lib/state/stores";
 import { LimitsNotice } from "@/components/pay/LimitsNotice";
 import { GatewayError } from "@/lib/api/client";
 import {
@@ -169,6 +171,7 @@ function stem(filename: string): string {
 
 export function UploadDropzone() {
   const gateway = useGateway();
+  const createdProject = useAppSetAtom(projectCreatedAtom);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -240,6 +243,8 @@ export function UploadDropzone() {
         method,
       });
       track("project_created");
+      // the list has it before Projects reads again
+      createdProject(project);
       upgradeSession("uploaded-video");
       router.push(`/projects/${project.project_id}`);
     } catch (e) {
