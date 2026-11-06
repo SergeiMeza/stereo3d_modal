@@ -15,7 +15,7 @@ import projectFixture from "../../../fixtures/project.json";
 
 import { clearStepQuotes } from "./checkoutStore";
 import { expressWaitLine } from "./ConversionTracker";
-import { expressHint, LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
+import { EXPRESS_HINT, LifelikeDeliverPanel } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel } from "./LifelikePreviewPanel";
 import { freePreviewText } from "./useStepCheckout";
 import { bulkLabel, QuoteView, tierPriceLabel } from "./QuoteView";
@@ -200,12 +200,8 @@ describe("add-ons in Make 3D (pricing 2026-11)", () => {
     expect(await screen.findByText("Business price")).toBeTruthy();
   });
 
-  it("Express copy is honest about the saving", () => {
-    expect(expressHint(undefined)).toBe("Faster: first in line.");
-    expect(expressHint({ eta_seconds: 240, standard_eta_seconds: 300 })).toBe("First in line. About 1 min faster.");
-    expect(expressHint({ eta_seconds: 600, standard_eta_seconds: 1200 })).toBe(
-      "First in line. Up to about 2× faster on longer videos.",
-    );
+  it("Express copy says first in line and promises no time saved (owner 2026-11-07)", () => {
+    expect(EXPRESS_HINT).toBe("First in line.");
     expect(expressWaitLine(420)).toBe("Starting soon (Express). Within about 7 min.");
     expect(expressWaitLine()).toBe("Starting soon (Express).");
   });

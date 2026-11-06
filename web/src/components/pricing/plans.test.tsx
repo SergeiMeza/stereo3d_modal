@@ -166,7 +166,8 @@ describe("Pricing 2026-11", () => {
     const addons = screen.getByTestId("pricing-addons");
     expect(addons.textContent).toContain("Master bitrate+20%");
     expect(addons.textContent).toContain("Express+50%");
-    expect(addons.textContent).toContain("Up to about 2× faster on longer videos");
+    expect(addons.textContent).toContain("First in line");
+    expect(addons.textContent).not.toMatch(/faster/);
     expect(screen.getByTestId("pricing-free-previews").textContent).toContain("Your first preview is free.");
     expect(screen.getByTestId("pricing-topups").textContent).toContain("from $10");
     // the range is GET /v1/pricing's tier shares (Pro 15%, Business 20%, Studio 25%)

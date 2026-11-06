@@ -150,7 +150,7 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
   const addons: [string, string, string][] = [
     ...(a.foveated ? ([["Foveated Detail", pct(a.foveated.pct), "More detail where you look"]] as [string, string, string][]) : []),
     ...(a.master ? ([["Master bitrate", pct(a.master.pct), "Higher-bitrate files"]] as [string, string, string][]) : []),
-    ...(a.express ? ([["Express", pct(a.express.pct), "Up to about 2× faster on longer videos"]] as [string, string, string][]) : []),
+    ...(a.express ? ([["Express", pct(a.express.pct), "First in line"]] as [string, string, string][]) : []),
   ];
   const card = "flex flex-col gap-3 rounded-xl border border-edge bg-card p-5";
   return (

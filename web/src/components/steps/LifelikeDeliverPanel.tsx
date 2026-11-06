@@ -72,18 +72,9 @@ export function splitQuestion(outputSeconds: number): string {
   )}-minute parts so each file plays smoothly?`;
 }
 
-/** Express's honest saving from the quote (00081 express_eta): about a
- * minute on short clips, up to about 2× on long ones. */
-export function expressHint(eta?: { eta_seconds: number; standard_eta_seconds: number }): string {
-  if (!eta || eta.standard_eta_seconds <= 0 || eta.eta_seconds >= eta.standard_eta_seconds) {
-    return "Faster: first in line.";
-  }
-  if (eta.standard_eta_seconds / Math.max(eta.eta_seconds, 1) >= 1.6) {
-    return "First in line. Up to about 2× faster on longer videos.";
-  }
-  const min = Math.max(1, Math.round((eta.standard_eta_seconds - eta.eta_seconds) / 60));
-  return `First in line. About ${min} min faster.`;
-}
+/** Express in words (owner 2026-11-07): first in line, and no promise of
+ * time saved. */
+export const EXPRESS_HINT = "First in line.";
 
 function AddOnRow({
   testId,
@@ -411,7 +402,7 @@ export function LifelikeDeliverPanel({
                 testId="addon-express"
                 label="Express"
                 price={expressIncluded ? "Included" : `+${Math.round(addons.express.pct * 100)}%`}
-                hint={expressHint(ck.quote?.express_eta)}
+                hint={EXPRESS_HINT}
                 checked={express}
                 onChange={(v) => change(() => setExpress(v))}
               />
