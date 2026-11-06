@@ -301,6 +301,8 @@ describe("AccountScreen delete: a renewing plan is cancelled first (owner 2026-1
   it.each([
     ["Studio", () => teamPlan("studio", { cancel_at_period_end: true })],
     ["Pro", () => webPro({ cancel_at_period_end: true })],
+    // gateway 00138 records a cancel as a change to pay per video
+    ["Business", () => teamPlan("business", { scheduled_change: { to: "pay_per_video", effective_at: END } })],
   ])("a cancelled %s plan stays valid and can be restored; delete goes ahead", async (name, setUp) => {
     setUp();
     settleRuns();

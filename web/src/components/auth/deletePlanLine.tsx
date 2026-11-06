@@ -11,6 +11,7 @@ import Link from "next/link";
 import type { JSX } from "react";
 
 import { longDate } from "@/components/billing/PlanCard";
+import { planEnds } from "@/components/billing/planChangeCopy";
 import { proCase } from "@/components/business/BusinessSetup";
 import { Button } from "@/components/ui/button";
 import type { AccountPlan } from "@/lib/api/types";
@@ -44,8 +45,8 @@ export function deletePlanState(
 ): DeletePlanState {
   const name = plan?.active ? nameOf(plan.plan) : null;
   if (plan && name) {
-    const until = plan.current_period_end ?? null;
-    return plan.cancel_at_period_end ? { kind: "ending", name, until } : { kind: "renewing", name, until };
+    const until = plan.current_period_end ?? plan.scheduled_change?.effective_at ?? null;
+    return planEnds(plan) ? { kind: "ending", name, until } : { kind: "renewing", name, until };
   }
   if (isWebPro(pro)) {
     const until = pro?.renews_at ?? pro?.ends_at ?? null;

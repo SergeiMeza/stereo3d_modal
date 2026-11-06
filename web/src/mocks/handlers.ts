@@ -3144,7 +3144,9 @@ export const handlers = [
     const current = currentPlanKey();
     if (target.id === current)
       return err(409, "same_plan", "You're already on that plan.");
-    if (mockDb.billing.plan?.scheduled_change)
+    // cancelling replaces a waiting step-down (the gateway agent,
+    // 2026-11-06); any other change waits for it to be taken back
+    if (mockDb.billing.plan?.scheduled_change && target.id !== "pay_per_video")
       return err(
         409,
         "change_scheduled",
@@ -3640,7 +3642,8 @@ export const handlers = [
     // owner 2026-11-06: a renewing plan is cancelled first (a scheduled
     // step-down still renews); a cancelled one stays valid to its end
     const plan = mockDb.billing.plan;
-    if (plan?.active && !plan.cancel_at_period_end) {
+    const ends = plan?.cancel_at_period_end || plan?.scheduled_change?.to === "pay_per_video";
+    if (plan?.active && !ends) {
       return HttpResponse.json(
         {
           success: false,

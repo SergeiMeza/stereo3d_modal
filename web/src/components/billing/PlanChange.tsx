@@ -53,7 +53,9 @@ import { planName as proPeriodName } from "@/lib/pro/plans";
 import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 
 import {
+  changeDate,
   isStepDown,
+  planEnds,
   nextPlanLine,
   NOTHING_TODAY,
   REPRICED,
@@ -127,6 +129,12 @@ function planLabel(plan: AccountPlan): string {
 
 const SCOPE = "plan-menu";
 
+/** "Your Studio ends on Jan 10, 2027 instead of changing to Business." */
+export function cancelOverStepDownLine(current: string, endIso: string | null | undefined, next: string): string {
+  const end = endIso ? changeDate(endIso) : "the end of this period";
+  return `Your ${current} ends on ${end} instead of changing to ${next}.`;
+}
+
 /** ?cancel=1 in the address (Account's "Cancel plan"). */
 function cancelAsked(): boolean {
   if (typeof window === "undefined") return false;
@@ -152,7 +160,7 @@ export function PlanChangeMenu({
   const pricing = usePricing();
   const proPlans = useProPlans();
   const [target, setTarget] = useState<Option | null>(() =>
-    !plan.scheduled_change && !plan.cancel_at_period_end && cancelAsked()
+    !planEnds(plan) && cancelAsked()
       ? { id: PAY_PER_VIDEO, name: null }
       : null,
   );
@@ -192,12 +200,18 @@ export function PlanChangeMenu({
   // deleting the account) lands here with ?cancel=1: the cancel
   // confirmation opens once, and the parameter is dropped
   const canChange = !plan.scheduled_change && !plan.cancel_at_period_end;
+  // a waiting step-down can still be cancelled: cancelling replaces it
+  // (the coordinator, 2026-11-06)
+  const canCancel = !planEnds(plan);
   useEffect(() => {
-    if (!canChange || !dropCancelParam()) return;
+    if (!canCancel || !dropCancelParam()) return;
     void previewChange({ scope: SCOPE, client: gateway, to: PAY_PER_VIDEO });
-  }, [canChange, gateway, previewChange]);
-  if (!canChange) return null;
+  }, [canCancel, gateway, previewChange]);
+  if (!canCancel) return null;
   const current = planLabel(plan);
+  const waiting = plan.scheduled_change
+    ? nextOption(optionFor(plan.scheduled_change.to, pricing, proNames))
+    : null;
 
   function open(o: Option): void {
     setTarget(o);
@@ -217,6 +231,7 @@ export function PlanChangeMenu({
 
   return (
     <>
+      {canChange ? (
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" data-testid="plan-change">
@@ -236,6 +251,7 @@ export function PlanChangeMenu({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      ) : null}
       <AlertDialog
         open={target !== null}
         onOpenChange={(o) => {
@@ -254,7 +270,10 @@ export function PlanChangeMenu({
             <AlertDialogDescription data-testid="plan-change-line">
               {error ??
                 (preview && target
-                  ? isStepDown(preview)
+                  ? target.id === PAY_PER_VIDEO && waiting?.name
+                    ? // cancelling over a waiting step-down replaces it
+                      `${cancelOverStepDownLine(current, preview.effective_at ?? plan.current_period_end, waiting.name)} ${NOTHING_TODAY}`
+                    : isStepDown(preview)
                     ? // gateway 00138: the preview's `to`, as the card reads scheduled_change.to
                       `${stepDownLine(current, nextOption(optionFor(preview.to ?? target.id, pricing, proNames)), preview)} ${NOTHING_TODAY}`
                     : upgradeLine(preview, {

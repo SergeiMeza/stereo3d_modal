@@ -10,8 +10,19 @@
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
+import type { AccountPlan } from "@/lib/api/types";
 
 export const NOTHING_TODAY = "Nothing is charged today.";
+
+/** Set to end: cancel_at_period_end, or a scheduled change to pay per
+ * video (gateway 00138 writes a cancel that way; older answers say
+ * "none"). A step-down to another plan still renews. */
+export function planEnds(plan: Pick<AccountPlan, "cancel_at_period_end" | "scheduled_change">): boolean {
+  if (plan.cancel_at_period_end) return true;
+  const to = plan.scheduled_change?.to;
+  return to === "pay_per_video" || to === "none";
+}
+
 
 /** "Jan 10, 2027" */
 export function changeDate(iso: string): string {

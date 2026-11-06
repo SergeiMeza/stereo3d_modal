@@ -17,6 +17,7 @@
 import { atom } from "jotai";
 import { atomFamily } from "jotai-family";
 
+import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
 
 import { confirmPlanChange } from "./planChangeCopy";
@@ -82,8 +83,12 @@ export const previewPlanChangeAtom = atom(
     try {
       const preview = await withTimeout(a.client.previewPlanChange(a.to), PREVIEW_TIMEOUT_MS);
       if (get(at).seq === mine) set(at, (s) => ({ ...s, preview }));
-    } catch {
-      if (get(at).seq === mine) set(at, (s) => ({ ...s, previewFailed: true }));
+    } catch (e) {
+      // the coordinator 2026-11-06: a refusal shows the gateway's own
+      // words (e.g. a change it can't make now), never a dead end
+      const refused = e instanceof GatewayError && e.status >= 400 && e.status < 500 && e.message;
+      if (get(at).seq === mine)
+        set(at, (s) => (refused ? { ...s, error: e.message } : { ...s, previewFailed: true }));
     }
   },
 );

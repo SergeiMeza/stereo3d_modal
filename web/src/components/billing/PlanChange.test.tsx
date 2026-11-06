@@ -3,6 +3,7 @@
  * paid period, nothing is charged today, and Keep undoes it until then.
  */
 
+import { HttpResponse, http } from "msw";
 import {
   cleanup,
   fireEvent,
@@ -88,6 +89,51 @@ describe("Account's Cancel plan link (owner 2026-11-06)", () => {
         expect(within(dialog).getByTestId("plan-change-line").textContent).not.toBe("Working out the change…"),
       );
       expect(window.location.search).toBe("");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("with a step-down waiting, cancelling replaces it", async () => {
+    studio();
+    mockDb.billing.plan!.scheduled_change = { to: "business", effective_at: "2027-01-10T12:00:00Z" };
+    window.history.replaceState(null, "", "/account/billing?cancel=1");
+    try {
+      wrap(<PlanCard />);
+      const dialog = await screen.findByTestId("plan-change-dialog");
+      const line = within(dialog).getByTestId("plan-change-line");
+      await waitFor(() =>
+        expect(line.textContent).toBe(
+          "Your Studio ends on Jan 10, 2027 instead of changing to Business. Nothing is charged today.",
+        ),
+      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel plan" }));
+      await waitFor(() => expect(mockDb.billing.plan?.scheduled_change?.to).toBe("pay_per_video"));
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("a refusal shows the gateway's own words, not a dead end", async () => {
+    studio();
+    server.use(
+      http.post(/\/v1\/plans\/preview-change$/, () =>
+        HttpResponse.json(
+          { success: false, error: "cancel_unavailable", message: "Cancelling isn't possible right now. Contact support." },
+          { status: 409 },
+        ),
+      ),
+    );
+    window.history.replaceState(null, "", "/account/billing?cancel=1");
+    try {
+      wrap(<PlanCard />);
+      const dialog = await screen.findByTestId("plan-change-dialog");
+      await waitFor(() =>
+        expect(within(dialog).getByTestId("plan-change-line").textContent).toBe(
+          "Cancelling isn't possible right now. Contact support.",
+        ),
+      );
+      expect(within(dialog).getByRole("button", { name: "Keep Studio" })).toBeTruthy();
     } finally {
       window.history.replaceState(null, "", "/");
     }
