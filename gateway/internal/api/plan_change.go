@@ -322,17 +322,19 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 
 func (s *Service) scheduleStepDown(ctx context.Context, uid string, cust *store.Customer, q *planChangeQuote) error {
 	p := cust.Plan
+	if q.To.ID == planNone {
+		// A cancel replaces a waiting step-down (its schedule released), so
+		// nobody has to "Keep Studio" first; cancelling twice is fine.
+		if err := s.cancelPlanAtPeriodEnd(ctx, uid, cust); err != nil {
+			return planStripeFailure(ctx, "cancel_at_period_end", err, "couldn't change the plan; try again")
+		}
+		return nil
+	}
 	if p.ScheduleID != "" || p.CancelAtPeriodEnd {
 		return httpx.Err(http.StatusConflict, "change_scheduled", "a change is already waiting; take it back first")
 	}
 	scheduleID := ""
-	if q.To.ID == planNone {
-		sub, err := s.Stripe.SetCancelAtPeriodEnd(p.SubscriptionID, true)
-		if err != nil {
-			return planStripeFailure(ctx, "cancel_at_period_end", err, "couldn't change the plan; try again")
-		}
-		s.syncPlan(ctx, sub)
-	} else {
+	{
 		priceID, err := s.priceIDOf(q.To)
 		if err != nil || priceID == "" {
 			return httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "that plan isn't available right now")

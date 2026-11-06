@@ -2,73 +2,20 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync/atomic"
 	"time"
 
-	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
-// stopSubscriptionsForDeletion ends every web subscription of uid's
-// (Business, Studio, web Pro: all of them sit in customer.plan, plus any
-// other live svs-web subscription on its Stripe customer) at the end of
-// the period already paid (3DS P1, 2026-11-06): a waiting schedule (a
-// step-down) is released first, since Stripe takes no update on a
-// subscription a schedule manages, then cancel_at_period_end. No refund,
-// no proration, the current period untouched (the refund policy is the
-// owner's open decision). An incomplete one (its first payment never went
-// through) ends now. Idempotent: what is already released or set is left;
-// any Stripe failure is returned so the deletion fails retryably before
-// anything else is removed.
-func (s *Service) stopSubscriptionsForDeletion(ctx context.Context, uid string, cust *store.Customer) error {
-	if cust == nil || s.Stripe == nil {
-		return nil
-	}
-	ids := []string{}
-	seen := map[string]bool{}
-	add := func(id string) {
-		if id != "" && !seen[id] {
-			seen[id] = true
-			ids = append(ids, id)
-		}
-	}
-	if cust.Plan != nil {
-		add(cust.Plan.SubscriptionID)
-	}
-	if cust.StripeCustomerID != "" {
-		subs, err := s.Stripe.CustomerSubscriptions(cust.StripeCustomerID)
-		if err != nil {
-			return fmt.Errorf("list subscriptions: %w", err)
-		}
-		for _, sub := range subs {
-			if sub.Live() && sub.Metadata["product"] == "svs-web" && sub.Metadata["env"] == s.Cfg.Env {
-				add(sub.ID)
-			}
-		}
-	}
-	for _, id := range ids {
-		if err := s.stopSubscription(ctx, id); err != nil {
-			return err
-		}
-	}
-	if cust.Plan != nil && cust.Plan.SubscriptionID != "" {
-		_, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
-			if c.Plan != nil && c.Plan.SubscriptionID == cust.Plan.SubscriptionID {
-				c.Plan.CancelAtPeriodEnd = true
-				c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
-				c.Plan.UpdatedAt = time.Now().UTC()
-			}
-			return nil
-		})
-		return err
-	}
-	return nil
-}
-
-func (s *Service) stopSubscription(ctx context.Context, id string) error {
+// endAtPeriodEnd sets one subscription to end at its period end (the
+// person's own cancel, /v1/account/plan/cancel): a waiting schedule (a
+// step-down) is released first, since Stripe takes no cancel on a
+// subscription a schedule manages; an incomplete one ends now.
+// Idempotent: what is already released or set is left.
+func (s *Service) endAtPeriodEnd(ctx context.Context, id string) error {
 	sub, err := s.Stripe.GetSubscription(id)
 	if err != nil {
 		if stripex.NotFound(err) {
@@ -98,12 +45,9 @@ func (s *Service) stopSubscription(ctx context.Context, id string) error {
 			return fmt.Errorf("cancel at period end: %w", err)
 		}
 	}
-	slog.InfoContext(ctx, "subscription set to end with the deleted account", "subscription", id, "status", sub.Status)
+	slog.InfoContext(ctx, "subscription set to end at its period end", "subscription", id, "status", sub.Status)
 	return nil
 }
-
-// errSubscriptionsNotStopped wraps a Stripe failure while deleting.
-var errSubscriptionsNotStopped = errors.New("subscriptions not stopped")
 
 // ---------------------------------------------------------- orphans
 
@@ -114,22 +58,19 @@ const orphanSweepEvery = 6 * time.Hour
 var lastOrphanSweep atomic.Int64
 
 // orphanSweepDue runs sweepOrphanSubscriptions at most every
-// orphanSweepEvery per instance, in the mode configured (off on prod until
-// the owner's yes).
-func (s *Service) orphanSweepDue(ctx context.Context) (found, ended int) {
-	mode := ""
-	if s.Cfg != nil {
-		mode = s.Cfg.OrphanSweep
-	}
-	if mode != "report" && mode != "on" {
-		return 0, 0
+// orphanSweepEvery per instance when ORPHAN_SWEEP is report (test's
+// default; prod's is off). It only reports: under the owner's policy
+// (2026-11-06) a cancelled plan runs on after its account is deleted.
+func (s *Service) orphanSweepDue(ctx context.Context) int {
+	if s.Cfg == nil || s.Cfg.OrphanSweep != "report" {
+		return 0
 	}
 	now := time.Now().Unix()
 	last := lastOrphanSweep.Load()
 	if now-last < int64(orphanSweepEvery.Seconds()) || !lastOrphanSweep.CompareAndSwap(last, now) {
-		return 0, 0
+		return 0
 	}
-	return s.sweepOrphanSubscriptions(ctx, mode == "on")
+	return s.sweepOrphanSubscriptions(ctx)
 }
 
 // userExists: the Firebase user is still there (nil lookup: assume so).
@@ -143,44 +84,33 @@ func (s *Service) userExists(ctx context.Context, uid string) (bool, error) {
 	return s.Auth.UserExists(ctx, uid)
 }
 
-// sweepOrphanSubscriptions finds customers with a web subscription that can
-// still renew whose Firebase user no longer exists (the app deleted it
-// without the gateway, before 10.5.8), and with act ends them the way a
-// deletion does: subscriptions at period end, the account marked deleted.
-// Without act it only reports (counts in the log and Slack, no ids).
-func (s *Service) sweepOrphanSubscriptions(ctx context.Context, act bool) (found, ended int) {
+// sweepOrphanSubscriptions counts customers with a web subscription that
+// will renew whose Firebase user no longer exists (the app deleted it
+// without the gateway, before 10.5.8), and those whose account is marked
+// deleted while the plan still renews. Report only (log and Slack, counts,
+// no ids); it never cancels.
+func (s *Service) sweepOrphanSubscriptions(ctx context.Context) int {
 	custs, err := s.Store.ListPlanCustomers(ctx, 1000)
 	if err != nil {
 		slog.WarnContext(ctx, "orphan sweep: plan customers unread", "err", err)
-		return 0, 0
+		return 0
 	}
+	gone, deletedRenewing := 0, 0
 	for uid, c := range custs {
-		if c.AccountDeleted || c.Plan == nil || c.Plan.SubscriptionID == "" || c.Plan.CancelAtPeriodEnd ||
-			(c.Plan.Status != "active" && c.Plan.Status != "trialing" && c.Plan.Status != "past_due") {
+		if !planRenewing(c) {
 			continue
 		}
-		exists, err := s.userExists(ctx, uid)
-		if err != nil || exists {
+		if c.AccountDeleted {
+			deletedRenewing++
 			continue
 		}
-		found++
-		if !act {
-			continue
+		if exists, err := s.userExists(ctx, uid); err == nil && !exists {
+			gone++
 		}
-		if err := s.finishAccountDeletionKeeping(ctx, uid, true); err != nil {
-			slog.WarnContext(ctx, "orphan sweep: not ended", "uid", uid, "err", err)
-			continue
-		}
-		slog.InfoContext(ctx, "orphan sweep: subscription set to end, account marked deleted", "uid", uid)
-		ended++
 	}
-	mode := "report"
-	if act {
-		mode = "on"
+	slog.InfoContext(ctx, "orphan sweep (report)", "user_gone_renewing", gone, "deleted_renewing", deletedRenewing)
+	if gone+deletedRenewing > 0 {
+		s.Slack.Alert(ctx, "orphan_subscriptions", fmt.Sprintf("orphan sweep (report only): %d renewing web plan(s) whose sign-in no longer exists, %d on deleted accounts", gone, deletedRenewing))
 	}
-	slog.InfoContext(ctx, "orphan sweep", "mode", mode, "found", found, "ended", ended)
-	if found > 0 {
-		s.Slack.Alert(ctx, "orphan_subscriptions", fmt.Sprintf("orphan sweep (%s): %d web subscription(s) whose sign-in no longer exists; %d set to end", mode, found, ended))
-	}
-	return found, ended
+	return gone + deletedRenewing
 }

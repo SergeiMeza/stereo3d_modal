@@ -120,7 +120,9 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 				if api.Details == nil {
 					api.Details = map[string]any{}
 				}
-				api.Details["plan"] = plan
+				for k, v := range plan {
+					api.Details[k] = v
+				}
 			}
 		}
 		httpx.WriteErr(ctx, w, err)
@@ -134,6 +136,15 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	}
 	if cust != nil && cust.DeletionPending { // N8: already waiting for the closure case
 		writePendingDeletion(w, cust.DeletionCaseID, 0, deletionPlan(cust))
+		return
+	}
+	// Owner 2026-11-06: a renewing plan (a step-down waiting counts) is
+	// cancelled first, by the person; it stays valid to its period end and
+	// keeps running after the deletion. Checked before anything is charged.
+	if planRenewing(cust) {
+		e := httpx.Err(http.StatusConflict, deleteBlockPlanRenewing,
+			"Cancel your plan first. It stays valid until the end of the period you paid for.")
+		refuse(e)
 		return
 	}
 	active, err := s.Store.CountActiveForUser(ctx, user.UID)
@@ -209,12 +220,6 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		// non-cash credit is never paid out, so without cash the deletion
 		// goes ahead now.
 		if b.CashCents() > 0 {
-			// Nothing renews while the case is decided.
-			if err := s.stopSubscriptionsForDeletion(ctx, user.UID, cust); err != nil {
-				httpx.Log(ctx).Error("account delete: subscriptions not stopped", "uid", user.UID, "err", err)
-				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again"))
-				return
-			}
 			cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deletion")
 			if cerr != nil {
 				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
@@ -251,8 +256,8 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	httpx.Log(ctx).Info("account deleted", "uid", user.UID, "uncollected_cents", pending)
 	out := map[string]any{"deleted": true, "sign_in_removed": !keepSignIn && s.Auth != nil}
 	if after, err := s.Store.GetCustomer(ctx, user.UID); err == nil {
-		if plan := deletionPlan(after); plan != nil {
-			out["plan"] = plan
+		for k, v := range deletionPlan(after) { // a cancelled plan: valid until current_period_end
+			out[k] = v
 		}
 	}
 	httpx.WriteOK(w, out)
@@ -308,25 +313,35 @@ func writePendingDeletion(w http.ResponseWriter, caseID string, cents int64, pla
 	out := map[string]any{"success": true, "deleted": false, "deletion_pending": true,
 		"case_id": caseID, "refund_cents": cents,
 		"message": "We'll delete your account once your refund is decided, within 2 business days."}
-	if plan != nil {
-		out["plan"] = plan
+	for k, v := range plan {
+		out[k] = v
 	}
 	_ = json.NewEncoder(w).Encode(out)
 }
 
-// deletionPlan is the account's web plan for the deletion answers: {tier,
-// plan_id, renews, ends_at} (renews false once the deletion set it to end
-// at ends_at); nil without a current plan. It says nothing about refunds
-// (the owner's policy is open).
+// deleteBlockPlanRenewing: the plan renews; cancel it first.
+const deleteBlockPlanRenewing = "plan_renewing"
+
+// deletionPlan is the account's web plan for the deletion answers (svs-app
+// contract): {plan: business|studio|pro, plan_id, current_period_end,
+// cancel_at_period_end}; nil without a current plan. Merged into the
+// answer (or the refusal's details) at its top level.
 func deletionPlan(c *store.Customer) map[string]any {
 	if c == nil || c.Plan == nil || c.Plan.SubscriptionID == "" || !c.Plan.Active(time.Now()) {
 		return nil
 	}
-	out := map[string]any{"tier": c.Plan.Tier, "plan_id": c.Plan.Key(), "renews": !c.Plan.CancelAtPeriodEnd}
+	out := map[string]any{"plan": c.Plan.Tier, "plan_id": c.Plan.Key(), "cancel_at_period_end": c.Plan.CancelAtPeriodEnd}
 	if c.Plan.CurrentPeriodEnd != nil {
-		out["ends_at"] = c.Plan.CurrentPeriodEnd.UTC().Format(time.RFC3339)
+		out["current_period_end"] = c.Plan.CurrentPeriodEnd.UTC().Format(time.RFC3339)
 	}
 	return out
+}
+
+// planRenewing: the account's web plan will renew (not cancelled at the
+// period end; a scheduled step-down still renews, a scheduled cancel
+// doesn't).
+func planRenewing(c *store.Customer) bool {
+	return c != nil && c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.Active(time.Now()) && !c.Plan.CancelAtPeriodEnd
 }
 
 func errDeletionPending() error {
@@ -341,18 +356,11 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 
 // finishAccountDeletionKeeping: keepSignIn leaves the Firebase user for
 // the caller to remove last (svs-backend, which still needs it for its own
-// steps). The web subscriptions end first (stopSubscriptionsForDeletion):
-// a Stripe failure fails the deletion before anything is marked, so a
-// retry starts over cleanly.
+// steps). A cancelled plan is left running to its period end (owner
+// 2026-11-06): the Stripe customer, email, plan dates and credits already
+// granted stay for Restore Purchases; nothing is granted again.
 func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, keepSignIn bool) error {
 	now := time.Now().UTC()
-	if cust, err := s.Store.GetCustomer(ctx, uid); err == nil {
-		if err := s.stopSubscriptionsForDeletion(ctx, uid, cust); err != nil {
-			return fmt.Errorf("%w: %v", errSubscriptionsNotStopped, err)
-		}
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return err
-	}
 	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 			c.AccountDeleted = true
@@ -386,6 +394,10 @@ func (s *Service) finishPendingDeletions(ctx context.Context) int {
 	}
 	n := 0
 	for uid, c := range pending {
+		if planRenewing(c) { // resumed while the case was decided: the person cancels it first
+			slog.WarnContext(ctx, "pending deletion waits: the plan renews again", "uid", uid)
+			continue
+		}
 		if s.closureDecided(ctx, c.DeletionCaseID) && s.finishAccountDeletion(ctx, uid) == nil {
 			slog.InfoContext(ctx, "account deleted after its closure case", "uid", uid, "case_id", c.DeletionCaseID)
 			n++

@@ -1954,25 +1954,36 @@ the closure case is decided (an admin decision, or the cases sweep).
 Asking again while pending answers the same 202. Without cash (plan
 credit only) the deletion goes ahead at once.
 
-**Deletion ends the web subscriptions (3DS P1, 2026-11-06)**: before
-anything is marked, `/v1/account/delete` (and the closure case's finish,
-and the 202 pending path) ends every web subscription of the account
-(customer.plan's, plus any other live svs-web subscription on its Stripe
-customer): a waiting schedule (a step-down) is released, then
-`cancel_at_period_end` (an incomplete one ends now). The current period
-is untouched and nothing is refunded or prorated automatically (the
-refund policy is the owner's open decision). Every answer (200, 202 and
-the refusals' details) carries `plan {tier, plan_id, renews, ends_at}`
-when the account has a current web plan. A Stripe failure answers 502
-`delete_failed` with nothing marked; a retry starts over (idempotent). A
-plan invoice for a deleted account grants nothing. Body `{keep_sign_in:
-true}` from svs-backend (proxy key only) leaves the Firebase user for it
-to remove last; the answer says `{deleted: true, sign_in_removed}`.
-**Orphan sweep**: customers with a web subscription that can still renew
-whose Firebase user is gone (the app's old deletion) are found every 6 h
-per instance from the cases sweep; `ORPHAN_SWEEP` = `report` (test
-default: counts in the log and Slack) | `on` (ends them like a deletion,
-marks the account deleted) | `off` (prod default until the owner's yes).
+**Deletion and web plans (owner 2026-11-06)**: a renewing plan
+(Business, Studio, web Pro; a waiting step-down still renews) is
+cancelled first by the person: `POST /v1/account/delete` answers 409
+`plan_renewing {plan, plan_id, current_period_end,
+cancel_at_period_end: false}` before anything is charged (order:
+deletion_pending 202 → plan_renewing → active_runs → the dues charge /
+402 balance_due → balance_remaining → 202 closure case). A cancelled plan
+doesn't block: the account is deleted and the plan keeps running to its
+period end (the Stripe customer, email, plan dates and the credits
+already granted stay, for Restore Purchases; nothing is granted again; no
+refund). Every answer and refusal carries `plan, plan_id,
+current_period_end, cancel_at_period_end` at its top level (details for
+a refusal) when there is a current plan. Body `{keep_sign_in: true}` from
+svs-backend (proxy key only) leaves the Firebase user for it to remove
+last: `{deleted: true, sign_in_removed}`. A plan invoice for a deleted
+account grants nothing.
+- `GET /v1/account/delete`: the preview, read-only: `{can_delete, block:
+  deletion_pending | plan_renewing | active_runs | null, plan_state:
+  renewing | cancelled | none, plan…, active_runs, dues_cents (charged on
+  delete), balance_cents, cash_balance_cents, balance_confirmation_needed,
+  waits_for_refund_case, deletion_pending, case_id?}`.
+- `POST /v1/account/plan/cancel` / `resume` → `{plan, plan_id,
+  current_period_end, cancel_at_period_end}`: the renewal switch for any
+  web plan; a cancel replaces a waiting step-down (its schedule released),
+  as `POST /v1/plans/change {to: "pay_per_video"}` now does too. 404
+  `no_plan`.
+- **Orphan sweep** (report only, never cancels): renewing web plans whose
+  Firebase user is gone or whose account is marked deleted, counted every
+  6 h per instance from the cases sweep (`ORPHAN_SWEEP=report` on test,
+  `off` on prod).
 
 **svs-admin**: `go run ./cmd/svs-admin [-env test|prod] <command>`:
 `cases`, `case`, `act` (case actions, `-items c1=100`, `-expected-max`),

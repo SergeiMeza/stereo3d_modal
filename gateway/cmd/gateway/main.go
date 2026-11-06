@@ -304,6 +304,9 @@ func main() {
 		svc.HandleDeleteTaxID(w, r, u, id)
 	}))
 	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
+	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview)) // what a delete would do
+	mux.HandleFunc("POST /v1/account/plan/cancel", authed(svc.HandleAccountPlanCancel))
+	mux.HandleFunc("POST /v1/account/plan/resume", authed(svc.HandleAccountPlanResume))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
 	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04

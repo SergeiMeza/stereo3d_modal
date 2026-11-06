@@ -57,9 +57,9 @@ type Config struct {
 	// so its X-SVS-Client-IP is trusted (svs-gateway-proxy-key-{env});
 	// "" trusts nobody.
 	SVSProxyKey string
-	// OrphanSweep: customers with a live web subscription whose Firebase
-	// user is gone (deleted by the app's old flow): off | report | on.
-	// Default report on test, off on prod (owner's yes first).
+	// OrphanSweep: count customers with a renewing web subscription whose
+	// Firebase user is gone (deleted by the app's old flow): off | report
+	// (report only; it never cancels). Default report on test, off on prod.
 	OrphanSweep string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
