@@ -14,11 +14,14 @@ import type { JSX } from "react";
 
 export type CheckMode = "sbs" | "anaglyph" | "wiggle";
 
+// owner 2026-11-07: Red-cyan first, and the first-time choice
 export const CHECK_MODES: readonly { id: CheckMode; label: string }[] = [
-  { id: "sbs", label: "Side by side" },
   { id: "anaglyph", label: "Red-cyan" },
+  { id: "sbs", label: "Side by side" },
   { id: "wiggle", label: "Wiggle" },
 ];
+
+export const DEFAULT_CHECK_MODE: CheckMode = "anaglyph";
 
 /** Eye swaps per second in wiggle mode. */
 const WIGGLE_HZ = 6;

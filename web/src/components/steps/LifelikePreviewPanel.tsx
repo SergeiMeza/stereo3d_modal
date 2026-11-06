@@ -4,7 +4,7 @@
  * Lifelike Preview page (screen 05, step lifelike_preview). Left, your
  * video with the quality, length and Quick look, and ONE main button with
  * its price ("Preview this moment · $1.04"); right, your preview with a
- * free 3D check on this screen — Side by side, Red-cyan or Wiggle
+ * free 3D check on this screen — Red-cyan, Side by side or Wiggle
  * (S3D-32); below, "Pick a moment": the timeline with the preview's box,
  * which starts at the playhead. Earlier previews sit in a short list.
  *
@@ -44,6 +44,7 @@ import { formatCents, formatCentsShort } from "./money";
 import { StateChip } from "./StateChip";
 import {
   CHECK_MODES,
+  DEFAULT_CHECK_MODE,
   StereoCheckViewer,
   type CheckMode,
 } from "./StereoCheckViewer";
@@ -125,7 +126,7 @@ function ReadyPreviewPanel({
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const [seconds, setSeconds] = useState<number>(LIFELIKE_PREVIEW_SECONDS);
   const [quickLook, setQuickLook] = useState(false);
-  const [mode, setMode] = useState<CheckMode>("sbs");
+  const [mode, setMode] = useState<CheckMode>(DEFAULT_CHECK_MODE);
   const [shownId, setShownId] = useState<string | null>(null);
 
   // QA 2026-11-05 batch 2: a preview just started shows at once (the

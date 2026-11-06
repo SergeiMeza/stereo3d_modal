@@ -427,7 +427,7 @@ describe("Lifelike Preview", () => {
     });
   });
 
-  it("shows the latest preview with a free Side by side / Red-cyan / Wiggle check", async () => {
+  it("shows the latest preview with a free Red-cyan / Side by side / Wiggle check, Red-cyan first (owner 2026-11-07)", async () => {
     const project = lifelikeProject();
     project.conversions = [
       {
@@ -450,16 +450,20 @@ describe("Lifelike Preview", () => {
       <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
     );
     const check = await screen.findByTestId("stereo-check");
-    expect(check.getAttribute("data-mode")).toBe("sbs");
+    expect(check.getAttribute("data-mode")).toBe("anaglyph");
+    expect(screen.getByLabelText("Red-cyan view")).toBeTruthy();
     expect(screen.getByTestId("preview-shown-meta").textContent).toBe(
       "0:01 – 0:06 · 1080p",
     );
     const view = within(screen.getByRole("radiogroup", { name: "View" }));
-    fireEvent.click(view.getByRole("radio", { name: "Red-cyan" }));
-    expect(screen.getByTestId("stereo-check").getAttribute("data-mode")).toBe(
-      "anaglyph",
-    );
-    expect(screen.getByLabelText("Red-cyan view")).toBeTruthy();
+    expect(view.getAllByRole("radio").map((r) => r.textContent)).toEqual([
+      "Red-cyan",
+      "Side by side",
+      "Wiggle",
+    ]);
+    expect(view.getByRole("radio", { name: "Red-cyan" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(view.getByRole("radio", { name: "Side by side" }));
+    expect(screen.getByTestId("stereo-check").getAttribute("data-mode")).toBe("sbs");
     fireEvent.click(view.getByRole("radio", { name: "Wiggle" }));
     expect(screen.getByLabelText("Wiggle view")).toBeTruthy();
     expect(screen.getByText("Free 3D check on this screen")).toBeTruthy();
