@@ -8,7 +8,8 @@
  * Finished runs list their files by device (RunFiles), with View in 3D.
  * Files stay downloadable after a failed payment (S3D-22). Deleting a
  * project happens only from the Archived view (owner 2026-11-04: archive
- * first, then delete).
+ * first, then delete). Each run has a Details toggle (RunDetails, owner
+ * 2026-11-07) with what the gateway returned for it and its Run ID.
  */
 
 import type { JSX } from "react";
@@ -26,6 +27,7 @@ import { qualityLabelFor, runSummary, STEP_NAMES } from "@/lib/glossary";
 
 import { METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
+import { RunDetails } from "./RunDetails";
 import { RunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
@@ -156,6 +158,7 @@ function HistoryRow({
           Something went wrong on our side.
         </p>
       ) : null}
+      <RunDetails project={project} conversion={c} />
     </li>
   );
 }

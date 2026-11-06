@@ -15,6 +15,8 @@ import {
   vi,
 } from "vitest";
 
+import { HttpResponse, http } from "msw";
+
 import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { SettleProvider } from "@/components/pay/SettleSheet";
@@ -37,6 +39,7 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
+const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 const PROJECT_ID = (projectFixture as { project_id: string }).project_id;
 
 const SUCCEEDED: Conversion = {
@@ -255,5 +258,130 @@ describe("a running row says where it is (owner 2026-11-05)", () => {
     expect(
       await within(row).findByText(`Making the 3D video · ${stageLabelFor("video_stereo")}`, undefined, { timeout: 4000 }),
     ).toBeTruthy();
+  });
+});
+
+describe("Files: Details (owner 2026-11-07)", () => {
+  const PREVIEW: Conversion = {
+    conversion_id: "conv0000lifeprev",
+    state: "succeeded",
+    kind: "video",
+    project_id: PROJECT_ID,
+    step: "lifelike_preview",
+    method: "lifelike",
+    params: { preset: "1080p", formats: ["sbs"], from_frame: 24, to_frame: 144, target_fps: 12 },
+    quote: { amount_cents: 0, currency: "usd", breakdown: { free_preview: true } },
+    billing: { status: "free_preview" },
+    progress: 1,
+    outputs: ["sbs"],
+    created_at: "2026-11-06T09:00:00Z",
+    updated_at: "2026-11-06T09:04:00Z",
+  };
+  const FULL: Conversion = {
+    conversion_id: "conv0000lifefull",
+    state: "succeeded",
+    kind: "video",
+    project_id: PROJECT_ID,
+    step: "production",
+    method: "lifelike",
+    params: { preset: "1080p", formats: ["mvhevc", "sbs"], original_eye: "left", express: true },
+    quote: {
+      amount_cents: 1700,
+      currency: "usd",
+      breakdown: { pro_discount_pct: 0.15, pro_discount_cents: 300 },
+    },
+    billing: { status: "charged", charged_cents: 1700 },
+    progress: 1,
+    outputs: ["mvhevc", "sbs"],
+    created_at: "2026-11-07T09:00:00Z",
+    updated_at: "2026-11-07T09:12:00Z",
+  };
+  const details = (li: HTMLElement) => within(li).queryByTestId("run-details");
+  const row = (li: HTMLElement, label: string) =>
+    within(li).queryByTestId(`detail-${label}`)?.querySelector("dd")?.textContent ?? null;
+  const item = (id: string) => screen.getByTestId(`history-${id}`);
+
+  it("closed by default; opening one leaves the others closed", () => {
+    renderWithHistory([PREVIEW, FULL]);
+    expect(screen.queryAllByTestId("run-details")).toHaveLength(0);
+    const toggle = within(item(PREVIEW.conversion_id)).getByTestId("run-details-toggle");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(details(item(PREVIEW.conversion_id))).not.toBeNull();
+    expect(details(item(FULL.conversion_id))).toBeNull();
+    fireEvent.click(toggle);
+    expect(details(item(PREVIEW.conversion_id))).toBeNull();
+  });
+
+  it("a preview: what, part, output, price; rows it has no data for are left out", () => {
+    renderWithHistory([PREVIEW]);
+    const li = item(PREVIEW.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(row(li, "What")).toBe("Preview · Lifelike 3D · Quick look");
+    expect(row(li, "Part")).toMatch(/^0:01 – 0:06 · 5 s/);
+    expect(row(li, "Frame rate")).toBe("12 fps");
+    expect(row(li, "Files made")).toBe("Side by side .mp4");
+    expect(row(li, "Price")).toBe("Free preview");
+    expect(row(li, "Ordered")).toMatch(/^Nov 6/);
+    expect(row(li, "Took")).toBe("about 4 min");
+    // nothing stored, nothing shown
+    for (const label of ["3D strength", "Depth detail", "Original eye", "Express", "Discount", "Receipt"]) {
+      expect(row(li, label)).toBeNull();
+    }
+  });
+
+  it("a full run: stored settings, the Pro discount, and the receipt from the purchases list", async () => {
+    server.use(
+      http.get(`${GATEWAY}/v1/billing/history`, () =>
+        HttpResponse.json({
+          rows: [
+            {
+              row_id: "r1",
+              created_at: FULL.created_at,
+              amount_cents: 1700,
+              currency: "usd",
+              status: "paid",
+              receipt_url: "https://pay.example/receipt/r1",
+              items: [{ conversion_id: FULL.conversion_id, project_id: PROJECT_ID, amount_cents: 1700 }],
+            },
+          ],
+        }),
+      ),
+    );
+    renderWithHistory([FULL]);
+    const li = item(FULL.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(row(li, "What")).toBe("Full video · Lifelike 3D");
+    expect(row(li, "Part")).toMatch(/^Whole video · /);
+    expect(row(li, "Files made")).toBe("Vision Pro .mov, Side by side .mp4");
+    expect(row(li, "Original eye")).toBe("Left");
+    expect(row(li, "Express")).toBe("On");
+    expect(row(li, "Price")).toBe("$17.00");
+    expect(row(li, "Discount")).toBe("Pro 15% · −$3.00");
+    const receipt = await within(li).findByRole("link", { name: "View receipt" });
+    expect(receipt.getAttribute("href")).toBe("https://pay.example/receipt/r1");
+  });
+
+  it("a failed classic run: its stored look, no finish time taken, files ordered", () => {
+    renderWithHistory([FAILED]);
+    const li = item(FAILED.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(row(li, "3D strength")).toBe("×1.10");
+    expect(row(li, "Scenes tuned")).toBe("3");
+    expect(row(li, "Files ordered")).toBe("Vision Pro .mov, Side by side (half size) .mp4");
+    expect(row(li, "Took")).toBeNull();
+    expect(row(li, "Price")).toBe("Not charged");
+  });
+
+  it("the Run ID copies for support", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderWithHistory([PREVIEW]);
+    const li = item(PREVIEW.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(within(li).getByTestId("run-id").textContent).toBe(PREVIEW.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-id-copy"));
+    expect(writeText).toHaveBeenCalledWith(PREVIEW.conversion_id);
+    expect(await within(li).findByText("Copied")).toBeTruthy();
   });
 });
