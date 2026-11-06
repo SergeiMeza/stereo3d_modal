@@ -17,7 +17,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 
 import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
-import { PAY_BEFORE, ROUNDED_UP_LINE } from "@/lib/billingCopy";
+import { PAY_BEFORE_PUBLIC, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 import { Extras, LifelikePrices } from "./PerMinutePrices";
@@ -50,7 +50,7 @@ export function PricingScreen(): JSX.Element {
                 "{CHARGED_AFTER} Runs over {precharge_threshold_cents} are
                 charged when they start and refunded if they fail." */}
             <p data-testid="pricing-charge-line" className="text-fg-muted">
-              {PAY_BEFORE}
+              {PAY_BEFORE_PUBLIC}
             </p>
             <InfoPopover label="How pricing works">
               <span>
@@ -81,9 +81,9 @@ export function PricingScreen(): JSX.Element {
                   "{precharge} or less: charged after it's done. Failed or
                   cancelled runs are not charged." */}
               <span>
-                <b>Paid before it starts.</b> Your credit and balance are used
-                first. Cancel while it waits in line, or in its first minute,
-                for a full refund. Refunded in full if it fails.
+                <b>Paid before it starts.</b> Cancel while it waits in line, or
+                in its first minute, for a full refund. Refunded in full if it
+                fails.
               </span>
               <span>US dollars, excluding tax. Every file type is included.</span>
             </InfoPopover>
