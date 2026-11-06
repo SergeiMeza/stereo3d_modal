@@ -133,9 +133,15 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
   add("Depth detail", p.depth_res !== undefined ? `${p.depth_res} px` : null);
   add("Scenes tuned", p.scene_overrides && p.scene_overrides.length > 0 ? String(p.scene_overrides.length) : null);
   add("Original eye", p.original_eye ? (p.original_eye === "left" ? "Left" : "Right") : null);
-  add("Foveated Detail", p.foveation === "static" ? "On" : null);
-  add("Master bitrate", c.quote.breakdown?.addons?.master !== undefined ? "On" : null);
-  add("Express", p.express ? "On" : null);
+  // owner 2026-11-07: a Lifelike run always says On or Off for each
+  // add-on, offered or not; Classic runs have none
+  if (conversionMethod(c) === "lifelike") {
+    const onOff = (v: boolean) => (v ? "On" : "Off");
+    const bitrate = (p as { bitrate?: string }).bitrate;
+    add("Foveated Detail", onOff(p.foveation === "static"));
+    add("Master bitrate", onOff(bitrate === "master" || c.quote.breakdown?.addons?.master !== undefined));
+    add("Express", onOff(p.express === true));
+  }
 
   // Timing
   add("Ordered", when(c.created_at));

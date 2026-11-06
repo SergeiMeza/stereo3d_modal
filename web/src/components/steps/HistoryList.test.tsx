@@ -325,9 +325,13 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Ordered")).toMatch(/^Nov 6/);
     expect(row(li, "Took")).toBe("about 4 min");
     // nothing stored, nothing shown
-    for (const label of ["3D strength", "Depth detail", "Original eye", "Express", "Discount", "Receipt"]) {
+    for (const label of ["3D strength", "Depth detail", "Original eye", "Discount", "Receipt"]) {
       expect(row(li, label)).toBeNull();
     }
+    // a Lifelike run's add-ons always read On or Off (owner 2026-11-07)
+    expect(row(li, "Foveated Detail")).toBe("Off");
+    expect(row(li, "Master bitrate")).toBe("Off");
+    expect(row(li, "Express")).toBe("Off");
   });
 
   it("a full run: stored settings, the Pro discount, and the receipt from the purchases list", async () => {
@@ -356,6 +360,8 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Files made")).toBe("Vision Pro .mov, Side by side .mp4");
     expect(row(li, "Original eye")).toBe("Left");
     expect(row(li, "Express")).toBe("On");
+    expect(row(li, "Foveated Detail")).toBe("Off");
+    expect(row(li, "Master bitrate")).toBe("Off");
     expect(row(li, "Price")).toBe("$17.00");
     expect(row(li, "Discount")).toBe("Pro 15% · −$3.00");
     const receipt = await within(li).findByRole("link", { name: "View receipt" });
@@ -371,6 +377,22 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Files ordered")).toBe("Vision Pro .mov, Side by side (half size) .mp4");
     expect(row(li, "Took")).toBeNull();
     expect(row(li, "Price")).toBe("Not charged");
+    // Classic runs have no add-ons
+    for (const label of ["Foveated Detail", "Master bitrate", "Express"]) expect(row(li, label)).toBeNull();
+  });
+
+  it("a Lifelike run with Foveated Detail and Master bitrate reads On (owner 2026-11-07)", () => {
+    const run: Conversion = {
+      ...FULL,
+      conversion_id: "conv0000lifefov",
+      params: { ...FULL.params, foveation: "static", bitrate: "master", express: false } as Conversion["params"],
+    };
+    renderWithHistory([run]);
+    const li = item(run.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(row(li, "Foveated Detail")).toBe("On");
+    expect(row(li, "Master bitrate")).toBe("On");
+    expect(row(li, "Express")).toBe("Off");
   });
 
   it("the Run ID copies for support", async () => {
