@@ -179,6 +179,11 @@ func randomSalt() (string, error) {
 // Start mails a fresh code to email (already normalized). It answers how
 // long until another code may be asked for.
 func (s *Service) Start(ctx context.Context, email string) (time.Duration, error) {
+	return s.StartIn(ctx, email, mail.LangEnglish)
+}
+
+// StartIn is Start with the mail in lang.
+func (s *Service) StartIn(ctx context.Context, email string, lang mail.Lang) (time.Duration, error) {
 	if !s.configured() {
 		return 0, ErrUnavailable
 	}
@@ -219,7 +224,7 @@ func (s *Service) Start(ctx context.Context, email string) (time.Duration, error
 	if err != nil {
 		return 0, err
 	}
-	if err := s.Mail.Send(ctx, mail.SignInCode(email, code)); err != nil {
+	if err := s.Mail.Send(ctx, mail.SignInCodeIn(email, code, lang)); err != nil {
 		return 0, fmt.Errorf("%w: mail: %v", ErrUnavailable, err)
 	}
 	return ResendGap, nil

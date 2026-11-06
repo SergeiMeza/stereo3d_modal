@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 )
@@ -376,5 +378,65 @@ func TestPeekLeavesTheCode(t *testing.T) {
 	r.now = r.now.Add(CodeTTL + time.Second)
 	if err := r.svc.Peek(ctx, "late@example.com", "123456"); !errors.Is(err, ErrNoCode) {
 		t.Fatalf("expired: %v", err)
+	}
+}
+
+// The code mail's language: the explicit field, else China mode (the
+// relay, svs-backend's X-SVS-Client-Via: relay, a cn. host), else the
+// browser's first Accept-Language; English otherwise. The subject always
+// names the app.
+func TestStartMailLanguage(t *testing.T) {
+	for i, tc := range []struct {
+		name, body string
+		set        func(*http.Request)
+		zh         bool
+	}{
+		{"explicit zh-Hans", `{"language":"zh-Hans"}`, nil, true},
+		{"explicit zh-CN", `{"language":"zh-CN"}`, nil, true},
+		{"explicit en beats relay", `{"language":"en"}`, func(r *http.Request) {
+			r.Header.Set("X-Forwarded-For", "198.51.100.4, 101.47.76.86, 34.117.11.37")
+		}, false},
+		{"through the relay", `{}`, func(r *http.Request) {
+			r.Header.Set("X-Forwarded-For", "198.51.100.4, 101.47.76.86, 34.117.11.37")
+			r.Header.Set("X-Client-IP", "198.51.100.4")
+		}, true},
+		{"svs-backend says relay", `{}`, func(r *http.Request) {
+			r.Header.Set(httpx.HeaderProxyKey, "k")
+			r.Header.Set(httpx.HeaderClientIP, "198.51.100.5")
+			r.Header.Set(httpx.HeaderClientVia, "relay")
+		}, true},
+		{"svs-backend's relay claim without the key", `{}`, func(r *http.Request) {
+			r.Header.Set(httpx.HeaderProxyKey, "wrong")
+			r.Header.Set(httpx.HeaderClientIP, "198.51.100.5")
+			r.Header.Set(httpx.HeaderClientVia, "relay")
+		}, false},
+		{"cn. host", `{}`, func(r *http.Request) { r.Host = "cn.api.stereo3d.studio" }, true},
+		{"Accept-Language zh", `{}`, func(r *http.Request) { r.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8") }, true},
+		{"Accept-Language en first", `{}`, func(r *http.Request) { r.Header.Set("Accept-Language", "en-US,en;q=0.9,zh;q=0.8") }, false},
+		{"Accept-Language zh by q", `{}`, func(r *http.Request) { r.Header.Set("Accept-Language", "en;q=0.5, zh-Hans") }, true},
+		{"nothing", `{}`, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRig()
+			h := NewHandlers(r.svc, identity.NewIPPolicy("", ""))
+			email := fmt.Sprintf("lang%d@example.com", i)
+			body := strings.Replace(tc.body, "{", `{"email":"`+email+`",`, 1)
+			body = strings.Replace(body, ",}", "}", 1)
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.RemoteAddr = fmt.Sprintf("203.0.113.%d:1234", 20+i)
+			if tc.set != nil {
+				tc.set(req)
+			}
+			w := httptest.NewRecorder()
+			httpx.WithTrustedProxy("k", http.HandlerFunc(h.Start)).ServeHTTP(w, req)
+			if w.Code != 200 || len(r.mail.sent) != 1 {
+				t.Fatalf("start %d %s", w.Code, w.Body)
+			}
+			m := r.mail.sent[0]
+			gotZh := strings.Contains(m.Subject, "登录验证码")
+			if gotZh != tc.zh || !strings.Contains(m.Subject, "Spatial Video Studio") {
+				t.Fatalf("subject %q, want zh=%v", m.Subject, tc.zh)
+			}
+		})
 	}
 }

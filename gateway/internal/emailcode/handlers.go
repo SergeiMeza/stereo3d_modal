@@ -6,10 +6,12 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 )
 
 // Per caller address. Mobile carriers put many people behind one address,
@@ -40,13 +42,18 @@ func NewHandlers(svc *Service, ips identity.IPPolicy) *Handlers {
 	}
 }
 
-// Start: POST /v1/auth/email/start {email} → {ok, resend_after}.
+// Start: POST /v1/auth/email/start {email, language?} → {ok,
+// resend_after}. The mail's language: language (zh* → Simplified Chinese,
+// anything else English), else Simplified Chinese for China mode (through
+// the relay, svs-backend's X-SVS-Client-Via: relay, or a cn. host), else
+// the browser's first Accept-Language (zh*), else English.
 func (h *Handlers) Start(w http.ResponseWriter, r *http.Request) {
 	if !h.admit(w, r, h.startMin, h.startHour) {
 		return
 	}
 	var req struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Language string `json:"language"`
 	}
 	if !decode(w, r, &req) {
 		return
@@ -56,12 +63,13 @@ func (h *Handlers) Start(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, "start", err)
 		return
 	}
-	wait, err := h.Svc.Start(r.Context(), email)
+	lang := h.mailLang(r, req.Language)
+	wait, err := h.Svc.StartIn(r.Context(), email, lang)
 	if err != nil {
 		h.fail(w, r, "start", err)
 		return
 	}
-	httpx.Log(r.Context()).Info("sign-in code sent")
+	httpx.Log(r.Context()).Info("sign-in code sent", "lang", string(lang))
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, map[string]any{"ok": true, "resend_after": seconds(wait)})
 }
@@ -180,4 +188,54 @@ func seconds(d time.Duration) int {
 		return 0
 	}
 	return int(math.Ceil(d.Seconds()))
+}
+
+// mailLang picks the code mail's language (Start).
+func (h *Handlers) mailLang(r *http.Request, explicit string) mail.Lang {
+	if e := strings.TrimSpace(explicit); e != "" {
+		if zh(e) {
+			return mail.LangChinese
+		}
+		return mail.LangEnglish
+	}
+	if _, viaRelay := h.IPs.ClientIP(r); viaRelay {
+		return mail.LangChinese
+	}
+	for _, host := range []string{r.Host, r.Header.Get("X-Forwarded-Host")} {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(host)), "cn.") {
+			return mail.LangChinese
+		}
+	}
+	if zh(firstLanguage(r.Header.Get("Accept-Language"))) {
+		return mail.LangChinese
+	}
+	return mail.LangEnglish
+}
+
+func zh(tag string) bool {
+	t := strings.ToLower(strings.TrimSpace(tag))
+	return t == "zh" || strings.HasPrefix(t, "zh-") || strings.HasPrefix(t, "zh_")
+}
+
+// firstLanguage is Accept-Language's most preferred tag (highest q, first
+// on a tie; "*" and q=0 skipped).
+func firstLanguage(header string) string {
+	best, bestQ := "", -1.0
+	for _, part := range strings.Split(header, ",") {
+		tag, params, _ := strings.Cut(strings.TrimSpace(part), ";")
+		tag = strings.TrimSpace(tag)
+		if tag == "" || tag == "*" {
+			continue
+		}
+		q := 1.0
+		if v, ok := strings.CutPrefix(strings.TrimSpace(params), "q="); ok {
+			if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+				q = f
+			}
+		}
+		if q > 0 && q > bestQ {
+			best, bestQ = tag, q
+		}
+	}
+	return best
 }

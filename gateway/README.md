@@ -1670,6 +1670,19 @@ and store.
   passkeys, sign_ins: {"7d": {method: count}, "30d": {…}},
   generated_at}`; the admin account view adds `passkey_count`.
 
+### Sign-in code mail language (2026-11-06)
+
+`POST /v1/auth/email/start {email, language?}` mails the code in
+Simplified Chinese (subject "Spatial Video Studio 登录验证码：<code>") or
+English ("Spatial Video Studio: your sign-in code"), picked in order:
+`language` (zh* → Chinese, anything else English); China mode (through
+the relay, svs-backend's trusted `X-SVS-Client-Via: relay`, or a `cn.`
+host); the first `Accept-Language` tag (zh*); else English. Same layout,
+no images, fonts or links; same sender (`Spatial Video Studio
+<no-reply@spatial-ai-labs.com>`). The web sends `language` from its UI
+locale; svs-backend sends `language` from the app's locale (and the
+relay header for China requests).
+
 ### Linked sign-in methods (the app's sign-in contract, 2026-11-06)
 
 Server-side, because the Firebase SDK's linking can't reach Google from
