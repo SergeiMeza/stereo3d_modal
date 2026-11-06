@@ -608,29 +608,32 @@ const ARCHIVE_BLOCKED =
   "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
 
 /** Web Pro on Stripe: Weekly $3.99, Monthly $4.99, Yearly $49.99, no
- * intro offers, and $20 of usage credit every month (owner 2026-11-07,
- * gateway 00159). */
+ * intro offers, and $20 of usage credit once when you join (owner
+ * 2026-11-07, gateway 00166). */
 export const MOCK_PRO_PLANS: {
   id: string;
   interval: "week" | "month" | "year";
   price_cents: number;
   intro: { price_cents: number; cycles: number } | null;
   credit_cents: number;
-  credit_interval: "month";
+  credit_interval: "once";
+  credit_once: boolean;
 }[] = [
-  { id: "pro_weekly", interval: "week", price_cents: 399, intro: null, credit_cents: 2000, credit_interval: "month" },
-  { id: "pro_monthly", interval: "month", price_cents: 499, intro: null, credit_cents: 2000, credit_interval: "month" },
-  { id: "pro_yearly", interval: "year", price_cents: 4999, intro: null, credit_cents: 2000, credit_interval: "month" },
+  { id: "pro_weekly", interval: "week", price_cents: 399, intro: null, credit_cents: 2000, credit_interval: "once", credit_once: true },
+  { id: "pro_monthly", interval: "month", price_cents: 499, intro: null, credit_cents: 2000, credit_interval: "once", credit_once: true },
+  { id: "pro_yearly", interval: "year", price_cents: 4999, intro: null, credit_cents: 2000, credit_interval: "once", credit_once: true },
 ];
 
-/** GET /v1/pricing pro_credit (gateway 00159): $20 a month on paid Pro,
- * $10 on Lifetime. */
+/** GET /v1/pricing pro_credit (gateway 00166): $20 once, used within 30
+ * days. */
 export const MOCK_PRO_CREDIT = {
-  cents: {
+  cents: 2000,
+  cents_by_kind: {
     pro_weekly: 2000, pro_monthly: 2000, pro_yearly: 2000, pro_3m: 2000, pro_6m: 2000,
-    pro_pass_3m: 2000, pro_pass_6m: 2000, pro_lifetime: 1000,
-  },
-  interval: "month" as const,
+    pro_pass_3m: 2000, pro_pass_6m: 2000, pro_lifetime: 2000,
+  } as Record<string, number>,
+  once: true,
+  expires_days: 30,
   rollover: false,
   paid_only: true,
   trial_counts: true,
@@ -2506,26 +2509,22 @@ function tick(c: Conversion) {
 }
 
 /** The gateway's GET /v1/billing response shape. */
-/** This month's Pro credit (gateway 00159), or null: paid Pro only, and
+/** The account's Pro credit (gateway 00166), or null: paid Pro only, and
  * a Business or Studio plan's credit wins. mockDb.proCredit overrides. */
 function mockProCredit() {
   if (mockDb.proCredit !== undefined) return mockDb.proCredit;
   if (mockDb.pro !== true || isTeamPlan(mockDb.billing.plan)) return null;
-  const start = new Date();
-  start.setUTCDate(1);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setUTCMonth(end.getUTCMonth() + 1);
-  const planId = mockDb.proStatus?.plan_id ?? "pro_monthly";
+  const granted = new Date();
+  const expires = new Date(granted.getTime() + MOCK_PRO_CREDIT.expires_days * 86_400_000);
   return {
-    cents_per_month: 2000,
-    kind: planId,
+    cents: MOCK_PRO_CREDIT.cents,
+    kind: mockDb.proStatus?.plan_id ?? "pro_monthly",
     source: "web" as const,
     trial: false,
-    period_start: start.toISOString(),
-    period_end: end.toISOString(),
     granted: true,
-    left_cents: 2000,
+    granted_at: granted.toISOString(),
+    expires_at: expires.toISOString(),
+    left_cents: MOCK_PRO_CREDIT.cents,
   };
 }
 
@@ -2541,7 +2540,7 @@ function billingStatus() {
     balance: prepaidSummary(),
     // pricing 2026-11: Business / Studio
     ...(b.plan ? { plan: b.plan } : {}),
-    // owner 2026-11-07: this month's Pro credit (none under a team plan)
+    // owner 2026-11-07: the Pro credit (none under a team plan)
     pro_credit: mockProCredit(),
     tier: {
       cap_cents: b.batchCapCents,

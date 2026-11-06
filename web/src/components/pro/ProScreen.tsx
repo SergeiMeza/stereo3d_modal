@@ -22,7 +22,7 @@ import { proPercent } from "@/components/pricing/ProOffer";
 import { proMembership } from "@/components/pro/proMembership";
 import { ProPlans } from "@/components/pro/ProPlans";
 import { ProCreditLeft, useProCredit } from "@/components/pro/ProCredit";
-import { creditLine, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
+import { creditLine, creditRules, proCreditCents, proCreditDays } from "@/lib/pro/plans";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { isWebPro, useProStatus, type ProStatus } from "@/lib/pro/usePro";
@@ -59,8 +59,8 @@ export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element
 export function ProScreen(): JSX.Element {
   const status = useProStatus();
   const pct = usePct();
-  // owner 2026-11-07: Pro's monthly usage credit (/v1/pricing), and this
-  // month's for a member (/v1/billing)
+  // owner 2026-11-07: the credit joining Pro gives (/v1/pricing), and
+  // what's left of a member's (/v1/billing)
   const pricing = usePricing();
   const credit = creditLine(proCreditCents(pricing));
   const proCredit = useProCredit();
@@ -142,7 +142,7 @@ export function ProScreen(): JSX.Element {
       )}
       {credit ? (
         <p data-testid="pro-credit-rules" className="text-xs text-fg-muted">
-          {PRO_CREDIT_RULES} Only your highest plan&apos;s credit applies.
+          {creditRules(proCreditDays(pricing))}
         </p>
       ) : null}
       {/* owner 2026-11-04: Business and Studio, one line at the bottom */}

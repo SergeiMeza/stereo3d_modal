@@ -44,7 +44,7 @@ export function proSaveLine(pct: number): string {
 export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
   const pricing = usePricing();
   const pro = pricing?.pro_discount;
-  // owner 2026-11-07: Pro's monthly usage credit
+  // owner 2026-11-07: the credit joining Pro gives
   const credit = creditLine(proCreditCents(pricing));
   const [open, setOpen] = useState(false);
   // Business and Studio include Pro: their quotes carry the plan's line

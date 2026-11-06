@@ -391,41 +391,54 @@ describe("Usage tab (P10)", () => {
   });
 });
 
-describe("Pro's monthly credit (owner 2026-11-07)", () => {
+describe("Pro's credit to start (owner 2026-11-07, gateway 00166)", () => {
   const credit = (over: Partial<NonNullable<BillingStatus["pro_credit"]>> = {}) => {
     mockDb.pro = true;
     mockDb.proCredit = {
-      cents_per_month: 2000,
+      cents: 2000,
       kind: "pro_monthly",
       source: "app_store",
       trial: false,
-      period_start: "2026-11-01T00:00:00Z",
-      period_end: "2026-12-01T00:00:00Z",
       granted: true,
+      granted_at: "2099-11-07T00:00:00Z",
+      expires_at: "2099-12-07T00:00:00Z",
       left_cents: 1240,
       ...over,
     };
   };
 
-  it("shows what's left this month and when it expires, like a plan's usage, apart from the Balance", async () => {
+  it("shows what's left and its use-by day, and spells it out in the Balance", async () => {
     credit();
     // the gateway counts the credit in the balance, like a plan's
     mockDb.billing.prepaid.balance_cents = 1240 + 500;
     renderBilling();
     const card = await screen.findByTestId("pro-credit-card");
-    expect(within(card).getByTestId("pro-credit-left").textContent).toBe("$12.40 of $20.00 Pro credit left this month");
-    expect(within(card).getByTestId("pro-credit-expires").textContent).toBe("Expires on 1 Dec and isn't paid out.");
+    expect(within(card).getByTestId("pro-credit-left").textContent).toBe("$12.40 of $20.00 Pro credit left · use by 7 Dec");
+    expect(within(card).getByTestId("pro-credit-expires").textContent).toBe("It isn't paid out.");
     await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$17.40"));
-    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $12.40 Pro credit (use by 1 Dec)");
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $12.40 Pro credit (use by 7 Dec)");
     expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $5.00");
   });
 
-  it("a trial's credit says the trial includes it; Lifetime shows its own amount", async () => {
-    credit({ trial: true, cents_per_month: 1000, left_cents: 1000, kind: "pro_lifetime" });
+  it("a trial's credit says the trial includes it; the amount is the gateway's", async () => {
+    credit({ trial: true, cents: 1000, left_cents: 1000, kind: "pro_lifetime" });
     renderBilling();
     const card = await screen.findByTestId("pro-credit-card");
-    expect(card.textContent).toContain("$10.00 of $10.00 Pro credit left this month");
+    expect(card.textContent).toContain("$10.00 of $10.00 Pro credit left · use by 7 Dec");
     expect(card.textContent).toContain("Your free trial includes it.");
+  });
+
+  it("the card goes once the credit is spent or past its day", async () => {
+    credit({ left_cents: 0 });
+    renderBilling();
+    await screen.findByTestId("balance-amount");
+    expect(screen.queryByTestId("pro-credit-card")).toBeNull();
+    cleanup();
+    credit({ expires_at: "2020-01-01T00:00:00Z" });
+    renderBilling();
+    await screen.findByTestId("balance-amount");
+    expect(screen.queryByTestId("pro-credit-card")).toBeNull();
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available");
   });
 
   it("nothing when it isn't granted to this account, or there's none", async () => {

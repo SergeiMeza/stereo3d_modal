@@ -47,12 +47,12 @@ describe("/pro (mock mode)", () => {
     // owner 2026-11-07: no intro offers; the monthly credit instead
     expect(weekly.textContent).toContain("$3.99");
     expect(weekly.textContent).not.toMatch(/for 4 weeks|first year/);
-    expect(screen.getByTestId("pro-plan-credit-weekly").textContent).toBe("+ $20 of usage credit every month");
+    expect(screen.getByTestId("pro-plan-credit-weekly").textContent).toBe("+ $20 credit to start");
     expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toBe(
-      "Plus $20 of usage credit every month, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
+      "Plus $20 of usage credit when you join Pro (or the first time you sign in here with Pro from the app), and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
     );
     expect(screen.getByTestId("pro-credit-rules").textContent).toBe(
-      "The credit expires at the end of each month and isn't paid out. Only your highest plan's credit applies.",
+      "Use it within 30 days. It isn't paid out.",
     );
     expect(screen.getByTestId("pro-plan-yearly").textContent).toContain("Save 17%");
     // Weekly, Monthly and Yearly only: no pass, no Lifetime (owner, 2026-11-03)
@@ -97,8 +97,8 @@ describe("/pro (mock mode)", () => {
   });
 
   it("the credit's amount comes from /v1/pricing, never the page (owner 2026-11-07)", async () => {
-    const saved = { cents: { ...MOCK_PRO_CREDIT.cents }, plans: MOCK_PRO_PLANS.map((p) => p.credit_cents) };
-    MOCK_PRO_CREDIT.cents.pro_monthly = 1500;
+    const saved = { cents: MOCK_PRO_CREDIT.cents, plans: MOCK_PRO_PLANS.map((p) => p.credit_cents) };
+    MOCK_PRO_CREDIT.cents = 1500;
     for (const p of MOCK_PRO_PLANS) p.credit_cents = 1500;
     try {
       render(
@@ -107,31 +107,31 @@ describe("/pro (mock mode)", () => {
         </AuthProvider>,
       );
       expect(await screen.findByTestId("pro-plan-credit-monthly")).toBeTruthy();
-      expect(screen.getByTestId("pro-plan-credit-monthly").textContent).toBe("+ $15 of usage credit every month");
+      expect(screen.getByTestId("pro-plan-credit-monthly").textContent).toBe("+ $15 credit to start");
       await waitFor(() =>
         expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(
-          "$15 of usage credit every month",
+          "$15 of usage credit when you join Pro",
         ),
       );
     } finally {
-      Object.assign(MOCK_PRO_CREDIT.cents, saved.cents);
+      MOCK_PRO_CREDIT.cents = saved.cents;
       MOCK_PRO_PLANS.forEach((p, i) => (p.credit_cents = saved.plans[i]));
     }
   });
 
-  it("a member sees this month's credit left", async () => {
+  it("a member sees the credit left and its use-by day", async () => {
     mockDb.pro = true;
     // mock mode reads Pro from the browser mock's state
     (globalThis as { __mockDb?: unknown }).__mockDb = {
       proStatus: { pro: true, known: true, source: "app_store", via: "pro_monthly" },
     };
     mockDb.proCredit = {
-      cents_per_month: 2000,
+      cents: 2000,
       kind: "pro_monthly",
       source: "app_store",
       trial: false,
-      period_start: "2026-11-01T00:00:00Z",
-      period_end: "2026-12-01T00:00:00Z",
+      granted_at: "2099-11-01T00:00:00Z",
+      expires_at: "2099-12-01T00:00:00Z",
       granted: true,
       left_cents: 800,
     };
@@ -143,7 +143,7 @@ describe("/pro (mock mode)", () => {
       </AuthProvider>,
     );
     try {
-      expect((await screen.findByTestId("pro-credit-left")).textContent).toBe("$8.00 of $20.00 Pro credit left this month");
+      expect((await screen.findByTestId("pro-credit-left")).textContent).toBe("$8.00 of $20.00 Pro credit left · use by 1 Dec");
     } finally {
       delete (globalThis as { __mockDb?: unknown }).__mockDb;
     }

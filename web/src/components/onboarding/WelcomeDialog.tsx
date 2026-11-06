@@ -26,7 +26,7 @@
  * gets the Pro step alone. Shown once (onboarding.app_pro_welcome_done).
  */
 
-import { creditLine } from "@/lib/pro/plans";
+import { creditAmount as formatCredit } from "@/lib/pro/plans";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -116,6 +116,11 @@ export function proPreviews(
   return { count, period: fp?.period ?? "month" };
 }
 
+/** "7 Dec": the credit's use-by day. */
+function creditUseBy(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 /** "Pro prices on every video, 15% off. Your plan includes 20 free previews
  * a month. Nothing new is billed." */
 function ProLines({
@@ -125,8 +130,8 @@ function ProLines({
 }: {
   pct: number | null;
   previews: { count: number; period: string } | null;
-  /** owner 2026-11-07: the Pro's monthly usage credit (cents), when granted */
-  credit?: number | null;
+  /** owner 2026-11-07: the usage credit this Pro was given, when granted */
+  credit?: { left_cents: number; expires_at: string } | null;
 }): JSX.Element {
   const when =
     previews?.period === "pass"
@@ -142,7 +147,9 @@ function ProLines({
       {previews
         ? ` Your plan includes ${previews.count} free previews ${when}.`
         : ""}
-      {credit ? ` It also includes ${creditLine(credit)}.` : ""}{" "}
+      {credit
+        ? ` You have ${formatCredit(credit.left_cents)} of usage credit to use by ${creditUseBy(credit.expires_at)}.`
+        : ""}{" "}
       Nothing new is billed.
     </>
   );
@@ -205,7 +212,8 @@ export function WelcomeDialog({
   const chosen = picked ?? (saved.length > 0 ? saved : fromApp);
   const pct = proPct(pricing);
   const previews = proPreviews(proStatus?.free_previews);
-  const proCredit = billing.status?.pro_credit?.granted ? billing.status.pro_credit.cents_per_month : null;
+  const pc = billing.status?.pro_credit;
+  const proCredit = pc?.granted && pc.left_cents > 0 ? pc : null;
   // the app knows they use another headset, not which: nothing preselected
   const otherHeadset =
     appPro &&

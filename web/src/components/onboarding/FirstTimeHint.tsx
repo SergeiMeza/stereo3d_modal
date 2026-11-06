@@ -19,7 +19,7 @@ export const HINTS = {
   invoices: "Invoices for your top-ups and plans, ready to download.",
   plans: "Plans lower the price of every run and include usage every month. Paying per video works without one.",
   pricing: "Prices are per minute of video at the size you pick. You always see the exact price before you pay.",
-  pro: "Pro is one membership for the web and the apps. Members pay less for every run and get usage credit every month.",
+  pro: "Pro is one membership for the web and the apps. Members pay less for every run and get usage credit when they join.",
   account: "Your sign-in, your settings and, if you ever need it, deleting your account.",
   devices: "How to watch your 3D videos on this device.",
   scenes: "Where your video's scenes change. Previews and parts start at these points; you rarely need to change them.",

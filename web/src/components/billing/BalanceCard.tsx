@@ -11,6 +11,7 @@ import { PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
+import { liveProCredit } from "@/components/pro/ProCredit";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { isTeamPlan, prepaidOf } from "@/lib/api/types";
@@ -76,7 +77,7 @@ export function balanceCredits(
     ...(isTeamPlan(plan)
       ? [{ kind: "plan" as const, cents: plan.credit_left_cents ?? plan.credit_cents ?? 0, expires_at: plan.credit_resets_at ?? plan.current_period_end ?? null }]
       : []),
-    ...(pro?.granted ? [{ kind: "pro" as const, cents: pro.left_cents, expires_at: pro.period_end }] : []),
+    ...(pro?.granted ? [{ kind: "pro" as const, cents: pro.left_cents, expires_at: pro.expires_at }] : []),
   ].filter((c) => c.cents > 0);
 }
 
@@ -111,7 +112,7 @@ export function BalanceCard(): JSX.Element | null {
   const limit = b.spend_limit_cents ?? null;
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
   const plan = isTeamPlan(status.plan) ? status.plan : null;
-  const proCredit = status.pro_credit?.granted ? status.pro_credit : null;
+  const proCredit = liveProCredit(status.pro_credit);
   const prepaid = prepaidCents(b, plan, proCredit?.left_cents ?? 0);
   // owner 2026-11-07: the headline is everything spendable, credit
   // included; the credit is spelled out under it, the cash by Add funds

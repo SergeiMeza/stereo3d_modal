@@ -3,7 +3,7 @@
 /**
  * The plans and the Get Pro button (S3D-68). Prices are GET /v1/pricing
  * pro_plans (gateway 00102, USD); Get Pro opens our own payment sheet
- * (ProCheckoutHost). Little text: name, the monthly credit, price; one line under
+ * (ProCheckoutHost). Little text: name, the credit to start, price; one line under
  * the button says how the chosen plan renews.
  */
 
@@ -12,7 +12,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import {
-  creditLine,
+  creditShort,
   monthlyMicros,
   planCadence,
   planName,
@@ -82,7 +82,7 @@ export function ProPlans({
       <div role="radiogroup" aria-label="Pro plans" className="space-y-2">
         {list.map((p) => {
           const on = p.id === selected.id;
-          const credit = creditLine(p.creditCents);
+          const credit = creditShort(p.creditCents);
           return (
             <button
               key={p.id}
@@ -115,7 +115,7 @@ export function ProPlans({
                     <span className="ll-tag-new">Save {saving}%</span>
                   )}
                 </span>
-                {/* owner 2026-11-07: the monthly usage credit, from /v1/pricing */}
+                {/* owner 2026-11-07: the credit joining Pro gives, from /v1/pricing */}
                 {credit !== null && (
                   <span data-testid={`pro-plan-credit-${p.kind}`} className="block text-xs text-chart-2">
                     + {credit}

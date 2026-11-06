@@ -662,7 +662,7 @@ export interface PublicPricing {
   /** owner 2026-11-04: web Pro on our own Stripe subscriptions — the
    * plans on sale, in page order (absent until the gateway sells them) */
   pro_plans?: ProPlanDef[];
-  /** owner 2026-11-07: Pro's monthly usage credit */
+  /** owner 2026-11-07: the usage credit joining Pro gives */
   pro_credit?: ProCreditDef;
   plans?: Partial<Record<"business" | "studio", PlanDef>>;
   free_previews?: {
@@ -1305,7 +1305,7 @@ export interface BillingStatus {
   balance?: BalanceSummary;
   /** pricing 2026-11: Business or Studio (absent without one) */
   plan?: AccountPlan | null;
-  /** owner 2026-11-07: this month's Pro credit (null: none) */
+  /** owner 2026-11-07: the account's Pro credit (null: none) */
   pro_credit?: ProCreditStatus | null;
 }
 
@@ -1432,39 +1432,42 @@ export interface ProPlanDef {
   price_cents: number;
   /** an introductory price; none on the web since 2026-11-07 (null) */
   intro?: { price_cents: number; cycles: number } | null;
-  /** owner 2026-11-07: usage credit this plan grants every credit_interval */
+  /** owner 2026-11-07: the usage credit joining Pro gives */
   credit_cents?: number;
-  credit_interval?: "month";
+  /** "once" since gateway 00166 (it was "month") */
+  credit_interval?: "once" | "month";
+  credit_once?: boolean;
 }
 
-/** GET /v1/pricing pro_credit (owner 2026-11-07): Pro's monthly usage
- * credit by Pro kind. It expires at the month's end (no rollover), is never
+/** GET /v1/pricing pro_credit (owner 2026-11-07, gateway 00166): usage
+ * credit given once, when someone joins Pro or first signs in on the web
+ * with Pro from the app. It must be used within expires_days, is never
  * paid out, comes with paid Pro only (a free trial counts) and doesn't
- * stack with a Business or Studio plan (the highest plan's credit wins). */
+ * stack with a Business or Studio plan. */
 export interface ProCreditDef {
-  cents: Partial<
-    Record<
-      "pro_weekly" | "pro_monthly" | "pro_yearly" | "pro_3m" | "pro_6m" | "pro_pass_3m" | "pro_pass_6m" | "pro_lifetime",
-      number
-    >
-  >;
-  interval: "month";
+  cents: number;
+  /** the amount by Pro kind (pro_monthly, pro_lifetime, …) */
+  cents_by_kind?: Partial<Record<string, number>>;
+  once: boolean;
+  expires_days: number;
   rollover: boolean;
   paid_only: boolean;
   trial_counts: boolean;
   stacks_with_plan: boolean;
 }
 
-/** GET /v1/billing pro_credit: this month's Pro credit, or null. */
+/** GET /v1/billing pro_credit (gateway 00166): the account's Pro credit,
+ * or null. */
 export interface ProCreditStatus {
-  cents_per_month: number;
+  cents: number;
   kind: string;
   source: "app_store" | "mac_app_store" | "rc_billing" | "web";
   trial: boolean;
-  period_start: string;
-  period_end: string;
   /** false: not granted to this account (e.g. a transferred purchase) */
   granted: boolean;
+  granted_at?: string;
+  /** use it by then */
+  expires_at: string;
   left_cents: number;
 }
 

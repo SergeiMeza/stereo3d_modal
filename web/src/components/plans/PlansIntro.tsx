@@ -122,7 +122,7 @@ export function PayPerVideoAndPro({
           {monthly ? monthly.price : "…"}{" "}
           <span className="text-sm font-normal text-fg-muted">a month</span>
         </p>
-        {/* owner 2026-11-07: the monthly usage credit, like Business's line */}
+        {/* owner 2026-11-07: the credit joining Pro gives, like Business's line */}
         {credit ? (
           <p data-testid="plan-pro-credit" className="text-sm text-fg">
             {credit}

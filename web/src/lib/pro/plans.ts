@@ -5,9 +5,9 @@
  *
  * Web Pro is Weekly, Monthly and Yearly only (owner, 2026-11-03). App
  * Store Lifetime and pass holders are still Pro when the gateway says so.
- * No intro offers on the web since 2026-11-07. Every paid Pro grants a
- * monthly usage credit (pro_plans[].credit_cents / pro_credit): it
- * expires at the month's end and is never paid out.
+ * No intro offers on the web since 2026-11-07. Joining Pro gives usage
+ * credit once (pro_plans[].credit_cents / pro_credit, gateway 00166): it
+ * must be used within pro_credit.expires_days and is never paid out.
  */
 
 import type { ProPlanDef, PublicPricing } from "@/lib/api/types";
@@ -23,7 +23,7 @@ export interface ProPlan {
   price: string;
   amountMicros: number;
   currency: string;
-  /** usage credit it grants every month, in cents (null: none sent) */
+  /** the usage credit joining with it gives, in cents (null: none sent) */
   creditCents: number | null;
 }
 
@@ -40,7 +40,8 @@ const usd = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
 /** GET /v1/pricing pro_plans → the page's plans (Stripe checkout). The
- * credit is the plan's own credit_cents, else pro_credit's for its id. */
+ * credit is the plan's own credit_cents, else pro_credit's for its kind,
+ * else pro_credit's amount. */
 export function plansFromPricing(
   defs: readonly ProPlanDef[],
   credit?: PublicPricing["pro_credit"],
@@ -56,7 +57,7 @@ export function plansFromPricing(
       price: usd(d.price_cents),
       amountMicros: d.price_cents * 10_000,
       currency: "USD",
-      creditCents: d.credit_cents ?? credit?.cents?.[d.id as keyof NonNullable<typeof credit>["cents"]] ?? null,
+      creditCents: d.credit_cents ?? credit?.cents_by_kind?.[d.id] ?? credit?.cents ?? null,
     });
   }
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
@@ -88,30 +89,41 @@ export function creditAmount(cents: number): string {
   return cents % 100 === 0 ? `$${cents / 100}` : usd(cents);
 }
 
-/** "$20 of usage credit every month"; null without a credit. */
+/** "$20 of usage credit when you join Pro (or the first time you sign in
+ * here with Pro from the app)"; null without a credit (owner 2026-11-07). */
 export function creditLine(cents: number | null | undefined): string | null {
-  return cents ? `${creditAmount(cents)} of usage credit every month` : null;
+  return cents
+    ? `${creditAmount(cents)} of usage credit when you join Pro (or the first time you sign in here with Pro from the app)`
+    : null;
 }
 
-/** The credit's rules in one line (owner 2026-11-07). */
-export const PRO_CREDIT_RULES = "The credit expires at the end of each month and isn't paid out.";
+/** The short form for tight spots: "$20 credit to start". */
+export function creditShort(cents: number | null | undefined): string | null {
+  return cents ? `${creditAmount(cents)} credit to start` : null;
+}
 
-/** Pro's monthly credit from GET /v1/pricing: Monthly's (every paid web Pro
- * gets the same), else the first plan's; null when the gateway sends none. */
+/** The credit's rules: "Use it within 30 days. It isn't paid out." */
+export function creditRules(days: number | null | undefined): string {
+  return days ? `Use it within ${days} days. It isn't paid out.` : "It isn't paid out.";
+}
+
+/** Pro's credit from GET /v1/pricing: pro_credit.cents, else a plan's
+ * credit_cents; null when the gateway sends none. */
 export function proCreditCents(pricing: PublicPricing | null | undefined): number | null {
   if (!pricing) return null;
-  const c = pricing.pro_credit?.cents;
+  const c = pricing.pro_credit;
   return (
-    c?.pro_monthly ??
+    (typeof c?.cents === "number" ? c.cents : null) ??
+    c?.cents_by_kind?.pro_monthly ??
     pricing.pro_plans?.find((p) => p.id === "pro_monthly")?.credit_cents ??
     pricing.pro_plans?.find((p) => p.credit_cents)?.credit_cents ??
     null
   );
 }
 
-/** Lifetime's monthly credit (App Store Lifetime), null when not sent. */
-export function lifetimeCreditCents(pricing: PublicPricing | null | undefined): number | null {
-  return pricing?.pro_credit?.cents?.pro_lifetime ?? null;
+/** How many days the credit lasts (pro_credit.expires_days). */
+export function proCreditDays(pricing: PublicPricing | null | undefined): number | null {
+  return pricing?.pro_credit?.expires_days ?? null;
 }
 
 /** What the plan's footnote says it does. */

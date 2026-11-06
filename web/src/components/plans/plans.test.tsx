@@ -292,7 +292,7 @@ describe("projects A", () => {
     wrap(<PlansBanner />);
     // owner 2026-11-07: the monthly credit, from /v1/pricing
     expect((await screen.findByTestId("plans-banner")).textContent).toContain(
-      "Pro takes 15% off every video and includes $20 of usage credit every month.",
+      "Pro takes 15% off every video and includes $20 credit to start.",
     );
     fireEvent.click(screen.getByTestId("plans-banner-dismiss"));
     expect(await screen.findByTestId("plans-line")).toBeTruthy();

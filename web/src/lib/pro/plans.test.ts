@@ -5,7 +5,9 @@ import {
   anchorPlan,
   creditLine,
   proCreditCents,
-  lifetimeCreditCents,
+  creditRules,
+  creditShort,
+  proCreditDays,
   planCadence,
   planName,
   plansFromPricing,
@@ -47,23 +49,24 @@ describe("Pro plans from /v1/pricing", () => {
     ]);
   });
 
-  it("labels the monthly credit, cadence and terms; no intro offers (owner 2026-11-07)", () => {
+  it("labels the credit to start, cadence and terms; no intro offers (owner 2026-11-07)", () => {
     const [weekly, monthly, yearly] = plansFromPricing(DEFS);
     expect(weekly.creditCents).toBe(2000);
-    expect(creditLine(monthly.creditCents)).toBe("$20 of usage credit every month");
+    expect(creditLine(monthly.creditCents)).toBe(
+      "$20 of usage credit when you join Pro (or the first time you sign in here with Pro from the app)",
+    );
+    expect(creditShort(2000)).toBe("$20 credit to start");
     expect(creditLine(null)).toBeNull();
-    // a plan without its own credit_cents takes pro_credit's for its id
-    const [bare] = plansFromPricing([{ id: "pro_weekly", interval: "week", price_cents: 399 }], {
-      cents: { pro_weekly: 1500 },
-      interval: "month",
-      rollover: false,
-      paid_only: true,
-      trial_counts: true,
-      stacks_with_plan: false,
-    });
+    expect(creditRules(30)).toBe("Use it within 30 days. It isn't paid out.");
+    expect(creditRules(null)).toBe("It isn't paid out.");
+    // a plan without its own credit_cents takes pro_credit's for its kind, else its amount
+    const def = { cents: 1800, once: true, expires_days: 30, rollover: false, paid_only: true, trial_counts: true, stacks_with_plan: false };
+    const [bare] = plansFromPricing([{ id: "pro_weekly", interval: "week", price_cents: 399 }], { ...def, cents_by_kind: { pro_weekly: 1500 } });
     expect(bare.creditCents).toBe(1500);
-    expect(proCreditCents({ pro_credit: { cents: { pro_monthly: 2000, pro_lifetime: 1000 } } } as never)).toBe(2000);
-    expect(lifetimeCreditCents({ pro_credit: { cents: { pro_monthly: 2000, pro_lifetime: 1000 } } } as never)).toBe(1000);
+    const [plain] = plansFromPricing([{ id: "pro_weekly", interval: "week", price_cents: 399 }], def);
+    expect(plain.creditCents).toBe(1800);
+    expect(proCreditCents({ pro_credit: def } as never)).toBe(1800);
+    expect(proCreditDays({ pro_credit: def } as never)).toBe(30);
     expect(proCreditCents({ pro_plans: DEFS } as never)).toBe(2000);
     expect(proCreditCents({} as never)).toBeNull();
     expect(planCadence(monthly)).toBe("/ month");

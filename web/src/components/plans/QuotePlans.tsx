@@ -31,7 +31,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Probe, StepQuoteResponse } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
-import { creditAmount, creditLine, planCadence, planName, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
+import { creditLine, creditRules, creditShort, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 import { SheetFrame } from "@/components/pay/SheetFrame";
@@ -174,8 +174,8 @@ export function QuoteProChoice({
         title="With Pro"
         sub={[
           pct ? `${pct}% off` : null,
-          // owner 2026-11-07: Pro's monthly usage credit
-          credit ? `${creditAmount(credit)} credit a month` : null,
+          // owner 2026-11-07: the credit joining Pro gives
+          creditShort(credit),
           monthly ? `from ${monthly.price} a month` : null,
         ]
           .filter(Boolean)
@@ -341,7 +341,7 @@ export function ProCheckoutSheet({
           </dl>
         ) : null}
         <p className="text-xs text-fg-muted">
-          {credit ? `${PRO_CREDIT_RULES} ` : ""}Cancel any time in Account. Prices in USD, excl. tax.
+          {credit ? `${creditRules(proCreditDays(pricing))} ` : ""}Cancel any time in Account. Prices in USD, excl. tax.
         </p>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </div>

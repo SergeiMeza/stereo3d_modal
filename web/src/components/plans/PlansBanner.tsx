@@ -3,13 +3,13 @@
 /**
  * Projects A (plans canvas, 2026-11-04): a slim banner above the drop zone
  * for people without a plan — "Pro takes 15% off every video (and, with
- * the gateway's pro_credit, includes $20 of usage credit every month). Monthly also
+ * the gateway's pro_credit, includes $20 credit to start). Monthly also
  * includes 20 free previews a month. See plans ×". Dismissed, it folds to
  * one line ("Save 15–25% on every video with a plan. See plans"); the full
  * banner returns 7 days after the dismissal (kept on the account).
  */
 
-import { creditLine, proCreditCents } from "@/lib/pro/plans";
+import { creditShort, proCreditCents } from "@/lib/pro/plans";
 import Link from "next/link";
 import type { JSX } from "react";
 
@@ -35,7 +35,7 @@ export function PlansBanner(): JSX.Element | null {
   const pct = proPct(pricing);
   const range = saveRange(pricing);
   const previews = pricing?.free_previews?.allowances?.pro_monthly;
-  const credit = creditLine(proCreditCents(pricing));
+  const credit = creditShort(proCreditCents(pricing));
   const eligible =
     tier === "none" && dismissed !== null && pct !== null && range !== null;
   const full = eligible && dismissed === false;

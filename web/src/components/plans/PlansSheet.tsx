@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import type { Preset } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
 import { qualityName } from "@/lib/glossary";
-import { creditLine, planCadence, planName, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
+import { creditLine, creditRules, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 
 import {
@@ -105,7 +105,7 @@ export function PlansSheet({
     list.find((p) => p.kind === "monthly") ??
     list[0];
   const biz = pricing?.plans?.business;
-  // owner 2026-11-07: Pro's monthly usage credit, from /v1/pricing
+  // owner 2026-11-07: the credit joining Pro gives, from /v1/pricing
   const credit = creditLine(proCreditCents(pricing));
   const maxFps = biz?.max_fps ?? pricing?.fps.max_fps_with_plan;
 
@@ -168,7 +168,7 @@ export function PlansSheet({
         >
           {credit ? (
             <p data-testid="plans-sheet-credit" className="text-xs text-fg-muted">
-              <span className="text-fg">Every plan includes {credit}.</span> {PRO_CREDIT_RULES}
+              <span className="text-fg">Pro includes {credit}.</span> {creditRules(proCreditDays(pricing))}
             </p>
           ) : null}
           {plans.state === "loading" ? (
