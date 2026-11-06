@@ -283,6 +283,48 @@ describe("gateway auth provider (China mode)", () => {
     expect(firebaseCalls.count).toBe(0);
   });
 
+  it("Confirm it's you works by email code through the cn gateway (owner 2026-11-06)", async () => {
+    const { AuthProvider, useAuth } = await import("@/lib/auth");
+    const { ReauthSheet } = await import("@/components/auth/ReauthSheet");
+    const { confirmItsYou } = await import("@/lib/reauth");
+    const { fireEvent, within } = await import("@testing-library/react");
+    let latest: AuthContextValue | null = null;
+    function Probe() {
+      latest = useAuth();
+      return <p data-testid="who">{latest.user?.email ?? "-"}</p>;
+    }
+    render(
+      <AuthProvider>
+        <Probe />
+        <ReauthSheet />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(latest?.ready).toBe(true));
+    await signInByCode(() => latest!, "dev@example.com");
+    await waitFor(() => expect(screen.getByTestId("who").textContent).toBe("dev@example.com"));
+    const before = storedSession()?.idToken;
+
+    let confirmed = false;
+    act(() => {
+      void confirmItsYou().then(() => {
+        confirmed = true;
+      });
+    });
+    const sheet = await screen.findByTestId("reauth-sheet");
+    // no Apple or Google in China mode
+    expect(within(sheet).queryByText(/Apple|Google/)).toBeNull();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Send a code to dev@example.com" }));
+    fireEvent.change(await within(sheet).findByLabelText("Sign-in code"), { target: { value: MOCK_EMAIL_CODE } });
+    await waitFor(() => expect(confirmed).toBe(true));
+    // a fresh session for the same account
+    expect(storedSession()?.uid).toBe("dev-user");
+    expect(storedSession()?.idToken).not.toBe(before);
+    const verifies = requestUrls.filter((u) => u.endsWith("/v1/auth/email/verify"));
+    expect(verifies).toHaveLength(2);
+    expect(verifies.every((u) => new URL(u).hostname.startsWith("cn."))).toBe(true);
+    expect(firebaseCalls.count).toBe(0);
+  });
+
   it("the sign-in screen hides Google and asks for no password", async () => {
     const { AuthProvider } = await import("@/lib/auth");
     const { default: SignInScreen } = await import(

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { PasskeysSection } from "@/components/auth/Passkeys";
+import { ReauthSheet } from "@/components/auth/ReauthSheet";
 import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
@@ -29,6 +30,7 @@ const renderSection = () =>
   render(
     <AuthProvider>
       <PasskeysSection />
+      <ReauthSheet />
     </AuthProvider>,
   );
 
@@ -83,18 +85,21 @@ describe("Account → Sign-in & security: passkeys (ADR 0136)", () => {
     expect((await within(dialog).findByRole("alert")).textContent).toBe("This device already has a passkey for your account.");
   });
 
-  it("asks to sign in again when the sign-in is too old, then adds on the next press", async () => {
+  it("asks to confirm it's you when the sign-in is too old, then adds on the next press", async () => {
     wa = installWebAuthn();
     mockDb.passkeyReauthNeeded = true;
     renderSection();
     fireEvent.click(await screen.findByTestId("passkey-add"));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add passkey" }));
-    expect(await within(dialog).findByText("Sign in again")).toBeTruthy();
+    // owner 2026-11-06: the shared sheet, not a copy in this dialog
+    const sheet = await screen.findByTestId("reauth-sheet");
+    expect(within(sheet).getByText("Confirm it's you")).toBeTruthy();
     expect(wa.create).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send a code to dev@example.com" }));
-    fireEvent.change(await within(dialog).findByLabelText("Sign-in code"), { target: { value: "123456" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Send a code to dev@example.com" }));
+    fireEvent.change(await within(sheet).findByLabelText("Sign-in code"), { target: { value: "123456" } });
     expect(await within(dialog).findByText("Signed in again. Now add the passkey.")).toBeTruthy();
+    expect(screen.queryByTestId("reauth-sheet")).toBeNull();
     mockDb.passkeyReauthNeeded = false;
     fireEvent.click(within(dialog).getByRole("button", { name: "Add passkey" }));
     expect(await screen.findByText("Passkey added.")).toBeTruthy();

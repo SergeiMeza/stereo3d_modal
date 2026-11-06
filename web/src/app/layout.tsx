@@ -6,6 +6,7 @@ import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 import { Analytics } from "@/components/Analytics";
 import { PasskeySuggestion } from "@/components/auth/PasskeySuggestion";
+import { ReauthSheet } from "@/components/auth/ReauthSheet";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
 import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
@@ -126,6 +127,8 @@ export default function RootLayout({
           </main>
           {/* owner 2026-11-04: web Pro's own checkout sheet (useBuyPro) */}
           <ProCheckoutHost />
+          {/* owner 2026-11-06: "Confirm it's you" for sensitive requests */}
+          <ReauthSheet />
           </BillingProvider>
           </MswProvider>
         </AuthProvider>

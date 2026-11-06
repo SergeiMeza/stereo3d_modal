@@ -75,6 +75,7 @@ import {
 import type { GatewaySession } from "@/lib/gatewayAuth";
 import { detectClient, isHeadset } from "@/lib/headset";
 import { passkeySignIn } from "@/lib/passkeys";
+import { confirmItsYou } from "@/lib/reauth";
 import { currentRegion, gatewayBaseUrl } from "@/lib/region";
 import { useRegion } from "@/lib/useRegion";
 
@@ -120,6 +121,9 @@ export interface AuthContextValue {
   /** ADR 0136: a fresh Apple or Google sign-in for the signed-in account
    * (adding a passkey needs one from the last 5 minutes). */
   reauthenticate(id: LinkableProvider): Promise<void>;
+  /** Owner 2026-11-06: confirm it's you with a passkey of this account
+   * (refuses another account's passkey, never switches accounts). */
+  reauthenticateWithPasskey(): Promise<void>;
   signOutUser(): Promise<void>;
   updateDisplayName(name: string): Promise<void>;
 }
@@ -699,6 +703,40 @@ const reauthenticate = async (id: LinkableProvider) => {
   }
 };
 
+export const OTHER_ACCOUNT_PASSKEY =
+  "That passkey is for another account. Use one saved for this account.";
+
+const reauthenticateWithPasskey = async () => {
+  const gw = viaGateway();
+  const uid = appStore.get(authStateAtom).user?.uid ?? null;
+  const answer = await passkeySignIn({ session: gw });
+  if (uid === null || answer.uid !== uid) throw new Error(OTHER_ACCOUNT_PASSKEY);
+  if (gw) {
+    gatewayAdoptSession(answer);
+    return;
+  }
+  if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+  try {
+    const auth = await getFirebaseAuth();
+    const { signInWithCustomToken } = await import("firebase/auth");
+    await signInWithCustomToken(auth, answer.custom_token);
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+/** Firebase asks for a recent sign-in before some account changes: the
+ * shared "Confirm it's you" (lib/reauth), then once more. */
+async function withRecentSignIn<T>(op: () => Promise<T>): Promise<T> {
+  try {
+    return await op();
+  } catch (e) {
+    if (errorCode(e) !== "auth/requires-recent-login") throw e;
+    await confirmItsYou();
+    return op();
+  }
+}
+
 const clearPendingLink = () => {
   dropPending();
   setAuthPending(null);
@@ -726,7 +764,7 @@ const linkProvider = async (id: LinkableProvider) => {
       return;
     }
     try {
-      await linkWithPopup(current, provider);
+      await withRecentSignIn(() => linkWithPopup(current, provider));
       track("link_provider", { method: id });
     } catch (e) {
       if (errorCode(e) !== "auth/provider-already-linked") throw e;
@@ -744,7 +782,7 @@ const unlinkProvider = async (id: string) => {
   try {
     const current = await requireFirebaseUser();
     const { unlink } = await import("firebase/auth");
-    await unlink(current, id);
+    await withRecentSignIn(() => unlink(current, id));
     track("unlink_provider", { method: id });
     await current.reload();
     const auth = await getFirebaseAuth();
@@ -795,6 +833,7 @@ const LIVE = {
   signInWithGoogle,
   signInWithPasskey,
   reauthenticate,
+  reauthenticateWithPasskey,
   signOutUser,
   updateDisplayName,
 };
@@ -810,6 +849,7 @@ const MOCK = {
   signInWithGoogle: mockNoop,
   signInWithPasskey: mockNoop,
   reauthenticate: mockNoop,
+  reauthenticateWithPasskey: mockNoop,
   signOutUser: mockSignOut,
   updateDisplayName: mockNoop,
 };

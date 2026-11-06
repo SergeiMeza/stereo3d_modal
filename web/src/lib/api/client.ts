@@ -4,6 +4,7 @@
  * message (which always contains the conversion/project id for support).
  */
 
+import { isReauthCode } from "@/lib/reauth";
 import type {
   AccountDeleteResult,
   AccountPlan,
@@ -206,12 +207,43 @@ export interface ClientOptions {
   resumableUploads?: () => boolean;
   /** Chunk PUTs (default XHR, for progress); injectable for tests. */
   chunkTransport?: ChunkTransport;
+  /** Owner 2026-11-06: a sensitive route answered 401 reauth_required;
+   * resolves once the person has signed in again (lib/reauth), and the
+   * request is tried once more. Rejects when they don't. */
+  onReauthRequired?: () => Promise<void>;
 }
 
 export class GatewayClient {
   constructor(private readonly opts: ClientOptions) {}
 
   private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+    opts: { anonymous?: boolean; reauth?: "auto" | "manual" } = {},
+  ): Promise<T> {
+    try {
+      return await this.requestOnce<T>(method, path, body, headers, opts);
+    } catch (e) {
+      // owner 2026-11-06: one shared "Confirm it's you", then once more
+      // ("manual": the caller asks itself, e.g. a passkey prompt that has
+      // to come from a click)
+      if (
+        e instanceof GatewayError &&
+        e.status === 401 &&
+        isReauthCode(e.code) &&
+        opts.reauth !== "manual" &&
+        this.opts.onReauthRequired
+      ) {
+        await this.opts.onReauthRequired();
+        return this.requestOnce<T>(method, path, body, headers, opts);
+      }
+      throw e;
+    }
+  }
+
+  private async requestOnce<T>(
     method: string,
     path: string,
     body?: unknown,
@@ -384,7 +416,9 @@ export class GatewayClient {
   /** ADR 0136: options to create a passkey; 401 reauth_required when the
    * sign-in is older than 5 minutes. */
   passkeyRegisterOptions(name: string): Promise<unknown> {
-    return this.request("POST", PASSKEY_ROUTES.registerOptions, { name });
+    // the passkey prompt after it has to come from a click: the add
+    // dialog asks "Confirm it's you" itself, then the person presses Add
+    return this.request("POST", PASSKEY_ROUTES.registerOptions, { name }, undefined, { reauth: "manual" });
   }
 
   /** ADR 0136: save the new passkey; 409 passkey_exists. */

@@ -32,6 +32,7 @@ import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetAuthForTests } from "@/lib/auth";
+import { resetReauthForTests } from "@/lib/reauth";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
 import { resetProForTests } from "@/lib/pro/usePro";
@@ -78,6 +79,7 @@ afterEach(() => {
   resetProForTests();
   resetPlanChangesForTests();
   resetAuthForTests();
+  resetReauthForTests();
   resetAccountSettingsCache();
   resetPaymentMethodsForTests();
   store.set(welcomePicksAtom, EMPTY_WELCOME_PICKS);

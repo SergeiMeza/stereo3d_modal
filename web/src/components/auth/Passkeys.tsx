@@ -5,9 +5,9 @@
  * passkey's name, device, when it was added and last used, with Rename and
  * Remove (asked first). "Add a passkey" names it, then the browser makes
  * it. Adding needs a sign-in from the last 5 minutes: when the gateway
- * says so (401 reauth_required), the dialog asks to sign in again with one
- * of the account's ways in (Apple, Google, or a code to the email), then
- * to press Add again (the passkey prompt has to come from a click).
+ * says so (401 reauth_required), the shared "Confirm it's you" sheet
+ * (ReauthSheet) asks to sign in again, then the person presses Add again
+ * (the passkey prompt has to come from a click).
  *
  * AddPasskeyDialog is shared with the suggestion after a sign-in.
  */
@@ -16,8 +16,6 @@ import { KeyRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { CodeInput } from "@/components/auth/CodeInput";
-import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
 import { usePasskeysSupported } from "@/components/auth/PasskeySignIn";
 import {
   AlertDialog,
@@ -40,10 +38,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GatewayError } from "@/lib/api/client";
+import { confirmItsYou, isReauthCode } from "@/lib/reauth";
 import { useGateway } from "@/lib/api/useGateway";
-import { useAuth } from "@/lib/auth";
-import type { LinkableProvider } from "@/lib/auth";
-import { CODE_LENGTH, isAppleRelayEmail } from "@/lib/emailCode";
 import { addPasskey, cancelPasskeyRequest, deviceName, toPasskeyError } from "@/lib/passkeys";
 import type { Passkey } from "@/lib/passkeys";
 import { billingUidAtom } from "@/lib/billing";
@@ -65,7 +61,7 @@ function when(iso: string | null | undefined): string {
 /** 401 reauth_required {method: "firebase"}: the ID token's sign-in is
  * older than 5 minutes; sign in again with one of the account's ways. */
 function needsReauth(e: unknown): boolean {
-  return e instanceof GatewayError && (e.code === "reauth_required" || e.code === "recent_sign_in_required");
+  return e instanceof GatewayError && isReauthCode(e.code);
 }
 
 function message(e: unknown): string {
@@ -230,7 +226,6 @@ function AddPasskeyBody({
 }): JSX.Element {
   const gateway = useGateway();
   const [name, setName] = useState(deviceName);
-  const [step, setStep] = useState<"name" | "reauth">("name");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // a prompt still open when the dialog goes is stopped (owner bug 2026-11-05)
@@ -242,23 +237,20 @@ function AddPasskeyBody({
     try {
       onAdded(await addPasskey(gateway, name.trim().slice(0, NAME_MAX) || deviceName()));
     } catch (e) {
-      if (needsReauth(e)) setStep("reauth");
-      else if (e instanceof GatewayError || !toPasskeyError(e).cancelled) setError(message(e));
+      if (needsReauth(e)) {
+        // owner 2026-11-06: the shared "Confirm it's you"; the passkey
+        // prompt then has to come from the next press of Add
+        setBusy(false);
+        try {
+          await confirmItsYou();
+          setConfirmed(true);
+        } catch {
+          // not confirmed: nothing changed, the dialog stays
+        }
+      } else if (e instanceof GatewayError || !toPasskeyError(e).cancelled) setError(message(e));
     } finally {
       setBusy(false);
     }
-  }
-
-  if (step === "reauth") {
-    return (
-      <ReauthStep
-        onBack={() => setStep("name")}
-        onDone={() => {
-          setConfirmed(true);
-          setStep("name");
-        }}
-      />
-    );
   }
   return (
     <>
@@ -294,100 +286,6 @@ function AddPasskeyBody({
           </Button>
         </DialogFooter>
       </form>
-    </>
-  );
-}
-
-/** Sign in again with one of the account's ways in. */
-function ReauthStep({ onBack, onDone }: { onBack: () => void; onDone: () => void }): JSX.Element {
-  const { user, appleEnabled, reauthenticate, sendEmailCode, signInWithEmailCode } = useAuth();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
-  const [code, setCode] = useState("");
-  const providers = user?.providerIds ?? [];
-  const email = user?.email && !isAppleRelayEmail(user.email) ? user.email : null;
-
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-      onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "That didn't work. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const providerButton = (id: LinkableProvider, label: string, logo: JSX.Element) => (
-    <Button type="button" variant="outline" className="h-10 w-full" disabled={busy} onClick={() => void run(() => reauthenticate(id))}>
-      {logo}
-      {label}
-    </Button>
-  );
-
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Sign in again</DialogTitle>
-        <DialogDescription>To add a passkey, confirm it&apos;s you. It only takes a moment.</DialogDescription>
-      </DialogHeader>
-      <div className="space-y-2.5">
-        {providers.includes("apple.com") && appleEnabled &&
-          providerButton("apple.com", "Continue with Apple", <AppleLogo className="size-4" />)}
-        {providers.includes("google.com") &&
-          providerButton("google.com", "Continue with Google", <GoogleLogo className="size-4" />)}
-        {email !== null &&
-          (codeSent ? (
-            <div className="space-y-2">
-              <p className="text-xs text-fg-muted">Enter the code we sent to {email}.</p>
-              <CodeInput
-                value={code}
-                onChange={setCode}
-                onComplete={(d) => void run(() => signInWithEmailCode(email, d))}
-                disabled={busy}
-                invalid={error !== null}
-              />
-              <Button
-                type="button"
-                className="w-full"
-                disabled={busy || code.length !== CODE_LENGTH}
-                onClick={() => void run(() => signInWithEmailCode(email, code))}
-              >
-                {busy ? "Checking…" : "Confirm"}
-              </Button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 w-full"
-              disabled={busy}
-              onClick={() => {
-                setBusy(true);
-                setError(null);
-                sendEmailCode(email)
-                  .then(() => setCodeSent(true))
-                  .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't send the code."))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              Send a code to {email}
-            </Button>
-          ))}
-      </div>
-      {error !== null && (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      )}
-      <DialogFooter>
-        <Button type="button" variant="outline" disabled={busy} onClick={onBack}>
-          Back
-        </Button>
-      </DialogFooter>
     </>
   );
 }
