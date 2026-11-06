@@ -38,6 +38,10 @@ type ProStatus struct {
 	// period's end, {to, effective_at}).
 	PlanID          string `json:"plan_id,omitempty"`
 	ScheduledChange any    `json:"scheduled_change,omitempty"`
+	// Renewable / RestoredFrom: web Pro only; a restored or support-moved
+	// plan never renews (renewable false, restored_from true).
+	Renewable    *bool `json:"renewable,omitempty"`
+	RestoredFrom bool  `json:"restored_from,omitempty"`
 	// FreePreviews: the Pro holder's free Lifelike previews, from the
 	// gateway's own table (owner 2026-11-04): {allowance, per_period,
 	// period: week|month|year|pass}; absent when not Pro.
@@ -156,6 +160,8 @@ func (s *Service) withWebPlan(ctx context.Context, uid string, ps ProStatus) Pro
 	ps.RenewsAt, ps.EndsAt = nil, nil
 	ps = s.withTerms(ctx, uid, ps, revenuecat.Status{}, cust)
 	ps.ScheduledChange = scheduledChangeJSON(cust.Plan)
+	renewable := !planNotRenewable(cust.Plan)
+	ps.Renewable, ps.RestoredFrom = &renewable, !renewable
 	if ps.FreePreviews == nil {
 		ps = s.withFreePreviews(ctx, ps, cust.Plan.PlanID)
 	}

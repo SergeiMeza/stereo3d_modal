@@ -113,6 +113,10 @@ func (s *Service) HandleCancelPlan(w http.ResponseWriter, r *http.Request, user 
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusNotFound, "no_plan", "you don't have a plan"))
 		return
 	}
+	if req.Resume && planNotRenewable(cust.Plan) {
+		httpx.WriteErr(ctx, w, errNotRenewable(cust.Plan))
+		return
+	}
 	sub, err := s.Stripe.SetCancelAtPeriodEnd(cust.Plan.SubscriptionID, !req.Resume)
 	if err != nil {
 		httpx.WriteErr(ctx, w, planStripeFailure(ctx, "cancel_plan", err, "couldn't change the plan; try again"))
@@ -129,7 +133,8 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 		return nil
 	}
 	p := cust.Plan
-	out := map[string]any{"plan": p.Tier, "plan_id": p.Key(), "status": p.Status, "active": p.Active(time.Now()), "cancel_at_period_end": p.CancelAtPeriodEnd}
+	out := map[string]any{"plan": p.Tier, "plan_id": p.Key(), "status": p.Status, "active": p.Active(time.Now()), "cancel_at_period_end": p.CancelAtPeriodEnd,
+		"renewable": !planNotRenewable(p), "restored_from": planNotRenewable(p)}
 	if pro, ok := s.rates(ctx).ProPlan(p.PlanID); ok && p.Tier == pricing.TierPro {
 		out["name"], out["interval"], out["price_cents"] = "Pro", pro.Interval, pro.PriceCents
 	} else if def, ok := s.rates(ctx).Plan(p.Tier); ok {

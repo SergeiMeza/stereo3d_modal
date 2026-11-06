@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -33,6 +34,8 @@ type EmailBackfill struct {
 	AlreadyStored int `json:"already_in_store"`
 	ToAdd         int `json:"to_add"`
 	Added         int `json:"added"`
+	AddedMain     int `json:"added_main"`
+	AddedExtra    int `json:"added_additional"`
 	Conflicts     int `json:"conflicts"` // the email is active on another account in the store
 	// Customer records.
 	Customers         int `json:"customers"`
@@ -47,7 +50,13 @@ type EmailBackfill struct {
 	StripeToResync    int `json:"stripe_customers_to_resync"`
 	StripeResynced    int `json:"stripe_customers_resynced"`
 	CustomersResynced int `json:"customers_email_resynced"`
-	Errors            int `json:"errors"`
+	// EM-03 check: Business or Studio accounts whose main email is a
+	// relay address (or missing) in the store, all shown
+	// plan_email_needed.
+	BusinessPlans        int `json:"business_studio_plans"`
+	RelayMainOnPlan      int `json:"relay_main_on_business_studio"`
+	PlanEmailNeededShown int `json:"plan_email_needed_shown"`
+	Errors               int `json:"errors"`
 }
 
 // BackfillAccountEmails runs EM-01 over users (each Firebase user) and the
@@ -102,8 +111,9 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 		if !live {
 			return nil
 		}
-		if _, err := s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: id.UID, Email: email, Source: "backfill",
-			Verified: id.EmailVerified, MainIfNone: true, Claim: true, Who: "backfill", At: now}); err != nil {
+		res, err := s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: id.UID, Email: email, Source: "backfill",
+			Verified: id.EmailVerified, MainIfNone: true, Claim: true, Who: "backfill", At: now})
+		if err != nil {
 			if _, taken := store.IsEmailTaken(err); taken {
 				out.Conflicts++
 			} else {
@@ -112,6 +122,11 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 			return nil
 		}
 		out.Added++
+		if res.BecameMain {
+			out.AddedMain++
+		} else {
+			out.AddedExtra++
+		}
 		return nil
 	})
 	if err != nil {
@@ -160,6 +175,18 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 			return nil
 		}
 		out.PlanAccounts++
+		if c.Plan.Tier == pricing.TierBusiness || c.Plan.Tier == pricing.TierStudio {
+			out.BusinessPlans++
+			list, err := s.Store.ListAccountEmails(ctx, uid)
+			if err != nil {
+				out.Errors++
+			} else if m := mainOf(list); m == nil || m.Relay() {
+				out.RelayMainOnPlan++
+				if s.planEmailNeeded(ctx, uid, list) {
+					out.PlanEmailNeededShown++
+				}
+			}
+		}
 		if !ok || store.IsRelayEmail(m) {
 			out.PlanRelayMain++
 		}

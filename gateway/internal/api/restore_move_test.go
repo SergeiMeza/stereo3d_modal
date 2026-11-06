@@ -239,3 +239,50 @@ func TestRestoredMonthlyInvoiceNotGrantedAgain(t *testing.T) {
 		t.Fatalf("credit %d → %d", before.PlanCreditCents(), after.PlanCreditCents())
 	}
 }
+
+// A restored plan never renews (its card is the other account's): the
+// plan reads renewable false and restored_from true (never the old uid);
+// resume, Keep plan, cancel {resume} and plan changes are 409
+// not_renewable; nothing reaches Stripe.
+func TestRestoredPlanNeverRenews(t *testing.T) {
+	for _, tc := range []struct{ planID, tier string }{{"studio", "studio"}, {"pro_monthly", "pro"}} {
+		t.Run(tc.planID, func(t *testing.T) {
+			f := newPlanFixture(t, tc.planID, tc.tier, 1000, 3, 30)
+			ctx := context.Background()
+			f.s.Store.UpdateCustomer(ctx, f.uid, func(c *store.Customer) error {
+				c.Plan.RestoredFrom, c.Plan.CancelAtPeriodEnd = "u-old-account", true
+				return nil
+			})
+			f.fake.subs[f.sub]["cancel_at_period_end"] = true
+			p := f.s.planJSON(ctx, f.uid)
+			if p["renewable"] != false || p["restored_from"] != true || strings.Contains(fmt.Sprint(p), "u-old-account") {
+				t.Fatalf("plan %v", p)
+			}
+			if tc.tier == "pro" {
+				ps := f.s.withWebPlan(ctx, f.uid, ProStatus{})
+				if ps.Renewable == nil || *ps.Renewable || !ps.RestoredFrom {
+					t.Fatalf("pro %+v", ps)
+				}
+			}
+			calls := f.fake.subCalls
+			for name, call := range map[string]func() (int, map[string]any){
+				"resume": func() (int, map[string]any) {
+					return callAs(f, f.s.HandleAccountPlanResume, http.MethodPost, ``, false)
+				},
+				"keep plan": func() (int, map[string]any) {
+					return callAs(f, f.s.HandleCancelScheduledChange, http.MethodDelete, ``, false)
+				},
+				"cancel resume":  func() (int, map[string]any) { return f.post(f.s.HandleCancelPlan, `{"resume":true}`) },
+				"change":         func() (int, map[string]any) { return f.post(f.s.HandlePlanChange, `{"to":"business","confirm":true}`) },
+				"preview change": func() (int, map[string]any) { return f.post(f.s.HandlePreviewPlanChange, `{"to":"pro_yearly"}`) },
+			} {
+				if code, out := call(); code != 409 || out["error"] != "not_renewable" || !strings.Contains(out["message"].(string), "restored from another account and ends on") {
+					t.Fatalf("%s: %d %v", name, code, out)
+				}
+			}
+			if f.fake.subCalls != calls || f.fake.subs[f.sub]["cancel_at_period_end"] != true {
+				t.Fatal("Stripe was asked")
+			}
+		})
+	}
+}

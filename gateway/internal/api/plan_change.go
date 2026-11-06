@@ -177,6 +177,9 @@ func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.C
 	if to == payPerVideo {
 		to = planNone // the same as /v1/billing/plan/cancel
 	}
+	if planNotRenewable(cust.Plan) && to != planNone {
+		return nil, errNotRenewable(cust.Plan) // a new plan is bought on the account's own customer instead
+	}
 	target, ok := s.planTarget(ctx, to)
 	if !ok {
 		return nil, httpx.ErrInvalid("to is pro_weekly, pro_monthly, pro_yearly, business, studio or pay_per_video (none)")
@@ -368,6 +371,10 @@ func (s *Service) HandleCancelScheduledChange(w http.ResponseWriter, r *http.Req
 		return
 	}
 	p := cust.Plan
+	if planNotRenewable(p) {
+		httpx.WriteErr(ctx, w, errNotRenewable(p))
+		return
+	}
 	if p.ScheduleID != "" {
 		if err := s.Stripe.ReleaseSchedule(p.ScheduleID); err != nil {
 			httpx.WriteErr(ctx, w, planStripeFailure(ctx, "release_schedule", err, "couldn't keep your plan; try again"))

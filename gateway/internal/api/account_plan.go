@@ -89,6 +89,10 @@ func (s *Service) HandleAccountPlanResume(w http.ResponseWriter, r *http.Request
 		return
 	}
 	p := cust.Plan
+	if p.CancelAtPeriodEnd && planNotRenewable(p) {
+		httpx.WriteErr(ctx, w, errNotRenewable(p))
+		return
+	}
 	if p.CancelAtPeriodEnd {
 		sub, err := s.Stripe.SetCancelAtPeriodEnd(p.SubscriptionID, false)
 		if err != nil {

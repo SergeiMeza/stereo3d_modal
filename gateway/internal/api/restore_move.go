@@ -57,6 +57,21 @@ const (
 // Plain keys for what a restore moves and what stays (the client words them).
 var restoreStays = []string{"usage_already_used", "balance", "app_store_purchases", "past_runs_and_files"}
 
+// A restored (or support-moved) plan never renews: its subscription stays
+// on the other account's Stripe customer and card, so a resume, a "Keep
+// plan" or a plan change would charge that card for this account. It
+// runs to its end; the person buys a plan of their own after that.
+func planNotRenewable(p *store.Plan) bool { return p != nil && p.RestoredFrom != "" }
+
+func errNotRenewable(p *store.Plan) *httpx.APIError {
+	end := "its period's end"
+	if p != nil && p.CurrentPeriodEnd != nil {
+		end = p.CurrentPeriodEnd.UTC().Format("January 2, 2006")
+	}
+	return httpx.Err(http.StatusConflict, "not_renewable",
+		"This plan was restored from another account and ends on "+end+". Choose a plan to continue after that.")
+}
+
 // recordPlanRestore writes the restore record for a deleted account's
 // plan still in its period (finishAccountDeletion, before the credit and
 // the emails go).
