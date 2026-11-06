@@ -28,6 +28,7 @@ import { accountQuery } from "@/state/queries";
 import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
 import { grantSheetAtom, GrantsSection, PromoRegrants } from "./Grants";
+import { ProCreditSection } from "./ProCredit";
 import { PlanMoveSheet } from "./PlanMove";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
@@ -386,6 +387,7 @@ export function AccountPage({ uid }: { uid: string }) {
 
       <GrantsSection uid={a.uid} grants={p.grants ?? []} />
       <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} />
+      <ProCreditSection credit={p.pro_credit} />
 
       <Panel title="Balance ledger" note="latest 50">
         {ledger.length === 0 ? (

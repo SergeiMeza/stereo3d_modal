@@ -711,3 +711,81 @@ describe("disputes badge and banner (header)", () => {
     }
   });
 });
+
+describe("Pro credit (gateway 00159, PRO-07)", () => {
+  const account = {
+    account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+    billing_state: { flow_state: "ok", sheet_only: false, lifetime_paid_cents: 0 },
+    owed_cents: 0,
+    balance: null,
+    methods: null,
+    cases: null,
+    charges: null,
+    refunds: null,
+    ledger: null,
+  };
+  const grant = (over: Record<string, unknown> = {}) => ({
+    id: "pcg_1",
+    month: 0,
+    period_start: "2026-11-07T00:00:00Z",
+    period_end: "2026-12-07T00:00:00Z",
+    cents: 2000,
+    kind: "pro_monthly",
+    source: "app_store",
+    period_type: "normal",
+    state: "granted",
+    granted_at: "2026-11-07T09:00:00Z",
+    ...over,
+  });
+
+  it("lists each month's credit with its state, newest first; a removed month says what was taken back", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          pro_credit: {
+            grants: [
+              grant({ id: "pcg_0", month: 0, period_start: "2026-10-07T00:00:00Z", period_end: "2026-11-07T00:00:00Z", state: "removed", removed_cents: 1240, removed_at: "2026-10-20T00:00:00Z", period_type: "trial" }),
+              grant({ id: "pcg_1", month: 1 }),
+              grant({ id: "pcg_2", month: 2, period_start: "2026-12-07T00:00:00Z", period_end: "2027-01-07T00:00:00Z", kind: "pro_lifetime", cents: 1000, source: "web", state: "granting" }),
+            ],
+            refunds: 1,
+            refund_flag: false,
+          },
+        },
+      }),
+    });
+    const panel = await screen.findByTestId("pro-credit");
+    expect(panel).toHaveTextContent("1 Pro refund");
+    const rows = within(screen.getByTestId("pro-credit-table")).getAllByTestId(/^pro-credit-pcg_/);
+    expect(rows.map((r) => r.dataset.testid)).toEqual(["pro-credit-pcg_2", "pro-credit-pcg_1", "pro-credit-pcg_0"]);
+    expect(rows[0]).toHaveTextContent("Pro Lifetime");
+    expect(rows[0]).toHaveTextContent("$10.00");
+    expect(rows[0]).toHaveTextContent("Granting");
+    expect(rows[1]).toHaveTextContent("Pro Monthly");
+    expect(rows[1]).toHaveTextContent("App Store");
+    expect(rows[1]).toHaveTextContent("Granted");
+    expect(rows[2]).toHaveTextContent("trial");
+    expect(rows[2]).toHaveTextContent("Removed");
+    expect(rows[2]).toHaveTextContent("$12.40 taken back");
+    expect(screen.queryByTestId("pro-refund-flag")).toBeNull();
+  });
+
+  it("flags a repeat refunder above the table", async () => {
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: { ...account, pro_credit: { grants: [], refunds: 2, refund_flag: true } },
+      }),
+    });
+    expect(await screen.findByTestId("pro-refund-flag")).toHaveTextContent(
+      "Repeat refunder: this account refunded Pro 2 times.",
+    );
+    expect(screen.getByText("No Pro credit granted.")).toBeInTheDocument();
+  });
+
+  it("an older gateway without pro_credit shows no section", async () => {
+    renderApp("/accounts/uid_123", { "GET /v1/admin/accounts/uid_123": () => ({ json: account }) });
+    expect(await screen.findByTestId("grants")).toBeInTheDocument();
+    expect(screen.queryByTestId("pro-credit")).toBeNull();
+  });
+});

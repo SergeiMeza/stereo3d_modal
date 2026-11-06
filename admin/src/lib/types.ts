@@ -457,6 +457,9 @@ export interface AccountPage {
   grants?: Grant[] | null;
   /** promo entitlements the gateway grants again (e.g. after a refund) */
   promo_regrants?: PromoRegrant[] | null;
+  /** gateway 00159 (PRO-07): Pro's monthly usage credit, its grants (last
+   * 24 months), how often the account refunded Pro, and the repeat flag */
+  pro_credit?: ProCreditAdmin | null;
   /** company detail changes, newest last (the last 20) */
   company_changes?: { at: string; by: string; fields: string[] | null }[] | null;
   /** owner 2026-11-04: the business details on the account's invoices */
@@ -830,4 +833,33 @@ export interface OpenEfw {
 export interface FeedbackSeen {
   seen_at: string | null;
   updated_at?: string | null;
+}
+
+/** One month of Pro credit (gateway 00159, pro_credit_grants_{env}). */
+export interface ProCreditGrant {
+  id: string;
+  /** 0 = the first month from the purchase */
+  month: number;
+  period_start: string;
+  period_end: string;
+  cents: number;
+  /** pro_weekly … pro_lifetime */
+  kind: string;
+  /** app_store | mac_app_store | rc_billing | web */
+  source: string;
+  /** the store's period type ("trial", "normal", "intro"), when sent */
+  period_type?: string;
+  state: "granting" | "granted" | "removed";
+  granted_at: string;
+  removed_at?: string;
+  removed_cents?: number;
+}
+
+/** The account page's pro_credit. */
+export interface ProCreditAdmin {
+  grants: ProCreditGrant[] | null;
+  /** Pro purchases this account refunded */
+  refunds: number;
+  /** refunded Pro more than once: the gateway also alerts on it */
+  refund_flag: boolean;
 }
