@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
+import { PlanMoveOffers } from "@/components/billing/PlanMoveOffers";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
 import { openRefundSheetAtom, refundOptionsAtom } from "@/components/refunds/refundAtoms";
 import { RefundsSection } from "@/components/refunds/RefundsSection";
@@ -771,6 +772,10 @@ export function BillingScreen(): JSX.Element {
       {/* owner bug 2026-11-05: one section failing never takes the page */}
       <SectionBoundary name="Balance">
         <BalanceCard />
+      </SectionBoundary>
+      {/* gateway 00155: a plan support offered to move here */}
+      <SectionBoundary name="Plan moves">
+        <PlanMoveOffers />
       </SectionBoundary>
       <SectionBoundary name="Plan">
         <PlanCard />

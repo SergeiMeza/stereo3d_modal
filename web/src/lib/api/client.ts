@@ -221,6 +221,9 @@ export interface AccountIdentities {
   password?: boolean;
   passkeys?: number;
   anonymous?: boolean;
+  /** gateway 00155: this account's email belongs to another account in
+   * the email store (named only by how it signs in) */
+  other_account?: { email_masked?: string; providers?: string[]; sign_in_with?: string } | null;
 }
 
 export type IdentityLink =
@@ -243,6 +246,19 @@ export interface AccountEmails {
   plan_email_needed: boolean;
   /** the main email changed: the session's ID token is stale */
   refresh_token?: boolean;
+}
+
+/** GET /v1/support/plan-moves (gateway 00155, RP-05). */
+export interface PlanMoveOffer {
+  id: string;
+  plan: string;
+  plan_id?: string;
+  ends_at: string;
+  from?: string[];
+  moves: string[];
+  stays: string[];
+  carry_cents?: number;
+  expires_at?: string;
 }
 
 /** POST /v1/billing/restore/find/verify (gateway 00152). */
@@ -579,6 +595,20 @@ export class GatewayClient {
    * restored_elsewhere; 400 proof_invalid; 502 restore_unavailable. */
   restoreMove(proofId: string, offerId: string): Promise<{ restored: boolean; message?: string }> {
     return this.request("POST", "/v1/billing/restore/move", { proof_id: proofId, offer_id: offerId });
+  }
+
+  // ------------------------------------------------- support plan moves (00155)
+
+  /** Plans support offered to move to this account (RP-05). */
+  async getPlanMoves(): Promise<PlanMoveOffer[]> {
+    const r = await this.request<{ moves?: PlanMoveOffer[] | null }>("GET", "/v1/support/plan-moves");
+    return r.moves ?? [];
+  }
+
+  /** Accept it (fresh sign-in). 409 a blocker (the offer stays open), 410
+   * move_expired, 404 move_not_found. */
+  acceptPlanMove(id: string): Promise<{ moved: boolean }> {
+    return this.request("POST", `/v1/support/plan-moves/${encodeURIComponent(id)}/accept`, {});
   }
 
   // ------------------------------------------------- sign-in methods

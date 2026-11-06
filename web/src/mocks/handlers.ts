@@ -448,8 +448,10 @@ interface DB {
    * the email or sign-in that finds them */
   restoreOffers: { emails: string[]; own: boolean; offer: import("@/lib/api/client").RestoreOffer; elsewhere?: string[] }[];
   restoreMoved: string[];
+  /** gateway 00155: plans support offered to move to this account */
+  planMoves: (import("@/lib/api/client").PlanMoveOffer & { blocker?: string; expired?: boolean })[];
   /** EM-02: GET /v1/account/identities for the mock account */
-  identities: { providers: string[]; email: string; password: boolean };
+  identities: { providers: string[]; email: string; password: boolean; other_account?: { email_masked: string; providers: string[]; sign_in_with: string } | null };
   /** EM-02: the next Apple or Google link belongs to another account
    * (409 credential_in_use with these providers) */
   identityInUse: string[] | null;
@@ -960,6 +962,7 @@ function seed(): DB {
     emailsTakenBy: new Map<string, string[]>(),
     restoreOffers: [] as typeof mockDb.restoreOffers,
     restoreMoved: [] as string[],
+    planMoves: [] as typeof mockDb.planMoves,
     supportRequests: [] as import("@/lib/api/client").SupportRequest[],
     identityInUse: null as string[] | null,
     passkeyVerifyErrors: [] as { status: number; code: string }[],
@@ -1009,6 +1012,7 @@ export const mockDb = {
     this.emailsTakenBy = fresh.emailsTakenBy;
     this.restoreOffers = fresh.restoreOffers;
     this.restoreMoved = fresh.restoreMoved;
+    this.planMoves = fresh.planMoves;
     this.supportRequests = fresh.supportRequests;
     this.identityInUse = fresh.identityInUse;
     this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
@@ -1198,6 +1202,7 @@ function identitiesJSON() {
     password: ids.password,
     passkeys: mockDb.passkeys.length,
     anonymous: ids.providers.length === 0 && mockDb.passkeys.length === 0,
+    other_account: ids.other_account ?? null,
   };
 }
 
@@ -3300,6 +3305,33 @@ export const handlers = [
     return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  // gateway 00155: support plan moves (RP-05)
+  http.get(`${GATEWAY}/v1/support/plan-moves`, () =>
+    HttpResponse.json({
+      moves: mockDb.planMoves.map((m) => {
+        const out: Record<string, unknown> = { ...m };
+        delete out.blocker;
+        delete out.expired;
+        return out;
+      }),
+    }),
+  ),
+  http.post(`${GATEWAY}/v1/support/plan-moves/:id/accept`, ({ params }) => {
+    const m = mockDb.planMoves.find((x) => x.id === params.id);
+    if (!m) return err(404, "move_not_found", "We couldn't find that offer.");
+    if (m.expired) return err(410, "move_expired", "This offer expired.");
+    if (m.blocker) return err(409, m.blocker, "Your account has a plan of its own. Contact support.");
+    const key = m.plan === "studio" ? "studio" : "business";
+    const def = TIERS.plans[key];
+    mockDb.billing.plan = {
+      plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
+      credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: true,
+      current_period_end: m.ends_at, interval: def.interval as "month" | "year", price_cents: def.price_cents,
+      restored_from: "moved-account", renewable: false,
+    };
+    mockDb.planMoves = mockDb.planMoves.filter((x) => x.id !== m.id);
+    return HttpResponse.json({ moved: true });
+  }),
   // gateway 00152: Restore Purchases moves a deleted account's plan here
   http.post(`${GATEWAY}/v1/billing/restore/find`, async ({ request }) => {
     const { email } = (await request.json().catch(() => ({}))) as { email?: string };

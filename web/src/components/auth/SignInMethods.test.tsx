@@ -158,4 +158,18 @@ describe("Account → Sign in with (EM-02)", () => {
     await (e as IdentityInUseError).switchTo!();
     expect(signIn).toHaveBeenCalledWith("eyJ.apple", "n0nce");
   });
+
+  it("another account uses this email: says how it signs in, and a code signs in to it (gateway 00155)", async () => {
+    mockDb.identities = {
+      providers: ["email"],
+      email: "dev@example.com",
+      password: false,
+      other_account: { email_masked: "d•••@example.com", providers: ["email"], sign_in_with: "email_code" },
+    };
+    renderMethods();
+    const notice = await screen.findByTestId("other-account");
+    expect(notice.textContent).toContain("Another account uses this email (it signs in with an email code).");
+    fireEvent.click(within(notice).getByRole("button", { name: "Sign in to that account" }));
+    expect(await within(notice).findByText("Enter the code we sent to dev@example.com.")).toBeTruthy();
+  });
 });

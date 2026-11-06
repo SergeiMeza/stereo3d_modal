@@ -22,6 +22,7 @@ import { Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
+import { OtherAccountNotice } from "@/components/auth/OtherAccountNotice";
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
 import {
   IdentityInUseError,
@@ -114,6 +115,10 @@ export function SignInMethods(): JSX.Element | null {
   return (
     <div data-testid="signin-methods" className="space-y-2">
       <p className="text-xs text-fg-muted">Sign in with</p>
+      {/* gateway 00155: another account holds this email */}
+      {identities?.other_account && view.email ? (
+        <OtherAccountNotice email={view.email} providers={identities.other_account.providers ?? []} />
+      ) : null}
       <ul className="divide-y divide-edge rounded-lg border border-edge">
         {shown.map((m) => {
           const removable = canRemove(methods, m.id, passkeys);

@@ -45,6 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GatewayError } from "@/lib/api/client";
 import type { AccountPlan, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
@@ -332,7 +333,8 @@ export function ScheduledChange({
   const pricing = usePricing();
   const proPlans = useProPlans();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  /** false, or the gateway's words (409 not_renewable, gateway 00155) */
+  const [error, setError] = useState<false | string>(false);
   const sc = plan.scheduled_change;
   const ending = plan.cancel_at_period_end && plan.current_period_end;
   if (!sc && !ending) return null;
@@ -354,8 +356,8 @@ export function ScheduledChange({
       else await gateway.cancelPlan(true);
       await billing.refresh();
       notifyProChanged();
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e instanceof GatewayError && e.code === "not_renewable" && e.message ? e.message : "Couldn't keep your plan. Try again.");
     } finally {
       setBusy(false);
     }
@@ -382,11 +384,7 @@ export function ScheduledChange({
           Keep {current}
         </Button>
       )}
-      {error ? (
-        <p className="w-full text-red-400">
-          Couldn&apos;t keep your plan. Try again.
-        </p>
-      ) : null}
+      {error ? <p className="w-full text-red-400">{error}</p> : null}
     </div>
   );
 }

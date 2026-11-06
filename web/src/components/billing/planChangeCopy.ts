@@ -129,6 +129,10 @@ export function planChangeError(e: unknown): string {
     case "same_plan":
       reason = "That's already your plan.";
       break;
+    case "not_renewable":
+      // gateway 00155: a restored or moved plan runs to its end
+      reason = e instanceof Error && e.message ? e.message : "This plan runs to its end and can't be changed.";
+      break;
     case "change_scheduled":
       reason = "A change is already waiting. Take it back on Billing first.";
       break;

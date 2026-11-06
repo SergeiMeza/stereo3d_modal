@@ -40,21 +40,22 @@ import {
   verifyEmailCodeAtom,
 } from "./restoreMoveAtoms";
 
-const MOVES: Record<string, string> = {
+export const MOVES: Record<string, string> = {
   plan: "Your plan, until that date",
   app_access: "Pro in the app",
   current_usage: "This month's unused usage",
   months_not_yet_given: "The months of usage still to come",
 };
 
-const STAYS: Record<string, string> = {
+export const STAYS: Record<string, string> = {
   usage_already_used: "Usage already used",
   balance: "The old account's balance",
   app_store_purchases: "App Store purchases",
   past_runs_and_files: "Past videos and files",
+  admin_grants: "Anything support gave the old account",
 };
 
-function planName(plan: string): string {
+export function planName(plan: string): string {
   if (plan === "studio") return "Studio";
   if (plan === "business") return "Business";
   return "Pro";
