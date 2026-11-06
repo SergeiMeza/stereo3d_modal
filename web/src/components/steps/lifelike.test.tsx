@@ -302,7 +302,10 @@ describe("Lifelike Deliver", () => {
     expect(within(group).getByText("Apple Vision Pro")).toBeTruthy();
     expect(within(group).getByText("Part 1")).toBeTruthy();
     expect(within(group).getByText("Part 2")).toBeTruthy();
-    expect(screen.getByTestId("view-in-3d").textContent).toBe("Full screen");
+    // the tracker's files, and the run's row in Previous runs (owner 2026-11-07)
+    await waitFor(() =>
+      expect(screen.getAllByTestId("view-in-3d").map((b) => b.textContent).sort()).toEqual(["Full screen", "Watch"]),
+    );
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       step: "production",
@@ -1281,5 +1284,160 @@ describe("prepaid balance on the run button (spec v7 P14)", () => {
     );
     expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("change-limit")).toBeTruthy();
+  });
+});
+
+describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
+  function fullRun(
+    id: string,
+    over: Omit<Partial<Conversion>, "params"> & { day?: number; params?: Partial<Conversion["params"]> } = {},
+  ): Conversion {
+    const { day = 1, params, ...rest } = over;
+    const at = `2026-11-0${day}T09:00:00Z`;
+    const c = {
+      conversion_id: id,
+      state: "succeeded",
+      kind: "video",
+      project_id: PID,
+      step: "production",
+      method: "lifelike",
+      params: { preset: "1080p", formats: ["mvhevc", "sbs"], ...params },
+      quote: { amount_cents: 1250, currency: "usd" },
+      billing: { status: "charged", charged_cents: 1250 },
+      progress: 1,
+      outputs: ["mvhevc", "sbs"],
+      created_at: at,
+      updated_at: at,
+      ...rest,
+    } as Conversion;
+    mockDb.conversions.set(id, c);
+    return c;
+  }
+
+  it("is hidden while the project has no full run (previews don't count)", async () => {
+    const project = lifelikeProject();
+    project.conversions = [
+      { ...fullRun("cpreviewonly"), step: "lifelike_preview" } as Conversion,
+    ];
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    await screen.findByTestId("checkout-main");
+    expect(screen.queryByRole("region", { name: "Previous runs" })).toBeNull();
+  });
+
+  it("one finished run: the part, quality, fps, day, state, price, and Watch / Download / Files", async () => {
+    const project = lifelikeProject();
+    project.conversions = [fullRun("cfullrun0001", { day: 6, params: { target_fps: 24 } })];
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    const section = within(await screen.findByRole("region", { name: "Previous runs" }));
+    const rows = section.getAllByTestId("previous-run");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("Whole video");
+    expect(rows[0].textContent).toContain("1080p · 24 fps");
+    expect(rows[0].textContent).toContain("Nov 6");
+    expect(section.getByTestId("previous-run-state").textContent).toBe("Ready");
+    expect(section.getByTestId("previous-run-price").textContent).toBe("$12.50");
+    expect((await section.findByTestId("view-in-3d")).textContent).toBe("Watch");
+    expect(await section.findByTestId("preview-download-mvhevc")).toBeTruthy();
+    expect(section.getByTestId("preview-download-sbs")).toBeTruthy();
+    expect(section.getByTestId("previous-run-files").getAttribute("href")).toBe("#tab=files");
+    expect(section.queryByText(/Show all/)).toBeNull();
+  });
+
+  it("more than 3: the latest 3, then Show all (n); a run being made is highlighted with its progress", async () => {
+    const project = lifelikeProject();
+    const n = project.probe!.num_frames;
+    project.conversions = [
+      fullRun("cfullrun0001", { day: 1 }),
+      fullRun("cfullrun0002", { day: 2, state: "failed", billing: { status: "not_charged" }, outputs: [] }),
+      fullRun("cfullrun0003", { day: 3, params: { from_frame: 24, to_frame: Math.min(n, 264) } }),
+      fullRun("cfullrun0004", { day: 4, billing: { status: "refunded", charged_cents: 1250 } }),
+      fullRun("cfullrun0005", { day: 5, state: "processing", progress: 0.4, outputs: [], billing: undefined }),
+    ];
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    const section = within(await screen.findByRole("region", { name: "Previous runs" }));
+    const ids = () => section.getAllByTestId("previous-run").map((r) => r.dataset.conversionId);
+    expect(ids()).toEqual(["cfullrun0005", "cfullrun0004", "cfullrun0003"]);
+    const running = section.getAllByTestId("previous-run")[0];
+    expect(running.dataset.running).toBe("true");
+    expect(within(running).getByTestId("previous-run-state").textContent).toBe("Making…");
+    expect(within(running).getByTestId("run-compact")).toBeTruthy();
+    expect(section.getAllByTestId("previous-run")[1].textContent).toContain("Refunded");
+    expect(section.getAllByTestId("previous-run")[2].textContent).toContain("0:01 – 0:11");
+
+    fireEvent.click(section.getByRole("button", { name: "Show all (5)" }));
+    expect(ids()).toEqual(["cfullrun0005", "cfullrun0004", "cfullrun0003", "cfullrun0002", "cfullrun0001"]);
+    const failed = section.getAllByTestId("previous-run")[3];
+    expect(within(failed).getByTestId("previous-run-state").textContent).toBe("Failed");
+    expect(within(failed).getByTestId("previous-run-price").textContent).toBe("Not charged");
+    fireEvent.click(section.getByRole("button", { name: "Show fewer" }));
+    expect(ids()).toHaveLength(3);
+  });
+
+  it("says plainly when the files were deleted", async () => {
+    const project = lifelikeProject();
+    project.files_deleted_at = "2026-11-05T00:00:00Z";
+    project.conversions = [fullRun("cfullrun0001")];
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    const section = within(await screen.findByRole("region", { name: "Previous runs" }));
+    expect(section.getByTestId("previous-run-gone").textContent).toBe("These files were deleted on Nov 5.");
+    expect(section.queryByTestId("view-in-3d")).toBeNull();
+  });
+
+  it("a note by the button when the form matches a run made or being made; never blocks", async () => {
+    const quotes = captureBodies("/quotes");
+    const project = lifelikeProject();
+    // the run the form would order now, read off its quote
+    const first = renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    await waitFor(() => expect(quotes.some((q) => q.step === "production")).toBe(true));
+    const asked = quotes.filter((q) => q.step === "production").at(-1)!;
+    first.unmount();
+
+    const made = lifelikeProject();
+    made.conversions = [
+      fullRun("cfullrun0001", {
+        day: 6,
+        params: {
+          preset: asked.preset as Conversion["params"]["preset"],
+          formats: asked.formats as Conversion["params"]["formats"],
+        },
+      }),
+    ];
+    renderPanel(<LifelikeDeliverPanel project={made} onProjectChanged={() => {}} />);
+    const note = await screen.findByTestId("already-made");
+    expect(note.textContent).toBe("You already made this on Nov 6 · Download");
+    expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false);
+
+    // another quality: a different order, no note
+    const other = screen
+      .getAllByTestId(/^quality-[a-z0-9]+$/)
+      .find((r) => r.dataset.testid !== `quality-${asked.preset}`);
+    expect(other).toBeDefined();
+    fireEvent.click(other!);
+    await waitFor(() => expect(screen.queryByTestId("already-made")).toBeNull());
+  });
+
+  it("a run being made with the same settings: You're already making this", async () => {
+    const quotes = captureBodies("/quotes");
+    const first = renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    await waitFor(() => expect(quotes.some((q) => q.step === "production")).toBe(true));
+    const asked = quotes.filter((q) => q.step === "production").at(-1)!;
+    first.unmount();
+    const made = lifelikeProject();
+    made.conversions = [
+      fullRun("cfullrun0009", {
+        day: 7,
+        state: "processing",
+        progress: 0.2,
+        outputs: [],
+        params: {
+          preset: asked.preset as Conversion["params"]["preset"],
+          formats: asked.formats as Conversion["params"]["formats"],
+        },
+      }),
+    ];
+    renderPanel(<LifelikeDeliverPanel project={made} onProjectChanged={() => {}} />);
+    expect((await screen.findByTestId("already-made")).textContent).toBe(
+      "You're already making this (ordered Nov 7) · See progress",
+    );
   });
 });

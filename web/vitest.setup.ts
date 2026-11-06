@@ -28,6 +28,7 @@ import { EMPTY_PROJECT_LIST, projectListAtom } from "@/components/projects/proje
 import { resetStepCheckoutState } from "@/components/steps/checkoutStore";
 import { resetConversionsForTests } from "@/components/steps/conversionAtoms";
 import { resetPastPreviewsForTests } from "@/components/steps/pastPreviewAtoms";
+import { resetPreviousRunsForTests } from "@/components/steps/previousRunsAtoms";
 import { resetRunFilesForTests } from "@/components/steps/runFilesAtoms";
 import { fpsPickAtom, resetMake3dForTests } from "@/components/steps/make3dAtoms";
 import { resetPricesForTests } from "@/components/steps/priceAtoms";
@@ -85,6 +86,7 @@ afterEach(() => {
   resetConversionsForTests();
   resetRunFilesForTests();
   resetPastPreviewsForTests();
+  resetPreviousRunsForTests();
   resetPricesForTests();
   for (const k of [...fpsPickAtom.getParams()]) fpsPickAtom.remove(k);
   // ... and what they keep across reloads

@@ -60,7 +60,10 @@ export function ViewIn3D({
   size = "sm",
   hideHint = false,
   onPlay,
+  flatLabel = "Full screen",
 }: {
+  /** the button's words where the file plays flat (a computer or phone) */
+  flatLabel?: string;
   /** 00081: tell the gateway a play started (POST .../plays) */
   onPlay?: (format: string) => void;
   /** a run's files: format (downloads key) → URL; null while loading */
@@ -119,7 +122,7 @@ export function ViewIn3D({
       />
     );
   }
-  const label = choice.stereo ? "View in 3D" : "Full screen";
+  const label = choice.stereo ? "View in 3D" : flatLabel;
   const hint = choice.stereo && !hideHint ? HEADSET_HINT[client] : undefined;
 
   function play(): void {

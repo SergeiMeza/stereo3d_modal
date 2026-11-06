@@ -9,7 +9,9 @@
  * source, real sizes), and which part (S3D-10 trim). Right, the price
  * card: the quote's lines, Ready in, the charging line with the cancel
  * rule behind "?", and ONE button "Make 3D · $X" (S3D-45). While a run
- * is going the tracker sits under the price card.
+ * is going the tracker sits under the price card. Earlier full runs sit
+ * first, in Previous runs (owner 2026-11-07), and a note by the button
+ * says when the form matches one already made or being made.
  */
 
 import { useState } from "react";
@@ -58,6 +60,7 @@ import {
 } from "@/components/plans/QuotePlans";
 import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
 import { useMake3dChoice } from "./make3dAtoms";
+import { AlreadyMadeNote, PreviousRuns } from "./PreviousRuns";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 
@@ -274,6 +277,7 @@ export function LifelikeDeliverPanel({
       className="grid items-start gap-4 pb-24 lg:grid-cols-[1fr_340px] lg:pb-0"
     >
       <div className="flex min-w-0 flex-col gap-4">
+        <PreviousRuns project={project} active={ck.active} />
         <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">
           <WatchPicker
             devices={devices}
@@ -488,7 +492,7 @@ export function LifelikeDeliverPanel({
         </details>
       </div>
 
-      <aside className="flex flex-col gap-3 lg:sticky lg:top-0">
+      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-0">
         <InstantCheckout
           variant="panel"
           checkout={ck}
@@ -521,11 +525,14 @@ export function LifelikeDeliverPanel({
           )}
           primary={withPro ? { label: "Subscribe and convert", onClick: () => setProSheet(true) } : null}
           after={
-            hasFiles ? (
-              <a href="#tab=files" className="text-center text-xs text-primary hover:underline">
-                Your earlier files are in Files
-              </a>
-            ) : null
+            <>
+              <AlreadyMadeNote project={project} active={ck.active} request={request} />
+              {hasFiles ? (
+                <a href="#tab=files" className="text-center text-xs text-primary hover:underline">
+                  Your earlier files are in Files
+                </a>
+              ) : null}
+            </>
           }
         />
         {ck.quote ? (

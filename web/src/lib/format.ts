@@ -52,3 +52,11 @@ export function formatClock(seconds: number): string {
   const r = String(s % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 }
+
+/** "Nov 7": a day in the same year, in English (the site is English). */
+export function formatShortDay(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}

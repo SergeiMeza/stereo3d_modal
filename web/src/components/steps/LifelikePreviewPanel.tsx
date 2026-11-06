@@ -34,7 +34,7 @@ import type {
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
-import { formatClock } from "@/lib/format";
+import { formatClock, formatShortDay } from "@/lib/format";
 import { headsetPreviewFormats, isHeadset, type Client } from "@/lib/headset";
 import {
   clipRange,
@@ -78,10 +78,7 @@ export function previewRange(
 
 /** "Nov 7": the day a preview was ordered. */
 export function previewDay(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatShortDay(iso);
 }
 
 /** A run's state as a strip band shows it. */
