@@ -16,6 +16,7 @@ import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
+import { PlanCard } from "./PlanCard";
 import { APP_STORE_NOTE, RestorePurchases } from "./RestorePurchases";
 import { HAS_OWN_PLAN, NOT_FOUND, RESTORED } from "./restoreMoveAtoms";
 
@@ -42,7 +43,7 @@ const OFFER: RestoreOffer = {
   plan: "studio",
   plan_id: "studio",
   ends_at: "2027-03-01T00:00:00Z",
-  renews: true,
+  renews: false,
   from: ["email"],
   moves: ["plan", "app_access", "current_usage"],
   stays: ["usage_already_used", "balance", "app_store_purchases", "past_runs_and_files"],
@@ -84,13 +85,25 @@ describe("Find purchases under another email", () => {
     expect(screen.getByText(APP_STORE_NOTE)).toBeTruthy();
     await findButton();
     const card = await screen.findByTestId("restore-offer-off_1");
-    expect(card.textContent).toContain("Studio plan · renews");
-    expect(card.textContent).toContain("Your plan, until it ends");
+    expect(card.textContent).toContain("Studio plan · valid until 1 Mar 2027");
+    expect(card.textContent).not.toContain("renews");
+    expect(card.textContent).toContain("Your plan, until that date");
     expect(card.textContent).toContain("This month's unused usage ($420.00)");
     expect(card.textContent).toContain("App Store purchases");
     fireEvent.click(within(card).getByRole("button", { name: "Restore Studio here" }));
     expect((await screen.findByTestId("restore-move-done")).textContent).toBe(RESTORED);
     expect(mockDb.billing.plan?.plan).toBe("studio");
+    // Plan & billing: ending on that date, no renewal offered
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <PlanCard />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const ending = await screen.findByTestId("scheduled-change");
+    expect(ending.textContent).toContain("Your Studio stays on until Mar 1, 2027.");
+    expect(within(ending).queryByRole("button", { name: /^Keep/ })).toBeNull();
   });
 
   it("otherwise an email and its code find it", async () => {

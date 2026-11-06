@@ -797,6 +797,11 @@ export interface AccountPlan {
   credit_resets_at?: string;
   /** owner 2026-11-04: a step-down waiting for the end of the paid period */
   scheduled_change?: { to: string; effective_at: string } | null;
+  /** Restore Purchases (gateway 00152): a plan moved here from a deleted
+   * account runs to its end and can't be renewed (asked of the gateway;
+   * either name is read) */
+  restored_from?: string | null;
+  renewable?: boolean;
 }
 
 export interface ProDiscount {

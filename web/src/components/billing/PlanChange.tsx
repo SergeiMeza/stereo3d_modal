@@ -371,14 +371,17 @@ export function ScheduledChange({
       className="flex flex-wrap items-center gap-3 rounded-lg border border-edge bg-surface-2 px-3 py-2 text-xs"
     >
       <p className="min-w-48 flex-1 text-fg">{line}</p>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy}
-        onClick={() => void keep()}
-      >
-        Keep {current}
-      </Button>
+      {/* a restored plan runs to its end: nothing to keep (gateway 00152) */}
+      {ending && !sc && (plan.restored_from || plan.renewable === false) ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onClick={() => void keep()}
+        >
+          Keep {current}
+        </Button>
+      )}
       {error ? (
         <p className="w-full text-red-400">
           Couldn&apos;t keep your plan. Try again.

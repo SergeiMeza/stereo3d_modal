@@ -3346,6 +3346,7 @@ export const handlers = [
       plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
       credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: !hit.offer.renews,
       current_period_end: hit.offer.ends_at, interval: def.interval as "month" | "year", price_cents: def.price_cents,
+      restored_from: "deleted-account",
     };
     return HttpResponse.json({ restored: true, message: "Your purchases are restored" });
   }),

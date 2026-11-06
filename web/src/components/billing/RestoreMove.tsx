@@ -41,7 +41,7 @@ import {
 } from "./restoreMoveAtoms";
 
 const MOVES: Record<string, string> = {
-  plan: "Your plan, until it ends",
+  plan: "Your plan, until that date",
   app_access: "Pro in the app",
   current_usage: "This month's unused usage",
   months_not_yet_given: "The months of usage still to come",
@@ -182,7 +182,8 @@ function OfferCard({ offer: o, busy, onConfirm }: { offer: RestoreOffer; busy: b
   return (
     <li data-testid={`restore-offer-${o.offer_id}`} className="flex flex-col gap-2 rounded-lg border border-edge p-3 text-sm">
       <p className="font-medium text-fg">
-        {planName(o.plan)} plan · {o.renews ? "renews" : "ends"} {longDate(o.ends_at)}
+        {/* a cancelled plan that runs to its end (renews: false) */}
+        {planName(o.plan)} plan · valid until {longDate(o.ends_at)}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
