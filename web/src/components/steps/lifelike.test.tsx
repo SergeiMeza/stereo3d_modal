@@ -1386,7 +1386,7 @@ describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
     expect(section.queryByTestId("view-in-3d")).toBeNull();
   });
 
-  it("a note by the button when the form matches a run made or being made; never blocks", async () => {
+  it("a note by the button when the form matches a run already made; never blocks", async () => {
     const quotes = captureBodies("/quotes");
     const project = lifelikeProject();
     // the run the form would order now, read off its quote
@@ -1419,7 +1419,7 @@ describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
     await waitFor(() => expect(screen.queryByTestId("already-made")).toBeNull());
   });
 
-  it("a run being made with the same settings: You're already making this", async () => {
+  it("a run being made with the same settings gets no note: the tracker covers it (owner 2026-11-07)", async () => {
     const quotes = captureBodies("/quotes");
     const first = renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
     await waitFor(() => expect(quotes.some((q) => q.step === "production")).toBe(true));
@@ -1439,8 +1439,8 @@ describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
       }),
     ];
     renderPanel(<LifelikeDeliverPanel project={made} onProjectChanged={() => {}} />);
-    expect((await screen.findByTestId("already-made")).textContent).toBe(
-      "You're already making this (ordered Nov 7) · See progress",
-    );
+    await screen.findByRole("region", { name: "Previous runs" });
+    await screen.findByTestId("checkout-main");
+    expect(screen.queryByTestId("already-made")).toBeNull();
   });
 });

@@ -9,7 +9,8 @@
  * cost, and Watch / Download / Files for a finished one. A run being made
  * is highlighted so the same thing isn't ordered twice, and the note by
  * the Make 3D button (AlreadyMadeNote) says when the form matches a run
- * already made or being made. Nothing here blocks ordering.
+ * already made (a running one is covered by the tracker; owner
+ * 2026-11-07). Nothing here blocks ordering.
  */
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -263,8 +264,9 @@ function RunActions({ conversion: c }: { conversion: Conversion }): JSX.Element 
   );
 }
 
-/** By the Make 3D button: the form matches a run already made or being
- * made. A gentle note; ordering stays open. */
+/** By the Make 3D button: the form matches a run already made. A gentle
+ * note; ordering stays open. A run still being made gets no note: the
+ * "A run is in progress" line and its tracker say so (owner 2026-11-07). */
 export function AlreadyMadeNote({
   project,
   active,
@@ -277,12 +279,9 @@ export function AlreadyMadeNote({
   const numFrames = project.probe?.num_frames ?? 0;
   const setOpen = useSetAtom(previousRunsOpenAtom(project.project_id));
   const runs = previousRuns(project, active);
-  const match = runs.find(
-    (c) => (c.state === "succeeded" || isInProgress(c)) && sameOrder(c, request, numFrames),
-  );
+  const match = runs.find((c) => c.state === "succeeded" && sameOrder(c, request, numFrames));
   if (!match) return null;
   const day = formatShortDay(match.created_at);
-  const running = isInProgress(match);
   const show = () => {
     if (runs.indexOf(match) >= PREVIOUS_RUNS_SHOWN) setOpen(true);
     // after the list opens
@@ -294,10 +293,10 @@ export function AlreadyMadeNote({
   };
   return (
     <p data-testid="already-made" className="text-center text-xs text-fg-muted">
-      {running ? `You're already making this (ordered ${day})` : `You already made this on ${day}`}
+      You already made this on {day}
       {" · "}
       <button type="button" onClick={show} className="text-primary hover:underline">
-        {running ? "See progress" : "Download"}
+        Download
       </button>
     </p>
   );
