@@ -37,6 +37,7 @@ import type {
   GatewayLimits,
   Project,
   PublicPricing,
+  RestoreResult,
   StepConversionRequest,
   StepQuoteResponse,
   UpdateProjectRequest,
@@ -315,6 +316,12 @@ export class GatewayClient {
    * heals the default payment method after onboarding / a portal edit. */
   getBilling(): Promise<BillingStatus> {
     return this.request("GET", "/v1/billing");
+  }
+
+  /** Restore Purchases: resync this account's web purchases (no charge;
+   * 429 rate_limited after 5 an hour, 403 account_deleted). */
+  restorePurchases(): Promise<RestoreResult> {
+    return this.request("POST", "/v1/billing/restore", {});
   }
 
   /** Saved payment methods, read-only (S3D-62: managed in the customer

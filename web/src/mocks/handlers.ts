@@ -3724,6 +3724,20 @@ export const handlers = [
     return HttpResponse.json({ ok: true });
   }),
 
+  // Restore Purchases (gateway feat/restore-resync): restored when the
+  // account has an active plan; tests answer other cases with server.use.
+  http.post(`${GATEWAY}/v1/billing/restore`, () => {
+    const plan = mockDb.billing.plan ?? null;
+    const restored = plan?.active === true;
+    return HttpResponse.json({
+      restored,
+      repaired: [],
+      plan,
+      pro: false,
+      message: restored ? "Your purchases are restored" : "We didn't find any purchases",
+    });
+  }),
+
   // Stripe customer-portal session (the /account "Manage billing" button).
   http.post(`${GATEWAY}/v1/billing/portal`, () => {
     return HttpResponse.json({
