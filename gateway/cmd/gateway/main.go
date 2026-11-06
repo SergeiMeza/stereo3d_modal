@@ -333,7 +333,8 @@ func main() {
 	mux.HandleFunc("POST /v1/account/delete/cancel", authed(api.Fresh(svc.HandleCancelDeletion))) // the 48-hour wait
 	// svs-backend's backstop for missed deletion callbacks (Google ID token, its service account only)
 	mux.HandleFunc("GET /v1/internal/account-deletions", svc.HandleInternalDeletions)
-	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview)) // what a delete would do
+	mux.HandleFunc("POST /internal/deletion-callback-probe", svc.HandleDeletionCallbackProbe) // test only, an unknown uid only
+	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview))                 // what a delete would do
 	mux.HandleFunc("POST /v1/account/plan/cancel", authed(api.Fresh(svc.HandleAccountPlanCancel)))
 	mux.HandleFunc("POST /v1/account/plan/resume", authed(api.Fresh(svc.HandleAccountPlanResume)))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25

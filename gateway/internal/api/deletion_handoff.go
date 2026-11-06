@@ -3,9 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -97,7 +99,7 @@ func (s *Service) sendDeletionCallback(ctx context.Context, uid string, now time
 	}
 	body, _ := json.Marshal(map[string]any{"uid": c.UID, "environment": c.Environment,
 		"requested_at": c.RequestedAt.UTC().Format(time.RFC3339), "completed_at": c.CompletedAt.UTC().Format(time.RFC3339), "via": c.Via})
-	code, perr := s.postDeletionCallback(ctx, s.Cfg.SVSBackendURL+deletionCallbackPath, body)
+	code, _, perr := s.postDeletionCallback(ctx, s.Cfg.SVSBackendURL+deletionCallbackPath, body)
 	if perr == nil && code >= 200 && code < 300 {
 		if err := s.Store.FinishDeletionCallback(ctx, uid, true, time.Time{}, "", false, time.Now().UTC()); err != nil {
 			slog.WarnContext(ctx, "deletion callback sent, not marked", "uid", uid, "err", err)
@@ -132,27 +134,104 @@ func callbackBackoff(attempts int) time.Duration {
 	return min(d, deletionCallbackMaxGap)
 }
 
-func (s *Service) postDeletionCallback(ctx context.Context, url string, body []byte) (int, error) {
+func (s *Service) postDeletionCallback(ctx context.Context, url string, body []byte) (int, []byte, error) {
 	if s.DeletionCallbackPost != nil {
 		return s.DeletionCallbackPost(ctx, url, body)
 	}
 	client, err := idtoken.NewClient(ctx, s.Cfg.SVSBackendURL) // audience: svs-backend's URL
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
-	resp.Body.Close()
-	return resp.StatusCode, nil
+	defer resp.Body.Close()
+	out, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
+	return resp.StatusCode, out, nil
+}
+
+// POST /internal/deletion-callback-probe {uid} (X-Reconcile-Token; test
+// only): the hand-off's end-to-end check from the gateway's own service
+// account. It refuses unless uid is unknown everywhere — no Firebase user
+// (getUser not-found), no billing record, no deletion or callback row —
+// then sends exactly one callback {via: "admin"} straight to svs-backend,
+// outside the outbox, records it in the admin audit, and answers
+// {status, response}.
+func (s *Service) HandleDeletionCallbackProbe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if s.Cfg.ReconcileToken == "" ||
+		subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Reconcile-Token")), []byte(s.Cfg.ReconcileToken)) != 1 {
+		httpx.WriteErr(ctx, w, httpx.ErrUnauthorized())
+		return
+	}
+	if s.Cfg.Env != "test" || s.Cfg.SVSBackendURL == "" {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "probe_off", "the probe runs on test only, with a callback target"))
+		return
+	}
+	var body struct {
+		UID string `json:"uid"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil || body.UID == "" || len(body.UID) > 128 {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("uid is required"))
+		return
+	}
+	uid := body.UID
+	refuse := func(code, msg string) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, code, msg))
+	}
+	lookup := s.SignInLookup
+	if lookup == nil && s.Auth != nil {
+		lookup = s.Auth.SignInOf
+	}
+	if lookup == nil {
+		refuse("no_auth", "can't check the uid against Firebase Auth")
+		return
+	}
+	switch info, err := lookup(ctx, uid); {
+	case err != nil:
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "auth_unreadable", "couldn't check the uid: "+err.Error()))
+		return
+	case info != nil:
+		refuse("user_exists", "that uid has a Firebase user; the probe only takes an unknown uid")
+		return
+	}
+	if _, err := s.Store.GetCustomer(ctx, uid); !errors.Is(err, store.ErrNotFound) {
+		refuse("known_uid", "that uid has a billing record")
+		return
+	}
+	if _, err := s.Store.GetAccountDeletion(ctx, uid); !errors.Is(err, store.ErrNotFound) {
+		refuse("known_uid", "that uid has a deletion row")
+		return
+	}
+	if _, err := s.Store.GetDeletionCallback(ctx, uid); !errors.Is(err, store.ErrNotFound) {
+		refuse("known_uid", "that uid has a callback row")
+		return
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	payload, _ := json.Marshal(map[string]any{"uid": uid, "environment": s.Cfg.Env, "requested_at": now, "completed_at": now, "via": viaAdmin})
+	code, resp, err := s.postDeletionCallback(ctx, s.Cfg.SVSBackendURL+deletionCallbackPath, payload)
+	out := map[string]any{"status": code}
+	var parsed any
+	if json.Unmarshal(resp, &parsed) == nil {
+		out["response"] = parsed
+	} else {
+		out["response"] = string(resp)
+	}
+	if err != nil {
+		out["error"] = err.Error()
+	}
+	s.audit(ctx, &AdminUser{UID: "operator", Email: "operator (reconcile token)"}, "deletion_callback_probe",
+		map[string]any{"uid": uid, "status": code, "error": out["error"]})
+	slog.InfoContext(ctx, "deletion callback probe", "uid", uid, "status", code)
+	httpx.WriteOK(w, out)
 }
 
 // internalCaller answers the service account behind an internal route's

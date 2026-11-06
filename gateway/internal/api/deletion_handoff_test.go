@@ -6,10 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -22,13 +24,13 @@ type callbackStub struct {
 	urls   []string
 }
 
-func (c *callbackStub) post(_ context.Context, url string, body []byte) (int, error) {
+func (c *callbackStub) post(_ context.Context, url string, body []byte) (int, []byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var m map[string]any
 	json.Unmarshal(body, &m)
 	c.bodies, c.urls = append(c.bodies, m), append(c.urls, url)
-	return c.status, nil
+	return c.status, []byte(`{"ok":true,"already":true,"unknown":true,"counts":{}}`), nil
 }
 
 func handoffFixture(t *testing.T) (planFixture, *callbackStub) {
@@ -206,5 +208,54 @@ func TestInternalDeletionsBackstop(t *testing.T) {
 	}
 	if code, rows := get("good", "?state=completed&since="+time.Now().Add(time.Hour).UTC().Format(time.RFC3339)); code != 200 || len(rows) != 0 {
 		t.Fatalf("future since %d %v", code, rows)
+	}
+}
+
+// The probe: operator token, test only, an unknown uid only (no Firebase
+// user, no records), exactly one callback outside the outbox, audited.
+func TestDeletionCallbackProbe(t *testing.T) {
+	f, stub := handoffFixture(t)
+	ctx := context.Background()
+	f.s.Cfg.ReconcileToken = "tok"
+	known := map[string]bool{"real-user": true}
+	f.s.SignInLookup = func(_ context.Context, uid string) (*auth.SignInInfo, error) {
+		if known[uid] {
+			return &auth.SignInInfo{Providers: []string{"google.com"}}, nil
+		}
+		return nil, nil
+	}
+	probe := func(tok, body string) (int, map[string]any) {
+		r := httptest.NewRequest(http.MethodPost, "/internal/deletion-callback-probe", strings.NewReader(body))
+		if tok != "" {
+			r.Header.Set("X-Reconcile-Token", tok)
+		}
+		w := httptest.NewRecorder()
+		f.s.HandleDeletionCallbackProbe(w, r)
+		return decode(w)
+	}
+	if code, _ := probe("", `{"uid":"x"}`); code != 401 {
+		t.Fatalf("no token %d", code)
+	}
+	if code, out := probe("tok", `{"uid":"real-user"}`); code != 409 || out["error"] != "user_exists" {
+		t.Fatalf("firebase user %d %v", code, out)
+	}
+	if code, out := probe("tok", `{"uid":"`+f.uid+`"}`); code != 409 || out["error"] != "known_uid" {
+		t.Fatalf("billing record %d %v", code, out)
+	}
+	if len(stub.bodies) != 0 {
+		t.Fatal("refusals sent a callback")
+	}
+	fake := "e2etest-" + store.NewID()
+	code, out := probe("tok", `{"uid":"`+fake+`"}`)
+	resp, _ := out["response"].(map[string]any)
+	if code != 200 || out["status"] != float64(204) || resp["unknown"] != true || len(stub.bodies) != 1 || stub.bodies[0]["uid"] != fake || stub.bodies[0]["via"] != "admin" {
+		t.Fatalf("probe %d %v %v", code, out, stub.bodies)
+	}
+	if _, err := f.s.Store.GetDeletionCallback(ctx, fake); err != store.ErrNotFound {
+		t.Fatal("the probe used the outbox")
+	}
+	f.s.Cfg.Env = "prod"
+	if code, _ := probe("tok", `{"uid":"`+fake+`2"}`); code != 403 {
+		t.Fatalf("prod %d", code)
 	}
 }
