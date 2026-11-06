@@ -135,7 +135,7 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 			}
 			r.Status = "paid"
 		case store.PIProcessing:
-			r.Status, r.AmountCents = "processing", c.Quote.AmountCents
+			r.Status, r.AmountCents = "processing", runCardCents(c)
 		case store.PIRefunded:
 			r.Status, r.chargeID = "refunded", r.RowID
 			if c.Stripe.RefundedCents < c.Stripe.CapturedCents {
@@ -234,7 +234,7 @@ func (s *Service) enrichRows(ctx context.Context, page []historyRow) {
 				it.ProjectID, it.Step, it.FromFrame, it.ToFrame = c.ProjectID, c.Step, c.Params.FromFrame, c.Params.ToFrame
 				it.Preset = c.Params.Preset
 				if it.AmountCents == 0 {
-					it.AmountCents = c.Quote.AmountCents
+					it.AmountCents = runCardCents(c)
 				}
 				if it.Step == "" {
 					it.Step = store.StepProduction
@@ -334,7 +334,7 @@ func (s *Service) outstandingRow(ctx context.Context, uid string, batches []*sto
 	for _, c := range convs {
 		if c.Stripe.BatchID == "" && (c.Stripe.PIStatus == store.PIChargeFailed || c.Stripe.PIStatus == store.PISettling) {
 			r.convIDs = append(r.convIDs, c.ID)
-			r.amounts[c.ID] = c.Quote.AmountCents
+			r.amounts[c.ID] = runCardCents(c)
 		}
 	}
 	return r

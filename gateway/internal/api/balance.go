@@ -73,6 +73,21 @@ func (s *Service) balanceSummary(ctx context.Context, uid string, b *store.Balan
 	out["prepaid_cents"] = prepaid
 	out["prepaid_frozen_cents"] = max(b.FrozenCents-b.PlanCreditFrozen(), 0)
 	out["plan_credit_cents"] = b.PlanCreditCents()
+	// Credit broken out (owner 2026-11-07: a $0.00 balance sat beside
+	// unspent credit): one entry per unexpired credit with cents left,
+	// soonest to expire first. ref is the plan's or Pro's key, not shown.
+	credits := []map[string]any{}
+	for _, c := range b.Credits(time.Now()) {
+		e := map[string]any{"kind": c.Kind, "cents": c.Cents, "expires_at": nil}
+		if c.ExpiresAt != nil {
+			e["expires_at"] = c.ExpiresAt.UTC().Format(time.RFC3339)
+		}
+		if c.Kind == "plan" && c.Ref != "" {
+			e["ref"] = c.Ref
+		}
+		credits = append(credits, e)
+	}
+	out["credits"] = credits
 	out["prepaid_expires_at"] = nil
 	if prepaid > 0 && b.ExpiresAt != nil && !b.Expired {
 		out["prepaid_expires_at"] = b.ExpiresAt.Format(time.RFC3339)
@@ -102,8 +117,8 @@ func (s *Service) monthSpent(ctx context.Context, uid string, b *store.Balance) 
 		if c.CreatedAt.Before(start) {
 			break // newest first
 		}
-		if c.ProjectID == "" || c.RunBalance != nil || c.Quote.AmountCents <= 0 {
-			continue
+		if c.ProjectID == "" || (c.RunBalance != nil && !c.RunBalance.Partial) || c.Quote.AmountCents <= 0 {
+			continue // a split run's balance part is in the ledger; its card part counts below
 		}
 		switch {
 		case c.Stripe.PIStatus == store.PIRefunded || c.Stripe.PIStatus == store.PICanceled:
@@ -112,7 +127,7 @@ func (s *Service) monthSpent(ctx context.Context, uid string, b *store.Balance) 
 		case c.Stripe.CapturedCents > 0:
 			sum += c.Stripe.CapturedCents
 		default:
-			sum += c.Quote.AmountCents
+			sum += runCardCents(c)
 		}
 	}
 	return sum
@@ -1215,7 +1230,11 @@ func (s *Service) usageRow(ctx context.Context, c *store.Conversion, names map[s
 		}
 		return row
 	}
-	if rb := c.RunBalance; rb != nil {
+	if rb := c.RunBalance; rb != nil && rb.Partial {
+		// credit and balance first, the card's rest: the card's row status
+		// below, with the covered part beside it
+		row["paid_with"], row["balance_cents"], row["card_cents"] = "balance_and_card", rb.HoldCents, runCardCents(c)
+	} else if rb != nil {
 		row["paid_with"] = "balance"
 		switch rb.State {
 		case store.HoldHeld, store.HoldPendingReload:

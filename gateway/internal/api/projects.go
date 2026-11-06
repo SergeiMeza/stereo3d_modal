@@ -1266,6 +1266,10 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 			flow, reason = store.FlowBalance, ""
 		}
 	}
+	// Credit and balance first: the part they cover and the card's rest.
+	if split := s.paySplit(ctx, user.UID, cust, quote.AmountCents, flow); split != nil {
+		resp["pay_split"] = split
+	}
 	resp["payment_flow"] = flow
 	if reason != "" {
 		resp["pay_now_reason"] = reason
@@ -1589,7 +1593,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 // placed before a failed write.
 func (s *Service) createAndSubmit(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, conv *store.Conversion, undo func()) {
-	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+	if err := s.createRunRecord(ctx, conv); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
 			// A racing request with the same Idempotency-Key won (P3). Its
 			// record holds the analyze credit and any shared, keyed

@@ -1073,6 +1073,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"kind":          c.Kind,
 		"params":        c.Params,
 	}
+	if split := splitBilling(c); split != nil {
+		resp["pay_split"] = split // credit and balance first: the covered part and the card's
+	}
 	resp["method"] = store.MethodOr(c.Method)
 	if c.Sample {
 		resp["sample"] = true

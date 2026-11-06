@@ -50,6 +50,11 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	}
 	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), pc.China)
 	conv.PaymentFlow, conv.PayReason = flow, reason
+	// Credit and balance first (owner 2026-11-07): what the balance has
+	// is held on the run and the card pays only the rest.
+	if hold := s.partialHoldCents(ctx, user.UID, cust, conv.Quote.AmountCents, flow); hold > 0 {
+		conv.RunBalance = &store.RunBalance{HoldCents: hold, State: store.HoldHeld, Partial: true}
+	}
 	if flow == store.FlowPayNow || flow == store.FlowChina {
 		s.startPayNowRun(ctx, w, user, cust, conv, restore, pc)
 		return
@@ -73,7 +78,7 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 		conv.Stripe.ChargePM2 = cust.LastGoodMethod // C1's second try
 	}
 	conv.PaymentFlow = store.FlowPrecharge
-	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+	if err := s.createRunRecord(ctx, conv); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
 			s.replayConversion(ctx, w, user, conv.ID) // the same Idempotency-Key raced (P3)
 			return
@@ -145,7 +150,7 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
 	start := time.Now()
 	pi, err := s.Stripe.PrechargeSaved(conv.Stripe.CustomerID, conv.Stripe.ChargePM,
-		conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+		runCardCents(conv), conv.Quote.Currency, stripex.Job{
 			Web:          true,
 			ConversionID: conv.ID,
 			UID:          conv.UID,
@@ -621,7 +626,7 @@ func (s *Service) startPayNowRun(ctx context.Context, w http.ResponseWriter, use
 	conv.State = store.StateCreated
 	conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoPrecharge}
 	conv.ExpiresAt = &expiry
-	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+	if err := s.createRunRecord(ctx, conv); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
 			if prior, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil && prior.UID == user.UID &&
 				s.replayPayFirst(ctx, w, user, prior, pc) {

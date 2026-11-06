@@ -46,6 +46,7 @@ type fakeStripe struct {
 	created        int
 	detaches       []string // POST /v1/payment_methods/{id}/detach
 	portals        []string // billing portal sessions' customers
+	piAmounts      []int64  // POST /v1/payment_intents amounts
 }
 
 func newFakeStripe() *fakeStripe {
@@ -306,6 +307,14 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(map[string]any{"id": id, "customer": nil})
 	case strings.HasPrefix(p, "/v1/payment_methods/"):
 		write(map[string]any{"id": strings.TrimPrefix(p, "/v1/payment_methods/"), "card": map[string]any{"fingerprint": f.pmPrints[strings.TrimPrefix(p, "/v1/payment_methods/")]}})
+	case p == "/v1/payment_intents" && r.Method == http.MethodPost:
+		// a saved-card charge or pre-charge: succeeds at the asked amount
+		f.created++
+		id := fmt.Sprintf("pi_new_%d", f.created)
+		amount, _ := strconv.ParseInt(r.Form.Get("amount"), 10, 64)
+		f.pis[id] = map[string]any{"status": "succeeded", "amount_received": amount, "payment_method": r.Form.Get("payment_method")}
+		f.piAmounts = append(f.piAmounts, amount)
+		write(f.pi(id))
 	case strings.HasPrefix(p, "/v1/payment_intents/") && strings.HasSuffix(p, "/cancel"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/payment_intents/"), "/cancel")
 		pi := f.pis[id]

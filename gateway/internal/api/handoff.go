@@ -159,9 +159,9 @@ func (s *Service) HandleCreateHandoff(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	resp := map[string]any{"code": displayCode(code), "url": s.handoffURL(code), "expires_at": updated.ExpiresAt.Format(time.RFC3339),
-		"amount_cents": updated.Quote.AmountCents}
+		"amount_cents": runCardCents(updated)}
 	if req.Email && user.Email != "" {
-		s.mailHandoff(ctx, fmt.Sprintf("E7_%s_%d", code, now.Unix()/60), user.UID, user.Email, s.handoffURL(code), updated.Quote.AmountCents)
+		s.mailHandoff(ctx, fmt.Sprintf("E7_%s_%d", code, now.Unix()/60), user.UID, user.Email, s.handoffURL(code), runCardCents(updated))
 		resp["email_masked"] = maskEmail(user.Email)
 	}
 	httpx.WriteOK(w, resp)
@@ -212,7 +212,7 @@ func (s *Service) HandleGetHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{
-		"label": s.runLabel(ctx, conv), "amount_cents": conv.Quote.AmountCents, "currency": conv.Quote.Currency,
+		"label": s.runLabel(ctx, conv), "amount_cents": runCardCents(conv), "currency": conv.Quote.Currency,
 		"email_masked": maskEmail(h.Email), "china": conv.PaymentFlow == store.FlowChina, "state": handoffState(h, conv),
 	}
 	if conv.State == store.StateCreated && conv.Stripe.PIStatus == store.PIProcessing {

@@ -103,7 +103,7 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 	return s.replaceRunPayment(ctx, conv, func(attempt int) (*store.Payment, error) {
 		sess, err := s.Stripe.CreateWebSession(stripex.SessionSpec{
 			CustomerID: conv.Stripe.CustomerID, PMC: s.Cfg.StripePMCWeb, UI: ui,
-			AmountCents: conv.Quote.AmountCents, Currency: conv.Quote.Currency, Label: label,
+			AmountCents: runCardCents(conv), Currency: conv.Quote.Currency, Label: label,
 			ReturnURL: returnURL, NoWeChat: device != "computer", SaveMethod: true, SavedOnce: s.savedOnceTypes(conv.Stripe.CustomerID),
 			NoKlarna:     len(s.rates(ctx).KlarnaMarkets) == 0, // per-market offer comes with local prices
 			ReceiptEmail: email, Description: piDescription(conv),
@@ -240,7 +240,7 @@ func (s *Service) HandleRunPayNow(w http.ResponseWriter, r *http.Request, user *
 // shape): checkout, amount_cents, publishable_key.
 func (s *Service) payNowResponse(c *store.Conversion) map[string]any {
 	resp := s.conversionResponse(c, nil)
-	resp["amount_cents"] = c.Quote.AmountCents
+	resp["amount_cents"] = runCardCents(c)
 	resp["publishable_key"] = s.Stripe.PublishableKey
 	if b, ok := resp["billing"].(map[string]any); ok {
 		if ch, ok := b["checkout"]; ok {
@@ -432,7 +432,7 @@ func (s *Service) handleChinaPay(ctx context.Context, w http.ResponseWriter, r *
 func (s *Service) openAlipay(ctx context.Context, conv *store.Conversion, returnURL, email string) (*store.Conversion, string, error) {
 	redirect := ""
 	updated, err := s.replaceRunPayment(ctx, conv, func(attempt int) (*store.Payment, error) {
-		pi, url, perr := s.Stripe.CreateAlipayPayment(conv.Stripe.CustomerID, conv.Quote.AmountCents, conv.Quote.Currency,
+		pi, url, perr := s.Stripe.CreateAlipayPayment(conv.Stripe.CustomerID, runCardCents(conv), conv.Quote.Currency,
 			returnURL, attempt, stripex.Job{Web: true, ConversionID: conv.ID, UID: conv.UID,
 				Description: piDescription(conv), ReceiptEmail: email, Metadata: jobMetadataFromConversion(conv)})
 		if perr != nil {

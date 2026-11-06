@@ -130,7 +130,7 @@ func (s *Service) lineFor(ctx context.Context, convID, projectID string, amount 
 	if c, err := s.Store.GetConversion(ctx, convID); err == nil {
 		line.ProjectID = c.ProjectID
 		if line.AmountCents == 0 {
-			line.AmountCents = c.Quote.AmountCents
+			line.AmountCents = runCardCents(c)
 		}
 		line.Description = s.invoiceLineLabel(ctx, c)
 	}

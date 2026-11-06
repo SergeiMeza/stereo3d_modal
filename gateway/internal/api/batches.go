@@ -139,7 +139,7 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		Step:         conv.Step,
 		Kind:         conv.Kind,
 		Description:  piDescription(conv),
-		AmountCents:  conv.Quote.AmountCents,
+		AmountCents:  runCardCents(conv), // the card's part; a partial hold settled the rest
 	}, tier.Window(), tier.CapCents)
 	if errors.Is(err, store.ErrNotBatchable) || errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID) // settled concurrently
@@ -445,7 +445,7 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 				c.Stripe.PaymentIntentID = piID
 			}
 			c.Stripe.PIStatus = store.PISucceeded
-			c.Stripe.CapturedCents = c.Quote.AmountCents
+			c.Stripe.CapturedCents = runCardCents(c)
 			c.Stripe.CapturedAt = &now
 			c.Stripe.SettleError = ""
 			return nil

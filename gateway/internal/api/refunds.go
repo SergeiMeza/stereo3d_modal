@@ -190,8 +190,8 @@ type runMoney struct {
 }
 
 func (s *Service) moneyOf(ctx context.Context, c *store.Conversion) runMoney {
-	m := runMoney{Conv: c, Price: c.Quote.AmountCents}
-	if rb := c.RunBalance; rb != nil && rb.State == store.HoldSettled {
+	m := runMoney{Conv: c, Price: runCardCents(c)} // a split run: the card's part (its credit part stays spent)
+	if rb := c.RunBalance; rb != nil && rb.State == store.HoldSettled && !rb.Partial {
 		m.Balance, m.Price = true, rb.SettledCents
 		return m
 	}
