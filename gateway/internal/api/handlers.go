@@ -765,6 +765,9 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodLifelike),
 				"available":             s.assignWorkspace().Lifelike != nil, // where new projects go (S3D-40)
 				"new_projects":          s.assignWorkspace().Lifelike != nil,
+				// the web offers Foveated Detail on this (same flag as
+				// /v1/pricing methods.lifelike.foveation.enabled)
+				"foveation": rates.FoveationEnabled,
 			},
 			store.MethodClassic: map[string]any{
 				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
