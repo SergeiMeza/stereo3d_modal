@@ -48,7 +48,8 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 			return
 		}
 	}
-	flow, reason := decideFlow(cust, conv.Quote.AmountCents, s.Pricing.Rates(ctx).PrechargeThreshold(), pc.China)
+	rates := s.Pricing.Rates(ctx)
+	flow, reason := decideFlow(cust, conv.Quote.AmountCents, rates.PrechargeThreshold(), pc.China, rates.DeferredPaymentsEnabled)
 	conv.PaymentFlow, conv.PayReason = flow, reason
 	// Credit and balance first (owner 2026-11-07): what the balance has
 	// is held on the run and the card pays only the rest.

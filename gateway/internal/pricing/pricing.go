@@ -262,7 +262,12 @@ type Rates struct {
 	// AccountDeleteDelayHours: a delete request waits this long before the
 	// deletion runs (owner 2026-11-07; test 48). 0 = at once, as before
 	// (prod until its release).
-	AccountDeleteDelayHours int            `firestore:"account_delete_delay_hours"`
+	AccountDeleteDelayHours int `firestore:"account_delete_delay_hours"`
+	// DeferredPaymentsEnabled: card runs may be charged after they finish
+	// (batched, "after") or pre-charged off-session. false in every env
+	// (owner 2026-11-07, until BL-32 after the release): the card pays in
+	// the sheet before the run starts. Only an explicit true turns it on.
+	DeferredPaymentsEnabled bool           `firestore:"deferred_payments_enabled"`
 	FreePreviewsEnabled     bool           `firestore:"free_previews_enabled"`
 	FreePreviewsOverride    map[string]int `firestore:"free_previews"`
 	FreePreviewsPerDay      int            `firestore:"free_previews_per_day"`

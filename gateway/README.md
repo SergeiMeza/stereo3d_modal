@@ -818,6 +818,28 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   {lifelike_cents_per_minute {list, pro, business, studio}, classic_pct}`,
   `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
   false`.
+- **Deferred payments off (owner 2026-11-07, every env, BL-32 after the
+  release)**: `deferred_payments_enabled` (default false everywhere; only
+  an explicit true turns it on). Off, every card-paid run pays in the
+  sheet before it starts (`payment_flow: paynow`, `charge_timing:
+  before`, no `pay_now_reason` unless a sheet reason applies): no "after"
+  batching, no off-session pre-charge. China stays `china`; a run the
+  credit or balance covers pays from the balance. Open batches close as
+  before; the mobile one-shot and stills are unchanged. **Release step**:
+  config/pricing_prod has no `deferred_payments_enabled: true`, and a
+  prod quote for a signed-in account with a card reads `payment_flow:
+  paynow`.
+- **Credit and balance first (owner 2026-11-07)**: a run the balance
+  doesn't cover in full holds what it has (credit first, soonest to
+  expire, then cash) as a partial hold (`balance.partial`) written with
+  the run; the card flow charges only the rest (`runCardCents`). The hold
+  settles with the run's success and is released on failure. Quotes add
+  `pay_split {credit_cents, balance_cents, card_cents, covered_cents,
+  text}` ("$20.00 from credit · $3.78 to your card"); runs add `pay_split
+  {covered_cents, card_cents, hold_state, settled_cents, released_cents,
+  text}`. A refund case on a split run covers the card's part; the
+  credit part stays spent. `GET /v1/billing` `balance.credits [{kind:
+  plan|pro|grant, cents, expires_at, ref?}]`, soonest expiry first.
 - **Prod release step (owner 2026-11-07: prod's Lifelike prices must
   match staging exactly).** TEST and prod keep separate tables in code
   (TEST's are `testLifelikeList`, `testLifelikeTiers`, `testAddOnPct`).

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -217,5 +218,44 @@ func TestBillingCredits(t *testing.T) {
 	bal, _ := out["balance"].(map[string]any)
 	if code != 200 || len(bal["credits"].([]any)) != 2 {
 		t.Fatalf("billing %d %v", code, out["balance"])
+	}
+}
+
+// Deferred payments off (every env, owner 2026-11-07): a quote for an
+// account with a card that has paid reads pay-now, charged before; with
+// credit short of the price it shows the split, and a fully covered one
+// pays from the balance.
+func TestQuotePayNowWithoutDeferred(t *testing.T) {
+	s, _, uid := splitFixture(t, 0)
+	ctx := context.Background()
+	c := projCaller{t, s, &AuthedUser{UID: uid}}
+	p := barsProject(3840, 2160, "3840:2160:0:0")
+	p.ID, p.UID, p.Source.GCSKey, p.Analyze.State = store.NewID(), uid, "stereo3d/test/uploads/x.mp4", store.AnalyzeSucceeded
+	p.Scenes = &store.Scenes{Version: 1, Cuts: []int{}}
+	s.Store.CreateProject(ctx, p)
+	quote := func() map[string]any {
+		code, body := c.do(s.HandleQuoteStep, p.ID, `{"step":"production","preset":"4k"}`)
+		var out map[string]any
+		json.Unmarshal([]byte(body), &out)
+		if code != 200 {
+			t.Fatalf("quote %d %s", code, body)
+		}
+		return out
+	}
+	out := quote()
+	if out["payment_flow"] != store.FlowPayNow || out["charge_timing"] != "before" || out["pay_now_reason"] != nil {
+		t.Fatalf("deferred off: %v %v %v", out["payment_flow"], out["charge_timing"], out["pay_now_reason"])
+	}
+	amount := int64(out["quote"].(map[string]any)["amount_cents"].(float64))
+	a := &AdminUser{UID: "admin", Email: "owner@x", Method: "cli"}
+	s.adminGrantCredit(ctx, a, uid, amount-100, "", "short by $1")
+	out = quote()
+	split, _ := out["pay_split"].(map[string]any)
+	if out["payment_flow"] != store.FlowPayNow || split["card_cents"] != float64(100) || split["credit_cents"] != float64(amount-100) {
+		t.Fatalf("split %v %v", out["payment_flow"], split)
+	}
+	s.adminGrantCredit(ctx, a, uid, 100, "", "the rest")
+	if out = quote(); out["payment_flow"] != store.FlowBalance || out["pay_split"] != nil {
+		t.Fatalf("covered %v %v", out["payment_flow"], out["pay_split"])
 	}
 }

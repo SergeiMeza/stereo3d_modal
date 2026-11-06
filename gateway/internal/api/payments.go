@@ -63,7 +63,11 @@ func hasCredit(c *store.Customer) bool {
 // threshold are charged when done, above it at start; saved methods with
 // no credit yet are charged at start. Outstanding / under-review accounts
 // are refused before this (blockedForPayment).
-func decideFlow(c *store.Customer, amountCents, thresholdCents int64, china bool) (flow, reason string) {
+//
+// deferred false (owner 2026-11-07, every env until deferred payments are
+// fixed after the release, BL-32): every card-paid run pays in the sheet
+// before it starts; no "after" batching, no off-session pre-charge.
+func decideFlow(c *store.Customer, amountCents, thresholdCents int64, china, deferred bool) (flow, reason string) {
 	switch {
 	case china:
 		return store.FlowChina, "china"
@@ -73,6 +77,8 @@ func decideFlow(c *store.Customer, amountCents, thresholdCents int64, china bool
 		return store.FlowPayNow, "all_methods_failed"
 	case c.SheetOnly:
 		return store.FlowPayNow, "account_flag"
+	case !deferred:
+		return store.FlowPayNow, ""
 	case hasCredit(c) && amountCents <= thresholdCents:
 		return store.FlowAfter, ""
 	}

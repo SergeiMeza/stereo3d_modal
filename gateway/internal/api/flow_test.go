@@ -3,6 +3,8 @@ package api
 import (
 	"testing"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -30,9 +32,24 @@ func TestDecideFlow(t *testing.T) {
 		{"legacy payer (before backfill)", &store.Customer{DefaultPaymentMethod: "pm_a", LifetimePaidCents: 900}, 100, false, store.FlowAfter, ""},
 	}
 	for _, tc := range cases {
-		flow, reason := decideFlow(tc.c, tc.amount, th, tc.china)
+		flow, reason := decideFlow(tc.c, tc.amount, th, tc.china, true)
 		if flow != tc.flow || reason != tc.reason {
 			t.Errorf("%s: %s/%s, want %s/%s", tc.name, flow, reason, tc.flow, tc.reason)
+		}
+		// deferred payments off (owner 2026-11-07, every env): every card
+		// run pays in the sheet first; China and the sheet reasons stay.
+		flow, reason = decideFlow(tc.c, tc.amount, th, tc.china, false)
+		wantFlow, wantReason := tc.flow, tc.reason
+		if wantFlow == store.FlowAfter || wantFlow == store.FlowPrecharge {
+			wantFlow, wantReason = store.FlowPayNow, ""
+		}
+		if flow != wantFlow || reason != wantReason {
+			t.Errorf("%s, deferred off: %s/%s, want %s/%s", tc.name, flow, reason, wantFlow, wantReason)
+		}
+	}
+	for _, env := range []string{"test", "prod"} {
+		if pricing.DefaultsFor(env).DeferredPaymentsEnabled {
+			t.Errorf("%s: deferred payments on by default", env)
 		}
 	}
 }
