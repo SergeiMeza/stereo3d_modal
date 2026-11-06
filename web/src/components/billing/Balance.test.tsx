@@ -70,21 +70,23 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
     };
   }
 
-  it("a fresh Business plan: Balance $0.00, its $400 on its own line", async () => {
+  it("a fresh Business plan: $400.00 available, its plan usage spelled out, Prepaid $0.00 (owner 2026-11-07)", async () => {
     business(40000);
     // the gateway counts the plan's credit in the balance
     mockDb.billing.prepaid.balance_cents = 40000;
     renderBilling();
-    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$0.00"));
-    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $400 left this month · resets on 5 Dec");
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$400.00"));
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $400.00 plan usage (use by 5 Dec)");
+    expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $0.00");
   });
 
-  it("top-ups beside a plan: only what keeps is the Balance", async () => {
+  it("top-ups beside a plan: all of it available, the plan usage spelled out, the cash as Prepaid", async () => {
     business(31250);
     topped(2500 + 31250);
     renderBilling();
-    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$25.00"));
-    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $312.50 left this month · resets on 5 Dec");
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$337.50"));
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $312.50 plan usage (use by 5 Dec)");
+    expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $25.00");
   });
 
   it("the gateway's prepaid fields (a0efcfa) set the amount, the hold and the expiry", async () => {
@@ -100,11 +102,12 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
       plan_credit_cents: 40000,
     };
     renderBilling();
-    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$15.00"));
+    await waitFor(() => expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $15.00"));
+    expect(screen.getByTestId("balance-amount").textContent).toBe("$415.00");
     expect(screen.getByTestId("balance-frozen").textContent).toBe("$10.00 on hold while a payment is reviewed.");
     expect(screen.getByTestId("balance-expires").textContent).toBe("Expires on 1 May 2027 unless you add funds.");
-    // the plan's credit keeps its own reset date
-    expect(screen.getByTestId("balance-plan-usage").textContent).toBe("Plan usage: $400 left this month · resets on 5 Dec");
+    // the plan's credit keeps its own date
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $400.00 plan usage (use by 5 Dec)");
   });
 
   it("no prepaid money: prepaid_expires_at null shows no expiry", async () => {
@@ -112,7 +115,7 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
     mockDb.billing.prepaid.balance_cents = 40000;
     mockDb.billing.balanceExtra = { expires_at: "2027-11-01T00:00:00Z", prepaid_cents: 0, prepaid_expires_at: null };
     renderBilling();
-    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$0.00"));
+    await waitFor(() => expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $0.00"));
     expect(screen.queryByTestId("balance-expires")).toBeNull();
   });
 
@@ -135,7 +138,7 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
       mockDb.billing.plan!.credit_left_cents = 40000;
       await vi.advanceTimersByTimeAsync(PLAN_CREDIT_POLL_MS + 50);
       await waitFor(() => expect(screen.getByTestId("plan-credit").textContent).toBe("$400.00 of $400.00 usage left this month"));
-      expect(screen.getByTestId("balance-plan-usage").textContent).toContain("$400 left this month");
+      expect(screen.getByTestId("balance-credits").textContent).toContain("$400.00 plan usage");
       const landed = reads;
       expect(landed - before).toBeLessThanOrEqual(2);
       // and then no more reads
@@ -171,11 +174,33 @@ describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
     }
   });
 
-  it("no plan: no plan line, the whole balance", async () => {
+  it("no plan: no credit spelled out, the whole balance", async () => {
     topped(2500);
     renderBilling();
     await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$25.00"));
-    expect(screen.queryByTestId("balance-plan-usage")).toBeNull();
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available");
+    expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $25.00");
+  });
+
+  it("the gateway's credits list: never $0.00 beside unspent credit; spent or expired ones drop out (owner 2026-11-07)", async () => {
+    // the owner's account: no cash, $100 usage credit added, $20 Pro credit
+    mockDb.billing.prepaid.balance_cents = 12000;
+    mockDb.billing.balanceExtra = {
+      prepaid_cents: 0,
+      credits: [
+        { kind: "grant", cents: 10000, expires_at: "2099-12-07T00:00:00Z", ref: "grant_1" },
+        { kind: "pro", cents: 2000, expires_at: "2099-12-07T00:00:00Z" },
+        { kind: "grant", cents: 0, expires_at: "2099-12-07T00:00:00Z" },
+        { kind: "grant", cents: 500, expires_at: "2020-01-01T00:00:00Z" },
+      ],
+    };
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$120.00"));
+    expect(screen.getByTestId("balance-credits").textContent).toBe(
+      "available · includes $100.00 usage credit (use by 7 Dec) and $20.00 Pro credit (use by 7 Dec)",
+    );
+    expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $0.00");
+    expect(screen.queryByText("Add funds to pay for runs from your balance.")).toBeNull();
   });
 });
 
@@ -209,7 +234,9 @@ describe("Balance card (P10)", () => {
     pp.month_spent_cents = 3720;
     renderBilling();
     const card = await screen.findByTestId("balance-card");
-    expect(within(card).getByTestId("balance-amount").textContent).toBe("$42.80");
+    // available: less what's reserved and on hold; the cash by Add funds
+    expect(within(card).getByTestId("balance-amount").textContent).toBe("$16.05");
+    expect(within(card).getByTestId("balance-prepaid").textContent).toBe("Prepaid $42.80");
     expect(card.textContent).toContain("$6.75 reserved for 1 run in progress");
     expect(card.textContent).toContain("$20.00 on hold while a payment is reviewed.");
     expect(card.textContent).toMatch(/Expires on .* unless you add funds\./);
@@ -388,8 +415,9 @@ describe("Pro's monthly credit (owner 2026-11-07)", () => {
     const card = await screen.findByTestId("pro-credit-card");
     expect(within(card).getByTestId("pro-credit-left").textContent).toBe("$12.40 of $20.00 Pro credit left this month");
     expect(within(card).getByTestId("pro-credit-expires").textContent).toBe("Expires on 1 Dec and isn't paid out.");
-    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$5.00"));
-    expect(screen.getByTestId("balance-pro-credit").textContent).toBe("Pro credit: $12.40 left this month · expires on 1 Dec");
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$17.40"));
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $12.40 Pro credit (use by 1 Dec)");
+    expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $5.00");
   });
 
   it("a trial's credit says the trial includes it; Lifetime shows its own amount", async () => {
@@ -405,7 +433,7 @@ describe("Pro's monthly credit (owner 2026-11-07)", () => {
     renderBilling();
     await screen.findByTestId("balance-amount");
     expect(screen.queryByTestId("pro-credit-card")).toBeNull();
-    expect(screen.queryByTestId("balance-pro-credit")).toBeNull();
+    expect(screen.getByTestId("balance-credits").textContent).toBe("available");
     cleanup();
     mockDb.proCredit = null;
     renderBilling();

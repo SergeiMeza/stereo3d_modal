@@ -7,15 +7,14 @@
  * (P19) rows.
  */
 
-import { proCreditLine } from "@/components/pro/ProCredit";
 import { PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
-import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { isTeamPlan, prepaidOf } from "@/lib/api/types";
-import type { AccountPlan, BalanceSummary } from "@/lib/api/types";
+import type { AccountPlan, BalanceCredit, BalanceSummary, ProCreditStatus } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 
@@ -53,11 +52,43 @@ export function prepaidExpiresAt(b: BalanceSummary): string | null {
   return "prepaid_expires_at" in b ? (b.prepaid_expires_at ?? null) : (b.expires_at ?? null);
 }
 
-/** "Plan usage: $400 left this month · resets on 5 Dec" */
-export function planUsageLine(plan: AccountPlan): string {
-  const left = plan.credit_left_cents ?? plan.credit_cents ?? 0;
-  const resets = plan.credit_resets_at ?? plan.current_period_end;
-  return `Plan usage: ${formatCentsShort(left)} left this month${resets ? ` · resets on ${dayMonth(resets)}` : ""}`;
+
+/** A credit's words: "$100.00 usage credit (use by 7 Dec)". */
+const CREDIT_WORDS: Record<BalanceCredit["kind"], string> = {
+  grant: "usage credit",
+  pro: "Pro credit",
+  plan: "plan usage",
+};
+
+/** The credits in the balance, left and still usable: the gateway's
+ * balance.credits (spent or expired ones left out), else, on older
+ * gateways, the plan's usage and Pro's credit from their own fields. */
+export function balanceCredits(
+  b: BalanceSummary,
+  plan: AccountPlan | null | undefined,
+  pro: ProCreditStatus | null | undefined,
+  now = Date.now(),
+): BalanceCredit[] {
+  if (b.credits) {
+    return b.credits.filter((c) => c.cents > 0 && (!c.expires_at || new Date(c.expires_at).getTime() > now));
+  }
+  return [
+    ...(isTeamPlan(plan)
+      ? [{ kind: "plan" as const, cents: plan.credit_left_cents ?? plan.credit_cents ?? 0, expires_at: plan.credit_resets_at ?? plan.current_period_end ?? null }]
+      : []),
+    ...(pro?.granted ? [{ kind: "pro" as const, cents: pro.left_cents, expires_at: pro.period_end }] : []),
+  ].filter((c) => c.cents > 0);
+}
+
+/** "includes $100.00 usage credit (use by 7 Dec) and $20.00 Pro credit
+ * (use by 7 Dec)"; null without credit. */
+export function creditsLine(credits: BalanceCredit[]): string | null {
+  if (credits.length === 0) return null;
+  const parts = credits.map(
+    (c) => `${formatCents(c.cents)} ${CREDIT_WORDS[c.kind] ?? "usage credit"}${c.expires_at ? ` (use by ${dayMonth(c.expires_at)})` : ""}`,
+  );
+  const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  return `includes ${joined}`;
 }
 
 const PAUSED: Record<string, string> = {
@@ -82,6 +113,10 @@ export function BalanceCard(): JSX.Element | null {
   const plan = isTeamPlan(status.plan) ? status.plan : null;
   const proCredit = status.pro_credit?.granted ? status.pro_credit : null;
   const prepaid = prepaidCents(b, plan, proCredit?.left_cents ?? 0);
+  // owner 2026-11-07: the headline is everything spendable, credit
+  // included; the credit is spelled out under it, the cash by Add funds
+  const credits = balanceCredits(b, plan, proCredit);
+  const creditLine = creditsLine(credits);
   const frozen = prepaidFrozenCents(b);
   const expires = prepaidExpiresAt(b);
 
@@ -97,19 +132,11 @@ export function BalanceCard(): JSX.Element | null {
             Balance
           </h2>
           <p data-testid="balance-amount" className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
-            {formatCents(prepaid)}
+            {formatCents(Math.max(b.available_cents, 0))}
           </p>
-          {plan ? (
-            <p data-testid="balance-plan-usage" className="text-xs text-fg-muted tabular-nums">
-              {planUsageLine(plan)}
-            </p>
-          ) : null}
-          {/* owner 2026-11-07: Pro's monthly credit, spent before the balance */}
-          {proCredit ? (
-            <p data-testid="balance-pro-credit" className="text-xs text-fg-muted tabular-nums">
-              {proCreditLine(proCredit)}
-            </p>
-          ) : null}
+          <p data-testid="balance-credits" className="text-xs text-fg-muted tabular-nums">
+            available{creditLine ? ` · ${creditLine}` : ""}
+          </p>
           {b.held_cents > 0 ? (
             <p className="text-xs text-fg-muted tabular-nums">
               {formatCents(b.held_cents)} reserved for {b.held_runs ?? 1} {(b.held_runs ?? 1) === 1 ? "run" : "runs"} in progress
@@ -122,7 +149,7 @@ export function BalanceCard(): JSX.Element | null {
           ) : null}
           {b.expired && b.expires_at ? (
             <p className="text-xs text-fg-muted">Your balance expired on {longDate(b.expires_at)}.</p>
-          ) : b.never_topped_up && prepaid === 0 ? (
+          ) : b.never_topped_up && prepaid === 0 && credits.length === 0 ? (
             <p className="text-xs text-fg-muted">Add funds to pay for runs from your balance.</p>
           ) : expires ? (
             <p data-testid="balance-expires" className="text-xs text-fg-muted">
@@ -130,10 +157,15 @@ export function BalanceCard(): JSX.Element | null {
             </p>
           ) : null}
         </div>
-        <Button size="lg" data-testid="balance-add-funds" onClick={openAddFunds}>
-          <PlusIcon className="size-4" aria-hidden />
-          Add funds
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button size="lg" data-testid="balance-add-funds" onClick={openAddFunds}>
+            <PlusIcon className="size-4" aria-hidden />
+            Add funds
+          </Button>
+          <span data-testid="balance-prepaid" className="text-xs text-fg-muted tabular-nums">
+            Prepaid {formatCents(prepaid)}
+          </span>
+        </div>
       </div>
       {paused ? (
         <div data-testid="reload-paused" className="flex flex-wrap items-center gap-3 border-t border-edge bg-amber-500/10 px-5 py-2.5 text-sm text-amber-100">

@@ -26,11 +26,6 @@ export function useProCredit(): ProCreditStatus | null {
   return c && c.granted ? c : null;
 }
 
-/** "Pro credit: $12.40 left this month · expires on 1 Dec" (the Balance
- * card's line, like planUsageLine). */
-export function proCreditLine(c: ProCreditStatus): string {
-  return `Pro credit: ${formatCents(c.left_cents)} left this month · expires on ${dayMonth(c.period_end)}`;
-}
 
 /** The left / of / expiry block with its bar. */
 export function ProCreditLeft({ credit }: { credit: ProCreditStatus }): JSX.Element {

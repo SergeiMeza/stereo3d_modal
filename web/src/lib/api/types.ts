@@ -1010,6 +1010,10 @@ export interface BalanceSummary {
   prepaid_expires_at?: string | null;
   /** gateway a0efcfa: the plan's usage credit in the balance */
   plan_credit_cents?: number;
+  /** owner 2026-11-07: each usage credit in the balance, what's left of it
+   * and its use-by date (plan: a Business or Studio plan's usage; pro: Pro's
+   * credit; grant: usage credit we added) */
+  credits?: BalanceCredit[] | null;
   held_cents: number;
   frozen_cents: number;
   available_cents: number;
@@ -1028,6 +1032,16 @@ export interface BalanceSummary {
   spend_limit_cents?: number | null;
   month_spent_cents: number;
   low_balance_cents: number;
+}
+
+/** One usage credit in the balance (owner 2026-11-07). */
+export interface BalanceCredit {
+  kind: "plan" | "pro" | "grant";
+  /** what's left */
+  cents: number;
+  expires_at?: string | null;
+  /** the grant or plan it came from, when the gateway says */
+  ref?: string;
 }
 
 /** spec v7 N13: PUT /v1/billing/balance/settings */
