@@ -90,13 +90,15 @@ func (c *Client) CreatePlanSession(spec PlanSessionSpec) (*Session, error) {
 
 // Subscription is the part of a subscription the gateway mirrors.
 type Subscription struct {
-	ID                 string            `json:"id"`
-	Status             string            `json:"status"`
-	Customer           string            `json:"customer"`
-	CancelAtPeriodEnd  bool              `json:"cancel_at_period_end"`
-	Metadata           map[string]string `json:"metadata"`
-	CurrentPeriodStart int64             `json:"current_period_start"`
-	CurrentPeriodEnd   int64             `json:"current_period_end"`
+	ID                string            `json:"id"`
+	Status            string            `json:"status"`
+	Customer          string            `json:"customer"`
+	CancelAtPeriodEnd bool              `json:"cancel_at_period_end"`
+	Metadata          map[string]string `json:"metadata"`
+	// Schedule: the subscription schedule managing it ("" when none).
+	Schedule           string `json:"schedule"`
+	CurrentPeriodStart int64  `json:"current_period_start"`
+	CurrentPeriodEnd   int64  `json:"current_period_end"`
 	Items              struct {
 		Data []struct {
 			ID                 string `json:"id"`
@@ -205,6 +207,23 @@ func (c *Client) InvoicePayment(invoiceID string) (pi string, paid int64, err er
 		}
 	}
 	return "", 0, fmt.Errorf("invoice %s has no paid payment", invoiceID)
+}
+
+// CustomerSubscriptions lists a customer's subscriptions, every status
+// (up to 100).
+func (c *Client) CustomerSubscriptions(customerID string) ([]Subscription, error) {
+	var page struct {
+		Data []Subscription `json:"data"`
+	}
+	if err := webCall(http.MethodGet, "/v1/subscriptions?status=all&limit=100&customer="+url.QueryEscape(customerID), nil, "", &page); err != nil {
+		return nil, err
+	}
+	return page.Data, nil
+}
+
+// Live: a subscription that can still bill (not canceled or expired).
+func (s *Subscription) Live() bool {
+	return s.Status != "" && s.Status != "canceled" && s.Status != "incomplete_expired"
 }
 
 // CancelSubscriptionNow ends a subscription at once (no proration, no
@@ -349,6 +368,12 @@ func (c *Client) ScheduleStepDown(subscriptionID, newPrice string, metadata map[
 func (c *Client) ReleaseSchedule(id string) error {
 	var out map[string]any
 	return webCall(http.MethodPost, "/v1/subscription_schedules/"+url.PathEscape(id)+"/release", url.Values{}, "", &out)
+}
+
+// NotFound: Stripe answered 404 / resource_missing (gone already).
+func NotFound(err error) bool {
+	var se *stripe.Error
+	return errors.As(err, &se) && (se.HTTPStatusCode == http.StatusNotFound || se.Code == "resource_missing")
 }
 
 // PaymentRequired: Stripe answered 402 (a payment that didn't go through).

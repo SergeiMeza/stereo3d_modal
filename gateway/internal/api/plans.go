@@ -249,6 +249,12 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	s.syncPlan(ctx, sub)
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
+	// A deleted account's subscription only runs out (cancel_at_period_end
+	// at the deletion): nothing is granted again, quietly.
+	if cust, cerr := s.Store.GetCustomer(ctx, uid); cerr == nil && cust.AccountDeleted {
+		slog.InfoContext(ctx, "plan invoice for a deleted account: nothing granted", "invoice", inv.ID)
+		return
+	}
 	// A plan started: once per subscription, with the plans surface they
 	// last clicked (renewals find it recorded).
 	key, source := "plan:"+sub.ID, "checkout"

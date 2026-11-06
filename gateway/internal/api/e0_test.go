@@ -38,6 +38,8 @@ type fakeStripe struct {
 	schedules      map[string]map[string]string // schedule id → last phases form (and "released")
 	failNextChange bool                         // the next subscription update answers 402
 	changeError    map[string]any               // the next subscription update answers 402 with this Stripe error
+	failCancel     int                          // the next n cancel_at_period_end updates answer 500
+	subCalls       int                          // calls on /v1/subscriptions…
 	sessionForms   []map[string]string          // POST /v1/checkout/sessions forms
 	customers      map[string]*fakeCustomer     // customer id → name, address, tax IDs, PO
 	expired        []string
@@ -143,8 +145,23 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"expires_at": time.Now().Add(30 * time.Minute).Unix(), "status": "open"})
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
+	case p == "/v1/subscriptions" && r.Method == http.MethodGet:
+		f.subCalls++
+		data := []any{}
+		for _, sub := range f.subs {
+			if sub["customer"] == r.URL.Query().Get("customer") {
+				data = append(data, sub)
+			}
+		}
+		write(map[string]any{"data": data})
 	case strings.HasPrefix(p, "/v1/subscriptions/"):
+		f.subCalls++
 		id := strings.TrimPrefix(p, "/v1/subscriptions/")
+		if f.subs[id] == nil {
+			w.WriteHeader(404)
+			write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "resource_missing", "message": "No such subscription"}})
+			return
+		}
 		if r.Method == http.MethodDelete {
 			f.subs[id]["status"] = "canceled"
 		}
@@ -182,6 +199,17 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.subs[id]["current_period_start"], f.subs[id]["current_period_end"] = now, now+30*86400
 			f.subs[id]["items"] = map[string]any{"data": []any{map[string]any{"id": "si_1", "price": map[string]any{"id": form["items[0][price]"]}}}}
 		} else if r.Method == http.MethodPost && r.Form.Get("cancel_at_period_end") != "" {
+			if f.failCancel > 0 {
+				f.failCancel--
+				w.WriteHeader(500)
+				write(map[string]any{"error": map[string]any{"type": "api_error", "message": "boom"}})
+				return
+			}
+			if sch, _ := f.subs[id]["schedule"].(string); sch != "" { // Stripe: a scheduled subscription takes no update
+				w.WriteHeader(400)
+				write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "managed by a subscription schedule"}})
+				return
+			}
 			f.subs[id]["cancel_at_period_end"] = r.Form.Get("cancel_at_period_end") == "true"
 		}
 		write(f.subs[id])
@@ -196,12 +224,20 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/subscription_schedules":
 		id := fmt.Sprintf("sub_sched_%d", len(f.schedules)+1)
 		f.schedules[id] = map[string]string{"from": r.Form.Get("from_subscription")}
+		if sub := f.subs[r.Form.Get("from_subscription")]; sub != nil {
+			sub["schedule"] = id
+		}
 		write(map[string]any{"id": id, "phases": []any{map[string]any{"start_date": 1000, "end_date": 2000,
 			"items": []any{map[string]any{"price": "price_old"}}}}})
 	case strings.HasPrefix(p, "/v1/subscription_schedules/"):
 		rest := strings.TrimPrefix(p, "/v1/subscription_schedules/")
 		if id, ok := strings.CutSuffix(rest, "/release"); ok {
 			f.schedules[id]["released"] = "true"
+			for _, sub := range f.subs {
+				if sub["schedule"] == id {
+					delete(sub, "schedule")
+				}
+			}
 		} else {
 			for k := range r.Form {
 				f.schedules[rest][k] = r.Form.Get(k)

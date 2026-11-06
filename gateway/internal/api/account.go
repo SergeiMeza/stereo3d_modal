@@ -96,8 +96,20 @@ func (s *Service) closeWaitingRuns(ctx context.Context, uid string) {
 // owed. Refuses with 409 active_runs while a run is going, and with 402
 // balance_due (details: amount_cents, plus requires_action/client_secret
 // for a 3DS challenge) when the outstanding charge didn't go through.
+//
+// Body (optional): {balance_confirmed?: bool, keep_sign_in?: bool}.
+// keep_sign_in (honoured only from svs-backend, with its proxy key) leaves
+// the Firebase user for svs-backend to remove last; the answer says who
+// removed it: {deleted: true, sign_in_removed}.
 func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
+	var body struct {
+		BalanceConfirmed bool `json:"balance_confirmed"`
+		KeepSignIn       bool `json:"keep_sign_in"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body)
+	_, _, viaProxy := httpx.TrustedClientIP(ctx)
+	keepSignIn := body.KeepSignIn && viaProxy
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
 	if errors.Is(err, store.ErrNotFound) {
 		cust, err = nil, nil
@@ -172,10 +184,6 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	// With cash to pay out, the deletion waits for that case's decision:
 	// 202 {deleted: false, deletion_pending: true, case_id, refund_cents}.
 	if b, berr := s.Store.GetBalance(ctx, user.UID); berr == nil && b.Exists() && b.Available() > 0 {
-		var body struct {
-			BalanceConfirmed bool `json:"balance_confirmed"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
 		if !body.BalanceConfirmed {
 			e := httpx.Err(http.StatusConflict, "balance_remaining",
 				fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.Available())))
@@ -187,6 +195,12 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		// non-cash credit is never paid out, so without cash the deletion
 		// goes ahead now.
 		if b.CashCents() > 0 {
+			// Nothing renews while the case is decided.
+			if err := s.stopSubscriptionsForDeletion(ctx, user.UID, cust); err != nil {
+				httpx.Log(ctx).Error("account delete: subscriptions not stopped", "uid", user.UID, "err", err)
+				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again"))
+				return
+			}
 			cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deletion")
 			if cerr != nil {
 				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
@@ -209,8 +223,8 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		}
 	}
 
-	if err := s.finishAccountDeletion(ctx, user.UID); err != nil {
-		httpx.Log(ctx).Error("account delete: sign-in removal failed", "uid", user.UID, "err", err)
+	if err := s.finishAccountDeletionKeeping(ctx, user.UID, keepSignIn); err != nil {
+		httpx.Log(ctx).Error("account delete failed", "uid", user.UID, "err", err)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed",
 			"could not delete your account; try again"))
 		return
@@ -220,7 +234,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		pending = open.TotalCents // below the card minimum: left uncollected
 	}
 	httpx.Log(ctx).Info("account deleted", "uid", user.UID, "uncollected_cents", pending)
-	httpx.WriteOK(w, map[string]any{"deleted": true})
+	httpx.WriteOK(w, map[string]any{"deleted": true, "sign_in_removed": !keepSignIn && s.Auth != nil})
 }
 
 // balanceDueErr is the 402 for a refused deletion: the amount owed, and
@@ -282,7 +296,23 @@ func errDeletionPending() error {
 // finishAccountDeletion soft-deletes the customer record and removes the
 // sign-in. Saved methods are never detached (B12 step 5).
 func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
+	return s.finishAccountDeletionKeeping(ctx, uid, false)
+}
+
+// finishAccountDeletionKeeping: keepSignIn leaves the Firebase user for
+// the caller to remove last (svs-backend, which still needs it for its own
+// steps). The web subscriptions end first (stopSubscriptionsForDeletion):
+// a Stripe failure fails the deletion before anything is marked, so a
+// retry starts over cleanly.
+func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, keepSignIn bool) error {
 	now := time.Now().UTC()
+	if cust, err := s.Store.GetCustomer(ctx, uid); err == nil {
+		if err := s.stopSubscriptionsForDeletion(ctx, uid, cust); err != nil {
+			return fmt.Errorf("%w: %v", errSubscriptionsNotStopped, err)
+		}
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
 	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 			c.AccountDeleted = true
@@ -301,7 +331,7 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 	s.removeSamples(ctx, uid)                                                                                      // the onboarding sample goes with the account
 	s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted") // never paid out
 	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                           // the app's business/studio, never pro
-	if s.Auth == nil {
+	if s.Auth == nil || keepSignIn {
 		return nil
 	}
 	return s.Auth.DeleteUser(ctx, uid) // a missing user is fine

@@ -266,5 +266,8 @@ func (s *Service) casesSweep(ctx context.Context) map[string]int {
 	if n := s.finishPendingDeletions(ctx); n > 0 { // N8 step 3
 		stats["deletions_finished"] = n
 	}
+	if found, ended := s.orphanSweepDue(ctx); found > 0 {
+		stats["orphan_subscriptions"], stats["orphan_subscriptions_ended"] = found, ended
+	}
 	return stats
 }

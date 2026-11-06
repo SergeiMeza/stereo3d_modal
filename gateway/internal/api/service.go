@@ -96,6 +96,10 @@ type Service struct {
 	// Sessions makes sessions without the SDK (identity.Client: passkey
 	// session:true, Apple/Google links); EmailCodes checks an email code
 	// for an email link (emailcode.Service).
+	// UserExists: is the Firebase user still there (orphan sweep); nil =
+	// Auth.UserExists.
+	UserExists func(ctx context.Context, uid string) (bool, error)
+
 	Identities IdentityAdmin
 	Sessions   SessionIssuer
 	EmailCodes EmailCodeChecker

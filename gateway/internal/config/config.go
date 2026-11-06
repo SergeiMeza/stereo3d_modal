@@ -57,6 +57,10 @@ type Config struct {
 	// so its X-SVS-Client-IP is trusted (svs-gateway-proxy-key-{env});
 	// "" trusts nobody.
 	SVSProxyKey string
+	// OrphanSweep: customers with a live web subscription whose Firebase
+	// user is gone (deleted by the app's old flow): off | report | on.
+	// Default report on test, off on prod (owner's yes first).
+	OrphanSweep string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
 	// /v1/auth/* routes that sign browsers in on their behalf (identity
@@ -136,6 +140,7 @@ func Load() (*Config, error) {
 		AdminSessionKey:       getenv("ADMIN_SESSION_KEY", ""),
 		RevenueCatWebhookAuth: getenv("REVENUECAT_WEBHOOK_AUTH", ""),
 		SVSProxyKey:           getenv("SVS_PROXY_KEY", ""),
+		OrphanSweep:           getenv("ORPHAN_SWEEP", map[string]string{"test": "report", "prod": "off"}[env]),
 
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),

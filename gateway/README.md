@@ -1954,6 +1954,23 @@ the closure case is decided (an admin decision, or the cases sweep).
 Asking again while pending answers the same 202. Without cash (plan
 credit only) the deletion goes ahead at once.
 
+**Deletion ends the web subscriptions (3DS P1, 2026-11-06)**: before
+anything is marked, `/v1/account/delete` (and the closure case's finish,
+and the 202 pending path) ends every web subscription of the account
+(customer.plan's, plus any other live svs-web subscription on its Stripe
+customer): a waiting schedule (a step-down) is released, then
+`cancel_at_period_end` (an incomplete one ends now). No refund, no
+proration, the current period untouched. A Stripe failure answers 502
+`delete_failed` with nothing marked; a retry starts over (idempotent). A
+plan invoice for a deleted account grants nothing. Body `{keep_sign_in:
+true}` from svs-backend (proxy key only) leaves the Firebase user for it
+to remove last; the answer says `{deleted: true, sign_in_removed}`.
+**Orphan sweep**: customers with a web subscription that can still renew
+whose Firebase user is gone (the app's old deletion) are found every 6 h
+per instance from the cases sweep; `ORPHAN_SWEEP` = `report` (test
+default: counts in the log and Slack) | `on` (ends them like a deletion,
+marks the account deleted) | `off` (prod default until the owner's yes).
+
 **svs-admin**: `go run ./cmd/svs-admin [-env test|prod] <command>`:
 `cases`, `case`, `act` (case actions, `-items c1=100`, `-expected-max`),
 `open`, `account`, `account-action`, `disputes [-csv]`, `policy`,
