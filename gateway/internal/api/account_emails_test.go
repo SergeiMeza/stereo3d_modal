@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -354,5 +355,28 @@ func TestEmailBackfill(t *testing.T) {
 	}
 	if p, _ := s.Store.ListPendingEmailSyncs(ctx, 10); len(p) != 0 {
 		t.Fatalf("the backfill queued syncs %+v", p)
+	}
+}
+
+// The Apple/Google gap: a Google sign-in whose email is another account's
+// additional email made a new account; the identities read names the
+// other one by how it signs in and offers the email code; nothing for an
+// account whose email is its own.
+func TestIdentitiesSpotOtherAccount(t *testing.T) {
+	s, ids, _ := emailService(t)
+	ctx := context.Background()
+	owner, fresh := "u"+store.NewID(), "u"+store.NewID()
+	shared := "shared." + store.NewID() + "@example.com"
+	ids.add(owner, "main."+store.NewID()+"@example.com", "apple.com")
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: owner, Email: ids.users[owner].Email, Claim: true})
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: owner, Email: shared, Verified: true})
+	ids.add(fresh, shared, "google.com")
+	code, out, raw := callIdentity(s, fresh, http.MethodGet, "", "", uniqueIP())
+	other, _ := out["other_account"].(map[string]any)
+	if code != 200 || other == nil || other["sign_in_with"] != "email_code" || fmt.Sprint(other["providers"]) != "[apple.com email]" || strings.Contains(raw, owner) {
+		t.Fatalf("gap %d %v", code, out)
+	}
+	if _, out, _ := callIdentity(s, owner, http.MethodGet, "", "", uniqueIP()); out["other_account"] != nil {
+		t.Fatalf("own email %v", out["other_account"])
 	}
 }

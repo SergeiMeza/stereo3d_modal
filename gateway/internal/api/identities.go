@@ -22,7 +22,10 @@ import (
 // and svs-backend proxies these routes for the app):
 //
 //   - GET /v1/account/identities → {providers, email, email_verified,
-//     password, passkeys, anonymous}. providers are the sign-in methods:
+//     password, passkeys, anonymous, other_account}. other_account (or
+//     null): this account's email is another account's in the email
+//     store, so an Apple or Google sign-in made a second account; the web
+//     offers "Sign in to that account" (see otherAccountFor). providers are the sign-in methods:
 //     apple.com, google.com, email (the account has an email, so the
 //     email code signs in to it). A password is reported apart; the email
 //     code covers a password account too.
@@ -126,7 +129,35 @@ func (s *Service) identitiesJSON(ctx context.Context, uid string) (map[string]an
 	methods := signInMethods(id)
 	return map[string]any{"providers": methods, "email": id.Email, "email_verified": id.EmailVerified,
 		"password": slices.Contains(id.Providers, providerPassword), "passkeys": n,
-		"anonymous": len(methods) == 0 && n == 0}, nil
+		"anonymous": len(methods) == 0 && n == 0, "other_account": s.otherAccountFor(ctx, id)}, nil
+}
+
+// otherAccountFor spots an Apple or Google sign-in that made a new account
+// although its email is another account's (an additional email there:
+// Firebase only knows main emails). → {email_masked, providers,
+// sign_in_with: "email_code"}: "This email belongs to another account.
+// Sign in to it?" (the email code to that address signs in there); nil
+// otherwise. The other account is named only by how it signs in.
+func (s *Service) otherAccountFor(ctx context.Context, id *auth.Identity) any {
+	email := normalEmail(id.Email)
+	if email == "" || s.Store == nil {
+		return nil
+	}
+	owner, err := s.Store.EmailOwner(ctx, email)
+	if err != nil || owner == "" || owner == id.UID {
+		return nil
+	}
+	if gone, err := s.accountGone(ctx, owner); err != nil || gone {
+		return nil
+	}
+	providers := []string{}
+	if other, err := s.identityOrNil(ctx, owner); err == nil && other != nil {
+		providers = signInMethods(other)
+		if n, err := s.passkeyCount(ctx, owner); err == nil && n > 0 {
+			providers = append(providers, providerPasskey)
+		}
+	}
+	return map[string]any{"email_masked": maskEmail(email), "providers": providers, "sign_in_with": "email_code"}
 }
 
 func errIdentityUnavailable() *httpx.APIError {
