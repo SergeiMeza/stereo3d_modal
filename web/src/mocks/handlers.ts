@@ -248,6 +248,25 @@ function prepaidSummary() {
 }
 
 /** spec v7 N5/N6: what the balance says about a quote of this amount. */
+/** gateway 00166: a quote's pay_split when the account holds credit
+ * (tests set mockDb.quoteCreditCents). */
+function mockPaySplit(amountCents: number): Record<string, unknown> {
+  const credit = mockDb.quoteCreditCents;
+  if (credit === null || amountCents <= 0) return {};
+  const fromCredit = Math.min(credit, amountCents);
+  const card = amountCents - fromCredit;
+  const usd = (c: number) => `$${(c / 100).toFixed(2)}`;
+  return {
+    pay_split: {
+      credit_cents: fromCredit,
+      balance_cents: 0,
+      card_cents: card,
+      covered_cents: fromCredit,
+      text: card > 0 ? `${usd(fromCredit)} from credit · ${usd(card)} to your card` : `${usd(fromCredit)} from credit`,
+    },
+  };
+}
+
 function balanceQuote(amountCents: number): Record<string, unknown> {
   const pp = mockDb.billing.prepaid;
   const out: Record<string, unknown> = {};
@@ -396,6 +415,8 @@ interface DB {
   tierPricing: boolean;
   /** tests: fixed alt_prices on every Lifelike quote (null = priced) */
   altPricesFixed: Partial<Record<"pro" | "business" | "studio", number>> | null;
+  /** tests: usage credit a quote is paid from first (gateway 00166 pay_split) */
+  quoteCreditCents: number | null;
   /** owner 2026-11-04: above 30 fps needs Business or Studio (gateway
    * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
   fpsCap: boolean;
@@ -962,6 +983,7 @@ function seed(): DB {
     proCredit: undefined,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
     altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
+    quoteCreditCents: null as number | null,
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
     freePreviews: { used: 0, dayUsed: 0, introUsed: false },
     plays: [],
@@ -4618,6 +4640,7 @@ export const handlers = [
           ...(mockDb.tierPricing ? tierQuoteExtras(req, q) : {}),
           ...(mockDb.tierPricing ? { alt_prices: altPrices(priced, req) } : {}),
           ...fpsPolicy(priced, req.target_fps).extras,
+          ...mockPaySplit(q.quote.amount_cents),
         });
       }
       const { quote, reuseStages, params: resolved } = quoteFor(priced, req);

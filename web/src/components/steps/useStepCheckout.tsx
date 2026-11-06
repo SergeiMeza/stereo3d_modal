@@ -453,6 +453,8 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
 function chargeLineFor(quote: StepQuoteResponse): string {
   if (quote.payment_flow === "free_preview") return "Free preview";
   if (quote.spend_limit_reached) return SPEND_LIMIT_REACHED;
+  // gateway 00166: credit covers it all, nothing goes to a card
+  if (coveredByCredit(quote)) return PAID_FROM_CREDIT;
   if (quote.payment_flow === "balance") {
     return quote.balance?.reload_cents ? paidFromBalanceReload(quote.balance.reload_cents) : PAID_FROM_BALANCE;
   }
@@ -463,9 +465,18 @@ function chargeLineFor(quote: StepQuoteResponse): string {
   return quote.charge_timing === "before" ? CHARGE_BEFORE_COPY : CHARGE_AFTER_COPY;
 }
 
+/** The run is paid in full from credit (gateway 00166 pay_split). */
+export function coveredByCredit(quote: StepQuoteResponse | null | undefined): boolean {
+  const s = quote?.pay_split;
+  return !!s && s.card_cents === 0 && s.covered_cents > 0;
+}
+
+export const PAID_FROM_CREDIT = "Paid from your credit";
+
 /** P14: the "?" pop-over, per account state; null = the panel's own. */
 function popoverFor(quote: StepQuoteResponse | null): string | null {
   if (quote?.spend_limit_reached || quote?.payment_flow === "free_preview") return null;
+  if (coveredByCredit(quote)) return null;
   switch (quote?.payment_flow) {
     case "balance":
       return popBalance(quote.quote.amount_cents);
@@ -775,10 +786,11 @@ export function InstantCheckout({
       : formatCents(quote.quote.amount_cents)
     : null;
   const sheet = <PaySheetFor ck={ck} action={label} />;
-  const chargeText = quote ? chargeLineFor(quote) : CHARGE_AFTER_COPY;
+  const chargeText = quote ? chargeLineFor(quote) : CHARGE_BEFORE_COPY;
   // P14: the pop-over says how this account pays; the panel's own when the
   // gateway doesn't say
-  const popover = popoverFor(quote) ?? explain;
+  // nothing to explain when credit pays it all (gateway 00166)
+  const popover = coveredByCredit(quote) ? null : (popoverFor(quote) ?? explain);
   const tracker =
     ck.tracking && ck.active ? (
       <ConversionTracker

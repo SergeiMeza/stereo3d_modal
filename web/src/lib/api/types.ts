@@ -479,8 +479,30 @@ export interface Conversion {
   charge_timing?: ChargeTiming;
   /** how the automatic charge went — succeeded pro-step conversions only */
   billing?: ConversionBilling;
+  /** gateway 00166: how the run is being paid, with its words */
+  pay_split?: RunPaySplit;
   created_at: string;
   updated_at: string;
+}
+
+/** gateway 00166: a quote's payment split. */
+export interface QuotePaySplit {
+  credit_cents: number;
+  balance_cents: number;
+  card_cents: number;
+  /** what credit and balance cover */
+  covered_cents: number;
+  text: string;
+}
+
+/** gateway 00166: a run's payment split as it settles. */
+export interface RunPaySplit {
+  covered_cents: number;
+  card_cents: number;
+  hold_state?: string;
+  settled_cents?: number;
+  released_cents?: number;
+  text: string;
 }
 
 /** One part of a split output (Modal metadata.parts). */
@@ -516,6 +538,9 @@ export interface StepQuoteResponse {
   balance?: { available_cents: number; enough: boolean; reload_cents?: number };
   /** spec v7 N6: this run would pass the monthly spend limit */
   spend_limit_reached?: boolean;
+  /** gateway 00166: how the total would be paid, with its words ("$20.00
+   * from credit · $3.78 to your card") */
+  pay_split?: QuotePaySplit;
   /** S3D-67: the caller holds Pro; false = not Pro, absent = the gateway
    * doesn't say */
   pro?: boolean;

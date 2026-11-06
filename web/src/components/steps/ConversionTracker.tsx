@@ -417,6 +417,12 @@ export function ConversionTracker({
           Something went wrong on our side. Try again.
         </p>
       ) : null}
+      {/* gateway 00166: how this run is being paid, in its words */}
+      {conv.pay_split?.text ? (
+        <p className="text-xs text-fg-muted tabular-nums" data-testid="run-pay-split">
+          {conv.pay_split.text}
+        </p>
+      ) : null}
       {billingStatusNote(conv) !== null && conv.state !== "processing" ? (
         <p className="text-xs text-fg-muted" data-testid="billing-note">
           {billingStatusNote(conv)}

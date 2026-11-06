@@ -67,7 +67,8 @@ export function cancelRule(
 ): string {
   const t = formatCentsShort(thresholdCents);
   return timing === "before"
-    ? `Runs over ${t} are charged when you start them. Cancel any time while it waits in line, or in its first minute, for a full refund.`
+    ? // gateway 00166: deferred payments are off, every paid run is charged as it starts
+      "It's charged when you start it. Cancel any time while it waits in line, or in its first minute, for a full refund."
     : `Runs of ${t} or less are charged after they're done. Cancel any time while it waits in line, or in its first minute, and you pay nothing.`;
 }
 

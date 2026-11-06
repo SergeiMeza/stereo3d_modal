@@ -641,6 +641,20 @@ describe("ConversionTracker GPU wait", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
+  it("says how the run is being paid, in the gateway's words (gateway 00166)", () => {
+    render(
+      <AuthProvider>
+        <ConversionTracker
+          conversion={run({
+            pay_split: { covered_cents: 2000, card_cents: 378, hold_state: "held", text: "$20.00 from credit · $3.78 to your card" },
+          })}
+          onProjectChanged={() => {}}
+        />
+      </AuthProvider>,
+    );
+    expect(screen.getByTestId("run-pay-split").textContent).toBe("$20.00 from credit · $3.78 to your card");
+  });
+
   it("shows the Lifelike stage in plain words with the run's time left", () => {
     render(
       <AuthProvider>
@@ -1442,5 +1456,24 @@ describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
     await screen.findByRole("region", { name: "Previous runs" });
     await screen.findByTestId("checkout-main");
     expect(screen.queryByTestId("already-made")).toBeNull();
+  });
+});
+
+describe("Make 3D: paid from credit first (gateway 00166)", () => {
+  it("shows the split under the total; part to the card says when it's charged", async () => {
+    mockDb.quoteCreditCents = 500;
+    renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    const split = await screen.findByTestId("quote-pay-split");
+    expect(split.textContent).toMatch(/^\$5\.00 from credit · \$\d+\.\d\d to your card$/);
+    expect(screen.getByTestId("charge-timing-hint").textContent).not.toBe("Paid from your credit");
+  });
+
+  it("a run the credit covers says Paid from your credit, with no card", async () => {
+    mockDb.quoteCreditCents = 1_000_000;
+    renderPanel(<LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />);
+    const split = await screen.findByTestId("quote-pay-split");
+    expect(split.textContent).toMatch(/^\$\d+\.\d\d from credit$/);
+    expect(screen.getByTestId("charge-timing-hint").textContent).toBe("Paid from your credit");
+    expect(screen.queryByRole("button", { name: "?" })).toBeNull();
   });
 });

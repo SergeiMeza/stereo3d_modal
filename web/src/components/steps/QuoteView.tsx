@@ -403,6 +403,12 @@ export function QuoteView({
           {formatCents(total)}
         </span>
       </div>
+      {/* gateway 00166: how it'd be paid, in the gateway's words */}
+      {result.pay_split?.text && !freePreview ? (
+        <p data-testid="quote-pay-split" className="text-right text-xs text-fg-muted tabular-nums">
+          {result.pay_split.text}
+        </p>
+      ) : null}
       {(result.fps?.fps_capped || result.params?.fps_capped) && fps !== null ? (
         // owner 2026-11-04: the source is above 30 fps and there's no plan
         <p data-testid="quote-fps-capped" className="text-xs text-fg-muted">
