@@ -1870,8 +1870,10 @@ balance entry, no new debt. An EFW cancels undelivered runs as ours,
 pauses auto-reload and opens a manual `efw` case.
 
 **Balance refunds** (`balance_refund` cases): `topup_withdrawal` within
-14 days of a top-up pays the unspent part back to that top-up's card at
-once (auto) and the held part when the holds end; `closure_balance`
+14 days of a top-up is a manual case (RF-02, owner 2026-11-06: no
+automatic refunds; a person reviews every request): approved, it pays the
+unspent part back to that top-up's card and the held part when the holds
+end; `closure_balance`
 (account deletion with a cash balance) is manual and pays Σ unspent cash
 top-ups newest first. Plan credit and admin credits never pay out. A
 `cash_refund` entry leaves the balance first; a failed refund puts it

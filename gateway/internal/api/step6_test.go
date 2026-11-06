@@ -115,8 +115,15 @@ func TestTopupWithdrawal(t *testing.T) {
 		t.Fatal(err)
 	}
 	cs, err := s.requestBalanceRefund(ctx, uid, ReasonTopupWithdraw, tp.ID, "support", "owner@x", "changed my mind")
-	if err != nil || cs.Mode != "auto" || cs.RequestedCents != 2500 {
+	if err != nil || cs.Mode != "manual" || cs.RequestedCents != 2500 {
 		t.Fatalf("case: %v %+v", err, cs)
+	}
+	// RF-02: nothing is paid out until a person decides
+	if b, _ := s.Store.GetBalance(ctx, uid); b.BalanceCents != 2500 || len(fake.refunds) != 0 {
+		t.Fatalf("paid out without review: balance %d refunds %v", b.BalanceCents, fake.refunds)
+	}
+	if err := s.applyCaseAction(ctx, cs, caseActionReq{Action: "approve"}, "owner@x"); err != nil {
+		t.Fatal(err)
 	}
 	b, _ := s.Store.GetBalance(ctx, uid)
 	if b.BalanceCents != 1000 || b.HeldCents != 1000 || len(fake.refunds) != 1 {

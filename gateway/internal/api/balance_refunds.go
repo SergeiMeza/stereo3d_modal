@@ -50,18 +50,12 @@ func (s *Service) requestBalanceRefund(ctx context.Context, uid, reason, topupID
 	if cs.RequestedCents <= 0 {
 		return nil, fmt.Errorf("nothing unspent to refund")
 	}
-	cs.Mode = s.policy(ctx).modeFor(reason, cs.RequestedCents)
-	c, err := s.openCase(ctx, cs, who, text)
-	if err != nil {
-		return nil, err
-	}
-	if c.Mode == "auto" {
-		cents := min(c.RequestedCents, max0(b.Available()))
-		if err := s.cashRefundBalance(ctx, c, cents, "system"); err != nil {
-			slog.WarnContext(ctx, "balance withdrawal refund failed", "case_id", c.ID, "err", err)
-		}
-	}
-	return c, nil
+	// RF-02 (owner 2026-11-06, "no automatic refunds unless customers ask
+	// for one, in that case a manual review is needed"): a balance or
+	// top-up withdrawal always waits for a person's decision in the
+	// console; nothing is paid out here.
+	cs.Mode = "manual"
+	return s.openCase(ctx, cs, who, text)
 }
 
 func fifoRemaining(b *store.Balance, topupID string) int64 {
