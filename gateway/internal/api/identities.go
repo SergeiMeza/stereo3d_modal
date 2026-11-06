@@ -62,6 +62,7 @@ type SessionIssuer interface {
 // EmailCodeChecker spends an email code without signing in
 // (emailcode.Service).
 type EmailCodeChecker interface {
+	Peek(ctx context.Context, email, code string) error
 	Check(ctx context.Context, email, code string) error
 }
 
@@ -247,7 +248,10 @@ func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEm
 	if err != nil {
 		return emailcode.APIError(err)
 	}
-	if err := s.EmailCodes.Check(ctx, email, code); err != nil {
+	// Checked but not spent yet: when the address is another account's,
+	// the code stays good for /v1/auth/email/verify ("Sign in to that
+	// account"); only a link that goes through uses it up.
+	if err := s.EmailCodes.Peek(ctx, email, code); err != nil {
 		return emailcode.APIError(err)
 	}
 	other, err := admin.IdentityByEmail(ctx, email)
@@ -256,6 +260,9 @@ func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEm
 	}
 	if other != nil && other.UID != uid {
 		return s.credentialInUse(ctx, other)
+	}
+	if err := s.EmailCodes.Check(ctx, email, code); err != nil { // spent meanwhile: refused
+		return emailcode.APIError(err)
 	}
 	if err := admin.SetVerifiedEmail(ctx, uid, email); err != nil {
 		if auth.IsEmailInUse(err) { // taken meanwhile

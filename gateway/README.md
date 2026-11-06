@@ -1688,9 +1688,12 @@ China; the web's account page can use the same routes. All signed in.
     Google sign-in route waits for the app's iOS client). `session: true`
     adds `session` {uid, id_token, refresh_token, expires_in}.
   - `{provider: "email", email, code}`: the code from `POST
-    /v1/auth/email/start`, checked and spent without signing in; the
-    address goes on the caller's account, verified (replacing any
-    other). Errors as the email verify: 400 `code_invalid
+    /v1/auth/email/start`, checked without signing in; the address goes
+    on the caller's account, verified (replacing any other). When the
+    address is another account's (409 `credential_in_use`) the code is
+    left unspent, so `/v1/auth/email/verify` can sign in to that account
+    with it; only a link or verify that goes through uses it up (wrong
+    tries and expiry count as always). Errors as the email verify: 400 `code_invalid
     {attempts_left}`, `code_expired`, `invalid_email`.
   - Answer: the identities, as GET. 400 `invalid_credential` (the
     provider's token didn't verify); 401 `reauth_required`.

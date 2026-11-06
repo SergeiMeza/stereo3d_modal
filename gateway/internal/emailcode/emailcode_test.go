@@ -344,3 +344,37 @@ func TestCheckSpendsTheCodeOnly(t *testing.T) {
 		t.Fatalf("Check made %d account(s)", r.users.created)
 	}
 }
+
+// Peek checks without spending: a right code stays good for the verify (or
+// a Check); wrong tries still count toward the cap; expiry still applies.
+func TestPeekLeavesTheCode(t *testing.T) {
+	r := newRig()
+	ctx := context.Background()
+	if _, err := r.svc.Start(ctx, "taken@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	var wrong *WrongCodeError
+	if err := r.svc.Peek(ctx, "taken@example.com", "000000"); !errors.As(err, &wrong) || wrong.AttemptsLeft != MaxAttempts-1 {
+		t.Fatalf("wrong try counted: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := r.svc.Peek(ctx, "taken@example.com", "123456"); err != nil {
+			t.Fatalf("peek %d: %v", i, err)
+		}
+	}
+	res, err := r.svc.Verify(ctx, "taken@example.com", "123456", false)
+	if err != nil || res.UID == "" {
+		t.Fatalf("verify after peeks: %+v %v", res, err)
+	}
+	if err := r.svc.Peek(ctx, "taken@example.com", "123456"); !errors.Is(err, ErrNoCode) {
+		t.Fatalf("spent by the verify: %v", err)
+	}
+	// expiry still applies to a peeked code
+	if _, err := r.svc.Start(ctx, "late@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	r.now = r.now.Add(CodeTTL + time.Second)
+	if err := r.svc.Peek(ctx, "late@example.com", "123456"); !errors.Is(err, ErrNoCode) {
+		t.Fatalf("expired: %v", err)
+	}
+}

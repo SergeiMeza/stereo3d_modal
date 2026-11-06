@@ -239,7 +239,7 @@ func (s *Service) Verify(ctx context.Context, email, code string, wantSession bo
 	if !s.configured() {
 		return nil, ErrUnavailable
 	}
-	if err := s.consume(ctx, email, code); err != nil {
+	if err := s.consume(ctx, email, code, true); err != nil {
 		return nil, err
 	}
 	return s.signIn(ctx, email, wantSession)
@@ -252,11 +252,25 @@ func (s *Service) Check(ctx context.Context, email, code string) error {
 	if s == nil || s.Store == nil {
 		return ErrUnavailable
 	}
-	return s.consume(ctx, email, code)
+	return s.consume(ctx, email, code, true)
 }
 
-// consume checks a code and spends it (one use; wrong tries counted).
-func (s *Service) consume(ctx context.Context, email, code string) error {
+// Peek checks code for email like Check (a wrong try counts, expiry and
+// the attempt cap apply) but leaves a right code unspent: an email link
+// that finds the address on another account answers credential_in_use and
+// the app can still sign in to that account with the same code. Only a
+// successful link (Check) or verify uses it up; Check re-checks it in its
+// own transaction, so a code spent meanwhile is refused there.
+func (s *Service) Peek(ctx context.Context, email, code string) error {
+	if s == nil || s.Store == nil {
+		return ErrUnavailable
+	}
+	return s.consume(ctx, email, code, false)
+}
+
+// consume checks a code and, when spend, uses it up (one use; wrong tries
+// counted either way).
+func (s *Service) consume(ctx context.Context, email, code string, spend bool) error {
 	code = strings.TrimSpace(code)
 	if len(code) != CodeDigits || strings.Trim(code, "0123456789") != "" {
 		// Malformed input doesn't spend an attempt: it never reached the hash.
@@ -283,6 +297,9 @@ func (s *Service) consume(ctx context.Context, email, code string) error {
 			}
 			outcome = &WrongCodeError{AttemptsLeft: left}
 			return &next, nil
+		}
+		if !spend {
+			return r, nil // right, and left as it was
 		}
 		// Used: a code signs in once.
 		next.CodeHash, next.Salt, next.Attempts = "", "", 0

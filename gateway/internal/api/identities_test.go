@@ -130,14 +130,34 @@ func (f *fakeSessions) LinkWithIdP(_ context.Context, callerToken, provider, idp
 	return &identity.LinkResult{Session: identity.Session{UID: uid, IDToken: "id-" + uid, RefreshToken: "rt-" + uid, ExpiresIn: 3600}}, nil
 }
 
-// fakeCodes: 123456 is right.
-type fakeCodes struct{}
+// fakeCodes: 123456 is right, once per address (Check spends it, Peek
+// doesn't).
+type fakeCodes struct {
+	mu    sync.Mutex
+	spent map[string]bool
+}
 
-func (fakeCodes) Check(_ context.Context, _, code string) error {
-	if code == "123456" {
-		return nil
+func (f *fakeCodes) check(email, code string, spend bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if code != "123456" {
+		return &emailcode.WrongCodeError{AttemptsLeft: 4}
 	}
-	return &emailcode.WrongCodeError{AttemptsLeft: 4}
+	if f.spent[email] {
+		return emailcode.ErrNoCode
+	}
+	if spend {
+		f.spent[email] = true
+	}
+	return nil
+}
+
+func (f *fakeCodes) Peek(_ context.Context, email, code string) error {
+	return f.check(email, code, false)
+}
+
+func (f *fakeCodes) Check(_ context.Context, email, code string) error {
+	return f.check(email, code, true)
 }
 
 // idpToken is an unsigned provider ID token (the fake checks nothing).
@@ -149,7 +169,7 @@ func idpToken(sub, email string) string {
 func identityService(t *testing.T) (*Service, *fakeIdentities) {
 	s := cpkService(t)
 	ids := newFakeIdentities()
-	s.Identities, s.Sessions, s.EmailCodes = ids, &fakeSessions{ids: ids}, fakeCodes{}
+	s.Identities, s.Sessions, s.EmailCodes = ids, &fakeSessions{ids: ids}, &fakeCodes{spent: map[string]bool{}}
 	return s, ids
 }
 
@@ -238,6 +258,18 @@ func TestIdentitiesCredentialInUse(t *testing.T) {
 	}
 	if code, out, _ := callIdentity(s, me, http.MethodGet, "", "", ip); code != 200 || len(providersOf(out)) != 0 {
 		t.Fatalf("nothing linked %v", out)
+	}
+	// the refused email link left the code good for signing in to that
+	// account ("Sign in to that account"); a link that goes through spends it
+	codes := s.EmailCodes.(*fakeCodes)
+	if err := codes.Peek(ctx, "taken@example.com", "123456"); err != nil {
+		t.Fatalf("code spent by a refused link: %v", err)
+	}
+	if code, _, _ := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"mine@example.com","code":"123456"}`, "", ip); code != 200 {
+		t.Fatalf("link %d", code)
+	}
+	if code, out, _ := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"mine@example.com","code":"123456"}`, "", ip); code != 400 || out["error"] != "code_expired" {
+		t.Fatalf("spent by the link: %d %v", code, out)
 	}
 }
 
