@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
+import { supportMailto } from "@/components/billing/BillingBanner";
 import { proCase } from "@/components/business/BusinessSetup";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,15 @@ import {
 import { RefundSheet, shortDay } from "./RefundSheet";
 
 export const APPLE_REFUND_URL = "https://reportaproblem.apple.com";
+
+/** Owner 2026-11-07: the ways in to a refund request are hidden for now —
+ * the lines at the bottom of Billing (Need a refund?, the 30-day sentence,
+ * Ask Apple for a refund) and each charge's "Request a refund" menu item;
+ * "Report a problem" stands in. Flip to bring them all back together.
+ * Your requests, the question notice and the sheet stay. */
+export const SHOW_REFUND_ENTRY = false;
+
+export const REPORT_PROBLEM_SUBJECT = "Spatial Video Studio: report a problem";
 
 const ABOUT: Record<SupportRequest["about"], string> = {
   plan: "Plan payment",
@@ -100,6 +110,17 @@ export function RefundsFooter(): JSX.Element {
 
   return (
     <footer data-testid="refunds" aria-label="Refunds" className="flex flex-col gap-3 text-xs text-fg-muted">
+      {/* owner 2026-11-07: one generic contact point in place of the
+          refund lines while SHOW_REFUND_ENTRY is off */}
+      {SHOW_REFUND_ENTRY ? null : (
+        <p data-testid="report-problem">
+          Something wrong with a payment or a run?{" "}
+          <a href={supportMailto(REPORT_PROBLEM_SUBJECT)} className="text-primary underline underline-offset-2 hover:text-primary/80">
+            Report a problem
+          </a>
+        </p>
+      )}
+      {SHOW_REFUND_ENTRY ? (
       <p data-testid="refunds-line">
         {askable ? (
           <>
@@ -118,7 +139,8 @@ export function RefundsFooter(): JSX.Element {
           <>Ask for a refund within {days} days of a payment, also after cancelling. A person reviews every request.</>
         )}
       </p>
-      {appStore ? (
+      ) : null}
+      {SHOW_REFUND_ENTRY && appStore ? (
         <p data-testid="refund-app-store">
           Pro from the App Store is refunded by Apple.{" "}
           <a href={APPLE_REFUND_URL} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">

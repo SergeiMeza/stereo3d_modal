@@ -29,7 +29,7 @@ import { YourPrices } from "@/components/billing/YourPrices";
 import { PlanMoveOffers } from "@/components/billing/PlanMoveOffers";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
 import { openRefundSheetAtom, refundOptionsAtom } from "@/components/refunds/refundAtoms";
-import { RefundQuestionNotice, RefundsFooter } from "@/components/refunds/RefundsSection";
+import { RefundQuestionNotice, RefundsFooter, SHOW_REFUND_ENTRY } from "@/components/refunds/RefundsSection";
 import { SettleFromLink } from "@/components/billing/SettleFromLink";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -217,7 +217,8 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="text-xs">
-        {refund ? (
+        {/* owner 2026-11-07: hidden with the footer (SHOW_REFUND_ENTRY) */}
+        {SHOW_REFUND_ENTRY && refund ? (
           refund.asked ? (
             <DropdownMenuItem disabled data-testid="row-refund-asked" className="text-xs">
               Refund requested

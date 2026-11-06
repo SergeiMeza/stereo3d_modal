@@ -5,7 +5,7 @@
  * Your requests with replies, App Store Pro, and the gateway's refusals.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,9 @@ import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
+import { appStore } from "@/lib/state/stores";
+
+import { openRefundSheetAtom } from "./refundAtoms";
 import { REVIEW_LINE } from "./RefundSheet";
 
 vi.mock("next/navigation", () => ({
@@ -51,6 +54,7 @@ function renderBilling(): void {
 }
 
 function planOption(over: Record<string, unknown> = {}): void {
+  planRow();
   mockDb.refundOptions.plan = {
     invoice_id: "in_plan_1",
     plan: "business",
@@ -88,11 +92,13 @@ async function openRowMenu(row: HTMLElement): Promise<void> {
   await screen.findByRole("menu");
 }
 
-/** The footer's quiet link, then pick the plan in the sheet. */
-async function requestPlanFromFooter(): Promise<HTMLElement> {
-  fireEvent.click(await screen.findByTestId("refunds-request"));
+/** The sheet with the plan picked. Its ways in are hidden for now
+ * (SHOW_REFUND_ENTRY), so the tests open it through its atom, as they did. */
+async function requestPlanFromRow(): Promise<HTMLElement> {
+  await screen.findByTestId("row-plan_in_plan_1");
+  act(() => appStore.set(openRefundSheetAtom, { plan: true }));
   const sheet = await screen.findByTestId("refund-sheet");
-  fireEvent.click(await within(sheet).findByLabelText(/Business plan/));
+  await within(sheet).findByLabelText(/Business plan/);
   return sheet;
 }
 
@@ -106,17 +112,12 @@ function captureRequests(): unknown[] {
 }
 
 describe("Request a refund", () => {
-  it("the plan invoice row's menu: pick, note, Send, review line, Cancel your plan too?, and Your requests", async () => {
+  it("the plan's payment: pick, note, Send, review line, Cancel your plan too?, and Your requests", async () => {
     planOption();
-    planRow();
     const bodies = captureRequests();
     renderBilling();
-    const row = await screen.findByTestId("row-plan_in_plan_1");
-    await openRowMenu(row);
-    fireEvent.click(await screen.findByTestId("row-refund"));
-    const sheet = await screen.findByTestId("refund-sheet");
-    const box = await within(sheet).findByLabelText(/Business plan/);
-    expect((box as HTMLInputElement).checked).toBe(true);
+    const sheet = await requestPlanFromRow();
+    expect((within(sheet).getByLabelText(/Business plan/) as HTMLInputElement).checked).toBe(true);
     fireEvent.change(within(sheet).getByLabelText("What happened? (optional)"), { target: { value: "I didn't use it" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
     expect(await within(sheet).findByText(REVIEW_LINE)).toBeTruthy();
@@ -127,22 +128,28 @@ describe("Request a refund", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
     const req = await screen.findByTestId("support-requests");
     expect(within(req).getByTestId("request-status").textContent).toBe("We're looking at it");
-    // asked for: the row's menu says so
-    await openRowMenu(screen.getByTestId("row-plan_in_plan_1"));
-    expect(await screen.findByTestId("row-refund-asked")).toBeTruthy();
+  });
+
+  it("each charge's menu keeps only Get help with this payment (SHOW_REFUND_ENTRY off)", async () => {
+    planOption();
+    renderBilling();
+    await openRowMenu(await screen.findByTestId("row-plan_in_plan_1"));
+    expect(await screen.findByTestId("row-help")).toBeTruthy();
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Get help with this payment"]);
     expect(screen.queryByTestId("row-refund")).toBeNull();
+    expect(screen.queryByTestId("row-refund-asked")).toBeNull();
   });
 
   it("a cancelled plan isn't offered cancelling again", async () => {
     planOption({ cancelled: true });
     renderBilling();
-    const sheet = await requestPlanFromFooter();
+    const sheet = await requestPlanFromRow();
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
     expect(await within(sheet).findByText(REVIEW_LINE)).toBeTruthy();
     expect(within(sheet).queryByTestId("refund-cancel-too")).toBeNull();
   });
 
-  it("a finished run in Billing history: Request a refund picks it", async () => {
+  it("a finished run, picked when the sheet opens for it", async () => {
     const c: Conversion = {
       conversion_id: "crun00000001", state: "succeeded", kind: "video", project_id: PID, step: "production", method: "lifelike",
       params: { preset: "4k", formats: ["mvhevc"] }, quote: { amount_cents: 1250, currency: "usd" }, progress: 1, outputs: ["mvhevc"],
@@ -152,10 +159,8 @@ describe("Request a refund", () => {
     runOption("crun00000001", 1250);
     const bodies = captureRequests();
     renderBilling();
-    const history = await screen.findByTestId("history");
-    const row = within(history).getAllByRole("listitem")[0];
-    await openRowMenu(row);
-    fireEvent.click(await screen.findByTestId("row-refund"));
+    await screen.findByTestId("history");
+    act(() => appStore.set(openRefundSheetAtom, { conversionIds: ["crun00000001"] }));
     const sheet = await screen.findByTestId("refund-sheet");
     expect(((await within(sheet).findByLabelText(/Holiday clip/)) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
@@ -177,7 +182,7 @@ describe("Request a refund", () => {
       }),
     );
     renderBilling();
-    const sheet = await requestPlanFromFooter();
+    const sheet = await requestPlanFromRow();
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
     const confirm = await screen.findByTestId("reauth-sheet");
     fireEvent.click(within(confirm).getByRole("button", { name: "Send a code to dev@example.com" }));
@@ -198,7 +203,7 @@ describe("Request a refund", () => {
       ),
     );
     renderBilling();
-    const sheet = await requestPlanFromFooter();
+    const sheet = await requestPlanFromRow();
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
     expect((await within(sheet).findByRole("alert")).textContent).toBe(words);
   });
@@ -206,38 +211,32 @@ describe("Request a refund", () => {
   it("the note keeps to 2,000 characters", async () => {
     planOption();
     renderBilling();
-    fireEvent.click(await screen.findByTestId("refunds-request"));
-    const note = within(await screen.findByTestId("refund-sheet")).getByLabelText("What happened? (optional)");
+    const note = within(await requestPlanFromRow()).getByLabelText("What happened? (optional)");
     expect(note.getAttribute("maxlength")).toBe("2000");
   });
 });
 
 describe("quiet on Billing (owner 2026-11-07)", () => {
-  it("one muted line at the bottom with a text link, after Purchases and invoices", async () => {
+  it("the refund lines are hidden for now; one Report a problem line, after Purchases and invoices", async () => {
     planOption();
+    mockDb.proStatus = { pro: true, known: true, source: "app_store", scheduled_change: null };
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
     renderBilling();
-    const line = await screen.findByTestId("refunds-line");
-    await waitFor(() =>
-      expect(line.textContent).toBe(
-        "Need a refund? Request a refund · ask within 30 days of a payment, also after cancelling. A person reviews every request.",
-      ),
-    );
-    expect(within(line).getByRole("button", { name: "Request a refund" }).className).not.toMatch(/border/);
-    // below the purchases, not a card up top
+    const report = await screen.findByTestId("report-problem");
+    expect(report.textContent).toBe("Something wrong with a payment or a run? Report a problem");
+    const link = within(report).getByRole("link", { name: "Report a problem" });
+    expect(decodeURIComponent(link.getAttribute("href")!)).toMatch(/^mailto:.+\?subject=Spatial Video Studio: report a problem$/);
+    expect(report.textContent).not.toMatch(/refund/i);
+    // below the purchases
     const purchases = screen.getByRole("region", { name: "Purchases and invoices" });
-    expect(purchases.compareDocumentPosition(screen.getByTestId("refunds")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByTestId("refund-plan-entry")).toBeNull();
+    expect(purchases.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // hidden: both sentences and the App Store line
+    await new Promise((r) => setTimeout(r, 200));
+    expect(screen.queryByTestId("refunds-line")).toBeNull();
+    expect(screen.queryByTestId("refund-app-store")).toBeNull();
+    expect(screen.queryByText(/Ask Apple for a refund/)).toBeNull();
     // no requests yet: no list
     expect(screen.queryByTestId("support-requests")).toBeNull();
-  });
-
-  it("with nothing to ask about: only the 30-day sentence", async () => {
-    renderBilling();
-    const line = await screen.findByTestId("refunds-line");
-    expect(line.textContent).toBe(
-      "Ask for a refund within 30 days of a payment, also after cancelling. A person reviews every request.",
-    );
-    expect(within(line).queryByRole("button")).toBeNull();
   });
 
   it("a question waiting: one line at the top, and Answer it goes to the request", async () => {
@@ -295,13 +294,12 @@ describe("Your requests", () => {
 });
 
 describe("App Store Pro", () => {
-  it("is refunded by Apple: Ask Apple for a refund", async () => {
+  it("the Ask Apple line is hidden with the other refund lines for now (SHOW_REFUND_FOOTER)", async () => {
     mockDb.proStatus = { pro: true, known: true, source: "app_store", scheduled_change: null };
     (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
     renderBilling();
-    const line = await screen.findByTestId("refund-app-store");
-    expect(within(line).getByRole("link", { name: "Ask Apple for a refund" }).getAttribute("href")).toBe(
-      "https://reportaproblem.apple.com",
-    );
+    await screen.findByTestId("report-problem");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(screen.queryByTestId("refund-app-store")).toBeNull();
   });
 });
