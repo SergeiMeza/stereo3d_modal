@@ -4,9 +4,11 @@
  * message (which always contains the conversion/project id for support).
  */
 
+import { pendingDeletionMessage } from "@/lib/accountDeletion";
 import { isReauthCode } from "@/lib/reauth";
 import type {
   AccountDeleteResult,
+  AccountDeletionCancel,
   AccountPlan,
   AccountSettings,
   AccountSettingsPatch,
@@ -384,7 +386,9 @@ export class GatewayClient {
         code,
         code === "files_deleted"
           ? FILES_DELETED_MESSAGE
-          : (parsed?.message ?? `request failed (${res.status})`),
+          : code === "account_pending_deletion"
+            ? pendingDeletionMessage(parsed?.details?.delete_after)
+            : (parsed?.message ?? `request failed (${res.status})`),
         res.status,
         parsed?.details,
       );
@@ -414,6 +418,12 @@ export class GatewayClient {
    * 202 deletion_pending while the balance is refunded (00081). */
   deleteAccount(opts: { balance_confirmed?: boolean } = {}): Promise<AccountDeleteResult> {
     return this.request("POST", "/v1/account/delete", opts.balance_confirmed ? { balance_confirmed: true } : {});
+  }
+
+  /** gateway 00166: keep the account while its deletion waits (a fresh
+   * sign-in; 409 not_pending_deletion when nothing waits). */
+  cancelAccountDeletion(): Promise<AccountDeletionCancel> {
+    return this.request("POST", "/v1/account/delete/cancel", {});
   }
 
   // ------------------------------------------------------------- billing

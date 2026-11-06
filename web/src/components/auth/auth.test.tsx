@@ -5,6 +5,7 @@
  * mocked /signin, RequireAuth passing through, and the account profile.
  */
 
+import { scheduledLine } from "@/lib/accountDeletion";
 import {
   cleanup,
   fireEvent,
@@ -179,10 +180,17 @@ describe("AccountScreen delete (mock mode)", () => {
     }
   }
 
-  it("deletes through the gateway and leaves the account", async () => {
+  it("deletes through the gateway: says when (48 hours), then signs out (gateway 00166)", async () => {
     settleAllRuns();
     renderWithAuth(<AccountScreen />);
     await typeDeleteAndConfirm();
+    const line = await screen.findByTestId("deletion-scheduled-line");
+    const after = mockDb.billing.accountDeletion!.delete_after;
+    expect(new Date(after).getTime() - Date.now()).toBeGreaterThan(47 * 3_600_000);
+    expect(line.textContent).toBe(scheduledLine(after));
+    expect(line.textContent).toMatch(/^Your account will be deleted on .+\. You can still change your mind: sign in before then\.$/);
+    expect(replace).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 
@@ -311,6 +319,8 @@ describe("AccountScreen delete: a renewing plan is cancelled first (owner 2026-1
       `Your ${name} plan stays valid until ${END_TEXT}. If you sign up again with this email, you can restore it.`,
     );
     fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    await screen.findByTestId("deletion-scheduled");
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 

@@ -7,6 +7,7 @@ import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import { Analytics } from "@/components/Analytics";
 import { PasskeySuggestion } from "@/components/auth/PasskeySuggestion";
 import { ReauthSheet } from "@/components/auth/ReauthSheet";
+import { DeletionPrompt } from "@/components/auth/DeletionPrompt";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
 import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
@@ -129,6 +130,8 @@ export default function RootLayout({
           <ProCheckoutHost />
           {/* owner 2026-11-06: "Confirm it's you" for sensitive requests */}
           <ReauthSheet />
+          {/* owner 2026-11-07: an account set to be deleted asks first */}
+          <DeletionPrompt />
           </BillingProvider>
           </MswProvider>
         </AuthProvider>

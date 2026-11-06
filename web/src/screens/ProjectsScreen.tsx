@@ -11,6 +11,7 @@
  * the project then reload whichever lists are on screen.
  */
 
+import { deletionPromptAtom } from "@/lib/accountDeletion";
 import { useCallback, useEffect, useState } from "react";
 
 import { GetStarted } from "@/components/onboarding/GetStarted";
@@ -215,7 +216,9 @@ export default function ProjectsScreen() {
   // lands late no longer closes or remounts it
   const [openedAs, setOpenedAs] = useState<WelcomeVariant | null>(null);
   if (welcomeDue && openedAs === null) setOpenedAs(shownVariant);
-  const welcomeOpen = welcomeAgain || (openedAs !== null && !welcomeClosed);
+  // owner 2026-11-07: an account set to be deleted asks that first
+  const deletionAsked = useAppAtomValue(deletionPromptAtom) !== null;
+  const welcomeOpen = !deletionAsked && (welcomeAgain || (openedAs !== null && !welcomeClosed));
   const dialogVariant = openedAs ?? shownVariant;
   const pinned = sorted?.filter((p) => p.pinned === true) ?? [];
   const rest = sorted?.filter((p) => p.pinned !== true) ?? [];

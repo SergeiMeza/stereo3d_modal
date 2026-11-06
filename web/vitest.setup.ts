@@ -9,6 +9,7 @@
  * zoom/speed/mute would leak into the next within the same file.
  */
 
+import { deletionPromptAtom } from "@/lib/accountDeletion";
 import { getDefaultStore } from "jotai";
 import { afterEach } from "vitest";
 
@@ -71,6 +72,7 @@ afterEach(() => {
   store.set(timelineZoomIndexAtom, null);
   store.set(compactPlayerAtom, false);
   store.set(compactTimelineAtom, false);
+  store.set(deletionPromptAtom, null);
   store.set(stripHoverFrameAtom, null);
   store.set(settleOpenAtom, false);
   store.set(billingHistoryAtom, EMPTY_HISTORY);

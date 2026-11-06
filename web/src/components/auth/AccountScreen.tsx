@@ -38,6 +38,16 @@ import {
   renewingFromGateway,
   type DeletePlanState,
 } from "@/components/auth/deletePlanLine";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { scheduledLine } from "@/lib/accountDeletion";
 import { useProStatus } from "@/lib/pro/usePro";
 
 function CardShell({
@@ -91,6 +101,9 @@ export default function AccountScreen() {
   const [copied, setCopied] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deletePending, setDeletePending] = useState(false);
+  // gateway 00166: when the confirmed deletion happens (local UI: the
+  // dialog before signing out)
+  const [scheduled, setScheduled] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   /** P13: what's owed when delete answered 402 balance_due */
   const [dues, setDues] = useState<number | null>(null);
@@ -133,6 +146,12 @@ export default function AccountScreen() {
     setDues(null);
     try {
       const r = await deleteWithChallenge(balanceConfirmed);
+      // gateway 00166: the account goes in 48 hours; say when, then sign out
+      if (r.pending_deletion && r.delete_after) {
+        setDeletePending(false);
+        setScheduled(r.delete_after);
+        return;
+      }
       if (r.deletion_pending) {
         // 00081: the balance is refunded first; the account goes after
         setDeletePending(false);
@@ -191,6 +210,19 @@ export default function AccountScreen() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6">
       <h1 className="text-xl font-semibold tracking-tight">Account</h1>
+      <AlertDialog open={scheduled !== null}>
+        <AlertDialogContent data-testid="deletion-scheduled" onEscapeKeyDown={(e) => e.preventDefault()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Account deletion scheduled</AlertDialogTitle>
+            <AlertDialogDescription data-testid="deletion-scheduled-line">
+              {scheduled ? scheduledLine(scheduled) : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button onClick={() => void signOut()}>Sign out</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <FirstTimeHint id="account" />
       <ResetPlansSurfaces />
 

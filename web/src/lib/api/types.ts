@@ -730,6 +730,20 @@ export interface AccountDeleteResult {
   case_id?: string;
   refund_cents?: number;
   message?: string;
+  /** gateway 00166: deletion waits 48 hours; sign-in stays until then */
+  pending_deletion?: boolean;
+  state?: "pending_deletion" | "active";
+  delete_after?: string;
+  requested_at?: string;
+  sign_in_removed?: boolean;
+}
+
+/** POST /v1/account/delete/cancel (gateway 00166, fresh sign-in). */
+export interface AccountDeletionCancel {
+  state: "active";
+  cancelled: boolean;
+  pending_deletion: false;
+  cancelled_at: string;
 }
 
 /** GET/PATCH /v1/account/settings (BL-25, gateway 00087) */
@@ -873,6 +887,8 @@ export interface GatewayLimits {
     /** quotes above this are paid when the run starts */
     precharge_threshold_cents?: number;
   };
+  /** gateway 00166: a deletion waiting its 48 hours */
+  account_deletion?: { pending_deletion: boolean; delete_after?: string | null };
 }
 
 /** Whether the chooser and header switch show for a project: hidden only

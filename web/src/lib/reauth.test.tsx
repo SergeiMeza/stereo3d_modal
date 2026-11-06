@@ -126,6 +126,9 @@ describe("Confirm it's you, on Account → Delete", () => {
     expect(within(sheet).getByText("Confirm it's you")).toBeTruthy();
     fireEvent.click(within(sheet).getByRole("button", { name: "Send a code to dev@example.com" }));
     fireEvent.change(await within(sheet).findByLabelText("Sign-in code"), { target: { value: "123456" } });
+    // gateway 00166: it says when the account goes, then signs out
+    await screen.findByTestId("deletion-scheduled");
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
     expect(route.calls()).toBe(2);
     expect(screen.queryByTestId("reauth-sheet")).toBeNull();

@@ -189,6 +189,8 @@ interface MockBilling {
   plan: AccountPlan | null;
   /** 00081: deletion waits for a balance refund; runs and top-ups 403 */
   deletionPending: boolean;
+  /** gateway 00166: the 48-hour deletion, when one waits */
+  accountDeletion: { delete_after: string; requested_at: string } | null;
   /** 00083: another reason auto-reload can't be turned on */
   autoReloadBlocked: "" | "dispute" | "payment_failed";
   /** 00083: what was added today, against the daily top-up cap */
@@ -970,6 +972,7 @@ function seed(): DB {
       },
       plan: null,
       deletionPending: false,
+      accountDeletion: null,
       autoReloadBlocked: "",
       topupDayCents: 0,
     },
@@ -4056,7 +4059,35 @@ export const handlers = [
       );
     }
     settlePending();
-    return HttpResponse.json({ deleted: true });
+    // gateway 00166: the account goes in 48 hours; a repeat keeps the time
+    const now = new Date();
+    mockDb.billing.accountDeletion ??= {
+      requested_at: now.toISOString(),
+      delete_after: new Date(now.getTime() + 48 * 3_600_000).toISOString(),
+    };
+    const d = mockDb.billing.accountDeletion;
+    return HttpResponse.json(
+      {
+        success: true,
+        deleted: false,
+        sign_in_removed: false,
+        state: "pending_deletion",
+        pending_deletion: true,
+        delete_after: d.delete_after,
+        requested_at: d.requested_at,
+        message: "your account will be deleted after 48 hours; sign in before then to keep it",
+      },
+      { status: 202 },
+    );
+  }),
+
+  // gateway 00166: keep the account while its deletion waits
+  http.post(`${GATEWAY}/v1/account/delete/cancel`, () => {
+    if (!mockDb.billing.accountDeletion) {
+      return err(409, "not_pending_deletion", "the account isn't set to be deleted");
+    }
+    mockDb.billing.accountDeletion = null;
+    return HttpResponse.json({ state: "active", cancelled: true, pending_deletion: false, cancelled_at: new Date().toISOString() });
   }),
 
   /** What completeChargeAction calls in place of confirmCardPayment: the
@@ -4133,6 +4164,11 @@ export const handlers = [
       },
       default_method: "lifelike",
       rates: { precharge_threshold_cents: mockDb.chargeBeforeCents },
+      // gateway 00166: a deletion waiting its 48 hours
+      account_deletion: {
+        pending_deletion: mockDb.billing.accountDeletion !== null,
+        delete_after: mockDb.billing.accountDeletion?.delete_after ?? null,
+      },
     }),
   ),
 
@@ -4720,6 +4756,18 @@ export const handlers = [
         );
       }
       if (mockDb.billing.deletionPending) return err(403, "deletion_pending", "your account is being deleted");
+      // gateway 00166: frozen while the account waits to be deleted
+      if (mockDb.billing.accountDeletion) {
+        return HttpResponse.json(
+          {
+            success: false,
+            error: "account_pending_deletion",
+            message: "this account is set to be deleted",
+            details: { delete_after: mockDb.billing.accountDeletion.delete_after },
+          },
+          { status: 409 },
+        );
+      }
       const req = body as unknown as StepConversionRequest;
       const capped = methodCapError(p);
       if (capped) return capped;
