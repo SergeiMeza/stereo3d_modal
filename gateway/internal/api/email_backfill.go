@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
@@ -37,6 +38,11 @@ type EmailBackfill struct {
 	AddedMain     int `json:"added_main"`
 	AddedExtra    int `json:"added_additional"`
 	Conflicts     int `json:"conflicts"` // the email is active on another account in the store
+	// DuplicatePairs: emails two or more Firebase users share (from before
+	// one account per email); a live run marks their row
+	// support_case duplicate_email.
+	DuplicatePairs  int `json:"duplicate_email_pairs"`
+	DuplicateMarked int `json:"duplicate_email_marked"`
 	// Customer records.
 	Customers         int `json:"customers"`
 	Deleted           int `json:"deleted_accounts"`
@@ -65,6 +71,7 @@ type EmailBackfill struct {
 func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.Context, func(*auth.Identity) error) error, live, stripe bool) (*EmailBackfill, error) {
 	out := &EmailBackfill{Live: live}
 	main := map[string]string{} // uid → its Firebase email (the main)
+	sharing := map[string]int{} // email → Firebase users with it
 	now := time.Now().UTC()
 	err := users(ctx, func(id *auth.Identity) error {
 		out.Users++
@@ -78,6 +85,7 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 		}
 		out.WithEmail++
 		main[id.UID] = email
+		sharing[email]++
 		password := false
 		for _, p := range id.Providers {
 			password = password || p == providerPassword
@@ -131,6 +139,20 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 	})
 	if err != nil {
 		return out, err
+	}
+	for email, n := range sharing {
+		if n < 2 {
+			continue
+		}
+		out.DuplicatePairs++
+		if live {
+			note := fmt.Sprintf("%d Firebase users share this email (EM-01 backfill); row on the first one met", n)
+			if err := s.Store.MarkEmailSupportCase(ctx, email, "duplicate_email", note); err != nil {
+				out.Errors++
+			} else {
+				out.DuplicateMarked++
+			}
+		}
 	}
 	err = s.Store.EachCustomer(ctx, func(uid string, c *store.Customer) error {
 		out.Customers++

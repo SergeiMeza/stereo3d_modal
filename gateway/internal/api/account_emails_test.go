@@ -310,6 +310,7 @@ func TestEmailBackfill(t *testing.T) {
 		{UID: "u2" + tag, Email: "b" + tag + "@example.com", Providers: []string{"password"}},
 		{UID: "u3" + tag, Email: "c" + tag + "@privaterelay.appleid.com", EmailVerified: true, Providers: []string{"apple.com"}},
 		{UID: "u4" + tag},
+		{UID: "u5" + tag, Email: "A" + tag + "@example.com", Providers: []string{"password"}}, // a's email on a second Firebase user
 	}
 	each := func(ctx context.Context, fn func(*auth.Identity) error) error {
 		for _, u := range users {
@@ -325,8 +326,8 @@ func TestEmailBackfill(t *testing.T) {
 	s.Store.PutCustomer(ctx, "ud"+tag, &store.Customer{Email: "gone" + tag + "@example.com", AccountDeleted: true})
 
 	dry, err := s.BackfillAccountEmails(ctx, each, false, false)
-	if err != nil || dry.Users != 4 || dry.WithEmail != 3 || dry.NoEmail != 1 || dry.ToAdd != 3 || dry.Added != 0 ||
-		dry.PasswordUnverified != 1 || dry.Relay != 1 || dry.ToRelease != 1 || dry.PlanAccounts != 1 || dry.PlanRelayMain != 1 ||
+	if err != nil || dry.Users != 5 || dry.WithEmail != 4 || dry.NoEmail != 1 || dry.ToAdd != 4 || dry.Added != 0 || dry.DuplicatePairs != 1 ||
+		dry.PasswordUnverified != 2 || dry.Relay != 1 || dry.ToRelease != 1 || dry.PlanAccounts != 1 || dry.PlanRelayMain != 1 ||
 		dry.StripeToResync != 1 || dry.CustomerDiffers != 1 {
 		t.Fatalf("dry %+v %v", dry, err)
 	}
@@ -334,8 +335,11 @@ func TestEmailBackfill(t *testing.T) {
 		t.Fatal("a dry run wrote")
 	}
 	live, err := s.BackfillAccountEmails(ctx, each, true, true)
-	if err != nil || live.Added != 3 || live.Released != 1 || live.StripeResynced != 1 || live.CustomersResynced != 1 {
+	if err != nil || live.Added != 3 || live.Conflicts != 1 || live.DuplicateMarked != 1 || live.Released != 1 || live.StripeResynced != 1 || live.CustomersResynced != 1 {
 		t.Fatalf("live %+v %v", live, err)
+	}
+	if e, _ := s.Store.GetAccountEmail(ctx, "a"+tag+"@example.com"); e == nil || e.UID != "u1"+tag || e.SupportCase != "duplicate_email" {
+		t.Fatalf("duplicate marked %+v", e)
 	}
 	if e, _ := s.Store.GetAccountEmail(ctx, "b"+tag+"@example.com"); e == nil || !e.Main || e.Verified {
 		t.Fatalf("unverified main %+v", e)
@@ -350,7 +354,7 @@ func TestEmailBackfill(t *testing.T) {
 		t.Fatalf("stripe %+v", got)
 	}
 	again, _ := s.BackfillAccountEmails(ctx, each, true, false)
-	if again.Added != 0 || again.AlreadyStored != 3 || again.Released != 0 {
+	if again.Added != 0 || again.AlreadyStored != 3 || again.Released != 0 || again.DuplicatePairs != 1 {
 		t.Fatalf("again %+v", again)
 	}
 	if p, _ := s.Store.ListPendingEmailSyncs(ctx, 10); len(p) != 0 {
