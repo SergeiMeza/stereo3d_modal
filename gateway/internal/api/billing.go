@@ -381,6 +381,7 @@ func (s *Service) HandleGetBilling(w http.ResponseWriter, r *http.Request, user 
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	s.addDeletionState(ctx, user.UID, resp) // pending_deletion, delete_after
 	httpx.WriteOK(w, resp)
 }
 

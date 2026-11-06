@@ -43,6 +43,9 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		out["promo_regrants"] = recs
 	}
 	out["grants"] = s.adminGrantsJSON(ctx, uid)
+	if d, err := s.Store.GetAccountDeletion(ctx, uid); err == nil { // the 48-hour wait
+		out["deletion"] = adminDeletionJSON(d)
+	}
 	passkeys := 0
 	if ps, err := s.Store.ListCustomerPasskeys(ctx, uid); err == nil { // ADR 0136
 		passkeys = len(ps)
@@ -83,6 +86,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 
 // POST /v1/admin/accounts/{uid}/actions {action: clear_review |
 // clear_sheet_only | write_off_owed | block | unblock | resend_e2 | restore_promo_grants (note = reason) |
+// cancel_deletion | process_deletion_now (fresh sign-in) |
 // adjust_balance, cents?, case_id?, note?}.
 func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Request, a *AdminUser, uid string) {
 	ctx := r.Context()
@@ -96,8 +100,29 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants") && !a.FreshAuth() {
+	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants" ||
+		req.Action == "process_deletion_now") && !a.FreshAuth() {
 		httpx.WriteErr(ctx, w, a.reauthErr())
+		return
+	}
+	// The 48-hour deletion's console actions work on accounts without a
+	// billing record too.
+	if req.Action == "cancel_deletion" || req.Action == "process_deletion_now" {
+		s.audit(ctx, a, "account_"+req.Action, map[string]any{"uid": uid, "case_id": req.CaseID, "note": req.Note})
+		if err := s.adminDeletionAction(ctx, a, uid, req.Action, req.CaseID, req.Note); err != nil {
+			if apiErr, ok := err.(*httpx.APIError); ok {
+				httpx.WriteErr(ctx, w, apiErr)
+				return
+			}
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "action_failed", "That didn't work: "+err.Error()))
+			return
+		}
+		if _, err := s.Store.GetCustomer(ctx, uid); err != nil {
+			d, _ := s.Store.GetAccountDeletion(ctx, uid)
+			httpx.WriteOK(w, map[string]any{"deletion": adminDeletionJSON(d)})
+			return
+		}
+		s.HandleAdminAccount(w, r, a, uid)
 		return
 	}
 	if _, err := s.Store.GetCustomer(ctx, uid); err != nil {

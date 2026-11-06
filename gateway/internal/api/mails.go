@@ -49,6 +49,10 @@ type customerMail struct {
 	Link    string
 	// Receipt: a copy goes to the company's billing email when it has one.
 	Receipt bool
+	// OwnAddress: off prod too, the mail goes to the account's own address
+	// (marked as a test), never the owner's inbox: the account deletion
+	// mails, sent only when that account's holder asked (owner 2026-11-07).
+	OwnAddress bool
 }
 
 func (m customerMail) text() string {
@@ -84,6 +88,9 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 	}
 	if s.Cfg.Env != "prod" {
 		to, msg.Cc = s.Cfg.OwnerAlertEmail, nil // test mails only ever reach the owner
+		if m.OwnAddress {
+			to = email // …or, for the deletion mails, the account itself, never a copy
+		}
 		msg.Subject += " (test)"
 		head := "[Test environment: this mail is for " + email
 		if cc != "" {

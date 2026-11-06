@@ -121,7 +121,11 @@ func (s *Service) HandleAccountPlanResume(w http.ResponseWriter, r *http.Request
 //	 current_period_end?, cancel_at_period_end?, active_runs, dues_cents,
 //	 balance_cents, cash_balance_cents, plan_credit_cents,
 //	 balance_confirmation_needed, waits_for_refund_case,
-//	 deletion_pending, case_id?}
+//	 deletion_pending, case_id?, pending_deletion, delete_after,
+//	 delete_delay_hours}
+//
+// pending_deletion/delete_after: the 48-hour wait (deletion_schedule.go);
+// deletion_pending is the older wait for a refund case.
 //
 // Only cash_balance_cents (unspent top-ups) is refunded and asks for a
 // confirmation. plan_credit_cents is informational: plan credit is never
@@ -142,6 +146,8 @@ func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, us
 		cust = nil
 	}
 	out := map[string]any{"plan_state": "none", "deletion_pending": cust != nil && cust.DeletionPending}
+	s.addDeletionState(ctx, user.UID, out) // the 48-hour wait: pending_deletion, delete_after
+	out["delete_delay_hours"] = int(s.accountDeleteDelay(ctx) / time.Hour)
 	for k, v := range deletionPlan(cust) {
 		out[k] = v
 	}

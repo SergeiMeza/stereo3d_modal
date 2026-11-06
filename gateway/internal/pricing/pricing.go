@@ -258,11 +258,15 @@ type Rates struct {
 	ProPlans map[string]ProPlanDef `firestore:"pro_plans"`
 	// ProCreditCents: Pro's monthly usage credit by allowance key
 	// (pro_weekly … pro_lifetime; tiers.go testProCredit); empty = off.
-	ProCreditCents         map[string]int64 `firestore:"pro_credit_cents"`
-	FreePreviewsEnabled    bool             `firestore:"free_previews_enabled"`
-	FreePreviewsOverride   map[string]int   `firestore:"free_previews"`
-	FreePreviewsPerDay     int              `firestore:"free_previews_per_day"`
-	FreePreviewUnitSeconds float64          `firestore:"free_preview_unit_s"`
+	ProCreditCents map[string]int64 `firestore:"pro_credit_cents"`
+	// AccountDeleteDelayHours: a delete request waits this long before the
+	// deletion runs (owner 2026-11-07; test 48). 0 = at once, as before
+	// (prod until its release).
+	AccountDeleteDelayHours int            `firestore:"account_delete_delay_hours"`
+	FreePreviewsEnabled     bool           `firestore:"free_previews_enabled"`
+	FreePreviewsOverride    map[string]int `firestore:"free_previews"`
+	FreePreviewsPerDay      int            `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds  float64        `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
@@ -812,6 +816,7 @@ func DefaultsFor(env string) *Rates {
 		r.LifelikeSourceCropEnabled = true // BL-03
 		r.LifelikeIntroEnabled = true      // BL-25, live on lifelike3d-test
 		applyTestTierDefaults(r)           // 2026-11 pricing, test only
+		r.AccountDeleteDelayHours = 48     // the 48-hour wait (owner 2026-11-07), test first
 	}
 	return r
 }

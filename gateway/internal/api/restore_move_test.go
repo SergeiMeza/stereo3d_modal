@@ -44,7 +44,7 @@ func restoreFixture(t *testing.T) (planFixture, *fakeIdentities, string) {
 	if code, out := callAs(f, f.s.HandleAccountPlanCancel, http.MethodPost, ``, false); code != 200 {
 		t.Fatalf("cancel %d %v", code, out)
 	}
-	if code, out := deleteAccount(f, `{}`, false); code != 200 || out["deleted"] != true {
+	if code, out := deleteAccountNow(f, `{}`); code != 200 || out["deleted"] != true {
 		t.Fatalf("delete %d %v", code, out)
 	}
 	return f, ids, email
@@ -216,7 +216,7 @@ func TestRestoredMonthlyInvoiceNotGrantedAgain(t *testing.T) {
 	inv := fmt.Sprintf(`{"id":"in_%s","subscription":"%s","billing_reason":"subscription_cycle","lines":{"data":[{"amount":29900}]}}`, f.sub, f.sub)
 	s.handlePlanInvoicePaid(ctx, []byte(inv))
 	callAs(f, s.HandleAccountPlanCancel, http.MethodPost, ``, false)
-	if code, out := deleteAccount(f, `{}`, false); code != 200 {
+	if code, out := deleteAccountNow(f, `{}`); code != 200 {
 		t.Fatalf("delete %d %v", code, out)
 	}
 	me := "u" + store.NewID()

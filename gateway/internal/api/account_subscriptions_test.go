@@ -11,6 +11,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -32,6 +33,16 @@ func deleteAccount(f planFixture, body string, viaProxy bool) (int, map[string]a
 	return callAs(f, f.s.HandleDeleteAccount, http.MethodPost, body, viaProxy)
 }
 
+// deleteAccountNow is the deletion without the 48-hour wait (what the
+// sweep runs at delete_after, and prod until its release): these tests
+// are about the deletion itself.
+func deleteAccountNow(f planFixture, body string) (int, map[string]any) {
+	r := *f.s.Pricing.Rates(context.Background())
+	r.AccountDeleteDelayHours = 0
+	f.s.Pricing = pricing.NewStatic(&r)
+	return deleteAccount(f, body, false)
+}
+
 // Owner 2026-11-06: a renewing plan (Business, Studio, web Pro; a waiting
 // step-down still renews) is cancelled first: 409 plan_renewing {plan,
 // current_period_end, cancel_at_period_end: false}, nothing charged,
@@ -49,7 +60,7 @@ func TestDeletionRefusedWhilePlanRenews(t *testing.T) {
 					t.Fatalf("step-down %d %v", code, out)
 				}
 			}
-			code, out := deleteAccount(f, `{}`, false)
+			code, out := deleteAccountNow(f, `{}`)
 			d, _ := out["details"].(map[string]any)
 			if code != 409 || out["error"] != "plan_renewing" || d["plan"] != tc.tier || d["cancel_at_period_end"] != false || d["current_period_end"] == nil {
 				t.Fatalf("refusal %d %v", code, out)
@@ -97,7 +108,7 @@ func TestDeletionAfterCancel(t *testing.T) {
 	}
 	end := sub["current_period_end"]
 	f.s.Store.UpdateCustomer(ctx, f.uid, func(c *store.Customer) error { c.DefaultPaymentMethod, c.CardLast4 = "pm_saved", "4242"; return nil })
-	code, out = deleteAccount(f, `{}`, false)
+	code, out = deleteAccountNow(f, `{}`)
 	if code != 200 || out["deleted"] != true || out["plan"] != "business" || out["cancel_at_period_end"] != true || out["current_period_end"] == nil {
 		t.Fatalf("delete %d %v", code, out)
 	}
@@ -122,7 +133,7 @@ func TestDeletionAfterCancel(t *testing.T) {
 	if after.PlanCreditCents() != before.PlanCreditCents() {
 		t.Fatalf("credit granted again: %d → %d", before.PlanCreditCents(), after.PlanCreditCents())
 	}
-	if code, _ := deleteAccount(f, `{}`, false); code != 200 {
+	if code, _ := deleteAccountNow(f, `{}`); code != 200 {
 		t.Fatalf("retry %d", code)
 	}
 }
@@ -169,7 +180,7 @@ func TestDeletePreview(t *testing.T) {
 	if code != 200 || out["block"] != "active_runs" || out["plan_state"] != "cancelled" || out["active_runs"] != float64(1) || out["dues_cents"] != float64(0) {
 		t.Fatalf("cancelled with a run %d %v", code, out)
 	}
-	code, out = deleteAccount(f, `{}`, false)
+	code, out = deleteAccountNow(f, `{}`)
 	d, _ := out["details"].(map[string]any)
 	if code != 409 || out["error"] != "active_runs" || d["plan"] != "studio" || d["cancel_at_period_end"] != true {
 		t.Fatalf("active runs %d %v", code, out)
@@ -230,7 +241,7 @@ func TestDeletionPlanCreditIsNotCash(t *testing.T) {
 		out["balance_confirmation_needed"] != false || out["waits_for_refund_case"] != false {
 		t.Fatalf("preview %d %v", code, out)
 	}
-	code, out = deleteAccount(f, `{}`, false)
+	code, out = deleteAccountNow(f, `{}`)
 	if code != 200 || out["deleted"] != true {
 		t.Fatalf("delete with plan credit only %d %v", code, out)
 	}
@@ -241,7 +252,7 @@ func TestDeletionPlanCreditIsNotCash(t *testing.T) {
 	cash := planFixture{t: t, s: f.s, fake: f.fake, uid: "u" + store.NewID()}
 	f.s.Store.PutCustomer(ctx, cash.uid, &store.Customer{StripeCustomerID: "cus_cash"})
 	paidTopup(t, f.s, cash.uid, 2500)
-	code, out = deleteAccount(cash, `{}`, false)
+	code, out = deleteAccountNow(cash, `{}`)
 	if d, _ := out["details"].(map[string]any); code != 409 || out["error"] != "balance_remaining" || d["cents"] != float64(2500) ||
 		!strings.Contains(out["message"].(string), "$25.00") {
 		t.Fatalf("cash %d %v", code, out)

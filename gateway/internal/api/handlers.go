@@ -758,6 +758,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"auto_decimate_fps": autoDecimateFPS,
 		},
 		"usage": s.usageEntry(ctx, user.UID, active, freeImages),
+		// the 48-hour wait: clients ask "Keep my account" on sign-in
+		"account_deletion": s.deletionState(ctx, user.UID),
 		// Per-method source caps (0 = unlimited) and availability.
 		"methods": map[string]any{
 			store.MethodLifelike: map[string]any{

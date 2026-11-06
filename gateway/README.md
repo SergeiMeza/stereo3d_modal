@@ -2028,6 +2028,45 @@ account grants nothing.
   renewing | cancelled | none, plan…, active_runs, dues_cents (charged on
   delete), balance_cents, cash_balance_cents, balance_confirmation_needed,
   waits_for_refund_case, deletion_pending, case_id?}`.
+- **The 48-hour wait (owner 2026-11-07; test only: `account_delete_delay_hours`,
+  test 48, prod 0 = at once until its release).** `POST /v1/account/delete`
+  runs the same checks and collects the same dues (all the refusals above
+  are unchanged), then schedules instead of deleting: 202 `{success: true,
+  deleted: false, sign_in_removed: false, state: "pending_deletion",
+  pending_deletion: true, delete_after, requested_at, message, plan…}`;
+  `account_deletions_{env}/{uid}` holds it (state pending | cancelled |
+  done). A repeat answers the same `delete_after` and runs nothing. The
+  client signs the person out. The cash-balance closure case opens at
+  `delete_after`, not at the request. svs-backend's call
+  (`keep_sign_in` with the proxy key) still deletes at once, `{deleted:
+  true, sign_in_removed: false}`, and closes a pending row.
+  - `POST /v1/account/delete/cancel` (fresh sign-in): 200 `{state:
+    "active", cancelled: true, pending_deletion: false, cancelled_at}`; 409
+    `not_pending_deletion`.
+  - Reads: `GET /v1/billing` and the preview add `pending_deletion`,
+    `delete_after` (RFC 3339 or null; the preview also
+    `delete_delay_hours`); `GET /v1/limits` adds `account_deletion
+    {pending_deletion, delete_after}`.
+  - Frozen while pending (409 `account_pending_deletion {delete_after}`):
+    new runs and previews, paying a waiting run, the hand-off, extra
+    formats, top-ups, plan purchases and changes, Restore Purchases and
+    plan moves, linking/unlinking sign-in methods, passkeys, emails.
+    Runs already going finish; reads, the cancel and dues stay open.
+  - The cases sweep runs due rows through the same deletion
+    (`deletions_deleted`, `deletions_refund_case`); a refusal then leaves
+    the row pending with `blocked_reason` (plan_renewing, active_runs,
+    balance_due, …), `blocked_at` and `next_attempt_at` (15 min for
+    running jobs, 6 h otherwise), a Slack `deletion_blocked` the first
+    time.
+  - Mails to the account's own address (on test too, marked as a test):
+    DL1 "Spatial Video Studio: your account will be deleted on <date>"
+    with a sign-in link (`/account?deletion=keep`), DL2 "Spatial Video
+    Studio: your account won't be deleted". No completion mail (as
+    before).
+  - Admin: `GET /v1/admin/deletions?state=pending|cancelled|done`;
+    `GET /v1/admin/accounts/{uid}` adds `deletion`; actions
+    `cancel_deletion` and `process_deletion_now` (fresh sign-in; skips
+    `delete_after`), both audited and noted on `case_id` when given.
 - `POST /v1/account/plan/cancel` / `resume` → `{plan, plan_id,
   current_period_end, cancel_at_period_end}`: the renewal switch for any
   web plan; a cancel replaces a waiting step-down (its schedule released),
