@@ -171,6 +171,47 @@ export interface PlanChangePreview {
   currency?: string;
 }
 
+/** GET /v1/support/refund-options (gateway efa1856). */
+export interface RefundOptions {
+  window_days?: number;
+  plan: {
+    invoice_id: string;
+    plan: string;
+    name: string;
+    paid_at: string;
+    paid_cents: number;
+    cancelled: boolean;
+    open_request_id: string | null;
+  } | null;
+  runs: {
+    conversion_id: string;
+    label: string;
+    paid_at: string;
+    amount_cents: number;
+    open_request_id: string | null;
+  }[];
+}
+
+export type SupportRequestState = "looking" | "asked" | "refunded" | "not_refunded" | "waived" | "closed";
+
+/** GET /v1/support/requests: a request as its customer sees it. */
+export interface SupportRequest {
+  id: string;
+  about: "plan" | "runs" | "balance" | "other";
+  state: SupportRequestState;
+  /** plain words from the gateway: "We're looking at it", … */
+  status: string;
+  opened_at: string;
+  updated_at?: string;
+  requested_cents?: number;
+  refunded_cents?: number;
+  your_note?: string | null;
+  conversion_ids?: string[];
+  /** while state is "asked": what we asked */
+  question?: string | null;
+  follow_up_of?: string | null;
+}
+
 /** GET /v1/account/identities (EM-02). `providers` are apple.com,
  * google.com and email; a password is reported apart. */
 export interface AccountIdentities {
@@ -427,6 +468,36 @@ export class GatewayClient {
 
   getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
     return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  // ------------------------------------------------- refund requests
+
+  /** Owner 2026-11-06: what can be asked for a refund (paid in the last
+   * 30 days): finished, paid, unrefunded runs and the plan's latest
+   * invoice, each with its open request. */
+  getRefundOptions(): Promise<RefundOptions> {
+    return this.request("GET", "/v1/support/refund-options");
+  }
+
+  /** A refund request, always reviewed by a person. Needs a fresh sign-in
+   * (the shared Confirm it's you). 400 not_refundable, text_too_long; 409
+   * too_many_open; 429 rate_limited; 403 account_deleted /
+   * deletion_pending. */
+  requestRefund(body: { plan?: boolean; conversion_ids?: string[]; text?: string }): Promise<{
+    requests: { id: string; state: SupportRequestState; status: string; merged?: boolean }[];
+  }> {
+    return this.request("POST", "/v1/support/refund-requests", body);
+  }
+
+  /** The account's requests, newest first, status in plain words. */
+  async getSupportRequests(): Promise<SupportRequest[]> {
+    const r = await this.request<{ requests?: SupportRequest[] | null }>("GET", "/v1/support/requests");
+    return r.requests ?? [];
+  }
+
+  /** A message on a request (a closed one gets a follow-up). */
+  replyToSupportRequest(id: string, text: string): Promise<SupportRequest> {
+    return this.request("POST", `/v1/support/requests/${encodeURIComponent(id)}/reply`, { text });
   }
 
   // ------------------------------------------------- sign-in methods

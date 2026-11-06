@@ -437,6 +437,10 @@ interface DB {
   passkeys: { id: string; name: string; device_hint: string | null; created_at: string; last_used_at: string | null }[];
   /** ADR 0136: adding a passkey answers 401 reauth_required (sign-in too old) */
   passkeyReauthNeeded: boolean;
+  /** owner 2026-11-06: refund requests (gateway efa1856) — what can be
+   * asked for, and the account's requests */
+  refundOptions: import("@/lib/api/client").RefundOptions;
+  supportRequests: import("@/lib/api/client").SupportRequest[];
   /** EM-02: GET /v1/account/identities for the mock account */
   identities: { providers: string[]; email: string; password: boolean };
   /** EM-02: the next Apple or Google link belongs to another account
@@ -941,6 +945,8 @@ function seed(): DB {
     passkeys: [] as typeof mockDb.passkeys,
     passkeyReauthNeeded: false,
     identities: { providers: ["email"], email: "dev@example.com", password: false },
+    refundOptions: { window_days: 30, plan: null, runs: [] } as import("@/lib/api/client").RefundOptions,
+    supportRequests: [] as import("@/lib/api/client").SupportRequest[],
     identityInUse: null as string[] | null,
     passkeyVerifyErrors: [] as { status: number; code: string }[],
     formatJobs: new Map() as typeof mockDb.formatJobs,
@@ -984,6 +990,8 @@ export const mockDb = {
     this.passkeys = fresh.passkeys;
     this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
     this.identities = fresh.identities;
+    this.refundOptions = fresh.refundOptions;
+    this.supportRequests = fresh.supportRequests;
     this.identityInUse = fresh.identityInUse;
     this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
     this.formatJobs = fresh.formatJobs;
@@ -3274,6 +3282,72 @@ export const handlers = [
     return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  // owner 2026-11-06: refund requests (gateway efa1856), a person decides
+  http.get(`${GATEWAY}/v1/support/refund-options`, () => HttpResponse.json(mockDb.refundOptions)),
+  http.post(`${GATEWAY}/v1/support/refund-requests`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { plan?: boolean; conversion_ids?: string[]; text?: string };
+    if ((body.text ?? "").length > 2000) return err(400, "text_too_long", "Keep it under 2000 characters.");
+    const opts = mockDb.refundOptions;
+    const ids = body.conversion_ids ?? [];
+    const bad = ids.filter((id) => !opts.runs.some((r) => r.conversion_id === id));
+    if (bad.length > 0 || (body.plan && !opts.plan) || (!body.plan && ids.length === 0)) {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "not_refundable",
+          message: "That can't be asked for: it wasn't paid in the last 30 days, or it's refunded already.",
+          details: { conversion_ids: bad, plan: body.plan === true && !opts.plan },
+        },
+        { status: 400 },
+      );
+    }
+    const out: { id: string; state: "looking"; status: string; merged: boolean }[] = [];
+    const open = (about: "plan" | "runs", cents: number, cids: string[]) => {
+      const id = `req_${mockDb.supportRequests.length + 1}`;
+      mockDb.supportRequests.unshift({
+        id, about, state: "looking", status: "We're looking at it", opened_at: new Date().toISOString(),
+        requested_cents: cents, refunded_cents: 0, your_note: body.text ?? null, conversion_ids: cids, question: null,
+        follow_up_of: null,
+      });
+      return id;
+    };
+    if (body.plan && opts.plan) {
+      const merged = opts.plan.open_request_id !== null;
+      const id = opts.plan.open_request_id ?? open("plan", opts.plan.paid_cents, []);
+      opts.plan.open_request_id = id;
+      out.push({ id, state: "looking", status: "We're looking at it", merged });
+    }
+    const fresh = opts.runs.filter((r) => ids.includes(r.conversion_id) && r.open_request_id === null);
+    const asked = opts.runs.filter((r) => ids.includes(r.conversion_id) && r.open_request_id !== null);
+    if (fresh.length > 0) {
+      const id = open("runs", fresh.reduce((n, r) => n + r.amount_cents, 0), fresh.map((r) => r.conversion_id));
+      for (const r of fresh) r.open_request_id = id;
+      out.push({ id, state: "looking", status: "We're looking at it", merged: false });
+    }
+    for (const id of new Set(asked.map((r) => r.open_request_id!))) {
+      out.push({ id, state: "looking", status: "We're looking at it", merged: true });
+    }
+    return HttpResponse.json({ success: true, requests: out }, { status: 201 });
+  }),
+  http.get(`${GATEWAY}/v1/support/requests`, () => HttpResponse.json({ requests: mockDb.supportRequests })),
+  http.post(`${GATEWAY}/v1/support/requests/:id/reply`, async ({ params, request }) => {
+    const { text } = (await request.json().catch(() => ({}))) as { text?: string };
+    if (!text?.trim()) return err(400, "invalid_request", "text is required");
+    const r = mockDb.supportRequests.find((x) => x.id === params.id);
+    if (!r) return err(404, "request_not_found", "We couldn't find that request.");
+    if (["refunded", "not_refunded", "waived", "closed"].includes(r.state)) {
+      // a closed request gets a follow-up
+      const follow = {
+        ...r, id: `req_${mockDb.supportRequests.length + 1}`, state: "looking" as const, status: "We're looking at it",
+        opened_at: new Date().toISOString(), your_note: text, question: null, follow_up_of: r.id,
+      };
+      mockDb.supportRequests.unshift(follow);
+      return HttpResponse.json(follow);
+    }
+    // an answered question goes back to review
+    Object.assign(r, { state: "looking", status: "We're looking at it", question: null });
+    return HttpResponse.json(r);
+  }),
   // EM-02: sign-in methods through the gateway (gateway/README "Linked
   // sign-in methods")
   // (any host: China mode calls the cn. gateway)

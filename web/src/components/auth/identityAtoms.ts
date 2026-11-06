@@ -12,21 +12,15 @@
 import { atom } from "jotai";
 
 import { GatewayError } from "@/lib/api/client";
-import type { AccountIdentities, GatewayClient } from "@/lib/api/client";
+import type { GatewayClient } from "@/lib/api/client";
 import { AppleCancelled, appleAuthorize, type AppleAnswer } from "@/lib/appleJs";
 import { billingUidAtom } from "@/lib/billing";
 
 type Client = Pick<GatewayClient, "getIdentities" | "linkIdentity" | "unlinkIdentity">;
 
-export interface IdentitiesState {
-  uid: string | null;
-  data: AccountIdentities | null;
-  error: string | null;
-}
+import { identitiesAtom } from "./identityState";
 
-export const EMPTY_IDENTITIES: IdentitiesState = { uid: null, data: null, error: null };
-
-export const identitiesAtom = atom<IdentitiesState>(EMPTY_IDENTITIES);
+export { EMPTY_IDENTITIES, identitiesAtom, type IdentitiesState } from "./identityState";
 
 /** The other account's ways in, as the gateway names them. */
 const METHOD_WORDS: Record<string, string> = {

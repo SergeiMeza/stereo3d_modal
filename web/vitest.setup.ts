@@ -33,6 +33,15 @@ import { resetPricesForTests } from "@/components/steps/priceAtoms";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { resetAuthForTests } from "@/lib/auth";
 import { resetReauthForTests } from "@/lib/reauth";
+import {
+  CLOSED_SHEET,
+  EMPTY_REFUND_OPTIONS,
+  EMPTY_SUPPORT_REQUESTS,
+  refundOptionsAtom,
+  refundSheetAtom,
+  supportRequestsAtom,
+} from "@/components/refunds/refundAtoms";
+import { EMPTY_IDENTITIES, identitiesAtom } from "@/components/auth/identityState";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
 import { resetProForTests } from "@/lib/pro/usePro";
@@ -83,6 +92,10 @@ afterEach(() => {
   resetAccountSettingsCache();
   resetPaymentMethodsForTests();
   store.set(welcomePicksAtom, EMPTY_WELCOME_PICKS);
+  store.set(refundOptionsAtom, EMPTY_REFUND_OPTIONS);
+  store.set(supportRequestsAtom, EMPTY_SUPPORT_REQUESTS);
+  store.set(refundSheetAtom, CLOSED_SHEET);
+  store.set(identitiesAtom, EMPTY_IDENTITIES);
 });
 
 class ResizeObserverStub {

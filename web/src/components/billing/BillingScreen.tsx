@@ -26,6 +26,8 @@ import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
+import { openRefundSheetAtom, refundOptionsAtom } from "@/components/refunds/refundAtoms";
+import { RefundsSection } from "@/components/refunds/RefundsSection";
 import { SettleFromLink } from "@/components/billing/SettleFromLink";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -177,8 +179,29 @@ function Ext({ href, label }: { href: string; label: string }): JSX.Element {
   );
 }
 
+/** What in this row can still be asked for a refund (the options list,
+ * not asked for yet). */
+function useRowRefund(row: BillingRow): { plan: boolean; conversionIds: string[]; asked: boolean } | null {
+  const options = useAppAtomValue(refundOptionsAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const opts = options.uid === uid ? options.data : null;
+  if (!opts || row.kind === "refund") return null;
+  if (row.kind === "plan") {
+    const p = opts.plan;
+    if (!p || !row.plan || p.invoice_id !== row.plan.invoice_id) return null;
+    return { plan: p.open_request_id === null, conversionIds: [], asked: p.open_request_id !== null };
+  }
+  const ids = new Set((row.items ?? []).map((i) => i.conversion_id));
+  const runs = opts.runs.filter((r) => ids.has(r.conversion_id));
+  if (runs.length === 0) return null;
+  const free = runs.filter((r) => r.open_request_id === null).map((r) => r.conversion_id);
+  return { plan: false, conversionIds: free, asked: free.length === 0 };
+}
+
 function RowMenu({ row }: { row: BillingRow }): JSX.Element {
   const [open, setOpen] = useState(false);
+  const refund = useRowRefund(row);
+  const openRefund = useAppSetAtom(openRefundSheetAtom);
   return (
     <span className="relative">
       <button
@@ -191,14 +214,35 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
         <EllipsisIcon className="size-4" />
       </button>
       {open ? (
-        <a
-          href={supportMailto(helpSubject(row))}
-          data-testid="row-help"
-          onClick={() => setOpen(false)}
-          className="absolute top-8 right-0 z-10 rounded-md border border-edge bg-popover px-3 py-2 text-xs whitespace-nowrap text-fg shadow-lg hover:bg-surface-2"
-        >
-          Get help with this payment
-        </a>
+        <span className="absolute top-8 right-0 z-10 flex flex-col rounded-md border border-edge bg-popover py-1 text-xs whitespace-nowrap text-fg shadow-lg">
+          {refund ? (
+            refund.asked ? (
+              <span data-testid="row-refund-asked" className="px-3 py-2 text-fg-muted">
+                Refund requested
+              </span>
+            ) : (
+              <button
+                type="button"
+                data-testid="row-refund"
+                onClick={() => {
+                  setOpen(false);
+                  openRefund({ plan: refund.plan, conversionIds: refund.conversionIds });
+                }}
+                className="px-3 py-2 text-left hover:bg-surface-2"
+              >
+                Request a refund
+              </button>
+            )
+          ) : null}
+          <a
+            href={supportMailto(helpSubject(row))}
+            data-testid="row-help"
+            onClick={() => setOpen(false)}
+            className="px-3 py-2 hover:bg-surface-2"
+          >
+            Get help with this payment
+          </a>
+        </span>
       ) : null}
     </span>
   );
@@ -733,6 +777,10 @@ export function BillingScreen(): JSX.Element {
       </SectionBoundary>
       <SectionBoundary name="Restore Purchases">
         <RestorePurchases />
+      </SectionBoundary>
+      {/* owner 2026-11-06: refunds on request, a person reviews each */}
+      <SectionBoundary name="Refunds">
+        <RefundsSection />
       </SectionBoundary>
 
       <SectionBoundary name="Payment methods">
