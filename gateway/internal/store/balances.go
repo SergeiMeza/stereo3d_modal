@@ -88,6 +88,10 @@ var ErrInsufficientBalance = errors.New("insufficient balance")
 type RunBalance struct {
 	HoldCents int64  `firestore:"hold_cents"`
 	State     string `firestore:"state"`
+	// Partial: the hold covers part of the price and a card pays the
+	// rest (owner 2026-11-07: credit and balance first); the run's card
+	// flow (after, precharge, the sheet) charges Quote − HoldCents.
+	Partial bool `firestore:"partial,omitempty"`
 	// SettleCents: the delivered price the run settles at (0 = the hold);
 	// set by the success path before the terminal transition.
 	SettleCents   int64      `firestore:"settle_cents,omitempty"`
@@ -325,8 +329,11 @@ type BalanceOp struct {
 	PendingReload bool       // hold: waits for the in-flight reload
 	Auto          bool       // topup: an auto-reload
 	ExpiresAt     *time.Time // plan_credit: the period's end
-	Restore       []FifoUse  // refund_to_balance: the items the run used
-	EntryID       string     // a fixed id (once per PaymentIntent)
+	// Additive (plan_credit): a grant beside the credit already there (an
+	// admin's usage credit), instead of replacing it like a new period's.
+	Additive bool
+	Restore  []FifoUse // refund_to_balance: the items the run used
+	EntryID  string    // a fixed id (once per PaymentIntent)
 }
 
 // ledger applies ops to a balance and records entries; then checks E0-8,
@@ -543,8 +550,11 @@ func (l *ledger) apply(op BalanceOp) error {
 			b.Expired, b.ExpiresAt, b.Notices = false, &exp, nil
 		}
 	case EntryPlanCredit:
-		// The new period's credit replaces what is left of the last one.
-		l.expirePlanCredit(op.Ref, true)
+		// The new period's credit replaces what is left of the last one
+		// (an additive grant leaves it).
+		if !op.Additive {
+			l.expirePlanCredit(op.Ref, true)
+		}
 		exp := op.ExpiresAt
 		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, ExpiresAt: exp, Ref: op.Ref})
 		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCredit, Cents: op.Cents, Delta: op.Cents, Ref: op.Ref, Note: op.Note})
@@ -1218,6 +1228,44 @@ func (b *Balance) PlanCreditCents() int64 {
 		}
 	}
 	return n
+}
+
+// Credit is one unspent credit item for the Billing page.
+type Credit struct {
+	Kind      string     // plan | pro | grant
+	Cents     int64      // left (spendable: unheld, unfrozen parts count as left)
+	ExpiresAt *time.Time // nil: no end
+	Ref       string
+}
+
+// Credits is the unexpired credit items with cents left, soonest to
+// expire first (the order they're spent in).
+func (b *Balance) Credits(now time.Time) []Credit {
+	var out []Credit
+	for _, it := range b.Fifo {
+		if !it.PlanCredit || it.RemainingCents <= 0 || (it.ExpiresAt != nil && !it.ExpiresAt.After(now)) {
+			continue
+		}
+		kind := "plan"
+		switch {
+		case strings.HasPrefix(it.Ref, "pro:"):
+			kind = "pro"
+		case strings.HasPrefix(it.Ref, "admin:"):
+			kind = "grant"
+		}
+		out = append(out, Credit{Kind: kind, Cents: it.RemainingCents, ExpiresAt: it.ExpiresAt, Ref: it.Ref})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, c := out[i].ExpiresAt, out[j].ExpiresAt
+		switch {
+		case a == nil:
+			return false
+		case c == nil:
+			return true
+		}
+		return a.Before(*c)
+	})
+	return out
 }
 
 // PlanCreditFrozen is the plan credit frozen by a dispute, a fraud

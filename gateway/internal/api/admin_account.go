@@ -87,6 +87,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 // POST /v1/admin/accounts/{uid}/actions {action: clear_review |
 // clear_sheet_only | write_off_owed | block | unblock | resend_e2 | restore_promo_grants (note = reason) |
 // cancel_deletion | process_deletion_now (fresh sign-in) |
+// grant_credit (fresh sign-in; cents, note = reason, case_id?: usage credit like plan credit, 30 days, never cash) |
 // adjust_balance, cents?, case_id?, note?}.
 func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Request, a *AdminUser, uid string) {
 	ctx := r.Context()
@@ -101,7 +102,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants" ||
-		req.Action == "process_deletion_now") && !a.FreshAuth() {
+		req.Action == "process_deletion_now" || req.Action == "grant_credit") && !a.FreshAuth() {
 		httpx.WriteErr(ctx, w, a.reauthErr())
 		return
 	}
@@ -178,6 +179,8 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		s.mailOwed(ctx, "E2", fmt.Sprintf("E2_resend_%s_%d", uid, time.Now().Unix()), uid, s.owedCents(ctx, uid))
 	case "write_off_owed":
 		err = s.writeOffOwed(ctx, uid)
+	case "grant_credit":
+		err = s.adminGrantCredit(ctx, a, uid, req.Cents, req.CaseID, req.Note)
 	case "adjust_balance":
 		if req.CaseID == "" || req.Cents == 0 {
 			err = httpx.ErrInvalid("an adjustment needs an amount and a case")
@@ -477,4 +480,36 @@ func (s *Service) disputeSummary(ctx context.Context, months int) (map[string]an
 		"denominator":   "successful charges from the gateway's charge records (charges_" + s.Cfg.Env + ")",
 		"generated_at":  now,
 	}, nil
+}
+
+// adminCreditDays: how long an admin's usage credit lasts.
+const adminCreditDays = 30
+
+// adminCreditMaxCents caps one admin grant ($500).
+const adminCreditMaxCents = 50000
+
+// adminGrantCredit adds usage credit: the plan-credit kind (spent before
+// cash, never paid out, expires after adminCreditDays), ref
+// "admin:<entry>" so it never replaces a plan's or Pro's credit.
+func (s *Service) adminGrantCredit(ctx context.Context, a *AdminUser, uid string, cents int64, caseID, note string) error {
+	note = strings.TrimSpace(note)
+	if cents <= 0 || cents > adminCreditMaxCents || note == "" {
+		return httpx.ErrInvalid(fmt.Sprintf("a credit grant needs 1–%d cents and a reason", adminCreditMaxCents))
+	}
+	now := time.Now().UTC()
+	exp := now.AddDate(0, 0, adminCreditDays)
+	entry := fmt.Sprintf("admincredit_%s_%d", uid, now.UnixNano())
+	_, fx, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
+		return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: cents, EntryID: entry, Ref: "admin:" + entry,
+			ExpiresAt: &exp, CaseID: caseID, Note: "credit from " + a.who() + ": " + note, Additive: true}}, nil
+	})
+	if err != nil {
+		return err
+	}
+	s.handleBalanceEffects(ctx, uid, fx)
+	s.payDebtsFromBalance(ctx, uid)
+	if caseID != "" {
+		s.Store.AddCaseEvent(ctx, caseID, store.CaseEvent{Who: a.who(), Kind: "note", Text: fmt.Sprintf("usage credit %s granted: %s", money(cents), note)})
+	}
+	return nil
 }

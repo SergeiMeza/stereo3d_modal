@@ -53,7 +53,8 @@ import (
 const project = "spatial-video-studio"
 
 var moneyActions = map[string]bool{"approve": true, "partial": true, "waive": true, "deny": true, "mark_out_of_band": true,
-	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true, "block_permanent": true}
+	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true, "block_permanent": true,
+	"grant_credit": true}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
