@@ -76,6 +76,31 @@ function studio(): void {
   };
 }
 
+describe("Account's Cancel plan link (owner 2026-11-06)", () => {
+  it("?cancel=1 opens the cancel confirmation once and drops the parameter", async () => {
+    studio();
+    window.history.replaceState(null, "", "/account/billing?cancel=1");
+    try {
+      wrap(<PlanCard />);
+      const dialog = await screen.findByTestId("plan-change-dialog");
+      expect(within(dialog).getByRole("heading").textContent).toMatch(/^Cancel Studio/);
+      await waitFor(() =>
+        expect(within(dialog).getByTestId("plan-change-line").textContent).not.toBe("Working out the change…"),
+      );
+      expect(window.location.search).toBe("");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("without it, nothing opens", async () => {
+    studio();
+    wrap(<PlanCard />);
+    await screen.findByTestId("plan-card");
+    expect(screen.queryByTestId("plan-change-dialog")).toBeNull();
+  });
+});
+
 describe("step-downs", () => {
   it("Studio → Business waits for the period's end; Keep Studio undoes it", async () => {
     studio();

@@ -17,7 +17,7 @@ import { GatewayError } from "@/lib/api/client";
 import { useBilling } from "@/lib/billing";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
-function longDate(iso: string): string {
+export function longDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",

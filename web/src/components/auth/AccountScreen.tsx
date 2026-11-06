@@ -31,7 +31,12 @@ import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ResetPlansSurfaces } from "@/components/plans/ResetPlansSurfaces";
 import { AppStoreProLine, BusinessEntry } from "@/components/business/BusinessEntry";
 import { AccountScheduledChange } from "@/components/billing/PlanChange";
-import { DeletePlanLine, deletePlanCase } from "@/components/auth/deletePlanLine";
+import {
+  DeletePlanNotice,
+  deletePlanState,
+  renewingFromGateway,
+  type DeletePlanState,
+} from "@/components/auth/deletePlanLine";
 import { useProStatus } from "@/lib/pro/usePro";
 
 function CardShell({
@@ -68,10 +73,14 @@ export default function AccountScreen() {
   const billing = useBilling();
   const pro = useProStatus();
   const router = useRouter();
-  // owner 2026-11-06: what deleting does to the plan, from the billing and
-  // Pro atoms (ADR 0138); the button waits until both have answered
+  // owner 2026-11-06: a renewing plan is cancelled before deleting; read
+  // from the billing and Pro atoms (ADR 0138), the button waits for both
   const planKnown = (billing.status !== null || billing.error !== null) && pro !== null;
-  const planCase = planKnown ? deletePlanCase(billing.status?.plan, pro) : null;
+  const fromAtoms = planKnown ? deletePlanState(billing.status?.plan, pro) : null;
+  /** the gateway's 409 plan_renewing, when the page's data was stale */
+  const [gatewayRenewing, setGatewayRenewing] = useState<DeletePlanState>(null);
+  const planState = fromAtoms?.kind === "ending" ? fromAtoms : (gatewayRenewing ?? fromAtoms);
+  const mustCancel = planState?.kind === "renewing";
 
   const [name, setName] = useState(user?.displayName ?? "");
   const [nameState, setNameState] = useState<"idle" | "saving" | "saved">(
@@ -143,6 +152,10 @@ export default function AccountScreen() {
         err instanceof GatewayError && err.code === "balance_remaining"
           ? err.details?.cents
           : undefined;
+      if (err instanceof GatewayError && err.code === "plan_renewing") {
+        setGatewayRenewing(renewingFromGateway(err.details));
+        return;
+      }
       if (typeof owed === "number" && owed > 0) setDues(owed);
       else if (typeof cash === "number" && cash > 0) setRefund(cash);
       else setDeleteError(deleteErrorMessage(err));
@@ -282,32 +295,34 @@ export default function AccountScreen() {
       <section className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
         <h2 className="font-medium text-destructive">Danger zone</h2>
         <div className="mt-3 space-y-3">
-          <DeletePlanLine which={planCase} />
-          <div className="space-y-1">
-            <label
-              htmlFor="delete-confirm"
-              className="block text-xs text-fg-muted"
-            >
-              Type DELETE to permanently delete your account
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="delete-confirm"
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                className="w-full flex-1 rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg outline-none focus:border-destructive/60"
-              />
-              <button
-                type="button"
-                disabled={confirmText !== "DELETE" || deletePending || pending !== null || !planKnown}
-                onClick={() => void onDelete()}
-                className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
+          <DeletePlanNotice state={planState} />
+          {mustCancel ? null : (
+            <div className="space-y-1">
+              <label
+                htmlFor="delete-confirm"
+                className="block text-xs text-fg-muted"
               >
-                {deletePending ? "Deleting…" : "Delete account"}
-              </button>
+                Type DELETE to permanently delete your account
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="delete-confirm"
+                  type="text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  className="w-full flex-1 rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg outline-none focus:border-destructive/60"
+                />
+                <button
+                  type="button"
+                  disabled={confirmText !== "DELETE" || deletePending || pending !== null || !planKnown}
+                  onClick={() => void onDelete()}
+                  className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
+                >
+                  {deletePending ? "Deleting…" : "Delete account"}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
           {refund !== null && (
             // 00081: confirm the balance refund, then delete
             <div data-testid="delete-refund" className="flex flex-wrap items-center gap-3 text-sm">

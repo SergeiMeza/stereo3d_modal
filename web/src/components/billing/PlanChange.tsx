@@ -16,7 +16,7 @@
  */
 
 import { useAtomValue, useSetAtom } from "jotai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { planPrice } from "@/components/pricing/planCopy";
@@ -127,6 +127,21 @@ function planLabel(plan: AccountPlan): string {
 
 const SCOPE = "plan-menu";
 
+/** ?cancel=1 in the address (Account's "Cancel plan"). */
+function cancelAsked(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("cancel") === "1";
+}
+
+/** Drops ?cancel=1 so a reload doesn't reopen it; true when it was there. */
+function dropCancelParam(): boolean {
+  if (!cancelAsked()) return false;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("cancel");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  return true;
+}
+
 export function PlanChangeMenu({
   plan,
 }: {
@@ -136,7 +151,11 @@ export function PlanChangeMenu({
   const billing = useBilling();
   const pricing = usePricing();
   const proPlans = useProPlans();
-  const [target, setTarget] = useState<Option | null>(null);
+  const [target, setTarget] = useState<Option | null>(() =>
+    !plan.scheduled_change && !plan.cancel_at_period_end && cancelAsked()
+      ? { id: PAY_PER_VIDEO, name: null }
+      : null,
+  );
   // ADR 0138: the preview and the confirm live in the plan change atom
   const change = useAtomValue(planChangeAtom(SCOPE));
   const previewChange = useSetAtom(previewPlanChangeAtom);
@@ -169,7 +188,15 @@ export function PlanChangeMenu({
     ...pro.filter((o) => (PLAN_RANK[o.id] ?? 0) < rank),
     { id: PAY_PER_VIDEO, name: null },
   ];
-  if (plan.scheduled_change || plan.cancel_at_period_end) return null;
+  // owner 2026-11-06: Account's "Cancel plan" (a renewing plan blocks
+  // deleting the account) lands here with ?cancel=1: the cancel
+  // confirmation opens once, and the parameter is dropped
+  const canChange = !plan.scheduled_change && !plan.cancel_at_period_end;
+  useEffect(() => {
+    if (!canChange || !dropCancelParam()) return;
+    void previewChange({ scope: SCOPE, client: gateway, to: PAY_PER_VIDEO });
+  }, [canChange, gateway, previewChange]);
+  if (!canChange) return null;
   const current = planLabel(plan);
 
   function open(o: Option): void {

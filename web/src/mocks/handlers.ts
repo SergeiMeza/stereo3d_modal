@@ -3637,6 +3637,20 @@ export const handlers = [
         "cancel or wait for your running jobs before deleting your account",
       );
     }
+    // owner 2026-11-06: a renewing plan is cancelled first (a scheduled
+    // step-down still renews); a cancelled one stays valid to its end
+    const plan = mockDb.billing.plan;
+    if (plan?.active && !plan.cancel_at_period_end) {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "plan_renewing",
+          message: "cancel your plan before deleting your account",
+          details: { plan: plan.plan, current_period_end: plan.current_period_end ?? currentPeriodEnd() },
+        },
+        { status: 409 },
+      );
+    }
     const owed = mockDb.billing.unpaid.reduce((n, u) => n + u.amount_cents, 0);
     if (owed > 0) {
       return HttpResponse.json(

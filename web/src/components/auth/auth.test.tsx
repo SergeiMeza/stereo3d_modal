@@ -224,10 +224,13 @@ describe("AccountScreen delete (mock mode)", () => {
   });
 });
 
-describe("AccountScreen delete: what happens to the plan (owner 2026-11-06)", () => {
+describe("AccountScreen delete: a renewing plan is cancelled first (owner 2026-11-06)", () => {
   afterEach(() => {
     delete (globalThis as { __mockDb?: typeof mockDb }).__mockDb;
   });
+
+  const END = "2026-12-06T00:00:00Z";
+  const END_TEXT = new Date(END).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   function teamPlan(plan: "business" | "studio", extra: Record<string, unknown> = {}): void {
     mockDb.billing.plan = {
@@ -239,42 +242,12 @@ describe("AccountScreen delete: what happens to the plan (owner 2026-11-06)", ()
       credit_cents: 40000,
       credit_left_cents: 40000,
       cancel_at_period_end: false,
-      current_period_end: "2026-12-06T00:00:00Z",
+      current_period_end: END,
       ...extra,
     } as never;
   }
 
-  /** Mock mode reads Pro from the mock gateway's state. */
-  function proStatus(status: NonNullable<typeof mockDb.proStatus>): void {
-    mockDb.proStatus = status;
-    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
-  }
-
-  async function planLine(): Promise<HTMLElement | null> {
-    const button = screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement;
-    fireEvent.change(screen.getByLabelText(/Type DELETE/), { target: { value: "DELETE" } });
-    await waitFor(() => expect(button.disabled).toBe(false));
-    return screen.queryByTestId("delete-plan-line");
-  }
-
-  function expectEnds(line: HTMLElement | null, name: string): void {
-    expect(line?.textContent).toBe(
-      `Your ${name} plan won't renew. Time left on it isn't refunded automatically. To ask for a refund, contact support.`,
-    );
-    const link = within(line!).getByRole("link", { name: "contact support" });
-    expect(link.getAttribute("href")).toMatch(/^mailto:.+\?subject=Refund%20request/);
-  }
-
-  it.each([
-    ["Studio", () => teamPlan("studio")],
-    ["Business", () => teamPlan("business")],
-  ])("%s: won't renew, no automatic refund, contact support", async (name, setUp) => {
-    setUp();
-    renderWithAuth(<AccountScreen />);
-    expectEnds(await planLine(), name);
-  });
-
-  it("web Pro: the same line for Pro", async () => {
+  function webPro(extra: Record<string, unknown> = {}): void {
     mockDb.billing.plan = {
       plan: "pro",
       plan_id: "pro_monthly",
@@ -283,32 +256,85 @@ describe("AccountScreen delete: what happens to the plan (owner 2026-11-06)", ()
       active: true,
       monthly_cents: 899,
       cancel_at_period_end: false,
+      current_period_end: END,
+      ...extra,
     } as never;
     proStatus({ pro: true, known: true, source: "plan", plan_id: "pro_monthly", via: "pro_monthly", scheduled_change: null });
+  }
+
+  /** Mock mode reads Pro from the mock gateway's state. */
+  function proStatus(status: NonNullable<typeof mockDb.proStatus>): void {
+    mockDb.proStatus = status;
+    (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
+  }
+
+  async function expectCancelFirst(): Promise<void> {
+    const box = await screen.findByTestId("delete-plan-renewing");
+    expect(box.textContent).toContain(`Cancel your plan first. It stays valid until ${END_TEXT}.`);
+    expect(within(box).getByRole("link", { name: "Cancel plan" }).getAttribute("href")).toBe(
+      "/account/billing?cancel=1",
+    );
+    // no delete on offer
+    expect(screen.queryByLabelText(/Type DELETE/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
+  }
+
+  /** Waits for the plan to be known, then reads the notice. */
+  async function readyLine(): Promise<HTMLElement | null> {
+    const button = screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement;
+    fireEvent.change(screen.getByLabelText(/Type DELETE/), { target: { value: "DELETE" } });
+    await waitFor(() => expect(button.disabled).toBe(false));
+    return screen.queryByTestId("delete-plan-line");
+  }
+
+  it.each([
+    ["Studio", () => teamPlan("studio")],
+    ["Business", () => teamPlan("business")],
+    ["web Pro", () => webPro()],
+    ["a plan with a step-down waiting", () => teamPlan("studio", { scheduled_change: { to: "business", effective_at: "2027-01-10T00:00:00Z" } })],
+  ])("%s still renewing: cancel first, no delete", async (_name, setUp) => {
+    setUp();
     renderWithAuth(<AccountScreen />);
-    expectEnds(await planLine(), "Pro");
+    await expectCancelFirst();
   });
 
   it.each([
-    ["already set to end", { cancel_at_period_end: true }],
-    ["with a step-down waiting", { scheduled_change: { to: "business", effective_at: "2027-01-10T00:00:00Z" } }],
-  ])("a plan %s gets the same line", async (_case, extra) => {
-    teamPlan("studio", extra);
+    ["Studio", () => teamPlan("studio", { cancel_at_period_end: true })],
+    ["Pro", () => webPro({ cancel_at_period_end: true })],
+  ])("a cancelled %s plan stays valid and can be restored; delete goes ahead", async (name, setUp) => {
+    setUp();
+    settleRuns();
     renderWithAuth(<AccountScreen />);
-    expectEnds(await planLine(), "Studio");
+    expect((await readyLine())?.textContent).toBe(
+      `Your ${name} plan stays valid until ${END_TEXT}. If you sign up again with this email, you can restore it.`,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
+
+  it("the gateway's 409 plan_renewing turns the confirmation into cancel first", async () => {
+    settleRuns();
+    renderWithAuth(<AccountScreen />);
+    expect(await readyLine()).toBeNull();
+    // the plan started renewing after the page loaded
+    teamPlan("business");
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    await expectCancelFirst();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("App Store Pro: cancel it with Apple", async () => {
     proStatus({ pro: true, known: true, source: "app_store", scheduled_change: null });
     renderWithAuth(<AccountScreen />);
-    expect((await planLine())?.textContent).toBe(
+    expect((await readyLine())?.textContent).toBe(
       "Pro from the App Store renews through Apple. Cancel it in your Apple ID settings.",
     );
   });
 
-  it("no plan: no line", async () => {
+  it("no plan: nothing", async () => {
     renderWithAuth(<AccountScreen />);
-    expect(await planLine()).toBeNull();
+    expect(await readyLine()).toBeNull();
+    expect(screen.queryByTestId("delete-plan-renewing")).toBeNull();
   });
 
   it("the button waits while the plan is still loading", async () => {
@@ -320,7 +346,7 @@ describe("AccountScreen delete: what happens to the plan (owner 2026-11-06)", ()
         return undefined;
       }),
     );
-    teamPlan("business");
+    teamPlan("business", { cancel_at_period_end: true });
     renderWithAuth(<AccountScreen />);
     fireEvent.change(screen.getByLabelText(/Type DELETE/), { target: { value: "DELETE" } });
     const button = screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement;
@@ -329,6 +355,12 @@ describe("AccountScreen delete: what happens to the plan (owner 2026-11-06)", ()
     expect(screen.queryByTestId("delete-plan-line")).toBeNull();
     answer();
     await waitFor(() => expect(button.disabled).toBe(false));
-    expectEnds(screen.getByTestId("delete-plan-line"), "Business");
+    expect(screen.getByTestId("delete-plan-line").textContent).toContain("Your Business plan stays valid until");
   });
+
+  function settleRuns(): void {
+    for (const c of mockDb.conversions.values()) {
+      if (["created", "paid", "processing"].includes(c.state)) c.state = "canceled";
+    }
+  }
 });
