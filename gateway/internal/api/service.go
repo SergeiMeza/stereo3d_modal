@@ -84,6 +84,12 @@ type Service struct {
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
 
+	// EventsAuth answers the viewer of GET /v1/events from its request
+	// (tests); nil = the Firebase ID token. EventsTiming shortens the
+	// stream's clock (tests); nil = 20 s heartbeat, 55 min max age.
+	EventsAuth   func(r *http.Request) (string, bool)
+	EventsTiming *eventsTiming
+
 	// DeletionCallbackPost sends a deletion completion to svs-backend
 	// (status code); nil = a Google ID token from the gateway's own
 	// service account, audience = the URL's origin.

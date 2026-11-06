@@ -857,6 +857,29 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   config/pricing_prod; prod quotes return to the Classic prices within
   the 60 s config cache, and runs already quoted keep their quote.
 
+### Live updates: SSE (owner 2026-11-07, TEST)
+
+`GET /v1/events` streams the viewer's runs and projects (Server-Sent
+Events; the status routes stay for old clients). Auth: `Authorization:
+Bearer <Firebase ID token>` (fetch-based clients) or `?ticket=` from
+`POST /v1/events/ticket` (authed; 2 min, reusable for EventSource's own
+reconnects within them). Events, each with a monotonic `id`:
+`snapshot {version, runs, projects}` (50 newest runs, 100 projects; on
+connect and on a resume older than 10 min or unreadable), `run.state
+{run_id, project_id, version, state, run}`, `run.progress {run_id,
+project_id, version, state, progress, stage, eta_seconds, waiting_for_gpu,
+queued_s}` (at most 1/s per run, the latest wins), `project.updated
+{project_id, version, deleted, project}`, `bye {reason, retry_ms}` (the
+stream closes itself at 55 min, inside Cloud Run's 3600 s timeout), and a
+`: hb` comment every 20 s. `version` is the document's update time in µs:
+clients keep the highest per run and project and drop the rest. A resume
+(`Last-Event-ID`, or `?last_event_id=`) replays what changed since, with
+10 s of overlap. Fan-out is a Firestore listener per stream on that
+viewer's runs and projects (`uid ==`), so every instance's writes reach
+every stream. Relay browsers: the media rewriter streams `/v1/events`
+write by write instead of buffering. `GET /v1/events/probe?seconds=N`
+(public, ≤ 90) is a heartbeat-only stream for checking a path.
+
 ### Black bars (BL-03, owner 2026-11-03)
 
 Lifelike runs take letterbox and pillarbox bars off by default; the user
