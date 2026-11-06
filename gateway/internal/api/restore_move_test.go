@@ -347,7 +347,9 @@ func TestBillingPortalGuards(t *testing.T) {
 	moveAction(f, passkeyAdmin(time.Now()), caseID, `{"action":"offer_plan_move","to_uid":"`+to+`","expected_subscription_id":"`+f.sub+`"}`)
 	_, out := callRestoreAs(s, to, s.HandleSupportPlanMoves, ``)
 	id := out["moves"].([]any)[0].(map[string]any)["id"].(string)
-	if code, out := callRestoreAs(s, to, func(w http.ResponseWriter, r *http.Request, u *AuthedUser) { s.HandleSupportPlanMoveAccept(w, r, u, id) }, ``); code != 200 {
+	if code, out := callRestoreAs(s, to, func(w http.ResponseWriter, r *http.Request, u *AuthedUser) {
+		s.HandleSupportPlanMoveAccept(w, r, u, id)
+	}, ``); code != 200 {
 		t.Fatalf("accept %d %v", code, out)
 	}
 	if code, out := portal(f.uid); code != 409 || out["error"] != "portal_unavailable" {
