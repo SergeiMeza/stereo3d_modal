@@ -4,7 +4,7 @@
  * Lifelike Preview page (screen 05, step lifelike_preview). Left, your
  * video with the quality, length and Quick look, and ONE main button with
  * its price ("Preview this moment · $1.04"); right, your preview with a
- * free 3D check on this screen — Red-cyan, Side by side or Wiggle
+ * free 3D check on this screen — Red-cyan, Wiggle or Side by side
  * (S3D-32); below, "Pick a moment": the timeline with the preview's box,
  * which starts at the playhead. Earlier previews sit in a short list.
  *

@@ -427,7 +427,7 @@ describe("Lifelike Preview", () => {
     });
   });
 
-  it("shows the latest preview with a free Red-cyan / Side by side / Wiggle check, Red-cyan first (owner 2026-11-07)", async () => {
+  it("shows the latest preview with a free Red-cyan / Wiggle / Side by side check, Red-cyan first (owner 2026-11-07)", async () => {
     const project = lifelikeProject();
     project.conversions = [
       {
@@ -458,8 +458,8 @@ describe("Lifelike Preview", () => {
     const view = within(screen.getByRole("radiogroup", { name: "View" }));
     expect(view.getAllByRole("radio").map((r) => r.textContent)).toEqual([
       "Red-cyan",
-      "Side by side",
       "Wiggle",
+      "Side by side",
     ]);
     expect(view.getByRole("radio", { name: "Red-cyan" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(view.getByRole("radio", { name: "Side by side" }));

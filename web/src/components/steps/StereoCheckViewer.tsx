@@ -14,11 +14,11 @@ import type { JSX } from "react";
 
 export type CheckMode = "sbs" | "anaglyph" | "wiggle";
 
-// owner 2026-11-07: Red-cyan first, and the first-time choice
+// owner 2026-11-07: Red-cyan first (and the first-time choice), then Wiggle, then Side by side
 export const CHECK_MODES: readonly { id: CheckMode; label: string }[] = [
   { id: "anaglyph", label: "Red-cyan" },
-  { id: "sbs", label: "Side by side" },
   { id: "wiggle", label: "Wiggle" },
+  { id: "sbs", label: "Side by side" },
 ];
 
 export const DEFAULT_CHECK_MODE: CheckMode = "anaglyph";
