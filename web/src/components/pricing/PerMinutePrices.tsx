@@ -11,6 +11,7 @@
  *   with the list price struck through beside it.
  */
 
+import { creditLine, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
 import type { JSX, ReactNode } from "react";
 
 import { methodLimitText, sentenceCase } from "@/components/steps/methods";
@@ -123,6 +124,12 @@ export function LifelikePrices({
           ))}
         </tbody>
       </table>
+      {/* owner 2026-11-07: Pro's monthly usage credit, beside its column */}
+      {pro && creditLine(proCreditCents(pricing)) ? (
+        <p data-testid="pricing-pro-credit" className="mt-2 text-xs text-primary">
+          Pro also includes {creditLine(proCreditCents(pricing))}. {PRO_CREDIT_RULES}
+        </p>
+      ) : null}
       {compact ? null : (
         <>
           <p data-testid="pricing-fps-rule" className="mt-2 text-xs text-fg-muted">

@@ -363,3 +363,53 @@ describe("Usage tab (P10)", () => {
     expect(usageStatus({ ...base, status: "returned", returned_cents: 200 }).text).toBe("Returned to balance $2.00");
   });
 });
+
+describe("Pro's monthly credit (owner 2026-11-07)", () => {
+  const credit = (over: Partial<NonNullable<BillingStatus["pro_credit"]>> = {}) => {
+    mockDb.pro = true;
+    mockDb.proCredit = {
+      cents_per_month: 2000,
+      kind: "pro_monthly",
+      source: "app_store",
+      trial: false,
+      period_start: "2026-11-01T00:00:00Z",
+      period_end: "2026-12-01T00:00:00Z",
+      granted: true,
+      left_cents: 1240,
+      ...over,
+    };
+  };
+
+  it("shows what's left this month and when it expires, like a plan's usage, apart from the Balance", async () => {
+    credit();
+    // the gateway counts the credit in the balance, like a plan's
+    mockDb.billing.prepaid.balance_cents = 1240 + 500;
+    renderBilling();
+    const card = await screen.findByTestId("pro-credit-card");
+    expect(within(card).getByTestId("pro-credit-left").textContent).toBe("$12.40 of $20.00 Pro credit left this month");
+    expect(within(card).getByTestId("pro-credit-expires").textContent).toBe("Expires on 1 Dec and isn't paid out.");
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$5.00"));
+    expect(screen.getByTestId("balance-pro-credit").textContent).toBe("Pro credit: $12.40 left this month · expires on 1 Dec");
+  });
+
+  it("a trial's credit says the trial includes it; Lifetime shows its own amount", async () => {
+    credit({ trial: true, cents_per_month: 1000, left_cents: 1000, kind: "pro_lifetime" });
+    renderBilling();
+    const card = await screen.findByTestId("pro-credit-card");
+    expect(card.textContent).toContain("$10.00 of $10.00 Pro credit left this month");
+    expect(card.textContent).toContain("Your free trial includes it.");
+  });
+
+  it("nothing when it isn't granted to this account, or there's none", async () => {
+    credit({ granted: false });
+    renderBilling();
+    await screen.findByTestId("balance-amount");
+    expect(screen.queryByTestId("pro-credit-card")).toBeNull();
+    expect(screen.queryByTestId("balance-pro-credit")).toBeNull();
+    cleanup();
+    mockDb.proCredit = null;
+    renderBilling();
+    await screen.findByTestId("balance-amount");
+    expect(screen.queryByTestId("pro-credit-card")).toBeNull();
+  });
+});

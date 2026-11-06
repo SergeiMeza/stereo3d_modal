@@ -9,6 +9,7 @@
  * (previews are never discounted); without it nothing shows.
  */
 
+import { creditLine, proCreditCents } from "@/lib/pro/plans";
 import Link from "next/link";
 import { useState } from "react";
 import type { JSX } from "react";
@@ -41,7 +42,10 @@ export function proSaveLine(pct: number): string {
 
 /** The quiet link under a non-member's price for `step`, with its sheet. */
 export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
-  const pro = usePricing()?.pro_discount;
+  const pricing = usePricing();
+  const pro = pricing?.pro_discount;
+  // owner 2026-11-07: Pro's monthly usage credit
+  const credit = creditLine(proCreditCents(pricing));
   const [open, setOpen] = useState(false);
   // Business and Studio include Pro: their quotes carry the plan's line
   const plan = useBilling().status?.plan;
@@ -65,7 +69,8 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
               {proPercent(pro.pct)}% off every 3D video
             </DialogTitle>
             <DialogDescription>
-              One membership for Spatial Video Studio on the web and in the apps.
+              One membership for Spatial Video Studio on the web and in the apps
+              {credit ? `, with ${credit}` : ""}.
             </DialogDescription>
             {open ? <ProPriceLine /> : null}
           </DialogHeader>

@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
+import { ProCreditCard } from "@/components/pro/ProCredit";
 import { YourPrices } from "@/components/billing/YourPrices";
 import { PlanMoveOffers } from "@/components/billing/PlanMoveOffers";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
@@ -778,6 +779,10 @@ export function BillingScreen(): JSX.Element {
       </SectionBoundary>
       <SectionBoundary name="Plan">
         <PlanCard />
+      </SectionBoundary>
+      {/* owner 2026-11-07: Pro's monthly usage credit */}
+      <SectionBoundary name="Pro credit">
+        <ProCreditCard />
       </SectionBoundary>
       <SectionBoundary name="Restore Purchases">
         <RestorePurchases />

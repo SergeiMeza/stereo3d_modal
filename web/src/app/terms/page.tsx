@@ -144,6 +144,14 @@ export default function TermsPage() {
           <li>A plan&rsquo;s usage credit is given each month and
             doesn&rsquo;t carry over. If you cancel a plan, it runs to the
             end of the period you paid for.</li>
+          {/* owner 2026-11-07 (gateway 00159): Pro's monthly credit; the
+              amounts live in /v1/pricing and show on /pro and /pricing */}
+          <li>Paid Pro, a free trial included, also comes with usage credit
+            each month. It expires at the end of each month, isn&rsquo;t
+            paid out and is used before your balance. After you cancel, it
+            continues until the end of the period you paid for. If you have
+            more than one plan, only the credit of the highest one
+            applies.</li>
           <li>Prices exclude any taxes we must collect, which are added.</li>
           <li>Prices may change, but never retroactively: a quote you
             accepted is honoured.</li>

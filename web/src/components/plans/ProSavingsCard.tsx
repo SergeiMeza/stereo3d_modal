@@ -8,6 +8,7 @@
  * (kept on the account).
  */
 
+import { creditLine, proCreditCents } from "@/lib/pro/plans";
 import Link from "next/link";
 import type { JSX } from "react";
 
@@ -80,6 +81,7 @@ export function ProSavingsCard({
       ? plans.plans.find((p) => p.kind === "monthly")
       : undefined;
   const previews = pricing?.free_previews?.allowances?.pro_monthly;
+  const credit = creditLine(proCreditCents(pricing));
   return (
     <section
       data-testid="receipt-pro"
@@ -91,7 +93,10 @@ export function ProSavingsCard({
       <p className="text-fg-muted">
         This video would have been {formatCents(pro)}.
         {monthly
-          ? ` Pro Monthly is ${monthly.price}${typeof previews === "number" && previews > 0 ? ` and includes ${previews} free previews a month` : ""}.`
+          ? ` Pro Monthly is ${monthly.price}${
+              // owner 2026-11-07: the monthly usage credit
+              credit ? ` with ${credit}` : ""
+            }${typeof previews === "number" && previews > 0 ? `${credit ? "," : ""} and includes ${previews} free previews a month` : ""}.`
           : ""}
       </p>
       <div className="flex gap-2">

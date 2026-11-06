@@ -290,8 +290,9 @@ describe("account menu (owner 2026-11-05)", () => {
 describe("projects A", () => {
   it("dismisses to one line, kept on the account", async () => {
     wrap(<PlansBanner />);
+    // owner 2026-11-07: the monthly credit, from /v1/pricing
     expect((await screen.findByTestId("plans-banner")).textContent).toContain(
-      "Pro takes 15% off every video.",
+      "Pro takes 15% off every video and includes $20 of usage credit every month.",
     );
     fireEvent.click(screen.getByTestId("plans-banner-dismiss"));
     expect(await screen.findByTestId("plans-line")).toBeTruthy();

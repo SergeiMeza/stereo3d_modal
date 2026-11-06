@@ -7,6 +7,7 @@
  * (P19) rows.
  */
 
+import { proCreditLine } from "@/components/pro/ProCredit";
 import { PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 
@@ -28,12 +29,17 @@ function dayMonth(iso: string): string {
 }
 
 /** Owner 2026-11-05: the Balance is the prepaid top-ups that keep; a
- * plan's usage credit (it doesn't carry over) is its own line. The
- * gateway's prepaid_cents when it sends it, else the balance less the
- * plan's credit left. */
-export function prepaidCents(b: BalanceSummary, plan: AccountPlan | null | undefined): number {
+ * plan's usage credit (it doesn't carry over) is its own line, and so is
+ * Pro's monthly credit. The gateway's prepaid_cents when it sends it, else
+ * the balance less the credit left. */
+export function prepaidCents(
+  b: BalanceSummary,
+  plan: AccountPlan | null | undefined,
+  proCreditLeft = 0,
+): number {
   if (typeof b.prepaid_cents === "number") return b.prepaid_cents;
-  const credit = isTeamPlan(plan) ? (plan.credit_left_cents ?? 0) : 0;
+  // owner 2026-11-07: Pro's credit counts like a plan's (only one applies)
+  const credit = isTeamPlan(plan) ? (plan.credit_left_cents ?? 0) : proCreditLeft;
   return Math.max(b.balance_cents - credit, 0);
 }
 
@@ -74,7 +80,8 @@ export function BalanceCard(): JSX.Element | null {
   const limit = b.spend_limit_cents ?? null;
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
   const plan = isTeamPlan(status.plan) ? status.plan : null;
-  const prepaid = prepaidCents(b, plan);
+  const proCredit = status.pro_credit?.granted ? status.pro_credit : null;
+  const prepaid = prepaidCents(b, plan, proCredit?.left_cents ?? 0);
   const frozen = prepaidFrozenCents(b);
   const expires = prepaidExpiresAt(b);
 
@@ -95,6 +102,12 @@ export function BalanceCard(): JSX.Element | null {
           {plan ? (
             <p data-testid="balance-plan-usage" className="text-xs text-fg-muted tabular-nums">
               {planUsageLine(plan)}
+            </p>
+          ) : null}
+          {/* owner 2026-11-07: Pro's monthly credit, spent before the balance */}
+          {proCredit ? (
+            <p data-testid="balance-pro-credit" className="text-xs text-fg-muted tabular-nums">
+              {proCreditLine(proCredit)}
             </p>
           ) : null}
           {b.held_cents > 0 ? (

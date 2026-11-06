@@ -389,6 +389,8 @@ interface DB {
   lifelikeFoveation: boolean;
   /** S3D-67: quotes say pro true/false; null = the gateway says nothing */
   pro: boolean | null;
+  /** tests: GET /v1/billing pro_credit as given (undefined = derived) */
+  proCredit?: import("@/lib/api/types").ProCreditStatus | null;
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
    * so the older price assertions keep their numbers */
   tierPricing: boolean;
@@ -605,14 +607,35 @@ function currentPeriodEnd(): string {
 const ARCHIVE_BLOCKED =
   "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
 
-/** Web Pro on Stripe (owner 2026-11-04): the same prices as the app's
- * Pro — Weekly $5.99 ($3.99 for 4 weeks), Monthly $8.99, Yearly $79.99
- * ($47.99 the first year). */
-export const MOCK_PRO_PLANS: { id: string; interval: "week" | "month" | "year"; price_cents: number; intro: { price_cents: number; cycles: number } | null }[] = [
-  { id: "pro_weekly", interval: "week", price_cents: 599, intro: { price_cents: 399, cycles: 4 } },
-  { id: "pro_monthly", interval: "month", price_cents: 899, intro: null },
-  { id: "pro_yearly", interval: "year", price_cents: 7999, intro: { price_cents: 4799, cycles: 1 } },
+/** Web Pro on Stripe: Weekly $3.99, Monthly $4.99, Yearly $49.99, no
+ * intro offers, and $20 of usage credit every month (owner 2026-11-07,
+ * gateway 00159). */
+export const MOCK_PRO_PLANS: {
+  id: string;
+  interval: "week" | "month" | "year";
+  price_cents: number;
+  intro: { price_cents: number; cycles: number } | null;
+  credit_cents: number;
+  credit_interval: "month";
+}[] = [
+  { id: "pro_weekly", interval: "week", price_cents: 399, intro: null, credit_cents: 2000, credit_interval: "month" },
+  { id: "pro_monthly", interval: "month", price_cents: 499, intro: null, credit_cents: 2000, credit_interval: "month" },
+  { id: "pro_yearly", interval: "year", price_cents: 4999, intro: null, credit_cents: 2000, credit_interval: "month" },
 ];
+
+/** GET /v1/pricing pro_credit (gateway 00159): $20 a month on paid Pro,
+ * $10 on Lifetime. */
+export const MOCK_PRO_CREDIT = {
+  cents: {
+    pro_weekly: 2000, pro_monthly: 2000, pro_yearly: 2000, pro_3m: 2000, pro_6m: 2000,
+    pro_pass_3m: 2000, pro_pass_6m: 2000, pro_lifetime: 1000,
+  },
+  interval: "month" as const,
+  rollover: false,
+  paid_only: true,
+  trial_counts: true,
+  stacks_with_plan: false,
+};
 
 /** gateway 00094: the same Lifelike run on each tier, in cents, without
  * free previews applied. */
@@ -933,6 +956,7 @@ function seed(): DB {
     classicNewProjects: false,
     lifelikeFoveation: false,
     pro: null,
+    proCredit: undefined,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
     altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
@@ -2482,6 +2506,29 @@ function tick(c: Conversion) {
 }
 
 /** The gateway's GET /v1/billing response shape. */
+/** This month's Pro credit (gateway 00159), or null: paid Pro only, and
+ * a Business or Studio plan's credit wins. mockDb.proCredit overrides. */
+function mockProCredit() {
+  if (mockDb.proCredit !== undefined) return mockDb.proCredit;
+  if (mockDb.pro !== true || isTeamPlan(mockDb.billing.plan)) return null;
+  const start = new Date();
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  const planId = mockDb.proStatus?.plan_id ?? "pro_monthly";
+  return {
+    cents_per_month: 2000,
+    kind: planId,
+    source: "web" as const,
+    trial: false,
+    period_start: start.toISOString(),
+    period_end: end.toISOString(),
+    granted: true,
+    left_cents: 2000,
+  };
+}
+
 function billingStatus() {
   const b = mockDb.billing;
   return {
@@ -2494,6 +2541,8 @@ function billingStatus() {
     balance: prepaidSummary(),
     // pricing 2026-11: Business / Studio
     ...(b.plan ? { plan: b.plan } : {}),
+    // owner 2026-11-07: this month's Pro credit (none under a team plan)
+    pro_credit: mockProCredit(),
     tier: {
       cap_cents: b.batchCapCents,
       window_hours: 1,
@@ -3662,7 +3711,7 @@ export const handlers = [
       mockDb.billing.checkouts.set(secret, {
         kind: "plan",
         plan: proDef.id as never,
-        amount_cents: proDef.intro?.price_cents ?? proDef.price_cents,
+        amount_cents: proDef.price_cents,
         state: "open",
         expires_at,
       });
@@ -4108,6 +4157,7 @@ export const handlers = [
       ...(mockDb.tierPricing ? publicTiers() : {}),
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
+      pro_credit: MOCK_PRO_CREDIT,
     }),
   ),
 

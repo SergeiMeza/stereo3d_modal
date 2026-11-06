@@ -979,6 +979,7 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
 
   it("Foveated Detail shows below the video's own size when offered, ticked, with its own +30% line (S3D-50)", async () => {
     mockDb.lifelikeFoveation = true;
+    mockDb.tierPricing = true;
     resetLimitsCache();
     const quotes = captureBodies("/quotes");
     renderPanel(
@@ -993,6 +994,8 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     );
     const fov = (await screen.findByLabelText(/Foveated Detail/)) as HTMLInputElement;
     expect(fov.checked).toBe(true);
+    // its share comes from /v1/pricing add-ons, never hard-coded
+    expect(screen.getByTestId("foveated-pct").textContent).toBe("+30%");
     expect(screen.getByText("More detail where you look.")).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByTestId("quote-foveation").textContent).toMatch(/^\+\$\d+\.\d\d$/),

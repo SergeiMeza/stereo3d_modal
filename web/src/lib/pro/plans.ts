@@ -5,9 +5,12 @@
  *
  * Web Pro is Weekly, Monthly and Yearly only (owner, 2026-11-03). App
  * Store Lifetime and pass holders are still Pro when the gateway says so.
+ * No intro offers on the web since 2026-11-07. Every paid Pro grants a
+ * monthly usage credit (pro_plans[].credit_cents / pro_credit): it
+ * expires at the month's end and is never paid out.
  */
 
-import type { ProPlanDef } from "@/lib/api/types";
+import type { ProPlanDef, PublicPricing } from "@/lib/api/types";
 
 export type PlanKind = "weekly" | "monthly" | "yearly";
 
@@ -16,12 +19,12 @@ export interface ProPlan {
   id: string;
   productId: string;
   kind: PlanKind;
-  /** "$8.99" */
+  /** "$4.99" */
   price: string;
   amountMicros: number;
   currency: string;
-  /** introductory price: "$3.99" for `cycles` periods of `per` */
-  intro: { price: string; per: PlanKind | null; cycles: number } | null;
+  /** usage credit it grants every month, in cents (null: none sent) */
+  creditCents: number | null;
 }
 
 /** Order on the page: the app's paywall leads with Weekly (PRC-05). */
@@ -36,8 +39,12 @@ const INTERVAL_KIND: Record<string, PlanKind> = {
 const usd = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
-/** GET /v1/pricing pro_plans → the page's plans (Stripe checkout). */
-export function plansFromPricing(defs: readonly ProPlanDef[]): ProPlan[] {
+/** GET /v1/pricing pro_plans → the page's plans (Stripe checkout). The
+ * credit is the plan's own credit_cents, else pro_credit's for its id. */
+export function plansFromPricing(
+  defs: readonly ProPlanDef[],
+  credit?: PublicPricing["pro_credit"],
+): ProPlan[] {
   const out: ProPlan[] = [];
   for (const d of defs) {
     const kind = INTERVAL_KIND[d.interval];
@@ -49,7 +56,7 @@ export function plansFromPricing(defs: readonly ProPlanDef[]): ProPlan[] {
       price: usd(d.price_cents),
       amountMicros: d.price_cents * 10_000,
       currency: "USD",
-      intro: d.intro ? { price: usd(d.intro.price_cents), per: kind, cycles: Math.max(1, d.intro.cycles) } : null,
+      creditCents: d.credit_cents ?? credit?.cents?.[d.id as keyof NonNullable<typeof credit>["cents"]] ?? null,
     });
   }
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
@@ -76,13 +83,35 @@ export function planCadence(p: ProPlan): string {
   return `/ ${UNIT[p.kind]}`;
 }
 
-/** "$3.99 / week for 4 weeks", "$47.99 the first year"; null without one. */
-export function introLine(p: ProPlan): string | null {
-  if (!p.intro) return null;
-  const unit = UNIT[p.intro.per ?? p.kind];
-  if (!unit) return null;
-  if (p.intro.cycles <= 1) return `${p.intro.price} the first ${unit}`;
-  return `${p.intro.price} / ${unit} for ${p.intro.cycles} ${unit}s`;
+/** "$20" for a credit in cents (whole dollars without cents). */
+export function creditAmount(cents: number): string {
+  return cents % 100 === 0 ? `$${cents / 100}` : usd(cents);
+}
+
+/** "$20 of usage credit every month"; null without a credit. */
+export function creditLine(cents: number | null | undefined): string | null {
+  return cents ? `${creditAmount(cents)} of usage credit every month` : null;
+}
+
+/** The credit's rules in one line (owner 2026-11-07). */
+export const PRO_CREDIT_RULES = "The credit expires at the end of each month and isn't paid out.";
+
+/** Pro's monthly credit from GET /v1/pricing: Monthly's (every paid web Pro
+ * gets the same), else the first plan's; null when the gateway sends none. */
+export function proCreditCents(pricing: PublicPricing | null | undefined): number | null {
+  if (!pricing) return null;
+  const c = pricing.pro_credit?.cents;
+  return (
+    c?.pro_monthly ??
+    pricing.pro_plans?.find((p) => p.id === "pro_monthly")?.credit_cents ??
+    pricing.pro_plans?.find((p) => p.credit_cents)?.credit_cents ??
+    null
+  );
+}
+
+/** Lifetime's monthly credit (App Store Lifetime), null when not sent. */
+export function lifetimeCreditCents(pricing: PublicPricing | null | undefined): number | null {
+  return pricing?.pro_credit?.cents?.pro_lifetime ?? null;
 }
 
 /** What the plan's footnote says it does. */
@@ -99,7 +128,7 @@ export function monthlyMicros(p: ProPlan): number {
 }
 
 /** The one-line anchor for the quote's sheet: Monthly when sold, else the
- * plan that costs least per month. "$8.99 a month". */
+ * plan that costs least per month. "$4.99 a month". */
 export function anchorPlan(plans: ProPlan[]): ProPlan | null {
   const monthly = plans.find((p) => p.kind === "monthly");
   if (monthly) return monthly;

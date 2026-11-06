@@ -382,7 +382,13 @@ export function LifelikeDeliverPanel({
                     onChange={(e) => change(() => setFoveated(e.target.checked))}
                     className="accent-primary"
                   />
-                  Foveated Detail <span className="text-xs text-fg-muted">+30%</span>
+                  Foveated Detail
+                  {/* the add-on's share from /v1/pricing, like Master and Express */}
+                  {addons?.foveated?.pct ? (
+                    <span data-testid="foveated-pct" className="text-xs text-fg-muted">
+                      +{Math.round(addons.foveated.pct * 100)}%
+                    </span>
+                  ) : null}
                 </label>
                 <p className="pl-6 text-xs text-fg-muted">More detail where you look.</p>
               </div>

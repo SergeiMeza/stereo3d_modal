@@ -55,7 +55,7 @@ const PER = { weekly: "a week", monthly: "a month", yearly: "a year" } as const;
 
 /** The dialog's line: today's charge for a longer period, or for a
  * shorter one "Your Pro Yearly stays on until … Pro Monthly starts then
- * at $8.99 a month." */
+ * at $4.99 a month." */
 export function previewLine(
   p: PlanChangePreview,
   current: ProPlan | undefined,

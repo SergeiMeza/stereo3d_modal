@@ -184,7 +184,7 @@ export function useProStatus(): ProStatus | null {
  * pro_plans); nothing on sale when the list is empty. */
 async function loadPlansFor(gateway: GatewayClient): Promise<ProPlan[]> {
   const pricing = await gateway.getPricing();
-  return plansFromPricing(pricing.pro_plans ?? []);
+  return plansFromPricing(pricing.pro_plans ?? [], pricing.pro_credit);
 }
 
 export type PlansState =
@@ -220,7 +220,7 @@ export function useProPlans(): PlansState {
 }
 
 /** One price line for the quote's "Pro members save" sheet: Monthly as the
- * anchor ("$8.99 a month"), else the plan that costs least per month. null
+ * anchor ("$4.99 a month"), else the plan that costs least per month. null
  * while loading, signed out, or with nothing on sale. */
 export function useProOffer(): { plan: ProPlan; line: string } | null {
   const plans = useProPlans();

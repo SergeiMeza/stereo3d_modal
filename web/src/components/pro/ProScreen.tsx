@@ -21,6 +21,8 @@ import type { JSX } from "react";
 import { proPercent } from "@/components/pricing/ProOffer";
 import { proMembership } from "@/components/pro/proMembership";
 import { ProPlans } from "@/components/pro/ProPlans";
+import { ProCreditLeft, useProCredit } from "@/components/pro/ProCredit";
+import { creditLine, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
 import { isWebPro, useProStatus, type ProStatus } from "@/lib/pro/usePro";
@@ -57,6 +59,11 @@ export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element
 export function ProScreen(): JSX.Element {
   const status = useProStatus();
   const pct = usePct();
+  // owner 2026-11-07: Pro's monthly usage credit (/v1/pricing), and this
+  // month's for a member (/v1/billing)
+  const pricing = usePricing();
+  const credit = creditLine(proCreditCents(pricing));
+  const proCredit = useProCredit();
   const next = safeNext(useSearchParams().get("next"));
   const [justBought, setJustBought] = useState(false);
 
@@ -83,7 +90,9 @@ export function ProScreen(): JSX.Element {
           {pct}% off every 3D video
         </h1>
         <p className="text-fg-muted">
-          Plus Pro in the app on iPhone, iPad, Mac and Vision Pro.
+          {credit
+            ? `Plus ${credit}, and Pro in the app on iPhone, iPad, Mac and Vision Pro.`
+            : "Plus Pro in the app on iPhone, iPad, Mac and Vision Pro."}
         </p>
       </header>
 
@@ -105,6 +114,7 @@ export function ProScreen(): JSX.Element {
             </div>
           </div>
           <MembershipLine status={status} plan={plan} />
+          {proCredit ? <ProCreditLeft credit={proCredit} /> : null}
           {/* gateway 00102: a Pro step-down waits for the period's end */}
           {plan?.plan === "pro" ? <ScheduledChange plan={plan} /> : null}
           <ProPeriodChange />
@@ -130,6 +140,11 @@ export function ProScreen(): JSX.Element {
       ) : (
         <ProPlans onPurchased={() => setJustBought(true)} />
       )}
+      {credit ? (
+        <p data-testid="pro-credit-rules" className="text-xs text-fg-muted">
+          {PRO_CREDIT_RULES} Only your highest plan&apos;s credit applies.
+        </p>
+      ) : null}
       {/* owner 2026-11-04: Business and Studio, one line at the bottom */}
       <ProBusinessLine />
     </section>

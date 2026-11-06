@@ -168,6 +168,10 @@ describe("Pricing 2026-11", () => {
     expect(addons.textContent).toContain("Express+50%");
     expect(addons.textContent).toContain("First in line");
     expect(addons.textContent).not.toMatch(/faster/);
+    // owner 2026-11-07: Pro's monthly credit beside its column, from /v1/pricing
+    expect(screen.getByTestId("pricing-pro-credit").textContent).toBe(
+      "Pro also includes $20 of usage credit every month. The credit expires at the end of each month and isn't paid out.",
+    );
     expect(screen.getByTestId("pricing-free-previews").textContent).toContain("Your first preview is free.");
     expect(screen.getByTestId("pricing-topups").textContent).toContain("from $10");
     // the range is GET /v1/pricing's tier shares (Pro 15%, Business 20%, Studio 25%)

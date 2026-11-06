@@ -13,7 +13,7 @@ import { ProScreen } from "@/components/pro/ProScreen";
 export const metadata: Metadata = {
   title: "Pro",
   description:
-    "Spatial Video Studio Pro: lower prices on every 3D video on the web, free previews, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
+    "Spatial Video Studio Pro: lower prices on every 3D video on the web, usage credit every month, free previews, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
   alternates: { canonical: "/pro" },
 };
 

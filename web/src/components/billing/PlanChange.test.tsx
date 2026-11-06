@@ -253,7 +253,7 @@ describe("step-downs", () => {
     const preview = await screen.findByTestId("pro-change-preview");
     await waitFor(() =>
       expect(preview.textContent).toMatch(
-        /^Your Pro Yearly stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. Pro Monthly starts then at \$8\.99 a month\. Nothing is charged today\.$/,
+        /^Your Pro Yearly stays on until [A-Z][a-z]{2} \d{1,2}, \d{4}\. Pro Monthly starts then at \$4\.99 a month\. Nothing is charged today\.$/,
       ),
     );
     expect(screen.getByRole("button", { name: "Confirm" })).toBeTruthy();

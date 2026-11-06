@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   anchorLine,
   anchorPlan,
-  introLine,
+  creditLine,
+  proCreditCents,
+  lifetimeCreditCents,
   planCadence,
   planName,
   plansFromPricing,
@@ -15,20 +17,23 @@ const DEFS = [
   {
     id: "pro_yearly",
     interval: "year" as const,
-    price_cents: 7999,
-    intro: { price_cents: 4799, cycles: 1 },
+    price_cents: 4999,
+    intro: null,
+    credit_cents: 2000,
   },
   {
     id: "pro_weekly",
     interval: "week" as const,
-    price_cents: 599,
-    intro: { price_cents: 399, cycles: 4 },
+    price_cents: 399,
+    intro: null,
+    credit_cents: 2000,
   },
   {
     id: "pro_monthly",
     interval: "month" as const,
-    price_cents: 899,
+    price_cents: 499,
     intro: null,
+    credit_cents: 2000,
   },
 ];
 
@@ -36,17 +41,31 @@ describe("Pro plans from /v1/pricing", () => {
   it("maps kinds and orders them Weekly first, as the app does", () => {
     const plans = plansFromPricing(DEFS);
     expect(plans.map((p) => [p.id, p.kind, p.price])).toEqual([
-      ["pro_weekly", "weekly", "$5.99"],
-      ["pro_monthly", "monthly", "$8.99"],
-      ["pro_yearly", "yearly", "$79.99"],
+      ["pro_weekly", "weekly", "$3.99"],
+      ["pro_monthly", "monthly", "$4.99"],
+      ["pro_yearly", "yearly", "$49.99"],
     ]);
   });
 
-  it("labels intro offers, cadence and terms", () => {
+  it("labels the monthly credit, cadence and terms; no intro offers (owner 2026-11-07)", () => {
     const [weekly, monthly, yearly] = plansFromPricing(DEFS);
-    expect(introLine(weekly)).toBe("$3.99 / week for 4 weeks");
-    expect(introLine(yearly)).toBe("$47.99 the first year");
-    expect(introLine(monthly)).toBeNull();
+    expect(weekly.creditCents).toBe(2000);
+    expect(creditLine(monthly.creditCents)).toBe("$20 of usage credit every month");
+    expect(creditLine(null)).toBeNull();
+    // a plan without its own credit_cents takes pro_credit's for its id
+    const [bare] = plansFromPricing([{ id: "pro_weekly", interval: "week", price_cents: 399 }], {
+      cents: { pro_weekly: 1500 },
+      interval: "month",
+      rollover: false,
+      paid_only: true,
+      trial_counts: true,
+      stacks_with_plan: false,
+    });
+    expect(bare.creditCents).toBe(1500);
+    expect(proCreditCents({ pro_credit: { cents: { pro_monthly: 2000, pro_lifetime: 1000 } } } as never)).toBe(2000);
+    expect(lifetimeCreditCents({ pro_credit: { cents: { pro_monthly: 2000, pro_lifetime: 1000 } } } as never)).toBe(1000);
+    expect(proCreditCents({ pro_plans: DEFS } as never)).toBe(2000);
+    expect(proCreditCents({} as never)).toBeNull();
     expect(planCadence(monthly)).toBe("/ month");
     expect(planName(yearly)).toBe("Yearly");
     expect(planTerms(weekly)).toBe("Renews until you cancel.");
@@ -54,9 +73,9 @@ describe("Pro plans from /v1/pricing", () => {
 
   it("anchors the quote's sheet on Monthly", () => {
     const plans = plansFromPricing(DEFS);
-    expect(anchorLine(anchorPlan(plans)!)).toBe("$8.99 a month");
+    expect(anchorLine(anchorPlan(plans)!)).toBe("$4.99 a month");
     const noMonthly = plans.filter((p) => p.kind !== "monthly");
-    expect(anchorLine(anchorPlan(noMonthly)!)).toBe("$79.99 a year");
+    expect(anchorLine(anchorPlan(noMonthly)!)).toBe("$49.99 a year");
     expect(anchorPlan([])).toBeNull();
   });
 });

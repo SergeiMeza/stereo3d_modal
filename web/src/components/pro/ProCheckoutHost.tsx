@@ -39,7 +39,7 @@ import {
   finishProCheckout,
   proCheckoutAtom,
 } from "@/lib/pro/checkoutStore";
-import { introLine, planName } from "@/lib/pro/plans";
+import { creditLine, planName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export function ProCheckoutHost(): JSX.Element | null {
@@ -111,12 +111,11 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
     });
   }
 
-  const intro = introLine(plan);
-  const today = plan.intro?.price ?? plan.price;
+  const today = plan.price;
   const title = `Pro ${planName(plan)}`;
-  const subtitle = intro
-    ? `${intro}, then ${plan.price} a ${UNIT[plan.kind]}`
-    : `${plan.price} a ${UNIT[plan.kind]}`;
+  // owner 2026-11-07: no intro offers on the web; the monthly credit shows
+  const credit = creditLine(plan.creditCents);
+  const subtitle = `${plan.price} a ${UNIT[plan.kind]}${credit ? `, with ${credit}` : ""}`;
 
   if (phase.kind === "ready" || phase.kind === "paying") {
     const s = { secret: phase.secret, publishableKey: phase.publishableKey };

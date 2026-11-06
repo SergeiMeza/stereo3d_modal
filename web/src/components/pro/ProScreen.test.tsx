@@ -9,7 +9,7 @@ import type { StepQuoteResponse } from "@/lib/api/types";
 import { QuoteView } from "@/components/steps/QuoteView";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
-import { mockDb } from "@/mocks/handlers";
+import { mockDb, MOCK_PRO_CREDIT, MOCK_PRO_PLANS } from "@/mocks/handlers";
 import { resetProForTests, useProOffer } from "@/lib/pro/usePro";
 import { server } from "@/mocks/server";
 
@@ -44,8 +44,17 @@ describe("/pro (mock mode)", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/% off every 3D video$/);
     const weekly = screen.getByTestId("pro-plan-weekly");
     expect(weekly.getAttribute("aria-checked")).toBe("true");
-    expect(weekly.textContent).toContain("$3.99 / week for 4 weeks");
-    expect(screen.getByTestId("pro-plan-yearly").textContent).toContain("Save 26%");
+    // owner 2026-11-07: no intro offers; the monthly credit instead
+    expect(weekly.textContent).toContain("$3.99");
+    expect(weekly.textContent).not.toMatch(/for 4 weeks|first year/);
+    expect(screen.getByTestId("pro-plan-credit-weekly").textContent).toBe("+ $20 of usage credit every month");
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toBe(
+      "Plus $20 of usage credit every month, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
+    );
+    expect(screen.getByTestId("pro-credit-rules").textContent).toBe(
+      "The credit expires at the end of each month and isn't paid out. Only your highest plan's credit applies.",
+    );
+    expect(screen.getByTestId("pro-plan-yearly").textContent).toContain("Save 17%");
     // Weekly, Monthly and Yearly only: no pass, no Lifetime (owner, 2026-11-03)
     expect(screen.queryByTestId("pro-plan-pass")).toBeNull();
     expect(document.body.textContent).not.toMatch(/Lifetime|3 months|Doesn't renew/);
@@ -87,13 +96,66 @@ describe("/pro (mock mode)", () => {
     expect(store.get(a).attemptKey).toBeNull();
   });
 
+  it("the credit's amount comes from /v1/pricing, never the page (owner 2026-11-07)", async () => {
+    const saved = { cents: { ...MOCK_PRO_CREDIT.cents }, plans: MOCK_PRO_PLANS.map((p) => p.credit_cents) };
+    MOCK_PRO_CREDIT.cents.pro_monthly = 1500;
+    for (const p of MOCK_PRO_PLANS) p.credit_cents = 1500;
+    try {
+      render(
+        <AuthProvider>
+          <ProScreen />
+        </AuthProvider>,
+      );
+      expect(await screen.findByTestId("pro-plan-credit-monthly")).toBeTruthy();
+      expect(screen.getByTestId("pro-plan-credit-monthly").textContent).toBe("+ $15 of usage credit every month");
+      await waitFor(() =>
+        expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(
+          "$15 of usage credit every month",
+        ),
+      );
+    } finally {
+      Object.assign(MOCK_PRO_CREDIT.cents, saved.cents);
+      MOCK_PRO_PLANS.forEach((p, i) => (p.credit_cents = saved.plans[i]));
+    }
+  });
+
+  it("a member sees this month's credit left", async () => {
+    mockDb.pro = true;
+    // mock mode reads Pro from the browser mock's state
+    (globalThis as { __mockDb?: unknown }).__mockDb = {
+      proStatus: { pro: true, known: true, source: "app_store", via: "pro_monthly" },
+    };
+    mockDb.proCredit = {
+      cents_per_month: 2000,
+      kind: "pro_monthly",
+      source: "app_store",
+      trial: false,
+      period_start: "2026-11-01T00:00:00Z",
+      period_end: "2026-12-01T00:00:00Z",
+      granted: true,
+      left_cents: 800,
+    };
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <ProScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    try {
+      expect((await screen.findByTestId("pro-credit-left")).textContent).toBe("$8.00 of $20.00 Pro credit left this month");
+    } finally {
+      delete (globalThis as { __mockDb?: unknown }).__mockDb;
+    }
+  });
+
   it("useProOffer anchors on Monthly for the quote's sheet", async () => {
     render(
       <AuthProvider>
         <Offer />
       </AuthProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("offer").textContent).toBe("$8.99 a month"));
+    await waitFor(() => expect(screen.getByTestId("offer").textContent).toBe("$4.99 a month"));
   });
 });
 

@@ -662,6 +662,8 @@ export interface PublicPricing {
   /** owner 2026-11-04: web Pro on our own Stripe subscriptions — the
    * plans on sale, in page order (absent until the gateway sells them) */
   pro_plans?: ProPlanDef[];
+  /** owner 2026-11-07: Pro's monthly usage credit */
+  pro_credit?: ProCreditDef;
   plans?: Partial<Record<"business" | "studio", PlanDef>>;
   free_previews?: {
     enabled?: boolean;
@@ -1289,6 +1291,8 @@ export interface BillingStatus {
   balance?: BalanceSummary;
   /** pricing 2026-11: Business or Studio (absent without one) */
   plan?: AccountPlan | null;
+  /** owner 2026-11-07: this month's Pro credit (null: none) */
+  pro_credit?: ProCreditStatus | null;
 }
 
 /** POST /v1/billing/restore: Restore Purchases (owner 2026-11-06). The
@@ -1412,8 +1416,42 @@ export interface ProPlanDef {
   id: string;
   interval: "week" | "month" | "year";
   price_cents: number;
-  /** an introductory price for the first `cycles` periods */
+  /** an introductory price; none on the web since 2026-11-07 (null) */
   intro?: { price_cents: number; cycles: number } | null;
+  /** owner 2026-11-07: usage credit this plan grants every credit_interval */
+  credit_cents?: number;
+  credit_interval?: "month";
+}
+
+/** GET /v1/pricing pro_credit (owner 2026-11-07): Pro's monthly usage
+ * credit by Pro kind. It expires at the month's end (no rollover), is never
+ * paid out, comes with paid Pro only (a free trial counts) and doesn't
+ * stack with a Business or Studio plan (the highest plan's credit wins). */
+export interface ProCreditDef {
+  cents: Partial<
+    Record<
+      "pro_weekly" | "pro_monthly" | "pro_yearly" | "pro_3m" | "pro_6m" | "pro_pass_3m" | "pro_pass_6m" | "pro_lifetime",
+      number
+    >
+  >;
+  interval: "month";
+  rollover: boolean;
+  paid_only: boolean;
+  trial_counts: boolean;
+  stacks_with_plan: boolean;
+}
+
+/** GET /v1/billing pro_credit: this month's Pro credit, or null. */
+export interface ProCreditStatus {
+  cents_per_month: number;
+  kind: string;
+  source: "app_store" | "mac_app_store" | "rc_billing" | "web";
+  trial: boolean;
+  period_start: string;
+  period_end: string;
+  /** false: not granted to this account (e.g. a transferred purchase) */
+  granted: boolean;
+  left_cents: number;
 }
 
 /** An active Business or Studio plan (not Pro). */

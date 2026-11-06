@@ -67,12 +67,12 @@ const wrap = (el: React.ReactElement) =>
   );
 
 describe("web Pro on Stripe", () => {
-  it("maps pro_plans with their intros", () => {
+  it("maps pro_plans with their monthly credit (owner 2026-11-07)", () => {
     const plans = plansFromPricing(MOCK_PRO_PLANS);
-    expect(plans.map((p) => [p.id, p.kind, p.price, p.intro?.price])).toEqual([
-      ["pro_weekly", "weekly", "$5.99", "$3.99"],
-      ["pro_monthly", "monthly", "$8.99", undefined],
-      ["pro_yearly", "yearly", "$79.99", "$47.99"],
+    expect(plans.map((p) => [p.id, p.kind, p.price, p.creditCents])).toEqual([
+      ["pro_weekly", "weekly", "$3.99", 2000],
+      ["pro_monthly", "monthly", "$4.99", 2000],
+      ["pro_yearly", "yearly", "$49.99", 2000],
     ]);
   });
 
@@ -82,9 +82,9 @@ describe("web Pro on Stripe", () => {
     fireEvent.click(await screen.findByTestId("pro-plan-monthly"));
     fireEvent.click(screen.getByTestId("pro-get"));
     const pay = await screen.findByTestId("pro-stripe-pay");
-    expect(pay.textContent).toContain("Start Pro · $8.99");
+    expect(pay.textContent).toContain("Start Pro · $4.99");
     expect(
-      screen.getByText("Renews at $8.99 a month until you cancel."),
+      screen.getByText("Renews at $4.99 a month until you cancel."),
     ).toBeTruthy();
     expect(mockDb.pro).not.toBe(true);
     await waitFor(() =>
@@ -111,12 +111,12 @@ describe("web Pro on Stripe", () => {
     const preview = await screen.findByTestId("pro-change-preview");
     await waitFor(() =>
       expect(preview.textContent).toBe(
-        "Today: $75.49. Pro Yearly $79.99 − $4.50 for your unused Pro Monthly.",
+        "Today: $45.49. Pro Yearly $49.99 − $4.50 for your unused Pro Monthly.",
       ),
     );
     expect(mockDb.planChanges).toEqual([]);
     fireEvent.click(
-      screen.getByRole("button", { name: "Confirm and pay $75.49" }),
+      screen.getByRole("button", { name: "Confirm and pay $45.49" }),
     );
     await waitFor(() => expect(mockDb.planChanges).toEqual(["pro_yearly"]));
   });

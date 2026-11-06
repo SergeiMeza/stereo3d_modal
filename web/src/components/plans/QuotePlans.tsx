@@ -6,7 +6,7 @@
  *
  * - Quote A, people without a plan, full runs that Pro makes cheaper: two
  *   options, "Pay once $X" (always selected first) and "With Pro $Y ·
- *   15% off · from $8.99 a month". Picking Pro turns the button into
+ *   15% off · from $4.99 a month". Picking Pro turns the button into
  *   "Subscribe and convert", which opens the Pro sheet; nothing is bought
  *   or charged without a tap there. Hide (×) folds it away for 7 days.
  * - Business note B (no plan or Pro): in quotes of $50 or more, or runs
@@ -31,7 +31,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Probe, StepQuoteResponse } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
-import { introLine, planCadence, planName } from "@/lib/pro/plans";
+import { creditAmount, creditLine, planCadence, planName, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 import { SheetFrame } from "@/components/pay/SheetFrame";
@@ -145,6 +145,7 @@ export function QuoteProChoice({
   });
   if (!choice) return null;
   const pct = proPct(pricing);
+  const credit = proCreditCents(pricing);
   const monthly =
     plans.state === "ready"
       ? plans.plans.find((p) => p.kind === "monthly")
@@ -173,6 +174,8 @@ export function QuoteProChoice({
         title="With Pro"
         sub={[
           pct ? `${pct}% off` : null,
+          // owner 2026-11-07: Pro's monthly usage credit
+          credit ? `${creditAmount(credit)} credit a month` : null,
           monthly ? `from ${monthly.price} a month` : null,
         ]
           .filter(Boolean)
@@ -234,11 +237,9 @@ export function ProCheckoutSheet({
   const listCents = choice?.list ?? quote.quote.amount_cents;
   const proCents =
     choice?.pro ?? tierPriceFor(quote, pricing, "pro") ?? listCents;
-  const today = (p: ProPlan) => p.intro?.price ?? p.price;
-  const note = (p: ProPlan) => {
-    const intro = introLine(p);
-    return intro ? `${intro}, then ${p.price}` : `${p.price} ${planCadence(p)}`;
-  };
+  const today = (p: ProPlan) => p.price;
+  const note = (p: ProPlan) => `${p.price} ${planCadence(p)}`;
+  const credit = creditLine(proCreditCents(pricing));
 
   async function go(): Promise<void> {
     if (!plan) return;
@@ -269,8 +270,10 @@ export function ProCheckoutSheet({
       title="Subscribe and convert"
       subtitle={
         pct
-          ? `Pro takes ${pct}% off this video and every one after.`
-          : undefined
+          ? `Pro takes ${pct}% off this video and every one after${credit ? `, and includes ${credit}` : ""}.`
+          : credit
+            ? `Pro includes ${credit}.`
+            : undefined
       }
       footer={
         <div className="flex flex-col gap-2">
@@ -338,7 +341,7 @@ export function ProCheckoutSheet({
           </dl>
         ) : null}
         <p className="text-xs text-fg-muted">
-          Cancel any time in Account. Prices in USD, excl. tax.
+          {credit ? `${PRO_CREDIT_RULES} ` : ""}Cancel any time in Account. Prices in USD, excl. tax.
         </p>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </div>

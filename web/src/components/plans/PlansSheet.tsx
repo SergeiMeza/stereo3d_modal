@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import type { Preset } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
 import { qualityName } from "@/lib/glossary";
-import { introLine, planCadence, planName } from "@/lib/pro/plans";
+import { creditLine, planCadence, planName, PRO_CREDIT_RULES, proCreditCents } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 
 import {
@@ -105,6 +105,8 @@ export function PlansSheet({
     list.find((p) => p.kind === "monthly") ??
     list[0];
   const biz = pricing?.plans?.business;
+  // owner 2026-11-07: Pro's monthly usage credit, from /v1/pricing
+  const credit = creditLine(proCreditCents(pricing));
   const maxFps = biz?.max_fps ?? pricing?.fps.max_fps_with_plan;
 
   const close = (how: string): void => {
@@ -164,12 +166,16 @@ export function PlansSheet({
           aria-label="Pro plan"
           className="flex flex-col gap-2"
         >
+          {credit ? (
+            <p data-testid="plans-sheet-credit" className="text-xs text-fg-muted">
+              <span className="text-fg">Every plan includes {credit}.</span> {PRO_CREDIT_RULES}
+            </p>
+          ) : null}
           {plans.state === "loading" ? (
             <div className="h-40 animate-pulse rounded-xl bg-surface-2" />
           ) : null}
           {list.map((p) => {
             const on = plan?.id === p.id;
-            const intro = introLine(p);
             return (
               <button
                 key={p.id}
@@ -191,9 +197,7 @@ export function PlansSheet({
                 <span className="flex flex-1 flex-col">
                   <span className="text-[15px] text-fg">{planName(p)}</span>
                   <span className="text-xs text-fg-muted">
-                    {intro
-                      ? `${intro}, then ${p.price}`
-                      : `${p.price} ${planCadence(p)}`}
+                    {`${p.price} ${planCadence(p)}`}
                     {p.kind === "monthly" &&
                     pricing?.free_previews?.allowances?.pro_monthly
                       ? ` · ${pricing.free_previews.allowances.pro_monthly} free previews a month`
@@ -201,7 +205,7 @@ export function PlansSheet({
                   </span>
                 </span>
                 <span className="font-mono text-sm text-fg">
-                  {p.intro?.price ?? p.price}
+                  {p.price}
                 </span>
               </button>
             );

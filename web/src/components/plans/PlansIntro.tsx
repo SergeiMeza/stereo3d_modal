@@ -10,6 +10,7 @@
  *   max_fps_without_plan).
  */
 
+import { creditLine, proCreditCents } from "@/lib/pro/plans";
 import Link from "next/link";
 import type { JSX } from "react";
 
@@ -88,6 +89,7 @@ export function PayPerVideoAndPro({
       : undefined;
   const fps = pricing.fps.max_fps_without_plan ?? 30;
   const previews = pricing.free_previews?.allowances?.pro_monthly;
+  const credit = creditLine(proCreditCents(pricing));
   return (
     <div className="mb-4 grid gap-4 sm:grid-cols-2">
       <div
@@ -120,6 +122,12 @@ export function PayPerVideoAndPro({
           {monthly ? monthly.price : "…"}{" "}
           <span className="text-sm font-normal text-fg-muted">a month</span>
         </p>
+        {/* owner 2026-11-07: the monthly usage credit, like Business's line */}
+        {credit ? (
+          <p data-testid="plan-pro-credit" className="text-sm text-fg">
+            {credit}
+          </p>
+        ) : null}
         <p className="text-sm text-fg-muted">
           {typeof previews === "number" && previews > 0
             ? `${previews} free previews a month on Monthly. `

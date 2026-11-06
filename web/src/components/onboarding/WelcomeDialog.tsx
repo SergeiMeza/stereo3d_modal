@@ -26,6 +26,7 @@
  * gets the Pro step alone. Shown once (onboarding.app_pro_welcome_done).
  */
 
+import { creditLine } from "@/lib/pro/plans";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -120,9 +121,12 @@ export function proPreviews(
 function ProLines({
   pct,
   previews,
+  credit,
 }: {
   pct: number | null;
   previews: { count: number; period: string } | null;
+  /** owner 2026-11-07: the Pro's monthly usage credit (cents), when granted */
+  credit?: number | null;
 }): JSX.Element {
   const when =
     previews?.period === "pass"
@@ -137,7 +141,8 @@ function ProLines({
         : "Pro prices on every video."}
       {previews
         ? ` Your plan includes ${previews.count} free previews ${when}.`
-        : ""}{" "}
+        : ""}
+      {credit ? ` It also includes ${creditLine(credit)}.` : ""}{" "}
       Nothing new is billed.
     </>
   );
@@ -200,6 +205,7 @@ export function WelcomeDialog({
   const chosen = picked ?? (saved.length > 0 ? saved : fromApp);
   const pct = proPct(pricing);
   const previews = proPreviews(proStatus?.free_previews);
+  const proCredit = billing.status?.pro_credit?.granted ? billing.status.pro_credit.cents_per_month : null;
   // the app knows they use another headset, not which: nothing preselected
   const otherHeadset =
     appPro &&
@@ -271,7 +277,7 @@ export function WelcomeDialog({
                 Your Pro works here too
               </DialogTitle>
               <DialogDescription className="text-[15px] leading-normal text-fg-muted">
-                <ProLines pct={pct} previews={previews} />
+                <ProLines pct={pct} previews={previews} credit={proCredit} />
               </DialogDescription>
               <BusinessLine />
             </div>
@@ -288,7 +294,7 @@ export function WelcomeDialog({
                   Your Pro works here too
                 </DialogTitle>
                 <DialogDescription className="text-[15px] leading-normal text-fg-muted">
-                  <ProLines pct={pct} previews={previews} />
+                  <ProLines pct={pct} previews={previews} credit={proCredit} />
                 </DialogDescription>
                 <p className="pt-2 text-[15px] text-fg">
                   Where will you watch?
