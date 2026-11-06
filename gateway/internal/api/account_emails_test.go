@@ -380,3 +380,35 @@ func TestIdentitiesSpotOtherAccount(t *testing.T) {
 		t.Fatalf("own email %v", out["other_account"])
 	}
 }
+
+// lookupFirst answers one fixed account for an email (Firebase's lookup
+// when two users share it).
+type lookupFirst struct {
+	*fakeIdentities
+	uid string
+}
+
+func (l lookupFirst) IdentityByEmail(ctx context.Context, email string) (*auth.Identity, error) {
+	return l.IdentityOf(ctx, l.uid)
+}
+
+// Two Firebase users with one email (from before one account per email):
+// the email code lands on the row's account even when Firebase's lookup
+// returns the other one; when the lookup agrees, the usual path runs.
+func TestDuplicateFirebaseEmailFollowsTheRow(t *testing.T) {
+	s, ids, _ := emailService(t)
+	ctx := context.Background()
+	a, b := "u"+store.NewID(), "u"+store.NewID()
+	email := "dup." + store.NewID() + "@example.com"
+	ids.add(a, email, "password")
+	ids.add(b, email, "password")
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: a, Email: email, Claim: true})
+	s.Identities = lookupFirst{ids, b}
+	if got, err := s.EmailOwners().SignInOwner(ctx, email); err != nil || got != a {
+		t.Fatalf("lookup finds b: owner %q %v", got, err)
+	}
+	s.Identities = lookupFirst{ids, a}
+	if got, err := s.EmailOwners().SignInOwner(ctx, email); err != nil || got != "" {
+		t.Fatalf("lookup finds a: owner %q %v", got, err)
+	}
+}

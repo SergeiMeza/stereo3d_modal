@@ -567,7 +567,14 @@ func (o emailOwners) SignInOwner(ctx context.Context, email string) (string, err
 		if normalEmail(id.Email) == normalEmail(email) {
 			// Its Firebase email: the usual path, which also proves it
 			// (an unverified email is marked verified, an unproven
-			// password dropped).
+			// password dropped), as long as Firebase's lookup lands on
+			// this account too. Two Firebase users can share an email
+			// (from before one account per email): the row decides.
+			if admin := o.s.identities(); admin != nil {
+				if hit, err := admin.IdentityByEmail(ctx, email); err == nil && hit != nil && hit.UID != row.UID {
+					return row.UID, nil
+				}
+			}
 			return "", nil
 		}
 	}

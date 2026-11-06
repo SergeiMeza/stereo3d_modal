@@ -223,6 +223,9 @@ func (s *Service) emailStoreAccounts(ctx context.Context, q string, seen map[str
 		}
 		r := row(e.UID, c)
 		r["found_by"], r["matched_email"], r["email_released"] = "email", e.Email, e.State == store.EmailReleased
+		if e.SupportCase != "" {
+			r["support_case"], r["support_note"] = e.SupportCase, e.SupportNote
+		}
 		out = append(out, r)
 	}
 	return out

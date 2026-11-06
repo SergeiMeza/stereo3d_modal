@@ -108,6 +108,7 @@ func TestAdminSearchEmailStore(t *testing.T) {
 	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: holder, Email: extra, Verified: true})
 	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: gone, Email: released, Claim: true})
 	s.Store.ReleaseAllAccountEmails(ctx, gone, "deleted")
+	s.Store.MarkEmailSupportCase(ctx, extra, "duplicate_email", "two Firebase users share it")
 
 	out := adminGet(t, s.HandleAdminAccountSearch, "/v1/admin/accounts?q=pat."+tag)
 	got := map[string]map[string]any{}
@@ -116,7 +117,7 @@ func TestAdminSearchEmailStore(t *testing.T) {
 		got[r["uid"].(string)] = r
 	}
 	if r := got[holder]; r == nil || r["found_by"] != "email" || r["matched_email"] != extra || r["email_released"] != false ||
-		r["email"] != "main."+tag+"@example.com" {
+		r["email"] != "main."+tag+"@example.com" || r["support_case"] != "duplicate_email" {
 		t.Fatalf("additional %v", r)
 	}
 	if r := got[gone]; r == nil || r["found_by"] != "email" || r["matched_email"] != released || r["email_released"] != true {

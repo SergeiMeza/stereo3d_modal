@@ -56,6 +56,10 @@ type AccountEmail struct {
 	Source     string     `firestore:"source" json:"-"` // code | firebase | apple | google | backfill
 	AddedAt    time.Time  `firestore:"added_at" json:"added_at"`
 	ReleasedAt *time.Time `firestore:"released_at,omitempty" json:"-"`
+	// SupportCase / SupportNote: a support marker on the row (e.g.
+	// duplicate_email: two Firebase users share it), for the console.
+	SupportCase string `firestore:"support_case,omitempty" json:"-"`
+	SupportNote string `firestore:"support_note,omitempty" json:"-"`
 }
 
 // Relay: an Apple private relay address.
@@ -527,4 +531,11 @@ func (s *Store) EachCustomer(ctx context.Context, fn func(uid string, c *Custome
 			return err
 		}
 	}
+}
+
+// MarkEmailSupportCase puts a support marker on an email's row (the
+// console shows it); an empty kind clears it.
+func (s *Store) MarkEmailSupportCase(ctx context.Context, email, kind, note string) error {
+	_, err := s.emailRef(email).Update(ctx, []firestore.Update{{Path: "support_case", Value: kind}, {Path: "support_note", Value: note}})
+	return err
 }
