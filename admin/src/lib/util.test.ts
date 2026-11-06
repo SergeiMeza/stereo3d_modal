@@ -69,11 +69,11 @@ describe("routes", () => {
   });
 });
 
-describe("vercel.json", () => {
+describe("vercel.json (repo root: the admin builds from there)", () => {
   it("carries the same CSP header as the code, for both gateways", async () => {
     const { readFileSync } = await import("node:fs");
     const { GATEWAYS } = await import("./gateways");
-    const cfg = JSON.parse(readFileSync(`${process.cwd()}/vercel.json`, "utf8"));
+    const cfg = JSON.parse(readFileSync(`${process.cwd()}/../vercel.json`, "utf8"));
     const all = cfg.headers.find((h: { source: string }) => h.source === "/(.*)");
     const csp = all.headers.find((h: { key: string }) => h.key === "Content-Security-Policy").value;
     expect(csp).toBe(buildCsp({ gateways: [GATEWAYS.test, GATEWAYS.prod], forHeader: true }));
