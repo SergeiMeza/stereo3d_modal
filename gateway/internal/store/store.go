@@ -147,6 +147,20 @@ func (s *Store) CreateConversion(ctx context.Context, c *Conversion) error {
 	return err
 }
 
+// CreateConversionAt writes a run with the times it carries (the
+// onboarding sample's extra runs, ordered behind its 4K one).
+func (s *Store) CreateConversionAt(ctx context.Context, c *Conversion) error {
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = time.Now().UTC()
+	}
+	c.UpdatedAt = c.CreatedAt
+	_, err := s.convDoc(c.ID).Create(ctx, c)
+	if status.Code(err) == codes.AlreadyExists {
+		return ErrAlreadyExists
+	}
+	return err
+}
+
 // IdemConversionID derives a run id from the account and its
 // Idempotency-Key (P3): "k" + 15 hex characters of their SHA-256.
 func IdemConversionID(env, uid, key string) string {

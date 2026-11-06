@@ -209,8 +209,13 @@ func TestSampleProject(t *testing.T) {
 		t.Fatalf("second list %d", len(ps))
 	}
 	convs, _ := s.Store.ListProjectConversions(ctx, id, 10)
-	if len(convs) != 1 || !convs[0].Sample || convs[0].State != store.StateSucceeded || convs[0].Quote.AmountCents != 0 {
-		t.Fatalf("run %+v", convs)
+	if len(convs) != 4 || convs[0].Params.Preset != "4k" {
+		t.Fatalf("runs %d", len(convs))
+	}
+	for _, c := range convs {
+		if !c.Sample || c.State != store.StateSucceeded || c.Quote.AmountCents != 0 || len(c.Outputs) != 3 {
+			t.Fatalf("run %+v", c)
+		}
 	}
 	// quotes and runs: 422 sample_project
 	for _, h := range []func(http.ResponseWriter, *http.Request, *AuthedUser, string){s.HandleQuoteStep, s.HandleCreateStepConversion} {
@@ -243,6 +248,26 @@ func TestSampleProject(t *testing.T) {
 	s.HandleListConversions(rec, httptest.NewRequest("GET", "/", nil), user)
 	if strings.Contains(rec.Body.String(), convs[0].ID) {
 		t.Fatalf("sample run listed %s", rec.Body)
+	}
+	// a smaller size downloads its own CDN files, sized; runs on it are refused too
+	for _, c := range convs[1:] {
+		rec := httptest.NewRecorder()
+		s.HandleDownloads(rec, httptest.NewRequest("GET", "/", nil), user, c.ID)
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), "sunset-session-"+c.Params.Preset+"-spatial.mov") ||
+			strings.Contains(rec.Body.String(), `"size_bytes":0`) || strings.Contains(rec.Body.String(), "sunset-session-spatial.mov") {
+			t.Fatalf("downloads %s %d %s", c.Params.Preset, rec.Code, rec.Body)
+		}
+	}
+	// never in usage: the month's usage rows skip sample runs
+	rec = httptest.NewRecorder()
+	s.HandleUsage(rec, httptest.NewRequest("GET", "/v1/billing/usage?month="+time.Now().UTC().Format("2006-01"), nil), user)
+	for _, c := range convs {
+		if strings.Contains(rec.Body.String(), c.ID) {
+			t.Fatalf("sample run in usage %s", rec.Body)
+		}
+	}
+	if spent := s.monthSpent(ctx, uid, store.NewBalance(uid)); spent != 0 {
+		t.Fatalf("sample runs counted in the month's spend %d", spent)
 	}
 	// an account from before onboarding gets none
 	old := "u" + store.NewID()

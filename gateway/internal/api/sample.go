@@ -41,6 +41,39 @@ var sampleFiles = map[string]struct {
 	"half_sbs": {sampleCDN + "sunset-session-half-sbs.mp4", 150_013_970}, // owner 2026-11-04, ADR 0137
 }
 
+// sampleSizes: the sample's finished runs below its 4K source (owner
+// 2026-11-07), so people can download and compare: 1080p, 1440p and 3K,
+// each in every format, rendered from the same 15 s (Master bitrate, no
+// audio, no intro) and on the same CDN. Older first; the 4K run stays the
+// newest, the one the project shows first.
+var sampleSizes = []struct {
+	Preset        string
+	Width, Height int
+	Files         map[string]struct {
+		URL   string
+		Bytes int64
+	}
+}{
+	{"1080p", 1920, 1080, map[string]struct {
+		URL   string
+		Bytes int64
+	}{
+		"mvhevc": {sampleCDN + "sunset-session-1080p-spatial.mov", 141_603_183}, "sbs": {sampleCDN + "sunset-session-1080p-sbs.mp4", 113_521_804},
+		"half_sbs": {sampleCDN + "sunset-session-1080p-half-sbs.mp4", 113_667_279}}},
+	{"qhd", 2560, 1440, map[string]struct {
+		URL   string
+		Bytes int64
+	}{
+		"mvhevc": {sampleCDN + "sunset-session-qhd-spatial.mov", 184_167_835}, "sbs": {sampleCDN + "sunset-session-qhd-sbs.mp4", 152_013_085},
+		"half_sbs": {sampleCDN + "sunset-session-qhd-half-sbs.mp4", 151_731_056}}},
+	{"3k", 2880, 1620, map[string]struct {
+		URL   string
+		Bytes int64
+	}{
+		"mvhevc": {sampleCDN + "sunset-session-3k-spatial.mov", 185_915_748}, "sbs": {sampleCDN + "sunset-session-3k-sbs.mp4", 198_475_572},
+		"half_sbs": {sampleCDN + "sunset-session-3k-half-sbs.mp4", 199_412_782}}},
+}
+
 // sampleFormats: the sample run has every format, so "Get another
 // format" never runs on it.
 var sampleFormats = []string{"mvhevc", "sbs", "half_sbs"}
@@ -49,8 +82,8 @@ var sampleFormats = []string{"mvhevc", "sbs", "half_sbs"}
 // stored before half_sbs joined) to its outputs and formats. Idempotent;
 // any other run is returned untouched.
 func (s *Service) backfillSampleRun(ctx context.Context, c *store.Conversion) *store.Conversion {
-	if c == nil || !c.Sample || c.State != store.StateSucceeded {
-		return c
+	if c == nil || !c.Sample || c.State != store.StateSucceeded || c.ID != sampleRunID(c.UID) {
+		return c // the 4K run only; the smaller sizes were stored whole
 	}
 	missing := func(x *store.Conversion) bool {
 		for name := range sampleFiles {
@@ -109,7 +142,8 @@ func (s *Service) backfillSampleOf(ctx context.Context, uid string) {
 		return
 	}
 	if c, err := s.Store.GetConversion(ctx, sampleRunID(uid)); err == nil && c.UID == uid {
-		s.backfillSampleRun(ctx, c)
+		c = s.backfillSampleRun(ctx, c)
+		s.ensureSampleSizes(ctx, uid, c) // the 1080p, 1440p and 3K runs, once
 	}
 	backfilledSamples.Store(uid, true)
 }
@@ -151,6 +185,12 @@ func sampleProjectID(uid string) string {
 
 func sampleRunID(uid string) string {
 	h := sha256.Sum256([]byte("sample-run:sunset-session:" + uid))
+	return hex.EncodeToString(h[:])[:12]
+}
+
+// sampleSizeRunID is the fixed id of the sample's run at a smaller size.
+func sampleSizeRunID(uid, preset string) string {
+	h := sha256.Sum256([]byte("sample-run:sunset-session:" + preset + ":" + uid))
 	return hex.EncodeToString(h[:])[:12]
 }
 
@@ -281,6 +321,36 @@ func (s *Service) ensureSampleRun(ctx context.Context, uid string, p *store.Proj
 	}
 	if err := s.Store.CreateConversion(ctx, run); err != nil && !errors.Is(err, store.ErrAlreadyExists) {
 		slog.WarnContext(ctx, "sample run not stored", "project_id", p.ID, "err", err)
+		return
+	}
+	if stored, err := s.Store.GetConversion(ctx, run.ID); err == nil {
+		s.ensureSampleSizes(ctx, uid, stored)
+	}
+}
+
+// ensureSampleSizes stores the sample's 1080p, 1440p and 3K runs beside
+// its 4K one (kept when they're there), each a second older than the
+// last so the 4K run stays the newest. Read-only, never billed or
+// purged, like the 4K run (Sample).
+func (s *Service) ensureSampleSizes(ctx context.Context, uid string, main *store.Conversion) {
+	if main == nil || !main.Sample || main.UID != uid {
+		return
+	}
+	for i, sz := range sampleSizes {
+		run := &store.Conversion{ID: sampleSizeRunID(uid, sz.Preset), UID: uid, Env: main.Env, Sample: true, Kind: "video",
+			ProjectID: main.ProjectID, Step: store.StepProduction, Method: store.MethodLifelike, State: store.StateSucceeded,
+			Source: main.Source, Params: store.Params{Preset: sz.Preset, Formats: slices.Clone(sampleFormats), TargetFPS: 25,
+				OutputWidth: sz.Width, OutputHeight: sz.Height},
+			Quote: store.Quote{AmountCents: 0, Currency: "usd", Breakdown: map[string]any{
+				"billable_seconds": 15.0, "billable_minutes": int64(1), "sample": true}},
+			Outputs:   map[string]string{},
+			CreatedAt: main.CreatedAt.Add(-time.Duration(len(sampleSizes)-i) * time.Second)}
+		for name, f := range sz.Files {
+			run.Outputs[name] = f.URL
+		}
+		if err := s.Store.CreateConversionAt(ctx, run); err != nil && !errors.Is(err, store.ErrAlreadyExists) {
+			slog.WarnContext(ctx, "sample size run not stored", "preset", sz.Preset, "err", err)
+		}
 	}
 }
 
@@ -311,8 +381,13 @@ func sampleDownloads(c *store.Conversion) map[string]any {
 		urls[name] = u
 		format, part := splitOutputName(name)
 		f := outputFile{Name: name, Format: format, Part: part, URL: u}
-		if sf, ok := sampleFiles[name]; ok {
+		if sf, ok := sampleFiles[name]; ok && sf.URL == u {
 			f.SizeBytes = sf.Bytes
+		}
+		for _, sz := range sampleSizes {
+			if sf, ok := sz.Files[name]; ok && sf.URL == u {
+				f.SizeBytes = sf.Bytes
+			}
 		}
 		files = append(files, f)
 	}
