@@ -3300,6 +3300,55 @@ export const handlers = [
     return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  // gateway 00152: Restore Purchases moves a deleted account's plan here
+  http.post(`${GATEWAY}/v1/billing/restore/find`, async ({ request }) => {
+    const { email } = (await request.json().catch(() => ({}))) as { email?: string };
+    if (!email?.includes("@")) return err(400, "invalid_email", "that email address is not valid");
+    mockAuth.codesSent.push(email.trim().toLowerCase());
+    return HttpResponse.json({ success: true, sent: true, resend_after_s: 30 }, { status: 202 });
+  }),
+  http.post(`${GATEWAY}/v1/billing/restore/find/verify`, async ({ request }) => {
+    const b = (await request.json().catch(() => ({}))) as { email?: string; code?: string };
+    const email = b.email?.trim().toLowerCase();
+    if (email) {
+      if (!mockAuth.codesSent.includes(email)) return err(400, "code_expired", "That code has expired. Send a new one.");
+      if (b.code !== MOCK_EMAIL_CODE) return err(400, "code_invalid", "That code isn't right.");
+    }
+    const matches = mockDb.restoreOffers.filter((o) => (email ? o.emails.includes(email) : o.own));
+    const elsewhere = matches.find((o) => o.elsewhere);
+    const open = matches.filter((o) => !o.elsewhere && !mockDb.restoreMoved.includes(o.offer.offer_id));
+    if (open.length === 0 && elsewhere) {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "restored_elsewhere",
+          message: "That plan was restored on another account. Sign in to that account to use it.",
+          details: { providers: elsewhere.elsewhere },
+        },
+        { status: 409 },
+      );
+    }
+    return HttpResponse.json(open.length > 0 ? { proof_id: "proof_mock", found: open.map((o) => o.offer) } : { proof_id: null, found: [] });
+  }),
+  http.post(`${GATEWAY}/v1/billing/restore/move`, async ({ request }) => {
+    const b = (await request.json().catch(() => ({}))) as { proof_id?: string; offer_id?: string };
+    const hit = mockDb.restoreOffers.find((o) => o.offer.offer_id === b.offer_id);
+    if (b.proof_id !== "proof_mock" || !hit) {
+      return err(400, "proof_invalid", "Find your purchases again, then restore within 15 minutes.");
+    }
+    if (mockDb.billing.plan?.active) {
+      return err(409, "has_own_plan", "Your account has a plan of its own. Contact support to move the other one here.");
+    }
+    if (!mockDb.restoreMoved.includes(hit.offer.offer_id)) mockDb.restoreMoved.push(hit.offer.offer_id);
+    const key = hit.offer.plan === "studio" ? "studio" : "business";
+    const def = TIERS.plans[key];
+    mockDb.billing.plan = {
+      plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
+      credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: !hit.offer.renews,
+      current_period_end: hit.offer.ends_at, interval: def.interval as "month" | "year", price_cents: def.price_cents,
+    };
+    return HttpResponse.json({ restored: true, message: "Your purchases are restored" });
+  }),
   // gateway 00152: the email store (any host: China mode too)
   http.get(/\/v1\/account\/emails$/, () => HttpResponse.json(mockDb.accountEmails)),
   http.post(/\/v1\/account\/emails\/start$/, async ({ request }) => {

@@ -16,6 +16,7 @@ import { billingUidAtom } from "@/lib/billing";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import { restoreAtom, runRestoreAtom } from "./restoreAtoms";
+import { RestoreMove } from "./RestoreMove";
 
 export const APP_STORE_NOTE = "Purchases from the App Store show when you sign in to the app.";
 
@@ -64,6 +65,8 @@ export function RestorePurchases(): JSX.Element {
           </p>
         ) : null}
       </div>
+      {/* gateway 00152: a plan from a deleted account, under another email */}
+      <RestoreMove />
       <p className="text-xs text-fg-muted">{APP_STORE_NOTE}</p>
     </section>
   );

@@ -43,6 +43,7 @@ import {
 } from "@/components/refunds/refundAtoms";
 import { EMPTY_IDENTITIES, identitiesAtom } from "@/components/auth/identityState";
 import { EMPTY_EMAILS, emailsAtom } from "@/components/auth/emailAtoms";
+import { EMPTY_RESTORE_MOVE, restoreMoveAtom } from "@/components/billing/restoreMoveAtoms";
 import { checkoutEmailAtom } from "@/components/pay/payAtoms";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
@@ -99,6 +100,7 @@ afterEach(() => {
   store.set(refundSheetAtom, CLOSED_SHEET);
   store.set(identitiesAtom, EMPTY_IDENTITIES);
   store.set(emailsAtom, EMPTY_EMAILS);
+  store.set(restoreMoveAtom, EMPTY_RESTORE_MOVE);
   store.set(checkoutEmailAtom, null);
 });
 
