@@ -1,11 +1,15 @@
 package stripex
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -86,13 +90,35 @@ func webCall(method, path string, form url.Values, idemKey string, out any) erro
 	return json.Unmarshal(raw, out)
 }
 
-// CreateCheckoutSession creates a session from form parameters under key.
+// CreateCheckoutSession creates a session from form parameters. The
+// idempotency key is the caller's base key plus a hash of the exact
+// parameters (owner bug 2026-11-07: closing and reopening the Pro sheet
+// within a minute sent the same plan key with a new expires_at, and Stripe
+// refused it with idempotency_error). An identical retry still dedupes;
+// any change, expires_at included, opens a fresh session. If Stripe still
+// answers idempotency_error, it retries once under a fresh key.
 func (c *Client) CreateCheckoutSession(form url.Values, idemKey string) (*Session, error) {
+	key := sessionKey(idemKey, form)
 	var s Session
-	if err := webCall(http.MethodPost, "/v1/checkout/sessions", form, idemKey, &s); err != nil {
+	err := webCall(http.MethodPost, "/v1/checkout/sessions", form, key, &s)
+	var serr *stripe.Error
+	if errors.As(err, &serr) && serr.Type == stripe.ErrorTypeIdempotency && key != "" {
+		s = Session{}
+		err = webCall(http.MethodPost, "/v1/checkout/sessions", form, key+"_r"+strconv.FormatInt(time.Now().UnixNano(), 36), &s)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return &s, nil
+}
+
+// sessionKey is base_<16 hex of sha256(the encoded form)>; "" stays "".
+func sessionKey(base string, form url.Values) string {
+	if base == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(form.Encode()))
+	return base + "_" + hex.EncodeToString(sum[:8])
 }
 
 // GetCheckoutSession retrieves a session.

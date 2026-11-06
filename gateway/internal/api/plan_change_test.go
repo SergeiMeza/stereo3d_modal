@@ -363,3 +363,30 @@ func TestProToBusinessUsageShare(t *testing.T) {
 		t.Fatalf("pro usage credit %v", prev)
 	}
 }
+
+// Owner bug 2026-11-07: closing the Pro sheet and opening it again within
+// a minute sent the same Checkout key with other parameters (a new
+// expires_at; here also the hosted page), and Stripe refused it. Every
+// reopen now opens: an identical request dedupes, any change gets a
+// fresh session.
+func TestReopenPlanSheet(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1"})
+	start := func(body string) (int, map[string]any) {
+		return callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleStartPlan(w, r, &AuthedUser{UID: uid}) }, "POST", body)
+	}
+	for i, body := range []string{`{"plan":"pro_weekly"}`, `{"plan":"pro_weekly","ui":"hosted_page"}`, `{"plan":"pro_weekly"}`} {
+		if i == 2 {
+			time.Sleep(1100 * time.Millisecond) // a new expires_at, the same minute
+		}
+		if code, out := start(body); code != 200 || out["checkout"] == nil {
+			t.Fatalf("open %d: %d %v", i+1, code, out)
+		}
+	}
+	if len(fake.sessionForms) != 3 {
+		t.Fatalf("sessions %d", len(fake.sessionForms))
+	}
+}

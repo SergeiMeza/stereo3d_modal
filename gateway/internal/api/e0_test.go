@@ -44,15 +44,16 @@ type fakeStripe struct {
 	customers      map[string]*fakeCustomer     // customer id → name, address, tax IDs, PO
 	expired        []string
 	created        int
-	detaches       []string // POST /v1/payment_methods/{id}/detach
-	portals        []string // billing portal sessions' customers
-	piAmounts      []int64  // POST /v1/payment_intents amounts
+	detaches       []string             // POST /v1/payment_methods/{id}/detach
+	portals        []string             // billing portal sessions' customers
+	piAmounts      []int64              // POST /v1/payment_intents amounts
+	idem           map[string][2]string // checkout session Idempotency-Key → {encoded form, session id}
 }
 
 func newFakeStripe() *fakeStripe {
 	return &fakeStripe{pis: map[string]map[string]any{}, sessions: map[string]map[string]any{}, pmPrints: map[string]string{},
 		subs: map[string]map[string]any{}, invPays: map[string]string{}, invs: map[string]map[string]any{},
-		invItems: map[string]int64{}, schedules: map[string]map[string]string{}, customers: map[string]*fakeCustomer{}}
+		invItems: map[string]int64{}, schedules: map[string]map[string]string{}, customers: map[string]*fakeCustomer{}, idem: map[string][2]string{}}
 }
 
 type fakeCustomer struct {
@@ -143,12 +144,30 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.expired = append(f.expired, id)
 		write(f.session(id))
 	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
+		// Stripe's idempotency: the same key with other parameters is a
+		// 400 idempotency_error; with the same ones, the same session.
+		key, enc := r.Header.Get("Idempotency-Key"), r.PostForm.Encode()
+		if prev, ok := f.idem[key]; key != "" && ok {
+			if prev[0] != enc {
+				w.WriteHeader(400)
+				write(map[string]any{"error": map[string]any{"type": "idempotency_error",
+					"message": "Keys for idempotent requests can only be used with the same parameters they were first used with."}})
+				return
+			}
+			write(map[string]any{"id": prev[1], "client_secret": "cs_secret", "url": "https://checkout",
+				"expires_at": time.Now().Add(30 * time.Minute).Unix(), "status": "open"})
+			return
+		}
 		form := map[string]string{}
 		for k := range r.Form {
 			form[k] = r.Form.Get(k)
 		}
 		f.sessionForms = append(f.sessionForms, form)
-		write(map[string]any{"id": fmt.Sprintf("cs_%d", len(f.sessionForms)), "client_secret": "cs_secret", "url": "https://checkout",
+		id := fmt.Sprintf("cs_%d", len(f.sessionForms))
+		if key != "" {
+			f.idem[key] = [2]string{enc, id}
+		}
+		write(map[string]any{"id": id, "client_secret": "cs_secret", "url": "https://checkout",
 			"expires_at": time.Now().Add(30 * time.Minute).Unix(), "status": "open"})
 	case strings.HasPrefix(p, "/v1/checkout/sessions/"):
 		write(f.session(strings.TrimPrefix(p, "/v1/checkout/sessions/")))
