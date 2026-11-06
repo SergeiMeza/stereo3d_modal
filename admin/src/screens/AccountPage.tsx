@@ -29,6 +29,7 @@ import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
 import { grantSheetAtom, GrantsSection, PromoRegrants } from "./Grants";
 import { ProCreditSection } from "./ProCredit";
+import { DeletionSection } from "./Deletion";
 import { PlanMoveSheet } from "./PlanMove";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
@@ -85,6 +86,9 @@ const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: 
   adjust_balance: { title: "Adjust balance", body: "Adds (or, negative, removes) balance. It needs a case.", button: "Adjust" },
   // run from the Re-grants card (RestoreSheet in Grants.tsx), not this sheet
   restore_promo_grants: { title: "Restore promotional grants", body: "", button: "Restore" },
+  // run from the Account deletion panel (Deletion.tsx), not this sheet
+  cancel_deletion: { title: "Cancel deletion", body: "", button: "Cancel deletion" },
+  process_deletion_now: { title: "Delete it now", body: "", button: "Delete now" },
 };
 
 /** A3: one account. */
@@ -165,6 +169,7 @@ export function AccountPage({ uid }: { uid: string }) {
             <h1 className="truncate text-2xl font-semibold">{a.email || a.uid}</h1>
             {a.deleted && <Badge variant="muted">Deleted</Badge>}
             {a.blocked && <Badge variant="red">Blocked</Badge>}
+            {p.deletion?.state === "pending" && <Badge variant="amber">Deletion pending</Badge>}
             {b.under_review && <Badge variant="amber">Under review</Badge>}
             {b.sheet_only && <Badge variant="amber">Sheet-only</Badge>}
             {p.owed_cents > 0 && <Badge variant="red">Owes {money(p.owed_cents)}</Badge>}
@@ -223,6 +228,9 @@ export function AccountPage({ uid }: { uid: string }) {
           </div>
         ))}
       </dl>
+
+      {/* gateway 00166: the 48-hour deletion, near the top while it waits */}
+      <DeletionSection page={p} />
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-3.5">
         <Panel title="Entitlements">

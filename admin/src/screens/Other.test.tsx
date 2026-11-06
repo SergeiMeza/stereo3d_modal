@@ -789,3 +789,71 @@ describe("Pro credit (gateway 00159, PRO-07)", () => {
     expect(screen.queryByTestId("pro-credit")).toBeNull();
   });
 });
+
+describe("the 48-hour deletion on an account (gateway 00166)", () => {
+  const account = {
+    account: { uid: "uid_123", email: "jane@example.com", stripe_customer_id: "cus_1", blocked: false },
+    billing_state: { flow_state: "ok", sheet_only: false, lifetime_paid_cents: 0 },
+    owed_cents: 0,
+    balance: null,
+    methods: null,
+    cases: null,
+    charges: null,
+    refunds: null,
+    ledger: null,
+  };
+  const deletion = (over: Record<string, unknown> = {}) => ({
+    uid: "uid_123",
+    state: "pending",
+    requested_at: "2026-11-07T09:00:00Z",
+    delete_after: "2026-11-09T09:00:00Z",
+    balance_confirmed: false,
+    source: "web",
+    blocked: false,
+    attempts: 0,
+    ...over,
+  });
+
+  it("shows when it goes, and Cancel deletion keeps the account", async () => {
+    const { calls } = renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, deletion: deletion() } }),
+      "POST /v1/admin/accounts/uid_123/actions": () => ({
+        json: { ...account, deletion: deletion({ state: "cancelled", cancelled_at: "2026-11-07T10:00:00Z", cancelled_by: "admin:owner@example.com" }) },
+      }),
+    });
+    const panel = await screen.findByTestId("deletion");
+    expect(screen.getByText("Deletion pending")).toBeInTheDocument();
+    expect(within(panel).getByTestId("deletion-state")).toHaveTextContent("Pending");
+    expect(panel).toHaveTextContent(/· web/i);
+    await userEvent.click(within(panel).getByRole("button", { name: "Cancel deletion…" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel deletion" }));
+    await waitFor(() => expect(within(screen.getByTestId("deletion")).getByTestId("deletion-state")).toHaveTextContent("Cancelled"));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ action: "cancel_deletion" });
+    expect(screen.queryByText("Deletion pending")).toBeNull();
+    expect(within(screen.getByTestId("deletion")).queryByRole("button", { name: "Process now…" })).toBeNull();
+  });
+
+  it("Process now deletes it; an answer with only the deletion keeps the page", async () => {
+    const { calls } = renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({ json: { ...account, deletion: deletion({ blocked: true, blocked_reason: "run_in_progress", attempts: 2 }) } }),
+      "POST /v1/admin/accounts/uid_123/actions": () => ({
+        json: { deletion: deletion({ state: "done", processed_at: "2026-11-07T10:00:00Z", processed_by: "admin:owner@example.com", outcome: "deleted" }) },
+      }),
+    });
+    const panel = await screen.findByTestId("deletion");
+    expect(within(panel).getByTestId("deletion-state")).toHaveTextContent("Blocked");
+    expect(within(panel).getByTestId("deletion-blocked")).toHaveTextContent("2 attempts");
+    await userEvent.click(within(panel).getByRole("button", { name: "Process now…" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete now" }));
+    await waitFor(() => expect(within(screen.getByTestId("deletion")).getByTestId("deletion-state")).toHaveTextContent("Deleted"));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ action: "process_deletion_now" });
+    // the rest of the page stays
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("jane@example.com");
+  });
+
+  it("no deletion, no panel", async () => {
+    renderApp("/accounts/uid_123", { "GET /v1/admin/accounts/uid_123": () => ({ json: account }) });
+    expect(await screen.findByTestId("grants")).toBeInTheDocument();
+    expect(screen.queryByTestId("deletion")).toBeNull();
+  });
+});

@@ -460,6 +460,8 @@ export interface AccountPage {
   /** gateway 00159 (PRO-07): Pro's monthly usage credit, its grants (last
    * 24 months), how often the account refunded Pro, and the repeat flag */
   pro_credit?: ProCreditAdmin | null;
+  /** gateway 00166: the account's 48-hour deletion, when there is one */
+  deletion?: AdminDeletion | null;
   /** company detail changes, newest last (the last 20) */
   company_changes?: { at: string; by: string; fields: string[] | null }[] | null;
   /** owner 2026-11-04: the business details on the account's invoices */
@@ -501,7 +503,10 @@ export type AccountAction =
   | "resend_e2"
   | "write_off_owed"
   | "adjust_balance"
-  | "restore_promo_grants";
+  | "restore_promo_grants"
+  /** gateway 00166: the 48-hour deletion (process_deletion_now needs a fresh sign-in) */
+  | "cancel_deletion"
+  | "process_deletion_now";
 
 export interface AccountActionBody {
   action: AccountAction;
@@ -862,4 +867,27 @@ export interface ProCreditAdmin {
   refunds: number;
   /** refunded Pro more than once: the gateway also alerts on it */
   refund_flag: boolean;
+}
+
+/** gateway 00166: an account's 48-hour deletion (GET /v1/admin/deletions,
+ * the account page's `deletion`). */
+export interface AdminDeletion {
+  uid: string;
+  state: "pending" | "cancelled" | "done";
+  requested_at: string;
+  delete_after: string;
+  balance_confirmed?: boolean;
+  /** where it was asked: web, app, … */
+  source?: string;
+  /** the scheduled run couldn't delete it yet (stays pending, tried again) */
+  blocked?: boolean;
+  blocked_reason?: string;
+  blocked_at?: string | null;
+  next_attempt_at?: string | null;
+  attempts?: number;
+  cancelled_at?: string | null;
+  cancelled_by?: string;
+  processed_at?: string | null;
+  processed_by?: string;
+  outcome?: string;
 }

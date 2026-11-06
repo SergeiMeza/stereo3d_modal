@@ -27,6 +27,7 @@ import type {
   AccountHit,
   FeedbackSeen,
   OpenEfw,
+  AdminDeletion,
   AdminGrant,
   RunLookup,
   PasskeyAdoption,
@@ -269,6 +270,22 @@ export class AdminApi {
       `/v1/admin/accounts/${encodeURIComponent(uid)}/actions`,
       body,
     );
+  }
+
+  /** gateway 00166: Cancel deletion / Process now (the latter needs a fresh
+   * sign-in). The account page after it, or only {deletion} for an account
+   * without a billing record. */
+  deletionAction(
+    uid: string,
+    action: "cancel_deletion" | "process_deletion_now",
+  ): Promise<AccountPage | { deletion: AdminDeletion | null }> {
+    return this.json("POST", `/v1/admin/accounts/${encodeURIComponent(uid)}/actions`, { action });
+  }
+
+  /** gateway 00166: the 48-hour deletions in one state, soonest first. */
+  async listDeletions(state: AdminDeletion["state"]): Promise<AdminDeletion[]> {
+    const r = await this.json<{ deletions: AdminDeletion[] | null }>("GET", `/v1/admin/deletions?state=${encodeURIComponent(state)}`);
+    return r.deletions ?? [];
   }
 
   /** Feedback from the web and the apps, read only (owner 2026-11-04). */
