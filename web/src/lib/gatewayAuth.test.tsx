@@ -165,6 +165,8 @@ describe("gateway auth provider (China mode)", () => {
     const signin = requestUrls.find((u) => u.endsWith("/v1/auth/email/verify"));
     expect(signin).toBeDefined();
     expect(new URL(signin!).hostname.startsWith("cn.")).toBe(true);
+    // gateway 00145: the Chinese code mail
+    expect(mockAuth.codeLanguages).toEqual(["zh-Hans"]);
     expect(firebaseCalls.count).toBe(0);
   });
 

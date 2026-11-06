@@ -1119,6 +1119,8 @@ export const mockAuth = {
   issued: 0,
   /** addresses a code was mailed to, oldest first */
   codesSent: [] as string[],
+  /** each code mail's language, as asked (null when none was sent) */
+  codeLanguages: [] as (string | null)[],
   reset() {
     this.users = new Map([
       [
@@ -1133,6 +1135,7 @@ export const mockAuth = {
     this.refreshTokens = new Map();
     this.issued = 0;
     this.codesSent = [];
+    this.codeLanguages = [];
   },
 };
 mockAuth.reset();
@@ -1157,16 +1160,22 @@ function authHandlers(base: string) {
       email?: string;
       code?: string;
       session?: boolean;
+      language?: unknown;
     };
     return { ...body, email: (body.email ?? "").trim().toLowerCase() };
   };
   return [
     http.post(`${base}/v1/auth/email/start`, async ({ request }) => {
-      const { email } = await emailOf(request);
+      const { email, language } = await emailOf(request);
       if (!email.includes("@")) {
         return err(400, "invalid_email", "that email address is not valid");
       }
+      // gateway 00145: the mail's language, BCP-47 (zh-Hans for China)
+      if (language !== undefined && (typeof language !== "string" || !/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(language))) {
+        return err(400, "invalid_request", "language must be a BCP-47 tag");
+      }
       mockAuth.codesSent.push(email);
+      mockAuth.codeLanguages.push(language ?? null);
       return HttpResponse.json({ resend_after: 30 });
     }),
     http.post(`${base}/v1/auth/email/verify`, async ({ request }) => {

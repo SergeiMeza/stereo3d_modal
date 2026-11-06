@@ -45,7 +45,27 @@ describe("start and verify", () => {
       }),
     );
     expect(await startEmailCode("  a@example.com ")).toEqual({ resendAfter: 30 });
-    expect(body).toEqual({ email: "a@example.com" });
+    expect(body).toEqual({ email: "a@example.com", language: "en" });
+  });
+
+  it("asks for the mail in the site's language: its html lang, zh-Hans in China mode", async () => {
+    const seen: unknown[] = [];
+    server.use(
+      http.post(/\/v1\/auth\/email\/start$/, async ({ request }) => {
+        seen.push(((await request.json()) as { language?: string }).language);
+        return HttpResponse.json({ ok: true, resend_after: 30 });
+      }),
+    );
+    document.documentElement.lang = "en-GB";
+    try {
+      await startEmailCode("a@example.com");
+      document.cookie = "s3d_region=cn; Path=/";
+      await startEmailCode("a@example.com");
+    } finally {
+      document.cookie = "s3d_region=; Path=/; Max-Age=0";
+      document.documentElement.lang = "";
+    }
+    expect(seen).toEqual(["en-GB", "zh-Hans"]);
   });
 
   it("carries retry_after and attempts_left from the refusal", async () => {

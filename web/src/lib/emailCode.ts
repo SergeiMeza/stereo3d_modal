@@ -10,7 +10,7 @@
  */
 
 import { GatewayAuthError } from "@/lib/gatewayAuth";
-import { gatewayBaseUrl } from "@/lib/region";
+import { currentRegion, gatewayBaseUrl } from "@/lib/region";
 
 /** Seconds before another code may be asked for. */
 export const RESEND_AFTER_S = 30;
@@ -80,10 +80,19 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return parsed as T;
 }
 
+/** The code mail's language (gateway 00145), BCP-47: zh-Hans in China
+ * mode, else the site's UI language (the html lang, English today). */
+export function codeMailLanguage(): string {
+  if (currentRegion() === "cn") return "zh-Hans";
+  const lang = typeof document !== "undefined" ? document.documentElement.lang.trim() : "";
+  return lang || "en";
+}
+
 /** Mail a code to email. */
 export async function startEmailCode(email: string): Promise<CodeStart> {
   const a = await post<{ resend_after?: number }>("/v1/auth/email/start", {
     email: email.trim(),
+    language: codeMailLanguage(),
   });
   return { resendAfter: a.resend_after ?? RESEND_AFTER_S };
 }
