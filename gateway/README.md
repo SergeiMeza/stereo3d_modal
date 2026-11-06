@@ -1670,6 +1670,24 @@ and store.
   passkeys, sign_ins: {"7d": {method: count}, "30d": {…}},
   generated_at}`; the admin account view adds `passkey_count`.
 
+### Fresh sign-in for sensitive operations (owner 2026-11-06)
+
+`api.Fresh` (one window, `FreshSignInWindow` = 5 min, also the passkey
+registration's): the verified ID token's `auth_time` must be within 5
+minutes, else **401 `reauth_required {max_age_s: 300, method:
+"firebase"}`** (sign in again with any method, then retry). A refresh
+keeps `auth_time` (the original sign-in); a China-mode session's tokens
+carry the gateway's custom-token sign-in time; svs-backend's proxied
+calls carry the user's token, so the same check applies. Missing
+`auth_time` counts as stale. On: identities link and unlink (adding or
+changing an email included), passkey register (its own check) and delete,
+`POST /v1/account/delete` (not the GET preview), plan change, `POST
+/v1/billing/plan/cancel`, `DELETE /v1/plans/scheduled-change`, `POST
+/v1/account/plan/cancel|resume`, payment methods setup, default, order,
+remove and the billing portal. Not on reads, quotes, runs, a new plan's
+checkout or top-ups. Restore Purchases, merges and refund requests get it
+when they're built.
+
 ### Sign-in code mail language (2026-11-06)
 
 `POST /v1/auth/email/start {email, language?}` mails the code in

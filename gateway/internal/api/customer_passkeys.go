@@ -46,7 +46,7 @@ const (
 	cpkPerIPHour       = 60
 	cpkPerUIDHour      = 20
 	cpkNativePerIPHour = 30 // the app's calls (nativeClient), their own bucket
-	cpkFresh           = 5 * time.Minute
+	cpkFresh           = FreshSignInWindow
 )
 
 // customerRPFor is the customers' relying party for a request's Origin.
@@ -214,9 +214,7 @@ func (s *Service) customerWAUser(ctx context.Context, uid, email string, rp *pas
 }
 
 func reauthFirebase() error {
-	e := httpx.Err(http.StatusUnauthorized, "reauth_required", "Sign in again, then add your passkey within 5 minutes.")
-	e.Details = map[string]any{"method": "firebase"}
-	return e
+	return errReauthRequired("Sign in again, then add your passkey within 5 minutes.")
 }
 
 func cleanPasskeyName(n string) (string, bool) {

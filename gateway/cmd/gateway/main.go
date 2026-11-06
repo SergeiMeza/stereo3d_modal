@@ -189,13 +189,15 @@ func main() {
 		}
 	}
 	mux.HandleFunc("PATCH /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
-	mux.HandleFunc("DELETE /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyDelete)))
+	mux.HandleFunc("DELETE /v1/account/passkeys/{id}", authed(api.Fresh(cpkID(svc.HandleCustomerPasskeyDelete))))
 	// Linked sign-in methods, server-side (the app's sign-in contract).
+	// api.Fresh: a sign-in within 5 minutes (sensitive operations, owner
+	// 2026-11-06), else 401 reauth_required {max_age_s: 300}.
 	mux.HandleFunc("GET /v1/account/identities", authed(svc.HandleIdentities))
-	mux.HandleFunc("POST /v1/account/identities/link", authed(svc.HandleLinkIdentity))
-	mux.HandleFunc("DELETE /v1/account/identities/{provider}", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+	mux.HandleFunc("POST /v1/account/identities/link", authed(api.Fresh(svc.HandleLinkIdentity)))
+	mux.HandleFunc("DELETE /v1/account/identities/{provider}", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 		svc.HandleUnlinkIdentity(w, r, u, r.PathValue("provider"))
-	}))
+	})))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 
 	// Admin passkeys and sessions (ADR 0135).
@@ -278,19 +280,19 @@ func main() {
 	mux.HandleFunc("GET /v1/billing/balance/entries", authed(svc.HandleBalanceEntries))
 	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
 	mux.HandleFunc("POST /v1/billing/plan", authed(svc.HandleStartPlan)) // pricing 2026-11
-	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(svc.HandleCancelPlan))
+	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(api.Fresh(svc.HandleCancelPlan)))
 	mux.HandleFunc("POST /v1/plans/preview-change", authed(svc.HandlePreviewPlanChange)) // plan changes 2026-11-04
-	mux.HandleFunc("POST /v1/plans/change", authed(svc.HandlePlanChange))
-	mux.HandleFunc("DELETE /v1/plans/scheduled-change", authed(svc.HandleCancelScheduledChange))
+	mux.HandleFunc("POST /v1/plans/change", authed(api.Fresh(svc.HandlePlanChange)))
+	mux.HandleFunc("DELETE /v1/plans/scheduled-change", authed(api.Fresh(svc.HandleCancelScheduledChange)))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
-	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
+	mux.HandleFunc("POST /v1/billing/portal", authed(api.Fresh(svc.HandleBillingPortal)))
 	// Our own Billing (spec v6.2 D4/F): methods, backup order, company.
 	mux.HandleFunc("GET /v1/billing/methods", authed(svc.HandleListMethods))
-	mux.HandleFunc("POST /v1/billing/methods/setup", authed(svc.HandleSetupMethod))
-	mux.HandleFunc("POST /v1/billing/methods/{id}/default", authed(withID(svc.HandleSetDefaultMethod)))
-	mux.HandleFunc("PUT /v1/billing/methods/order", authed(svc.HandlePutMethodOrder))
-	mux.HandleFunc("DELETE /v1/billing/methods/{id}", authed(withID(svc.HandleRemoveMethod)))
+	mux.HandleFunc("POST /v1/billing/methods/setup", authed(api.Fresh(svc.HandleSetupMethod)))
+	mux.HandleFunc("POST /v1/billing/methods/{id}/default", authed(api.Fresh(withID(svc.HandleSetDefaultMethod))))
+	mux.HandleFunc("PUT /v1/billing/methods/order", authed(api.Fresh(svc.HandlePutMethodOrder)))
+	mux.HandleFunc("DELETE /v1/billing/methods/{id}", authed(api.Fresh(withID(svc.HandleRemoveMethod))))
 	mux.HandleFunc("GET /v1/billing/company", authed(svc.HandleGetCompany))
 	mux.HandleFunc("PUT /v1/billing/company", authed(svc.HandlePutCompany))
 	mux.HandleFunc("POST /v1/billing/company/tax-ids", authed(svc.HandleAddTaxID))
@@ -303,10 +305,10 @@ func main() {
 		}
 		svc.HandleDeleteTaxID(w, r, u, id)
 	}))
-	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
+	mux.HandleFunc("POST /v1/account/delete", authed(api.Fresh(svc.HandleDeleteAccount)))
 	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview)) // what a delete would do
-	mux.HandleFunc("POST /v1/account/plan/cancel", authed(svc.HandleAccountPlanCancel))
-	mux.HandleFunc("POST /v1/account/plan/resume", authed(svc.HandleAccountPlanResume))
+	mux.HandleFunc("POST /v1/account/plan/cancel", authed(api.Fresh(svc.HandleAccountPlanCancel)))
+	mux.HandleFunc("POST /v1/account/plan/resume", authed(api.Fresh(svc.HandleAccountPlanResume)))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
 	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04
