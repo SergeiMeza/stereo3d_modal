@@ -824,7 +824,7 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   When the release sets prod's tier flags and prices, diff the two
   `/v1/pricing` responses before opening it to anyone:
   ```sh
-  q='{lifelike: .methods.lifelike, tiers: .tiers, addons: (.addons | map_values(.pct)), discount: .discount, plans: (.plans // {} | map_values({interval, price_cents, credit_cents}))}'
+  q='{lifelike: .methods.lifelike, tiers: .tiers, addons: (.addons | with_entries(select(.value | type == "object")) | map_values(.pct)), discount: .discount, plans: (.plans // {} | map_values({interval, price_cents, credit_cents}))}'
   diff <(curl -s https://<test-host>/v1/pricing | jq -S "$q") \
        <(curl -s https://<prod-host>/v1/pricing | jq -S "$q")
   ```
