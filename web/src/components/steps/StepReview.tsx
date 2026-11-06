@@ -24,6 +24,7 @@ import { FilmstripTimeline } from "@/components/workspace/FilmstripTimeline";
 import { PreviewViewer } from "@/components/workspace/PreviewViewer";
 import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
 import { usePreviewPlayer } from "@/components/workspace/usePreviewPlayer";
+import type { StripBand } from "@/components/workspace/FilmstripTimeline";
 import { clampFrame } from "@/components/workspace/utils";
 import type { Conversion, Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
@@ -181,6 +182,10 @@ export interface StepReviewProps {
   /** A highlighted frame span on the timeline (or one that follows the
    * playhead). */
   range?: [number, number] | ((playhead: number) => [number, number]) | null;
+  /** Spans marked above the strip's thumbnails (the Preview page's past
+   * previews) and what picking one does. */
+  bands?: StripBand[];
+  onSelectBand?: (id: string) => void;
   /** Told whenever the playhead moves (the Classic previews start their
    * 10-second clip there, S3D-27). */
   onPlayhead?: (frame: number) => void;
@@ -200,6 +205,8 @@ export function StepReview({
   belowPlayer,
   timelineHeading,
   range = null,
+  bands,
+  onSelectBand,
   onPlayhead,
   children,
 }: StepReviewProps): JSX.Element {
@@ -319,6 +326,8 @@ export function StepReview({
         aspect={probe.width / probe.height}
         range={typeof range === "function" ? range(playhead) : range}
         onScrub={scrub}
+        bands={bands}
+        onSelectBand={onSelectBand}
       />
 
       {children ? children({ playhead, scrub }) : null}

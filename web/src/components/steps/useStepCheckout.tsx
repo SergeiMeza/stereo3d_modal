@@ -275,7 +275,7 @@ export function useStepCheckout(
       });
       upgradeSession("paid-conversion");
       setState((s) => ({ ...s, active: conv, settled: false }));
-      // the new run shows in the lists (Earlier previews, Files) and the
+      // the new run shows in the lists (Past previews, Files) and the
       // free previews left are priced again
       onProjectChanged();
       invalidate();

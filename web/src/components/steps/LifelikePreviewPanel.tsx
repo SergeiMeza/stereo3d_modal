@@ -6,7 +6,10 @@
  * its price ("Preview this moment · $1.04"); right, your preview with a
  * free 3D check on this screen — Red-cyan, Wiggle or Side by side
  * (S3D-32); below, "Pick a moment": the timeline with the preview's box,
- * which starts at the playhead. Earlier previews sit in a short list.
+ * which starts at the playhead. Past previews sit on the strip as bands
+ * above the thumbnails and in a short list (owner 2026-11-07): picking
+ * one shows it in "Your preview" (pastPreviewPickAtom); the box, the price
+ * and the next preview's button never follow a pick.
  *
  * Priced per frame like the final (S3D-13): 2–10 s, 5 by default; Quick
  * look renders half the frame rate for half the price. The price, the
@@ -15,10 +18,12 @@
  * the quote is for the same length from the start of the video.
  */
 
+import { useAtom } from "jotai";
 import { useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import type { StripBand } from "@/components/workspace/FilmstripTimeline";
 import type {
   Conversion,
   Format,
@@ -48,6 +53,7 @@ import {
   StereoCheckViewer,
   type CheckMode,
 } from "./StereoCheckViewer";
+import { pastPreviewPickAtom } from "./pastPreviewAtoms";
 import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { PlansSheet, usePlansSheet } from "@/components/plans/PlansSheet";
@@ -68,6 +74,21 @@ export function previewRange(
   seconds: number = LIFELIKE_PREVIEW_SECONDS,
 ): [number, number] {
   return clipRange(start, numFrames, fps, seconds);
+}
+
+/** "Nov 7": the day a preview was ordered. */
+export function previewDay(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** A run's state as a strip band shows it. */
+function bandState(c: Conversion): StripBand["state"] {
+  if (c.state === "succeeded") return "done";
+  if (c.state === "failed" || c.state === "canceled" || c.state === "expired") return "failed";
+  return "running";
 }
 
 /** A preview's floor (S3D-13/17), from /v1/pricing. */
@@ -127,7 +148,7 @@ function ReadyPreviewPanel({
   const [seconds, setSeconds] = useState<number>(LIFELIKE_PREVIEW_SECONDS);
   const [quickLook, setQuickLook] = useState(false);
   const [mode, setMode] = useState<CheckMode>(DEFAULT_CHECK_MODE);
-  const [shownId, setShownId] = useState<string | null>(null);
+  const [pick, setPick] = useAtom(pastPreviewPickAtom(project.project_id));
 
   // QA 2026-11-05 batch 2: a preview just started shows at once (the
   // project's list catches up on its next read)
@@ -140,9 +161,17 @@ function ReadyPreviewPanel({
     .filter((c) => c.step === "lifelike_preview")
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const succeeded = runs.filter((c) => c.state === "succeeded");
-  const shown =
-    succeeded.find((c) => c.conversion_id === shownId) ?? succeeded[0];
-  const downloads = useRunDownloads(shown);
+  // a pick lapses once a newer preview starts: the panel follows the new one
+  const newestId = runs[0]?.conversion_id ?? null;
+  const picked =
+    pick !== null && pick.newestAtPick === newestId
+      ? runs.find((c) => c.conversion_id === pick.id)
+      : undefined;
+  const latest = succeeded[0];
+  const shown = picked ?? latest;
+  const showPast = (id: string) =>
+    setPick(id === latest?.conversion_id ? null : { id, newestAtPick: newestId });
+  const downloads = useRunDownloads(shown?.state === "succeeded" ? shown : undefined);
   const output = bestPlayable(downloads);
   const client = useClient();
 
@@ -224,10 +253,34 @@ function ReadyPreviewPanel({
           ? `${clock(shown.params.from_frame)} – ${clock(shown.params.to_frame)}`
           : null,
         qualityLabelFor(project, shown.params.preset),
+        previewDay(shown.created_at),
       ]
         .filter(Boolean)
         .join(" · ")
     : "";
+
+  // past previews on the strip, the one shown highlighted
+  const bands: StripBand[] = runs.flatMap((c) =>
+    c.params.from_frame !== undefined && c.params.to_frame !== undefined
+      ? [
+          {
+            id: c.conversion_id,
+            from: c.params.from_frame,
+            to: c.params.to_frame,
+            state: bandState(c),
+            label: [
+              `${clock(c.params.from_frame)} – ${clock(c.params.to_frame)}`,
+              qualityLabelFor(project, c.params.preset),
+              previewDay(c.created_at),
+              bandState(c) === "running" ? "being made" : bandState(c) === "failed" ? "didn't finish" : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            selected: c.conversion_id === shown?.conversion_id,
+          },
+        ]
+      : [],
+  );
 
   const previewCard: ReactNode = (
     <section
@@ -237,11 +290,30 @@ function ReadyPreviewPanel({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-fg">Your preview</h3>
         {shown ? <StateChip conversion={shown} /> : null}
+        {picked && picked.conversion_id !== latest?.conversion_id ? (
+          <button
+            type="button"
+            onClick={() => setPick(null)}
+            className="text-[11px] text-primary hover:underline"
+          >
+            {latest ? "Back to latest" : "Back"}
+          </button>
+        ) : null}
         <span data-testid="preview-shown-meta" className="ml-auto text-[11px] text-fg-muted">
           {shownMeta}
         </span>
       </div>
-      {shown === undefined ? (
+      {shown !== undefined && shown.state !== "succeeded" ? (
+        <div
+          data-testid="preview-unfinished"
+          className="flex flex-1 items-center justify-center rounded-md border border-dashed border-edge p-6 text-center text-xs text-fg-muted"
+          style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+        >
+          {bandState(shown) === "failed"
+            ? "This preview didn't finish. You paid nothing for it."
+            : "This preview is being made. It shows here when it's done."}
+        </div>
+      ) : shown === undefined ? (
         <div
           data-testid="preview-empty"
           className="flex flex-1 items-center justify-center rounded-md border border-dashed border-edge p-6 text-center text-xs text-fg-muted"
@@ -341,6 +413,8 @@ function ReadyPreviewPanel({
         range={(playhead) =>
           previewRange(playhead, probe.num_frames, sourceFps, seconds)
         }
+        bands={bands}
+        onSelectBand={showPast}
         belowPlayer={({ playhead }) => {
           const run = requestAt(playhead);
           const range: [number, number] = [run.from_frame!, run.to_frame!];
@@ -463,7 +537,9 @@ function ReadyPreviewPanel({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xs font-semibold text-fg">Pick a moment</h3>
             <span className="text-[11px] text-fg-muted">
-              Click the strip to move the preview.
+              {bands.length > 0
+                ? "Click the strip to move the preview. The bars along its top are your past previews."
+                : "Click the strip to move the preview."}
             </span>
           </div>
         }
@@ -482,8 +558,8 @@ function ReadyPreviewPanel({
       </StepReview>
 
       {succeeded.length > 1 || runs.length > succeeded.length ? (
-        <section aria-label="Earlier previews" className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold text-fg-muted">Earlier previews</h3>
+        <section aria-label="Past previews" className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-fg-muted">Past previews</h3>
           <ul className="flex flex-col gap-2">
             {runs.map((c) => (
               <PreviewRow
@@ -495,12 +571,9 @@ function ReadyPreviewPanel({
                     : ""
                 }
                 quality={qualityLabelFor(project, c.params.preset)}
+                day={previewDay(c.created_at)}
                 shown={c.conversion_id === shown?.conversion_id}
-                onShow={
-                  c.state === "succeeded"
-                    ? () => setShownId(c.conversion_id)
-                    : undefined
-                }
+                onShow={() => showPast(c.conversion_id)}
               />
             ))}
           </ul>
@@ -534,12 +607,14 @@ function PreviewRow({
   conversion: c,
   range,
   quality,
+  day,
   shown,
   onShow,
 }: {
   conversion: Conversion;
   range: string;
   quality: string;
+  day: string;
   shown: boolean;
   onShow?: () => void;
 }): JSX.Element {
@@ -550,6 +625,7 @@ function PreviewRow({
     >
       <span className="font-mono text-fg">{range}</span>
       <span className="text-fg-muted">{quality}</span>
+      <span className="text-fg-muted">{day}</span>
       <StateChip conversion={c} />
       <span className="ml-auto font-mono text-fg-muted">
         {formatCents(c.quote.amount_cents)}

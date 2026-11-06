@@ -41,6 +41,12 @@
  * the playhead, the selection or the range — only a click does. Panning
  * or zooming under a resting pointer follows the frame now under it.
  * Touch has no hover: a tap is a click, a drag pans.
+ *
+ * Bands (owner 2026-11-07): spans the parent marks above the thumbnails
+ * (the Preview page's past previews), in lanes so overlapping ones each
+ * stay clickable; taller on coarse pointers. A click or Enter on a band
+ * selects it and never scrubs; a click elsewhere on the strip scrubs as
+ * before. Each band names itself in a tooltip.
  */
 
 /* eslint-disable @next/next/no-img-element -- GCS thumbnails / extracted
@@ -51,6 +57,7 @@ import { useAppAtom } from "@/lib/state/stores";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Thumb } from "@/lib/api/types";
 import {
   frameLabel,
@@ -94,6 +101,47 @@ export function hoverLabel(frame: number, fps: RationalFPS, cuts: number[]): str
   return `Scene ${scene} · ${tc}`;
 }
 
+/** A marked span above the thumbnails (a past preview). */
+export interface StripBand {
+  id: string;
+  /** [from, to) source frames */
+  from: number;
+  to: number;
+  /** done: finished; running: being made (pulses); failed: muted */
+  state: "done" | "running" | "failed";
+  /** the tooltip and accessible name, e.g. "0:14 – 0:19 · 1440p · Nov 7" */
+  label: string;
+  selected?: boolean;
+}
+
+/** A lane per band so overlapping bands sit one above the other (the
+ * earliest-starting first, each in the lowest lane free at its start).
+ * Exported for tests. */
+export function bandLanes(bands: readonly { from: number; to: number }[]): number[] {
+  const order = bands.map((_, i) => i).sort((a, b) => bands[a].from - bands[b].from);
+  const laneEnds: number[] = [];
+  const lanes = new Array<number>(bands.length).fill(0);
+  for (const i of order) {
+    let lane = laneEnds.findIndex((end) => end <= bands[i].from);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = bands[i].to;
+    lanes[i] = lane;
+  }
+  return lanes;
+}
+
+function bandClass(b: StripBand): string {
+  if (b.state === "failed") {
+    return "border border-dashed border-fg-muted bg-fg-muted/40";
+  }
+  if (b.state === "running") {
+    return "animate-pulse border border-emerald-300/70 bg-emerald-400/45";
+  }
+  return b.selected
+    ? "border border-white bg-emerald-300 shadow-[0_0_6px_rgb(110_231_183/0.8)]"
+    : "border border-emerald-200/80 bg-emerald-400/75 hover:bg-emerald-300";
+}
+
 export interface FilmstripTimelineProps {
   thumbs: Thumb[];
   numFrames: number;
@@ -123,6 +171,10 @@ export interface FilmstripTimelineProps {
   /** Drag a marker — requested integer frame; parent clamps + applies and
    * seeks the preview video (throttled) to the dragged frame. */
   onMoveCut?: (index: number, frame: number) => void;
+  /** Spans marked above the thumbnails (past previews). */
+  bands?: StripBand[];
+  /** A band clicked or chosen with the keyboard. */
+  onSelectBand?: (id: string) => void;
 }
 
 export function FilmstripTimeline({
@@ -140,6 +192,8 @@ export function FilmstripTimeline({
   onAddCut,
   onSelectCut,
   onMoveCut,
+  bands = [],
+  onSelectBand,
 }: FilmstripTimelineProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragIndexRef = useRef<number | null>(null);
@@ -306,6 +360,9 @@ export function FilmstripTimeline({
     () => planTiles(numFrames, zoom, scrollFraction, viewportPx, tileW),
     [numFrames, zoom, scrollFraction, viewportPx, tileW],
   );
+  const lanes = useMemo(() => bandLanes(bands), [bands]);
+  const selectedBand = bands.find((b) => b.selected);
+
   const extractionMode =
     !!previewUrl && isExtractionZoom(zoom, thumbs.length, numFrames, fps);
   const wantedFrames = useMemo(
@@ -446,6 +503,48 @@ export function FilmstripTimeline({
             })}
           </div>
 
+          {selectedBand ? (
+            <div
+              data-testid="band-tint"
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 z-[5] bg-emerald-300/15"
+              style={{
+                left: `${frameToPosition(selectedBand.from, numFrames) * 100}%`,
+                width: `${(frameToPosition(selectedBand.to, numFrames) - frameToPosition(selectedBand.from, numFrames)) * 100}%`,
+              }}
+            />
+          ) : null}
+
+          {bands.map((b, i) => (
+            <Tooltip key={b.id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="strip-band"
+                  data-band-id={b.id}
+                  data-band-state={b.state}
+                  data-lane={lanes[i]}
+                  aria-pressed={b.selected === true}
+                  aria-label={`Past preview ${b.label}`}
+                  className={`absolute z-[15] min-w-1.5 cursor-pointer rounded-sm p-0 [--lane-h:12px] pointer-coarse:[--lane-h:22px] ${bandClass(b)}`}
+                  style={{
+                    left: `${frameToPosition(b.from, numFrames) * 100}%`,
+                    width: `${(frameToPosition(b.to, numFrames) - frameToPosition(b.from, numFrames)) * 100}%`,
+                    top: `calc(${lanes[i]} * var(--lane-h) + 2px)`,
+                    height: "calc(var(--lane-h) - 3px)",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    blurAfterMouseClick(e);
+                    onSelectBand?.(b.id);
+                  }}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">{b.label}</TooltipContent>
+            </Tooltip>
+          ))}
+
           {cuts.map((frame, i) =>
             readOnly ? (
               <div
@@ -519,7 +618,8 @@ export function FilmstripTimeline({
             >
               <span
                 data-testid="hover-label"
-                className={`absolute top-1 rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-white ${
+                // under the bands when there are any
+                className={`absolute ${bands.length > 0 ? "bottom-1" : "top-1"} rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-white ${
                   (hoverFrame - frameWindow.start) / Math.max(frameWindow.frames, 1) > 0.75
                     ? "right-1.5"
                     : "left-1.5"

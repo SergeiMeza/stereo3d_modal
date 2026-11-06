@@ -473,6 +473,88 @@ describe("Lifelike Preview", () => {
     expect(moment()).not.toBe(momentBefore);
   });
 
+  it("past previews sit on the strip as bands; picking one swaps Your preview, never the next preview; back to latest (owner 2026-11-07)", async () => {
+    const project = lifelikeProject();
+    const run = (id: string, preset: string, from: number, to: number, state: Conversion["state"], day: string): Conversion =>
+      ({
+        conversion_id: id,
+        state,
+        kind: "video",
+        project_id: PID,
+        step: "lifelike_preview",
+        method: "lifelike",
+        params: { preset, formats: ["sbs"], from_frame: from, to_frame: to },
+        quote: { amount_cents: 50, currency: "usd" },
+        progress: state === "succeeded" ? 1 : 0.4,
+        outputs: state === "succeeded" ? ["sbs"] : [],
+        created_at: `2026-10-0${day}T00:00:00Z`,
+        updated_at: `2026-10-0${day}T00:00:00Z`,
+      }) as Conversion;
+    // two overlap; the newest failed, so the newest finished one shows
+    project.conversions = [
+      run("c00000past1", "1080p", 24, 144, "succeeded", "1"),
+      run("c00000past2", "1440p", 96, 216, "succeeded", "2"),
+      run("c00000past3", "1080p", 600, 720, "failed", "3"),
+    ];
+    for (const c of project.conversions) mockDb.conversions.set(c.conversion_id, c);
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
+    );
+    const meta = () => screen.getByTestId("preview-shown-meta").textContent;
+    await waitFor(() => expect(meta()).toBe("0:04 – 0:09 · 1440p · Oct 2"));
+
+    const bands = screen.getAllByTestId("strip-band");
+    expect(bands.map((b) => [b.dataset.bandId, b.dataset.bandState, b.dataset.lane])).toEqual([
+      ["c00000past3", "failed", "0"],
+      ["c00000past2", "done", "1"], // overlaps past1: its own lane
+      ["c00000past1", "done", "0"],
+    ]);
+    expect(bands[1].getAttribute("aria-pressed")).toBe("true");
+    expect(bands[2].getAttribute("aria-label")).toBe("Past preview 0:01 – 0:06 · 1080p · Oct 1");
+    expect(screen.getByRole("region", { name: "Past previews" })).toBeTruthy();
+
+    // the next preview's box, moment and price, before any pick
+    await screen.findByTestId("checkout-main");
+    await new Promise((r) => setTimeout(r, 300));
+    const box = screen.getByTestId("timeline-range").style.left;
+    const moment = screen.getByTestId("preview-moment").textContent;
+    const button = screen.getByTestId("checkout-main").textContent;
+    const asked = quotes.length;
+    await waitFor(() =>
+      expect(screen.getByTestId("preview-download-sbs").getAttribute("title")).toMatch(/_1440p_/),
+    );
+
+    // pick the oldest: its range, quality, day and files
+    fireEvent.click(bands[2]);
+    await waitFor(() => expect(meta()).toBe("0:01 – 0:06 · 1080p · Oct 1"));
+    expect(screen.getByTestId("stereo-check")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("preview-download-sbs").getAttribute("title")).toMatch(/_1080p_/),
+    );
+    expect(screen.getAllByTestId("strip-band")[2].getAttribute("aria-pressed")).toBe("true");
+    // the next preview stays as it was
+    expect(screen.getByTestId("timeline-range").style.left).toBe(box);
+    expect(screen.getByTestId("preview-moment").textContent).toBe(moment);
+    expect(screen.getByTestId("checkout-main").textContent).toBe(button);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(quotes.length).toBe(asked);
+
+    // the failed one says so
+    fireEvent.click(screen.getAllByTestId("strip-band")[0]);
+    expect(screen.getByTestId("preview-unfinished").textContent).toMatch(/didn't finish/);
+
+    // back to the latest
+    fireEvent.click(screen.getByRole("button", { name: "Back to latest" }));
+    await waitFor(() => expect(meta()).toBe("0:04 – 0:09 · 1440p · Oct 2"));
+    expect(screen.queryByRole("button", { name: "Back to latest" })).toBeNull();
+
+    // the list picks too (the phone's way in)
+    const list = within(screen.getByRole("region", { name: "Past previews" }));
+    fireEvent.click(within(list.getByTestId("preview-row-c00000past1")).getByRole("button", { name: "Show" }));
+    await waitFor(() => expect(meta()).toBe("0:01 – 0:06 · 1080p · Oct 1"));
+  });
+
   it("shows the latest preview with a free Red-cyan / Wiggle / Side by side check, Red-cyan first (owner 2026-11-07)", async () => {
     const project = lifelikeProject();
     project.conversions = [
@@ -499,7 +581,7 @@ describe("Lifelike Preview", () => {
     expect(check.getAttribute("data-mode")).toBe("anaglyph");
     expect(screen.getByLabelText("Red-cyan view")).toBeTruthy();
     expect(screen.getByTestId("preview-shown-meta").textContent).toBe(
-      "0:01 – 0:06 · 1080p",
+      "0:01 – 0:06 · 1080p · Oct 1",
     );
     const view = within(screen.getByRole("radiogroup", { name: "View" }));
     expect(view.getAllByRole("radio").map((r) => r.textContent)).toEqual([

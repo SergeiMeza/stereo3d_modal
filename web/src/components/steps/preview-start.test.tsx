@@ -2,7 +2,7 @@
  * QA 2026-11-05 batch 2 (a free preview took 7 s to start and nothing
  * moved): the button is busy and disabled from the click to the answer, a
  * double click creates one run, and once it's created the run shows under
- * Earlier previews and the free previews left are priced again. The
+ * Past previews and the free previews left are priced again. The
  * Preview tab's sizes follow Remove black bars.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -98,7 +98,7 @@ describe("starting a free preview", () => {
     expect(posted[0].key).toBeTruthy();
     // created: the run shows at once, the project is read again, and the
     // free previews left are priced again
-    expect(await screen.findByRole("region", { name: "Earlier previews" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Past previews" })).toBeTruthy();
     expect(onProjectChanged).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId("free-previews").textContent).toMatch(/^19 of 20 free previews left/), {
       timeout: 3000,
