@@ -1102,23 +1102,23 @@ function err(status: number, code: string, message: string) {
 
 /** Accounts behind the mock /v1/auth/* routes (China mode sign-in),
  * mirroring gateway/internal/identity: same answers, same error codes.
- * Seeded with dev@example.com / "password". */
+ * Seeded with dev@example.com; the email code is always MOCK_EMAIL_CODE
+ * (owner 2026-11-06: no passwords on the web). */
 interface MockAuthUser {
   uid: string;
   email: string;
-  password: string;
   displayName: string | null;
 }
+
+export const MOCK_EMAIL_CODE = "123456";
 
 export const mockAuth = {
   users: new Map<string, MockAuthUser>(),
   /** refresh token → uid; revoke one to exercise a refused refresh */
   refreshTokens: new Map<string, string>(),
   issued: 0,
-  resets: [] as string[],
-  /** reset code (the email link's ?oob=) → email; "expired-oob" is always
-   * expired */
-  resetCodes: new Map<string, string>(),
+  /** addresses a code was mailed to, oldest first */
+  codesSent: [] as string[],
   reset() {
     this.users = new Map([
       [
@@ -1126,15 +1126,13 @@ export const mockAuth = {
         {
           uid: "dev-user",
           email: "dev@example.com",
-          password: "password",
           displayName: "Dev User",
         },
       ],
     ]);
     this.refreshTokens = new Map();
     this.issued = 0;
-    this.resets = [];
-    this.resetCodes = new Map();
+    this.codesSent = [];
   },
 };
 mockAuth.reset();
@@ -1154,55 +1152,45 @@ function authSession(u: MockAuthUser) {
 }
 
 function authHandlers(base: string) {
-  const credentials = async (request: Request) => {
+  const emailOf = async (request: Request) => {
     const body = (await request.json().catch(() => ({}))) as {
       email?: string;
-      password?: string;
+      code?: string;
+      session?: boolean;
     };
-    return {
-      email: (body.email ?? "").trim().toLowerCase(),
-      password: body.password ?? "",
-    };
+    return { ...body, email: (body.email ?? "").trim().toLowerCase() };
   };
   return [
-    http.post(`${base}/v1/auth/signin`, async ({ request }) => {
-      const { email, password } = await credentials(request);
+    http.post(`${base}/v1/auth/email/start`, async ({ request }) => {
+      const { email } = await emailOf(request);
       if (!email.includes("@")) {
         return err(400, "invalid_email", "that email address is not valid");
       }
-      const u = mockAuth.users.get(email);
-      if (!u || u.password !== password) {
-        return err(401, "invalid_credentials", "incorrect email or password");
-      }
-      return HttpResponse.json(authSession(u));
+      mockAuth.codesSent.push(email);
+      return HttpResponse.json({ resend_after: 30 });
     }),
-    http.post(`${base}/v1/auth/signup`, async ({ request }) => {
-      const { email, password } = await credentials(request);
-      if (!email.includes("@")) {
-        return err(400, "invalid_email", "that email address is not valid");
+    http.post(`${base}/v1/auth/email/verify`, async ({ request }) => {
+      const { email, code, session } = await emailOf(request);
+      if (!mockAuth.codesSent.includes(email)) {
+        return err(400, "code_expired", "that code has expired; ask for a new one");
       }
-      if (mockAuth.users.has(email)) {
-        return err(
-          409,
-          "email_exists",
-          "an account with that email already exists; sign in instead",
+      if (code !== MOCK_EMAIL_CODE) {
+        return HttpResponse.json(
+          { success: false, error: "code_invalid", message: "that code isn't right", details: { attempts_left: 4 } },
+          { status: 400 },
         );
       }
-      if (password.length < 6) {
-        return err(
-          400,
-          "weak_password",
-          "password is too weak; use at least 6 characters",
-        );
+      let u = mockAuth.users.get(email);
+      const isNew = u === undefined;
+      if (!u) {
+        u = { uid: `mock-uid-${mockAuth.users.size + 1}`, email, displayName: null };
+        mockAuth.users.set(email, u);
       }
-      const u = {
-        uid: `mock-uid-${mockAuth.users.size + 1}`,
-        email,
-        password,
-        displayName: null,
-      };
-      mockAuth.users.set(email, u);
-      return HttpResponse.json(authSession(u));
+      return HttpResponse.json(
+        session
+          ? { ...authSession(u), is_new_user: isNew }
+          : { uid: u.uid, custom_token: `mock-custom-${u.uid}`, is_new_user: isNew },
+      );
     }),
     http.post(`${base}/v1/auth/refresh`, async ({ request }) => {
       const body = (await request.json().catch(() => ({}))) as {
@@ -1218,50 +1206,6 @@ function authHandlers(base: string) {
         );
       }
       return HttpResponse.json(authSession(u));
-    }),
-    http.post(`${base}/v1/auth/reset`, async ({ request }) => {
-      const { email } = await credentials(request);
-      if (!email.includes("@")) {
-        return err(400, "invalid_email", "that email address is not valid");
-      }
-      mockAuth.resets.push(email);
-      if (mockAuth.users.has(email)) {
-        mockAuth.resetCodes.set(`mock-oob-${mockAuth.resets.length}`, email);
-      }
-      return HttpResponse.json({ ok: true });
-    }),
-    http.post(`${base}/v1/auth/reset/confirm`, async ({ request }) => {
-      const body = (await request.json().catch(() => ({}))) as {
-        oob?: string;
-        new_password?: string;
-      };
-      const oob = (body.oob ?? "").trim();
-      const password = body.new_password ?? "";
-      if (oob === "expired-oob") {
-        return err(
-          400,
-          "reset_link_expired",
-          "this reset link has expired; ask for a new one",
-        );
-      }
-      const email = mockAuth.resetCodes.get(oob);
-      if (!email) {
-        return err(
-          400,
-          "reset_link_invalid",
-          "this reset link is not valid or was already used; ask for a new one",
-        );
-      }
-      if (password.length < 6) {
-        return err(
-          400,
-          "weak_password",
-          "password is too weak; use at least 6 characters",
-        );
-      }
-      mockAuth.resetCodes.delete(oob);
-      mockAuth.users.get(email)!.password = password;
-      return HttpResponse.json({ ok: true, email });
     }),
     http.post(`${base}/v1/auth/profile`, async ({ request }) => {
       const auth = request.headers.get("Authorization") ?? "";

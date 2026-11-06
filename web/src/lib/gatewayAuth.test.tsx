@@ -1,6 +1,7 @@
 /**
  * China mode auth: the AuthProvider in live ("firebase") mode with the
- * s3d_region=cn cookie signs in through the gateway's /v1/auth/* routes
+ * s3d_region=cn cookie signs in by email code through the gateway's
+ * /v1/auth/* routes (owner 2026-11-06: no passwords on the web)
  * (mock handlers), keeps the session in localStorage, refreshes the ID
  * token before it expires, signs out, and never touches the Firebase SDK.
  *
@@ -26,7 +27,7 @@ import {
   vi,
 } from "vitest";
 
-import { mockAuth, mockDb } from "@/mocks/handlers";
+import { MOCK_EMAIL_CODE, mockAuth, mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import type { AuthContextValue } from "@/lib/auth";
@@ -110,18 +111,37 @@ async function renderAuth() {
   return { latest, seen };
 }
 
+/** Owner 2026-11-06: the web signs in by email code only. */
+async function signInByCode(
+  latest: () => AuthContextValue,
+  email: string,
+  code = MOCK_EMAIL_CODE,
+): Promise<void> {
+  await act(async () => {
+    await latest().sendEmailCode(email);
+  });
+  await act(() => latest().signInWithEmailCode(email, code));
+}
+
+/** No password field, no reset link. */
+function expectNoPassword(): void {
+  expect(document.querySelector('input[type="password"]')).toBeNull();
+  expect(screen.queryByLabelText(/password/i)).toBeNull();
+  expect(screen.queryByText(/password/i)).toBeNull();
+}
+
 function storedSession(): Record<string, unknown> | null {
   const raw = window.localStorage.getItem(SESSION_KEY);
   return raw === null ? null : (JSON.parse(raw) as Record<string, unknown>);
 }
 
 describe("gateway auth provider (China mode)", () => {
-  it("signs in by email through the cn gateway and keeps the session", async () => {
+  it("signs in by email code through the cn gateway and keeps the session", async () => {
     const { latest, seen } = await renderAuth();
     expect(screen.getByTestId("state").textContent).toBe("signed-out");
     const tokenBefore = latest().getToken;
 
-    await act(() => latest().signInWithEmail("dev@example.com", "password"));
+    await signInByCode(latest, "dev@example.com");
 
     await waitFor(() =>
       expect(screen.getByTestId("state").textContent).toBe("dev@example.com"),
@@ -142,7 +162,7 @@ describe("gateway auth provider (China mode)", () => {
     expect(new Set(seen.map((s) => s.getToken)).size).toBe(1);
     expect(latest().getToken).toBe(tokenBefore);
 
-    const signin = requestUrls.find((u) => u.endsWith("/v1/auth/signin"));
+    const signin = requestUrls.find((u) => u.endsWith("/v1/auth/email/verify"));
     expect(signin).toBeDefined();
     expect(new URL(signin!).hostname.startsWith("cn.")).toBe(true);
     expect(firebaseCalls.count).toBe(0);
@@ -150,26 +170,26 @@ describe("gateway auth provider (China mode)", () => {
 
   it("surfaces the gateway's errors as the usual friendly copy", async () => {
     const { latest } = await renderAuth();
+    await act(async () => {
+      await latest().sendEmailCode("dev@example.com");
+    });
     await expect(
-      latest().signInWithEmail("dev@example.com", "wrong"),
-    ).rejects.toThrow("Incorrect email or password.");
-    await expect(
-      latest().signUpWithEmail("dev@example.com", "whatever"),
-    ).rejects.toThrow("An account with that email already exists");
+      latest().signInWithEmailCode("dev@example.com", "000000"),
+    ).rejects.toThrow("That code isn't right.");
     await expect(latest().signInWithGoogle()).rejects.toThrow(
       "Sign in with your email.",
     );
     expect(firebaseCalls.count).toBe(0);
   });
 
-  it("creates an account and sends a reset email", async () => {
+  it("a new address gets an account from its first code; no password route is called", async () => {
     const { latest } = await renderAuth();
-    await act(() => latest().signUpWithEmail("new@example.com", "secret1"));
+    await signInByCode(latest, "new@example.com");
     await waitFor(() =>
       expect(screen.getByTestId("state").textContent).toBe("new@example.com"),
     );
-    await act(() => latest().resetPassword("new@example.com"));
-    expect(mockAuth.resets).toEqual(["new@example.com"]);
+    expect(mockAuth.users.has("new@example.com")).toBe(true);
+    expect(requestUrls.some((u) => /\/v1\/auth\/(signin|signup|reset)/.test(u))).toBe(false);
   });
 
   it("restores a stored session and refreshes the ID token before it expires", async () => {
@@ -247,7 +267,7 @@ describe("gateway auth provider (China mode)", () => {
 
   it("signs out locally and updates the display name", async () => {
     const { latest } = await renderAuth();
-    await act(() => latest().signInWithEmail("dev@example.com", "password"));
+    await signInByCode(latest, "dev@example.com");
     await act(() => latest().updateDisplayName("Renamed"));
     await waitFor(() => expect(latest().user?.displayName).toBe("Renamed"));
     expect(storedSession()?.displayName).toBe("Renamed");
@@ -261,7 +281,7 @@ describe("gateway auth provider (China mode)", () => {
     expect(firebaseCalls.count).toBe(0);
   });
 
-  it("hides the Google button on the sign-in screen", async () => {
+  it("the sign-in screen hides Google and asks for no password", async () => {
     const { AuthProvider } = await import("@/lib/auth");
     const { default: SignInScreen } = await import(
       "@/components/auth/SignInScreen"
@@ -273,11 +293,12 @@ describe("gateway auth provider (China mode)", () => {
     );
     expect(await screen.findByLabelText("Email")).toBeTruthy();
     expect(screen.queryByText(/google/i)).toBeNull();
+    expectNoPassword();
   });
 });
 
 describe("outside China", () => {
-  it("live mode still uses the Firebase SDK and shows Google", async () => {
+  it("live mode still uses the Firebase SDK, shows Google and asks for no password", async () => {
     document.cookie = "s3d_region=; Path=/; Max-Age=0";
     const { AuthProvider } = await import("@/lib/auth");
     const { default: SignInScreen } = await import(
@@ -291,6 +312,8 @@ describe("outside China", () => {
     expect(
       await screen.findByRole("button", { name: "Continue with Google" }),
     ).toBeTruthy();
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+    expectNoPassword();
     await waitFor(() => expect(firebaseCalls.count).toBeGreaterThan(0));
     expect(requestUrls.some((u) => u.includes("/v1/auth/"))).toBe(false);
   });

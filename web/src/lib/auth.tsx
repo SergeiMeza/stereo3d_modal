@@ -63,11 +63,8 @@ import {
 import { firebaseConfig, getFirebaseAuth } from "@/lib/firebase";
 import {
   gatewayAdoptSession,
-  gatewayResetPassword,
   gatewaySession,
-  gatewaySignIn,
   gatewaySignOut,
-  gatewaySignUp,
   gatewayUpdateDisplayName,
   getGatewayToken,
   refreshGatewaySession,
@@ -123,9 +120,6 @@ export interface AuthContextValue {
   /** ADR 0136: a fresh Apple or Google sign-in for the signed-in account
    * (adding a passkey needs one from the last 5 minutes). */
   reauthenticate(id: LinkableProvider): Promise<void>;
-  signInWithEmail(email: string, password: string): Promise<void>;
-  signUpWithEmail(email: string, password: string): Promise<void>;
-  resetPassword(email: string): Promise<void>;
   signOutUser(): Promise<void>;
   updateDisplayName(name: string): Promise<void>;
 }
@@ -760,54 +754,6 @@ const unlinkProvider = async (id: string) => {
   }
 };
 
-const signInWithEmail = async (email: string, password: string) => {
-    try {
-      if (viaGateway()) {
-        await gatewaySignIn(email, password);
-      } else {
-        const auth = await getFirebaseAuth();
-        const { signInWithEmailAndPassword } = await import("firebase/auth");
-        await signInWithEmailAndPassword(auth, email, password);
-      }
-      track("login", { method: "password" });
-      logSignInEvent("password");
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  };
-
-const signUpWithEmail = async (email: string, password: string) => {
-    try {
-      if (viaGateway()) {
-        await gatewaySignUp(email, password);
-      } else {
-        const auth = await getFirebaseAuth();
-        const { createUserWithEmailAndPassword } =
-          await import("firebase/auth");
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-      track("sign_up", { method: "password" });
-      logSignInEvent("password");
-      upgradeSession("new-account");
-    } catch (e) {
-      throw friendlyAuthError(e);
-    }
-  };
-
-const resetPassword = async (email: string) => {
-  try {
-    if (viaGateway()) {
-      await gatewayResetPassword(email);
-      return;
-    }
-    const auth = await getFirebaseAuth();
-    const { sendPasswordResetEmail } = await import("firebase/auth");
-    await sendPasswordResetEmail(auth, email);
-  } catch (e) {
-    throw friendlyAuthError(e);
-  }
-};
-
 const signOutUser = async () => {
   if (viaGateway()) {
     gatewaySignOut();
@@ -849,9 +795,6 @@ const LIVE = {
   signInWithGoogle,
   signInWithPasskey,
   reauthenticate,
-  signInWithEmail,
-  signUpWithEmail,
-  resetPassword,
   signOutUser,
   updateDisplayName,
 };
@@ -867,9 +810,6 @@ const MOCK = {
   signInWithGoogle: mockNoop,
   signInWithPasskey: mockNoop,
   reauthenticate: mockNoop,
-  signInWithEmail: mockNoop,
-  signUpWithEmail: mockNoop,
-  resetPassword: mockNoop,
   signOutUser: mockSignOut,
   updateDisplayName: mockNoop,
 };

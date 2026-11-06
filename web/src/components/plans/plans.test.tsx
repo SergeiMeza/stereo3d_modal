@@ -236,9 +236,11 @@ describe("header B", () => {
     );
   });
 
-  it("renders no link while the plan is still loading", () => {
+  it("renders no link while the plan is still loading", async () => {
     wrap(<HeaderPlans />);
     expect(screen.queryByTestId("header-plans")).toBeNull();
+    // let the billing answer land in this test, not the next one
+    expect(await screen.findByTestId("header-plans")).toBeTruthy();
   });
 
   it.each([
