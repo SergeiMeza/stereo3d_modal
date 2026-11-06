@@ -1689,7 +1689,11 @@ China; the web's account page can use the same routes. All signed in.
     adds `session` {uid, id_token, refresh_token, expires_in}.
   - `{provider: "email", email, code}`: the code from `POST
     /v1/auth/email/start`, checked without signing in; the address goes
-    on the caller's account, verified (replacing any other). When the
+    on the caller's account, verified. An account that already has
+    another email answers 409 `email_exists {email_masked}` ("s•••@…",
+    the billing pages' mask) with the code unspent; `replace: true`
+    changes it (the app asks first). The same address again is a no-op
+    200. When the
     address is another account's (409 `credential_in_use`) the code is
     left unspent, so `/v1/auth/email/verify` can sign in to that account
     with it; only a link or verify that goes through uses it up (wrong

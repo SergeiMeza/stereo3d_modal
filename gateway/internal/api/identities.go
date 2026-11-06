@@ -32,7 +32,9 @@ import (
 //     an anonymous account included). A Google ID token's audience must
 //     be an OAuth client of this project. {provider: email, email, code}
 //     checks an email code (/v1/auth/email/start) without signing in and
-//     puts the address on the caller's account, verified. session: true
+//     puts the address on the caller's account, verified (409 email_exists
+//     {email_masked} when it already has another, unless replace: true;
+//     the same address again is a no-op). session: true
 //     also answers fresh tokens for the caller (Apple/Google links).
 //   - DELETE /v1/account/identities/{provider} unlinks apple.com,
 //     google.com or password. email can't be removed (409
@@ -183,6 +185,8 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 		Email    string `json:"email"`
 		Code     string `json:"code"`
 		Session  bool   `json:"session"`
+		// Replace: an email link may change the account's other email.
+		Replace bool `json:"replace"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body must be a JSON object"))
@@ -214,7 +218,7 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 	}
 	var session *identity.Session
 	if req.Provider == providerEmail {
-		if err := s.linkEmail(ctx, admin, user.UID, req.Email, req.Code); err != nil {
+		if err := s.linkEmail(ctx, admin, user.UID, req.Email, req.Code, req.Replace); err != nil {
 			httpx.WriteErr(ctx, w, identityErr(ctx, "link_email", err))
 			return
 		}
@@ -240,7 +244,7 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 	httpx.WriteOK(w, out)
 }
 
-func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEmail, code string) error {
+func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEmail, code string, replace bool) error {
 	if s.EmailCodes == nil {
 		return errIdentityUnavailable()
 	}
@@ -261,8 +265,23 @@ func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEm
 	if other != nil && other.UID != uid {
 		return s.credentialInUse(ctx, other)
 	}
+	me, err := admin.IdentityOf(ctx, uid)
+	if err != nil {
+		return err
+	}
+	current := strings.ToLower(strings.TrimSpace(me.Email))
+	if current != "" && current != email && !replace {
+		// Never changed silently: the app asks first ("Change your email
+		// to X?") and sends replace:true; the code stays good meanwhile.
+		e := httpx.Err(http.StatusConflict, "email_exists", "Your account already has another email. Send replace: true to change it.")
+		e.Details = map[string]any{"email_masked": maskEmail(current)}
+		return e
+	}
 	if err := s.EmailCodes.Check(ctx, email, code); err != nil { // spent meanwhile: refused
 		return emailcode.APIError(err)
+	}
+	if current == email && me.EmailVerified {
+		return nil // the same email again: nothing to change
 	}
 	if err := admin.SetVerifiedEmail(ctx, uid, email); err != nil {
 		if auth.IsEmailInUse(err) { // taken meanwhile

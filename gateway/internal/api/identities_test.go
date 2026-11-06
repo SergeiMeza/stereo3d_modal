@@ -290,6 +290,35 @@ func TestIdentitiesLinkEmail(t *testing.T) {
 	if code != 200 || !slices.Equal(providersOf(out), []string{"apple.com", "email"}) || out["email"] != "me@example.com" || out["email_verified"] != true {
 		t.Fatalf("email link %d %v", code, out)
 	}
+	codes := s.EmailCodes.(*fakeCodes)
+	ctx := context.Background()
+	// the same address again: a no-op 200
+	if code, out, _ := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"me@example.com","code":"123456"}`, "", ip); code != 400 || out["error"] != "code_expired" {
+		t.Fatalf("that code was spent: %d %v", code, out)
+	}
+	codes.spent["me@example.com"] = false // a fresh code for the same address
+	if code, out, _ := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"me@example.com","code":"123456"}`, "", ip); code != 200 || out["email"] != "me@example.com" {
+		t.Fatalf("same email again %d %v", code, out)
+	}
+	// another address: never replaced silently; asked first, code kept
+	code, out, raw := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"new@example.com","code":"123456"}`, "", ip)
+	d, _ := out["details"].(map[string]any)
+	if code != 409 || out["error"] != "email_exists" || d["email_masked"] != "m•••@example.com" || strings.Contains(raw, "me@example.com") {
+		t.Fatalf("other email %d %v", code, out)
+	}
+	if err := codes.Peek(ctx, "new@example.com", "123456"); err != nil {
+		t.Fatalf("code spent by the refused link: %v", err)
+	}
+	if got, _ := s.identities().IdentityOf(ctx, me); got.Email != "me@example.com" {
+		t.Fatalf("email changed without replace: %q", got.Email)
+	}
+	code, out, _ = callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"new@example.com","code":"123456","replace":true}`, "", ip)
+	if code != 200 || out["email"] != "new@example.com" {
+		t.Fatalf("replace %d %v", code, out)
+	}
+	if err := codes.Peek(ctx, "new@example.com", "123456"); err == nil {
+		t.Fatal("the replacing link spends the code")
+	}
 }
 
 // Unlinking: never the last way in (passkeys count), never the email;
