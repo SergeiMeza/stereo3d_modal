@@ -20,6 +20,10 @@ export const passkeyAdoptionQuery = createQuery((get, _: null) => apiOf(get(serv
 export const disputesQuery = createQuery((get, months: number) => apiOf(get(servicesAtom)).disputes(months));
 export const efwsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).openEfws());
 export const grantsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).allGrants());
+/** gateway 00166: the 48-hour deletions in one state */
+export const deletionsQuery = createQuery((get, state: "pending" | "cancelled" | "done") =>
+  apiOf(get(servicesAtom)).listDeletions(state),
+);
 export const casesQuery = createQuery((get, q: CaseListQuery) => apiOf(get(servicesAtom)).listCases(q));
 export const caseQuery = createQuery((get, id: string) => apiOf(get(servicesAtom)).getCase(id));
 export const accountQuery = createQuery((get, uid: string) => apiOf(get(servicesAtom)).getAccount(uid));

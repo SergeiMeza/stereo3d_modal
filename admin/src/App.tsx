@@ -31,6 +31,7 @@ import { CasesList } from "./screens/CasesList";
 import { DisputesPanel } from "./screens/Disputes";
 import { FeedbackPanel } from "./screens/Feedback";
 import { GrantsPage } from "./screens/GrantsPage";
+import { DeletionsPage } from "./screens/DeletionsPage";
 import { MailPreviews } from "./screens/MailPreviews";
 import { OnboardingPanel } from "./screens/Onboarding";
 import { OverviewPage } from "./screens/Overview";
@@ -151,6 +152,7 @@ function Shell() {
           {route.name === "account" && <AccountPage uid={route.uid} key={route.uid} />}
           {route.name === "disputes" && <DisputesPanel />}
           {route.name === "grants" && <GrantsPage />}
+          {route.name === "deletions" && <DeletionsPage />}
           {route.name === "onboarding" && <OnboardingPanel />}
           {route.name === "plans" && <PlansSurfacesPanel />}
           {route.name === "feedback" && <FeedbackPanel />}

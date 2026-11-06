@@ -66,6 +66,7 @@ export function useNavGroups(): { name: string; items: Item[] }[] {
           dot: a.failedRefunds ? { text: `${a.failedRefunds} failed ${a.failedRefunds === 1 ? "refund" : "refunds"}` } : null,
         },
         { route: ["accounts", "account"], to: paths.accounts(), label: "Accounts" },
+        { route: ["deletions"], to: paths.deletions(), label: "Deletions" },
         {
           route: ["feedback"],
           to: paths.feedback(),
@@ -108,6 +109,7 @@ export const PAGE_TITLES: Partial<Record<Route["name"], string>> = {
   feedback: "Feedback",
   disputes: "Disputes",
   grants: "Grants",
+  deletions: "Deletions",
   plans: "Plans surfaces",
   onboarding: "Onboarding",
   security: "Security",

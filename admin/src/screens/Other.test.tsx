@@ -857,3 +857,36 @@ describe("the 48-hour deletion on an account (gateway 00166)", () => {
     expect(screen.queryByTestId("deletion")).toBeNull();
   });
 });
+
+describe("Deletions page (gateway 00166)", () => {
+  it("lists pending deletions soonest first, links each account, and switches state", async () => {
+    const pending = {
+      deletions: [
+        { uid: "uid_a", state: "pending", requested_at: "2026-11-07T09:00:00Z", delete_after: "2026-11-09T09:00:00Z", source: "web", blocked: false, attempts: 0 },
+        { uid: "uid_b", state: "pending", requested_at: "2026-11-07T10:00:00Z", delete_after: "2026-11-09T10:00:00Z", source: "app", blocked: true, blocked_reason: "run_in_progress", attempts: 3 },
+      ],
+    };
+    const cancelled = {
+      deletions: [{ uid: "uid_c", state: "cancelled", requested_at: "2026-11-05T09:00:00Z", delete_after: "2026-11-07T09:00:00Z", cancelled_at: "2026-11-06T09:00:00Z", cancelled_by: "user" }],
+    };
+    const { calls } = renderApp("/deletions", {
+      "GET /v1/admin/deletions": ({ path }) => ({ json: path.includes("state=cancelled") ? cancelled : pending }),
+    });
+    const table = await screen.findByTestId("deletions");
+    const rows = within(table).getAllByTestId(/^deletion-uid_/);
+    expect(rows.map((r) => r.dataset.testid)).toEqual(["deletion-uid_a", "deletion-uid_b"]);
+    expect(within(rows[0]).getByRole("link", { name: "uid_a" })).toHaveAttribute("href", "/accounts/uid_a");
+    expect(rows[0]).toHaveTextContent("Pending");
+    expect(rows[1]).toHaveTextContent("Blocked");
+    expect(rows[1]).toHaveTextContent("3 attempts");
+    await userEvent.click(screen.getByRole("combobox", { name: "State" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Cancelled" }));
+    expect(await screen.findByTestId("deletion-uid_c")).toHaveTextContent("Cancelled");
+    expect(calls.some((c) => c.url.includes("/v1/admin/deletions?state=cancelled"))).toBe(true);
+  });
+
+  it("says so when no account waits", async () => {
+    renderApp("/deletions", { "GET /v1/admin/deletions": () => ({ json: { deletions: null } }) });
+    expect(await screen.findByText("No accounts waiting to be deleted.")).toBeInTheDocument();
+  });
+});
