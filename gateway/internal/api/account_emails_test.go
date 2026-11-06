@@ -310,7 +310,12 @@ func TestEmailBackfill(t *testing.T) {
 		{UID: "u2" + tag, Email: "b" + tag + "@example.com", Providers: []string{"password"}},
 		{UID: "u3" + tag, Email: "c" + tag + "@privaterelay.appleid.com", EmailVerified: true, Providers: []string{"apple.com"}},
 		{UID: "u4" + tag},
-		{UID: "u5" + tag, Email: "A" + tag + "@example.com", Providers: []string{"password"}}, // a's email on a second Firebase user
+		// shared emails (two Firebase users each): the one signed in last
+		// gets the row, met first or not; a web plan wins over a later sign-in
+		{UID: "u6" + tag, Email: "late" + tag + "@example.com", Providers: []string{"password"}, LastSignIn: time.Now().Add(-90 * 24 * time.Hour)},
+		{UID: "u7" + tag, Email: "LATE" + tag + "@example.com", Providers: []string{"password"}, LastSignIn: time.Now().Add(-time.Hour)},
+		{UID: "u8" + tag, Email: "plan" + tag + "@example.com", Providers: []string{"password"}, LastSignIn: time.Now().Add(-time.Hour)},
+		{UID: "u9" + tag, Email: "plan" + tag + "@example.com", Providers: []string{"google.com"}, LastSignIn: time.Now().Add(-200 * 24 * time.Hour)},
 	}
 	each := func(ctx context.Context, fn func(*auth.Identity) error) error {
 		for _, u := range users {
@@ -323,23 +328,28 @@ func TestEmailBackfill(t *testing.T) {
 	end := time.Now().Add(10 * 24 * time.Hour)
 	s.Store.PutCustomer(ctx, "u3"+tag, &store.Customer{StripeCustomerID: "cus_3" + tag, Email: "old" + tag + "@example.com",
 		Plan: &store.Plan{Tier: "studio", Status: "active", SubscriptionID: "sub_3", CurrentPeriodEnd: &end}})
+	s.Store.PutCustomer(ctx, "u9"+tag, &store.Customer{Plan: &store.Plan{Tier: "business", Status: "active", SubscriptionID: "sub_9", CurrentPeriodEnd: &end}})
 	s.Store.PutCustomer(ctx, "ud"+tag, &store.Customer{Email: "gone" + tag + "@example.com", AccountDeleted: true})
 
 	dry, err := s.BackfillAccountEmails(ctx, each, false, false)
-	if err != nil || dry.Users != 5 || dry.WithEmail != 4 || dry.NoEmail != 1 || dry.ToAdd != 4 || dry.Added != 0 || dry.DuplicatePairs != 1 ||
-		dry.PasswordUnverified != 2 || dry.Relay != 1 || dry.ToRelease != 1 || dry.PlanAccounts != 1 || dry.PlanRelayMain != 1 ||
-		dry.StripeToResync != 1 || dry.CustomerDiffers != 1 {
+	if err != nil || dry.Users != 8 || dry.WithEmail != 7 || dry.NoEmail != 1 || dry.ToAdd != 7 || dry.Added != 0 || dry.DuplicatePairs != 2 ||
+		dry.PasswordUnverified != 4 || dry.Relay != 1 || dry.ToRelease != 1 || dry.PlanAccounts != 2 || dry.PlanRelayMain != 1 ||
+		dry.StripeToResync != 1 || dry.CustomerDiffers != 2 {
 		t.Fatalf("dry %+v %v", dry, err)
 	}
 	if owner, _ := s.Store.EmailOwner(ctx, "a"+tag+"@example.com"); owner != "" {
 		t.Fatal("a dry run wrote")
 	}
 	live, err := s.BackfillAccountEmails(ctx, each, true, true)
-	if err != nil || live.Added != 3 || live.Conflicts != 1 || live.DuplicateMarked != 1 || live.Released != 1 || live.StripeResynced != 1 || live.CustomersResynced != 1 {
+	if err != nil || live.Added != 5 || live.Conflicts != 2 || live.DuplicateMarked != 2 || live.Released != 1 || live.StripeResynced != 1 || live.CustomersResynced != 1 {
 		t.Fatalf("live %+v %v", live, err)
 	}
-	if e, _ := s.Store.GetAccountEmail(ctx, "a"+tag+"@example.com"); e == nil || e.UID != "u1"+tag || e.SupportCase != "duplicate_email" {
-		t.Fatalf("duplicate marked %+v", e)
+	if e, _ := s.Store.GetAccountEmail(ctx, "late"+tag+"@example.com"); e == nil || e.UID != "u7"+tag || e.SupportCase != "duplicate_email" ||
+		!strings.Contains(e.SupportNote, "row on the account signed in last") {
+		t.Fatalf("signed in last %+v", e)
+	}
+	if e, _ := s.Store.GetAccountEmail(ctx, "plan"+tag+"@example.com"); e == nil || e.UID != "u9"+tag || !strings.Contains(e.SupportNote, "with the web plan") {
+		t.Fatalf("web plan %+v", e)
 	}
 	if e, _ := s.Store.GetAccountEmail(ctx, "b"+tag+"@example.com"); e == nil || !e.Main || e.Verified {
 		t.Fatalf("unverified main %+v", e)
@@ -354,7 +364,7 @@ func TestEmailBackfill(t *testing.T) {
 		t.Fatalf("stripe %+v", got)
 	}
 	again, _ := s.BackfillAccountEmails(ctx, each, true, false)
-	if again.Added != 0 || again.AlreadyStored != 3 || again.Released != 0 || again.DuplicatePairs != 1 {
+	if again.Added != 0 || again.AlreadyStored != 5 || again.Released != 0 || again.DuplicatePairs != 2 {
 		t.Fatalf("again %+v", again)
 	}
 	if p, _ := s.Store.ListPendingEmailSyncs(ctx, 10); len(p) != 0 {

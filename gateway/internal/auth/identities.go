@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	fbauth "firebase.google.com/go/v4/auth"
 	"google.golang.org/api/iterator"
@@ -18,10 +19,17 @@ type Identity struct {
 	// Subjects: each linked provider's own user id (apple.com → Apple's
 	// sub), for Restore Purchases' match (RP-04). Never shown or logged.
 	Subjects map[string]string
+	// LastSignIn: the latest sign-in or token refresh (zero when unknown).
+	LastSignIn time.Time
 }
 
 func identityOf(u *fbauth.UserRecord) *Identity {
 	id := &Identity{UID: u.UID, Email: u.Email, EmailVerified: u.EmailVerified, Disabled: u.Disabled}
+	if m := u.UserMetadata; m != nil {
+		if ms := max(m.LastLogInTimestamp, m.LastRefreshTimestamp); ms > 0 {
+			id.LastSignIn = time.UnixMilli(ms).UTC()
+		}
+	}
 	for _, p := range u.ProviderUserInfo {
 		if p != nil && p.ProviderID != "" {
 			id.Providers = append(id.Providers, p.ProviderID)

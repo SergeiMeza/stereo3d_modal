@@ -72,6 +72,8 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 	out := &EmailBackfill{Live: live}
 	main := map[string]string{} // uid → its Firebase email (the main)
 	sharing := map[string]int{} // email → Firebase users with it
+	groups := map[string][]*auth.Identity{}
+	order := []string{} // emails in the order met
 	now := time.Now().UTC()
 	err := users(ctx, func(id *auth.Identity) error {
 		out.Users++
@@ -102,22 +104,58 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 		if store.IsRelayEmail(email) {
 			out.Relay++
 		}
+		if _, ok := groups[email]; !ok {
+			order = append(order, email)
+		}
+		groups[email] = append(groups[email], id)
+		return nil
+	})
+	if err != nil {
+		return out, err
+	}
+	// A shared email (two Firebase users, from before one account per
+	// email) goes to the account with a web plan, else the one signed in
+	// last: the email code then lands where the person signs in.
+	why := map[string]string{}
+	for _, email := range order {
+		g := groups[email]
+		if len(g) < 2 {
+			continue
+		}
+		best, reason := 0, "signed in last"
+		planOf := func(uid string) bool {
+			c, err := s.Store.GetCustomer(ctx, uid)
+			return err == nil && !c.AccountDeleted && c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.Active(now)
+		}
+		for i := range g {
+			pi, pb := planOf(g[i].UID), planOf(g[best].UID)
+			switch {
+			case pi && !pb:
+				best, reason = i, "with the web plan"
+			case pi == pb && g[i].LastSignIn.After(g[best].LastSignIn):
+				best = i
+			}
+		}
+		g[0], g[best] = g[best], g[0]
+		why[email] = reason
+	}
+	add := func(id *auth.Identity, email string) {
 		row, err := s.Store.GetAccountEmail(ctx, email)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			out.Errors++
-			return nil
+			return
 		}
 		switch {
 		case row != nil && row.State == store.EmailActive && row.UID == id.UID:
 			out.AlreadyStored++
-			return nil
+			return
 		case row != nil && row.State == store.EmailActive:
 			out.Conflicts++
-			return nil
+			return
 		}
 		out.ToAdd++
 		if !live {
-			return nil
+			return
 		}
 		res, err := s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: id.UID, Email: email, Source: "backfill",
 			Verified: id.EmailVerified, MainIfNone: true, Claim: true, Who: "backfill", At: now})
@@ -127,7 +165,7 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 			} else {
 				out.Errors++
 			}
-			return nil
+			return
 		}
 		out.Added++
 		if res.BecameMain {
@@ -135,10 +173,11 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 		} else {
 			out.AddedExtra++
 		}
-		return nil
-	})
-	if err != nil {
-		return out, err
+	}
+	for _, email := range order {
+		for _, id := range groups[email] {
+			add(id, email)
+		}
 	}
 	for email, n := range sharing {
 		if n < 2 {
@@ -146,7 +185,7 @@ func (s *Service) BackfillAccountEmails(ctx context.Context, users func(context.
 		}
 		out.DuplicatePairs++
 		if live {
-			note := fmt.Sprintf("%d Firebase users share this email (EM-01 backfill); row on the first one met", n)
+			note := fmt.Sprintf("%d Firebase users share this email (EM-01 backfill); row on the account %s", n, why[email])
 			if err := s.Store.MarkEmailSupportCase(ctx, email, "duplicate_email", note); err != nil {
 				out.Errors++
 			} else {
