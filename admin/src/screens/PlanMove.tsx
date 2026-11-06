@@ -1,7 +1,9 @@
 import { useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 
-import { Modal, Note } from "@/components/common";
+import { toast } from "sonner";
+
+import { Modal, Note, Panel } from "@/components/common";
 import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +11,10 @@ import { Field, FieldControl, FieldDescription, FieldLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
-import { dateOnly, money, words } from "../lib/format";
+import { dateOnly, dateTime, money, until, words } from "../lib/format";
+import { Link, paths } from "../lib/router";
 import { useServices } from "../lib/services";
-import type { AccountHit, CasePage, PlanMovePreview } from "../lib/types";
+import type { AccountHit, CasePage, CasePlanMove, PlanMovePreview } from "../lib/types";
 import { accountSearchQuery, caseQuery, planMovePreviewQuery } from "@/state/queries";
 import { useQuery } from "@/state/query";
 
@@ -285,5 +288,139 @@ function PreviewBody({ preview: p }: { preview: PlanMovePreview }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+type MoveTone = "blue" | "amber" | "green" | "muted";
+
+const MOVE_STATE: Record<string, { label: string; tone: MoveTone; note: string }> = {
+  offered: { label: "Offered", tone: "blue", note: "Waiting for the receiving account to accept it." },
+  accepted: { label: "Accepted", tone: "amber", note: "The receiving account accepted it; the move is finishing." },
+  done: { label: "Done", tone: "green", note: "The plan is on the receiving account now." },
+  expired: { label: "Expired", tone: "muted", note: "Not accepted within 7 days. Nothing moved." },
+  cancelled: { label: "Cancelled", tone: "muted", note: "Withdrawn. Nothing moved." },
+};
+
+/** The move's state as it stands: an offer past its 7 days reads expired
+ * (the gateway marks it when someone tries to accept it). */
+export function moveState(m: CasePlanMove, now = Date.now()): string {
+  if (m.state === "offered" && Date.parse(m.expires_at) <= now) return "expired";
+  return m.state;
+}
+
+/** RP-05 on a plan_move case: the move's state, Cancel move while it's
+ * offered, and Offer a move… when no offer is waiting. */
+export function PlanMovePanel({ page, onPage }: { page: CasePage; onPage: (p: CasePage) => void }) {
+  const { api } = useServices();
+  const [offering, setOffering] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const c = page.case;
+  const actions = page.actions ?? [];
+  const m = c.plan_move ?? null;
+  const st = m ? moveState(m) : null;
+  const info = st ? MOVE_STATE[st] ?? { label: words(st), tone: "muted" as MoveTone, note: "" } : null;
+  const canCancel = st === "offered" && actions.includes("cancel_plan_move");
+  const canOffer = c.open && actions.includes("offer_plan_move") && (st === null || st === "expired" || st === "cancelled");
+
+  const cancel = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      onPage(await api.caseAction(c.id, { action: "cancel_plan_move" }));
+      setCancelling(false);
+      toast.success("Move cancelled.");
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === "no_move" ? err.message : `That didn't work: ${errorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel
+      title="Plan move"
+      note="RP-05: support moves this account's web plan to another account"
+      action={
+        canCancel ? (
+          <Button onClick={() => setCancelling(true)}>Cancel move…</Button>
+        ) : canOffer ? (
+          <Button variant="default" onClick={() => setOffering(true)}>Offer a move…</Button>
+        ) : undefined
+      }
+      data-testid="plan-move"
+    >
+      <div className="flex flex-col gap-2 px-4 py-3 text-sm">
+        {m && info ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={info.tone} data-testid="plan-move-state">{info.label}</Badge>
+              <span className="text-muted-foreground">{info.note}</span>
+            </div>
+            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 [&_dt]:text-muted-foreground" data-testid="plan-move-facts">
+              <dt>From</dt>
+              <dd>
+                <Link className="font-mono text-link hover:underline" to={paths.account(m.from_uid)}>{m.from_uid}</Link>
+              </dd>
+              <dt>To</dt>
+              <dd>
+                <Link className="font-mono text-link hover:underline" to={paths.account(m.to_uid)}>{m.to_uid}</Link>
+              </dd>
+              <dt>Plan</dt>
+              <dd>{words(m.plan)} · ends {dateOnly(m.period_end)}</dd>
+              <dt>Offered</dt>
+              <dd>{dateTime(m.offered_at)} by {m.offered_by}</dd>
+              {st === "offered" && (
+                <>
+                  <dt>Expires</dt>
+                  <dd>{dateTime(m.expires_at)} · {until(m.expires_at)}</dd>
+                </>
+              )}
+              {m.accepted_at && (
+                <>
+                  <dt>Accepted</dt>
+                  <dd>{dateTime(m.accepted_at)}</dd>
+                </>
+              )}
+              {m.done_at && (
+                <>
+                  <dt>Done</dt>
+                  <dd>{dateTime(m.done_at)}</dd>
+                </>
+              )}
+            </dl>
+          </>
+        ) : (
+          <Note>No move offered yet.</Note>
+        )}
+        {error && <Note tone="error">{error}</Note>}
+      </div>
+      {cancelling && (
+        <Modal
+          kind="alert"
+          title="Cancel the move?"
+          subtitle="The receiving account can't accept it any more. Nothing has moved."
+          onClose={() => setCancelling(false)}
+          busy={busy}
+          confirmLabel={busy ? "Cancelling…" : "Cancel move"}
+          confirmVariant="destructive"
+          cancelLabel="Keep the offer"
+          onConfirm={() => void cancel()}
+        />
+      )}
+      {offering && (
+        <PlanMoveSheet
+          fromUid={c.uid}
+          caseId={c.id}
+          onClose={() => setOffering(false)}
+          onOffered={(next) => {
+            onPage(next);
+            setOffering(false);
+            toast.success("Move offered. The receiving account has 7 days to accept it.");
+          }}
+        />
+      )}
+    </Panel>
   );
 }

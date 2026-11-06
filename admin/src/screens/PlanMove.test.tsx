@@ -193,3 +193,93 @@ describe("Move plan (RP-05)", () => {
     await waitFor(() => expect(previews).toBe(2));
   });
 });
+
+const offered = (over: Partial<NonNullable<CasePage["case"]["plan_move"]>> = {}) => ({
+  from_uid: "uid_123",
+  to_uid: "uid_bob",
+  subscription_id: "sub_1",
+  plan: "studio",
+  period_end: "2026-12-01T00:00:00Z",
+  state: "offered",
+  offered_by: "owner@example.com",
+  offered_at: "2026-11-06T06:00:00Z",
+  expires_at: "2099-11-13T06:00:00Z",
+  ...over,
+});
+
+describe("the plan move on its case (RP-05)", () => {
+  const base = { "GET /v1/admin/mail-previews": () => ({ json: { previews: [] } }) };
+
+  it("offered: its state, and Cancel move withdraws it; then a new offer can be made", async () => {
+    let cancels = 0;
+    const { calls } = renderApp("/cases/CASE-0100", {
+      ...base,
+      "GET /v1/admin/cases/CASE-0100": () => ({ json: moveCase({ plan_move: offered() }) }),
+      "POST /v1/admin/cases/CASE-0100/actions": () => {
+        cancels++;
+        return { json: moveCase({ plan_move: offered({ state: "cancelled" }) }) };
+      },
+    });
+    const panel = await screen.findByTestId("plan-move");
+    expect(within(panel).getByTestId("plan-move-state")).toHaveTextContent("Offered");
+    expect(within(panel).getByTestId("plan-move-facts")).toHaveTextContent("uid_bob");
+    expect(within(panel).getByTestId("plan-move-facts")).toHaveTextContent("Expires");
+    // the move's actions live in the panel, not in Decide
+    expect(screen.getByText("No decisions on this case now.")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Offer a move…" })).toBeNull();
+    await userEvent.click(within(panel).getByRole("button", { name: "Cancel move…" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Cancel the move?" });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Cancel move" }));
+    await waitFor(() => expect(cancels).toBe(1));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ action: "cancel_plan_move" });
+    expect(await findToast("Move cancelled.")).toBeInTheDocument();
+    expect(within(panel).getByTestId("plan-move-state")).toHaveTextContent("Cancelled");
+    expect(within(panel).getByRole("button", { name: "Offer a move…" })).toBeInTheDocument();
+  });
+
+  it("an offer past its 7 days reads expired; done shows no actions", async () => {
+    const { unmount } = renderApp("/cases/CASE-0100", {
+      ...base,
+      "GET /v1/admin/cases/CASE-0100": () => ({ json: moveCase({ plan_move: offered({ expires_at: "2020-01-01T00:00:00Z" }) }) }),
+    });
+    let panel = await screen.findByTestId("plan-move");
+    expect(within(panel).getByTestId("plan-move-state")).toHaveTextContent("Expired");
+    expect(within(panel).queryByRole("button", { name: "Cancel move…" })).toBeNull();
+    expect(within(panel).getByRole("button", { name: "Offer a move…" })).toBeInTheDocument();
+    unmount();
+    renderApp("/cases/CASE-0100", {
+      ...base,
+      "GET /v1/admin/cases/CASE-0100": () => ({
+        json: moveCase({ plan_move: offered({ state: "done", accepted_at: "2026-11-07T00:00:00Z", done_at: "2026-11-07T00:01:00Z" }) }),
+      }),
+    });
+    panel = await screen.findByTestId("plan-move");
+    expect(within(panel).getByTestId("plan-move-state")).toHaveTextContent("Done");
+    expect(within(panel).getByTestId("plan-move-facts")).toHaveTextContent("Accepted");
+    expect(within(panel).queryByRole("button")).toBeNull();
+  });
+
+  it("Offer a move… on the case uses that case: no new case is opened", async () => {
+    const { calls } = renderApp("/cases/CASE-0100", {
+      ...base,
+      "GET /v1/admin/cases/CASE-0100": () => ({ json: moveCase() }),
+      "GET /v1/admin/accounts": () => hits,
+      "GET /v1/admin/cases/CASE-0100/plan-move/preview": () => ({ json: preview() }),
+      "POST /v1/admin/cases/CASE-0100/actions": () => ({ json: moveCase({ plan_move: offered() }) }),
+    });
+    const panel = await screen.findByTestId("plan-move");
+    expect(within(panel).getByText("No move offered yet.")).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole("button", { name: "Offer a move…" }));
+    const sheet = screen.getByRole("dialog", { name: "Move plan" });
+    await pickAndCheck(sheet);
+    await within(sheet).findByTestId("move-preview");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Offer the move" }));
+    // Sonner's store outlives a test: an earlier test's toast can still be listed
+    const toasts = await screen.findAllByText("Move offered. The receiving account has 7 days to accept it.", {
+      selector: "[data-sonner-toast] [data-title]",
+    });
+    expect(toasts.length).toBeGreaterThan(0);
+    await waitFor(() => expect(within(panel).getByTestId("plan-move-state")).toHaveTextContent("Offered"));
+    expect(calls.some((c) => c.method === "POST" && c.path === "/v1/admin/cases")).toBe(false);
+  });
+});
