@@ -655,7 +655,7 @@ Config keys (`config/pricing_{env}`, every one optional):
 | `preview_minimum_cents` | 100 — previews (lifelike_preview, depth_preview, stereo_preview) |
 | `minimum_cents` | 50 — unchanged: the mobile one-shot's floor and the smallest grouped charge |
 | `lifelike_price_cents_per_minute` | 1080p 300 · qhd 450 · 3k 700 · 4k 850 · 5k 1300 · 6k 1600 · 8k 2200 (S3D-11) |
-| `foveation_enabled` / `foveation_price_multiplier` | false (test: true) / 1.3 |
+| `foveation_enabled` / `foveation_price_multiplier` | false (test: true) / 1.3; shown as `/v1/limits` `methods.lifelike.foveation` and `/v1/pricing` `methods.lifelike.foveation.enabled` |
 | `lifelike_enabled_presets` | `["1080p","qhd","3k","4k"]` (test: all seven) |
 | `lifelike_preview` | `min_s` 2 · `max_s` 10 · `default_s` 5 |
 | `lifelike_max_source_bytes` | 25 GiB; Classic keeps `max_source_bytes` (8 GiB) |
@@ -678,10 +678,12 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
 
 - **Tiers**: Studio > Business (web plan) > Pro (SVS Pro entitlement or a
   running pass) > list. Lifelike per output minute at 24 fps (fps factors
-  unchanged): list 1080p 400 · 1440p 550 · 3K 800 · 4K 1000 · 5K 1600 · 6K
-  2000 · 8K 2800; Pro (15% off) 340/470/680/850/1360/1700/2380; Business
-  (20% off) 320/440/640/800/1280/1600/2240; Studio (25% off)
-  300/410/600/750/1200/1500/2100 (owner 2026-11-04; was 25%/30%).
+  unchanged): list 1080p 400 · 1440p 700 · 3K 900 · 4K 1600 · 5K 2800 · 6K
+  3600 · 8K 6400; Pro (15% off) 340/595/765/1360/2380/3060/5440; Business
+  (20% off) 320/560/720/1280/2240/2880/5120; Studio (25% off)
+  300/525/675/1200/2100/2700/4800 (owner 2026-11-07, pixels per eye from
+  1080p at $4; was 400/550/800/1000/1600/2000/2800; tier shares owner
+  2026-11-04).
   Classic: 15/20/25% off its production prices.
 - **Whole minutes (owner 2026-11-04)**: production (both methods) is
   priced on `billable_minutes = ceil(the customer's video in the
@@ -744,8 +746,10 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
 - **HDR output** (owner 2026-11-05): automatic and free for everyone, no
   add-on and no price line (HDR output, below).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
-  +20% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +50%
-  (`express: true`, Lifelike; included in Business and Studio). Express
+  +100% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +100%
+  (`express: true`, Lifelike; included in Business and Studio) (owner
+  2026-11-07, TEST's `testAddOnPct`; were +20% and +50%, still prod's
+  code defaults). Express
   sends `"priority": "express"` and `max_gpu_workers` 8
   (`lifelike_express_gpu_workers`) to the Lifelike service, which gives
   freed GPU slots to Express first; standard runs omit `priority` (the
@@ -814,6 +818,22 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   {lifelike_cents_per_minute {list, pro, business, studio}, classic_pct}`,
   `addons`, `plans`, `free_previews`, and `discount.stacks_with_tier:
   false`.
+- **Prod release step (owner 2026-11-07: prod's Lifelike prices must
+  match staging exactly).** TEST and prod keep separate tables in code
+  (TEST's are `testLifelikeList`, `testLifelikeTiers`, `testAddOnPct`).
+  When the release sets prod's tier flags and prices, diff the two
+  `/v1/pricing` responses before opening it to anyone:
+  ```sh
+  q='{lifelike: .methods.lifelike, tiers: .tiers, addons: (.addons | map_values(.pct)), discount: .discount, plans: (.plans // {} | map_values({interval, price_cents, credit_cents}))}'
+  diff <(curl -s https://<test-host>/v1/pricing | jq -S "$q") \
+       <(curl -s https://<prod-host>/v1/pricing | jq -S "$q")
+  ```
+  No output means equal (rate_version and Stripe price ids are left out
+  on purpose). Any difference: fix prod's config/pricing_prod (or the
+  code defaults) and diff again. **Rollback**: set `tier_pricing` (and
+  `plans_enabled`, `free_previews_enabled`) back to false in
+  config/pricing_prod; prod quotes return to the Classic prices within
+  the 60 s config cache, and runs already quoted keep their quote.
 
 ### Black bars (BL-03, owner 2026-11-03)
 

@@ -139,15 +139,19 @@ const PlanMaxFPS = 120
 // Yearly: the plan bills once a year (its credit still comes monthly).
 func (p PlanDef) Yearly() bool { return p.Interval == "year" }
 
+// TEST's Lifelike list follows pixels per eye with 1080p held at $4 (owner
+// 2026-11-07): 4K is 4× 1080p. Prod keeps its own tables until the release
+// sets them to match (release checklist: diff prod's /v1/pricing against
+// TEST's).
 func testLifelikeList() map[string]int64 {
-	return map[string]int64{"1080p": 400, "qhd": 550, "3k": 800, "4k": 1000, "5k": 1600, "6k": 2000, "8k": 2800}
+	return map[string]int64{"1080p": 400, "qhd": 700, "3k": 900, "4k": 1600, "5k": 2800, "6k": 3600, "8k": 6400}
 }
 
 func testLifelikeTiers() map[string]map[string]int64 {
 	return map[string]map[string]int64{
-		TierPro:      {"1080p": 340, "qhd": 470, "3k": 680, "4k": 850, "5k": 1360, "6k": 1700, "8k": 2380},
-		TierBusiness: {"1080p": 320, "qhd": 440, "3k": 640, "4k": 800, "5k": 1280, "6k": 1600, "8k": 2240},
-		TierStudio:   {"1080p": 300, "qhd": 410, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100},
+		TierPro:      {"1080p": 340, "qhd": 595, "3k": 765, "4k": 1360, "5k": 2380, "6k": 3060, "8k": 5440}, // −15%
+		TierBusiness: {"1080p": 320, "qhd": 560, "3k": 720, "4k": 1280, "5k": 2240, "6k": 2880, "8k": 5120}, // −20%
+		TierStudio:   {"1080p": 300, "qhd": 525, "3k": 675, "4k": 1200, "5k": 2100, "6k": 2700, "8k": 4800}, // −25%
 	}
 }
 
@@ -157,6 +161,12 @@ func defaultTierPct() map[string]float64 {
 
 func defaultAddOnPct() map[string]float64 {
 	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50}
+}
+
+// testAddOnPct: master bitrate and Express +100% each on TEST (owner
+// 2026-11-07; were 20% and 50%); foveated unchanged.
+func testAddOnPct() map[string]float64 {
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 1.00, AddOnExpress: 1.00}
 }
 
 // Stripe TEST prices (products "Spatial Video Studio Business plan" /
@@ -191,6 +201,7 @@ func applyTestTierDefaults(r *Rates) {
 	r.TierPricing = true
 	r.LifelikePriceCentsPerMinute = testLifelikeList()
 	r.LifelikeTierPrices = testLifelikeTiers()
+	r.AddOnPctOverride = testAddOnPct()
 	r.DiscountThresholdCents = 5000
 	r.FreePreviewsEnabled = true
 	r.PlansEnabled = true

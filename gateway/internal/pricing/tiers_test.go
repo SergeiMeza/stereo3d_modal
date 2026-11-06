@@ -25,9 +25,9 @@ func TestBillableMinutes(t *testing.T) {
 			t.Errorf("%gs: %d min, want %d", secs, got, want)
 		}
 	}
-	// 2:10 of 4K list: 3 × 1000; the breakdown says so.
+	// 2:10 of 4K list: 3 × 1600; the breakdown says so.
 	q := tierQuoteOf(t, StepInputs{Step: "production", Preset: "4k", BillableS: 130, EffectiveFPS: 24})
-	if q.AmountCents != 3000 || q.Breakdown["billable_minutes"] != int64(3) {
+	if q.AmountCents != 4800 || q.Breakdown["billable_minutes"] != int64(3) {
 		t.Fatalf("2:10: %d %v", q.AmountCents, q.Breakdown["billable_minutes"])
 	}
 	// A split run (7:40 + 7:40) is one range: ceil(15:20) = 16, not 8 + 8.
@@ -50,22 +50,24 @@ func TestTierPricing(t *testing.T) {
 		want int64
 		kind string
 	}{
-		{"list 4k", min1, 1000, ""},
-		{"pro 4k", with(min1, func(i *StepInputs) { i.Tier = TierPro }), 850, "tier"},
-		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 800, "tier"},
+		{"list 4k", min1, 1600, ""}, // 4× 1080p (owner 2026-11-07)
+		{"pro 4k", with(min1, func(i *StepInputs) { i.Tier = TierPro }), 1360, "tier"},
+		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 1280, "tier"},
 		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 300, "tier"},
-		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 1250, ""},
-		// add-ons on the base: 1000 + 300 + 200 + 500
-		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 2000, ""},
-		// Express included for Business: 800 + 30% foveated
-		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1040, "tier"},
-		// 6 min of 4K list = 6000 > 5000 → bulk 600 → 5400
-		{"bulk", with(min1, func(i *StepInputs) { i.BillableS = 360 }), 5400, "bulk"},
-		// Pro 6 min = 5100 beats bulk 5400: the tier, not both
-		{"pro beats bulk", with(min1, func(i *StepInputs) { i.BillableS, i.Tier = 360, TierPro }), 5100, "tier"},
-		// 8k list 6 min = 16800 → bulk 15120; Pro 14280 wins
-		{"no stacking", with(min1, func(i *StepInputs) { i.BillableS, i.Preset, i.Tier = 360, "8k", TierPro }), 14280, "tier"},
-		{"first minute", with(min1, func(i *StepInputs) { i.BillableS = 3 }), 1000, ""}, // rounded up to 1 min
+		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 2000, ""},
+		// add-ons on the base: 1600 + 480 (foveated 30%) + 1600 (master 100%) + 1600 (express 100%) = 5280 > $50 → bulk 10%
+		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 4752, "bulk"},
+		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 4800, ""},
+		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 4080, "tier"},
+		// Express included for Business: 1280 + 30% foveated
+		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1664, "tier"},
+		// 6 min of 4K list = 9600 > 5000 → bulk 960 → 8640
+		{"bulk", with(min1, func(i *StepInputs) { i.BillableS = 360 }), 8640, "bulk"},
+		// Pro 6 min = 8160 beats bulk 8640: the tier, not both
+		{"pro beats bulk", with(min1, func(i *StepInputs) { i.BillableS, i.Tier = 360, TierPro }), 8160, "tier"},
+		// 8k list 6 min = 38400 → bulk 34560; Pro 32640 wins
+		{"no stacking", with(min1, func(i *StepInputs) { i.BillableS, i.Preset, i.Tier = 360, "8k", TierPro }), 32640, "tier"},
+		{"first minute", with(min1, func(i *StepInputs) { i.BillableS = 3 }), 1600, ""}, // rounded up to 1 min
 	}
 	for _, c := range cases {
 		q := tierQuoteOf(t, c.in)
@@ -79,7 +81,7 @@ func TestTierPricing(t *testing.T) {
 	}
 	// A free preview quotes $0 and says what it would cost.
 	q := tierQuoteOf(t, StepInputs{Step: StepLifelikePreview, Preset: "4k", BillableS: 5, EffectiveFPS: 24, FreePreview: true, Units: 1})
-	if q.AmountCents != 0 || q.Breakdown["free_preview"] != true || q.Breakdown["price_without_free_cents"] != int64(100) {
+	if q.AmountCents != 0 || q.Breakdown["free_preview"] != true || q.Breakdown["price_without_free_cents"] != int64(133) {
 		t.Errorf("free preview: %d %v", q.AmountCents, q.Breakdown)
 	}
 	// Prod keeps today's table.
@@ -149,7 +151,7 @@ func TestHDRHasNoPrice(t *testing.T) {
 	on := DefaultsFor("test")
 	on.LifelikeHDROutputEnabled = true
 	q, err := NewStatic(on).QuoteLifelike(ctx, StepInputs{Step: "production", Preset: "4k", BillableS: 60, EffectiveFPS: 24})
-	if err != nil || q.AmountCents != 1000 {
+	if err != nil || q.AmountCents != 1600 {
 		t.Fatalf("quote %v %v", q, err)
 	}
 	raw, _ := json.Marshal(map[string]any{"quote": q.Breakdown, "public": NewStatic(on).Public(ctx)})

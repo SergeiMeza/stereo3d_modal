@@ -127,7 +127,7 @@ func TestHDRAutomatic(t *testing.T) {
 	// free: the same price as without it
 	params, _ := run(hdr, reqs[0])
 	q, _, qerr := s.quoteStep(ctx, hdr, params, store.StepProduction, 0)
-	if qerr != nil || q.AmountCents != 2000 || q.Breakdown["hdr"] != nil {
+	if qerr != nil || q.AmountCents != 3200 || q.Breakdown["hdr"] != nil {
 		t.Fatalf("quote %v %v", q, qerr)
 	}
 	// an older web's "hdr" is ignored either way, never a 422
