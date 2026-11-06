@@ -99,7 +99,11 @@ func (s *Service) planStarted(ctx context.Context, uid, tier, subID string) {
 // planStartedMail is E18; appLink set = an App Store Pro to cancel.
 func planStartedMail(tier, appLink, site string) customerMail {
 	name := tierLabel(tier)
-	lines := []string{"Your " + name + " plan is active. Its credit and free previews are ready on your account."}
+	line := "Your " + name + " plan is active. Its credit and free previews are ready on your account."
+	if tier == pricing.TierPro { // Pro has no usage credit (only free previews)
+		line = "Your Pro plan is active. Its free previews are ready on your account."
+	}
+	lines := []string{line}
 	if appLink != "" {
 		lines = append(lines, appStoreProLines(name, appLink)...)
 	}

@@ -134,3 +134,17 @@ func TestOrderConfirmationConsentLine(t *testing.T) {
 		t.Fatalf("consumer %q business %q", consumer, business)
 	}
 }
+
+// E18 promises credit only where a plan has it: Pro gets free previews
+// only; Business and Studio keep "Its credit and free previews".
+func TestPlanStartedMailCreditLine(t *testing.T) {
+	pro := planStartedMail("pro", "", "https://site").text()
+	if !strings.Contains(pro, "Your Pro plan is active. Its free previews are ready on your account.") || strings.Contains(pro, "credit") {
+		t.Fatalf("pro: %q", pro)
+	}
+	for _, tier := range []string{"business", "studio"} {
+		if txt := planStartedMail(tier, "", "https://site").text(); !strings.Contains(txt, "plan is active. Its credit and free previews are ready on your account.") {
+			t.Fatalf("%s: %q", tier, txt)
+		}
+	}
+}
