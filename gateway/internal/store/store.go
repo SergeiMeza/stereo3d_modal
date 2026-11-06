@@ -437,3 +437,13 @@ func snapToConversion(snap *firestore.DocumentSnapshot) (*Conversion, error) {
 func (s *Store) ListRepackPending(ctx context.Context, limit int) ([]*Conversion, error) {
 	return s.collect(s.fs.Collection(conversionsCol(s.env)).Where("repack_pending", "==", true).Limit(limit).Documents(ctx))
 }
+
+// HasImageQuota: the account has a free-image quota record (it used the
+// free stills).
+func (s *Store) HasImageQuota(ctx context.Context, uid string) (bool, error) {
+	_, err := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid).Get(ctx)
+	if status.Code(err) == codes.NotFound {
+		return false, nil
+	}
+	return err == nil, err
+}

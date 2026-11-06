@@ -1959,8 +1959,11 @@ anything is marked, `/v1/account/delete` (and the closure case's finish,
 and the 202 pending path) ends every web subscription of the account
 (customer.plan's, plus any other live svs-web subscription on its Stripe
 customer): a waiting schedule (a step-down) is released, then
-`cancel_at_period_end` (an incomplete one ends now). No refund, no
-proration, the current period untouched. A Stripe failure answers 502
+`cancel_at_period_end` (an incomplete one ends now). The current period
+is untouched and nothing is refunded or prorated automatically (the
+refund policy is the owner's open decision). Every answer (200, 202 and
+the refusals' details) carries `plan {tier, plan_id, renews, ends_at}`
+when the account has a current web plan. A Stripe failure answers 502
 `delete_failed` with nothing marked; a retry starts over (idempotent). A
 plan invoice for a deleted account grants nothing. Body `{keep_sign_in:
 true}` from svs-backend (proxy key only) leaves the Firebase user for it

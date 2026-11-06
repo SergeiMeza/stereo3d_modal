@@ -18,7 +18,8 @@ type AppViewing struct {
 	UsedDevices   []string
 }
 
-// GetAppViewing reads app_users/{uid}; nil when the app has no record.
+// GetAppViewing reads app_users/{uid}; nil when the app has no record (or
+// merged it into another account: mergedInto).
 func (s *Store) GetAppViewing(ctx context.Context, uid string) (*AppViewing, error) {
 	snap, err := s.fs.Collection("app_users").Doc(uid).Get(ctx)
 	if status.Code(err) == codes.NotFound {
@@ -33,6 +34,11 @@ func (s *Store) GetAppViewing(ctx context.Context, uid string) (*AppViewing, err
 		UsedDevices           []string `firestore:"usedDevices"`
 	}
 	data := snap.Data()
+	// An account the app merged into another (account switch, phase 2):
+	// its answers live on the target now; this one reads as no record.
+	if v, _ := data["mergedInto"].(string); v != "" {
+		return nil, nil
+	}
 	if v, ok := data["viewingDevice"].(string); ok {
 		d.ViewingDevice = v
 	}

@@ -73,6 +73,8 @@ func main() {
 	// Public price list (S3D-18): no auth, cacheable, CORS like every route.
 	mux.HandleFunc("GET /v1/pricing", svc.HandlePublicPricing)
 	mux.HandleFunc("POST /internal/reconcile", svc.HandleReconcile)
+	// svs-backend's account-switch bookkeeping (proxy key only; 404 otherwise).
+	mux.HandleFunc("GET /internal/holdings/{uid}", svc.HandleHoldings)
 
 	// Sign-in through the gateway for browsers that can't reach Google
 	// (identity package). Same Firebase uid and tokens as the JS SDK.

@@ -55,6 +55,9 @@ func TestDeletionEndsSubscriptions(t *testing.T) {
 			if code != 200 || out["deleted"] != true {
 				t.Fatalf("delete %d %v", code, out)
 			}
+			if plan, _ := out["plan"].(map[string]any); plan["tier"] != tc.tier || plan["renews"] != false || plan["ends_at"] == nil {
+				t.Fatalf("answer's plan %v", out["plan"])
+			}
 			sub := f.fake.subs[f.sub]
 			if sub["cancel_at_period_end"] != true || sub["status"] != "active" || sub["current_period_end"] != end || sub["schedule"] != nil {
 				t.Fatalf("subscription %v", sub)
@@ -168,5 +171,24 @@ func TestOrphanSweep(t *testing.T) {
 	lastOrphanSweep.Store(0)
 	if found, _ := f.s.orphanSweepDue(ctx); found != 0 {
 		t.Fatal("off ran")
+	}
+}
+
+// A refusal names the plan too ("Your Studio plan won't renew" before
+// the person confirms): still renewing, nothing changed in Stripe.
+func TestDeletionRefusalCarriesPlan(t *testing.T) {
+	f := newPlanFixture(t, "studio", "studio", 1198800, 3, 365)
+	ctx := context.Background()
+	if err := f.s.Store.CreateConversion(ctx, &store.Conversion{ID: store.NewID(), UID: f.uid, State: store.ActiveStates[0], Kind: "video"}); err != nil {
+		t.Fatal(err)
+	}
+	code, out := deleteAccount(f, `{}`, false)
+	d, _ := out["details"].(map[string]any)
+	plan, _ := d["plan"].(map[string]any)
+	if code != 409 || out["error"] != "active_runs" || plan["tier"] != "studio" || plan["renews"] != true {
+		t.Fatalf("refusal %d %v", code, out)
+	}
+	if f.fake.subs[f.sub]["cancel_at_period_end"] != nil {
+		t.Fatal("a refused deletion changed the subscription")
 	}
 }

@@ -25,6 +25,15 @@ const (
 
 type trustedIPKey struct{}
 
+type proxyAuthKey struct{}
+
+// ProxyAuthenticated: the request carried svs-backend's proxy key (with
+// or without a client address), for its server-to-server routes.
+func ProxyAuthenticated(ctx context.Context) bool {
+	ok, _ := ctx.Value(proxyAuthKey{}).(bool)
+	return ok
+}
+
 type trustedIP struct {
 	ip    string
 	relay bool
@@ -53,10 +62,13 @@ func WithTrustedProxy(key string, next http.Handler) http.Handler {
 			switch {
 			case key == "" || subtle.ConstantTimeCompare([]byte(given), []byte(key)) != 1:
 				slog.WarnContext(r.Context(), "proxy key refused: client address not trusted", "path", r.URL.Path)
-			case net.ParseIP(ip) == nil:
-				slog.WarnContext(r.Context(), "proxy client address unreadable", "path", r.URL.Path)
 			default:
-				r = r.WithContext(context.WithValue(r.Context(), trustedIPKey{}, trustedIP{ip: ip, relay: via == "relay"}))
+				r = r.WithContext(context.WithValue(r.Context(), proxyAuthKey{}, true))
+				if net.ParseIP(ip) != nil {
+					r = r.WithContext(context.WithValue(r.Context(), trustedIPKey{}, trustedIP{ip: ip, relay: via == "relay"}))
+				} else if ip != "" {
+					slog.WarnContext(r.Context(), "proxy client address unreadable", "path", r.URL.Path)
+				}
 			}
 		}
 		next.ServeHTTP(w, r)

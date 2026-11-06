@@ -111,6 +111,20 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	_, _, viaProxy := httpx.TrustedClientIP(ctx)
 	keepSignIn := body.KeepSignIn && viaProxy
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
+	// refusals carry the plan, so the sheet can say "Your Studio plan
+	// won't renew" before the person confirms
+	refuse := func(err error) {
+		var api *httpx.APIError
+		if errors.As(err, &api) && api.Status != http.StatusBadGateway {
+			if plan := deletionPlan(cust); plan != nil {
+				if api.Details == nil {
+					api.Details = map[string]any{}
+				}
+				api.Details["plan"] = plan
+			}
+		}
+		httpx.WriteErr(ctx, w, err)
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		cust, err = nil, nil
 	}
@@ -119,7 +133,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	if cust != nil && cust.DeletionPending { // N8: already waiting for the closure case
-		writePendingDeletion(w, cust.DeletionCaseID, 0)
+		writePendingDeletion(w, cust.DeletionCaseID, 0, deletionPlan(cust))
 		return
 	}
 	active, err := s.Store.CountActiveForUser(ctx, user.UID)
@@ -138,7 +152,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 				"you have a payment to finish before we can delete your account")
 			e.Details = map[string]any{"amount_cents": res.Settle.AmountCents, "settle_id": res.Settle.ID,
 				"publishable_key": s.Stripe.PublishableKey}
-			httpx.WriteErr(ctx, w, e)
+			refuse(e)
 			return
 		}
 	}
@@ -170,12 +184,12 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		e := httpx.Err(http.StatusConflict, deleteBlockActive,
 			"cancel or wait for your running jobs before deleting your account")
 		e.Details = map[string]any{"active": active}
-		httpx.WriteErr(ctx, w, e)
+		refuse(e)
 		return
 	case deleteBlockOwed:
 		httpx.Log(ctx).Warn("account delete refused: balance due", "uid", user.UID,
 			"unpaid", len(unpaid), "failed_batches", len(failed), "charging_batches", len(charging))
-		httpx.WriteErr(ctx, w, s.balanceDueErr(ctx, unpaid, failed, charging, open, minimum))
+		refuse(s.balanceDueErr(ctx, unpaid, failed, charging, open, minimum))
 		return
 	}
 
@@ -188,7 +202,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 			e := httpx.Err(http.StatusConflict, "balance_remaining",
 				fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.Available())))
 			e.Details = map[string]any{"cents": b.Available()}
-			httpx.WriteErr(ctx, w, e)
+			refuse(e)
 			return
 		}
 		// N8b: the closure case (manual) refunds the unspent cash top-ups;
@@ -218,7 +232,8 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 			}
 			s.pauseAutoReload(ctx, user.UID, "deletion")
 			httpx.Log(ctx).Info("deletion waits for the closure case", "uid", user.UID, "case_id", cs.ID)
-			writePendingDeletion(w, cs.ID, cs.RequestedCents)
+			after, _ := s.Store.GetCustomer(ctx, user.UID)
+			writePendingDeletion(w, cs.ID, cs.RequestedCents, deletionPlan(after))
 			return
 		}
 	}
@@ -234,7 +249,13 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 		pending = open.TotalCents // below the card minimum: left uncollected
 	}
 	httpx.Log(ctx).Info("account deleted", "uid", user.UID, "uncollected_cents", pending)
-	httpx.WriteOK(w, map[string]any{"deleted": true, "sign_in_removed": !keepSignIn && s.Auth != nil})
+	out := map[string]any{"deleted": true, "sign_in_removed": !keepSignIn && s.Auth != nil}
+	if after, err := s.Store.GetCustomer(ctx, user.UID); err == nil {
+		if plan := deletionPlan(after); plan != nil {
+			out["plan"] = plan
+		}
+	}
+	httpx.WriteOK(w, out)
 }
 
 // balanceDueErr is the 402 for a refused deletion: the amount owed, and
@@ -281,12 +302,31 @@ func (s *Service) balanceDueErr(ctx context.Context, unpaid []*store.Conversion,
 	return e
 }
 
-func writePendingDeletion(w http.ResponseWriter, caseID string, cents int64) {
+func writePendingDeletion(w http.ResponseWriter, caseID string, cents int64, plan map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "deleted": false, "deletion_pending": true,
+	out := map[string]any{"success": true, "deleted": false, "deletion_pending": true,
 		"case_id": caseID, "refund_cents": cents,
-		"message": "We'll delete your account once your refund is decided, within 2 business days."})
+		"message": "We'll delete your account once your refund is decided, within 2 business days."}
+	if plan != nil {
+		out["plan"] = plan
+	}
+	_ = json.NewEncoder(w).Encode(out)
+}
+
+// deletionPlan is the account's web plan for the deletion answers: {tier,
+// plan_id, renews, ends_at} (renews false once the deletion set it to end
+// at ends_at); nil without a current plan. It says nothing about refunds
+// (the owner's policy is open).
+func deletionPlan(c *store.Customer) map[string]any {
+	if c == nil || c.Plan == nil || c.Plan.SubscriptionID == "" || !c.Plan.Active(time.Now()) {
+		return nil
+	}
+	out := map[string]any{"tier": c.Plan.Tier, "plan_id": c.Plan.Key(), "renews": !c.Plan.CancelAtPeriodEnd}
+	if c.Plan.CurrentPeriodEnd != nil {
+		out["ends_at"] = c.Plan.CurrentPeriodEnd.UTC().Format(time.RFC3339)
+	}
+	return out
 }
 
 func errDeletionPending() error {

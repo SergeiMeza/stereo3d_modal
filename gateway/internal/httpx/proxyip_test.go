@@ -47,6 +47,19 @@ func TestWithTrustedProxy(t *testing.T) {
 	if got.ok {
 		t.Fatalf("bad address: %+v", got)
 	}
+	// the key alone (server-to-server routes): authenticated, no address
+	var authed bool
+	hk := WithTrustedProxy("k3y", http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { authed = ProxyAuthenticated(r.Context()) }))
+	for key, want := range map[string]bool{"k3y": true, "nope": false, "": false} {
+		r := httptest.NewRequest("GET", "/internal/holdings/u1", nil)
+		if key != "" {
+			r.Header.Set(HeaderProxyKey, key)
+		}
+		hk.ServeHTTP(httptest.NewRecorder(), r)
+		if authed != want {
+			t.Fatalf("key %q: authenticated %v", key, authed)
+		}
+	}
 	// no key configured: nobody is trusted
 	h2 := WithTrustedProxy("", http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		_, _, got.ok = TrustedClientIP(r.Context())
