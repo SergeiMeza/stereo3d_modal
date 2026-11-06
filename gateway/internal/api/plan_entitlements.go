@@ -194,38 +194,48 @@ func (s *Service) m3Plans(ctx context.Context, rep *M3Report, dryRun bool) {
 	}
 	now := time.Now().UTC()
 	for uid, c := range custs {
-		// A yearly plan's month that wasn't granted (plan_credit_missed).
-		if c.Plan.Yearly() && c.Plan.Active(now) && c.Plan.GrantsPaused == "" && !c.AccountDeleted {
-			if k, _, _, ok := c.Plan.Month(now); ok {
-				if done, _ := s.Store.EntryExists(ctx, uid, planMonthEntry(c.Plan.SubscriptionID, k)); !done {
-					f := M3Flag{Flag: "plan_credit_missed", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s month %d of 12", c.Plan.Tier, k+1)}
-					if def, ok := s.rates(ctx).Plan(c.Plan.Tier); ok && !dryRun && s.grantPlanMonth(ctx, uid, c.Plan, def, now) {
-						f.Action = "granted"
-					}
-					rep.add(f)
-				}
-			}
-		}
-		if !s.RevenueCat.Configured() || !c.Plan.Active(now) || c.Plan.RCRevokedAt != nil || c.AccountDeleted {
-			continue
-		}
-		st, err := s.RevenueCat.Fresh(ctx, uid)
-		if err != nil {
-			rep.fail("revenuecat "+uid, err)
-			continue
-		}
-		if tierRank(st.Tier) >= tierRank(c.Plan.Tier) || (c.Plan.Tier == pricing.TierPro && st.Pro) {
-			continue
-		}
-		f := M3Flag{Flag: "plan_entitlement_missing", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s plan, RevenueCat tier %q", c.Plan.Tier, st.Tier)}
-		if !dryRun && s.RevenueCat.CanGrant() && c.Plan.CurrentPeriodEnd != nil {
-			until := c.Plan.CurrentPeriodEnd.Add(planEntitlementGrace)
-			if err := s.grantRC(ctx, uid, c.Plan.Tier, until); err != nil {
-				f.Action = "re-grant failed: " + err.Error()
-			} else {
-				f.Action = "granted again until " + until.Format(time.RFC3339)
-			}
-		}
-		rep.add(f)
+		s.m3PlanOne(ctx, rep, uid, c, now, dryRun)
 	}
+}
+
+// m3PlanOne is M3's plan check for one account (the nightly run and
+// Restore Purchases): a yearly plan's missed month, and the app's
+// entitlement missing in RevenueCat.
+func (s *Service) m3PlanOne(ctx context.Context, rep *M3Report, uid string, c *store.Customer, now time.Time, dryRun bool) {
+	if c == nil || c.Plan == nil {
+		return
+	}
+	// A yearly plan's month that wasn't granted (plan_credit_missed).
+	if c.Plan.Yearly() && c.Plan.Active(now) && c.Plan.GrantsPaused == "" && !c.AccountDeleted {
+		if k, _, _, ok := c.Plan.Month(now); ok {
+			if done, _ := s.Store.EntryExists(ctx, uid, planMonthEntry(c.Plan.SubscriptionID, k)); !done {
+				f := M3Flag{Flag: "plan_credit_missed", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s month %d of 12", c.Plan.Tier, k+1)}
+				if def, ok := s.rates(ctx).Plan(c.Plan.Tier); ok && !dryRun && s.grantPlanMonth(ctx, uid, c.Plan, def, now) {
+					f.Action = "granted"
+				}
+				rep.add(f)
+			}
+		}
+	}
+	if !s.RevenueCat.Configured() || !c.Plan.Active(now) || c.Plan.RCRevokedAt != nil || c.AccountDeleted {
+		return
+	}
+	st, err := s.RevenueCat.Fresh(ctx, uid)
+	if err != nil {
+		rep.fail("revenuecat "+uid, err)
+		return
+	}
+	if tierRank(st.Tier) >= tierRank(c.Plan.Tier) || (c.Plan.Tier == pricing.TierPro && st.Pro) {
+		return
+	}
+	f := M3Flag{Flag: "plan_entitlement_missing", Ref: uid, UID: uid, Detail: fmt.Sprintf("%s plan, RevenueCat tier %q", c.Plan.Tier, st.Tier)}
+	if !dryRun && s.RevenueCat.CanGrant() && c.Plan.CurrentPeriodEnd != nil {
+		until := c.Plan.CurrentPeriodEnd.Add(planEntitlementGrace)
+		if err := s.grantRC(ctx, uid, c.Plan.Tier, until); err != nil {
+			f.Action = "re-grant failed: " + err.Error()
+		} else {
+			f.Action = "granted again until " + until.Format(time.RFC3339)
+		}
+	}
+	rep.add(f)
 }

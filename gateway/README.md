@@ -13,6 +13,12 @@ GET  /v1/billing                      status: saved card, delinquency, unpaid ch
 POST /v1/billing/setup-intent         → SetupIntent client_secret for onboarding card capture
 POST /v1/billing/settle               retry outstanding automatic charges on the current card
 POST /v1/billing/portal               Stripe customer portal (manage cards, receipts)
+POST /v1/billing/restore              Restore Purchases: resync the account's web plan and the
+                                      app's entitlements from Stripe and RevenueCat, repair
+                                      missed webhooks and grants; never charges; no fresh
+                                      sign-in; 5 an hour per account, 20 per address →
+                                      {restored, repaired: [plan|monthly_usage|app_access],
+                                      plan, pro, message}; 403 account_deleted
 GET  /v1/billing/history?limit=&cursor=
                                       purchase history (S3D-57): one entry per card
                                       charge, newest first — {id, type charge|refund,

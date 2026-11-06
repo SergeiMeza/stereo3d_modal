@@ -57,6 +57,9 @@ func settleItemRuns(st *store.Settle) []string {
 
 // collectOutstanding is C11. opts carry the sheet's device and IP.
 func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, pc payContext) (settleResult, error) {
+	if settleHeld(ctx) { // Restore Purchases never collects
+		return settleResult{}, errSettleHeld
+	}
 	now := time.Now().UTC()
 	lease := store.Lease{Owner: leaseOwner, Until: now.Add(leaseTTL)}
 	st, err := s.Store.OpenSettle(ctx, uid, trigger, lease)

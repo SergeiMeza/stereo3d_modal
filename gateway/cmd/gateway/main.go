@@ -279,6 +279,8 @@ func main() {
 	mux.HandleFunc("PUT /v1/billing/balance/settings", authed(svc.HandlePutBalanceSettings)) // P18, P19
 	mux.HandleFunc("GET /v1/billing/balance/entries", authed(svc.HandleBalanceEntries))
 	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
+	// Restore Purchases: nothing moves between accounts, so no fresh sign-in.
+	mux.HandleFunc("POST /v1/billing/restore", authed(svc.HandleRestore))
 	mux.HandleFunc("POST /v1/billing/plan", authed(svc.HandleStartPlan)) // pricing 2026-11
 	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(api.Fresh(svc.HandleCancelPlan)))
 	mux.HandleFunc("POST /v1/plans/preview-change", authed(svc.HandlePreviewPlanChange)) // plan changes 2026-11-04

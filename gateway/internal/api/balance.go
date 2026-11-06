@@ -802,8 +802,12 @@ func balanceBilling(c *store.Conversion) map[string]any {
 // ------------------------------------------------------------- debts
 
 // payDebtsFromBalance is N9: when the account owes and the available
-// balance covers it all, collectOutstanding pays from the balance.
+// balance covers it all, collectOutstanding pays from the balance. Never
+// under Restore Purchases (withoutSettle): a restore collects nothing.
 func (s *Service) payDebtsFromBalance(ctx context.Context, uid string) bool {
+	if settleHeld(ctx) {
+		return false
+	}
 	owed := s.owedCents(ctx, uid)
 	if owed <= 0 {
 		return false

@@ -38,7 +38,7 @@ func TestSensitiveRoutesNeedFreshSignIn(t *testing.T) {
 	}
 	for _, p := range []string{
 		"GET /v1/account/delete", "GET /v1/account/identities", "GET /v1/billing/methods", "POST /v1/plans/preview-change",
-		"POST /v1/billing/plan", "GET /v1/projects", "POST /v1/projects/{id}/quotes", "POST /v1/projects/{id}/conversions",
+		"POST /v1/billing/plan", "POST /v1/billing/restore", "GET /v1/projects", "POST /v1/projects/{id}/quotes", "POST /v1/projects/{id}/conversions",
 	} {
 		if strings.Contains(route(p), "api.Fresh(") {
 			t.Errorf("%s: shouldn't need a fresh sign-in", p)
