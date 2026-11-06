@@ -95,6 +95,7 @@ func TestDeletionAfterCancel(t *testing.T) {
 		t.Fatalf("thin cancel again %d %v", code, out)
 	}
 	end := sub["current_period_end"]
+	f.s.Store.UpdateCustomer(ctx, f.uid, func(c *store.Customer) error { c.DefaultPaymentMethod, c.CardLast4 = "pm_saved", "4242"; return nil })
 	code, out = deleteAccount(f, `{}`, false)
 	if code != 200 || out["deleted"] != true || out["plan"] != "business" || out["cancel_at_period_end"] != true || out["current_period_end"] == nil {
 		t.Fatalf("delete %d %v", code, out)
@@ -102,7 +103,13 @@ func TestDeletionAfterCancel(t *testing.T) {
 	if sub["status"] != "active" || sub["current_period_end"] != end || sub["cancel_at_period_end"] != true {
 		t.Fatalf("the deletion changed the subscription: %v", sub)
 	}
+	if len(f.fake.detaches) != 0 { // saved cards stay on Stripe (owner 2026-11-06)
+		t.Fatalf("the deletion detached payment methods: %v", f.fake.detaches)
+	}
 	c, _ = f.s.Store.GetCustomer(ctx, f.uid)
+	if c.DefaultPaymentMethod != "pm_saved" {
+		t.Fatalf("saved card dropped: %q", c.DefaultPaymentMethod)
+	}
 	if !c.AccountDeleted || c.StripeCustomerID == "" || c.Plan.CurrentPeriodEnd == nil || c.Plan.SubscriptionID != f.sub {
 		t.Fatalf("kept for restore: %+v %+v", c, c.Plan)
 	}

@@ -44,6 +44,7 @@ type fakeStripe struct {
 	customers      map[string]*fakeCustomer     // customer id → name, address, tax IDs, PO
 	expired        []string
 	created        int
+	detaches       []string // POST /v1/payment_methods/{id}/detach
 }
 
 func newFakeStripe() *fakeStripe {
@@ -282,6 +283,10 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(map[string]any{"data": data, "has_more": false})
 	case p == "/v1/events" || (p == "/v1/invoices" && r.Method == http.MethodGet) || (p == "/v1/refunds" && r.Method == http.MethodGet):
 		write(map[string]any{"data": []any{}, "has_more": false})
+	case strings.HasPrefix(p, "/v1/payment_methods/") && strings.HasSuffix(p, "/detach"):
+		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/payment_methods/"), "/detach")
+		f.detaches = append(f.detaches, id)
+		write(map[string]any{"id": id, "customer": nil})
 	case strings.HasPrefix(p, "/v1/payment_methods/"):
 		write(map[string]any{"id": strings.TrimPrefix(p, "/v1/payment_methods/"), "card": map[string]any{"fingerprint": f.pmPrints[strings.TrimPrefix(p, "/v1/payment_methods/")]}})
 	case strings.HasPrefix(p, "/v1/payment_intents/") && strings.HasSuffix(p, "/cancel"):

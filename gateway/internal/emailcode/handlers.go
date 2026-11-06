@@ -192,13 +192,20 @@ func seconds(d time.Duration) int {
 
 // mailLang picks the code mail's language (Start).
 func (h *Handlers) mailLang(r *http.Request, explicit string) mail.Lang {
+	_, viaRelay := h.IPs.ClientIP(r)
+	return LangFor(r, viaRelay, explicit)
+}
+
+// LangFor picks a code mail's language: the explicit field, then the
+// China relay or a cn. host, then Accept-Language.
+func LangFor(r *http.Request, viaRelay bool, explicit string) mail.Lang {
 	if e := strings.TrimSpace(explicit); e != "" {
 		if zh(e) {
 			return mail.LangChinese
 		}
 		return mail.LangEnglish
 	}
-	if _, viaRelay := h.IPs.ClientIP(r); viaRelay {
+	if viaRelay {
 		return mail.LangChinese
 	}
 	for _, host := range []string{r.Host, r.Header.Get("X-Forwarded-Host")} {

@@ -187,6 +187,13 @@ func (c *Client) DetachMethod(pmID string) error {
 	return webCall(http.MethodPost, "/v1/payment_methods/"+url.PathEscape(pmID)+"/detach", url.Values{}, "", &out)
 }
 
+// SetCustomerEmail changes the customer's email (receipts, the restore
+// key) after the account's main email moved.
+func (c *Client) SetCustomerEmail(customerID, email string) error {
+	var out map[string]any
+	return webCall(http.MethodPost, "/v1/customers/"+url.PathEscape(customerID), url.Values{"email": {email}}, "", &out)
+}
+
 // SetTaxIP records the customer's IP as tax location evidence (C6).
 func (c *Client) SetTaxIP(customerID, ip string) error {
 	if ip == "" {

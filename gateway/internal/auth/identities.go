@@ -75,6 +75,9 @@ func (v *Verifier) RemoveProviders(ctx context.Context, uid string, providers []
 // IsEmailInUse: an update refused because another account has the email.
 func IsEmailInUse(err error) bool { return fbauth.IsEmailAlreadyExists(err) }
 
+// IsUserNotFound: the Firebase user is gone.
+func IsUserNotFound(err error) bool { return fbauth.IsUserNotFound(err) }
+
 // UserExists: the Firebase user is still there.
 func (v *Verifier) UserExists(ctx context.Context, uid string) (bool, error) {
 	_, err := v.client.GetUser(ctx, uid)

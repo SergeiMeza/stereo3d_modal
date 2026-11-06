@@ -79,6 +79,16 @@ type Sessions interface {
 	SignInWithCustomToken(ctx context.Context, token string) (*identity.Session, error)
 }
 
+// Owners is the email store (account_emails): any active email of an
+// account signs in to it, checked before Firebase's own email (design 2).
+type Owners interface {
+	// SignInOwner is the live account holding email ("" when none);
+	// auth.ErrUserDisabled when that account is disabled.
+	SignInOwner(ctx context.Context, email string) (string, error)
+	// SignedIn records email on uid after a code sign-in (best effort).
+	SignedIn(ctx context.Context, uid, email string, created bool)
+}
+
 // Mailer sends one email (mail.Resend).
 type Mailer interface {
 	Configured() bool
@@ -91,7 +101,9 @@ type Service struct {
 	Users    Users
 	Sessions Sessions
 	Mail     Mailer
-	Now      func() time.Time
+	// Owners: nil signs in by Firebase's email alone.
+	Owners Owners
+	Now    func() time.Time
 	// NewCode makes a code (tests pin it); default crypto/rand.
 	NewCode func() (string, error)
 }
@@ -318,12 +330,27 @@ func (s *Service) consume(ctx context.Context, email, code string, spend bool) e
 
 // signIn finds or makes the email's account and answers its sign-in.
 func (s *Service) signIn(ctx context.Context, email string, wantSession bool) (*Result, error) {
-	uid, created, err := s.Users.EnsureEmailUser(ctx, email)
-	if err != nil {
+	uid, created, err := "", false, error(nil)
+	if s.Owners != nil { // the store first: an additional email signs in to its account
+		uid, err = s.Owners.SignInOwner(ctx, email)
 		if errors.Is(err, auth.ErrUserDisabled) {
 			return nil, ErrDisabled
 		}
-		return nil, fmt.Errorf("%w: account: %v", ErrUnavailable, err)
+		if err != nil {
+			return nil, fmt.Errorf("%w: email store: %v", ErrUnavailable, err)
+		}
+	}
+	if uid == "" {
+		uid, created, err = s.Users.EnsureEmailUser(ctx, email)
+		if err != nil {
+			if errors.Is(err, auth.ErrUserDisabled) {
+				return nil, ErrDisabled
+			}
+			return nil, fmt.Errorf("%w: account: %v", ErrUnavailable, err)
+		}
+		if s.Owners != nil {
+			s.Owners.SignedIn(ctx, uid, email, created)
+		}
 	}
 	token, err := s.Users.CustomToken(ctx, uid)
 	if err != nil {

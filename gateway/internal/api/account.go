@@ -360,6 +360,7 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 // 2026-11-06): the Stripe customer, email, plan dates and credits already
 // granted stay for Restore Purchases; nothing is granted again.
 func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, keepSignIn bool) error {
+	// Deletion never detaches payment methods: saved cards stay on the Stripe customer (owner 2026-11-06).
 	now := time.Now().UTC()
 	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
