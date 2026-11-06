@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
+import { SettleFromLink } from "@/components/billing/SettleFromLink";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
@@ -714,6 +715,8 @@ export function BillingScreen(): JSX.Element {
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
       <FirstTimeHint id="billing" />
+      {/* ?settle=1, the app's link after a delete answered balance_due */}
+      <SettleFromLink />
       {review ? (
         <p data-testid="billing-review" className="text-sm text-amber-200">
           {UNDER_REVIEW} Contact support to continue.

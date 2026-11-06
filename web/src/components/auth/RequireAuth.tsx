@@ -25,7 +25,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (ready && user === null) {
-      router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
+      // the query comes back too (e.g. /account/billing?settle=1)
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      router.replace(`/signin?next=${encodeURIComponent(pathname + search)}`);
     }
   }, [ready, user, router, pathname]);
 
