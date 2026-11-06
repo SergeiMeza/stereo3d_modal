@@ -22,6 +22,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import { pushWithFallback } from "@/lib/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { projectCreatedAtom } from "@/components/projects/projectsAtoms";
@@ -201,10 +203,13 @@ export function UploadDropzone({
   const method = newProjectMethod(limits);
   const maxDurationS = maxDurationFor(limits, method);
 
-  // Closing the tab mid-upload loses it: ask first.
+  // Closing the tab mid-upload loses it: ask first. Not once the project
+  // exists and the page itself loads it in full (owner bug 2026-11-07).
+  const leaving = useRef(false);
   useEffect(() => {
     if (!busy) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (leaving.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -253,7 +258,10 @@ export function UploadDropzone({
       // the list has it before Projects reads again
       createdProject(project);
       upgradeSession("uploaded-video");
-      router.push(`/projects/${project.project_id}`);
+      // owner bug 2026-11-07: a push that never lands becomes a full load
+      pushWithFallback(router, `/projects/${project.project_id}`, () => {
+        leaving.current = true;
+      });
     } catch (e) {
       track("upload_failed");
       // a chunked session keeps what arrived: offer to continue from there

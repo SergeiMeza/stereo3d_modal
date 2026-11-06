@@ -31,6 +31,7 @@ import {
 import projectFixture from "../../fixtures/project.json";
 import { maxDurationFor } from "@/components/projects/UploadDropzone";
 import { GatewayClient, GatewayError } from "@/lib/api/client";
+import { browserNav, NAV_FALLBACK_MS } from "@/lib/navigation";
 import { posterUrl, type Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -382,6 +383,59 @@ describe("ProjectsScreen large uploads (Lifelike)", () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     const id = (push.mock.calls[0][0] as string).slice("/projects/".length);
     expect(mockDb.projects.get(id)?.method).toBe("lifelike");
+  });
+
+  it("a push that never lands becomes a full load, with the leave guard off (owner bug 2026-11-07)", async () => {
+    // the route's ?_rsc= request hangs: router.push never moves the address
+    stubUploadFile();
+    const assign = vi.spyOn(browserNav, "assign").mockImplementation(() => {});
+    renderScreen();
+    await screen.findByText(/any length/);
+    await userEvent.upload(
+      screen.getByLabelText("Upload video"),
+      new File(["x"], "trip.mov", { type: "video/quicktime" }),
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    const href = push.mock.calls[0][0] as string;
+    expect(screen.getByText("Creating project…")).toBeTruthy();
+    expect(assign).not.toHaveBeenCalled();
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(href), {
+      timeout: NAV_FALLBACK_MS + 1000,
+    });
+    // the full load isn't held up by "leave this page?"
+    const ev = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  }, 10_000);
+
+  it("a card click that never lands becomes a full load; one that lands does nothing more", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const assign = vi.spyOn(browserNav, "assign").mockImplementation(() => {});
+      renderScreen();
+      const card = await screen.findByRole("link", { name: new RegExp(FIXTURE_NAME) });
+      card.addEventListener("click", (e) => e.preventDefault()); // jsdom: no real navigation
+      fireEvent.click(card);
+      act(() => vi.advanceTimersByTime(NAV_FALLBACK_MS - 1));
+      expect(assign).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(assign).toHaveBeenCalledWith(`/projects/${FIXTURE_ID}`);
+
+      assign.mockClear();
+      fireEvent.click(card);
+      window.history.pushState(null, "", `/projects/${FIXTURE_ID}`);
+      act(() => vi.advanceTimersByTime(NAV_FALLBACK_MS));
+      expect(assign).not.toHaveBeenCalled();
+
+      // a new-tab click is the browser's, never watched
+      window.history.pushState(null, "", "/projects");
+      fireEvent.click(card, { metaKey: true });
+      act(() => vi.advanceTimersByTime(NAV_FALLBACK_MS));
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      window.history.pushState(null, "", "/");
+      vi.useRealTimers();
+    }
   });
 
   it("states Lifelike's limits only: new projects are Lifelike (S3D-01, S3D-05)", async () => {

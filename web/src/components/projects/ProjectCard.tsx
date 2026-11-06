@@ -22,6 +22,8 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+
+import { watchNavigation } from "@/lib/navigation";
 import { useState } from "react";
 
 import {
@@ -244,7 +246,14 @@ export function ProjectCard({
         project.archived === true ? "opacity-50" : ""
       }`}
     >
-      <Link href={href} className="group flex gap-3 p-3.5 pb-2.5">
+      <Link
+        href={href}
+        // owner bug 2026-11-07: a navigation that never lands becomes a full load
+        onClick={(e) => {
+          if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) watchNavigation(href);
+        }}
+        className="group flex gap-3 p-3.5 pb-2.5"
+      >
         <div className="relative aspect-video w-32 shrink-0 self-start overflow-hidden rounded-md bg-black">
           {thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
