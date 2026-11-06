@@ -171,6 +171,21 @@ export interface PlanChangePreview {
   currency?: string;
 }
 
+/** GET /v1/account/identities (EM-02). `providers` are apple.com,
+ * google.com and email; a password is reported apart. */
+export interface AccountIdentities {
+  providers: string[];
+  email?: string;
+  email_verified?: boolean;
+  password?: boolean;
+  passkeys?: number;
+  anonymous?: boolean;
+}
+
+export type IdentityLink =
+  | { provider: "apple.com" | "google.com"; id_token: string; nonce?: string }
+  | { provider: "email"; email: string; code: string; replace?: boolean };
+
 export type FeedbackKind = "idea" | "problem" | "other";
 
 export interface FeedbackBody {
@@ -412,6 +427,28 @@ export class GatewayClient {
 
   getBalanceEntries(after?: string): Promise<{ entries: BalanceEntry[]; has_more?: boolean }> {
     return this.request("GET", `/v1/billing/balance/entries${after ? `?starting_after=${encodeURIComponent(after)}` : ""}`);
+  }
+
+  // ------------------------------------------------- sign-in methods
+
+  /** EM-02 (owner 2026-11-06): the account's ways in, from the gateway
+   * (not the Firebase SDK, so China mode can read them too). */
+  getIdentities(): Promise<AccountIdentities> {
+    return this.request("GET", "/v1/account/identities");
+  }
+
+  /** Link Apple or Google (an ID token and the raw nonce from the
+   * browser's own sign-in) or an email (a code from /v1/auth/email/start)
+   * onto this account. 409 credential_in_use {providers}, email_exists
+   * {email_masked} (again with replace: true); 400 invalid_credential. */
+  linkIdentity(body: IdentityLink): Promise<AccountIdentities> {
+    return this.request("POST", "/v1/account/identities/link", body);
+  }
+
+  /** Remove apple.com, google.com or password. 409 last_method, 404
+   * not_linked, 409 email_not_removable. */
+  unlinkIdentity(provider: string): Promise<AccountIdentities> {
+    return this.request("DELETE", `/v1/account/identities/${encodeURIComponent(provider)}`);
   }
 
   /** ADR 0136: the account's passkeys */

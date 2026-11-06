@@ -112,8 +112,16 @@ export interface AuthContextValue {
   clearPendingLink(): void;
   /** What a redirect sign-in or link said when it came back here. */
   redirectError: string | null;
+  /** Google through the Firebase SDK (no Google ID token without it on the
+   * web yet); Apple and every unlink go through the gateway (EM-02,
+   * lib/identities). */
   linkProvider(id: LinkableProvider): Promise<void>;
-  unlinkProvider(id: string): Promise<void>;
+  /** EM-02: read the signed-in user again after the gateway changed its
+   * sign-in methods (Firebase mode; China mode has nothing to read). */
+  reloadUser(): Promise<void>;
+  /** EM-02 "Sign in to that account": the Apple ID that belongs to
+   * another account signs in to it (switches accounts). */
+  signInWithAppleToken(idToken: string, rawNonce: string): Promise<void>;
   signInWithGoogle(): Promise<void>;
   /** ADR 0136: sign in with a passkey (the button, or the email field's
    * autofill); throws PasskeyError. */
@@ -777,16 +785,28 @@ const linkProvider = async (id: LinkableProvider) => {
   }
 };
 
-const unlinkProvider = async (id: string) => {
-  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+const reloadUser = async () => {
+  if (viaGateway()) return;
   try {
     const current = await requireFirebaseUser();
-    const { unlink } = await import("firebase/auth");
-    await withRecentSignIn(() => unlink(current, id));
-    track("unlink_provider", { method: id });
     await current.reload();
+    await current.getIdToken(true);
     const auth = await getFirebaseAuth();
     setAuthUser(toAuthUser(auth.currentUser ?? current));
+  } catch (e) {
+    throw friendlyAuthError(e);
+  }
+};
+
+const signInWithAppleToken = async (idToken: string, rawNonce: string) => {
+  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  try {
+    const auth = await getFirebaseAuth();
+    const { OAuthProvider, signInWithCredential } = await import("firebase/auth");
+    trackSignIn(
+      await signInWithCredential(auth, new OAuthProvider("apple.com").credential({ idToken, rawNonce })),
+      "apple.com",
+    );
   } catch (e) {
     throw friendlyAuthError(e);
   }
@@ -829,7 +849,8 @@ const LIVE = {
   signInWithEmailCode,
   clearPendingLink,
   linkProvider,
-  unlinkProvider,
+  reloadUser,
+  signInWithAppleToken,
   signInWithGoogle,
   signInWithPasskey,
   reauthenticate,
@@ -845,7 +866,8 @@ const MOCK = {
   signInWithEmailCode: mockNoop,
   clearPendingLink: noop,
   linkProvider: mockNoop,
-  unlinkProvider: mockNoop,
+  reloadUser: mockNoop,
+  signInWithAppleToken: mockNoop,
   signInWithGoogle: mockNoop,
   signInWithPasskey: mockNoop,
   reauthenticate: mockNoop,

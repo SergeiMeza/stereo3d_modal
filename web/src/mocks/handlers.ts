@@ -437,6 +437,11 @@ interface DB {
   passkeys: { id: string; name: string; device_hint: string | null; created_at: string; last_used_at: string | null }[];
   /** ADR 0136: adding a passkey answers 401 reauth_required (sign-in too old) */
   passkeyReauthNeeded: boolean;
+  /** EM-02: GET /v1/account/identities for the mock account */
+  identities: { providers: string[]; email: string; password: boolean };
+  /** EM-02: the next Apple or Google link belongs to another account
+   * (409 credential_in_use with these providers) */
+  identityInUse: string[] | null;
   /** ADR 0136: refusals the next passkey sign-in checks answer, in order */
   passkeyVerifyErrors: { status: number; code: string }[];
   /** ADR 0137: another format for a finished run: jobs per run, the GETs
@@ -935,6 +940,8 @@ function seed(): DB {
     nextChangeExpired: false,
     passkeys: [] as typeof mockDb.passkeys,
     passkeyReauthNeeded: false,
+    identities: { providers: ["email"], email: "dev@example.com", password: false },
+    identityInUse: null as string[] | null,
     passkeyVerifyErrors: [] as { status: number; code: string }[],
     formatJobs: new Map() as typeof mockDb.formatJobs,
     formatJobPolls: 1,
@@ -976,6 +983,8 @@ export const mockDb = {
     this.nextChangeExpired = fresh.nextChangeExpired;
     this.passkeys = fresh.passkeys;
     this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
+    this.identities = fresh.identities;
+    this.identityInUse = fresh.identityInUse;
     this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
     this.formatJobs = fresh.formatJobs;
     this.formatJobPolls = fresh.formatJobPolls;
@@ -1151,6 +1160,18 @@ function authSession(u: MockAuthUser) {
     id_token: `mock-id-${n}`,
     refresh_token: refreshToken,
     expires_in: 3600,
+  };
+}
+
+function identitiesJSON() {
+  const ids = mockDb.identities;
+  return {
+    providers: ids.providers,
+    email: ids.email,
+    email_verified: ids.email !== "",
+    password: ids.password,
+    passkeys: mockDb.passkeys.length,
+    anonymous: ids.providers.length === 0 && mockDb.passkeys.length === 0,
   };
 }
 
@@ -3253,6 +3274,45 @@ export const handlers = [
     return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  // EM-02: sign-in methods through the gateway (gateway/README "Linked
+  // sign-in methods")
+  // (any host: China mode calls the cn. gateway)
+  http.get(/\/v1\/account\/identities$/, () => HttpResponse.json(identitiesJSON())),
+  http.post(/\/v1\/account\/identities\/link$/, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { provider?: string; id_token?: string };
+    if (body.provider !== "apple.com" && body.provider !== "google.com") {
+      return err(400, "invalid_request", "provider is apple.com, google.com or email");
+    }
+    if (!body.id_token) return err(400, "invalid_request", "id_token is required");
+    if (mockDb.identityInUse) {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: "credential_in_use",
+          message: "That sign-in belongs to another account.",
+          details: { providers: mockDb.identityInUse },
+        },
+        { status: 409 },
+      );
+    }
+    if (!mockDb.identities.providers.includes(body.provider)) {
+      mockDb.identities.providers = [body.provider, ...mockDb.identities.providers];
+    }
+    return HttpResponse.json(identitiesJSON());
+  }),
+  http.delete(/\/v1\/account\/identities\/[^/]+$/, ({ request }) => {
+    const provider = decodeURIComponent(new URL(request.url).pathname.split("/").pop() ?? "");
+    if (provider === "email") return err(409, "email_not_removable", "Your email stays as your account's address.");
+    const ids = mockDb.identities;
+    const has = provider === "password" ? ids.password : ids.providers.includes(provider);
+    if (!has) return err(404, "not_linked", "That sign-in isn't on your account.");
+    if (provider !== "password" && ids.providers.length + mockDb.passkeys.length - 1 < 1) {
+      return err(409, "last_method", "That's your only way to sign in. Add another first.");
+    }
+    if (provider === "password") ids.password = false;
+    else ids.providers = ids.providers.filter((p) => p !== provider);
+    return HttpResponse.json(identitiesJSON());
+  }),
   http.post(`${GATEWAY}/v1/account/passkeys/register/options`, () => {
     if (mockDb.passkeyReauthNeeded) {
       return HttpResponse.json(

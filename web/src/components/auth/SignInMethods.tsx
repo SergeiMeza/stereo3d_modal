@@ -9,7 +9,13 @@
  * Apple address gets one account: the relay address never matches their
  * web email, so they link Apple here. If that Apple ID already has its own
  * account, the link is refused and the message says to sign in with it.
- * China mode shows the email only.
+ *
+ * EM-02 (owner 2026-11-06): the list, Add Apple and every Remove go
+ * through the gateway (/v1/account/identities), for every account and in
+ * China mode, where a method the app linked can be removed too. A sign-in
+ * that belongs to another account offers "Sign in to that account". Add
+ * Google still links through the Firebase SDK: the web has no Google ID
+ * token without it yet. Old sign-ins ask "Confirm it's you" (lib/reauth).
  */
 
 import { Mail } from "lucide-react";
@@ -17,14 +23,24 @@ import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
+import {
+  IdentityInUseError,
+  identitiesAtom,
+  linkAppleAtom,
+  loadIdentitiesAtom,
+  unlinkIdentityAtom,
+} from "@/components/auth/identityAtoms";
+import { useGateway } from "@/lib/api/useGateway";
 import { prepareApple } from "@/lib/appleJs";
 import { useAuth } from "@/lib/auth";
-import type { LinkableProvider } from "@/lib/auth";
+import { billingUidAtom } from "@/lib/billing";
 import {
   canRemove,
+  fromIdentities,
   METHOD_LABELS,
   signInMethods,
 } from "@/lib/signInMethods";
+import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import type { MethodId } from "@/lib/signInMethods";
 import { useRegion } from "@/lib/useRegion";
 
@@ -36,31 +52,60 @@ function MethodIcon({ id }: { id: MethodId }): JSX.Element {
 }
 
 export function SignInMethods(): JSX.Element | null {
-  const { user, appleEnabled, linkProvider, unlinkProvider, redirectError } =
-    useAuth();
+  const { user, appleEnabled, linkProvider, reloadUser, signInWithAppleToken, redirectError } = useAuth();
+  const gateway = useGateway();
   const cn = useRegion() === "cn";
   const [busy, setBusy] = useState<MethodId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** credential_in_use: "Sign in to that account" */
+  const [switchTo, setSwitchTo] = useState<(() => Promise<void>) | null>(null);
+  // ADR 0138: the gateway's list, for this account
+  const state = useAppAtomValue(identitiesAtom);
+  const uid = useAppAtomValue(billingUidAtom);
+  const identities = state.uid === uid ? state.data : null;
+  const loadIdentities = useAppSetAtom(loadIdentitiesAtom);
+  const linkApple = useAppSetAtom(linkAppleAtom);
+  const unlink = useAppSetAtom(unlinkIdentityAtom);
+  useEffect(() => {
+    if (user !== null && uid !== null) void loadIdentities(gateway);
+  }, [user, uid, loadIdentities, gateway]);
+  // until the gateway answers, the session's own list
+  const view = identities ? fromIdentities(identities) : user;
   // owner 2026-11-05: Apple's JS loads ahead of an Add Apple tap
-  const appleOffered = appleEnabled && !cn && user !== null && !user.providerIds.includes("apple.com");
+  const appleOffered = appleEnabled && !cn && view !== null && !view.providerIds.includes("apple.com");
   useEffect(() => {
     if (appleOffered) prepareApple();
   }, [appleOffered]);
-  if (user === null) return null;
+  if (user === null || view === null) return null;
 
-  const methods = signInMethods(user, { apple: appleEnabled && !cn, google: !cn });
-  const shown = cn ? methods.filter((m) => m.id === "email") : methods;
+  const methods = signInMethods(view, { apple: appleEnabled && !cn, google: !cn });
+  // China mode: no adding Apple or Google, but what the app linked shows
+  const shown = cn ? methods.filter((m) => m.id === "email" || m.linked) : methods;
+  const passkeys = identities?.passkeys ?? 0;
 
   async function run(id: MethodId, action: () => Promise<void>) {
     setBusy(id);
     setError(null);
+    setSwitchTo(null);
     try {
       await action();
     } catch (e) {
+      if (e instanceof IdentityInUseError && e.switchTo) {
+        const go = e.switchTo;
+        setSwitchTo(() => go);
+      }
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(null);
     }
+  }
+
+  function add(id: MethodId): Promise<void> {
+    if (id === "apple.com") {
+      return linkApple({ client: gateway, reloadUser, signInWithAppleToken }).then(() => undefined);
+    }
+    // Google: the Firebase SDK links it; the list is read again after
+    return linkProvider("google.com").then(() => loadIdentities(gateway));
   }
 
   const action =
@@ -71,7 +116,7 @@ export function SignInMethods(): JSX.Element | null {
       <p className="text-xs text-fg-muted">Sign in with</p>
       <ul className="divide-y divide-edge rounded-lg border border-edge">
         {shown.map((m) => {
-          const removable = !cn && canRemove(methods, m.id);
+          const removable = canRemove(methods, m.id, passkeys);
           return (
             <li
               key={m.id}
@@ -85,7 +130,7 @@ export function SignInMethods(): JSX.Element | null {
                 <p className="text-sm text-fg">{METHOD_LABELS[m.id]}</p>
                 {m.id === "email" && (
                   <p className="truncate text-xs text-fg-muted">
-                    Code to {user.email}
+                    Code to {view.email}
                   </p>
                 )}
               </div>
@@ -94,7 +139,9 @@ export function SignInMethods(): JSX.Element | null {
                   <button
                     type="button"
                     disabled={busy !== null}
-                    onClick={() => void run(m.id, () => unlinkProvider(m.id))}
+                    onClick={() =>
+                      void run(m.id, () => unlink({ client: gateway, provider: m.id, reloadUser }))
+                    }
                     className={`${action} text-fg-muted hover:border-destructive/60 hover:text-destructive`}
                   >
                     {busy === m.id ? "Removing…" : "Remove"}
@@ -106,9 +153,7 @@ export function SignInMethods(): JSX.Element | null {
                 <button
                   type="button"
                   disabled={busy !== null}
-                  onClick={() =>
-                    void run(m.id, () => linkProvider(m.id as LinkableProvider))
-                  }
+                  onClick={() => void run(m.id, () => add(m.id))}
                   className={`${action} text-fg hover:border-primary/60`}
                 >
                   {busy === m.id ? "Adding…" : "Add"}
@@ -119,9 +164,22 @@ export function SignInMethods(): JSX.Element | null {
         })}
       </ul>
       {shownError !== null && (
-        <p role="alert" className="text-xs text-destructive">
-          {shownError}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-destructive">
+          <span>{shownError}</span>
+          {switchTo !== null && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => {
+                const go = switchTo;
+                void run("apple.com", go);
+              }}
+              className={`${action} text-fg hover:border-primary/60`}
+            >
+              Sign in to that account
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

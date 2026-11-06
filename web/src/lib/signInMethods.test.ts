@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canRemove, signInMethods } from "@/lib/signInMethods";
+import { canRemove, fromIdentities, signInMethods } from "@/lib/signInMethods";
 
 const both = { apple: true, google: true };
 
@@ -45,5 +45,16 @@ describe("canRemove", () => {
     );
     expect(canRemove(appleAndGoogle, "apple.com")).toBe(true);
     expect(canRemove(appleAndGoogle, "google.com")).toBe(true);
+  });
+});
+
+describe("EM-02: the gateway's identities", () => {
+  it("maps providers and the password; passkeys keep the last method removable", () => {
+    const view = fromIdentities({ providers: ["apple.com", "email"], email: "", password: true });
+    expect(view).toEqual({ email: null, providerIds: ["apple.com", "password"] });
+    const m = signInMethods(view, { apple: true, google: true });
+    expect(canRemove(m, "apple.com")).toBe(false);
+    expect(canRemove(m, "apple.com", 1)).toBe(true);
+    expect(canRemove(m, "password")).toBe(true);
   });
 });

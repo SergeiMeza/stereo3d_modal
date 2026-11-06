@@ -47,12 +47,29 @@ export function signInMethods(
   return out;
 }
 
-/** A linked method may go unless it's the email or the last way in. */
-export function canRemove(methods: SignInMethod[], id: MethodId): boolean {
+/** A linked method may go unless it's the email or the last way in
+ * (passkeys count, EM-02; a password goes, the email code covers it). */
+export function canRemove(methods: SignInMethod[], id: MethodId, passkeys = 0): boolean {
   if (id === "email") return false;
   const m = methods.find((x) => x.id === id);
   if (!m?.linked) return false;
-  return methods.some((x) => x.linked && x.id !== id);
+  if (id === "password") return true;
+  return passkeys > 0 || methods.some((x) => x.linked && x.id !== id && x.id !== "password");
+}
+
+/** EM-02: GET /v1/account/identities as the user shape signInMethods reads. */
+export function fromIdentities(i: {
+  providers: string[];
+  email?: string;
+  password?: boolean;
+}): { email: string | null; providerIds: string[] } {
+  return {
+    email: i.email?.trim() ? i.email : null,
+    providerIds: [
+      ...i.providers.filter((p) => p === "apple.com" || p === "google.com"),
+      ...(i.password ? ["password"] : []),
+    ],
+  };
 }
 
 export const METHOD_LABELS: Record<MethodId, string> = {

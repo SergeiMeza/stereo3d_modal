@@ -325,6 +325,37 @@ describe("gateway auth provider (China mode)", () => {
     expect(firebaseCalls.count).toBe(0);
   });
 
+  it("sign-in methods come from the cn gateway; one the app linked can be removed (EM-02)", async () => {
+    mockDb.identities = { providers: ["apple.com", "email"], email: "dev@example.com", password: false };
+    const { AuthProvider, useAuth } = await import("@/lib/auth");
+    const { BillingProvider } = await import("@/lib/billing");
+    const { SignInMethods } = await import("@/components/auth/SignInMethods");
+    const { fireEvent, within } = await import("@testing-library/react");
+    let latest: AuthContextValue | null = null;
+    function Probe() {
+      latest = useAuth();
+      return null;
+    }
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <Probe />
+          <SignInMethods />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(latest?.ready).toBe(true));
+    await signInByCode(() => latest!, "dev@example.com");
+    const apple = await screen.findByTestId("method-apple.com");
+    // nothing to add in China mode, but the app's Apple shows and goes
+    expect(screen.queryByTestId("method-google.com")).toBeNull();
+    fireEvent.click(await within(apple).findByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(screen.queryByTestId("method-apple.com")).toBeNull());
+    const del = requestUrls.find((u) => u.includes("/v1/account/identities/apple.com"));
+    expect(new URL(del!).hostname.startsWith("cn.")).toBe(true);
+    expect(firebaseCalls.count).toBe(0);
+  });
+
   it("the sign-in screen hides Google and asks for no password", async () => {
     const { AuthProvider } = await import("@/lib/auth");
     const { default: SignInScreen } = await import(
