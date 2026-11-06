@@ -68,10 +68,12 @@ type ProPlanDef struct {
 	Intro         *ProIntro `firestore:"intro,omitempty" json:"intro"`
 	StripePriceID string    `firestore:"stripe_price_id" json:"-"`
 	LookupKey     string    `firestore:"lookup_key" json:"-"`
-	// CreditCents: the usage credit each month of the plan (PRO-01, from
-	// pro_credit_cents; 0 = none); CreditInterval is always month.
+	// CreditCents: the one-time usage credit on subscribing (owner
+	// 2026-11-07, from pro_credit_cents; 0 = none): CreditOnce true,
+	// CreditInterval "once".
 	CreditCents    int64  `firestore:"-" json:"credit_cents"`
 	CreditInterval string `firestore:"-" json:"credit_interval"`
+	CreditOnce     bool   `firestore:"-" json:"credit_once"`
 }
 
 // ProIntro: price_cents for each of the first cycles invoices.
@@ -94,17 +96,26 @@ func testProPlans() map[string]ProPlanDef {
 	}
 }
 
-// Pro's monthly usage credit (PRO-01..05, owner 2026-11-07), per what the
-// person holds: $20 a month on every paid Pro (weekly, monthly, yearly,
-// passes, the 3- and 6-month plans; a free trial counts, PRO-06), $10 on
-// Lifetime. Keys are free-preview allowance keys. TEST only until prod's
-// config sets pro_credit_cents.
+// Pro's usage credit, once (owner 2026-11-07, replacing the monthly
+// grant): $20 on every paid Pro, Lifetime too (a free trial counts,
+// PRO-06), granted once per account and once per store purchase, expiring
+// pro_credit_expiry_days after the grant. Keys are free-preview allowance
+// keys. TEST only until prod's config sets pro_credit_cents.
 func testProCredit() map[string]int64 {
 	return map[string]int64{"pro_weekly": 2000, "pro_monthly": 2000, "pro_yearly": 2000, "pro_3m": 2000, "pro_6m": 2000,
-		"pro_pass_3m": 2000, "pro_pass_6m": 2000, "pro_lifetime": 1000}
+		"pro_pass_3m": 2000, "pro_pass_6m": 2000, "pro_lifetime": 2000}
 }
 
-// ProCreditFor is the monthly Pro credit for what the person holds (0 =
+// ProCreditExpiryDays: how long the one-time Pro credit lasts (config
+// pro_credit_expiry_days, default 30).
+func (r *Rates) ProCreditExpiryDays() int {
+	if r.ProCreditExpiryDaysOverride > 0 {
+		return min(r.ProCreditExpiryDaysOverride, 366)
+	}
+	return 30
+}
+
+// ProCreditFor is the one-time Pro credit for what the person holds (0 =
 // none or off).
 func (r *Rates) ProCreditFor(key string) int64 {
 	return max(r.ProCreditCents[key], 0)
@@ -117,7 +128,7 @@ func (r *Rates) ProPlan(id string) (ProPlanDef, bool) {
 	}
 	p, ok := r.ProPlans[id]
 	if ok {
-		p.CreditCents, p.CreditInterval = r.ProCreditFor(id), "month"
+		p.CreditCents, p.CreditInterval, p.CreditOnce = r.ProCreditFor(id), "once", true
 	}
 	return p, ok
 }
@@ -525,16 +536,15 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 	out["pro_discount"] = map[string]any{"pct": r.TierPct(TierPro), "applies_to": "production", "tiered": true}
 	out["plans"] = plans
 	out["pro_plans"] = r.ProPlanList() // [{id, interval, price_cents, intro|null, credit_cents, credit_interval}]
-	// Pro's monthly usage credit by what is held, App Store products and
-	// Lifetime included (PRO-01..05): {pro_weekly: 2000, …, pro_lifetime:
-	// 1000}; {} when off. Paid Pro only; expires each month; no stacking
-	// with a Business or Studio plan's credit.
+	// Pro's usage credit, once (owner 2026-11-07): {cents: 2000, once,
+	// expires_days, paid_only, trial_counts, stacks_with_plan: false};
+	// cents_by_kind is what each Pro gets ({} and cents 0 when off).
 	proCredit := r.ProCreditCents
 	if proCredit == nil {
 		proCredit = map[string]int64{}
 	}
-	out["pro_credit"] = map[string]any{"cents": proCredit, "interval": "month", "rollover": false, "paid_only": true,
-		"trial_counts": true, "stacks_with_plan": false}
+	out["pro_credit"] = map[string]any{"cents": proCredit["pro_monthly"], "cents_by_kind": proCredit, "once": true,
+		"expires_days": r.ProCreditExpiryDays(), "rollover": false, "paid_only": true, "trial_counts": true, "stacks_with_plan": false}
 	out["free_previews"] = map[string]any{
 		"enabled":       r.FreePreviewsEnabled,
 		"allowances":    allow, // per period; intro = a non-subscriber's first project

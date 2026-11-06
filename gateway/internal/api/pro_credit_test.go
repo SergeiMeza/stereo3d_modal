@@ -86,36 +86,38 @@ func fresh(s *Service, uid string) *proCreditView {
 	return s.ensureProCredit(context.Background(), uid)
 }
 
-// PRO-01/03/04/06/08: App Store Monthly, Yearly and a free trial each get
-// $20 for the month they are in, counted from the original purchase's
-// anniversary, once; a cancelled plan keeps getting it to its period end.
-func TestProCreditAppStoreMonths(t *testing.T) {
+// One-time Pro credit (owner 2026-11-07): App Store Monthly, Yearly, a
+// free trial and a cancelled plan still in its period each get $20 once,
+// expiring 30 days after the grant; renewals never grant again.
+func TestProCreditOnceOnAppPro(t *testing.T) {
 	s, rc := proCreditService(t)
 	now := time.Now().UTC()
 	for _, tc := range []struct {
 		name, product, period string
 		original, expires     time.Time
 		extra                 map[string]any
-		month                 int
 	}{
-		{"monthly", "pro_subs_1m_v1", "normal", now.AddDate(0, 0, -40), now.AddDate(0, 0, 20), nil, 1},
-		{"yearly, month 4 of 12, never upfront", "pro_subs_1y_v1", "normal", now.AddDate(0, 0, -100), now.AddDate(0, 0, 265), nil, 3},
-		{"free trial", "pro_subs_1m_v1", "trial", now.AddDate(0, 0, -10), now.AddDate(0, 0, 80), nil, 0},
-		{"cancelled, period not over", "pro_subs_1m_v1", "normal", now.AddDate(0, 0, -10), now.AddDate(0, 0, 20), map[string]any{"unsubscribe_detected_at": ts(now.AddDate(0, 0, -2))}, 0},
+		{"monthly", "pro_subs_1m_v1", "normal", now.AddDate(0, 0, -40), now.AddDate(0, 0, 20), nil},
+		{"yearly", "pro_subs_1y_v1", "normal", now.AddDate(0, 0, -100), now.AddDate(0, 0, 265), nil},
+		{"free trial", "pro_subs_1m_v1", "trial", now.AddDate(0, 0, -10), now.AddDate(0, 0, 80), nil},
+		{"cancelled, period not over", "pro_subs_1m_v1", "normal", now.AddDate(0, 0, -10), now.AddDate(0, 0, 20), map[string]any{"unsubscribe_detected_at": ts(now.AddDate(0, 0, -2))}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			uid := "u" + store.NewID()
 			rc.set(uid, rcSub(tc.product, "app_store", tc.period, "tx_"+uid, tc.original, tc.expires, tc.extra))
 			v := fresh(s, uid)
-			if v == nil || !v.Granted || v.CentsPerMonth != 2000 || v.Source != "app_store" || v.Trial != (tc.period == "trial") {
+			if v == nil || !v.Granted || !v.grantedNow || v.Cents != 2000 || v.Source != "app_store" || v.Trial != (tc.period == "trial") ||
+				v.LeftCents != 2000 || v.GrantedAt == nil || v.ExpiresAt == nil {
 				t.Fatalf("view %+v", v)
 			}
-			if !v.PeriodStart.Equal(store.AddMonths(tc.original.Truncate(time.Second), tc.month)) {
-				t.Fatalf("month window %v (original %v)", v.PeriodStart, tc.original)
+			if d := v.ExpiresAt.Sub(*v.GrantedAt); d != 30*24*time.Hour {
+				t.Fatalf("expiry %v after the grant", d)
 			}
 			if got := planCredit(t, s, uid); got != 2000 {
 				t.Fatalf("credit %d", got)
 			}
+			// a renewal (later expiry, same purchase): nothing more
+			rc.set(uid, rcSub(tc.product, "app_store", "normal", "tx_"+uid, tc.original, tc.expires.AddDate(0, 1, 0), tc.extra))
 			if v2 := fresh(s, uid); v2 == nil || v2.grantedNow || !v2.Granted || planCredit(t, s, uid) != 2000 {
 				t.Fatalf("granted twice %+v %d", v2, planCredit(t, s, uid))
 			}
@@ -123,29 +125,52 @@ func TestProCreditAppStoreMonths(t *testing.T) {
 	}
 }
 
-// PRO-05: Lifetime gets $10 a month from its purchase's anniversary.
-// Weekly gets $20 per month window, however many weeks renew in it.
-func TestProCreditLifetimeAndWeekly(t *testing.T) {
+// Lifetime gets the same one-time $20 (the old $10 a month is gone); a
+// weekly renewing never grants again; re-subscribing on a new purchase
+// on the same account gets nothing (once per account).
+func TestProCreditLifetimeAndResubscribe(t *testing.T) {
 	s, rc := proCreditService(t)
 	now := time.Now().UTC()
 	life := "u" + store.NewID()
 	rc.set(life, rcSub("pro_subs_lifetime_v1", "app_store", "", "life_"+life, now.AddDate(0, 0, -70), time.Time{}, nil))
-	v := fresh(s, life)
-	if v == nil || !v.Granted || v.CentsPerMonth != 1000 || v.Kind != "pro_lifetime" || !v.PeriodStart.Equal(store.AddMonths(now.AddDate(0, 0, -70).Truncate(time.Second), 2)) {
+	if v := fresh(s, life); v == nil || !v.Granted || v.Cents != 2000 || v.Kind != "pro_lifetime" || planCredit(t, s, life) != 2000 {
 		t.Fatalf("lifetime %+v", v)
-	}
-	if planCredit(t, s, life) != 1000 {
-		t.Fatalf("lifetime credit %d", planCredit(t, s, life))
 	}
 	week := "u" + store.NewID()
 	rc.set(week, rcSub("pro_subs_1w_v1", "app_store", "normal", "wk_"+week, now.AddDate(0, 0, -9), now.AddDate(0, 0, 5), nil))
-	if v := fresh(s, week); v == nil || !v.Granted || v.Kind != "pro_weekly" || v.CentsPerMonth != 2000 {
+	if v := fresh(s, week); v == nil || !v.Granted || v.Kind != "pro_weekly" || v.Cents != 2000 {
 		t.Fatalf("weekly %+v", v)
 	}
-	// the next weekly renewal, same month window: nothing more
-	rc.set(week, rcSub("pro_subs_1w_v1", "app_store", "normal", "wk_"+week, now.AddDate(0, 0, -9), now.AddDate(0, 0, 12), nil))
+	rc.set(week, rcSub("pro_subs_1m_v1", "app_store", "normal", "new_"+week, now, now.AddDate(0, 1, 0), nil)) // a new purchase
 	if v := fresh(s, week); v == nil || v.grantedNow || planCredit(t, s, week) != 2000 {
-		t.Fatalf("weekly renewal granted again %+v", v)
+		t.Fatalf("re-subscribe granted again %+v", v)
+	}
+	if grants, _ := s.Store.ListProCreditGrants(context.Background(), week, 5); len(grants) != 1 {
+		t.Fatalf("grants %d", len(grants))
+	}
+}
+
+// The credit expires pro_credit_expiry_days after its grant (config, 30
+// by default) and is gone from the Billing credits then.
+func TestProCreditExpiry(t *testing.T) {
+	s, rc := proCreditService(t)
+	ctx := context.Background()
+	r := pricing.DefaultsFor("test")
+	r.ProCreditExpiryDaysOverride = 7
+	s.Pricing = pricing.NewStatic(r)
+	now := time.Now().UTC()
+	uid := "u" + store.NewID()
+	rc.set(uid, rcSub("pro_subs_1m_v1", "app_store", "normal", "e_"+uid, now.AddDate(0, 0, -1), now.AddDate(0, 0, 29), nil))
+	v := fresh(s, uid)
+	if v == nil || v.ExpiresAt.Sub(*v.GrantedAt) != 7*24*time.Hour {
+		t.Fatalf("view %+v", v)
+	}
+	b, _ := s.Store.GetBalance(ctx, uid)
+	if len(b.Credits(now.AddDate(0, 0, 6))) != 1 || len(b.Credits(now.AddDate(0, 0, 8))) != 0 || !b.PlanCreditDue(now.AddDate(0, 0, 8)) {
+		t.Fatal("expiry")
+	}
+	if pricing.DefaultsFor("test").ProCreditExpiryDays() != 30 {
+		t.Fatal("default 30 days")
 	}
 }
 
@@ -172,6 +197,10 @@ func TestProCreditOncePerPurchase(t *testing.T) {
 	if v := fresh(s, b); v == nil || v.grantedNow || v.Granted || planCredit(t, s, b) != 0 {
 		t.Fatalf("transfer granted again %+v %d", v, planCredit(t, s, b))
 	}
+	// the first account's credit is untouched by the transfer
+	if planCredit(t, s, a) != 2000 {
+		t.Fatalf("first account %d", planCredit(t, s, a))
+	}
 }
 
 // PRO-02: a promotional grant (gift, promo, admin) gets no credit.
@@ -187,9 +216,10 @@ func TestProCreditPaidOnly(t *testing.T) {
 	}
 }
 
-// PRO-07: a refund takes back only the unspent part of the month's
-// credit, never bills what was spent, and counts once; two refunded
-// purchases flag the account.
+// PRO-07: a refund takes back only the unspent part of the credit (never
+// another credit), never bills what was spent, and counts once; two
+// refunded purchases flag the account (the second earned no credit:
+// once per account).
 func TestProCreditRefund(t *testing.T) {
 	s, rc := proCreditService(t)
 	ctx := context.Background()
@@ -207,6 +237,14 @@ func TestProCreditRefund(t *testing.T) {
 	if before.PlanCreditCents() != 1300 {
 		t.Fatalf("after spending %d", before.PlanCreditCents())
 	}
+	a := &AdminUser{UID: "admin", Email: "owner@x", Method: "cli"}
+	if err := s.adminGrantCredit(ctx, a, uid, 500, "", "kept on refund"); err != nil {
+		t.Fatal(err)
+	}
+	before, _ = s.Store.GetBalance(ctx, uid)
+	if before.PlanCreditCents() != 1800 {
+		t.Fatalf("after spending %d", before.PlanCreditCents())
+	}
 	refunded := rcSub("pro_subs_1m_v1", "app_store", "normal", "r1_"+uid, now.AddDate(0, 0, -3), now.AddDate(0, 0, 27), map[string]any{"refunded_at": ts(now)})
 	delete(refunded["subscriber"].(map[string]any)["entitlements"].(map[string]any), "pro") // RevenueCat drops the entitlement
 	rc.set(uid, refunded)
@@ -214,7 +252,7 @@ func TestProCreditRefund(t *testing.T) {
 		t.Fatalf("still credited %+v", v)
 	}
 	after, _ := s.Store.GetBalance(ctx, uid)
-	if after.PlanCreditCents() != 0 || after.BalanceCents != before.BalanceCents-1300 {
+	if after.PlanCreditCents() != 500 || after.BalanceCents != before.BalanceCents-1300 {
 		t.Fatalf("refund took %d (balance %d → %d)", before.PlanCreditCents()-after.PlanCreditCents(), before.BalanceCents, after.BalanceCents)
 	}
 	c, _ := s.Store.GetCustomer(ctx, uid)
@@ -238,7 +276,7 @@ func TestProCreditRefund(t *testing.T) {
 	fresh(s, uid)
 	c, _ = s.Store.GetCustomer(ctx, uid)
 	adm := s.proCreditAdminJSON(ctx, uid, c)
-	if c.ProRefunds != 2 || !c.ProRefundFlag || adm["refund_flag"] != true || len(adm["grants"].([]*store.ProCreditGrant)) != 2 {
+	if c.ProRefunds != 2 || !c.ProRefundFlag || adm["refund_flag"] != true || len(adm["grants"].([]*store.ProCreditGrant)) != 1 {
 		t.Fatalf("flag %+v %v", c, adm)
 	}
 }
@@ -277,9 +315,17 @@ func TestProCreditPlansAndWebPro(t *testing.T) {
 	if planCredit(t, s, web) != 0 {
 		t.Fatalf("after the Stripe refund %d", planCredit(t, s, web))
 	}
-	// /v1/pricing: each plan's credit and the by-product table (Lifetime $10)
+	// a Business plan starting later: its credit replaces Pro's (only the
+	// highest plan's credit applies)
+	s.Store.BalanceTx(ctx, web, func(*store.Balance) ([]store.BalanceOp, error) {
+		return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: 40000, EntryID: "plancredit_in_w2", Ref: "sub_w2", ExpiresAt: &end}}, nil
+	})
+	if planCredit(t, s, web) != 40000 {
+		t.Fatalf("business over pro %d", planCredit(t, s, web))
+	}
+	// /v1/pricing: each plan's credit and the by-product table (Lifetime $20 too)
 	r := s.rates(ctx)
-	if r.ProCreditFor("pro_lifetime") != 1000 || r.ProCreditFor("pro_monthly") != 2000 || pricing.Defaults().ProCreditFor("pro_monthly") != 0 {
+	if r.ProCreditFor("pro_lifetime") != 2000 || r.ProCreditFor("pro_monthly") != 2000 || pricing.Defaults().ProCreditFor("pro_monthly") != 0 {
 		t.Fatal("credit config")
 	}
 }

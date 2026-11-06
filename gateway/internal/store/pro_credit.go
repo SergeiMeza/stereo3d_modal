@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -176,3 +177,10 @@ func (s *Store) NoteProRefund(ctx context.Context, uid, keyHash string) (bool, *
 	})
 	return isNew, c, err
 }
+
+// ProCreditOnceID is the one-time grant's id for a purchase: one per
+// original transaction, whichever account holds it.
+func ProCreditOnceID(keyHash string) string { return "once_" + keyHash }
+
+// IsProCreditOnce: a grant made by the one-time rule.
+func IsProCreditOnce(id string) bool { return strings.HasPrefix(id, "once_") }

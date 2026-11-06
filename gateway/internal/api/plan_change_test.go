@@ -265,7 +265,7 @@ func TestStartProPlan(t *testing.T) {
 	// /v1/pricing lists them
 	rates := s.rates(ctx)
 	if pl := rates.ProPlanList(); len(pl) != 3 || pl[0].PriceCents != 399 || pl[1].PriceCents != 499 || pl[2].PriceCents != 4999 ||
-		pl[0].Intro != nil || pl[2].Intro != nil || pl[0].CreditCents != 2000 || pl[2].CreditCents != 2000 || pl[1].CreditInterval != "month" {
+		pl[0].Intro != nil || pl[2].Intro != nil || pl[0].CreditCents != 2000 || pl[2].CreditCents != 2000 || pl[1].CreditInterval != "once" || !pl[1].CreditOnce {
 		t.Fatalf("pro plans %+v", pl)
 	}
 	// a running Pro plan: Pro prices, its own free previews

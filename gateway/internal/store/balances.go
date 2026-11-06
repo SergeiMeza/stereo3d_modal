@@ -330,8 +330,11 @@ type BalanceOp struct {
 	Auto          bool       // topup: an auto-reload
 	ExpiresAt     *time.Time // plan_credit: the period's end
 	// Additive (plan_credit): a grant beside the credit already there (an
-	// admin's usage credit), instead of replacing it like a new period's.
+	// admin's usage credit, Pro's one-time credit), instead of replacing it
+	// like a new period's. MatchRef (plan_credit_removal): only the items
+	// with this Ref.
 	Additive bool
+	MatchRef bool
 	Restore  []FifoUse // refund_to_balance: the items the run used
 	EntryID  string    // a fixed id (once per PaymentIntent)
 }
@@ -602,7 +605,7 @@ func (l *ledger) apply(op BalanceOp) error {
 		var amt int64
 		keep := b.Fifo[:0]
 		for _, it := range b.Fifo {
-			if it.PlanCredit {
+			if it.PlanCredit && (!op.MatchRef || it.Ref == op.Ref) {
 				free := min(it.spendable(), room)
 				room -= free
 				take := it.FrozenCents + free

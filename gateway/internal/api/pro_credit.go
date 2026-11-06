@@ -12,31 +12,27 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// Pro's monthly usage credit (owner 2026-11-07, PRO-01..11; pricing
-// config pro_credit_cents, TEST only until prod sets it):
+// Pro's usage credit, once (owner 2026-11-07; superseded the monthly
+// grant of PRO-01..05 the same day; pricing config pro_credit_cents, TEST
+// only until prod sets it):
 //
-//   - PRO-01/02: paid Pro gets plan credit every month on top of its
-//     discount: App Store, Mac App Store and RevenueCat Billing purchases
-//     (RevenueCat), and web Pro on our own Stripe (our plan record, never
-//     RevenueCat's promotional grant behind it). Gifts, promos and admin
-//     grants (promotional) get none.
-//   - PRO-03/04/05: each month runs from the purchase's anniversary (a
-//     subscription's original purchase) and its credit ends with it, no
-//     rollover; yearly gets it monthly, never upfront; Lifetime $10.
-//   - PRO-06: a free trial counts. A month is granted once per store
-//     purchase (its original transaction, else its original purchase
-//     time) whoever holds it, so a re-trial on the same purchase or a
-//     transfer to another account gets nothing twice.
-//   - PRO-07: a refund takes back the month's unspent credit (never what
-//     was spent) and counts on the customer; two or more flag it.
-//   - PRO-08: after a cancel the months keep coming to the paid period's end.
-//   - PRO-09: an anonymous holder's credit starts at sign-in, no back-pay
-//     (only the current month is ever granted).
-//   - PRO-10: a Business or Studio plan's credit wins; Pro adds nothing.
-//
-// Triggers: GET /v1/billing and GET /v1/pro (the person is there), the
-// RevenueCat webhook when configured, a web Pro invoice, and a sweep every
-// 10 minutes over accounts known to hold paid Pro (pro_credit_holders).
+//   - $20 when someone subscribes to Pro on the web, or the first time
+//     they're seen on the web (GET /v1/billing, GET /v1/pro at sign-in,
+//     the RevenueCat webhook) holding paid Pro from the apps. Lifetime
+//     too. A free trial counts (PRO-06); gifts, promos and admin grants
+//     (promotional) get nothing (PRO-02).
+//   - Once per account, ever (ledger entry procredit_once_<uid>; an
+//     account with an earlier monthly grant counts as granted), and once
+//     per store purchase (its original transaction: grant once_<hash>),
+//     so the same purchase can't grant on a second account. Renewals,
+//     re-subscribing and switching plans never grant again.
+//   - It expires pro_credit_expiry_days (30) after the grant and is never
+//     paid out. A refund takes back its unspent part (PRO-07); repeat
+//     refunders are flagged.
+//   - A Business or Studio plan's credit wins (PRO-10): no Pro credit
+//     while one is active, and a plan's grant replaces it.
+//   - Anonymous app holders get it at their first web sign-in; there is
+//     no back-pay.
 
 // proCreditSource is what earns this month's Pro credit.
 type proCreditSource struct {
@@ -87,19 +83,18 @@ func proMonth(anchor, now time.Time) (int, time.Time, time.Time) {
 	return k, store.AddMonths(anchor, k), store.AddMonths(anchor, k+1)
 }
 
-// proCreditView is GET /v1/billing's pro_credit.
+// proCreditView is GET /v1/billing's pro_credit: {cents, granted,
+// granted_at, expires_at, left_cents, source, trial, kind}.
 type proCreditView struct {
-	CentsPerMonth int64     `json:"cents_per_month"`
-	Kind          string    `json:"kind"`
-	Source        string    `json:"source"`
-	Trial         bool      `json:"trial"`
-	PeriodStart   time.Time `json:"period_start"`
-	PeriodEnd     time.Time `json:"period_end"`
-	// Granted: this month's credit is on this account (false when the
-	// purchase's month went to the account it was on before a transfer).
-	Granted   bool  `json:"granted"`
-	LeftCents int64 `json:"left_cents"`
-	// grantedNow: granted by this call (the sweep's count, tests).
+	Cents     int64      `json:"cents"`
+	Kind      string     `json:"kind"`
+	Source    string     `json:"source"`
+	Trial     bool       `json:"trial"`
+	Granted   bool       `json:"granted"` // false: the purchase's credit went to the account it was on before
+	GrantedAt *time.Time `json:"granted_at"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	LeftCents int64      `json:"left_cents"` // this credit's unspent part
+	// grantedNow: granted by this call (tests).
 	grantedNow bool
 }
 
@@ -115,8 +110,8 @@ func (s *Service) proRCStatus(ctx context.Context, uid string) *revenuecat.Statu
 	return &st
 }
 
-// ensureProCredit grants the current month's Pro credit when due (and
-// takes back refunded months first); nil when the account earns none.
+// ensureProCredit grants the one-time Pro credit when it's due (and takes
+// back refunded purchases' first); nil when the account earns none.
 func (s *Service) ensureProCredit(ctx context.Context, uid string) *proCreditView {
 	rates := s.rates(ctx)
 	if s.Store == nil || len(rates.ProCreditCents) == 0 || uid == "" {
@@ -135,20 +130,28 @@ func (s *Service) ensureProCredit(ctx context.Context, uid string) *proCreditVie
 		for _, key := range st.Refunded {
 			s.proCreditRefund(ctx, uid, key, "store refund")
 		}
-		if len(st.Refunded) > 0 {
-			cust, _ = s.Store.GetCustomer(ctx, uid)
+	}
+	// Once per account: an earlier grant (the monthly ones on TEST too)
+	// is the answer from now on.
+	if grants, err := s.Store.ListProCreditGrants(ctx, uid, 24); err == nil {
+		for _, g := range grants { // newest first
+			switch g.State {
+			case store.ProCreditGranted:
+				return s.proCreditViewOf(ctx, uid, g)
+			case store.ProCreditRemoved:
+				return nil // refunded: gone, and never granted again
+			}
 		}
 	}
 	src := s.proCreditSourceOf(ctx, cust, st, now)
 	if src == nil || (src.PaidUntil != nil && !now.Before(*src.PaidUntil)) {
-		s.Store.DropProCreditHolder(ctx, uid)
 		return nil
 	}
 	hash := store.ProKeyHash(src.Key)
 	if cust != nil {
 		for _, k := range cust.ProRefundedKeys {
 			if k == hash {
-				return nil // refunded: no more months from that purchase
+				return nil // a refunded purchase earns nothing
 			}
 		}
 	}
@@ -156,33 +159,53 @@ func (s *Service) ensureProCredit(ctx context.Context, uid string) *proCreditVie
 	if cents <= 0 {
 		return nil
 	}
-	k, from, to := proMonth(src.Anchor, now)
-	view := &proCreditView{CentsPerMonth: cents, Kind: src.Kind, Source: src.Source, Trial: src.PeriodType == "trial", PeriodStart: from, PeriodEnd: to}
-	g, err := s.Store.ClaimProCreditGrant(ctx, &store.ProCreditGrant{ID: store.ProCreditGrantID(hash, k), UID: uid, KeyHash: hash, Month: k,
-		PeriodStart: from, PeriodEnd: to, Cents: cents, Kind: src.Kind, Source: src.Source, PeriodType: src.PeriodType, GrantedAt: now})
+	exp := now.AddDate(0, 0, rates.ProCreditExpiryDays())
+	view := &proCreditView{Cents: cents, Kind: src.Kind, Source: src.Source, Trial: src.PeriodType == "trial"}
+	g, err := s.Store.ClaimProCreditGrant(ctx, &store.ProCreditGrant{ID: store.ProCreditOnceID(hash), UID: uid, KeyHash: hash,
+		PeriodStart: now, PeriodEnd: exp, Cents: cents, Kind: src.Kind, Source: src.Source, PeriodType: src.PeriodType, GrantedAt: now})
 	switch {
 	case errors.Is(err, store.ErrProCreditTaken):
-		slog.InfoContext(ctx, "pro credit: this month went to the account the purchase was on", "kind", src.Kind)
+		slog.InfoContext(ctx, "pro credit: this purchase's credit went to another account", "kind", src.Kind)
+		return view
 	case err != nil:
 		slog.WarnContext(ctx, "pro credit: claim failed", "err", err)
+		return view
 	case g.State == store.ProCreditGranting:
-		if s.grantProCreditEntry(ctx, uid, g) {
-			view.Granted, view.grantedNow = true, true
+		if !s.grantProCreditEntry(ctx, uid, g) {
+			return view
 		}
-	default:
-		view.Granted = g.State == store.ProCreditGranted
+		g.State = store.ProCreditGranted
+		v := s.proCreditViewOf(ctx, uid, g)
+		v.grantedNow = true
+		return v
 	}
-	s.Store.SetProCreditHolder(ctx, uid, src.Kind, to)
+	return s.proCreditViewOf(ctx, uid, g)
+}
+
+// proCreditViewOf is a grant as GET /v1/billing shows it.
+func (s *Service) proCreditViewOf(ctx context.Context, uid string, g *store.ProCreditGrant) *proCreditView {
+	at, end := g.GrantedAt, g.PeriodEnd
+	v := &proCreditView{Cents: g.Cents, Kind: g.Kind, Source: g.Source, Trial: g.PeriodType == "trial",
+		Granted: g.State == store.ProCreditGranted || g.State == store.ProCreditRemoved, GrantedAt: &at, ExpiresAt: &end}
 	if b, err := s.Store.GetBalance(ctx, uid); err == nil {
-		view.LeftCents = b.PlanCreditCents()
+		for _, it := range b.Fifo {
+			if it.PlanCredit && it.Ref == "pro:"+g.KeyHash && (it.ExpiresAt == nil || it.ExpiresAt.After(time.Now())) {
+				v.LeftCents += it.RemainingCents
+			}
+		}
 	}
-	return view
+	return v
 }
 
 // grantProCreditEntry writes a claimed month's ledger entry (once per
 // account: its entry id) and marks the grant.
 func (s *Service) grantProCreditEntry(ctx context.Context, uid string, g *store.ProCreditGrant) bool {
 	entry := "procredit_" + g.ID
+	note := fmt.Sprintf("Pro credit, month %d", g.Month+1)
+	once := store.IsProCreditOnce(g.ID)
+	if once {
+		entry, note = "procredit_once_"+uid, "Pro credit (once)" // one per account, ever (tx.Create on the entry)
+	}
 	done, err := s.Store.EntryExists(ctx, uid, entry)
 	if err != nil {
 		return false
@@ -191,7 +214,7 @@ func (s *Service) grantProCreditEntry(ctx context.Context, uid string, g *store.
 		end := g.PeriodEnd
 		_, fx, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
 			return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: g.Cents, EntryID: entry, Ref: "pro:" + g.KeyHash, ExpiresAt: &end,
-				Note: fmt.Sprintf("Pro credit, month %d", g.Month+1)}}, nil
+				Note: note, Additive: once}}, nil
 		})
 		if err != nil {
 			if done, _ := s.Store.EntryExists(ctx, uid, entry); !done {
@@ -206,7 +229,7 @@ func (s *Service) grantProCreditEntry(ctx context.Context, uid string, g *store.
 	if err := s.Store.MarkProCreditGrant(ctx, g.ID, store.ProCreditGranted, 0, time.Now().UTC()); err != nil {
 		slog.WarnContext(ctx, "pro credit: grant not marked", "err", err)
 	}
-	slog.InfoContext(ctx, "pro credit granted", "kind", g.Kind, "month", g.Month+1, "cents", g.Cents, "source", g.Source, "until", g.PeriodEnd)
+	slog.InfoContext(ctx, "pro credit granted", "kind", g.Kind, "once", once, "cents", g.Cents, "source", g.Source, "until", g.PeriodEnd)
 	return true
 }
 
@@ -231,12 +254,12 @@ func (s *Service) proCreditRefund(ctx context.Context, uid, key, why string) {
 			live = append(live, g)
 		}
 	}
-	if !found {
-		return // nothing was granted on it
-	}
+	// counted whether or not it earned credit (once per account: a second
+	// purchase earns none, and repeat refunders are still flagged)
+	_ = found
 	removed := int64(0)
 	if len(live) > 0 {
-		removed = s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "pro:"+hash, "", "Pro refunded ("+why+")", "procredit_refund_"+hash)
+		removed = s.removeProCredit(ctx, uid, hash, why)
 		for _, g := range live {
 			s.Store.MarkProCreditGrant(ctx, g.ID, store.ProCreditRemoved, removed, now)
 			removed = 0
@@ -253,27 +276,33 @@ func (s *Service) proCreditRefund(ctx context.Context, uid, key, why string) {
 	slog.InfoContext(ctx, "pro credit refund", "why", why, "new", isNew)
 }
 
-// proCreditSweep looks again at accounts known to hold paid Pro whose next
-// month has come (balance sweep, every 10 minutes).
-func (s *Service) proCreditSweep(ctx context.Context, now time.Time) int {
-	if len(s.rates(ctx).ProCreditCents) == 0 {
+// removeProCredit takes back a refunded purchase's unspent Pro credit and
+// only that (an admin's or a plan's credit stays).
+func (s *Service) removeProCredit(ctx context.Context, uid, hash, why string) int64 {
+	entry := "procredit_refund_" + hash
+	if done, err := s.Store.EntryExists(ctx, uid, entry); err == nil && done {
 		return 0
 	}
-	uids, err := s.Store.DueProCreditHolders(ctx, now, 50)
+	b, err := s.Store.GetBalance(ctx, uid)
+	if err != nil || !b.Exists() {
+		return 0
+	}
+	before := b.PlanCreditCents()
+	after, fx, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
+		return []store.BalanceOp{{Kind: store.EntryPlanCreditRemoval, Ref: "pro:" + hash, MatchRef: true,
+			Note: "Pro refunded (" + why + ")", EntryID: entry}}, nil
+	})
 	if err != nil {
+		slog.ErrorContext(ctx, "pro credit removal failed", "err", err)
 		return 0
 	}
-	n := 0
-	for _, uid := range uids {
-		if s.RevenueCat.Configured() {
-			s.RevenueCat.Forget(uid)
-		}
-		if v := s.ensureProCredit(ctx, uid); v != nil && v.grantedNow {
-			n++
-		}
-	}
-	return n
+	s.handleBalanceEffects(ctx, uid, fx)
+	return before - after.PlanCreditCents()
 }
+
+// proCreditSweep granted the monthly Pro credit; the one-time credit has
+// no months, so there is nothing to sweep (kept for the balance sweep).
+func (s *Service) proCreditSweep(context.Context, time.Time) int { return 0 }
 
 // proCreditAdminJSON is the account page's pro_credit.
 func (s *Service) proCreditAdminJSON(ctx context.Context, uid string, cust *store.Customer) map[string]any {

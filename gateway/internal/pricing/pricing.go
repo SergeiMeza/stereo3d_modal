@@ -267,11 +267,13 @@ type Rates struct {
 	// (batched, "after") or pre-charged off-session. false in every env
 	// (owner 2026-11-07, until BL-32 after the release): the card pays in
 	// the sheet before the run starts. Only an explicit true turns it on.
-	DeferredPaymentsEnabled bool           `firestore:"deferred_payments_enabled"`
-	FreePreviewsEnabled     bool           `firestore:"free_previews_enabled"`
-	FreePreviewsOverride    map[string]int `firestore:"free_previews"`
-	FreePreviewsPerDay      int            `firestore:"free_previews_per_day"`
-	FreePreviewUnitSeconds  float64        `firestore:"free_preview_unit_s"`
+	DeferredPaymentsEnabled bool `firestore:"deferred_payments_enabled"`
+	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
+	ProCreditExpiryDaysOverride int            `firestore:"pro_credit_expiry_days"`
+	FreePreviewsEnabled         bool           `firestore:"free_previews_enabled"`
+	FreePreviewsOverride        map[string]int `firestore:"free_previews"`
+	FreePreviewsPerDay          int            `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds      float64        `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
