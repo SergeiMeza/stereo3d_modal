@@ -746,10 +746,10 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
 - **HDR output** (owner 2026-11-05): automatic and free for everyone, no
   add-on and no price line (HDR output, below).
 - **Add-ons** on the base at the run's tier: Foveated +30%, Master bitrate
-  +100% (`bitrate: "master"`: 60–300 Mbit/s by size), Express +100%
-  (`express: true`, Lifelike; included in Business and Studio) (owner
-  2026-11-07, TEST's `testAddOnPct`; were +20% and +50%, still prod's
-  code defaults). Express
+  +100% (`bitrate: "master"`: 60–300 Mbit/s by size; owner 2026-11-07,
+  TEST's `testAddOnPct`, was +20% and still is in prod's code defaults),
+  Express +50% (`express: true`, Lifelike; included in Business and
+  Studio). Express
   sends `"priority": "express"` and `max_gpu_workers` 8
   (`lifelike_express_gpu_workers`) to the Lifelike service, which gives
   freed GPU slots to Express first; standard runs omit `priority` (the

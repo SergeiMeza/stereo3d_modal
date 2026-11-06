@@ -55,10 +55,12 @@ func TestTierPricing(t *testing.T) {
 		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 1280, "tier"},
 		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 300, "tier"},
 		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 2000, ""},
-		// add-ons on the base: 1600 + 480 (foveated 30%) + 1600 (master 100%) + 1600 (express 100%) = 5280 > $50 → bulk 10%
-		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 4752, "bulk"},
-		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 4800, ""},
-		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 4080, "tier"},
+		// add-ons on the base: 1600 + 480 (foveated 30%) + 1600 (master 100%) + 800 (express 50%) = 4480, not over $50
+		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 4480, ""},
+		{"express", with(min1, func(i *StepInputs) { i.Express = true }), 2400, ""},
+		{"master", with(min1, func(i *StepInputs) { i.Master = true }), 3200, ""},
+		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 4000, ""},
+		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 3400, "tier"},
 		// Express included for Business: 1280 + 30% foveated
 		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1664, "tier"},
 		// 6 min of 4K list = 9600 > 5000 → bulk 960 → 8640

@@ -163,10 +163,10 @@ func defaultAddOnPct() map[string]float64 {
 	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50}
 }
 
-// testAddOnPct: master bitrate and Express +100% each on TEST (owner
-// 2026-11-07; were 20% and 50%); foveated unchanged.
+// testAddOnPct: master bitrate +100% on TEST (owner 2026-11-07; was 20%);
+// Express stays +50% (owner 2026-11-07, after a +100% try), foveated +30%.
 func testAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 1.00, AddOnExpress: 1.00}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 1.00, AddOnExpress: 0.50}
 }
 
 // Stripe TEST prices (products "Spatial Video Studio Business plan" /
