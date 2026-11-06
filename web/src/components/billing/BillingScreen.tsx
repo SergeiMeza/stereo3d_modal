@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
+import { YourPrices } from "@/components/billing/YourPrices";
 import { PlanMoveOffers } from "@/components/billing/PlanMoveOffers";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
 import { openRefundSheetAtom, refundOptionsAtom } from "@/components/refunds/refundAtoms";
@@ -776,6 +777,10 @@ export function BillingScreen(): JSX.Element {
       </SectionBoundary>
       <SectionBoundary name="Plan">
         <PlanCard />
+      </SectionBoundary>
+      {/* owner 2026-11-07: the /pricing table for this plan, and the next one up */}
+      <SectionBoundary name="Your prices">
+        <YourPrices />
       </SectionBoundary>
       <SectionBoundary name="Restore Purchases">
         <RestorePurchases />

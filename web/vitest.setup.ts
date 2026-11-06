@@ -45,6 +45,7 @@ import { EMPTY_IDENTITIES, identitiesAtom } from "@/components/auth/identityStat
 import { EMPTY_EMAILS, emailsAtom } from "@/components/auth/emailAtoms";
 import { EMPTY_RESTORE_MOVE, restoreMoveAtom } from "@/components/billing/restoreMoveAtoms";
 import { EMPTY_PLAN_MOVES, planMovesAtom } from "@/components/billing/planMoveAtoms";
+import { yourPricesOpenAtom } from "@/components/billing/yourPricesAtoms";
 import { checkoutEmailAtom } from "@/components/pay/payAtoms";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
@@ -103,6 +104,7 @@ afterEach(() => {
   store.set(emailsAtom, EMPTY_EMAILS);
   store.set(restoreMoveAtom, EMPTY_RESTORE_MOVE);
   store.set(planMovesAtom, EMPTY_PLAN_MOVES);
+  store.set(yourPricesOpenAtom, true);
   store.set(checkoutEmailAtom, null);
 });
 
