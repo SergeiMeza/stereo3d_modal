@@ -121,7 +121,7 @@ func main() {
 			// waits up to an hour, takes the conversion over.
 			ctx, cancel := context.WithTimeout(r.Context(), appRequestBudget)
 			defer cancel()
-			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email, AuthTime: u.AuthTime})
+			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email, AuthTime: u.AuthTime, Anonymous: u.Anonymous})
 		}
 	}
 	// Admin console routes (spec M1): its own origin only, the svs_admin
@@ -331,7 +331,9 @@ func main() {
 	}))
 	mux.HandleFunc("POST /v1/account/delete", authed(api.Fresh(svc.HandleDeleteAccount)))
 	mux.HandleFunc("POST /v1/account/delete/cancel", authed(api.Fresh(svc.HandleCancelDeletion))) // the 48-hour wait
-	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview))                     // what a delete would do
+	// svs-backend's backstop for missed deletion callbacks (Google ID token, its service account only)
+	mux.HandleFunc("GET /v1/internal/account-deletions", svc.HandleInternalDeletions)
+	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview)) // what a delete would do
 	mux.HandleFunc("POST /v1/account/plan/cancel", authed(api.Fresh(svc.HandleAccountPlanCancel)))
 	mux.HandleFunc("POST /v1/account/plan/resume", authed(api.Fresh(svc.HandleAccountPlanResume)))
 	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25

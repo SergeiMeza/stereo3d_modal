@@ -274,36 +274,51 @@ func TestAdminDeletionActions(t *testing.T) {
 	}
 }
 
-// svs-backend's call (keep_sign_in with the proxy key) deletes at once as
-// before the wait: 200 {deleted: true, sign_in_removed: false}, no
-// schedule. keep_sign_in without the proxy key is ignored: it schedules.
+// svs-backend's call (keep_sign_in with the proxy key): at 0 h (prod
+// until its release) it deletes at once as before, 200 {deleted: true,
+// sign_in_removed: false}, no schedule; with the wait it schedules like
+// the web, keeping the sign-in for svs-backend. keep_sign_in without the
+// proxy key is ignored. An anonymous account never waits.
 func TestDeletionKeepSignInThroughProxy(t *testing.T) {
 	f := deletionFixture(t)
 	ctx := context.Background()
-	code, out := deleteAccount(f, `{"keep_sign_in":true}`, true)
+	code, out := deleteAccountNow(f, `{"keep_sign_in":true}`) // not through the proxy: ignored, and 0 h
+	if code != 200 || out["deleted"] != true {
+		t.Fatalf("0 h %d %v", code, out)
+	}
+	g := deletionFixture(t)
+	r := *g.s.Pricing.Rates(ctx)
+	r.AccountDeleteDelayHours = 0
+	g.s.Pricing = pricing.NewStatic(&r)
+	code, out = deleteAccount(g, `{"keep_sign_in":true}`, true)
 	if code != 200 || out["deleted"] != true || out["sign_in_removed"] != false || out["state"] != nil {
-		t.Fatalf("proxy %d %v", code, out)
+		t.Fatalf("proxy at 0 h %d %v", code, out)
 	}
-	if _, err := f.s.Store.GetAccountDeletion(ctx, f.uid); err != store.ErrNotFound {
-		t.Fatalf("a schedule row: %v", err)
+	if _, err := g.s.Store.GetAccountDeletion(ctx, g.uid); err != store.ErrNotFound {
+		t.Fatalf("a schedule row at 0 h: %v", err)
 	}
-	if c, _ := f.s.Store.GetCustomer(ctx, f.uid); !c.AccountDeleted {
-		t.Fatal("not deleted")
+	if _, err := g.s.Store.GetDeletionCallback(ctx, g.uid); err != store.ErrNotFound {
+		t.Fatal("a callback for a deletion svs-backend finishes itself")
 	}
 
-	g := deletionFixture(t)
-	code, out = deleteAccount(g, `{"keep_sign_in":true}`, false)
+	h := deletionFixture(t)
+	code, out = deleteAccount(h, `{"keep_sign_in":true}`, true)
 	if code != 202 || out["state"] != "pending_deletion" {
-		t.Fatalf("no proxy key %d %v", code, out)
+		t.Fatalf("proxy with the wait %d %v", code, out)
 	}
-	// a web schedule pending, then the app deletes through svs-backend: at
-	// once, and the row is closed
-	code, out = deleteAccount(g, `{"keep_sign_in":true}`, true)
-	if code != 200 || out["deleted"] != true {
-		t.Fatalf("proxy over a schedule %d %v", code, out)
-	}
-	if d, _ := g.s.Store.GetAccountDeletion(ctx, g.uid); d.State != store.DeletionStateDone || d.ProcessedBy != "request" {
+	if d, _ := h.s.Store.GetAccountDeletion(ctx, h.uid); !d.Pending() || !d.KeepSignIn || d.Source != "api" {
 		t.Fatalf("row %+v", d)
+	}
+	if code, again := deleteAccount(h, `{"keep_sign_in":true}`, true); code != 202 || again["delete_after"] != out["delete_after"] {
+		t.Fatalf("repeat %d %v", code, again)
+	}
+
+	anon := deletionFixture(t)
+	code, out = callAs(anon, func(w http.ResponseWriter, r *http.Request, _ *AuthedUser) {
+		anon.s.HandleDeleteAccount(w, r, &AuthedUser{UID: anon.uid, Anonymous: true})
+	}, http.MethodPost, `{"keep_sign_in":true}`, true)
+	if code != 200 || out["deleted"] != true {
+		t.Fatalf("anonymous %d %v", code, out)
 	}
 }
 

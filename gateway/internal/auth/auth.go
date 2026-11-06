@@ -18,6 +18,9 @@ type User struct {
 	UID      string
 	Email    string    // empty for anonymous users
 	AuthTime time.Time // when they last signed in (the token's auth_time)
+	// Anonymous: the token's sign-in provider is "anonymous" (no sign-in
+	// method on the account).
+	Anonymous bool
 }
 
 type Verifier struct {
@@ -47,7 +50,7 @@ func (v *Verifier) FromRequest(r *http.Request) (*User, error) {
 	if err != nil {
 		return nil, errUnauthorized
 	}
-	user := &User{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC()}
+	user := &User{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC(), Anonymous: token.Firebase.SignInProvider == "anonymous"}
 	if email, ok := token.Claims["email"].(string); ok {
 		user.Email = email
 	}

@@ -260,6 +260,9 @@ func (s *Service) casesSweep(ctx context.Context) map[string]int {
 	for k, v := range s.deletionScheduleSweep(ctx) { // the 48-hour wait, due ones
 		stats[k] += v
 	}
+	for k, v := range s.deletionCallbackSweep(ctx) { // svs-backend's completion callbacks
+		stats[k] += v
+	}
 	if n := s.finishPendingDeletions(ctx); n > 0 { // N8 step 3
 		stats["deletions_finished"] = n
 	}

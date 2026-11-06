@@ -567,7 +567,11 @@ type Customer struct {
 	// DeletionPending: the customer confirmed "Delete and refund"; the
 	// account is deleted once its closure case (DeletionCaseID) is decided
 	// (N8 step 3). New runs and top-ups are refused meanwhile.
-	DeletionPending     bool       `firestore:"deletion_pending,omitempty"`
+	DeletionPending bool `firestore:"deletion_pending,omitempty"`
+	// DeletionKeepSignIn / DeletionVia: a deletion waiting for its closure
+	// case was asked through svs-backend (keep the Firebase user, call
+	// back when it completes); DeletionRequestedAt is when it was asked.
+	DeletionKeepSignIn  bool       `firestore:"deletion_keep_sign_in,omitempty"`
 	DeletionCaseID      string     `firestore:"deletion_case_id,omitempty"`
 	DeletionRequestedAt *time.Time `firestore:"deletion_requested_at,omitempty"`
 	// DefaultFingerprint: the cached default card's fingerprint (block

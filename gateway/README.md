@@ -2061,7 +2061,27 @@ account grants nothing.
   client signs the person out. The cash-balance closure case opens at
   `delete_after`, not at the request. svs-backend's call
   (`keep_sign_in` with the proxy key) still deletes at once, `{deleted:
-  true, sign_in_removed: false}`, and closes a pending row.
+  true, sign_in_removed: false}`, and closes a pending row. With the
+  wait (agreed with svs-app 2026-11-07) it schedules like the web, the
+  row keeping `keep_sign_in`; an anonymous account (token sign-in
+  provider `anonymous`) never waits.
+  - **Completion hand-off**: when a `keep_sign_in` deletion completes
+    later (sweep, console "Process now", a decided refund case) the
+    Firebase user stays and the gateway POSTs
+    `<SVS_BACKEND_URL>/internal/v1/account/deletion-completed {uid,
+    environment, requested_at, completed_at, via: sweep|admin|refund_case}`
+    with a Google ID token from its own service account (audience =
+    `SVS_BACKEND_URL`). The outbox `account_deletion_callbacks_{env}/{uid}`
+    retries every cases sweep with backoff (1 min doubling to 1 h) until a
+    2xx, for 72 h, then `failed` and Slack `deletion_callback`.
+    `SVS_BACKEND_URL` defaults to svs-backend-test on test and is empty
+    on prod (callbacks wait) until the release sets
+    https://svs-backend-prod-151335782809.us-central1.run.app.
+  - **Backstop**: `GET /v1/internal/account-deletions?state=completed&since=<RFC 3339>`
+    → `[{uid, completed_at, via}]` (oldest first, ≤ 500), Google ID token
+    with an audience in `INTERNAL_OIDC_AUDIENCES` (the gateway's own
+    URLs) and an email in `SVS_BACKEND_SERVICE_ACCOUNTS`
+    (svs-backend@spatial-video-studio.iam.gserviceaccount.com).
   - `POST /v1/account/delete/cancel` (fresh sign-in): 200 `{state:
     "active", cancelled: true, pending_deletion: false, cancelled_at}`; 409
     `not_pending_deletion`.

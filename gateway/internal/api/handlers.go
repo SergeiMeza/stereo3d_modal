@@ -1046,6 +1046,9 @@ type AuthedUser struct {
 	UID      string
 	Email    string
 	AuthTime time.Time // the ID token's auth_time (zero when unknown)
+	// Anonymous: signed in anonymously (no sign-in method); its deletion
+	// never waits (owner 2026-11-07).
+	Anonymous bool
 }
 
 func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id string) (*store.Conversion, error) {

@@ -121,7 +121,7 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	_, _, viaProxy := httpx.TrustedClientIP(ctx)
 	keepSignIn := body.KeepSignIn && viaProxy
 	o := deletionOpts{BalanceConfirmed: body.BalanceConfirmed, KeepSignIn: keepSignIn, Pay: payContextOf(r), By: "request"}
-	if !keepSignIn {
+	if !user.Anonymous { // an anonymous account (no sign-in method) never waits
 		o.Delay = s.accountDeleteDelay(ctx)
 	}
 	if o.Delay > 0 {
@@ -155,6 +155,8 @@ type deletionOpts struct {
 	Email  string // the account's address for the schedule's mails
 	Source string
 	By     string // request | sweep | admin:<who>, on the schedule row
+	// RequestedAt: when the person asked (a scheduled deletion's request).
+	RequestedAt *time.Time
 }
 
 // runDeletion is the account deletion (unchanged since 2026-11-06, now
@@ -277,8 +279,13 @@ func (s *Service) runDeletion(ctx context.Context, uid string, o deletionOpts) (
 			return 0, nil, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again")
 		}
 		now := time.Now().UTC()
+		requested := now
+		if o.RequestedAt != nil {
+			requested = *o.RequestedAt
+		}
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
-			c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &now
+			c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &requested
+			c.DeletionKeepSignIn = o.KeepSignIn // svs-backend's: call back when the case completes it
 			return nil
 		}); err != nil {
 			return 0, nil, err
@@ -453,8 +460,15 @@ func (s *Service) finishPendingDeletions(ctx context.Context) int {
 			slog.WarnContext(ctx, "pending deletion waits: the plan renews again", "uid", uid)
 			continue
 		}
-		if s.closureDecided(ctx, c.DeletionCaseID) && s.finishAccountDeletion(ctx, uid) == nil {
+		if s.closureDecided(ctx, c.DeletionCaseID) && s.finishAccountDeletionKeeping(ctx, uid, c.DeletionKeepSignIn) == nil {
 			slog.InfoContext(ctx, "account deleted after its closure case", "uid", uid, "case_id", c.DeletionCaseID)
+			if c.DeletionKeepSignIn { // asked through svs-backend: its cleanup starts now
+				requested := time.Now().UTC()
+				if c.DeletionRequestedAt != nil {
+					requested = *c.DeletionRequestedAt
+				}
+				s.deletionCompleted(ctx, uid, requested, viaRefundCase)
+			}
 			n++
 		}
 	}

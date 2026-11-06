@@ -87,6 +87,16 @@ type Config struct {
 	OwnerAlertEmail string
 	// SiteURL is the web app's origin, for links in customer mails.
 	SiteURL string
+
+	// The app-path deletion hand-off (agreed with svs-app 2026-11-07):
+	// SVSBackendURL receives POST /internal/v1/account/deletion-completed
+	// with a Google ID token from the gateway's service account (audience
+	// = this URL; "" = callbacks wait in the outbox). The backstop read
+	// accepts Google ID tokens for InternalOIDCAudiences from
+	// SVSBackendServiceAccounts only.
+	SVSBackendURL             string
+	SVSBackendServiceAccounts []string
+	InternalOIDCAudiences     []string
 	// AdminOrigins: the admin console's origins (M1), the only ones
 	// /v1/admin/* answers in a browser (ADMIN_ORIGINS; test also allows
 	// a local console).
@@ -155,6 +165,12 @@ func Load() (*Config, error) {
 		StripePMCWeb:     getenv("STRIPE_PMC_WEB", ""),
 		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
 	}
+	c.SVSBackendURL = strings.TrimRight(getenv("SVS_BACKEND_URL", map[string]string{
+		"test": "https://svs-backend-test-151335782809.us-central1.run.app"}[env]), "/")
+	c.SVSBackendServiceAccounts = splitList(getenv("SVS_BACKEND_SERVICE_ACCOUNTS", "svs-backend@spatial-video-studio.iam.gserviceaccount.com"))
+	c.InternalOIDCAudiences = splitList(getenv("INTERNAL_OIDC_AUDIENCES", map[string]string{
+		"test": "https://stereo3d-gateway-test-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-test-151335782809.us-central1.run.app",
+		"prod": "https://stereo3d-gateway-prod-151335782809.us-central1.run.app"}[env]))
 	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {
 		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
 			c.FileKeepingTestAccounts = append(c.FileKeepingTestAccounts, e)
@@ -292,4 +308,15 @@ func (c *Config) AdminOrigin() string {
 		return c.AdminOrigins[0]
 	}
 	return "https://admin.stereo3d.studio"
+}
+
+// splitList is a comma list, trimmed, empties dropped.
+func splitList(v string) []string {
+	var out []string
+	for _, e := range strings.Split(v, ",") {
+		if e = strings.TrimSpace(e); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }

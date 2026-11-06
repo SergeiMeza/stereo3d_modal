@@ -42,6 +42,10 @@ type AccountDeletion struct {
 	BalanceConfirmed bool      `firestore:"balance_confirmed"` // "Delete and refund" said yes to
 	Email            string    `firestore:"email,omitempty"`   // for the mails, the account's own address
 	Source           string    `firestore:"source,omitempty"`  // web | api
+	// KeepSignIn: asked through svs-backend (the app): the Firebase user
+	// stays for svs-backend's own cleanup, which the completion callback
+	// starts.
+	KeepSignIn bool `firestore:"keep_sign_in,omitempty"`
 	// Blocked: the sweep found something in the way at delete_after (a
 	// plan renewing again, a run going, dues it couldn't collect); the row
 	// stays pending, flagged for the console, and is tried again at

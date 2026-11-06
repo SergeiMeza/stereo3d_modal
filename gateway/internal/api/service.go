@@ -84,6 +84,15 @@ type Service struct {
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
 
+	// DeletionCallbackPost sends a deletion completion to svs-backend
+	// (status code); nil = a Google ID token from the gateway's own
+	// service account, audience = the URL's origin.
+	DeletionCallbackPost func(ctx context.Context, url string, body []byte) (int, error)
+	// InternalCaller checks a Google ID token on an internal route and
+	// answers its service account; nil = idtoken.Validate against
+	// Cfg.InternalOIDCAudiences.
+	InternalCaller func(ctx context.Context, token string) (string, error)
+
 	// SignInLookup reads how an account signs in (admin account view,
 	// BL-29); nil = Auth.SignInOf.
 	SignInLookup func(ctx context.Context, uid string) (*auth.SignInInfo, error)

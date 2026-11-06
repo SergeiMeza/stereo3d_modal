@@ -49,7 +49,7 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 		email = cust.Email // the account's own address
 	}
 	d, created, err := s.Store.ScheduleAccountDeletion(ctx, &store.AccountDeletion{UID: uid, RequestedAt: now,
-		DeleteAfter: now.Add(o.Delay), BalanceConfirmed: o.BalanceConfirmed, Email: email, Source: o.Source})
+		DeleteAfter: now.Add(o.Delay), BalanceConfirmed: o.BalanceConfirmed, Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -188,7 +188,9 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 	if err != nil {
 		return "", err
 	}
-	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, By: by})
+	requested := d.RequestedAt
+	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, KeepSignIn: d.KeepSignIn, By: by,
+		RequestedAt: &requested})
 	if err == nil {
 		outcome := store.DeletionOutcomeDeleted
 		if status == http.StatusAccepted {
@@ -196,6 +198,13 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 		}
 		if ferr := s.Store.FinishAccountDeletionRow(ctx, uid, by, outcome, time.Now().UTC()); ferr != nil {
 			slog.WarnContext(ctx, "deletion row not marked", "err", ferr)
+		}
+		if d.KeepSignIn && outcome == store.DeletionOutcomeDeleted { // the refund case's completion calls back itself
+			via := viaSweep
+			if by != "sweep" {
+				via = viaAdmin
+			}
+			s.deletionCompleted(ctx, uid, d.RequestedAt, via)
 		}
 		slog.InfoContext(ctx, "scheduled deletion processed", "uid", uid, "outcome", outcome, "by", by)
 		return outcome, nil
