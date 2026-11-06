@@ -55,6 +55,7 @@ func (s *Service) HandleRevenueCatWebhook(w http.ResponseWriter, r *http.Request
 			continue
 		}
 		s.noteProSeen(ctx, uid, st.Pro && st.Tier == "")
+		s.ensureProCredit(ctx, uid) // a purchase, renewal, refund or transfer: this month's Pro credit
 		refreshed++
 	}
 	slog.InfoContext(ctx, "revenuecat event", "type", e.Type, "store", e.Store, "environment", e.Environment,

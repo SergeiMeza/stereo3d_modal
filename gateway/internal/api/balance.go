@@ -930,6 +930,9 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 		if n := s.planMonthlySweep(ctx, now); n > 0 {
 			stats["plan_months_granted"] = n
 		}
+		if n := s.proCreditSweep(ctx, now); n > 0 {
+			stats["pro_credit_granted"] = n
+		}
 		if n := s.appProReminderSweep(ctx, now); n > 0 {
 			stats["app_pro_reminders"] = n
 		}

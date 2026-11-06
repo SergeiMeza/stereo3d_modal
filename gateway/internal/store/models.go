@@ -554,6 +554,11 @@ type Customer struct {
 	// /v1/account/delete. The record stays whole (soft delete); new paid
 	// work is refused.
 	AccountDeleted bool `firestore:"account_deleted,omitempty"`
+	// Pro credit refunds (PRO-07): the refunded purchases' key hashes,
+	// their count, and the repeat-refunder flag (two or more).
+	ProRefundedKeys []string `firestore:"pro_refunded_keys,omitempty"`
+	ProRefunds      int      `firestore:"pro_refunds,omitempty"`
+	ProRefundFlag   bool     `firestore:"pro_refund_flag,omitempty"`
 	// PlanMovedTo: support moved this account's plan to another (RP-05).
 	PlanMovedTo  string     `firestore:"plan_moved_to,omitempty"`
 	PlanMovedSub string     `firestore:"plan_moved_sub,omitempty"` // the moved subscription (still on this customer)

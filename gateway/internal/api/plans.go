@@ -293,6 +293,9 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	_, periodEnd := sub.Period()
 	s.grantPlanEntitlements(ctx, uid, tier, inv.ID, periodEnd) // the app's entitlements; never blocks the credit
+	if tier == pricing.TierPro {
+		defer s.ensureProCredit(ctx, uid) // web Pro: its monthly credit from the plan's anniversary (PRO-01)
+	}
 	def, ok := s.rates(ctx).Plan(tier)
 	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID {

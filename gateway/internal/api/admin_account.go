@@ -37,6 +37,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		"owed_cents": s.owedCents(ctx, uid),
 		"balance":    s.balanceSummary(ctx, uid, nil),
 		"plan":       s.planJSON(ctx, uid),
+		"pro_credit": s.proCreditAdminJSON(ctx, uid, cust), // grants, refunds, refund_flag (PRO-07)
 	}
 	if recs := s.promoGrantsJSON(ctx, uid); len(recs) > 0 {
 		out["promo_regrants"] = recs

@@ -255,11 +255,14 @@ type Rates struct {
 	Plans              map[string]PlanDef          `firestore:"plans"`
 	// ProPlans: web Pro on our own Stripe (owner 2026-11-04), by plan id
 	// (pro_weekly | pro_monthly | pro_yearly); behind PlansEnabled.
-	ProPlans               map[string]ProPlanDef `firestore:"pro_plans"`
-	FreePreviewsEnabled    bool                  `firestore:"free_previews_enabled"`
-	FreePreviewsOverride   map[string]int        `firestore:"free_previews"`
-	FreePreviewsPerDay     int                   `firestore:"free_previews_per_day"`
-	FreePreviewUnitSeconds float64               `firestore:"free_preview_unit_s"`
+	ProPlans map[string]ProPlanDef `firestore:"pro_plans"`
+	// ProCreditCents: Pro's monthly usage credit by allowance key
+	// (pro_weekly … pro_lifetime; tiers.go testProCredit); empty = off.
+	ProCreditCents         map[string]int64 `firestore:"pro_credit_cents"`
+	FreePreviewsEnabled    bool             `firestore:"free_previews_enabled"`
+	FreePreviewsOverride   map[string]int   `firestore:"free_previews"`
+	FreePreviewsPerDay     int              `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds float64          `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held

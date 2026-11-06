@@ -151,3 +151,30 @@ func TestPromotionalGrants(t *testing.T) {
 		t.Fatal("public keys can't grant")
 	}
 }
+
+// The App Store product ids name their length (pro_subs_1w_v1): the free
+// previews and the Pro credit read them (a weekly holder had Monthly's 20).
+func TestAllowanceAndCreditKind(t *testing.T) {
+	exp := time.Now().Add(time.Hour)
+	for product, want := range map[string][2]string{
+		"pro_subs_1w_v1":       {"pro_weekly", "pro_weekly"},
+		"pro_subs_1m_v1":       {"pro_monthly", "pro_monthly"},
+		"pro_subs_1y_v1":       {"pro_yearly", "pro_yearly"},
+		"pro_subs_3m_v1":       {"pro_monthly", "pro_3m"},
+		"pro_subs_6m_v1":       {"pro_monthly", "pro_6m"},
+		"pro_pass_3m_v1":       {"pro_pass_3m", "pro_pass_3m"},
+		"web_pro_subs_1w_v1":   {"pro_weekly", "pro_weekly"},
+		"pro_subs_lifetime_v1": {"pro_lifetime", "pro_lifetime"},
+	} {
+		st := Status{Pro: true, Via: product, ExpiresAt: &exp}
+		if product == "pro_subs_lifetime_v1" {
+			st.ExpiresAt = nil
+		}
+		if got := st.AllowanceKey(); got != want[0] {
+			t.Errorf("%s allowance %s, want %s", product, got, want[0])
+		}
+		if got := st.CreditKind(); got != want[1] {
+			t.Errorf("%s credit %s, want %s", product, got, want[1])
+		}
+	}
+}

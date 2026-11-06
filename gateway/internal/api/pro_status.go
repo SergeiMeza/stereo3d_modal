@@ -103,6 +103,9 @@ func (s *Service) HandleProStatus(w http.ResponseWriter, r *http.Request, u *Aut
 		slog.WarnContext(r.Context(), "pro status unknown", "err", err)
 	} else {
 		s.noteProSeen(r.Context(), u.UID, st.Pro && st.Tier == "") // a start of Pro (plans count at checkout)
+		if st.Pro {
+			s.ensureProCredit(r.Context(), u.UID) // PRO-09: from sign-in on
+		}
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, s.withWebPlan(r.Context(), u.UID, s.withSource(r.Context(), u.UID, s.withFreePreviews(r.Context(), proStatusOf(st, err), st.AllowanceKey()), st, err)))

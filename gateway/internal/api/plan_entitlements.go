@@ -123,6 +123,9 @@ func (s *Service) revokePlanEntitlement(ctx context.Context, uid, reason string)
 // revokeRefundedPlan: a refunded plan invoice's grants (the plan's
 // entitlement and its pro) go; every other promotional grant comes back.
 func (s *Service) revokeRefundedPlan(ctx context.Context, uid, invoiceID string) {
+	if c, err := s.Store.GetCustomer(ctx, uid); err == nil && c.Plan != nil && c.Plan.Tier == pricing.TierPro && c.Plan.SubscriptionID != "" {
+		s.proCreditRefund(ctx, uid, "stripe:"+c.Plan.SubscriptionID, "Stripe refund") // PRO-07
+	}
 	s.promoRevokeOurs(ctx, uid, "refund:"+invoiceID, "refund on "+invoiceID, true)
 }
 

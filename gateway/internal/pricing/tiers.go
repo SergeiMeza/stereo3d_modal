@@ -68,6 +68,10 @@ type ProPlanDef struct {
 	Intro         *ProIntro `firestore:"intro,omitempty" json:"intro"`
 	StripePriceID string    `firestore:"stripe_price_id" json:"-"`
 	LookupKey     string    `firestore:"lookup_key" json:"-"`
+	// CreditCents: the usage credit each month of the plan (PRO-01, from
+	// pro_credit_cents; 0 = none); CreditInterval is always month.
+	CreditCents    int64  `firestore:"-" json:"credit_cents"`
+	CreditInterval string `firestore:"-" json:"credit_interval"`
 }
 
 // ProIntro: price_cents for each of the first cycles invoices.
@@ -77,17 +81,33 @@ type ProIntro struct {
 	CouponID   string `firestore:"coupon_id" json:"-"`
 }
 
-// Stripe TEST product "Spatial Video Studio Pro" (prod_VZ4jvPAbtWTl2r) and
-// coupons svs_pro_weekly_intro / svs_pro_yearly_intro, made 2026-11-04.
+// Stripe TEST product "Spatial Video Studio Pro" (prod_VZ4jvPAbtWTl2r).
+// PRO-11 (owner 2026-11-07): the App Store's prices, $3.99 a week, $4.99 a
+// month, $49.99 a year (TEST prices made 2026-11-07, the lookup keys moved
+// to them); no intro offers (the app's are off; its free trial has no web
+// counterpart). The 2026-11-04 prices and intro coupons stay in Stripe.
 func testProPlans() map[string]ProPlanDef {
 	return map[string]ProPlanDef{
-		"pro_weekly": {ID: "pro_weekly", Interval: "week", PriceCents: 599, StripePriceID: "price_1UXwaTAVV5NpxADIYIOw5hyj",
-			LookupKey: "svs_web_pro_weekly", Intro: &ProIntro{PriceCents: 399, Cycles: 4, CouponID: "svs_pro_weekly_intro"}},
-		"pro_monthly": {ID: "pro_monthly", Interval: "month", PriceCents: 899, StripePriceID: "price_1UXwaUAVV5NpxADIQxAtOght",
-			LookupKey: "svs_web_pro_monthly"},
-		"pro_yearly": {ID: "pro_yearly", Interval: "year", PriceCents: 7999, StripePriceID: "price_1UXwaUAVV5NpxADIAknDdAHl",
-			LookupKey: "svs_web_pro_yearly", Intro: &ProIntro{PriceCents: 4799, Cycles: 1, CouponID: "svs_pro_yearly_intro"}},
+		"pro_weekly":  {ID: "pro_weekly", Interval: "week", PriceCents: 399, StripePriceID: "price_1UYsNBAVV5NpxADI1ZH5UdIt", LookupKey: "svs_web_pro_weekly"},
+		"pro_monthly": {ID: "pro_monthly", Interval: "month", PriceCents: 499, StripePriceID: "price_1UYsNCAVV5NpxADIpkEBpPGh", LookupKey: "svs_web_pro_monthly"},
+		"pro_yearly":  {ID: "pro_yearly", Interval: "year", PriceCents: 4999, StripePriceID: "price_1UYsNDAVV5NpxADIZ6B59Yq1", LookupKey: "svs_web_pro_yearly"},
 	}
+}
+
+// Pro's monthly usage credit (PRO-01..05, owner 2026-11-07), per what the
+// person holds: $20 a month on every paid Pro (weekly, monthly, yearly,
+// passes, the 3- and 6-month plans; a free trial counts, PRO-06), $10 on
+// Lifetime. Keys are free-preview allowance keys. TEST only until prod's
+// config sets pro_credit_cents.
+func testProCredit() map[string]int64 {
+	return map[string]int64{"pro_weekly": 2000, "pro_monthly": 2000, "pro_yearly": 2000, "pro_3m": 2000, "pro_6m": 2000,
+		"pro_pass_3m": 2000, "pro_pass_6m": 2000, "pro_lifetime": 1000}
+}
+
+// ProCreditFor is the monthly Pro credit for what the person holds (0 =
+// none or off).
+func (r *Rates) ProCreditFor(key string) int64 {
+	return max(r.ProCreditCents[key], 0)
 }
 
 // ProPlan is a web Pro plan by id.
@@ -96,6 +116,9 @@ func (r *Rates) ProPlan(id string) (ProPlanDef, bool) {
 		return ProPlanDef{}, false
 	}
 	p, ok := r.ProPlans[id]
+	if ok {
+		p.CreditCents, p.CreditInterval = r.ProCreditFor(id), "month"
+	}
 	return p, ok
 }
 
@@ -173,6 +196,7 @@ func applyTestTierDefaults(r *Rates) {
 	r.PlansEnabled = true
 	r.Plans = testPlans()
 	r.ProPlans = testProPlans()
+	r.ProCreditCents = testProCredit()
 	r.RateVersion = "2026-11-03.tiers-test"
 }
 
@@ -489,7 +513,17 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		"stacks_with_tier": false, "rule": "a run gets the bigger of bulk and its tier price, never both"}
 	out["pro_discount"] = map[string]any{"pct": r.TierPct(TierPro), "applies_to": "production", "tiered": true}
 	out["plans"] = plans
-	out["pro_plans"] = r.ProPlanList() // [{id, interval, price_cents, intro{price_cents, cycles}|null}]
+	out["pro_plans"] = r.ProPlanList() // [{id, interval, price_cents, intro|null, credit_cents, credit_interval}]
+	// Pro's monthly usage credit by what is held, App Store products and
+	// Lifetime included (PRO-01..05): {pro_weekly: 2000, …, pro_lifetime:
+	// 1000}; {} when off. Paid Pro only; expires each month; no stacking
+	// with a Business or Studio plan's credit.
+	proCredit := r.ProCreditCents
+	if proCredit == nil {
+		proCredit = map[string]int64{}
+	}
+	out["pro_credit"] = map[string]any{"cents": proCredit, "interval": "month", "rollover": false, "paid_only": true,
+		"trial_counts": true, "stacks_with_plan": false}
 	out["free_previews"] = map[string]any{
 		"enabled":       r.FreePreviewsEnabled,
 		"allowances":    allow, // per period; intro = a non-subscriber's first project

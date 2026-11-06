@@ -237,8 +237,9 @@ func TestPlanChangeRules(t *testing.T) {
 	}
 }
 
-// Pro on our Stripe: Checkout with the intro coupon once per account; the
-// paid invoice makes the plan read as Pro with its own free previews.
+// Pro on our Stripe: Checkout at the App Store's prices with no intro
+// (PRO-11); the paid invoice makes the plan read as Pro with its own free
+// previews; /v1/pricing lists each plan's monthly credit.
 func TestStartProPlan(t *testing.T) {
 	s, fake := e0Service(t)
 	ctx := context.Background()
@@ -252,8 +253,8 @@ func TestStartProPlan(t *testing.T) {
 		t.Fatalf("start %d %v", code, out)
 	}
 	form := fake.sessionForms[0]
-	if form["discounts[0][coupon]"] != "svs_pro_weekly_intro" || form["subscription_data[metadata][plan]"] != "pro" ||
-		form["subscription_data[metadata][plan_id]"] != "pro_weekly" || form["line_items[0][price]"] != "price_1UXwaTAVV5NpxADIYIOw5hyj" {
+	if form["discounts[0][coupon]"] != "" || form["subscription_data[metadata][plan]"] != "pro" ||
+		form["subscription_data[metadata][plan_id]"] != "pro_weekly" || form["line_items[0][price]"] != "price_1UYsNBAVV5NpxADI1ZH5UdIt" {
 		t.Fatalf("session %v", form)
 	}
 	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.ProIntroUsed = true; return nil })
@@ -263,7 +264,8 @@ func TestStartProPlan(t *testing.T) {
 	}
 	// /v1/pricing lists them
 	rates := s.rates(ctx)
-	if pl := rates.ProPlanList(); len(pl) != 3 || pl[0].Intro.PriceCents != 399 || pl[0].Intro.Cycles != 4 || pl[1].Intro != nil || pl[2].Intro.PriceCents != 4799 {
+	if pl := rates.ProPlanList(); len(pl) != 3 || pl[0].PriceCents != 399 || pl[1].PriceCents != 499 || pl[2].PriceCents != 4999 ||
+		pl[0].Intro != nil || pl[2].Intro != nil || pl[0].CreditCents != 2000 || pl[2].CreditCents != 2000 || pl[1].CreditInterval != "month" {
 		t.Fatalf("pro plans %+v", pl)
 	}
 	// a running Pro plan: Pro prices, its own free previews
@@ -276,7 +278,7 @@ func TestStartProPlan(t *testing.T) {
 	if at := s.accountTier(ctx, uid); at.Tier != "pro" || at.AllowanceKey != "pro_weekly" {
 		t.Fatalf("pro tier %+v", at)
 	}
-	if pj := s.planJSON(ctx, uid); pj["plan_id"] != "pro_weekly" || pj["price_cents"] != int64(599) || pj["interval"] != "week" {
+	if pj := s.planJSON(ctx, uid); pj["plan_id"] != "pro_weekly" || pj["price_cents"] != int64(399) || pj["interval"] != "week" {
 		t.Fatalf("plan json %v", pj)
 	}
 }

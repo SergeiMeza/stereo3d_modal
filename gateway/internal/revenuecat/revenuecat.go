@@ -82,6 +82,43 @@ type Status struct {
 	// among all subscriptions (a web plan's grant can hide it behind the
 	// entitlement); nil without one.
 	AppStore *AppStoreSub
+	// Credit: the purchase behind the Pro entitlement, for Pro's monthly
+	// credit (PRO-02..06); nil when not Pro. Refunded: the keys of the
+	// person's refunded purchases (PRO-07).
+	Credit   *CreditSource
+	Refunded []string
+}
+
+// CreditSource is the purchase that makes someone Pro.
+type CreditSource struct {
+	Product    string
+	Store      string // app_store | mac_app_store | rc_billing | stripe | promotional | …
+	PeriodType string // normal | intro | trial ("" for one-off purchases)
+	// Paid: bought in a store (a free trial counts, PRO-06); false for a
+	// promotional grant (a gift, a promo, an admin grant, our web plans').
+	Paid bool
+	// Anchor: the first purchase (a subscription's original purchase, so
+	// renewals and transfers keep it), whose anniversaries start the
+	// credit months. PaidUntil: the paid period's end (nil = Lifetime).
+	Anchor    time.Time
+	PaidUntil *time.Time
+	// Key names the store purchase across renewals, product changes and
+	// transfers to another account: the credit is granted once per key and
+	// month, whoever holds it.
+	Key string
+}
+
+// purchaseKey is a store purchase's key: the original transaction when
+// RevenueCat names it, else the store and the original purchase time.
+func purchaseKey(store, originalTx string, original time.Time) string {
+	if originalTx != "" {
+		return store + ":tx:" + originalTx
+	}
+	return store + ":at:" + original.UTC().Format(time.RFC3339)
+}
+
+func paidStore(store, product string) bool {
+	return store != "" && store != "promotional" && !strings.HasPrefix(product, "rc_promo")
 }
 
 // AppStoreSub is an active subscription billed by Apple.
@@ -159,13 +196,19 @@ type subscriber struct {
 			ProductIdentifier      string     `json:"product_identifier"`
 		} `json:"entitlements"`
 		NonSubscriptions map[string][]struct {
-			PurchaseDate time.Time `json:"purchase_date"`
-			Store        string    `json:"store"`
+			ID                 string     `json:"id"`
+			PurchaseDate       time.Time  `json:"purchase_date"`
+			Store              string     `json:"store"`
+			StoreTransactionID string     `json:"store_transaction_id"`
+			RefundedAt         *time.Time `json:"refunded_at"`
 		} `json:"non_subscriptions"`
 		Subscriptions map[string]struct {
 			PurchaseDate          time.Time  `json:"purchase_date"`
+			OriginalPurchaseDate  *time.Time `json:"original_purchase_date"`
 			ExpiresDate           *time.Time `json:"expires_date"`
 			Store                 string     `json:"store"`
+			PeriodType            string     `json:"period_type"`
+			OriginalTransactionID string     `json:"original_transaction_id"`
 			UnsubscribeDetectedAt *time.Time `json:"unsubscribe_detected_at"`
 			RefundedAt            *time.Time `json:"refunded_at"`
 			ManagementURL         string     `json:"management_url"`
@@ -205,6 +248,18 @@ func (c *Client) fetch(ctx context.Context, uid string, now time.Time) (Status, 
 func statusOf(b subscriber, now time.Time) Status {
 	st := statusOfEntitlements(b, now)
 	st.ManagementURL = b.Subscriber.ManagementURL
+	for _, sub := range b.Subscriber.Subscriptions {
+		if sub.RefundedAt != nil {
+			st.Refunded = append(st.Refunded, purchaseKey(sub.Store, sub.OriginalTransactionID, originalOf(sub.OriginalPurchaseDate, sub.PurchaseDate)))
+		}
+	}
+	for _, ps := range b.Subscriber.NonSubscriptions {
+		for _, p := range ps {
+			if p.RefundedAt != nil {
+				st.Refunded = append(st.Refunded, purchaseKey(p.Store, firstOf(p.StoreTransactionID, p.ID), p.PurchaseDate))
+			}
+		}
+	}
 	for product, sub := range b.Subscriber.Subscriptions {
 		if (sub.Store == "app_store" || sub.Store == "mac_app_store") && sub.RefundedAt == nil &&
 			(sub.ExpiresDate == nil || sub.ExpiresDate.After(now)) {
@@ -232,8 +287,15 @@ func statusOfEntitlements(b subscriber, now time.Time) Status {
 				pd := sub.PurchaseDate
 				st.PeriodStart = &pd
 			}
+			orig := originalOf(sub.OriginalPurchaseDate, sub.PurchaseDate)
+			st.Credit = &CreditSource{Product: e.ProductIdentifier, Store: sub.Store, PeriodType: strings.ToLower(sub.PeriodType),
+				Paid: paidStore(sub.Store, e.ProductIdentifier) && sub.RefundedAt == nil, Anchor: orig, PaidUntil: sub.ExpiresDate,
+				Key: purchaseKey(sub.Store, sub.OriginalTransactionID, orig)}
 		} else if ns := b.Subscriber.NonSubscriptions[e.ProductIdentifier]; len(ns) > 0 {
-			st.Store = ns[len(ns)-1].Store // Lifetime
+			p := ns[len(ns)-1] // Lifetime
+			st.Store = p.Store
+			st.Credit = &CreditSource{Product: e.ProductIdentifier, Store: p.Store, Paid: paidStore(p.Store, e.ProductIdentifier) && p.RefundedAt == nil,
+				Anchor: p.PurchaseDate, Key: purchaseKey(p.Store, firstOf(p.StoreTransactionID, p.ID), p.PurchaseDate)}
 		}
 		if st.Store == "" && strings.HasPrefix(e.ProductIdentifier, "rc_promo") {
 			st.Store = "promotional"
@@ -257,9 +319,11 @@ func statusOfEntitlements(b subscriber, now time.Time) Status {
 			continue
 		}
 		for _, p := range purchases {
-			if end := p.PurchaseDate.AddDate(0, months, 0); end.After(now) {
+			if end := p.PurchaseDate.AddDate(0, months, 0); end.After(now) && p.RefundedAt == nil {
 				pd := p.PurchaseDate
-				return Status{Pro: true, Via: product, ExpiresAt: &end, PeriodStart: &pd, Store: p.Store}
+				return Status{Pro: true, Via: product, ExpiresAt: &end, PeriodStart: &pd, Store: p.Store,
+					Credit: &CreditSource{Product: product, Store: p.Store, Paid: paidStore(p.Store, product), Anchor: pd, PaidUntil: &end,
+						Key: purchaseKey(p.Store, firstOf(p.StoreTransactionID, p.ID), pd)}}
 			}
 		}
 	}
@@ -267,6 +331,42 @@ func statusOfEntitlements(b subscriber, now time.Time) Status {
 }
 
 var passRE = regexp.MustCompile(`_pass_(\d+)m`)
+
+// subRE reads an App Store subscription's length: pro_subs_1w_v1 → 1w.
+var subRE = regexp.MustCompile(`_(\d+)([wmy])(_|$)`)
+
+func originalOf(original *time.Time, purchase time.Time) time.Time {
+	if original != nil && !original.IsZero() {
+		return *original
+	}
+	return purchase
+}
+
+func firstOf(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// CreditKind is the Pro credit key for what makes someone Pro:
+// pro_weekly | pro_monthly | pro_yearly | pro_3m | pro_6m | pro_pass_3m |
+// pro_pass_6m | pro_lifetime ("" when it isn't Pro, or is a plan).
+func (s Status) CreditKind() string {
+	if !s.Pro || s.Tier != "" || PlanTierOf(s.Via) != "" {
+		return ""
+	}
+	k := s.AllowanceKey()
+	if m := subRE.FindStringSubmatch(strings.ToLower(s.Via)); m != nil && PassMonths(s.Via) == 0 && k != "pro_lifetime" {
+		switch m[1] + m[2] {
+		case "3m":
+			return "pro_3m"
+		case "6m":
+			return "pro_6m"
+		}
+	}
+	return k
+}
 
 // PassMonths reads a pass product's months ("pro_pass_3m_v1",
 // "web_pro_pass_3m_v1" → 3); 0 when it isn't a pass.
@@ -306,6 +406,14 @@ func (s Status) AllowanceKey() string {
 		return "pro_weekly"
 	case strings.Contains(v, "year") || strings.Contains(v, "annual"):
 		return "pro_yearly"
+	}
+	if m := subRE.FindStringSubmatch(v); m != nil { // the App Store ids: pro_subs_1w_v1, pro_subs_1y_v1
+		switch m[2] {
+		case "w":
+			return "pro_weekly"
+		case "y":
+			return "pro_yearly"
+		}
 	}
 	return "pro_monthly"
 }
