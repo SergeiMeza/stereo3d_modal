@@ -24,17 +24,21 @@ import (
 // the refund policy says for its reason (RF-01: the automatic refunds for
 // undelivered or duplicate money stay automatic on their own paths).
 //
-//   - GET /v1/support/refund-options → {window_days, plan, runs}: what can
-//     be asked for, paid in the last 30 days (RF-03; a cancelled plan too).
+//   - GET /v1/support/refund-options → {window_days, plan, runs, balance}:
+//     what can be asked for, paid in the last 30 days (RF-03; a cancelled
+//     plan too).
 //     plan: {invoice_id, plan, name, paid_at, paid_cents, cancelled,
 //     open_request_id} or null; runs: [{conversion_id, label, paid_at,
 //     amount_cents, open_request_id}] (an unfinished, unpaid or refunded
-//     run isn't listed).
+//     run isn't listed); balance: {window_days: 14, unspent_cents,
+//     topups: [{topup_id, paid_at, paid_cents, unspent_cents,
+//     open_request_id}]} or null: top-ups paid in the last 14 days with an
+//     unspent part (RF-02: a withdrawal is reviewed like the rest).
 //   - POST /v1/support/refund-requests {plan?: bool, conversion_ids?: [],
-//     text?} (a sign-in from the last 5 minutes) → 201 {requests: [{id,
+//     balance?: bool, text?} (a sign-in from the last 5 minutes) → 201 {requests: [{id,
 //     state, status, merged}]}. Only what the options list; something
 //     already asked for joins that open case (merged). 400
-//     not_refundable {conversion_ids, plan}; 400 text_too_long (2,000
+//     not_refundable {conversion_ids, plan, balance}; 400 text_too_long (2,000
 //     characters); 409 too_many_open (10 open requests); 429 rate_limited
 //     {retry_after_s} (3 a day per account, 10 an hour per address); 403
 //     account_deleted / deletion_pending.
@@ -46,8 +50,8 @@ import (
 //     on an open case (a question answered puts it back in review), or a
 //     follow-up case for a closed one. 404 request_not_found; 10 an hour.
 //
-// Balance withdrawals aren't offered here yet: they join once RF-02 makes
-// them manual (balance_refunds.go).
+// balance: true asks to withdraw every listed top-up's unspent part: one
+// manual topup_withdrawal case per top-up (balance_refunds.go, RF-02).
 
 const (
 	SourceCustomer = "customer"
@@ -160,6 +164,65 @@ func caseOpenFor(cases []*store.Case) (open string, refunded bool) {
 		}
 	}
 	return open, refunded
+}
+
+// topupRefundOption is a top-up whose unspent part can be withdrawn.
+type topupRefundOption struct {
+	TopupID      string
+	PaidAt       time.Time
+	PaidCents    int64
+	UnspentCents int64
+	OpenCase     string
+}
+
+// refundableTopups are uid's top-ups paid in the last 14 days with an
+// unspent part, newest first.
+func (s *Service) refundableTopups(ctx context.Context, uid string, now time.Time) ([]topupRefundOption, error) {
+	tops, err := s.Store.ListUserTopups(ctx, uid, 100)
+	if err != nil {
+		return nil, err
+	}
+	b, err := s.Store.GetBalance(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	cases, err := s.Store.ListUserCases(ctx, uid, 200)
+	if err != nil {
+		return nil, err
+	}
+	out := []topupRefundOption{}
+	for _, t := range tops {
+		if t.State != store.TopupPaid || t.PaidAt == nil || now.Sub(*t.PaidAt) > withdrawalWindow {
+			continue
+		}
+		left := fifoRemaining(b, t.ID)
+		if left <= 0 {
+			continue
+		}
+		o := topupRefundOption{TopupID: t.ID, PaidAt: *t.PaidAt, PaidCents: t.PaidCents, UnspentCents: left}
+		for _, cs := range cases {
+			if cs.Open && cs.Type == store.CaseBalanceRefund && cs.Related.TopupID == t.ID {
+				o.OpenCase = cs.ID
+			}
+		}
+		out = append(out, o)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].PaidAt.After(out[j].PaidAt) })
+	return out, nil
+}
+
+func balanceOptionJSON(tops []topupRefundOption) any {
+	if len(tops) == 0 {
+		return nil
+	}
+	rows := make([]map[string]any, 0, len(tops))
+	var sum int64
+	for _, o := range tops {
+		sum += o.UnspentCents
+		rows = append(rows, map[string]any{"topup_id": o.TopupID, "paid_at": o.PaidAt.Format(time.RFC3339), "paid_cents": o.PaidCents,
+			"unspent_cents": o.UnspentCents, "open_request_id": nilIfNone(o.OpenCase)})
+	}
+	return map[string]any{"window_days": int(withdrawalWindow / (24 * time.Hour)), "unspent_cents": sum, "topups": rows}
 }
 
 // refundableRuns are the runs uid paid for in the window, newest first.
@@ -279,13 +342,19 @@ func (s *Service) HandleRefundOptions(w http.ResponseWriter, r *http.Request, us
 		rows = append(rows, map[string]any{"conversion_id": o.ConversionID, "label": o.Label, "paid_at": o.PaidAt.Format(time.RFC3339),
 			"amount_cents": o.Cents, "open_request_id": nilIfNone(o.OpenCase)})
 	}
+	tops, err := s.refundableTopups(ctx, user.UID, now)
+	if err != nil {
+		slog.WarnContext(ctx, "refund options: top-ups not read", "err", err)
+		tops = nil // the rest still shows
+	}
 	var planOut any
 	if plan != nil {
 		planOut = map[string]any{"invoice_id": plan.InvoiceID, "plan": plan.Tier, "name": plan.Name, "paid_at": plan.PaidAt.Format(time.RFC3339),
 			"paid_cents": plan.PaidCents, "cancelled": plan.Cancelled, "open_request_id": nilIfNone(plan.OpenCase)}
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpx.WriteOK(w, map[string]any{"window_days": int(refundRequestWindow / (24 * time.Hour)), "plan": planOut, "runs": rows})
+	httpx.WriteOK(w, map[string]any{"window_days": int(refundRequestWindow / (24 * time.Hour)), "plan": planOut, "runs": rows,
+		"balance": balanceOptionJSON(tops)})
 }
 
 func writeSupportLimited(ctx context.Context, w http.ResponseWriter, wait time.Duration) {
@@ -301,6 +370,7 @@ func (s *Service) HandleRefundRequest(w http.ResponseWriter, r *http.Request, us
 	var req struct {
 		Plan          bool     `json:"plan"`
 		ConversionIDs []string `json:"conversion_ids"`
+		Balance       bool     `json:"balance"`
 		Text          string   `json:"text"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&req); err != nil {
@@ -318,8 +388,8 @@ func (s *Service) HandleRefundRequest(w http.ResponseWriter, r *http.Request, us
 			ids = append(ids, id)
 		}
 	}
-	if !req.Plan && len(ids) == 0 {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("pick the plan or the runs to ask about"))
+	if !req.Plan && !req.Balance && len(ids) == 0 {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("pick the plan, the runs or the balance to ask about"))
 		return
 	}
 	if len(ids) > 50 {
@@ -351,15 +421,22 @@ func (s *Service) HandleRefundRequest(w http.ResponseWriter, r *http.Request, us
 			return
 		}
 	}
+	var tops []topupRefundOption
+	if req.Balance {
+		if tops, err = s.refundableTopups(ctx, user.UID, now); err != nil {
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+	}
 	var bad []string
 	for _, id := range ids {
 		if _, ok := byID[id]; !ok {
 			bad = append(bad, id)
 		}
 	}
-	if len(bad) > 0 || (req.Plan && plan == nil) {
+	if len(bad) > 0 || (req.Plan && plan == nil) || (req.Balance && len(tops) == 0) {
 		e := httpx.Err(http.StatusBadRequest, "not_refundable", "That can't be asked for: it wasn't paid in the last 30 days, or it's refunded already.")
-		e.Details = map[string]any{"conversion_ids": bad, "plan": req.Plan && plan == nil}
+		e.Details = map[string]any{"conversion_ids": bad, "plan": req.Plan && plan == nil, "balance": req.Balance && len(tops) == 0}
 		httpx.WriteErr(ctx, w, e)
 		return
 	}
@@ -378,7 +455,15 @@ func (s *Service) HandleRefundRequest(w http.ResponseWriter, r *http.Request, us
 	if plan != nil && plan.OpenCase != "" {
 		merged[plan.OpenCase] = true
 	}
-	if len(fresh) > 0 || freshPlan {
+	var freshTops []string
+	for _, o := range tops {
+		if o.OpenCase != "" {
+			merged[o.OpenCase] = true
+		} else {
+			freshTops = append(freshTops, o.TopupID)
+		}
+	}
+	if len(fresh) > 0 || freshPlan || len(freshTops) > 0 {
 		open := 0
 		if cases, err := s.Store.ListUserCases(ctx, user.UID, 200); err == nil {
 			for _, cs := range cases {
@@ -437,7 +522,16 @@ func (s *Service) HandleRefundRequest(w http.ResponseWriter, r *http.Request, us
 		}
 		out = append(out, requestHead(cs, cs.OpenedAt.Before(now)))
 	}
-	slog.InfoContext(ctx, "refund requested", "runs", len(ids), "plan", req.Plan, "merged", len(merged), "cases", len(out))
+	for _, id := range freshTops {
+		cs, err := s.requestBalanceRefund(ctx, user.UID, ReasonTopupWithdraw, id, SourceCustomer, SourceCustomer, text)
+		if err != nil {
+			slog.WarnContext(ctx, "refund request: balance case not opened", "err", err)
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "request_failed", "We couldn't send your request. Try again in a while."))
+			return
+		}
+		out = append(out, requestHead(cs, cs.OpenedAt.Before(now)))
+	}
+	slog.InfoContext(ctx, "refund requested", "runs", len(ids), "plan", req.Plan, "topups", len(tops), "merged", len(merged), "cases", len(out))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

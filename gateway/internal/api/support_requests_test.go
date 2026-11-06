@@ -323,3 +323,45 @@ func TestSupportRequestsAndReply(t *testing.T) {
 		t.Fatal("case ids")
 	}
 }
+
+// RF-02: a balance withdrawal is asked for like the rest. The options list
+// the unspent top-ups of the last 14 days; balance: true opens a manual
+// topup_withdrawal case per top-up and pays nothing; asking again merges.
+func TestRefundRequestBalance(t *testing.T) {
+	s, fake := e0Service(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_b"})
+	if code, out := callSupport(t, s.HandleRefundRequest, uid, "POST", `{"balance":true}`); code != 400 || out["error"] != "not_refundable" {
+		t.Fatalf("nothing to withdraw %d %v", code, out)
+	}
+	tp := paidTopup(t, s, uid, 2500)
+	_, opts := callSupport(t, s.HandleRefundOptions, uid, "GET", "")
+	bal, _ := opts["balance"].(map[string]any)
+	if bal == nil || bal["unspent_cents"] != float64(2500) || bal["window_days"] != float64(14) {
+		t.Fatalf("balance option %v", opts["balance"])
+	}
+	if row := bal["topups"].([]any)[0].(map[string]any); row["topup_id"] != tp.ID || row["open_request_id"] != nil {
+		t.Fatalf("top-up row %v", row)
+	}
+	code, out := callSupport(t, s.HandleRefundRequest, uid, "POST", `{"balance":true,"text":"I won't use it."}`)
+	if code != 201 {
+		t.Fatalf("%d %v", code, out)
+	}
+	first := out["requests"].([]any)[0].(map[string]any)
+	cs, err := s.Store.GetCase(ctx, first["id"].(string))
+	if err != nil || cs.Mode != "manual" || cs.Type != store.CaseBalanceRefund || cs.Reason != ReasonTopupWithdraw || cs.Source != SourceCustomer || cs.RequestedCents != 2500 {
+		t.Fatalf("case %+v %v", cs, err)
+	}
+	if b, _ := s.Store.GetBalance(ctx, uid); b.BalanceCents != 2500 || len(fake.refunds) != 0 {
+		t.Fatalf("paid out without review: %d %v", b.BalanceCents, fake.refunds)
+	}
+	code, out = callSupport(t, s.HandleRefundRequest, uid, "POST", `{"balance":true,"text":"Any news?"}`)
+	if again := out["requests"].([]any)[0].(map[string]any); code != 201 || again["id"] != cs.ID || again["merged"] != true {
+		t.Fatalf("again %d %v", code, out)
+	}
+	_, opts = callSupport(t, s.HandleRefundOptions, uid, "GET", "")
+	if row := opts["balance"].(map[string]any)["topups"].([]any)[0].(map[string]any); row["open_request_id"] != cs.ID {
+		t.Fatalf("asked %v", row)
+	}
+}
