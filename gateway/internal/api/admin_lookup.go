@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -26,8 +28,11 @@ func adminPlanLabel(c *store.Customer, now time.Time) any {
 }
 
 // GET /v1/admin/accounts?q= → {accounts: [{uid, email, created_at,
-// plan}]}: an exact uid, or emails starting with q (at least 2
-// characters), at most 20, the uid match first.
+// plan, deleted, found_by}]}: an exact uid, or emails starting with q (at
+// least 2 characters), at most 20, the uid match first. A whole email
+// also finds the Stripe customers made with it (found_by "stripe"): an
+// account whose record has another email, or none, a deleted one too
+// (support's lookup after a deletion, owner 2026-11-06).
 func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Request, a *AdminUser) {
 	ctx := r.Context()
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -41,7 +46,8 @@ func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Reques
 		if !c.CreatedAt.IsZero() {
 			created = c.CreatedAt
 		}
-		return map[string]any{"uid": uid, "email": nilIfEmpty(c.Email), "created_at": created, "plan": adminPlanLabel(c, now)}
+		return map[string]any{"uid": uid, "email": nilIfEmpty(c.Email), "created_at": created, "plan": adminPlanLabel(c, now),
+			"deleted": c.AccountDeleted, "found_by": "record"}
 	}
 	out := []map[string]any{}
 	seen := map[string]bool{}
@@ -60,6 +66,9 @@ func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Reques
 		if !seen[uid] {
 			rest = append(rest, row(uid, c))
 		}
+	}
+	for _, row := range s.stripeAccountsByEmail(ctx, q, seen, found, row) {
+		rest = append(rest, row)
 	}
 	sort.Slice(rest, func(i, j int) bool {
 		ei, _ := rest[i]["email"].(string)
@@ -147,4 +156,43 @@ func (s *Service) HandleAdminOpenEFWs(w http.ResponseWriter, r *http.Request, a 
 	})
 	s.audit(ctx, a, "efws_list", map[string]any{"count": len(out)})
 	httpx.WriteOK(w, map[string]any{"efws": out})
+}
+
+// looksLikeEmail: a whole address, worth asking Stripe about.
+func looksLikeEmail(q string) bool {
+	at := strings.LastIndex(q, "@")
+	return at > 0 && strings.Contains(q[at+1:], ".") && !strings.ContainsAny(q, " '\"\\")
+}
+
+// stripeAccountsByEmail are the accounts whose Stripe customer has the
+// email q, not already listed (seen, or found by their record). The
+// account's record fills the row when there is one; Stripe failing
+// leaves the search as it was.
+func (s *Service) stripeAccountsByEmail(ctx context.Context, q string, seen map[string]bool, found map[string]*store.Customer,
+	row func(string, *store.Customer) map[string]any) []map[string]any {
+	if s.Stripe == nil || !looksLikeEmail(q) {
+		return nil
+	}
+	custs, err := s.Stripe.CustomersByEmail(strings.ToLower(q))
+	if err != nil {
+		slog.WarnContext(ctx, "admin search: Stripe lookup failed", "err", err) // never the query
+		return nil
+	}
+	var out []map[string]any
+	for _, ec := range custs {
+		if seen[ec.UID] || found[ec.UID] != nil {
+			continue
+		}
+		seen[ec.UID] = true
+		r := map[string]any{"uid": ec.UID, "email": nilIfEmpty(ec.Email), "created_at": nil, "plan": nil, "deleted": false}
+		if c, err := s.Store.GetCustomer(ctx, ec.UID); err == nil {
+			r = row(ec.UID, c)
+			if r["email"] == nil {
+				r["email"] = nilIfEmpty(ec.Email)
+			}
+		}
+		r["found_by"] = "stripe"
+		out = append(out, r)
+	}
+	return out
 }
