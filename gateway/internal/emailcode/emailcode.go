@@ -239,10 +239,28 @@ func (s *Service) Verify(ctx context.Context, email, code string, wantSession bo
 	if !s.configured() {
 		return nil, ErrUnavailable
 	}
+	if err := s.consume(ctx, email, code); err != nil {
+		return nil, err
+	}
+	return s.signIn(ctx, email, wantSession)
+}
+
+// Check checks code for email (normalized) and uses it up, without
+// signing anyone in: linking an email onto the signed-in account
+// (/v1/account/identities/link) proves the address this way.
+func (s *Service) Check(ctx context.Context, email, code string) error {
+	if s == nil || s.Store == nil {
+		return ErrUnavailable
+	}
+	return s.consume(ctx, email, code)
+}
+
+// consume checks a code and spends it (one use; wrong tries counted).
+func (s *Service) consume(ctx context.Context, email, code string) error {
 	code = strings.TrimSpace(code)
 	if len(code) != CodeDigits || strings.Trim(code, "0123456789") != "" {
 		// Malformed input doesn't spend an attempt: it never reached the hash.
-		return nil, &WrongCodeError{AttemptsLeft: -1}
+		return &WrongCodeError{AttemptsLeft: -1}
 	}
 	now := s.now()
 	var outcome error
@@ -271,12 +289,13 @@ func (s *Service) Verify(ctx context.Context, email, code string, wantSession bo
 		return &next, nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if outcome != nil {
-		return nil, outcome
-	}
+	return outcome
+}
 
+// signIn finds or makes the email's account and answers its sign-in.
+func (s *Service) signIn(ctx context.Context, email string, wantSession bool) (*Result, error) {
 	uid, created, err := s.Users.EnsureEmailUser(ctx, email)
 	if err != nil {
 		if errors.Is(err, auth.ErrUserDisabled) {

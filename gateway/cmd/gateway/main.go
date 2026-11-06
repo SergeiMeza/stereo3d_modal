@@ -92,12 +92,16 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/reset/confirm", idh.ResetConfirm)
 
 	// Sign-in with a one-time email code (S3D-70), web and China mode.
-	ech := emailcode.NewHandlers(&emailcode.Service{
+	codes := &emailcode.Service{
 		Store:    emailcode.NewFirestoreStore(fsClient, cfg.Env),
 		Users:    verifier,
 		Sessions: idh.Client,
 		Mail:     mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom),
-	}, ips)
+	}
+	ech := emailcode.NewHandlers(codes, ips)
+	// Sessions without the SDK (passkey session:true, Apple/Google links)
+	// and email codes for linking (/v1/account/identities).
+	svc.Sessions, svc.EmailCodes = idh.Client, codes
 	mux.HandleFunc("POST /v1/auth/email/start", ech.Start)
 	mux.HandleFunc("POST /v1/auth/email/verify", ech.Verify)
 
@@ -184,6 +188,12 @@ func main() {
 	}
 	mux.HandleFunc("PATCH /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
 	mux.HandleFunc("DELETE /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyDelete)))
+	// Linked sign-in methods, server-side (the app's sign-in contract).
+	mux.HandleFunc("GET /v1/account/identities", authed(svc.HandleIdentities))
+	mux.HandleFunc("POST /v1/account/identities/link", authed(svc.HandleLinkIdentity))
+	mux.HandleFunc("DELETE /v1/account/identities/{provider}", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleUnlinkIdentity(w, r, u, r.PathValue("provider"))
+	}))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 
 	// Admin passkeys and sessions (ADR 0135).
@@ -352,7 +362,7 @@ func main() {
 		_, viaRelay := ips.ClientIP(r)
 		return viaRelay
 	})
-	handler := httpx.WithSplitCORS(cfg.CORSOrigins, cfg.AdminOrigins, "/v1/admin/", httpx.WithRequestID(media.Middleware(mux)))
+	handler := httpx.WithSplitCORS(cfg.CORSOrigins, cfg.AdminOrigins, "/v1/admin/", httpx.WithRequestID(httpx.WithTrustedProxy(cfg.SVSProxyKey, media.Middleware(mux))))
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)

@@ -18,6 +18,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -44,6 +45,7 @@ const (
 	cpkPurposeSignIn   = "sign_in"
 	cpkPerIPHour       = 60
 	cpkPerUIDHour      = 20
+	cpkNativePerIPHour = 30 // the app's calls (nativeClient), their own bucket
 	cpkFresh           = 5 * time.Minute
 )
 
@@ -59,8 +61,32 @@ func (s *Service) customerRPFor(origin string) *passkeyRP {
 	return s.cpkRPs[origin]
 }
 
+// nativeOrigin is the relying party the app's native passkeys use: Apple's
+// passkey API signs client data with origin https://<RP ID>, the same
+// stereo3d.studio relying party the web uses (one passkey for both).
+const nativeOrigin = "https://stereo3d.studio"
+
+// nativeClient: the app (X-SVS-Client: app/<version>), which sends no
+// Origin. Its calls get their own rate-limit buckets; the client data's
+// origin is still checked against the relying party.
+func nativeClient(r *http.Request) bool {
+	if r.Header.Get("Origin") != "" {
+		return false
+	}
+	v := strings.TrimSpace(r.Header.Get("X-SVS-Client"))
+	ver, ok := strings.CutPrefix(v, "app/")
+	if !ok || ver == "" || len(ver) > 32 {
+		return false
+	}
+	return strings.Trim(ver, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-+") == ""
+}
+
 func (s *Service) requireCustomerRP(w http.ResponseWriter, r *http.Request) *passkeyRP {
-	rp := s.customerRPFor(r.Header.Get("Origin"))
+	origin := r.Header.Get("Origin")
+	if origin == "" && nativeClient(r) {
+		origin = nativeOrigin
+	}
+	rp := s.customerRPFor(origin)
 	if rp == nil {
 		httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "origin_not_allowed", "Passkeys work on stereo3d.studio only."))
 	}
@@ -74,7 +100,11 @@ func errRateLimited() error {
 // cpkAllowed applies the per-IP and (with a uid) per-account limits.
 func cpkAllowed(r *http.Request, uid string) bool {
 	now := time.Now()
-	if !eventAllowed("cpk-ip:"+clientIP(r), cpkPerIPHour, now) {
+	if nativeClient(r) {
+		if !eventAllowed("cpk-native-ip:"+clientIP(r), cpkNativePerIPHour, now) {
+			return false
+		}
+	} else if !eventAllowed("cpk-ip:"+clientIP(r), cpkPerIPHour, now) {
 		return false
 	}
 	return uid == "" || eventAllowed("cpk-uid:"+uid, cpkPerUIDHour, now)
@@ -378,6 +408,10 @@ func (s *Service) HandleCustomerPasskeySignInVerify(w http.ResponseWriter, r *ht
 	}
 	var req struct {
 		Response json.RawMessage `json:"response"`
+		// Session: answer the ID and refresh tokens instead of a custom
+		// token (China mode on the web, the app through svs-backend), as
+		// /v1/auth/email/verify does.
+		Session bool `json:"session"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil || len(req.Response) == 0 {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("response is required"))
@@ -442,7 +476,26 @@ func (s *Service) HandleCustomerPasskeySignInVerify(w http.ResponseWriter, r *ht
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "sign_in_unavailable", "Passkey sign-in isn't available right now. Sign in another way."))
 		return
 	}
-	s.passkeyEvent(ctx, p.UID, "sign_in", map[string]any{"method": "passkey", "passkey_id": p.ID})
+	if req.Session {
+		if s.Sessions == nil || !s.Sessions.Configured() {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "sign_in_unavailable", "Passkey sign-in isn't available right now. Sign in another way."))
+			return
+		}
+		sess, err := s.Sessions.SignInWithCustomToken(ctx, tok)
+		if err != nil {
+			slog.ErrorContext(ctx, "passkey session not made", "err", err)
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "sign_in_unavailable", "Passkey sign-in isn't available right now. Sign in another way."))
+			return
+		}
+		s.passkeyEvent(ctx, p.UID, "sign_in", map[string]any{"method": "passkey", "passkey_id": p.ID, "native": nativeClient(r)})
+		w.Header().Set("Cache-Control", "no-store")
+		httpx.WriteOK(w, struct {
+			*identity.Session
+			IsNewUser bool `json:"is_new_user"`
+		}{sess, false})
+		return
+	}
+	s.passkeyEvent(ctx, p.UID, "sign_in", map[string]any{"method": "passkey", "passkey_id": p.ID, "native": nativeClient(r)})
 	httpx.WriteOK(w, map[string]any{"uid": p.UID, "custom_token": tok})
 }
 
@@ -502,6 +555,14 @@ func (s *Service) HandleCustomerPasskeyDelete(w http.ResponseWriter, r *http.Req
 	p, err := s.ownCustomerPasskey(ctx, user.UID, id)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	// passkeys count as sign-in methods: the last way in stays
+	if last, err := s.lastSignInMethod(ctx, user.UID); err != nil {
+		httpx.WriteErr(ctx, w, identityErr(ctx, "read", err))
+		return
+	} else if last {
+		httpx.WriteErr(ctx, w, errLastMethod())
 		return
 	}
 	if err := s.Store.DeleteCustomerPasskey(ctx, id); err != nil {

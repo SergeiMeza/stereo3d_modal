@@ -43,6 +43,9 @@ func clientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
+	if ip, _, ok := httpx.TrustedClientIP(r.Context()); ok { // svs-backend's caller
+		return ip
+	}
 	if ip := strings.TrimSpace(r.Header.Get("X-Client-IP")); ip != "" && net.ParseIP(ip) != nil {
 		return ip
 	}

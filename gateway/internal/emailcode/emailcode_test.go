@@ -321,3 +321,26 @@ func TestUnconfiguredIsUnavailable(t *testing.T) {
 		t.Fatalf("got %d %s", w.Code, w.Body)
 	}
 }
+
+// Check spends a code without signing in or making an account (linking
+// an email onto the signed-in account).
+func TestCheckSpendsTheCodeOnly(t *testing.T) {
+	r := newRig()
+	ctx := context.Background()
+	if _, err := r.svc.Start(ctx, "link@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	var wrong *WrongCodeError
+	if err := r.svc.Check(ctx, "link@example.com", "000000"); !errors.As(err, &wrong) || wrong.AttemptsLeft != MaxAttempts-1 {
+		t.Fatalf("wrong code: %v", err)
+	}
+	if err := r.svc.Check(ctx, "link@example.com", "123456"); err != nil {
+		t.Fatalf("right code: %v", err)
+	}
+	if err := r.svc.Check(ctx, "link@example.com", "123456"); !errors.Is(err, ErrNoCode) {
+		t.Fatalf("used once: %v", err)
+	}
+	if r.users.created != 0 {
+		t.Fatalf("Check made %d account(s)", r.users.created)
+	}
+}

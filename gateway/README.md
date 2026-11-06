@@ -1615,6 +1615,12 @@ and store.
   verification required, discoverable credentials (usernameless
   sign-in), attestation none, 5-minute single-use challenges bound to
   the purpose, origin and (for adding) the account.
+- **The app (native, 2026-11-06).** A request with no `Origin` and
+  `X-SVS-Client: app/<version>` uses the `https://stereo3d.studio` relying
+  party (Apple's passkey API signs that origin into the client data, which
+  is still checked), on every passkey route. Native calls have their own
+  bucket: 30 an hour per IP (the web's stays 60), plus the per-account
+  limit. The app reaches these through svs-backend (below).
 - **Storage.** `customer_passkeys_{env}/{credId}` {uid, name,
   device_hint, public_key, sign_count, aaguid, transports, rp_id,
   created_at, last_used_at, credential}; test and prod apart, so a
@@ -1633,8 +1639,12 @@ and store.
   - `POST /v1/auth/passkey/options` (no sign-in) → `{options:
     {publicKey}, expires_at}`, no allowCredentials, so it also serves
     autofill (the web sets mediation "conditional").
-  - `POST /v1/auth/passkey/verify {response}` (no sign-in) →
-    `{uid, custom_token}` for `signInWithCustomToken`. 404
+  - `POST /v1/auth/passkey/verify {response, session?}` (no sign-in) →
+    `{uid, custom_token}` for `signInWithCustomToken`; with `session: true`
+    (China mode on the web, the app) the session instead, as
+    `/v1/auth/email/verify` answers it: `{uid, email, display_name,
+    id_token, refresh_token, expires_in, is_new_user: false}`, refreshed
+    with `POST /v1/auth/refresh {refresh_token}`. 404
     `passkey_not_registered` ("This passkey isn't registered here"); 401
     `passkey_invalid`, `passkey_clone_suspected` (the sign count went
     backwards: logged, Slack, refused); 403 `account_unavailable`
@@ -1642,7 +1652,8 @@ and store.
   - `GET /v1/account/passkeys` → `{passkeys: [{id, name, device_hint,
     created_at, last_used_at}]}`; `PATCH /v1/account/passkeys/{id} {name}`
     → `{passkey}`; `DELETE /v1/account/passkeys/{id}` → `{removed}` (404
-    for another account's).
+    for another account's; 409 `last_method` when it is the account's
+    only way to sign in).
   - The "Add a passkey" suggestion is dismissed through `/v1/account/settings`
     with `dismissed.passkey_suggestion` (an accepted key); the web shows
     it while the account has no passkey and hasn't dismissed it.
@@ -1658,6 +1669,46 @@ and store.
 - **Admin.** `GET /v1/admin/passkey-adoption` → `{accounts_with_passkey,
   passkeys, sign_ins: {"7d": {method: count}, "30d": {…}},
   generated_at}`; the admin account view adds `passkey_count`.
+
+### Linked sign-in methods (the app's sign-in contract, 2026-11-06)
+
+Server-side, because the Firebase SDK's linking can't reach Google from
+China; the web's account page can use the same routes. All signed in.
+
+- `GET /v1/account/identities` → `{providers, email, email_verified,
+  password, passkeys, anonymous}`. `providers` are the sign-in methods:
+  `apple.com`, `google.com`, `email` (the account has an email, so the
+  email code signs in to it); `password` is reported apart (the email code
+  covers a password account); `anonymous` = no method and no passkey.
+- `POST /v1/account/identities/link`:
+  - `{provider: "apple.com" | "google.com", id_token, nonce?, session?}`:
+    Firebase signInWithIdp with the caller's ID token links it onto the
+    caller's account; the uid stays (an anonymous account included). A
+    Google token's audience must be an OAuth client of this project (the
+    Google sign-in route waits for the app's iOS client). `session: true`
+    adds `session` {uid, id_token, refresh_token, expires_in}.
+  - `{provider: "email", email, code}`: the code from `POST
+    /v1/auth/email/start`, checked and spent without signing in; the
+    address goes on the caller's account, verified (replacing any
+    other). Errors as the email verify: 400 `code_invalid
+    {attempts_left}`, `code_expired`, `invalid_email`.
+  - Answer: the identities, as GET. 400 `invalid_credential` (the
+    provider's token didn't verify); 401 `reauth_required`.
+- `DELETE /v1/account/identities/{apple.com | google.com | password}` →
+  the identities. 404 `not_linked`; 409 `email_not_removable` for
+  `email` (the account's address stays).
+- 409 `last_method`: it would leave no way to sign in (passkeys count;
+  the passkey delete checks it too). 409 `credential_in_use {providers}`:
+  that sign-in or address belongs to another account, named only by its
+  methods (`passkey` when it has one), never its uid.
+- 429 `rate_limited` past 60 an hour per IP or 20 per account.
+- **svs-backend (Option 2).** The app's backend proxies these, the
+  passkey routes and `/v1/auth/email/*`. It sends `X-SVS-Client-IP: <the
+  app's address>` (and `X-SVS-Client-Via: relay` for a China request)
+  with `X-SVS-Proxy-Key: <svs-gateway-proxy-key-{env}>`; only with the
+  key are they trusted (limits key on that address), otherwise both are
+  dropped. The gateway mounts the key as `SVS_PROXY_KEY` when the secret
+  exists.
 
 ### Admin passkeys (ADR 0135)
 

@@ -22,11 +22,18 @@ type cpkClient struct {
 	authTime time.Time
 	origin   string
 	ip       string
+	// native: the app (X-SVS-Client, no Origin header); origin is then
+	// only what the authenticator signs into the client data.
+	native string
 }
 
 func (c *cpkClient) req(method, body string) *http.Request {
 	r := httptest.NewRequest(method, "/v1/passkeys/x", strings.NewReader(body))
-	r.Header.Set("Origin", c.origin)
+	if c.native != "" {
+		r.Header.Set("X-SVS-Client", c.native)
+	} else {
+		r.Header.Set("Origin", c.origin)
+	}
 	r.Header.Set("User-Agent", iphoneUA)
 	r.Header.Set("X-Client-IP", c.ip)
 	return r

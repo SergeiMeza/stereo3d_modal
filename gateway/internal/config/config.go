@@ -53,6 +53,10 @@ type Config struct {
 	// POST /webhooks/revenuecat (Secret Manager
 	// revenuecat-webhook-auth-{env}); "" = the route is off.
 	RevenueCatWebhookAuth string
+	// SVSProxyKey: the shared secret svs-backend sends in X-SVS-Proxy-Key
+	// so its X-SVS-Client-IP is trusted (svs-gateway-proxy-key-{env});
+	// "" trusts nobody.
+	SVSProxyKey string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
 	// /v1/auth/* routes that sign browsers in on their behalf (identity
@@ -131,6 +135,7 @@ func Load() (*Config, error) {
 		ReconcileToken:        getenv("RECONCILE_TOKEN", ""),
 		AdminSessionKey:       getenv("ADMIN_SESSION_KEY", ""),
 		RevenueCatWebhookAuth: getenv("REVENUECAT_WEBHOOK_AUTH", ""),
+		SVSProxyKey:           getenv("SVS_PROXY_KEY", ""),
 
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),

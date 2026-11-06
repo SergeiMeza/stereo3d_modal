@@ -1,0 +1,76 @@
+package auth
+
+import (
+	"context"
+
+	fbauth "firebase.google.com/go/v4/auth"
+)
+
+// Identity is how an account signs in: its provider ids (apple.com,
+// google.com, password, …) and its email.
+type Identity struct {
+	UID           string
+	Email         string
+	EmailVerified bool
+	Providers     []string
+	Disabled      bool
+}
+
+func identityOf(u *fbauth.UserRecord) *Identity {
+	id := &Identity{UID: u.UID, Email: u.Email, EmailVerified: u.EmailVerified, Disabled: u.Disabled}
+	for _, p := range u.ProviderUserInfo {
+		if p != nil && p.ProviderID != "" {
+			id.Providers = append(id.Providers, p.ProviderID)
+		}
+	}
+	return id
+}
+
+// IdentityOf reads uid's sign-in methods.
+func (v *Verifier) IdentityOf(ctx context.Context, uid string) (*Identity, error) {
+	u, err := v.client.GetUser(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return identityOf(u), nil
+}
+
+// IdentityByEmail is the account with that email (nil, nil when none).
+func (v *Verifier) IdentityByEmail(ctx context.Context, email string) (*Identity, error) {
+	u, err := v.client.GetUserByEmail(ctx, email)
+	if fbauth.IsUserNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return identityOf(u), nil
+}
+
+// IdentityByProvider is the account holding a provider's user id (nil,
+// nil when none).
+func (v *Verifier) IdentityByProvider(ctx context.Context, providerID, providerUID string) (*Identity, error) {
+	u, err := v.client.GetUserByProviderUID(ctx, providerID, providerUID)
+	if fbauth.IsUserNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return identityOf(u), nil
+}
+
+// SetVerifiedEmail puts email on uid, verified (an email code proved it).
+func (v *Verifier) SetVerifiedEmail(ctx context.Context, uid, email string) error {
+	_, err := v.client.UpdateUser(ctx, uid, (&fbauth.UserToUpdate{}).Email(email).EmailVerified(true))
+	return err
+}
+
+// RemoveProviders unlinks provider ids from uid.
+func (v *Verifier) RemoveProviders(ctx context.Context, uid string, providers []string) error {
+	_, err := v.client.UpdateUser(ctx, uid, (&fbauth.UserToUpdate{}).ProvidersToDelete(providers))
+	return err
+}
+
+// IsEmailInUse: an update refused because another account has the email.
+func IsEmailInUse(err error) bool { return fbauth.IsEmailAlreadyExists(err) }

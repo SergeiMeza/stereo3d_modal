@@ -92,6 +92,14 @@ type Service struct {
 	// ADR 0136); nil = Auth.CustomToken.
 	MintToken func(ctx context.Context, uid string) (string, error)
 
+	// Identities reads and changes sign-in methods (nil = Auth);
+	// Sessions makes sessions without the SDK (identity.Client: passkey
+	// session:true, Apple/Google links); EmailCodes checks an email code
+	// for an email link (emailcode.Service).
+	Identities IdentityAdmin
+	Sessions   SessionIssuer
+	EmailCodes EmailCodeChecker
+
 	// pkRPs: the admin passkey relying parties by origin (ADR 0135), and
 	// cpkRPs the customers' (ADR 0136), each built once.
 	pkOnce  sync.Once

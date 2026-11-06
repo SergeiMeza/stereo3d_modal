@@ -74,6 +74,11 @@ fi
 if gcloud secrets describe "revenuecat-webhook-auth-${ENV}" --project "$PROJECT" >/dev/null 2>&1; then
   SECRETS="${SECRETS},REVENUECAT_WEBHOOK_AUTH=revenuecat-webhook-auth-${ENV}:latest"
 fi
+# svs-backend's proxy key (X-SVS-Proxy-Key): its X-SVS-Client-IP is
+# trusted only with it; mounted when svs-gateway-proxy-key-{env} exists.
+if gcloud secrets describe "svs-gateway-proxy-key-${ENV}" --project "$PROJECT" >/dev/null 2>&1; then
+  SECRETS="${SECRETS},SVS_PROXY_KEY=svs-gateway-proxy-key-${ENV}:latest"
+fi
 
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
