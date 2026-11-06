@@ -204,7 +204,7 @@ func (s *Service) grantProCreditEntry(ctx context.Context, uid string, g *store.
 	note := fmt.Sprintf("Pro credit, month %d", g.Month+1)
 	once := store.IsProCreditOnce(g.ID)
 	if once {
-		entry, note = "procredit_once_"+uid, "Pro credit (once)" // one per account, ever (tx.Create on the entry)
+		entry, note = "procredit_once_"+uid, "Pro credit" // one per account, ever (tx.Create on the entry)
 	}
 	done, err := s.Store.EntryExists(ctx, uid, entry)
 	if err != nil {

@@ -116,6 +116,10 @@ func TestProCreditOnceOnAppPro(t *testing.T) {
 			if got := planCredit(t, s, uid); got != 2000 {
 				t.Fatalf("credit %d", got)
 			}
+			entries, _, _ := s.Store.ListEntries(context.Background(), uid, 10, "")
+			if len(entries) != 1 || entries[0].Note != "Pro credit" || entries[0].ID != "procredit_once_"+uid {
+				t.Fatalf("entry %+v", entries)
+			}
 			// a renewal (later expiry, same purchase): nothing more
 			rc.set(uid, rcSub(tc.product, "app_store", "normal", "tx_"+uid, tc.original, tc.expires.AddDate(0, 1, 0), tc.extra))
 			if v2 := fresh(s, uid); v2 == nil || v2.grantedNow || !v2.Granted || planCredit(t, s, uid) != 2000 {
