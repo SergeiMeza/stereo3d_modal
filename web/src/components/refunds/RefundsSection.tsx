@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * Plan & billing → Refunds (owner 2026-11-06): ask for a refund of the
- * plan's latest payment or runs paid in the last 30 days (RefundSheet),
- * the account's requests with their status in plain words, and a reply
- * when we asked a question (or a follow-up on a closed one). App Store
- * Pro is refunded by Apple: "Ask Apple for a refund".
+ * Refunds on Billing (owner 2026-11-06; quieter since 2026-11-07): a muted
+ * line at the bottom with "Request a refund" (RefundSheet), the account's
+ * requests with their status in plain words and a reply when we asked a
+ * question (or a follow-up on a closed one), and a notice at the top only
+ * while a question waits. Each row's menu asks about its own payment. App
+ * Store Pro is refunded by Apple: "Ask Apple for a refund".
  */
 
 import { useEffect, useState } from "react";
@@ -40,64 +41,95 @@ const ABOUT: Record<SupportRequest["about"], string> = {
   other: "Request",
 };
 
-export function RefundsSection(): JSX.Element | null {
+/** Loads what can be refunded and the account's requests (ADR 0138: the
+ * shared atoms, also read by each Billing row's menu). */
+function useRefundData() {
   const gateway = useGateway();
   const uid = useAppAtomValue(billingUidAtom);
   const options = useAppAtomValue(refundOptionsAtom);
   const requests = useAppAtomValue(supportRequestsAtom);
   const loadOptions = useAppSetAtom(loadRefundOptionsAtom);
   const loadRequests = useAppSetAtom(loadSupportRequestsAtom);
-  const openSheet = useAppSetAtom(openRefundSheetAtom);
-  const pro = useProStatus();
   useEffect(() => {
     if (uid === null) return;
     void loadOptions(gateway);
     void loadRequests(gateway);
   }, [uid, gateway, loadOptions, loadRequests]);
+  return {
+    opts: options.uid === uid ? options.data : null,
+    list: requests.uid === uid ? requests.data : null,
+  };
+}
 
-  const opts = options.uid === uid ? options.data : null;
+/** Owner 2026-11-07: the only refund line above the fold — we asked a
+ * question about a request and it needs the customer's answer. */
+export function RefundQuestionNotice(): JSX.Element | null {
+  const uid = useAppAtomValue(billingUidAtom);
+  const requests = useAppAtomValue(supportRequestsAtom);
   const list = requests.uid === uid ? requests.data : null;
+  const asked = list?.find((r) => r.state === "asked");
+  if (!asked) return null;
+  return (
+    <p data-testid="refund-question-notice" role="status" className="text-sm text-amber-200">
+      We asked a question about your refund request.{" "}
+      <a
+        href={`#request-${asked.id}`}
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById(`request-${asked.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}
+        className="text-primary underline underline-offset-2 hover:text-primary/80"
+      >
+        Answer it
+      </a>
+    </p>
+  );
+}
+
+/** Billing's bottom (owner 2026-11-07): refunds, quietly — one muted line
+ * with a text link, the App Store line, and Your requests when there are
+ * any. The sheet stays mounted here. */
+export function RefundsFooter(): JSX.Element {
+  const { opts, list } = useRefundData();
+  const openSheet = useAppSetAtom(openRefundSheetAtom);
+  const pro = useProStatus();
   const plan = opts?.plan ?? null;
   const askable = (plan !== null && plan.open_request_id === null) || (opts?.runs ?? []).some((r) => r.open_request_id === null);
   const appStore = proCase(pro) === "app_store";
+  const days = opts?.window_days ?? 30;
 
   return (
-    <section data-testid="refunds" aria-labelledby="refunds-title" className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 id="refunds-title" className="text-sm font-semibold text-fg">
-          Refunds
-        </h2>
+    <footer data-testid="refunds" aria-label="Refunds" className="flex flex-col gap-3 text-xs text-fg-muted">
+      <p data-testid="refunds-line">
         {askable ? (
-          <Button size="sm" variant="outline" className="ml-auto" onClick={() => openSheet()}>
-            Request a refund
-          </Button>
-        ) : null}
-      </div>
-      <p className="text-xs text-fg-muted">
-        Ask within {opts?.window_days ?? 30} days of a payment. A person reviews every request.
+          <>
+            Need a refund?{" "}
+            <button
+              type="button"
+              data-testid="refunds-request"
+              onClick={() => openSheet()}
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              Request a refund
+            </button>
+            {" · "}ask within {days} days of a payment, also after cancelling. A person reviews every request.
+          </>
+        ) : (
+          <>Ask for a refund within {days} days of a payment, also after cancelling. A person reviews every request.</>
+        )}
       </p>
-      {plan !== null && plan.open_request_id === null ? (
-        <div data-testid="refund-plan-entry" className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="min-w-0 flex-1 text-fg">
-            {plan.name} plan · {formatCents(plan.paid_cents)} paid {shortDay(plan.paid_at)}
-          </span>
-          <Button size="sm" variant="ghost" onClick={() => openSheet({ plan: true })}>
-            Request a refund
-          </Button>
-        </div>
-      ) : null}
       {appStore ? (
-        <p data-testid="refund-app-store" className="text-sm text-fg">
+        <p data-testid="refund-app-store">
           Pro from the App Store is refunded by Apple.{" "}
-          <a href={APPLE_REFUND_URL} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+          <a href={APPLE_REFUND_URL} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
             Ask Apple for a refund
           </a>
         </p>
       ) : null}
       {list !== null && list.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-medium text-fg-muted">Your requests</h3>
-          <ul data-testid="support-requests" className="divide-y divide-edge rounded-lg border border-edge">
+        <div className="flex flex-col gap-2 text-sm">
+          <h2 className="text-xs font-medium text-fg-muted">Your requests</h2>
+          <ul data-testid="support-requests" className="divide-y divide-edge rounded-lg border border-edge bg-surface-1">
             {list.map((r) => (
               <RequestRow key={r.id} request={r} />
             ))}
@@ -105,7 +137,7 @@ export function RefundsSection(): JSX.Element | null {
         </div>
       ) : null}
       <RefundSheet />
-    </section>
+    </footer>
   );
 }
 
@@ -134,7 +166,7 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
   }
 
   return (
-    <li data-testid={`request-${r.id}`} className="flex flex-col gap-2 px-3 py-2.5 text-sm">
+    <li id={`request-${r.id}`} data-testid={`request-${r.id}`} className="flex scroll-mt-24 flex-col gap-2 px-3 py-2.5 text-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-fg">{ABOUT[r.about] ?? "Request"}</span>
         <span className="text-xs text-fg-muted">{shortDay(r.opened_at)}</span>

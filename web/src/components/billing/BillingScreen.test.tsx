@@ -127,8 +127,9 @@ describe("Billing (S3D-57, S3D-62)", () => {
     expect(within(refund).getByTestId("row-status").textContent).toBe("Refunded");
     expect(within(refund).getByRole("link", { name: "Credit note ↗" })).toBeTruthy();
     // Get help with this payment: a mail with the date, amount and reference
-    fireEvent.click(within(big).getByRole("button", { name: "More" }));
-    const help = within(big).getByTestId("row-help");
+    // owner 2026-11-07: the shadcn menu (Radix opens from the keyboard in jsdom)
+    fireEvent.keyDown(within(big).getByRole("button", { name: "More" }), { key: "Enter" });
+    const help = await screen.findByTestId("row-help");
     expect(decodeURIComponent(help.getAttribute("href")!)).toMatch(/subject=Payment .+ · \$49\.72 · \w+$/);
     expect(screen.getByText("US dollars.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/pending/i);

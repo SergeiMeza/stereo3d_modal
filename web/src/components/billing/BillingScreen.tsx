@@ -28,7 +28,7 @@ import { PlanCard } from "@/components/billing/PlanCard";
 import { PlanMoveOffers } from "@/components/billing/PlanMoveOffers";
 import { RestorePurchases } from "@/components/billing/RestorePurchases";
 import { openRefundSheetAtom, refundOptionsAtom } from "@/components/refunds/refundAtoms";
-import { RefundsSection } from "@/components/refunds/RefundsSection";
+import { RefundQuestionNotice, RefundsFooter } from "@/components/refunds/RefundsSection";
 import { SettleFromLink } from "@/components/billing/SettleFromLink";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -200,52 +200,44 @@ function useRowRefund(row: BillingRow): { plan: boolean; conversionIds: string[]
 }
 
 function RowMenu({ row }: { row: BillingRow }): JSX.Element {
-  const [open, setOpen] = useState(false);
   const refund = useRowRefund(row);
   const openRefund = useAppSetAtom(openRefundSheetAtom);
+  // owner 2026-11-07: the shadcn menu (Radix): it stays inside the screen
+  // at the right edge, also at phone width
   return (
-    <span className="relative">
-      <button
-        type="button"
-        aria-label="More"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg"
-      >
-        <EllipsisIcon className="size-4" />
-      </button>
-      {open ? (
-        <span className="absolute top-8 right-0 z-10 flex flex-col rounded-md border border-edge bg-popover py-1 text-xs whitespace-nowrap text-fg shadow-lg">
-          {refund ? (
-            refund.asked ? (
-              <span data-testid="row-refund-asked" className="px-3 py-2 text-fg-muted">
-                Refund requested
-              </span>
-            ) : (
-              <button
-                type="button"
-                data-testid="row-refund"
-                onClick={() => {
-                  setOpen(false);
-                  openRefund({ plan: refund.plan, conversionIds: refund.conversionIds });
-                }}
-                className="px-3 py-2 text-left hover:bg-surface-2"
-              >
-                Request a refund
-              </button>
-            )
-          ) : null}
-          <a
-            href={supportMailto(helpSubject(row))}
-            data-testid="row-help"
-            onClick={() => setOpen(false)}
-            className="px-3 py-2 hover:bg-surface-2"
-          >
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="More"
+          className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg"
+        >
+          <EllipsisIcon className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="text-xs">
+        {refund ? (
+          refund.asked ? (
+            <DropdownMenuItem disabled data-testid="row-refund-asked" className="text-xs">
+              Refund requested
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              data-testid="row-refund"
+              className="text-xs"
+              onSelect={() => openRefund({ plan: refund.plan, conversionIds: refund.conversionIds })}
+            >
+              Request a refund
+            </DropdownMenuItem>
+          )
+        ) : null}
+        <DropdownMenuItem asChild className="text-xs">
+          <a href={supportMailto(helpSubject(row))} data-testid="row-help">
             Get help with this payment
           </a>
-        </span>
-      ) : null}
-    </span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -769,6 +761,11 @@ export function BillingScreen(): JSX.Element {
         </p>
       ) : null}
 
+      {/* owner 2026-11-07: the only refund line above the fold, when we
+          asked a question about a request */}
+      <SectionBoundary name="Refund question">
+        <RefundQuestionNotice />
+      </SectionBoundary>
       {/* owner bug 2026-11-05: one section failing never takes the page */}
       <SectionBoundary name="Balance">
         <BalanceCard />
@@ -782,10 +779,6 @@ export function BillingScreen(): JSX.Element {
       </SectionBoundary>
       <SectionBoundary name="Restore Purchases">
         <RestorePurchases />
-      </SectionBoundary>
-      {/* owner 2026-11-06: refunds on request, a person reviews each */}
-      <SectionBoundary name="Refunds">
-        <RefundsSection />
       </SectionBoundary>
 
       <SectionBoundary name="Payment methods">
@@ -861,6 +854,10 @@ export function BillingScreen(): JSX.Element {
           US dollars.{tax === "inclusive" ? " Prices include VAT where it applies." : ""}
         </p>
       </section>
+      {/* owner 2026-11-07: refunds, quietly, at the bottom */}
+      <SectionBoundary name="Refunds">
+        <RefundsFooter />
+      </SectionBoundary>
     </section>
   );
 }
