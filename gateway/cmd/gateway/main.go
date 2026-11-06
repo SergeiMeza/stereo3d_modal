@@ -213,6 +213,11 @@ func main() {
 	mux.HandleFunc("POST /v1/billing/restore/find", authed(svc.HandleRestoreFind))
 	mux.HandleFunc("POST /v1/billing/restore/find/verify", authed(svc.HandleRestoreFindVerify))
 	mux.HandleFunc("POST /v1/billing/restore/move", authed(api.Fresh(svc.HandleRestoreMove)))
+	// Support moves a plan off a live account (RP-05): the receiving account accepts.
+	mux.HandleFunc("GET /v1/support/plan-moves", authed(svc.HandleSupportPlanMoves))
+	mux.HandleFunc("POST /v1/support/plan-moves/{id}/accept", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleSupportPlanMoveAccept(w, r, u, r.PathValue("id"))
+	})))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 
 	// Admin passkeys and sessions (ADR 0135).
@@ -233,6 +238,7 @@ func main() {
 	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
 	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
 	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
+	mux.HandleFunc("GET /v1/admin/cases/{id}/plan-move/preview", admin(adminID(svc.HandleAdminPlanMovePreview, "id")))
 	mux.HandleFunc("GET /v1/admin/accounts", admin(svc.HandleAdminAccountSearch)) // ?q= email prefix or uid (BL-29)
 	mux.HandleFunc("GET /v1/admin/efws", admin(svc.HandleAdminOpenEFWs))          // open early fraud warnings, with or without a case (BL-29)
 	mux.HandleFunc("GET /v1/admin/grants", admin(svc.HandleAdminAllGrants))       // every Grant Pro grant (BL-29)

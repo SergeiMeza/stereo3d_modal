@@ -109,19 +109,21 @@ type Case struct {
 	// carries the message; the closed one is never written).
 	// FollowUpIDs: on a closed case, its follow-ups (read from their
 	// follow_up_of when the case page is built, never stored).
-	FollowUpOf     string      `firestore:"follow_up_of,omitempty" json:"follow_up_of,omitempty"`
-	FollowUpIDs    []string    `firestore:"-" json:"follow_up_ids"`
-	CustomerText   string      `firestore:"customer_text,omitempty" json:"customer_text,omitempty"`
-	EvidenceN      int         `firestore:"evidence_n" json:"evidence_n"`
-	EvidenceAt     *time.Time  `firestore:"evidence_at,omitempty" json:"evidence_at,omitempty"`
-	DeadlineAt     *time.Time  `firestore:"deadline_at,omitempty" json:"deadline_at,omitempty"`
-	Reminders      []time.Time `firestore:"reminders,omitempty" json:"reminders,omitempty"`
-	LastActivityAt time.Time   `firestore:"last_activity_at" json:"last_activity_at"`
-	OpenedAt       time.Time   `firestore:"opened_at" json:"opened_at"`
-	DecidedAt      *time.Time  `firestore:"decided_at,omitempty" json:"decided_at,omitempty"`
-	ClosedAt       *time.Time  `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
-	StatusSince    time.Time   `firestore:"status_since" json:"status_since"`
-	Lease          *Lease      `firestore:"lease,omitempty" json:"-"`
+	FollowUpOf   string   `firestore:"follow_up_of,omitempty" json:"follow_up_of,omitempty"`
+	FollowUpIDs  []string `firestore:"-" json:"follow_up_ids"`
+	CustomerText string   `firestore:"customer_text,omitempty" json:"customer_text,omitempty"`
+	// PlanMove: a support move of a plan off this (live) account (RP-05).
+	PlanMove       *CasePlanMove `firestore:"plan_move,omitempty" json:"plan_move,omitempty"`
+	EvidenceN      int           `firestore:"evidence_n" json:"evidence_n"`
+	EvidenceAt     *time.Time    `firestore:"evidence_at,omitempty" json:"evidence_at,omitempty"`
+	DeadlineAt     *time.Time    `firestore:"deadline_at,omitempty" json:"deadline_at,omitempty"`
+	Reminders      []time.Time   `firestore:"reminders,omitempty" json:"reminders,omitempty"`
+	LastActivityAt time.Time     `firestore:"last_activity_at" json:"last_activity_at"`
+	OpenedAt       time.Time     `firestore:"opened_at" json:"opened_at"`
+	DecidedAt      *time.Time    `firestore:"decided_at,omitempty" json:"decided_at,omitempty"`
+	ClosedAt       *time.Time    `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
+	StatusSince    time.Time     `firestore:"status_since" json:"status_since"`
+	Lease          *Lease        `firestore:"lease,omitempty" json:"-"`
 }
 
 // CasePromo links a dispute case to its promo_regrants record.

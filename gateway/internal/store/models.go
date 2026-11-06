@@ -553,8 +553,11 @@ type Customer struct {
 	// AccountDeleted marks an account deleted through POST
 	// /v1/account/delete. The record stays whole (soft delete); new paid
 	// work is refused.
-	AccountDeleted bool       `firestore:"account_deleted,omitempty"`
-	DeletedAt      *time.Time `firestore:"deleted_at,omitempty"`
+	AccountDeleted bool `firestore:"account_deleted,omitempty"`
+	// PlanMovedTo: support moved this account's plan to another (RP-05).
+	PlanMovedTo string     `firestore:"plan_moved_to,omitempty"`
+	PlanMovedAt *time.Time `firestore:"plan_moved_at,omitempty"`
+	DeletedAt   *time.Time `firestore:"deleted_at,omitempty"`
 	// DeletionPending: the customer confirmed "Delete and refund"; the
 	// account is deleted once its closure case (DeletionCaseID) is decided
 	// (N8 step 3). New runs and top-ups are refused meanwhile.

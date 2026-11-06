@@ -433,6 +433,8 @@ func caseActions(c *store.Case) []string {
 		return []string{"approve", "partial", "deny", "mark_out_of_band", "note", "close"}
 	case c.Reason == ReasonPlanRefund:
 		return []string{"approve", "partial", "deny", "note", "close"}
+	case c.Reason == ReasonPlanMove:
+		return []string{"offer_plan_move", "cancel_plan_move", "note", "close"}
 	}
 	return []string{"approve", "partial", "deny", "ask", "customer_reply", "mark_out_of_band", "note", "refresh_evidence", "close"}
 }
@@ -448,10 +450,14 @@ type caseActionReq struct {
 	Text             string `json:"text"`
 	Method           string `json:"method"`    // out of band
 	Reference        string `json:"reference"` // out of band
+	// offer_plan_move (RP-05): the receiving account and the plan's
+	// subscription the preview showed.
+	ToUID                  string `json:"to_uid"`
+	ExpectedSubscriptionID string `json:"expected_subscription_id"`
 }
 
 var moneyActions = map[string]bool{"approve": true, "partial": true, "waive": true, "deny": true, "mark_out_of_band": true,
-	"stop_run": true, "assign": true, "no_refund": true}
+	"stop_run": true, "assign": true, "no_refund": true, "offer_plan_move": true}
 
 // POST /v1/admin/cases/{id}/actions {action, …} → the case page.
 func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, a *AdminUser, id string) {
@@ -479,6 +485,12 @@ func (s *Service) HandleAdminCaseAction(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	s.audit(ctx, a, "case_"+req.Action, map[string]any{"case_id": id, "items": req.Items, "template": req.Template})
+	switch req.Action { // RP-05's own audit rows
+	case "offer_plan_move":
+		s.audit(ctx, a, "plan_move_offer", map[string]any{"case_id": id, "from_uid": c.UID, "to_uid": req.ToUID})
+	case "cancel_plan_move":
+		s.audit(ctx, a, "plan_move_cancel", map[string]any{"case_id": id})
+	}
 	if err := s.applyCaseAction(ctx, c, req, a.who()); err != nil {
 		var apiErr *httpx.APIError
 		if errors.As(err, &apiErr) {
@@ -705,6 +717,10 @@ func (s *Service) applyCaseAction(ctx context.Context, c *store.Case, req caseAc
 	case "counter_dispute", "counter_with_refund_proof":
 		decide(req.Action, nil) // evidence goes in from the Stripe Dashboard; recorded here
 		return nil
+	case "offer_plan_move":
+		return s.offerPlanMove(ctx, c, req, who)
+	case "cancel_plan_move":
+		return s.cancelPlanMove(ctx, c, req, who)
 	case "close":
 		if c.Status != store.CaseDecided && c.Decision == nil && req.Text == "" {
 			return httpx.Err(http.StatusConflict, "not_decided", "Close only when decided, or say why (a duplicate).")
@@ -797,6 +813,18 @@ func (s *Service) HandleAdminOpenCase(w http.ResponseWriter, r *http.Request, a 
 	var cases []*store.Case
 	var err error
 	switch req.Reason {
+	case ReasonPlanMove: // RP-05: how ownership was checked is required
+		if len(strings.TrimSpace(req.Text)) < 10 {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("say how ownership was checked (text)"))
+			return
+		}
+		var c *store.Case
+		c, err = s.openCase(ctx, &store.Case{UID: req.UID, Type: store.CaseSupport, Reason: ReasonPlanMove, Mode: "manual", Source: "support",
+			Status: store.CaseOpen, DedupeKey: "plan_move:" + req.UID}, a.who(), req.Text)
+		if c != nil {
+			cases = append(cases, c)
+			s.Store.AddCaseEvent(ctx, c.ID, store.CaseEvent{Who: a.who(), Kind: "ownership_check", Text: req.Text})
+		}
 	case ReasonPlanRefund: // the latest plan invoice; proposes paid × unspent ÷ credit
 		var c *store.Case
 		c, err = s.openPlanRefundCase(ctx, req.UID, a.who(), req.Text)

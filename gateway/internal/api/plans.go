@@ -313,7 +313,7 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		s.payDebtsFromBalance(ctx, uid)
 		return
 	}
-	if from := sub.Metadata["restored_from"]; from != "" {
+	if from := cmp.Or(sub.Metadata["restored_from"], sub.Metadata["moved_from"]); from != "" {
 		if done, _ := s.Store.EntryExists(ctx, from, "plancredit_"+inv.ID); done {
 			return // granted on the deleted account it was restored from (RP-01 carries the unspent part)
 		}
