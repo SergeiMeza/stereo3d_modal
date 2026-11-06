@@ -18,12 +18,20 @@
  * - Pausing snaps the readout to the exact frame under the paused time and
  *   re-seeks the video to that frame's mid-point so pixels match the number.
  *
+ * - Strip hover (owner 2026-11-07): while stripHoverFrameAtom holds a
+ *   frame, the video shows it and the readout stays put (frames shown
+ *   for a hover are never reported). One seek at a time: positions that
+ *   arrive while a seek runs are dropped except the latest, which a
+ *   fastSeek reaches quickly and an exact seek then lands on. A playing
+ *   video holds still while hovered. When the hover ends the video goes
+ *   back to its own time and plays again if it was playing.
+ *
  * The video is injected as a ref of PreviewVideoLike — the minimal element
  * surface — so the mapping logic is unit-testable against a plain fake
  * object (jsdom renders <video> but never plays; that's fine).
  */
 
-import { useAppAtom } from "@/lib/state/stores";
+import { appStore, useAppAtom } from "@/lib/state/stores";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -32,7 +40,7 @@ import {
   secondsToFrame,
   type RationalFPS,
 } from "@/lib/frames";
-import { mutedAtom, playbackSpeedAtom } from "@/lib/viewerPrefs";
+import { mutedAtom, playbackSpeedAtom, stripHoverFrameAtom } from "@/lib/viewerPrefs";
 
 export interface PreviewFrameMetadata {
   /** presentation time (s) of the frame just displayed */
@@ -53,6 +61,27 @@ export interface PreviewVideoLike {
     callback: (now: number, metadata: PreviewFrameMetadata) => void,
   ): number;
   cancelVideoFrameCallback?(handle: number): void;
+  /** Quick, keyframe-accurate seek (Safari, Firefox). */
+  fastSeek?(time: number): void;
+}
+
+/** A seek that never reports `seeked` (no media yet, jsdom) stops
+ * holding up the next hover position after this long. */
+export const HOVER_SEEK_GIVE_UP_MS = 250;
+
+/** One strip hover: where to go back to, and the seek in flight. */
+interface HoverSession {
+  /** the video's own time, to restore on leave (a click moves it) */
+  restoreTime: number;
+  /** play again on leave */
+  resume: boolean;
+  /** the latest hovered frame */
+  target: number;
+  /** the frame the running seek goes to, or null when none runs */
+  inFlight: number | null;
+  /** the running seek was a fastSeek (an exact one follows) */
+  fast: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 /** The currentTime to display frame `frame`: its start plus HALF a frame
@@ -107,6 +136,10 @@ export function usePreviewPlayer(
   const [speed, setSpeedState] = useAppAtom(playbackSpeedAtom);
   const [muted, setMutedState] = useAppAtom(mutedAtom);
   const onFrameRef = useRef(onFrame);
+  // strip hover: the session while hovered; `restoring` until the seek
+  // back to the video's own time lands (frames on the way stay unreported)
+  const hoverRef = useRef<HoverSession | null>(null);
+  const restoringRef = useRef(false);
   const fpsRef = useRef(fps);
   useEffect(() => {
     onFrameRef.current = onFrame;
@@ -151,7 +184,9 @@ export function usePreviewPlayer(
       let handle = 0;
       const onVideoFrame = (_now: number, metadata: PreviewFrameMetadata) => {
         if (cancelled) return;
-        onFrameRef.current(mediaTimeToFrame(metadata.mediaTime, fpsRef.current));
+        if (!hoverRef.current && !restoringRef.current) {
+          onFrameRef.current(mediaTimeToFrame(metadata.mediaTime, fpsRef.current));
+        }
         handle = rvfc(onVideoFrame);
       };
       handle = rvfc(onVideoFrame);
@@ -161,6 +196,7 @@ export function usePreviewPlayer(
       };
     }
     const onTimeUpdate = () => {
+      if (hoverRef.current || restoringRef.current) return;
       onFrameRef.current(currentTimeToFrame(video.currentTime, fpsRef.current));
     };
     video.addEventListener("timeupdate", onTimeUpdate);
@@ -172,7 +208,10 @@ export function usePreviewPlayer(
     const video = videoRef.current;
     if (!video) return;
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
+    // a hover holds a playing video still without it reading as paused
+    const onPause = () => {
+      if (!hoverRef.current) setPlaying(false);
+    };
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("ended", onPause);
@@ -183,19 +222,126 @@ export function usePreviewPlayer(
     };
   }, [videoRef]);
 
+  // ------------------------------------------------------- strip hover
+  const issueHoverSeek = useCallback(
+    (video: PreviewVideoLike, h: HoverSession, fast: boolean) => {
+      const t = seekTimeForFrame(h.target, fpsRef.current);
+      h.inFlight = h.target;
+      h.fast = fast && typeof video.fastSeek === "function";
+      if (h.fast) video.fastSeek!(t);
+      else video.currentTime = t;
+      if (h.timer !== null) clearTimeout(h.timer);
+      h.timer = setTimeout(() => hoverSeekDone(video, h), HOVER_SEEK_GIVE_UP_MS);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hoverSeekDone is a stable function declaration below
+    [],
+  );
+
+  /** A hover seek landed (or gave up): go on to the latest position. */
+  function hoverSeekDone(video: PreviewVideoLike, h: HoverSession): void {
+    if (h.inFlight === null) return;
+    if (h.timer !== null) clearTimeout(h.timer);
+    h.timer = null;
+    const landed = h.inFlight;
+    const wasFast = h.fast;
+    h.inFlight = null;
+    if (hoverRef.current !== h) return;
+    // still moving: catch up quickly; at rest after a quick seek: land exactly
+    if (h.target !== landed) issueHoverSeek(video, h, true);
+    else if (wasFast) issueHoverSeek(video, h, false);
+  }
+
+  useEffect(() => {
+    let restoreTimer: ReturnType<typeof setTimeout> | null = null;
+    let listened: PreviewVideoLike | null = null;
+    const onSeeked = () => {
+      const video = videoRef.current;
+      const h = hoverRef.current;
+      if (video && h) hoverSeekDone(video, h);
+      else restoringRef.current = false;
+    };
+    const unsub = appStore.sub(stripHoverFrameAtom, () => {
+      const frame = appStore.get(stripHoverFrameAtom);
+      const video = videoRef.current;
+      if (!video) return;
+      if (listened !== video) {
+        listened?.removeEventListener("seeked", onSeeked);
+        listened = video;
+        video.addEventListener("seeked", onSeeked);
+      }
+      let h = hoverRef.current;
+      if (frame === null) {
+        if (!h) return;
+        // leave: back to the video's own time, playing again if it was
+        hoverRef.current = null;
+        if (h.timer !== null) clearTimeout(h.timer);
+        restoringRef.current = true;
+        if (restoreTimer !== null) clearTimeout(restoreTimer);
+        restoreTimer = setTimeout(() => {
+          restoringRef.current = false;
+        }, HOVER_SEEK_GIVE_UP_MS);
+        video.currentTime = h.restoreTime;
+        if (h.resume) {
+          const result = video.play();
+          if (result instanceof Promise) result.catch(() => setPlaying(false));
+        }
+        return;
+      }
+      if (!h) {
+        h = {
+          restoreTime: video.currentTime,
+          resume: !video.paused,
+          target: frame,
+          inFlight: null,
+          fast: false,
+          timer: null,
+        };
+        hoverRef.current = h;
+        if (h.resume) video.pause();
+      }
+      h.target = frame;
+      if (h.inFlight === null) issueHoverSeek(video, h, false);
+    });
+    return () => {
+      unsub();
+      if (restoreTimer !== null) clearTimeout(restoreTimer);
+      const h = hoverRef.current;
+      if (h?.timer) clearTimeout(h.timer);
+      hoverRef.current = null;
+      restoringRef.current = false;
+      listened?.removeEventListener("seeked", onSeeked);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hoverSeekDone/issueHoverSeek are stable
+  }, [videoRef]);
+
   const seekToFrame = useCallback(
     (frame: number) => {
       const video = videoRef.current;
       if (!video) return;
-      video.currentTime = seekTimeForFrame(frame, fpsRef.current);
+      const h = hoverRef.current;
+      if (h) {
+        // a click or a step while hovered is where the video goes back to
+        h.restoreTime = seekTimeForFrame(frame, fpsRef.current);
+        h.target = frame;
+        if (h.inFlight === null) issueHoverSeek(video, h, false);
+      } else {
+        video.currentTime = seekTimeForFrame(frame, fpsRef.current);
+      }
       onFrameRef.current(frame);
     },
-    [videoRef],
+    [videoRef, issueHoverSeek],
   );
 
   const play = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    const h = hoverRef.current;
+    if (h) {
+      // held still while hovered: plays once the pointer leaves
+      h.resume = true;
+      setPlaying(true);
+      return;
+    }
     const result = video.play();
     if (result instanceof Promise) {
       result.catch(() => setPlaying(false));
@@ -206,6 +352,13 @@ export function usePreviewPlayer(
   const pause = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    const h = hoverRef.current;
+    if (h) {
+      // the video already holds still; it stays paused after the hover
+      h.resume = false;
+      setPlaying(false);
+      return;
+    }
     video.pause();
     // Snap: readout gets the exact frame under the paused time, and the
     // video re-seeks to that frame's mid-point so the pixels match.

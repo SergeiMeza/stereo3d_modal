@@ -32,6 +32,15 @@
  * shows a live frame + timecode label; the parent seeks the preview video
  * to the dragged frame. Clamping cut moves between neighbors is the
  * parent's job (single owner of the cut list).
+ *
+ * Hover (owner 2026-11-07): a mouse or pen over the strip writes the frame
+ * under it to stripHoverFrameAtom, and the strip draws a thin line with
+ * the timecode (and the scene number when there are cuts); the preview
+ * player above shows that frame (usePreviewPlayer) and goes back to its
+ * own time and play state when the pointer leaves. A hover never moves
+ * the playhead, the selection or the range — only a click does. Panning
+ * or zooming under a resting pointer follows the frame now under it.
+ * Touch has no hover: a tap is a click, a drag pans.
  */
 
 /* eslint-disable @next/next/no-img-element -- GCS thumbnails / extracted
@@ -43,9 +52,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Thumb } from "@/lib/api/types";
-import { frameLabel, frameToPosition, type RationalFPS } from "@/lib/frames";
+import {
+  frameLabel,
+  frameToPosition,
+  frameToTimecode,
+  type RationalFPS,
+} from "@/lib/frames";
 import { blurAfterMouseClick } from "@/lib/interactions";
-import { compactTimelineAtom, timelineZoomIndexAtom } from "@/lib/viewerPrefs";
+import {
+  compactTimelineAtom,
+  stripHoverFrameAtom,
+  timelineZoomIndexAtom,
+} from "@/lib/viewerPrefs";
 
 import { useFrameThumbs } from "./useFrameThumbs";
 import {
@@ -66,6 +84,15 @@ import {
  * at once, a trackpad pinch needs a deliberate gesture per doubling.
  * Exported for tests. */
 export const WHEEL_ZOOM_THRESHOLD = 80;
+
+/** The hover label: the timecode, with the scene number when the strip
+ * has cuts (a cut at frame 0 starts nothing new). Exported for tests. */
+export function hoverLabel(frame: number, fps: RationalFPS, cuts: number[]): string {
+  const tc = frameToTimecode(frame, fps);
+  if (cuts.length === 0) return tc;
+  const scene = cuts.filter((c) => c > 0 && c <= frame).length + 1;
+  return `Scene ${scene} · ${tc}`;
+}
 
 export interface FilmstripTimelineProps {
   thumbs: Thumb[];
@@ -139,6 +166,26 @@ export function FilmstripTimeline({
   );
 
   const frameWindow = zoomedWindow(numFrames, zoom, scrollFraction);
+
+  // Hover: the frame under a resting mouse/pen (shared with the player).
+  const [hoverFrame, setHoverFrame] = useAppAtom(stripHoverFrameAtom);
+  const hoverXRef = useRef<number | null>(null);
+  // a pan or zoom under a resting pointer: follow the frame now under it
+  useEffect(() => {
+    const x = hoverXRef.current;
+    const el = scrollerRef.current;
+    if (x === null || !el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    setHoverFrame(
+      windowPositionToFrame(
+        (x - rect.left) / rect.width,
+        zoomedWindow(numFrames, zoom, scrollFraction),
+      ),
+    );
+  }, [numFrames, zoom, scrollFraction, setHoverFrame]);
+  // a strip that goes away mid-hover gives the player its time back
+  useEffect(() => () => setHoverFrame(null), [setHoverFrame]);
 
   // Viewport width in px — sizes the tile plan (how many fixed-width tiles
   // cover one screen). Measured off the scroller and kept fresh with a
@@ -271,7 +318,20 @@ export function FilmstripTimeline({
     wantedFrames,
   );
 
+  function hoverAt(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === "touch" || dragIndexRef.current !== null) return;
+    hoverXRef.current = e.clientX;
+    setHoverFrame(frameAtClientX(e.clientX));
+  }
+
+  function endHover() {
+    hoverXRef.current = null;
+    setHoverFrame(null);
+  }
+
   function startDrag(index: number, e: React.PointerEvent<HTMLButtonElement>) {
+    // a marker drag drives the player itself
+    endHover();
     dragIndexRef.current = index;
     setDragIndex(index);
     onSelectCut?.(index);
@@ -348,6 +408,8 @@ export function FilmstripTimeline({
           compact ? "h-14" : "h-[90px]"
         }`}
         onScroll={handleScroll}
+        onPointerMove={hoverAt}
+        onPointerLeave={endHover}
         onClick={(e) => onScrub(frameAtClientX(e.clientX))}
         onDoubleClick={
           readOnly ? undefined : (e) => onAddCut?.(frameAtClientX(e.clientX))
@@ -445,6 +507,27 @@ export function FilmstripTimeline({
                 width: `${Math.max(0.4, (frameToPosition(range[1], numFrames) - frameToPosition(range[0], numFrames)) * 100)}%`,
               }}
             />
+          ) : null}
+
+          {hoverFrame !== null && hoverFrame < numFrames ? (
+            <div
+              data-testid="hover-line"
+              data-frame={hoverFrame}
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 z-20 w-px -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.55)]"
+              style={{ left: `${frameToPosition(hoverFrame, numFrames) * 100}%` }}
+            >
+              <span
+                data-testid="hover-label"
+                className={`absolute top-1 rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-white ${
+                  (hoverFrame - frameWindow.start) / Math.max(frameWindow.frames, 1) > 0.75
+                    ? "right-1.5"
+                    : "left-1.5"
+                }`}
+              >
+                {hoverLabel(hoverFrame, fps, cuts)}
+              </span>
+            </div>
           ) : null}
 
           <div

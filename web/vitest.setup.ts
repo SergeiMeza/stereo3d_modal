@@ -57,6 +57,7 @@ import {
   compactTimelineAtom,
   mutedAtom,
   playbackSpeedAtom,
+  stripHoverFrameAtom,
   timelineZoomIndexAtom,
 } from "@/lib/viewerPrefs";
 
@@ -67,6 +68,7 @@ afterEach(() => {
   store.set(timelineZoomIndexAtom, null);
   store.set(compactPlayerAtom, false);
   store.set(compactTimelineAtom, false);
+  store.set(stripHoverFrameAtom, null);
   store.set(settleOpenAtom, false);
   store.set(billingHistoryAtom, EMPTY_HISTORY);
   store.set(invoicesAtom, EMPTY_INVOICES);

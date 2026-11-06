@@ -33,3 +33,10 @@ export const compactPlayerAtom = atom(false);
 /** Filmstrip layout: false = full-height strip, true = compact (shorter
  * strip, proportionally narrower tiles). */
 export const compactTimelineAtom = atom(false);
+
+/** The frame under the pointer on a filmstrip, or null when no strip is
+ * hovered (owner 2026-11-07). The strip writes it; the preview player
+ * beside the strip shows that frame and puts its own time back when it
+ * goes null. Session viewer state like the prefs above, never persisted;
+ * a hover never moves the playhead. */
+export const stripHoverFrameAtom = atom<number | null>(null);

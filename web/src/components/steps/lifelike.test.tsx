@@ -28,6 +28,7 @@ import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { resetLimitsCache } from "@/lib/api/useLimits";
 import { parseRational } from "@/lib/frames";
+import { seekTimeForFrame } from "@/components/workspace/usePreviewPlayer";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -425,6 +426,51 @@ describe("Lifelike Preview", () => {
       from_frame: 0,
       to_frame: 120,
     });
+  });
+
+  it("hovering the strip shows that frame and leaves the moment, range and price alone; a click picks (owner 2026-11-07)", async () => {
+    const project = lifelikeProject();
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikePreviewPanel project={project} onProjectChanged={() => {}} />,
+    );
+    const fps = parseRational(project.probe!.fps_rational);
+    const n = project.probe!.num_frames;
+    const strip = await screen.findByTestId("filmstrip");
+    vi.spyOn(strip, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: n, bottom: 90, width: n, height: 90,
+      toJSON: () => ({}),
+    } as DOMRect);
+    // fit, so 1 px is 1 frame
+    const zoomOut = screen.getByLabelText("Zoom out") as HTMLButtonElement;
+    while (!zoomOut.disabled) fireEvent.click(zoomOut);
+    await waitFor(() => expect(quotes.at(-1)).toMatchObject({ from_frame: 0 }));
+    const video = screen.getByTestId("preview-video") as HTMLVideoElement;
+    const range = () => screen.getByTestId("timeline-range").style.left;
+    const rangeBefore = range();
+    const moment = () => screen.getByTestId("preview-moment").textContent;
+    const momentBefore = moment();
+    const timeBefore = video.currentTime;
+    const asked = quotes.length;
+    const at = Math.floor(n / 2);
+
+    fireEvent.pointerMove(strip, { clientX: at, pointerType: "mouse" });
+    expect(video.currentTime).toBe(seekTimeForFrame(at, fps));
+    expect(screen.getByTestId("hover-label").textContent).toMatch(/^Scene \d+ · /);
+    expect(range()).toBe(rangeBefore);
+    expect(moment()).toBe(momentBefore);
+    fireEvent.pointerMove(strip, { clientX: at + 10, pointerType: "mouse" });
+    fireEvent.pointerLeave(strip, { pointerType: "mouse" });
+    expect(video.currentTime).toBe(timeBefore);
+    expect(range()).toBe(rangeBefore);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(quotes.length).toBe(asked); // no new price asked for
+
+    expect(moment()).toBe(momentBefore);
+
+    fireEvent.click(strip, { clientX: at });
+    expect(range()).toBe(`${(at / n) * 100}%`);
+    expect(moment()).not.toBe(momentBefore);
   });
 
   it("shows the latest preview with a free Red-cyan / Wiggle / Side by side check, Red-cyan first (owner 2026-11-07)", async () => {

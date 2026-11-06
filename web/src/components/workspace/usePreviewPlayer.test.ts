@@ -17,9 +17,12 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { frameToSeconds, parseRational } from "@/lib/frames";
+import { appStore } from "@/lib/state/stores";
+import { stripHoverFrameAtom } from "@/lib/viewerPrefs";
 
 import {
   currentTimeToFrame,
+  HOVER_SEEK_GIVE_UP_MS,
   mediaTimeToFrame,
   seekTimeForFrame,
   usePreviewPlayer,
@@ -358,5 +361,94 @@ describe("usePreviewPlayer — transport", () => {
     });
     expect(result.current.playing).toBe(false);
     expect(onFrame).not.toHaveBeenCalled();
+  });
+});
+
+describe("usePreviewPlayer — strip hover (owner 2026-11-07)", () => {
+  const hover = (frame: number | null) => act(() => appStore.set(stripHoverFrameAtom, frame));
+
+  it("hover shows the frame without moving the readout; leave puts the time back", () => {
+    const video = new FakeVideo({ rvfc: true });
+    const { onFrame } = renderPlayer(video);
+    video.currentTime = seekTimeForFrame(10, FPS24);
+
+    hover(200);
+    expect(video.currentTime).toBe(seekTimeForFrame(200, FPS24));
+    act(() => video.presentFrame(frameToSeconds(200, FPS24)));
+    expect(onFrame).not.toHaveBeenCalled();
+
+    hover(null);
+    expect(video.currentTime).toBe(seekTimeForFrame(10, FPS24));
+    expect(video.paused).toBe(true);
+    // the way back stays unreported until it lands, then frames report again
+    act(() => video.presentFrame(frameToSeconds(200, FPS24)));
+    expect(onFrame).not.toHaveBeenCalled();
+    act(() => video.emit("seeked"));
+    act(() => video.presentFrame(frameToSeconds(10, FPS24)));
+    expect(onFrame).toHaveBeenLastCalledWith(10);
+  });
+
+  it("a playing video holds still on the hovered frame and plays on after leave", () => {
+    const video = new FakeVideo({ rvfc: true });
+    const { result } = renderPlayer(video);
+    act(() => result.current.play());
+    video.currentTime = 3.3;
+
+    hover(50);
+    expect(video.paused).toBe(true);
+    expect(result.current.playing).toBe(true); // reads as playing, held still
+    expect(video.currentTime).toBe(seekTimeForFrame(50, FPS24));
+
+    hover(null);
+    expect(video.currentTime).toBe(3.3);
+    expect(video.paused).toBe(false);
+    expect(result.current.playing).toBe(true);
+  });
+
+  it("one seek at a time: drops the positions in between, quick seek then exact on the latest", () => {
+    const video = new FakeVideo();
+    const fast: number[] = [];
+    (video as PreviewVideoLike).fastSeek = (t: number) => {
+      fast.push(t);
+      video.currentTime = t;
+    };
+    renderPlayer(video);
+
+    hover(10);
+    expect(video.currentTime).toBe(seekTimeForFrame(10, FPS24));
+    hover(20);
+    hover(30);
+    expect(video.currentTime).toBe(seekTimeForFrame(10, FPS24)); // still seeking 10
+    act(() => video.emit("seeked"));
+    expect(fast).toEqual([seekTimeForFrame(30, FPS24)]); // 20 dropped
+    video.currentTime = 1.25; // a keyframe near 30
+    act(() => video.emit("seeked"));
+    expect(video.currentTime).toBe(seekTimeForFrame(30, FPS24)); // exact landing
+    expect(fast).toHaveLength(1);
+  });
+
+  it("a seek that never reports seeked doesn't hold up the next position", () => {
+    vi.useFakeTimers();
+    try {
+      const video = new FakeVideo();
+      renderPlayer(video);
+      hover(10);
+      hover(40);
+      act(() => vi.advanceTimersByTime(HOVER_SEEK_GIVE_UP_MS));
+      expect(video.currentTime).toBe(seekTimeForFrame(40, FPS24));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a click while hovered moves the playhead, and leave lands there", () => {
+    const video = new FakeVideo({ rvfc: true });
+    const { result, onFrame } = renderPlayer(video);
+    hover(80);
+    act(() => result.current.seekToFrame(80));
+    expect(onFrame).toHaveBeenLastCalledWith(80);
+    hover(120);
+    hover(null);
+    expect(video.currentTime).toBe(seekTimeForFrame(80, FPS24));
   });
 });

@@ -26,7 +26,7 @@ import {
 } from "vitest";
 
 import projectFixture from "../../fixtures/project.json";
-import { WHEEL_ZOOM_THRESHOLD } from "@/components/workspace/FilmstripTimeline";
+import { hoverLabel, WHEEL_ZOOM_THRESHOLD } from "@/components/workspace/FilmstripTimeline";
 import { seekTimeForFrame } from "@/components/workspace/usePreviewPlayer";
 import { exportCutsCSV } from "@/lib/cutlist";
 import {
@@ -456,6 +456,48 @@ describe("WorkspaceScreen — playhead & keyboard", () => {
     expect(readout()).toBe(frameLabel(100, FPS));
     // the proxy seeks to the frame's MID-point (never a boundary time)
     expect(previewVideo().currentTime).toBe(seekTimeForFrame(100, FPS));
+  });
+
+  it("hovering the strip shows that frame, leave puts the time back, the selection stays; click still moves (owner 2026-11-07)", async () => {
+    const strip = await renderWorkspace();
+    mockStripRect(strip);
+    zoomToFit(strip);
+    fireEvent.click(strip, { clientX: 100 });
+    fireEvent.click(screen.getAllByTestId("cut-marker")[0]);
+    const selected = screen.getByTestId("selected-cut").textContent;
+    const before = previewVideo().currentTime;
+    const readoutBefore = readout();
+
+    fireEvent.pointerMove(strip, { clientX: NEW_CUT, pointerType: "mouse" });
+    expect(previewVideo().currentTime).toBe(seekTimeForFrame(NEW_CUT, FPS));
+    expect(screen.getByTestId("hover-line").getAttribute("data-frame")).toBe(String(NEW_CUT));
+    expect(screen.getByTestId("hover-label").textContent).toBe(hoverLabel(NEW_CUT, FPS, CUTS));
+    expect(screen.getByTestId("hover-label").textContent).toMatch(/^Scene \d+ · \d\d:\d\d:\d\d:\d\d$/);
+    // a cut at frame 0 starts nothing; a strip without cuts shows the timecode alone
+    expect(hoverLabel(0, FPS, [0, 50])).toBe("Scene 1 · 00:00:00:00");
+    expect(hoverLabel(50, FPS, [0, 50])).toBe(`Scene 2 · ${frameToTimecode(50, FPS)}`);
+    expect(hoverLabel(50, FPS, [])).toBe(frameToTimecode(50, FPS));
+    // the playhead, the readout and the selection don't move
+    expect(readout()).toBe(readoutBefore);
+    expect(screen.getByTestId("selected-cut").textContent).toBe(selected);
+    expect(screen.getByTestId("playhead").style.left).toBe(`${(100 / N) * 100}%`);
+
+    fireEvent.pointerLeave(strip, { pointerType: "mouse" });
+    expect(previewVideo().currentTime).toBe(before);
+    expect(screen.queryByTestId("hover-line")).toBeNull();
+    expect(screen.getByTestId("selected-cut").textContent).toBe(selected);
+
+    // touch has no hover
+    fireEvent.pointerMove(strip, { clientX: NEW_CUT, pointerType: "touch" });
+    expect(screen.queryByTestId("hover-line")).toBeNull();
+
+    // a click while hovered still moves the playhead, and stays after leave
+    fireEvent.pointerMove(strip, { clientX: NEW_CUT, pointerType: "mouse" });
+    fireEvent.click(strip, { clientX: NEW_CUT });
+    expect(readout()).toBe(frameLabel(NEW_CUT, FPS));
+    fireEvent.pointerLeave(strip, { pointerType: "mouse" });
+    expect(previewVideo().currentTime).toBe(seekTimeForFrame(NEW_CUT, FPS));
+    expect(readout()).toBe(frameLabel(NEW_CUT, FPS));
   });
 
   it("steps exactly ±1 frame with arrows and ±1 s with Shift, clamped to [0, N)", async () => {
