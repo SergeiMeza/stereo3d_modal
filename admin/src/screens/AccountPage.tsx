@@ -28,6 +28,7 @@ import { accountQuery } from "@/state/queries";
 import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
 import { grantSheetAtom, GrantsSection, PromoRegrants } from "./Grants";
+import { PlanMoveSheet } from "./PlanMove";
 
 /** Accounts: look one up by Firebase UID (case pages link here directly). */
 export function AccountLookup() {
@@ -62,6 +63,7 @@ export function AccountLookup() {
 type SheetState =
   | { kind: "action"; action: AccountAction }
   | { kind: "open_case" }
+  | { kind: "plan_move" }
   | null;
 
 const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: string }> = {
@@ -87,6 +89,7 @@ const ACTION_COPY: Record<AccountAction, { title: string; body: string; button: 
 /** A3: one account. */
 export function AccountPage({ uid }: { uid: string }) {
   const { state, retry, set } = useQuery(accountQuery, uid);
+  const { navigate } = useRouter();
   const [sheet, setSheet] = useState<SheetState>(null);
   const openGrantSheet = useSetAtom(grantSheetAtom);
 
@@ -177,6 +180,8 @@ export function AccountPage({ uid }: { uid: string }) {
         <div className="ml-auto flex flex-wrap items-center gap-2" role="group" aria-label="Account actions">
           {p.owed_cents > 0 && <Button onClick={() => act("write_off_owed")}>Write off {money(p.owed_cents)}…</Button>}
           <Button onClick={() => act("adjust_balance")}>Adjust balance…</Button>
+          {/* RP-05: only an active web plan on a live account can move */}
+          {p.plan?.active && !a.deleted && <Button onClick={() => setSheet({ kind: "plan_move" })}>Move plan…</Button>}
           <Button variant="default" onClick={() => openGrantSheet(a.uid)}>Grant a plan…</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -416,6 +421,17 @@ export function AccountPage({ uid }: { uid: string }) {
         />
       )}
       {sheet?.kind === "open_case" && <OpenCaseSheet uid={a.uid} onClose={() => setSheet(null)} />}
+      {sheet?.kind === "plan_move" && (
+        <PlanMoveSheet
+          fromUid={a.uid}
+          onClose={() => setSheet(null)}
+          onOffered={(page) => {
+            setSheet(null);
+            toast.success("Move offered. The receiving account has 7 days to accept it.");
+            navigate(paths.case(page.case.id));
+          }}
+        />
+      )}
     </>
   );
 }
