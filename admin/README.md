@@ -259,3 +259,7 @@ admin/
   scripts/     overlay-bounds.mjs
     test/      fixtures, harness (fake fetch and fake auth), webauthn (fake navigator.credentials)
 ```
+
+## Deploys
+
+The admin's Vercel project (stereo3d-admin) builds from the **repo root**, and its config is the root `vercel.json`, not a file in `admin/`. That way branches without `admin/` (main, gateway and feature branches) are skipped by the ignore step instead of failing on a missing Root Directory. It builds only from `staging`; prod waits for the owner (BL-23).

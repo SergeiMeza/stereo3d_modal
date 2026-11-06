@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "npx --yes pnpm@12.15.0 install --frozen-lockfile",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "ignoreCommand": "if [ -d admin ] && [ \"$VERCEL_ENV\" != \"production\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" = \"staging\" ]; then exit 1; else echo \"admin builds only from staging; prod held until the owner says so (BL-23)\"; exit 0; fi",
+  "installCommand": "cd admin && npx --yes pnpm@12.15.0 install --frozen-lockfile",
+  "buildCommand": "cd admin && npm run build",
+  "outputDirectory": "admin/dist",
   "cleanUrls": true,
   "rewrites": [
     {
