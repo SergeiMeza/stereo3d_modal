@@ -1286,6 +1286,20 @@ export interface BillingStatus {
   plan?: AccountPlan | null;
 }
 
+/** POST /v1/billing/restore: Restore Purchases (owner 2026-11-06). The
+ * gateway resyncs the account's web purchases from Stripe and RevenueCat
+ * and repairs what was missing; it never charges. */
+export interface RestoreResult {
+  /** the account holds an active web plan or Pro */
+  restored: boolean;
+  /** what was set right: plan | monthly_usage | app_access */
+  repaired: string[];
+  plan: AccountPlan | null;
+  pro?: boolean;
+  /** "Your purchases are restored" or "We didn't find any purchases" */
+  message: string;
+}
+
 /** The prepaid balance, or null (none, or an older gateway's batch). */
 export function prepaidOf(status: { balance?: unknown } | null | undefined): BalanceSummary | null {
   const b = status?.balance as Partial<BalanceSummary> | undefined;

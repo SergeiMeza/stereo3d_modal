@@ -25,6 +25,7 @@ import { supportMailto } from "@/components/billing/BillingBanner";
 import { SectionBoundary } from "@/components/SectionBoundary";
 import { BalanceCard } from "@/components/billing/BalanceCard";
 import { PlanCard } from "@/components/billing/PlanCard";
+import { RestorePurchases } from "@/components/billing/RestorePurchases";
 import { SettleFromLink } from "@/components/billing/SettleFromLink";
 import { MethodBadge, badgeKind } from "@/components/billing/MethodBadge";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
@@ -729,6 +730,9 @@ export function BillingScreen(): JSX.Element {
       </SectionBoundary>
       <SectionBoundary name="Plan">
         <PlanCard />
+      </SectionBoundary>
+      <SectionBoundary name="Restore Purchases">
+        <RestorePurchases />
       </SectionBoundary>
 
       <SectionBoundary name="Payment methods">
