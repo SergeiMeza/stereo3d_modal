@@ -136,9 +136,11 @@ export default function TermsPage() {
           <li>You can pay from a prepaid balance, which you top up
             yourself or let reload automatically when it runs low, or with
             a saved payment method.</li>
-          <li>Smaller runs are charged after they finish; larger ones are
-            charged when they start. If nothing is delivered, you are
-            refunded or not charged.</li>
+          {/* TODO(BL-32): when deferred payments return, bring back
+              "Smaller runs are charged after they finish; larger ones are
+              charged when they start." */}
+          <li>You pay before a run starts. Your credit and balance are
+            used first. If nothing is delivered, you are refunded.</li>
           <li>You can cancel a run before it starts or within its first
             minute; after that it runs to the end.</li>
           <li>A plan&rsquo;s usage credit is given each month and

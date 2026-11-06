@@ -100,7 +100,10 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
     tips: [
       "Vision Pro spatial video is for Apple Vision Pro; side by side plays on most other headsets and 3D TVs.",
       "Half side by side keeps the file small; full side by side keeps every pixel.",
-      "Runs over $25 are charged when they start and refunded if they fail; smaller runs are charged after they're done.",
+      // TODO(BL-32): when deferred payments return, bring back "Runs over
+      // $25 are charged when they start and refunded if they fail; smaller
+      // runs are charged after they're done."
+      "You pay before a run starts. Your credit and balance are used first. Refunded if it fails.",
     ],
   },
 ];

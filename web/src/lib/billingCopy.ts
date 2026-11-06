@@ -23,6 +23,11 @@ export function prechargeThreshold(limits: GatewayLimits | null): number {
 export const CHARGED_AT_START = "Charged when it starts. Refunded if it fails.";
 export const CHARGED_AFTER = "Charged after it's done.";
 
+/** Every paid run while deferred payments are off (BL-32, owner
+ * 2026-11-07): paid as it starts, credit and balance first. Customer
+ * pages say this instead of the after/before threshold rule. */
+export const PAY_BEFORE = "You pay before a run starts. Your credit and balance are used first.";
+
 /** Prices round the video up to whole minutes (owner 2026-11-04; the
  * gateway's quote carries billable_minutes). */
 export const ROUNDED_UP_LINE = "Each started minute counts as a full minute.";

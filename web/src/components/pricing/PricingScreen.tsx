@@ -17,7 +17,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 
 import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
-import { CHARGED_AFTER, ROUNDED_UP_LINE } from "@/lib/billingCopy";
+import { PAY_BEFORE, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 
 import { Extras, LifelikePrices } from "./PerMinutePrices";
@@ -46,10 +46,11 @@ export function PricingScreen(): JSX.Element {
           </div>
           {pricing.pricing_model === "tiers" ? <Extras pricing={pricing} /> : null}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center">
+            {/* TODO(BL-32): when deferred payments return, bring back
+                "{CHARGED_AFTER} Runs over {precharge_threshold_cents} are
+                charged when they start and refunded if they fail." */}
             <p data-testid="pricing-charge-line" className="text-fg-muted">
-              {CHARGED_AFTER} Runs over{" "}
-              {formatCentsShort(pricing.precharge_threshold_cents)} are charged
-              when they start and refunded if they fail.
+              {PAY_BEFORE}
             </p>
             <InfoPopover label="How pricing works">
               <span>
@@ -75,18 +76,14 @@ export function PricingScreen(): JSX.Element {
                   </>
                 )}
               </span>
+              {/* TODO(BL-32): when deferred payments return, split this
+                  again into "Over {precharge}: charged when it starts…" and
+                  "{precharge} or less: charged after it's done. Failed or
+                  cancelled runs are not charged." */}
               <span>
-                <b>Over {formatCentsShort(pricing.precharge_threshold_cents)}:</b>{" "}
-                charged when it starts. Cancel while it waits in line, or in
-                its first minute, for a full refund. Refunded in full if it
-                fails.
-              </span>
-              <span>
-                <b>
-                  {formatCentsShort(pricing.precharge_threshold_cents)} or less:
-                </b>{" "}
-                charged after it&apos;s done. Failed or cancelled runs are not
-                charged.
+                <b>Paid before it starts.</b> Your credit and balance are used
+                first. Cancel while it waits in line, or in its first minute,
+                for a full refund. Refunded in full if it fails.
               </span>
               <span>US dollars, excluding tax. Every file type is included.</span>
             </InfoPopover>

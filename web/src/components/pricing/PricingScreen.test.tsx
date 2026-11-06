@@ -47,10 +47,12 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(screen.queryByTestId("pricing-classic")).toBeNull();
     expect(document.body.textContent).not.toMatch(/Classic/);
     expect(screen.getByTestId("pricing-charge-line").textContent).toBe(
-      "Charged after it's done. Runs over $25 are charged when they start and refunded if they fail.",
+      "You pay before a run starts. Your credit and balance are used first.",
     );
-    // no worked examples, no balance wording
-    expect(document.body.textContent).not.toMatch(/balance|example/i);
+    // no worked examples; "balance" only in the pay-before line (BL-32,
+    // owner 2026-11-07)
+    const charge = screen.getByTestId("pricing-charge-line").textContent ?? "";
+    expect(document.body.textContent?.replace(charge, "")).not.toMatch(/balance|example/i);
     fireEvent.click(screen.getByRole("button", { name: "How pricing works" }));
     expect(screen.getByRole("dialog").textContent).toContain("10% off");
     expect(screen.getByRole("dialog").textContent).toContain("Minimum charge $1 per run.");
