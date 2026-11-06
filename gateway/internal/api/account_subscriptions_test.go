@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -212,5 +213,37 @@ func TestOrphanSweepReportsOnly(t *testing.T) {
 	lastOrphanSweep.Store(0)
 	if f.s.orphanSweepDue(ctx) != 0 {
 		t.Fatal("off ran")
+	}
+}
+
+// Plan credit is never money: a cancelled plan's credit alone asks for no
+// "Delete and refund" and opens no refund case; the preview names it as
+// plan_credit_cents. A cash top-up still asks and waits for its case.
+func TestDeletionPlanCreditIsNotCash(t *testing.T) {
+	f := newPlanFixture(t, "business", "business", 29900, 3, 30)
+	ctx := context.Background()
+	inv := fmt.Sprintf(`{"id":"in_%s","subscription":"%s","billing_reason":"subscription_cycle","lines":{"data":[{"amount":29900}]}}`, f.sub, f.sub)
+	f.s.handlePlanInvoicePaid(ctx, []byte(inv))
+	callAs(f, f.s.HandleAccountPlanCancel, http.MethodPost, ``, false)
+	code, out := callAs(f, f.s.HandleDeletePreview, http.MethodGet, ``, false)
+	if code != 200 || out["plan_credit_cents"] == float64(0) || out["cash_balance_cents"] != float64(0) ||
+		out["balance_confirmation_needed"] != false || out["waits_for_refund_case"] != false {
+		t.Fatalf("preview %d %v", code, out)
+	}
+	code, out = deleteAccount(f, `{}`, false)
+	if code != 200 || out["deleted"] != true {
+		t.Fatalf("delete with plan credit only %d %v", code, out)
+	}
+	if cases, _ := f.s.Store.ListUserCases(ctx, f.uid, 10); len(cases) != 0 {
+		t.Fatalf("a refund case for plan credit: %+v", cases)
+	}
+
+	cash := planFixture{t: t, s: f.s, fake: f.fake, uid: "u" + store.NewID()}
+	f.s.Store.PutCustomer(ctx, cash.uid, &store.Customer{StripeCustomerID: "cus_cash"})
+	paidTopup(t, f.s, cash.uid, 2500)
+	code, out = deleteAccount(cash, `{}`, false)
+	if d, _ := out["details"].(map[string]any); code != 409 || out["error"] != "balance_remaining" || d["cents"] != float64(2500) ||
+		!strings.Contains(out["message"].(string), "$25.00") {
+		t.Fatalf("cash %d %v", code, out)
 	}
 }

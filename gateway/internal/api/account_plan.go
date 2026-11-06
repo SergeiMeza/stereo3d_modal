@@ -115,8 +115,13 @@ func (s *Service) HandleAccountPlanResume(w http.ResponseWriter, r *http.Request
 //	{can_delete, block: deletion_pending | plan_renewing | active_runs |
 //	 null, plan_state: renewing | cancelled | none, plan?, plan_id?,
 //	 current_period_end?, cancel_at_period_end?, active_runs, dues_cents,
-//	 balance_cents, cash_balance_cents, balance_confirmation_needed,
-//	 waits_for_refund_case, deletion_pending, case_id?}
+//	 balance_cents, cash_balance_cents, plan_credit_cents,
+//	 balance_confirmation_needed, waits_for_refund_case,
+//	 deletion_pending, case_id?}
+//
+// Only cash_balance_cents (unspent top-ups) is refunded and asks for a
+// confirmation. plan_credit_cents is informational: plan credit is never
+// money, and a cancelled plan's is kept for Restore Purchases.
 //
 // dues_cents is charged to the card on file when the delete goes ahead
 // (402 balance_due if that charge can't be made); with a balance the
@@ -173,11 +178,11 @@ func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, us
 		dues += open.TotalCents
 	}
 	out["dues_cents"] = dues
-	var balance, cash int64
+	var balance, cash, planCredit int64
 	if b, err := s.Store.GetBalance(ctx, user.UID); err == nil && b.Exists() {
-		balance, cash = b.Available(), b.CashCents()
+		balance, cash, planCredit = b.Available(), b.CashCents(), b.PlanCreditCents()
 	}
-	out["balance_cents"], out["cash_balance_cents"] = balance, cash
+	out["balance_cents"], out["cash_balance_cents"], out["plan_credit_cents"] = balance, cash, planCredit
 	block := any(nil)
 	switch {
 	case cust != nil && cust.DeletionPending:
@@ -191,7 +196,7 @@ func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, us
 	out["block"] = block
 	// not a block: the delete asks {balance_confirmed: true} first, and
 	// with cash in it waits for the refund case (202)
-	out["balance_confirmation_needed"] = balance > 0
+	out["balance_confirmation_needed"] = cash > 0
 	out["waits_for_refund_case"] = cash > 0
 	out["can_delete"] = block == nil
 	w.Header().Set("Cache-Control", "no-store")

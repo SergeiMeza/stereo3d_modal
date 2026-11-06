@@ -208,39 +208,37 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 	// the web confirms "Delete and refund" ({balance_confirmed: true}).
 	// With cash to pay out, the deletion waits for that case's decision:
 	// 202 {deleted: false, deletion_pending: true, case_id, refund_cents}.
-	if b, berr := s.Store.GetBalance(ctx, user.UID); berr == nil && b.Exists() && b.Available() > 0 {
+	// Only cash counts (unspent top-ups): plan credit is never money; a
+	// cancelled plan's credit is kept for Restore Purchases.
+	if b, berr := s.Store.GetBalance(ctx, user.UID); berr == nil && b.Exists() && b.CashCents() > 0 {
 		if !body.BalanceConfirmed {
 			e := httpx.Err(http.StatusConflict, "balance_remaining",
-				fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.Available())))
-			e.Details = map[string]any{"cents": b.Available()}
+				fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.CashCents())))
+			e.Details = map[string]any{"cents": b.CashCents(), "plan_credit_cents": b.PlanCreditCents()}
 			refuse(e)
 			return
 		}
-		// N8b: the closure case (manual) refunds the unspent cash top-ups;
-		// non-cash credit is never paid out, so without cash the deletion
-		// goes ahead now.
-		if b.CashCents() > 0 {
-			cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deletion")
-			if cerr != nil {
-				s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
-					user.UID, money(b.Available()), cerr))
-				httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again"))
-				return
-			}
-			now := time.Now().UTC()
-			if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
-				c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &now
-				return nil
-			}); err != nil {
-				httpx.WriteErr(ctx, w, err)
-				return
-			}
-			s.pauseAutoReload(ctx, user.UID, "deletion")
-			httpx.Log(ctx).Info("deletion waits for the closure case", "uid", user.UID, "case_id", cs.ID)
-			after, _ := s.Store.GetCustomer(ctx, user.UID)
-			writePendingDeletion(w, cs.ID, cs.RequestedCents, deletionPlan(after))
+		// N8b: the closure case (manual) refunds the unspent cash top-ups.
+		cs, cerr := s.requestBalanceRefund(ctx, user.UID, ReasonClosure, "", "system", "customer", "account deletion")
+		if cerr != nil {
+			s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
+				user.UID, money(b.CashCents()), cerr))
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again"))
 			return
 		}
+		now := time.Now().UTC()
+		if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
+			c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &now
+			return nil
+		}); err != nil {
+			httpx.WriteErr(ctx, w, err)
+			return
+		}
+		s.pauseAutoReload(ctx, user.UID, "deletion")
+		httpx.Log(ctx).Info("deletion waits for the closure case", "uid", user.UID, "case_id", cs.ID)
+		after, _ := s.Store.GetCustomer(ctx, user.UID)
+		writePendingDeletion(w, cs.ID, cs.RequestedCents, deletionPlan(after))
+		return
 	}
 
 	if err := s.finishAccountDeletionKeeping(ctx, user.UID, keepSignIn); err != nil {
