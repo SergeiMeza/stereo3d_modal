@@ -779,10 +779,6 @@ export function BillingScreen(): JSX.Element {
       <SectionBoundary name="Plan">
         <PlanCard />
       </SectionBoundary>
-      {/* owner 2026-11-07: the /pricing table for this plan, and the next one up */}
-      <SectionBoundary name="Your prices">
-        <YourPrices />
-      </SectionBoundary>
       <SectionBoundary name="Restore Purchases">
         <RestorePurchases />
       </SectionBoundary>
@@ -860,6 +856,11 @@ export function BillingScreen(): JSX.Element {
           US dollars.{tax === "inclusive" ? " Prices include VAT where it applies." : ""}
         </p>
       </section>
+      {/* owner 2026-11-07: the /pricing table for this plan and the next one
+       * up, at the bottom (moved from under the plan card) */}
+      <SectionBoundary name="Your prices">
+        <YourPrices />
+      </SectionBoundary>
       {/* owner 2026-11-07: refunds, quietly, at the bottom */}
       <SectionBoundary name="Refunds">
         <RefundsFooter />
