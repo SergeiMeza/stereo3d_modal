@@ -145,6 +145,20 @@ func (c *Client) SetCancelAtPeriodEnd(id string, cancel bool) (*Subscription, er
 	return &sub, nil
 }
 
+// SetSubscriptionMetadata sets metadata keys on a subscription (Restore
+// Purchases re-points user_id), idempotent per key.
+func (c *Client) SetSubscriptionMetadata(id string, md map[string]string, key string) (*Subscription, error) {
+	form := url.Values{}
+	for k, v := range md {
+		form.Set("metadata["+k+"]", v)
+	}
+	var sub Subscription
+	if err := webCall(http.MethodPost, "/v1/subscriptions/"+url.PathEscape(id), form, key, &sub); err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
 // PlanPayment is the plan invoice a PaymentIntent paid (refunds,
 // disputes and fraud warnings name a PaymentIntent, and subscription
 // PaymentIntents carry no metadata of their own).

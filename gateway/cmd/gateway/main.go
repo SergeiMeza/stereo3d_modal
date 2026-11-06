@@ -209,6 +209,10 @@ func main() {
 	mux.HandleFunc("DELETE /v1/account/emails/{id}", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 		svc.HandleRemoveAccountEmail(w, r, u, r.PathValue("id"))
 	})))
+	// Restore Purchases from a deleted account (design 1b).
+	mux.HandleFunc("POST /v1/billing/restore/find", authed(svc.HandleRestoreFind))
+	mux.HandleFunc("POST /v1/billing/restore/find/verify", authed(svc.HandleRestoreFindVerify))
+	mux.HandleFunc("POST /v1/billing/restore/move", authed(api.Fresh(svc.HandleRestoreMove)))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 
 	// Admin passkeys and sessions (ADR 0135).

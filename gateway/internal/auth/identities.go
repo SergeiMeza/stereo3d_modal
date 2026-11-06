@@ -15,6 +15,9 @@ type Identity struct {
 	EmailVerified bool
 	Providers     []string
 	Disabled      bool
+	// Subjects: each linked provider's own user id (apple.com → Apple's
+	// sub), for Restore Purchases' match (RP-04). Never shown or logged.
+	Subjects map[string]string
 }
 
 func identityOf(u *fbauth.UserRecord) *Identity {
@@ -22,6 +25,12 @@ func identityOf(u *fbauth.UserRecord) *Identity {
 	for _, p := range u.ProviderUserInfo {
 		if p != nil && p.ProviderID != "" {
 			id.Providers = append(id.Providers, p.ProviderID)
+			if p.UID != "" {
+				if id.Subjects == nil {
+					id.Subjects = map[string]string{}
+				}
+				id.Subjects[p.ProviderID] = p.UID
+			}
 		}
 	}
 	return id

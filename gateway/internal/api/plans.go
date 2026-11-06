@@ -178,6 +178,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			next.Intro, next.IntroInvoices = c.Plan.Intro, c.Plan.IntroInvoices
 			next.PeriodPaidCents = c.Plan.PeriodPaidCents
 			next.ScheduleID, next.ScheduledTo, next.ScheduledAt = c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt
+			next.RestoredFrom = c.Plan.RestoredFrom
 		}
 		c.Plan = next
 		return nil
@@ -306,6 +307,11 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		s.notePaidOnce(ctx, uid)
 		s.payDebtsFromBalance(ctx, uid)
 		return
+	}
+	if from := sub.Metadata["restored_from"]; from != "" {
+		if done, _ := s.Store.EntryExists(ctx, from, "plancredit_"+inv.ID); done {
+			return // granted on the deleted account it was restored from (RP-01 carries the unspent part)
+		}
 	}
 	_, end := sub.Period()
 	_, fx, err := s.Store.BalanceTx(ctx, uid, func(b *store.Balance) ([]store.BalanceOp, error) {

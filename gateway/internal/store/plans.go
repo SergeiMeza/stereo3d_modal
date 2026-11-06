@@ -56,6 +56,9 @@ type Plan struct {
 	ScheduleID  string     `firestore:"schedule_id,omitempty" json:"-"`
 	ScheduledTo string     `firestore:"scheduled_to,omitempty" json:"-"`
 	ScheduledAt *time.Time `firestore:"scheduled_at,omitempty" json:"-"`
+	// RestoredFrom: the deleted account this plan was restored from
+	// (Restore Purchases): credit it was granted there isn't granted again.
+	RestoredFrom string `firestore:"restored_from,omitempty" json:"-"`
 }
 
 // Key is the plan's id: PlanID, else Tier.

@@ -216,6 +216,18 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			f.subs[id]["cancel_at_period_end"] = r.Form.Get("cancel_at_period_end") == "true"
+		} else if r.Method == http.MethodPost {
+			form := map[string]string{}
+			for k := range r.Form {
+				form[k] = r.Form.Get(k)
+			}
+			f.subUpdates = append(f.subUpdates, form)
+			md, _ := f.subs[id]["metadata"].(map[string]string)
+			for k, v := range form {
+				if name, ok := strings.CutPrefix(k, "metadata["); ok && md != nil {
+					md[strings.TrimSuffix(name, "]")] = v
+				}
+			}
 		}
 		write(f.subs[id])
 	case p == "/v1/invoiceitems" && r.Method == http.MethodPost:

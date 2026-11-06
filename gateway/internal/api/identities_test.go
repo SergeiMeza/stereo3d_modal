@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -45,6 +46,10 @@ func (f *fakeIdentities) holds(provider, sub, uid string) {
 	f.fed[provider+"|"+sub] = uid
 	u := f.users[uid]
 	u.Providers = append(u.Providers, provider)
+	if u.Subjects == nil {
+		u.Subjects = map[string]string{}
+	}
+	u.Subjects[provider] = sub
 }
 
 func (f *fakeIdentities) IdentityOf(_ context.Context, uid string) (*auth.Identity, error) {
@@ -56,6 +61,7 @@ func (f *fakeIdentities) IdentityOf(_ context.Context, uid string) (*auth.Identi
 	}
 	c := *u
 	c.Providers = slices.Clone(u.Providers)
+	c.Subjects = maps.Clone(u.Subjects)
 	return &c, nil
 }
 

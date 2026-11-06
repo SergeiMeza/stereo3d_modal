@@ -362,6 +362,7 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, keepSignIn bool) error {
 	// Deletion never detaches payment methods: saved cards stay on the Stripe customer (owner 2026-11-06).
 	now := time.Now().UTC()
+	s.recordPlanRestore(ctx, uid) // a plan still in its period waits for Restore Purchases (before its credit and emails go)
 	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 			c.AccountDeleted = true

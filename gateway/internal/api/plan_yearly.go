@@ -36,6 +36,11 @@ func (s *Service) grantPlanMonth(ctx context.Context, uid string, p *store.Plan,
 	if done, err := s.Store.EntryExists(ctx, uid, id); err != nil || done {
 		return false
 	}
+	if p.RestoredFrom != "" { // RP-02: the months given on the deleted account aren't given again
+		if done, err := s.Store.EntryExists(ctx, p.RestoredFrom, id); err != nil || done {
+			return false
+		}
+	}
 	end := to
 	_, fx, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
 		return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: def.CreditCents, EntryID: id, Ref: p.SubscriptionID, ExpiresAt: &end,
