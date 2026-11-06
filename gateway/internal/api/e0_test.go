@@ -45,6 +45,7 @@ type fakeStripe struct {
 	expired        []string
 	created        int
 	detaches       []string // POST /v1/payment_methods/{id}/detach
+	portals        []string // billing portal sessions' customers
 }
 
 func newFakeStripe() *fakeStripe {
@@ -317,6 +318,14 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write(f.pi(id))
 	case strings.HasPrefix(p, "/v1/payment_intents/"):
 		write(f.pi(strings.TrimPrefix(p, "/v1/payment_intents/")))
+	case p == "/v1/customers" && r.Method == http.MethodPost:
+		f.created++
+		id := fmt.Sprintf("cus_new_%d", f.created)
+		f.customers[id] = &fakeCustomer{address: map[string]string{}, email: r.Form.Get("email")}
+		write(map[string]any{"id": id, "email": r.Form.Get("email")})
+	case p == "/v1/billing_portal/sessions" && r.Method == http.MethodPost:
+		f.portals = append(f.portals, r.Form.Get("customer"))
+		write(map[string]any{"id": "bps_1", "url": "https://billing.example/" + r.Form.Get("customer")})
 	case strings.HasPrefix(p, "/v1/customers/"):
 		f.customer(w, r, strings.TrimPrefix(p, "/v1/customers/"))
 	case p == "/v1/refunds":

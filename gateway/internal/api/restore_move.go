@@ -337,6 +337,21 @@ func (s *Service) HandleRestoreFindVerify(w http.ResponseWriter, r *http.Request
 	httpx.WriteOK(w, out)
 }
 
+// restoreStillRenews: a record not yet claimed whose subscription will
+// renew (Stripe's own state; the record's when Stripe can't be read).
+func (s *Service) restoreStillRenews(ctx context.Context, subID string) bool {
+	rec, err := s.Store.GetPlanRestore(ctx, subID)
+	if err != nil || rec.State != store.PlanRestoreAvailable {
+		return false // a claimed one resumes as it was
+	}
+	if s.Stripe != nil {
+		if sub, err := s.Stripe.GetSubscription(subID); err == nil {
+			return sub.Live() && !sub.CancelAtPeriodEnd
+		}
+	}
+	return !rec.CancelAtPeriodEnd
+}
+
 // hasOwnPlan: the account has a paid web plan of its own (RP-03).
 func hasOwnPlan(c *store.Customer, subID string, now time.Time) bool {
 	return c != nil && c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.SubscriptionID != subID && c.Plan.Active(now)
@@ -369,6 +384,12 @@ func (s *Service) HandleRestoreMove(w http.ResponseWriter, r *http.Request, user
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		httpx.WriteErr(ctx, w, httpx.ErrServer())
+		return
+	}
+	if s.restoreStillRenews(ctx, subID) {
+		// Only old deletion paths leave one (deletion now needs a cancel);
+		// never cancelled on our own (DL-01): support moves it (RP-05).
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "plan_renewing_support", "This plan still renews on another account. Contact support to move it."))
 		return
 	}
 	if hasOwnPlan(cust, subID, now) {

@@ -281,6 +281,6 @@ func (s *Store) MovePlanBetween(ctx context.Context, from, to, subID string, nex
 			return err
 		}
 		return tx.Update(fref, []firestore.Update{{Path: "plan", Value: firestore.Delete}, {Path: "plan_moved_to", Value: to},
-			{Path: "plan_moved_at", Value: now}})
+			{Path: "plan_moved_at", Value: now}, {Path: "plan_moved_sub", Value: subID}})
 	})
 }

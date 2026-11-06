@@ -286,3 +286,92 @@ func TestRestoredPlanNeverRenews(t *testing.T) {
 		})
 	}
 }
+
+// A plan that still renews on a deleted account (an old deletion path:
+// deletion now needs a cancel) is found but never moved: 409
+// plan_renewing_support; nothing changes; never cancelled (DL-01).
+func TestRestoreRefusesRenewingPlan(t *testing.T) {
+	f := newPlanFixture(t, "business", "business", 29900, 3, 30)
+	ctx := context.Background()
+	s := f.s
+	ids := newFakeIdentities()
+	s.Identities, s.Sessions, s.EmailCodes = ids, &fakeSessions{ids: ids}, &fakeCodes{spent: map[string]bool{}}
+	s.UserExists = func(context.Context, string) (bool, error) { return true, nil }
+	ids.add(f.uid, "renews."+store.NewID()+"@example.com")
+	ids.holds("apple.com", "a-"+f.uid, f.uid)
+	if err := s.finishAccountDeletionKeeping(ctx, f.uid, true); err != nil { // the old path: no cancel first
+		t.Fatal(err)
+	}
+	me := "u" + store.NewID()
+	ids.add(me, "")
+	ids.mu.Lock()
+	ids.users[me].Providers, ids.users[me].Subjects = []string{"apple.com"}, map[string]string{"apple.com": "a-" + f.uid}
+	ids.mu.Unlock()
+	_, out := callRestoreAs(s, me, s.HandleRestoreFindVerify, `{}`)
+	found := out["found"].([]any)
+	if len(found) != 1 || found[0].(map[string]any)["renews"] != true {
+		t.Fatalf("found %v", out)
+	}
+	body := `{"proof_id":"` + out["proof_id"].(string) + `","offer_id":"` + found[0].(map[string]any)["offer_id"].(string) + `"}`
+	calls := countForms(f.fake, "cancel_at_period_end")
+	code, out := callRestoreAs(s, me, s.HandleRestoreMove, body)
+	if code != 409 || out["error"] != "plan_renewing_support" || out["message"] != "This plan still renews on another account. Contact support to move it." {
+		t.Fatalf("move %d %v", code, out)
+	}
+	if rec, _ := s.Store.GetPlanRestore(ctx, f.sub); rec.State != store.PlanRestoreAvailable {
+		t.Fatalf("claimed %+v", rec)
+	}
+	md := f.fake.subs[f.sub]["metadata"].(map[string]string)
+	if md["user_id"] != f.uid || countForms(f.fake, "cancel_at_period_end") != calls || f.fake.subs[f.sub]["cancel_at_period_end"] == true {
+		t.Fatalf("changed in Stripe %v", f.fake.subs[f.sub])
+	}
+	if c, err := s.Store.GetCustomer(ctx, me); err == nil && c.Plan != nil {
+		t.Fatalf("plan moved %+v", c.Plan)
+	}
+}
+
+// The billing portal opens only the caller's own customer, for a live
+// account: a deleted one is refused; an account whose plan was moved off
+// it is refused while that plan runs on its customer; the receiving
+// account gets a customer of its own, never the old one.
+func TestBillingPortalGuards(t *testing.T) {
+	f, _, caseID, to := moveFixture(t)
+	ctx := context.Background()
+	s := f.s
+	portal := func(uid string) (int, map[string]any) {
+		return callRestoreAs(s, uid, s.HandleBillingPortal, `{"return_url":"https://stereo3d.studio/account"}`)
+	}
+	if code, out := portal(f.uid); code != 200 || out["url"] == nil {
+		t.Fatalf("before the move %d %v", code, out)
+	}
+	moveAction(f, passkeyAdmin(time.Now()), caseID, `{"action":"offer_plan_move","to_uid":"`+to+`","expected_subscription_id":"`+f.sub+`"}`)
+	_, out := callRestoreAs(s, to, s.HandleSupportPlanMoves, ``)
+	id := out["moves"].([]any)[0].(map[string]any)["id"].(string)
+	if code, out := callRestoreAs(s, to, func(w http.ResponseWriter, r *http.Request, u *AuthedUser) { s.HandleSupportPlanMoveAccept(w, r, u, id) }, ``); code != 200 {
+		t.Fatalf("accept %d %v", code, out)
+	}
+	if code, out := portal(f.uid); code != 409 || out["error"] != "portal_unavailable" {
+		t.Fatalf("old account %d %v", code, out)
+	}
+	f.fake.mu.Lock()
+	before := len(f.fake.portals)
+	f.fake.mu.Unlock()
+	if code, out := portal(to); code != 200 {
+		t.Fatalf("new account %d %v", code, out)
+	}
+	f.fake.mu.Lock()
+	got := f.fake.portals[before]
+	f.fake.mu.Unlock()
+	if got == "" || got == "cus_1" {
+		t.Fatalf("portal customer %q", got)
+	}
+	if c, _ := s.Store.GetCustomer(ctx, to); c.StripeCustomerID != got {
+		t.Fatalf("own customer %q vs %q", c.StripeCustomerID, got)
+	}
+	// a deleted account
+	gone := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, gone, &store.Customer{StripeCustomerID: "cus_gone", AccountDeleted: true})
+	if code, out := portal(gone); code != 403 || out["error"] != "account_deleted" {
+		t.Fatalf("deleted %d %v", code, out)
+	}
+}

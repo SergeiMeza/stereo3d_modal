@@ -46,8 +46,27 @@ const (
 // customer (and the uid → customer mapping) on first use.
 func (s *Service) ensureCustomerID(ctx context.Context, user *AuthedUser) (string, error) {
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
-	if err == nil {
+	if err == nil && cust.StripeCustomerID != "" {
 		return cust.StripeCustomerID, nil
+	}
+	if err == nil {
+		// A record without a customer (a restored or moved plan landed
+		// first): the account's own customer is made now; the plan's
+		// subscription stays where it is.
+		id, err := s.Stripe.EnsureCustomer(user.UID, firstNonEmpty(cust.Email, user.Email))
+		if err != nil {
+			return "", err
+		}
+		if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
+			if c.StripeCustomerID == "" {
+				c.StripeCustomerID = id
+			}
+			id = c.StripeCustomerID
+			return nil
+		}); err != nil {
+			return "", err
+		}
+		return id, nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		// A transient read error must NOT mint a new Stripe customer — that
@@ -100,6 +119,20 @@ func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, us
 	if !strings.HasPrefix(req.ReturnURL, "https://") && !strings.HasPrefix(req.ReturnURL, "http://") {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("return_url must be an absolute http(s) URL"))
 		return
+	}
+	// Only a live account opens its own customer's portal: never a deleted
+	// one, and not while a plan moved off this account still runs on this
+	// customer (the portal could resume it on this card for the other
+	// account). Cards are managed in Billing meanwhile.
+	if s.refusedForDeletion(ctx, w, user.UID) {
+		return
+	}
+	if cust, err := s.Store.GetCustomer(ctx, user.UID); err == nil && cust.PlanMovedSub != "" {
+		if sub, err := s.Stripe.GetSubscription(cust.PlanMovedSub); err != nil || sub.Live() {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "portal_unavailable",
+				"Your plan moved to another account, so the billing portal is closed until it ends. Manage your cards in Billing."))
+			return
+		}
 	}
 	id, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
