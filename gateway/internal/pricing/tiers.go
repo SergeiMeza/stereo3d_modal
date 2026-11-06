@@ -269,11 +269,12 @@ func (r *Rates) FreePreviewSeconds() float64 {
 }
 
 // PreviewUnits is how many free previews a preview uses: one per 5 s
-// started, doubled for Cinema (5K-8K) and for 60 fps.
-func (r *Rates) PreviewUnits(preset string, seconds, fps float64) int {
-	n := int(math.Ceil(seconds/r.FreePreviewSeconds() - 1e-9))
+// started (counted in source frames at srcFPS, so an NTSC 5 s is one),
+// doubled for Cinema (5K-8K) and for 60 fps output (outFPS).
+func (r *Rates) PreviewUnits(preset string, seconds, srcFPS, outFPS float64) int {
+	n := int(StartedUnits(seconds, srcFPS, r.FreePreviewSeconds()))
 	n = max(n, 1)
-	if slices.Contains([]string{"5k", "6k", "8k"}, preset) || fps >= 50 {
+	if slices.Contains([]string{"5k", "6k", "8k"}, preset) || outFPS >= 50 {
 		n *= 2
 	}
 	return n
@@ -370,7 +371,7 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		bd["free_preview_units"] = in.Units
 	} else {
 		fpsF := fpsFactor(in.EffectiveFPS)
-		minutes := billedMinutes(in.Step, in.BillableS) // production: whole minutes, rounded up
+		minutes := billedMinutes(in.Step, in.BillableS, in.SourceFPS) // production: whole minutes, rounded up
 		base := func(perMin int64) int64 { return int64(math.Ceil(minutes * float64(perMin) * fpsF)) }
 		q = r.composeTier(base(listPerMin), base(tierPerMin), in.Tier, addOns, true)
 		bd["fps_factor"] = round4(fpsF)

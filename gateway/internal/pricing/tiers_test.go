@@ -88,8 +88,55 @@ func TestTierPricing(t *testing.T) {
 		t.Errorf("prod 4k: %d", prod.AmountCents)
 	}
 	r := DefaultsFor("test")
-	if r.PreviewUnits("4k", 5, 24) != 1 || r.PreviewUnits("4k", 8, 24) != 2 || r.PreviewUnits("8k", 5, 24) != 2 || r.PreviewUnits("4k", 5, 60) != 2 {
+	if r.PreviewUnits("4k", 5, 24, 24) != 1 || r.PreviewUnits("4k", 8, 24, 24) != 2 || r.PreviewUnits("8k", 5, 24, 24) != 2 || r.PreviewUnits("4k", 5, 60, 60) != 2 {
 		t.Error("preview units")
+	}
+}
+
+// Started units count in source frames: an NTSC rate's frame-rounded 5 s
+// (120 frames at 23.976 = 5.005 s) is one free preview, as are 150 at
+// 29.97 and 300 at 59.94; one frame past a unit at an integer rate starts
+// the next. Minutes the same way: 3:00 at 23.976 is 3, 3:00 + 1 frame at
+// 24 is 4.
+func TestStartedUnitsNTSC(t *testing.T) {
+	r := DefaultsFor("test")
+	for _, tc := range []struct {
+		frames  int
+		fps     float64
+		units   int
+		comment string
+	}{
+		{120, 23.976, 1, "the owner's 5 s preview"}, {120, 24000.0 / 1001, 1, "exact NTSC film"},
+		{150, 29.97, 1, ""}, {150, 30000.0 / 1001, 1, ""}, {300, 59.94, 1, "×2 for 60 fps below"},
+		{120, 24, 1, ""}, {150, 30, 1, ""}, {125, 25, 1, ""}, {300, 60, 1, ""},
+		{121, 24, 2, "one frame over"}, {151, 30, 2, ""}, {121, 23.976, 2, "one frame over at NTSC"},
+		{240, 23.976, 2, "10 s"}, {241, 24, 3, ""},
+	} {
+		secs := float64(tc.frames) / tc.fps
+		want := tc.units
+		if tc.fps >= 50 {
+			want *= 2
+		}
+		if got := r.PreviewUnits("4k", secs, tc.fps, tc.fps); got != want {
+			t.Errorf("%d frames at %v fps (%.4f s, %s): %d units, want %d", tc.frames, tc.fps, secs, tc.comment, got, want)
+		}
+	}
+	// a half-rate quick look counts its source frames (the output rate only doubles for 60 fps)
+	if got := r.PreviewUnits("1080p", 120/23.976, 23.976, 11.988); got != 1 {
+		t.Errorf("quick look %d", got)
+	}
+	// no rate known: seconds, with a small tolerance
+	if got := r.PreviewUnits("4k", 5, 0, 0); got != 1 {
+		t.Errorf("no rate %d", got)
+	}
+	for _, tc := range []struct {
+		frames int
+		fps    float64
+		want   int64
+	}{{4316, 23.976, 3}, {4316, 24000.0 / 1001, 3}, {5395, 29.97, 3}, {10789, 59.94, 3}, {4320, 24, 3}, {4321, 24, 4}, {1, 24, 1}, {1439, 23.976, 1}, {1440, 23.976, 2}} {
+		if got := BillableMinutesAt(float64(tc.frames)/tc.fps, tc.fps); got != tc.want {
+			t.Errorf("minutes: %d frames at %v: %d, want %d", tc.frames, tc.fps, got, tc.want)
+		}
 	}
 }
 

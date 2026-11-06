@@ -195,7 +195,7 @@ func billedMinutesOf(c *store.Conversion) int64 {
 		return int64(v)
 	}
 	if c.Step == store.StepProduction {
-		return pricing.BillableMinutes(runSeconds(c))
+		return pricing.BillableMinutesAt(runSeconds(c), c.Source.FPS)
 	}
 	return 0
 }

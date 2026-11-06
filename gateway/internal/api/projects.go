@@ -1063,7 +1063,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
 		if step == store.StepLifelikePreview {
-			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.EffectiveFPS)
+			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
 			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
 		}
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
@@ -1142,6 +1142,9 @@ func (s *Service) stepQuoteInputs(p *store.Project, params store.Params, step st
 	}
 	if w, h, _ := depthContentDims(p); w > 0 && h > 0 {
 		in.ContentWidth, in.ContentHeight = w, h
+	}
+	if p.Probe != nil {
+		in.SourceFPS = p.Probe.FPS // the rate billableSeconds counted at
 	}
 	in.EffectiveFPS = params.TargetFPS
 	if in.EffectiveFPS <= 0 && p.Probe != nil {
@@ -1279,7 +1282,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		}
 		units := 0
 		if req.Step == store.StepLifelikePreview {
-			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), effectiveFPS(p, params))
+			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), probeFPS(p), effectiveFPS(p, params))
 		}
 		if rates.FreePreviewsEnabled {
 			resp["free_previews"] = s.freePreviewStatus(ctx, user.UID, at, units).JSON()

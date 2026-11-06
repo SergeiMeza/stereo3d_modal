@@ -693,9 +693,13 @@ type StepInputs struct {
 	ContentWidth, ContentHeight int
 	// Frames per second the job renders; 0 = unknown → no fps scaling.
 	EffectiveFPS float64
-	Inpaint      string
-	ReuseStages  []string
-	CreditCents  int64
+	// SourceFPS: the source's rate, which BillableS was counted at
+	// (frames ÷ fps); started units (minutes, free previews) count in its
+	// frames, so 29.97 fps's 5.005 s is one 5 s unit. 0 = unknown.
+	SourceFPS   float64
+	Inpaint     string
+	ReuseStages []string
+	CreditCents int64
 	// Foveated (Lifelike only): priced × FoveationMultiplier.
 	Foveated bool
 	// Pro: the customer holds SVS Pro (S3D-67): production runs get
@@ -970,7 +974,7 @@ func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	// price = cost rate × margin (see CostMarginMultiplier)
 	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.EffectiveFPS)
-	baseCents := int64(math.Ceil(billedMinutes(in.Step, in.BillableS) * rateCents * fpsF))
+	baseCents := int64(math.Ceil(billedMinutes(in.Step, in.BillableS, in.SourceFPS) * rateCents * fpsF))
 	subtotal := baseCents
 
 	// depth factor on the DEPTH share of the step. depth_preview is 100%
@@ -1252,7 +1256,7 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 		}, nil
 	}
 	fpsF := fpsFactor(in.EffectiveFPS)
-	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS) * float64(perMin) * fpsF))
+	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS, in.SourceFPS) * float64(perMin) * fpsF))
 	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
 	subtotal := base + fov
 	proDiscount := rates.proDiscountCents(in, subtotal)
@@ -1480,18 +1484,47 @@ func (r *Rates) TaxInclusive() bool { return r != nil && r.TaxMode == "inclusive
 // 2026-11-04): ceil(the customer's video in the converted range ÷ 60), on
 // the run's total, so a split run sums its parts first (one range); the
 // brand intro never counts. 2:10 → 3, 3:00 → 3, 0:20 → 1.
-func BillableMinutes(seconds float64) int64 {
+func BillableMinutes(seconds float64) int64 { return BillableMinutesAt(seconds, 0) }
+
+// BillableMinutesAt counts started minutes in source frames (StartedUnits):
+// 3:00 of 23.976 fps (4,316 frames, 180.01 s) is 3; a frame more at 24
+// fps (4,321) is 4.
+func BillableMinutesAt(seconds, srcFPS float64) int64 {
 	if seconds <= 0 {
 		return 0
 	}
-	return int64(math.Ceil(seconds/60 - 1e-6)) // a frame-rounded 3:00 stays 3
+	return StartedUnits(seconds, srcFPS, 60)
+}
+
+// StartedUnits is how many units of unitSeconds a length starts, counted in
+// the source's frames: n units hold round(n × unitSeconds × fps) frames, so
+// an NTSC rate's frame-rounded length (120 frames at 23.976 = 5.005 s; 3:00
+// at 29.97 = 5,395 frames) stays n units while a frame past it (121 at 24)
+// starts the next. Without a rate, seconds with a small tolerance.
+func StartedUnits(seconds, srcFPS, unitSeconds float64) int64 {
+	if seconds <= 0 || unitSeconds <= 0 {
+		return 0
+	}
+	if srcFPS <= 0 {
+		return int64(math.Ceil(seconds/unitSeconds - 1e-6))
+	}
+	frames := int64(math.Round(seconds * srcFPS))
+	held := func(n int64) int64 { return int64(math.Round(float64(n) * unitSeconds * srcFPS)) }
+	n := max(int64(float64(frames)/(unitSeconds*srcFPS)), 1)
+	for n > 1 && held(n-1) >= frames {
+		n--
+	}
+	for held(n) < frames {
+		n++
+	}
+	return n
 }
 
 // billedMinutes is what a step is priced on: production rounds up to
 // whole minutes; previews keep their exact length (not changed yet).
-func billedMinutes(step string, seconds float64) float64 {
+func billedMinutes(step string, seconds, srcFPS float64) float64 {
 	if step == "production" {
-		return float64(BillableMinutes(seconds))
+		return float64(BillableMinutesAt(seconds, srcFPS))
 	}
 	return seconds / 60
 }
@@ -1504,7 +1537,7 @@ func withBillableMinutes(q *Quote, err error) func(StepInputs) (*Quote, error) {
 			if q.Breakdown == nil {
 				q.Breakdown = map[string]any{}
 			}
-			q.Breakdown["billable_minutes"] = BillableMinutes(in.BillableS)
+			q.Breakdown["billable_minutes"] = BillableMinutesAt(in.BillableS, in.SourceFPS)
 		}
 		return q, err
 	}
