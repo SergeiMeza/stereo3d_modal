@@ -31,6 +31,8 @@ import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { ResetPlansSurfaces } from "@/components/plans/ResetPlansSurfaces";
 import { AppStoreProLine, BusinessEntry } from "@/components/business/BusinessEntry";
 import { AccountScheduledChange } from "@/components/billing/PlanChange";
+import { DeletePlanLine, deletePlanCase } from "@/components/auth/deletePlanLine";
+import { useProStatus } from "@/lib/pro/usePro";
 
 function CardShell({
   title,
@@ -64,7 +66,12 @@ export default function AccountScreen() {
   const { user, signOutUser, updateDisplayName } = useAuth();
   const gateway = useGateway();
   const billing = useBilling();
+  const pro = useProStatus();
   const router = useRouter();
+  // owner 2026-11-06: what deleting does to the plan, from the billing and
+  // Pro atoms (ADR 0138); the button waits until both have answered
+  const planKnown = (billing.status !== null || billing.error !== null) && pro !== null;
+  const planCase = planKnown ? deletePlanCase(billing.status?.plan, pro) : null;
 
   const [name, setName] = useState(user?.displayName ?? "");
   const [nameState, setNameState] = useState<"idle" | "saving" | "saved">(
@@ -275,6 +282,7 @@ export default function AccountScreen() {
       <section className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
         <h2 className="font-medium text-destructive">Danger zone</h2>
         <div className="mt-3 space-y-3">
+          <DeletePlanLine which={planCase} />
           <div className="space-y-1">
             <label
               htmlFor="delete-confirm"
@@ -292,7 +300,7 @@ export default function AccountScreen() {
               />
               <button
                 type="button"
-                disabled={confirmText !== "DELETE" || deletePending || pending !== null}
+                disabled={confirmText !== "DELETE" || deletePending || pending !== null || !planKnown}
                 onClick={() => void onDelete()}
                 className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
               >
