@@ -20,22 +20,8 @@ type Client = Pick<GatewayClient, "getIdentities" | "linkIdentity" | "unlinkIden
 
 import { identitiesAtom } from "./identityState";
 
-export { EMPTY_IDENTITIES, identitiesAtom, type IdentitiesState } from "./identityState";
-
-/** The other account's ways in, as the gateway names them. */
-const METHOD_WORDS: Record<string, string> = {
-  "apple.com": "Apple",
-  "google.com": "Google",
-  email: "an email code",
-  passkey: "a passkey",
-};
-
-export function providersWords(providers: string[]): string {
-  const words = providers.map((p) => METHOD_WORDS[p]).filter((w): w is string => !!w);
-  if (words.length === 0) return "";
-  if (words.length === 1) return words[0];
-  return `${words.slice(0, -1).join(", ")} or ${words.at(-1)}`;
-}
+export { EMPTY_IDENTITIES, identitiesAtom, providersWords, type IdentitiesState } from "./identityState";
+import { providersWords } from "./identityState";
 
 /** 409 credential_in_use: that sign-in is another account's. Offers
  * "Sign in to that account" (switches) when it can. */

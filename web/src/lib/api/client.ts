@@ -227,6 +227,40 @@ export type IdentityLink =
   | { provider: "apple.com" | "google.com"; id_token: string; nonce?: string }
   | { provider: "email"; email: string; code: string; replace?: boolean };
 
+/** GET /v1/account/emails (gateway 00152): up to five, one main. */
+export interface AccountEmail {
+  id: string;
+  email: string;
+  main: boolean;
+  /** an Apple Hide My Email address */
+  relay: boolean;
+  added_at?: string;
+}
+
+export interface AccountEmails {
+  emails: AccountEmail[];
+  /** a Business or Studio plan whose main email is missing or a relay */
+  plan_email_needed: boolean;
+  /** the main email changed: the session's ID token is stale */
+  refresh_token?: boolean;
+}
+
+/** POST /v1/billing/restore/find/verify (gateway 00152). */
+export interface RestoreOffer {
+  offer_id: string;
+  plan: string;
+  plan_id?: string;
+  ends_at: string;
+  renews: boolean;
+  /** how the found plan's account signed in (apple.com, google.com, email) */
+  from?: string[];
+  /** plain keys: plan, app_access, current_usage, months_not_yet_given */
+  moves: string[];
+  /** plain keys: usage_already_used, balance, app_store_purchases, past_runs_and_files */
+  stays: string[];
+  carry_cents?: number;
+}
+
 export type FeedbackKind = "idea" | "problem" | "other";
 
 export interface FeedbackBody {
@@ -500,6 +534,53 @@ export class GatewayClient {
     return this.request("POST", `/v1/support/requests/${encodeURIComponent(id)}/reply`, { text });
   }
 
+  // ------------------------------------------------- emails (00152)
+
+  getEmails(): Promise<AccountEmails> {
+    return this.request("GET", "/v1/account/emails");
+  }
+
+  /** A code to that address (always 202, whoever holds it). */
+  startAddEmail(email: string, language?: string): Promise<{ sent?: boolean; resend_after_s?: number }> {
+    return this.request("POST", "/v1/account/emails/start", { email, ...(language ? { language } : {}) });
+  }
+
+  /** Add it with its code (fresh sign-in). 409 credential_in_use
+   * {providers}, relay_not_main, too_many_emails. */
+  addEmail(body: { email: string; code: string; make_main?: boolean }): Promise<AccountEmails> {
+    return this.request("POST", "/v1/account/emails", body);
+  }
+
+  /** Make it main (fresh). 409 relay_not_main, email_unverified. */
+  makeMainEmail(id: string): Promise<AccountEmails> {
+    return this.request("POST", `/v1/account/emails/${encodeURIComponent(id)}/main`, {});
+  }
+
+  /** Remove it (fresh). 409 main_email_not_removable, last_method. */
+  removeEmail(id: string): Promise<AccountEmails> {
+    return this.request("DELETE", `/v1/account/emails/${encodeURIComponent(id)}`);
+  }
+
+  // ------------------------------------------------- restore move (00152)
+
+  /** A code to that address (always 202, found or not). */
+  restoreFind(email: string, language?: string): Promise<{ sent?: boolean; resend_after_s?: number }> {
+    return this.request("POST", "/v1/billing/restore/find", { email, ...(language ? { language } : {}) });
+  }
+
+  /** {} matches the caller's own sign-ins and emails; {email, code} the
+   * address it proved. found: [] when nothing matches. 409
+   * restored_elsewhere {providers}. */
+  restoreFindVerify(body: { email?: string; code?: string } = {}): Promise<{ proof_id: string | null; found: RestoreOffer[] }> {
+    return this.request("POST", "/v1/billing/restore/find/verify", body);
+  }
+
+  /** Move the found plan here (fresh sign-in). 409 has_own_plan,
+   * restored_elsewhere; 400 proof_invalid; 502 restore_unavailable. */
+  restoreMove(proofId: string, offerId: string): Promise<{ restored: boolean; message?: string }> {
+    return this.request("POST", "/v1/billing/restore/move", { proof_id: proofId, offer_id: offerId });
+  }
+
   // ------------------------------------------------- sign-in methods
 
   /** EM-02 (owner 2026-11-06): the account's ways in, from the gateway
@@ -510,8 +591,9 @@ export class GatewayClient {
 
   /** Link Apple or Google (an ID token and the raw nonce from the
    * browser's own sign-in) or an email (a code from /v1/auth/email/start)
-   * onto this account. 409 credential_in_use {providers}, email_exists
-   * {email_masked} (again with replace: true); 400 invalid_credential. */
+   * onto this account (gateway 00152: an email is added; replace: true
+   * makes it main and keeps the old one). 409 credential_in_use
+   * {providers}; 400 invalid_credential. */
   linkIdentity(body: IdentityLink): Promise<AccountIdentities> {
     return this.request("POST", "/v1/account/identities/link", body);
   }

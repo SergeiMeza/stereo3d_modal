@@ -22,6 +22,8 @@
  * happened — the screens and their states run without Stripe.js.
  */
 
+import { appStore } from "@/lib/state/stores";
+import { checkoutEmailAtom } from "./payAtoms";
 import {
   CheckoutElementsProvider,
   ExpressCheckoutElement,
@@ -282,6 +284,9 @@ function StripeForm({
         if (outcome === "declined") setMessage(res.error.message ?? null);
         return outcome;
       }
+      // gateway 00152: the plan's email prompt starts from the session's email
+      const paidEmail = (res.session as { email?: string | null }).email;
+      appStore.set(checkoutEmailAtom, typeof paidEmail === "string" && paidEmail ? paidEmail : null);
       return confirmSuccessResult((res.session as { status?: SessionStatus }).status);
     },
   };

@@ -21,6 +21,9 @@ import { awaitPlanCredit } from "@/lib/billing";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
+import { checkoutEmailAtom } from "./payAtoms";
+import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
+import { useAppAtomValue } from "@/lib/state/stores";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { CHARGED_IN_USD, DECLINED, PAYING, TOO_MANY } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
@@ -91,6 +94,7 @@ export function PlanSheet({
   const proNote = proNoteFor(pro, def.name);
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const paidEmail = useAppAtomValue(checkoutEmailAtom);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -128,6 +132,8 @@ export function PlanSheet({
       setPhase({ kind: "done" });
       // the plan's usage lands a moment later: read until it shows
       void awaitPlanCredit();
+      // the success step stays open while it offers the company link or
+      // the plan's email (gateway 00152)
       if (!companyLink) timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
       return;
     }
@@ -216,6 +222,8 @@ export function PlanSheet({
       {phase.kind === "done" ? (
         <>
           <Success text={planStarted(def)} />
+          {/* gateway 00152: a Business or Studio plan needs a real main email */}
+          {plan === "business" || plan === "studio" ? <PlanEmailPrompt load prefill={paidEmail} /> : null}
           {companyLink ? (
             <p className="text-center text-sm text-fg-muted">
               <Link

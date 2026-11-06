@@ -441,6 +441,13 @@ interface DB {
    * asked for, and the account's requests */
   refundOptions: import("@/lib/api/client").RefundOptions;
   supportRequests: import("@/lib/api/client").SupportRequest[];
+  /** gateway 00152: the account's emails, and addresses other accounts hold */
+  accountEmails: import("@/lib/api/client").AccountEmails;
+  emailsTakenBy: Map<string, string[]>;
+  /** gateway 00152: deleted accounts' plans waiting to be restored, by
+   * the email or sign-in that finds them */
+  restoreOffers: { emails: string[]; own: boolean; offer: import("@/lib/api/client").RestoreOffer; elsewhere?: string[] }[];
+  restoreMoved: string[];
   /** EM-02: GET /v1/account/identities for the mock account */
   identities: { providers: string[]; email: string; password: boolean };
   /** EM-02: the next Apple or Google link belongs to another account
@@ -946,6 +953,13 @@ function seed(): DB {
     passkeyReauthNeeded: false,
     identities: { providers: ["email"], email: "dev@example.com", password: false },
     refundOptions: { window_days: 30, plan: null, runs: [] } as import("@/lib/api/client").RefundOptions,
+    accountEmails: {
+      emails: [{ id: "em_dev", email: "dev@example.com", main: true, relay: false, added_at: "2026-10-01T00:00:00Z" }],
+      plan_email_needed: false,
+    } as import("@/lib/api/client").AccountEmails,
+    emailsTakenBy: new Map<string, string[]>(),
+    restoreOffers: [] as typeof mockDb.restoreOffers,
+    restoreMoved: [] as string[],
     supportRequests: [] as import("@/lib/api/client").SupportRequest[],
     identityInUse: null as string[] | null,
     passkeyVerifyErrors: [] as { status: number; code: string }[],
@@ -991,6 +1005,10 @@ export const mockDb = {
     this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
     this.identities = fresh.identities;
     this.refundOptions = fresh.refundOptions;
+    this.accountEmails = fresh.accountEmails;
+    this.emailsTakenBy = fresh.emailsTakenBy;
+    this.restoreOffers = fresh.restoreOffers;
+    this.restoreMoved = fresh.restoreMoved;
     this.supportRequests = fresh.supportRequests;
     this.identityInUse = fresh.identityInUse;
     this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
@@ -3282,6 +3300,69 @@ export const handlers = [
     return HttpResponse.json({ uid: "dev-user", custom_token: "mock-custom-token" });
   }),
   http.get(`${GATEWAY}/v1/account/passkeys`, () => HttpResponse.json({ passkeys: mockDb.passkeys })),
+  // gateway 00152: the email store (any host: China mode too)
+  http.get(/\/v1\/account\/emails$/, () => HttpResponse.json(mockDb.accountEmails)),
+  http.post(/\/v1\/account\/emails\/start$/, async ({ request }) => {
+    const { email } = (await request.json().catch(() => ({}))) as { email?: string };
+    if (!email?.includes("@")) return err(400, "invalid_email", "that email address is not valid");
+    mockAuth.codesSent.push(email.trim().toLowerCase());
+    return HttpResponse.json({ success: true, sent: true, resend_after_s: 30 }, { status: 202 });
+  }),
+  http.post(/\/v1\/account\/emails$/, async ({ request }) => {
+    const b = (await request.json().catch(() => ({}))) as { email?: string; code?: string; make_main?: boolean };
+    const email = (b.email ?? "").trim().toLowerCase();
+    if (!mockAuth.codesSent.includes(email)) return err(400, "code_expired", "That code has expired. Send a new one.");
+    if (b.code !== MOCK_EMAIL_CODE) return err(400, "code_invalid", "That code isn't right.");
+    const taken = mockDb.emailsTakenBy.get(email);
+    if (taken) {
+      return HttpResponse.json(
+        { success: false, error: "credential_in_use", message: "That email belongs to another account.", details: { providers: taken } },
+        { status: 409 },
+      );
+    }
+    const relay = email.endsWith("@privaterelay.appleid.com");
+    const team = mockDb.billing.plan?.active && (mockDb.billing.plan.plan === "business" || mockDb.billing.plan.plan === "studio");
+    if (relay && b.make_main && team) {
+      return err(409, "relay_not_main", "Your plan needs a real email as its main one. Hide My Email addresses can be added as extra emails.");
+    }
+    const list = mockDb.accountEmails.emails;
+    if (!list.some((e) => e.email === email)) {
+      if (list.length >= 5) return err(409, "too_many_emails", "Your account has five emails. Remove one first.");
+      list.push({ id: `em_${list.length + 1}`, email, main: false, relay, added_at: new Date().toISOString() });
+    }
+    let changed = false;
+    if (b.make_main) {
+      for (const e of list) {
+        const now = e.email === email;
+        if (now && !e.main) changed = true;
+        e.main = now;
+      }
+    }
+    const main = list.find((e) => e.main);
+    mockDb.accountEmails.plan_email_needed = Boolean(team) && (!main || main.relay);
+    return HttpResponse.json({ ...mockDb.accountEmails, refresh_token: changed });
+  }),
+  http.post(/\/v1\/account\/emails\/[^/]+\/main$/, ({ request }) => {
+    const id = decodeURIComponent(new URL(request.url).pathname.split("/").at(-2) ?? "");
+    const list = mockDb.accountEmails.emails;
+    const row = list.find((e) => e.id === id);
+    if (!row) return err(404, "email_not_found", "That email isn't on your account.");
+    const team = mockDb.billing.plan?.active && (mockDb.billing.plan.plan === "business" || mockDb.billing.plan.plan === "studio");
+    if (row.relay && team) return err(409, "relay_not_main", "Your plan needs a real email as its main one.");
+    const changed = !row.main;
+    for (const e of list) e.main = e.id === id;
+    mockDb.accountEmails.plan_email_needed = Boolean(team) && row.relay;
+    return HttpResponse.json({ ...mockDb.accountEmails, refresh_token: changed });
+  }),
+  http.delete(/\/v1\/account\/emails\/[^/]+$/, ({ request }) => {
+    const id = decodeURIComponent(new URL(request.url).pathname.split("/").pop() ?? "");
+    const list = mockDb.accountEmails.emails;
+    const row = list.find((e) => e.id === id);
+    if (!row) return err(404, "email_not_found", "That email isn't on your account.");
+    if (row.main) return err(409, "main_email_not_removable", "Make another email main before removing this one.");
+    mockDb.accountEmails.emails = list.filter((e) => e.id !== id);
+    return HttpResponse.json(mockDb.accountEmails);
+  }),
   // owner 2026-11-06: refund requests (gateway efa1856), a person decides
   http.get(`${GATEWAY}/v1/support/refund-options`, () => HttpResponse.json(mockDb.refundOptions)),
   http.post(`${GATEWAY}/v1/support/refund-requests`, async ({ request }) => {

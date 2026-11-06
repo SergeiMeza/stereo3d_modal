@@ -19,6 +19,7 @@ import Link from "next/link";
 
 import { PasskeysSection } from "@/components/auth/Passkeys";
 import { SignInMethods } from "@/components/auth/SignInMethods";
+import { AccountEmails } from "@/components/auth/AccountEmails";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { ACTIVE_RUNS_LINE, DeleteDues } from "@/components/pay/DeleteDues";
@@ -258,6 +259,8 @@ export default function AccountScreen() {
       {/* ADR 0136: the ways in, and passkeys */}
       <CardShell title="Sign-in & security">
         <SignInMethods />
+        {/* gateway 00152: the account's emails, one main */}
+        <AccountEmails />
         <PasskeysSection />
       </CardShell>
 

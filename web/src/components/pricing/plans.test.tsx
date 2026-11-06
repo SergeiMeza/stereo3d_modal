@@ -12,6 +12,8 @@ import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
+import { checkoutEmailAtom } from "@/components/pay/payAtoms";
+import { appStore } from "@/lib/state/stores";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -182,6 +184,24 @@ describe("Pricing 2026-11", () => {
     expect(planSubtitle({ ...base, name: "Studio", credit_cents: 150000, interval: "year", price_cents: 1198800 })).toBe(
       "$1,500 of usage every month · cancel any time; it runs to the end of the paid year",
     );
+  });
+
+  it("a plan bought on a hidden Apple address asks for a real email in the success step (gateway 00152)", async () => {
+    mockDb.accountEmails = {
+      emails: [{ id: "em_relay", email: "x1y2@privaterelay.appleid.com", main: true, relay: true }],
+      plan_email_needed: true,
+    };
+    // the checkout session's email (set by the Stripe confirm)
+    appStore.set(checkoutEmailAtom, "billing@studio.example");
+    renderPricing();
+    fireEvent.click(await within(await screen.findByTestId("plan-business")).findByTestId("choose-business"));
+    await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "JP" } });
+    fireEvent.click(screen.getByTestId("plan-main"));
+    expect(await screen.findByText("Business is on. $400 of usage is ready.")).toBeTruthy();
+    const prompt = await within(screen.getByTestId("plan-sheet")).findByTestId("plan-email-prompt");
+    expect(within(prompt).getByText("Add an email for your plan")).toBeTruthy();
+    expect((within(prompt).getByLabelText("Email") as HTMLInputElement).value).toBe("billing@studio.example");
   });
 
   it("Business and Studio cards; choosing one pays in our sheet and shows the plan on Billing", async () => {

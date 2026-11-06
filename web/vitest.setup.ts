@@ -42,6 +42,8 @@ import {
   supportRequestsAtom,
 } from "@/components/refunds/refundAtoms";
 import { EMPTY_IDENTITIES, identitiesAtom } from "@/components/auth/identityState";
+import { EMPTY_EMAILS, emailsAtom } from "@/components/auth/emailAtoms";
+import { checkoutEmailAtom } from "@/components/pay/payAtoms";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
 import { resetBillingForTests } from "@/lib/billing";
 import { resetProForTests } from "@/lib/pro/usePro";
@@ -96,6 +98,8 @@ afterEach(() => {
   store.set(supportRequestsAtom, EMPTY_SUPPORT_REQUESTS);
   store.set(refundSheetAtom, CLOSED_SHEET);
   store.set(identitiesAtom, EMPTY_IDENTITIES);
+  store.set(emailsAtom, EMPTY_EMAILS);
+  store.set(checkoutEmailAtom, null);
 });
 
 class ResizeObserverStub {

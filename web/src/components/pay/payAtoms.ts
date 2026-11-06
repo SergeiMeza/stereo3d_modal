@@ -10,3 +10,7 @@ export const settleOpenAtom = atom(false);
 
 /** The open balance dialog: Add funds (P17), Auto-reload (P18), Spending (P19). */
 export const balanceDialogAtom = atom<"funds" | "reload" | "spending" | null>(null);
+
+/** Gateway 00152: the email the last paid checkout session carried (the
+ * plan's "Add an email for your plan" starts from it). */
+export const checkoutEmailAtom = atom<string | null>(null);

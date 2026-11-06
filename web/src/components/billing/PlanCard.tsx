@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { isTeamPlan } from "@/lib/api/types";
+import { PlanEmailPrompt } from "./PlanEmailPrompt";
 import { planPrice } from "@/components/pricing/planCopy";
 
 import { PlanChangeMenu, ScheduledChange } from "./PlanChange";
@@ -58,6 +60,8 @@ export function PlanCard(): JSX.Element | null {
         </span>
       </div>
       <ScheduledChange plan={plan} />
+      {/* gateway 00152: a Business or Studio plan needs a real main email */}
+      {isTeamPlan(plan) ? <PlanEmailPrompt load /> : null}
       {credit > 0 ? (
         <div className="flex flex-col gap-1.5">
           <p data-testid="plan-credit" className="text-sm text-fg tabular-nums">
