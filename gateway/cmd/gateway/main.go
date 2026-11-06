@@ -104,6 +104,7 @@ func main() {
 	// Sessions without the SDK (passkey session:true, Apple/Google links)
 	// and email codes for linking (/v1/account/identities).
 	svc.Sessions, svc.EmailCodes = idh.Client, codes
+	codes.Owners = svc.EmailOwners() // any active email signs in to its account (design 2)
 	mux.HandleFunc("POST /v1/auth/email/start", ech.Start)
 	mux.HandleFunc("POST /v1/auth/email/verify", ech.Verify)
 
@@ -197,6 +198,16 @@ func main() {
 	mux.HandleFunc("POST /v1/account/identities/link", authed(api.Fresh(svc.HandleLinkIdentity)))
 	mux.HandleFunc("DELETE /v1/account/identities/{provider}", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 		svc.HandleUnlinkIdentity(w, r, u, r.PathValue("provider"))
+	})))
+	// Main and additional emails (design 2).
+	mux.HandleFunc("GET /v1/account/emails", authed(svc.HandleAccountEmails))
+	mux.HandleFunc("POST /v1/account/emails/start", authed(svc.HandleAccountEmailStart))
+	mux.HandleFunc("POST /v1/account/emails", authed(api.Fresh(svc.HandleAddAccountEmail)))
+	mux.HandleFunc("POST /v1/account/emails/{id}/main", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleSetMainEmail(w, r, u, r.PathValue("id"))
+	})))
+	mux.HandleFunc("DELETE /v1/account/emails/{id}", authed(api.Fresh(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleRemoveAccountEmail(w, r, u, r.PathValue("id"))
 	})))
 	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
 

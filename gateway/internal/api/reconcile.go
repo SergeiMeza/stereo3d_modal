@@ -80,6 +80,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	for k, v := range s.balanceSweep(ctx) { // v7 N: holds (R3), reloads, top-ups, expiry
 		stats[k] = v
 	}
+	for k, v := range s.emailSyncSweep(ctx) { // main email switches still to reach Firebase/Stripe (design 2)
+		stats[k] = v
+	}
 	for k, v := range s.casesSweep(ctx) { // C8 replays, C12 reclassify, N8 withdrawals, M9 reminders
 		stats[k] = v
 	}

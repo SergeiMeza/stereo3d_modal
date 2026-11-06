@@ -32,7 +32,9 @@ func adminPlanLabel(c *store.Customer, now time.Time) any {
 // least 2 characters), at most 20, the uid match first. A whole email
 // also finds the Stripe customers made with it (found_by "stripe"): an
 // account whose record has another email, or none, a deleted one too
-// (support's lookup after a deletion, owner 2026-11-06).
+// (support's lookup after a deletion, owner 2026-11-06). Accounts holding
+// a matching email in the email store, an additional or a released one,
+// come with found_by "email", matched_email and email_released.
 func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Request, a *AdminUser) {
 	ctx := r.Context()
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -66,6 +68,9 @@ func (s *Service) HandleAdminAccountSearch(w http.ResponseWriter, r *http.Reques
 		if !seen[uid] {
 			rest = append(rest, row(uid, c))
 		}
+	}
+	for _, row := range s.emailStoreAccounts(ctx, q, seen, found, row) {
+		rest = append(rest, row)
 	}
 	for _, row := range s.stripeAccountsByEmail(ctx, q, seen, found, row) {
 		rest = append(rest, row)
@@ -192,6 +197,32 @@ func (s *Service) stripeAccountsByEmail(ctx context.Context, q string, seen map[
 			}
 		}
 		r["found_by"] = "stripe"
+		out = append(out, r)
+	}
+	return out
+}
+
+// emailStoreAccounts are the accounts with an email row starting with q
+// (additional and released emails included) not found already.
+func (s *Service) emailStoreAccounts(ctx context.Context, q string, seen map[string]bool, found map[string]*store.Customer,
+	row func(string, *store.Customer) map[string]any) []map[string]any {
+	rows, err := s.Store.SearchAccountEmails(ctx, q, 20)
+	if err != nil {
+		slog.WarnContext(ctx, "admin search: email store lookup failed", "err", err) // never the query
+		return nil
+	}
+	var out []map[string]any
+	for _, e := range rows {
+		if seen[e.UID] || found[e.UID] != nil {
+			continue
+		}
+		seen[e.UID] = true
+		c, err := s.Store.GetCustomer(ctx, e.UID)
+		if err != nil {
+			c = &store.Customer{}
+		}
+		r := row(e.UID, c)
+		r["found_by"], r["matched_email"], r["email_released"] = "email", e.Email, e.State == store.EmailReleased
 		out = append(out, r)
 	}
 	return out

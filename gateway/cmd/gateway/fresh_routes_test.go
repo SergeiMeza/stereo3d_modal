@@ -32,13 +32,14 @@ func TestSensitiveRoutesNeedFreshSignIn(t *testing.T) {
 		"POST /v1/billing/methods/setup", "POST /v1/billing/methods/{id}/default", "PUT /v1/billing/methods/order",
 		"DELETE /v1/billing/methods/{id}", "POST /v1/billing/portal",
 		"POST /v1/support/refund-requests",
+		"POST /v1/account/emails", "POST /v1/account/emails/{id}/main", "DELETE /v1/account/emails/{id}",
 	} {
 		if !strings.Contains(route(p), "api.Fresh(") {
 			t.Errorf("%s: no fresh sign-in check", p)
 		}
 	}
 	for _, p := range []string{
-		"GET /v1/account/delete", "GET /v1/account/identities", "GET /v1/billing/methods", "POST /v1/plans/preview-change",
+		"GET /v1/account/delete", "GET /v1/account/identities", "GET /v1/account/emails", "POST /v1/account/emails/start", "GET /v1/billing/methods", "POST /v1/plans/preview-change",
 		"POST /v1/billing/plan", "POST /v1/billing/restore", "GET /v1/support/refund-options", "GET /v1/support/requests",
 		"POST /v1/support/requests/{id}/reply", "GET /v1/projects", "POST /v1/projects/{id}/quotes", "POST /v1/projects/{id}/conversions",
 	} {

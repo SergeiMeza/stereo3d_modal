@@ -440,3 +440,47 @@ func TestStartMailLanguage(t *testing.T) {
 		})
 	}
 }
+
+type fakeOwners struct {
+	owners   map[string]string
+	disabled bool
+	signedIn []string
+}
+
+func (f *fakeOwners) SignInOwner(_ context.Context, email string) (string, error) {
+	if f.disabled {
+		return "", auth.ErrUserDisabled
+	}
+	return f.owners[email], nil
+}
+
+func (f *fakeOwners) SignedIn(_ context.Context, uid, email string, created bool) {
+	f.signedIn = append(f.signedIn, uid+"|"+email)
+}
+
+// With the email store, an additional email signs in to its account
+// without touching Firebase's email; other addresses take the usual path
+// and are recorded; a disabled owner is refused.
+func TestVerifyChecksTheEmailStoreFirst(t *testing.T) {
+	r := newRig()
+	ctx := context.Background()
+	owners := &fakeOwners{owners: map[string]string{"alt@example.com": "alt-owner"}}
+	r.svc.Owners = owners
+	r.svc.Start(ctx, "alt@example.com")
+	res, err := r.svc.Verify(ctx, "alt@example.com", r.code, false)
+	if err != nil || res.UID != "alt-owner" || res.IsNewUser || r.users.created != 0 || len(owners.signedIn) != 0 {
+		t.Fatalf("additional email: %+v %v created=%d", res, err, r.users.created)
+	}
+	r.now = r.now.Add(time.Minute)
+	r.svc.Start(ctx, "old@example.com")
+	res, err = r.svc.Verify(ctx, "old@example.com", r.code, false)
+	if err != nil || res.UID != "old-uid" || len(owners.signedIn) != 1 || owners.signedIn[0] != "old-uid|old@example.com" {
+		t.Fatalf("firebase email: %+v %v %v", res, err, owners.signedIn)
+	}
+	r.now = r.now.Add(time.Minute)
+	owners.disabled = true
+	r.svc.Start(ctx, "alt@example.com")
+	if _, err := r.svc.Verify(ctx, "alt@example.com", r.code, false); !errors.Is(err, ErrDisabled) {
+		t.Fatalf("disabled: %v", err)
+	}
+}

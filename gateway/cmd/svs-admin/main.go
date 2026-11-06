@@ -19,6 +19,7 @@
 //	mail-previews
 //	reconcile [-since 48h] [-dry-run] [-yes]
 //	blocklist [add|remove FINGERPRINT [-note t]]
+//	emails-backfill [-dry-run] [-stripe] [-yes]   (EM-01: the email store from Firebase users and customer records; counts only)
 //
 // Credentials: Application Default Credentials (gcloud auth
 // application-default login) for Firestore and Firebase; the Stripe and
@@ -58,7 +59,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 	env := flag.String("env", "test", "test or prod")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist> …")
+		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill> …")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -187,6 +188,28 @@ func main() {
 		fs.Parse(args[2:])
 		run(func(w http.ResponseWriter, r *http.Request) { svc.HandleAdminBlocklist(w, r, admin) }, "POST", "/",
 			map[string]any{"action": action, "fingerprint": fp, "note": *note})
+	case "emails-backfill":
+		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
+		dry := fs.Bool("dry-run", false, "count only: nothing written")
+		withStripe := fs.Bool("stripe", false, "live: also set plan accounts' Stripe customer email to the main one")
+		yes := fs.Bool("yes", false, "don't ask before a live run")
+		fs.Parse(args)
+		if svc.Auth == nil {
+			fail("Firebase Auth isn't configured")
+		}
+		if !*dry {
+			what := "write account_emails_" + *env
+			if *withStripe {
+				what += " and the Stripe customer emails of plan accounts"
+			}
+			confirm(*yes, "EM-01 backfill: "+what)
+		}
+		res, err := svc.BackfillAccountEmails(ctx, svc.Auth.EachUser, !*dry, *withStripe && !*dry)
+		b, _ := json.MarshalIndent(res, "", "  ")
+		fmt.Println(string(b))
+		if err != nil {
+			fail("backfill stopped: " + err.Error())
+		}
 	default:
 		flag.Usage()
 		os.Exit(2)

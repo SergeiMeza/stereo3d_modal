@@ -54,6 +54,7 @@ func newFakeStripe() *fakeStripe {
 }
 
 type fakeCustomer struct {
+	email   string
 	name    string
 	address map[string]string
 	taxIDs  []map[string]any
@@ -66,7 +67,7 @@ func (f *fakeStripe) customer(w http.ResponseWriter, r *http.Request, rest strin
 	write := func(v any) { _ = json.NewEncoder(w).Encode(v) }
 	parts := strings.Split(rest, "/")
 	c := f.customers[parts[0]]
-	if c == nil && (r.Method == http.MethodGet || len(parts) > 1 || r.Form.Get("name") == "" && r.Form.Get("address[country]") == "") {
+	if c == nil && (r.Method == http.MethodGet || len(parts) > 1 || r.Form.Get("name") == "" && r.Form.Get("address[country]") == "" && r.Form.Get("email") == "") {
 		w.WriteHeader(404) // only customers the company calls created (others' calls keep failing as before)
 		write(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "unhandled /v1/customers/" + rest}})
 		return
@@ -80,6 +81,9 @@ func (f *fakeStripe) customer(w http.ResponseWriter, r *http.Request, rest strin
 		if r.Method == http.MethodPost {
 			if _, ok := r.Form["name"]; ok {
 				c.name = r.Form.Get("name")
+			}
+			if _, ok := r.Form["email"]; ok {
+				c.email = r.Form.Get("email")
 			}
 			for _, k := range []string{"line1", "line2", "city", "postal_code", "state", "country"} {
 				if _, ok := r.Form["address["+k+"]"]; ok {

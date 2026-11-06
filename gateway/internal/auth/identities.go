@@ -4,6 +4,7 @@ import (
 	"context"
 
 	fbauth "firebase.google.com/go/v4/auth"
+	"google.golang.org/api/iterator"
 )
 
 // Identity is how an account signs in: its provider ids (apple.com,
@@ -85,4 +86,22 @@ func (v *Verifier) UserExists(ctx context.Context, uid string) (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// EachUser calls fn with every Firebase user's identity, a page at a time
+// (the EM-01 backfill); fn's error stops it.
+func (v *Verifier) EachUser(ctx context.Context, fn func(*Identity) error) error {
+	it := v.client.Users(ctx, "")
+	for {
+		u, err := it.Next()
+		if err == iterator.Done {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := fn(identityOf(u.UserRecord)); err != nil {
+			return err
+		}
+	}
 }

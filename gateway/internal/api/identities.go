@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
-	"spatial-ai-labs/stereo3d-gateway/internal/emailcode"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 )
 
 // Linked sign-in methods, server-side (the app's sign-in contract,
@@ -32,9 +32,10 @@ import (
 //     an anonymous account included). A Google ID token's audience must
 //     be an OAuth client of this project. {provider: email, email, code}
 //     checks an email code (/v1/auth/email/start) without signing in and
-//     puts the address on the caller's account, verified (409 email_exists
-//     {email_masked} when it already has another, unless replace: true;
-//     the same address again is a no-op). session: true
+//     puts the address on the caller's account through the email store
+//     (account_emails.go): an additional email, or with replace: true the
+//     main one, the old main kept as additional; the same address again
+//     is a no-op. session: true
 //     also answers fresh tokens for the caller (Apple/Google links).
 //   - DELETE /v1/account/identities/{provider} unlinks apple.com,
 //     google.com or password. email can't be removed (409
@@ -66,6 +67,7 @@ type SessionIssuer interface {
 type EmailCodeChecker interface {
 	Peek(ctx context.Context, email, code string) error
 	Check(ctx context.Context, email, code string) error
+	StartIn(ctx context.Context, email string, lang mail.Lang) (time.Duration, error)
 }
 
 const (
@@ -185,7 +187,7 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 		Email    string `json:"email"`
 		Code     string `json:"code"`
 		Session  bool   `json:"session"`
-		// Replace: an email link may change the account's other email.
+		// Replace: the linked email becomes main (the old one stays).
 		Replace bool `json:"replace"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&req); err != nil {
@@ -218,7 +220,7 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 	}
 	var session *identity.Session
 	if req.Provider == providerEmail {
-		if err := s.linkEmail(ctx, admin, user.UID, req.Email, req.Code, req.Replace); err != nil {
+		if err := s.linkEmail(ctx, user.UID, req.Email, req.Code, req.Replace); err != nil {
 			httpx.WriteErr(ctx, w, identityErr(ctx, "link_email", err))
 			return
 		}
@@ -244,53 +246,12 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 	httpx.WriteOK(w, out)
 }
 
-func (s *Service) linkEmail(ctx context.Context, admin IdentityAdmin, uid, rawEmail, code string, replace bool) error {
-	if s.EmailCodes == nil {
-		return errIdentityUnavailable()
-	}
-	email, err := emailcode.NormalizeEmail(rawEmail)
-	if err != nil {
-		return emailcode.APIError(err)
-	}
-	// Checked but not spent yet: when the address is another account's,
-	// the code stays good for /v1/auth/email/verify ("Sign in to that
-	// account"); only a link that goes through uses it up.
-	if err := s.EmailCodes.Peek(ctx, email, code); err != nil {
-		return emailcode.APIError(err)
-	}
-	other, err := admin.IdentityByEmail(ctx, email)
-	if err != nil {
-		return err
-	}
-	if other != nil && other.UID != uid {
-		return s.credentialInUse(ctx, other)
-	}
-	me, err := admin.IdentityOf(ctx, uid)
-	if err != nil {
-		return err
-	}
-	current := strings.ToLower(strings.TrimSpace(me.Email))
-	if current != "" && current != email && !replace {
-		// Never changed silently: the app asks first ("Change your email
-		// to X?") and sends replace:true; the code stays good meanwhile.
-		e := httpx.Err(http.StatusConflict, "email_exists", "Your account already has another email. Send replace: true to change it.")
-		e.Details = map[string]any{"email_masked": maskEmail(current)}
-		return e
-	}
-	if err := s.EmailCodes.Check(ctx, email, code); err != nil { // spent meanwhile: refused
-		return emailcode.APIError(err)
-	}
-	if current == email && me.EmailVerified {
-		return nil // the same email again: nothing to change
-	}
-	if err := admin.SetVerifiedEmail(ctx, uid, email); err != nil {
-		if auth.IsEmailInUse(err) { // taken meanwhile
-			other, _ := admin.IdentityByEmail(ctx, email)
-			return s.credentialInUse(ctx, other)
-		}
-		return err
-	}
-	return nil
+// linkEmail puts a code-checked email on uid through the email store:
+// an additional email, or with replace the main one (the old main stays
+// as an additional email). The same email again is a no-op.
+func (s *Service) linkEmail(ctx context.Context, uid, rawEmail, code string, replace bool) error {
+	_, err := s.putEmail(ctx, uid, rawEmail, code, replace)
+	return err
 }
 
 func (s *Service) linkIdP(ctx context.Context, admin IdentityAdmin, r *http.Request, uid, provider, idpToken, nonce string) (*identity.Session, error) {
@@ -380,12 +341,12 @@ func (s *Service) HandleUnlinkIdentity(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 	if provider != providerPassword { // the email code still signs a password account in
-		n, err := s.passkeyCount(ctx, user.UID)
+		n, err := s.signInCount(ctx, id)
 		if err != nil {
 			httpx.WriteErr(ctx, w, httpx.ErrServer())
 			return
 		}
-		if len(signInMethods(id))+n-1 < 1 {
+		if n-1 < 1 {
 			httpx.WriteErr(ctx, w, errLastMethod())
 			return
 		}
@@ -413,11 +374,11 @@ func (s *Service) lastSignInMethod(ctx context.Context, uid string) (bool, error
 	if err != nil {
 		return false, err
 	}
-	n, err := s.passkeyCount(ctx, uid)
+	n, err := s.signInCount(ctx, id)
 	if err != nil {
 		return false, err
 	}
-	return len(signInMethods(id))+n-1 < 1, nil
+	return n-1 < 1, nil
 }
 
 func bearerToken(r *http.Request) string {

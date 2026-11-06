@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -474,4 +475,56 @@ func IsEmailTaken(err error) (string, bool) {
 		return t.UID, true
 	}
 	return "", false
+}
+
+// SearchAccountEmails is up to limit email rows starting with prefix
+// (lowercased), released ones included (the console's search).
+func (s *Store) SearchAccountEmails(ctx context.Context, prefix string, limit int) ([]*AccountEmail, error) {
+	p := strings.ToLower(strings.TrimSpace(prefix))
+	snaps, err := s.fs.Collection(accountEmailsCol(s.env)).Where("email", ">=", p).Where("email", "<=", p+"").
+		Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*AccountEmail, 0, len(snaps))
+	for _, sn := range snaps {
+		if e, err := emailOf(sn); err == nil {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// PutReleasedEmail records a deleted account's email as released when the
+// email has no row yet (the EM-01 backfill); it answers whether it wrote.
+func (s *Store) PutReleasedEmail(ctx context.Context, uid, email string, at time.Time) (bool, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	_, err := s.emailRef(email).Create(ctx, &AccountEmail{Email: email, UID: uid, State: EmailReleased, Main: true, Source: "backfill",
+		AddedAt: at, ReleasedAt: &at})
+	if status.Code(err) == codes.AlreadyExists {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// EachCustomer calls fn with every customer record (the EM-01 backfill).
+func (s *Store) EachCustomer(ctx context.Context, fn func(uid string, c *Customer) error) error {
+	it := s.fs.Collection(customersCol(s.env)).Documents(ctx)
+	defer it.Stop()
+	for {
+		sn, err := it.Next()
+		if err == iterator.Done {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var c Customer
+		if sn.DataTo(&c) != nil {
+			continue
+		}
+		if err := fn(sn.Ref.ID, &c); err != nil {
+			return err
+		}
+	}
 }

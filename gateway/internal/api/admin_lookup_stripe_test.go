@@ -94,3 +94,32 @@ func TestAdminSearchStripeByEmail(t *testing.T) {
 		t.Fatal("looksLikeEmail")
 	}
 }
+
+// The email store answers too: an account holding the email as an
+// additional one, and a deleted account whose email was released.
+func TestAdminSearchEmailStore(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	tag := store.NewID()
+	extra, released := "pat."+tag+"@example.com", "pat."+tag+"@old.example.com"
+	holder, gone := "u"+store.NewID(), "u"+store.NewID()
+	s.Store.PutCustomer(ctx, holder, &store.Customer{Email: "main." + tag + "@example.com"})
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: holder, Email: "main." + tag + "@example.com", Claim: true})
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: holder, Email: extra, Verified: true})
+	s.Store.AddAccountEmail(ctx, store.AddEmailSpec{UID: gone, Email: released, Claim: true})
+	s.Store.ReleaseAllAccountEmails(ctx, gone, "deleted")
+
+	out := adminGet(t, s.HandleAdminAccountSearch, "/v1/admin/accounts?q=pat."+tag)
+	got := map[string]map[string]any{}
+	for _, a := range out["accounts"].([]any) {
+		r := a.(map[string]any)
+		got[r["uid"].(string)] = r
+	}
+	if r := got[holder]; r == nil || r["found_by"] != "email" || r["matched_email"] != extra || r["email_released"] != false ||
+		r["email"] != "main."+tag+"@example.com" {
+		t.Fatalf("additional %v", r)
+	}
+	if r := got[gone]; r == nil || r["found_by"] != "email" || r["matched_email"] != released || r["email_released"] != true {
+		t.Fatalf("released %v", r)
+	}
+}

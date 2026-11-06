@@ -17,14 +17,16 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/emailcode"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
 // fakeIdentities is Firebase Auth's user records, in memory.
 type fakeIdentities struct {
-	mu    sync.Mutex
-	users map[string]*auth.Identity
-	fed   map[string]string // provider|sub → uid
+	mu      sync.Mutex
+	users   map[string]*auth.Identity
+	fed     map[string]string // provider|sub → uid
+	failSet bool              // SetVerifiedEmail fails
 }
 
 func newFakeIdentities() *fakeIdentities {
@@ -82,6 +84,9 @@ func (f *fakeIdentities) IdentityByProvider(ctx context.Context, provider, sub s
 func (f *fakeIdentities) SetVerifiedEmail(_ context.Context, uid, email string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.failSet {
+		return fmt.Errorf("firebase down")
+	}
 	f.users[uid].Email, f.users[uid].EmailVerified = email, true
 	return nil
 }
@@ -133,8 +138,9 @@ func (f *fakeSessions) LinkWithIdP(_ context.Context, callerToken, provider, idp
 // fakeCodes: 123456 is right, once per address (Check spends it, Peek
 // doesn't).
 type fakeCodes struct {
-	mu    sync.Mutex
-	spent map[string]bool
+	mu      sync.Mutex
+	spent   map[string]bool
+	started []string // email|lang
 }
 
 func (f *fakeCodes) check(email, code string, spend bool) error {
@@ -158,6 +164,14 @@ func (f *fakeCodes) Peek(_ context.Context, email, code string) error {
 
 func (f *fakeCodes) Check(_ context.Context, email, code string) error {
 	return f.check(email, code, true)
+}
+
+func (f *fakeCodes) StartIn(_ context.Context, email string, lang mail.Lang) (time.Duration, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.started = append(f.started, email+"|"+string(lang))
+	delete(f.spent, email)
+	return 30 * time.Second, nil
 }
 
 // idpToken is an unsigned provider ID token (the fake checks nothing).
@@ -300,24 +314,26 @@ func TestIdentitiesLinkEmail(t *testing.T) {
 	if code, out, _ := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"me@example.com","code":"123456"}`, "", ip); code != 200 || out["email"] != "me@example.com" {
 		t.Fatalf("same email again %d %v", code, out)
 	}
-	// another address: never replaced silently; asked first, code kept
-	code, out, raw := callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"new@example.com","code":"123456"}`, "", ip)
-	d, _ := out["details"].(map[string]any)
-	if code != 409 || out["error"] != "email_exists" || d["email_masked"] != "m•••@example.com" || strings.Contains(raw, "me@example.com") {
-		t.Fatalf("other email %d %v", code, out)
+	// another address: an additional email, the main one unchanged
+	code, out, _ = callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"new@example.com","code":"123456"}`, "", ip)
+	if code != 200 || out["email"] != "me@example.com" {
+		t.Fatalf("additional email %d %v", code, out)
 	}
-	if err := codes.Peek(ctx, "new@example.com", "123456"); err != nil {
-		t.Fatalf("code spent by the refused link: %v", err)
+	list, _ := s.Store.ListAccountEmails(ctx, me)
+	if len(list) != 2 || list[0].Email != "me@example.com" || !list[0].Main || list[1].Email != "new@example.com" || list[1].Main {
+		t.Fatalf("store %+v", list)
 	}
-	if got, _ := s.identities().IdentityOf(ctx, me); got.Email != "me@example.com" {
-		t.Fatalf("email changed without replace: %q", got.Email)
-	}
-	code, out, _ = callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"new@example.com","code":"123456","replace":true}`, "", ip)
-	if code != 200 || out["email"] != "new@example.com" {
+	// replace: a third becomes main, the old main stays as additional
+	code, out, _ = callIdentity(s, me, http.MethodPost, `{"provider":"email","email":"third@example.com","code":"123456","replace":true}`, "", ip)
+	if code != 200 || out["email"] != "third@example.com" {
 		t.Fatalf("replace %d %v", code, out)
 	}
-	if err := codes.Peek(ctx, "new@example.com", "123456"); err == nil {
+	if err := codes.Peek(ctx, "third@example.com", "123456"); err == nil {
 		t.Fatal("the replacing link spends the code")
+	}
+	list, _ = s.Store.ListAccountEmails(ctx, me)
+	if len(list) != 3 || list[0].Email != "third@example.com" || !list[0].Main {
+		t.Fatalf("store after replace %+v", list)
 	}
 }
 
