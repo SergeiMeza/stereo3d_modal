@@ -137,6 +137,12 @@ func (s *Service) planRefundQuote(ctx context.Context, uid string) (*planRefundQ
 // openPlanRefundCase opens the manual case for a refund we grant on the
 // latest plan invoice; its maximum is the proposal.
 func (s *Service) openPlanRefundCase(ctx context.Context, uid, who, text string) (*store.Case, error) {
+	return s.openPlanRefundCaseFrom(ctx, uid, "support", who, text)
+}
+
+// openPlanRefundCaseFrom is openPlanRefundCase with the case's source
+// (support, or customer for a request from Billing).
+func (s *Service) openPlanRefundCaseFrom(ctx context.Context, uid, source, who, text string) (*store.Case, error) {
 	q, err := s.planRefundQuote(ctx, uid)
 	if err != nil {
 		return nil, err
@@ -146,7 +152,7 @@ func (s *Service) openPlanRefundCase(ctx context.Context, uid, who, text string)
 		text = strings.TrimSpace(fmt.Sprintf("%s\n[Yearly %s: proposal %s = this month's unspent share %s + %d months not yet started %s. The owner decides; never automatic.]",
 			text, q.Tier, money(q.ProposalCents), money(q.CurrentCents), q.MonthsNotStarted, money(q.FutureCents)))
 	}
-	return s.openCase(ctx, &store.Case{UID: uid, Type: store.CaseRefund, Reason: ReasonPlanRefund, Mode: "manual", Source: "support",
+	return s.openCase(ctx, &store.Case{UID: uid, Type: store.CaseRefund, Reason: ReasonPlanRefund, Mode: "manual", Source: source,
 		Status: store.CaseOpen, CustomerVisible: true, CustomerText: text, RequestedCents: q.ProposalCents,
 		Items:   map[string]int64{line: q.ProposalCents},
 		Related: store.CaseRelated{PIIDs: []string{q.PI}, InvoiceIDs: []string{q.InvoiceID}, ChargeIDs: []string{line}}}, who, text)

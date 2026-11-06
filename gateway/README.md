@@ -31,6 +31,13 @@ GET  /v1/billing/history?limit=&cursor=
                                       amount_cents, conversion_id}]}; a grouped charge
                                       lists every run it covered; an open, uncharged
                                       batch is not listed; next_cursor pages on
+GET  /v1/support/refund-options       what can be asked for: runs and the plan's latest invoice
+                                      paid in the last 30 days (a cancelled plan too)
+POST /v1/support/refund-requests      ask for a refund (fresh sign-in): always a manual case
+                                      (source customer); joins an open case; 3 a day, 10 open,
+                                      10 an hour per address, notes up to 2,000 characters
+GET  /v1/support/requests             the account's requests, status in plain words
+POST /v1/support/requests/{id}/reply  a message on a request (a closed one gets a follow-up)
 ```
 
 Onboarding saves a card once (SetupIntent, off-session usage — Stripe's $0

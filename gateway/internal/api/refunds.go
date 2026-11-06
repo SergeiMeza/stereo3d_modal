@@ -248,9 +248,12 @@ type RefundRequest struct {
 	ConversionIDs []string
 	Items         map[string]int64 // optional cents per run (default: all refundable)
 	Reason        string           // a hint (quality_complaint, support_request, …) or a system reason
-	Source        string           // system | support | stripe_webhook | dashboard | customer_mail
+	Source        string           // system | support | stripe_webhook | dashboard | customer_mail | customer
 	Who           string
 	Text          string
+	// ForceManual: a person decides, whatever the policy says (a
+	// customer's own request, owner 2026-11-06); the case is shown to them.
+	ForceManual bool
 }
 
 // requestRefund is C12: classification in order, a case per payment,
@@ -334,9 +337,12 @@ func (s *Service) requestRefund(ctx context.Context, req RefundRequest) ([]*stor
 			items[m.Conv.ID] = c
 			cents += c
 		}
-		mode := pol.modeFor(reason, cents)
+		mode, visible := pol.modeFor(reason, cents), customerVisible(reason)
+		if req.ForceManual {
+			mode, visible = "manual", true
+		}
 		cs := &store.Case{UID: req.UID, Type: store.CaseRefund, Reason: reason, Mode: mode, Source: req.Source, Status: store.CaseOpen,
-			CustomerVisible: customerVisible(reason), Related: relatedOf(runs), RequestedCents: cents, Items: items, CustomerText: req.Text}
+			CustomerVisible: visible, Related: relatedOf(runs), RequestedCents: cents, Items: items, CustomerText: req.Text}
 		if pi != "balance" {
 			cs.Related.PIIDs = []string{pi}
 			cs.Related.ChargeIDs = []string{runs[0].ChargeID}

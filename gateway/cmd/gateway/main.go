@@ -315,6 +315,18 @@ func main() {
 	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
 	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04
 	mux.HandleFunc("POST /v1/contact", authed(svc.HandleContact))                   // sales enquiries 2026-11-04
+	// Refund requests from Billing (owner 2026-11-06): always a person decides.
+	mux.HandleFunc("GET /v1/support/refund-options", authed(svc.HandleRefundOptions))
+	mux.HandleFunc("POST /v1/support/refund-requests", authed(api.Fresh(svc.HandleRefundRequest)))
+	mux.HandleFunc("GET /v1/support/requests", authed(svc.HandleSupportRequests))
+	mux.HandleFunc("POST /v1/support/requests/{id}/reply", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		id := r.PathValue("id")
+		if !api.ValidCaseID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusNotFound, "request_not_found", "We couldn't find that request."))
+			return
+		}
+		svc.HandleSupportReply(w, r, u, id)
+	}))
 	// Feedback: signed in or out (an invalid token is still 401).
 	mux.HandleFunc("POST /v1/feedback", func(w http.ResponseWriter, r *http.Request) {
 		var user *api.AuthedUser
