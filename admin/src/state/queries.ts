@@ -24,3 +24,9 @@ export const casesQuery = createQuery((get, q: CaseListQuery) => apiOf(get(servi
 export const caseQuery = createQuery((get, id: string) => apiOf(get(servicesAtom)).getCase(id));
 export const accountQuery = createQuery((get, uid: string) => apiOf(get(servicesAtom)).getAccount(uid));
 export const passkeysQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).listPasskeys());
+/** RP-05: one preview per case and receiving account. */
+export const planMovePreviewQuery = createQuery((get, p: { caseId: string; to: string }) =>
+  apiOf(get(servicesAtom)).planMovePreview(p.caseId, p.to),
+);
+/** RP-05: the receiving account's search (the console's account search). */
+export const accountSearchQuery = createQuery((get, q: string) => apiOf(get(servicesAtom)).searchAccounts(q));

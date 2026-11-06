@@ -23,6 +23,7 @@ import type {
   GrantBody,
   RevokeResult,
   OpenCaseBody,
+  PlanMovePreview,
   AccountHit,
   FeedbackSeen,
   OpenEfw,
@@ -221,6 +222,12 @@ export class AdminApi {
 
   openCase(body: OpenCaseBody): Promise<{ cases: CasePage[] | null }> {
     return this.json("POST", "/v1/admin/cases", body);
+  }
+
+  /** RP-05: what moving the case's plan to `to` would do, and what blocks it. */
+  planMovePreview(caseId: string, to: string): Promise<PlanMovePreview> {
+    const q = new URLSearchParams({ to });
+    return this.json("GET", `/v1/admin/cases/${encodeURIComponent(caseId)}/plan-move/preview?${q}`);
   }
 
   /** Grant Pro (gateway 00106): an account's grants. */

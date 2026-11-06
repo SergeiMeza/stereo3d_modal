@@ -119,6 +119,51 @@ export interface Case {
   follow_up_of?: string;
   /** Cases opened as follow-ups of this one. */
   follow_up_ids?: string[] | null;
+  /** RP-05: support's move of this account's plan to another account. */
+  plan_move?: CasePlanMove | null;
+}
+
+export type PlanMoveState = "offered" | "accepted" | "done" | "expired" | "cancelled";
+
+/** A plan move on a plan_move case (gateway 088d57f). */
+export interface CasePlanMove {
+  from_uid: string;
+  to_uid: string;
+  subscription_id: string;
+  plan: string;
+  period_end: string;
+  state: PlanMoveState | string;
+  offered_by: string;
+  offered_at: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  auth_time?: string | null;
+  done_at?: string | null;
+}
+
+export type PlanMoveBlocker =
+  | "same_account"
+  | "no_plan"
+  | "plan_renewing"
+  | "target_has_plan"
+  | "target_missing"
+  | "from_deleted"
+  | "move_open";
+
+/** GET /v1/admin/cases/{id}/plan-move/preview?to= (gateway 088d57f). */
+export interface PlanMovePreview {
+  from_uid: string;
+  to_uid: string;
+  blockers: (PlanMoveBlocker | string)[] | null;
+  stays: string[] | null;
+  /** absent when the account has no plan to move (no_plan) */
+  plan?: string;
+  plan_id?: string;
+  subscription_id?: string;
+  period_end?: string | null;
+  renews?: boolean;
+  carry_cents?: number;
+  moves?: string[] | null;
 }
 
 export interface RunRow {
@@ -267,6 +312,8 @@ export type CaseAction =
   | "accept_dispute"
   | "counter_dispute"
   | "counter_with_refund_proof"
+  | "offer_plan_move"
+  | "cancel_plan_move"
   | "close";
 
 export interface CasePage {
@@ -291,6 +338,10 @@ export interface CaseActionBody {
   text?: string;
   method?: string;
   reference?: string;
+  /** offer_plan_move (RP-05): the receiving account and the plan's
+   * subscription the preview showed (409 subscription_changed). */
+  to_uid?: string;
+  expected_subscription_id?: string;
 }
 
 export interface OpenCaseBody {
@@ -728,6 +779,9 @@ export interface AccountHit {
   email: string;
   created_at?: string | null;
   plan?: string | null;
+  /** gateway 8f04bda */
+  deleted?: boolean;
+  found_by?: "record" | "stripe";
 }
 
 /** GET /v1/admin/runs/{id} (BL-29 ⌘K); 404 run_not_found. */

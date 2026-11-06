@@ -20,6 +20,7 @@ import { caseQuery, mailPreviewsQuery } from "@/state/queries";
 import { useQuery } from "@/state/query";
 import { ActionSheet, approveItems, isBalanceCase, owedTotal } from "./ActionSheet";
 import { deliveredChip, EvidencePanel } from "./CaseEvidence";
+import { PlanMovePanel } from "./PlanMove";
 
 /** A2: one case. */
 export function CasePage({ id }: { id: string }) {
@@ -123,7 +124,10 @@ function CaseBody({
   if (has("waive")) primary.push("waive");
   if (has("counter_with_refund_proof") && refunded) primary.push("counter_with_refund_proof");
   const secondary = actions.filter(
-    (a) => !primary.includes(a) && !["note", "refresh_evidence", "close", "approve", "waive"].includes(a),
+    // the plan move has its own panel (RP-05)
+    (a) =>
+      !primary.includes(a) &&
+      !["note", "refresh_evidence", "close", "approve", "waive", "offer_plan_move", "cancel_plan_move"].includes(a),
   );
   const approveDisabled = max <= 0 || Object.keys(approveItems(page)).length === 0 && !isBalanceCase(page);
   const decisions = [...primary, ...secondary];
@@ -280,6 +284,8 @@ function CaseBody({
           <PlainText text={c.customer_text} />
         </Card>
       )}
+
+      {c.reason === "plan_move" && <PlanMovePanel page={page} onPage={onPage} />}
 
       {hints.map((h, i) => (
         <p key={i} className="border-l-2 border-violet pl-2.5 text-sm text-muted-foreground">
