@@ -171,7 +171,8 @@ describe("add-ons in Make 3D (pricing 2026-11)", () => {
       </AuthProvider>,
     );
     const masterRow = await screen.findByTestId("addon-master");
-    expect(masterRow.textContent).toContain("+20%");
+    // its share from /v1/pricing (gateway 00166: +100%)
+    expect(masterRow.textContent).toContain("+100%");
     const expressRow = screen.getByTestId("addon-express");
     expect(expressRow.textContent).toContain("+50%");
     fireEvent.click(within(masterRow).getByRole("checkbox"));

@@ -161,10 +161,11 @@ describe("Pricing 2026-11", () => {
     const lifelike = await screen.findByTestId("pricing-lifelike");
     expect(lifelike.textContent).toContain("from $4 a minute");
     expect(lifelike.textContent).toContain("With Pro");
-    expect(screen.getByTestId("pro-4k").textContent).toBe("$8.50");
-    expect(lifelike.textContent).toContain("4K3840×2160 per eye$10.00");
+    // gateway 00166 list prices: 4K $16.00 a minute, $13.60 with Pro
+    expect(screen.getByTestId("pro-4k").textContent).toBe("$13.60");
+    expect(lifelike.textContent).toContain("4K3840×2160 per eye$16.00");
     const addons = screen.getByTestId("pricing-addons");
-    expect(addons.textContent).toContain("Master bitrate+20%");
+    expect(addons.textContent).toContain("Master bitrate+100%");
     expect(addons.textContent).toContain("Express+50%");
     expect(addons.textContent).toContain("First in line");
     expect(addons.textContent).not.toMatch(/faster/);

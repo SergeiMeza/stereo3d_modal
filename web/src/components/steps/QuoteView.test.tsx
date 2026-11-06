@@ -5,11 +5,12 @@
  * from the Depth tab's "Get quote" button before the guard existed.
  */
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import type { StepQuoteResponse } from "@/lib/api/types";
+import { server } from "@/mocks/server";
 
-import { QuoteView } from "./QuoteView";
+import { bulkLabel, QuoteView } from "./QuoteView";
 
 function quoteResponse(
   reuseStages: StepQuoteResponse["reuse_stages"],
@@ -21,6 +22,10 @@ function quoteResponse(
     reuse_stages: reuseStages,
   };
 }
+
+// the bulk line reads its share and threshold from /v1/pricing
+beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+afterAll(() => server.close());
 
 describe("QuoteView reuse_stages guard", () => {
   afterEach(cleanup);
@@ -45,7 +50,7 @@ describe("QuoteView reuse_stages guard", () => {
 describe("QuoteView in words (S3D-15/16/17/19)", () => {
   afterEach(cleanup);
 
-  it("says the frame rate, the 10% off, the minimum and when it's charged", () => {
+  it("says the frame rate, the 10% off, the minimum and when it's charged", async () => {
     render(
       <QuoteView
         result={{
@@ -69,7 +74,8 @@ describe("QuoteView in words (S3D-15/16/17/19)", () => {
     expect(screen.getByText(/Your video: 5 min/).textContent).toBe(
       "Your video: 5 min at 30 fps (+25%)",
     );
-    expect(screen.getByText("10% off runs over $10")).toBeTruthy();
+    // the share and threshold from /v1/pricing, never a fixed "$10"
+    expect(await screen.findByText(bulkLabel(0.1, 1000))).toBeTruthy();
     expect(screen.getByTestId("quote-bulk-discount").textContent).toBe("−$2.82");
     expect(screen.queryByTestId("quote-minimum")).toBeNull();
     expect(screen.getByTestId("quote-charge-timing").textContent).toBe(

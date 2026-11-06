@@ -82,7 +82,7 @@ export function PlansSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  /** the quality to give the per-minute example at ("4K is $8.50 …") */
+  /** the quality to give the per-minute example at ("4K is $13.60 a minute instead of $16.00", from /v1/pricing) */
   preset: Preset;
   reason: "preview_done" | "previews_used";
 }): JSX.Element | null {

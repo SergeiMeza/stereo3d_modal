@@ -170,8 +170,9 @@ export function LifelikeDeliverPanel({
   const [foveated, setFoveated] = useMake3dChoice(pid, "foveated");
   // S3D-56: under a collapsed Advanced; no price change
   const [bitrate, setBitrate] = useMake3dChoice(pid, "bitrate");
-  // pricing 2026-11 add-ons: Master bitrate (+20%) and Express (+50%,
-  // included in Business and Studio, where it starts ticked)
+  // pricing 2026-11 add-ons: Master bitrate and Express (Express is
+  // included in Business and Studio, where it starts ticked); their shares
+  // come from /v1/pricing addons
   const addons = usePricing()?.addons;
   const [master, setMaster] = useMake3dChoice(pid, "master");
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");

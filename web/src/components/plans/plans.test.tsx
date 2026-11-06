@@ -170,13 +170,14 @@ describe("pure rules", () => {
       step: "production",
       params: { preset: "4k", formats: ["mvhevc"] },
       quote: {
-        amount_cents: 3000,
+        // gateway 00166: 3 min at 4K's $16.00 list price
+        amount_cents: 4800,
         currency: "usd",
         breakdown: {
           preset: "4k",
           billable_minutes: 3,
           fps_factor: 1,
-          subtotal_cents: 3000,
+          subtotal_cents: 4800,
           addons: {},
         },
       },
@@ -433,13 +434,13 @@ describe("receipt A", () => {
       state: "succeeded",
       params: { preset: "4k", formats: ["mvhevc"] },
       quote: {
-        amount_cents: 3000,
+        amount_cents: 4800,
         currency: "usd",
         breakdown: {
           preset: "4k",
           billable_minutes: 3,
           fps_factor: 1,
-          subtotal_cents: 3000,
+          subtotal_cents: 4800,
           addons: {},
         },
       },
@@ -452,7 +453,7 @@ describe("receipt A", () => {
       />,
     );
     expect((await screen.findByTestId("receipt-pro")).textContent).toContain(
-      "You'd have saved $4.50 with Pro",
+      "You'd have saved $7.20 with Pro",
     );
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     await waitFor(() => expect(screen.queryByTestId("receipt-pro")).toBeNull());

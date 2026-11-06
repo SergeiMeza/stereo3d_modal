@@ -1449,9 +1449,9 @@ export interface StepConversionRequest {
    * parts" */
   split_max_seconds?: number;
   /** S3D-56: output bitrate; absent = Automatic; "master" is the Master
-   * bitrate add-on (+20%) */
+   * bitrate add-on (its share from /v1/pricing addons) */
   bitrate?: Bitrate;
-  /** pricing 2026-11: Express (+50%, included in Business and Studio) */
+  /** pricing 2026-11: Express (its share from /v1/pricing addons; included in Business and Studio) */
   express?: boolean;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";

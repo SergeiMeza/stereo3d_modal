@@ -502,14 +502,15 @@ interface DB {
  * 24 fps per tier, Classic's tier shares, add-ons, plans, allowances. */
 const TIERS = {
   lifelike: {
-    list: { "1080p": 400, qhd: 550, "3k": 800, "4k": 1000, "5k": 1600, "6k": 2000, "8k": 2800 },
-    pro: { "1080p": 340, qhd: 470, "3k": 680, "4k": 850, "5k": 1360, "6k": 1700, "8k": 2380 },
-    // owner 2026-11-04: Business ~20%, Studio ~25% (the gateway's tables rule)
-    business: { "1080p": 320, qhd: 440, "3k": 640, "4k": 800, "5k": 1280, "6k": 1600, "8k": 2240 },
-    studio: { "1080p": 300, qhd: 415, "3k": 600, "4k": 750, "5k": 1200, "6k": 1500, "8k": 2100 },
+    // gateway 00166: the Lifelike list prices; Pro 15%, Business 20%,
+    // Studio 25% off (the gateway's tables rule)
+    list: { "1080p": 400, qhd: 700, "3k": 900, "4k": 1600, "5k": 2800, "6k": 3600, "8k": 6400 },
+    pro: { "1080p": 340, qhd: 595, "3k": 765, "4k": 1360, "5k": 2380, "6k": 3060, "8k": 5440 },
+    business: { "1080p": 320, qhd: 560, "3k": 720, "4k": 1280, "5k": 2240, "6k": 2880, "8k": 5120 },
+    studio: { "1080p": 300, qhd: 525, "3k": 675, "4k": 1200, "5k": 2100, "6k": 2700, "8k": 4800 },
   } as Record<string, Record<string, number>>,
   pct: { pro: 0.15, business: 0.2, studio: 0.25 } as Record<string, number>,
-  addons: { foveated: 0.3, master: 0.2, express: 0.5 } as Record<string, number>,
+  addons: { foveated: 0.3, master: 1.0, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
     business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },

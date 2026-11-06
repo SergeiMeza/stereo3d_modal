@@ -33,6 +33,13 @@ function BulkLabel({ pct }: { pct: number }): JSX.Element {
   return <>{bulkLabel(pct, threshold)}</>;
 }
 
+/** The older quotes' bulk line: the share and threshold from /v1/pricing
+ * (never a fixed "10% off runs over $10"). */
+function PricingBulkLabel(): JSX.Element {
+  const d = usePricing()?.discount;
+  return d ? <>{bulkLabel(d.pct, d.threshold_cents)}</> : <>Bulk discount</>;
+}
+
 /** "10% off over $50" from the gateway's bulk rule. */
 export function bulkLabel(pct: number, thresholdCents: number): string {
   return `${Math.round(pct * 100)}% off over ${formatCentsShort(thresholdCents)}`;
@@ -127,7 +134,8 @@ function Line({
 
 /**
  * A step quote in words (S3D-15/16/17/19): the video's length and frame
- * rate (+25% at 30 fps), reused work, "10% off runs over $10", "Minimum
+ * rate (+25% at 30 fps), reused work, the bulk discount (its share and
+ * threshold from /v1/pricing), "Minimum
  * charge $1" when the per-run floor applies (every run, S3D-17), the
  * total in USD excl. tax, and the sentence saying when it is charged. Classic's technical factors (depth
  * detail, edge handling) sit under "How we priced this". All amounts come
@@ -369,7 +377,7 @@ export function QuoteView({
       ) : null}
       {!tierMode && bulk > 0 ? (
         <Line
-          label="10% off runs over $10"
+          label={<PricingBulkLabel />}
           value={formatCents(-bulk)}
           testId="quote-bulk-discount"
           tone="discount"
