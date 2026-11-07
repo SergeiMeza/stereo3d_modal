@@ -987,7 +987,11 @@ export interface AccountSettings {
   lifelike_intro: boolean;
   /** true only with an active Business or Studio plan */
   lifelike_intro_editable: boolean;
+  /** the Lifelike intro's language (never the mails') */
   locale: string | null;
+  /** feat/mail-polish: the language customer mails use; the web keeps it
+   * at the UI's language (MailLocaleSync). Older gateways leave it out. */
+  mail_locale?: string | null;
   /** onboarding (owner 2026-11-04): where they watch, from the welcome's
    * first question; preselects "Where will you watch it?" on Make 3D.
    * Make 3D's device ids (avp, quest, galaxyxr, pico, steamframe, glasses,
@@ -1038,6 +1042,7 @@ export interface OnboardingState {
 export interface AccountSettingsPatch {
   lifelike_intro?: boolean;
   locale?: string | null;
+  mail_locale?: string;
   headsets?: string[];
   /** ids to add to hints_seen */
   hints_seen_add?: string[];
