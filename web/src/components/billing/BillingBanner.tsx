@@ -20,6 +20,7 @@ import type { JSX } from "react";
 import { FEEDBACK_EMAIL } from "@/lib/contact";
 import { PAYMENT_PROBLEM as PROBLEM, payToContinue } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
+import { PaymentIssues } from "@/components/billing/PaymentIssues";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
@@ -76,6 +77,16 @@ export function supportMailto(subject?: string, t: Tr = EN): string {
 }
 
 export function BillingBanner(): JSX.Element | null {
+  // owner 2026-11-07 (D): a past-due plan or a payment being retried
+  return (
+    <>
+      <PaymentIssues />
+      <OwedBanner />
+    </>
+  );
+}
+
+function OwedBanner(): JSX.Element | null {
   const t = useT();
   const { status } = useBilling();
   const { openSettle } = useSettle();

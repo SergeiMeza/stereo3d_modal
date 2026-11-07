@@ -143,7 +143,9 @@ export function BalanceCard(): JSX.Element | null {
   if (!read) return null; // a gateway without the balance yet
   const b = liveBalance(read, live, readVersion);
   const ar = b.auto_reload;
-  const paused = ar.enabled && ar.paused_reason ? pausedLine(ar.paused_reason, t) : null;
+  // owner 2026-11-07 (D): paused while a reload is being retried
+  const retrying = ar.retry?.state === "pending";
+  const paused = ar.enabled && retrying ? t("billing.balance.paused.retrying") : ar.enabled && ar.paused_reason ? pausedLine(ar.paused_reason, t) : null;
   const limit = b.spend_limit_cents ?? null;
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
   const plan = isTeamPlan(status.plan) ? status.plan : null;

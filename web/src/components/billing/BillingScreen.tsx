@@ -38,6 +38,7 @@ import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTa
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
+import { PaymentIssues } from "./PaymentIssues";
 import { formatCents, formatUsdLabeled, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
   AlertDialog,
@@ -803,6 +804,10 @@ export function BillingScreen(): JSX.Element {
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">{t("billing.screen.title")}</h1>
+      {/* owner 2026-11-07 (D): a past-due plan or a payment being retried */}
+      <div className="-mx-4 overflow-hidden rounded-lg sm:mx-0">
+        <PaymentIssues />
+      </div>
       <FirstTimeHint id="billing" />
       {/* ?settle=1, the app's link after a delete answered balance_due */}
       <SettleFromLink />

@@ -178,6 +178,8 @@ interface MockBilling {
   planHistory: Record<string, unknown>[];
   /** tests: extra fields on GET /v1/billing's balance block */
   balanceExtra: Record<string, unknown>;
+  /** owner 2026-11-07 (D): what the account owes, being retried */
+  duesRetry: import("@/lib/api/types").PaymentRetry | null;
   /** what the next add-method confirm does */
   nextSetup: "saved" | "declined" | "too_many";
   /** spec v6 F hand-off codes (P7/P8) */
@@ -1005,6 +1007,7 @@ function seed(): DB {
       company: {},
       planHistory: [],
       balanceExtra: {},
+      duesRetry: null,
       nextSetup: "saved",
       handoffs: new Map(),
       handoffRateLimited: false,
@@ -3009,6 +3012,7 @@ function billingStatus() {
     balance: prepaidSummary(),
     // pricing 2026-11: Business / Studio
     ...(b.plan ? { plan: b.plan } : {}),
+    ...(b.duesRetry ? { dues_retry: b.duesRetry } : {}),
     // owner 2026-11-07: the Pro credit (none under a team plan)
     pro_credit: mockProCredit(),
     tier: {

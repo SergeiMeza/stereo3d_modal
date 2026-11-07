@@ -662,7 +662,8 @@
       "prepaid": "Prepaid {amount}",
       "paused": {
         "declined": "Auto-reload is paused because a payment didn't go through.",
-        "limit": "Auto-reload is paused: daily limit reached. It resumes tomorrow."
+        "limit": "Auto-reload is paused: daily limit reached. It resumes tomorrow.",
+        "retrying": "Paused while we try the last reload again."
       },
       "turnBackOn": "Turn back on",
       "autoReload": "Auto-reload",
@@ -755,6 +756,14 @@
       "withPlan": "With {plan}",
       "pctOff": "{pct}% off every minute",
       "upgradeTo": "Upgrade to {plan}"
+    },
+    "issues": {
+      "pastDue": "Your {plan} payment didn't go through. Pay now to keep your plan.",
+      "pastDueConfirm": "Your {plan} payment didn't go through. Confirm your payment with your bank.",
+      "retryOn": "A payment didn't go through. We'll try again on {date}.",
+      "retrying": "A payment didn't go through. We'll try again soon.",
+      "failed": "Payment failed.",
+      "payNow": "Pay now"
     }
   },
   "auth": {
