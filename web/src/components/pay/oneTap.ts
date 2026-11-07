@@ -12,8 +12,8 @@ import { formatUsdLabeled } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import type { OneTapOffer } from "@/lib/api/types";
 import type { Tr } from "@/lib/i18n/t";
+import { gatewayBaseUrl } from "@/lib/region";
 
-const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
 const WALLETS: Record<string, string> = { apple_pay: "Apple Pay", google_pay: "Google Pay" };
 const TYPES: Record<string, string> = { link: "Link", paypal: "PayPal", cashapp: "Cash App", klarna: "Klarna" };
@@ -82,7 +82,7 @@ export type ActionResult = { status: "succeeded" | "processing" } | { status: "f
 export async function handleOneTapAction(publishableKey: string | undefined, clientSecret: string): Promise<ActionResult> {
   if (process.env.NEXT_PUBLIC_API_MOCK === "1" || process.env.NODE_ENV === "test") {
     try {
-      const res = await fetch(`${GATEWAY}/__mock__/one-tap-action`, {
+      const res = await fetch(`${gatewayBaseUrl()}/__mock__/one-tap-action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_secret: clientSecret }),

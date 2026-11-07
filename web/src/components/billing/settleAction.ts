@@ -5,9 +5,10 @@
  * reasoning as the other implementation boundaries).
  */
 
+import { gatewayBaseUrl } from "@/lib/region";
+
 import { getStripe } from "./stripeLoader";
 
-const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
 export async function completeChargeAction(
   publishableKey: string,
@@ -17,7 +18,7 @@ export async function completeChargeAction(
     process.env.NEXT_PUBLIC_API_MOCK === "1" ||
     process.env.NODE_ENV === "test"
   ) {
-    const res = await fetch(`${GATEWAY}/__mock__/complete-3ds`, {
+    const res = await fetch(`${gatewayBaseUrl()}/__mock__/complete-3ds`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ client_secret: clientSecret }),
