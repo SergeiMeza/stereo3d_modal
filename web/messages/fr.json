@@ -61,7 +61,7 @@
       "aboutMinutes": "environ {m} min",
       "aboutHours": "environ {h} h",
       "aboutHoursMinutes": "environ {h} h {m} min",
-      "left": "{duration} restantes",
+      "left": "encore {duration}",
       "seconds": "{s} s",
       "minutes": "{m} min",
       "minutesSeconds": "{m} min {s} s",
