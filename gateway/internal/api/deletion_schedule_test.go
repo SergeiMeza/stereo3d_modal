@@ -304,7 +304,7 @@ func TestDeletionDelayDefaults(t *testing.T) {
 		t.Fatal("delay defaults")
 	}
 	m := deletionScheduledMail(time.Date(2026, 11, 9, 14, 5, 0, 0, time.UTC), "https://example.test", 0)
-	if m.subject() != "Your account will be deleted on 9 November 2026 · Spatial Video Studio" || !m.OwnAddress ||
+	if m.subject() != "Your account will be deleted on 9 November · Spatial Video Studio" || !m.OwnAddress ||
 		m.layout("en").ButtonURL != "https://example.test/account?deletion=keep" {
 		t.Fatalf("mail %q", m.subject())
 	}

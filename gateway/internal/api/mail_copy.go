@@ -460,7 +460,7 @@ func deletionScheduledMail(after time.Time, site string, lostCents int64) custom
 	site = strings.TrimRight(site, "/")
 	return customerMail{Kind: "DL1", OwnAddress: true, Render: func(lang string) mail.Layout {
 		day := mail.FormatDate(lang, after)
-		l := page(lang, "dl1", mail.Args{"date": day})
+		l := page(lang, "dl1", mail.Args{"date": mail.FormatDayMonth(lang, after)}) // two days ahead: no year
 		l.Paras = []string{mail.T(lang, "dl1.body", mail.Args{"date": day, "time": after.UTC().Format("15:04")}), t(lang, "dl1.paused")}
 		if lostCents > 0 {
 			l.Paras = append(l.Paras, mail.T(lang, "dl1.balanceLost", mail.Args{"amount": money(lostCents)}))
