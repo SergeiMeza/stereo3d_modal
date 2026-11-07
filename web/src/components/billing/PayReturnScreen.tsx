@@ -13,7 +13,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { EXPIRED_RUN, SETTLED } from "@/components/pay/payCopy";
 import { Success } from "@/components/pay/PaySheet";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
@@ -22,6 +21,8 @@ import type { LiveRun } from "@/lib/live/events";
 import { applyRun } from "@/lib/live/liveStore";
 import { useBillingVersion, useFallbackTick, useLiveRunById } from "@/lib/live/useLive";
 import { appStore } from "@/lib/state/stores";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { SITE_NAME } from "@/lib/site";
 
 /** "Checking your payment…" for up to this long, then Slow */
 export const CHECK_MS = 30_000;
@@ -42,6 +43,7 @@ function runOutcome(run: LiveRun | null, late: boolean): State | null {
 }
 
 export function PayReturnScreen(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const params = useSearchParams();
   // the gateway's session return_url says ?c={run} or ?settle={id}; the
@@ -123,42 +125,39 @@ export function PayReturnScreen(): JSX.Element {
             aria-hidden
             className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
           />
-          <p className="text-base text-fg">Checking your payment…</p>
+          <p className="text-base text-fg">{t("billing.payReturn.checking")}</p>
         </>
       ) : state === "paid" ? (
         <>
-          <Success text={settle ? SETTLED : "Payment received. Your 3D video is starting."} />
+          <Success text={settle ? t("pay.copy.settled") : t("billing.payReturn.paidRun")} />
           <Button asChild size="lg" className="h-12 w-full">
             <Link href={settle ? "/projects" : back}>
-              {settle ? "Back to Spatial Video Studio" : "Back to your project"}
+              {settle ? t("billing.payReturn.backToApp", { app: SITE_NAME }) : t("billing.payReturn.backToProject")}
             </Link>
           </Button>
         </>
       ) : state === "not_paid" ? (
         <>
-          <p className="text-base text-fg">The payment didn&apos;t go through.</p>
+          <p className="text-base text-fg">{t("billing.payReturn.notPaid")}</p>
           <Button asChild size="lg" className="h-12 w-full">
-            <Link href={back}>Try again</Link>
+            <Link href={back}>{t("billing.payReturn.tryAgain")}</Link>
           </Button>
           <Link href={back} className="text-sm text-primary hover:underline">
-            Choose another way to pay
+            {t("billing.payReturn.chooseAnother")}
           </Link>
         </>
       ) : state === "slow" ? (
         <>
-          <p className="text-base text-fg">
-            This is taking longer than usual. We&apos;ll start as soon as the payment is
-            confirmed.
-          </p>
+          <p className="text-base text-fg">{t("billing.payReturn.slow")}</p>
           <Button asChild size="lg" className="h-12 w-full">
-            <Link href={back}>Back to your project</Link>
+            <Link href={back}>{t("billing.payReturn.backToProject")}</Link>
           </Button>
         </>
       ) : (
         <>
-          <p className="text-base text-fg">{EXPIRED_RUN}</p>
+          <p className="text-base text-fg">{t("pay.copy.expiredRun")}</p>
           <Button asChild size="lg" className="h-12 w-full">
-            <Link href={back}>Start again</Link>
+            <Link href={back}>{t("billing.payReturn.startAgain")}</Link>
           </Button>
         </>
       )}

@@ -13,10 +13,15 @@ import { atom } from "jotai";
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanMoveOffer } from "@/lib/api/client";
 import { billingUidAtom, refreshBillingAtom } from "@/lib/billing";
+import { EN } from "@/lib/i18n/t";
 
 type Client = Pick<GatewayClient, "getPlanMoves" | "acceptPlanMove">;
 
-export const MOVE_EXPIRED = "This offer expired. Contact support.";
+/** English (the card renders it through its translator). */
+export const MOVE_EXPIRED = EN("billing.planMove.expired");
+/** The fallback refusal, kept in English in the atom and translated where
+ * it shows. */
+export const MOVE_FAILED = EN("billing.planMove.moveFailed");
 
 export interface PlanMovesState {
   uid: string | null;
@@ -61,7 +66,7 @@ export const acceptPlanMoveAtom = atom(null, async (get, set, a: { client: Clien
       return;
     }
     // 409: a blocker in the gateway's words; the offer stays open
-    const words = e instanceof Error && e.message ? e.message : "We couldn't move it right now. Try again in a while.";
+    const words = e instanceof Error && e.message ? e.message : MOVE_FAILED;
     patch((s) => ({ ...s, errors: { ...s.errors, [a.id]: words } }));
   }
 });

@@ -25,9 +25,11 @@ import { GatewayError } from "@/lib/api/client";
 import type { CompanyAddress, CompanyDetails } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { localeCountry, taxTypesFor } from "@/lib/company";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CountryCombobox, useDetectedCountry } from "./CountryCombobox";
 
+/** English (tests); the form reads company.form.saved. */
 export const SAVED_LINE = "Saved. Your next invoices will use these details.";
 
 interface Draft {
@@ -83,6 +85,7 @@ function bodyOf(d: Draft): CompanyDetails {
 }
 
 export function BusinessDetailsForm(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const detected = useDetectedCountry();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -121,17 +124,17 @@ export function BusinessDetailsForm(): JSX.Element {
   };
   const setAddr = (patch: Partial<Draft["address"]>) => {
     const address = { ...draft.address, ...patch };
-    const types = taxTypesFor(address.country);
+    const types = taxTypesFor(address.country, t);
     set({
       address,
       // a new country brings its own tax ID type
       ...(patch.country !== undefined &&
-      !types.some(([t]) => t === draft.tax_type)
+      !types.some(([type]) => type === draft.tax_type)
         ? { tax_type: types[0]?.[0] ?? "" }
         : {}),
     });
   };
-  const types = taxTypesFor(draft.address.country);
+  const types = taxTypesFor(draft.address.country, t);
 
   async function save(): Promise<void> {
     if (!draft) return;
@@ -148,7 +151,7 @@ export function BusinessDetailsForm(): JSX.Element {
         // Stripe's own words about the tax ID (or the field it names)
         if (e.code.includes("tax")) setTaxError(e.message);
         else setError(e.message);
-      } else setError("Couldn't save. Try again.");
+      } else setError(t("company.form.saveFailed"));
     }
   }
 
@@ -162,11 +165,9 @@ export function BusinessDetailsForm(): JSX.Element {
       }}
     >
       {loadError ? (
-        <p className="text-sm text-fg-muted">
-          We couldn&apos;t load your saved details. You can still fill them in.
-        </p>
+        <p className="text-sm text-fg-muted">{t("company.form.loadFailed")}</p>
       ) : null}
-      <Field id="company-name" label="Company name">
+      <Field id="company-name" label={t("company.form.companyName")}>
         <Input
           id="company-name"
           autoComplete="organization"
@@ -178,9 +179,9 @@ export function BusinessDetailsForm(): JSX.Element {
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-sm font-medium text-fg">
-          Billing address
+          {t("company.form.billingAddress")}
         </legend>
-        <Field id="company-country" label="Country">
+        <Field id="company-country" label={t("company.form.country")}>
           <CountryCombobox
             id="company-country"
             value={draft.address.country}
@@ -188,7 +189,7 @@ export function BusinessDetailsForm(): JSX.Element {
             onChange={(country) => setAddr({ country })}
           />
         </Field>
-        <Field id="company-line1" label="Address line 1">
+        <Field id="company-line1" label={t("company.form.line1")}>
           <Input
             id="company-line1"
             autoComplete="address-line1"
@@ -196,7 +197,7 @@ export function BusinessDetailsForm(): JSX.Element {
             onChange={(e) => setAddr({ line1: e.target.value })}
           />
         </Field>
-        <Field id="company-line2" label="Address line 2 (optional)">
+        <Field id="company-line2" label={t("company.form.line2")}>
           <Input
             id="company-line2"
             autoComplete="address-line2"
@@ -205,7 +206,7 @@ export function BusinessDetailsForm(): JSX.Element {
           />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field id="company-city" label="City">
+          <Field id="company-city" label={t("company.form.city")}>
             <Input
               id="company-city"
               autoComplete="address-level2"
@@ -213,7 +214,7 @@ export function BusinessDetailsForm(): JSX.Element {
               onChange={(e) => setAddr({ city: e.target.value })}
             />
           </Field>
-          <Field id="company-postal" label="Postal code">
+          <Field id="company-postal" label={t("company.form.postalCode")}>
             <Input
               id="company-postal"
               autoComplete="postal-code"
@@ -221,7 +222,7 @@ export function BusinessDetailsForm(): JSX.Element {
               onChange={(e) => setAddr({ postal_code: e.target.value })}
             />
           </Field>
-          <Field id="company-state" label="State or region">
+          <Field id="company-state" label={t("company.form.state")}>
             <Input
               id="company-state"
               autoComplete="address-level1"
@@ -234,7 +235,7 @@ export function BusinessDetailsForm(): JSX.Element {
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-sm font-medium text-fg">
-          Tax ID (optional)
+          {t("company.form.taxId")}
         </legend>
         {types.length > 0 ? (
           <div
@@ -246,14 +247,14 @@ export function BusinessDetailsForm(): JSX.Element {
           >
             {/* more than one type (e.g. Brazil's CNPJ or CPF): pick it */}
             {types.length > 1 ? (
-              <Field id="company-tax-type" label="Type">
+              <Field id="company-tax-type" label={t("company.form.taxType")}>
                 <NativeSelect
                   id="company-tax-type"
                   value={draft.tax_type}
                   onChange={(e) => set({ tax_type: e.target.value })}
                 >
-                  {types.map(([t, label]) => (
-                    <NativeSelectOption key={t} value={t}>
+                  {types.map(([type, label]) => (
+                    <NativeSelectOption key={type} value={type}>
                       {label}
                     </NativeSelectOption>
                   ))}
@@ -262,7 +263,7 @@ export function BusinessDetailsForm(): JSX.Element {
             ) : null}
             <Field
               id="company-tax-value"
-              label={types.length === 1 ? types[0][1] : "Number"}
+              label={types.length === 1 ? types[0][1] : t("company.form.taxNumber")}
             >
               <Input
                 id="company-tax-value"
@@ -277,9 +278,7 @@ export function BusinessDetailsForm(): JSX.Element {
             </Field>
           </div>
         ) : (
-          <p className="text-xs text-fg-muted">
-            No tax ID is needed for this country.
-          </p>
+          <p className="text-xs text-fg-muted">{t("company.form.noTaxId")}</p>
         )}
         {taxError ? (
           <p
@@ -294,7 +293,7 @@ export function BusinessDetailsForm(): JSX.Element {
       </fieldset>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="company-email" label="Billing email for invoice copies">
+        <Field id="company-email" label={t("company.form.billingEmail")}>
           <Input
             id="company-email"
             type="email"
@@ -303,7 +302,7 @@ export function BusinessDetailsForm(): JSX.Element {
             onChange={(e) => set({ billing_email: e.target.value })}
           />
         </Field>
-        <Field id="company-po" label="Purchase order reference (optional)">
+        <Field id="company-po" label={t("company.form.poReference")}>
           <Input
             id="company-po"
             value={draft.po_reference}
@@ -324,7 +323,7 @@ export function BusinessDetailsForm(): JSX.Element {
           data-testid="company-save"
           disabled={state === "saving"}
         >
-          {state === "saving" ? "Saving…" : "Save"}
+          {state === "saving" ? t("company.form.saving") : t("company.form.save")}
         </Button>
         {state === "saved" ? (
           <p
@@ -332,14 +331,14 @@ export function BusinessDetailsForm(): JSX.Element {
             data-testid="company-saved"
             className="text-sm text-fg"
           >
-            {SAVED_LINE}
+            {t("company.form.saved")}
           </p>
         ) : null}
         <Link
           href="/account/billing"
           className="ml-auto text-sm text-primary hover:underline"
         >
-          Billing
+          {t("company.form.billingLink")}
         </Link>
       </div>
     </form>

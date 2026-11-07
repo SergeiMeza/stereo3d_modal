@@ -13,6 +13,7 @@ import type { JSX, ReactNode } from "react";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents, payToDownload } from "@/lib/billingCopy";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 /** Cents the account owes; 0 = downloads are open. */
 export function useOutstandingCents(): number {
@@ -30,6 +31,7 @@ export function PayLink({
   verb?: "download" | "play";
   className?: string;
 }): JSX.Element {
+  const t = useT();
   const { openSettle } = useSettle();
   const Icon = verb === "play" ? PlayIcon : LockIcon;
   // one look everywhere (mock P9); only the caller's margins carry over
@@ -45,7 +47,7 @@ export function PayLink({
       className={`inline-flex items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-red-200 tabular-nums transition-colors hover:bg-red-400/20 ${margins}`}
     >
       <Icon className="size-3.5" aria-hidden />
-      {payToDownload(cents, verb)}
+      {payToDownload(cents, verb, t)}
     </button>
   );
 }

@@ -12,10 +12,10 @@ import type { JSX } from "react";
 
 import { InfoPopover } from "@/components/ui/info-popover";
 import type { PlanChangePreview } from "@/lib/api/client";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import {
   changeDate,
-  CREDIT_RULE,
   upgradeLine,
   usageHandoverLine,
 } from "./planChangeCopy";
@@ -34,6 +34,7 @@ export function StepUpDetails({
   handoverCreditCents?: number | null;
   testId?: string;
 }): JSX.Element {
+  const t = useT();
   const credit = (preview.unused_credit_cents ?? 0) > 0;
   return (
     <div className="flex flex-col gap-1.5 text-sm" data-testid={testId}>
@@ -41,21 +42,21 @@ export function StepUpDetails({
         className="text-fg"
         data-testid={testId ? `${testId}-line` : undefined}
       >
-        {upgradeLine(preview, { from, to })}
+        {upgradeLine(preview, { from, to }, t)}
       </p>
       {credit ? (
-        <InfoPopover label="How we work this out">
-          <p>{CREDIT_RULE}</p>
+        <InfoPopover label={t("billing.planChange.howWeWorkThisOut")}>
+          <p>{t("billing.planChange.creditRule")}</p>
         </InfoPopover>
       ) : null}
       {handoverCreditCents ? (
         <p className="text-fg-muted">
-          {usageHandoverLine(from, to, handoverCreditCents)}
+          {usageHandoverLine(from, to, handoverCreditCents, t)}
         </p>
       ) : null}
       {preview.renews_at ? (
         <p className="text-xs text-fg-muted">
-          Renews on {changeDate(preview.renews_at)}.
+          {t("billing.planChange.renewsOn", { date: changeDate(preview.renews_at, t) })}
         </p>
       ) : null}
     </div>
@@ -74,21 +75,22 @@ export function StepUpExtras({
   to: string;
   handoverCreditCents?: number | null;
 }): JSX.Element {
+  const t = useT();
   return (
     <div className="flex flex-col gap-1.5 text-sm">
       {(preview.unused_credit_cents ?? 0) > 0 ? (
-        <InfoPopover label="How we work this out">
-          <p>{CREDIT_RULE}</p>
+        <InfoPopover label={t("billing.planChange.howWeWorkThisOut")}>
+          <p>{t("billing.planChange.creditRule")}</p>
         </InfoPopover>
       ) : null}
       {handoverCreditCents ? (
         <p className="text-fg-muted">
-          {usageHandoverLine(from, to, handoverCreditCents)}
+          {usageHandoverLine(from, to, handoverCreditCents, t)}
         </p>
       ) : null}
       {preview.renews_at ? (
         <p className="text-xs text-fg-muted">
-          Renews on {changeDate(preview.renews_at)}.
+          {t("billing.planChange.renewsOn", { date: changeDate(preview.renews_at, t) })}
         </p>
       ) : null}
     </div>

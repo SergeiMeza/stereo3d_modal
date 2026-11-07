@@ -13,14 +13,17 @@ import type { JSX } from "react";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
-import { restoreAtom, runRestoreAtom } from "./restoreAtoms";
+import { RESTORE_FAILED, restoreAtom, runRestoreAtom } from "./restoreAtoms";
 import { RestoreMove } from "./RestoreMove";
 
+/** English (tests); the row reads billing.restore.appStoreNote. */
 export const APP_STORE_NOTE = "Purchases from the App Store show when you sign in to the app.";
 
 export function RestorePurchases(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const uid = useAppAtomValue(billingUidAtom);
   const state = useAppAtomValue(restoreAtom);
@@ -28,7 +31,8 @@ export function RestorePurchases(): JSX.Element {
   const mine = state.uid === uid;
   const busy = mine && state.busy;
   const message = mine ? state.message : null;
-  const error = mine ? state.error : null;
+  // the atom keeps the English retry line; a refusal's own words stay
+  const error = mine && state.error !== null ? (state.error === RESTORE_FAILED ? t("billing.restore.failed") : state.error) : null;
 
   return (
     <section
@@ -39,9 +43,9 @@ export function RestorePurchases(): JSX.Element {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 id="restore-title" className="text-sm font-semibold text-fg">
-            Restore Purchases
+            {t("billing.restore.title")}
           </h2>
-          <p className="text-sm text-fg-muted">Bought a plan or Pro on the web and it&apos;s missing? Restore it here.</p>
+          <p className="text-sm text-fg-muted">{t("billing.restore.intro", { pro: "Pro" })}</p>
         </div>
         <Button
           variant="outline"
@@ -50,7 +54,7 @@ export function RestorePurchases(): JSX.Element {
           onClick={() => void restore(gateway)}
           data-testid="restore-button"
         >
-          {busy ? "Restoring…" : "Restore Purchases"}
+          {busy ? t("billing.restore.restoring") : t("billing.restore.button")}
         </Button>
       </div>
       <div role="status" aria-live="polite" className="text-sm">
@@ -67,7 +71,7 @@ export function RestorePurchases(): JSX.Element {
       </div>
       {/* gateway 00152: a plan from a deleted account, under another email */}
       <RestoreMove />
-      <p className="text-xs text-fg-muted">{APP_STORE_NOTE}</p>
+      <p className="text-xs text-fg-muted">{t("billing.restore.appStoreNote")}</p>
     </section>
   );
 }

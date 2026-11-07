@@ -14,7 +14,9 @@ import type { JSX } from "react";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
+import { useT } from "@/lib/i18n/I18nProvider";
 
+/** English (tests); the page reads billing.settle.nothingToPay. */
 export const NOTHING_TO_PAY = "Nothing to pay.";
 
 function settleAsked(): boolean {
@@ -29,6 +31,7 @@ function dropSettleParam(): void {
 }
 
 export function SettleFromLink(): JSX.Element | null {
+  const t = useT();
   const { status } = useBilling();
   const { openSettle } = useSettle();
   // read once, when the page opens
@@ -46,7 +49,7 @@ export function SettleFromLink(): JSX.Element | null {
   if (!asked || owed === null || owed > 0) return null;
   return (
     <p role="status" data-testid="settle-nothing" className="text-sm text-fg-muted">
-      {NOTHING_TO_PAY}
+      {t("billing.settle.nothingToPay")}
     </p>
   );
 }

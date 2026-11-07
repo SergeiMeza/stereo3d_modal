@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import type { BalanceEntry, UsageRow } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { qualityName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { MethodBadge, badgeKind } from "./MethodBadge";
 
@@ -28,13 +30,13 @@ export function recentMonths(now = new Date()): string[] {
   });
 }
 
-function monthName(m: string): string {
+function monthName(m: string, t: Tr): string {
   const [y, mo] = m.split("-").map(Number);
-  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(t.intl, { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function shortDate(iso: string, t: Tr): string {
+  return new Date(iso).toLocaleDateString(t.intl, { month: "short", day: "numeric" });
 }
 
 /** "2:15" from minutes. */
@@ -43,57 +45,66 @@ export function clockOf(minutes: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function usageStatus(r: UsageRow): { text: string; cls: string } {
+export function usageStatus(r: UsageRow, t: Tr = EN): { text: string; cls: string } {
   switch (r.status) {
     case "running":
       return {
-        text: r.reserved_cents !== undefined ? `Running, reserved ${formatCents(r.reserved_cents)}` : "Running",
+        text:
+          r.reserved_cents !== undefined
+            ? t("billing.usage.status.runningReserved", { amount: formatCents(r.reserved_cents, t) })
+            : t("billing.usage.status.running"),
         cls: "text-primary",
       };
     case "released":
-      return { text: "Released", cls: "text-fg-muted" };
+      return { text: t("billing.usage.status.released"), cls: "text-fg-muted" };
     case "partly_delivered":
-      return { text: "Partly delivered", cls: "text-amber-300" };
+      return { text: t("billing.usage.status.partlyDelivered"), cls: "text-amber-300" };
     case "returned":
-      return { text: `Returned to balance ${formatCents(r.returned_cents ?? 0)}`, cls: "text-violet-300" };
+      return { text: t("billing.usage.status.returned", { amount: formatCents(r.returned_cents ?? 0, t) }), cls: "text-violet-300" };
     default:
-      return { text: "Done", cls: "text-emerald-300" };
+      return { text: t("billing.usage.status.done"), cls: "text-emerald-300" };
   }
 }
 
-/** The gateway's paid_with: balance | card | alipay (or a full label). */
+/** The gateway's paid_with: balance | card | alipay (or a full label);
+ * the English names pick the badge, the reader's words show. */
 const PAID_WITH: Record<string, string> = { balance: "Balance", card: "Payment method", alipay: "Alipay" };
 
-const ENTRY: Record<BalanceEntry["kind"], string> = {
-  topup: "Top-up",
-  auto_reload: "Auto-reload",
-  refund_to_balance: "Returned to balance",
-  debt_payment: "Paid what was owed",
-  cash_refund: "Refunded to your payment method",
-  expiry: "Expired",
-  adjustment: "Adjustment",
-  dispute_freeze: "On hold while a payment is reviewed",
-  dispute_unfreeze: "Released after review",
-  dispute_loss: "Removed after a bank dispute",
-};
+const ENTRY_KINDS: ReadonlySet<string> = new Set<BalanceEntry["kind"]>([
+  "topup",
+  "auto_reload",
+  "refund_to_balance",
+  "debt_payment",
+  "cash_refund",
+  "expiry",
+  "adjustment",
+  "dispute_freeze",
+  "dispute_unfreeze",
+  "dispute_loss",
+]);
+
+function entryName(kind: string, t: Tr): string {
+  return ENTRY_KINDS.has(kind) ? t(`billing.usage.entry.${kind}`) : "";
+}
 
 /** The month picker and Download CSV, for the tab bar. */
 export function UsageTools({ month, onMonth }: { month: string; onMonth: (m: string) => void }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex items-center gap-2">
       <label className="relative">
-        <span className="sr-only">Month</span>
+        <span className="sr-only">{t("billing.usage.month")}</span>
         <select
-          aria-label="Month"
+          aria-label={t("billing.usage.month")}
           value={month}
           onChange={(e) => onMonth(e.target.value)}
           className="h-8 appearance-none rounded-md border border-edge bg-surface-1 pr-8 pl-3 text-xs text-fg"
         >
           {recentMonths().map((m) => (
             <option key={m} value={m}>
-              {monthName(m)}
+              {monthName(m, t)}
             </option>
           ))}
         </select>
@@ -119,7 +130,7 @@ export function UsageTools({ month, onMonth }: { month: string; onMonth: (m: str
         }}
       >
         <DownloadIcon className="size-3.5" aria-hidden />
-        Download CSV
+        {t("billing.usage.downloadCsv")}
       </Button>
     </div>
   );
@@ -127,6 +138,7 @@ export function UsageTools({ month, onMonth }: { month: string; onMonth: (m: str
 
 export function UsageTab({ month }: { month: string }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const [rows, setRows] = useState<{ month: string; rows: UsageRow[] } | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
@@ -165,9 +177,9 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
     <div className="flex flex-col">
       {error ? (
         <div className="flex items-center gap-3 px-1 py-3 text-sm">
-          <span className="text-red-300">Couldn&apos;t load your usage.</span>
+          <span className="text-red-300">{t("billing.usage.loadFailed")}</span>
           <Button variant="outline" size="sm" onClick={() => setTries((n) => n + 1)}>
-            Try again
+            {t("billing.usage.tryAgain")}
           </Button>
         </div>
       ) : shown === null ? (
@@ -177,39 +189,44 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
           ))}
         </ul>
       ) : shown.length === 0 ? (
-        <p className="py-3 text-sm text-fg-muted">No usage yet.</p>
+        <p className="py-3 text-sm text-fg-muted">{t("billing.usage.none")}</p>
       ) : (
         <div className="-mx-5 overflow-x-auto">
           <table data-testid="usage" className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-y border-edge text-left text-xs text-fg-muted">
-                <th className="px-5 py-2 font-normal">Date</th>
-                <th className="py-2 font-normal">Project</th>
-                <th className="py-2 font-normal">Method</th>
-                <th className="py-2 font-normal">Preset</th>
-                <th className="py-2 text-right font-normal">Minutes</th>
-                <th className="py-2 pr-4 text-right font-normal">Cost</th>
-                <th className="py-2 font-normal">Paid with</th>
-                <th className="py-2 pr-5 font-normal">Status</th>
+                <th className="px-5 py-2 font-normal">{t("billing.usage.columns.date")}</th>
+                <th className="py-2 font-normal">{t("billing.usage.columns.project")}</th>
+                <th className="py-2 font-normal">{t("billing.usage.columns.method")}</th>
+                <th className="py-2 font-normal">{t("billing.usage.columns.preset")}</th>
+                <th className="py-2 text-right font-normal">{t("billing.usage.columns.minutes")}</th>
+                <th className="py-2 pr-4 text-right font-normal">{t("billing.usage.columns.cost")}</th>
+                <th className="py-2 font-normal">{t("billing.usage.columns.paidWith")}</th>
+                <th className="py-2 pr-5 font-normal">{t("billing.usage.columns.status")}</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((r) => {
-                const st = usageStatus(r);
-                const paid = r.key_name ? `API key "${r.key_name}"` : (PAID_WITH[r.paid_with] ?? r.paid_with);
+                const st = usageStatus(r, t);
+                const paidKind = PAID_WITH[r.paid_with] ?? r.paid_with;
+                const paid = r.key_name
+                  ? t("billing.usage.apiKey", { name: r.key_name })
+                  : Object.hasOwn(PAID_WITH, r.paid_with)
+                    ? t(`billing.usage.paidWith.${r.paid_with}`)
+                    : r.paid_with;
                 return (
                   <tr key={r.conversion_id} data-testid={`usage-${r.conversion_id}`} className="border-b border-edge">
-                    <td className="px-5 py-2.5 text-fg-muted">{shortDate(r.at)}</td>
+                    <td className="px-5 py-2.5 text-fg-muted">{shortDate(r.at, t)}</td>
                     <td className="py-2.5 text-fg">{r.project}</td>
                     <td className="py-2.5 text-fg">{r.method === "lifelike" ? "Lifelike" : "Classic"}</td>
                     <td className="py-2.5 text-fg">{qualityName(r.preset)}</td>
                     <td className="py-2.5 text-right font-mono tabular-nums text-fg">{clockOf(r.minutes)}</td>
                     <td className="py-2.5 pr-4 text-right font-mono tabular-nums text-fg">
-                      {r.cost_cents === null ? "–" : formatCents(r.cost_cents)}
+                      {r.cost_cents === null ? "–" : formatCents(r.cost_cents, t)}
                     </td>
                     <td className="py-2.5">
                       <span className="flex items-center gap-2 text-fg">
-                        <MethodBadge kind={badgeKind(r.key_name ? "API key" : paid)} />
+                        <MethodBadge kind={badgeKind(r.key_name ? "API key" : paidKind)} />
                         {paid}
                       </span>
                     </td>
@@ -223,26 +240,26 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
       )}
       {hasMore ? (
         <Button variant="ghost" size="sm" className="mt-2 self-start" onClick={() => setTries((n) => n + 1)}>
-          Show more
+          {t("billing.usage.showMore")}
         </Button>
       ) : null}
       {entries && entries.length > 0 ? (
         <details data-testid="balance-history" className="group pt-3">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-fg">
             <ChevronDownIcon aria-hidden className="size-4 -rotate-90 text-fg-muted transition-transform group-open:rotate-0" />
-            Balance history
+            {t("billing.usage.balanceHistory")}
           </summary>
           <ul className="mt-2 flex flex-col">
             {entries.map((e) => (
               <li key={e.id} className="grid grid-cols-[4rem_1fr_auto] gap-3 border-t border-edge py-2 text-sm">
-                <span className="text-fg-muted">{shortDate(e.at)}</span>
+                <span className="text-fg-muted">{shortDate(e.at, t)}</span>
                 <span className="text-fg">
-                  {ENTRY[e.kind]}
+                  {entryName(e.kind, t)}
                   {e.detail ? ` · ${e.detail}` : ""}
                 </span>
                 <span className={`font-mono tabular-nums ${e.cents >= 0 ? "text-emerald-300" : "text-fg"}`}>
                   {e.cents >= 0 ? "+" : "−"}
-                  {formatCents(Math.abs(e.cents))}
+                  {formatCents(Math.abs(e.cents), t)}
                 </span>
               </li>
             ))}

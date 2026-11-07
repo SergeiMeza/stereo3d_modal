@@ -22,6 +22,10 @@ type Client = Pick<
 
 export const NOTE_MAX = 2000;
 
+/** The English fallbacks the atoms keep; the page reads refunds.sheet.*. */
+export const OPTIONS_LOAD_FAILED = "Couldn't load what can be refunded.";
+export const REQUESTS_LOAD_FAILED = "Couldn't load your requests.";
+
 interface Loaded<T> {
   uid: string | null;
   data: T | null;
@@ -63,7 +67,7 @@ export const loadRefundOptionsAtom = atom(null, async (get, set, client: Client)
     if (get(billingUidAtom) === uid) set(refundOptionsAtom, { uid, data, error: null });
   } catch (e) {
     if (get(billingUidAtom) === uid)
-      set(refundOptionsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: message(e, "Couldn't load what can be refunded.") }));
+      set(refundOptionsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: message(e, OPTIONS_LOAD_FAILED) }));
   }
 });
 
@@ -74,7 +78,7 @@ export const loadSupportRequestsAtom = atom(null, async (get, set, client: Clien
     if (get(billingUidAtom) === uid) set(supportRequestsAtom, { uid, data, error: null });
   } catch (e) {
     if (get(billingUidAtom) === uid)
-      set(supportRequestsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: message(e, "Couldn't load your requests.") }));
+      set(supportRequestsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: message(e, REQUESTS_LOAD_FAILED) }));
   }
 });
 

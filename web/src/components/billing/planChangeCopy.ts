@@ -11,8 +11,10 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
 import type { AccountPlan } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
-export const NOTHING_TODAY = "Nothing is charged today.";
+/** English, for callers and tests without a translator. */
+export const NOTHING_TODAY = EN("billing.planChange.nothingToday");
 
 /** Set to end: cancel_at_period_end, or a scheduled change to pay per
  * video (gateway 00138 writes a cancel that way; older answers say
@@ -25,8 +27,8 @@ export function planEnds(plan: Pick<AccountPlan, "cancel_at_period_end" | "sched
 
 
 /** "Jan 10, 2027" */
-export function changeDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+export function changeDate(iso: string, t: Tr = EN): string {
+  return new Date(iso).toLocaleDateString(t.intl, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -38,16 +40,17 @@ export function changeDate(iso: string): string {
 export function upgradeLine(
   p: PlanChangePreview,
   names: { from: string; to: string },
+  t: Tr = EN,
 ): string {
   const unused = p.unused_credit_cents ?? 0;
-  const today = `Today: ${formatCents(p.today_cents)}.`;
+  const today = t("billing.planChange.today", { amount: formatCents(p.today_cents, t) });
+  const newPlan = formatCents(p.new_plan_cents, t);
   return unused > 0
-    ? `${today} ${names.to} ${formatCents(p.new_plan_cents)} − ${formatCents(unused)} for your unused ${names.from}.`
-    : `${today} ${names.to} ${formatCents(p.new_plan_cents)}.`;
+    ? t("billing.planChange.upgradeWithCredit", { today, to: names.to, newPlan, unused: formatCents(unused, t), from: names.from })
+    : t("billing.planChange.upgrade", { today, to: names.to, newPlan });
 }
 
-export const CREDIT_RULE =
-  "We credit what you paid for the time and usage you have left, whichever is smaller.";
+export const CREDIT_RULE = EN("billing.planChange.creditRule");
 
 /** "Your remaining Business usage this month ends when Studio's $1,500
  * starts." — a plan with monthly usage moving to another. */
@@ -55,8 +58,9 @@ export function usageHandoverLine(
   from: string,
   to: string,
   toCreditCents: number,
+  t: Tr = EN,
 ): string {
-  return `Your remaining ${from} usage this month ends when ${to}'s ${formatCentsShort(toCreditCents)} starts.`;
+  return t("billing.planChange.usageHandover", { from, to, amount: formatCentsShort(toCreditCents, t) });
 }
 
 /** What comes after the current plan, in one wording for the change
@@ -69,17 +73,21 @@ export function nextPlanLine(
   current: string,
   untilIso: string | null | undefined,
   next: { name: string | null; per?: string; cents?: number | null; unknown?: boolean } | null,
+  t: Tr = EN,
 ): string {
-  const until = untilIso ? changeDate(untilIso) : "the end of this period";
+  const until = untilIso ? changeDate(untilIso, t) : t("billing.planChange.endOfPeriod");
+  const stays = t("billing.planChange.staysOn", { current, until });
   // a next plan this build can't name: say only what's certain
-  if (next?.unknown) return `Your ${current} stays on until ${until}.`;
+  if (next?.unknown) return stays;
   const then =
     next === null || next.name === null
-      ? "After that you pay per video."
+      ? t("billing.planChange.afterPayPerVideo")
       : typeof next.cents === "number" && next.cents > 0
-        ? `${next.name} starts then at ${formatCentsShort(next.cents)}${next.per ? ` ${next.per}` : ""}.`
-        : `${next.name} starts then.`;
-  return `Your ${current} stays on until ${until}. ${then}`;
+        ? next.per
+          ? t("billing.planChange.startsThenAtPer", { name: next.name, amount: formatCentsShort(next.cents, t), per: next.per })
+          : t("billing.planChange.startsThenAt", { name: next.name, amount: formatCentsShort(next.cents, t) })
+        : t("billing.planChange.startsThen", { name: next.name });
+  return `${stays} ${then}`;
 }
 
 /** The change dialog's step-down line, from the preview. */
@@ -87,8 +95,9 @@ export function stepDownLine(
   current: string,
   to: { name: string | null; per?: string; unknown?: boolean } | null,
   p: PlanChangePreview,
+  t: Tr = EN,
 ): string {
-  return nextPlanLine(current, p.effective_at, to === null ? null : { ...to, cents: p.new_plan_cents });
+  return nextPlanLine(current, p.effective_at, to === null ? null : { ...to, cents: p.new_plan_cents }, t);
 }
 
 export function isStepDown(p: PlanChangePreview): boolean {
@@ -101,18 +110,18 @@ export type ConfirmOutcome =
   | { kind: "error"; message: string };
 
 /** Shown when the quote ran out and the price was worked out again. */
-export const REPRICED = "The price was updated. Check it and confirm again.";
+export const REPRICED = EN("billing.planChange.repriced");
 
-export const NOTHING_CHARGED = "Nothing was charged.";
-export const QUOTE_CHANGED = "The price changed, check the new total.";
-export const CARD_CONFIRM = "Your card needs confirming.";
-export const CARD_DECLINED = "Your card was declined.";
+export const NOTHING_CHARGED = EN("billing.planChange.nothingCharged");
+export const QUOTE_CHANGED = EN("billing.planChange.quoteChanged");
+export const CARD_CONFIRM = EN("billing.planChange.cardConfirm");
+export const CARD_DECLINED = EN("billing.planChange.cardDeclined");
 
 /** Owner 2026-11-05: a failed change in plain words, sentence case, always
  * "Nothing was charged." (it didn't apply). The gateway's reason when it
  * gives one (its code, a decline or confirm reason in details or the
  * message), never its raw lowercase text. */
-export function planChangeError(e: unknown): string {
+export function planChangeError(e: unknown, t: Tr = EN): string {
   const code = e instanceof GatewayError ? e.code : "";
   const d = (e instanceof GatewayError ? e.details : undefined) ?? {};
   const said = [d.reason, d.decline_code, d.code, d.status, e instanceof Error ? e.message : ""]
@@ -124,41 +133,41 @@ export function planChangeError(e: unknown): string {
   let reason: string;
   switch (code) {
     case "quote_expired":
-      reason = QUOTE_CHANGED;
+      reason = t("billing.planChange.quoteChanged");
       break;
     case "same_plan":
-      reason = "That's already your plan.";
+      reason = t("billing.planChange.errors.samePlan");
       break;
     case "not_renewable":
       // gateway 00155: a restored or moved plan runs to its end
-      reason = e instanceof Error && e.message ? e.message : "This plan runs to its end and can't be changed.";
+      reason = e instanceof Error && e.message ? e.message : t("billing.planChange.errors.notRenewable");
       break;
     case "change_scheduled":
-      reason = "A change is already waiting. Take it back on Billing first.";
+      reason = t("billing.planChange.errors.changeScheduled");
       break;
     case "change_on_hold":
-      reason = "Plan changes are on hold for your account. Contact support.";
+      reason = t("billing.planChange.errors.changeOnHold");
       break;
     case "plan_unavailable":
-      reason = "That plan isn't available right now. Try again later.";
+      reason = t("billing.planChange.errors.planUnavailable");
       break;
     case "no_plan":
     case "plan_unknown":
-      reason = "Your plan can't be changed here.";
+      reason = t("billing.planChange.errors.cantChangeHere");
       break;
     case "confirm_required":
-      reason = "Couldn't change your plan. Try again.";
+      reason = t("billing.planChange.errors.tryAgain");
       break;
     default:
       reason = confirm
-        ? CARD_CONFIRM
+        ? t("billing.planChange.cardConfirm")
         : declined
-          ? CARD_DECLINED
+          ? t("billing.planChange.cardDeclined")
           : code === "payment_failed"
-            ? "Your payment didn't go through."
-            : "Couldn't change your plan. Try again.";
+            ? t("billing.planChange.errors.paymentFailed")
+            : t("billing.planChange.errors.tryAgain");
   }
-  return `${reason} ${NOTHING_CHARGED}`;
+  return `${reason} ${t("billing.planChange.nothingCharged")}`;
 }
 
 /** POST /v1/plans/change with the preview's quote_at. A 409 quote_expired
@@ -168,6 +177,7 @@ export function planChangeError(e: unknown): string {
 export async function confirmPlanChange(
   gateway: Pick<GatewayClient, "changePlan" | "previewPlanChange">,
   preview: PlanChangePreview,
+  t: Tr = EN,
 ): Promise<ConfirmOutcome> {
   try {
     await gateway.changePlan(preview.to, preview.quote_at);
@@ -180,9 +190,9 @@ export async function confirmPlanChange(
           preview: await gateway.previewPlanChange(preview.to),
         };
       } catch {
-        return { kind: "error", message: `${QUOTE_CHANGED} ${NOTHING_CHARGED}` };
+        return { kind: "error", message: `${t("billing.planChange.quoteChanged")} ${t("billing.planChange.nothingCharged")}` };
       }
     }
-    return { kind: "error", message: planChangeError(e) };
+    return { kind: "error", message: planChangeError(e, t) };
   }
 }

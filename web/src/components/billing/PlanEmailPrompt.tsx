@@ -15,14 +15,18 @@ import { AddEmailForm } from "@/components/auth/AddEmailForm";
 import { emailsAtom, loadEmailsAtom } from "@/components/auth/emailAtoms";
 import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 import { isAppleRelayEmail } from "@/lib/emailCode";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
-export const PLAN_EMAIL_TITLE = "Add an email for your plan";
+/** English, for callers and tests without a translator. */
+export const PLAN_EMAIL_TITLE = EN("billing.planEmail.title");
 
 /** Shows itself only while the plan needs an email (`load` reads the list
  * when nothing else has). */
 export function PlanEmailPrompt({ prefill, load = false }: { prefill?: string | null; load?: boolean }): JSX.Element | null {
+  const t = useT();
   const gateway = useGateway();
   const uid = useAppAtomValue(billingUidAtom);
   const state = useAppAtomValue(emailsAtom);
@@ -35,11 +39,9 @@ export function PlanEmailPrompt({ prefill, load = false }: { prefill?: string | 
   const start = prefill && !isAppleRelayEmail(prefill) ? prefill : "";
   return (
     <div data-testid="plan-email-prompt" className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-      <p className="text-sm font-medium text-fg">{PLAN_EMAIL_TITLE}</p>
-      <p className="text-xs text-fg-muted">
-        Receipts and Restore Purchases use it. A hidden Apple address won&apos;t do. Your plan works meanwhile.
-      </p>
-      <AddEmailForm idPrefix="plan-email" mainChoice={false} forPlan prefill={start} submitLabel="Use this email" />
+      <p className="text-sm font-medium text-fg">{t("billing.planEmail.title")}</p>
+      <p className="text-xs text-fg-muted">{t("billing.planEmail.body")}</p>
+      <AddEmailForm idPrefix="plan-email" mainChoice={false} forPlan prefill={start} submitLabel={t("billing.planEmail.submit")} />
     </div>
   );
 }

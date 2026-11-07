@@ -50,6 +50,8 @@ import type { AccountPlan, PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { awaitPlanCredit, useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { planName as proPeriodName } from "@/lib/pro/plans";
 import { notifyProChanged, useProPlans } from "@/lib/pro/usePro";
 
@@ -58,8 +60,6 @@ import {
   isStepDown,
   planEnds,
   nextPlanLine,
-  NOTHING_TODAY,
-  REPRICED,
   stepDownLine,
   upgradeLine,
 } from "./planChangeCopy";
@@ -88,11 +88,12 @@ interface Option {
   unknown?: boolean;
 }
 
-const PRO_PER = {
-  weekly: "a week",
-  monthly: "a month",
-  yearly: "a year",
-} as const;
+/** "a month": how a Pro period bills. */
+function proPer(kind: "weekly" | "monthly" | "yearly", t: Tr): string {
+  if (kind === "weekly") return t("billing.planChange.per.weekly");
+  if (kind === "yearly") return t("billing.planChange.per.yearly");
+  return t("billing.planChange.per.monthly");
+}
 
 /** What a plan id is called and how it bills. */
 export function optionFor(
@@ -131,9 +132,9 @@ function planLabel(plan: AccountPlan): string {
 const SCOPE = "plan-menu";
 
 /** "Your Studio ends on Jan 10, 2027 instead of changing to Business." */
-export function cancelOverStepDownLine(current: string, endIso: string | null | undefined, next: string): string {
-  const end = endIso ? changeDate(endIso) : "the end of this period";
-  return `Your ${current} ends on ${end} instead of changing to ${next}.`;
+export function cancelOverStepDownLine(current: string, endIso: string | null | undefined, next: string, t: Tr = EN): string {
+  const end = endIso ? changeDate(endIso, t) : t("billing.planChange.endOfPeriod");
+  return t("billing.planChange.cancelOverStepDown", { current, end, next });
 }
 
 /** ?cancel=1 in the address (Account's "Cancel plan"). */
@@ -156,6 +157,7 @@ export function PlanChangeMenu({
 }: {
   plan: AccountPlan;
 }): JSX.Element | null {
+  const t = useT();
   const gateway = useGateway();
   const billing = useBilling();
   const pricing = usePricing();
@@ -172,8 +174,8 @@ export function PlanChangeMenu({
   const closeChange = useSetAtom(closePlanChangeAtom);
   const preview = change.to === target?.id ? change.preview : null;
   const error =
-    change.error ?? (change.previewFailed ? "Couldn't work out the change. Nothing was charged." : null);
-  const notice = change.repriced ? REPRICED : null;
+    change.error ?? (change.previewFailed ? t("billing.planChange.errors.previewFailed") : null);
+  const notice = change.repriced ? t("billing.planChange.repriced") : null;
   const busy = change.busy;
 
   // our own Stripe Pro only: those are the ones a plan can step down to
@@ -181,8 +183,8 @@ export function PlanChangeMenu({
     proPlans.state === "ready"
       ? proPlans.plans.map((p) => ({
           id: p.id,
-          name: `Pro ${proPeriodName(p)}`,
-          per: PRO_PER[p.kind],
+          name: t("billing.planChange.proName", { pro: "Pro", period: proPeriodName(p) }),
+          per: proPer(p.kind, t),
         }))
       : [];
   const proNames = new Map(pro.map((o) => [o.id, o]));
@@ -221,7 +223,7 @@ export function PlanChangeMenu({
 
   async function confirm(): Promise<void> {
     if (!target || !preview) return;
-    if ((await confirmChange({ scope: SCOPE, client: gateway })) === "done") {
+    if ((await confirmChange({ scope: SCOPE, client: gateway, t })) === "done") {
       await billing.refresh();
       // a step-up's usage lands a moment later: keep reading until it shows
       void awaitPlanCredit();
@@ -236,18 +238,18 @@ export function PlanChangeMenu({
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" data-testid="plan-change">
-            Change plan
+            {t("billing.planChange.changePlan")}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {higher.map((o) => (
             <DropdownMenuItem key={o.id} onSelect={() => open(o)}>
-              {o.name} (move up)
+              {t("billing.planChange.moveUp", { name: o.name ?? "" })}
             </DropdownMenuItem>
           ))}
           {lower.map((o) => (
             <DropdownMenuItem key={o.id} onSelect={() => open(o)}>
-              {o.name ?? "Pay per video (cancel plan)"}
+              {o.name ?? t("billing.planChange.payPerVideoCancel")}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -265,23 +267,27 @@ export function PlanChangeMenu({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {target?.name
-                ? `Change to ${target.name}?`
-                : `Cancel ${current}?`}
+                ? t("billing.planChange.dialogTitleChange", { name: target.name })
+                : t("billing.planChange.dialogTitleCancel", { current })}
             </AlertDialogTitle>
             <AlertDialogDescription data-testid="plan-change-line">
               {error ??
                 (preview && target
                   ? target.id === PAY_PER_VIDEO && waiting?.name
                     ? // cancelling over a waiting step-down replaces it
-                      `${cancelOverStepDownLine(current, preview.effective_at ?? plan.current_period_end, waiting.name)} ${NOTHING_TODAY}`
+                      `${cancelOverStepDownLine(current, preview.effective_at ?? plan.current_period_end, waiting.name, t)} ${t("billing.planChange.nothingToday")}`
                     : isStepDown(preview)
                     ? // gateway 00138: the preview's `to`, as the card reads scheduled_change.to
-                      `${stepDownLine(current, nextOption(optionFor(preview.to ?? target.id, pricing, proNames)), preview)} ${NOTHING_TODAY}`
-                    : upgradeLine(preview, {
-                        from: current,
-                        to: target.name ?? "",
-                      })
-                  : "Working out the change…")}
+                      `${stepDownLine(current, nextOption(optionFor(preview.to ?? target.id, pricing, proNames)), preview, t)} ${t("billing.planChange.nothingToday")}`
+                    : upgradeLine(
+                        preview,
+                        {
+                          from: current,
+                          to: target.name ?? "",
+                        },
+                        t,
+                      )
+                  : t("billing.planChange.working"))}
             </AlertDialogDescription>
             {preview && target?.name && !error && !isStepDown(preview) ? (
               <StepUpExtras
@@ -300,7 +306,7 @@ export function PlanChangeMenu({
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep {current}</AlertDialogCancel>
+            <AlertDialogCancel>{t("billing.planChange.keep", { current })}</AlertDialogCancel>
             <AlertDialogAction
               disabled={preview === null || busy}
               onClick={(e) => {
@@ -309,10 +315,10 @@ export function PlanChangeMenu({
               }}
             >
               {preview && target?.name && !isStepDown(preview)
-                ? `Pay ${formatCents(preview.today_cents)} and change`
+                ? t("billing.planChange.payAndChange", { amount: formatCents(preview.today_cents, t) })
                 : target?.name
-                  ? `Change to ${target.name}`
-                  : "Cancel plan"}
+                  ? t("billing.planChange.changeTo", { name: target.name })
+                  : t("billing.planChange.cancelPlan")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -328,6 +334,7 @@ export function ScheduledChange({
 }: {
   plan: AccountPlan;
 }): JSX.Element | null {
+  const t = useT();
   const gateway = useGateway();
   const billing = useBilling();
   const pricing = usePricing();
@@ -342,7 +349,7 @@ export function ScheduledChange({
   const proNames = new Map(
     proPlans.state === "ready"
       ? proPlans.plans.map(
-          (p) => [p.id, { id: p.id, name: `Pro ${proPeriodName(p)}` }] as const,
+          (p) => [p.id, { id: p.id, name: t("billing.planChange.proName", { pro: "Pro", period: proPeriodName(p) }) }] as const,
         )
       : [],
   );
@@ -357,7 +364,7 @@ export function ScheduledChange({
       await billing.refresh();
       notifyProChanged();
     } catch (e) {
-      setError(e instanceof GatewayError && e.code === "not_renewable" && e.message ? e.message : "Couldn't keep your plan. Try again.");
+      setError(e instanceof GatewayError && e.code === "not_renewable" && e.message ? e.message : t("billing.planChange.errors.keepFailed"));
     } finally {
       setBusy(false);
     }
@@ -365,7 +372,7 @@ export function ScheduledChange({
 
   // one wording with the change dialog (nextPlanLine), from
   // scheduled_change.to (gateway 00138); a plain cancel is pay per video
-  const line = nextPlanLine(current, sc?.effective_at ?? plan.current_period_end, to ? nextOption(to) : null);
+  const line = nextPlanLine(current, sc?.effective_at ?? plan.current_period_end, to ? nextOption(to) : null, t);
 
   return (
     <div
@@ -381,7 +388,7 @@ export function ScheduledChange({
           disabled={busy}
           onClick={() => void keep()}
         >
-          Keep {current}
+          {t("billing.planChange.keep", { current })}
         </Button>
       )}
       {error ? <p className="w-full text-red-400">{error}</p> : null}

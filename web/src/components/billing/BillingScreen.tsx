@@ -37,7 +37,6 @@ import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTab";
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
-import { UNDER_REVIEW } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { formatCents, groupMoney } from "@/components/steps/money";
 import {
@@ -74,6 +73,8 @@ import { isExpired, methodLabel, useBillingMethods } from "@/lib/api/usePaymentM
 import { billingUidAtom, useBilling } from "@/lib/billing";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import { qualityName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import {
   billingHistoryAtom,
@@ -84,36 +85,31 @@ import {
   loadInvoicesAtom,
 } from "./billingHistoryAtoms";
 
-const STATUS: Record<BillingRowStatus, { label: string; cls: string; help?: string }> = {
-  paid: { label: "Paid", cls: "text-emerald-300" },
-  processing: {
-    label: "Processing",
-    cls: "text-amber-300",
-    help: "Your payment is being confirmed. This can take a few days.",
-  },
-  payment_needed: { label: "Payment needed", cls: "text-red-300" },
-  refund_requested: {
-    label: "Refund requested",
-    cls: "text-fg",
-    help: "We'll email you within 2 business days.",
-  },
-  refunded: { label: "Refunded", cls: "text-fg-muted" },
-  partially_refunded: { label: "Partly refunded", cls: "text-fg-muted" },
-  disputed: { label: "Disputed with your bank", cls: "text-amber-300" },
-  refund_failed: { label: "Refund didn't go through", cls: "text-red-300", help: "We've emailed you about it." },
-  failed: { label: "Payment failed", cls: "text-red-300" },
-  applied: { label: "Done", cls: "text-fg-muted" },
-  scheduled: { label: "Scheduled", cls: "text-amber-300" },
+/** Each status's colour, and whether it has a help line
+ * (billing.history.status.* and billing.history.statusHelp.*). */
+const STATUS: Record<BillingRowStatus, { cls: string; help?: true }> = {
+  paid: { cls: "text-emerald-300" },
+  processing: { cls: "text-amber-300", help: true },
+  payment_needed: { cls: "text-red-300" },
+  refund_requested: { cls: "text-fg", help: true },
+  refunded: { cls: "text-fg-muted" },
+  partially_refunded: { cls: "text-fg-muted" },
+  disputed: { cls: "text-amber-300" },
+  refund_failed: { cls: "text-red-300", help: true },
+  failed: { cls: "text-red-300" },
+  applied: { cls: "text-fg-muted" },
+  scheduled: { cls: "text-amber-300" },
 };
 
-/** gateway ffac292: a credit row's state, in plain words. */
-const CREDIT_STATUS: Record<NonNullable<BillingRow["credit"]>["kind"], string> = {
-  granted: "Added",
-  expired: "Expired",
-  removed: "Ended",
-  frozen: "On hold",
-  unfrozen: "Released",
-};
+/** gateway ffac292: a credit row's state, in plain words
+ * (billing.history.credit.*). */
+const CREDIT_KINDS: ReadonlySet<string> = new Set<NonNullable<BillingRow["credit"]>["kind"]>([
+  "granted",
+  "expired",
+  "removed",
+  "frozen",
+  "unfrozen",
+]);
 
 /** "payment_needed" → "Payment needed"; "" → "—". */
 function humanize(v: string): string {
@@ -128,26 +124,32 @@ function isNoMoney(row: BillingRow): boolean {
 }
 
 /** "Scheduled for Dec 5", "Changed", "Added". */
-export function noMoneyStatus(row: BillingRow): string {
-  if (row.kind === "credit") return (row.credit && CREDIT_STATUS[row.credit.kind]) || "Done";
-  if (row.status === "scheduled") {
-    return row.change?.effective_at ? `Scheduled for ${shortDate(row.change.effective_at)}` : "Scheduled";
+export function noMoneyStatus(row: BillingRow, t: Tr = EN): string {
+  if (row.kind === "credit") {
+    return row.credit && CREDIT_KINDS.has(row.credit.kind)
+      ? t(`billing.history.credit.${row.credit.kind}`)
+      : t("billing.history.done");
   }
-  return "Changed";
+  if (row.status === "scheduled") {
+    return row.change?.effective_at
+      ? t("billing.history.scheduledFor", { date: shortDate(row.change.effective_at, t) })
+      : t("billing.history.scheduled");
+  }
+  return t("billing.history.changed");
 }
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function shortDate(iso: string, t: Tr = EN): string {
+  return new Date(iso).toLocaleDateString(t.intl, { month: "short", day: "numeric" });
 }
 
 /** "Kyoto walk · 3D video · 4K", with the launch offer when the run had
  * it ("… · 1080p · Launch offer −25%", gateway 00178) */
-export function itemLine(i: BillingChargeItem): string {
+export function itemLine(i: BillingChargeItem, t: Tr = EN): string {
   return [
-    i.project_name ?? "Untitled project",
-    i.step === "production" ? "3D video" : "Preview",
-    i.preset ? qualityName(i.preset) : null,
-    (i.campaign_cents ?? 0) > 0 ? (i.campaign_label ?? "Launch offer") : null,
+    i.project_name ?? t("billing.history.item.untitled"),
+    i.step === "production" ? t("billing.history.item.production") : t("billing.history.item.preview"),
+    i.preset ? qualityName(i.preset, t) : null,
+    (i.campaign_cents ?? 0) > 0 ? (i.campaign_label ?? t("billing.history.item.launchOffer")) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -204,6 +206,7 @@ function useRowRefund(row: BillingRow): { plan: boolean; conversionIds: string[]
 }
 
 function RowMenu({ row }: { row: BillingRow }): JSX.Element {
+  const t = useT();
   const refund = useRowRefund(row);
   const openRefund = useAppSetAtom(openRefundSheetAtom);
   // owner 2026-11-07: the shadcn menu (Radix): it stays inside the screen
@@ -213,7 +216,7 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="More"
+          aria-label={t("billing.history.menu.more")}
           className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg"
         >
           <EllipsisIcon className="size-4" />
@@ -224,7 +227,7 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
         {SHOW_REFUND_ENTRY && refund ? (
           refund.asked ? (
             <DropdownMenuItem disabled data-testid="row-refund-asked" className="text-xs">
-              Refund requested
+              {t("billing.history.menu.refundRequested")}
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem
@@ -232,13 +235,13 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
               className="text-xs"
               onSelect={() => openRefund({ plan: refund.plan, conversionIds: refund.conversionIds })}
             >
-              Request a refund
+              {t("billing.history.menu.requestRefund")}
             </DropdownMenuItem>
           )
         ) : null}
         <DropdownMenuItem asChild className="text-xs">
           <a href={supportMailto(helpSubject(row))} data-testid="row-help">
-            Get help with this payment
+            {t("billing.history.menu.getHelp")}
           </a>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -249,19 +252,22 @@ function RowMenu({ row }: { row: BillingRow }): JSX.Element {
 /** gateway ffac292: a plan change or a usage-credit row (no money), for
  * the traceable credit history. */
 function NoMoneyRow({ row }: { row: BillingRow }): JSX.Element {
+  const t = useT();
   const scheduled = row.status === "scheduled";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
-        <span className="text-fg-muted">{shortDate(row.created_at)}</span>
-        <span className="min-w-0 truncate text-fg-muted">{row.label ? groupMoney(row.label) : row.kind === "credit" ? "Usage credit" : "Plan change"}</span>
+        <span className="text-fg-muted">{shortDate(row.created_at, t)}</span>
+        <span className="min-w-0 truncate text-fg-muted">
+          {row.label ? groupMoney(row.label) : row.kind === "credit" ? t("billing.history.usageCredit") : t("billing.history.planChange")}
+        </span>
         <span data-testid="row-amount" className="text-right font-mono text-fg-muted">
           —
         </span>
         <span className="hidden sm:block" />
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${scheduled ? "text-amber-300" : "text-fg-muted"}`}>
           <span aria-hidden className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
-          {noMoneyStatus(row)}
+          {noMoneyStatus(row, t)}
         </span>
         <span />
         <span className="size-7" />
@@ -271,31 +277,39 @@ function NoMoneyRow({ row }: { row: BillingRow }): JSX.Element {
 }
 
 function Row({ row }: { row: BillingRow }): JSX.Element {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const { openSettle } = useSettle();
   if (isNoMoney(row)) return <NoMoneyRow row={row} />;
   // plan rows come without run items
   const items = row.items ?? [];
   // total: a status this build doesn't know shows as plain text, never a crash
-  const s = STATUS[row.status] ?? { label: humanize(String(row.status ?? "")), cls: "text-fg-muted" };
+  const known = Object.hasOwn(STATUS, row.status) ? STATUS[row.status] : null;
+  const s = known
+    ? {
+        label: t(`billing.history.status.${row.status}`),
+        cls: known.cls,
+        help: known.help ? t(`billing.history.statusHelp.${row.status}`) : undefined,
+      }
+    : { label: humanize(String(row.status ?? "")), cls: "text-fg-muted", help: undefined };
   const refund = row.kind === "refund";
   const planRow = row.kind === "plan";
   // a step-up's lines: the new plan and the credit for the unused one
   const lines = planRow && (row.lines?.length ?? 0) > 1 ? row.lines! : null;
   const many = items.length > 1 || lines !== null;
   const what = planRow
-    ? (row.label ? groupMoney(row.label) : "Plan")
+    ? (row.label ? groupMoney(row.label) : t("billing.history.plan"))
     : items.length === 0
       ? (row.label ? groupMoney(row.label) : "—")
       : items.length > 1
-        ? `${items.length} items`
-        : itemLine(items[0]);
-  const amount = refund ? `−${formatCents(row.amount_cents)}` : formatCents(row.amount_cents);
+        ? t("billing.history.items", { count: items.length })
+        : itemLine(items[0], t);
+  const amount = refund ? `−${formatCents(row.amount_cents, t)}` : formatCents(row.amount_cents, t);
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
-        <span className="text-fg-muted">{shortDate(row.created_at)}</span>
+        <span className="text-fg-muted">{shortDate(row.created_at, t)}</span>
         <button
           type="button"
           aria-expanded={open}
@@ -309,7 +323,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
             </span>
           ) : null}
           {what}
-          {many && !planRow ? <span className="text-fg-muted"> · {formatCents(row.amount_cents)}</span> : null}
+          {many && !planRow ? <span className="text-fg-muted"> · {formatCents(row.amount_cents, t)}</span> : null}
         </button>
         <span data-testid="row-amount" className="text-right font-mono tabular-nums text-fg">
           {amount}
@@ -326,21 +340,21 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         <span className="flex items-center gap-3 text-xs">
           {row.status === "payment_needed" && planRow && row.invoice?.hosted_invoice_url ? (
             // a plan invoice is paid on its own page, not with the runs
-            <Ext href={row.invoice.hosted_invoice_url} label="Pay invoice" />
+            <Ext href={row.invoice.hosted_invoice_url} label={t("billing.history.payInvoice")} />
           ) : row.status === "payment_needed" && !planRow ? (
             <Button
               size="sm"
               onClick={() => openSettle()}
               className="bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
             >
-              Pay {formatCents(row.amount_cents)}
+              {t("billing.history.pay", { amount: formatCents(row.amount_cents, t) })}
             </Button>
           ) : null}
-          {refund && row.credit_note_url ? <Ext href={row.credit_note_url} label="Credit note" /> : null}
+          {refund && row.credit_note_url ? <Ext href={row.credit_note_url} label={t("billing.history.creditNote")} /> : null}
           {!refund && paid && row.invoice?.hosted_invoice_url ? (
-            <Ext href={row.invoice.hosted_invoice_url} label="Invoice" />
+            <Ext href={row.invoice.hosted_invoice_url} label={t("billing.history.invoice")} />
           ) : null}
-          {!refund && paid && row.receipt_url ? <Ext href={row.receipt_url} label="Receipt" /> : null}
+          {!refund && paid && row.receipt_url ? <Ext href={row.receipt_url} label={t("billing.history.receipt")} /> : null}
         </span>
         <RowMenu row={row} />
       </div>
@@ -350,7 +364,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
             <li key={i} className="flex items-center gap-3">
               <span className="min-w-0 flex-1 truncate text-fg-muted">{groupMoney(l.description)}</span>
               <span className="font-mono text-fg-muted tabular-nums">
-                {l.amount_cents < 0 ? `−${formatCents(-l.amount_cents)}` : formatCents(l.amount_cents)}
+                {l.amount_cents < 0 ? `−${formatCents(-l.amount_cents, t)}` : formatCents(l.amount_cents, t)}
               </span>
             </li>
           ))}
@@ -363,9 +377,9 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
                 href={`/projects/${i.project_id}#tab=files`}
                 className="min-w-0 flex-1 truncate text-fg-muted hover:text-fg"
               >
-                {itemLine(i)}
+                {itemLine(i, t)}
               </Link>
-              <span className="font-mono text-fg-muted tabular-nums">{formatCents(i.amount_cents)}</span>
+              <span className="font-mono text-fg-muted tabular-nums">{formatCents(i.amount_cents, t)}</span>
             </li>
           ))}
         </ul>
@@ -376,8 +390,9 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
 
 /** A History row inside its own boundary. */
 function RowBoundary({ row }: { row: BillingRow }): JSX.Element {
+  const t = useT();
   return (
-    <SectionBoundary listItem name={row.label ?? "A row"}>
+    <SectionBoundary listItem name={row.label ?? t("billing.screen.sections.aRow")}>
       <Row row={row} />
     </SectionBoundary>
   );
@@ -393,9 +408,8 @@ function SkeletonRows({ n }: { n: number }): JSX.Element {
   );
 }
 
-export const METHODS_LINE =
-  "We charge your default payment method. If it's declined, we try your others in this order.";
-export const MAX_METHODS_LINE = "You can save up to 5 payment methods.";
+/** Our own refusal (the gateway's reason is shown as it sends it); shown
+ * as billing.screen.methods.removeBlocked. */
 export const REMOVE_BLOCKED =
   "You can't remove your only payment method while a payment is pending. Pay it or add another one first.";
 
@@ -403,6 +417,7 @@ export const REMOVE_BLOCKED =
  * Make default · Move up · Move down · Remove. */
 function MethodsSection(): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const { list, set, reload } = useBillingMethods();
   const billing = useBilling();
   const [busy, setBusy] = useState<string | null>(null);
@@ -423,7 +438,7 @@ function MethodsSection(): JSX.Element {
       void billing.refresh();
     } catch (e) {
       if (e instanceof GatewayError && e.code === "method_needed") setBlocked(REMOVE_BLOCKED);
-      else setError("Couldn't save that. Try again.");
+      else setError(t("billing.screen.methods.saveFailed"));
     } finally {
       setBusy(null);
     }
@@ -440,9 +455,9 @@ function MethodsSection(): JSX.Element {
     <section aria-labelledby="payment-methods" className="flex flex-col rounded-xl border border-edge bg-surface-1">
       <div className="flex items-center gap-3 border-b border-edge px-5 py-4">
         <h2 id="payment-methods" className="text-sm font-semibold text-fg">
-          Payment methods
+          {t("billing.screen.methods.title")}
         </h2>
-        {busy ? <span aria-label="Saving" className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+        {busy ? <span aria-label={t("billing.screen.methods.saving")} className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
         <Button
           variant="outline"
           size="sm"
@@ -452,14 +467,14 @@ function MethodsSection(): JSX.Element {
           onClick={() => setAdding(true)}
         >
           <PlusIcon className="size-3.5" aria-hidden />
-          Add payment method
+          {t("billing.screen.methods.add")}
         </Button>
       </div>
       <div className="flex flex-col gap-3 px-5 py-3">
       {methods === null ? (
         <SkeletonRows n={2} />
       ) : methods.length === 0 ? (
-        <p className="text-sm text-fg-muted">No saved payment methods.</p>
+        <p className="text-sm text-fg-muted">{t("billing.screen.methods.none")}</p>
       ) : (
         <ul data-testid="payment-methods" className="flex flex-col">
           {methods.map((m, i) => (
@@ -470,14 +485,17 @@ function MethodsSection(): JSX.Element {
                 <span className="truncate text-fg">{methodLabel(m)}</span>
                 {isExpired(m) ? (
                   <span className="text-xs text-fg-muted">
-                    Expired {String(m.exp_month).padStart(2, "0")}/{String(m.exp_year).slice(-2)}
+                    {t("billing.screen.methods.expiredOn", {
+                      date: `${String(m.exp_month).padStart(2, "0")}/${String(m.exp_year).slice(-2)}`,
+                    })}
                   </span>
                 ) : null}
               </span>
               <span className="ml-auto flex items-center gap-2">
               {m.is_default ? (
                 <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-                  <span className="sr-only">· </span>Default
+                  <span className="sr-only">· </span>
+                  {t("billing.screen.methods.default")}
                 </span>
               ) : null}
               {isExpired(m) ? (
@@ -485,18 +503,21 @@ function MethodsSection(): JSX.Element {
                   data-testid="method-expired"
                   className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] text-amber-300"
                 >
-                  Expired
+                  {t("billing.screen.methods.expired")}
                 </span>
               ) : null}
               <MethodMenu
                 label={methodLabel(m)}
                 disabled={busy !== null}
                 items={[
-                  ...(!m.is_default ? [{ label: "Make default", run: () => void change(m.id, () => gateway.setDefaultMethod(m.id)) }] : []),
-                  ...(i > 0 ? [{ label: "Move up", run: () => move(i, -1) }] : []),
-                  ...(i < methods.length - 1 ? [{ label: "Move down", run: () => move(i, 1) }] : []),
+                  ...(!m.is_default
+                    ? [{ label: t("billing.screen.methods.makeDefault"), run: () => void change(m.id, () => gateway.setDefaultMethod(m.id)) }]
+                    : []),
+                  ...(i > 0 ? [{ label: t("billing.screen.methods.moveUp"), run: () => move(i, -1) }] : []),
+                  ...(i < methods.length - 1 ? [{ label: t("billing.screen.methods.moveDown"), run: () => move(i, 1) }] : []),
                   {
-                    label: "Remove",
+                    label: t("billing.screen.methods.remove"),
+                    destructive: true,
                     run: () =>
                       m.removable === false ? setBlocked(m.remove_blocked_reason ?? REMOVE_BLOCKED) : setConfirmId(m.id),
                   },
@@ -510,14 +531,14 @@ function MethodsSection(): JSX.Element {
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       {blocked ? (
         <p data-testid="remove-blocked" className="text-xs text-amber-200">
-          {blocked}
+          {blocked === REMOVE_BLOCKED ? t("billing.screen.methods.removeBlocked") : blocked}
         </p>
       ) : null}
-      {methods !== null && methods.length >= max ? <p className="text-xs text-fg-muted">{MAX_METHODS_LINE}</p> : null}
+      {methods !== null && methods.length >= max ? <p className="text-xs text-fg-muted">{t("billing.screen.methods.max")}</p> : null}
       {methods !== null && methods.length > 0 ? (
         <p className="flex items-center gap-2 pb-1 text-xs text-fg-muted">
           <InfoIcon className="size-3.5 shrink-0" aria-hidden />
-          {METHODS_LINE}
+          {t("billing.screen.methods.chargeOrder")}
         </p>
       ) : null}
       </div>
@@ -536,15 +557,15 @@ function MethodsSection(): JSX.Element {
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirmId(null)}>
         <AlertDialogContent data-testid="remove-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {confirm ? methodLabel(confirm) : ""}?</AlertDialogTitle>
+            <AlertDialogTitle>{t("billing.screen.methods.confirmTitle", { label: confirm ? methodLabel(confirm) : "" })}</AlertDialogTitle>
             {methods?.length === 1 ? (
-              <AlertDialogDescription>Your next runs will ask how to pay each time.</AlertDialogDescription>
+              <AlertDialogDescription>{t("billing.screen.methods.confirmLast")}</AlertDialogDescription>
             ) : (
-              <AlertDialogDescription className="sr-only">Remove this payment method</AlertDialogDescription>
+              <AlertDialogDescription className="sr-only">{t("billing.screen.methods.confirmDescription")}</AlertDialogDescription>
             )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t("billing.screen.methods.keep")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -553,7 +574,7 @@ function MethodsSection(): JSX.Element {
                 if (m) void change(m.id, () => gateway.removeMethod(m.id));
               }}
             >
-              Remove
+              {t("billing.screen.methods.remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -568,15 +589,16 @@ function MethodMenu({
   disabled,
 }: {
   label: string;
-  items: { label: string; run: () => void }[];
+  items: { label: string; destructive?: boolean; run: () => void }[];
   disabled: boolean;
 }): JSX.Element {
+  const t = useT();
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Options for ${label}`}
+          aria-label={t("billing.screen.methods.optionsFor", { label })}
           disabled={disabled}
           className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
         >
@@ -587,7 +609,7 @@ function MethodMenu({
         {items.map((it) => (
           <DropdownMenuItem
             key={it.label}
-            variant={it.label === "Remove" ? "destructive" : "default"}
+            variant={it.destructive ? "destructive" : "default"}
             onSelect={() => it.run()}
             className="text-xs"
           >
@@ -602,8 +624,6 @@ function MethodMenu({
 /** Owner 2026-11-05: a Business or Studio account whose invoices still
  * lack a company name or address (Checkout asks only the method and
  * country). A gentle line; it never blocks anything. */
-export const COMPANY_REMINDER = "Add company details to your invoices";
-
 export function companyMissing(c: CompanyDetails | null): boolean {
   return !c?.company_name?.trim() || !c.address?.line1?.trim();
 }
@@ -612,6 +632,7 @@ export function companyMissing(c: CompanyDetails | null): boolean {
  * → Business details (owner 2026-11-04). */
 function CompanySection(): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const plan = useBilling().status?.plan;
   const teamPlan = plan?.active === true && (plan.plan === "business" || plan.plan === "studio");
   // ADR 0138: the business details live in an app-store atom
@@ -630,10 +651,10 @@ function CompanySection(): JSX.Element {
       <Building2Icon className="size-5 shrink-0 text-fg-muted" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 id="company" className="text-sm font-semibold text-fg">
-          Business details
+          {t("billing.screen.company.title")}
         </h2>
         <p data-testid="company-summary" className="truncate text-xs text-fg-muted">
-          {!loaded ? "Loading…" : summary ?? "No business details. Add them to show on invoices."}
+          {!loaded ? t("billing.screen.company.loading") : (summary ?? t("billing.screen.company.empty"))}
         </p>
         {remind ? (
           <Link
@@ -641,12 +662,12 @@ function CompanySection(): JSX.Element {
             data-testid="company-reminder"
             className="w-fit text-xs text-primary hover:underline"
           >
-            {COMPANY_REMINDER}
+            {t("billing.screen.company.reminder")}
           </Link>
         ) : null}
       </div>
       <Button asChild variant="outline" size="sm">
-        <Link href="/account/business-details">Edit</Link>
+        <Link href="/account/business-details">{t("billing.screen.company.edit")}</Link>
       </Button>
     </section>
   );
@@ -656,6 +677,7 @@ function CompanySection(): JSX.Element {
  * their invoice. */
 function InvoicesTab(): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   // ADR 0138: the invoices live in an app-store atom
   const state = useAppAtomValue(invoicesAtom);
   const uid = useAppAtomValue(billingUidAtom);
@@ -675,32 +697,32 @@ function InvoicesTab(): JSX.Element {
   if (error) {
     return (
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-red-300">Couldn&apos;t load your invoices.</span>
+        <span className="text-red-300">{t("billing.screen.invoices.loadFailed")}</span>
         <Button variant="outline" size="sm" onClick={() => void load()}>
-          Try again
+          {t("billing.screen.invoices.tryAgain")}
         </Button>
       </div>
     );
   }
   if (rows === null) return <SkeletonRows n={3} />;
-  if (rows.length === 0) return <p className="text-sm text-fg-muted">No invoices yet.</p>;
+  if (rows.length === 0) return <p className="text-sm text-fg-muted">{t("billing.screen.invoices.none")}</p>;
   return (
     <>
       <ul data-testid="invoices">
         {rows.map((inv) => (
           <li key={inv.invoice_id} className="border-t border-edge py-2.5 text-sm">
             <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-3">
-              <span className="text-fg-muted">{shortDate(inv.created_at)}</span>
+              <span className="text-fg-muted">{shortDate(inv.created_at, t)}</span>
               <span className="font-mono text-xs text-fg">{inv.number}</span>
-              <span className="font-mono tabular-nums text-fg">{formatCents(inv.amount_cents)}</span>
-              <span className="text-xs">{inv.pdf_url ? <Ext href={inv.pdf_url} label="PDF" /> : null}</span>
+              <span className="font-mono tabular-nums text-fg">{formatCents(inv.amount_cents, t)}</span>
+              <span className="text-xs">{inv.pdf_url ? <Ext href={inv.pdf_url} label={t("billing.screen.invoices.pdf")} /> : null}</span>
             </div>
             {(inv.credit_notes ?? []).map((cn) => (
               <div key={cn.id} className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-3 pt-1.5 text-xs text-fg-muted">
-                <span>{shortDate(cn.created_at)}</span>
-                <span className="font-mono">Credit note {cn.number}</span>
-                <span className="font-mono tabular-nums">−{formatCents(cn.amount_cents)}</span>
-                <span>{cn.pdf_url ? <Ext href={cn.pdf_url} label="PDF" /> : null}</span>
+                <span>{shortDate(cn.created_at, t)}</span>
+                <span className="font-mono">{t("billing.screen.invoices.creditNote", { number: cn.number })}</span>
+                <span className="font-mono tabular-nums">−{formatCents(cn.amount_cents, t)}</span>
+                <span>{cn.pdf_url ? <Ext href={cn.pdf_url} label={t("billing.screen.invoices.pdf")} /> : null}</span>
               </div>
             ))}
           </li>
@@ -718,7 +740,7 @@ function InvoicesTab(): JSX.Element {
             setLoadingMore(false);
           }}
         >
-          {loadingMore ? "Loading…" : "Show more"}
+          {loadingMore ? t("billing.screen.invoices.loading") : t("billing.screen.invoices.showMore")}
         </Button>
       ) : null}
     </>
@@ -727,6 +749,7 @@ function InvoicesTab(): JSX.Element {
 
 export function BillingScreen(): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const review = useBilling().status?.flow_state === "under_review";
   const [tab, setTab] = useState<"history" | "plan" | "usage" | "invoices">("history");
   // gateway ffac292: the Plan tab is the history with filter=plan
@@ -756,55 +779,55 @@ export function BillingScreen(): JSX.Element {
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("billing.screen.title")}</h1>
       <FirstTimeHint id="billing" />
       {/* ?settle=1, the app's link after a delete answered balance_due */}
       <SettleFromLink />
       {review ? (
         <p data-testid="billing-review" className="text-sm text-amber-200">
-          {UNDER_REVIEW} Contact support to continue.
+          {t("pay.copy.underReview")} {t("billing.screen.contactSupportToContinue")}
         </p>
       ) : null}
 
       {/* owner 2026-11-07: the only refund line above the fold, when we
           asked a question about a request */}
-      <SectionBoundary name="Refund question">
+      <SectionBoundary name={t("billing.screen.sections.refundQuestion")}>
         <RefundQuestionNotice />
       </SectionBoundary>
       {/* owner bug 2026-11-05: one section failing never takes the page */}
-      <SectionBoundary name="Balance">
+      <SectionBoundary name={t("billing.screen.sections.balance")}>
         <BalanceCard />
       </SectionBoundary>
       {/* gateway 00155: a plan support offered to move here */}
-      <SectionBoundary name="Plan moves">
+      <SectionBoundary name={t("billing.screen.sections.planMoves")}>
         <PlanMoveOffers />
       </SectionBoundary>
-      <SectionBoundary name="Plan">
+      <SectionBoundary name={t("billing.screen.sections.plan")}>
         <PlanCard />
       </SectionBoundary>
       {/* owner 2026-11-07: Pro's monthly usage credit */}
-      <SectionBoundary name="Pro credit">
+      <SectionBoundary name={t("billing.screen.sections.proCredit", { pro: "Pro" })}>
         <ProCreditCard />
       </SectionBoundary>
-      <SectionBoundary name="Restore Purchases">
+      <SectionBoundary name={t("billing.screen.sections.restorePurchases")}>
         <RestorePurchases />
       </SectionBoundary>
 
-      <SectionBoundary name="Payment methods">
+      <SectionBoundary name={t("billing.screen.sections.paymentMethods")}>
         <MethodsSection />
       </SectionBoundary>
-      <SectionBoundary name="Business details">
+      <SectionBoundary name={t("billing.screen.sections.businessDetails")}>
         <CompanySection />
       </SectionBoundary>
 
-      <section aria-label="Purchases and invoices" className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
+      <section aria-label={t("billing.screen.records.label")} className="flex flex-col rounded-xl border border-edge bg-surface-1 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList aria-label="Billing records" className="text-xs">
-            <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="plan">Plan</TabsTrigger>
-            <TabsTrigger value="usage">Usage</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsList aria-label={t("billing.screen.records.tabsLabel")} className="text-xs">
+            <TabsTrigger value="history">{t("billing.screen.records.tabs.history")}</TabsTrigger>
+            <TabsTrigger value="plan">{t("billing.screen.records.tabs.plan")}</TabsTrigger>
+            <TabsTrigger value="usage">{t("billing.screen.records.tabs.usage")}</TabsTrigger>
+            <TabsTrigger value="invoices">{t("billing.screen.records.tabs.invoices")}</TabsTrigger>
           </TabsList>
         </Tabs>
         {tab === "usage" ? (
@@ -816,24 +839,24 @@ export function BillingScreen(): JSX.Element {
         {tab === "usage" ? <FirstTimeHint id="usage" className="mb-3" /> : null}
         {tab === "invoices" ? <FirstTimeHint id="invoices" className="mb-3" /> : null}
         {tab === "usage" ? (
-          <SectionBoundary name="Usage">
+          <SectionBoundary name={t("billing.screen.sections.usage")}>
             <UsageTab month={month} />
           </SectionBoundary>
         ) : tab === "invoices" ? (
-          <SectionBoundary name="Invoices">
+          <SectionBoundary name={t("billing.screen.sections.invoices")}>
             <InvoicesTab />
           </SectionBoundary>
         ) : error ? (
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-red-300">Couldn&apos;t load your purchases.</span>
+            <span className="text-red-300">{t("billing.screen.records.loadFailed")}</span>
             <Button variant="outline" size="sm" onClick={() => void load()}>
-              Try again
+              {t("billing.screen.records.tryAgain")}
             </Button>
           </div>
         ) : rows === null ? (
           <SkeletonRows n={3} />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-fg-muted">{tab === "plan" ? "No plan payments yet." : "No purchases yet."}</p>
+          <p className="text-sm text-fg-muted">{tab === "plan" ? t("billing.screen.records.noPlanPayments") : t("billing.screen.records.noPurchases")}</p>
         ) : (
           <>
             <ul data-testid="history">
@@ -854,22 +877,22 @@ export function BillingScreen(): JSX.Element {
                   setLoadingMore(false);
                 }}
               >
-                {loadingMore ? "Loading…" : "Show more"}
+                {loadingMore ? t("billing.screen.records.loading") : t("billing.screen.records.showMore")}
               </Button>
             ) : null}
           </>
         )}
         <p className="pt-3 text-xs text-fg-muted">
-          US dollars.{tax === "inclusive" ? " Prices include VAT where it applies." : ""}
+          {tax === "inclusive" ? t("billing.screen.records.currencyWithVat") : t("billing.screen.records.currency")}
         </p>
       </section>
       {/* owner 2026-11-07: the /pricing table for this plan and the next one
        * up, at the bottom (moved from under the plan card) */}
-      <SectionBoundary name="Your prices">
+      <SectionBoundary name={t("billing.screen.sections.yourPrices")}>
         <YourPrices />
       </SectionBoundary>
       {/* owner 2026-11-07: refunds, quietly, at the bottom */}
-      <SectionBoundary name="Refunds">
+      <SectionBoundary name={t("billing.screen.sections.refunds")}>
         <RefundsFooter />
       </SectionBoundary>
     </section>

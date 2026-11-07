@@ -24,36 +24,45 @@ import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { billingUidAtom } from "@/lib/billing";
 import { CODE_LENGTH } from "@/lib/emailCode";
+import { useT } from "@/lib/i18n/I18nProvider";
+import type { Tr } from "@/lib/i18n/t";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import { longDate } from "./PlanCard";
 import {
-  CODE_SENT,
+  CHECK_FAILED,
   EMPTY_RESTORE_MOVE,
   findByEmailAtom,
   findOwnAtom,
+  HAS_OWN_PLAN,
   moveOfferAtom,
-  NOT_FOUND,
-  RESTORED,
   restartRestoreMoveAtom,
   restoreMoveAtom,
   verifyEmailCodeAtom,
 } from "./restoreMoveAtoms";
 
+/** What moves and what stays (the gateway's ids) → their messages. */
 export const MOVES: Record<string, string> = {
-  plan: "Your plan, until that date",
-  app_access: "Pro in the app",
-  current_usage: "This month's unused usage",
-  months_not_yet_given: "The months of usage still to come",
+  plan: "billing.restoreMove.moves.plan",
+  app_access: "billing.restoreMove.moves.appAccess",
+  current_usage: "billing.restoreMove.moves.currentUsage",
+  months_not_yet_given: "billing.restoreMove.moves.monthsNotYetGiven",
 };
 
 export const STAYS: Record<string, string> = {
-  usage_already_used: "Usage already used",
-  balance: "The old account's balance",
-  app_store_purchases: "App Store purchases",
-  past_runs_and_files: "Past videos and files",
-  admin_grants: "Anything support gave the old account",
+  usage_already_used: "billing.restoreMove.staysItems.usageAlreadyUsed",
+  balance: "billing.restoreMove.staysItems.balance",
+  app_store_purchases: "billing.restoreMove.staysItems.appStorePurchases",
+  past_runs_and_files: "billing.restoreMove.staysItems.pastRunsAndFiles",
+  admin_grants: "billing.restoreMove.staysItems.adminGrants",
 };
+
+/** The atom's English lines in the page's language (a refusal's own words stay). */
+function errorText(error: string, t: Tr): string {
+  if (error === HAS_OWN_PLAN) return t("billing.restoreMove.hasOwnPlan");
+  if (error === CHECK_FAILED) return t("billing.restoreMove.checkFailed");
+  return error;
+}
 
 export function planName(plan: string): string {
   if (plan === "studio") return "Studio";
@@ -62,6 +71,7 @@ export function planName(plan: string): string {
 }
 
 export function RestoreMove(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const router = useRouter();
   const { signOutUser } = useAuth();
@@ -86,7 +96,7 @@ export function RestoreMove(): JSX.Element {
           disabled={s.busy || uid === null}
           onClick={() => void findOwn(gateway)}
         >
-          {s.busy ? "Looking…" : "Find purchases under another email"}
+          {s.busy ? t("billing.restoreMove.looking") : t("billing.restoreMove.findOther")}
         </Button>
       ) : null}
 
@@ -98,11 +108,11 @@ export function RestoreMove(): JSX.Element {
             if (email.includes("@")) void findByEmail({ client: gateway, email });
           }}
         >
-          <Label htmlFor="restore-email">The email you bought it with</Label>
+          <Label htmlFor="restore-email">{t("billing.restoreMove.emailLabel")}</Label>
           <div className="flex gap-2">
             <Input id="restore-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="flex-1" />
             <Button type="submit" size="sm" disabled={s.busy || !email.includes("@")}>
-              {s.busy ? "Sending…" : "Send code"}
+              {s.busy ? t("billing.restoreMove.sending") : t("billing.restoreMove.sendCode")}
             </Button>
           </div>
         </form>
@@ -111,7 +121,7 @@ export function RestoreMove(): JSX.Element {
       {s.phase === "code" ? (
         <div className="flex flex-col gap-2">
           <p data-testid="restore-code-sent" className="text-sm text-fg-muted">
-            {CODE_SENT} to {s.email}.
+            {t("billing.restoreMove.codeSent", { email: s.email ?? "" })}
           </p>
           <CodeInput
             value={code}
@@ -122,10 +132,10 @@ export function RestoreMove(): JSX.Element {
           />
           <div className="flex gap-2">
             <Button size="sm" disabled={s.busy || code.length !== CODE_LENGTH} onClick={() => void verify({ client: gateway, code })}>
-              {s.busy ? "Checking…" : "Find purchases"}
+              {s.busy ? t("billing.restoreMove.checking") : t("billing.restoreMove.findPurchases")}
             </Button>
             <Button size="sm" variant="ghost" disabled={s.busy} onClick={() => restart()}>
-              Use another email
+              {t("billing.restoreMove.useAnother")}
             </Button>
           </div>
         </div>
@@ -140,12 +150,12 @@ export function RestoreMove(): JSX.Element {
       ) : null}
 
       <div role="status" aria-live="polite" className="text-sm">
-        {s.phase === "restored" ? <p data-testid="restore-move-done" className="text-fg">{RESTORED}</p> : null}
+        {s.phase === "restored" ? <p data-testid="restore-move-done" className="text-fg">{t("billing.restoreMove.restored")}</p> : null}
         {s.phase === "none" ? (
           <div className="flex flex-wrap items-center gap-2">
-            <p data-testid="restore-move-none" className="text-fg">{NOT_FOUND}</p>
+            <p data-testid="restore-move-none" className="text-fg">{t("billing.restoreMove.notFound")}</p>
             <Button size="sm" variant="ghost" onClick={() => restart()}>
-              Try another email
+              {t("billing.restoreMove.tryAnother")}
             </Button>
           </div>
         ) : null}
@@ -153,12 +163,12 @@ export function RestoreMove(): JSX.Element {
       {s.error !== null ? (
         <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red-300">
           <span>
-            {s.error}
-            {s.elsewhere && s.elsewhere.length > 0 ? ` (It signs in with ${providersWords(s.elsewhere)}.)` : ""}
+            {errorText(s.error, t)}
+            {s.elsewhere && s.elsewhere.length > 0 ? ` ${t("billing.restoreMove.signsInWith", { providers: providersWords(s.elsewhere, t) })}` : ""}
           </span>
           {s.ownPlan ? (
-            <a href={supportMailto("Move a plan to my account")} className="text-primary underline underline-offset-2">
-              Contact support
+            <a href={supportMailto(t("billing.restoreMove.supportSubject"), t)} className="text-primary underline underline-offset-2">
+              {t("billing.restoreMove.contactSupport")}
             </a>
           ) : null}
           {s.elsewhere !== null ? (
@@ -169,7 +179,7 @@ export function RestoreMove(): JSX.Element {
                 void signOutUser().then(() => router.push("/signin?next=%2Faccount%2Fbilling"));
               }}
             >
-              Sign in to that account
+              {t("billing.restoreMove.signInThere")}
             </Button>
           ) : null}
         </div>
@@ -179,36 +189,38 @@ export function RestoreMove(): JSX.Element {
 }
 
 function OfferCard({ offer: o, busy, onConfirm }: { offer: RestoreOffer; busy: boolean; onConfirm: () => void }): JSX.Element {
-  const carry = (o.carry_cents ?? 0) > 0 ? ` (${formatCents(o.carry_cents!)})` : "";
+  const t = useT();
+  const carry = (o.carry_cents ?? 0) > 0 ? ` (${formatCents(o.carry_cents!, t)})` : "";
+  const line = (keys: Record<string, string>, m: string) => (keys[m] ? t(keys[m], { pro: "Pro" }) : m);
   return (
     <li data-testid={`restore-offer-${o.offer_id}`} className="flex flex-col gap-2 rounded-lg border border-edge p-3 text-sm">
       <p className="font-medium text-fg">
         {/* a cancelled plan that runs to its end (renews: false) */}
-        {planName(o.plan)} plan · valid until {longDate(o.ends_at)}
+        {t("billing.restoreMove.offerTitle", { plan: planName(o.plan), date: longDate(o.ends_at, t) })}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <p className="text-xs text-fg-muted">What moves here</p>
+          <p className="text-xs text-fg-muted">{t("billing.restoreMove.movesHere")}</p>
           <ul className="list-disc pl-4 text-fg">
             {o.moves.map((m) => (
               <li key={m}>
-                {MOVES[m] ?? m}
+                {line(MOVES, m)}
                 {m === "current_usage" ? carry : ""}
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="text-xs text-fg-muted">What stays</p>
+          <p className="text-xs text-fg-muted">{t("billing.restoreMove.stays")}</p>
           <ul className="list-disc pl-4 text-fg-muted">
             {o.stays.map((m) => (
-              <li key={m}>{STAYS[m] ?? m}</li>
+              <li key={m}>{line(STAYS, m)}</li>
             ))}
           </ul>
         </div>
       </div>
       <Button size="sm" className="self-start" disabled={busy} onClick={onConfirm}>
-        {busy ? "Restoring…" : `Restore ${planName(o.plan)} here`}
+        {busy ? t("billing.restoreMove.restoring") : t("billing.restoreMove.restoreHere", { plan: planName(o.plan) })}
       </Button>
     </li>
   );

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { countryFromText, countryName, countryOptions, isCountryCode, localeCountry, pageLocale } from "@/lib/company";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 /** Where the visitor is (GET /api/geo, Vercel's header), else the browser
  * language's country. */
@@ -58,6 +59,7 @@ export function CountryCombobox({
   onChange: (code: string) => void;
   detected: string | null;
 }): JSX.Element {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const locale = pageLocale();
   const { first, rest } = useMemo(() => countryOptions(locale, detected), [locale, detected]);
@@ -101,17 +103,17 @@ export function CountryCombobox({
         </PopoverTrigger>
         <PopoverContent align="start" className="w-(--radix-popover-trigger-width) max-w-[calc(100vw-32px)] min-w-64 p-0">
           {/* label: cmdk names its input through aria-labelledby */}
-          <Command label="Search countries">
-            <CommandInput placeholder="Search countries" />
+          <Command label={t("company.country.search")}>
+            <CommandInput placeholder={t("company.country.search")} />
             <CommandList id={listId}>
-              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandEmpty>{t("company.country.none")}</CommandEmpty>
               {first !== null && (
                 <>
-                  <CommandGroup heading="Your country">{item(first)}</CommandGroup>
+                  <CommandGroup heading={t("company.country.yours")}>{item(first)}</CommandGroup>
                   <CommandSeparator />
                 </>
               )}
-              <CommandGroup heading={first !== null ? "All countries" : undefined}>{rest.map(item)}</CommandGroup>
+              <CommandGroup heading={first !== null ? t("company.country.all") : undefined}>{rest.map(item)}</CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>

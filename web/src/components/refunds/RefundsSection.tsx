@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import type { SupportRequest } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { SITE_NAME } from "@/lib/site";
 import { useProStatus } from "@/lib/pro/usePro";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
@@ -42,13 +45,15 @@ export const APPLE_REFUND_URL = "https://reportaproblem.apple.com";
  * Your requests, the question notice and the sheet stay. */
 export const SHOW_REFUND_ENTRY = false;
 
-export const REPORT_PROBLEM_SUBJECT = "Spatial Video Studio: report a problem";
+/** English (tests); the link reads refunds.section.reportSubject. */
+export const REPORT_PROBLEM_SUBJECT = `${SITE_NAME}: report a problem`;
 
+/** What a request is about → its message. */
 const ABOUT: Record<SupportRequest["about"], string> = {
-  plan: "Plan payment",
-  runs: "Runs",
-  balance: "Balance",
-  other: "Request",
+  plan: "refunds.section.about.plan",
+  runs: "refunds.section.about.runs",
+  balance: "refunds.section.about.balance",
+  other: "refunds.section.about.other",
 };
 
 /** Loads what can be refunded and the account's requests (ADR 0138: the
@@ -74,6 +79,7 @@ function useRefundData() {
 /** Owner 2026-11-07: the only refund line above the fold — we asked a
  * question about a request and it needs the customer's answer. */
 export function RefundQuestionNotice(): JSX.Element | null {
+  const t = useT();
   const uid = useAppAtomValue(billingUidAtom);
   const requests = useAppAtomValue(supportRequestsAtom);
   const list = requests.uid === uid ? requests.data : null;
@@ -81,17 +87,20 @@ export function RefundQuestionNotice(): JSX.Element | null {
   if (!asked) return null;
   return (
     <p data-testid="refund-question-notice" role="status" className="text-sm text-amber-200">
-      We asked a question about your refund request.{" "}
-      <a
-        href={`#request-${asked.id}`}
-        onClick={(e) => {
-          e.preventDefault();
-          document.getElementById(`request-${asked.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }}
-        className="text-primary underline underline-offset-2 hover:text-primary/80"
-      >
-        Answer it
-      </a>
+      {rich(t, "refunds.section.questionNotice", {
+        link: (c) => (
+          <a
+            href={`#request-${asked.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById(`request-${asked.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+            className="text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            {c}
+          </a>
+        ),
+      })}
     </p>
   );
 }
@@ -100,6 +109,7 @@ export function RefundQuestionNotice(): JSX.Element | null {
  * with a text link, the App Store line, and Your requests when there are
  * any. The sheet stays mounted here. */
 export function RefundsFooter(): JSX.Element {
+  const t = useT();
   const { opts, list } = useRefundData();
   const openSheet = useAppSetAtom(openRefundSheetAtom);
   const pro = useProStatus();
@@ -109,48 +119,65 @@ export function RefundsFooter(): JSX.Element {
   const days = opts?.window_days ?? 30;
 
   return (
-    <footer data-testid="refunds" aria-label="Refunds" className="flex flex-col gap-3 text-xs text-fg-muted">
+    <footer data-testid="refunds" aria-label={t("refunds.section.ariaLabel")} className="flex flex-col gap-3 text-xs text-fg-muted">
       {/* owner 2026-11-07: one generic contact point in place of the
           refund lines while SHOW_REFUND_ENTRY is off */}
       {SHOW_REFUND_ENTRY ? null : (
         <p data-testid="report-problem">
-          Something wrong with a payment or a run?{" "}
-          <a href={supportMailto(REPORT_PROBLEM_SUBJECT)} className="text-primary underline underline-offset-2 hover:text-primary/80">
-            Report a problem
-          </a>
+          {rich(t, "refunds.section.reportProblem", {
+            link: (c) => (
+              <a
+                href={supportMailto(t("refunds.section.reportSubject", { app: SITE_NAME }), t)}
+                className="text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                {c}
+              </a>
+            ),
+          })}
         </p>
       )}
       {SHOW_REFUND_ENTRY ? (
       <p data-testid="refunds-line">
-        {askable ? (
-          <>
-            Need a refund?{" "}
-            <button
-              type="button"
-              data-testid="refunds-request"
-              onClick={() => openSheet()}
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
-            >
-              Request a refund
-            </button>
-            {" · "}ask within {days} days of a payment, also after cancelling. A person reviews every request.
-          </>
-        ) : (
-          <>Ask for a refund within {days} days of a payment, also after cancelling. A person reviews every request.</>
-        )}
+        {askable
+          ? rich(
+              t,
+              "refunds.section.needRefund",
+              {
+                button: (c) => (
+                  <button
+                    type="button"
+                    data-testid="refunds-request"
+                    onClick={() => openSheet()}
+                    className="text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    {c}
+                  </button>
+                ),
+              },
+              { days },
+            )
+          : t("refunds.section.askWithin", { days })}
       </p>
       ) : null}
       {SHOW_REFUND_ENTRY && appStore ? (
         <p data-testid="refund-app-store">
-          Pro from the App Store is refunded by Apple.{" "}
-          <a href={APPLE_REFUND_URL} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
-            Ask Apple for a refund
-          </a>
+          {rich(
+            t,
+            "refunds.section.appStore",
+            {
+              link: (c) => (
+                <a href={APPLE_REFUND_URL} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+                  {c}
+                </a>
+              ),
+            },
+            { pro: "Pro" },
+          )}
         </p>
       ) : null}
       {list !== null && list.length > 0 ? (
         <div className="flex flex-col gap-2 text-sm">
-          <h2 className="text-xs font-medium text-fg-muted">Your requests</h2>
+          <h2 className="text-xs font-medium text-fg-muted">{t("refunds.section.yourRequests")}</h2>
           <ul data-testid="support-requests" className="divide-y divide-edge rounded-lg border border-edge bg-surface-1">
             {list.map((r) => (
               <RequestRow key={r.id} request={r} />
@@ -164,6 +191,7 @@ export function RefundsFooter(): JSX.Element {
 }
 
 function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const reply = useAppSetAtom(replyToRequestAtom);
   const asked = r.state === "asked";
@@ -181,7 +209,7 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
       setText("");
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't send that. Try again in a while.");
+      setError(e instanceof Error ? e.message : t("refunds.section.replyFailed"));
     } finally {
       setBusy(false);
     }
@@ -190,14 +218,14 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
   return (
     <li id={`request-${r.id}`} data-testid={`request-${r.id}`} className="flex scroll-mt-24 flex-col gap-2 px-3 py-2.5 text-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-fg">{ABOUT[r.about] ?? "Request"}</span>
-        <span className="text-xs text-fg-muted">{shortDay(r.opened_at)}</span>
+        <span className="text-fg">{t(ABOUT[r.about] ?? ABOUT.other)}</span>
+        <span className="text-xs text-fg-muted">{shortDay(r.opened_at, t)}</span>
         {typeof r.requested_cents === "number" && r.requested_cents > 0 ? (
-          <span className="text-xs text-fg-muted tabular-nums">{formatCents(r.requested_cents)}</span>
+          <span className="text-xs text-fg-muted tabular-nums">{formatCents(r.requested_cents, t)}</span>
         ) : null}
         <span data-testid="request-status" className={`ml-auto text-xs ${asked ? "text-amber-300" : "text-fg"}`}>
           {r.status}
-          {r.state === "refunded" && (r.refunded_cents ?? 0) > 0 ? ` · ${formatCents(r.refunded_cents!)}` : ""}
+          {r.state === "refunded" && (r.refunded_cents ?? 0) > 0 ? ` · ${formatCents(r.refunded_cents!, t)}` : ""}
         </span>
       </div>
       {asked && r.question ? (
@@ -208,7 +236,7 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
       {open || asked ? (
         <div className="flex flex-col gap-2">
           <textarea
-            aria-label={asked ? "Your answer" : "Your message"}
+            aria-label={asked ? t("refunds.section.answerLabel") : t("refunds.section.messageLabel")}
             value={text}
             maxLength={NOTE_MAX}
             rows={3}
@@ -222,18 +250,18 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
           )}
           <div className="flex gap-2">
             <Button size="sm" disabled={busy || !text.trim()} onClick={() => void send()}>
-              {busy ? "Sending…" : asked ? "Send answer" : "Send"}
+              {busy ? t("refunds.section.sending") : asked ? t("refunds.section.sendAnswer") : t("refunds.section.send")}
             </Button>
             {!asked ? (
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
+                {t("refunds.section.cancel")}
               </Button>
             ) : null}
           </div>
         </div>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="self-start text-xs text-primary hover:underline">
-          {done ? "Ask about this again" : "Add a message"}
+          {done ? t("refunds.section.askAgain") : t("refunds.section.addMessage")}
         </button>
       )}
     </li>

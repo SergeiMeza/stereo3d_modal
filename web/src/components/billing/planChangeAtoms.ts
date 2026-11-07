@@ -19,6 +19,7 @@ import { atomFamily } from "jotai-family";
 
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
+import type { Tr } from "@/lib/i18n/t";
 
 import { confirmPlanChange } from "./planChangeCopy";
 
@@ -99,18 +100,19 @@ export const closePlanChangeAtom = atom(null, (get, set, scope: string) => {
   set(at, { ...EMPTY, seq: get(at).seq + 1 });
 });
 
-/** Confirm the previewed change: "done", "repriced" (the new price shows
+/** Confirm the previewed change (`t`: the words of a failure): "done", "repriced" (the new price shows
  * and waits for another confirm), "error" (its words in the state) or
  * "none" (no preview to confirm). */
 export const confirmPlanChangeAtom = atom(
   null,
-  async (get, set, a: { scope: string; client: Client }): Promise<"done" | "repriced" | "error" | "none"> => {
+  async (get, set, a: { scope: string; client: Client; t?: Tr }): Promise<"done" | "repriced" | "error" | "none"> => {
     const at = planChangeAtom(a.scope);
     const s = get(at);
     if (!s.preview || s.busy) return "none";
     const mine = s.seq;
     set(at, { ...s, busy: true, error: null, repriced: false });
-    const r = await confirmPlanChange(a.client, s.preview);
+    // the failure's words in the caller's language (English without one)
+    const r = await confirmPlanChange(a.client, s.preview, a.t);
     if (get(at).seq !== mine) return r.kind;
     if (r.kind === "done") set(at, (x) => ({ ...x, busy: false }));
     else if (r.kind === "repriced") set(at, (x) => ({ ...x, busy: false, preview: r.preview, repriced: true }));

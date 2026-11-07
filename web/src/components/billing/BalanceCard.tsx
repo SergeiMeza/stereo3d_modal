@@ -12,7 +12,7 @@ import type { JSX, ReactNode } from "react";
 
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
 import { liveProCredit } from "@/components/pro/ProCredit";
-import { formatCents } from "@/components/steps/money";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { isTeamPlan, prepaidOf } from "@/lib/api/types";
 import type { AccountPlan, BalanceCredit, BalanceSummary, ProCreditStatus } from "@/lib/api/types";
@@ -21,6 +21,8 @@ import { billingReadVersionAtom, useBilling } from "@/lib/billing";
 import type { LiveBalance } from "@/lib/live/events";
 import { liveBalanceAtom } from "@/lib/live/liveStore";
 import { useLiveFeed } from "@/lib/live/useLive";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useAppAtomValue } from "@/lib/state/stores";
 
 /** The read balance with the live feed's numbers on top when they're
@@ -34,13 +36,18 @@ export function liveBalance(read: BalanceSummary, live: LiveBalance | null, read
   };
 }
 
-function longDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+/** English reads day-first here ("7 Dec 2026"); another language its own way. */
+function dateTag(t: Tr): string {
+  return t.locale === "en" ? "en-GB" : t.intl;
+}
+
+function longDate(iso: string, t: Tr): string {
+  return new Date(iso).toLocaleDateString(dateTag(t), { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** "5 Dec" */
-function dayMonth(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+function dayMonth(iso: string, t: Tr): string {
+  return new Date(iso).toLocaleDateString(dateTag(t), { day: "numeric", month: "short" });
 }
 
 /** Owner 2026-11-05: the Balance is the prepaid top-ups that keep; a
@@ -70,11 +77,11 @@ export function prepaidExpiresAt(b: BalanceSummary): string | null {
 
 
 /** A credit's words: "$100.00 usage credit (use by 7 Dec)". */
-const CREDIT_WORDS: Record<BalanceCredit["kind"], string> = {
-  grant: "usage credit",
-  pro: "Pro credit",
-  plan: "plan usage",
-};
+function creditWords(kind: BalanceCredit["kind"], t: Tr): string {
+  if (kind === "pro") return t("billing.balance.creditWords.pro", { pro: "Pro" });
+  if (kind === "plan") return t("billing.balance.creditWords.plan");
+  return t("billing.balance.creditWords.grant");
+}
 
 /** The credits in the balance, left and still usable: the gateway's
  * balance.credits (spent or expired ones left out), else, on older
@@ -98,22 +105,29 @@ export function balanceCredits(
 
 /** "includes $100.00 usage credit (use by 7 Dec) and $20.00 Pro credit
  * (use by 7 Dec)"; null without credit. */
-export function creditsLine(credits: BalanceCredit[]): string | null {
+export function creditsLine(credits: BalanceCredit[], t: Tr = EN): string | null {
   if (credits.length === 0) return null;
-  const parts = credits.map(
-    (c) => `${formatCents(c.cents)} ${CREDIT_WORDS[c.kind] ?? "usage credit"}${c.expires_at ? ` (use by ${dayMonth(c.expires_at)})` : ""}`,
-  );
-  const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
-  return `includes ${joined}`;
+  const parts = credits.map((c) => {
+    const values = { amount: formatCents(c.cents, t), words: creditWords(c.kind, t) };
+    return c.expires_at
+      ? t("billing.balance.creditItemUseBy", { ...values, date: dayMonth(c.expires_at, t) })
+      : t("billing.balance.creditItem", values);
+  });
+  const joined =
+    parts.length === 1
+      ? parts[0]
+      : t("billing.balance.creditsAnd", { rest: parts.slice(0, -1).join(", "), last: parts.at(-1) });
+  return t("billing.balance.includes", { credits: joined });
 }
 
-const PAUSED: Record<string, string> = {
-  declined: "Auto-reload is paused because a payment didn't go through.",
-  limit: "Auto-reload is paused: daily limit reached. It resumes tomorrow.",
-};
+/** The paused reasons with their own line (others read as declined). */
+function pausedLine(reason: string, t: Tr): string {
+  return reason === "limit" ? t("billing.balance.paused.limit") : t("billing.balance.paused.declined");
+}
 
 export function BalanceCard(): JSX.Element | null {
   const { status } = useBilling();
+  const t = useT();
   const gateway = useGateway();
   const billing = useBilling();
   const { openAddFunds, openAutoReload, openSpending } = useBalanceDialogs();
@@ -129,7 +143,7 @@ export function BalanceCard(): JSX.Element | null {
   if (!read) return null; // a gateway without the balance yet
   const b = liveBalance(read, live, readVersion);
   const ar = b.auto_reload;
-  const paused = ar.enabled && ar.paused_reason ? (PAUSED[ar.paused_reason] ?? PAUSED.declined) : null;
+  const paused = ar.enabled && ar.paused_reason ? pausedLine(ar.paused_reason, t) : null;
   const limit = b.spend_limit_cents ?? null;
   const used = limit ? Math.min(1, b.month_spent_cents / limit) : 0;
   const plan = isTeamPlan(status.plan) ? status.plan : null;
@@ -138,7 +152,7 @@ export function BalanceCard(): JSX.Element | null {
   // owner 2026-11-07: the headline is everything spendable, credit
   // included; the credit is spelled out under it, the cash by Add funds
   const credits = balanceCredits(b, plan, proCredit);
-  const creditLine = creditsLine(credits);
+  const creditLine = creditsLine(credits, t);
   const frozen = prepaidFrozenCents(b);
   const expires = prepaidExpiresAt(b);
 
@@ -151,41 +165,41 @@ export function BalanceCard(): JSX.Element | null {
       <div className="flex flex-wrap items-end gap-4 p-5">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 id="balance-title" className="text-[11px] font-semibold tracking-wider text-fg-muted uppercase">
-            Balance
+            {t("billing.balance.title")}
           </h2>
           <p data-testid="balance-amount" className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
-            {formatCents(Math.max(b.available_cents, 0))}
+            {formatCents(Math.max(b.available_cents, 0), t)}
           </p>
           <p data-testid="balance-credits" className="text-xs text-fg-muted tabular-nums">
-            available{creditLine ? ` · ${creditLine}` : ""}
+            {creditLine ? t("billing.balance.availableWithCredits", { credits: creditLine }) : t("billing.balance.available")}
           </p>
           {b.held_cents > 0 ? (
             <p className="text-xs text-fg-muted tabular-nums">
-              {formatCents(b.held_cents)} reserved for {b.held_runs ?? 1} {(b.held_runs ?? 1) === 1 ? "run" : "runs"} in progress
+              {t("billing.balance.reserved", { amount: formatCents(b.held_cents, t), count: b.held_runs ?? 1 })}
             </p>
           ) : null}
           {frozen > 0 ? (
             <p data-testid="balance-frozen" className="text-xs text-amber-200 tabular-nums">
-              {formatCents(frozen)} on hold while a payment is reviewed.
+              {t("billing.balance.frozen", { amount: formatCents(frozen, t) })}
             </p>
           ) : null}
           {b.expired && b.expires_at ? (
-            <p className="text-xs text-fg-muted">Your balance expired on {longDate(b.expires_at)}.</p>
+            <p className="text-xs text-fg-muted">{t("billing.balance.expired", { date: longDate(b.expires_at, t) })}</p>
           ) : b.never_topped_up && prepaid === 0 && credits.length === 0 ? (
-            <p className="text-xs text-fg-muted">Add funds to pay for runs from your balance.</p>
+            <p className="text-xs text-fg-muted">{t("billing.balance.addFundsHint")}</p>
           ) : expires ? (
             <p data-testid="balance-expires" className="text-xs text-fg-muted">
-              Expires on {longDate(expires)} unless you add funds.
+              {t("billing.balance.expires", { date: longDate(expires, t) })}
             </p>
           ) : null}
         </div>
         <div className="flex flex-col items-end gap-1">
           <Button size="lg" data-testid="balance-add-funds" onClick={openAddFunds}>
             <PlusIcon className="size-4" aria-hidden />
-            Add funds
+            {t("billing.balance.addFunds")}
           </Button>
           <span data-testid="balance-prepaid" className="text-xs text-fg-muted tabular-nums">
-            Prepaid {formatCents(prepaid)}
+            {t("billing.balance.prepaid", { amount: formatCents(prepaid, t) })}
           </span>
         </div>
       </div>
@@ -203,38 +217,42 @@ export function BalanceCard(): JSX.Element | null {
                 void billing.refresh();
               }}
             >
-              Turn back on
+              {t("billing.balance.turnBackOn")}
             </button>
           ) : null}
         </div>
       ) : null}
       <SettingRow
-        label="Auto-reload"
-        value={ar.enabled ? `Below ${formatCents(ar.below_cents)}, add ${formatCents(ar.add_cents)}` : "Off"}
-        action={ar.enabled ? "Edit" : "Set up"}
+        label={t("billing.balance.autoReload")}
+        value={
+          ar.enabled
+            ? t("billing.balance.autoReloadValue", { below: formatCents(ar.below_cents, t), add: formatCents(ar.add_cents, t) })
+            : t("billing.balance.off")
+        }
+        action={ar.enabled ? t("billing.balance.edit") : t("billing.balance.setUp")}
         onClick={openAutoReload}
       />
       <SettingRow
-        label="Monthly spend limit"
+        label={t("billing.balance.spendLimit")}
         value={
           limit ? (
             <span className="flex items-center gap-3">
-              {formatCents(limit).replace(/\.00$/, "")} a month · {formatCents(b.month_spent_cents)} used
+              {t("billing.balance.spendLimitValue", { limit: formatCentsShort(limit, t), used: formatCents(b.month_spent_cents, t) })}
               <span aria-hidden className="hidden h-1 w-28 overflow-hidden rounded-full bg-surface-2 sm:block">
                 <span className="block h-full rounded-full bg-primary" style={{ width: `${used * 100}%` }} />
               </span>
             </span>
           ) : (
-            "None"
+            t("billing.balance.none")
           )
         }
-        action={limit ? "Edit" : "Set"}
+        action={limit ? t("billing.balance.edit") : t("billing.balance.set")}
         onClick={openSpending}
       />
       <SettingRow
-        label="Balance alert"
-        value={`Below ${formatCents(b.low_balance_cents)}`}
-        action="Edit"
+        label={t("billing.balance.balanceAlert")}
+        value={t("billing.balance.balanceAlertValue", { amount: formatCents(b.low_balance_cents, t) })}
+        action={t("billing.balance.edit")}
         onClick={openSpending}
       />
     </section>
@@ -252,6 +270,7 @@ function SettingRow({
   action: string;
   onClick: () => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-0.5 border-t border-edge px-5 py-3 text-sm sm:grid-cols-[12rem_1fr_auto]">
       <span className="text-fg-muted">{label}</span>
@@ -259,7 +278,7 @@ function SettingRow({
       <button
         type="button"
         onClick={onClick}
-        aria-label={`${action} ${label.toLowerCase()}`}
+        aria-label={t("billing.balance.rowAction", { action, label: label.toLocaleLowerCase(t.intl) })}
         className="row-span-2 text-primary hover:underline sm:row-span-1"
       >
         {action}

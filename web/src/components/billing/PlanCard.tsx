@@ -17,10 +17,14 @@ import { PlanChangeMenu, ScheduledChange } from "./PlanChange";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { SITE_NAME } from "@/lib/site";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
-export function longDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+/** "10 Jan 2027" in English (en-GB order); the language's own order else. */
+export function longDate(iso: string, t: Tr = EN): string {
+  return new Date(iso).toLocaleDateString(t.locale === "en" ? "en-GB" : t.intl, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -28,6 +32,7 @@ export function longDate(iso: string): string {
 }
 
 export function PlanCard(): JSX.Element | null {
+  const t = useT();
   const billing = useBilling();
   const plan = billing.status?.plan;
   if (!plan?.active) return null;
@@ -44,14 +49,14 @@ export function PlanCard(): JSX.Element | null {
     >
       <div className="flex flex-wrap items-center gap-3">
         <h2 id="plan-title" className="text-sm font-semibold text-fg">
-          {plan.name ?? plan.plan} plan
+          {t("billing.plan.title", { name: plan.name ?? plan.plan })}
         </h2>
         {planPrice(plan).cents > 0 ? (
           <span
             data-testid="plan-price"
             className="text-xs text-fg-muted tabular-nums"
           >
-            {formatCents(planPrice(plan).cents)} {planPrice(plan).per}
+            {formatCents(planPrice(plan).cents, t)} {planPrice(plan).per}
           </span>
         ) : null}
         <span className="ml-auto">
@@ -65,7 +70,7 @@ export function PlanCard(): JSX.Element | null {
       {credit > 0 ? (
         <div className="flex flex-col gap-1.5">
           <p data-testid="plan-credit" className="text-sm text-fg tabular-nums">
-            {formatCents(left)} of {formatCents(credit)} usage left this month
+            {t("billing.plan.creditLeft", { left: formatCents(left, t), credit: formatCents(credit, t) })}
           </p>
           {plan.credit_resets_at ? (
             // Studio yearly: the usage resets every month of the year
@@ -73,7 +78,7 @@ export function PlanCard(): JSX.Element | null {
               data-testid="plan-credit-resets"
               className="text-xs text-fg-muted"
             >
-              Usage resets on {longDate(plan.credit_resets_at)}.
+              {t("billing.plan.usageResets", { date: longDate(plan.credit_resets_at, t) })}
             </p>
           ) : null}
           <span
@@ -91,9 +96,11 @@ export function PlanCard(): JSX.Element | null {
       !plan.cancel_at_period_end &&
       !plan.scheduled_change ? (
         <p className="text-xs text-fg-muted">
-          {`${planPrice(plan).yearly ? "Billed yearly. " : ""}Renews on ${longDate(plan.current_period_end)}.`}{" "}
+          {t(planPrice(plan).yearly ? "billing.plan.billedYearlyRenewsOn" : "billing.plan.renewsOn", {
+            date: longDate(plan.current_period_end, t),
+          })}{" "}
           <Link href="/plans" className="text-primary hover:underline">
-            Plans
+            {t("billing.plan.plansLink")}
           </Link>
         </p>
       ) : null}
@@ -109,6 +116,7 @@ export function PlanCard(): JSX.Element | null {
  * reads the settings again.
  */
 export function IntroSwitch(): JSX.Element | null {
+  const t = useT();
   const billing = useBilling();
   // ADR 0138: the account's settings atom (useAccountSettings), shared
   // with onboarding and Make 3D
@@ -148,12 +156,12 @@ export function IntroSwitch(): JSX.Element | null {
       className="flex flex-col gap-1 border-t border-edge pt-3"
     >
       <label className="flex items-center justify-between gap-3 text-sm text-fg">
-        Add the Spatial Video Studio intro to my videos
+        {t("billing.plan.introLabel", { app: SITE_NAME })}
         <button
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label="Add the Spatial Video Studio intro to my videos"
+          aria-label={t("billing.plan.introLabel", { app: SITE_NAME })}
           disabled={saving}
           onClick={() => void toggle()}
           className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-70 ${
@@ -166,11 +174,11 @@ export function IntroSwitch(): JSX.Element | null {
         </button>
       </label>
       <p className="text-xs text-fg-muted">
-        A short Spatial Video Studio title plays before your videos.
+        {t("billing.plan.introHint", { app: SITE_NAME })}
       </p>
       {error ? (
         <p className="text-xs text-red-400">
-          Couldn&apos;t save that. Try again.
+          {t("billing.plan.introSaveFailed")}
         </p>
       ) : null}
     </div>

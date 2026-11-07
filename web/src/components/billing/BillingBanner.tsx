@@ -18,18 +18,15 @@ import { AlertCircleIcon, LockIcon } from "lucide-react";
 import type { JSX } from "react";
 
 import { FEEDBACK_EMAIL } from "@/lib/contact";
-import {
-  CONFIRMING,
-  PAYMENT_PROBLEM as PROBLEM,
-  UNDER_REVIEW,
-  payToContinue,
-} from "@/components/pay/payCopy";
+import { PAYMENT_PROBLEM as PROBLEM, payToContinue } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /** Injectable for tests (jsdom cannot navigate). */
 let navigateExternal = (url: string) => window.location.assign(url);
@@ -43,18 +40,20 @@ export const PAYMENT_PROBLEM = PROBLEM;
  * the browser is on its way. */
 export async function openCardUpdate(
   gateway: ReturnType<typeof useGateway>,
+  t: Tr = EN,
 ): Promise<string | null> {
   try {
     const { url } = await gateway.createBillingPortalSession(window.location.href);
     navigateExternal(url);
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : "Couldn't open the payment method page";
+    return e instanceof Error ? e.message : t("billing.banner.portalFailed");
   }
 }
 
 /** P14 "Outstanding": the run button while the account owes. */
 export function PayToContinue({ size = "lg" }: { size?: "lg" | "default" }): JSX.Element {
+  const t = useT();
   const cents = outstandingCents(useBilling().status);
   const { openSettle } = useSettle();
   return (
@@ -64,16 +63,18 @@ export function PayToContinue({ size = "lg" }: { size?: "lg" | "default" }): JSX
       className="w-full bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
       onClick={() => openSettle()}
     >
-      {payToContinue(cents)}
+      {payToContinue(cents, t)}
     </Button>
   );
 }
 
-export function supportMailto(subject = "Payment on my account"): string {
-  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}`;
+export function supportMailto(subject?: string, t: Tr = EN): string {
+  const s = subject ?? t("billing.banner.supportSubject");
+  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(s)}`;
 }
 
 export function BillingBanner(): JSX.Element | null {
+  const t = useT();
   const { status } = useBilling();
   const { openSettle } = useSettle();
   if (!status) return null;
@@ -91,15 +92,15 @@ export function BillingBanner(): JSX.Element | null {
       <div className="mx-auto flex w-full max-w-7xl items-center gap-3">
         <AlertCircleIcon className="size-4 shrink-0 text-red-300" aria-hidden />
         <p className="min-w-0 flex-1 text-sm text-red-100">
-          {review ? UNDER_REVIEW : settling ? CONFIRMING : PROBLEM}
+          {t(review ? "pay.copy.underReview" : settling ? "pay.copy.confirming" : "pay.copy.paymentProblem")}
         </p>
         {review ? (
           <a
-            href={supportMailto()}
+            href={supportMailto(undefined, t)}
             data-testid="billing-support"
             className="shrink-0 text-sm font-medium text-red-200 hover:underline"
           >
-            Contact support
+            {t("billing.banner.contactSupport")}
           </a>
         ) : !settling ? (
           <Button
@@ -109,7 +110,7 @@ export function BillingBanner(): JSX.Element | null {
             className="shrink-0 bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
           >
             <LockIcon className="size-3.5" aria-hidden />
-            Pay {formatCents(owed)}
+            {t("billing.banner.pay", { amount: formatCents(owed, t) })}
           </Button>
         ) : null}
       </div>

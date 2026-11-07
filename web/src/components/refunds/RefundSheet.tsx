@@ -25,22 +25,27 @@ import {
 import { Label } from "@/components/ui/label";
 import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import {
   closeRefundSheetAtom,
   loadRefundOptionsAtom,
   NOTE_MAX,
+  OPTIONS_LOAD_FAILED,
   refundOptionsAtom,
   refundSheetAtom,
   sendRefundRequestAtom,
 } from "./refundAtoms";
 
+/** English (tests); the sheet reads refunds.sheet.*. */
 export const REVIEW_LINE = "We'll review it within 2 business days.";
 export const MERGED_LINE = "You'd already asked about some of these, so we added them to that request.";
 
-export function shortDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+/** "7 Nov" in English (day first); the language's own order otherwise. */
+export function shortDay(iso: string, t: Tr = EN): string {
+  return new Date(iso).toLocaleDateString(t.locale === "en" ? "en-GB" : t.intl, { day: "numeric", month: "short" });
 }
 
 export function RefundSheet(): JSX.Element {
@@ -65,6 +70,7 @@ function RefundBody({
   initialRuns: string[];
   onDone: () => void;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const state = useAppAtomValue(refundOptionsAtom);
   const uid = useAppAtomValue(billingUidAtom);
@@ -95,7 +101,7 @@ function RefundBody({
       const r = await send({ client: gateway, plan: planPicked, conversionIds: runsPicked, text: note });
       setSent({ plan: planPicked, merged: r.merged });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't send your request. Try again in a while.");
+      setError(e instanceof Error ? e.message : t("refunds.sheet.sendFailed"));
     } finally {
       setBusy(false);
     }
@@ -106,21 +112,21 @@ function RefundBody({
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Request sent</DialogTitle>
-          <DialogDescription>{REVIEW_LINE}</DialogDescription>
+          <DialogTitle>{t("refunds.sheet.sentTitle")}</DialogTitle>
+          <DialogDescription>{t("refunds.sheet.reviewLine")}</DialogDescription>
         </DialogHeader>
-        {sent.merged ? <p className="text-sm text-fg-muted">{MERGED_LINE}</p> : null}
+        {sent.merged ? <p className="text-sm text-fg-muted">{t("refunds.sheet.mergedLine")}</p> : null}
         {offerCancel ? (
           <div data-testid="refund-cancel-too" className="flex flex-wrap items-center gap-3 rounded-lg border border-edge p-3 text-sm">
-            <span className="min-w-0 flex-1 text-fg">Cancel your plan too?</span>
+            <span className="min-w-0 flex-1 text-fg">{t("refunds.sheet.cancelToo")}</span>
             {/* a full load, so Plan & billing opens its cancel confirmation */}
             <Button asChild size="sm" variant="outline">
-              <a href={CANCEL_PLAN_HREF}>Cancel plan</a>
+              <a href={CANCEL_PLAN_HREF}>{t("refunds.sheet.cancelPlan")}</a>
             </Button>
           </div>
         ) : null}
         <DialogFooter>
-          <Button onClick={onDone}>Done</Button>
+          <Button onClick={onDone}>{t("refunds.sheet.done")}</Button>
         </DialogFooter>
       </>
     );
@@ -129,29 +135,28 @@ function RefundBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Request a refund</DialogTitle>
-        <DialogDescription>
-          Pick what it&apos;s about. A person reviews every request. You can ask within{" "}
-          {options?.window_days ?? 30} days of a payment.
-        </DialogDescription>
+        <DialogTitle>{t("refunds.sheet.title")}</DialogTitle>
+        <DialogDescription>{t("refunds.sheet.intro", { days: options?.window_days ?? 30 })}</DialogDescription>
       </DialogHeader>
       {options === null ? (
         state.error && state.uid === uid ? (
-          <p role="alert" className="text-sm text-destructive">{state.error}</p>
+          <p role="alert" className="text-sm text-destructive">
+            {state.error === OPTIONS_LOAD_FAILED ? t("refunds.sheet.optionsLoadFailed") : state.error}
+          </p>
         ) : (
           <div className="h-24 animate-pulse rounded-lg bg-surface-2" aria-busy="true" />
         )
       ) : nothing ? (
         <p data-testid="refund-nothing" className="text-sm text-fg-muted">
-          Nothing paid in the last {options.window_days ?? 30} days can be refunded.
+          {t("refunds.sheet.nothing", { days: options.window_days ?? 30 })}
         </p>
       ) : (
         <ul data-testid="refund-items" className="max-h-64 divide-y divide-edge overflow-y-auto rounded-lg border border-edge">
           {planOption ? (
             <PickRow
               id="refund-plan"
-              label={`${planOption.name} plan`}
-              detail={`${formatCents(planOption.paid_cents)} · paid ${shortDay(planOption.paid_at)}`}
+              label={t("refunds.sheet.planLabel", { name: planOption.name })}
+              detail={t("refunds.sheet.paidDetail", { amount: formatCents(planOption.paid_cents, t), date: shortDay(planOption.paid_at, t) })}
               asked={planOption.open_request_id !== null}
               checked={planPicked}
               onChange={setPlan}
@@ -162,7 +167,7 @@ function RefundBody({
               key={r.conversion_id}
               id={`refund-run-${r.conversion_id}`}
               label={r.label}
-              detail={`${formatCents(r.amount_cents)} · paid ${shortDay(r.paid_at)}`}
+              detail={t("refunds.sheet.paidDetail", { amount: formatCents(r.amount_cents, t), date: shortDay(r.paid_at, t) })}
               asked={r.open_request_id !== null}
               checked={runsPicked.includes(r.conversion_id)}
               onChange={(on) =>
@@ -173,7 +178,7 @@ function RefundBody({
         </ul>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="refund-note">What happened? (optional)</Label>
+        <Label htmlFor="refund-note">{t("refunds.sheet.noteLabel")}</Label>
         <textarea
           id="refund-note"
           value={note}
@@ -193,10 +198,10 @@ function RefundBody({
       )}
       <DialogFooter>
         <Button variant="outline" disabled={busy} onClick={onDone}>
-          Cancel
+          {t("refunds.sheet.cancel")}
         </Button>
         <Button disabled={busy || (!planPicked && runsPicked.length === 0)} onClick={() => void submit()}>
-          {busy ? "Sending…" : "Send"}
+          {busy ? t("refunds.sheet.sending") : t("refunds.sheet.send")}
         </Button>
       </DialogFooter>
     </>
@@ -218,6 +223,7 @@ function PickRow({
   checked: boolean;
   onChange: (on: boolean) => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <li className="flex items-center gap-3 px-3 py-2.5 text-sm">
       <input
@@ -232,7 +238,7 @@ function PickRow({
         <span className="block truncate text-fg">{label}</span>
         <span className="block text-xs text-fg-muted tabular-nums">
           {detail}
-          {asked ? " · already asked for" : ""}
+          {asked ? ` ${t("refunds.sheet.alreadyAsked")}` : ""}
         </span>
       </label>
     </li>

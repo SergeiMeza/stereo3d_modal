@@ -8,15 +8,17 @@
  */
 
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { BillingBanner } from "./BillingBanner";
 
 export function RequireBilling({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const { status, error } = useBilling();
   if (status === null && error === null) {
     return (
       <div className="flex flex-1 items-center justify-center py-24 text-fg-muted">
-        Loading…
+        {t("billing.requireBilling.loading")}
       </div>
     );
   }

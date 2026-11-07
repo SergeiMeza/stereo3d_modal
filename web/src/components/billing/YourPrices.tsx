@@ -27,12 +27,18 @@ import { Button } from "@/components/ui/button";
 import { isTeamPlan } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import type { Tr } from "@/lib/i18n/t";
 import { isStripePro, useBuyPro, useProOffer, useProStatus } from "@/lib/pro/usePro";
 import { useAppAtom } from "@/lib/state/stores";
 
 import { yourPricesOpenAtom } from "./yourPricesAtoms";
 
-const NAMES: Record<PriceKey, string> = { list: "Pay per video", pro: "Pro", business: "Business", studio: "Studio" };
+const NAMES: Record<Exclude<PriceKey, "list">, string> = { pro: "Pro", business: "Business", studio: "Studio" };
+/** A price row's name: the plan's (a product name), or "Pay per video". */
+function nameOf(k: PriceKey, t: Tr): string {
+  return k === "list" ? t("billing.yourPrices.payPerVideo") : NAMES[k];
+}
 const LADDER: PriceKey[] = ["studio", "business", "pro", "list"];
 
 /** The plan above `mine` in the server's price order (highest first). */
@@ -45,6 +51,7 @@ export function nextPlanUp(mine: PriceKey, order: string[] | undefined): PriceKe
 }
 
 export function YourPrices(): JSX.Element | null {
+  const t = useT();
   const pricing = usePricing();
   const tier = usePlanTier();
   const billing = useBilling();
@@ -57,7 +64,8 @@ export function YourPrices(): JSX.Element | null {
     const v = k === "list" ? undefined : pricing.tiers?.classic_pct?.[k];
     return typeof v === "number" && v > 0 ? Math.round(v * 100) : null;
   };
-  const caption = (k: PriceKey) => (pct(k) ? `With ${NAMES[k]}, ${pct(k)}% off` : NAMES[k]);
+  const caption = (k: PriceKey) =>
+    pct(k) ? t("billing.yourPrices.withPlanOff", { plan: nameOf(k, t), pct: pct(k) }) : nameOf(k, t);
   const plan = billing.status?.plan;
   // gateway 00155: a restored or moved plan runs to its end, no changes
   const endsOnly = plan?.active === true && (plan.renewable === false || !!plan.restored_from);
@@ -67,7 +75,7 @@ export function YourPrices(): JSX.Element | null {
       <section data-testid="your-prices" aria-labelledby="your-prices-title" className="flex flex-col gap-3">
         <Collapsible.Trigger asChild>
           <button type="button" className="flex items-center gap-2 self-start text-sm font-semibold text-fg">
-            <span id="your-prices-title">Your prices per minute</span>
+            <span id="your-prices-title">{t("billing.yourPrices.title")}</span>
             <ChevronDownIcon aria-hidden className={`size-4 text-fg-muted transition-transform ${open ? "rotate-180" : ""}`} />
           </button>
         </Collapsible.Trigger>
@@ -75,7 +83,7 @@ export function YourPrices(): JSX.Element | null {
           <LifelikePrices
             pricing={pricing}
             plan={mine}
-            title="Your prices"
+            title={t("billing.yourPrices.yourPrices")}
             caption={caption(mine)}
             testId="your-prices-mine"
           />
@@ -83,12 +91,12 @@ export function YourPrices(): JSX.Element | null {
             <LifelikePrices
               pricing={pricing}
               plan={next}
-              title={`With ${NAMES[next]}`}
-              caption={pct(next) ? `${pct(next)}% off every minute` : undefined}
+              title={t("billing.yourPrices.withPlan", { plan: nameOf(next, t) })}
+              caption={pct(next) ? t("billing.yourPrices.pctOff", { pct: pct(next) }) : undefined}
               testId="your-prices-next"
               compact
             >
-              {endsOnly ? null : <UpgradeButton to={next} webPro={isStripePro(pro, plan)} appStorePro={proCase(pro) === "app_store"} teamName={isTeamPlan(plan) ? (plan.name ?? NAMES[plan.plan as PriceKey]) : null} />}
+              {endsOnly ? null : <UpgradeButton to={next} webPro={isStripePro(pro, plan)} appStorePro={proCase(pro) === "app_store"} teamName={isTeamPlan(plan) ? (plan.name ?? nameOf(plan.plan as PriceKey, t)) : null} />}
             </LifelikePrices>
           ) : null}
         </Collapsible.Content>
@@ -117,8 +125,9 @@ function UpgradeButton({
   const buy = useBuyPro();
   const pro = useProStatus();
   const billingPlan = useBilling().status?.plan;
+  const t = useT();
   const [sheet, setSheet] = useState<"new" | "change" | null>(null);
-  const label = `Upgrade to ${NAMES[to]}`;
+  const label = t("billing.yourPrices.upgradeTo", { plan: nameOf(to, t) });
 
   if (to === "pro") {
     if (!offer) return null;

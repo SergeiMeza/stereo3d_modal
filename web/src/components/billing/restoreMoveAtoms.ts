@@ -20,10 +20,12 @@ import { codeMailLanguage } from "@/lib/emailCode";
 
 type Client = Pick<GatewayClient, "restoreFind" | "restoreFindVerify" | "restoreMove">;
 
+/** English (tests and the atom's error); the page reads billing.restoreMove.*. */
 export const RESTORED = "Your purchases are restored";
 export const NOT_FOUND = "We didn't find any purchases";
 export const HAS_OWN_PLAN = "This account already has a plan. Contact support to move it.";
 export const CODE_SENT = "If we find purchases, we'll send a code";
+export const CHECK_FAILED = "We couldn't check right now. Try again in a while.";
 
 export type RestoreMovePhase =
   /** nothing asked yet */
@@ -79,7 +81,7 @@ function refused(e: unknown): Partial<RestoreMoveState> {
     if (e.code === "restored_elsewhere") return { error: e.message, elsewhere: providersOf(e) };
     if (e.message) return { error: e.message };
   }
-  return { error: "We couldn't check right now. Try again in a while." };
+  return { error: CHECK_FAILED };
 }
 
 type Get = <V>(a: import("jotai").Atom<V>) => V;
