@@ -21,6 +21,17 @@ func campaignCentsOf(c *store.Conversion) int64 {
 	return 0
 }
 
+// campaignLine is a run's launch-offer cents and its label ("Launch
+// offer −25%"); 0, "" without one.
+func campaignLine(c *store.Conversion) (int64, string) {
+	cents := campaignCentsOf(c)
+	if cents <= 0 {
+		return 0, ""
+	}
+	label, _ := c.Quote.Breakdown["campaign_label"].(string)
+	return cents, label
+}
+
 // GET /v1/admin/campaign → {campaign, totals {runs, quoted_cents,
 // discounted_runs, discounted_cents, by_state {state: {runs, cents}}},
 // by_month [{month, runs, cents}], truncated}: the launch offer's config

@@ -156,4 +156,11 @@ func TestCampaignQuote(t *testing.T) {
 	if adminRunJSON(c)["campaign_cents"] != int64(120) {
 		t.Fatal("admin line")
 	}
+	c.Quote.Breakdown["campaign_label"] = "Launch offer −25%"
+	if it := itemFor(c, ""); it.CampaignCents != 120 || it.CampaignLabel != "Launch offer −25%" {
+		t.Fatalf("history item %+v", it)
+	}
+	if l := s.runLabel(ctx, c); !strings.HasSuffix(l, "Launch offer −25%") {
+		t.Fatalf("payment description %q", l)
+	}
 }

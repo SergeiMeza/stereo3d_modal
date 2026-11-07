@@ -44,6 +44,9 @@ type historyItem struct {
 	Quality      string `json:"quality,omitempty"`
 	AmountCents  int64  `json:"amount_cents"`
 	ConversionID string `json:"conversion_id"`
+	// the launch offer's line (absent without one)
+	CampaignCents int64  `json:"campaign_cents,omitempty"`
+	CampaignLabel string `json:"campaign_label,omitempty"`
 }
 
 type historyEntry struct {
@@ -272,10 +275,12 @@ func itemFor(c *store.Conversion, projectName string) historyItem {
 	if quality == "" {
 		quality = c.Params.Preset
 	}
+	cents, label := campaignLine(c)
 	return historyItem{
 		ProjectID: c.ProjectID, ProjectName: projectName, Step: step,
 		Method: store.MethodOr(c.Method), Quality: quality,
 		AmountCents: c.Quote.AmountCents, ConversionID: c.ID,
+		CampaignCents: cents, CampaignLabel: label,
 	}
 }
 

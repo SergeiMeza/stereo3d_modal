@@ -75,6 +75,9 @@ func (s *Service) runLabel(ctx context.Context, c *store.Conversion) string {
 	if l := resolutionLabel(c, nil); l != "" {
 		parts = append(parts, l)
 	}
+	if _, offer := campaignLine(c); offer != "" {
+		parts = append(parts, offer) // the launch offer, named on the payment and its receipt
+	}
 	return strings.Join(parts, " · ")
 }
 

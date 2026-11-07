@@ -29,6 +29,10 @@ type rowItem struct {
 	FromFrame    int    `json:"from_frame,omitempty"`
 	ToFrame      int    `json:"to_frame,omitempty"`
 	AmountCents  int64  `json:"amount_cents"`
+	// CampaignCents / CampaignLabel: the launch offer's line on this run
+	// (0 and absent without one).
+	CampaignCents int64  `json:"campaign_cents"`
+	CampaignLabel string `json:"campaign_label,omitempty"`
 }
 
 type historyRow struct {
@@ -233,6 +237,7 @@ func (s *Service) enrichRows(ctx context.Context, page []historyRow) {
 			if c != nil {
 				it.ProjectID, it.Step, it.FromFrame, it.ToFrame = c.ProjectID, c.Step, c.Params.FromFrame, c.Params.ToFrame
 				it.Preset = c.Params.Preset
+				it.CampaignCents, it.CampaignLabel = campaignLine(c)
 				if it.AmountCents == 0 {
 					it.AmountCents = runCardCents(c)
 				}
