@@ -964,6 +964,9 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 			}
 		}
 	}
+	if n := s.rcAttrRetrySweep(ctx, now); n > 0 { // D14: failed web plan markers
+		stats["rc_attr_retries"] = n
+	}
 	if n := s.reloadRetrySweep(ctx, now); n > 0 { // D2: failed reloads due again
 		stats["reload_retries"] = n
 	}

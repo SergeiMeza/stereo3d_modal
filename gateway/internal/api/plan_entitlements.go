@@ -94,7 +94,8 @@ func (s *Service) grantRC(ctx context.Context, uid, tier string, until time.Time
 	gctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
 	now := time.Now().UTC()
-	if tier != pricing.TierPro { // web Pro: the pro grant alone
+	s.markWebPlan(gctx, uid, until) // D14: the marker first; a failed write is retried, the grant goes ahead
+	if tier != pricing.TierPro {    // web Pro: the pro grant alone
 		if err := s.RevenueCat.GrantPromotional(gctx, uid, tier, now, until); err != nil {
 			return fmt.Errorf("%s: %w", tier, err)
 		}
@@ -102,7 +103,6 @@ func (s *Service) grantRC(ctx context.Context, uid, tier string, until time.Time
 	if err := s.RevenueCat.GrantPromotional(gctx, uid, "pro", now, until); err != nil {
 		return fmt.Errorf("pro: %w", err)
 	}
-	s.markWebPlan(gctx, uid, until) // D14: web_plan and web_plan_renews_at with every grant
 	return nil
 }
 

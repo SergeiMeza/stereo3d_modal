@@ -128,9 +128,7 @@ func (s *Service) promoRevokeOurs(ctx context.Context, uid, key, reason string, 
 	for _, g := range ours {
 		ents = append(ents, g.Entitlement)
 	}
-	if s.promoStart(ctx, &store.PromoRegrant{UID: uid, Policy: promoPolicyOurs, Reason: reason, Revoked: ents, Ours: ours}, key) == promoNew {
-		s.clearWebPlan(ctx, uid) // D14: the plan's grant is gone (once per event)
-	}
+	s.promoStart(ctx, &store.PromoRegrant{UID: uid, Policy: promoPolicyOurs, Reason: reason, Revoked: ents, Ours: ours}, key)
 }
 
 // promoHold removes every promotional Pro grant for a dispute or fraud
@@ -274,6 +272,9 @@ func (s *Service) promoAdvance(ctx context.Context, rec *store.PromoRegrant) {
 			return
 		}
 		s.promoMarkPlanRevoked(ctx, rec)
+		if rec.Policy == promoPolicyOurs {
+			s.clearWebPlan(ctx, rec.UID) // D14: web_plan "none" once the revoke went through, never before
+		}
 		if len(uncertain) > 0 {
 			slog.WarnContext(ctx, "promo_regrant_uncertain", "uid", rec.UID, "event", key, "entitlements", uncertain,
 				"note", "the refunded grant is the only promotional entry RevenueCat shows; a grant of the same product may hide under it")
