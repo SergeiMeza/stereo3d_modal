@@ -396,6 +396,8 @@ interface MockOneTap {
   actionOutcome: "succeeded" | "processing" | "failed";
   /** taps received (no double submit) */
   taps: number;
+  /** answer like gateways before one_tap_state (the tap in `state`) */
+  legacyState: boolean;
   /** a bank check waiting: on a run or the settle */
   pending: { kind: "run" | "settle"; id: string; amount: number } | null;
 }
@@ -421,6 +423,13 @@ function oneTapQuote(amountCents: number): Record<string, unknown> {
   if (flow.payment_flow !== "paynow") return {};
   const split = (mockPaySplit(amountCents).pay_split as { card_cents?: number } | undefined)?.card_cents;
   return { one_tap: oneTapOffer(split ?? amountCents) };
+}
+
+/** BUX-20: how the answer says the tap went: one_tap_state (the run's or
+ * settle's own state kept), or `state` like gateways before it. */
+function tapFields(tap: string, own?: string): Record<string, string> {
+  if (mockDb.oneTap.legacyState) return { state: tap };
+  return { one_tap_state: tap, ...(own ? { state: own } : {}) };
 }
 
 /** BUX-20: a one-tap refusal, like the gateway's (409). */
@@ -1146,6 +1155,7 @@ function seed(): DB {
       serverAmountCents: null,
       actionOutcome: "succeeded",
       taps: 0,
+      legacyState: false,
       pending: null,
     },
     payRequests: new Map(),
@@ -4378,15 +4388,15 @@ export const handlers = [
     switch (o.outcome) {
       case "succeeded":
         oneTapPaid("run", c.conversion_id, amount);
-        return HttpResponse.json({ ...run, ...mockDb.conversions.get(c.conversion_id), state: "succeeded" });
+        return HttpResponse.json({ ...run, ...mockDb.conversions.get(c.conversion_id), ...tapFields("succeeded", mockDb.conversions.get(c.conversion_id)?.state) });
       case "processing":
         c.billing = { status: "waiting_for_payment" };
-        return HttpResponse.json({ ...run, billing: c.billing, state: "processing" });
+        return HttpResponse.json({ ...run, billing: c.billing, ...tapFields("processing", c.state) });
       case "requires_action":
         o.pending = { kind: "run", id: c.conversion_id, amount };
-        return HttpResponse.json({ ...run, state: "requires_action", client_secret: `pi_mock_onetap_${c.conversion_id}` });
+        return HttpResponse.json({ ...run, ...tapFields("requires_action", c.state), client_secret: `pi_mock_onetap_${c.conversion_id}` });
       default:
-        return HttpResponse.json({ ...run, state: "declined", message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
+        return HttpResponse.json({ ...run, ...tapFields("declined", c.state), message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
     }
   }),
 
@@ -4400,7 +4410,7 @@ export const handlers = [
     if (refused) return refused;
     const owed = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
     const base = { publishable_key: "pk_test_mock", settle_id: "st_mock", runs: b.unpaid.length };
-    if (owed === 0) return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: 0, state: "succeeded" });
+    if (owed === 0) return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: 0, ...tapFields("succeeded") });
     const amount = o.serverAmountCents ?? owed;
     if (body.amount_cents !== amount) {
       return HttpResponse.json(
@@ -4411,15 +4421,15 @@ export const handlers = [
     switch (o.outcome) {
       case "succeeded":
         oneTapPaid("settle", "st_mock", amount);
-        return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: amount, state: "succeeded" });
+        return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: amount, ...tapFields("succeeded") });
       case "processing":
         b.settling = true;
-        return HttpResponse.json({ ...base, settled: false, payment_state: "processing", amount_cents: amount, state: "processing" });
+        return HttpResponse.json({ ...base, settled: false, payment_state: "processing", amount_cents: amount, ...tapFields("processing") });
       case "requires_action":
         o.pending = { kind: "settle", id: "st_mock", amount };
-        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, state: "requires_action", client_secret: "pi_mock_onetap_settle" });
+        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, ...tapFields("requires_action"), client_secret: "pi_mock_onetap_settle" });
       default:
-        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, state: "declined", message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
+        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, ...tapFields("declined"), message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
     }
   }),
 

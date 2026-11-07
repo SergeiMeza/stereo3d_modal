@@ -57,6 +57,7 @@ import {
   type Conversion,
   type OneTapOffer,
   type Project,
+  tapStateOf,
   type Step,
   type StepConversionRequest,
   type StepQuoteResponse,
@@ -430,9 +431,10 @@ export function useStepCheckout(
           return setOneTap({ phase: "declined", ...at, message: t("pay.oneTap.failed") });
       }
     }
-    let outcome: "succeeded" | "processing" | "declined" = answer.state === "requires_action" ? "declined" : answer.state;
+    const tapped = tapStateOf(answer);
+    let outcome: "succeeded" | "processing" | "declined" = tapped === "requires_action" ? "declined" : tapped;
     let message = answer.message;
-    if (answer.state === "requires_action" && answer.client_secret) {
+    if (tapped === "requires_action" && answer.client_secret) {
       const done = await handleOneTapAction(answer.publishable_key ?? active?.publishable_key, answer.client_secret);
       outcome = done.status === "failed" ? "declined" : done.status;
       if (done.status === "failed") message = done.message ?? t("pay.oneTap.bankFailed");

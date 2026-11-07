@@ -890,7 +890,8 @@ export class GatewayClient {
    * the amount the button showed. 409 one_tap_unavailable,
    * amount_changed {amount_cents}, payment_in_progress, already_paid,
    * expired, not_payable. The answer is the run with the tap's fields
-   * over it: its `state` is the tap's, not the run's. */
+   * over it (read the tap with tapStateOf: older gateways put it in the
+   * run's `state`). */
   payRunOneTap(conversionId: string, amountCents: number): Promise<Omit<Conversion, "state"> & OneTapAnswer> {
     return this.request("POST", `/v1/conversions/${encodeURIComponent(conversionId)}/pay-one-tap`, {
       amount_cents: amountCents,

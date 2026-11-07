@@ -12,7 +12,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { LifelikeDeliverPanel } from "@/components/steps/LifelikeDeliverPanel";
 import { clearStepQuotes } from "@/components/steps/checkoutStore";
-import type { OneTapOffer, Project } from "@/lib/api/types";
+import { tapStateOf, type OneTapOffer, type Project } from "@/lib/api/types";
 import { resetPricingCache } from "@/lib/api/usePricing";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -406,5 +406,48 @@ describe("the mock's routes answer like the gateway", () => {
   it("pay-one-tap 404s an unknown run", async () => {
     const res = await fetch(`${GATEWAY}/v1/conversions/cnope/pay-one-tap`, { method: "POST", body: "{}" });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("one_tap_state, and state on older gateways", () => {
+  it("one_tap_state wins over the run's own state; older answers' state counts; neither reads declined", () => {
+    expect(tapStateOf({ one_tap_state: "declined", state: "created" })).toBe("declined");
+    expect(tapStateOf({ one_tap_state: "succeeded", state: "paid" })).toBe("succeeded");
+    expect(tapStateOf({ state: "requires_action" })).toBe("requires_action");
+    expect(tapStateOf({ state: "created" })).toBe("declined");
+    expect(tapStateOf({})).toBe("declined");
+  });
+
+  it("a run's tap answered the older way (the tap in state) still pays", async () => {
+    oneTapOn({ legacyState: true });
+    panel();
+    fireEvent.click(await oneTapButton());
+    await waitFor(() => expect(lastRun()?.state).toBe("paid"));
+  });
+
+  it("a run's decline in one_tap_state, the run still created: reads declined", async () => {
+    oneTapOn({ outcome: "declined" });
+    const answers: unknown[] = [];
+    server.events.on("response:mocked", async ({ request, response }) => {
+      if (new URL(request.url).pathname.endsWith("/pay-one-tap")) answers.push(await response.clone().json());
+    });
+    panel();
+    fireEvent.click(await oneTapButton());
+    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("Your card has insufficient funds.");
+    expect(answers[0]).toMatchObject({ one_tap_state: "declined", state: "created" });
+  });
+
+  it("a settle's tap answered the older way still pays", async () => {
+    mockDb.billing.unpaid.push({ conversion_id: "cowed0000001", amount_cents: 375, currency: "usd", needs_action: false });
+    oneTapOn({ legacyState: true });
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <SettleSheet onClose={vi.fn()} />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    fireEvent.click(await oneTapButton());
+    expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
   });
 });

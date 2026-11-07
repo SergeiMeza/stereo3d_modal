@@ -21,7 +21,7 @@ import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
-import { prepaidOf, type CheckoutStart } from "@/lib/api/types";
+import { prepaidOf, tapStateOf, type CheckoutStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
@@ -203,7 +203,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
         }
       }
       const paid = { ...start, amount_cents: amount };
-      let state = answer.state;
+      let state = tapStateOf(answer);
       let message = answer.message;
       if (state === "requires_action" && answer.client_secret) {
         const bank = await handleOneTapAction(answer.publishable_key ?? start.publishable_key, answer.client_secret);

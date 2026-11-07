@@ -1868,12 +1868,28 @@ export interface OneTapOffer {
 }
 
 /** BUX-20: how a one-tap went (POST …/pay-one-tap, …/settle/one-tap). */
+export type OneTapState = "succeeded" | "processing" | "requires_action" | "declined";
+
 export interface OneTapAnswer {
-  state: "succeeded" | "processing" | "requires_action" | "declined";
+  /** how the tap went (gateways after 27434c3); read with tapStateOf */
+  one_tap_state?: OneTapState;
+  /** the tap's state on gateways before one_tap_state (on a run's answer
+   * it took the run's own field); the run's or the settle's otherwise */
+  state?: string;
   /** requires_action: for stripe.handleNextAction */
   client_secret?: string;
   /** declined: customer-safe words */
   message?: string;
   decline_code?: string;
   publishable_key?: string;
+}
+
+const ONE_TAP_STATES: ReadonlySet<string> = new Set(["succeeded", "processing", "requires_action", "declined"]);
+
+/** How a tap went: one_tap_state, else the older answers' state; an
+ * answer that says neither counts as declined (the tap can be tried
+ * again or paid another way). */
+export function tapStateOf(answer: OneTapAnswer): OneTapState {
+  if (answer.one_tap_state && ONE_TAP_STATES.has(answer.one_tap_state)) return answer.one_tap_state;
+  return answer.state && ONE_TAP_STATES.has(answer.state) ? (answer.state as OneTapState) : "declined";
 }
