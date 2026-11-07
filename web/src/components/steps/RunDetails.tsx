@@ -138,7 +138,10 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
   if (conversionMethod(c) === "lifelike") {
     const onOff = (v: boolean) => (v ? "On" : "Off");
     const bitrate = (p as { bitrate?: string }).bitrate;
-    add("Foveated Detail", onOff(p.foveation === "static"));
+    // owner 2026-11-07: included at 1080p when it applied; nothing when it
+    // didn't apply there (a source at 1080p or below)
+    if (c.foveation?.included === true) add("Foveated Detail", c.foveation.applied ? "Included" : null);
+    else add("Foveated Detail", onOff(p.foveation === "static" || c.foveation?.applied === true));
     add("Master bitrate", onOff(bitrate === "master" || c.quote.breakdown?.addons?.master !== undefined));
     add("Express", onOff(p.express === true));
   }

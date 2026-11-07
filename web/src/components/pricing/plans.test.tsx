@@ -165,6 +165,8 @@ describe("Pricing 2026-11", () => {
     expect(screen.getByTestId("pro-4k").textContent).toBe("$13.60");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$16.00");
     const addons = screen.getByTestId("pricing-addons");
+    // owner 2026-11-07: Foveated Detail is included at 1080p, from /v1/pricing
+    expect(addons.textContent).toContain("Foveated Detail+30%More detail where you look · included at 1080p");
     expect(addons.textContent).toContain("Master bitrate+100%");
     expect(addons.textContent).toContain("Express+50%");
     expect(addons.textContent).toContain("First in line");

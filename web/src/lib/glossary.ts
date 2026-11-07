@@ -6,6 +6,7 @@
  */
 
 import type {
+  FoveationInfo,
   Format,
   Inpaint,
   Method,
@@ -248,7 +249,7 @@ export function edgeModeOf(p: {
 
 /** A run's settings in words: "4K · Vision Pro spatial video + Side by
  * side · Filled edges". Classic knobs only when the run carried them. */
-export function runSummary(p: Params, step?: Step): string {
+export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo): string {
   // a depth preview makes a depth video: its formats/edges are defaults
   // it never used
   if (step === "depth_preview" || p.depth_only) {
@@ -273,7 +274,9 @@ export function runSummary(p: Params, step?: Step): string {
     p.original_eye
       ? `Original picture in the ${p.original_eye} eye`
       : null,
-    p.foveation === "static" ? "Foveated Detail" : null,
+    // owner 2026-11-07: included at 1080p, so the run (not the request)
+    // says whether it applied
+    p.foveation === "static" || foveation?.applied === true ? "Foveated Detail" : null,
   ]
     .filter(Boolean)
     .join(" · ");

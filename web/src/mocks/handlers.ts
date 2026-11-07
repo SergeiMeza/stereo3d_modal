@@ -702,7 +702,12 @@ function publicTiers(): Record<string, unknown> {
       classic_pct: TIERS.pct,
     },
     addons: {
-      foveated: { pct: TIERS.addons.foveated, methods: ["lifelike"], enabled: mockDb.lifelikeFoveation },
+      foveated: {
+        pct: TIERS.addons.foveated,
+        methods: ["lifelike"],
+        enabled: mockDb.lifelikeFoveation,
+        included_presets: FOVEATION_INCLUDED,
+      },
       master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { bitrate: "master" } },
       express: { pct: TIERS.addons.express, methods: ["lifelike"], request: { express: true }, included_in: ["business", "studio"] },
     },
@@ -1908,6 +1913,21 @@ function lifelikeEta(outputSeconds: number, fps: number, preset: string): number
  * own field so the two can differ again. */
 function minimumFor(step: string | undefined): number {
   return step === "production" ? RATES.minimumCents : RATES.previewMinimumCents;
+}
+
+/** gateway 00172: Foveated Detail is free and always on at these. */
+const FOVEATION_INCLUDED = ["1080p"];
+
+/** Foveated Detail on a Lifelike quote or run: included at 1080p (applied
+ * only when the output is below the source), else as ordered. */
+function mockFoveation(project: Project, req: StepConversionRequest) {
+  const preset = req.preset ?? "1080p";
+  const included = FOVEATION_INCLUDED.includes(preset);
+  if (!included) return { applied: req.foveation === "static", included: false };
+  const short = project.probe ? Math.min(project.probe.width, project.probe.height) : 0;
+  return short > 1080
+    ? { applied: true, included: true }
+    : { applied: false, included: true, reason: "output_not_below_source" as const };
 }
 
 function lifelikeQuoteFor(
@@ -4377,6 +4397,7 @@ export const handlers = [
           production_cents_per_minute: LIFELIKE.priceCentsPerMinute,
           max_source_duration_s: mockDb.methodMaxDurationS.lifelike,
           max_source_bytes: 25 * 1024 ** 3,
+          foveation: { included_presets: FOVEATION_INCLUDED },
         },
         classic: {
           presets: ["1080p", "qhd", "3k"],
@@ -4834,6 +4855,7 @@ export const handlers = [
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
+          foveation: mockFoveation(priced, req),
           ...(mockDb.pro !== null ? { pro: mockDb.pro } : {}),
           ...(q.quote.breakdown?.pro_discount_cents
             ? {
@@ -5048,6 +5070,7 @@ export const handlers = [
         params: resolved,
         quote,
         progress: 0,
+        ...(method === "lifelike" ? { foveation: mockFoveation(p, req) } : {}),
         stage: "",
         eta_seconds: 0,
         method,

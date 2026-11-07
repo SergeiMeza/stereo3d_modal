@@ -20,6 +20,7 @@ import type { Method, Preset, PublicPricing } from "@/lib/api/types";
 import { fpsRule } from "@/lib/api/usePricing";
 import { ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
+import { FOVEATED_DETAIL, foveationIncludedPresets } from "@/lib/foveation";
 
 /** Whose prices: the list, or a plan's own column. */
 export type PriceKey = "list" | "pro" | "business" | "studio";
@@ -149,13 +150,22 @@ export function LifelikePrices({
   );
 }
 
+/** "More detail where you look · included at 1080p". */
+function foveatedWhat(included: readonly string[]): string {
+  const at = included.map((p) => qualityName(p as Preset)).join(", ");
+  return at ? `More detail where you look · included at ${at}` : "More detail where you look";
+}
+
 /** Add-ons, free previews and top-ups: three small cards (pricing 2026-11). */
 export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
   const a = pricing.addons ?? {};
   const fp = pricing.free_previews;
   const pct = (v?: number) => (v ? `+${Math.round(v * 100)}%` : "");
   const addons: [string, string, string][] = [
-    ...(a.foveated ? ([["Foveated Detail", pct(a.foveated.pct), "More detail where you look"]] as [string, string, string][]) : []),
+    // owner 2026-11-07: included at the qualities /v1/pricing lists (1080p)
+    ...(a.foveated
+      ? ([[FOVEATED_DETAIL, pct(a.foveated.pct), foveatedWhat(foveationIncludedPresets(pricing))]] as [string, string, string][])
+      : []),
     ...(a.master ? ([["Master bitrate", pct(a.master.pct), "Higher-bitrate files"]] as [string, string, string][]) : []),
     ...(a.express ? ([["Express", pct(a.express.pct), "First in line"]] as [string, string, string][]) : []),
   ];

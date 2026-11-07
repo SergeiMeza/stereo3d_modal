@@ -34,7 +34,7 @@ import { runStateShort } from "./runStatus";
 
 /** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion): string {
-  return runSummary(c.params, c.step);
+  return runSummary(c.params, c.step, c.foveation);
 }
 
 /** "1080p · 0:45 – 0:50 · 3 parts · Nov 2" */

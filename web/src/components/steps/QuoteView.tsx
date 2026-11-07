@@ -13,6 +13,7 @@ import { fpsLabel, quotedFps } from "./frameRate";
 import { formatCents, formatCentsShort } from "./money";
 import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
 import { usePricing } from "@/lib/api/usePricing";
+import { FOVEATED_DETAIL, foveationIncludedApplied } from "@/lib/foveation";
 
 const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
 
@@ -309,6 +310,10 @@ export function QuoteView({
           {formatCents(subtotal)}
         </span>
       )}
+      {/* owner 2026-11-07: free and always on at 1080p, when it applies */}
+      {foveationIncludedApplied(result.foveation) ? (
+        <Line label={FOVEATED_DETAIL} value="Included" testId="quote-foveation-included" />
+      ) : null}
       {b.foveation_factor !== undefined && b.foveation_factor !== 1 ? (
         <Line
           label={`Foveated Detail (${percent(b.foveation_factor)})`}

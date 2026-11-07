@@ -991,7 +991,7 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     );
   });
 
-  it("Foveated Detail shows below the video's own size when offered, ticked, with its own +30% line (S3D-50)", async () => {
+  it("Foveated Detail at 1440p and up: below the video's own size, ticked, with its own +30% line (S3D-50)", async () => {
     mockDb.lifelikeFoveation = true;
     mockDb.tierPricing = true;
     resetLimitsCache();
@@ -1004,7 +1004,7 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
     expect(screen.queryByText(/Foveated Detail/)).toBeNull();
     expect(quotes.filter((q) => q.step === "production").every((q) => !("foveation" in q))).toBe(true);
     fireEvent.click(
-      within(screen.getByRole("radiogroup", { name: "Quality" })).getAllByRole("radio")[0],
+      within(screen.getByRole("radiogroup", { name: "Quality" })).getAllByRole("radio")[1],
     );
     const fov = (await screen.findByLabelText(/Foveated Detail/)) as HTMLInputElement;
     expect(fov.checked).toBe(true);
@@ -1015,15 +1015,53 @@ describe("Lifelike sizes above 4K and Advanced (S3D-48/49/50)", () => {
       expect(screen.getByTestId("quote-foveation").textContent).toMatch(/^\+\$\d+\.\d\d$/),
     );
     expect(
-      quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "1080p"),
+      quotes.some((q) => q.step === "production" && q.foveation === "static" && q.preset === "qhd"),
     ).toBe(true);
     fireEvent.click(fov);
     await waitFor(() =>
       expect(
-        quotes.some((q) => q.step === "production" && q.foveation === null && q.preset === "1080p"),
+        quotes.some((q) => q.step === "production" && q.foveation === null && q.preset === "qhd"),
       ).toBe(true),
     );
     await waitFor(() => expect(screen.queryByTestId("quote-foveation")).toBeNull());
+  });
+
+  it("at 1080p Foveated Detail is free and always on: no toggle, 'included' when it applies (owner 2026-11-07)", async () => {
+    mockDb.lifelikeFoveation = true;
+    mockDb.tierPricing = true;
+    resetLimitsCache();
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() => expect(quotes.some((q) => q.step === "production")).toBe(true));
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "Quality" })).getAllByRole("radio")[0],
+    );
+    // a 4K source made at 1080p: the quote says it applies
+    const included = await screen.findByTestId("foveated-included");
+    expect(included.textContent).toBe("Foveated Detail · includedMore detail where you look.");
+    expect(screen.queryByRole("checkbox", { name: /Foveated Detail/ })).toBeNull();
+    expect(screen.queryByTestId("foveated-pct")).toBeNull();
+    expect((await screen.findByTestId("quote-foveation-included")).textContent).toContain("Included");
+    expect(screen.queryByTestId("quote-foveation")).toBeNull();
+    // the gateway turns it on: the request carries no choice
+    expect(
+      quotes.filter((q) => q.step === "production" && q.preset === "1080p").every((q) => !("foveation" in q)),
+    ).toBe(true);
+  });
+
+  it("a source at 1080p or below shows nothing about Foveated Detail at 1080p", async () => {
+    mockDb.lifelikeFoveation = true;
+    mockDb.tierPricing = true;
+    resetLimitsCache();
+    const quotes = captureBodies("/quotes");
+    renderPanel(
+      <LifelikeDeliverPanel project={lifelikeProject({ width: 1920, height: 1080 })} onProjectChanged={() => {}} />,
+    );
+    await waitFor(() => expect(quotes.some((q) => q.step === "production" && q.preset === "1080p")).toBe(true));
+    await screen.findByTestId("quote-breakdown");
+    expect(screen.queryByText(/Foveated Detail/)).toBeNull();
   });
 });
 

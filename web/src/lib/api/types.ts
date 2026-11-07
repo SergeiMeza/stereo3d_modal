@@ -481,6 +481,8 @@ export interface Conversion {
   billing?: ConversionBilling;
   /** gateway 00166: how the run is being paid, with its words */
   pay_split?: RunPaySplit;
+  /** gateway 00172: Foveated Detail on this run */
+  foveation?: FoveationInfo;
   created_at: string;
   updated_at: string;
 }
@@ -512,7 +514,18 @@ export interface ConversionPart {
   duration_s: number;
 }
 
+/** gateway 00172: Foveated Detail on a quote or a run. At 1080p it is
+ * free and always on (included); it applies only when the output is
+ * below the source's own size. */
+export interface FoveationInfo {
+  applied: boolean;
+  included: boolean;
+  reason?: "output_not_below_source";
+}
+
 export interface StepQuoteResponse {
+  /** gateway 00172: Foveated Detail for this quote */
+  foveation?: FoveationInfo;
   /** S3D-56: the files' estimated total size, when the gateway knows */
   estimated_size_bytes?: number;
   step: Step;
@@ -643,6 +656,8 @@ export interface PublicPricing {
       preview_cents?: number;
       max_source_duration_s: number;
       max_source_bytes?: number;
+      /** gateway 00172: where Foveated Detail is included */
+      foveation?: { included_presets?: string[] };
     };
     classic?: {
       presets: Preset[];
@@ -682,7 +697,19 @@ export interface PublicPricing {
     classic_pct: Partial<Record<"pro" | "business" | "studio", number>>;
   };
   addons?: Partial<
-    Record<AddOn, { pct: number; enabled?: boolean; methods?: string[]; request?: Record<string, unknown>; included_in?: string[] }>
+    Record<
+      AddOn,
+      {
+        pct: number;
+        enabled?: boolean;
+        methods?: string[];
+        request?: Record<string, unknown>;
+        included_in?: string[];
+        /** gateway 00172: qualities where the add-on is free and always on
+         * (Foveated Detail at 1080p) */
+        included_presets?: string[];
+      }
+    >
   >;
   /** owner 2026-11-04: web Pro on our own Stripe subscriptions — the
    * plans on sale, in page order (absent until the gateway sells them) */

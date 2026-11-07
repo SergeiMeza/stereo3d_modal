@@ -27,7 +27,7 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
-import { HistoryList } from "./HistoryList";
+import { HistoryList, paramsSummary } from "./HistoryList";
 import { stageLabel as stageLabelFor } from "./stageLabels";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -366,6 +366,22 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Discount")).toBe("Pro 15% · −$3.00");
     const receipt = await within(li).findByRole("link", { name: "View receipt" });
     expect(receipt.getAttribute("href")).toBe("https://pay.example/receipt/r1");
+  });
+
+  it("Foveated Detail at 1080p reads Included when it applied, and nothing when it didn't (owner 2026-11-07)", () => {
+    const applied = { ...FULL, conversion_id: "fov_applied", foveation: { applied: true, included: true } } as Conversion;
+    const notApplied = {
+      ...FULL,
+      conversion_id: "fov_none",
+      foveation: { applied: false, included: true, reason: "output_not_below_source" },
+    } as Conversion;
+    renderWithHistory([applied, notApplied]);
+    for (const id of ["fov_applied", "fov_none"]) fireEvent.click(within(item(id)).getByTestId("run-details-toggle"));
+    expect(row(item("fov_applied"), "Foveated Detail")).toBe("Included");
+    expect(row(item("fov_none"), "Foveated Detail")).toBeNull();
+    // the run's settings in words follow the run, not the request
+    expect(paramsSummary(applied)).toContain("Foveated Detail");
+    expect(paramsSummary(notApplied)).not.toContain("Foveated Detail");
   });
 
   it("a failed classic run: its stored look, no finish time taken, files ordered", () => {

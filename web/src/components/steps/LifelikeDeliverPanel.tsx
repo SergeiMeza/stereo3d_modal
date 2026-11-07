@@ -63,6 +63,7 @@ import { useMake3dChoice } from "./make3dAtoms";
 import { AlreadyMadeNote, PreviousRuns } from "./PreviousRuns";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
+import { FOVEATED_DETAIL, FOVEATED_HINT, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
 
 /** "Your video is N minutes long. …" — the split question. */
 export function splitQuestion(outputSeconds: number): string {
@@ -173,7 +174,8 @@ export function LifelikeDeliverPanel({
   // pricing 2026-11 add-ons: Master bitrate and Express (Express is
   // included in Business and Studio, where it starts ticked); their shares
   // come from /v1/pricing addons
-  const addons = usePricing()?.addons;
+  const pricing = usePricing();
+  const addons = pricing?.addons;
   const [master, setMaster] = useMake3dChoice(pid, "master");
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
   // plans canvas, Quote A: pay once (always first) or with Pro
@@ -187,8 +189,14 @@ export function LifelikeDeliverPanel({
   const sourceShort = project.probe
     ? Math.min(project.probe.width, project.probe.height)
     : 0;
-  // only below the video's own size, and only when the gateway offers it
+  // owner 2026-11-07: free and always on at the qualities /v1/pricing
+  // lists as included (1080p): no toggle there, the quote says whether it
+  // applies
+  const foveationIncluded = foveationIncludedAt(pricing, preset);
+  // elsewhere an add-on: only below the video's own size, and only when
+  // the gateway offers it
   const foveationOffered =
+    !foveationIncluded &&
     limits?.methods?.lifelike?.foveation === true &&
     chosen?.eyeShort !== undefined &&
     chosen.eyeShort < sourceShort;
@@ -198,6 +206,12 @@ export function LifelikeDeliverPanel({
   const sentFormats = formats.filter((f) => offeredFormats.includes(f));
   // the last quote's plan, steady while a change re-prices
   const tier = ck.lastQuote?.tier ?? "";
+  // included Foveated Detail shows only when this quality's quote says it
+  // applies (a source at 1080p or below gets none, and nothing shows)
+  const foveationShownIncluded =
+    foveationIncluded &&
+    ck.lastQuote?.params?.preset === preset &&
+    foveationIncludedApplied(ck.lastQuote?.foveation);
   const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
   const express = expressChoice ?? expressIncluded;
   const plain: StepConversionRequest = {
@@ -361,7 +375,7 @@ export function LifelikeDeliverPanel({
               />
             </div>
           ) : null}
-          {eyeRequired || foveationOffered || addons?.master || addons?.express ? (
+          {eyeRequired || foveationOffered || foveationShownIncluded || addons?.master || addons?.express ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -372,6 +386,14 @@ export function LifelikeDeliverPanel({
                 </span>
                 <EyePicker value={requiredEye} onChange={(e) => change(() => setRequiredEye(e))} />
                 <span className="text-xs text-fg-muted">Always on at this quality</span>
+              </div>
+            ) : null}
+            {foveationShownIncluded ? (
+              <div data-testid="foveated-included" className="flex flex-col gap-1.5">
+                <p className="text-sm">
+                  {FOVEATED_DETAIL} <span className="text-fg-muted">· included</span>
+                </p>
+                <p className="text-xs text-fg-muted">{FOVEATED_HINT}</p>
               </div>
             ) : null}
             {foveationOffered ? (
@@ -391,7 +413,7 @@ export function LifelikeDeliverPanel({
                     </span>
                   ) : null}
                 </label>
-                <p className="pl-6 text-xs text-fg-muted">More detail where you look.</p>
+                <p className="pl-6 text-xs text-fg-muted">{FOVEATED_HINT}</p>
               </div>
             ) : null}
             {addons?.master ? (
