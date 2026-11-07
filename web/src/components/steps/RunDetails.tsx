@@ -29,7 +29,7 @@ import { fpsLabel } from "./frameRate";
 import { formatCents } from "./money";
 import { runPrice } from "./PreviousRuns";
 import { useRunFiles } from "./RunFiles";
-import { runDetailsOpenAtom, runReceiptsAtom } from "./runDetailsAtoms";
+import { runDetailsOpenAtom, runReceiptsAtom, type RunReceipts } from "./runDetailsAtoms";
 import { ltrRuns } from "@/lib/i18n/bidi";
 import { offerLabel } from "@/lib/campaign";
 
@@ -395,7 +395,11 @@ function useReceipt(c: Conversion): string | null {
   const own = "receipt_url" in c || "invoice" in c;
   useEffect(() => {
     if (own || !charged || receipts.state !== "idle") return;
-    setReceipts({ state: "loading", urls: {} });
+    // this read's own marker: an answer that lands after the receipts were
+    // reset (sign-out, a test's cleanup) is dropped, not written over them
+    const loading: RunReceipts = { state: "loading", urls: {} };
+    const settle = (next: RunReceipts) => setReceipts((now) => (now === loading ? next : now));
+    setReceipts(loading);
     gateway
       .getBillingHistory(undefined, "runs")
       .then((h) => {
@@ -410,9 +414,9 @@ function useReceipt(c: Conversion): string | null {
           if (!url) continue;
           for (const item of ch.items ?? []) urls[item.conversion_id] ??= url;
         }
-        setReceipts({ state: "loaded", urls });
+        settle({ state: "loaded", urls });
       })
-      .catch(() => setReceipts({ state: "loaded", urls: {} }));
+      .catch(() => settle({ state: "loaded", urls: {} }));
   }, [own, charged, receipts.state, gateway, setReceipts]);
   if (own) return c.receipt_url ?? null;
   return receipts.urls[c.conversion_id] ?? null;

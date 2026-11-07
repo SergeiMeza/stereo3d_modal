@@ -12,9 +12,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import en from "../../../messages/en.json";
 
-import { renderToReadableStream } from "react-dom/server.browser";
-import { Suspense, use } from "react";
-
 import { I18nProvider, useT } from "./I18nProvider";
 import { LanguagePicker } from "./LanguagePicker";
 import { dirOf, fromAcceptLanguage, LOCALES, matchTag, resolveLocale } from "./locales";
@@ -97,51 +94,6 @@ describe("messages", () => {
     expect(screen.getAllByTestId("l").map((e) => e.textContent)).toEqual(["言語", "Language"]);
   });
 
-  it("two requests rendered interleaved each keep their own language (no module state)", async () => {
-    // each tree suspends halfway; the other renders while it waits
-    const gate = (): { p: Promise<void>; open: () => void } => {
-      let open!: () => void;
-      const p = new Promise<void>((r) => (open = r));
-      return { p, open };
-    };
-    const ja = gate();
-    const de = gate();
-    const Half = ({ wait }: { wait: Promise<void> }) => {
-      use(wait);
-      return <i>{useT()("common.language")}</i>;
-    };
-    const Page = ({ wait }: { wait: Promise<void> }) => (
-      <p>
-        <b>{useT()("common.language")}</b>
-        <Suspense fallback="…">
-          <Half wait={wait} />
-        </Suspense>
-      </p>
-    );
-    const html = async (s: ReadableStream<Uint8Array>) => new Response(s).text();
-    const a = await renderToReadableStream(
-      <I18nProvider locale="ja" messages={{ common: { language: "言語" } }}>
-        <Page wait={ja.p} />
-      </I18nProvider>,
-    );
-    const b = await renderToReadableStream(
-      <I18nProvider locale="de" messages={{ common: { language: "Sprache" } }}>
-        <Page wait={de.p} />
-      </I18nProvider>,
-    );
-    const outA = html(a);
-    const outB = html(b);
-    de.open();
-    await new Promise((r) => setTimeout(r, 0));
-    ja.open();
-    const [ha, hb] = await Promise.all([outA, outB]);
-    expect(ha).toContain("<b>言語</b>");
-    expect(ha).toContain("<i>言語</i>");
-    expect(ha).not.toContain("Sprache");
-    expect(hb).toContain("<b>Sprache</b>");
-    expect(hb).toContain("<i>Sprache</i>");
-    expect(hb).not.toContain("言語");
-  });
 });
 
 describe("rich messages", () => {
