@@ -122,3 +122,44 @@ func TestDeletionDuesBankCheckNoRetry(t *testing.T) {
 		t.Fatalf("retried a bank check: %d", len(f.creates))
 	}
 }
+
+// REV-16: dues refused for our configuration (B2) don't freeze the
+// deletion for good: the customer is mailed DL3 with the pay link once,
+// the next day's sweep charges again, and once the config is fixed the
+// dues are collected and the account deleted.
+func TestDeletionDuesConfigRetriesNextDay(t *testing.T) {
+	s, f := offService(t)
+	ctx := context.Background()
+	uid, _ := offCustomer(t, s, f, [2]string{"pm_1", "config"})
+	owedConversion(t, s, uid, 1500)
+	req := scheduleDue(t, s, uid)
+	if _, err := s.processScheduledDeletion(ctx, uid, "sweep", false); err == nil {
+		t.Fatal("deleted with dues unpaid")
+	}
+	d, _ := s.Store.GetAccountDeletion(ctx, uid)
+	if d.DuesRetry == nil || d.DuesRetry.Reason != retryConfig || d.DuesRetry.State != store.RetryFinal {
+		t.Fatalf("after the refusal: %+v", d.DuesRetry)
+	}
+	if !mailed(s, fmt.Sprintf("DL3_%s_%d_config", uid, req.Unix())) {
+		t.Fatal("the customer wasn't told (no DL3)")
+	}
+	// the same day: checks only, nothing charged
+	tries := len(f.creates)
+	sweepAt(t, s, uid, false)
+	if len(f.creates) != tries {
+		t.Fatalf("charged again the same day: %d", len(f.creates)-tries)
+	}
+	// a day later, the config fixed: collected, deleted
+	s.Store.UpdateAccountDeletion(ctx, uid, func(x *store.AccountDeletion) error {
+		old := time.Now().Add(-25 * time.Hour)
+		x.DuesRetry.FinalAt = &old
+		return nil
+	})
+	f.outcome["pm_1"] = ""
+	if outcome, err := sweepAt(t, s, uid, false); err != nil || outcome != store.DeletionOutcomeDeleted {
+		t.Fatalf("a day later: %q %v", outcome, err)
+	}
+	if s.owedCents(ctx, uid) != 0 {
+		t.Fatal("dues still owed")
+	}
+}

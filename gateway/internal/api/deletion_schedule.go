@@ -193,7 +193,10 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 	// #2 (D2): unpaid dues are charged only at their retry times (+24 h,
 	// +72 h), never on every sweep; in between, and after the last, the
 	// sweep only checks whether they were paid (the pay link, the balance).
-	noCharge := d.DuesRetry != nil && (d.DuesRetry.State == store.RetryFinal ||
+	// A configuration refusal (B2) is ours to fix: it is charged again a
+	// day after each refusal (REV-16), so a fixed config collects the
+	// dues instead of leaving the deletion blocked for good.
+	noCharge := d.DuesRetry != nil && (d.DuesRetry.State == store.RetryFinal && !configRetryDue(d.DuesRetry, now) ||
 		d.DuesRetry.State == store.RetryPending && !d.DuesRetry.Due(now))
 	var dues settleResult
 	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, KeepSignIn: d.KeepSignIn, By: by,
@@ -268,9 +271,6 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 // collect — what happens next, and the pay link (D2, D7). Sent to the
 // account's own address, like the other deletion mails.
 func (s *Service) mailDuesFailed(ctx context.Context, d *store.AccountDeletion, r *store.OffSessionRetry) {
-	if r.Reason == retryConfig {
-		return // B2: ours to fix, the owner was alerted
-	}
 	link, pr := s.payLink(ctx, d.UID, store.PayKindSettle, "deletion", r.AmountCents, "Your last runs")
 	if pr != nil && r.PayRequestID == "" {
 		s.Store.UpdateAccountDeletion(ctx, d.UID, func(x *store.AccountDeletion) error {
@@ -281,19 +281,32 @@ func (s *Service) mailDuesFailed(ctx context.Context, d *store.AccountDeletion, 
 		})
 	}
 	lines := []string{"Before we delete your account we need to collect " + money(r.AmountCents) + usdNote + " for your last runs. " + r.LastErrorMessage}
-	if r.State == store.RetryPending {
+	key := fmt.Sprintf("DL3_%s_%d_%d", d.UID, d.RequestedAt.Unix(), r.Attempts)
+	switch {
+	case r.Reason == retryConfig:
+		// REV-16: ours to fix (the owner was alerted); the customer hears
+		// once, and can pay another way meanwhile
+		lines = append(lines, "We'll try again tomorrow. You can also pay now on the page below, with another payment method if you like. Your account will be deleted once it's paid.")
+		key = fmt.Sprintf("DL3_%s_%d_config", d.UID, d.RequestedAt.Unix())
+	case r.State == store.RetryPending:
 		lines = append(lines, "We'll try again on "+retryDay(r)+". Your account will be deleted once it's paid.")
-	} else {
+	default:
 		lines = append(lines, "We won't try again. Your account will be deleted once it's paid, or sign in to keep it.")
 	}
 	button := "Pay " + money(r.AmountCents)
 	if r.Reason == retryAuth {
 		button = "Confirm and pay " + money(r.AmountCents)
 	}
-	s.mailCustomer(ctx, fmt.Sprintf("DL3_%s_%d_%d", d.UID, d.RequestedAt.Unix(), r.Attempts), d.UID, d.Email, customerMail{
+	s.mailCustomer(ctx, key, d.UID, d.Email, customerMail{
 		Kind: "DL3", Subject: "Spatial Video Studio: your account deletion is waiting for a payment", Lines: lines,
 		Button: button, Link: link, OwnAddress: true,
 	})
+}
+
+// configRetryDue: a dues charge refused for our configuration is tried
+// again a day after the refusal.
+func configRetryDue(r *store.OffSessionRetry, now time.Time) bool {
+	return r.Reason == retryConfig && r.FinalAt != nil && !now.Before(r.FinalAt.Add(24*time.Hour))
 }
 
 // deletionDate is the day a deletion runs, in mails and messages (UTC).
