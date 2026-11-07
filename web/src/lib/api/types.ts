@@ -513,8 +513,20 @@ export interface ConversionBilling {
   publishable_key?: string; // status === "requires_action" | "requires_payment"
 }
 
+/** What the customer actually paid when Stripe charged them in their
+ * own currency (Adaptive Pricing, owner 2026-11-07): the amount in that
+ * currency's minor units ("jpy" has none). null or absent: paid in US
+ * dollars. */
+export interface Presentment {
+  amount_minor: number;
+  /** lower-case ISO 4217 ("jpy", "eur") */
+  currency: string;
+}
+
 export interface Conversion {
   conversion_id: string;
+  /** owner 2026-11-07: what the card was charged in its own currency */
+  presentment?: Presentment | null;
   /** the gateway's Stripe key, on a pay-first run's create response */
   publishable_key?: string;
   state: ConversionState;
@@ -1353,6 +1365,9 @@ export interface BillingRow {
   amount_cents: number;
   currency: string;
   status: BillingRowStatus;
+  /** card payments (run, settle, top-up, plan), owner 2026-11-07: what the
+   * card was charged in its own currency; null: US dollars */
+  presentment?: Presentment | null;
   /** "Visa •••• 4242", "PayPal · j•••@gmail.com" */
   payment_method?: { label: string };
   invoice?: { hosted_invoice_url?: string; invoice_pdf?: string };

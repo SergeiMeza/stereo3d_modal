@@ -28,7 +28,7 @@ import { EN, type Tr } from "@/lib/i18n/t";
 
 import { useLiveRun } from "@/lib/live/useLive";
 import { fpsLabel } from "./frameRate";
-import { formatCents } from "./money";
+import { formatCents, paidLocal } from "./money";
 import { previousRunsOpenAtom } from "./previousRunsAtoms";
 import { PreviewDownloads, useRunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
@@ -81,7 +81,9 @@ export function runPrice(c: Conversion, t: Tr = EN): string {
   // paymentStatus in English: only compared here, never shown
   const word = paymentStatus(c);
   if (word === "Not charged") return t("runs.previous.notCharged");
-  return formatCents(c.billing?.charged_cents ?? c.quote.amount_cents, t);
+  const usd = c.billing?.charged_cents ?? c.quote.amount_cents;
+  // owner 2026-11-07: "Paid ¥1,234 ($8.25)" when the card paid another currency
+  return paidLocal(c.presentment, usd, t) ?? formatCents(usd, t);
 }
 
 /** "Whole video" or "0:12 – 1:40". */

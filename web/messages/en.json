@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} min {s} s",
       "hours": "{h} h",
       "hoursMinutes": "{h} h {m} min"
+    },
+    "money": {
+      "paidLocal": "Paid {local} ({usd})"
     }
   },
   "business": {

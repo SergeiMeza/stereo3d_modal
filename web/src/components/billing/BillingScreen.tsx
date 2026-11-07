@@ -38,7 +38,7 @@ import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTa
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
-import { formatCents, groupMoney } from "@/components/steps/money";
+import { formatCents, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,10 +307,14 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         ? t("billing.history.items", { count: items.length })
         : itemLine(items[0], t);
   const amount = refund ? `−${formatCents(row.amount_cents, t)}` : formatCents(row.amount_cents, t);
+  // owner 2026-11-07: a card charged in its own currency shows that amount,
+  // with the US dollars under it ("Paid ¥1,234 ($8.25)" for screen readers)
+  const local = localAmount(row.presentment, t);
+  const localText = local === null ? null : refund ? `−${local}` : local;
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_5rem_9rem_8rem_auto_auto]">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_6rem_9rem_8rem_auto_auto]">
         <span className="text-fg-muted">{shortDate(row.created_at, t)}</span>
         <button
           type="button"
@@ -327,9 +331,22 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           {what}
           {many && !planRow ? <span className="text-fg-muted"> · {formatCents(row.amount_cents, t)}</span> : null}
         </button>
-        <span data-testid="row-amount" className="text-end font-mono tabular-nums text-fg">
-          {amount}
-        </span>
+        {localText === null ? (
+          <span data-testid="row-amount" className="text-end font-mono tabular-nums text-fg">
+            {amount}
+          </span>
+        ) : (
+          <span
+            data-testid="row-amount"
+            aria-label={refund ? undefined : (paidLocal(row.presentment, row.amount_cents, t) ?? undefined)}
+            className="text-end font-mono tabular-nums text-fg"
+          >
+            {localText}
+            <span data-testid="row-amount-usd" className="block text-[11px] text-fg-muted">
+              {amount}
+            </span>
+          </span>
+        )}
         <span className="hidden min-w-0 items-center gap-2 text-xs text-fg sm:flex">
           {row.payment_method?.label ? <MethodBadge kind={badgeKind(row.payment_method.label)} /> : <span className="text-fg-muted">—</span>}
           <span className="truncate">{row.payment_method?.label ?? ""}</span>

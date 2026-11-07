@@ -9,7 +9,7 @@
 import type { Conversion } from "@/lib/api/types";
 import { EN, type Tr } from "@/lib/i18n/t";
 
-import { formatCents } from "./money";
+import { formatCents, localAmount } from "./money";
 
 export type RunTone = "waiting" | "working" | "ready" | "attention" | "stopped";
 
@@ -22,7 +22,8 @@ export interface RunStatus {
 function refunded(c: Conversion, t: Tr): string | null {
   const s = c.billing?.status;
   if (s !== "refunded" && s !== "refund_pending") return null;
-  return formatCents(c.billing?.charged_cents ?? c.quote.amount_cents, t);
+  // owner 2026-11-07: a refund goes back in the currency the card paid
+  return localAmount(c.presentment, t) ?? formatCents(c.billing?.charged_cents ?? c.quote.amount_cents, t);
 }
 
 export function runStatus(c: Conversion, t: Tr = EN): RunStatus {

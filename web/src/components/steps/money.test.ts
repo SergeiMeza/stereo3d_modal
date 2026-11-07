@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCents, groupMoney } from "./money";
+import { makeTr } from "@/lib/i18n/t";
+
+import { formatCents, formatMoney, groupMoney, localAmount, paidLocal } from "./money";
 
 describe("formatCents", () => {
   it("formats cents as $X.XX (never dollar floats)", () => {
@@ -25,5 +27,48 @@ describe("groupMoney (owner 2026-11-05: every Billing amount groups its thousand
     expect(groupMoney("Usage credit added · $1,500.00")).toBe("Usage credit added · $1,500.00");
     expect(groupMoney("Credit -$1200")).toBe("Credit −$1,200");
     expect(groupMoney("Business plan · monthly")).toBe("Business plan · monthly");
+  });
+});
+
+describe("formatMoney (owner 2026-11-07, Option B): any currency in its own minor units", () => {
+  const LRI = "⁦";
+  const PDI = "⁩";
+  it("JPY and KRW have no minor unit; EUR and USD have two", () => {
+    expect(formatMoney(1234, "jpy", "en-US")).toBe("¥1,234");
+    expect(formatMoney(12345, "krw", "en-US")).toBe("₩12,345");
+    expect(formatMoney(123456, "eur", "en-US")).toBe("€1,234.56");
+    expect(formatMoney(825, "usd", "en-US")).toBe("$8.25");
+  });
+
+  it("each language writes them its own way", () => {
+    expect(formatMoney(1234, "jpy", "ja-JP")).toBe("￥1,234");
+    expect(formatMoney(825, "usd", "ja-JP")).toBe("$8.25");
+    expect(formatMoney(1234, "jpy", "de-DE")).toBe("1.234 ¥");
+    expect(formatMoney(123456, "eur", "de-DE")).toBe("1.234,56 €");
+    expect(formatMoney(12345, "krw", "ko-KR")).toBe("₩12,345");
+    expect(formatMoney(825, "usd", "zh-CN")).toBe("US$8.25");
+  });
+
+  it("Arabic keeps Latin digits and the amount isolated inside a sentence", () => {
+    const jpy = formatMoney(1234, "jpy", "ar-u-nu-latn");
+    expect(jpy.startsWith(LRI) && jpy.endsWith(PDI)).toBe(true);
+    expect(jpy).toContain("1,234");
+    expect(jpy).toMatch(/JP¥|¥/);
+    expect(formatMoney(123456, "eur", "ar-u-nu-latn")).toContain("1,234.56");
+    expect(formatMoney(825, "usd", "ar-u-nu-latn")).toContain("8.25");
+    expect(formatMoney(825, "usd", "ar-u-nu-latn")).not.toMatch(/[٠-٩]/);
+  });
+
+  it("paidLocal: \"Paid ¥1,234 ($8.25)\" with a presentment, null for US dollars or none", () => {
+    expect(paidLocal({ amount_minor: 1234, currency: "jpy" }, 825)).toBe("Paid ¥1,234 ($8.25)");
+    expect(paidLocal({ amount_minor: 760, currency: "eur" }, 825)).toBe("Paid €7.60 ($8.25)");
+    expect(paidLocal({ amount_minor: 11000, currency: "krw" }, 825)).toBe("Paid ₩11,000 ($8.25)");
+    expect(paidLocal(null, 825)).toBeNull();
+    expect(paidLocal(undefined, 825)).toBeNull();
+    expect(paidLocal({ amount_minor: 825, currency: "usd" }, 825)).toBeNull();
+    const ja = makeTr("ja", null);
+    expect(paidLocal({ amount_minor: 1234, currency: "jpy" }, 825, ja)).toBe("Paid ￥1,234 ($8.25)");
+    expect(localAmount({ amount_minor: 1234, currency: "jpy" }, ja)).toBe("￥1,234");
+    expect(localAmount(null, ja)).toBeNull();
   });
 });

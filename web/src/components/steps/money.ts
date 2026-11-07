@@ -1,5 +1,6 @@
+import type { Presentment } from "@/lib/api/types";
 import { dirOf } from "@/lib/i18n/locales";
-import type { Tr } from "@/lib/i18n/t";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /**
  * Money display helpers. Amounts are integer CENTS end-to-end (gateway,
@@ -51,4 +52,52 @@ function usdFormat(tag: string, digits: number): Intl.NumberFormat {
     usd.set(id, f);
   }
   return f;
+}
+
+const money = new Map<string, Intl.NumberFormat>();
+function moneyFormat(locale: string, currency: string): Intl.NumberFormat {
+  const id = `${locale}|${currency}`;
+  let f = money.get(id);
+  if (!f) {
+    f = new Intl.NumberFormat(locale, { style: "currency", currency });
+    money.set(id, f);
+  }
+  return f;
+}
+
+const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
+
+/**
+ * An amount in any currency, in the currency's own minor units (owner
+ * 2026-11-07, Option B): formatMoney(1234, "jpy", "ja-JP") → "￥1,234"
+ * (JPY has no minor unit); formatMoney(825, "usd", "en-US") → "$8.25". The minor units come from Intl (JPY and KRW
+ * 0, USD and EUR 2, BHD 3); `locale` is the Intl tag (Tr.intl, which keeps
+ * Latin digits for Arabic). In a right-to-left language the amount keeps
+ * its own order inside a sentence.
+ */
+export function formatMoney(amountMinor: number, currency: string, locale: string): string {
+  const f = moneyFormat(locale, currency.toUpperCase());
+  const digits = f.resolvedOptions().maximumFractionDigits ?? 2;
+  const text = f.format(Math.trunc(amountMinor) / 10 ** digits);
+  const lang = locale.split("-")[0].toLowerCase();
+  return RTL_LANGUAGES.has(lang) ? `\u2066${text}\u2069` : text;
+}
+
+/** A charge paid in another currency (Stripe Adaptive Pricing): "Paid
+ * ¥1,234 ($8.25)". null when it was paid in US dollars (no presentment,
+ * or a USD one): the caller shows the USD amount as before. */
+export function paidLocal(
+  presentment: Presentment | null | undefined,
+  usdCents: number,
+  t: Tr = EN,
+): string | null {
+  const local = localAmount(presentment, t);
+  if (local === null) return null;
+  return t("common.money.paidLocal", { local, usd: formatMoney(usdCents, "usd", t.intl) });
+}
+
+/** The local amount alone ("¥1,234"), or null when paid in US dollars. */
+export function localAmount(presentment: Presentment | null | undefined, t: Tr = EN): string | null {
+  if (!presentment || !presentment.currency || presentment.currency.toLowerCase() === "usd") return null;
+  return formatMoney(presentment.amount_minor, presentment.currency, t.intl);
 }

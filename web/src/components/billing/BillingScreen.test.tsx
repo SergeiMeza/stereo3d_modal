@@ -82,6 +82,42 @@ function openMenu(trigger: HTMLElement): void {
   fireEvent.keyDown(trigger, { key: "Enter" });
 }
 
+describe("Billing history: what the card paid in its own currency (owner 2026-11-07, Option B)", () => {
+  it("a charge with a presentment shows the local amount with the US dollars under it", async () => {
+    run("cjpy00000001", 4972, {
+      charge_timing: "before",
+      presentment: { amount_minor: 7480, currency: "jpy" },
+      updated_at: "2026-11-03T09:00:00Z",
+    });
+    run("cusd00000001", 2312, { charge_timing: "before", presentment: null, updated_at: "2026-11-02T09:00:00Z" });
+    renderBilling();
+    const history = await screen.findByTestId("history");
+    const rows = within(history).getAllByRole("listitem").filter((li) => li.dataset.testid?.startsWith("row-"));
+    expect(rows).toHaveLength(2);
+    const [jpy, usd] = rows;
+    const amount = within(jpy).getByTestId("row-amount");
+    expect(amount.textContent).toBe("¥7,480$49.72");
+    expect(within(jpy).getByTestId("row-amount-usd").textContent).toBe("$49.72");
+    expect(amount.getAttribute("aria-label")).toBe("Paid ¥7,480 ($49.72)");
+    // null: US dollars only, as before
+    expect(within(usd).getByTestId("row-amount").textContent).toBe("$23.12");
+    expect(within(usd).queryByTestId("row-amount-usd")).toBeNull();
+  });
+
+  it("its refund goes back in the same currency", async () => {
+    run("cjpyref00001", 1838, {
+      charge_timing: "before",
+      state: "failed",
+      billing: { status: "refunded", charged_cents: 1838 },
+      presentment: { amount_minor: 2770, currency: "jpy" },
+    });
+    renderBilling();
+    const history = await screen.findByTestId("history");
+    const refund = within(history).getByTestId("row-ch_cjpyref00001_refund");
+    expect(within(refund).getByTestId("row-amount").textContent).toBe("−¥2,770−$18.38");
+  });
+});
+
 describe("Billing (S3D-57, S3D-62)", () => {
   it("methods with Default and the order line; one row per charge, refunds with a credit note (P10)", async () => {
     run("cbig00000001", 4972, { charge_timing: "before", updated_at: "2026-11-03T09:00:00Z" });

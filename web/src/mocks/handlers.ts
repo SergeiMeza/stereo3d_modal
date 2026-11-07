@@ -3205,6 +3205,8 @@ export const handlers = [
           status: status(c.billing?.status),
           receipt_url: `https://pay.stripe.com/receipts/mock/${c.conversion_id}`,
           hosted_invoice_url: `https://invoice.stripe.com/i/mock/${c.conversion_id}`,
+          // owner 2026-11-07: what the card paid in its own currency
+          presentment: c.presentment ?? null,
           items: [item(c)],
         });
       } else {
@@ -3265,6 +3267,7 @@ export const handlers = [
         invoice: { hosted_invoice_url: ch.hosted_invoice_url },
         receipt_url: ch.receipt_url,
         help_ref: id.slice(-4).toUpperCase(),
+        presentment: ch.presentment ?? null,
         items: ch.items,
       });
       if (ch.status === "refunded") {
@@ -3277,6 +3280,7 @@ export const handlers = [
           status: "refunded",
           credit_note_url: `https://invoice.stripe.com/cn/mock/${id}`,
           help_ref: id.slice(-4).toUpperCase(),
+          presentment: ch.presentment ?? null,
           items: ch.items,
         });
       }
