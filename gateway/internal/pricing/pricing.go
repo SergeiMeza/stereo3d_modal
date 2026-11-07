@@ -901,6 +901,9 @@ func (s *Service) Rates(ctx context.Context) *Rates {
 			rates = &loaded
 		}
 	}
+	if rates.Currency == "" {
+		rates.Currency = "usd" // every price is USD; a quote never has an empty currency
+	}
 	s.cached = rates
 	s.fetchedAt = time.Now()
 	return rates

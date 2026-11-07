@@ -47,7 +47,7 @@ func (c *Client) CreateWebSession(spec SessionSpec) (*Session, error) {
 	f.Set("ui_mode", spec.UI)
 	f.Set("customer", spec.CustomerID)
 	f.Set("line_items[0][quantity]", "1")
-	f.Set("line_items[0][price_data][currency]", spec.Currency)
+	f.Set("line_items[0][price_data][currency]", USD(spec.Currency))
 	f.Set("line_items[0][price_data][unit_amount]", strconv.FormatInt(spec.AmountCents, 10))
 	f.Set("line_items[0][price_data][product_data][name]", spec.Label)
 	if spec.PMC != "" {

@@ -60,7 +60,7 @@ type InvoiceSpec struct {
 func (c *Client) CreateInvoice(spec InvoiceSpec, key string) (*Invoice, error) {
 	form := url.Values{
 		"customer":                       {spec.CustomerID},
-		"currency":                       {spec.Currency},
+		"currency":                       {USD(spec.Currency)},
 		"collection_method":              {"charge_automatically"},
 		"auto_advance":                   {"false"},
 		"pending_invoice_items_behavior": {"exclude"},
@@ -129,7 +129,7 @@ func (c *Client) AddInvoiceItem(it InvoiceItem, key string) error {
 		"customer":                {it.CustomerID},
 		"invoice":                 {it.InvoiceID},
 		"amount":                  {strconv.FormatInt(it.AmountCents, 10)},
-		"currency":                {it.Currency},
+		"currency":                {USD(it.Currency)},
 		"description":             {it.Description},
 		"metadata[conversion_id]": {it.ConversionID},
 		"metadata[env]":           {c.env},

@@ -232,7 +232,7 @@ type PaymentSheet struct {
 func (c *Client) CreateHold(customerID string, amountCents int64, currency string, job Job) (*PaymentSheet, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		CaptureMethod: stripe.String(string(stripe.PaymentIntentCaptureMethodManual)),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
@@ -465,7 +465,7 @@ func MethodInfo(pm *stripe.PaymentMethod) *CardInfo {
 func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -484,7 +484,7 @@ func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amount
 func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -507,7 +507,7 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 func (c *Client) PrechargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -744,7 +744,7 @@ func stripeErrCode(err error) string {
 func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents int64, currency, settleID string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -763,7 +763,7 @@ func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents in
 func (c *Client) CreateAlipayPayment(customerID string, amountCents int64, currency, returnURL string, attempt int, job Job) (*stripe.PaymentIntent, string, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amountCents),
-		Currency:           stripe.String(currency),
+		Currency:           stripe.String(USD(currency)),
 		Customer:           stripe.String(customerID),
 		PaymentMethodTypes: stripe.StringSlice([]string{"alipay"}),
 		PaymentMethodData:  &stripe.PaymentIntentPaymentMethodDataParams{Type: stripe.String("alipay")},
@@ -829,4 +829,14 @@ func (c *Client) CreateAlipayTopup(customerID string, amountCents int64, returnU
 		redirect = pi.NextAction.AlipayHandleRedirect.URL
 	}
 	return pi, redirect, nil
+}
+
+// USD is the currency every charge and invoice goes out in: ours are all
+// USD prices, and the live account's default currency is GBP, so an empty
+// currency must never reach Stripe (it would be refused, or default).
+func USD(currency string) string {
+	if c := strings.ToLower(strings.TrimSpace(currency)); c != "" {
+		return c
+	}
+	return "usd"
 }
