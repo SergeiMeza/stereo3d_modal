@@ -305,6 +305,10 @@ type Rates struct {
 	// coming soon"). Absent = false in every env. Browsing, sign-up, the
 	// sample, free previews and balance or credit runs work either way.
 	ChinaPaymentsEnabled bool `firestore:"china_payments_enabled"`
+	// WebProWeeklyHidden (BUX-24): the web stops offering Pro Weekly — new
+	// web checkouts of it and changes to it are refused; weekly plans that
+	// exist renew as before. Absent = false in every env.
+	WebProWeeklyHidden bool `firestore:"web_pro_weekly_hidden"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
 	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
 	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
@@ -1545,6 +1549,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		// China mode's payments: false → the web says "Payments in
 		// mainland China are coming soon".
 		"china_payments": rates.ChinaPaymentsEnabled,
+		// BUX-24: true → the web leaves Pro Weekly out of its plan picker.
+		"web_pro_weekly_hidden": rates.WebProWeeklyHidden,
 		// Classic 3D is retired for new projects (2026-11-04): the web
 		// hides it; its prices stay for projects that already ran it.
 		"classic_new_projects": false,

@@ -52,6 +52,10 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "unknown_plan", "plan must be business, studio, pro_weekly, pro_monthly or pro_yearly"))
 		return
 	}
+	if s.proWeeklyHidden(ctx, req.Plan) {
+		httpx.WriteErr(ctx, w, errProWeeklyHidden())
+		return
+	}
 	customerID, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -453,4 +457,16 @@ func (s *Service) recordPlanPayment(ctx context.Context, invoiceID, uid, planID 
 		slog.WarnContext(ctx, "plan payment not recorded", "invoice", invoiceID, "err", err)
 	}
 	return created
+}
+
+// proWeeklyHidden: plan is Pro Weekly and the web no longer offers it
+// (config web_pro_weekly_hidden, BUX-24).
+func (s *Service) proWeeklyHidden(ctx context.Context, plan string) bool {
+	return plan == "pro_weekly" && s.rates(ctx).WebProWeeklyHidden
+}
+
+func errProWeeklyHidden() error {
+	e := httpx.Err(http.StatusConflict, "plan_unavailable", "Pro Weekly isn't offered here any more. Choose monthly or yearly.")
+	e.Details = map[string]any{"plan": "pro_weekly"}
+	return e
 }

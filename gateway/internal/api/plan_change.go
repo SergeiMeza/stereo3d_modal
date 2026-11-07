@@ -181,6 +181,10 @@ func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.C
 	if planNotRenewable(cust.Plan) && to != planNone {
 		return nil, errNotRenewable(cust.Plan) // a new plan is bought on the account's own customer instead
 	}
+	if to != cust.Plan.Key() && s.proWeeklyHidden(ctx, to) {
+		e := errProWeeklyHidden().(*httpx.APIError) // BUX-24: no new weekly plans on the web
+		return nil, e
+	}
 	target, ok := s.planTarget(ctx, to)
 	if !ok {
 		return nil, httpx.ErrInvalid("to is pro_weekly, pro_monthly, pro_yearly, business, studio or pay_per_video (none)")
