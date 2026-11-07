@@ -24,7 +24,7 @@ import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
-import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { MainButtonArea, payOpenErrorKey, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { paidMoreWaiting, settleSubtitle, sheetCurrencyLine } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
@@ -37,7 +37,8 @@ type Phase =
   | { kind: "done"; key: string }
   | { kind: "more"; paid: number; owed: number }
   | { kind: "expired" }
-  | { kind: "unavailable" };
+  /** BUX-05: key, the line for why it couldn't be opened */
+  | { kind: "unavailable"; key: string };
 
 /** ADR 0138: the sheet's open state is an app-store atom (payAtoms, no
  * context); what to do once paid is a callback, kept here. */
@@ -96,7 +97,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
       .catch((e: { code?: string }) => {
         if (!live) return;
         if (e.code === "already_paid") done("pay.copy.alreadySettled");
-        else setPhase({ kind: "unavailable" });
+        else setPhase({ kind: "unavailable", key: payOpenErrorKey(e) });
       });
     return () => {
       live = false;
@@ -286,7 +287,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
       );
       break;
     default:
-      body = <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} />;
+      body = <StateLine testId="pay-unavailable" text={t(phase.key)} />;
   }
   return (
     <SheetFrame

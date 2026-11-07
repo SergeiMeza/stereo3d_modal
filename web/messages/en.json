@@ -1256,14 +1256,18 @@
       "localAtCheckout": "You'll see your local price at checkout.",
       "formShowsLocal": "The payment form shows the price in your currency. Base price {usd}.",
       "timedOut": "This payment timed out. Nothing was charged.",
-      "walletDeclined": "Your wallet payment didn't go through. Try again or pay another way."
+      "walletDeclined": "Your wallet payment didn't go through. Try again or pay another way.",
+      "openNetwork": "We couldn't open the payment. Check your connection and try again.",
+      "openServer": "We couldn't open the payment. Try again in a moment.",
+      "notPayable": "This run isn't waiting for a payment."
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "Pay on another device",
       "continueAlipay": "Continue to Alipay",
       "payHereInstead": "Pay here instead",
-      "startAgain": "Start again"
+      "startAgain": "Start again",
+      "tryAgain": "Try again"
     },
     "checkout": {
       "payWithCard": "Pay with a card",
