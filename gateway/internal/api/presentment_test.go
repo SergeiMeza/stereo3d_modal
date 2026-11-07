@@ -184,3 +184,55 @@ func TestPresentmentFields(t *testing.T) {
 		}
 	}
 }
+
+// Refunds go back in USD and Stripe returns the presented currency at the
+// original rate: a refund row keeps Stripe's refund presentment (set once,
+// from the created refund); a fully refunded run's history refund row
+// shows the original amount, negative like amount_cents; a partial one
+// shows none.
+func TestRefundPresentment(t *testing.T) {
+	re := &stripex.RefundResult{Currency: "usd"}
+	json.Unmarshal([]byte(`{"id":"re_1","status":"succeeded","amount":400,"currency":"usd","presentment_details":{"presentment_amount":659,"presentment_currency":"jpy"}}`), re)
+	if p := re.Presentment(); p == nil || *p != (stripex.Presentment{AmountMinor: 659, Currency: "jpy"}) {
+		t.Fatalf("refund %+v", p)
+	}
+	if (&stripex.RefundResult{Currency: "usd"}).Presentment() != nil {
+		t.Fatal("usd refund")
+	}
+	now := time.Now()
+	jpy := &store.Presentment{AmountMinor: 1648, Currency: "jpy"}
+	full := &store.Conversion{ID: "f", State: store.StateFailed, Stripe: store.Stripe{PaymentIntentID: "pi_f", PIStatus: store.PIRefunded,
+		CapturedCents: 1000, RefundedCents: 1000, CapturedAt: &now, RefundedAt: &now, Presentment: jpy}}
+	part := &store.Conversion{ID: "p", State: store.StateFailed, Stripe: store.Stripe{PaymentIntentID: "pi_p", PIStatus: store.PIRefunded,
+		CapturedCents: 1000, RefundedCents: 400, CapturedAt: &now, RefundedAt: &now, Presentment: jpy}}
+	got := map[string]*store.Presentment{}
+	for _, r := range historyRows(nil, nil, []*store.Conversion{full, part}) {
+		got[r.RowID] = r.Presentment
+	}
+	if p := got["refund_f"]; p == nil || *p != (store.Presentment{AmountMinor: -1648, Currency: "jpy"}) || got["refund_p"] != nil ||
+		got[store.ChargeID(store.ChargeRun, "p")] != jpy {
+		t.Fatalf("rows %+v", got)
+	}
+}
+
+// applyRefundStatus keeps the created refund's presentment and a later
+// event without one doesn't clear it.
+func TestRefundRowPresentment(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	pi := "pi_" + store.NewID()
+	row, err := s.Store.ReserveRefund(ctx, store.ReserveSpec{ChargeID: "ch_" + pi, UID: "u1", PI: pi, CaseID: "case1",
+		Items: map[string]int64{"c1": 400}, StripeRemainder: -1, Source: "gateway", Unassigned: true,
+		Fallback: &store.Charge{UID: "u1", Kind: store.ChargeRun, PaymentIntentID: pi, AmountCents: 1000, Currency: "usd"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := &stripex.RefundResult{ID: "re_1", Status: "pending", Currency: "usd"}
+	json.Unmarshal([]byte(`{"presentment_details":{"presentment_amount":659,"presentment_currency":"jpy"}}`), re)
+	s.applyRefundStatus(ctx, row.ID, re)
+	s.applyRefundStatus(ctx, row.ID, &stripex.RefundResult{ID: "re_1", Status: "pending"}) // an older payload
+	rows, err := s.Store.ListRefundRows(ctx, pi)
+	if err != nil || len(rows) != 1 || rows[0].Presentment == nil || *rows[0].Presentment != (store.Presentment{AmountMinor: 659, Currency: "jpy"}) {
+		t.Fatalf("%+v %v", rows, err)
+	}
+}

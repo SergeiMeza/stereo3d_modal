@@ -46,8 +46,12 @@ type RefundRow struct {
 	Note         string           `firestore:"note,omitempty" json:"note,omitempty"`
 	FailReason   string           `firestore:"fail_reason,omitempty" json:"fail_reason,omitempty"`
 	CreditNoteID string           `firestore:"credit_note_id,omitempty" json:"credit_note_id,omitempty"`
-	CreatedAt    time.Time        `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time        `firestore:"updated_at" json:"updated_at"`
+	// Presentment: what goes back in the customer's currency when the
+	// payment was presented locally (Adaptive Pricing); nil: USD or not
+	// known. TotalCents stays USD.
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"presentment"`
+	CreatedAt   time.Time    `firestore:"created_at" json:"created_at"`
+	UpdatedAt   time.Time    `firestore:"updated_at" json:"updated_at"`
 }
 
 // Counts: pending, succeeded and out-of-band rows hold their cents.

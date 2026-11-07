@@ -21,6 +21,21 @@ type RefundResult struct {
 	FailureReason string            `json:"failure_reason"`
 	Metadata      map[string]string `json:"metadata"`
 	Created       int64             `json:"created"`
+	Currency      string            `json:"currency"`
+	// PresentmentDetails: a refund of a payment Adaptive Pricing
+	// presented goes back in that currency at the original rate (TEST
+	// 2026-11-07: $4.00 + $6.00 of a ¥1,648 payment came back as ¥659 +
+	// ¥989). Sent at WebAPIVersion; older webhook payloads may lack it.
+	PresentmentDetails *presentmentDetails `json:"presentment_details"`
+}
+
+// Presentment is what the customer gets back in their currency (nil:
+// USD, or not known from this payload).
+func (r *RefundResult) Presentment() *Presentment {
+	if r == nil {
+		return nil
+	}
+	return r.PresentmentDetails.value(r.Currency)
 }
 
 // RefundAmount refunds amount of a PaymentIntent under key (C8 step 3:

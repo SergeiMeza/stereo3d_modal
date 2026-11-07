@@ -558,6 +558,9 @@ func (s *Service) applyRefundStatus(ctx context.Context, rowID string, re *strip
 	row, err := s.Store.UpdateRefundRow(ctx, rowID, func(r *store.RefundRow) error {
 		prev = r.Status
 		r.ReID = re.ID
+		if p := presentmentOf(re.Presentment()); p != nil && r.Presentment == nil {
+			r.Presentment = p // the created refund (WebAPIVersion) carries it; a later event may not
+		}
 		switch re.Status {
 		case "succeeded":
 			r.Status = store.RefundSucceeded

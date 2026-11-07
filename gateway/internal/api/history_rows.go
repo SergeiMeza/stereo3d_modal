@@ -170,6 +170,13 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 		out = append(out, r)
 		if refund != nil {
 			refund.RowID, refund.Kind, refund.Currency, refund.pi = "refund_"+c.ID, "refund", r.Currency, r.pi
+			if refund.Status == "refunded" && c.Stripe.RefundedCents == c.Stripe.CapturedCents {
+				// a full refund returns exactly what was presented (Stripe
+				// refunds at the original rate); a partial one is unknown here
+				if p := c.Stripe.Presentment; p != nil {
+					refund.Presentment = &store.Presentment{AmountMinor: -p.AmountMinor, Currency: p.Currency} // negative, like amount_cents
+				}
+			}
 			refund.chargeID, refund.convIDs = r.chargeID, r.convIDs
 			refund.amounts = map[string]int64{c.ID: -refund.AmountCents}
 			out = append(out, *refund)
