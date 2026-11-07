@@ -264,10 +264,16 @@ func TestPlanEntitlementGrants(t *testing.T) {
 	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
 	var calls []string
 	var mu sync.Mutex
+	attrPosts := 0
 	entitled := map[string]bool{}
 	rc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/attributes") {
+			attrPosts++ // D14's web_plan marker, checked below
+			w.Write([]byte(`{}`))
+			return
+		}
 		if r.Method == http.MethodPost {
 			var body map[string]any
 			json.NewDecoder(r.Body).Decode(&body)
@@ -296,6 +302,9 @@ func TestPlanEntitlementGrants(t *testing.T) {
 	if len(calls) != 2 || !strings.HasPrefix(calls[0], uid+"/entitlements/business/promotional") ||
 		!strings.HasPrefix(calls[1], uid+"/entitlements/pro/promotional") || !strings.HasSuffix(calls[0], wantEnd) {
 		t.Fatalf("grants %v (want end %s)", calls, wantEnd)
+	}
+	if attrPosts != 1 {
+		t.Fatalf("web_plan marker writes %d", attrPosts)
 	}
 	cust, _ := s.Store.GetCustomer(ctx, uid)
 	if cust.Plan == nil || cust.Plan.RCGrantInvoice != "in_p1" || cust.Plan.RCGrantedUntil == nil {

@@ -102,6 +102,7 @@ func (s *Service) grantRC(ctx context.Context, uid, tier string, until time.Time
 	if err := s.RevenueCat.GrantPromotional(gctx, uid, "pro", now, until); err != nil {
 		return fmt.Errorf("pro: %w", err)
 	}
+	s.markWebPlan(gctx, uid, until) // D14: web_plan and web_plan_renews_at with every grant
 	return nil
 }
 

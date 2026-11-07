@@ -171,7 +171,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 	}
 	start, end := sub.Period()
 	defer s.rcAttrsTouch(ctx, uid, "plan") // web_plan, web_plan_renews_at
-	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+	updated, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		if c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.SubscriptionID != sub.ID && c.Plan.Active(time.Now()) && sub.Status != "active" {
 			return nil // an older or incomplete subscription doesn't replace the live one
 		}
@@ -195,9 +195,14 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 		}
 		c.Plan = next
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		slog.WarnContext(ctx, "plan not recorded", "uid", uid, "subscription", sub.ID, "err", err)
 		return
+	}
+	if (sub.Status == "canceled" || sub.Status == "incomplete_expired") && updated != nil && updated.Plan != nil &&
+		updated.Plan.SubscriptionID == sub.ID && !updated.Plan.Active(time.Now()) {
+		s.clearWebPlan(ctx, uid) // D14: the plan ended
 	}
 	slog.InfoContext(ctx, "plan synced", "uid", uid, "plan", tier, "status", sub.Status)
 }

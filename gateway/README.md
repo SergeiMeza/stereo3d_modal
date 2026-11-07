@@ -993,6 +993,18 @@ tokens or payment details; no consent (the web stores none).
   `rc_attr_allow_uids`; everyone else reads as no app Pro and nothing is
   sent. Prod reads every account (creating web customers there is
   intended). 200 and 201 are both a successful read.
+- **Web plan grant marker** (D14, 2026-11-07): every grant or extension
+  of a web plan's entitlements (a paid plan invoice, a past_due
+  extension, M3's re-grant) also writes `web_plan` (the plan id) and
+  `web_plan_renews_at` (the end of the period the grant covers: its expiry
+  less the 3-day grace). A revoke and the plan ending write `web_plan:
+  "none"` and remove `web_plan_renews_at`. Gated like the grants (prod
+  always; TEST only `rc_attr_allow_uids`), not behind `rc_attr_sync`.
+  `svs-admin rc-web-plan-backfill [-apply]` writes it for every active
+  plan's current grant (counts only without `-apply`; owner's go on prod).
+  **KPI rule:** a promotional entitlement is a web plan grant when
+  `web_plan` is set and not `none` and its expiry is `web_plan_renews_at`
+  + 3 days (±1 day).
 - **Writes on TEST** (D11, 2026-11-07): the same allowlist gates every
   RevenueCat write on TEST: plan invoices' entitlement grants and revokes,
   Grant Pro, the promo regrant and attributes. Every other uid's write is

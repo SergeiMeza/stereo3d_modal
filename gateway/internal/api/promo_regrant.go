@@ -128,7 +128,9 @@ func (s *Service) promoRevokeOurs(ctx context.Context, uid, key, reason string, 
 	for _, g := range ours {
 		ents = append(ents, g.Entitlement)
 	}
-	s.promoStart(ctx, &store.PromoRegrant{UID: uid, Policy: promoPolicyOurs, Reason: reason, Revoked: ents, Ours: ours}, key)
+	if s.promoStart(ctx, &store.PromoRegrant{UID: uid, Policy: promoPolicyOurs, Reason: reason, Revoked: ents, Ours: ours}, key) == promoNew {
+		s.clearWebPlan(ctx, uid) // D14: the plan's grant is gone (once per event)
+	}
 }
 
 // promoHold removes every promotional Pro grant for a dispute or fraud
@@ -145,17 +147,29 @@ func (s *Service) promoHold(ctx context.Context, uid, key, reason string, amount
 		AmountCents: amount, CaseID: caseID}, key)
 }
 
-func (s *Service) promoStart(ctx context.Context, r *store.PromoRegrant, key string) {
+// promoStart's outcomes: a new record, an unfinished one taken up again,
+// or nothing to do (a second delivery of a finished event, or no record).
+const (
+	promoNew = iota
+	promoResumed
+	promoNothing
+)
+
+func (s *Service) promoStart(ctx context.Context, r *store.PromoRegrant, key string) int {
 	r.Status = "started"
 	rec, created, err := s.Store.CreatePromoRegrant(ctx, key, r)
 	if err != nil {
 		s.Slack.Alert(ctx, "promo_regrant_failed", fmt.Sprintf("promo record %s for `%s` not written: %v", key, r.UID, err))
-		return
+		return promoNothing
 	}
 	if !created && !retryablePromo(rec.Status) {
-		return // a second delivery of the same event
+		return promoNothing // a second delivery of the same event
 	}
 	s.promoAdvance(ctx, rec)
+	if created {
+		return promoNew
+	}
+	return promoResumed
 }
 
 func retryablePromo(st string) bool {

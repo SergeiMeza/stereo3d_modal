@@ -20,6 +20,7 @@
 //	reconcile [-since 48h] [-dry-run] [-yes]
 //	blocklist [add|remove FINGERPRINT [-note t]]
 //	emails-backfill [-dry-run] [-stripe] [-yes]   (EM-01: the email store from Firebase users and customer records; counts only)
+//	rc-web-plan-backfill [-apply] [-yes]   (D14: web_plan / web_plan_renews_at for every active web plan's grant; counts only without -apply; TEST writes only allowlisted uids)
 //
 // Credentials: Application Default Credentials (gcloud auth
 // application-default login) for Firestore and Firebase; the Stripe and
@@ -52,6 +53,10 @@ import (
 
 const project = "spatial-video-studio"
 
+// needRevenueCat: the command writes to RevenueCat, so its key is loaded
+// (every other command runs without it, as before).
+var needRevenueCat bool
+
 var moneyActions = map[string]bool{"approve": true, "partial": true, "waive": true, "deny": true, "mark_out_of_band": true,
 	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true, "block_permanent": true,
 	"grant_credit": true}
@@ -60,7 +65,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 	env := flag.String("env", "test", "test or prod")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill> …")
+		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill|rc-web-plan-backfill> …")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -70,6 +75,9 @@ func main() {
 	}
 	if *env != "test" && *env != "prod" {
 		fail("-env must be test or prod")
+	}
+	if flag.Arg(0) == "rc-web-plan-backfill" {
+		needRevenueCat = true // the only command that writes to RevenueCat
 	}
 	if err := loadEnv(*env); err != nil {
 		fail(err.Error())
@@ -211,6 +219,20 @@ func main() {
 		if err != nil {
 			fail("backfill stopped: " + err.Error())
 		}
+	case "rc-web-plan-backfill":
+		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
+		apply := fs.Bool("apply", false, "write the attributes (without it: count only)")
+		yes := fs.Bool("yes", false, "don't ask before writing")
+		fs.Parse(args)
+		if *apply {
+			confirm(*yes, "D14 backfill: write web_plan / web_plan_renews_at to RevenueCat for every active web plan on "+*env)
+		}
+		res, err := svc.BackfillWebPlanMarkers(ctx, *apply)
+		if err != nil {
+			fail("backfill: " + err.Error())
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		fmt.Println(string(b))
 	default:
 		flag.Usage()
 		os.Exit(2)
@@ -261,7 +283,11 @@ func loadEnv(env string) error {
 		"RESEND_API_KEY":    "RESEND_API_KEY",
 		"SLACK_WEBHOOK_URL": "slack-webhook",
 		"RECONCILE_TOKEN":   "reconcile-token-" + env,
+		"RC_API_KEY_V1":     map[bool]string{true: "RC_API_KEY_V1"}[needRevenueCat],
 	} {
+		if secret == "" {
+			continue
+		}
 		if os.Getenv(k) != "" {
 			continue
 		}
