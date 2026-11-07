@@ -28,6 +28,8 @@ import {
   type StepConversionRequest,
 } from "@/lib/api/types";
 import { useLimits } from "@/lib/api/useLimits";
+import { usePricing } from "@/lib/api/usePricing";
+import { campaignBadge } from "@/lib/campaign";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
 import { EDGE_NAMES, qualitiesFor, qualityChoices, type QualityChoice } from "@/lib/glossary";
@@ -78,6 +80,15 @@ export function DeliverPanel({
   })();
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
+  // the launch offer on Classic's tiles once the gateway lists Classic
+  // (its quote line shows whenever the quote carries campaign_cents)
+  const pricing = usePricing();
+  const offerBadges = Object.fromEntries(
+    choices.flatMap((q) => {
+      const b = campaignBadge(pricing, q.preset, "classic");
+      return b ? [[q.preset, b]] : [];
+    }),
+  ) as Partial<Record<Preset, string>>;
   const [devices, setDevices] = useState<Device[]>(() => {
     const d = deviceForClient(client);
     return d ? [d] : [];
@@ -215,6 +226,7 @@ export function DeliverPanel({
               value={preset}
               onChange={(p) => change(() => setPreset(p))}
               prices={prices}
+              badges={offerBadges}
               note={`With ${EDGE_NAMES[edge].toLowerCase()}. You can change this under Advanced.`}
             />
           </MakeSection>

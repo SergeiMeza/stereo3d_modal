@@ -622,6 +622,9 @@ export interface PricingCampaign {
   ends_at?: string | null;
   /** "Launch offer until Jan 10" */
   label?: string;
+  /** the methods it covers, when the gateway says (absent: Lifelike only,
+   * as gateway 00175 runs it) */
+  methods?: string[];
 }
 
 /** gateway 00172: Foveated Detail on a quote or a run. At 1080p it is

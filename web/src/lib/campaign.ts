@@ -18,9 +18,18 @@ export function activeCampaign(pricing: PublicPricing | null | undefined) {
   return c;
 }
 
-/** Does the offer cover this quality right now? */
-export function campaignCovers(pricing: PublicPricing | null | undefined, preset: string): boolean {
-  return activeCampaign(pricing)?.presets?.includes(preset) === true;
+/** Does the offer cover this quality (and method) right now? Without a
+ * methods list it is Lifelike's (gateway 00175); Classic 3D gets the
+ * badge once the gateway lists it. A Classic quote's line shows whenever
+ * the quote carries campaign_cents, whatever this says. */
+export function campaignCovers(
+  pricing: PublicPricing | null | undefined,
+  preset: string,
+  method: "lifelike" | "classic" = "lifelike",
+): boolean {
+  const c = activeCampaign(pricing);
+  if (!c?.presets?.includes(preset)) return false;
+  return c.methods ? c.methods.includes(method) : method === "lifelike";
 }
 
 function percentOf(c: NonNullable<PublicPricing["campaign"]>): number | null {
@@ -28,9 +37,13 @@ function percentOf(c: NonNullable<PublicPricing["campaign"]>): number | null {
 }
 
 /** "−25% launch offer", for a quality the offer covers; null otherwise. */
-export function campaignBadge(pricing: PublicPricing | null | undefined, preset: string): string | null {
+export function campaignBadge(
+  pricing: PublicPricing | null | undefined,
+  preset: string,
+  method: "lifelike" | "classic" = "lifelike",
+): string | null {
   const c = activeCampaign(pricing);
-  if (!c || !campaignCovers(pricing, preset)) return null;
+  if (!c || !campaignCovers(pricing, preset, method)) return null;
   const pct = percentOf(c);
   return pct ? `−${pct}% launch offer` : "Launch offer";
 }

@@ -419,6 +419,8 @@ interface DB {
   /** the launch offer (gateway 00175): on in the dev mock like TEST, off
    * in unit tests so the older price assertions keep their numbers */
   campaign: boolean;
+  /** the methods /v1/pricing's campaign lists (null: no list, Lifelike only) */
+  campaignMethods: string[] | null;
   /** tests: fixed alt_prices on every Lifelike quote (null = priced) */
   altPricesFixed: Partial<Record<"pro" | "business" | "studio", number>> | null;
   /** tests: usage credit a quote is paid from first (gateway 00166 pay_split) */
@@ -1014,6 +1016,7 @@ function seed(): DB {
     proCredit: undefined,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
     campaign: !(typeof process !== "undefined" && process.env?.VITEST),
+    campaignMethods: null as string[] | null,
     altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
     quoteCreditCents: null as number | null,
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
@@ -1078,6 +1081,7 @@ export const mockDb = {
     this.pro = fresh.pro;
     this.tierPricing = fresh.tierPricing;
     this.campaign = fresh.campaign;
+    this.campaignMethods = fresh.campaignMethods;
     this.altPricesFixed = fresh.altPricesFixed;
     this.freePreviews = fresh.freePreviews;
     this.plays = fresh.plays;
@@ -1987,7 +1991,18 @@ function campaignActive(): boolean {
  * starts_at, ends_at, label}; active false without one */
 function publicCampaign(): Record<string, unknown> {
   if (!mockDb.campaign) return { active: false };
-  return { active: campaignActive(), ...MOCK_CAMPAIGN, percent: Math.round(MOCK_CAMPAIGN.pct * 100) };
+  return {
+    active: campaignActive(),
+    ...MOCK_CAMPAIGN,
+    percent: Math.round(MOCK_CAMPAIGN.pct * 100),
+    ...(mockDb.campaignMethods ? { methods: mockDb.campaignMethods } : {}),
+  };
+}
+
+/** Does the offer take its share off this method's run? */
+function campaignFor(method: "lifelike" | "classic", preset: Preset): boolean {
+  if (!campaignActive() || !MOCK_CAMPAIGN.presets.includes(preset)) return false;
+  return mockDb.campaignMethods ? mockDb.campaignMethods.includes(method) : method === "lifelike";
 }
 
 /** the run carries the quote's campaign_cents (when it has one) */
@@ -2057,7 +2072,7 @@ function lifelikeQuoteFor(
     // the launch offer: after the plan or Pro price, on the whole run,
     // by the output preset; web production runs only
     const campaign =
-      !preview && campaignActive() && MOCK_CAMPAIGN.presets.includes(preset)
+      !preview && campaignFor("lifelike", preset)
         ? Math.round(q.final * MOCK_CAMPAIGN.pct)
         : 0;
     let total = Math.max(q.final - campaign, minimumFor(req.step));
@@ -2353,13 +2368,24 @@ function quoteFor(
   const credit = project.analyze.credit_available
     ? RATES.analyzeCreditCents
     : 0;
-  const total = Math.max(afterReuse - bulk - credit, minimumFor(req.step));
+  // the launch offer on Classic web runs, once the gateway lists Classic
+  const campaign =
+    step === "production" && campaignFor("classic", preset) ? Math.round((afterReuse - bulk) * MOCK_CAMPAIGN.pct) : 0;
+  const total = Math.max(afterReuse - bulk - campaign - credit, minimumFor(req.step));
   return {
     quote: {
       amount_cents: total,
       currency: "usd",
       rate_version: "mock",
       breakdown: {
+        ...(campaign > 0
+          ? {
+              campaign_cents: campaign,
+              campaign_label: `Launch offer −${Math.round(MOCK_CAMPAIGN.pct * 100)}%`,
+              campaign_pct: MOCK_CAMPAIGN.pct,
+              campaign_name: MOCK_CAMPAIGN.label,
+            }
+          : {}),
         step,
         preset,
         billable_seconds: Math.round(billable * 100) / 100,

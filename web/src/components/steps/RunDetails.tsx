@@ -139,7 +139,8 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
   // owner 2026-11-07: the File quality asked for, with what the finished
   // files measure ("High (measured 41 Mbit/s)"); the asked-for setting
   // alone while running or on older runs; never a guess
-  add("File quality", fileQualityLine(c));
+  // Classic keeps its bitrate list (owner 2026-11-07): its row says Bitrate
+  add(conversionMethod(c) === "lifelike" ? "File quality" : "Bitrate", fileQualityLine(c));
   add("Audio", audioLine(c));
   // owner 2026-11-07: a Lifelike run always says On or Off for each
   // add-on, offered or not; Classic runs have none
