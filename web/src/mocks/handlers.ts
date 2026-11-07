@@ -352,6 +352,8 @@ function paymentFlow(amountCents: number): {
   pay_now_reason?: "no_method";
 } {
   if (!mockDb.billing.hasPaymentMethod) return { payment_flow: "paynow", pay_now_reason: "no_method" };
+  // the gateway's decideFlow: with deferred payments off, a card pays now
+  if (!mockDb.deferredPayments) return { payment_flow: "paynow" };
   return { payment_flow: chargeTiming(amountCents) === "before" ? "precharge" : "after" };
 }
 
@@ -397,6 +399,11 @@ interface DB {
   /** quotes above this are charged when the run starts (charge_timing
    * "before"), mirroring the gateway's LL-D8 threshold */
   chargeBeforeCents: number;
+  /** deferred payments (gateway deferred_payments_enabled): off in the
+   * dev mock like staging and prod (every card-paid run pays before it
+   * starts, through the pay-now sheet); on in unit tests, which cover the
+   * charged-after path */
+  deferredPayments: boolean;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -1008,6 +1015,7 @@ function seed(): DB {
     },
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
+    deferredPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -1075,6 +1083,7 @@ export const mockDb = {
     this.billing = fresh.billing;
     this.methodMaxDurationS = fresh.methodMaxDurationS;
     this.chargeBeforeCents = fresh.chargeBeforeCents;
+    this.deferredPayments = fresh.deferredPayments;
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     this.methodAvailable = fresh.methodAvailable;
     this.lifelikeFoveation = fresh.lifelikeFoveation;
@@ -3113,6 +3122,7 @@ function projectSummary(p: MockProject) {
 
 /** LL-D8: runs quoted above the threshold are charged when they start. */
 function chargeTiming(amountCents: number): "before" | "after" {
+  if (!mockDb.deferredPayments) return "before";
   return amountCents > mockDb.chargeBeforeCents ? "before" : "after";
 }
 
@@ -5325,7 +5335,7 @@ export const handlers = [
       // spec v6: nothing saved → the run waits for our pay sheet (P1)
       const sheet = !mockDb.billing.hasPaymentMethod;
       const payNow =
-        sheet || mockDb.billing.methods.find((m) => m.is_default)?.pay_now === true;
+        sheet || !mockDb.deferredPayments || mockDb.billing.methods.find((m) => m.is_default)?.pay_now === true;
       const conv: Conversion = {
         conversion_id: id,
         state: payNow || needs3ds || precharge ? "created" : "paid",
