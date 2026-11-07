@@ -240,6 +240,25 @@ describe("Billing (S3D-57, S3D-62)", () => {
     expect(screen.getByTestId("row-ch_cplain000001").textContent).not.toContain("Launch offer");
   });
 
+  it("an admin's credit grant reads Credit from Spatial Video Studio, never why (gateway 00178)", async () => {
+    mockDb.billing.planHistory = [
+      {
+        row_id: "credit_g1", kind: "credit", created_at: "2026-11-07T01:00:00Z", amount_cents: 0, currency: "usd",
+        status: "applied", help_ref: "", label: "Credit from Spatial Video Studio · $25.00", credit: { cents: 2500, kind: "granted" }, items: [],
+      },
+      {
+        row_id: "credit_g0", kind: "credit", created_at: "2026-11-06T01:00:00Z", amount_cents: 0, currency: "usd",
+        status: "applied", help_ref: "", label: "Credit from Spatial Video Studio ended · $5.00", credit: { cents: -500, kind: "removed" }, items: [],
+      },
+    ];
+    renderBilling();
+    const grant = await screen.findByTestId("row-credit_g1");
+    expect(grant.textContent).toContain("Credit from Spatial Video Studio · $25.00");
+    expect(within(grant).getByTestId("row-status").textContent).toBe("Added");
+    expect(within(screen.getByTestId("row-credit_g0")).getByTestId("row-status").textContent).toBe("Ended");
+    expect(document.body.textContent).not.toMatch(/goodwill|promo|refund as credit/i);
+  });
+
   it("History renders every kind and status the gateway sends, unknown ones and rows without items (owner bug 2026-11-05)", async () => {
     const kinds = ["charge", "refund", "outstanding", "topup", "plan", "plan_change", "credit", "some_new_kind", undefined];
     const statuses = [
