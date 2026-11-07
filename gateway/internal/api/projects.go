@@ -1125,6 +1125,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	in.CreditCents = creditCents
 	at := s.accountTier(ctx, p.UID)
 	in.Pro, in.Tier, in.Master = at.Tier != "", at.Tier, params.Bitrate == bitrateMaster
+	in.Web, in.OutputPreset = params.Web, params.Preset // the launch offer: web production at 1080p and 1440p
 	q, err := s.Pricing.QuoteStep(ctx, in)
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())

@@ -1026,12 +1026,16 @@ fresh sign-in (5 min).
 
 Config `campaign {enabled, pct, max_preset, starts_at, ends_at?, label}`
 on `config/pricing_{env}` (`pct` 25 or 0.25; `ends_at` absent = open
-ended). TEST's defaults run it: 25%, `max_preset: qhd` (1080p and 1440p;
+ended). Both methods: Lifelike and Classic web production runs (Classic
+from 2026-11-07, same label and window). TEST's defaults run it: 25%, `max_preset: qhd` (1080p and 1440p;
 "2K" is 2560×1440, there's no 2K preset; 3K and above get nothing), from
 2026-11-07 to 2027-01-11T07:59:59Z (the end of Jan 10, Pacific), label
 "Launch offer until Jan 10". Prod has none until the release sets it.
-Web Lifelike production runs only (`params.web`, from the request's
-Origin); previews, the app paths and the mobile one-shot get nothing.
+Web production runs only (`params.web`, from the request's Origin);
+previews (Lifelike and Classic's depth and stereo previews), Classic's
+draft, the app paths and the mobile one-shot get nothing. Classic's master
+bitrate keeps its own share (`classic_master`: +20%, TEST +100%, as before
+the quality tiers; `/v1/pricing` `addons.master.classic_pct`).
 Order: the plan or Pro price, then the offer on the whole run (base plus
 add-ons: High/Master quality, Foveated, express), then the per-run
 minimum, then credit and balance pay first. Quote breakdown:

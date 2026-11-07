@@ -1,6 +1,7 @@
 package pricing
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -86,5 +87,40 @@ func TestCampaign(t *testing.T) {
 	r2.Campaign = &c
 	if r2.CampaignShare() != 0.25 || !r2.CampaignActive(time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)) {
 		t.Fatal("fraction or open-ended")
+	}
+}
+
+// The offer on Classic (owner 2026-11-07: "web app only", "up to 2K"):
+// web production at 1080p and 1440p only, with the same label; never the
+// app, previews, draft or 3K; prod has no campaign until the release.
+func TestCampaignClassic(t *testing.T) {
+	s := NewStatic(DefaultsFor("test"))
+	ctx := context.Background()
+	q := func(step, preset string, web bool) *Quote {
+		t.Helper()
+		out, err := s.QuoteStep(ctx, StepInputs{Step: step, Preset: preset, OutputPreset: preset, BillableS: 60, EffectiveFPS: 24, SourceFPS: 24,
+			DepthRes: PresetInputSize[preset], Web: web})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	for _, preset := range []string{"1080p", "qhd"} {
+		app, web := q("production", preset, false), q("production", preset, true)
+		if web.Breakdown["campaign_cents"].(int64) <= 0 || web.AmountCents != app.AmountCents-web.Breakdown["campaign_cents"].(int64) ||
+			web.Breakdown["campaign_label"] != "Launch offer −25%" || app.Breakdown["campaign_cents"] != int64(0) {
+			t.Fatalf("%s: app %d web %d %v", preset, app.AmountCents, web.AmountCents, web.Breakdown)
+		}
+	}
+	for _, c := range []struct{ step, preset string }{{"production", "3k"}, {"production", "draft"}, {"stereo_preview", "1080p"}, {"depth_preview", "1080p"}} {
+		if got := q(c.step, c.preset, true).Breakdown["campaign_cents"]; got != int64(0) {
+			t.Errorf("%s %s: %v", c.step, c.preset, got)
+		}
+	}
+	prod := NewStatic(DefaultsFor("prod"))
+	out, _ := prod.QuoteStep(ctx, StepInputs{Step: "production", Preset: "1080p", OutputPreset: "1080p", BillableS: 60, EffectiveFPS: 24, SourceFPS: 24,
+		DepthRes: 980, Web: true})
+	if out.Breakdown["campaign_cents"] != int64(0) {
+		t.Fatal("prod has no campaign yet")
 	}
 }

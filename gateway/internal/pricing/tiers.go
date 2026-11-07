@@ -175,14 +175,20 @@ func defaultTierPct() map[string]float64 {
 func defaultAddOnPct() map[string]float64 {
 	// Master +50% and High +30% (owner 2026-11-07, the quality tiers; Master
 	// was +20%).
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 0.20}
 }
 
 // testAddOnPct: master bitrate +100% on TEST (owner 2026-11-07; was 20%);
 // Express stays +50% (owner 2026-11-07, after a +100% try), foveated +30%.
 func testAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 1.00}
 }
+
+// AddOnClassicMaster: Classic's master bitrate keeps its own share (owner
+// 2026-11-07: Classic stays on its bitrate list and prices, off the
+// Lifelike quality scale): +20%, TEST +100%, as before the quality tiers.
+// The breakdown still names it "master".
+const AddOnClassicMaster = "classic_master"
 
 // Stripe TEST prices (products "Spatial Video Studio Business plan" /
 // "Spatial Video Studio Studio plan",
@@ -430,14 +436,7 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		bd["fps_factor"] = round4(fpsF)
 	}
 	// the launch offer: after the plan or Pro discount, on the whole run
-	campaign := r.campaignCents(in, q.Final)
-	bd["campaign_cents"] = campaign
-	if campaign > 0 {
-		bd["campaign_label"], bd["campaign_pct"] = r.CampaignLabel(), round4(r.CampaignShare())
-		if r.Campaign.Label != "" {
-			bd["campaign_name"] = r.Campaign.Label
-		}
-	}
+	campaign := r.applyCampaign(in, q.Final, bd)
 	total := q.Final - campaign - in.CreditCents
 	if floor := r.MinimumFor(in.Step); total < floor {
 		total = floor
@@ -457,20 +456,27 @@ func (r *Rates) quoteClassicTiers(in StepInputs, afterReuse int64, bd map[string
 	in.Tier = tierOf(in)
 	var addOns []string
 	if in.Master {
-		addOns = append(addOns, AddOnMaster)
+		addOns = append(addOns, AddOnClassicMaster)
 	}
 	tierBase := afterReuse
 	if in.Tier != TierNone && in.Step == "production" {
 		tierBase = afterReuse - int64(math.Round(float64(afterReuse)*r.TierPct(in.Tier)))
 	}
 	q := r.composeTier(afterReuse, tierBase, in.Tier, addOns, true)
-	total := q.Final - in.CreditCents
+	if c, ok := q.AddOns[AddOnClassicMaster]; ok { // the breakdown's name for it, as before
+		delete(q.AddOns, AddOnClassicMaster)
+		q.AddOns[AddOnMaster] = c
+	}
+	campaign := r.applyCampaign(in, q.Final, bd) // the launch offer, web production at 1080p and 1440p
+	total := q.Final - campaign - in.CreditCents
 	if floor := r.MinimumFor(in.Step); total < floor {
 		total = floor
 	}
 	bd["tier"], bd["pro"], bd["pricing"] = in.Tier, in.Tier != TierNone, "tiers"
 	bd["analyze_credit_cents"] = in.CreditCents
 	r.fillTierBreakdown(bd, q, in)
+	delete(bd, "quality") // Classic isn't on the quality scale
+	delete(bd, "quality_label")
 	return &Quote{AmountCents: total, Currency: r.Currency, RateVersion: r.RateVersion, Breakdown: bd}
 }
 
@@ -549,7 +555,8 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		AddOnFoveated: map[string]any{"pct": r.AddOnPct(AddOnFoveated), "methods": []string{"lifelike"}, "enabled": r.FoveationEnabled,
 			"included_presets": []string{"1080p"}}, // free and always on at 1080p (owner 2026-11-07)
 		AddOnMaster: map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"},
-			"request": map[string]any{"quality": "master"}, "legacy_request": map[string]any{"bitrate": "master"}},
+			"classic_pct": r.AddOnPct(AddOnClassicMaster), // Classic's own share (bitrate "master")
+			"request":     map[string]any{"quality": "master"}, "legacy_request": map[string]any{"bitrate": "master"}},
 		AddOnHigh: map[string]any{"pct": r.AddOnPct(AddOnHigh), "methods": []string{"lifelike"}, "request": map[string]any{"quality": "high"}},
 		AddOnExpress: map[string]any{"pct": r.AddOnPct(AddOnExpress), "methods": []string{"lifelike"}, "request": map[string]any{"express": true},
 			"included_in": []string{TierBusiness, TierStudio}, "effect": "first in the GPU line"},

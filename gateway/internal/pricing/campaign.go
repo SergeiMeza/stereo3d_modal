@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-// Launch campaign (owner 2026-11-07): pct off web Lifelike production runs
-// whose output preset is at most max_preset (qhd: 1080p and 1440p; "2K"
+// Launch campaign (owner 2026-11-07): pct off web production runs, Lifelike
+// and Classic alike ("web app only", "up to 2K"), whose output preset is
+// at most max_preset (qhd: 1080p and 1440p; "2K"
 // is 2560×1440, there's no 2K preset), between starts_at and ends_at
 // (open-ended without it). It comes after the plan or Pro discount, on the
 // whole run (base plus add-ons: quality, Foveated, express), then the
@@ -72,7 +73,7 @@ func (r *Rates) CampaignLabel() string {
 
 // campaignCents is a run's campaign line (0 when it doesn't apply).
 func (r *Rates) campaignCents(in StepInputs, afterDiscount int64) int64 {
-	if !in.Web || in.Step == StepLifelikePreview || !r.CampaignCovers(cmpOr(in.OutputPreset, in.Preset)) {
+	if !in.Web || in.Step != "production" || !r.CampaignCovers(cmpOr(in.OutputPreset, in.Preset)) {
 		return 0
 	}
 	now := in.Now
@@ -83,6 +84,20 @@ func (r *Rates) campaignCents(in StepInputs, afterDiscount int64) int64 {
 		return 0
 	}
 	return int64(math.Round(float64(afterDiscount) * r.CampaignShare()))
+}
+
+// applyCampaign writes the offer's lines into a quote's breakdown and
+// returns its cents (both methods: Lifelike and Classic, owner 2026-11-07).
+func (r *Rates) applyCampaign(in StepInputs, afterDiscount int64, bd map[string]any) int64 {
+	campaign := r.campaignCents(in, afterDiscount)
+	bd["campaign_cents"] = campaign
+	if campaign > 0 {
+		bd["campaign_label"], bd["campaign_pct"] = r.CampaignLabel(), round4(r.CampaignShare())
+		if r.Campaign.Label != "" {
+			bd["campaign_name"] = r.Campaign.Label
+		}
+	}
+	return campaign
 }
 
 func cmpOr(a, b string) string {

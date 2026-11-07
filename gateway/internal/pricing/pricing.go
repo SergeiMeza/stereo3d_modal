@@ -1075,11 +1075,13 @@ func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	if afterPro > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
 	}
-	total := afterPro - bulkDiscount - in.CreditCents
+	offer := map[string]any{}
+	campaign := rates.applyCampaign(in, afterPro-bulkDiscount, offer) // the launch offer, after the Pro and bulk discounts
+	total := afterPro - bulkDiscount - campaign - in.CreditCents
 	if floor := rates.MinimumFor(in.Step); total < floor {
 		total = floor
 	}
-	return &Quote{
+	q := &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
@@ -1104,7 +1106,11 @@ func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 			"discount_cents":         bulkDiscount,
 			"analyze_credit_cents":   in.CreditCents,
 		},
-	}, nil
+	}
+	for k, v := range offer {
+		q.Breakdown[k] = v
+	}
+	return q, nil
 }
 
 // Lifelike is its own product with its own PRICE table (owner change
