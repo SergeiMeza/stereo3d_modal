@@ -139,7 +139,7 @@
       "skip": "Skip",
       "continue": "Continue",
       "checkout": {
-        "termsTail": "{terms} Prices in USD, excl. tax. Nothing is charged until you confirm.",
+        "termsTailNoTax": "{terms} Prices in USD, no tax added. Nothing is charged until you confirm.",
         "asksOnly": "Checkout asks only for your payment method and country. Your company name, address and tax ID can follow after.",
         "whatHappensBusiness": "What happens to your {business}",
         "whatHappensPro": "What happens to your {pro}",
@@ -276,7 +276,7 @@
       "perMinute": "{quality} is {pro} a minute instead of {list}.",
       "getPro": "Get {pro} {plan}",
       "keepPaying": "Keep paying per video",
-      "terms": "USD, excl. tax · cancel any time in Account",
+      "termsNoTax": "USD · no tax added · cancel any time in Account",
       "planGroup": "{pro} plan",
       "includes": "{pro} includes {credit}.",
       "freePreviewsMonthly": "{count, plural, other {# free previews a month}}",
@@ -303,7 +303,7 @@
         "today": "{pro} {plan}, today",
         "thisVideo": "This video, at {pro} prices",
         "youSave": "You save on this video",
-        "terms": "Cancel any time in Account. Prices in USD, excl. tax."
+        "termsNoTax": "Cancel any time in Account. Prices in USD, no tax added."
       },
       "note": {
         "highFps": "High frame rates come with {business} and {studio}, which also include monthly usage.",
@@ -1754,7 +1754,7 @@
       "minimumPerRun": "<b>Minimum charge {min}</b> per run.",
       "minimumPerPreview": "<b>Minimum charge</b> {previewMin} per preview, {min} for other runs.",
       "paidBefore": "<b>Paid before it starts.</b> Cancel while it waits in line, or in its first minute, for a full refund. Refunded in full if it fails.",
-      "currency": "US dollars, excluding tax. Every file type is included.",
+      "currencyNoTax": "US dollars, no tax added. Every file type is included.",
       "startProject": "Start a project"
     },
     "plansScreen": {
@@ -2296,7 +2296,7 @@
       "masterBitrate": "{master} bitrate ({pct})",
       "express": "Express",
       "minimum": "Minimum charge {amount}",
-      "total": "Total <note>USD, excl. tax</note>",
+      "totalNoTax": "Total <note>USD · no tax added</note>",
       "fpsCapped": "Converts at {fps}. Higher frame rates come with {business} and {studio} plans.",
       "estimatedTime": "Estimated time",
       "readyIn": "Ready in"

@@ -83,7 +83,7 @@ export function PricingScreen(): JSX.Element {
                   "{precharge} or less: charged after it's done. Failed or
                   cancelled runs are not charged." */}
               <span>{rich(t, "pricing.screen.paidBefore", { b })}</span>
-              <span>{t("pricing.screen.currency")}</span>
+              <span>{t("pricing.screen.currencyNoTax")}</span>
             </InfoPopover>
           </div>
         </>

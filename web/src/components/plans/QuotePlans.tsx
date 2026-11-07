@@ -349,7 +349,7 @@ export function ProCheckoutSheet({
         ) : null}
         <p className="text-xs text-fg-muted">
           {credit ? `${creditRules(proCreditDays(pricing), t)} ` : ""}
-          {t("plans.quote.checkout.terms")}
+          {t("plans.quote.checkout.termsNoTax")}
         </p>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </div>
