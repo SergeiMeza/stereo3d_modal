@@ -769,7 +769,8 @@
       "retryOn": "Bir ödeme gerçekleşmedi. {date} tarihinde yeniden deneyeceğiz.",
       "retrying": "Bir ödeme gerçekleşmedi. Yakında yeniden deneyeceğiz.",
       "failed": "Ödeme başarısız oldu.",
-      "payNow": "Şimdi öde"
+      "payNow": "Şimdi öde",
+      "owed": "Ödemeniz gereken {amount} var. Ödendiği anda indirmeleriniz geri gelir."
     }
   },
   "auth": {

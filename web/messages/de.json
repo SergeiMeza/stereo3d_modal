@@ -769,7 +769,8 @@
       "retryOn": "Eine Zahlung ist fehlgeschlagen. Wir versuchen es am {date} erneut.",
       "retrying": "Eine Zahlung ist fehlgeschlagen. Wir versuchen es bald erneut.",
       "failed": "Zahlung fehlgeschlagen.",
-      "payNow": "Jetzt bezahlen"
+      "payNow": "Jetzt bezahlen",
+      "owed": "Du hast noch {amount} zu bezahlen. Deine Downloads sind wieder da, sobald es bezahlt ist."
     }
   },
   "auth": {

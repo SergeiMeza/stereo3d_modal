@@ -769,7 +769,8 @@
       "retryOn": "Un pago no se completó. Lo intentaremos de nuevo el {date}.",
       "retrying": "Un pago no se completó. Lo intentaremos de nuevo pronto.",
       "failed": "El pago falló.",
-      "payNow": "Pagar ahora"
+      "payNow": "Pagar ahora",
+      "owed": "Tienes {amount} por pagar. Tus descargas vuelven en cuanto lo pagues."
     }
   },
   "auth": {

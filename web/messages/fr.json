@@ -769,7 +769,8 @@
       "retryOn": "Un paiement n’a pas abouti. Nous réessaierons le {date}.",
       "retrying": "Un paiement n’a pas abouti. Nous réessaierons bientôt.",
       "failed": "Échec du paiement.",
-      "payNow": "Payer maintenant"
+      "payNow": "Payer maintenant",
+      "owed": "Vous avez {amount} à régler. Vos téléchargements reviennent dès le paiement."
     }
   },
   "auth": {
