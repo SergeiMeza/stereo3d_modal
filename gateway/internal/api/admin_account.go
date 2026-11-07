@@ -97,14 +97,39 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		Cents  int64  `json:"cents"`
 		CaseID string `json:"case_id"`
 		Note   string `json:"note"`
+		// request_deletion: the person confirmed giving up a cash balance
+		// (it goes back to their card through its closure case).
+		BalanceConfirmed bool `json:"balance_confirmed"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
 	if (req.Action == "write_off_owed" || req.Action == "adjust_balance" || req.Action == "block_permanent" || req.Action == "restore_promo_grants" ||
-		req.Action == "process_deletion_now" || req.Action == "grant_credit") && !a.FreshAuth() {
+		req.Action == "process_deletion_now" || req.Action == "grant_credit" || req.Action == "request_deletion") && !a.FreshAuth() {
 		httpx.WriteErr(ctx, w, a.reauthErr())
+		return
+	}
+	// Support asks for the account's deletion on the person's behalf: the
+	// same runDeletion as POST /v1/account/delete (dues collected, a plan
+	// or a cash balance answered the same way), recorded as admin.
+	if req.Action == "request_deletion" {
+		s.audit(ctx, a, "account_request_deletion", map[string]any{"uid": uid, "balance_confirmed": req.BalanceConfirmed, "case_id": req.CaseID, "note": req.Note})
+		status, out, err := s.adminRequestDeletion(ctx, a, uid, req.BalanceConfirmed)
+		if err != nil {
+			if apiErr, ok := err.(*httpx.APIError); ok {
+				httpx.WriteErr(ctx, w, apiErr)
+				return
+			}
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "action_failed", "That didn't work: "+err.Error()))
+			return
+		}
+		if req.CaseID != "" {
+			s.Store.AddCaseEvent(ctx, req.CaseID, store.CaseEvent{Who: a.who(), Kind: "note", Text: fmt.Sprintf("deletion requested by support (%d)", status)})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(out)
 		return
 	}
 	// The 48-hour deletion's console actions work on accounts without a
@@ -178,6 +203,18 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		}
 	case "resend_e2":
 		s.mailOwed(ctx, "E2", fmt.Sprintf("E2_resend_%s_%d", uid, time.Now().Unix()), uid, s.owedCents(ctx, uid))
+	case "auto_reload_off":
+		// Support turns auto-reload off (before a deletion, a person's
+		// ask): no reload fires; pending retries end.
+		var fx store.BalanceEffects
+		_, fx, err = s.Store.BalanceTx(ctx, uid, func(b *store.Balance) ([]store.BalanceOp, error) {
+			b.AutoReload.Enabled = false
+			return []store.BalanceOp{{Kind: store.EntryAdjustment, Cents: 0, Note: "auto-reload turned off by support"}}, nil
+		})
+		if err == nil {
+			s.handleBalanceEffects(ctx, uid, fx)
+			s.cancelReloadRetries(ctx, uid, "auto-reload turned off by support")
+		}
 	case "write_off_owed":
 		err = s.writeOffOwed(ctx, uid)
 	case "grant_credit":
