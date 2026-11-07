@@ -13,8 +13,7 @@
 //	act CASE-0001 <action> [-items c1=100,c2=250] [-expected-max N] [-template t] [-text t] [-method m] [-reference r] [-yes]
 //	open -uid U [-runs a,b] -reason R [-topup T] [-text t]   (reason plan_refund: the latest plan invoice, proposing paid × unspent ÷ credit)
 //	account UID
-//	account-action UID <action> [-cents N] [-case CASE-0001] [-note t] [-yes] [-prod]   (auto_reload_off needs -prod on prod)
-//	account-delete UID [-balance-confirmed] [-case CASE-0001] [-note t] [-yes] [-prod]   (support's deletion request: the customer path's checks, the configured delay; -prod on prod)
+//	account-action UID <action> [-cents N] [-case CASE-0001] [-note t] [-yes]
 //	disputes [-months 3] [-csv]
 //	policy
 //	mail-previews
@@ -61,31 +60,13 @@ var needRevenueCat bool
 
 var moneyActions = map[string]bool{"approve": true, "partial": true, "waive": true, "deny": true, "mark_out_of_band": true,
 	"stop_run": true, "assign": true, "no_refund": true, "write_off_owed": true, "adjust_balance": true, "block_permanent": true,
-	"grant_credit": true, "auto_reload_off": true}
-
-// prodGuarded: account changes that refuse on prod without -prod.
-var prodGuarded = map[string]bool{"auto_reload_off": true, "request_deletion": true}
-
-// prodRefusal: why a prod-guarded action can't run ("" when it can).
-func prodRefusal(env, action string, prod bool) string {
-	if prodGuarded[action] && env == "prod" && !prod {
-		return action + " on prod needs -prod"
-	}
-	return ""
-}
-
-// guardProd refuses a prod-guarded action on prod unless -prod was given.
-func guardProd(env, action string, prod bool) {
-	if why := prodRefusal(env, action, prod); why != "" {
-		fail(why)
-	}
-}
+	"grant_credit": true}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 	env := flag.String("env", "test", "test or prod")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|account-delete|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill|revenue-backfill-plans|rc-web-plan-backfill> …")
+		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill|revenue-backfill-plans|rc-web-plan-backfill> …")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -175,29 +156,11 @@ func main() {
 		caseID := fs.String("case", "", "adjust_balance: the case it belongs to")
 		note := fs.String("note", "", "note")
 		yes := fs.Bool("yes", false, "don't ask before money actions")
-		prod := fs.Bool("prod", false, "allow auto_reload_off on prod")
 		fs.Parse(args[2:])
-		guardProd(*env, action, *prod)
-		if action == "request_deletion" {
-			fail("use account-delete UID [-balance-confirmed]")
-		}
 		if moneyActions[action] {
 			confirm(*yes, fmt.Sprintf("%s on account %s (%d cents) in %s", action, uid, *cents, *env))
 		}
 		body := map[string]any{"action": action, "cents": *cents, "case_id": *caseID, "note": *note}
-		run(func(w http.ResponseWriter, r *http.Request) { svc.HandleAdminAccountAction(w, r, admin, uid) }, "POST", "/", body)
-	case "account-delete":
-		uid := need(args, 0, "uid")
-		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-		balance := fs.Bool("balance-confirmed", false, "the person gives up a cash balance (refunded through its closure case)")
-		caseID := fs.String("case", "", "the support case it belongs to")
-		note := fs.String("note", "", "note")
-		yes := fs.Bool("yes", false, "don't ask")
-		prod := fs.Bool("prod", false, "allow it on prod")
-		fs.Parse(args[1:])
-		guardProd(*env, "request_deletion", *prod)
-		confirm(*yes, fmt.Sprintf("request the deletion of account %s in %s (balance confirmed: %v)", uid, *env, *balance))
-		body := map[string]any{"action": "request_deletion", "balance_confirmed": *balance, "case_id": *caseID, "note": *note}
 		run(func(w http.ResponseWriter, r *http.Request) { svc.HandleAdminAccountAction(w, r, admin, uid) }, "POST", "/", body)
 	case "disputes":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)

@@ -390,19 +390,6 @@ func adminDeletionJSON(d *store.AccountDeletion) map[string]any {
 		"processed_at": ts(d.ProcessedAt), "processed_by": d.ProcessedBy, "outcome": d.Outcome}
 }
 
-// adminRequestDeletion is support's "Delete account" on the person's
-// behalf: the request path's runDeletion with the configured delay (the
-// row's source is admin; the operator is in the audit).
-func (s *Service) adminRequestDeletion(ctx context.Context, a *AdminUser, uid string, balanceConfirmed bool) (int, map[string]any, error) {
-	o := deletionOpts{BalanceConfirmed: balanceConfirmed, By: "admin:" + a.who(), Delay: s.accountDeleteDelay(ctx), Source: "admin"}
-	if o.Delay > 0 {
-		if d := s.Store.PendingAccountDeletion(ctx, uid); d != nil {
-			return http.StatusAccepted, scheduledDeletionBody(d, nil), nil // idempotent
-		}
-	}
-	return s.runDeletion(ctx, uid, o)
-}
-
 // adminDeletionAction is the console's "Cancel deletion" and "Process
 // now" (fresh sign-in), each noted on the case when one is named.
 func (s *Service) adminDeletionAction(ctx context.Context, a *AdminUser, uid, action, caseID, note string) error {
