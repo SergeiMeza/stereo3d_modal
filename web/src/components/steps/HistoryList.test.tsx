@@ -330,8 +330,9 @@ describe("Files: Details (owner 2026-11-07)", () => {
     }
     // a Lifelike run's add-ons always read On or Off (owner 2026-11-07)
     expect(row(li, "Foveated Detail")).toBe("Off");
-    expect(row(li, "Master bitrate")).toBe("Off");
     expect(row(li, "Express")).toBe("Off");
+    // owner 2026-11-07: File quality replaced the Master bitrate row
+    expect(row(li, "Master bitrate")).toBeNull();
   });
 
   it("a full run: stored settings, the Pro discount, and the receipt from the purchases list", async () => {
@@ -361,7 +362,6 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Original eye")).toBe("Left");
     expect(row(li, "Express")).toBe("On");
     expect(row(li, "Foveated Detail")).toBe("Off");
-    expect(row(li, "Master bitrate")).toBe("Off");
     expect(row(li, "Price")).toBe("$17.00");
     expect(row(li, "Discount")).toBe("Pro 15% · −$3.00");
     const receipt = await within(li).findByRole("link", { name: "View receipt" });
@@ -394,10 +394,10 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(row(li, "Took")).toBeNull();
     expect(row(li, "Price")).toBe("Not charged");
     // Classic runs have no add-ons
-    for (const label of ["Foveated Detail", "Master bitrate", "Express"]) expect(row(li, label)).toBeNull();
+    for (const label of ["Foveated Detail", "Express"]) expect(row(li, label)).toBeNull();
   });
 
-  it("a Lifelike run with Foveated Detail and Master bitrate reads On (owner 2026-11-07)", () => {
+  it("a Lifelike run with Foveated Detail reads On; an older Master bitrate run reads File quality Master (owner 2026-11-07)", () => {
     const run: Conversion = {
       ...FULL,
       conversion_id: "conv0000lifefov",
@@ -407,8 +407,40 @@ describe("Files: Details (owner 2026-11-07)", () => {
     const li = item(run.conversion_id);
     fireEvent.click(within(li).getByTestId("run-details-toggle"));
     expect(row(li, "Foveated Detail")).toBe("On");
-    expect(row(li, "Master bitrate")).toBe("On");
+    expect(row(li, "File quality")).toBe("Master");
     expect(row(li, "Express")).toBe("Off");
+  });
+
+  it("File quality: what was asked, with what the files measure once finished; Audio; never a guess (owner 2026-11-07)", () => {
+    const done: Conversion = {
+      ...FULL,
+      conversion_id: "conv0000quality1",
+      quality: "high",
+      bitrate_requested: "auto",
+      outputs: ["mvhevc", "sbs"],
+      outputs_media: {
+        mvhevc: { video_kbps: 41200, audio_codec: "aac", audio_kbps: 256, source: "worker" },
+        sbs: { video_kbps: 38400, audio_codec: "aac", audio_kbps: 256, source: "ffprobe" },
+      },
+    };
+    const one: Conversion = {
+      ...done,
+      conversion_id: "conv0000quality2",
+      outputs: ["mvhevc"],
+      outputs_media: { mvhevc: { overall_kbps: 42500, source: "ffprobe" } },
+    };
+    const running: Conversion = { ...done, conversion_id: "conv0000quality3", state: "processing", outputs: undefined, outputs_media: undefined };
+    const old: Conversion = { ...FULL, conversion_id: "conv0000quality4", quality: undefined, bitrate_requested: "60" };
+    const none: Conversion = { ...FULL, conversion_id: "conv0000quality5", quality: undefined, bitrate_requested: undefined };
+    renderWithHistory([done, one, running, old, none]);
+    for (const c of [done, one, running, old, none]) fireEvent.click(within(item(c.conversion_id)).getByTestId("run-details-toggle"));
+    expect(row(item(done.conversion_id), "File quality")).toBe("High (measured: Spatial 41 Mbit/s · SBS 38 Mbit/s)");
+    expect(row(item(done.conversion_id), "Audio")).toBe("AAC 256 kbit/s");
+    expect(row(item(one.conversion_id), "File quality")).toBe("High (measured 43 Mbit/s overall)");
+    expect(row(item(one.conversion_id), "Audio")).toBeNull();
+    expect(row(item(running.conversion_id), "File quality")).toBe("High");
+    expect(row(item(old.conversion_id), "File quality")).toBe("60 Mbit/s");
+    expect(row(item(none.conversion_id), "File quality")).toBeNull();
   });
 
   it("the Run ID copies for support", async () => {

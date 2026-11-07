@@ -2382,6 +2382,14 @@ function succeed(c: Conversion) {
     } else {
       c.outputs = [...formats];
     }
+    // gateway 00172: what each file measures
+    const rate = { standard: 22000, high: 41000, master: 80000 }[c.quality ?? "standard"];
+    c.outputs_media = Object.fromEntries(
+      c.outputs.map((o, i) => [
+        o,
+        { video_kbps: rate - (o.startsWith("sbs") ? 3000 : 0) - i, audio_codec: "aac", audio_kbps: 256, source: "worker" as const },
+      ]),
+    );
   } else {
     c.outputs = [...(c.params.formats ?? []), "depth", "depth_vis"];
   }
@@ -5108,6 +5116,7 @@ export const handlers = [
         progress: 0,
         ...(method === "lifelike" ? { foveation: mockFoveation(p, req) } : {}),
         ...(req.quality ? { quality: req.quality } : {}),
+        bitrate_requested: req.bitrate === undefined ? "auto" : String(req.bitrate),
         stage: "",
         eta_seconds: 0,
         method,

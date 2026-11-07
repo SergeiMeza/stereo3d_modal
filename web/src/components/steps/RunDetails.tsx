@@ -22,6 +22,7 @@ import { formatBytes, formatClock, formatDuration, formatVideoLength } from "@/l
 import { cutsToRanges, frameToSeconds, parseRational } from "@/lib/frames";
 import { eyeSize, METHOD_NAMES, qualityChoices, qualityLabelFor, STEP_NAMES } from "@/lib/glossary";
 
+import { audioLine, fileQualityLine } from "./FileQuality";
 import { fpsLabel } from "./frameRate";
 import { formatCents } from "./money";
 import { runPrice } from "./PreviousRuns";
@@ -133,16 +134,19 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
   add("Depth detail", p.depth_res !== undefined ? `${p.depth_res} px` : null);
   add("Scenes tuned", p.scene_overrides && p.scene_overrides.length > 0 ? String(p.scene_overrides.length) : null);
   add("Original eye", p.original_eye ? (p.original_eye === "left" ? "Left" : "Right") : null);
+  // owner 2026-11-07: the File quality asked for, with what the finished
+  // files measure ("High (measured 41 Mbit/s)"); the asked-for setting
+  // alone while running or on older runs; never a guess
+  add("File quality", fileQualityLine(c));
+  add("Audio", audioLine(c));
   // owner 2026-11-07: a Lifelike run always says On or Off for each
   // add-on, offered or not; Classic runs have none
   if (conversionMethod(c) === "lifelike") {
     const onOff = (v: boolean) => (v ? "On" : "Off");
-    const bitrate = (p as { bitrate?: string }).bitrate;
     // owner 2026-11-07: included at 1080p when it applied; nothing when it
     // didn't apply there (a source at 1080p or below)
     if (c.foveation?.included === true) add("Foveated Detail", c.foveation.applied ? "Included" : null);
     else add("Foveated Detail", onOff(p.foveation === "static" || c.foveation?.applied === true));
-    add("Master bitrate", onOff(bitrate === "master" || c.quote.breakdown?.addons?.master !== undefined));
     add("Express", onOff(p.express === true));
   }
 
