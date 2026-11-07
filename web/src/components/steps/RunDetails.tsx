@@ -31,6 +31,7 @@ import { runPrice } from "./PreviousRuns";
 import { useRunFiles } from "./RunFiles";
 import { runDetailsOpenAtom, runReceiptsAtom } from "./runDetailsAtoms";
 import { ltrRuns } from "@/lib/i18n/bidi";
+import { offerLabel } from "@/lib/campaign";
 
 const TERMINAL: ReadonlySet<Conversion["state"]> = new Set(["succeeded", "failed", "canceled", "expired"]);
 
@@ -219,7 +220,7 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
     add(
       "launchOffer",
       t("files.details.offer", {
-        label: b?.campaign_label ?? t("files.details.rows.launchOffer"),
+        label: offerLabel(b?.campaign_pct, b?.campaign_label ?? t("files.details.rows.launchOffer"), t),
         amount: formatCents(offer, t),
       }),
     );

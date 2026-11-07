@@ -85,6 +85,7 @@ import {
   loadInvoicesAtom,
 } from "./billingHistoryAtoms";
 import { ltrRuns } from "@/lib/i18n/bidi";
+import { offerLabel } from "@/lib/campaign";
 
 /** Each status's colour, and whether it has a help line
  * (billing.history.status.* and billing.history.statusHelp.*). */
@@ -150,7 +151,7 @@ export function itemLine(i: BillingChargeItem, t: Tr = EN): string {
     i.project_name ?? t("billing.history.item.untitled"),
     i.step === "production" ? t("billing.history.item.production") : t("billing.history.item.preview"),
     i.preset ? qualityName(i.preset, t) : null,
-    (i.campaign_cents ?? 0) > 0 ? (i.campaign_label ?? t("billing.history.item.launchOffer")) : null,
+    (i.campaign_cents ?? 0) > 0 ? offerLabel(null, i.campaign_label ?? t("billing.history.item.launchOffer"), t) : null,
   ]
     .filter(Boolean)
     .join(" · "), t);

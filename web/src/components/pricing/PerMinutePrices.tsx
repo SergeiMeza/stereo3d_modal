@@ -21,7 +21,7 @@ import { fpsRule } from "@/lib/api/usePricing";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 import { FOVEATED_DETAIL, foveationIncludedPresets } from "@/lib/foveation";
 import { QUALITY_STEPS, qualityName as fileQualityName, qualityPct, qualitySteps } from "@/components/steps/FileQuality";
-import { activeCampaign, campaignBadge, campaignNote } from "@/lib/campaign";
+import { activeCampaign, campaignBadge, campaignNote, offerUntil } from "@/lib/campaign";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 
@@ -117,7 +117,7 @@ export function LifelikePrices({
                 {campaignBadge(pricing, p, "lifelike", t) ? (
                   <span
                     data-testid={`offer-${p}`}
-                    title={activeCampaign(pricing)?.label}
+                    title={offerUntil(activeCampaign(pricing)?.ends_at, activeCampaign(pricing)?.label, t)}
                     className="ms-2 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
                   >
                     {campaignBadge(pricing, p, "lifelike", t)}

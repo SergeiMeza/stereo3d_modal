@@ -19,6 +19,7 @@ import { foveatedDetail, foveationIncludedApplied } from "@/lib/foveation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { offerLabel } from "@/lib/campaign";
 
 const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
 
@@ -395,7 +396,7 @@ export function QuoteView({
           the plan or Pro price */}
       {(b.campaign_cents ?? 0) > 0 ? (
         <Line
-          label={b.campaign_label ?? t("offer.name")}
+          label={offerLabel(b.campaign_pct, b.campaign_label, t)}
           value={formatCents(-(b.campaign_cents ?? 0), t)}
           testId="quote-campaign"
           tone="discount"

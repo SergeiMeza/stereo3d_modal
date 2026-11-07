@@ -4,7 +4,9 @@
  * active. Prices stay the list prices; the quote takes the offer off and
  * says so ("Launch offer −25%"). Everything here reads /v1/pricing's
  * campaign and goes quiet on its own when it isn't active. The words are
- * the gateway's (its label carries the end date).
+ * the web's, built from the gateway's fields (pct, ends_at, campaign_pct,
+ * campaign_cents); its English label is the fallback only when a field
+ * is missing (owner 2026-11-07).
  */
 
 import type { Preset, PublicPricing } from "@/lib/api/types";
@@ -37,6 +39,29 @@ function percentOf(c: NonNullable<PublicPricing["campaign"]>): number | null {
   return c.percent ?? (c.pct !== undefined ? Math.round(c.pct * 100) : null);
 }
 
+/** 0.25 or 25 → 25; null without one */
+function asPercent(v: number | null | undefined): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
+  return Math.round(v <= 1 ? v * 100 : v);
+}
+
+/** "Launch offer −25%" from the share; the gateway's label (when it has
+ * the share in it, from that share) only without one. */
+export function offerLabel(pct: number | null | undefined, gatewayLabel: string | null | undefined, t: Tr = EN): string {
+  const p = asPercent(pct) ?? asPercent(Number(/(\d+(?:\.\d+)?)\s*%/.exec(gatewayLabel ?? "")?.[1]));
+  if (p !== null) return t("offer.label", { pct: String(p) });
+  return gatewayLabel ?? t("offer.name");
+}
+
+/** "Launch offer until Jan 10": the end in the reader's language, as a
+ * Pacific day (the offer ends at the end of Jan 10, Pacific). */
+export function offerUntil(endsAt: string | null | undefined, gatewayLabel: string | null | undefined, t: Tr = EN): string {
+  const d = endsAt ? new Date(endsAt) : null;
+  if (!d || Number.isNaN(d.getTime())) return gatewayLabel ?? t("offer.name");
+  const date = d.toLocaleDateString(t.intl, { month: "short", day: "numeric", timeZone: "America/Los_Angeles" });
+  return t("offer.until", { date });
+}
+
 /** "−25% launch offer", for a quality the offer covers; null otherwise. */
 export function campaignBadge(
   pricing: PublicPricing | null | undefined,
@@ -50,8 +75,8 @@ export function campaignBadge(
   return pct ? t("offer.badge", { pct: String(pct) }) : t("offer.name");
 }
 
-/** "Launch offer until Jan 10: −25% on 1080p and 1440p." (the gateway's
- * label, its date as sent); null while none is active. */
+/** "Launch offer until Jan 10: −25% on 1080p and 1440p."; null while
+ * none is active. */
 export function campaignNote(pricing: PublicPricing | null | undefined, t: Tr = EN): string | null {
   const c = activeCampaign(pricing);
   if (!c) return null;
@@ -61,7 +86,7 @@ export function campaignNote(pricing: PublicPricing | null | undefined, t: Tr = 
     names.length > 1
       ? t("offer.note.list", { rest: names.slice(0, -1).join(t("offer.note.listSeparator")), last: names.at(-1) })
       : (names[0] ?? "");
-  const label = c.label ?? t("offer.name");
+  const label = offerUntil(c.ends_at, c.label, t);
   if (pct && on) return t("offer.note.pctOn", { label, pct: String(pct), on });
   if (pct) return t("offer.note.pctOnly", { label, pct: String(pct) });
   if (on) return t("offer.note.onOnly", { label, on });

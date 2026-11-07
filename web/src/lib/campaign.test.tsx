@@ -20,7 +20,9 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../fixtures/project.json";
 
-import { activeCampaign, campaignBadge, campaignCovers, campaignNote } from "./campaign";
+import { makeTr } from "@/lib/i18n/t";
+
+import { activeCampaign, campaignBadge, campaignCovers, campaignNote, offerLabel, offerUntil } from "./campaign";
 
 vi.mock("@/components/steps/polling", () => ({ POLL_INTERVAL_MS: 30 }));
 
@@ -59,6 +61,20 @@ describe("reading /v1/pricing campaign", () => {
     expect(campaignBadge(p, "1080p")).toBe("−25% launch offer");
     expect(campaignBadge(p, "4k")).toBeNull();
     expect(campaignNote(p)).toBe("Launch offer until Jan 10: −25% on 1080p and 1440p.");
+  });
+
+  it("the words are the web's, from the gateway's fields (owner 2026-11-07)", () => {
+    const ja = makeTr("ja", { offer: { label: "ローンチ特典 −{pct}%", until: "{date}までのローンチ特典" } });
+    expect(offerLabel(0.25, "Launch offer −25%")).toBe("Launch offer −25%");
+    expect(offerLabel(0.25, "Launch offer −25%", ja)).toBe("ローンチ特典 −25%");
+    // a row with only the gateway's label: its share, in the web's words
+    expect(offerLabel(null, "Launch offer −25%", ja)).toBe("ローンチ特典 −25%");
+    // nothing structured: the gateway's text as sent
+    expect(offerLabel(null, "Special", ja)).toBe("Special");
+    // the end of Jan 10, Pacific, reads Jan 10 everywhere
+    expect(offerUntil("2027-01-11T07:59:59Z", "x")).toBe("Launch offer until Jan 10");
+    expect(offerUntil("2027-01-11T07:59:59Z", "x", ja)).toBe("1月10日までのローンチ特典");
+    expect(offerUntil(null, "Launch offer until Jan 10", ja)).toBe("Launch offer until Jan 10");
   });
 
   it("quiet when inactive, ended or absent", () => {

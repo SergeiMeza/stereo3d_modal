@@ -34,6 +34,7 @@ import { RunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
 import { ltrRuns } from "@/lib/i18n/bidi";
+import { offerLabel } from "@/lib/campaign";
 
 /** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion, t: Tr = EN): string {
@@ -152,7 +153,7 @@ function HistoryRow({
             {/* owner 2026-11-07: the launch offer the run had */}
             {(c.campaign_cents ?? c.quote.breakdown?.campaign_cents ?? 0) > 0 ? (
               <span data-testid="history-offer" className="ms-1 text-xs text-emerald-300">
-                {c.quote.breakdown?.campaign_label ?? t("files.history.launchOffer")}
+                {offerLabel(c.quote.breakdown?.campaign_pct, c.quote.breakdown?.campaign_label ?? t("files.history.launchOffer"), t)}
               </span>
             ) : null}
           </span>
