@@ -120,6 +120,9 @@ func (c *Client) GrantPromotional(ctx context.Context, uid, entitlement string, 
 	if !c.CanGrant() {
 		return &GrantError{Msg: "no secret key"}
 	}
+	if c.dryRun(ctx, uid, "grant_promotional", "entitlement", entitlement, "start", start.UTC(), "end", end.UTC()) {
+		return nil
+	}
 	path := "/v1/subscribers/" + url.PathEscape(uid) + "/entitlements/" + url.PathEscape(entitlement) + "/promotional"
 	err := c.call(ctx, path, map[string]any{"start_time_ms": start.UnixMilli(), "end_time_ms": end.UnixMilli()})
 	var ge *GrantError
@@ -140,6 +143,9 @@ func (c *Client) RevokePromotionals(ctx context.Context, uid, entitlement string
 	if !c.CanGrant() {
 		return &GrantError{Msg: "no secret key"}
 	}
+	if c.dryRun(ctx, uid, "revoke_promotionals", "entitlement", entitlement) {
+		return nil
+	}
 	err := c.call(ctx, "/v1/subscribers/"+url.PathEscape(uid)+"/entitlements/"+url.PathEscape(entitlement)+"/revoke_promotionals", map[string]any{})
 	c.forget(uid)
 	return err
@@ -151,6 +157,9 @@ func (c *Client) RevokePromotionals(ctx context.Context, uid, entitlement string
 func (c *Client) RevokeProPromotionals(ctx context.Context, uid, _ string) error {
 	if !c.CanGrant() {
 		return &GrantError{Msg: "no secret key"}
+	}
+	if c.dryRun(ctx, uid, "revoke_promotionals", "entitlement", proEntitlement) {
+		return nil
 	}
 	err := c.call(ctx, "/v1/subscribers/"+url.PathEscape(uid)+"/entitlements/"+proEntitlement+"/revoke_promotionals", map[string]any{})
 	c.forget(uid)

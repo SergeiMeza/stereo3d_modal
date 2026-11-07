@@ -993,6 +993,12 @@ tokens or payment details; no consent (the web stores none).
   `rc_attr_allow_uids`; everyone else reads as no app Pro and nothing is
   sent. Prod reads every account (creating web customers there is
   intended). 200 and 201 are both a successful read.
+- **Writes on TEST** (D11, 2026-11-07): the same allowlist gates every
+  RevenueCat write on TEST: plan invoices' entitlement grants and revokes,
+  Grant Pro, the promo regrant and attributes. Every other uid's write is
+  logged as `revenuecat write: dry run (not allowlisted)` with the uid,
+  the op and what it would have granted, and reported as done; nothing is
+  sent. Prod is ungated.
 
 ### Grant credit (owner 2026-11-07)
 

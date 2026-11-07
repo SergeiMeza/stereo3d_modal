@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -63,6 +64,13 @@ func (c *Client) SetAttributes(ctx context.Context, uid string, attrs map[string
 	}
 	if len(attrs) == 0 {
 		return nil
+	}
+	names := make([]string, 0, len(attrs))
+	for k := range attrs {
+		names = append(names, k)
+	}
+	if c.dryRun(ctx, uid, "set_attributes", "attributes", strings.Join(names, ",")) {
+		return nil // the caller's allowlist already decides; this is the backstop
 	}
 	body := map[string]map[string]any{}
 	for k, v := range attrs {

@@ -292,13 +292,15 @@ func (s *Service) syncRCAttrsOne(ctx context.Context, rec *store.RCAttrSync, rea
 	}
 }
 
-// RCReadGate is the RevenueCat read gate for env (owner 2026-11-07). TEST
-// shares prod's one RevenueCat project, and GET /v1/subscribers/{id}
-// creates the customer it reads, so TEST reads only the uids
-// rc_attr_allow_uids clears (the same list the attribute writes use) and
-// everyone else reads as no app Pro, without a call. Prod has no gate
-// (nil): creating RevenueCat customers for web accounts is intended there.
-func RCReadGate(env string, rates func(context.Context) *pricing.Rates) func(context.Context, string) bool {
+// RCGate is the RevenueCat gate for env (owner 2026-11-07; D11 for
+// writes). TEST shares prod's one RevenueCat project, and GET
+// /v1/subscribers/{id} creates the customer it reads, so TEST calls
+// RevenueCat only for the uids rc_attr_allow_uids clears: everyone else
+// reads as no app Pro, and their writes (plan entitlement grants and
+// revokes, Grant Pro, the promo regrant, attributes) are logged as dry
+// runs, without a call. Prod has no gate (nil): creating RevenueCat
+// customers for web accounts is intended there.
+func RCGate(env string, rates func(context.Context) *pricing.Rates) func(context.Context, string) bool {
 	if env == "prod" {
 		return nil
 	}

@@ -164,10 +164,10 @@ func TestRCReadGateByEnv(t *testing.T) {
 	r := pricing.DefaultsFor("test")
 	r.RCAttrAllowUIDs = []string{"qa1"}
 	rates := func(context.Context) *pricing.Rates { return r }
-	if RCReadGate("prod", rates) != nil {
+	if RCGate("prod", rates) != nil {
 		t.Fatal("prod is gated")
 	}
-	g := RCReadGate("test", rates)
+	g := RCGate("test", rates)
 	if g == nil || !g(context.Background(), "qa1") || g(context.Background(), "someone") {
 		t.Fatal("test gate")
 	}

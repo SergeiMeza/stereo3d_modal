@@ -105,6 +105,9 @@ func (c *Client) GrantPromotionalUntil(ctx context.Context, uid, entitlement str
 	if !c.CanGrant() {
 		return &GrantError{Msg: "no secret key"}
 	}
+	if c.dryRun(ctx, uid, "grant_promotional", "entitlement", entitlement, "duration", "lifetime") {
+		return nil
+	}
 	err := c.call(ctx, "/v1/subscribers/"+url.PathEscape(uid)+"/entitlements/"+url.PathEscape(entitlement)+"/promotional", map[string]any{"duration": "lifetime"})
 	c.forget(uid)
 	return err
@@ -116,6 +119,9 @@ func (c *Client) GrantPromotionalUntil(ctx context.Context, uid, entitlement str
 func (c *Client) RevokeAnyPromotionals(ctx context.Context, uid, entitlement string) error {
 	if !c.CanGrant() {
 		return &GrantError{Msg: "no secret key"}
+	}
+	if c.dryRun(ctx, uid, "revoke_any_promotionals", "entitlement", entitlement) {
+		return nil
 	}
 	err := c.call(ctx, "/v1/subscribers/"+url.PathEscape(uid)+"/entitlements/"+url.PathEscape(entitlement)+"/revoke_promotionals", map[string]any{})
 	c.forget(uid)

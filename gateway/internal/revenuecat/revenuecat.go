@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -148,27 +149,39 @@ type Client struct {
 	mu    sync.Mutex
 	cache map[string]entry
 
-	// readGate, when set, decides which uids may be read at all. TEST
-	// shares the one prod RevenueCat project, where GET
-	// /v1/subscribers/{id} creates the customer it reads (owner
-	// 2026-11-07): TEST reads only allowlisted uids; prod has no gate.
-	readGate func(ctx context.Context, uid string) bool
+	// gate, when set, decides which uids RevenueCat is called for at all,
+	// read or write. TEST shares the one prod RevenueCat project, where
+	// GET /v1/subscribers/{id} creates the customer it reads (owner
+	// 2026-11-07, D11 for writes): TEST calls only for allowlisted uids;
+	// prod has no gate.
+	gate func(ctx context.Context, uid string) bool
 }
 
 // ErrNotRead: the read gate kept RevenueCat from being asked about this
 // uid (TEST, not allowlisted); nothing was sent.
 var ErrNotRead = errors.New("revenuecat: not read (not allowlisted on this environment)")
 
-// SetReadGate installs the read gate (nil: every uid is read).
-func (c *Client) SetReadGate(gate func(ctx context.Context, uid string) bool) {
+// SetGate installs the gate (nil: every uid is read and written).
+func (c *Client) SetGate(gate func(ctx context.Context, uid string) bool) {
 	if c != nil {
-		c.readGate = gate
+		c.gate = gate
 	}
 }
 
-// mayRead: the gate lets uid be read.
+// mayRead: the gate lets RevenueCat be asked about uid.
 func (c *Client) mayRead(ctx context.Context, uid string) bool {
-	return c.readGate == nil || c.readGate(ctx, uid)
+	return c.gate == nil || c.gate(ctx, uid)
+}
+
+// dryRun reports whether the gate keeps a write for uid from being sent;
+// if so, it logs what would have been sent (op, detail) and the caller
+// returns as if it had been done.
+func (c *Client) dryRun(ctx context.Context, uid, op string, detail ...any) bool {
+	if c.gate == nil || c.gate(ctx, uid) {
+		return false
+	}
+	slog.InfoContext(ctx, "revenuecat write: dry run (not allowlisted)", append([]any{"uid", uid, "op", op}, detail...)...)
+	return true
 }
 
 // New returns a client; an empty key yields a client that is not

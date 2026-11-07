@@ -217,7 +217,7 @@ func TestReadGate(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New("k").WithBase(srv.URL, time.Now)
-	c.SetReadGate(func(_ context.Context, uid string) bool { return uid == "allowed" })
+	c.SetGate(func(_ context.Context, uid string) bool { return uid == "allowed" })
 	ctx := context.Background()
 	if st, err := c.Pro(ctx, "other"); err != nil || st.Pro {
 		t.Fatalf("gated Pro %+v %v", st, err)
@@ -233,5 +233,38 @@ func TestReadGate(t *testing.T) {
 	}
 	if st, err := c.Pro(ctx, "allowed"); err != nil || !st.Pro || calls != 1 {
 		t.Fatalf("allowed %+v %v calls %d", st, err, calls)
+	}
+}
+
+// D11: the same gate keeps writes for a refused uid from being sent
+// (dry runs, reported as done); an allowed uid's writes are sent.
+func TestWriteGate(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c := New("sk_test_k").WithBase(srv.URL, time.Now)
+	c.SetGate(func(_ context.Context, uid string) bool { return uid == "allowed" })
+	ctx := context.Background()
+	end := time.Now().Add(time.Hour)
+	for _, f := range []func(uid string) error{
+		func(uid string) error { return c.GrantPromotional(ctx, uid, "pro", time.Now(), end) },
+		func(uid string) error { return c.GrantPromotionalUntil(ctx, uid, "pro", nil) },
+		func(uid string) error { return c.RevokePromotionals(ctx, uid, "business") },
+		func(uid string) error { return c.RevokeProPromotionals(ctx, uid, "") },
+		func(uid string) error { return c.RevokeAnyPromotionals(ctx, uid, "pro") },
+		func(uid string) error {
+			return c.SetAttributes(ctx, uid, map[string]string{"web_plan": "pro"}, time.Now())
+		},
+	} {
+		before := calls
+		if err := f("other"); err != nil || calls != before {
+			t.Fatalf("gated write: %v, %d calls", err, calls-before)
+		}
+		if err := f("allowed"); err != nil || calls == before {
+			t.Fatalf("allowed write: %v, %d calls", err, calls-before)
+		}
 	}
 }

@@ -82,8 +82,8 @@ func Build(ctx context.Context, cfg *config.Config) (*Built, error) {
 		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
 	}
 	svc.Mail = mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom)
-	svc.RevenueCat = revenuecat.New(cfg.RevenueCatKey)                     // S3D-67 Pro check
-	svc.RevenueCat.SetReadGate(api.RCReadGate(cfg.Env, svc.Pricing.Rates)) // TEST: allowlisted uids only
+	svc.RevenueCat = revenuecat.New(cfg.RevenueCatKey)             // S3D-67 Pro check
+	svc.RevenueCat.SetGate(api.RCGate(cfg.Env, svc.Pricing.Rates)) // TEST: allowlisted uids only, reads and writes
 	slog.Info("revenuecat", "configured", svc.RevenueCat.Configured())
 	if cfg.LifelikeBaseURL != "" {
 		svc.Lifelike = modalapi.New(cfg.LifelikeBaseURL, cfg.LifelikeTokenID, cfg.LifelikeTokenSecret)
