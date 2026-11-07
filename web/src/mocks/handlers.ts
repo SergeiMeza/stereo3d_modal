@@ -3144,6 +3144,10 @@ export const handlers = [
         from_frame: c.params.from_frame,
         to_frame: c.params.to_frame,
         amount_cents: c.quote.amount_cents,
+        // gateway 00178: the launch offer's line on the run
+        ...((c.quote.breakdown?.campaign_cents ?? 0) > 0
+          ? { campaign_cents: c.quote.breakdown!.campaign_cents, campaign_label: c.quote.breakdown!.campaign_label }
+          : {}),
       };
     };
     const status = (s: string | undefined) =>

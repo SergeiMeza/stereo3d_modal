@@ -140,12 +140,14 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** "Kyoto walk · 3D video · 4K" */
+/** "Kyoto walk · 3D video · 4K", with the launch offer when the run had
+ * it ("… · 1080p · Launch offer −25%", gateway 00178) */
 export function itemLine(i: BillingChargeItem): string {
   return [
     i.project_name ?? "Untitled project",
     i.step === "production" ? "3D video" : "Preview",
     i.preset ? qualityName(i.preset) : null,
+    (i.campaign_cents ?? 0) > 0 ? (i.campaign_label ?? "Launch offer") : null,
   ]
     .filter(Boolean)
     .join(" · ");

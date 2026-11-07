@@ -227,6 +227,19 @@ describe("Billing (S3D-57, S3D-62)", () => {
     server.events.removeAllListeners();
   });
 
+  it("a run the launch offer covered names it on its purchase (gateway 00178)", async () => {
+    run("coffer000001", 675, {
+      params: { preset: "1080p", formats: ["mvhevc"] },
+      quote: { amount_cents: 675, currency: "usd", breakdown: { campaign_cents: 225, campaign_label: "Launch offer −25%" } },
+      charge_timing: "before",
+    });
+    run("cplain000001", 1600, { charge_timing: "before", updated_at: "2026-11-02T11:00:00Z" });
+    renderBilling();
+    const offer = await screen.findByTestId("row-ch_coffer000001");
+    expect(offer.textContent).toContain("3D video · 1080p · Launch offer −25%");
+    expect(screen.getByTestId("row-ch_cplain000001").textContent).not.toContain("Launch offer");
+  });
+
   it("History renders every kind and status the gateway sends, unknown ones and rows without items (owner bug 2026-11-05)", async () => {
     const kinds = ["charge", "refund", "outstanding", "topup", "plan", "plan_change", "credit", "some_new_kind", undefined];
     const statuses = [
