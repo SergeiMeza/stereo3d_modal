@@ -64,7 +64,7 @@ type Charge struct {
 	PaidAt          time.Time `firestore:"paid_at" json:"paid_at"`
 	// Presentment: what the customer paid in their currency (Adaptive
 	// Pricing; nil: USD). The invoice notes it; amounts stay USD.
-	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"presentment"`
 	Lines       []ChargeLine `firestore:"lines" json:"lines"`
 
 	InvoiceState     string          `firestore:"invoice_state" json:"invoice_state"`

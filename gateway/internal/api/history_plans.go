@@ -108,7 +108,8 @@ func planInvoiceStatus(inv stripex.PlanInvoice) string {
 // (pure; the receipt and card come from the paying PaymentIntent, the
 // interval from the plan line's price: intervals is price id → Stripe's
 // recurring interval).
-func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, pis, intervals map[string]string) []historyRow {
+func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, pis, intervals map[string]string,
+	presented map[string]*store.Presentment) []historyRow {
 	var out []historyRow
 	for _, inv := range invs {
 		md := inv.Parent.SubscriptionDetails.Metadata
@@ -128,7 +129,7 @@ func planInvoiceRows(r *pricing.Rates, env string, invs []stripex.PlanInvoice, p
 			amount = inv.Total
 		}
 		row := historyRow{RowID: "plan_" + inv.ID, Kind: "plan", CreatedAt: at, AmountCents: amount, Currency: inv.Currency,
-			Status: status, Label: planRowLabel(tier, interval), pi: pis[inv.ID], amounts: map[string]int64{},
+			Status: status, Label: planRowLabel(tier, interval), pi: pis[inv.ID], amounts: map[string]int64{}, Presentment: presented[pis[inv.ID]],
 			Plan: &planRowInfo{Tier: tier, PlanID: planID, Interval: interval, Reason: reason, InvoiceID: inv.ID, InvoiceNumber: inv.Number}}
 		if inv.HostedInvoiceURL != "" || inv.InvoicePDF != "" {
 			row.Invoice = map[string]string{"hosted_invoice_url": inv.HostedInvoiceURL, "invoice_pdf": inv.InvoicePDF}
@@ -223,6 +224,10 @@ func abs64(v int64) int64 {
 // a paid invoice's payment never changes).
 var invoicePIs sync.Map
 
+// paidPresentments: a paid PaymentIntent → its presentment (nil: USD).
+// A succeeded payment's presentment never changes.
+var paidPresentments sync.Map
+
 // planHistoryRows reads the account's plan rows (invoices from Stripe,
 // changes from the plan, credit from the ledger); none on failure, logged.
 func (s *Service) planHistoryRows(ctx context.Context, uid string, cust *store.Customer) []historyRow {
@@ -258,7 +263,7 @@ func (s *Service) planHistoryRows(ctx context.Context, uid string, cust *store.C
 				}
 			}
 		}
-		out = append(out, planInvoiceRows(s.rates(ctx), s.Cfg.Env, invs, pis, intervals)...)
+		out = append(out, planInvoiceRows(s.rates(ctx), s.Cfg.Env, invs, pis, intervals, s.planPresentments(ctx, pis))...)
 	}
 	if cust != nil {
 		if r := scheduledChangeRow(cust.Plan); r != nil {
@@ -267,6 +272,28 @@ func (s *Service) planHistoryRows(ctx context.Context, uid string, cust *store.C
 	}
 	if entries, _, err := s.Store.ListEntries(ctx, uid, historyScanLimit, ""); err == nil {
 		out = append(out, creditRows(entries)...)
+	}
+	return out
+}
+
+// planPresentments reads what each paid plan invoice's PaymentIntent took
+// in the customer's currency (Adaptive Pricing on the subscription: the
+// invoice stays USD, every payment is presented in the currency fixed at
+// checkout). Unread ones are left out (null) and tried on the next read.
+func (s *Service) planPresentments(ctx context.Context, pis map[string]string) map[string]*store.Presentment {
+	out := map[string]*store.Presentment{}
+	for _, pi := range pis {
+		if v, ok := paidPresentments.Load(pi); ok {
+			out[pi] = v.(*store.Presentment)
+			continue
+		}
+		p, err := s.Stripe.PaymentPresentment(pi)
+		if err != nil {
+			slog.WarnContext(ctx, "billing history: presentment unread", "payment_intent", pi, "err", stripex.ErrMessage(err))
+			continue
+		}
+		out[pi] = presentmentOf(p)
+		paidPresentments.Store(pi, out[pi])
 	}
 	return out
 }

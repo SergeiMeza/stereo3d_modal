@@ -44,10 +44,15 @@ func TestPlanHistoryRows(t *testing.T) {
 		planInv("in_prod", "paid", "subscription_create", 29900, map[string]string{"env": "prod", "product": "svs-web", "plan": "business"}),
 		planInv("in_other", "paid", "subscription_create", 500, map[string]string{"env": "test", "product": "other"}),
 	}, map[string]string{"in_first": "pi_first", "in_up": "pi_up"},
-		map[string]string{"price_business_in_first": "month", "price_studio_in_up": "year", "price_business_in_renew": "month"})
+		map[string]string{"price_business_in_first": "month", "price_studio_in_up": "year", "price_business_in_renew": "month"},
+		map[string]*store.Presentment{"pi_up": {AmountMinor: 16300000, Currency: "krw"}})
 	byID := map[string]historyRow{}
 	for _, row := range rows {
 		byID[row.RowID] = row
+	}
+	// Adaptive Pricing: the paying PaymentIntent's presentment, null for USD
+	if p := byID["plan_in_up"].Presentment; p == nil || *p != (store.Presentment{AmountMinor: 16300000, Currency: "krw"}) || byID["plan_in_first"].Presentment != nil {
+		t.Fatalf("presentment %+v %+v", p, byID["plan_in_first"].Presentment)
 	}
 	if len(rows) != 4 {
 		t.Fatalf("rows %d %+v", len(rows), rows)
@@ -101,14 +106,14 @@ func TestPlanRowInterval(t *testing.T) {
 	r := pricing.DefaultsFor("test")
 	md := map[string]string{"env": "test", "product": "svs-web", "plan": "studio", "plan_id": "studio"}
 	inv := planInv("in_y", "paid", "subscription_update", 1198800, md, 1198800)
-	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "year"}); rows[0].Label != "Studio plan · yearly" || rows[0].Plan.Interval != "yearly" {
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "year"}, nil); rows[0].Label != "Studio plan · yearly" || rows[0].Plan.Interval != "yearly" {
 		t.Fatalf("price interval %+v", rows[0])
 	}
-	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, nil); rows[0].Plan.Interval != "yearly" {
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, nil, nil); rows[0].Plan.Interval != "yearly" {
 		t.Fatalf("unread price %+v", rows[0].Plan)
 	}
 	// the price wins over the metadata (a monthly price on a "studio" id)
-	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "month"}); rows[0].Plan.Interval != "monthly" {
+	if rows := planInvoiceRows(r, "test", []stripex.PlanInvoice{inv}, nil, map[string]string{"price_studio_in_y": "month"}, nil); rows[0].Plan.Interval != "monthly" {
 		t.Fatalf("price first %+v", rows[0].Plan)
 	}
 	for in, want := range map[int64]string{0: "$0.00", 5: "$0.05", 99900: "$999.00", 1198800: "$11,988.00", 1169263: "$11,692.63", 100000: "$1,000.00", 99999: "$999.99", 123456789: "$1,234,567.89", -150000: "-$1,500.00"} {

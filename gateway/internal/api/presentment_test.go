@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
@@ -131,6 +133,54 @@ func TestSetPresentmentGuard(t *testing.T) {
 	for _, kind := range []string{store.PresentSettle, store.PresentCharge} {
 		if _, err := s.Store.SetPresentment(ctx, kind, "nope", "pi", jpy); err != store.ErrNotFound {
 			t.Fatalf("%s missing: %v", kind, err)
+		}
+	}
+}
+
+// The contract: presentment {amount_minor, currency} | null on the run
+// read (and so each run of a project), every history card row and the
+// admin run; amount_cents stays USD.
+func TestPresentmentFields(t *testing.T) {
+	jpy := &store.Presentment{AmountMinor: 1648, Currency: "jpy"}
+	now := time.Now()
+	run := &store.Conversion{ID: "c1", State: store.StateSucceeded, Quote: store.Quote{AmountCents: 1000, Currency: "usd"},
+		Stripe: store.Stripe{PaymentIntentID: "pi_c1", PIStatus: store.PISucceeded, CapturedCents: 1000, CapturedAt: &now, Presentment: jpy}}
+	usd := &store.Conversion{ID: "c2", State: store.StateSucceeded, Quote: store.Quote{AmountCents: 500, Currency: "usd"},
+		Stripe: store.Stripe{PaymentIntentID: "pi_c2", PIStatus: store.PISucceeded, CapturedCents: 500, CapturedAt: &now}}
+	s := &Service{}
+	for _, c := range []*store.Conversion{run, usd} {
+		raw, _ := json.Marshal(s.conversionResponse(c, nil))
+		var got map[string]any
+		json.Unmarshal(raw, &got)
+		p, present := got["presentment"]
+		if !present || (c == run) != (p != nil) {
+			t.Fatalf("%s: presentment %v (%v)", c.ID, p, present)
+		}
+		if c == run && (p.(map[string]any)["amount_minor"] != float64(1648) || p.(map[string]any)["currency"] != "jpy") {
+			t.Fatalf("run %v", p)
+		}
+	}
+	if adminRunJSON(run)["presentment"] != jpy {
+		t.Fatal("admin run")
+	}
+	eur := &store.Presentment{AmountMinor: 2795, Currency: "eur"}
+	rows := historyRows(nil,
+		[]*store.Settle{{ID: "s1", State: store.SettlePaid, PaidCents: 2000, PaymentIntentID: "pi_s1", PaidAt: &now, Presentment: eur}},
+		[]*store.Conversion{run, usd},
+		&store.Topup{ID: "t1", State: store.TopupPaid, PaidCents: 3000, PaymentIntentID: "pi_t1", PaidAt: &now, Presentment: eur})
+	want := map[string]*store.Presentment{store.ChargeID(store.ChargeRun, "c1"): jpy, store.ChargeID(store.ChargeRun, "c2"): nil,
+		store.ChargeID(store.ChargeSettle, "s1"): eur, store.ChargeID(store.ChargeTopup, "t1"): eur}
+	for _, r := range rows {
+		w, ok := want[r.RowID]
+		if !ok {
+			t.Fatalf("row %s", r.RowID)
+		}
+		if r.Presentment != w {
+			t.Fatalf("%s: %+v", r.RowID, r.Presentment)
+		}
+		raw, _ := json.Marshal(r)
+		if !strings.Contains(string(raw), `"presentment":`) {
+			t.Fatalf("%s has no presentment key: %s", r.RowID, raw)
 		}
 	}
 }

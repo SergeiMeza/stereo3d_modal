@@ -100,7 +100,7 @@ func (s *Service) HandleAdminRun(w http.ResponseWriter, r *http.Request, a *Admi
 	s.audit(ctx, a, "run_view", map[string]any{"conversion_id": id})
 	run := map[string]any{"id": c.ID, "uid": c.UID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State,
 		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "currency": nilIfEmpty(c.Quote.Currency), "kind": c.Kind,
-		"method": nilIfEmpty(c.Method)}
+		"method": nilIfEmpty(c.Method), "presentment": c.Stripe.Presentment}
 	addRunMedia(run, c)
 	run["source"] = s.adminSourceJSON(ctx, c.ProjectID, nil)
 	httpx.WriteOK(w, map[string]any{"run": run})

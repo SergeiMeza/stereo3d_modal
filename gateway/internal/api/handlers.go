@@ -1136,6 +1136,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if split := splitBilling(c); split != nil {
 		resp["pay_split"] = split // credit and balance first: the covered part and the card's
 	}
+	// Adaptive Pricing: what the card paid in the customer's currency,
+	// {amount_minor, currency}; null when USD, unknown or not a card.
+	resp["presentment"] = c.Stripe.Presentment
 	resp["method"] = store.MethodOr(c.Method)
 	if c.Sample {
 		resp["sample"] = true

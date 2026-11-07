@@ -45,7 +45,7 @@ func signInMethod(provider string) string {
 func adminRunJSON(c *store.Conversion) map[string]any {
 	out := map[string]any{"id": c.ID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State, "kind": c.Kind,
 		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "formats_added": repacksHistory(c),
-		"bars_removed": runBarsJSON(c)}
+		"bars_removed": runBarsJSON(c), "presentment": c.Stripe.Presentment}
 	addRunMedia(out, c)
 	return out
 }

@@ -49,7 +49,11 @@ type historyRow struct {
 	HelpRef       string            `json:"help_ref"`
 	CaseID        string            `json:"case_id,omitempty"`
 	Label         string            `json:"label,omitempty"` // "Balance top-up · $25.00", "Business plan · monthly"
-	Items         []rowItem         `json:"items"`
+	// Presentment: what the card paid in the customer's currency under
+	// Adaptive Pricing, {amount_minor, currency}; null when USD, unknown
+	// or not a card payment. amount_cents stays USD.
+	Presentment *store.Presentment `json:"presentment"`
+	Items       []rowItem          `json:"items"`
 	// Plans (kind plan | plan_change | credit, owner bug 2026-11-05).
 	Plan   *planRowInfo    `json:"plan,omitempty"`
 	Lines  []planLine      `json:"lines,omitempty"`
@@ -72,7 +76,7 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 			continue
 		}
 		r := historyRow{RowID: store.ChargeID(store.ChargeTopup, t.ID), Kind: "charge", Currency: "usd", AmountCents: t.PaidCents,
-			Status: "paid", pi: t.PaymentIntentID, Label: "Balance top-up · " + money(t.PaidCents), amounts: map[string]int64{},
+			Status: "paid", pi: t.PaymentIntentID, Label: "Balance top-up · " + money(t.PaidCents), amounts: map[string]int64{}, Presentment: t.Presentment,
 			CreatedAt: firstTime(t.PaidAt, &t.UpdatedAt)}
 		r.chargeID = r.RowID
 		out = append(out, r)
@@ -84,7 +88,7 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 		}
 		settlePI[st.ID] = st.PaymentIntentID
 		r := historyRow{RowID: store.ChargeID(store.ChargeSettle, st.ID), Kind: "charge", Currency: orUSD(st.Currency),
-			AmountCents: st.PaidCents, Status: "paid", pi: st.PaymentIntentID, amounts: map[string]int64{},
+			AmountCents: st.PaidCents, Status: "paid", pi: st.PaymentIntentID, amounts: map[string]int64{}, Presentment: st.Presentment,
 			CreatedAt: firstTime(st.PaidAt, &st.UpdatedAt)}
 		r.chargeID = r.RowID
 		for _, it := range st.Items {
@@ -130,7 +134,10 @@ func historyRows(batches []*store.Batch, settles []*store.Settle, convs []*store
 		}
 		r := historyRow{RowID: store.ChargeID(store.ChargeRun, c.ID), Kind: "charge", Currency: orUSD(c.Quote.Currency),
 			AmountCents: c.Stripe.CapturedCents, pi: c.Stripe.PaymentIntentID, convIDs: []string{c.ID},
-			amounts: map[string]int64{}, CreatedAt: firstTime(c.Stripe.CapturedAt, &c.CreatedAt)}
+			amounts: map[string]int64{}, CreatedAt: firstTime(c.Stripe.CapturedAt, &c.CreatedAt), Presentment: c.Stripe.Presentment}
+		if c.Stripe.PIStatus == store.PIProcessing {
+			r.Presentment = nil // not paid yet: no amount to show
+		}
 		var refund *historyRow
 		switch c.Stripe.PIStatus {
 		case store.PISucceeded:
