@@ -1370,6 +1370,15 @@
       "opening": "Opening…",
       "continue": "Continue to payment"
     },
+    "oneTap": {
+      "pay": "Pay {amount} with {method}",
+      "changeMethod": "Change payment method",
+      "anotherWay": "Pay another way",
+      "amountChanged": "The amount is now {amount}. Check it and tap again.",
+      "inProgress": "A payment for this is already being confirmed.",
+      "failed": "The payment didn't go through. Try again or pay another way.",
+      "bankFailed": "Your bank didn't confirm the payment. Try again or pay another way."
+    },
     "request": {
       "pay": "Pay {amount}",
       "paid": "Paid. Thank you.",

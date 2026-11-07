@@ -7,6 +7,9 @@
  * dropped; with nothing owed, "Nothing to pay." Signed-out visitors come
  * back here after signing in (RequireAuth keeps the query in ?next).
  * The failed-payment mails link with ?pay=1 (BUX-01); both open the sheet.
+ * BUX-20: a one-tap settle's bank check comes back with ?settle={id}: paid
+ * reads "Paid. Your downloads are back.", still owed opens the sheet
+ * (which says when it's still being confirmed).
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -23,10 +26,12 @@ export const NOTHING_TO_PAY = "Nothing to pay.";
 /** The query keys that ask for the Settle sheet: the app's and the mails'. */
 const SETTLE_PARAMS = ["settle", "pay"] as const;
 
-function settleAsked(): boolean {
-  if (typeof window === "undefined") return false;
+/** "ask": open the sheet; "back": a one-tap settle's bank check returned. */
+function settleAsked(): "ask" | "back" | null {
+  if (typeof window === "undefined") return null;
   const query = new URLSearchParams(window.location.search);
-  return SETTLE_PARAMS.some((key) => query.get(key) === "1");
+  if (SETTLE_PARAMS.some((key) => query.get(key) === "1")) return "ask";
+  return (query.get("settle") ?? "") !== "" ? "back" : null;
 }
 
 function dropSettleParam(): void {
@@ -54,7 +59,7 @@ export function SettleFromLink(): JSX.Element | null {
   if (!asked || owed === null || owed > 0) return null;
   return (
     <p role="status" data-testid="settle-nothing" className="text-sm text-fg-muted">
-      {t("billing.settle.nothingToPay")}
+      {asked === "back" ? t("pay.copy.settled") : t("billing.settle.nothingToPay")}
     </p>
   );
 }

@@ -24,6 +24,7 @@ import { forEachStore } from "@/lib/state/stores";
 import type {
   Conversion,
   Method,
+  OneTapOffer,
   Step,
   StepQuoteResponse,
 } from "@/lib/api/types";
@@ -63,6 +64,24 @@ export interface StepCheckoutState {
   payNow?: Conversion | null;
   /** a run is being created (QA 2026-11-05: the button is busy) */
   converting?: boolean;
+  /** BUX-20: a one-tap payment for this panel's run, while it isn't done */
+  oneTap?: OneTapRun | null;
+}
+
+/** BUX-20: where a one-tap stands. paying: the tap is out (or the bank's
+ * check); processing: being confirmed; declined: the message, a new tap
+ * or Pay another way; changed: the new amount waits for a fresh tap;
+ * in_progress: a payment of it is already being confirmed. */
+export interface OneTapRun {
+  phase: "paying" | "processing" | "declined" | "changed" | "in_progress";
+  /** the run it pays (null until the run exists) */
+  conversionId: string | null;
+  /** the amount the button shows and the tap sends */
+  amountCents: number;
+  /** the default it pays with (the quote's offer, kept after the quote
+   * is priced again) */
+  offer: OneTapOffer;
+  message?: string;
 }
 
 /** 402 gate codes the panels route on (lib/api/types.ts APIErrorBody). */

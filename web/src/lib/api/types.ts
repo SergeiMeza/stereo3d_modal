@@ -573,6 +573,9 @@ export interface PaymentRetry {
 
 export interface Conversion {
   conversion_id: string;
+  /** BUX-20: a pay-first run payable with one tap on the saved default
+   * (null or absent: the sheet) */
+  one_tap?: OneTapOffer | null;
   /** owner 2026-11-07: what the card was charged in its own currency */
   presentment?: Presentment | null;
   /** the gateway's Stripe key, on a pay-first run's create response */
@@ -697,6 +700,9 @@ export interface FoveationInfo {
 }
 
 export interface StepQuoteResponse {
+  /** BUX-20: with payment_flow paynow, the run can be paid with one tap
+   * (null or absent: the sheet) */
+  one_tap?: OneTapOffer | null;
   /** gateway 00172: Foveated Detail for this quote */
   foveation?: FoveationInfo;
   /** gateway 00172: the file quality, its rate and the files' size */
@@ -1266,6 +1272,10 @@ export interface CheckoutStart {
   checkout: CheckoutHandle;
   amount_cents: number;
   publishable_key?: string;
+  /** settle: its id, for a one-tap on it */
+  settle_id?: string;
+  /** BUX-20: what's owed, payable with one tap (null: the sheet) */
+  one_tap?: OneTapOffer | null;
   /** settle: "open" | "processing" | "paid" */
   payment_state?: string;
   /** settle: how many runs it covers */
@@ -1833,4 +1843,31 @@ export function posterUrl(
   p: Pick<Project, "poster" | "scene_thumbs" | "strip_thumbs">,
 ): string | undefined {
   return p.poster?.url ?? p.scene_thumbs?.[0]?.url ?? p.strip_thumbs?.[0]?.url;
+}
+
+/** BUX-20: one tap on the saved default that has paid before, offered on
+ * a pay-now quote, a pay-first run and a settle. The amount is the
+ * server's (the card's part of a split); always US dollars. */
+export interface OneTapOffer {
+  brand?: string;
+  last4?: string;
+  /** card | link | paypal … */
+  type: string;
+  /** a card saved through a wallet: apple_pay | google_pay | link */
+  wallet?: string;
+  /** Link and PayPal: "a•••@example.com" */
+  email_masked?: string;
+  amount_cents: number;
+  currency: "usd";
+}
+
+/** BUX-20: how a one-tap went (POST …/pay-one-tap, …/settle/one-tap). */
+export interface OneTapAnswer {
+  state: "succeeded" | "processing" | "requires_action" | "declined";
+  /** requires_action: for stripe.handleNextAction */
+  client_secret?: string;
+  /** declined: customer-safe words */
+  message?: string;
+  decline_code?: string;
+  publishable_key?: string;
 }

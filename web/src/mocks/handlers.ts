@@ -378,6 +378,74 @@ function paymentFlow(amountCents: number): {
   return { payment_flow: chargeTiming(amountCents) === "before" ? "precharge" : "after" };
 }
 
+/** BUX-20: the mock's one-tap settings (mockDb.oneTap). */
+interface MockOneTap {
+  enabled: boolean;
+  /** over the default card's offer (a Link or wallet default) */
+  offer: Partial<import("@/lib/api/types").OneTapOffer>;
+  /** what the next tap answers */
+  outcome: "succeeded" | "processing" | "requires_action" | "declined";
+  /** the next tap answers 409 with this code instead (once) */
+  error: { code: string; details?: Record<string, unknown> } | null;
+  /** the server's amount when it differs from the run's (amount_changed) */
+  serverAmountCents: number | null;
+  /** what the bank's check (handleNextAction) answers */
+  actionOutcome: "succeeded" | "processing" | "failed";
+  /** taps received (no double submit) */
+  taps: number;
+  /** a bank check waiting: on a run or the settle */
+  pending: { kind: "run" | "settle"; id: string; amount: number } | null;
+}
+
+/** BUX-20: the one-tap offer for an amount, when allowed. */
+function oneTapOffer(amountCents: number): import("@/lib/api/types").OneTapOffer | null {
+  const o = mockDb.oneTap;
+  const card = mockDb.billing.card;
+  if (!o.enabled || !mockDb.billing.hasPaymentMethod || amountCents <= 0) return null;
+  return {
+    brand: card?.brand ?? "visa",
+    last4: card?.last4 ?? "4242",
+    type: "card",
+    ...o.offer,
+    amount_cents: amountCents,
+    currency: "usd",
+  };
+}
+
+/** BUX-20: a pay-now quote's offer (the card's part of a split). */
+function oneTapQuote(amountCents: number): Record<string, unknown> {
+  const flow = { ...paymentFlow(amountCents), ...balanceQuote(amountCents) } as { payment_flow?: string };
+  if (flow.payment_flow !== "paynow") return {};
+  const split = (mockPaySplit(amountCents).pay_split as { card_cents?: number } | undefined)?.card_cents;
+  return { one_tap: oneTapOffer(split ?? amountCents) };
+}
+
+/** BUX-20: a one-tap refusal, like the gateway's (409). */
+function oneTapRefusal(): Response | null {
+  const e = mockDb.oneTap.error;
+  if (!e) return null;
+  mockDb.oneTap.error = null;
+  return HttpResponse.json({ success: false, error: e.code, message: e.code.replace(/_/g, " "), ...(e.details ? { details: e.details } : {}) }, { status: 409 });
+}
+
+/** BUX-20: the run or the settle once a tap (or its bank check) paid. */
+function oneTapPaid(kind: "run" | "settle", id: string, amount: number): void {
+  if (kind === "run") {
+    const c = mockDb.conversions.get(id);
+    if (c) {
+      c.state = "paid";
+      c.billing = { status: "charged", charged_cents: amount };
+      c.updated_at = new Date().toISOString();
+    }
+    return;
+  }
+  for (const u of mockDb.billing.unpaid) {
+    const c = u.conversion_id ? mockDb.conversions.get(u.conversion_id) : undefined;
+    if (c) c.billing = { status: "charged", charged_cents: u.amount_cents };
+  }
+  mockDb.billing.unpaid = [];
+}
+
 function openCheckout(c: Omit<MockCheckout, "state" | "expires_at"> & { kind: "run" | "settle" }): {
   client_secret: string;
   expires_at: string;
@@ -431,6 +499,9 @@ interface DB {
   /** GET /v1/pricing adaptive_pricing (owner 2026-11-07): off like prod at
    * launch; tests turn it on */
   adaptivePricing: boolean;
+  /** BUX-20 one-tap (gateway one_tap_enabled, off like prod): the offer on
+   * pay-now quotes, runs and settles, and what the next tap does */
+  oneTap: MockOneTap;
   /** D7 pay requests by token (tests add them); flow: what POST checkout
    * answers */
   payRequests: Map<string, import("@/lib/api/types").PayRequest & { flow: "checkout" | "url"; inProgress?: boolean; todayCents?: number }>;
@@ -1063,6 +1134,16 @@ function seed(): DB {
     chargeBeforeCents: 2500,
     deferredPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     adaptivePricing: false,
+    oneTap: {
+      enabled: false,
+      offer: {},
+      outcome: "succeeded",
+      error: null,
+      serverAmountCents: null,
+      actionOutcome: "succeeded",
+      taps: 0,
+      pending: null,
+    },
     payRequests: new Map(),
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     webProWeeklyHidden: false,
@@ -4270,6 +4351,86 @@ export const handlers = [
 
   // spec v6: what our sheet's confirm does in the mock (in place of the
   // processor): paid / declined / processing / too_many
+  // BUX-20: one tap on the saved default for a pay-first run
+  http.post(`${GATEWAY}/v1/conversions/:id/pay-one-tap`, async ({ params, request }) => {
+    const o = mockDb.oneTap;
+    o.taps += 1;
+    const c = mockDb.conversions.get(String(params.id));
+    if (!c) return err(404, "not_found", "conversion not found");
+    const body = (await request.json().catch(() => ({}))) as { amount_cents?: number };
+    const refused = oneTapRefusal();
+    if (refused) return refused;
+    if (c.state !== "created") return err(409, "already_paid", "this is already paid");
+    const amount = o.serverAmountCents ?? c.quote.amount_cents;
+    if (body.amount_cents !== amount) {
+      return HttpResponse.json(
+        { success: false, error: "amount_changed", message: "The amount changed. Check it and pay again.", details: { amount_cents: amount } },
+        { status: 409 },
+      );
+    }
+    // like the gateway: the run's fields, then the tap's (its state wins)
+    const run = { ...c, amount_cents: amount, publishable_key: "pk_test_mock" };
+    switch (o.outcome) {
+      case "succeeded":
+        oneTapPaid("run", c.conversion_id, amount);
+        return HttpResponse.json({ ...run, ...mockDb.conversions.get(c.conversion_id), state: "succeeded" });
+      case "processing":
+        c.billing = { status: "waiting_for_payment" };
+        return HttpResponse.json({ ...run, billing: c.billing, state: "processing" });
+      case "requires_action":
+        o.pending = { kind: "run", id: c.conversion_id, amount };
+        return HttpResponse.json({ ...run, state: "requires_action", client_secret: `pi_mock_onetap_${c.conversion_id}` });
+      default:
+        return HttpResponse.json({ ...run, state: "declined", message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
+    }
+  }),
+
+  // BUX-20: one tap on the saved default for what the account owes
+  http.post(`${GATEWAY}/v1/billing/settle/one-tap`, async ({ request }) => {
+    const o = mockDb.oneTap;
+    const b = mockDb.billing;
+    o.taps += 1;
+    const body = (await request.json().catch(() => ({}))) as { amount_cents?: number; settle_id?: string };
+    const refused = oneTapRefusal();
+    if (refused) return refused;
+    const owed = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
+    const base = { publishable_key: "pk_test_mock", settle_id: "st_mock", runs: b.unpaid.length };
+    if (owed === 0) return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: 0, state: "succeeded" });
+    const amount = o.serverAmountCents ?? owed;
+    if (body.amount_cents !== amount) {
+      return HttpResponse.json(
+        { success: false, error: "amount_changed", message: "The amount changed. Check it and pay again.", details: { amount_cents: amount } },
+        { status: 409 },
+      );
+    }
+    switch (o.outcome) {
+      case "succeeded":
+        oneTapPaid("settle", "st_mock", amount);
+        return HttpResponse.json({ ...base, settled: true, payment_state: "paid", amount_cents: amount, state: "succeeded" });
+      case "processing":
+        b.settling = true;
+        return HttpResponse.json({ ...base, settled: false, payment_state: "processing", amount_cents: amount, state: "processing" });
+      case "requires_action":
+        o.pending = { kind: "settle", id: "st_mock", amount };
+        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, state: "requires_action", client_secret: "pi_mock_onetap_settle" });
+      default:
+        return HttpResponse.json({ ...base, settled: false, payment_state: "open", amount_cents: amount, state: "declined", message: "Your card has insufficient funds.", decline_code: "insufficient_funds" });
+    }
+  }),
+
+  // mock-only: the bank's check on a one-tap (stripe.handleNextAction)
+  http.post(`${GATEWAY}/__mock__/one-tap-action`, () => {
+    const o = mockDb.oneTap;
+    const p = o.pending;
+    if (o.actionOutcome === "failed") {
+      return HttpResponse.json({ error: { message: "We couldn't confirm it with your bank." } }, { status: 402 });
+    }
+    if (p && o.actionOutcome === "succeeded") oneTapPaid(p.kind, p.id, p.amount);
+    if (p && o.actionOutcome === "processing" && p.kind === "settle") mockDb.billing.settling = true;
+    o.pending = null;
+    return HttpResponse.json({ status: o.actionOutcome });
+  }),
+
   // D7: the payment a failure mail links to (public)
   http.get(`${GATEWAY}/v1/pay-requests/:token`, ({ params }) => {
     const r = mockDb.payRequests.get(String(params.token));
@@ -4497,6 +4658,8 @@ export const handlers = [
         runs: b.unpaid.length,
         payment_state: b.settling ? "processing" : "open",
         publishable_key: "pk_test_mock",
+        settle_id: "st_mock",
+        one_tap: b.settling ? null : oneTapOffer(amount),
       });
     }
     if (b.settleOutcome === "requires_action" && b.unpaid.length > 0) {
@@ -5188,6 +5351,7 @@ export const handlers = [
           charge_timing: chargeTiming(q.quote.amount_cents),
           ...paymentFlow(q.quote.amount_cents),
           ...balanceQuote(q.quote.amount_cents),
+          ...oneTapQuote(q.quote.amount_cents),
           output_seconds: Math.round(q.outputSeconds * 100) / 100,
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
@@ -5222,6 +5386,7 @@ export const handlers = [
         charge_timing: chargeTiming(quote.amount_cents),
         ...paymentFlow(quote.amount_cents),
         ...balanceQuote(quote.amount_cents),
+        ...oneTapQuote(quote.amount_cents),
         output_seconds: billable,
         split_suggested: false,
         ...(req.step === "production"
@@ -5422,6 +5587,7 @@ export const handlers = [
         charge_timing: payNow ? "before" : chargeTiming(quote.amount_cents),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ...(payNow && !sheet ? { one_tap: oneTapOffer(quote.amount_cents) } : {}),
         ...(payNow
           ? {
               billing: {

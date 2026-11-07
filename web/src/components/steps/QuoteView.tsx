@@ -456,8 +456,9 @@ export function QuoteView({
           paying, while the gateway offers it. Only when the next step is
           the payment form (QA 2026-11-07): a balance, a saved method
           charged before or after the run, or a free preview never opens
-          one, so they don't promise a local price. */}
-      {localPrice && total > 0 && !freePreview && result.payment_flow === "paynow" ? (
+          one, so they don't promise a local price; nor does one tap
+          (BUX-20), which charges US dollars. */}
+      {localPrice && total > 0 && !freePreview && result.payment_flow === "paynow" && !result.one_tap ? (
         <p data-testid="quote-local-note" className="text-end text-xs text-fg-muted">
           {t("pay.copy.localAtCheckout")}
         </p>

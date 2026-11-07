@@ -6,6 +6,10 @@
  * the whole amount (POST /v1/billing/settle {ui: elements}).
  *
  * `SettleProvider` lets anything under it open the sheet: `useSettle()`.
+ *
+ * BUX-20: when the settle offers one tap, the sheet leads with "Pay
+ * US$3.75 with Visa •••• 4242" (no form, no local-price line); Pay another
+ * way shows the form.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -24,6 +28,9 @@ import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
+import { OneTapBlock } from "./OneTapBlock";
+import { handleOneTapAction, oneTapLabel, oneTapRefusal } from "./oneTap";
+import { formatUsdLabeled } from "@/components/steps/money";
 import { MainButtonArea, payOpenErrorKey, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { paidMoreWaiting, settleSubtitle, sheetCurrencyLine } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
@@ -82,6 +89,14 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fromBalance, setFromBalance] = useState<"idle" | "paying" | "failed">("idle");
+  // BUX-20: the one tap's own progress (local UI) and the form instead
+  const [tap, setTap] = useState<{
+    phase: "idle" | "paying" | "declined" | "changed" | "in_progress";
+    amount?: number;
+    message?: string;
+  }>({ phase: "idle" });
+  const [showForm, setShowForm] = useState(false);
+  const tapping = useRef(false);
 
   useEffect(() => {
     if (phase.kind !== "loading") return;
@@ -156,12 +171,103 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
     }
   }
 
+  /** BUX-20: pay what's owed with one tap, for the amount the button shows. */
+  async function payOneTap(start: CheckoutStart): Promise<void> {
+    const offer = start.one_tap;
+    if (!offer || tapping.current) return;
+    tapping.current = true;
+    const amount = tap.amount ?? offer.amount_cents;
+    setTap({ phase: "paying", amount });
+    try {
+      let answer: Awaited<ReturnType<typeof gateway.settleOneTap>>;
+      try {
+        answer = await gateway.settleOneTap(amount, start.settle_id);
+      } catch (e) {
+        const r = oneTapRefusal(e);
+        switch (r.kind) {
+          case "unavailable":
+            setTap({ phase: "idle" });
+            return setShowForm(true);
+          case "amount_changed":
+            // never charged on its own: the new amount waits for a fresh tap
+            return setTap({ phase: "changed", amount: r.amountCents });
+          case "in_progress":
+            return setTap({ phase: "in_progress", amount });
+          case "already_paid":
+            return done("pay.copy.alreadySettled");
+          case "stale":
+            setTap({ phase: "idle" });
+            return setPhase({ kind: "loading" });
+          default:
+            return setTap({ phase: "declined", amount, message: t("pay.oneTap.failed") });
+        }
+      }
+      const paid = { ...start, amount_cents: amount };
+      let state = answer.state;
+      let message = answer.message;
+      if (state === "requires_action" && answer.client_secret) {
+        const bank = await handleOneTapAction(answer.publishable_key ?? start.publishable_key, answer.client_secret);
+        state = bank.status === "failed" ? "declined" : bank.status;
+        if (bank.status === "failed") message = bank.message ?? t("pay.oneTap.bankFailed");
+      }
+      if (state === "succeeded") {
+        setTap({ phase: "idle" });
+        return await handle("paid", paid);
+      }
+      if (state === "processing") {
+        setTap({ phase: "idle" });
+        return await handle("processing", paid);
+      }
+      setTap({ phase: "declined", amount, message: message ?? t("pay.copy.declined") });
+    } finally {
+      tapping.current = false;
+    }
+  }
+
   if (phase.kind === "ready" || phase.kind === "paying") {
     const start = phase.start;
     const notice = phase.kind === "ready" ? phase.notice : undefined;
     const locked = phase.kind === "paying" || fromBalance === "paying";
     const prepaid = prepaidOf(billing.status);
     const balanceCovers = prepaid !== null && prepaid.available_cents >= start.amount_cents;
+    if (start.one_tap && !showForm && !balanceCovers) {
+      const amount = tap.amount ?? start.one_tap.amount_cents;
+      const busy = tap.phase === "paying" || tap.phase === "in_progress";
+      const line =
+        tap.phase === "changed"
+          ? t("pay.oneTap.amountChanged", { amount: formatUsdLabeled(amount, t.intl) })
+          : tap.phase === "in_progress"
+            ? t("pay.oneTap.inProgress")
+            : tap.phase === "declined"
+              ? (tap.message ?? t("pay.copy.declined"))
+              : null;
+      return (
+        <SheetFrame
+          open
+          onClose={() => onClose(false)}
+          locked={tap.phase === "paying"}
+          testId="settle-sheet"
+          title={t("pay.copy.settleTitle")}
+          subtitle={start.runs ? settleSubtitle(start.runs, t) : undefined}
+          footer={
+            <OneTapBlock
+              label={oneTapLabel(start.one_tap, t, amount)}
+              busy={busy}
+              notice={line}
+              tone={tap.phase === "declined" ? "error" : "info"}
+              big={big}
+              onTap={() => void payOneTap(start)}
+              onAnotherWay={() => setShowForm(true)}
+              anotherWayDisabled={tap.phase === "paying"}
+            />
+          }
+        >
+          <p data-testid="settle-one-tap-amount" className="text-3xl font-semibold text-fg tabular-nums">
+            {formatUsdLabeled(amount, t.intl)}
+          </p>
+        </SheetFrame>
+      );
+    }
     return (
       <CheckoutPane
         clientSecret={start.checkout.client_secret}

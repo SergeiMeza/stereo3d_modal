@@ -45,6 +45,8 @@ import { chinaPayments } from "@/lib/paymentRegion";
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
 import { paidFromBalanceReload, popBalance } from "@/components/pay/payCopy";
 import { completeChargeAction } from "@/components/billing/settleAction";
+import { OneTapBlock } from "@/components/pay/OneTapBlock";
+import { handleOneTapAction, oneTapLabel, oneTapRefusal } from "@/components/pay/oneTap";
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { track, upgradeSession } from "@/lib/analytics";
@@ -53,6 +55,7 @@ import {
   conversionMethod,
   methodOf,
   type Conversion,
+  type OneTapOffer,
   type Project,
   type Step,
   type StepConversionRequest,
@@ -65,7 +68,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 
-import { stepCheckoutAtom, type BillingBlock, type StepCheckoutState } from "./checkoutStore";
+import { stepCheckoutAtom, type BillingBlock, type OneTapRun, type StepCheckoutState } from "./checkoutStore";
 import { invalidateQuoteAtom, QUOTE_TIMED_OUT, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { PinnedRun } from "./RunProgressCompact";
@@ -73,7 +76,7 @@ import { applyRun } from "@/lib/live/liveStore";
 import { useLiveRunOrNull } from "@/lib/live/useLive";
 import { appStore } from "@/lib/state/stores";
 import { methodErrorCopy } from "./methods";
-import { formatCents } from "./money";
+import { formatCents, formatUsdLabeled } from "./money";
 import { fpsPlanRequired, pickFrameRate } from "./frameRate";
 import { chargeAfterCopy, chargeBeforeCopy, QuoteView, runFacts } from "./QuoteView";
 import { formatsText } from "@/lib/glossary";
@@ -157,6 +160,13 @@ export interface StepCheckout {
   closePayNow: (paid: boolean) => void;
   /** P12 Finish payment: reopen the waiting run's sheet */
   reopenPayNow: () => void;
+  /** BUX-20: where a one-tap payment stands (null: none going) */
+  oneTap: OneTapRun | null;
+  /** BUX-20: pay the run with one tap on the saved default (creates it
+   * first); the amount is the one the button shows */
+  payOneTap: (req: StepConversionRequest) => Promise<void>;
+  /** BUX-20: the sheet instead (the run's, or a new run's) */
+  payAnotherWay: (req: StepConversionRequest) => Promise<void>;
 }
 
 export function useStepCheckout(
@@ -189,6 +199,8 @@ export function useStepCheckout(
   const setError = (e: string | null): void => setState((s) => ({ ...s, error: e }));
   const setBillingBlock = (b: BillingBlock | null): void => setState((s) => ({ ...s, billingBlock: b }));
   const setPayNow = (c: Conversion | null): void => setState((s) => ({ ...s, payNow: c }));
+  const oneTap = state.oneTap ?? null;
+  const setOneTap = (o: OneTapRun | null): void => setState((s) => ({ ...s, oneTap: o }));
   const requestQuote = useSetAtom(requestQuoteAtom);
   const invalidateQuote = useSetAtom(invalidateQuoteAtom);
   const scope = stepCheckoutAtom(project.project_id, step, method);
@@ -199,6 +211,8 @@ export function useStepCheckout(
   // writer below updates BOTH; the effect only covers external store writes.
   const attemptKeyRef = useRef(attemptKey);
   const convertingRef = useRef(false);
+  // BUX-20: one tap at a time (a double click never pays twice)
+  const tappingRef = useRef(false);
   useEffect(() => {
     attemptKeyRef.current = attemptKey;
   }, [attemptKey]);
@@ -247,20 +261,26 @@ export function useStepCheckout(
   }
 
   async function convert(req: StepConversionRequest): Promise<void> {
+    await create(req, "sheet");
+  }
+
+  /** Creates the run; "oneTap": a run waiting for its payment is paid by
+   * the caller instead of opening the sheet. Answers the new run. */
+  async function create(req: StepConversionRequest, mode: "sheet" | "oneTap"): Promise<Conversion | null> {
     // QA 2026-11-05 batch 2: one create at a time (a double click or a slow
     // answer never starts two runs); the button shows it's starting
-    if (convertingRef.current) return;
+    if (convertingRef.current) return null;
     convertingRef.current = true;
     setState((s) => ({ ...s, converting: true }));
     try {
-      await convertOnce(req);
+      return await convertOnce(req, mode);
     } finally {
       convertingRef.current = false;
       setState((s) => ({ ...s, converting: false }));
     }
   }
 
-  async function convertOnce(req: StepConversionRequest): Promise<void> {
+  async function convertOnce(req: StepConversionRequest, mode: "sheet" | "oneTap"): Promise<Conversion | null> {
     if (attemptKeyRef.current === null) {
       attemptKeyRef.current = crypto.randomUUID();
       const minted = attemptKeyRef.current;
@@ -290,8 +310,9 @@ export function useStepCheckout(
       invalidate();
       // spec v7 N5: a hold on the balance (maybe after an auto-reload)
       if (conv.billing?.status === "balance_hold") void billing.refresh();
-      // a pay-now method: the run waits for this payment (S3D-60/61)
-      if (conv.billing?.status === "requires_payment") setPayNow(conv);
+      // a pay-now method: the run waits for this payment (S3D-60/61);
+      // BUX-20: a one-tap pays it without the sheet when the run allows
+      if (conv.billing?.status === "requires_payment" && (mode === "sheet" || !conv.one_tap)) setPayNow(conv);
       // Expensive runs hold the quote up front; a 3DS demand on that hold
       // arrives as requires_action — complete it with the saved card. The
       // gateway webhook then flips created→paid and starts the job (the
@@ -314,6 +335,7 @@ export function useStepCheckout(
           setState((s) => ({ ...s, active: null, attemptKey: null }));
         }
       }
+      return conv;
     } catch (e) {
       const block = billingBlockOf(e);
       if (block !== null) {
@@ -325,8 +347,126 @@ export function useStepCheckout(
       } else {
         setError(messageOf(e, t));
       }
+      return null;
     }
   }
+
+  /** The run as the gateway has it now (the tap's answer carries the
+   * tap's state over the run's). */
+  function refreshRun(id: string): void {
+    client.getConversion(id).then(
+      (c) => {
+        applyRun(appStore, c);
+        setState((s) => (s.active?.conversion_id === c.conversion_id ? { ...s, active: c } : s));
+      },
+      () => undefined,
+    );
+  }
+
+  /** BUX-20: the run's sheet, the one-tap set aside. */
+  function sheetFor(id: string): void {
+    setOneTap(null);
+    const run = active?.conversion_id === id ? active : state.payNow?.conversion_id === id ? state.payNow : null;
+    if (run) return setPayNow(run);
+    // the run read back goes into the checkout atom (setPayNow)
+    client.getConversion(id).then(
+      (c) => {
+        setPayNow(c);
+      },
+      () => undefined,
+    );
+  }
+
+  async function payOneTap(req: StepConversionRequest): Promise<void> {
+    if (tappingRef.current || convertingRef.current) return;
+    const going = oneTap;
+    if (going && (going.phase === "paying" || going.phase === "processing" || going.phase === "in_progress")) return;
+    const offer = going?.offer ?? quote?.one_tap ?? null;
+    if (offer === null) return;
+    const amount = going?.amountCents ?? offer.amount_cents;
+    tappingRef.current = true;
+    try {
+      let id = going?.conversionId ?? null;
+      setOneTap({ phase: "paying", conversionId: id, amountCents: amount, offer });
+      if (id === null) {
+        const conv = await create(req, "oneTap");
+        // not created (the error shows), or paid another way already
+        if (conv === null || conv.billing?.status !== "requires_payment") return setOneTap(null);
+        // the offer went away meanwhile: the sheet is open for it
+        if (!conv.one_tap) return setOneTap(null);
+        id = conv.conversion_id;
+        setOneTap({ phase: "paying", conversionId: id, amountCents: amount, offer });
+      }
+      await tapRun(id, amount, offer);
+    } finally {
+      tappingRef.current = false;
+    }
+  }
+
+  async function tapRun(id: string, amount: number, offer: OneTapOffer): Promise<void> {
+    const at = { conversionId: id, amountCents: amount, offer };
+    let answer: Awaited<ReturnType<typeof client.payRunOneTap>>;
+    try {
+      answer = await client.payRunOneTap(id, amount);
+    } catch (e) {
+      const r = oneTapRefusal(e);
+      switch (r.kind) {
+        case "unavailable":
+          return sheetFor(id);
+        case "amount_changed":
+          // never charged on its own: the new amount waits for a fresh tap
+          return setOneTap({ phase: "changed", conversionId: id, amountCents: r.amountCents, offer });
+        case "in_progress":
+          refreshRun(id);
+          return setOneTap({ phase: "in_progress", ...at });
+        case "already_paid":
+          setOneTap(null);
+          return refreshRun(id);
+        case "stale":
+          setOneTap(null);
+          invalidate();
+          return refreshRun(id);
+        default:
+          return setOneTap({ phase: "declined", ...at, message: t("pay.oneTap.failed") });
+      }
+    }
+    let outcome: "succeeded" | "processing" | "declined" = answer.state === "requires_action" ? "declined" : answer.state;
+    let message = answer.message;
+    if (answer.state === "requires_action" && answer.client_secret) {
+      const done = await handleOneTapAction(answer.publishable_key ?? active?.publishable_key, answer.client_secret);
+      outcome = done.status === "failed" ? "declined" : done.status;
+      if (done.status === "failed") message = done.message ?? t("pay.oneTap.bankFailed");
+    }
+    if (outcome === "succeeded") {
+      setOneTap(null);
+      void billing.refresh();
+      return refreshRun(id);
+    }
+    if (outcome === "processing") {
+      setOneTap({ phase: "processing", ...at });
+      return refreshRun(id);
+    }
+    setOneTap({ phase: "declined", ...at, message: message ?? t("pay.copy.declined") });
+  }
+
+  async function payAnotherWay(req: StepConversionRequest): Promise<void> {
+    const id = oneTap?.conversionId ?? null;
+    if (id !== null) return sheetFor(id);
+    setOneTap(null);
+    await convert(req);
+  }
+
+  // a payment being confirmed ends when the run moves on (the live feed)
+  const oneTapRunId = oneTap?.conversionId ?? null;
+  const oneTapPhase = oneTap?.phase;
+  const activeId = active?.conversion_id;
+  const activeState = active?.state;
+  useEffect(() => {
+    if (oneTapRunId === null || activeId !== oneTapRunId || activeState === undefined || activeState === "created") return;
+    if (oneTapPhase === "processing" || oneTapPhase === "in_progress" || oneTapPhase === "changed" || oneTapPhase === "declined") {
+      setState((s) => ({ ...s, oneTap: null }));
+    }
+  }, [oneTapRunId, oneTapPhase, activeId, activeState, setState]);
 
   function handleSettled(settledConv: Conversion): void {
     if (settledConv.state === "succeeded") {
@@ -416,7 +556,59 @@ export function useStepCheckout(
     payNow,
     closePayNow,
     reopenPayNow,
+    oneTap,
+    payOneTap,
+    payAnotherWay,
   };
+}
+
+/** BUX-20: the run's one-tap button with Change payment method and Pay
+ * another way, when the quote (or a tap under way) offers it. */
+function OneTapFor({
+  ck,
+  request,
+  big = false,
+}: {
+  ck: StepCheckout;
+  request: StepConversionRequest;
+  big?: boolean;
+}): JSX.Element | null {
+  const t = useT();
+  const going = ck.oneTap;
+  const offer = going?.offer ?? ck.quote?.one_tap ?? null;
+  if (!offer && !going) return null;
+  const amount = going?.amountCents ?? offer?.amount_cents ?? 0;
+  const label = offer ? oneTapLabel(offer, t, amount) : t("pay.copy.paying");
+  const busy = ck.converting || going?.phase === "paying";
+  const waiting = going?.phase === "processing" || going?.phase === "in_progress";
+  const notice =
+    going?.phase === "processing"
+      ? t("pay.copy.confirming")
+      : going?.phase === "in_progress"
+        ? t("pay.oneTap.inProgress")
+        : going?.phase === "changed"
+          ? t("pay.oneTap.amountChanged", { amount: formatUsdLabeled(amount, t.intl) })
+          : going?.phase === "declined"
+            ? (going.message ?? t("pay.copy.declined"))
+            : null;
+  return (
+    <OneTapBlock
+      label={label}
+      busy={busy || waiting}
+      disabled={ck.running && going === null}
+      notice={notice}
+      tone={going?.phase === "declined" ? "error" : "info"}
+      big={big}
+      onTap={() => void ck.payOneTap(request)}
+      onAnotherWay={() => void ck.payAnotherWay(request)}
+      anotherWayDisabled={busy || waiting}
+    />
+  );
+}
+
+/** BUX-20: the quote offers one tap (or one is under way). */
+function oneTapShown(ck: StepCheckout): boolean {
+  return Boolean(ck.quote?.one_tap) || ck.oneTap !== null;
 }
 
 /** The pay sheet's line: the run and the files it makes (staging
@@ -902,6 +1094,8 @@ export function InstantCheckout({
             >
               {primary.label}
             </Button>
+          ) : oneTapShown(ck) && !blocked ? (
+            <OneTapFor ck={ck} request={request} />
           ) : (
             <Button
               size="lg"
@@ -941,6 +1135,21 @@ export function InstantCheckout({
             ) : blocked && disabledReason ? (
               <p className="mb-2 text-center text-xs text-fg-muted">{disabledReason}</p>
             ) : null}
+            {!primary && oneTapShown(ck) && !blocked ? (
+              // BUX-20: the same one tap in reach at the bottom
+              <Button
+                size="lg"
+                data-testid="checkout-main-phone"
+                className="w-full tabular-nums"
+                disabled={ck.converting || (ck.oneTap !== null && ck.oneTap.phase !== "declined" && ck.oneTap.phase !== "changed")}
+                aria-busy={ck.converting || ck.oneTap?.phase === "paying"}
+                onClick={() => void ck.payOneTap(request)}
+              >
+                {ck.converting || ck.oneTap?.phase === "paying" || !(ck.oneTap?.offer ?? quote?.one_tap)
+                  ? t("pay.copy.paying")
+                  : oneTapLabel((ck.oneTap?.offer ?? quote?.one_tap)!, t, ck.oneTap?.amountCents)}
+              </Button>
+            ) : (
             <Button
               size="lg"
               data-testid="checkout-main-phone"
@@ -951,6 +1160,7 @@ export function InstantCheckout({
             >
               {ck.converting ? t("make.checkout.starting") : primary ? primary.label : price ? t("make.checkout.labelPrice", { label, price }) : label}
             </Button>
+            )}
           </div>
         ) : null}
       </div>
@@ -970,7 +1180,13 @@ export function InstantCheckout({
   return (
     <div className="flex flex-col gap-3">
       {summary}
+      {oneTapShown(ck) && !blocked ? (
+        <div className="max-w-sm">
+          <OneTapFor ck={ck} request={request} />
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {oneTapShown(ck) && !blocked ? null : (
         <Button
           size="lg"
           data-testid="checkout-main"
@@ -980,6 +1196,7 @@ export function InstantCheckout({
         >
           {ck.converting ? t("make.checkout.starting") : price ? t("make.checkout.labelPrice", { label, price }) : label}
         </Button>
+        )}
         {underReview ? (
           <UnderReview />
         ) : limitReached ? (

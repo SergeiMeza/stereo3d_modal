@@ -19,6 +19,7 @@ import type {
   BalanceSettings,
   BalanceSummary,
   CheckoutStart,
+  OneTapAnswer,
   UsagePage,
   HandoffInfo,
   HandoffStart,
@@ -883,6 +884,25 @@ export class GatewayClient {
       `/v1/conversions/${encodeURIComponent(conversionId)}/pay-now`,
       { ui: "elements", ...(replace ? { replace: true } : {}) },
     );
+  }
+
+  /** BUX-20: pay a pay-first run with one tap on the saved default, for
+   * the amount the button showed. 409 one_tap_unavailable,
+   * amount_changed {amount_cents}, payment_in_progress, already_paid,
+   * expired, not_payable. The answer is the run with the tap's fields
+   * over it: its `state` is the tap's, not the run's. */
+  payRunOneTap(conversionId: string, amountCents: number): Promise<Omit<Conversion, "state"> & OneTapAnswer> {
+    return this.request("POST", `/v1/conversions/${encodeURIComponent(conversionId)}/pay-one-tap`, {
+      amount_cents: amountCents,
+    });
+  }
+
+  /** BUX-20: pay what the account owes with one tap (same answers). */
+  settleOneTap(amountCents: number, settleId?: string): Promise<CheckoutStart & OneTapAnswer & { settled?: boolean }> {
+    return this.request("POST", "/v1/billing/settle/one-tap", {
+      amount_cents: amountCents,
+      ...(settleId ? { settle_id: settleId } : {}),
+    });
   }
 
   /** spec v6 F/C11: the payment for what the account owes (P2). */
