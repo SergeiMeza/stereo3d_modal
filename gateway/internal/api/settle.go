@@ -272,7 +272,18 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 		return settleResult{Settle: st}, chErr // the lease lapses; the sweep resolves it from the key
 	}
 	piID := fail.PaymentIntentID
-	if pi != nil {
+	switch {
+	case st.Trigger == settleDelete:
+		// stripe-go hands back an empty PaymentIntent with an error: the
+		// declined one is the error's, so the backups and the cancel below
+		// work on it (web; audit 2026-11-07).
+		if chErr == nil {
+			piID = pi.ID
+		}
+	case pi != nil:
+		// The app's triggers (ios_settle, soft_retry) keep their shipped
+		// behaviour unchanged (owner 2026-11-07): an error leaves piID ""
+		// (no backups, no bank-check answer, no cancel).
 		piID = pi.ID
 	}
 	if chErr != nil || fail.NeedsAction || fail.Code != "" {
