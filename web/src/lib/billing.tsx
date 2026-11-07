@@ -53,14 +53,20 @@ let fetchBilling: (() => Promise<BillingStatus>) | null = null;
  * feed sent after it is newer than the read. */
 export const billingReadVersionAtom = atom<number>(0);
 
+/** Bumped when the billing atoms are reset (sign-out, a test's cleanup):
+ * an answer to a read made before it is dropped, even for the same uid. */
+const billingEpochAtom = atom(0);
+
 /** Read GET /v1/billing again; an answer for another account is dropped. */
 export const refreshBillingAtom = atom(null, async (get, set): Promise<BillingStatus | null> => {
   const uid = get(billingUidAtom);
   const fetcher = fetchBilling;
   if (uid === null || fetcher === null) return null;
   const covers = get(billingVersionAtom);
+  const epoch = get(billingEpochAtom);
   try {
     const s = await fetcher();
+    if (get(billingEpochAtom) !== epoch) return null;
     if (get(billingUidAtom) === uid) {
       set(billingAtom, { uid, status: s, error: null });
       if (covers > get(billingReadVersionAtom)) set(billingReadVersionAtom, covers);
@@ -68,7 +74,7 @@ export const refreshBillingAtom = atom(null, async (get, set): Promise<BillingSt
     return s;
   } catch (e) {
     const message = e instanceof Error ? e.message : "billing status failed";
-    if (get(billingUidAtom) === uid) {
+    if (get(billingEpochAtom) === epoch && get(billingUidAtom) === uid) {
       // keep the last good status (same uid): an error banner over stale
       // data beats flashing back to "unknown"
       set(billingAtom, (prev) => ({ uid, status: prev?.uid === uid ? prev.status : null, error: message }));
@@ -156,6 +162,7 @@ export function useBilling(): BillingContextValue {
 /** Test hook: signed out, nothing fetched, no fetch registered. */
 export function resetBillingForTests(): void {
   appStore.set(planCreditWaitAtom, (n) => n + 1);
+  appStore.set(billingEpochAtom, (n) => n + 1);
   appStore.set(billingReadVersionAtom, 0);
   appStore.set(billingAtom, null);
   appStore.set(billingUidAtom, null);

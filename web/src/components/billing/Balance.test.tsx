@@ -350,8 +350,11 @@ describe("00083 refusals", () => {
     topped(500);
     renderBilling();
     fireEvent.click(await screen.findByTestId("balance-add-funds"));
-    // $25 is preselected and fits; $50 doesn't
+    // $25 is preselected and fits; $50 doesn't (the line comes with the
+    // gateway's refusal: wait for that answer, not the clock)
+    const refused = topupAnswer(5000);
     fireEvent.click(within(await screen.findByTestId("add-funds-sheet")).getByRole("radio", { name: "$50" }));
+    await refused;
     expect(await screen.findByText("You can add up to $25.00 more today.")).toBeTruthy();
   });
 
