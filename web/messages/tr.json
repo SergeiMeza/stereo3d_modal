@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "ABD doları üzerinden tahsil edilir.",
-      "withdrawal": "Ödeme yaparak hemen başlamamızı istersiniz ve hizmet tamamlandığında cayma hakkınızın sona ereceğini kabul edersiniz.",
+      "withdrawal": "Ödeme yaparak hemen başlamamızı istersiniz ve 3D videonuz hazır olduğunda iptal etme hakkınız sona erer.",
       "refundedIfFails": "Başarısız olursa tamamen iade edilir.",
       "saveLine": "Sonraki dönüştürmeleriniz için kaydedilir. Faturalandırma’dan kaldırabilirsiniz.",
       "orPayAnotherWay": "veya başka bir yolla ödeyin",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "Ödeme bekleniyor…",
       "finishPayment": "Ödemeyi tamamla",
       "pausedReview": "Bir ödemeyi kontrol ederken duraklatıldı.",
-      "popAfter": "Hazır olduğunda varsayılan ödeme yönteminizden tahsil edilir. Başarısız olursa tahsil edilmez. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
-      "popPrecharge": "Başlattığınızda varsayılan ödeme yönteminizden tahsil edilir. Sırada beklerken veya ilk dakikasında iptal ederseniz tamamen iade edilir. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "popAfter": "Dönüştürme hazır olduğunda varsayılan ödeme yönteminizden tahsil edilir, başarısız olursa hiç tahsil edilmez. Başlatarak hemen başlamamızı istersiniz ve dönüştürme hazır olduğunda iptal etme hakkınız sona erer.",
+      "popPrecharge": "Başlattığınızda varsayılan ödeme yönteminizden tahsil edilir. Sırada beklerken veya ilk dakikasında iptal ederseniz tamamen iade edilir. Başlatarak hemen başlamamızı istersiniz ve dönüştürme hazır olduğunda iptal etme hakkınız sona erer.",
       "popSheet": "Ödeme yolunu bir sonraki adımda seçeceksiniz. Başarısız olursa tamamen iade edilir.",
       "payToContinue": "Devam etmek için {amount} ödeyin",
       "payAndStart": "{amount} ödeyip başlatın",
@@ -1417,7 +1417,7 @@
         "deletionPending": "Hesabınız silinirken otomatik yükleme açılamaz."
       },
       "paidFromBalanceReload": "Bakiyenizden ödendi. Önce {amount} ekleyeceğiz.",
-      "popBalance": "Başladığında bakiyenizden {amount} ayırırız ve yalnızca nihai maliyeti alırız, asla fazlasını değil. Başarısız dönüştürmeler ücretsizdir. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "popBalance": "Başladığında bakiyenizden {amount} ayırırız ve yalnızca nihai maliyeti alırız, asla fazlasını değil. Başarısız olursa hiçbir şey alınmaz. Başlatarak hemen başlamamızı istersiniz ve dönüştürme hazır olduğunda iptal etme hakkınız sona erer.",
       "topupMaxFirst": "İlk yüklemenizde en fazla {amount} ekleyebilirsiniz.",
       "topupMax": "Bir seferde en fazla {amount} ekleyebilirsiniz.",
       "topupDone": "{added} eklendi. Bakiyeniz {balance}.",
@@ -1977,7 +1977,7 @@
         "paidAtStart": "Dönüştürme başlarken ödendi. Başarısız olursa tamamen iade edilir.",
         "paidAtStartRefunded": "Bu dönüştürme başlarken ödendi, bu yüzden tamamen iade edilir."
       },
-      "cancelFailed": "iptal edilemedi",
+      "cancelFailed": "İptal edilemedi. Tekrar deneyin.",
       "estimated": "Tahmini: {duration}",
       "allFiles": "Tüm dosyalar",
       "cancel": "Vazgeç",
@@ -2163,8 +2163,8 @@
       "payBeforePublic": "Dönüştürme başlamadan önce ödersiniz.",
       "roundedUp": "Başlayan her dakika tam dakika sayılır.",
       "rule": "{amount} üzerindeki dönüştürmeler: başlarken tahsil edilir, başarısız olursa iade edilir. {amount} ve altındakiler: bittikten sonra tahsil edilir. Başarısız dönüştürmeler ücretsizdir.",
-      "cancelBefore": "Başlattığınızda tahsil edilir. Sırada beklerken ya da ilk dakikada istediğiniz zaman iptal edin, tam iade alın.",
-      "cancelAfter": "{amount} ve altındaki dönüştürmeler bittikten sonra tahsil edilir. Sırada beklerken ya da ilk dakikada istediğiniz zaman iptal edin, hiçbir şey ödemezsiniz."
+      "cancelBefore": "Başlattığınızda tahsil edilir. Sırada beklerken ya da ilk dakikada iptal edin, tam iade alın.",
+      "cancelAfter": "{amount} ve altındaki dönüştürmeler, bunun gibi, bittikten sonra tahsil edilir. Sırada beklerken ya da ilk dakikada iptal edin, hiçbir şey ödemezsiniz."
     },
     "payment": {
       "refunded": "İade edildi",

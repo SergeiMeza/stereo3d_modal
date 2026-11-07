@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Se cobra en dólares estadounidenses.",
-      "withdrawal": "Al pagar, nos pides empezar ahora y aceptas que pierdes el derecho de desistimiento una vez que el servicio se complete.",
+      "withdrawal": "Al pagar, nos pides empezar ahora y tu derecho a cancelar termina cuando tu video 3D esté listo.",
       "refundedIfFails": "Reembolso total si falla.",
       "saveLine": "Se guarda para tus próximas conversiones. Puedes quitarlo en Facturación.",
       "orPayAnotherWay": "o paga de otra forma",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "Esperando el pago…",
       "finishPayment": "Terminar el pago",
       "pausedReview": "En pausa mientras revisamos un pago.",
-      "popAfter": "Se cobra a tu método de pago predeterminado cuando esté listo. No se cobra si falla. Empieza de inmediato. Aceptas perder tu derecho de desistimiento una vez que termine.",
-      "popPrecharge": "Se cobra a tu método de pago predeterminado cuando lo inicias. Cancela mientras espera en cola, o en su primer minuto, para un reembolso total. Empieza de inmediato. Aceptas perder tu derecho de desistimiento una vez que termine.",
+      "popAfter": "Se cobra a tu método de pago predeterminado cuando esté lista, nunca si falla. Al iniciarla, nos pides empezar ahora y tu derecho a cancelar termina cuando esté lista.",
+      "popPrecharge": "Se cobra a tu método de pago predeterminado cuando la inicias. Cancela mientras espera en cola, o en su primer minuto, para un reembolso total. Al iniciarla, nos pides empezar ahora y tu derecho a cancelar termina cuando esté lista.",
       "popSheet": "A continuación elegirás cómo pagar. Reembolso total si falla.",
       "payToContinue": "Paga {amount} para continuar",
       "payAndStart": "Paga {amount} e inicia",
@@ -1417,7 +1417,7 @@
         "deletionPending": "No se puede activar la recarga automática mientras se elimina tu cuenta."
       },
       "paidFromBalanceReload": "Pagado con tu saldo. Primero agregaremos {amount}.",
-      "popBalance": "Reservamos {amount} de tu saldo al empezar y cobramos solo el costo final, nunca más. Las conversiones fallidas no cuestan nada. Empieza de inmediato. Aceptas perder tu derecho de desistimiento una vez que termine.",
+      "popBalance": "Reservamos {amount} de tu saldo al empezar y cobramos solo el costo final, nunca más. Si falla, no se cobra nada. Al iniciarla, nos pides empezar ahora y tu derecho a cancelar termina cuando esté lista.",
       "topupMaxFirst": "Puedes agregar hasta {amount} en tu primera recarga.",
       "topupMax": "Puedes agregar hasta {amount} a la vez.",
       "topupDone": "Se agregaron {added}. Tu saldo es {balance}.",
@@ -1977,7 +1977,7 @@
         "paidAtStart": "Se pagó al empezar la conversión. Si falla, se reembolsa por completo.",
         "paidAtStartRefunded": "Esta conversión se pagó al empezar, por eso se reembolsa por completo."
       },
-      "cancelFailed": "no se pudo cancelar",
+      "cancelFailed": "No se pudo cancelar. Inténtalo de nuevo.",
       "estimated": "Estimado: {duration}",
       "allFiles": "Todos los archivos",
       "cancel": "Cancelar",
@@ -2163,8 +2163,8 @@
       "payBeforePublic": "Pagas antes de que empiece la conversión.",
       "roundedUp": "Cada minuto iniciado cuenta como un minuto completo.",
       "rule": "Conversiones de más de {amount}: se cobran al empezar y se reembolsan si fallan. Conversiones de {amount} o menos: se cobran al terminar. Las conversiones fallidas no cuestan nada.",
-      "cancelBefore": "Se cobra al empezar. Cancela cuando quieras mientras espera en la cola, o en su primer minuto, y te reembolsamos todo.",
-      "cancelAfter": "Las conversiones de {amount} o menos se cobran al terminar. Cancela cuando quieras mientras esperan en la cola, o en su primer minuto, y no pagas nada."
+      "cancelBefore": "Se cobra al empezar. Cancela mientras espera en la cola, o en su primer minuto, y te reembolsamos todo.",
+      "cancelAfter": "Las conversiones de {amount} o menos, como esta, se cobran al terminar. Cancela mientras espera en la cola, o en su primer minuto, y no pagas nada."
     },
     "payment": {
       "refunded": "Reembolsado",
