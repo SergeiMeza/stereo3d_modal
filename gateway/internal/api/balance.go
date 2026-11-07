@@ -455,7 +455,7 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 	if chErr != nil || f.Code != "" || f.NeedsAction {
 		piID := f.PaymentIntentID
 		paid := false
-		if !f.Stop && !f.NeedsAction && piID != "" {
+		if !f.Stop && piID != "" { // a bank check off-session goes on to the backups too (audit 2026-11-07)
 			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
 			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 				if m.PaymentMethodID == cust.DefaultPaymentMethod {
