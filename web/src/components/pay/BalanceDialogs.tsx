@@ -34,7 +34,7 @@ import { chinaPayments } from "@/lib/paymentRegion";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
-import { Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
   checkoutCurrencyLine,
@@ -46,6 +46,7 @@ import {
   topupMin,
 } from "./payCopy";
 import { CHINA_COMING_SOON_KEY, ChinaComingSoon, isChinaPaymentsUnavailable, useChinaPaymentsOff } from "./chinaComingSoon";
+import { useSessionExpiry } from "./sessionExpiry";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Which = "funds" | "reload" | "spending" | null;
@@ -122,13 +123,19 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     | { kind: "none" }
     | { kind: "loading" }
     /** notice: the error line's message key */
-    | { kind: "ready"; secret: string; publishableKey?: string; amount: number; notice?: string }
-    | { kind: "paying"; secret: string; publishableKey?: string; amount: number }
+    | { kind: "ready"; secret: string; publishableKey?: string; amount: number; expiresAt?: string; notice?: string }
+    | { kind: "paying"; secret: string; publishableKey?: string; amount: number; expiresAt?: string }
     | { kind: "done"; text: string }
+    /** BUX-02: the bank is still confirming it (not a decline) */
+    | { kind: "waiting" }
+    /** BUX-02: the session timed out, nothing was charged */
+    | { kind: "expired" }
     /** the top-up's refusal (null: no payment came back) */
     | { kind: "error"; error: unknown }
   >({ kind: "none" });
   const [chinaError, setChinaError] = useState<string | null>(null);
+  // Start again opens a new payment for the same amount
+  const [attempt, setAttempt] = useState(0);
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const invalid =
@@ -145,7 +152,13 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           live &&
           setSession(
             r.checkout
-              ? { kind: "ready", secret: r.checkout.client_secret, publishableKey: r.publishable_key, amount }
+              ? {
+                  kind: "ready",
+                  secret: r.checkout.client_secret,
+                  publishableKey: r.publishable_key,
+                  amount,
+                  expiresAt: r.checkout.expires_at,
+                }
               : { kind: "error", error: null },
           ),
         (e: unknown) => {
@@ -158,7 +171,14 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
       live = false;
       clearTimeout(timer);
     };
-  }, [gateway, amount, invalid, first]);
+  }, [gateway, amount, invalid, first, attempt]);
+
+  // BUX-02: an idle form past its session's end says it timed out
+  useSessionExpiry(
+    session.kind === "ready" ? session.expiresAt : undefined,
+    session.kind === "ready",
+    () => setSession((s) => (s.kind === "ready" ? { kind: "expired" } : s)),
+  );
 
   useEffect(
     () => () => {
@@ -174,9 +194,17 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
   }
 
-  function handle(r: ConfirmResult, s: { secret: string; publishableKey?: string; amount: number }): void {
+  function handle(
+    r: ConfirmResult,
+    s: { secret: string; publishableKey?: string; amount: number; expiresAt?: string },
+  ): void {
     if (r === "paid" || r === "already_paid") return void finish(s.amount);
     if (r === "redirect") return;
+    if (r === "processing") {
+      setSession({ kind: "waiting" });
+      return void billing.refresh();
+    }
+    if (r === "expired") return setSession({ kind: "expired" });
     setSession({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
@@ -287,7 +315,12 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         disabled={!form?.ready || paying || !ready || ready.amount !== amount || invalid !== null}
         onClick={async () => {
           if (!ready || !form) return;
-          const s = { secret: ready.secret, publishableKey: ready.publishableKey, amount: ready.amount };
+          const s = {
+            secret: ready.secret,
+            publishableKey: ready.publishableKey,
+            amount: ready.amount,
+            expiresAt: ready.expiresAt,
+          };
           setSession({ kind: "paying", ...s });
           handle(await form.confirm(), s);
         }}
@@ -304,6 +337,39 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
       <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
     </div>
   );
+
+  if (session.kind === "waiting" || session.kind === "expired") {
+    const expired = session.kind === "expired";
+    return (
+      <SheetFrame
+        open
+        onClose={onClose}
+        testId="add-funds-sheet"
+        title={t("balance.addFunds.title")}
+        footer={
+          expired ? (
+            <Button
+              size="lg"
+              data-testid="funds-start-again"
+              className="h-12 w-full"
+              onClick={() => {
+                setSession({ kind: "loading" });
+                setAttempt((n) => n + 1);
+              }}
+            >
+              {t("pay.sheet.startAgain")}
+            </Button>
+          ) : undefined
+        }
+      >
+        {expired ? (
+          <StateLine testId="funds-expired" text={t("pay.copy.timedOut")} />
+        ) : (
+          <StateLine testId="funds-waiting" text={t("balance.addFunds.processing")} />
+        )}
+      </SheetFrame>
+    );
+  }
 
   if (!ready) {
     return (

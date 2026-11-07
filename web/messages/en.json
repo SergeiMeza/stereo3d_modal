@@ -1252,7 +1252,8 @@
       "settleSubtitle": "{count, plural, one {# run · charged after it was done} other {# runs · charged after they were done}}",
       "personalUse": "For personal use. Commercial use comes with Business and Studio plans.",
       "localAtCheckout": "You'll see your local price at checkout.",
-      "formShowsLocal": "The payment form shows the price in your currency. Base price {usd}."
+      "formShowsLocal": "The payment form shows the price in your currency. Base price {usd}.",
+      "timedOut": "This payment timed out. Nothing was charged."
     },
     "sheet": {
       "title": "{action} · {amount}",
@@ -1396,7 +1397,8 @@
       "balance": "Balance",
       "amount": "Amount",
       "other": "Other",
-      "add": "Add {amount}"
+      "add": "Add {amount}",
+      "processing": "Your bank is confirming this payment. We'll add it to your balance as soon as it's through."
     },
     "autoReload": {
       "title": "Auto-reload",
@@ -1508,7 +1510,8 @@
       "unavailable": "Pro isn't available right now. Try again later.",
       "subtitleWithCredit": "{price}, with {credit}",
       "start": "Start Pro · {price}",
-      "success": "Pro is on. Every video is cheaper now."
+      "success": "Pro is on. Every video is cheaper now.",
+      "processing": "Your bank is confirming this payment. Pro turns on as soon as it's through."
     }
   },
   "company": {
