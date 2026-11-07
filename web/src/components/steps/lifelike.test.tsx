@@ -157,7 +157,7 @@ describe("Lifelike qualities", () => {
     fireEvent.click(screen.getByRole("button", { name: "?" }));
     // P14: a saved method, $25 or less: charged after it's done
     expect(screen.getByRole("dialog").textContent).toContain(
-      "Charged to your default payment method when it's ready. Not charged if it fails.",
+      "Charged to your default payment method when it's ready, never if it fails.",
     );
   });
 
@@ -1184,7 +1184,7 @@ describe("pay-now methods (S3D-60/61)", () => {
     const sheet = await screen.findByTestId("pay-sheet");
     expect(within(sheet).getByRole("heading").textContent).toBe("Preview this moment · $1.00");
     expect(within(sheet).getByTestId("pay-lines").textContent).toBe(
-      "Charged in US dollars.By paying, you ask us to start now and agree you can't withdraw once it's done.",
+      "Charged in US dollars.By paying, you ask us to start now, and your right to cancel ends when your 3D video is ready.",
     );
     expect(within(sheet).getByText("Refunded in full if it fails.")).toBeTruthy();
     // BUX-19: the refund terms sit next to it

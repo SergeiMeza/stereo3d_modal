@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Charged in US dollars.",
-      "withdrawal": "By paying, you ask us to start now and agree you can't withdraw once it's done.",
+      "withdrawal": "By paying, you ask us to start now, and your right to cancel ends when your 3D video is ready.",
       "refundedIfFails": "Refunded in full if it fails.",
       "saveLine": "Saved for your next runs. You can remove it in Billing.",
       "orPayAnotherWay": "or pay another way",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "Waiting for payment…",
       "finishPayment": "Finish payment",
       "pausedReview": "Paused while we check a payment.",
-      "popAfter": "Charged to your default payment method when it's ready. Not charged if it fails. It starts right away. You agree that you lose your right to cancel once it's done.",
-      "popPrecharge": "Charged to your default payment method when you start it. Cancel while it waits in line, or in its first minute, for a full refund. It starts right away. You agree that you lose your right to cancel once it's done.",
+      "popAfter": "Charged to your default payment method when it's ready, never if it fails. By starting it, you ask us to begin now, and your right to cancel ends when it's ready.",
+      "popPrecharge": "Charged to your default payment method when you start it. Cancel while it waits in line or in its first minute for a full refund. By starting it, you ask us to begin now, and your right to cancel ends when it's ready.",
       "popSheet": "You'll choose how to pay next. Refunded in full if it fails.",
       "payToContinue": "Pay {amount} to continue",
       "payAndStart": "Pay {amount} and start",
@@ -1417,7 +1417,7 @@
         "deletionPending": "Auto-reload can't be turned on while your account is being deleted."
       },
       "paidFromBalanceReload": "Paid from your balance. We'll add {amount} first.",
-      "popBalance": "We reserve {amount} from your balance when it starts and take only the final cost, never more. Failed runs cost nothing. It starts right away. You agree that you lose your right to cancel once it's done.",
+      "popBalance": "We hold {amount} from your balance when it starts and take only the final cost, never more. Nothing is taken if it fails. By starting it, you ask us to begin now, and your right to cancel ends when it's ready.",
       "topupMaxFirst": "You can add up to {amount} for your first top-up.",
       "topupMax": "You can add up to {amount} at a time.",
       "topupDone": "Added {added}. Your balance is {balance}.",
@@ -2113,7 +2113,7 @@
         "paidAtStart": "Paid when the run started. Refunded in full if it fails.",
         "paidAtStartRefunded": "This run was paid when it started, so it is refunded in full."
       },
-      "cancelFailed": "cancel failed",
+      "cancelFailed": "Couldn't cancel. Try again.",
       "estimated": "Estimated: {duration}",
       "allFiles": "All files",
       "cancel": "Cancel",
@@ -2298,9 +2298,9 @@
       "payBefore": "You pay before a run starts. Your credit and balance are used first.",
       "payBeforePublic": "You pay before a run starts.",
       "roundedUp": "Each started minute counts as a full minute.",
-      "rule": "Runs over {amount}: charged when it starts. refunded if it fails. Runs of {amount} or less: charged after it's done. Failed runs cost nothing.",
-      "cancelBefore": "It's charged when you start it. Cancel any time while it waits in line, or in its first minute, for a full refund.",
-      "cancelAfter": "Runs of {amount} or less are charged after they're done. Cancel any time while it waits in line, or in its first minute, and you pay nothing."
+      "rule": "Runs over {amount} are charged when they start and refunded if they fail. Runs of {amount} or less are charged after they're done. Failed runs cost nothing.",
+      "cancelBefore": "Charged when you start it. Cancel while it waits in line or in its first minute for a full refund.",
+      "cancelAfter": "Runs of {amount} or less, like this one, are charged after they're done. Cancel while it waits in line or in its first minute and you pay nothing."
     },
     "payment": {
       "refunded": "Refunded",

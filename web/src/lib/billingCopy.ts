@@ -53,14 +53,17 @@ export function roundedUpLine(t: Tr = EN): string {
   return t("quote.charge.roundedUp");
 }
 
-/** The general rule, for onboarding and Account. */
+/** The general rule (deferred payments only, BL-32: nothing shows it
+ * while they're off). */
 export function chargeRule(thresholdCents = DEFAULT_PRECHARGE_CENTS, t: Tr = EN): string {
   return t("quote.charge.rule", { amount: formatCentsShort(thresholdCents, t) });
 }
 
-/** The line under one quote. */
+/** The line under one quote. The after-it's-done line only when the
+ * gateway says so (deferred payments on, BL-32); a quote without a timing
+ * reads as paid at the start, as every run is while they're off. */
 export function quoteChargeSentence(timing: ChargeTiming | undefined, t: Tr = EN): string {
-  return timing === "before" ? chargedAtStart(t) : chargedAfter(t);
+  return timing === "after" ? chargedAfter(t) : chargedAtStart(t);
 }
 
 /** The one word a run's price may carry (S3D-21): Refunded · Not
@@ -95,10 +98,11 @@ export function cancelRule(
   thresholdCents = DEFAULT_PRECHARGE_CENTS,
   t: Tr = EN,
 ): string {
-  return timing === "before"
-    ? // gateway 00166: deferred payments are off, every paid run is charged as it starts
-      t("quote.charge.cancelBefore")
-    : t("quote.charge.cancelAfter", { amount: formatCentsShort(thresholdCents, t) });
+  // gateway 00166: deferred payments are off, every paid run is charged as
+  // it starts; the after-it's-done rule only when the gateway says "after"
+  return timing === "after"
+    ? t("quote.charge.cancelAfter", { amount: formatCentsShort(thresholdCents, t) })
+    : t("quote.charge.cancelBefore");
 }
 
 /** S3D-35: what the account still owes (failed charges waiting to be
