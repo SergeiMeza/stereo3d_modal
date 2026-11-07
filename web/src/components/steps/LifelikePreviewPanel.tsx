@@ -233,7 +233,7 @@ function ReadyPreviewPanel({
     ...(fpsChoice.required
       ? fpsChoice.field
       : quickLook
-        ? { target_fps: halfRate } // Quick look: half the frame rate, half the price
+        ? { target_fps: halfRate, quick_look: true } // Quick look: half the frame rate, half the price (gateway 00178: the flag shows with the run)
         : {}),
   });
   const quoteRequest = requestAt(0);

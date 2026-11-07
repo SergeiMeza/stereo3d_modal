@@ -395,7 +395,8 @@ describe("Lifelike Preview", () => {
 
     // Quick look: half the frame rate
     fireEvent.click(screen.getByLabelText(/Quick look/));
-    await waitFor(() => expect(quotes.at(-1)).toMatchObject({ target_fps: 12 }));
+    // gateway 00178: the run carries the flag
+    await waitFor(() => expect(quotes.at(-1)).toMatchObject({ target_fps: 12, quick_look: true }));
     fireEvent.click(screen.getByLabelText(/Quick look/));
 
     // 2–10 s, 5 by default

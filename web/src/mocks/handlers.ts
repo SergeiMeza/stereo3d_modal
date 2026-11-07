@@ -1996,6 +1996,16 @@ function campaignOf(quote: Conversion["quote"]): { campaign_cents?: number } {
   return c !== undefined ? { campaign_cents: c } : {};
 }
 
+/** gateway 00178: what every run carries for its Details panel */
+function detailFields(req: StepConversionRequest, freeUnits: number | null = null): Partial<Conversion> {
+  return {
+    started_at: null,
+    free_preview_units: freeUnits,
+    quick_look: req.quick_look === true,
+    intro: mockDb.accountSettings.lifelike_intro === true,
+  };
+}
+
 function lifelikeQuoteFor(
   project: Project,
   req: StepConversionRequest,
@@ -2112,6 +2122,7 @@ function lifelikeQuoteFor(
         ...(req.foveation ? { foveation: req.foveation } : {}),
         ...(req.bitrate ? { bitrate: req.bitrate } : {}),
         ...(req.express ? { express: true } : {}),
+        ...(req.quick_look ? { quick_look: true } : {}),
       },
       outputSeconds,
       eta: lifelikeEta(outputSeconds, probe.fps, preset),
@@ -2927,6 +2938,8 @@ function tick(c: Conversion) {
   }
   if (c.method === "lifelike" && c.state === "processing") {
     c.waiting_for_gpu = false;
+    // gateway 00178: when it left the line
+    c.started_at ??= new Date().toISOString();
     const i = LIFELIKE_TICKS.findIndex((t) => t.stage === c.stage);
     const next = LIFELIKE_TICKS[i + 1];
     if (next) {
@@ -2945,6 +2958,7 @@ function tick(c: Conversion) {
   if (c.state === "processing" && c.waiting_for_gpu) c.waiting_for_gpu = false;
   if (c.state === "paid") {
     c.state = "processing";
+    c.started_at ??= new Date().toISOString();
     c.progress = 0.1;
     c.stage = "preprocess";
   } else if (c.state === "processing") {
@@ -5226,6 +5240,7 @@ export const handlers = [
           scenes_version: p.scenes?.version,
           params: resolved,
           quote,
+          ...detailFields(req, units),
           progress: 0,
           stage: "",
           eta_seconds: 0,
@@ -5262,6 +5277,7 @@ export const handlers = [
           params: resolved,
           quote,
           ...campaignOf(quote),
+          ...detailFields(req),
           progress: 0,
           stage: "",
           eta_seconds: 0,
@@ -5290,6 +5306,7 @@ export const handlers = [
         params: resolved,
         quote,
         ...campaignOf(quote),
+          ...detailFields(req),
         progress: 0,
         ...(method === "lifelike" ? { foveation: mockFoveation(p, req) } : {}),
         ...(req.quality ? { quality: req.quality } : {}),

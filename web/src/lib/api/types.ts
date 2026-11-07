@@ -560,6 +560,19 @@ export interface Conversion {
   foveation?: FoveationInfo;
   /** gateway 00175: the launch offer's line on this run (0 without) */
   campaign_cents?: number;
+  /** gateway 00178: when the run left the line (null before) */
+  started_at?: string | null;
+  /** gateway 00178: free preview units it used (null unless free) */
+  free_preview_units?: number | null;
+  /** gateway 00178: ordered as a Quick look (the request's own flag) */
+  quick_look?: boolean;
+  /** gateway 00178: the brand intro was on */
+  intro?: boolean;
+  /** gateway 00178 (single read and the project's runs): our invoice
+   * for the charge that paid it; null when not charged or not known yet */
+  invoice?: RunInvoice | null;
+  /** gateway 00178: the payment's receipt; null when not known yet */
+  receipt_url?: string | null;
   /** gateway 00172: the file quality asked for (web Lifelike) */
   quality?: OutputQuality;
   /** gateway 00172: the bitrate asked for (auto, match_source, a number
@@ -1395,6 +1408,17 @@ export interface BillingChargeItem {
   from_frame?: number;
   to_frame?: number;
   amount_cents: number;
+  /** gateway 00178: the launch offer's line (absent without one) */
+  campaign_cents?: number;
+  campaign_label?: string;
+}
+
+/** gateway 00178: a run's invoice (its own, its group's or its settle's) */
+export interface RunInvoice {
+  id: string;
+  number?: string | null;
+  hosted_url?: string | null;
+  pdf_url?: string | null;
 }
 
 /** The saved default card, as cached by the gateway. */
@@ -1592,6 +1616,8 @@ export interface StepConversionRequest {
   express?: boolean;
   /** owner 2026-11-07: the file quality (Lifelike on the web) */
   quality?: OutputQuality;
+  /** gateway 00178: ordered as a Quick look (shown with the run) */
+  quick_look?: boolean;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
   /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent

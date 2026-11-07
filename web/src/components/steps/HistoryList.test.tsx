@@ -384,6 +384,56 @@ describe("Files: Details (owner 2026-11-07)", () => {
     expect(receipt.getAttribute("href")).toBe("https://pay.example/receipt/r1");
   });
 
+  it("the run's own fields (gateway 00178): Took from started_at, free previews used, Quick look, Intro, receipt and invoice", () => {
+    let historyReads = 0;
+    server.use(
+      http.get(`${GATEWAY}/v1/billing/history`, () => {
+        historyReads++;
+        return HttpResponse.json({ rows: [] });
+      }),
+    );
+    const preview: Conversion = {
+      ...PREVIEW,
+      conversion_id: "conv0000ownfields",
+      // ordered 09:00, waited 3 min, ran 1 min
+      started_at: "2026-11-06T09:03:00Z",
+      free_preview_units: 2,
+      quick_look: true,
+      intro: false,
+    };
+    const full: Conversion = {
+      ...FULL,
+      conversion_id: "conv0000ownreceipt",
+      quick_look: false,
+      intro: true,
+      started_at: null,
+      receipt_url: "https://pay.example/receipt/own",
+      invoice: { id: "in_1", number: "SVS-0042", hosted_url: "https://invoice.example/in_1", pdf_url: "https://invoice.example/in_1.pdf" },
+    };
+    renderWithHistory([preview, full]);
+    const li = item(preview.conversion_id);
+    fireEvent.click(within(li).getByTestId("run-details-toggle"));
+    expect(row(li, "What")).toBe("Preview · Lifelike 3D");
+    expect(row(li, "Quick look")).toBe("On");
+    expect(row(li, "Intro")).toBe("Off");
+    expect(row(li, "Took")).toBe("about 1 min");
+    expect(row(li, "Free previews used")).toBe("2");
+    const fl = item(full.conversion_id);
+    fireEvent.click(within(fl).getByTestId("run-details-toggle"));
+    // Quick look is a preview's; a full run says Intro
+    expect(row(fl, "Quick look")).toBeNull();
+    expect(row(fl, "Intro")).toBe("On");
+    expect(row(fl, "Free previews used")).toBeNull();
+    // without started_at, from the order
+    expect(row(fl, "Took")).toBe("about 12 min");
+    expect(within(fl).getByRole("link", { name: "View receipt" }).getAttribute("href")).toBe("https://pay.example/receipt/own");
+    expect(row(fl, "Invoice")).toContain("SVS-0042");
+    expect(within(fl).getByRole("link", { name: "View invoice" }).getAttribute("href")).toBe("https://invoice.example/in_1");
+    expect(within(fl).getByRole("link", { name: "PDF" }).getAttribute("href")).toBe("https://invoice.example/in_1.pdf");
+    // the runs said: no paging through the purchases
+    expect(historyReads).toBe(0);
+  });
+
   it("Foveated Detail at 1080p reads Included when it applied, and nothing when it didn't (owner 2026-11-07)", () => {
     const applied = { ...FULL, conversion_id: "fov_applied", foveation: { applied: true, included: true } } as Conversion;
     const notApplied = {

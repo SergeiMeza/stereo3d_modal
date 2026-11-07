@@ -81,8 +81,10 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
   const p = c.params;
   const preview = c.step !== "production";
 
-  // What
+  // What: older runs (no quick_look flag) by their half frame rate; newer
+  // ones say it on their own Quick look row
   const quickLook =
+    c.quick_look === undefined &&
     c.step === "lifelike_preview" &&
     probe !== undefined &&
     probe.fps <= 30 &&
@@ -148,19 +150,26 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
     if (c.foveation?.included === true) add("Foveated Detail", c.foveation.applied ? "Included" : null);
     else add("Foveated Detail", onOff(p.foveation === "static" || c.foveation?.applied === true));
     add("Express", onOff(p.express === true));
+    // gateway 00178: the run's own flags
+    if (c.step === "lifelike_preview" && c.quick_look !== undefined) add("Quick look", onOff(c.quick_look));
+    if (c.intro !== undefined) add("Intro", onOff(c.intro));
   }
 
   // Timing
   add("Ordered", when(c.created_at));
   if (TERMINAL.has(c.state)) {
     add("Finished", when(c.updated_at));
-    const took = (new Date(c.updated_at).getTime() - new Date(c.created_at).getTime()) / 1000;
+    // gateway 00178: from when it left the line, so the wait isn't counted
+    const took = (new Date(c.updated_at).getTime() - new Date(c.started_at ?? c.created_at).getTime()) / 1000;
     if (c.state === "succeeded" && took > 0) add("Took", formatDuration(Math.round(took)));
   }
 
   // Billing
   const free = c.billing?.status === "free_preview" || c.quote.breakdown?.free_preview === true;
   add("Price", free ? "Free preview" : runPrice(c));
+  // gateway 00178: the free previews it used
+  const units = c.free_preview_units ?? 0;
+  if (units > 0) add("Free previews used", String(units));
   const b = c.quote.breakdown;
   if (!free && b) {
     const pro = b.pro_discount_cents ?? 0;
@@ -213,6 +222,23 @@ function DetailsBody({ project, conversion: c }: { project: Project; conversion:
           <a href={receipt} target="_blank" rel="noreferrer" className="text-primary hover:underline">
             View receipt
           </a>
+        </Row>
+      ) : null}
+      {c.invoice?.hosted_url || c.invoice?.pdf_url ? (
+        <Row label="Invoice">
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {c.invoice.number ? <span className="font-mono">{c.invoice.number}</span> : null}
+            {c.invoice.hosted_url ? (
+              <a href={c.invoice.hosted_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                View invoice
+              </a>
+            ) : null}
+            {c.invoice.pdf_url ? (
+              <a href={c.invoice.pdf_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                PDF
+              </a>
+            ) : null}
+          </span>
         </Row>
       ) : null}
       {c.state === "succeeded" ? <FilesRows project={project} conversion={c} /> : null}
@@ -288,13 +314,16 @@ function RunId({ id }: { id: string }): JSX.Element {
   );
 }
 
-/** A charged run's receipt from the purchases list (its first page). */
+/** A charged run's receipt: the run's own receipt_url (gateway 00178),
+ * else, on older gateways, from the purchases list (its first page). */
 function useReceipt(c: Conversion): string | null {
   const gateway = useGateway();
   const [receipts, setReceipts] = useAtom(runReceiptsAtom);
   const charged = c.billing?.status === "charged" || c.billing?.status === "balance_settled" || c.billing?.status === "refunded";
+  // the run says (a value or null): no paging through the purchases
+  const own = "receipt_url" in c || "invoice" in c;
   useEffect(() => {
-    if (!charged || receipts.state !== "idle") return;
+    if (own || !charged || receipts.state !== "idle") return;
     setReceipts({ state: "loading", urls: {} });
     gateway
       .getBillingHistory(undefined, "runs")
@@ -313,6 +342,7 @@ function useReceipt(c: Conversion): string | null {
         setReceipts({ state: "loaded", urls });
       })
       .catch(() => setReceipts({ state: "loaded", urls: {} }));
-  }, [charged, receipts.state, gateway, setReceipts]);
+  }, [own, charged, receipts.state, gateway, setReceipts]);
+  if (own) return c.receipt_url ?? null;
   return receipts.urls[c.conversion_id] ?? null;
 }
