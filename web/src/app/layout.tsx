@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
-import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 import { Analytics } from "@/components/Analytics";
+import { VercelAnalyticsScrubbed } from "@/components/VercelAnalyticsScrubbed";
 import { PasskeySuggestion } from "@/components/auth/PasskeySuggestion";
 import { ReauthSheet } from "@/components/auth/ReauthSheet";
 import { DeletionPrompt } from "@/components/auth/DeletionPrompt";
@@ -153,7 +153,8 @@ export default async function RootLayout({
         </AuthProvider>
         </I18nProvider>
         <Analytics />
-        <VercelAnalytics />
+        {/* REV-15: pay links reach it as /pay/[token] */}
+        <VercelAnalyticsScrubbed />
       </body>
     </html>
   );

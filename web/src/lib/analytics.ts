@@ -66,6 +66,25 @@ export function clearStoredConsent(): void {
   }
 }
 
+// --------------------------------------------------------- pay links
+
+/** REV-15: a pay link (/pay/{token}) carries a token that pays a debt;
+ * /pay/return is a page of its own. */
+const PAY_TOKEN = /\/pay\/(?!return(?=[/?#]|$))[^/?#]+/;
+
+/** True on a pay link's page. */
+export function isPayTokenPath(pathname: string): boolean {
+  return PAY_TOKEN.test(pathname);
+}
+
+/** A URL as analytics may see it: a pay link reads /pay/[token], with no
+ * query (done, redirect_status and Stripe's ids). */
+export function scrubUrl(url: string): string {
+  const m = PAY_TOKEN.exec(url);
+  if (!m) return url;
+  return url.slice(0, m.index) + "/pay/[token]";
+}
+
 // ----------------------------------------------------------------- start
 
 /** Longest wait for a dialog to close before recording starts anyway. */
@@ -108,6 +127,8 @@ let clarityPromise: Promise<ClarityClient> | null = null;
  * API isn't called and Clarity's regional defaults apply. */
 export function startAnalytics(opts: { consented: boolean }): void {
   if (!ANALYTICS_ENABLED || started || currentRegion() === "cn") return;
+  // REV-15: no session recording on a pay link's page (the token pays)
+  if (typeof window !== "undefined" && isPayTokenPath(window.location.pathname)) return;
   started = true;
   // owner bug 2026-11-05: session recording starts once the page is quiet
   // (no dialog open, the browser idle), never under a first-run welcome
