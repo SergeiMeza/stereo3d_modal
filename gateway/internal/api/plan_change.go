@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -289,11 +290,21 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 	if sub.ItemID() == "" {
 		return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't read your plan; try again")
 	}
-	if p.ScheduleID != "" { // a waiting step-down gives way
+	// A waiting step-down gives way; a change that then fails puts it
+	// back, so the person keeps the switch they chose.
+	released, changed := false, false
+	if p.ScheduleID != "" {
 		if rerr := s.Stripe.ReleaseSchedule(p.ScheduleID); rerr != nil {
 			slog.WarnContext(ctx, "schedule not released", "schedule", p.ScheduleID, "err", rerr)
+		} else {
+			released = true
 		}
 	}
+	defer func() {
+		if released && !changed {
+			s.restoreStepDown(ctx, sub.Metadata["user_id"], p, q.From)
+		}
+	}()
 	key := fmt.Sprintf("planchange_%s_%s_%d", p.SubscriptionID, q.To.ID, q.QuoteAt.Unix())
 	creditItem := ""
 	if q.CreditCents > 0 {
@@ -312,6 +323,7 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 		}
 		return planStripeFailure(ctx, "change_plan", err, "couldn't change the plan; try again")
 	}
+	changed = true
 	s.syncPlan(ctx, updated)
 	s.Store.UpdateCustomer(ctx, sub.Metadata["user_id"], func(c *store.Customer) error {
 		if c.Plan != nil {
@@ -321,6 +333,50 @@ func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *plan
 	})
 	slog.InfoContext(ctx, "plan stepped up", "subscription", p.SubscriptionID, "from", q.From.ID, "to", q.To.ID, "credit", q.CreditCents)
 	return nil
+}
+
+// restoreStepDown schedules again the step-down a failed step-up released:
+// the same plan from the same date (the period's end), under a key tied
+// to the released schedule. If it can't be made, the account stops
+// showing it and support hears.
+func (s *Service) restoreStepDown(ctx context.Context, uid string, p *store.Plan, from planTarget) {
+	old := p.ScheduleID
+	newID, err := "", error(nil)
+	to, ok := s.planTarget(ctx, p.ScheduledTo)
+	if !ok || to.ID == planNone {
+		err = fmt.Errorf("unknown step-down target %q", p.ScheduledTo)
+	} else {
+		var priceID string
+		if priceID, err = s.priceIDOf(to); err == nil && priceID == "" {
+			err = errors.New("no price for " + to.ID)
+		}
+		if err == nil {
+			newID, err = s.Stripe.ScheduleStepDown(p.SubscriptionID, priceID,
+				map[string]string{"plan": to.Tier, "plan_id": to.ID, "changed_from": from.ID, "change_kind": changeStepDown},
+				"stepdownrestore_"+old)
+		}
+	}
+	if err != nil || newID == "" {
+		if newID != "" {
+			_ = s.Stripe.ReleaseSchedule(newID)
+		}
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			if c.Plan != nil && c.Plan.ScheduleID == old {
+				c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
+			}
+			return nil
+		})
+		s.Slack.Alert(ctx, "step_down_lost", fmt.Sprintf("a failed step-up on %s released step-down %s (to %s) and it couldn't be scheduled again: %v",
+			p.SubscriptionID, old, p.ScheduledTo, err))
+		return
+	}
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && c.Plan.ScheduleID == old {
+			c.Plan.ScheduleID = newID
+		}
+		return nil
+	})
+	slog.InfoContext(ctx, "step-down restored after a failed step-up", "subscription", p.SubscriptionID, "old", old, "schedule", newID, "to", p.ScheduledTo)
 }
 
 func (s *Service) scheduleStepDown(ctx context.Context, uid string, cust *store.Customer, q *planChangeQuote) error {
