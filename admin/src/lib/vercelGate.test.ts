@@ -25,6 +25,10 @@ function gate(env: string, ref: string, cwd = root): "build" | "skip" {
 }
 
 describe("the admin's Vercel build gate (BL-23)", () => {
+  it("fits Vercel's schema (ignoreCommand at most 256 characters)", () => {
+    expect(command.length).toBeLessThanOrEqual(256);
+  });
+
   it("production builds from main only", () => {
     expect(gate("production", "main")).toBe("build");
     expect(gate("production", "staging")).toBe("skip");
