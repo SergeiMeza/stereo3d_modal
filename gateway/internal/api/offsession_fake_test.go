@@ -54,6 +54,10 @@ func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
 	case o == "":
 		pi["status"], pi["amount_received"] = "succeeded", pi["amount"]
 		return 200, f.piJSON(pi)
+	case o == "config": // Stripe refuses the request: no PaymentIntent
+		delete(f.pis, pi["id"].(string))
+		return 400, map[string]any{"error": map[string]any{"type": "invalid_request_error",
+			"message": "The PaymentMethod provided (link) is not allowed for this PaymentIntent."}}
 	case o == "auth":
 		pi["status"] = "requires_payment_method"
 		return 402, map[string]any{"error": map[string]any{"type": "card_error", "code": "authentication_required",

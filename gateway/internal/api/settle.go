@@ -321,7 +321,25 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 			return settleResult{Settle: updated, RequiresAction: true, ClientSecret: secret}, uerr
 		}
 		paid := false
-		if backups && !fail.Stop && !fail.NeedsAction && piID != "" {
+		if st.Trigger == settleDelete {
+			// Web (D1): a bank check goes on to the backups too, and a charge
+			// Stripe refused before making a PaymentIntent (B3) still tries
+			// them; a configuration error alerts (B2).
+			if fail.Config {
+				s.alertConfigError(ctx, "deletion dues", st.ID, st.UID, fail)
+			}
+			fail.PaymentIntentID = piID
+			r := s.webBackups(ctx, cust, fail, func(pm string) (*stripe.PaymentIntent, error) {
+				return s.Stripe.ChargeSettleWith(cust.StripeCustomerID, pm, st.AmountCents, st.Currency, st.ID, params)
+			})
+			if r.Transient {
+				return settleResult{Settle: st}, errors.New("settle backup charge: transient")
+			}
+			piID, fail = r.PIID, r.Fail
+			if r.Paid {
+				pi, paidWith, paid = r.PI, r.PaidWith, true
+			}
+		} else if backups && !fail.Stop && !fail.NeedsAction && piID != "" {
 			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
 			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 				if m.PaymentMethodID == cust.DefaultPaymentMethod {

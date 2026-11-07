@@ -453,46 +453,37 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 		return // the lease lapses; the sweep replays the key
 	}
 	if chErr != nil || f.Code != "" || f.NeedsAction {
-		piID := f.PaymentIntentID
-		paid := false
-		if !f.Stop && piID != "" { // a bank check off-session goes on to the backups too (audit 2026-11-07)
-			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
-			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
-				if m.PaymentMethodID == cust.DefaultPaymentMethod {
-					continue
-				}
-				pi2, err2 := s.Stripe.ConfirmWithMethod(piID, m.PaymentMethodID, 1, false)
-				if err2 == nil && (pi2.Status == stripe.PaymentIntentStatusSucceeded || pi2.Status == stripe.PaymentIntentStatusProcessing) {
-					pi, paidWith, paid = pi2, m.PaymentMethodID, true
-					break
-				}
-				if err2 != nil {
-					if f2 := stripex.ClassifyChargeError(err2); f2.Transient {
-						return
-					} else if f2.Stop {
-						f = f2
-						break
-					}
-				}
-			}
+		if f.Config {
+			s.alertConfigError(ctx, "auto-reload", topupID, t.UID, f)
 		}
-		if !paid {
-			if piID != "" {
-				if out, cerr := s.Stripe.ClosePaymentIntent(piID); cerr == nil && out.Paid {
+		r := s.webBackups(ctx, cust, f, func(pm string) (*stripe.PaymentIntent, error) {
+			return s.Stripe.ChargeTopupWith(cust.StripeCustomerID, pm, t.Cents, t.ID, job)
+		})
+		if r.Transient {
+			return // the lease lapses; the sweep replays the keys
+		}
+		if !r.Paid {
+			if r.PIID != "" {
+				if out, cerr := s.Stripe.ClosePaymentIntent(r.PIID); cerr == nil && out.Paid {
 					_ = s.applyTopupPayment(ctx, topupID, out)
 					return
 				} else if cerr != nil {
 					return
 				}
 			}
+			f = r.Fail
 			reason := "declined" // a bank check off-session counts as declined (N4)
-			if f.Stop {
+			switch {
+			case f.Stop:
 				reason = "stop_code"
 				s.setSheetOnly(ctx, t.UID, "stop code "+f.DeclineCode)
+			case !r.CardDecision:
+				reason = "config" // B2: paused, no "didn't go through" mail; the owner was alerted
 			}
 			fail(reason, "reload declined: "+f.Code)
 			return
 		}
+		pi, paidWith = r.PI, r.PaidWith
 	}
 	s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error { x.PaymentIntentID = pi.ID; return nil })
 	if pi.Status == stripe.PaymentIntentStatusProcessing {
