@@ -641,7 +641,8 @@
         "dispute_freeze": "お支払いの確認中のため保留",
         "dispute_unfreeze": "確認後に解除",
         "dispute_loss": "カード会社への異議申し立てにより差し引き",
-        "topup_bonus": "チャージボーナス"
+        "topup_bonus": "チャージボーナス",
+        "topup_bonus_removed": "チャージボーナスの取り消し"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "すでにプランをご利用中です。別のプランを選ぶ前に、請求の画面で解約してください。",
       "errorUnderReview": "アカウントのお支払いを確認しています。続けるにはサポートにお問い合わせください。",
       "errorUnavailable": "現在プランを利用できません。しばらくしてからもう一度お試しください。",
+      "errorPlanUnavailable": "このプランは現在ご利用いただけません。別のプランをお選びください。",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "毎月請求。解約するまで{date}に更新されます。",
       "billedYearly": "毎年請求。解約するまで{date}に更新されます。",
@@ -1551,6 +1553,7 @@
       "renews": "解約するまで{price}で更新されます。",
       "planActive": "すでにプランをご利用中です。請求の画面で管理できます。",
       "unavailable": "現在Proを利用できません。しばらくしてからもう一度お試しください。",
+      "planUnavailable": "このプランは現在ご利用いただけません。別のプランをお選びください。",
       "subtitleWithCredit": "{price}、{credit}付き",
       "start": "Proを開始 · {price}",
       "success": "Proが有効になりました。すべての動画がお得になります。",

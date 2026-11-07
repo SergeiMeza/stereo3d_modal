@@ -641,7 +641,8 @@
         "dispute_freeze": "付款審查期間凍結",
         "dispute_unfreeze": "審查後已解除",
         "dispute_loss": "銀行爭議後已移除",
-        "topup_bonus": "儲值贈送"
+        "topup_bonus": "儲值贈送",
+        "topup_bonus_removed": "儲值贈送已收回"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "你已有方案。請先在「帳務」中取消，再選擇其他方案。",
       "errorUnderReview": "我們正在檢查你帳號上的一筆付款。請聯絡支援團隊以繼續。",
       "errorUnavailable": "目前無法使用方案。請稍後再試。",
+      "errorPlanUnavailable": "此方案目前不提供。請選擇其他方案。",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "按月計費。於 {date} 續訂，直到你取消。",
       "billedYearly": "按年計費。於 {date} 續訂，直到你取消。",
@@ -1551,6 +1553,7 @@
       "renews": "以 {price} 續訂，直到你取消。",
       "planActive": "你已有方案。請在「帳務」中管理。",
       "unavailable": "目前無法使用 Pro。請稍後再試。",
+      "planUnavailable": "此方案已不再提供。請選擇其他方案。",
       "subtitleWithCredit": "{price}，含{credit}",
       "start": "開始 Pro · {price}",
       "success": "Pro 已啟用。現在每支影片都更便宜。",

@@ -641,7 +641,8 @@
         "dispute_freeze": "En attente pendant l’examen d’un paiement",
         "dispute_unfreeze": "Libéré après examen",
         "dispute_loss": "Retiré après un litige bancaire",
-        "topup_bonus": "Bonus de recharge"
+        "topup_bonus": "Bonus de recharge",
+        "topup_bonus_removed": "Bonus de recharge retiré"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "Vous avez déjà un forfait. Annulez-le dans Facturation avant d’en choisir un autre.",
       "errorUnderReview": "Nous vérifions un paiement sur votre compte. Contactez l’assistance pour continuer.",
       "errorUnavailable": "Les forfaits ne sont pas disponibles pour le moment. Réessayez plus tard.",
+      "errorPlanUnavailable": "Ce forfait n’est pas proposé pour le moment. Choisissez-en un autre.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "Facturé chaque mois. Renouvellement le {date} jusqu’à résiliation.",
       "billedYearly": "Facturé chaque année. Renouvellement le {date} jusqu’à résiliation.",
@@ -1551,6 +1553,7 @@
       "renews": "Renouvelé à {price} jusqu’à résiliation.",
       "planActive": "Vous avez déjà un forfait. Gérez-le dans Facturation.",
       "unavailable": "Pro n’est pas disponible pour le moment. Réessayez plus tard.",
+      "planUnavailable": "Ce forfait n’est plus proposé ici. Choisissez-en un autre.",
       "subtitleWithCredit": "{price}, avec {credit}",
       "start": "Démarrer Pro · {price}",
       "success": "Pro est activé. Chaque vidéo coûte moins cher.",

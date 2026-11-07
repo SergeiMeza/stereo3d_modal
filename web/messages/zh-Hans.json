@@ -641,7 +641,8 @@
         "dispute_freeze": "付款审核期间已冻结",
         "dispute_unfreeze": "审核后已解除",
         "dispute_loss": "银行争议后已扣除",
-        "topup_bonus": "充值赠送"
+        "topup_bonus": "充值赠送",
+        "topup_bonus_removed": "充值赠送已撤回"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "你已有一个套餐。请先在账单中取消，再选择其他套餐。",
       "errorUnderReview": "我们正在核查你账户上的一笔支付。请联系支持以继续。",
       "errorUnavailable": "套餐暂时不可用。请稍后再试。",
+      "errorPlanUnavailable": "此方案目前不提供。请选择其他方案。",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "按月计费。{date} 续费，直至你取消。",
       "billedYearly": "按年计费。{date} 续费，直至你取消。",
@@ -1551,6 +1553,7 @@
       "renews": "按 {price} 续费，直至你取消。",
       "planActive": "你已有一个套餐。请在账单中管理。",
       "unavailable": "Pro 暂时不可用。请稍后再试。",
+      "planUnavailable": "此方案已不再提供。请选择其他方案。",
       "subtitleWithCredit": "{price}，含 {credit}",
       "start": "开通 Pro · {price}",
       "success": "Pro 已开通，现在每个视频都更便宜了。",

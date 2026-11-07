@@ -641,7 +641,8 @@
         "dispute_freeze": "En pausa mientras se revisa un pago",
         "dispute_unfreeze": "Liberado tras la revisión",
         "dispute_loss": "Quitado tras una disputa bancaria",
-        "topup_bonus": "Bono de recarga"
+        "topup_bonus": "Bono de recarga",
+        "topup_bonus_removed": "Bono de recarga retirado"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "Ya tienes un plan. Cancélalo en Facturación antes de elegir otro.",
       "errorUnderReview": "Estamos revisando un pago en tu cuenta. Contacta a soporte para continuar.",
       "errorUnavailable": "Los planes no están disponibles ahora. Inténtalo más tarde.",
+      "errorPlanUnavailable": "Ese plan no se ofrece ahora mismo. Elige otro.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "Se factura cada mes. Se renueva el {date} hasta que canceles.",
       "billedYearly": "Se factura cada año. Se renueva el {date} hasta que canceles.",
@@ -1551,6 +1553,7 @@
       "renews": "Se renueva a {price} hasta que canceles.",
       "planActive": "Ya tienes un plan. Adminístralo en Facturación.",
       "unavailable": "Pro no está disponible ahora. Inténtalo más tarde.",
+      "planUnavailable": "Ese plan ya no se ofrece aquí. Elige otro.",
       "subtitleWithCredit": "{price}, con {credit}",
       "start": "Iniciar Pro · {price}",
       "success": "Pro está activo. Ahora cada video sale más barato.",

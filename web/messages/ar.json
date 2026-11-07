@@ -641,7 +641,8 @@
         "dispute_freeze": "معلّق أثناء مراجعة دفعة",
         "dispute_unfreeze": "أُفرج عنه بعد المراجعة",
         "dispute_loss": "أُزيل بعد اعتراض لدى المصرف",
-        "topup_bonus": "مكافأة الشحن"
+        "topup_bonus": "مكافأة الشحن",
+        "topup_bonus_removed": "إزالة مكافأة الشحن"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "لديك باقة بالفعل. ألغِها من الفوترة قبل اختيار باقة أخرى.",
       "errorUnderReview": "نراجع دفعة على حسابك. تواصل مع الدعم للمتابعة.",
       "errorUnavailable": "الباقات غير متاحة حاليًا. حاول مرة أخرى لاحقًا.",
+      "errorPlanUnavailable": "هذه الخطة غير متاحة الآن. اختر خطة أخرى.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "تُحتسب شهريًا. تتجدد في {date} حتى تلغيها.",
       "billedYearly": "تُحتسب سنويًا. تتجدد في {date} حتى تلغيها.",
@@ -1551,6 +1553,7 @@
       "renews": "تتجدد بسعر {price} حتى تلغيها.",
       "planActive": "لديك باقة بالفعل. أدِرها من الفوترة.",
       "unavailable": "Pro غير متاح حاليًا. حاول مرة أخرى لاحقًا.",
+      "planUnavailable": "لم تعد هذه الخطة متاحة هنا. اختر خطة أخرى.",
       "subtitleWithCredit": "{price}، مع {credit}",
       "start": "ابدأ Pro · {price}",
       "success": "Pro مفعّل. أصبح كل فيديو أرخص الآن.",
