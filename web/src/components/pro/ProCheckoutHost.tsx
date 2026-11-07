@@ -171,7 +171,12 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
                 big={big}
                 // owner 2026-11-07 (Option B): Stripe's own amount, in the
                 // local currency while the gateway offers it
-                lines={[sheetCurrencyLine(localPrice, Math.round(plan.amountMicros / 10_000), t), proRenewsLine(plan, t)]}
+                // BUX-13: how it renews and how to cancel, before paying
+                lines={[
+                  sheetCurrencyLine(localPrice, Math.round(plan.amountMicros / 10_000), t),
+                  proRenewsLine(plan, t),
+                  t("pay.copy.cancelTerms"),
+                ]}
                 button={
                   <Button
                     size="lg"

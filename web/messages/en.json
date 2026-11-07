@@ -1260,7 +1260,8 @@
       "openNetwork": "We couldn't open the payment. Check your connection and try again.",
       "openServer": "We couldn't open the payment. Try again in a moment.",
       "notPayable": "This run isn't waiting for a payment.",
-      "refundPolicy": "Refund policy"
+      "refundPolicy": "Refund policy",
+      "cancelTerms": "Cancel any time in Plan & billing. Your plan runs to the end of the paid period."
     },
     "sheet": {
       "title": "{action} · {amount}",

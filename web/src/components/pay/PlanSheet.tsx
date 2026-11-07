@@ -198,7 +198,8 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[sheetCurrencyLine(localPrice, price.cents, t), renewsLine]}
+                // BUX-13: how it renews and how to cancel, before paying
+                lines={[sheetCurrencyLine(localPrice, price.cents, t), renewsLine, t("pay.copy.cancelTerms")]}
                 button={
                   <Button
                     size="lg"
