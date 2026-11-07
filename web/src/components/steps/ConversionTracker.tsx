@@ -18,16 +18,17 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Conversion, ConversionState } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { RunFiles } from "./RunFiles";
 import { runFacts } from "./QuoteView";
 import { formatCents } from "./money";
-import { FINISH_PAYMENT, WAITING_FOR_PAYMENT } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
-import { qualityName, STEP_NAMES } from "@/lib/glossary";
+import { qualityName, STEP_NAMES, stepName } from "@/lib/glossary";
 import { formatDuration, formatTimeLeft } from "@/lib/format";
 
-import { WAITING_IN_LINE_NOTE } from "./runStatus";
+import { waitingInLineNote } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
 import { applyRun } from "@/lib/live/liveStore";
@@ -54,10 +55,10 @@ const CANCELABLE: ReadonlySet<ConversionState> = new Set([
  * (`cancelable_until`; the gateway enforces it with a 409). */
 /** 00081: an Express run waiting for a GPU (it may wait for a running
  * piece to finish, up to queue_wait_max_seconds). */
-export function expressWaitLine(maxWait?: number): string {
+export function expressWaitLine(maxWait?: number, t: Tr = EN): string {
   return maxWait && maxWait > 0
-    ? `Starting soon (Express). Within about ${Math.max(1, Math.round(maxWait / 60))} min.`
-    : "Starting soon (Express).";
+    ? t("runs.tracker.expressWaitWithin", { minutes: Math.max(1, Math.round(maxWait / 60)) })
+    : t("runs.tracker.expressWait");
 }
 
 export function cancelable(conv: Conversion, now = Date.now()): boolean {
@@ -80,20 +81,28 @@ export function cancelSecondsLeft(
 }
 
 /** What cancelling costs, in words (screen 08). */
-export function cancelNote(conv: Conversion, secondsLeft: number | null): string {
+export function cancelNote(conv: Conversion, secondsLeft: number | null, t: Tr = EN): string {
   const paid = conv.charge_timing === "before" && conv.billing?.status === "charged";
   if (secondsLeft !== null) {
     const m = Math.floor(secondsLeft / 60);
     const s = String(secondsLeft % 60).padStart(2, "0");
-    return `${m}:${s} · ${paid ? "Full refund" : "Not charged"} if you cancel now`;
+    const time = `${m}:${s}`;
+    return paid
+      ? t("runs.tracker.cancelNowRefund", { time })
+      : t("runs.tracker.cancelNowNotCharged", { time });
   }
   return paid
-    ? "Cancel any time while it waits for a full refund."
-    : "Cancel any time while it waits and you won't be charged.";
+    ? t("runs.tracker.cancelWhileWaitingRefund")
+    : t("runs.tracker.cancelWhileWaitingNotCharged");
 }
 
 /** The three steps a run shows while it works (screen 08). */
-export const STEP_LINES = ["Getting ready", "Making the 3D video", "Saving your files"];
+export function stepLines(t: Tr = EN): string[] {
+  return [t("runs.tracker.steps.ready"), t("runs.tracker.steps.making"), t("runs.tracker.steps.saving")];
+}
+
+/** The three steps in English (kept for older callers). */
+export const STEP_LINES = stepLines();
 
 /** Which of the three steps a raw stage belongs to. */
 export function stageStep(stage: string | null | undefined): number {
@@ -107,17 +116,21 @@ export function stageStep(stage: string | null | undefined): number {
 
 /** "Full video · 4K · 60 fps · 3 min · $58.50" — what the run is, in one
  * line (size, frame rate and billable minutes, owner 2026-11-04). */
-export function runLine(conv: Conversion, { price = true }: { price?: boolean } = {}): string {
+export function runLine(
+  conv: Conversion,
+  { price = true }: { price?: boolean } = {},
+  t: Tr = EN,
+): string {
   const facts =
     conv.step === "depth_preview"
       ? []
-      : runFacts(conv.params, conv.quote?.breakdown);
+      : runFacts(conv.params, conv.quote?.breakdown, t);
   return [
-    STEP_NAMES[conv.step ?? "production"] ?? "Run",
+    STEP_NAMES[conv.step ?? "production"] ? stepName(conv.step ?? "production", t) : t("runs.tracker.runFallback"),
     ...(facts.length > 0
       ? facts
-      : [conv.step !== "depth_preview" && conv.params?.preset ? qualityName(conv.params.preset) : null]),
-    price ? formatCents(conv.quote.amount_cents) : null,
+      : [conv.step !== "depth_preview" && conv.params?.preset ? qualityName(conv.params.preset, t) : null]),
+    price ? formatCents(conv.quote.amount_cents, t) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -125,23 +138,23 @@ export function runLine(conv: Conversion, { price = true }: { price?: boolean } 
 
 /** Plain words for a run's payment, when there is something to say:
  * pre-charged runs (charge_timing "before") and their refunds. */
-export function billingStatusNote(conv: Conversion): string | null {
+export function billingStatusNote(conv: Conversion, t: Tr = EN): string | null {
   switch (conv.billing?.status) {
     case "refund_pending":
-      return "Your refund is on its way. The full amount goes back to your payment method.";
+      return t("runs.tracker.billing.refundPending");
     case "refunded":
-      return "Refunded in full.";
+      return t("runs.tracker.billing.refunded");
     case "not_charged":
-      return "You were not charged.";
+      return t("runs.tracker.billing.notCharged");
     case "charged":
       return conv.charge_timing === "before" &&
         (conv.state === "paid" || conv.state === "processing")
-        ? "Paid when the run started. Refunded in full if it fails."
+        ? t("runs.tracker.billing.paidAtStart")
         : null;
     default:
       return conv.charge_timing === "before" &&
         (conv.state === "failed" || conv.state === "canceled")
-        ? "This run was paid when it started, so it is refunded in full."
+        ? t("runs.tracker.billing.paidAtStartRefunded")
         : null;
   }
 }
@@ -188,6 +201,7 @@ export function ConversionTracker({
   estimateSeconds,
   onFinishPayment,
 }: ConversionTrackerProps): JSX.Element {
+  const t = useT();
   const client = useGateway();
   const { openSettle } = useSettle();
   // owner 2026-11-07: the run as the live feed knows it (lib/live), the
@@ -226,7 +240,7 @@ export function ConversionTracker({
       // the answer goes into the live atom (newer than any event in flight)
       applyRun(appStore, await client.cancelConversion(conv.conversion_id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "cancel failed");
+      setError(e instanceof Error ? e.message : t("runs.tracker.cancelFailed"));
     } finally {
       setCanceling(false);
     }
@@ -258,7 +272,7 @@ export function ConversionTracker({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <StateChip conversion={conv} />
         <span data-testid="tracker-line" className="text-sm text-fg">
-          {runLine(conv)}
+          {runLine(conv, {}, t)}
         </span>
         <span className="ml-auto flex items-center gap-3">
           {waiting || terminal ? null : runEta !== null ? (
@@ -267,12 +281,12 @@ export function ConversionTracker({
             </span>
           ) : estimateSeconds !== undefined && estimateSeconds > 0 ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
-              Estimated: {formatDuration(estimateSeconds)}
+              {t("runs.tracker.estimated", { duration: formatDuration(estimateSeconds) })}
             </span>
           ) : null}
           {conv.state === "succeeded" && showDownloads ? (
             <a href="#tab=files" className="text-xs text-primary hover:underline">
-              All files
+              {t("runs.tracker.allFiles")}
             </a>
           ) : null}
           {canCancel && (waiting || conv.state !== "processing") ? (
@@ -282,7 +296,7 @@ export function ConversionTracker({
               onClick={() => void cancel()}
               disabled={canceling}
             >
-              Cancel
+              {t("runs.tracker.cancel")}
             </Button>
           ) : null}
         </span>
@@ -291,30 +305,30 @@ export function ConversionTracker({
       {conv.state === "created" && conv.billing?.status === "requires_payment" ? (
         // P12: the run waits for its payment; Finish payment reopens it
         <p className="flex flex-wrap items-center gap-3 text-sm text-fg" data-testid="waiting-for-payment">
-          {WAITING_FOR_PAYMENT}
+          {t("pay.copy.waitingForPayment")}
           {onFinishPayment ? (
             <Button size="sm" data-testid="finish-payment" onClick={onFinishPayment}>
-              {FINISH_PAYMENT}
+              {t("pay.copy.finishPayment")}
             </Button>
           ) : null}
         </p>
       ) : conv.state === "created" ? (
         <p className="text-sm text-fg-muted" data-testid="hold-confirming">
           {conv.billing?.status === "waiting_for_payment"
-            ? "Waiting for your payment to be confirmed."
-            : "Confirming the payment with your bank. It starts as soon as it clears."}
+            ? t("runs.tracker.waitingForConfirmation")
+            : t("runs.tracker.confirmingWithBank")}
         </p>
       ) : null}
       {waiting || conv.state === "paid" ? (
         <div className="flex flex-col gap-1 text-sm text-fg-muted">
           <p data-testid="waiting-for-gpu">
             {conv.priority === "express" || conv.params?.express === true
-              ? expressWaitLine(conv.queue_wait_max_seconds)
-              : WAITING_IN_LINE_NOTE}
+              ? expressWaitLine(conv.queue_wait_max_seconds, t)
+              : waitingInLineNote(t)}
           </p>
           {canCancel ? (
             <p className="text-xs" data-testid="cancel-note">
-              {cancelNote(conv, null)}
+              {cancelNote(conv, null, t)}
             </p>
           ) : null}
         </div>
@@ -323,7 +337,7 @@ export function ConversionTracker({
       {!waiting && conv.state === "processing" ? (
         <>
           <ol data-testid="tracker-steps" className="flex flex-col gap-1 text-sm">
-            {STEP_LINES.map((line, i) => (
+            {stepLines(t).map((line, i) => (
               <li
                 key={line}
                 aria-current={i === current ? "step" : undefined}
@@ -338,7 +352,7 @@ export function ConversionTracker({
                 {i === current && conv.stage ? (
                   // raw stage strings carry internal worker/model details
                   // ("video_stereo[propainter]") — only the mapped label
-                  <span className="text-xs text-fg-muted">{" "}· {stageLabel(conv.stage)}</span>
+                  <span className="text-xs text-fg-muted">{" "}· {stageLabel(conv.stage, t)}</span>
                 ) : null}
               </li>
             ))}
@@ -347,7 +361,7 @@ export function ConversionTracker({
           {canCancel ? (
             <div className="flex items-center gap-3 text-xs text-fg-muted">
               <span data-testid="cancel-note">
-                {cancelNote(conv, cancelSecondsLeft(conv, now))}
+                {cancelNote(conv, cancelSecondsLeft(conv, now), t)}
               </span>
               <Button
                 variant="outline"
@@ -356,7 +370,7 @@ export function ConversionTracker({
                 onClick={() => void cancel()}
                 disabled={canceling}
               >
-                Cancel
+                {t("runs.tracker.cancel")}
               </Button>
             </div>
           ) : null}
@@ -369,13 +383,13 @@ export function ConversionTracker({
 
       {conv.state === "succeeded" && conv.billing?.status === "charge_failed" ? (
         <p className="flex flex-wrap items-center gap-2 text-sm text-amber-400" data-testid="charge-failed">
-          There&apos;s a problem with your last payment.
+          {t("runs.tracker.chargeFailed")}
           <button
             type="button"
             onClick={() => openSettle()}
             className="text-primary hover:underline"
           >
-            Pay now
+            {t("runs.tracker.payNow")}
           </button>
         </p>
       ) : null}
@@ -383,7 +397,7 @@ export function ConversionTracker({
 
       {conv.state === "failed" ? (
         <p className="text-sm text-fg-muted" data-testid="tracker-failed">
-          Something went wrong on our side. Try again.
+          {t("runs.tracker.failed")}
         </p>
       ) : null}
       {/* gateway 00166: how this run is being paid, in its words */}
@@ -392,9 +406,9 @@ export function ConversionTracker({
           {conv.pay_split.text}
         </p>
       ) : null}
-      {billingStatusNote(conv) !== null && conv.state !== "processing" ? (
+      {billingStatusNote(conv, t) !== null && conv.state !== "processing" ? (
         <p className="text-xs text-fg-muted" data-testid="billing-note">
-          {billingStatusNote(conv)}
+          {billingStatusNote(conv, t)}
         </p>
       ) : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
@@ -410,6 +424,7 @@ function OverdueNotice({
   reported: boolean;
   onReport: (note: string) => Promise<void>;
 }): JSX.Element {
+  const t = useT();
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -417,8 +432,7 @@ function OverdueNotice({
   if (reported) {
     return (
       <p className="mt-3 text-sm text-fg-muted" data-testid="overdue-reported">
-        Thanks for letting us know. We&apos;re looking into this run and will reply
-        by email.
+        {t("runs.overdue.reported")}
       </p>
     );
   }
@@ -438,15 +452,14 @@ function OverdueNotice({
   return (
     <div className="mt-3 space-y-2" data-testid="overdue-notice">
       <p className="text-sm text-amber-400">
-        This is taking much longer than expected.
+        {t("runs.overdue.title")}
       </p>
       <p className="text-xs text-fg-muted">
-        Something may be stuck on our side. Report it and we&apos;ll look into it and
-        reply by email.
+        {t("runs.overdue.body")}
       </p>
       <textarea
-        aria-label="Anything we should know? (optional)"
-        placeholder="Anything we should know? (optional)"
+        aria-label={t("runs.overdue.notePlaceholder")}
+        placeholder={t("runs.overdue.notePlaceholder")}
         value={note}
         maxLength={2000}
         onChange={(e) => setNote(e.target.value)}
@@ -455,11 +468,11 @@ function OverdueNotice({
       />
       <div className="flex items-center gap-3">
         <Button size="xs" onClick={() => void send()} disabled={sending}>
-          {sending ? "Sending…" : "Report it"}
+          {sending ? t("runs.overdue.sending") : t("runs.overdue.report")}
         </Button>
         {failed ? (
           <span className="text-xs text-red-400">
-            Couldn&apos;t send the report. Try again.
+            {t("runs.overdue.sendFailed")}
           </span>
         ) : null}
       </div>

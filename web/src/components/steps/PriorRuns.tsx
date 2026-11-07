@@ -14,6 +14,7 @@ import type { JSX } from "react";
 import { Button } from "@/components/ui/button";
 import type { Conversion } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
@@ -57,6 +58,7 @@ function PriorRunRow({
   conversion: Conversion;
   meta: string;
 }): JSX.Element {
+  const t = useT();
   const client = useGateway();
   const [open, setOpen] = useState(false);
   const [downloads, setDownloads] = useState<Record<string, string> | null>(null);
@@ -71,7 +73,7 @@ function PriorRunRow({
         const d = await client.getDownloads(c.conversion_id);
         setDownloads(d.downloads);
       } catch (e) {
-        setError(loadErrorText(e, sample, "Couldn't load the files."));
+        setError(loadErrorText(e, sample, t("files.load.failed"), t));
       }
     }
   }
@@ -84,9 +86,9 @@ function PriorRunRow({
       <div className="flex flex-wrap items-center gap-2.5">
         <StateChip conversion={c} />
         <span className="font-mono text-xs text-fg-muted">{meta}</span>
-        <span className="font-mono text-xs">{formatCents(c.quote.amount_cents)}</span>
+        <span className="font-mono text-xs">{formatCents(c.quote.amount_cents, t)}</span>
         <time dateTime={c.created_at} className="ml-auto text-[11px] text-fg-muted">
-          {new Date(c.created_at).toLocaleString()}
+          {new Date(c.created_at).toLocaleString(t.intl)}
         </time>
       </div>
       {c.state === "succeeded" ? (
@@ -98,7 +100,7 @@ function PriorRunRow({
             onClick={() => void toggle()}
             className="h-auto p-0"
           >
-            {open ? "Hide downloads" : "Downloads"}
+            {open ? t("runs.prior.hideDownloads") : t("runs.prior.downloads")}
           </Button>
           {open ? (
             downloads !== null ? (
@@ -108,7 +110,7 @@ function PriorRunRow({
             ) : error !== null ? (
               <p className="mt-2 text-xs text-red-400">{error}</p>
             ) : (
-              <p className="mt-2 text-xs text-fg-muted">Fetching download links…</p>
+              <p className="mt-2 text-xs text-fg-muted">{t("runs.prior.fetching")}</p>
             )
           ) : null}
         </div>

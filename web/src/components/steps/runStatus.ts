@@ -7,6 +7,7 @@
  */
 
 import type { Conversion } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { formatCents } from "./money";
 
@@ -18,66 +19,70 @@ export interface RunStatus {
 }
 
 /** The refunded amount of a pre-charged run, when it was refunded. */
-function refunded(c: Conversion): string | null {
+function refunded(c: Conversion, t: Tr): string | null {
   const s = c.billing?.status;
   if (s !== "refunded" && s !== "refund_pending") return null;
-  return formatCents(c.billing?.charged_cents ?? c.quote.amount_cents);
+  return formatCents(c.billing?.charged_cents ?? c.quote.amount_cents, t);
 }
 
-export function runStatus(c: Conversion): RunStatus {
+export function runStatus(c: Conversion, t: Tr = EN): RunStatus {
   switch (c.state) {
     case "created":
-      return { label: "Confirming payment", tone: "waiting" };
+      return { label: t("runs.status.confirmingPayment"), tone: "waiting" };
     case "paid":
-      return { label: "Waiting in line", tone: "waiting" };
+      return { label: t("runs.status.waitingInLine"), tone: "waiting" };
     case "processing":
       return c.waiting_for_gpu
-        ? { label: "Waiting in line", tone: "waiting" }
-        : { label: "Making your 3D", tone: "working" };
+        ? { label: t("runs.status.waitingInLine"), tone: "waiting" }
+        : { label: t("runs.status.making"), tone: "working" };
     case "succeeded":
       return c.billing?.status === "charge_failed"
-        ? { label: "Ready, payment needed", tone: "attention" }
-        : { label: "Ready", tone: "ready" };
+        ? { label: t("runs.status.readyPaymentNeeded"), tone: "attention" }
+        : { label: t("runs.status.ready"), tone: "ready" };
     case "failed": {
-      const r = refunded(c);
+      const r = refunded(c, t);
       return {
-        label: r ? `Failed, refunded ${r}` : "Failed, not charged",
+        label: r ? t("runs.status.failedRefunded", { amount: r }) : t("runs.status.failedNotCharged"),
         tone: "attention",
       };
     }
     case "canceled": {
-      const r = refunded(c);
+      const r = refunded(c, t);
       return {
-        label: r ? `Cancelled · refunded ${r}` : "Cancelled · not charged",
+        label: r ? t("runs.status.cancelledRefunded", { amount: r }) : t("runs.status.cancelledNotCharged"),
         tone: "stopped",
       };
     }
     case "expired":
-      return { label: "Didn't start, not charged", tone: "stopped" };
+      return { label: t("runs.status.expiredNotCharged"), tone: "stopped" };
   }
 }
 
 /** Waiting copy (S3D-34). */
-export const WAITING_IN_LINE_NOTE =
-  "Starts as soon as a machine is free, usually within minutes. The price stays the same.";
+export function waitingInLineNote(t: Tr = EN): string {
+  return t("runs.status.waitingNote");
+}
+
+/** Waiting copy in English (kept for older callers). */
+export const WAITING_IN_LINE_NOTE = waitingInLineNote();
 
 /** The state in one word or two, for the Files list (screen 09): the
  * money word sits beside the price (lib/billingCopy paymentStatus). */
-export function runStateShort(c: Conversion): string {
+export function runStateShort(c: Conversion, t: Tr = EN): string {
   switch (c.state) {
     case "created":
-      return "Confirming payment";
+      return t("runs.status.confirmingPayment");
     case "paid":
-      return "Waiting in line";
+      return t("runs.status.waitingInLine");
     case "processing":
-      return c.waiting_for_gpu ? "Waiting in line" : "Making your 3D";
+      return c.waiting_for_gpu ? t("runs.status.waitingInLine") : t("runs.status.making");
     case "succeeded":
-      return "Ready";
+      return t("runs.status.ready");
     case "failed":
-      return "Failed";
+      return t("runs.status.short.failed");
     case "canceled":
-      return "Cancelled";
+      return t("runs.status.short.cancelled");
     case "expired":
-      return "Didn't start";
+      return t("runs.status.short.expired");
   }
 }

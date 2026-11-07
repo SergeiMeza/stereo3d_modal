@@ -17,7 +17,9 @@ import type { Conversion, DownloadFile, Downloads, Format, Step } from "@/lib/ap
 import { useGateway } from "@/lib/api/useGateway";
 import { formatBytes } from "@/lib/format";
 import { outputName } from "@/lib/glossary";
-import { HEADSET_HINT, isHeadset, stereoFormatsFor } from "@/lib/headset";
+import { headsetHint, isHeadset, stereoFormatsFor } from "@/lib/headset";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
@@ -37,36 +39,37 @@ const PREVIEW_STEPS: ReadonlySet<string> = new Set([
 ]);
 
 /** Who a file is for and how to watch it, in one line. */
-export function deviceGroup(format: string, step?: Step | null): DeviceGroupCopy {
+export function deviceGroup(format: string, step?: Step | null, t: Tr = EN): DeviceGroupCopy {
   if (step && PREVIEW_STEPS.has(step) && format !== "mvhevc") {
     return {
-      device: "Any screen",
+      device: t("files.groups.anyScreen"),
       how:
         step === "lifelike_preview"
-          ? "Plays here, with the free 3D check."
-          : "Plays here, or in a headset's player.",
+          ? t("files.groups.previewLifelikeHow")
+          : t("files.groups.previewHow"),
     };
   }
   switch (format) {
     case "mvhevc":
-      return { device: "Apple Vision Pro", how: "AirDrop or Files. Shows in Photos." };
+      // a device name only, the same in every language
+      return { device: "Apple Vision Pro", how: t("files.groups.mvhevcHow") };
     // owner decision 2026-11-04: Meta Quest plays full side by side
     case "sbs":
       return {
-        device: "Meta Quest, Galaxy XR, Pico, Steam Frame, XR glasses",
-        how: "Open in the player and choose 3D side by side.",
+        device: t("files.groups.sbsDevice"),
+        how: t("files.groups.sideBySideHow"),
       };
     case "half_sbs":
       return {
-        device: "3D TVs, projectors, Meta Quest at 4K and above",
-        how: "Open in the player and choose 3D side by side.",
+        device: t("files.groups.halfSbsDevice"),
+        how: t("files.groups.sideBySideHow"),
       };
     case "anaglyph":
-      return { device: "Any screen", how: "Watch with red-cyan glasses." };
+      return { device: t("files.groups.anyScreen"), how: t("files.groups.anaglyphHow") };
     case "depth":
-      return { device: "Depth video", how: "For your own editing tools." };
+      return { device: t("files.groups.depthDevice"), how: t("files.groups.depthHow") };
     default:
-      return { device: outputName(format), how: "" };
+      return { device: outputName(format, t), how: "" };
   }
 }
 
@@ -119,6 +122,7 @@ export function useRunFiles(conversion: Conversion | undefined): {
   // another format sees when a new file is listed
   const [state, setState] = useAtom(runFilesAtom(id ?? ""));
   const sample = useIsSample();
+  const t = useT();
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -142,12 +146,12 @@ export function useRunFiles(conversion: Conversion | undefined): {
     if (id === null || stateRef.current.files !== null) return;
     let cancelled = false;
     load().catch((e: unknown) => {
-      if (!cancelled) setState((s) => ({ ...s, error: loadErrorText(e, sample, "Couldn't load the files.") }));
+      if (!cancelled) setState((s) => ({ ...s, error: loadErrorText(e, sample, t("files.load.failed"), t) }));
     });
     return () => {
       cancelled = true;
     };
-  }, [id, load, sample, setState]);
+  }, [id, load, sample, setState, t]);
 
   const freshUrl = useCallback(
     async (name: string) => {
@@ -176,24 +180,34 @@ export function useRunFiles(conversion: Conversion | undefined): {
   };
 }
 
-const SHORT_NAMES: Record<string, string> = {
-  mvhevc: "Vision Pro",
-  sbs: "Side by side",
-  half_sbs: "Half side by side",
-  anaglyph: "Red-cyan",
-};
+/** A format's short link text (Vision Pro is a device name, kept as is). */
+function shortName(format: string, t: Tr): string {
+  switch (format) {
+    case "mvhevc":
+      return "Vision Pro";
+    case "sbs":
+      return t("files.short.sbs");
+    case "half_sbs":
+      return t("files.short.halfSbs");
+    case "anaglyph":
+      return t("files.short.anaglyph");
+    default:
+      return outputName(format, t);
+  }
+}
 
 /** A preview's files as small Download links, one per format (previews
  * are downloadable, free ones too, so a clip can go to a headset by
  * AirDrop; S3D-35 gates them like any download). */
 export function PreviewDownloads({ conversion }: { conversion: Conversion }): JSX.Element | null {
+  const t = useT();
   const { files, expired, freshUrl } = useRunFiles(conversion);
   if (!files || files.length === 0) return null;
   const list = groupFiles(files).flatMap(([, l]) => l);
   return (
     <DownloadGate className="text-xs text-primary hover:underline">
       <span data-testid="preview-downloads" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className="text-fg-muted">Download</span>
+        <span className="text-fg-muted">{t("files.download")}</span>
         {list.map((f) => (
           <a
             key={f.name}
@@ -213,7 +227,7 @@ export function PreviewDownloads({ conversion }: { conversion: Conversion }): JS
             }}
             className="text-primary hover:underline"
           >
-            {SHORT_NAMES[f.format] ?? outputName(f.format)}
+            {shortName(f.format, t)}
             <span className="text-fg-muted"> · .{f.filename?.split(".").pop() ?? (f.format === "mvhevc" ? "mov" : "mp4")}</span>
           </a>
         ))}
@@ -227,6 +241,7 @@ export function RunFiles({
 }: {
   conversion: Conversion;
 }): JSX.Element {
+  const t = useT();
   const { files, error, expired, freshUrl, reload } = useRunFiles(conversion);
   const client = useClient();
   const gateway = useGateway();
@@ -236,10 +251,10 @@ export function RunFiles({
   const preview = PREVIEW_STEPS.has(conversion.step ?? "");
   if (error) return <p className="text-xs text-red-400">{error}</p>;
   if (files === null) {
-    return <p className="text-xs text-fg-muted">Fetching your files…</p>;
+    return <p className="text-xs text-fg-muted">{t("files.fetching")}</p>;
   }
   if (files.length === 0) {
-    return <p className="text-xs text-fg-muted">No files in this run.</p>;
+    return <p className="text-xs text-fg-muted">{t("files.empty")}</p>;
   }
   // ADR 0137: a finished run can get another format from its files, free
   const another =
@@ -268,7 +283,7 @@ export function RunFiles({
   const onHeadset = isHeadset(client) && mine.length > 0;
 
   function group([format, list]: [string, DownloadFile[]], thisHeadset: boolean): JSX.Element {
-    const g = deviceGroup(format, conversion.step);
+    const g = deviceGroup(format, conversion.step, t);
     return (
       <section
         key={format}
@@ -279,7 +294,7 @@ export function RunFiles({
           <h4 className="text-sm font-medium text-fg">{g.device}</h4>
           {thisHeadset ? (
             <span className="rounded-full border border-primary/30 bg-primary/10 px-2 text-[11px] text-primary">
-              This headset
+              {t("files.thisHeadset")}
             </span>
           ) : (
             <span className="text-xs text-fg-muted">{g.how}</span>
@@ -292,10 +307,10 @@ export function RunFiles({
               className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${thisHeadset ? "text-sm" : "text-xs"}`}
             >
               <span className="w-12 shrink-0 text-fg-muted">
-                {f.part ? `Part ${f.part}` : preview ? "Clip" : "Full"}
+                {f.part ? t("files.row.part", { part: f.part }) : preview ? t("files.row.clip") : t("files.row.full")}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono text-fg">
-                {f.filename ?? outputName(f.name)}
+                {f.filename ?? outputName(f.name, t)}
               </span>
               {f.size_bytes !== undefined ? (
                 <span className="text-fg-muted">{formatBytes(f.size_bytes)}</span>
@@ -315,7 +330,7 @@ export function RunFiles({
                   onClick={(e) => open(e, f.name)}
                   className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
                 >
-                  Download
+                  {t("files.download")}
                 </a>
               </DownloadGate>
             </li>
@@ -328,9 +343,9 @@ export function RunFiles({
   if (onHeadset) {
     return (
       <div data-testid="run-files" className="flex flex-col gap-3">
-        {HEADSET_HINT[client] ? (
+        {headsetHint(client, t) ? (
           <p data-testid="view-in-3d-hint" className="text-sm text-fg-muted">
-            {HEADSET_HINT[client]}
+            {headsetHint(client, t)}
           </p>
         ) : null}
         {mine.map((g) => group(g, true))}
@@ -338,8 +353,10 @@ export function RunFiles({
         {others.length > 0 ? (
           <details data-testid="other-files">
             <summary className="cursor-pointer text-sm text-fg-muted">
-              {others.map(([f]) => deviceGroup(f, conversion.step).device).join(", ")} files (
-              {others.reduce((n, [, l]) => n + l.length, 0)})
+              {t("files.otherFiles", {
+                devices: others.map(([f]) => deviceGroup(f, conversion.step, t).device).join(", "),
+                count: others.reduce((n, [, l]) => n + l.length, 0),
+              })}
             </summary>
             <div className="mt-2 flex flex-col gap-3">{others.map((g) => group(g, false))}</div>
           </details>

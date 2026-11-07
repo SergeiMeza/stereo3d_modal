@@ -14,12 +14,13 @@ import type { JSX } from "react";
 
 import { PayLink, useOutstandingCents } from "@/components/billing/PayToDownload";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/I18nProvider";
 import {
   detectClient,
   enterFullscreen,
   exitFullscreen,
   GALAXY_XR,
-  HEADSET_HINT,
+  headsetHint,
   isFullscreen,
   playChoice,
   type Client,
@@ -60,9 +61,10 @@ export function ViewIn3D({
   size = "sm",
   hideHint = false,
   onPlay,
-  flatLabel = "Full screen",
+  flatLabel,
 }: {
-  /** the button's words where the file plays flat (a computer or phone) */
+  /** the button's words where the file plays flat (a computer or phone;
+   * default "Full screen") */
   flatLabel?: string;
   /** 00081: tell the gateway a play started (POST .../plays) */
   onPlay?: (format: string) => void;
@@ -72,6 +74,7 @@ export function ViewIn3D({
   /** hide the one-line player hint (the page shows it once) */
   hideHint?: boolean;
 }): JSX.Element | null {
+  const t = useT();
   const client = useClient();
   // S3D-35: playing the file is the same access as downloading it
   const owed = useOutstandingCents();
@@ -122,8 +125,8 @@ export function ViewIn3D({
       />
     );
   }
-  const label = choice.stereo ? "View in 3D" : flatLabel;
-  const hint = choice.stereo && !hideHint ? HEADSET_HINT[client] : undefined;
+  const label = choice.stereo ? t("viewer.viewIn3D") : (flatLabel ?? t("viewer.fullScreen"));
+  const hint = choice.stereo && !hideHint ? headsetHint(client, t) : undefined;
 
   function play(): void {
     const v = videoRef.current;
@@ -153,7 +156,7 @@ export function ViewIn3D({
         </span>
       ) : client === "vision" && !choice.stereo && !hideHint ? (
         <span data-testid="view-in-3d-hint" className="text-[11px] text-fg-muted">
-          Plays flat here. Vision Pro spatial video plays in 3D.
+          {t("viewer.playsFlat")}
         </span>
       ) : null}
       <video

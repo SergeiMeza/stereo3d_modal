@@ -16,19 +16,21 @@ import { Progress } from "@/components/ui/progress";
 import type { Conversion } from "@/lib/api/types";
 import { formatTimeLeft } from "@/lib/format";
 
-import { STEP_LINES, stageStep, TERMINAL_STATES } from "./ConversionTracker";
+import { stageStep, stepLines, TERMINAL_STATES } from "./ConversionTracker";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useLiveRun } from "@/lib/live/useLive";
 import { runStatus } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
 
 /** "Making the 3D video · Rendering in 3D", or the wait in words. */
-export function currentStepLine(conv: Conversion): string {
+export function currentStepLine(conv: Conversion, t: Tr = EN): string {
   if (conv.waiting_for_gpu === true || conv.state === "paid" || conv.state === "created") {
-    return runStatus(conv).label;
+    return runStatus(conv, t).label;
   }
-  const line = STEP_LINES[stageStep(conv.stage)];
-  return conv.stage ? `${line} · ${stageLabel(conv.stage)}` : line;
+  const line = stepLines(t)[stageStep(conv.stage)];
+  return conv.stage ? `${line} · ${stageLabel(conv.stage, t)}` : line;
 }
 
 export function RunProgressCompact({
@@ -41,6 +43,7 @@ export function RunProgressCompact({
 }): JSX.Element | null {
   // the run as the live feed knows it (owner 2026-11-07), like every
   // other place that shows it
+  const t = useT();
   const conv = useLiveRun(conversion);
   const terminal = TERMINAL_STATES.has(conv.state);
 
@@ -53,7 +56,7 @@ export function RunProgressCompact({
       <div className="flex min-w-0 items-center gap-2 text-xs">
         {chip ? <StateChip conversion={conv} /> : null}
         <span data-testid="run-compact-step" className="min-w-0 truncate text-fg">
-          {currentStepLine(conv)}
+          {currentStepLine(conv, t)}
         </span>
         {eta !== null ? (
           <span data-testid="run-compact-eta" className="ml-auto shrink-0 text-fg-muted">

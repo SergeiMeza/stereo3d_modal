@@ -2,6 +2,7 @@ import type { JSX } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import type { Conversion } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { runStatus, type RunTone } from "./runStatus";
 
@@ -19,7 +20,8 @@ export function StateChip({
 }: {
   conversion: Conversion;
 }): JSX.Element {
-  const s = runStatus(conversion);
+  const t = useT();
+  const s = runStatus(conversion, t);
   return (
     <Badge
       variant="outline"

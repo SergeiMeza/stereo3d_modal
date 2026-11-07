@@ -27,7 +27,9 @@ import type { Conversion, Format, Preset, RunFormatJob, RunFormats } from "@/lib
 import { formatClock } from "@/lib/format";
 import { useGateway } from "@/lib/api/useGateway";
 import { useFallbackTick, useLiveFormats } from "@/lib/live/useLive";
-import { FORMAT_NAMES } from "@/lib/glossary";
+import { formatName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
 import { NO_FULL_SBS_PRESETS } from "./methods";
@@ -48,21 +50,23 @@ function useNow(on: boolean): number {
  * the first minute, then every 15 s. */
 
 /** Beside "Making it…" for Spatial video or anything over ~2 minutes. */
-export const LONG_WAIT_COPY = "This can take a while. You can leave this page; the file appears here when it's ready.";
+export const LONG_WAIT_COPY = EN("files.another.longWait");
 const LONG_WAIT_S = 120;
 
 /** "About 4 minutes" from an estimate in seconds. */
-export function aboutMinutes(seconds: number): string {
+export function aboutMinutes(seconds: number, t: Tr = EN): string {
   const n = Math.max(1, Math.round(seconds / 60));
-  return `About ${n} minute${n === 1 ? "" : "s"}`;
+  return t("files.another.aboutMinutes", { count: n });
 }
 
 /** A finished job whose file isn't listed yet. */
-export const ALMOST_READY = "Almost ready…";
+export const ALMOST_READY = EN("files.another.almostReady");
 
 /** "About 1:52 left" (QA 2026-11-05: a countdown, never a frozen number). */
-export function leftText(seconds: number): string {
-  return seconds > 0 ? `About ${formatClock(Math.ceil(seconds))} left` : "Almost done…";
+export function leftText(seconds: number, t: Tr = EN): string {
+  return seconds > 0
+    ? t("files.another.left", { time: formatClock(Math.ceil(seconds)) })
+    : t("files.another.almostDone");
 }
 
 /**
@@ -75,37 +79,39 @@ export function jobProgress(
   started: { at: number; seconds: number | null } | undefined,
   readAt: number,
   now: number,
+  t: Tr = EN,
 ): { fraction: number | null; text: string | null } {
   const fraction =
     typeof job?.progress === "number" ? Math.min(1, Math.max(0, job.progress)) : null;
   if (typeof job?.remaining_seconds === "number") {
-    return { fraction, text: leftText(job.remaining_seconds - (now - readAt) / 1000) };
+    return { fraction, text: leftText(job.remaining_seconds - (now - readAt) / 1000, t) };
   }
   const est = job?.estimated_seconds ?? started?.seconds ?? null;
   if (est === null) return { fraction, text: null };
   const from = job?.requested_at ? Date.parse(job.requested_at) : (started?.at ?? now);
-  return { fraction, text: leftText(est - (now - (Number.isFinite(from) ? from : now)) / 1000) };
+  return { fraction, text: leftText(est - (now - (Number.isFinite(from) ? from : now)) / 1000, t) };
 }
 
 /** Why nothing can be made, in plain words; null hides the control. */
-export const UNAVAILABLE_COPY: Record<string, string | null> = {
-  half_only: "This run only has the half-size file. Make a new conversion for other formats.",
-  files_erased: "These files were erased after 90 days without use.",
-  // split runs get one file per part now; an older gateway may still say it
-  split_run: "This run is in parts, so other formats can't be made from it. Make a new conversion for other formats.",
-  // too_wide only rules out full side by side at 6K/8K, never the control
-  too_wide: null,
-  classic_retired: null,
-  run_failed: null,
-};
+export function unavailableCopy(t: Tr = EN): Record<string, string | null> {
+  return {
+    half_only: t("files.another.unavailable.halfOnly"),
+    files_erased: t("files.another.unavailable.filesErased"),
+    // split runs get one file per part now; an older gateway may still say it
+    split_run: t("files.another.unavailable.splitRun"),
+    // too_wide only rules out full side by side at 6K/8K, never the control
+    too_wide: null,
+    classic_retired: null,
+    run_failed: null,
+  };
+}
 
-const FAILED = "That didn't work. Try again.";
+/** The reasons in English (kept for older callers). */
+export const UNAVAILABLE_COPY: Record<string, string | null> = unavailableCopy();
 
 /** 409 format_unavailable {reason: "too_wide"} on a start. */
-export const TOO_WIDE_COPY =
-  "Full side by side isn't made at 6K and 8K. Pick Side by side (half size) or Spatial video.";
+export const TOO_WIDE_COPY = EN("files.another.tooWide");
 
-const nameOf = (f: Format) => FORMAT_NAMES[f] ?? f;
 
 export function AnotherFormat({
   conversion,
@@ -115,6 +121,8 @@ export function AnotherFormat({
   /** a format finished: load the run's files again */
   onNewFile: () => void;
 }): JSX.Element | null {
+  const t = useT();
+  const nameOf = (f: Format) => formatName(f, t);
   const gateway = useGateway();
   const id = conversion.conversion_id;
   // ADR 0138: the run's format jobs and files live in its atoms
@@ -242,10 +250,14 @@ export function AnotherFormat({
         await load().catch(() => {});
       } else if (e instanceof GatewayError && e.code === "format_unavailable") {
         const reason = typeof e.details?.reason === "string" ? e.details.reason : "";
-        setNotice(reason === "too_wide" ? TOO_WIDE_COPY : (UNAVAILABLE_COPY[reason] ?? FAILED));
+        setNotice(
+          reason === "too_wide"
+            ? t("files.another.tooWide")
+            : (unavailableCopy(t)[reason] ?? t("files.another.failed")),
+        );
         await load().catch(() => {});
       } else if (e instanceof GatewayError && e.code === "rate_limited") {
-        setNotice("Too many tries. Wait a few minutes.");
+        setNotice(t("files.another.rateLimited"));
       } else {
         // repack_unavailable (502/503) and anything else: failed, with retry
         setStartFailed((l) => [...l.filter((f) => f !== format), format]);
@@ -270,7 +282,7 @@ export function AnotherFormat({
   const offered = data.available.filter(
     (f) => !failed.includes(f) && f !== starting && !(f === "sbs" && noFullSbs),
   );
-  const reason = data.unavailable_reason ? UNAVAILABLE_COPY[data.unavailable_reason] : undefined;
+  const reason = data.unavailable_reason ? unavailableCopy(t)[data.unavailable_reason] : undefined;
 
   if (offered.length === 0 && making.length === 0 && failed.length === 0 && starting === null) {
     if (!reason) return null;
@@ -288,7 +300,7 @@ export function AnotherFormat({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" data-testid="another-format-open">
-                Get another format
+                {t("files.another.open")}
                 <ChevronDown aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
@@ -308,10 +320,10 @@ export function AnotherFormat({
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <span className="text-sm text-fg">Another format</span>
+          <span className="text-sm text-fg">{t("files.another.title")}</span>
         )}
-        <Badge variant="secondary">Free</Badge>
-        <span className="text-xs text-fg-muted">Made from this run&apos;s files.</span>
+        <Badge variant="secondary">{t("files.another.free")}</Badge>
+        <span className="text-xs text-fg-muted">{t("files.another.madeFrom")}</span>
       </div>
 
       {[...new Set([...(starting ? [starting] : []), ...making, ...finishing])].map((f) => {
@@ -320,12 +332,14 @@ export function AnotherFormat({
         const est = job?.estimated_seconds ?? started?.seconds ?? null;
         const long = f === "mvhevc" || (est !== null && est > LONG_WAIT_S);
         const done = finishing.includes(f);
-        const p = done ? null : jobProgress(job, started, formats.readAt, now);
+        const p = done ? null : jobProgress(job, started, formats.readAt, now, t);
         return (
           <div key={f} role="status" data-testid={`another-format-making-${f}`} className="flex flex-col gap-1 text-xs">
             <p className="flex flex-wrap items-center gap-2 text-fg">
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              {nameOf(f)}: {done ? ALMOST_READY : "Making it…"}
+              {done
+                ? t("files.another.formatAlmostReady", { format: nameOf(f) })
+                : t("files.another.formatMaking", { format: nameOf(f) })}
               {p?.text ? (
                 <span data-testid={`another-format-left-${f}`} className="text-fg-muted tabular-nums">
                   {p.text}
@@ -335,7 +349,7 @@ export function AnotherFormat({
             {p?.fraction !== undefined && p.fraction !== null ? (
               <div
                 role="progressbar"
-                aria-label={`${nameOf(f)} progress`}
+                aria-label={t("files.another.progressLabel", { format: nameOf(f) })}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.round(p.fraction * 100)}
@@ -344,17 +358,17 @@ export function AnotherFormat({
                 <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(p.fraction * 100)}%` }} />
               </div>
             ) : null}
-            {long && !done ? <p className="pl-5.5 text-fg-muted">{LONG_WAIT_COPY}</p> : null}
+            {long && !done ? <p className="pl-5.5 text-fg-muted">{t("files.another.longWait")}</p> : null}
           </div>
         );
       })}
       {failed.map((f) => (
         <p key={f} data-testid={`another-format-failed-${f}`} className="flex flex-wrap items-center gap-2 text-xs">
           <span role="alert" className="text-destructive">
-            {nameOf(f)}: {FAILED}
+            {t("files.another.formatFailed", { format: nameOf(f) })}
           </span>
           <Button size="xs" variant="outline" onClick={() => void start(f)}>
-            Try again
+            {t("files.another.tryAgain")}
           </Button>
         </p>
       ))}

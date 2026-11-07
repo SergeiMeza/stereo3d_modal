@@ -1,6 +1,8 @@
 import type { JSX } from "react";
 
 import { outputName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { DownloadGate } from "@/components/billing/PayToDownload";
 
 /**
@@ -25,8 +27,8 @@ export function splitPart(name: string): { base: string; part: number } | null {
 
 /** The link text for an output (lib/glossary): split parts read
  * "Side by side · Part 2". */
-export function downloadLabel(name: string): string {
-  return outputName(name);
+export function downloadLabel(name: string, t: Tr = EN): string {
+  return outputName(name, t);
 }
 
 /** Format first, then parts in order (Part 2 before Part 10). */
@@ -71,6 +73,7 @@ export function DownloadsList({
 }: {
   downloads: Record<string, string>;
 }): JSX.Element {
+  const t = useT();
   const entries = Object.entries(downloads).sort(([a], [b]) =>
     compareOutputs(a, b),
   );
@@ -85,7 +88,7 @@ export function DownloadsList({
               rel="noreferrer"
               className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80"
             >
-              {downloadLabel(name)}
+              {downloadLabel(name, t)}
             </a>
           </DownloadGate>
           {INLINE_PLAYABLE.has(splitPart(name)?.base ?? name) ? (

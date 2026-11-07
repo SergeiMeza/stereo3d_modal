@@ -8,31 +8,34 @@
  * snake_case stage name, never its worker/model detail) and underscores
  * spaced.
  */
-const STAGE_LABELS: Record<string, string> = {
+import { EN, type Tr } from "@/lib/i18n/t";
+
+/** Known stage bases, each with its message (runs.stages.<base>). */
+const STAGE_KEYS = new Set([
   // shared video pipeline (app/pipelines/video.py)
-  preprocess: "Preparing the video",
-  profile_scenes: "Measuring scenes",
-  video_depth: "Measuring depth",
-  video_stereo: "Building the 3D video",
-  encode_outputs: "Encoding your files",
-  encode_mvhevc: "Encoding the Vision Pro file",
-  image_stereo: "Building the 3D image",
+  "preprocess",
+  "profile_scenes",
+  "video_depth",
+  "video_stereo",
+  "encode_outputs",
+  "encode_mvhevc",
+  "image_stereo",
   // Lifelike pipeline (queued → plan → render → encode → publish → done)
-  queued: "Waiting to start",
-  plan: "Preparing",
-  render: "Rendering in 3D",
-  encode: "Encoding",
-  publish: "Publishing",
-  done: "Finishing up",
+  "queued",
+  "plan",
+  "render",
+  "encode",
+  "publish",
+  "done",
   // analyze job stages (also mapped in AnalyzeBadge for its own display)
-  analyze: "Analyzing",
-  proxy: "Building the preview",
-  scene_detect: "Detecting scenes",
-  thumbnails: "Rendering thumbnails",
-};
+  "analyze",
+  "proxy",
+  "scene_detect",
+  "thumbnails",
+]);
 
 /** Product copy for a raw pipeline stage string. */
-export function stageLabel(stage: string): string {
+export function stageLabel(stage: string, t: Tr = EN): string {
   const base = stage.split("[")[0].trim();
-  return STAGE_LABELS[base] ?? base.replace(/_/g, " ");
+  return STAGE_KEYS.has(base) ? t(`runs.stages.${base}`) : base.replace(/_/g, " ");
 }

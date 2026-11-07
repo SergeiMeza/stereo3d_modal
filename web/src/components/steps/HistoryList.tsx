@@ -23,7 +23,9 @@ import {
 import { paymentStatus } from "@/lib/billingCopy";
 import { formatClock } from "@/lib/format";
 import { frameToSeconds, parseRational } from "@/lib/frames";
-import { qualityLabelFor, runSummary, STEP_NAMES } from "@/lib/glossary";
+import { qualityLabelFor, runSummary, STEP_NAMES, stepName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { METHOD_LABELS } from "./methods";
 import { formatCents } from "./money";
@@ -33,12 +35,12 @@ import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
 
 /** One-line settings summary for a run, in customer words. */
-export function paramsSummary(c: Conversion): string {
-  return runSummary(c.params, c.step, c.foveation);
+export function paramsSummary(c: Conversion, t: Tr = EN): string {
+  return runSummary(c.params, c.step, c.foveation, t);
 }
 
 /** "1080p · 0:45 – 0:50 · 3 parts · Nov 2" */
-export function runMeta(project: Project, c: Conversion): string {
+export function runMeta(project: Project, c: Conversion, t: Tr = EN): string {
   const fps = project.probe ? parseRational(project.probe.fps_rational) : null;
   const clock = (f: number) =>
     fps ? formatClock(frameToSeconds(f, fps)) : null;
@@ -53,10 +55,10 @@ export function runMeta(project: Project, c: Conversion): string {
   return [
     range,
     c.step !== "depth_preview"
-      ? qualityLabelFor(project, c.params.preset)
+      ? qualityLabelFor(project, c.params.preset, t)
       : null,
-    c.parts && c.parts.length > 1 ? `${c.parts.length} parts` : null,
-    new Date(c.created_at).toLocaleDateString(undefined, {
+    c.parts && c.parts.length > 1 ? t("files.history.parts", { count: c.parts.length }) : null,
+    new Date(c.created_at).toLocaleDateString(t.intl, {
       month: "short",
       day: "numeric",
     }),
@@ -65,21 +67,23 @@ export function runMeta(project: Project, c: Conversion): string {
     .join(" · ");
 }
 
+// by the English state word (runStateShort without a translator)
 const CHIP: Record<string, string> = {
   Ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
   Failed: "border-red-500/30 bg-red-500/10 text-red-300",
 };
 
 export function HistoryList({ project }: { project: Project }): JSX.Element {
+  const t = useT();
   const conversions = [...(project.conversions ?? [])].sort((a, b) =>
     a.created_at < b.created_at ? 1 : -1,
   );
   // The page title lives in the shared PageHeader (WorkspaceScreen).
   return (
-    <section aria-label="Conversion history" className="flex flex-col gap-3">
+    <section aria-label={t("files.history.label")} className="flex flex-col gap-3">
       {conversions.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          Nothing here yet. Your 3D files appear here when they&apos;re ready.
+          {t("files.history.empty")}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -103,8 +107,10 @@ function HistoryRow({
   project: Project;
   conversion: Conversion;
 }): JSX.Element {
-  const state = runStateShort(c);
-  const word = paymentStatus(c);
+  const t = useT();
+  const state = runStateShort(c, t);
+  const chip = CHIP[runStateShort(c)];
+  const word = paymentStatus(c, t);
   return (
     <li
       data-testid={`history-${c.conversion_id}`}
@@ -113,7 +119,7 @@ function HistoryRow({
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="text-sm font-semibold text-fg">
-          {STEP_NAMES[c.step ?? "production"] ?? "Run"}
+          {STEP_NAMES[c.step ?? "production"] ? stepName(c.step ?? "production", t) : t("runs.tracker.runFallback")}
         </span>
         {/* a Lifelike project never names Classic (S3D-01) */}
         {methodOf(project) === "classic" ? (
@@ -125,13 +131,13 @@ function HistoryRow({
           </span>
         ) : null}
         <span data-testid="history-params" className="text-xs text-fg-muted">
-          {runMeta(project, c)}
+          {runMeta(project, c, t)}
         </span>
         <span className="ml-auto flex items-center gap-3">
           <span
             data-testid="run-status"
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
-              CHIP[state] ?? "border-edge bg-surface-2 text-fg-muted"
+              chip ?? "border-edge bg-surface-2 text-fg-muted"
             }`}
           >
             {state}
@@ -140,12 +146,12 @@ function HistoryRow({
             data-testid="history-price"
             className="font-mono text-sm text-fg-muted"
           >
-            {formatCents(c.quote.amount_cents)}
+            {formatCents(c.quote.amount_cents, t)}
             {word ? ` · ${word}` : ""}
             {/* owner 2026-11-07: the launch offer the run had */}
             {(c.campaign_cents ?? c.quote.breakdown?.campaign_cents ?? 0) > 0 ? (
               <span data-testid="history-offer" className="ml-1 text-xs text-emerald-300">
-                {c.quote.breakdown?.campaign_label ?? "Launch offer"}
+                {c.quote.breakdown?.campaign_label ?? t("files.history.launchOffer")}
               </span>
             ) : null}
           </span>
@@ -161,7 +167,7 @@ function HistoryRow({
       ) : null}
       {c.state === "failed" ? (
         <p className="text-xs text-fg-muted">
-          Something went wrong on our side.
+          {t("files.history.failed")}
         </p>
       ) : null}
       <RunDetails project={project} conversion={c} />
