@@ -8,7 +8,7 @@ import { ago, money, pct, time, words } from "@/lib/format";
 import { nextUpCopy, type Lane, type LaneItem } from "@/lib/lanes";
 import { Link, paths, useRouter } from "@/lib/router";
 import { useQuery } from "@/state/query";
-import { passkeyAdoptionQuery, plansSurfacesQuery } from "@/state/queries";
+import { campaignQuery, passkeyAdoptionQuery, plansSurfacesQuery } from "@/state/queries";
 import { cn } from "@/lib/utils";
 
 /**
@@ -93,6 +93,7 @@ export function OverviewPage() {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-3.5">
         <PlanStarts />
         <NewFeedback />
+        <LaunchOfferCard />
         <PasskeyAdoptionCard />
       </div>
     </>
@@ -243,6 +244,81 @@ function NewFeedback() {
           ))}
         </ul>
       )}
+    </Panel>
+  );
+}
+
+const STATE_NAMES: Record<string, string> = {
+  created: "waiting to pay",
+  paid: "paid",
+  processing: "running",
+  failed: "failed",
+  canceled: "cancelled",
+  expired: "expired",
+};
+
+/** The launch offer (owner 2026-11-07, gateway 00175): what it took off
+ * finished runs, what it was quoted on, and by month. Hidden when the
+ * gateway has no campaign and no runs carried one. */
+function LaunchOfferCard() {
+  const { state } = useQuery(campaignQuery, null);
+  if (state.kind === "error") return null;
+  if (state.kind === "loading") {
+    return (
+      <Panel title="Launch offer">
+        <div className="px-4 py-3" aria-busy="true" aria-label="Loading">
+          <Skeleton />
+        </div>
+      </Panel>
+    );
+  }
+  const { campaign: c, totals: t, by_month: months = [], truncated } = state.data;
+  if (!c?.active && t.runs === 0) return null;
+  const percent = c?.percent ?? (c?.pct !== undefined ? Math.round(c.pct * 100) : null);
+  // the gateway's label carries the end date ("Launch offer until Jan 10")
+  const note = c?.active
+    ? [c.label, percent ? `−${percent}%` : null, c.max_preset ? `up to ${c.max_preset === "qhd" ? "1440p" : c.max_preset}` : null]
+        .filter(Boolean)
+        .join(" · ")
+    : "ended";
+  const others = Object.entries(t.by_state ?? {}).filter(([s]) => s.toLowerCase() !== "succeeded");
+  return (
+    <Panel title="Launch offer" note={note} data-testid="launch-offer">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-sm">
+        <div>
+          <dt className="text-xs text-muted-foreground">Off finished runs</dt>
+          <dd className="font-mono text-lg tabular-nums" data-testid="launch-offer-discounted">
+            {money(t.discounted_cents)}
+          </dd>
+          <dd className="text-xs text-muted-foreground tabular-nums">{t.discounted_runs} runs</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Quoted with the offer</dt>
+          <dd className="font-mono text-lg tabular-nums" data-testid="launch-offer-quoted">
+            {money(t.quoted_cents)}
+          </dd>
+          <dd className="text-xs text-muted-foreground tabular-nums">{t.runs} runs</dd>
+        </div>
+        {others.length > 0 && (
+          <div className="col-span-2 text-xs text-muted-foreground tabular-nums" data-testid="launch-offer-states">
+            Not finished:{" "}
+            {others.map(([s, v]) => `${STATE_NAMES[s.toLowerCase()] ?? words(s.toLowerCase())} ${v.runs} (${money(v.cents)})`).join(" · ")}
+          </div>
+        )}
+        {months.length > 0 && (
+          <ul className="col-span-2 flex list-none flex-col gap-1 border-t border-border-soft pt-2 text-xs" data-testid="launch-offer-months">
+            {months.map((m) => (
+              <li key={m.month} className="flex justify-between gap-2 tabular-nums">
+                <span>{new Date(`${m.month}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}</span>
+                <span className="font-mono">
+                  {m.runs} · {money(m.cents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {truncated && <p className="col-span-2 text-xs text-warning-foreground">Counted from the latest 5,000 runs.</p>}
+      </dl>
     </Panel>
   );
 }

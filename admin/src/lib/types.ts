@@ -780,6 +780,30 @@ export interface Passkey {
 
 /** GET /v1/admin/passkey-adoption (gateway rev 00113): customer passkeys
  * (ADR 0136) and sign-ins by method over 7 and 30 days. */
+/** GET /v1/admin/campaign (owner 2026-11-07, gateway 00175): discounted =
+ * succeeded runs; quoted = every run the offer was on, by state (lowercase). */
+export interface CampaignSummary {
+  campaign: {
+    active: boolean;
+    pct?: number;
+    percent?: number;
+    max_preset?: string;
+    presets?: string[];
+    starts_at?: string;
+    ends_at?: string | null;
+    label?: string;
+  } | null;
+  totals: {
+    runs: number;
+    quoted_cents: number;
+    discounted_runs: number;
+    discounted_cents: number;
+    by_state?: Record<string, { runs: number; cents: number }>;
+  };
+  by_month?: { month: string; runs: number; cents: number }[];
+  truncated?: boolean;
+}
+
 export interface PasskeyAdoption {
   accounts_with_passkey: number;
   passkeys: number;

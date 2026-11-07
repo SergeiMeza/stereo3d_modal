@@ -55,6 +55,19 @@ describe("case page (A2)", () => {
       "Camera: Example Camera One",
     ]);  });
 
+  it("a run the launch offer covered shows its line (owner 2026-11-07)", async () => {
+    const page = casePage();
+    page.evidence!.runs![0] = { ...page.evidence!.runs![0], campaign_cents: 225 };
+    renderApp("/cases/CASE-0042", base(page));
+    expect(await screen.findByTestId("run-campaign")).toHaveTextContent("Launch offer −$2.25");
+  });
+
+  it("no offer line without campaign_cents", async () => {
+    renderApp("/cases/CASE-0042", base());
+    await screen.findByTestId("run-quality");
+    expect(screen.queryByTestId("run-campaign")).toBeNull();
+  });
+
   it("renders customer text as plain text and drops unsafe links", async () => {
     const { container } = renderApp("/cases/CASE-0042", base());
     await screen.findByText(/please refund/);

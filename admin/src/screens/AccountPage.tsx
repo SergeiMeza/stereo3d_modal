@@ -751,7 +751,15 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
                 <TableCell className="font-mono text-xs text-muted-foreground">{dateTime(r.created_at)}</TableCell>
                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                 <TableCell>{r.kind ? words(r.kind) : "—"}</TableCell>
-                <TableCell numeric>{typeof r.amount_cents === "number" ? money(r.amount_cents) : "—"}</TableCell>
+                <TableCell numeric>
+                  {typeof r.amount_cents === "number" ? money(r.amount_cents) : "—"}
+                  {/* owner 2026-11-07: the launch offer's line on the run */}
+                  {(r.campaign_cents ?? 0) > 0 && (
+                    <span data-testid={`run-campaign-${r.id}`} className="block text-xs text-success-foreground">
+                      offer −{money(r.campaign_cents)}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <LiveStatus id={r.id} status={r.status} />
                 </TableCell>

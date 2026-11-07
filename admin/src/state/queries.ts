@@ -16,6 +16,7 @@ export const businessFunnelQuery = createQuery((get, days: number) => apiOf(get(
 export const feedbackQuery = createQuery((get, p: { days: number; platform: string }) =>
   apiOf(get(servicesAtom)).feedback(p.days, p.platform),
 );
+export const campaignQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).campaign());
 export const passkeyAdoptionQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).passkeyAdoption());
 export const disputesQuery = createQuery((get, months: number) => apiOf(get(servicesAtom)).disputes(months));
 export const efwsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).openEfws());

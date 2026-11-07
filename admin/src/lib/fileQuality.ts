@@ -18,6 +18,8 @@ export interface QualityFields {
   quality?: string;
   bitrate_requested?: string;
   outputs_media?: Record<string, OutputMedia> | null;
+  /** the launch offer's line on the run (gateway 00175), 0 without */
+  campaign_cents?: number;
 }
 
 const QUALITY: Record<string, string> = { standard: "Standard", high: "High", master: "Master" };

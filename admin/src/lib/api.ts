@@ -30,6 +30,7 @@ import type {
   AdminDeletion,
   AdminGrant,
   RunLookup,
+  CampaignSummary,
   PasskeyAdoption,
   PolicyResponse,
   Tab,
@@ -405,6 +406,11 @@ export class AdminApi {
 
   setFeedbackSeen(seenAt: string): Promise<FeedbackSeen> {
     return this.json("POST", "/v1/admin/feedback/seen", { seen_at: seenAt });
+  }
+
+  /** The launch offer's runs and money (owner 2026-11-07, gateway 00175). */
+  campaign(): Promise<CampaignSummary> {
+    return this.json("GET", "/v1/admin/campaign");
   }
 
   /** Customer passkey adoption (gateway rev 00113). */

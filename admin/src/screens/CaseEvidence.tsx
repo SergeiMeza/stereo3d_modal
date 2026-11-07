@@ -71,6 +71,13 @@ function RunTimeline({ run }: { run: EvidenceRun }) {
   } else if (run.quote_cents) {
     steps.push({ at: run.created_at, text: <>Quoted {money(run.quote_cents)}{run.payment_flow ? ` · ${words(run.payment_flow)}` : ""}</> });
   }
+  // owner 2026-11-07: the launch offer the run had (gateway 00175)
+  if ((run.campaign_cents ?? 0) > 0) {
+    steps.push({
+      at: run.created_at,
+      text: <span data-testid="run-campaign">Launch offer −{money(run.campaign_cents)}</span>,
+    });
+  }
   // owner 2026-11-07: the File quality asked for, with what the files measure
   const quality = fileQualityLine(run);
   const audio = audioLine(run);

@@ -86,6 +86,12 @@ const ROUTES: Record<string, (path: string) => unknown> = {
   }),
   "GET /v1/admin/accounts/uid_123": () => account,
   "GET /v1/admin/passkeys": () => ({ passkeys }),
+  "GET /v1/admin/campaign": () => ({
+    campaign: { active: true, pct: 0.25, percent: 25, max_preset: "qhd", presets: ["1080p", "qhd"], starts_at: "2026-11-07T00:00:00Z", ends_at: "2027-01-11T07:59:59Z", label: "Launch offer until Jan 10" },
+    totals: { runs: 4, quoted_cents: 1850, discounted_runs: 3, discounted_cents: 1425, by_state: { succeeded: { runs: 3, cents: 1425 }, processing: { runs: 1, cents: 425 } } },
+    by_month: [{ month: "2026-11", runs: 3, cents: 1425 }],
+    truncated: false,
+  }),
   "GET /v1/admin/passkey-adoption": () => ({
     accounts_with_passkey: 41,
     passkeys: 57,

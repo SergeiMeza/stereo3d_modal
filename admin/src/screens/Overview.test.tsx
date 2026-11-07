@@ -100,6 +100,40 @@ describe("Needs attention (Overview)", () => {
     expect(screen.getByRole("link", { name: "Needs attention: 2 need you today" })).toBeInTheDocument();
   });
 
+  it("the Launch offer card: off finished runs, quoted, not finished and by month (owner 2026-11-07)", async () => {
+    const { calls } = renderApp("/", {
+      ...routes,
+      "GET /v1/admin/campaign": () => ({
+        json: {
+          campaign: { active: true, pct: 0.25, percent: 25, max_preset: "qhd", presets: ["1080p", "qhd"], starts_at: "2026-11-07T00:00:00Z", ends_at: "2027-01-11T07:59:59Z", label: "Launch offer until Jan 10" },
+          totals: { runs: 5, quoted_cents: 2400, discounted_runs: 3, discounted_cents: 1500, by_state: { succeeded: { runs: 3, cents: 1500 }, failed: { runs: 2, cents: 900 } } },
+          by_month: [{ month: "2026-11", runs: 3, cents: 1500 }],
+          truncated: false,
+        },
+      }),
+    });
+    const card = await screen.findByTestId("launch-offer");
+    expect(card).toHaveTextContent("Launch offer");
+    expect(card).toHaveTextContent("Launch offer until Jan 10 · −25% · up to 1440p");
+    expect(within(card).getByTestId("launch-offer-discounted")).toHaveTextContent("$15.00");
+    expect(within(card).getByTestId("launch-offer-quoted")).toHaveTextContent("$24.00");
+    expect(within(card).getByTestId("launch-offer-states")).toHaveTextContent("Not finished: failed 2 ($9.00)");
+    expect(within(card).getByTestId("launch-offer-months")).toHaveTextContent("Nov 2026");
+    expect(within(card).getByTestId("launch-offer-months")).toHaveTextContent("3 · $15.00");
+    expect(calls.some((c) => c.path === "/v1/admin/campaign")).toBe(true);
+  });
+
+  it("no Launch offer card without a campaign or its runs", async () => {
+    renderApp("/", {
+      ...routes,
+      "GET /v1/admin/campaign": () => ({
+        json: { campaign: { active: false }, totals: { runs: 0, quoted_cents: 0, discounted_runs: 0, discounted_cents: 0, by_state: {} }, by_month: [], truncated: false },
+      }),
+    });
+    await screen.findByTestId("passkey-adoption");
+    expect(screen.queryByTestId("launch-offer")).toBeNull();
+  });
+
   it("Skip for now moves to the next item; Decide opens the case with the decision sheet", async () => {
     renderApp("/", { ...routes, "GET /v1/admin/cases/CASE-1042": () => ({ status: 404, json: { error: "not_found", message: "x" } }) });
     const next = await screen.findByRole("region", { name: "Next up" });
