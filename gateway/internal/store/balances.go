@@ -275,11 +275,13 @@ type Topup struct {
 	Error        string       `firestore:"error,omitempty" json:"-"`
 	ConversionID string       `firestore:"conversion_id,omitempty" json:"-"` // the run waiting for this reload
 	// PayRequestID: the pay link this top-up was opened from (D7).
-	PayRequestID string     `firestore:"pay_request_id,omitempty" json:"-"`
-	Attempt      int        `firestore:"attempt" json:"-"`
-	CreatedAt    time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `firestore:"updated_at" json:"-"`
-	PaidAt       *time.Time `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
+	PayRequestID string `firestore:"pay_request_id,omitempty" json:"-"`
+	// Retry: a failed auto-reload's retry schedule (D2).
+	Retry     *OffSessionRetry `firestore:"retry,omitempty" json:"-"`
+	Attempt   int              `firestore:"attempt" json:"-"`
+	CreatedAt time.Time        `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time        `firestore:"updated_at" json:"-"`
+	PaidAt    *time.Time       `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
 }
 
 func balancesCol(env string) string { return "balances_" + env }
@@ -493,7 +495,7 @@ func (l *ledger) apply(op BalanceOp) error {
 				b.Holds[id] = h
 			}
 		}
-		if b.AutoReload.PausedReason == "declined" || b.AutoReload.PausedReason == "limit" {
+		if b.AutoReload.PausedReason == "declined" || b.AutoReload.PausedReason == "limit" || b.AutoReload.PausedReason == "config" {
 			b.AutoReload.PausedReason = "" // a succeeded top-up clears a decline pause (T17)
 		}
 	case EntryHold:

@@ -867,13 +867,14 @@ func (c *Client) ChargeTopup(customerID, paymentMethodID string, amountCents int
 	return paymentintent.New(params)
 }
 
-// ChargeTopupWith charges an auto-reload on another saved method when the
-// default's charge made no PaymentIntent (B3): key
-// topup_{env}_{topup_id}_{pm}, metadata as ChargeTopup.
-func (c *Client) ChargeTopupWith(customerID, paymentMethodID string, amountCents int64, topupID string, job Job) (*stripe.PaymentIntent, error) {
+// ChargeTopupWith charges an auto-reload under key
+// topup_{env}_{topup_id}{keySuffix}, metadata as ChargeTopup: a backup
+// when the default's charge made no PaymentIntent (B3, suffix _{pm}), a
+// retry (D2, _r{n}, its backups _r{n}_{pm}).
+func (c *Client) ChargeTopupWith(customerID, paymentMethodID string, amountCents int64, topupID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
 	job.Web = true
 	job.Metadata = withMetadata(job.Metadata, map[string]string{"topup_id": topupID, "payment_flow": "topup"})
-	return c.chargeKeyed(customerID, paymentMethodID, amountCents, "usd", "topup_"+c.env+"_"+topupID+"_"+paymentMethodID, job)
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, "usd", "topup_"+c.env+"_"+topupID+keySuffix, job)
 }
 
 func withMetadata(base, add map[string]string) map[string]string {

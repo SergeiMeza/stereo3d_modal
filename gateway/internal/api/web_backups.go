@@ -18,7 +18,8 @@ type cascadeResult struct {
 	// PIID is the PaymentIntent left to close when nothing paid ("" when
 	// none was made).
 	PIID string
-	// Fail is the decision that ends it: the default's, or a stop code.
+	// Fail is the decision that ends it: the default's (or, when Stripe
+	// refused the default, the first bank's answer), or a stop code.
 	Fail stripex.ChargeFailure
 	// Transient: infrastructure trouble mid-way; the caller's lease lapses
 	// and its sweep re-drives under the same keys.
@@ -65,6 +66,9 @@ func (s *Service) webBackups(ctx context.Context, cust *store.Customer, first st
 			if r.PIID == "" {
 				r.PIID = pi.ID
 			}
+			if !r.CardDecision {
+				r.Fail = stripex.ChargeFailure{PaymentIntentID: pi.ID, Code: string(pi.Status), NeedsAction: true}
+			}
 			r.CardDecision = true
 			continue
 		}
@@ -77,6 +81,9 @@ func (s *Service) webBackups(ctx context.Context, cust *store.Customer, first st
 			r.PIID = f.PaymentIntentID
 		}
 		if !f.Config {
+			if !r.CardDecision { // the bank's answer speaks for the account, not Stripe's refusal
+				r.Fail = f
+			}
 			r.CardDecision = true
 		}
 		if f.Stop {
