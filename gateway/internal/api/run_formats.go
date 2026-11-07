@@ -15,7 +15,6 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
-	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -424,6 +423,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 	}
 	results := map[int]partResult{}
 	started := 0
+	outBps, maxBps, depth := repackRates(c)
 	for _, p := range todo {
 		get, gerr := s.GCS.SignedGetURL(c.Outputs[p.Source], repackURLExpiry)
 		put, perr := s.GCS.SignedPutURL(p.Key, ctype, repackURLExpiry)
@@ -432,7 +432,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		if err == nil {
 			id, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: src},
 				TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps,
-				OutputBitrateBps: repackBitrate(c, p.Source)}) // the run's own bitrate when it chose one
+				OutputBitrateBps: outBps, MaxBitrateBps: maxBps, OutputBitDepth: depth}) // the run's own rates
 		}
 		if err != nil {
 			slog.WarnContext(ctx, "repack not started", "conversion_id", c.ID, "format", req.Format, "part", p.Index, "err", err)
@@ -458,20 +458,15 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 	writeJSON(w, http.StatusAccepted, out)
 }
 
-// repackBitrate is a repack's output_bitrate_bps: the run's own target
-// (High, Master, a fixed choice); for a Standard run (CRF capped, and
-// repack has no cap) the stored file's measured video rate, else the
-// typical share of the cap, at most the cap, so the new format isn't made
-// at the preset's Master rate. 0 leaves the pipeline's default.
-func repackBitrate(c *store.Conversion, source string) int64 {
-	if c.Params.OutputBitrateBps > 0 || c.Params.OutputQuality != pricing.QualityStandard || c.Params.MaxBitrateBps <= 0 {
-		return c.Params.OutputBitrateBps
+// repackRates are a repack's rate fields, the run's own (lifelike3d
+// v27): Standard its CRF cap (max_bitrate_bps), High and a fixed choice
+// output_bitrate_bps, Master output_bitrate_bps plus output_bit_depth 10.
+// Zeros leave the pipeline's default.
+func repackRates(c *store.Conversion) (outputBps, maxBps int64, bitDepth int) {
+	if c.Params.OutputBitrateBps > 0 {
+		return c.Params.OutputBitrateBps, 0, c.Params.BitDepth
 	}
-	bps := int64(float64(c.Params.MaxBitrateBps) * (&pricing.Rates{}).QualityTypicalShare())
-	if m, ok := c.OutputsMedia[source]; ok && m.VideoKbps > 0 {
-		bps = int64(m.VideoKbps * 1000)
-	}
-	return min(max(bps, 1_000_000), c.Params.MaxBitrateBps)
+	return 0, c.Params.MaxBitrateBps, c.Params.BitDepth
 }
 
 // repackMedia reads a done repack's metadata.outputs_media.<format>.

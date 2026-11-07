@@ -485,3 +485,38 @@ func TestRunFormatsProgress(t *testing.T) {
 		t.Fatalf("done %v", out)
 	}
 }
+
+// A Standard run's repack carries its cap, a Master run's its target and
+// 10-bit (lifelike3d v27).
+func TestRunFormatsRepackRates(t *testing.T) {
+	s, stub := formatsService(t)
+	ctx := context.Background()
+	for _, tc := range []struct {
+		params store.Params
+		want   map[string]any
+	}{
+		{store.Params{OutputQuality: "standard", MaxBitrateBps: 40_000_000}, map[string]any{"max_bitrate_bps": 4e7, "output_bitrate_bps": nil, "output_bit_depth": nil}},
+		{store.Params{OutputQuality: "master", OutputBitrateBps: 150_000_000, BitDepth: 10, Bitrate: bitrateMaster}, map[string]any{"max_bitrate_bps": nil, "output_bitrate_bps": 1.5e8, "output_bit_depth": 10.0}},
+	} {
+		uid := "u" + store.NewID()
+		c := finishedRun(t, s, uid, "4k", "sbs")
+		if _, err := s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+			p := tc.params
+			p.Preset, p.Formats = x.Params.Preset, x.Params.Formats
+			x.Params = p
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		n := len(stub.bodies)
+		if code, out := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"mvhevc"}`); code != 202 {
+			t.Fatalf("start %d %v", code, out)
+		}
+		b := stub.bodies[n]
+		for k, v := range tc.want {
+			if b[k] != v {
+				t.Errorf("%s: %s = %v, want %v", tc.params.OutputQuality, k, b[k], v)
+			}
+		}
+	}
+}

@@ -93,27 +93,23 @@ func TestCollectOutputsToleratesNumbers(t *testing.T) {
 	}
 }
 
-// A Standard run's repack goes at the stored file's measured rate (repack
-// has no cap), at most the cap; High and Master keep their own target.
-func TestRepackBitrate(t *testing.T) {
-	std := &store.Conversion{Params: store.Params{OutputQuality: "standard", MaxBitrateBps: 40_000_000},
-		OutputsMedia: map[string]store.OutputMedia{"mvhevc": {VideoKbps: 18000}}}
-	if b := repackBitrate(std, "mvhevc"); b != 18_000_000 {
-		t.Fatalf("measured %d", b)
-	}
-	if b := repackBitrate(std, "sbs"); b != 20_000_000 {
-		t.Fatalf("unmeasured %d", b)
-	}
-	std.OutputsMedia["sbs"] = store.OutputMedia{VideoKbps: 90000}
-	if b := repackBitrate(std, "sbs"); b != 40_000_000 {
-		t.Fatalf("capped %d", b)
-	}
-	master := &store.Conversion{Params: store.Params{OutputQuality: "master", OutputBitrateBps: 60_000_000, BitDepth: 10}}
-	if b := repackBitrate(master, "mvhevc"); b != 60_000_000 {
-		t.Fatalf("master %d", b)
-	}
-	if b := repackBitrate(&store.Conversion{}, "mvhevc"); b != 0 {
-		t.Fatalf("app run %d", b)
+// A repack takes the run's own rates: Standard its cap, High its target,
+// Master its target and 10-bit; app runs the pipeline's default.
+func TestRepackRates(t *testing.T) {
+	for name, tc := range map[string]struct {
+		p        store.Params
+		out, max int64
+		depth    int
+	}{
+		"standard": {store.Params{OutputQuality: "standard", MaxBitrateBps: 40_000_000}, 0, 40_000_000, 0},
+		"high":     {store.Params{OutputQuality: "high", OutputBitrateBps: 80_000_000}, 80_000_000, 0, 0},
+		"master":   {store.Params{OutputQuality: "master", OutputBitrateBps: 150_000_000, BitDepth: 10}, 150_000_000, 0, 10},
+		"app":      {store.Params{}, 0, 0, 0},
+	} {
+		out, max, depth := repackRates(&store.Conversion{Params: tc.p})
+		if out != tc.out || max != tc.max || depth != tc.depth {
+			t.Errorf("%s: %d %d %d", name, out, max, depth)
+		}
 	}
 }
 

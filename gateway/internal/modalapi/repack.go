@@ -23,6 +23,11 @@ type RepackRequest struct {
 	// OutputBitrateBps: the run's own target (Master or an explicit
 	// choice); 0 leaves the pipeline's default.
 	OutputBitrateBps int64 `json:"output_bitrate_bps,omitempty"`
+	// MaxBitrateBps: Standard's CRF cap (lifelike3d v27; ignored when
+	// OutputBitrateBps is set). OutputBitDepth: 10 for Master (Main 10 on
+	// an mvhevc target; SBS stays 8-bit).
+	MaxBitrateBps  int64 `json:"max_bitrate_bps,omitempty"`
+	OutputBitDepth int   `json:"output_bit_depth,omitempty"`
 }
 
 // RepackSource is the stored output the repack reads.
@@ -74,6 +79,12 @@ func (c *Client) SubmitRepack(ctx context.Context, req RepackRequest) (string, e
 	}
 	if req.OutputBitrateBps > 0 {
 		body["output_bitrate_bps"] = req.OutputBitrateBps
+	}
+	if req.MaxBitrateBps > 0 && req.OutputBitrateBps <= 0 {
+		body["max_bitrate_bps"] = req.MaxBitrateBps
+	}
+	if req.OutputBitDepth > 0 {
+		body["output_bit_depth"] = req.OutputBitDepth
 	}
 	var out struct {
 		RepackID string `json:"repack_id"`
