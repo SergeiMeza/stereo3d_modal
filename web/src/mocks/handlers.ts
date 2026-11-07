@@ -3280,12 +3280,14 @@ export const handlers = [
           row_id: `${id}_refund`,
           kind: "refund",
           created_at: ch.created_at,
-          amount_cents: ch.amount_cents,
+          // like the gateway (history_rows.go): a refund is negative, its
+          // local amount too (REV-05)
+          amount_cents: -Number(ch.amount_cents),
           currency: "usd",
           status: "refunded",
           credit_note_url: `https://invoice.stripe.com/cn/mock/${id}`,
           help_ref: id.slice(-4).toUpperCase(),
-          presentment: ch.presentment ?? null,
+          presentment: refundPresentment(ch.presentment as { amount_minor: number; currency: string } | null | undefined),
           items: ch.items,
         });
       }
@@ -5611,4 +5613,11 @@ async function forwardToMain(request: Request): Promise<Response> {
     headers: request.headers,
     body,
   });
+}
+
+/** A refund's local amount, negative like the gateway's (REV-05). */
+function refundPresentment(
+  p: { amount_minor: number; currency: string } | null | undefined,
+): { amount_minor: number; currency: string } | null {
+  return p ? { ...p, amount_minor: -p.amount_minor } : null;
 }

@@ -308,13 +308,20 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
       : items.length > 1
         ? t("billing.history.items", { count: items.length })
         : itemLine(items[0], t);
-  const amount = refund ? `−${formatCents(row.amount_cents, t)}` : formatCents(row.amount_cents, t);
+  // REV-05: the gateway sends a refund negative (its amount and its local
+  // amount); the row writes one minus itself, whatever the sign it gets
+  const minus = refund || row.amount_cents < 0 ? "−" : "";
+  const usdAbs = Math.abs(row.amount_cents);
+  const amount = `${minus}${formatCents(usdAbs, t)}`;
   // owner 2026-11-07: a card charged in its own currency shows that amount,
   // with the US dollars under it ("Paid ¥1,234 ($8.25)" for screen readers)
-  const local = localAmount(row.presentment, t);
-  const localText = local === null ? null : refund ? `−${local}` : local;
+  const local = localAmount(
+    row.presentment ? { ...row.presentment, amount_minor: Math.abs(row.presentment.amount_minor) } : row.presentment,
+    t,
+  );
+  const localText = local === null ? null : `${minus}${local}`;
   // beside another currency the US dollars say so ("USD 49.72")
-  const usdLabeled = refund ? `−${formatUsdLabeled(row.amount_cents, t.intl)}` : formatUsdLabeled(row.amount_cents, t.intl);
+  const usdLabeled = `${minus}${formatUsdLabeled(usdAbs, t.intl)}`;
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
