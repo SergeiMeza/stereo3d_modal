@@ -2,7 +2,7 @@
  * Prepaid balance (spec v7 §N, G2 P10 Balance + Usage, P17–P19) against the
  * mock gateway.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
@@ -15,6 +15,10 @@ import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
 
+import { applyLiveEvent } from "@/lib/live/liveStore";
+import { appStore } from "@/lib/state/stores";
+
+import { liveBalance } from "./BalanceCard";
 import { BillingScreen } from "./BillingScreen";
 import { clockOf, recentMonths, usageStatus } from "./UsageTab";
 
@@ -52,6 +56,39 @@ function topped(cents: number) {
   pp.last_topup_at = "2026-11-01T00:00:00Z";
   pp.topups = 1;
 }
+
+describe("the balance follows the live feed (owner 2026-11-07)", () => {
+  it("billing.updated shows the new balance at once, and the billing status is read again", async () => {
+    topped(2500);
+    // no mock stream: the event is applied by hand
+    mockDb.eventsDown = true;
+    let reads = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/billing") reads += 1;
+    });
+    renderBilling();
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$25.00"));
+    const before = reads;
+    // a run was paid from the balance elsewhere: the gateway says so
+    mockDb.billing.prepaid.balance_cents = 1800;
+    act(() => {
+      applyLiveEvent(appStore, {
+        type: "billing.updated",
+        balance: { version: Date.now() * 1000, balance_cents: 1800, held_cents: 0 },
+      });
+    });
+    expect(screen.getByTestId("balance-amount").textContent).toBe("$18.00");
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+    await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$18.00"));
+    server.events.removeAllListeners();
+  });
+
+  it("a balance older than the last read changes nothing", () => {
+    const read = prepaidOf({ balance: { available_cents: 2500, held_cents: 0 } } as unknown as BillingStatus)!;
+    expect(liveBalance(read, { version: 5, balance_cents: 100 }, 9).available_cents).toBe(2500);
+    expect(liveBalance(read, { version: 10, balance_cents: 100, held_cents: 300 }, 9)).toMatchObject({ available_cents: 100, held_cents: 300 });
+  });
+});
 
 describe("the balance and a plan's usage, apart (owner 2026-11-05)", () => {
   function business(left: number): void {

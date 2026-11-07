@@ -2580,6 +2580,14 @@ let streamTicker: ReturnType<typeof setInterval> | null = null;
 /** what the streams last said about handoffs and the settle */
 const sentHandoffs = new Map<string, string>();
 let sentSettle = "";
+let sentBalance = "";
+
+/** billing.updated kind balance: what's spendable and what runs hold. */
+function balanceBody() {
+  const pp = mockDb.billing.prepaid;
+  const held = [...pp.holds.values()].reduce((n: number, c: number) => n + c, 0);
+  return { balance_cents: Math.max(pp.balance_cents - held - pp.frozen_cents, 0), held_cents: held };
+}
 
 /** The gateway's handoff doc state: waiting | paying, closed once used or
  * expired. */
@@ -2663,6 +2671,12 @@ function streamTick() {
     sentHandoffs.set(code, state);
     broadcast("handoff.state", { code, run_id: h.conversion_id, version: micros(new Date().toISOString()), state });
   }
+  // the prepaid balance (billing.updated)
+  const balance = balanceBody();
+  if (JSON.stringify(balance) !== sentBalance) {
+    sentBalance = JSON.stringify(balance);
+    broadcast("billing.updated", { kind: "balance", version: micros(new Date().toISOString()), ...balance });
+  }
   // the settle of what's owed (billing.updated)
   const settle = settleBody();
   if (JSON.stringify(settle) !== sentSettle) {
@@ -2690,6 +2704,7 @@ export function closeMockStreams() {
   for (const s of [...streams]) s.close();
   sentHandoffs.clear();
   sentSettle = "";
+  sentBalance = "";
 }
 
 /**
@@ -2755,7 +2770,10 @@ function eventStream(request: Request) {
           sentSettle = JSON.stringify(settleBody());
           return [{ ...settleBody(), version: micros(new Date().toISOString()) }];
         })(),
-        billing: null,
+        billing: (() => {
+          sentBalance = JSON.stringify(balanceBody());
+          return { ...balanceBody(), version: micros(new Date().toISOString()) };
+        })(),
       });
       streamTicker ??= setInterval(streamTick, POLL_INTERVAL_MS);
       request.signal.addEventListener("abort", () => me.close());

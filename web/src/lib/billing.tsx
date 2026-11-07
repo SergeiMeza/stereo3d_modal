@@ -15,6 +15,7 @@
  * the fetch, and the atoms only keep its results.
  */
 
+import { billingVersionAtom } from "@/lib/live/liveStore";
 import { atom } from "jotai";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
@@ -47,14 +48,23 @@ export const billingUidAtom = atom<string | null>(null);
 /** The registered fetch (BillingProvider): a function, never a token. */
 let fetchBilling: (() => Promise<BillingStatus>) | null = null;
 
+/** Owner 2026-11-07: the newest billing event a read covers (the live
+ * feed's billing.updated version when the read started). The balance the
+ * feed sent after it is newer than the read. */
+export const billingReadVersionAtom = atom<number>(0);
+
 /** Read GET /v1/billing again; an answer for another account is dropped. */
 export const refreshBillingAtom = atom(null, async (get, set): Promise<BillingStatus | null> => {
   const uid = get(billingUidAtom);
   const fetcher = fetchBilling;
   if (uid === null || fetcher === null) return null;
+  const covers = get(billingVersionAtom);
   try {
     const s = await fetcher();
-    if (get(billingUidAtom) === uid) set(billingAtom, { uid, status: s, error: null });
+    if (get(billingUidAtom) === uid) {
+      set(billingAtom, { uid, status: s, error: null });
+      if (covers > get(billingReadVersionAtom)) set(billingReadVersionAtom, covers);
+    }
     return s;
   } catch (e) {
     const message = e instanceof Error ? e.message : "billing status failed";
@@ -115,6 +125,14 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     };
   }, [gateway]);
 
+  // owner 2026-11-07: a billing event from the live feed (a balance or a
+  // settle that changed) reads the billing status again, so every place
+  // that shows it agrees
+  const billingVersion = useAppAtomValue(billingVersionAtom);
+  useEffect(() => {
+    if (billingVersion > 0) void appStore.set(refreshBillingAtom);
+  }, [billingVersion]);
+
   useEffect(() => {
     if (!ready) return;
     const uid = user?.uid ?? null;
@@ -138,6 +156,7 @@ export function useBilling(): BillingContextValue {
 /** Test hook: signed out, nothing fetched, no fetch registered. */
 export function resetBillingForTests(): void {
   appStore.set(planCreditWaitAtom, (n) => n + 1);
+  appStore.set(billingReadVersionAtom, 0);
   appStore.set(billingAtom, null);
   appStore.set(billingUidAtom, null);
   fetchBilling = null;

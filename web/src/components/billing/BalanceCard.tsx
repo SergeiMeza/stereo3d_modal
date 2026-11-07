@@ -17,7 +17,22 @@ import { Button } from "@/components/ui/button";
 import { isTeamPlan, prepaidOf } from "@/lib/api/types";
 import type { AccountPlan, BalanceCredit, BalanceSummary, ProCreditStatus } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
-import { useBilling } from "@/lib/billing";
+import { billingReadVersionAtom, useBilling } from "@/lib/billing";
+import type { LiveBalance } from "@/lib/live/events";
+import { liveBalanceAtom } from "@/lib/live/liveStore";
+import { useLiveFeed } from "@/lib/live/useLive";
+import { useAppAtomValue } from "@/lib/state/stores";
+
+/** The read balance with the live feed's numbers on top when they're
+ * newer (the feed sends the spendable amount and what runs hold). */
+export function liveBalance(read: BalanceSummary, live: LiveBalance | null, readVersion: number): BalanceSummary {
+  if (live === null || live.version <= readVersion) return read;
+  return {
+    ...read,
+    ...(typeof live.balance_cents === "number" ? { available_cents: live.balance_cents } : {}),
+    ...(typeof live.held_cents === "number" ? { held_cents: live.held_cents } : {}),
+  };
+}
 
 function longDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -102,11 +117,17 @@ export function BalanceCard(): JSX.Element | null {
   const gateway = useGateway();
   const billing = useBilling();
   const { openAddFunds, openAutoReload, openSpending } = useBalanceDialogs();
+  // owner 2026-11-07: the balance from the live feed (billing.updated and
+  // the snapshot) when it's newer than the last billing read
+  useLiveFeed();
+  const live = useAppAtomValue(liveBalanceAtom);
+  const readVersion = useAppAtomValue(billingReadVersionAtom);
   if (status === null) {
     return <div data-testid="balance-loading" className="h-44 animate-pulse rounded-xl bg-surface-1" />;
   }
-  const b = prepaidOf(status);
-  if (!b) return null; // a gateway without the balance yet
+  const read = prepaidOf(status);
+  if (!read) return null; // a gateway without the balance yet
+  const b = liveBalance(read, live, readVersion);
   const ar = b.auto_reload;
   const paused = ar.enabled && ar.paused_reason ? (PAUSED[ar.paused_reason] ?? PAUSED.declined) : null;
   const limit = b.spend_limit_cents ?? null;
