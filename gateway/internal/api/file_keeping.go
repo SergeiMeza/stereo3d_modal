@@ -420,7 +420,7 @@ func (s *Service) sendFileNotice(ctx context.Context, cust *store.Customer, proj
 		slog.WarnContext(ctx, "file keeping: notice not sendable (no address or mail key)", "projects", len(projects))
 		return false
 	}
-	lang := mailLangOf(cust)
+	lang := mail.Resolve(mailLangOf(cust))
 	l := fileNoticeLayout(projects, lead, now, s.Cfg.SiteURL, s.rates(ctx).FileKeep(), lang)
 	to := cust.Email
 	if s.Cfg.Env != "prod" {

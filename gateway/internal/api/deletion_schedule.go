@@ -47,6 +47,9 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 	if cust != nil && cust.Email != "" {
 		email = cust.Email // the account's own address
 	}
+	if email == "" {
+		email = s.signInEmail(ctx, uid) // support's request for an account with no customer record
+	}
 	d, created, err := s.Store.ScheduleAccountDeletion(ctx, &store.AccountDeletion{UID: uid, RequestedAt: now,
 		DeleteAfter: now.Add(o.Delay), Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
 	if err != nil {
@@ -61,6 +64,17 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 		s.mailCustomer(ctx, fmt.Sprintf("DL1_%s_%d", uid, d.RequestedAt.Unix()), uid, d.Email, deletionScheduledMail(d.DeleteAfter, s.Cfg.SiteURL, lost))
 	}
 	return http.StatusAccepted, scheduledDeletionBody(d, deletionPlan(cust)), nil
+}
+
+// signInEmail is the account's sign-in email ("" when unknown).
+func (s *Service) signInEmail(ctx context.Context, uid string) string {
+	if s.Identities == nil {
+		return ""
+	}
+	if id, err := s.Identities.IdentityOf(ctx, uid); err == nil && id != nil {
+		return id.Email
+	}
+	return ""
 }
 
 // scheduledDeletionBody is the answer while a deletion waits. It keeps

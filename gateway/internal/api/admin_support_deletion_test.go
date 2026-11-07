@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -95,5 +98,39 @@ func TestAdminAutoReloadOff(t *testing.T) {
 	tp, _ := s.Store.GetTopup(ctx, id)
 	if b.AutoReload.Enabled || tp.Retry.State != store.RetryCanceled {
 		t.Fatalf("auto-reload %v retry %+v", b.AutoReload.Enabled, tp.Retry)
+	}
+}
+
+// Support deleting an account with no customer record: DL1 goes to the
+// sign-in email.
+func TestAdminRequestDeletionMailsSignInEmail(t *testing.T) {
+	s, _ := e0Service(t)
+	s.Pricing = pricing.NewStatic(pricing.DefaultsFor("test"))
+	s.RevenueCat = revenuecat.New("")
+	s.Cfg.Env = "prod" // the mail goes to the account, not the owner
+	ids := newFakeIdentities()
+	uid := "u" + store.NewID()
+	ids.add(uid, "signin@example.com", "password")
+	s.Identities = ids
+	var to []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		if l, ok := m["to"].([]any); ok && len(l) > 0 {
+			to = append(to, l[0].(string))
+		}
+		_, _ = w.Write([]byte(`{"id":"m1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	s.Mail = mail.NewResend("re_test", "").WithEndpoint(srv.URL)
+	if s.accountDeleteDelay(context.Background()) <= 0 {
+		t.Skip("no delay configured")
+	}
+	a := &AdminUser{UID: "admin", Email: "owner@x", Method: "passkey", AssertedAt: time.Now(), AuthTime: time.Now()}
+	if code, out := adminAct(t, s, a, uid, `{"action":"request_deletion"}`); code != http.StatusAccepted {
+		t.Fatalf("request %d %v", code, out)
+	}
+	if len(to) != 1 || to[0] != "signin@example.com" {
+		t.Fatalf("DL1 to %v", to)
 	}
 }

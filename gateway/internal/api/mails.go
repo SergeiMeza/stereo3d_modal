@@ -90,7 +90,7 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 		return
 	}
 	cust, _ := s.Store.GetCustomer(ctx, uid)
-	lang := mailLangOf(cust)
+	lang := mail.Resolve(mailLangOf(cust))
 	l := m.layout(lang)
 	to := email
 	cc := ""

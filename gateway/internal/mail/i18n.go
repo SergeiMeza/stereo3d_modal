@@ -11,10 +11,12 @@ import (
 	"time"
 )
 
-// Customer mail copy in the web's 11 languages (copy/<lang>.json, the
-// same terms as web/messages). Keys are flat ("e1.subject"); {name}
-// placeholders are filled by T. A key missing in a language falls back to
-// English, so a mail never goes out with a raw key.
+// Customer mail copy (copy/<lang>.json, the same terms as web/messages).
+// Keys are flat ("e1.subject"); {name} placeholders are filled by T. A key
+// missing in a language falls back to English, so a mail never goes out
+// with a raw key. English first (owner 2026-11-08): only en.json ships
+// for now; the keys still to translate are in TODO-translations.md, and a
+// language without its file renders in English (Resolve).
 
 //go:embed copy/*.json
 var copyFS embed.FS
@@ -81,6 +83,16 @@ func T(lang, key string, args Args) string {
 		s = strings.ReplaceAll(s, "{"+k+"}", v)
 	}
 	return s
+}
+
+// Resolve is the language a mail for lang renders in: lang when its copy
+// file ships, else English (a half-translated mail is worse than an
+// English one).
+func Resolve(lang string) string {
+	if _, ok := catalogs[lang]; ok {
+		return lang
+	}
+	return "en"
 }
 
 // Dir is "rtl" for Arabic, else "ltr".
