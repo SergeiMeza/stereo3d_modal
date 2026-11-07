@@ -88,6 +88,12 @@ EXTRA_ENV=""
 if [[ -n "${SVS_BACKEND_URL:-}" ]]; then
   EXTRA_ENV="${EXTRA_ENV}|SVS_BACKEND_URL=${SVS_BACKEND_URL}"
 fi
+# QA agents' sign-in codes in the TEST log (owner 2026-11-07): set on the
+# test deploy only. The prod deploy never sets it, and the gateway ignores
+# it unless APP_ENV=test.
+if [[ "$ENV" == "test" ]]; then
+  EXTRA_ENV="${EXTRA_ENV}|QA_LOG_SIGNIN_CODES=1"
+fi
 CONCURRENCY="${CONCURRENCY:-20}"
 MAX_INSTANCES="${MAX_INSTANCES:-10}"
 

@@ -100,6 +100,16 @@ func main() {
 		Sessions: idh.Client,
 		Mail:     mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom),
 	}
+	// QA agents' codes in the TEST log (owner 2026-11-07): APP_ENV=test
+	// and QA_LOG_SIGNIN_CODES=1 together; prod refuses it.
+	codes.Env = cfg.Env
+	codes.LogQACodes = emailcode.QALogAllowed(cfg.Env, os.Getenv(emailcode.QALogSwitch))
+	if os.Getenv(emailcode.QALogSwitch) != "" && !codes.LogQACodes {
+		slog.Error("QA_LOG_SIGNIN_CODES ignored: only APP_ENV=test with value 1 logs QA sign-in codes", "env", cfg.Env)
+	}
+	if codes.LogQACodes {
+		slog.Warn("TEST: sign-in codes for qa-agent+…@lpp.pw are logged")
+	}
 	ech := emailcode.NewHandlers(codes, ips)
 	// Sessions without the SDK (passkey session:true, Apple/Google links)
 	// and email codes for linking (/v1/account/identities).

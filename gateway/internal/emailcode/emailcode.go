@@ -26,6 +26,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -106,6 +107,12 @@ type Service struct {
 	Now    func() time.Time
 	// NewCode makes a code (tests pin it); default crypto/rand.
 	NewCode func() (string, error)
+	// Env is the gateway's environment; LogQACodes logs the codes mailed
+	// to QA agents (qa_log.go), honoured only when Env is "test".
+	Env        string
+	LogQACodes bool
+	// Log: nil is slog.Default().
+	Log *slog.Logger
 }
 
 func (s *Service) now() time.Time {
@@ -239,6 +246,7 @@ func (s *Service) StartIn(ctx context.Context, email string, lang mail.Lang) (ti
 	if err := s.Mail.Send(ctx, mail.SignInCodeIn(email, code, lang)); err != nil {
 		return 0, fmt.Errorf("%w: mail: %v", ErrUnavailable, err)
 	}
+	s.logQACode(ctx, email, code) // TEST only, QA agents only
 	return ResendGap, nil
 }
 

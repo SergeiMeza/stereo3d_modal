@@ -1979,6 +1979,19 @@ no images, fonts or links; same sender (`Spatial Video Studio
 locale; svs-backend sends `language` from the app's locale (and the
 relay header for China requests).
 
+### QA sign-in codes in the TEST log (TEST only, 2026-11-07)
+
+TEST-only: QA sign-in codes logged for qa-agent+…@lpp.pw; never on prod.
+Each code mailed to an address matching `^qa-agent\+[a-z0-9._-]+@lpp\.pw$`
+(lowercased and trimmed first) writes one Info line, msg `qa signin code`,
+with `qa_code` and `email` and nothing else, so QA agents sign in without
+the owner relaying codes. It needs both `APP_ENV=test` and
+`QA_LOG_SIGNIN_CODES=1`; `deploy.sh test` sets the switch, `deploy.sh prod`
+never does, and the gateway refuses it on prod even if it's set. The
+per-address send limits are unchanged; a refused or failed send logs
+nothing. Read them with
+`gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="stereo3d-gateway-test" AND jsonPayload.msg="qa signin code"' --project spatial-video-studio --freshness 1h --format 'value(jsonPayload.email,jsonPayload.qa_code)'`.
+
 ### Linked sign-in methods (the app's sign-in contract, 2026-11-06)
 
 Server-side, because the Firebase SDK's linking can't reach Google from
