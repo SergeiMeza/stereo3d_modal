@@ -511,7 +511,11 @@ export class GatewayClient {
         ? {
             amount_cents: amountCents,
             method,
-            return_url: typeof window !== "undefined" ? `${window.location.origin}/pay/return?topup=1` : undefined,
+            // BUX-04: the return page confirms the top-up by its amount
+            return_url:
+              typeof window !== "undefined"
+                ? `${window.location.origin}/pay/return?topup=1&amount=${amountCents}`
+                : undefined,
           }
         : { amount_cents: amountCents, ui: "elements" },
     );

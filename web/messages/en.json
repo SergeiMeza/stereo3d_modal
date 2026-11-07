@@ -697,7 +697,9 @@
       "tryAgain": "Try again",
       "chooseAnother": "Choose another way to pay",
       "slow": "This is taking longer than usual. We'll start as soon as the payment is confirmed.",
-      "startAgain": "Start again"
+      "startAgain": "Start again",
+      "backToBilling": "Back to Billing",
+      "slowTopup": "This is taking longer than usual. We'll add it to your balance as soon as the payment is confirmed."
     },
     "settle": {
       "nothingToPay": "Nothing to pay."
