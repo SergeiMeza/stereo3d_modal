@@ -52,6 +52,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  ANALYZE_TOO_LONG_MS,
   applyProjectUpdateAtom,
   loadProjectAtom,
   projectAtom,
@@ -74,6 +75,7 @@ import { videoFacts } from "@/lib/glossary";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { retainOpenProject } from "@/lib/live/hub";
 import { RUN_TERMINAL } from "@/lib/live/liveStore";
+import { JOB_PROGRESS_READ_MS } from "@/components/workspace/jobProgress";
 import { useLiveProject } from "@/lib/live/useLive";
 
 /** What the live feed says that the page's last read doesn't: a run now
@@ -185,6 +187,32 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
   useEffect(() => {
     if (readAgain !== "") void refetch();
   }, [readAgain, refetch]);
+
+  // QA 2026-11-07 (Analyzing… 8% while the server was at 70%): the live
+  // feed carries an analysis's or profile's start and end, not its %
+  // (jobProgress.ts). While one runs, the open page reads the project
+  // every JOB_PROGRESS_READ_MS for it, whether the feed is up or not.
+  // A job past ANALYZE_TOO_LONG_MS isn't read on: the notice says it's
+  // taking longer than usual and offers Refresh.
+  const jobStart =
+    project === null
+      ? null
+      : project.analyze.state === "running"
+        ? project.created_at
+        : project.profile?.state === "running"
+          ? (project.profile.updated_at ?? null)
+          : null;
+  useEffect(() => {
+    if (jobStart === null) return;
+    const started = Date.parse(jobStart);
+    const fresh = () => !Number.isFinite(started) || Date.now() - started < ANALYZE_TOO_LONG_MS;
+    if (!fresh()) return;
+    const timer = setInterval(() => {
+      if (fresh()) void refetch();
+      else clearInterval(timer);
+    }, JOB_PROGRESS_READ_MS);
+    return () => clearInterval(timer);
+  }, [jobStart, refetch]);
 
   // the "taking longer than usual" watch follows the live analysis
   const analyzeKey = project ? `${project.analyze.state}|${project.analyze.stage ?? ""}|${project.analyze.progress ?? ""}` : "";

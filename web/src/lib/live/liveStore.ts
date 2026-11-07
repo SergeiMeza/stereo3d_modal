@@ -261,6 +261,12 @@ function newestFirst(a: { created_at: string }, b: { created_at: string }): numb
  * run merged, runs the page hasn't read yet added (a project read with
  * its runs), and a list item's card summary from its newest run.
  */
+/** Of two reads of the same running job, the one further along. */
+function furthest<J extends { state?: string; progress?: number } | null | undefined>(a: J, b: J): J {
+  if (!a || !b || a.state !== b.state || (a.state !== "running" && a.state !== "queued")) return b;
+  return (a.progress ?? -1) > (b.progress ?? -1) ? a : b;
+}
+
 export function mergeProject(
   base: Project,
   patch: ProjectPatch | null,
@@ -278,6 +284,14 @@ export function mergeProject(
       void _v;
       void _d;
       p = { ...base, ...fields };
+      // QA 2026-11-07: an analysis's or profile's progress is the gateway's
+      // read-through of the job, never written to the project, so the
+      // feed's copy keeps the % of its last write while a fresh read has
+      // the job's own. The same job only moves forward: the further one.
+      const analyze = furthest(base.analyze, p.analyze);
+      if (analyze !== p.analyze) p = { ...p, analyze };
+      const profile = furthest(base.profile, p.profile);
+      if (profile !== p.profile) p = { ...p, profile };
     }
   }
   if (base.conversions !== undefined) {

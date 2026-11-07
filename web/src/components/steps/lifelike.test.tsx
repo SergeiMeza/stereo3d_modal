@@ -315,6 +315,20 @@ describe("Lifelike Deliver", () => {
     });
   });
 
+  it("QA 2026-11-07: a finished run prices the next one again (the price card isn't left on the old terms)", async () => {
+    const project = lifelikeProject();
+    const quotes = captureBodies("/quotes");
+    renderPanel(<LifelikeDeliverPanel project={project} onProjectChanged={() => {}} />);
+    await screen.findByTestId("charge-timing-hint");
+    await waitFor(() => expect((screen.getByTestId("checkout-main") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    // the run's files: it's done
+    await screen.findByTestId("file-group-mvhevc", {}, { timeout: 5000 });
+    const atDone = quotes.length;
+    await waitFor(() => expect(quotes.length).toBeGreaterThan(atDone));
+    expect(await screen.findByTestId("charge-timing-hint")).toBeTruthy();
+  });
+
   it("keeps one file when the user says so", async () => {
     const project = lifelikeProject({ duration_s: 1800, num_frames: 43200 });
     const sent = captureBodies("/conversions");

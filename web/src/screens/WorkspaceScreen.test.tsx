@@ -51,6 +51,8 @@ import WorkspaceScreen from "@/screens/WorkspaceScreen";
 // the mock status stream's tick (owner 2026-11-07: the feed moves the
 // analysis; no page timer)
 vi.mock("@/components/steps/polling", () => ({ POLL_INTERVAL_MS: 40 }));
+// a running analysis's % is read on the page (QA 2026-11-07); fast here
+vi.mock("@/components/workspace/jobProgress", () => ({ JOB_PROGRESS_READ_MS: 60 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -403,6 +405,52 @@ describe("WorkspaceScreen — fixture rendering", () => {
     await screen.findByTestId("analyzing-state");
     expect(await screen.findByTestId("overview-price", {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByTestId("analyzing-state")).toBeNull();
+  });
+
+  it("QA 2026-11-07: the % follows the job while the feed is open but silent about it", async () => {
+    // the real gateway works the % out on each read and never writes it:
+    // the stream's snapshot keeps its last write (8%), nothing more comes
+    const started = new Date().toISOString();
+    const at = (progress: number): Project => {
+      const p = structuredClone(projectFixture) as unknown as Project;
+      p.analyze = { state: "running", error: "", credit_cents: 0, credit_available: false, progress, stage: "thumbnails" };
+      delete p.probe;
+      delete p.scenes;
+      delete p.strip_thumbs;
+      delete p.scene_thumbs;
+      p.created_at = started;
+      p.updated_at = started;
+      return p;
+    };
+    let reads = 0;
+    const encoder = new TextEncoder();
+    server.use(
+      http.get(`${GATEWAY}/v1/projects/:id`, () => {
+        reads += 1;
+        return HttpResponse.json(at(reads === 1 ? 0.08 : 0.7));
+      }),
+      http.get(`${GATEWAY}/v1/events`, () => {
+        const { conversions: _c, ...snapProject } = at(0.08);
+        void _c;
+        const body = new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(encoder.encode("retry: 2000\n\n"));
+            // a later doc version than the page's read, with the stale %
+            const data = JSON.stringify({ type: "snapshot", version: 9e15, runs: [], projects: [{ ...snapProject, version: 9e15 }] });
+            c.enqueue(encoder.encode(`event: snapshot\nid: 1\ndata: ${data}\n\n`));
+          },
+        });
+        return new HttpResponse(body, { headers: { "Content-Type": "text/event-stream" } });
+      }),
+    );
+    render(
+      <AuthProvider>
+        <WorkspaceScreen projectId={PID} />
+      </AuthProvider>,
+    );
+    expect((await screen.findByTestId("analyze-progress")).textContent).toContain("8%");
+    await waitFor(() => expect(screen.getByTestId("analyze-progress").textContent).toContain("70%"));
+    expect(reads).toBeGreaterThan(1);
   });
 
   it("shows the LIVE analyze progress (stage label, percent, bar, eta) while running", async () => {

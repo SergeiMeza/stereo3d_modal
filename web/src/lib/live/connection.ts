@@ -7,7 +7,10 @@
  *   the server's `retry:` up to 30 s, resuming with Last-Event-ID; `bye`
  *   reconnects after its retry_ms;
  * - only while the stream is down, one slow poll (15 s) of the GET routes
- *   fills the same atoms;
+ *   fills the same atoms, starting with one read at once;
+ * - a stream that goes quiet (no event and no heartbeat for STALE_MS; the
+ *   gateway comments ": hb" every 20 s) counts as broken: a half-open
+ *   connection never errors on its own (QA 2026-11-07);
  * - pause() (page hidden) closes it and stops the poll; start() again
  *   reconnects, and the snapshot resyncs.
  */
@@ -23,6 +26,8 @@ type Store = ReturnType<typeof createStore>;
 export const BACKOFF_BASE_MS = 2000;
 export const BACKOFF_MAX_MS = 30_000;
 export const FALLBACK_POLL_MS = 15_000;
+/** Two missed heartbeats and a bit: the stream is stale. */
+export const STALE_MS = 45_000;
 
 /** The stream answered something other than 200 (401: a bad token). */
 export class LiveStreamError extends Error {
@@ -45,6 +50,7 @@ export interface LiveOptions {
   random?: () => number;
   fallbackMs?: number;
   maxMs?: number;
+  staleMs?: number;
 }
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -53,6 +59,7 @@ export class LiveConnection {
   private abort: AbortController | null = null;
   private retryTimer: Timer | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private staleTimer: Timer | null = null;
   private attempt = 0;
   private baseMs = BACKOFF_BASE_MS;
   private lastId: string | null = null;
@@ -99,7 +106,22 @@ export class LiveConnection {
     this.abort = null;
     if (this.retryTimer !== null) clearTimeout(this.retryTimer);
     this.retryTimer = null;
+    this.stopWatch();
     this.stopPoll();
+  }
+
+  /** (Re)arm the quiet-stream watch: no bytes for staleMs aborts it. */
+  private watch(ac: AbortController): void {
+    this.stopWatch();
+    this.staleTimer = setTimeout(() => {
+      this.staleTimer = null;
+      if (this.abort === ac) ac.abort(new Error("stale"));
+    }, this.opts.staleMs ?? STALE_MS);
+  }
+
+  private stopWatch(): void {
+    if (this.staleTimer !== null) clearTimeout(this.staleTimer);
+    this.staleTimer = null;
   }
 
   private stopPoll(): void {
@@ -119,6 +141,7 @@ export class LiveConnection {
       this.status("open");
       this.attempt = 0;
       this.stopPoll();
+      this.watch(ac);
       await readSse(
         body,
         {
@@ -126,13 +149,17 @@ export class LiveConnection {
           onRetry: (ms) => {
             this.baseMs = Math.max(250, ms);
           },
+          onActivity: () => this.watch(ac),
         },
         ac.signal,
       );
     } catch {
       // a refused or broken stream: down below
     }
-    if (ac.signal.aborted || !this.running || this.abort !== ac) return;
+    this.stopWatch();
+    // a stale stream was aborted by its own watch: it's down, not closed
+    const stale = ac.signal.aborted && ac.signal.reason instanceof Error && ac.signal.reason.message === "stale";
+    if ((ac.signal.aborted && !stale) || !this.running || this.abort !== ac) return;
     this.abort = null;
     if (this.byeMs !== null) {
       // the server said goodbye (max age, its listener): come straight back
@@ -155,6 +182,9 @@ export class LiveConnection {
 
   private startPoll(): void {
     if (this.pollTimer !== null) return;
+    // one read at once (what moved while the stream was going down), then
+    // the slow poll
+    void this.transport.poll().catch(() => {});
     this.pollTimer = setInterval(() => {
       void this.transport.poll().catch(() => {});
     }, this.opts.fallbackMs ?? FALLBACK_POLL_MS);

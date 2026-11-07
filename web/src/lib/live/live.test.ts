@@ -6,9 +6,9 @@
 import { createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Conversion } from "@/lib/api/types";
+import type { Conversion, Project } from "@/lib/api/types";
 
-import { BACKOFF_MAX_MS, FALLBACK_POLL_MS, LiveConnection, type LiveTransport } from "./connection";
+import { BACKOFF_MAX_MS, FALLBACK_POLL_MS, LiveConnection, STALE_MS, type LiveTransport } from "./connection";
 import { parseLiveEvent, versionOf } from "./events";
 import { liveConnectionForTests, retainLive, setLiveOptionsForTests } from "./hub";
 import {
@@ -17,6 +17,7 @@ import {
   applyRun,
   liveProjectAtom,
   liveStatusAtom,
+  mergeProject,
   mergeRun,
   projectRunIdsAtom,
   resetLive,
@@ -190,6 +191,31 @@ describe("readSse", () => {
   });
 });
 
+describe("a running job's progress (QA 2026-11-07)", () => {
+  const project = (progress: number, updated_at: string): Project =>
+    ({
+      project_id: "p1",
+      updated_at,
+      analyze: { state: "running", credit_cents: 0, credit_available: false, progress, stage: "thumbnails" },
+    }) as unknown as Project;
+
+  it("a newer feed copy never takes a running analysis back: the further % wins", () => {
+    const read = project(0.7, "2026-11-07T07:52:53Z");
+    const fed = { ...project(0.08, "2026-11-07T07:52:53Z"), version: 9e15 };
+    const merged = mergeProject(read, fed, [], () => null);
+    expect(merged.analyze.progress).toBe(0.7);
+    // and forward when the feed is further along
+    const ahead = mergeProject(project(0.2, "2026-11-07T07:52:53Z"), { ...project(0.9, "x"), version: 9e15 }, [], () => null);
+    expect(ahead.analyze.progress).toBe(0.9);
+  });
+
+  it("a finished analysis from the feed still wins over a running read", () => {
+    const read = project(0.7, "2026-11-07T07:52:53Z");
+    const done = { ...read, analyze: { state: "succeeded" as const, credit_cents: 0, credit_available: true }, version: 9e15 };
+    expect(mergeProject(read, done, [], () => null).analyze.state).toBe("succeeded");
+  });
+});
+
 describe("LiveConnection", () => {
   const store = createStore();
   let streams: ReturnType<typeof pipe>[];
@@ -242,6 +268,113 @@ describe("LiveConnection", () => {
     c.stop();
   });
 
+  // QA 2026-11-07: a stream that drops mid-analysis, goes quiet or says
+  // bye; the poll covers the gap, the reconnect's snapshot brings the page
+  // to the current moment, and there's never a second poller
+  describe("mid-run drops", () => {
+    const snapshotAt = (id: number, progress: number) =>
+      msg("snapshot", id, {
+        version: id,
+        runs: [run({ state: "processing", progress, updated_at: `2026-11-07T00:00:${String(id).padStart(2, "0")}Z` })],
+        projects: [],
+      });
+
+    it("a broken stream: one read at once, the slow poll, then the snapshot's progress", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      streams[0].push(snapshotAt(10, 0.08));
+      await flush();
+      expect(store.get(runAtom("r1"))?.progress).toBe(0.08);
+      refuse = true;
+      streams[0].fail();
+      await flush();
+      expect(store.get(liveStatusAtom)).toBe("down");
+      expect(polls).toBe(1);
+      await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS);
+      expect(polls).toBeGreaterThanOrEqual(2);
+      refuse = false;
+      await vi.advanceTimersByTimeAsync(BACKOFF_MAX_MS);
+      expect(store.get(liveStatusAtom)).toBe("open");
+      expect(opened.at(-1)).toBe("10");
+      streams.at(-1)!.push(snapshotAt(20, 0.7));
+      await flush();
+      expect(store.get(runAtom("r1"))?.progress).toBe(0.7);
+      const after = polls;
+      await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS * 2 - 1000);
+      expect(polls).toBe(after);
+      c.stop();
+    });
+
+    it("a quiet stream (half open, never errors) counts as down after STALE_MS", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      streams[0].push(snapshotAt(10, 0.08));
+      await flush();
+      await vi.advanceTimersByTimeAsync(STALE_MS - 1000);
+      expect(store.get(liveStatusAtom)).toBe("open");
+      expect(polls).toBe(0);
+      await vi.advanceTimersByTimeAsync(1000);
+      await flush();
+      // down: the read at once, and a reconnect resuming after id 10
+      expect(polls).toBe(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(opened).toEqual([null, "10"]);
+      expect(store.get(liveStatusAtom)).toBe("open");
+      streams.at(-1)!.push(snapshotAt(20, 0.7));
+      await flush();
+      expect(store.get(runAtom("r1"))?.progress).toBe(0.7);
+      c.stop();
+    });
+
+    it("a heartbeat keeps a quiet stream open", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      for (let i = 0; i < 5; i++) {
+        streams[0].push(": hb\n\n");
+        await vi.advanceTimersByTimeAsync(20_000);
+      }
+      expect(store.get(liveStatusAtom)).toBe("open");
+      expect(opened).toHaveLength(1);
+      expect(polls).toBe(0);
+      c.stop();
+    });
+
+    it("bye (a server going away): back after retry_ms, with a fresh snapshot", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      streams[0].push(snapshotAt(10, 0.08));
+      streams[0].push(msg("bye", 11, { reason: "listener", retry_ms: 2000 }));
+      streams[0].end();
+      await flush();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(opened).toEqual([null, "11"]);
+      streams.at(-1)!.push(snapshotAt(20, 0.7));
+      await flush();
+      expect(store.get(runAtom("r1"))?.progress).toBe(0.7);
+      c.stop();
+    });
+
+    it("drops one after another never start a second poller", async () => {
+      refuse = true;
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      // several failed reconnects while down
+      await vi.advanceTimersByTimeAsync(BACKOFF_MAX_MS * 3);
+      const reconnects = opened.length;
+      expect(reconnects).toBeGreaterThan(2);
+      const before = polls;
+      await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS * 4);
+      // one interval: four ticks in four intervals, whatever the reconnects
+      expect(polls - before).toBe(4);
+      c.stop();
+    });
+  });
+
   it("backs off exponentially with jitter, up to 30 s", () => {
     const c = new LiveConnection(store, transport, { random: () => 1 });
     const steps = Array.from({ length: 6 }, () => c.nextDelay());
@@ -256,16 +389,22 @@ describe("LiveConnection", () => {
     c.start();
     await flush();
     expect(store.get(liveStatusAtom)).toBe("down");
-    expect(polls).toBe(0);
-    await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS);
+    // one read at once (QA 2026-11-07: what moved meanwhile), then slowly
     expect(polls).toBe(1);
+    await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS);
+    expect(polls).toBe(2);
     // the stream comes back: the poll stops
     refuse = false;
     await vi.advanceTimersByTimeAsync(BACKOFF_MAX_MS);
     expect(store.get(liveStatusAtom)).toBe("open");
     const before = polls;
-    await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS * 3);
+    // the gateway's heartbeat keeps a quiet stream alive
+    for (let i = 0; i < 3; i++) {
+      streams.at(-1)!.push(": hb\n\n");
+      await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS);
+    }
     expect(polls).toBe(before);
+    expect(store.get(liveStatusAtom)).toBe("open");
     c.stop();
   });
 
@@ -288,10 +427,12 @@ describe("LiveConnection", () => {
     const c = new LiveConnection(store, transport, { random: () => 0 });
     c.start();
     await flush();
+    // down: its one read at once
+    expect(polls).toBe(1);
     c.pause();
     expect(store.get(liveStatusAtom)).toBe("paused");
     await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS * 4);
-    expect(polls).toBe(0);
+    expect(polls).toBe(1);
     expect(opened).toHaveLength(1);
     refuse = false;
     c.start();

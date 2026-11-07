@@ -349,6 +349,10 @@ export function useStepCheckout(
       // run complete — drop the spent quote
       ...(settledConv.state === "succeeded" ? { quote: null } : {}),
     }));
+    // QA 2026-11-07: the price card kept "Charged when it starts" after
+    // the run was Ready: the next run is priced again (the account's
+    // payment terms, free previews and credit may have moved)
+    invalidate();
     if (
       settledConv.state === "succeeded" &&
       settledConv.billing &&

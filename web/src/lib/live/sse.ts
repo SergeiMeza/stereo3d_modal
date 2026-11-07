@@ -15,6 +15,8 @@ export interface SseHandlers {
   onMessage: (m: SseMessage) => void;
   /** the server's `retry:` in milliseconds */
   onRetry?: (ms: number) => void;
+  /** any bytes arrived (a heartbeat comment counts): the stream is alive */
+  onActivity?: () => void;
 }
 
 /** Read until the stream ends (resolves) or breaks (rejects). */
@@ -51,6 +53,7 @@ export async function readSse(body: ReadableStream<Uint8Array>, h: SseHandlers, 
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
+      h.onActivity?.();
       buf += decoder.decode(value, { stream: true });
       let i: number;
       while ((i = buf.indexOf("\n")) >= 0) {
