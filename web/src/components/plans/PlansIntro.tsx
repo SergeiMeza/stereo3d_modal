@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import type { PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useProPlans } from "@/lib/pro/usePro";
+import { LocalPriceNote } from "@/components/pro/LocalPriceNote";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { formatCentsShort } from "@/components/steps/money";
 
@@ -145,9 +146,12 @@ export function PayPerVideoAndPro({
             {t("plans.intro.includedIn", { plan: tier === "studio" ? "Studio" : "Business" })}
           </p>
         ) : (
-          <Button asChild className="mt-auto w-full">
-            <Link href="/pro">{tier === "pro" ? t("plans.intro.yourPlan") : t("plans.intro.getPro", { pro: "Pro" })}</Link>
-          </Button>
+          <div className="mt-auto flex flex-col gap-2">
+            {tier === "pro" ? null : <LocalPriceNote testId="plan-pro-local-note" className="pt-2" />}
+            <Button asChild className="w-full">
+              <Link href="/pro">{tier === "pro" ? t("plans.intro.yourPlan") : t("plans.intro.getPro", { pro: "Pro" })}</Link>
+            </Button>
+          </div>
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { LocalPriceNote } from "@/components/pro/LocalPriceNote";
 import { useT } from "@/lib/i18n/I18nProvider";
 import {
   creditShort,
@@ -146,6 +147,7 @@ export function ProPlans({
         {buying ? t("pro.list.opening") : t("pro.list.getPro")}
       </button>
       <p className="text-center text-xs text-fg-muted">{planTerms(selected, t)}</p>
+      <LocalPriceNote testId="pro-local-note" className="text-center" />
       {error !== null && (
         <p role="alert" className="text-center text-sm text-destructive">
           {error}

@@ -19,6 +19,7 @@ import {
   CheckoutPane,
   type ConfirmResult,
 } from "@/components/pay/CheckoutPane";
+import { checkoutCurrencyLine } from "@/components/pay/payCopy";
 import {
   MainButtonArea,
   StateLine,
@@ -29,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { SheetFrame, useSheetFrame } from "@/components/ui/sheet-frame";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import {
@@ -61,6 +63,7 @@ export function proRenewsLine(plan: ProPlan, t: Tr = EN): string {
 function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
   const gateway = useGateway();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
 
@@ -134,7 +137,9 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
             footer={
               <MainButtonArea
                 big={big}
-                lines={[t("pay.copy.chargedInUsd"), proRenewsLine(plan, t)]}
+                // owner 2026-11-07 (Option B): Stripe's own amount, in the
+                // local currency while the gateway offers it
+                lines={[checkoutCurrencyLine(localPrice, t), proRenewsLine(plan, t)]}
                 button={
                   <Button
                     size="lg"

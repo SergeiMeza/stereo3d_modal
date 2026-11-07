@@ -20,6 +20,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Preset } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { LocalPriceNote } from "@/components/pro/LocalPriceNote";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { qualityName } from "@/lib/glossary";
 import { creditLine, creditRules, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
@@ -163,6 +164,7 @@ export function PlansSheet({
           <p className="text-center text-xs text-fg-muted">
             {t("plans.sheet.terms")}
           </p>
+          <LocalPriceNote testId="plans-sheet-local-note" className="text-center" />
         </div>
       }
     >
