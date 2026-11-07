@@ -381,6 +381,12 @@ describe("ProjectsScreen large uploads (Lifelike)", () => {
 
   it("new projects are Lifelike and the dropzone takes videos of any length", async () => {
     stubUploadFile();
+    const created: Record<string, unknown>[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "POST" && new URL(request.url).pathname === "/v1/projects") {
+        created.push((await request.clone().json()) as Record<string, unknown>);
+      }
+    });
     renderScreen();
     expect(await screen.findByText(/any length/)).toBeTruthy();
     await userEvent.upload(
@@ -390,6 +396,9 @@ describe("ProjectsScreen large uploads (Lifelike)", () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     const id = (push.mock.calls[0][0] as string).slice("/projects/".length);
     expect(mockDb.projects.get(id)?.method).toBe("lifelike");
+    // gateway 00175: Source details names the file as it was picked
+    expect(created[0]).toMatchObject({ name: "long_film", source_filename: "long_film.mov" });
+    server.events.removeAllListeners();
   });
 
   it("a push that never lands becomes a full load, with the leave guard off (owner bug 2026-11-07)", async () => {

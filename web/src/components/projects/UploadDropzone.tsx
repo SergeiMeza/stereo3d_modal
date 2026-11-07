@@ -252,6 +252,8 @@ export function UploadDropzone({
       const project = await gateway.createProject({
         gcs_key: ticket.gcs_key,
         name: stem(file.name),
+        // gateway 00175: Source details names the file as it was picked
+        source_filename: file.name,
         method,
       });
       track("project_created");

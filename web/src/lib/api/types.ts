@@ -96,6 +96,34 @@ export interface Probe {
   vfr?: boolean;
 }
 
+/** gateway 00175: the source file's facts. details_read false (projects
+ * analyzed before) means the codec, audio, stereo and camera are unknown,
+ * not absent. Colour reaches viewers only while HDR output is on. */
+export interface SourceDetails {
+  details_read: boolean;
+  file?: { name?: string | null; bytes?: number | null; container?: string | null; duration_s?: number | null } | null;
+  video?: {
+    width?: number | null;
+    height?: number | null;
+    fps?: number | null;
+    fps_rational?: string | null;
+    vfr?: boolean | null;
+    frames?: number | null;
+    counted_frames?: number | null;
+    codec?: string | null;
+    profile?: string | null;
+    bit_depth?: number | null;
+    bitrate_bps?: number | null;
+    color_transfer?: string | null;
+    color_primaries?: string | null;
+    rotation?: number | null;
+  } | null;
+  source_crop?: string | null;
+  audio?: { codec?: string | null; channels?: number | null; sample_rate?: number | null; bitrate_bps?: number | null } | null;
+  stereo?: { spatial?: boolean | null; layout?: "mvhevc" | "sbs" | "tb" | null } | null;
+  camera?: { make?: string | null; model?: string | null } | null;
+}
+
 export interface Scenes {
   version: number; // optimistic concurrency token for PATCH .../scenes
   /** source-frame indices, strictly increasing, each the first frame of a
@@ -252,6 +280,8 @@ export interface Project {
   /** the source's dynamic range (sdr | hlg | pq | dv_8 | dv_5), sent
    * while HDR output is on */
   dynamic_range?: string;
+  /** gateway 00175: what the source file is (Source details) */
+  source_details?: SourceDetails;
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */
@@ -1478,6 +1508,8 @@ export interface BillingSettleResult {
 export interface CreateProjectRequest {
   gcs_key: string;
   name?: string;
+  /** gateway 00175: the picked file's own name (Source details) */
+  source_filename?: string;
   /** default "lifelike" */
   method?: Method;
 }

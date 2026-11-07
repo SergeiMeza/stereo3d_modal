@@ -69,7 +69,7 @@ describe("Source details (owner 2026-11-07)", () => {
       "Frame rate",
       "Frames",
       "Video bitrate",
-      "Dynamic range",
+      "Colour",
       "Black bars",
     ]);
     expect(row("Size")).toBe("1.5 GB");
@@ -78,7 +78,7 @@ describe("Source details (owner 2026-11-07)", () => {
     expect(row("Frame rate")).toBe("29.97 fps · variable, up to 31.01 fps");
     expect(row("Frames")).toBe("9,363");
     expect(row("Video bitrate")).toBe("41 Mbit/s");
-    expect(row("Dynamic range")).toBe("HDR (HLG)");
+    expect(row("Colour")).toBe("HDR (HLG)");
     expect(row("Black bars")).toBe("Detected · picture 3840×1600 · removed in your 3D");
   });
 
@@ -92,6 +92,76 @@ describe("Source details (owner 2026-11-07)", () => {
     expect(sourceRows(project({ remove_bars: false })).find((r) => r.label === "Black bars")?.value).toBe(
       "Detected · picture 3840×1600 · kept in your 3D",
     );
+  });
+
+  it("with the gateway's source_details (00175): file, codec, colour, rotation, audio, 3D and camera", () => {
+    const p = project({
+      source_details: {
+        details_read: true,
+        file: { name: "synthetic-clip.mov", bytes: 1_610_612_736, container: "mov", duration_s: 312.4 },
+        video: {
+          width: 3840,
+          height: 2160,
+          fps: 29.97,
+          fps_rational: "30000/1001",
+          vfr: false,
+          frames: 9363,
+          counted_frames: null,
+          codec: "hevc",
+          profile: "Main 10",
+          bit_depth: 10,
+          bitrate_bps: 41_200_000,
+          color_transfer: "arib-std-b67",
+          color_primaries: "bt2020",
+          rotation: 90,
+        },
+        source_crop: "3840:1600:0:280",
+        audio: { codec: "aac", channels: 2, sample_rate: 48000, bitrate_bps: 256_000 },
+        stereo: { spatial: true, layout: "mvhevc" },
+        camera: { make: "Apple", model: "iPhone 16 Pro" },
+      },
+    });
+    const rows = Object.fromEntries(sourceRows(p).map((r) => [r.label, r.value]));
+    expect(rows).toMatchObject({
+      File: "synthetic-clip.mov",
+      Size: "1.5 GB",
+      Container: "MOV",
+      Length: "5 min 12 s",
+      Resolution: "3840×2160 · 4K",
+      "Frame rate": "29.97 fps",
+      Frames: "9,363",
+      Codec: "HEVC (H.265) · Main 10",
+      "Bit depth": "10-bit",
+      "Video bitrate": "41 Mbit/s",
+      Colour: "HDR (HLG) · BT.2020",
+      Rotation: "90°",
+      "Black bars": "Detected · picture 3840×1600 · removed in your 3D",
+      Audio: "AAC · stereo · 48 kHz · 256 kbit/s",
+      "Spatial or 3D": "Spatial video (MV-HEVC)",
+      Camera: "Apple iPhone 16 Pro",
+    });
+  });
+
+  it("an older project (details_read false): codec, audio, 3D and camera are unknown, so left out", () => {
+    const p = project({
+      dynamic_range: undefined,
+      source_details: {
+        details_read: false,
+        file: { name: null, bytes: 1_610_612_736, container: "mp4", duration_s: 312.4 },
+        video: { width: 3840, height: 2160, fps: 29.97, frames: 9363, rotation: null },
+        audio: null,
+        stereo: null,
+        camera: null,
+      },
+    });
+    const labels = sourceRows(p).map((r) => r.label);
+    expect(labels).toEqual(["Size", "Container", "Length", "Resolution", "Frame rate", "Frames", "Video bitrate", "Black bars"]);
+    // read files with no sound say so
+    const silent = project({ source_details: { details_read: true, audio: null, stereo: { spatial: false, layout: null }, camera: null } });
+    const rows = Object.fromEntries(sourceRows(silent).map((r) => [r.label, r.value]));
+    expect(rows.Audio).toBe("None");
+    expect(rows["Spatial or 3D"]).toBe("No, 2D");
+    expect(rows.Camera).toBeUndefined();
   });
 
   it("works with storage that throws (private mode)", () => {

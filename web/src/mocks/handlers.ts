@@ -2786,14 +2786,55 @@ function eventStream(request: Request) {
 
 /** The detail-response shape (GET/PATCH project, POST profile): the project
  * plus its conversions, newest first. */
+/** gateway 00175: the device file names given at POST /v1/projects. */
+const sourceNames = new Map<string, string>();
+
+/** gateway 00175: project.source_details, as a read file has them (a
+ * synthetic camera; colour only while HDR output is on, like the
+ * gateway). */
+function mockSourceDetails(p: Project) {
+  if (!p.probe) return undefined;
+  return {
+    details_read: true,
+    file: {
+      name: sourceNames.get(p.project_id) ?? null,
+      bytes: p.source_bytes || null,
+      container: "mov",
+      duration_s: p.probe.duration_s,
+    },
+    video: {
+      width: p.probe.width,
+      height: p.probe.height,
+      fps: p.probe.fps,
+      fps_rational: p.probe.fps_rational,
+      vfr: false,
+      frames: p.probe.num_frames,
+      counted_frames: null,
+      codec: "hevc",
+      profile: "Main 10",
+      bit_depth: 10,
+      bitrate_bps: 41_200_000,
+      color_transfer: p.hdr_output ? "arib-std-b67" : null,
+      color_primaries: p.hdr_output ? "bt2020" : null,
+      rotation: 0,
+    },
+    source_crop: p.crop ?? null,
+    audio: { codec: "aac", channels: 2, sample_rate: 48000, bitrate_bps: 256_000 },
+    stereo: { spatial: false, layout: null },
+    camera: { make: "Example", model: "Camera One" },
+  };
+}
+
 function projectDetail(p: Project) {
   const conversions = [...mockDb.conversions.values()]
     .filter((c) => c.project_id === p.project_id)
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const details = mockSourceDetails(p);
   return {
     ...p,
     method: projectMethod(p),
     ...(p.probe ? { qualities: lifelikeQualities(p) } : {}),
+    ...(details ? { source_details: details } : {}),
     conversions,
   };
 }
@@ -4648,10 +4689,11 @@ export const handlers = [
   }),
 
   http.post(`${GATEWAY}/v1/projects`, async ({ request }) => {
-    const { gcs_key, name, method } = (await request.json()) as {
+    const { gcs_key, name, method, source_filename } = (await request.json()) as {
       gcs_key: string;
       name?: string;
       method?: Method;
+      source_filename?: string;
     };
     if (!gcs_key.includes("/users/dev-user/")) {
       return err(400, "invalid_request", "gcs_key is not one of your uploads");
@@ -4691,6 +4733,7 @@ export const handlers = [
       poster: undefined,
       archived: false,
     };
+    if (source_filename) sourceNames.set(id, source_filename);
     mockDb.projects.set(id, project);
     // analyze "completes" on the next GET (deterministic for tests)
     return HttpResponse.json(project);
