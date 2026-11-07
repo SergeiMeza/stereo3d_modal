@@ -12,13 +12,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { useT } from "@/lib/i18n/I18nProvider";
+
 export type CheckMode = "sbs" | "anaglyph" | "wiggle";
 
 // owner 2026-11-07: Red-cyan first (and the first-time choice), then Wiggle, then Side by side
-export const CHECK_MODES: readonly { id: CheckMode; label: string }[] = [
-  { id: "anaglyph", label: "Red-cyan" },
-  { id: "wiggle", label: "Wiggle" },
-  { id: "sbs", label: "Side by side" },
+// labelKey: the mode's name in messages (preview.check.*)
+export const CHECK_MODES: readonly { id: CheckMode; labelKey: string }[] = [
+  { id: "anaglyph", labelKey: "preview.check.redCyan" },
+  { id: "wiggle", labelKey: "preview.check.wiggle" },
+  { id: "sbs", labelKey: "preview.check.sideBySide" },
 ];
 
 export const DEFAULT_CHECK_MODE: CheckMode = "anaglyph";
@@ -87,6 +90,7 @@ export function StereoCheckViewer({
   aspect: number;
   mode: CheckMode;
 }): JSX.Element {
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [scratch] = useState(() =>
@@ -137,7 +141,9 @@ export function StereoCheckViewer({
         <>
           <canvas
             ref={canvasRef}
-            aria-label={mode === "anaglyph" ? "Red-cyan view" : "Wiggle view"}
+            aria-label={
+              mode === "anaglyph" ? t("preview.check.redCyanView") : t("preview.check.wiggleView")
+            }
             className="absolute inset-0 h-full w-full object-contain"
             onClick={() => {
               const v = videoRef.current;
@@ -147,16 +153,16 @@ export function StereoCheckViewer({
             }}
           />
           <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-            {mode === "anaglyph" ? "Red-cyan" : "Wiggle"}
+            {mode === "anaglyph" ? t("preview.check.redCyan") : t("preview.check.wiggle")}
           </span>
         </>
       ) : (
         <>
           <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-            Left eye
+            {t("preview.check.leftEye")}
           </span>
           <span className="pointer-events-none absolute top-2 left-[calc(50%+0.5rem)] rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-            Right eye
+            {t("preview.check.rightEye")}
           </span>
         </>
       )}

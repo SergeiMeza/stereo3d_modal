@@ -98,6 +98,8 @@ import {
   type RationalFPS,
 } from "@/lib/frames";
 import { headsetPreviewFormats, isHeadset, type Client } from "@/lib/headset";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { CheckboxChip, Field, selectClass } from "./controls";
@@ -114,7 +116,7 @@ import { PriorRuns } from "./PriorRuns";
 import {
   exportStereoProfile,
   parseStereoProfile,
-  SHOT_TYPE_LABELS,
+  shotTypeLabel,
   SHOT_TYPES,
 } from "./stereoProfile";
 import {
@@ -142,6 +144,7 @@ export function StereoPanel({
   onProjectChanged,
 }: StereoPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "stereo_preview", onProjectChanged);
+  const t = useT();
   // the playhead: where the 10-second clip starts (S3D-27)
   const [moment, setMoment] = useState(0);
   const client = useGateway();
@@ -189,7 +192,7 @@ export function StereoPanel({
       await client.profileProject(project.project_id);
       onProjectChanged(); // pick up profile.state=running
     } catch (e) {
-      setProfileError(e instanceof Error ? e.message : "request failed");
+      setProfileError(e instanceof Error ? e.message : t("look.requestFailed"));
     } finally {
       setProfileStarting(false);
     }
@@ -240,9 +243,7 @@ export function StereoPanel({
   if (!ready) {
     return (
       <PanelShell>
-        <p className="text-sm text-fg-muted">
-          Analysis is still running — quotes unlock when it finishes.
-        </p>
+        <p className="text-sm text-fg-muted">{t("look.analysisRunning")}</p>
       </PanelShell>
     );
   }
@@ -260,7 +261,7 @@ export function StereoPanel({
   const profileFailed = project.profile?.state === "failed";
   /** POST failure (local) or the job's own failure (from the gateway). */
   const profileErrorText =
-    profileError ?? (profileFailed ? (project.profile?.error ?? "job failed") : null);
+    profileError ?? (profileFailed ? (project.profile?.error ?? t("look.profile.jobFailed")) : null);
   /** The profiled shot covering a row's start frame (also used when the
    * profile is stale — the warning banner flags the possible misalignment). */
   function shotFor(start: number): ProfileShot | undefined {
@@ -296,12 +297,13 @@ export function StereoPanel({
         await file.text(),
         [0, ...(scenes.cuts ?? [])],
         scenes.version,
+        t,
       );
       setImportPending(parsed);
       setImportError(null);
     } catch (e) {
       setImportError(
-        e instanceof Error ? e.message : "Could not read the scene profile.",
+        e instanceof Error ? e.message : t("look.import.readFailed"),
       );
     }
   }
@@ -377,17 +379,15 @@ export function StereoPanel({
     showDepth && depthVis !== null
       ? {
           url: depthVis,
-          label: "depth map",
-          title:
-            "The depth map from your Depth run — stereo is built from this",
+          label: t("look.follower.depthLabel"),
+          title: t("look.follower.depthTitle"),
           testId: "stereo-depth-video",
         }
       : output !== null
         ? {
             url: output.url,
             label: output.name,
-            title:
-              "The latest run's stereo output, synced to the source transport",
+            title: t("look.follower.outputTitle"),
             testId: "stereo-output-video",
           }
         : null;
@@ -415,15 +415,12 @@ export function StereoPanel({
           onClick={() => void startProfile()}
           disabled={profileStarting}
         >
-          {profileFailed ? "Retry profiling (free)" : "Profile shots (free)"}
+          {profileFailed ? t("look.profile.retry") : t("look.profile.start")}
         </Button>
-        <span className="text-xs text-fg-muted">
-          Measures each scene&apos;s depth and seeds these controls — free,
-          ~1&nbsp;min.
-        </span>
+        <span className="text-xs text-fg-muted">{t("look.profile.hint")}</span>
         {profileErrorText !== null ? (
           <span data-testid="profile-error" className="text-xs text-red-400">
-            Profiling failed — {profileErrorText}
+            {t("look.profile.failed", { error: profileErrorText })}
           </span>
         ) : null}
       </div>
@@ -437,7 +434,7 @@ export function StereoPanel({
         sourceFps={sourceFps}
         onPlayhead={setMoment}
         range={(f) => clipRange(f, probe.num_frames, sourceFps, CLASSIC_PREVIEW_SECONDS)}
-        heading="Stereo preview"
+        heading={t("look.heading")}
         headingExtras={
           output !== null && depthVis !== null ? (
             <span
@@ -446,8 +443,8 @@ export function StereoPanel({
             >
               {(
                 [
-                  ["output", "3D output"],
-                  ["depth", "Depth map"],
+                  ["output", t("look.compare.output")],
+                  ["depth", t("look.compare.depth")],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -469,14 +466,9 @@ export function StereoPanel({
               ))}
             </span>
           ) : output === null && depthVis === null ? (
-            <span className="text-[11px] text-fg-muted">
-              Run a stereo preview to see the 3D output beside the source.
-            </span>
+            <span className="text-[11px] text-fg-muted">{t("look.compare.noneYet")}</span>
           ) : output === null ? (
-            <span className="text-[11px] text-fg-muted">
-              Showing the Depth run&apos;s depth map — run a stereo preview to
-              see the 3D output here.
-            </span>
+            <span className="text-[11px] text-fg-muted">{t("look.compare.showingDepth")}</span>
           ) : null
         }
         toolbar={
@@ -485,7 +477,7 @@ export function StereoPanel({
               ref={profileFileRef}
               type="file"
               accept=".json,application/json"
-              aria-label="Scene profile file"
+              aria-label={t("look.import.fileLabel")}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -496,24 +488,24 @@ export function StereoPanel({
             <Button
               variant="outline"
               size="sm"
-              title="Load a scene profile exported from this page — replaces the per-scene tweaks and depth scale"
+              title={t("look.import.title")}
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 profileFileRef.current?.click();
               }}
             >
-              Import profile…
+              {t("look.import.button")}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              title="Download the scene profile — each scene's Auto values plus your overrides and depth scale — as JSON"
+              title={t("look.export.title")}
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 exportProfile();
               }}
             >
-              Export profile
+              {t("look.export.button")}
             </Button>
           </>
         }
@@ -526,7 +518,7 @@ export function StereoPanel({
                 data-testid="profile-import-error"
                 className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400"
               >
-                Import failed — {importError}
+                {t("look.import.failed", { error: importError })}
               </p>
             ) : null}
             {profileStale ? (
@@ -534,17 +526,12 @@ export function StereoPanel({
                 data-testid="stale-profile-warning"
                 className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
               >
-                Scene cuts changed since this profile was computed — defaults
-                may be misaligned. The next run re-profiles against the current
-                cuts.
+                {t("look.profile.stale")}
               </p>
             ) : null}
             {profile === undefined ? (
               <p data-testid="adaptive-note" className="text-xs text-fg-muted">
-                No scene profile yet — the first run computes per-scene depth
-                parameters automatically (adaptive), so overrides are optional.
-                After it succeeds, the computed values appear here as each
-                scene&apos;s Auto defaults.
+                {t("look.profile.adaptiveNote")}
               </p>
             ) : null}
             {profileSection}
@@ -572,9 +559,9 @@ export function StereoPanel({
                   // resolutions and/or the uploaded map) — let the user
                   // pick which one this run uses.
                   <label className="flex items-center gap-1.5 text-xs">
-                    <span className="text-fg-muted">Depth map to reuse</span>
+                    <span className="text-fg-muted">{t("look.depth.reuseLabel")}</span>
                     <select
-                      aria-label="Depth map to reuse"
+                      aria-label={t("look.depth.reuseLabel")}
                       value={choiceId ?? ""}
                       disabled={depthDefault}
                       onChange={(e) => {
@@ -585,13 +572,17 @@ export function StereoPanel({
                     >
                       {depthRunChoices.map((c) => (
                         <option key={c.conversion_id} value={c.conversion_id}>
-                          {c.params.depth_res} px ·{" "}
-                          {new Date(c.created_at).toLocaleDateString()}
+                          {t("look.depth.runOption", {
+                            res: String(c.params.depth_res),
+                            date: new Date(c.created_at).toLocaleDateString(t.intl),
+                          })}
                         </option>
                       ))}
                       {depthUpload !== undefined ? (
                         <option value={UPLOAD_CHOICE}>
-                          Uploaded — {depthUpload.name || "depth map"}
+                          {t("look.depth.uploadedOption", {
+                            name: depthUpload.name || t("look.depth.uploadedFallback"),
+                          })}
                         </option>
                       ) : null}
                     </select>
@@ -605,9 +596,10 @@ export function StereoPanel({
                         : "border-primary/30 bg-primary/10 text-primary"
                     }`}
                   >
-                    Uploaded depth map
-                    {depthUpload?.name ? ` — ${depthUpload.name}` : ""} (used
-                    as-is, no depth compute)
+                    {t("look.depth.uploadedChip", {
+                      hasName: depthUpload?.name ? "yes" : "no",
+                      name: depthUpload?.name ?? "",
+                    })}
                   </span>
                 ) : (
                   <span
@@ -618,12 +610,11 @@ export function StereoPanel({
                         : "border-primary/30 bg-primary/10 text-primary"
                     }`}
                   >
-                    Depth map {inheritedDepthRes} px (from the Depth page — reused,
-                    not recomputed)
+                    {t("look.depth.inheritedChip", { res: String(inheritedDepthRes) })}
                   </span>
                 )}
                 <CheckboxChip
-                  label="Use pipeline default depth resolution"
+                  label={t("look.depth.useDefault")}
                   checked={depthDefault}
                   onChange={() => {
                     setDepthDefault((v) => !v);
@@ -636,22 +627,29 @@ export function StereoPanel({
                 data-testid="stereo-chip-depth-none"
                 className="text-xs text-fg-muted"
               >
-                No depth run yet — this run computes its own depth map at the
-                preset&apos;s default resolution.
+                {t("look.depth.none")}
               </span>
             )}
           </div>
 
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-fg-muted">
-              Overall 3D strength (depth scale):{" "}
-              <span className="font-mono text-fg" data-testid="depth-scale-value">
-                ×{draft.depth_scale.toFixed(2)}
-              </span>{" "}
-              <span className="text-fg-muted">— scales every scene</span>
+              {rich(
+                t,
+                "look.strength.label",
+                {
+                  value: (c) => (
+                    <span className="font-mono text-fg" data-testid="depth-scale-value">
+                      {c}
+                    </span>
+                  ),
+                  muted: (c) => <span className="text-fg-muted">{c}</span>,
+                },
+                { scale: draft.depth_scale.toFixed(2) },
+              )}
             </span>
             <Slider
-              aria-label="Overall 3D strength (depth scale)"
+              aria-label={t("look.strength.aria")}
               min={0.3}
               max={1.5}
               step={0.05}
@@ -666,8 +664,8 @@ export function StereoPanel({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               id="stereo-preset"
-              label="Resolution preset"
-              hint="The output quality — the same choices as Make 3D."
+              label={t("look.preset.label")}
+              hint={t("look.preset.hint")}
             >
               <select
                 id="stereo-preset"
@@ -685,7 +683,7 @@ export function StereoPanel({
                 ))}
               </select>
             </Field>
-            <Field id="stereo-edge" label="Edge style" hint={EDGE_HINT}>
+            <Field id="stereo-edge" label={t("look.edgeLabel")} hint={EDGE_HINT}>
               <select
                 id="stereo-edge"
                 value={edge}
@@ -705,7 +703,7 @@ export function StereoPanel({
           </div>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-xs font-medium text-fg-muted">Formats</legend>
+            <legend className="text-xs font-medium text-fg-muted">{t("look.formats")}</legend>
             <div className="flex flex-wrap gap-2">
               {OUTPUT_FORMATS.map((f) => (
                 <CheckboxChip
@@ -728,7 +726,7 @@ export function StereoPanel({
             request={request}
             trackerDownloads={false}
             disabledReason={
-              formats.length === 0 ? "Select at least one format" : undefined
+              formats.length === 0 ? t("look.selectFormat") : undefined
             }
           />
         </CardContent>
@@ -742,26 +740,24 @@ export function StereoPanel({
       >
         <DialogContent data-testid="import-profile-dialog">
           <DialogHeader>
-            <DialogTitle>Import scene profile</DialogTitle>
+            <DialogTitle>{t("look.import.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              Replace your per-scene tweaks with{" "}
-              {Object.keys(importPending?.overrides ?? {}).length} imported
-              overrides and depth scale ×
-              {(importPending?.depth_scale ?? 1).toFixed(2)}? Scenes without an
-              override go back to Auto. Make 3D uses the same
-              values.
+              {t("look.import.dialogBody", {
+                count: Object.keys(importPending?.overrides ?? {}).length,
+                scale: (importPending?.depth_scale ?? 1).toFixed(2),
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>
             <Button type="button" onClick={applyImport}>
-              Replace
+              {t("look.import.replace")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <PriorRuns
-        title="Prior stereo runs"
+        title={t("look.priorRuns")}
         conversions={stereoRuns}
         meta={(c) => runSummary(c.params, c.step)}
       />
@@ -806,6 +802,7 @@ function SceneOverrideRows({
   shotFor: (start: number) => ProfileShot | undefined;
   onPatch: (start: number, patch: RowOverride | null) => void;
 }): JSX.Element {
+  const t = useT();
   const thumbs = sceneThumbs ?? [];
   const scrollRef = useRef<HTMLUListElement>(null);
   const activeStart = ranges.find(
@@ -814,14 +811,11 @@ function SceneOverrideRows({
   useScrollActiveSceneToTop(scrollRef, activeStart);
 
   return (
-    <section aria-label="Scenes" className="flex flex-col gap-1.5">
+    <section aria-label={t("look.scenes.aria")} className="flex flex-col gap-1.5">
       <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-        Per-scene 3D · {ranges.length} scenes
+        {t("look.scenes.heading", { count: ranges.length })}
       </h3>
-      <p className="text-xs text-fg-muted">
-        Click a scene to jump the preview there — the playing scene leads the
-        list. Only rows you change are sent as overrides.
-      </p>
+      <p className="text-xs text-fg-muted">{t("look.scenes.hint")}</p>
       <ul ref={scrollRef} className="flex max-h-96 flex-col gap-1.5 overflow-y-auto pr-1">
         {ranges.map(([start, end], i) => (
           <SceneRow
@@ -831,7 +825,7 @@ function SceneOverrideRows({
             end={end}
             active={playhead >= start && playhead < end}
             timecode={frameToTimecode(start, sourceFps)}
-            thumbUrl={thumbs.find((t) => t.frame >= start && t.frame < end)?.url}
+            thumbUrl={thumbs.find((th) => th.frame >= start && th.frame < end)?.url}
             shot={shotFor(start)}
             override={draft.overrides[start]}
             onSelect={() => onSelectScene(start)}
@@ -866,6 +860,7 @@ function SceneRow({
   onSelect: () => void;
   onPatch: (patch: RowOverride | null) => void;
 }): JSX.Element {
+  const t = useT();
   const passthrough = override?.passthrough === true;
   const overridden =
     override !== undefined &&
@@ -888,7 +883,7 @@ function SceneRow({
         data-start={start}
         data-end={end}
         aria-current={active ? "true" : undefined}
-        title={`Jump the preview to scene ${n} (frame ${start})`}
+        title={t("look.row.jumpTitle", { n, frame: String(start) })}
         onClick={(e) => {
           blurAfterMouseClick(e);
           onSelect();
@@ -899,14 +894,14 @@ function SceneRow({
           {thumbUrl ? (
             <img
               src={thumbUrl}
-              alt={`scene ${n} keyframe`}
+              alt={t("look.row.thumbAlt", { n })}
               draggable={false}
               className="h-full w-full object-cover"
             />
           ) : null}
         </span>
         <span className="flex min-w-28 flex-col">
-          <span className="text-xs font-medium">Scene {n}</span>
+          <span className="text-xs font-medium">{t("look.row.name", { n })}</span>
           <span className="font-mono text-[11px] text-fg-muted">
             f{start}–f{end} · {timecode}
           </span>
@@ -915,7 +910,7 @@ function SceneRow({
       <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-edge bg-surface-2 px-2 py-1">
         <input
           type="checkbox"
-          aria-label={`Scene ${n} convert to 3D`}
+          aria-label={t("look.row.convertAria", { n })}
           checked={!passthrough}
           onChange={(e) =>
             onPatch({ passthrough: e.target.checked ? undefined : true })
@@ -925,7 +920,7 @@ function SceneRow({
         <span className="text-xs">3D</span>
       </label>
       <select
-        aria-label={`Scene ${n} shot type`}
+        aria-label={t("look.row.shotTypeAria", { n })}
         value={override?.shot_type ?? "auto"}
         disabled={passthrough}
         onChange={(e) =>
@@ -937,11 +932,13 @@ function SceneRow({
         className={`${selectClass} py-1 text-xs disabled:opacity-50`}
       >
         <option value="auto">
-          Auto{shot ? ` (${SHOT_TYPE_LABELS[shot.shot_type]})` : ""}
+          {shot
+            ? t("look.row.autoWith", { type: shotTypeLabel(shot.shot_type, t) })
+            : t("look.row.auto")}
         </option>
-        {SHOT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {SHOT_TYPE_LABELS[t]}
+        {SHOT_TYPES.map((st) => (
+          <option key={st} value={st}>
+            {shotTypeLabel(st, t)}
           </option>
         ))}
       </select>
@@ -959,7 +956,7 @@ function SceneRow({
           data-testid={`passthrough-note-${start}`}
           className="text-[11px] text-fg-muted"
         >
-          2D passthrough — shipped as-is (both eyes identical)
+          {t("look.row.passthrough")}
         </span>
       ) : null}
       {!passthrough && overridden ? (
@@ -968,16 +965,16 @@ function SceneRow({
             data-testid={`override-chip-${start}`}
             className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
           >
-            overridden
+            {t("look.row.overridden")}
           </span>
           <Button
             variant="link"
             size="xs"
-            aria-label={`Reset scene ${n} to auto`}
+            aria-label={t("look.row.resetAria", { n })}
             onClick={() => onPatch(null)}
             className="h-auto p-0 text-[11px] font-normal text-fg-muted hover:text-fg"
           >
-            Reset
+            {t("look.row.reset")}
           </Button>
         </>
       ) : null}

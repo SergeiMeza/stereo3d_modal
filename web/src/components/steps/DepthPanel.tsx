@@ -62,6 +62,8 @@ import {
   parseRational,
   type RationalFPS,
 } from "@/lib/frames";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { Field, selectClass } from "./controls";
@@ -90,6 +92,7 @@ export function DepthPanel({
   onProjectChanged,
 }: DepthPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "depth_preview", onProjectChanged);
+  const t = useT();
   // the playhead: where the 10-second clip starts (S3D-27)
   const [moment, setMoment] = useState(0);
   // SAME draft the Stereo page edits (shared localStorage key): the scene
@@ -142,9 +145,7 @@ export function DepthPanel({
   if (sourceFps === null || !project.probe) {
     return (
       <PanelShell>
-        <p className="text-sm text-fg-muted">
-          Analysis is still running — quotes unlock when it finishes.
-        </p>
+        <p className="text-sm text-fg-muted">{t("depth.analysisRunning")}</p>
       </PanelShell>
     );
   }
@@ -192,14 +193,8 @@ export function DepthPanel({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               id="depth-res"
-              label="Depth-map resolution"
-              hint={
-                <>
-                  Higher detail costs more. Make 3D reuses this depth work at a
-                  discount while the detail, scene cuts and 2D scenes still
-                  match. Capped at your video&apos;s resolution.
-                </>
-              }
+              label={t("depth.res.label")}
+              hint={t("depth.res.hint")}
             >
               <select
                 id="depth-res"
@@ -266,6 +261,7 @@ function DepthReview({
   onProjectChanged: () => void;
 }): JSX.Element {
   const client = useGateway();
+  const t = useT();
   const downloads = useRunDownloads(lastSucceeded);
   const depthVis = downloads?.depth_vis ?? null;
   const exportUrl = downloads?.depth ?? null;
@@ -328,7 +324,7 @@ function DepthReview({
           ? FPS_PLAN_REQUIRED
           : e instanceof Error
             ? e.message
-            : "upload failed",
+            : t("depth.uploadFailedFallback"),
       );
     } finally {
       setUploading(null);
@@ -341,7 +337,7 @@ function DepthReview({
       await client.deleteProjectDepthMap(project.project_id);
       onProjectChanged();
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "request failed");
+      setUploadError(e instanceof Error ? e.message : t("depth.requestFailed"));
     }
   }
 
@@ -358,7 +354,7 @@ function DepthReview({
         sourceFps={sourceFps}
         onPlayhead={onPlayhead}
         range={range}
-        heading="Depth map"
+        heading={t("depth.heading")}
         headingExtras={
           <>
             {imported ? (
@@ -367,11 +363,11 @@ function DepthReview({
                 className="flex items-center gap-1 text-[11px] text-fg-muted"
               >
                 <span className="max-w-48 truncate font-mono">{imported.name}</span>
-                (preview)
+                {t("depth.imported.preview")}
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Clear imported depth map"
+                  aria-label={t("depth.imported.clearAria")}
                   className="text-fg-muted hover:text-fg"
                   onClick={(e) => {
                     blurAfterMouseClick(e);
@@ -383,7 +379,7 @@ function DepthReview({
               </span>
             ) : depthUrl === null && !runWithoutVis ? (
               <span className="text-[11px] text-fg-muted">
-                Run a depth preview to see the depth map beside the source.
+                {t("depth.noRunYet")}
               </span>
             ) : null}
             {uploading !== null ? (
@@ -391,11 +387,11 @@ function DepthReview({
                 data-testid="depth-upload-progress"
                 className="text-[11px] text-fg-muted"
               >
-                Uploading… {Math.round(uploading * 100)}%
+                {t("depth.uploading", { percent: Math.round(uploading * 100) })}
               </span>
             ) : uploadError !== null ? (
               <span data-testid="depth-upload-error" className="text-[11px] text-red-400">
-                Upload failed — {uploadError}
+                {t("depth.uploadFailed", { error: uploadError })}
               </span>
             ) : project.depth_upload ? (
               <span
@@ -403,12 +399,14 @@ function DepthReview({
                 className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
               >
                 <span className="max-w-48 truncate">
-                  On file: {project.depth_upload.name || "uploaded depth map"}
+                  {t("depth.onFile", {
+                    name: project.depth_upload.name || t("depth.onFileFallback"),
+                  })}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Remove uploaded depth map"
+                  aria-label={t("depth.removeAria")}
                   className="text-primary hover:text-fg"
                   onClick={(e) => {
                     blurAfterMouseClick(e);
@@ -427,7 +425,7 @@ function DepthReview({
               ref={fileInputRef}
               type="file"
               accept="video/*"
-              aria-label="Depth map file"
+              aria-label={t("depth.fileAria")}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -438,13 +436,13 @@ function DepthReview({
             <Button
               variant="outline"
               size="sm"
-              title="Preview a local depth video beside the source AND register it on the project — 3D look and Make 3D runs can then use it instead of computing depth. Must be frame-exact (full length, source frame rate), like the export."
+              title={t("depth.upload.title")}
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 fileInputRef.current?.click();
               }}
             >
-              Upload depth map…
+              {t("depth.upload.button")}
             </Button>
             <Button
               variant="outline"
@@ -452,15 +450,15 @@ function DepthReview({
               disabled={exportUrl === null}
               title={
                 exportUrl === null
-                  ? "Run a depth preview first — export downloads its raw depth file"
-                  : "Download the raw full-precision depth file from the latest run"
+                  ? t("depth.export.titleDisabled")
+                  : t("depth.export.titleEnabled")
               }
               onClick={(e) => {
                 blurAfterMouseClick(e);
                 setExportOpen(true);
               }}
             >
-              Export depth map
+              {t("depth.export.button")}
             </Button>
           </>
         }
@@ -468,10 +466,10 @@ function DepthReview({
           depthUrl !== null
             ? {
                 url: depthUrl,
-                label: imported ? "imported depth" : "depth_vis",
+                label: imported ? t("depth.follower.importedLabel") : "depth_vis",
                 title: imported
-                  ? `Local preview of ${imported.name} — the same file uploads to the project for Stereo/Deliver runs`
-                  : "The run's 8-bit depth visualization — Export gives the raw full-precision file",
+                  ? t("depth.follower.importedTitle", { name: imported.name })
+                  : t("depth.follower.visTitle"),
                 testId: "depth-video",
               }
             : null
@@ -480,12 +478,7 @@ function DepthReview({
           runWithoutVis
             ? {
                 testId: "depth-video-missing",
-                content: (
-                  <>
-                    The last depth run has no browser-playable depth video
-                    (depth_vis) — export the raw depth file instead.
-                  </>
-                ),
+                content: <>{t("depth.missingVis")}</>,
               }
             : null
         }
@@ -509,14 +502,11 @@ function DepthReview({
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
         <DialogContent data-testid="export-depth-dialog">
           <DialogHeader>
-            <DialogTitle>Export depth map</DialogTitle>
+            <DialogTitle>{t("depth.export.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              This downloads the raw <span className="font-mono">depth</span>{" "}
-              file from the latest run — the full-precision 10-bit depth map
-              the later steps consume, not the 8-bit{" "}
-              <span className="font-mono">depth_vis</span> preview playing on
-              this page. It may look flat or black in ordinary players; that is
-              expected for high-bit-depth grayscale.
+              {rich(t, "depth.export.dialogBody", {
+                mono: (c) => <span className="font-mono">{c}</span>,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>
@@ -530,7 +520,7 @@ function DepthReview({
                   data-testid="export-depth-link"
                   onClick={() => setExportOpen(false)}
                 >
-                  Download 10-bit depth
+                  {t("depth.export.download")}
                 </a>
               </Button>
             </DownloadGate>
@@ -568,6 +558,7 @@ function DepthSceneGrid({
   setDraft: ReturnType<typeof useStereoDraft>[1];
   onSelectScene: (startFrame: number) => void;
 }): JSX.Element {
+  const t = useT();
   const ranges = cutsToRanges(cuts, numFrames);
   const thumbs = sceneThumbs ?? [];
 
@@ -578,14 +569,11 @@ function DepthSceneGrid({
   useScrollActiveSceneToTop(scrollRef, activeStart);
 
   return (
-    <section aria-label="Scenes" className="flex flex-col gap-1.5">
+    <section aria-label={t("depth.scenes.aria")} className="flex flex-col gap-1.5">
       <h3 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-        Scenes · convert to 3D
+        {t("depth.scenes.heading")}
       </h3>
-      <p className="text-xs text-fg-muted">
-        Unchecked scenes stay 2D (end credits, logos): every run skips their
-        depth, including depth previews, and the price stays the same.
-      </p>
+      <p className="text-xs text-fg-muted">{t("depth.scenes.hint")}</p>
       <div
         ref={scrollRef}
         data-testid="depth-scenes"
@@ -594,7 +582,7 @@ function DepthSceneGrid({
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;
           const passthrough = draft.overrides[start]?.passthrough === true;
-          const thumb = thumbs.find((t) => t.frame >= start && t.frame < end);
+          const thumb = thumbs.find((th) => th.frame >= start && th.frame < end);
           return (
             <div
               key={`${start}-${end}`}
@@ -622,14 +610,14 @@ function DepthSceneGrid({
                     // eslint-disable-next-line @next/next/no-img-element -- signed GCS thumbnail URLs.
                     <img
                       src={thumb.url}
-                      alt={`scene ${i + 1} keyframe`}
+                      alt={t("depth.scene.thumbAlt", { n: i + 1 })}
                       draggable={false}
                       className="h-full w-full object-cover"
                     />
                   ) : null}
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium text-fg">Scene {i + 1}</span>
+                  <span className="font-medium text-fg">{t("depth.scene.name", { n: i + 1 })}</span>
                   <span className="font-mono text-[11px] text-fg-muted">
                     f{start}–f{end}
                   </span>
@@ -643,7 +631,7 @@ function DepthSceneGrid({
               <label className="absolute top-2.5 right-2.5 z-10 flex cursor-pointer items-center gap-1 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] hover:bg-black/80">
                 <input
                   type="checkbox"
-                  aria-label={`Scene ${i + 1} convert to 3D`}
+                  aria-label={t("depth.scene.convertAria", { n: i + 1 })}
                   checked={!passthrough}
                   onChange={(e) =>
                     setDraft((d) =>

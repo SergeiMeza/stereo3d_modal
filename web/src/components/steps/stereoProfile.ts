@@ -18,6 +18,7 @@
 
 import type { ProfileShot, ShotType } from "@/lib/api/types";
 import { frameToTimecode, type RationalFPS } from "@/lib/frames";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import type { RowOverride, StereoDraft } from "./stereoStore";
 
@@ -43,6 +44,18 @@ export const SHOT_TYPE_LABELS: Record<ShotType, string> = {
   dynamic: "Dynamic",
   wide: "Wide",
 };
+
+const SHOT_TYPE_KEYS: Record<ShotType, string> = {
+  close_up: "look.shotTypes.closeUp",
+  standard: "look.shotTypes.standard",
+  dynamic: "look.shotTypes.dynamic",
+  wide: "look.shotTypes.wide",
+};
+
+/** A shot class's user-facing name in the reader's language. */
+export function shotTypeLabel(type: ShotType, t: Tr = EN): string {
+  return t(SHOT_TYPE_KEYS[type]);
+}
 
 export const STEREO_PROFILE_KIND = "stereo-scene-profile";
 
@@ -116,19 +129,16 @@ export function parseStereoProfile(
   text: string,
   validStarts: number[],
   currentVersion: number,
+  t: Tr = EN,
 ): StereoDraft {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error(
-      "The file is not valid JSON — export a scene profile from this page to see the expected shape.",
-    );
+    throw new Error(t("look.profileErrors.notJson"));
   }
   if (!isRecord(raw) || raw.kind !== STEREO_PROFILE_KIND) {
-    throw new Error(
-      `Not a scene-profile file — expected {"kind": "${STEREO_PROFILE_KIND}"}.`,
-    );
+    throw new Error(t("look.profileErrors.notProfile", { kind: STEREO_PROFILE_KIND }));
   }
 
   let depthScale = 1;
@@ -138,36 +148,40 @@ export function parseStereoProfile(
       raw.depth_scale < 0.3 ||
       raw.depth_scale > 1.5
     ) {
-      throw new Error("depth_scale must be a number in [0.3, 1.5].");
+      throw new Error(t("look.profileErrors.depthScale"));
     }
     depthScale = raw.depth_scale;
   }
 
   if (!Array.isArray(raw.scenes)) {
-    throw new Error("The profile has no scenes array — nothing to import.");
+    throw new Error(t("look.profileErrors.noScenes"));
   }
 
   /** Version hint for range errors: a mismatch is the usual reason. */
   const versionNote =
     typeof raw.scenes_version === "number" && raw.scenes_version !== currentVersion
-      ? ` (the file was exported against scene cuts v${raw.scenes_version}; this project is at v${currentVersion})`
+      ? t("look.profileErrors.versionNote", {
+          fileVersion: String(raw.scenes_version),
+          currentVersion: String(currentVersion),
+        })
       : "";
 
   const valid = new Set(validStarts);
   const overrides: StereoDraft["overrides"] = {};
   for (const entry of raw.scenes as unknown[]) {
-    if (!isRecord(entry)) throw new Error("A scenes[] entry is not an object.");
+    if (!isRecord(entry)) throw new Error(t("look.profileErrors.entryNotObject"));
     if (!isRecord(entry.override)) continue; // auto scene — nothing to read
     const o = entry.override;
 
     if (typeof entry.first !== "number" || !Number.isInteger(entry.first)) {
-      throw new Error(
-        "A scene override is missing its integer `first` frame — overrides carry whole source-frame numbers only.",
-      );
+      throw new Error(t("look.profileErrors.missingFirst"));
     }
     if (!valid.has(entry.first)) {
       throw new Error(
-        `The override at frame ${entry.first} does not start a scene on the current cut list${versionNote}.`,
+        t("look.profileErrors.notSceneStart", {
+          frame: String(entry.first),
+          note: versionNote,
+        }),
       );
     }
 
@@ -175,7 +189,10 @@ export function parseStereoProfile(
     if (o.shot_type !== undefined) {
       if (!SHOT_TYPES.includes(o.shot_type as ShotType)) {
         throw new Error(
-          `Scene at frame ${entry.first}: shot_type must be one of ${SHOT_TYPES.join("|")}.`,
+          t("look.profileErrors.shotType", {
+            frame: String(entry.first),
+            types: SHOT_TYPES.join("|"),
+          }),
         );
       }
       row.shot_type = o.shot_type as ShotType;
@@ -187,7 +204,7 @@ export function parseStereoProfile(
         o.displacement > 0.03
       ) {
         throw new Error(
-          `Scene at frame ${entry.first}: displacement must be in (0, 0.03].`,
+          t("look.profileErrors.displacement", { frame: String(entry.first) }),
         );
       }
       row.displacement = o.displacement;

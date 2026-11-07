@@ -1,6 +1,2704 @@
 {
   "common": {
     "language": "Language",
-    "richExample": "Hello <b>{name}</b>"
+    "richExample": "Hello <b>{name}</b>",
+    "ui": {
+      "close": "Close"
+    },
+    "header": {
+      "projects": "Projects"
+    },
+    "checkingSession": "Checking session…",
+    "analytics": {
+      "bannerLabel": "Analytics consent",
+      "banner": "Can we use analytics cookies? Microsoft Clarity shows us how the studio is used so we can improve it — no advertising, and never the content of your videos. <link>Privacy Policy</link>",
+      "deny": "No thanks",
+      "allow": "Allow analytics",
+      "switchLabel": "Analytics",
+      "switchOn": "Analytics on",
+      "switchOff": "Analytics off",
+      "reset": "reset your analytics choice"
+    },
+    "sectionBoundary": {
+      "failed": "{name}: This part couldn't be shown.",
+      "tryAgain": "Try again"
+    },
+    "feedback": {
+      "openLabel": "Send feedback",
+      "open": "Feedback",
+      "sentTitle": "Thanks, we read every message.",
+      "sentDescription": "Your feedback was sent.",
+      "done": "Done",
+      "title": "Send feedback",
+      "description": "Ideas, problems, anything. A person reads it.",
+      "kindLabel": "Kind",
+      "kinds": {
+        "idea": "Idea",
+        "problem": "Problem",
+        "other": "Something else"
+      },
+      "message": "Message",
+      "email": "Email",
+      "yourEmail": "Your email",
+      "okToContact": "It's OK to contact me",
+      "includePage": "Include this page",
+      "failed": "Couldn't send. You can also write to <mail>{email}</mail>",
+      "sending": "Sending…",
+      "send": "Send"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "Breadcrumb",
+      "breadcrumbDevices": "Devices",
+      "readyFor": "Ready for {name}",
+      "worksWith": "Works with {name}",
+      "cta": "Make your video 3D",
+      "othersLabel": "Other devices",
+      "others": "Other devices:"
+    }
+  },
+  "business": {
+    "entry": {
+      "card": "Using {site} for work? Set up {business} or {studio}",
+      "setUp": "Set up",
+      "proLine": "Working for clients or a team? {business} and {studio} save {range} and include commercial use. <link>See plans</link>",
+      "appStoreActive": "{pro} from the App Store is still active.",
+      "howToCancel": "How to cancel"
+    },
+    "setup": {
+      "steps": {
+        "aria": "Steps",
+        "item": "{n}. {label}",
+        "plan": "Plan",
+        "questions": "About you",
+        "checkout": "Pay"
+      },
+      "mainUses": {
+        "clientWork": "Client work",
+        "ownChannel": "My own channel",
+        "stockFootage": "Stock footage",
+        "other": "Something else"
+      },
+      "includes": {
+        "pctOff": "{pct}% off every video",
+        "usage": "{amount} of usage every month",
+        "commercial": "Commercial use of your videos",
+        "frameRates": "Frame rates up to {fps} fps",
+        "intro": "Turn the {site} intro on or off",
+        "invoices": "Invoices with your company details",
+        "express": "Express included"
+      },
+      "price": {
+        "year": "{price} a year",
+        "month": "{price} a month",
+        "week": "{price} a week"
+      },
+      "terms": {
+        "yearly": "Billed once a year. {amount} of usage arrives every month. Renews every year until you cancel.",
+        "monthly": "Billed monthly. Renews every month until you cancel."
+      },
+      "appStoreProNote": "Your {pro} is billed by Apple. {business} includes everything {pro} does, so cancel {pro} in your iPhone's Settings → [your name] → Subscriptions to avoid paying for both.",
+      "studio": {
+        "title": "You have {studio}",
+        "onBilling": "Your plan is on <link>Billing</link>."
+      },
+      "eyebrow": "{business} and {studio}",
+      "title": "Set up {site} for work",
+      "planAria": "Plan",
+      "yourPlan": "Your plan",
+      "yearlyPlan": "Yearly plan",
+      "monthlyPlan": "Monthly plan",
+      "questionsFirst": "Questions first?",
+      "talkToUs": "Talk to us",
+      "notNow": "Not now",
+      "continueWith": "Continue with {plan}",
+      "questions": {
+        "title": "A few questions",
+        "hint": "All optional. They help us make the product better for work.",
+        "teamSize": "Team size",
+        "teamSizePlaceholder": "e.g. 4",
+        "mainUse": "Main use",
+        "headsets": "Headsets"
+      },
+      "back": "Back",
+      "skip": "Skip",
+      "continue": "Continue",
+      "checkout": {
+        "termsTail": "{terms} Prices in USD, excl. tax. Nothing is charged until you confirm.",
+        "asksOnly": "Checkout asks only for your payment method and country. Your company name, address and tax ID can follow after.",
+        "whatHappensBusiness": "What happens to your {business}",
+        "whatHappensPro": "What happens to your {pro}",
+        "manageAppStore": "Manage App Store subscription",
+        "workingOut": "Working out today's price…",
+        "previewFailed": "Couldn't work out today's price. Nothing is charged until you confirm.",
+        "changing": "Changing…",
+        "confirmAndPay": "Confirm and pay {amount}",
+        "confirm": "Confirm",
+        "continueToPayment": "Continue to payment"
+      },
+      "welcome": {
+        "eyebrow": "Welcome",
+        "title": "{plan} is on",
+        "commercial": "Commercial use: your 3D videos can go to clients, ads and paid channels.",
+        "frameRates": "Higher frame rates: up to {fps} fps when your video has them.",
+        "usage": "{amount} of usage every month, then {plan} prices.",
+        "make": "Make your 3D video"
+      },
+      "talk": {
+        "title": "Talk to us",
+        "description": "A person replies by email, usually within a working day.",
+        "sent": "Thanks. We'll reply to {email}.",
+        "accountEmail": "your account email"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "For Apple Vision Pro. It shows up in Photos as a spatial video.",
+      "sbsDetail": "For Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR glasses and 3D TVs."
+    },
+    "points": {
+      "depthTitle": "Lifelike depth",
+      "depthDetail": "Every moment rebuilt as a real 3D scene.",
+      "lengthDetail": "From a short clip to a whole film.",
+      "originalTitle": "Your original in one eye",
+      "originalDetail": "At Cinema sizes, 5K to 8K, one eye shows your own frames.",
+      "foveatedDetail": "Sharper where you look."
+    },
+    "hero": {
+      "new": "New",
+      "eyebrow": "{site} on the web · {method}",
+      "title": "Turn any video into <accent>lifelike 3D</accent>",
+      "lede": "We understand the shape of every scene, then film it again for each eye.",
+      "cta": "Make your first 3D video",
+      "fromPrice": "from <b>{price}</b> a minute at {fps} fps",
+      "limits": "{limits}. <link>See prices</link>"
+    },
+    "steps": {
+      "uploadTitle": "Upload a video",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "Preview a moment",
+      "previewDetail": "A few seconds in 3D.",
+      "makeTitle": "Make it 3D",
+      "makeDetail": "Download for your headset."
+    },
+    "sections": {
+      "howItLooksEyebrow": "How it looks",
+      "howItLooksTitle": "From upload to headset",
+      "stepByStepEyebrow": "Step by step",
+      "stepByStepTitle": "What happens to your video",
+      "watchEyebrow": "Watch it",
+      "watchTitle": "On Vision Pro and every headset",
+      "watchLede": "Works in Vision Pro and every headset browser: open the site there and watch or download straight to the headset."
+    },
+    "final": {
+      "title": "See your own video in 3D",
+      "cta": "Make your 3D video",
+      "teams": "For work: {business} and {studio} plans. <link>See plans</link>",
+      "feedback": "Something missing or broken? <button>Tell us</button>."
+    },
+    "footer": {
+      "byline": "<brand></brand> on the web · a Spatial AI Labs Ltd product",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Use",
+      "feedback": "Feedback",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "Depth",
+      "depthTitle": "We understand the shape of every scene",
+      "depthDetail": "Every moment becomes a real 3D scene, steady from frame to frame.",
+      "depthLabel": "A glowing line sweeps across the footage and shows near things warm and far things blue, then the picture again",
+      "stereoTag": "3D",
+      "stereoTitle": "Two eyes from one camera",
+      "stereoDetail": "Then we film that scene again for each eye, with clean edges. Here the viewpoint sways so you can see the depth on any screen.",
+      "stereoLabel": "The same footage seen from a gently swaying viewpoint, then its left-eye and right-eye views side by side",
+      "deliveryTag": "Files",
+      "deliveryTitle": "Plays like it was shot in 3D",
+      "deliveryDetail": "Vision Pro spatial video and side by side, ready for every headset.",
+      "deliveryLabel": "The 3D video as a floating window, on a big screen in a headset, through the headset's lenses and in XR glasses"
+    },
+    "tour": {
+      "ariaLabel": "The app",
+      "projectsLabel": "Projects",
+      "projectsDetail": "Drop a video in. Every project in one place.",
+      "projectsAlt": "Projects page of {site} on the web with five videos, one marked 3D ready",
+      "make3dLabel": "Make 3D",
+      "make3dDetail": "Pick your headsets and the quality, up to 8K. The price shows first.",
+      "make3dAlt": "Make 3D page with Apple Vision Pro and Meta Quest picked and quality options from 1080p to 8K",
+      "trackerLabel": "Progress",
+      "trackerDetail": "Follow each step and the time left.",
+      "trackerAlt": "The price and a run in progress: getting ready done, now making the 3D video",
+      "filesLabel": "Files",
+      "filesDetail": "Vision Pro spatial video and side by side, ready to download.",
+      "filesAlt": "Files page with a Vision Pro spatial video and a side-by-side file ready to download"
+    },
+    "samples": {
+      "eyebrow": "Samples",
+      "title": "Watch the 3D result in your headset",
+      "lede": "Made with {method} in {site} on the web. Download one to your headset, or the 2D original to compare.",
+      "video2d": "{title}, the 2D video",
+      "videoRedCyan": "{title}, in red-cyan 3D",
+      "play": "Play a short muted preview of {title}",
+      "look2d": "2D",
+      "lookRedCyan": "Red-cyan",
+      "facts": "{seconds} s · {size}"
+    },
+    "worksWith": {
+      "title": "Works with",
+      "upcoming": "Ready for {name}, {upcoming}",
+      "tvs": "3D TVs"
+    },
+    "heroLoop": {
+      "label": "A singer and her band on a rooftop at sunset: on the left the 2D video, on the right the same moment in {method}, its viewpoint gently swaying to show the depth",
+      "yourVideo": "Your video",
+      "caption": "The right side moves the way it will look in 3D. <link>Watch it in your headset</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · {pct}% off every video",
+      "perMinute": "{quality} is {pro} a minute instead of {list}.",
+      "getPro": "Get {pro} {plan}",
+      "keepPaying": "Keep paying per video",
+      "terms": "USD, excl. tax · cancel any time in Account",
+      "planGroup": "{pro} plan",
+      "includes": "{pro} includes {credit}.",
+      "freePreviewsMonthly": "{count, plural, other {# free previews a month}}",
+      "businessTitle": "{business} for work",
+      "businessLine": "{price} a month with {credit} of usage, commercial use, invoices",
+      "businessLineFps": "{price} a month with {credit} of usage, commercial use, {fps} fps, invoices"
+    },
+    "quote": {
+      "howToPay": "How to pay",
+      "payOnce": "Pay once",
+      "withPlan": "With {plan}",
+      "pctOff": "{pct}% off",
+      "fromMonthly": "from {price} a month",
+      "hide": "Hide this",
+      "checkout": {
+        "title": "Subscribe and convert",
+        "paymentFailed": "The payment didn't go through.",
+        "takesOff": "{pro} takes {pct}% off this video and every one after.",
+        "takesOffWithCredit": "{pro} takes {pct}% off this video and every one after, and includes {credit}.",
+        "includes": "{pro} includes {credit}.",
+        "continue": "Continue to payment",
+        "payOnce": "Pay once · {price}",
+        "planGroup": "{pro} plan",
+        "today": "{pro} {plan}, today",
+        "thisVideo": "This video, at {pro} prices",
+        "youSave": "You save on this video",
+        "terms": "Cancel any time in Account. Prices in USD, excl. tax."
+      },
+      "note": {
+        "highFps": "High frame rates come with {business} and {studio}, which also include monthly usage.",
+        "monthlyUsage": "{business} and {studio} include monthly usage.",
+        "dismiss": "Dismiss",
+        "atBusiness": "At {business} prices this video is {price}.",
+        "fits": "That fits in the {credit} of usage {business} includes every month, for {price} a month.",
+        "includes": "{business} includes {credit} of usage every month, for {price} a month.",
+        "withStudio": "With {studio} it's {price}.",
+        "seeBusiness": "See {business}",
+        "talk": "Talk to us"
+      },
+      "cinema": {
+        "share": "{pct}% off · commercial use",
+        "seeBusinessSave": "See {business} · save {range}"
+      }
+    },
+    "intro": {
+      "share": "{pct}% with {plan}",
+      "shareSeparator": ", ",
+      "title": "You never have to pick a plan",
+      "body": "Pay per video is how everyone starts. A plan only lowers the price a minute.",
+      "bodyWithShares": "Pay per video is how everyone starts. A plan only lowers the price a minute: {shares}.",
+      "gotIt": "Got it",
+      "ppvTitle": "Pay per video",
+      "aMonth": "a month",
+      "ppvBody": "Pay for each video after it's done. First preview free.",
+      "upToFps": "Up to {fps} fps",
+      "yourPlan": "Your plan",
+      "pctOff": "{pct}% off",
+      "proPreviews": "{count, plural, one {# free previews a month on Monthly.} other {# free previews a month on Monthly.}}",
+      "includedIn": "Included in {plan}",
+      "getPro": "Get {pro}"
+    },
+    "talkToUs": {
+      "banner": "Using {site} at work? {business} gives you {amount} of usage a month, commercial use and invoices.",
+      "open": "Talk to us",
+      "see": "See {business}",
+      "sent": "Thanks. We'll reply to {email}.",
+      "yourEmail": "your account email"
+    },
+    "receipt": {
+      "title": "You'd have saved {amount} with {pro}",
+      "wouldHaveBeen": "This video would have been {amount}.",
+      "monthly": "{plan} is {price}.",
+      "monthlyCredit": "{plan} is {price} with {credit}.",
+      "monthlyPreviews": "{plan} is {price} and includes {count, plural, one {# free previews a month} other {# free previews a month}}.",
+      "monthlyCreditPreviews": "{plan} is {price} with {credit}, and includes {count, plural, one {# free previews a month} other {# free previews a month}}.",
+      "see": "See {pro}",
+      "notNow": "Not now"
+    },
+    "banner": {
+      "lineLong": "Save {range} on every video with a plan.",
+      "lineShort": "Save {range} with a plan.",
+      "see": "See plans",
+      "proOff": "{pro} takes {pct}% off every video.",
+      "proOffCredit": "{pro} takes {pct}% off every video and includes {credit}.",
+      "monthlyPreviews": "{count, plural, one {Monthly also includes # free previews a month.} other {Monthly also includes # free previews a month.}}"
+    },
+    "nudge": {
+      "dismiss": "Dismiss"
+    },
+    "sourceLine": {
+      "fps": "High frame rates come with {business} and {studio}, which also save {range}.",
+      "size": "Working in {size}? {business} and {studio} save {range} and include commercial use.",
+      "see": "See {business}"
+    },
+    "header": {
+      "link": "Plans",
+      "save": "Save {range}"
+    },
+    "contact": {
+      "tooMany": "Too many messages today. Please write to support instead.",
+      "checkMessage": "Please check the message and try again.",
+      "title": "Talk to us",
+      "intro": "A person replies by email, usually within a working day. Your projects stay open while you wait.",
+      "messageLabel": "What do you make, and how much a month?",
+      "messagePlaceholder": "About 20 short music videos a month, 4K, for Vision Pro and Quest.",
+      "company": "Company (optional)",
+      "teamSize": "Team size (optional)",
+      "teamSizePlaceholder": "e.g. 4",
+      "send": "Send",
+      "cancel": "Cancel"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "Nothing is charged today.",
+      "today": "Today: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − {unused} for your unused {from}.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "We credit what you paid for the time and usage you have left, whichever is smaller.",
+      "usageHandover": "Your remaining {from} usage this month ends when {to}'s {amount} starts.",
+      "endOfPeriod": "the end of this period",
+      "staysOn": "Your {current} stays on until {until}.",
+      "afterPayPerVideo": "After that you pay per video.",
+      "startsThenAt": "{name} starts then at {amount}.",
+      "startsThenAtPer": "{name} starts then at {amount} {per}.",
+      "startsThen": "{name} starts then.",
+      "repriced": "The price was updated. Check it and confirm again.",
+      "nothingCharged": "Nothing was charged.",
+      "quoteChanged": "The price changed, check the new total.",
+      "cardConfirm": "Your card needs confirming.",
+      "cardDeclined": "Your card was declined.",
+      "errors": {
+        "samePlan": "That's already your plan.",
+        "notRenewable": "This plan runs to its end and can't be changed.",
+        "changeScheduled": "A change is already waiting. Take it back on Billing first.",
+        "changeOnHold": "Plan changes are on hold for your account. Contact support.",
+        "planUnavailable": "That plan isn't available right now. Try again later.",
+        "cantChangeHere": "Your plan can't be changed here.",
+        "tryAgain": "Couldn't change your plan. Try again.",
+        "paymentFailed": "Your payment didn't go through.",
+        "previewFailed": "Couldn't work out the change. Nothing was charged.",
+        "keepFailed": "Couldn't keep your plan. Try again."
+      },
+      "per": {
+        "weekly": "a week",
+        "monthly": "a month",
+        "yearly": "a year"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "Your {current} ends on {end} instead of changing to {next}.",
+      "changePlan": "Change plan",
+      "moveUp": "{name} (move up)",
+      "payPerVideoCancel": "Pay per video (cancel plan)",
+      "dialogTitleChange": "Change to {name}?",
+      "dialogTitleCancel": "Cancel {current}?",
+      "working": "Working out the change…",
+      "keep": "Keep {current}",
+      "payAndChange": "Pay {amount} and change",
+      "changeTo": "Change to {name}",
+      "cancelPlan": "Cancel plan",
+      "howWeWorkThisOut": "How we work this out",
+      "renewsOn": "Renews on {date}."
+    },
+    "plan": {
+      "title": "{name} plan",
+      "creditLeft": "{left} of {credit} usage left this month",
+      "usageResets": "Usage resets on {date}.",
+      "renewsOn": "Renews on {date}.",
+      "billedYearlyRenewsOn": "Billed yearly. Renews on {date}.",
+      "plansLink": "Plans",
+      "introLabel": "Add the {app} intro to my videos",
+      "introHint": "A short {app} title plays before your videos.",
+      "introSaveFailed": "Couldn't save that. Try again."
+    },
+    "planMove": {
+      "expired": "This offer expired. Contact support.",
+      "moveFailed": "We couldn't move it right now. Try again in a while.",
+      "accepted": "Your {name} plan is here.",
+      "sectionLabel": "A plan support moved to you",
+      "headline": "Support moved your {name} plan here. Accept it?",
+      "validUntil": "Valid until {date}.",
+      "whatMoves": "What moves here",
+      "whatStays": "What stays",
+      "contactSupport": "Contact support",
+      "accept": "Accept"
+    },
+    "planEmail": {
+      "title": "Add an email for your plan",
+      "body": "Receipts and Restore Purchases use it. A hidden Apple address won't do. Your plan works meanwhile.",
+      "submit": "Use this email"
+    },
+    "screen": {
+      "title": "Billing",
+      "contactSupportToContinue": "Contact support to continue.",
+      "sections": {
+        "refundQuestion": "Refund question",
+        "balance": "Balance",
+        "planMoves": "Plan moves",
+        "plan": "Plan",
+        "proCredit": "{pro} credit",
+        "restorePurchases": "Restore Purchases",
+        "paymentMethods": "Payment methods",
+        "businessDetails": "Business details",
+        "usage": "Usage",
+        "invoices": "Invoices",
+        "yourPrices": "Your prices",
+        "refunds": "Refunds",
+        "aRow": "A row"
+      },
+      "records": {
+        "label": "Purchases and invoices",
+        "tabsLabel": "Billing records",
+        "tabs": {
+          "history": "History",
+          "plan": "Plan",
+          "usage": "Usage",
+          "invoices": "Invoices"
+        },
+        "loadFailed": "Couldn't load your purchases.",
+        "tryAgain": "Try again",
+        "noPlanPayments": "No plan payments yet.",
+        "noPurchases": "No purchases yet.",
+        "loading": "Loading…",
+        "showMore": "Show more",
+        "currency": "US dollars.",
+        "currencyWithVat": "US dollars. Prices include VAT where it applies."
+      },
+      "methods": {
+        "title": "Payment methods",
+        "saving": "Saving",
+        "add": "Add payment method",
+        "none": "No saved payment methods.",
+        "expiredOn": "Expired {date}",
+        "default": "Default",
+        "expired": "Expired",
+        "makeDefault": "Make default",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove",
+        "optionsFor": "Options for {label}",
+        "chargeOrder": "We charge your default payment method. If it's declined, we try your others in this order.",
+        "max": "You can save up to 5 payment methods.",
+        "removeBlocked": "You can't remove your only payment method while a payment is pending. Pay it or add another one first.",
+        "saveFailed": "Couldn't save that. Try again.",
+        "confirmTitle": "Remove {label}?",
+        "confirmLast": "Your next runs will ask how to pay each time.",
+        "confirmDescription": "Remove this payment method",
+        "keep": "Keep it"
+      },
+      "company": {
+        "title": "Business details",
+        "loading": "Loading…",
+        "empty": "No business details. Add them to show on invoices.",
+        "reminder": "Add company details to your invoices",
+        "edit": "Edit"
+      },
+      "invoices": {
+        "loadFailed": "Couldn't load your invoices.",
+        "tryAgain": "Try again",
+        "none": "No invoices yet.",
+        "pdf": "PDF",
+        "creditNote": "Credit note {number}",
+        "loading": "Loading…",
+        "showMore": "Show more"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "Paid",
+        "processing": "Processing",
+        "payment_needed": "Payment needed",
+        "refund_requested": "Refund requested",
+        "refunded": "Refunded",
+        "partially_refunded": "Partly refunded",
+        "disputed": "Disputed with your bank",
+        "refund_failed": "Refund didn't go through",
+        "failed": "Payment failed",
+        "applied": "Done",
+        "scheduled": "Scheduled"
+      },
+      "statusHelp": {
+        "processing": "Your payment is being confirmed. This can take a few days.",
+        "refund_requested": "We'll email you within 2 business days.",
+        "refund_failed": "We've emailed you about it."
+      },
+      "credit": {
+        "granted": "Added",
+        "expired": "Expired",
+        "removed": "Ended",
+        "frozen": "On hold",
+        "unfrozen": "Released"
+      },
+      "done": "Done",
+      "scheduledFor": "Scheduled for {date}",
+      "scheduled": "Scheduled",
+      "changed": "Changed",
+      "usageCredit": "Usage credit",
+      "planChange": "Plan change",
+      "plan": "Plan",
+      "items": "{count, plural, one {# item} other {# items}}",
+      "item": {
+        "untitled": "Untitled project",
+        "production": "3D video",
+        "preview": "Preview",
+        "launchOffer": "Launch offer"
+      },
+      "menu": {
+        "more": "More",
+        "refundRequested": "Refund requested",
+        "requestRefund": "Request a refund",
+        "getHelp": "Get help with this payment"
+      },
+      "pay": "Pay {amount}",
+      "payInvoice": "Pay invoice",
+      "creditNote": "Credit note",
+      "invoice": "Invoice",
+      "receipt": "Receipt"
+    },
+    "usage": {
+      "month": "Month",
+      "downloadCsv": "Download CSV",
+      "loadFailed": "Couldn't load your usage.",
+      "tryAgain": "Try again",
+      "none": "No usage yet.",
+      "columns": {
+        "date": "Date",
+        "project": "Project",
+        "method": "Method",
+        "preset": "Preset",
+        "minutes": "Minutes",
+        "cost": "Cost",
+        "paidWith": "Paid with",
+        "status": "Status"
+      },
+      "apiKey": "API key \"{name}\"",
+      "paidWith": {
+        "balance": "Balance",
+        "card": "Payment method",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "Running",
+        "runningReserved": "Running, reserved {amount}",
+        "released": "Released",
+        "partlyDelivered": "Partly delivered",
+        "returned": "Returned to balance {amount}",
+        "done": "Done"
+      },
+      "showMore": "Show more",
+      "balanceHistory": "Balance history",
+      "entry": {
+        "topup": "Top-up",
+        "auto_reload": "Auto-reload",
+        "refund_to_balance": "Returned to balance",
+        "debt_payment": "Paid what was owed",
+        "cash_refund": "Refunded to your payment method",
+        "expiry": "Expired",
+        "adjustment": "Adjustment",
+        "dispute_freeze": "On hold while a payment is reviewed",
+        "dispute_unfreeze": "Released after review",
+        "dispute_loss": "Removed after a bank dispute"
+      }
+    },
+    "balance": {
+      "title": "Balance",
+      "available": "available",
+      "availableWithCredits": "available · {credits}",
+      "creditWords": {
+        "grant": "usage credit",
+        "pro": "{pro} credit",
+        "plan": "plan usage"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words} (use by {date})",
+      "creditsAnd": "{rest} and {last}",
+      "includes": "includes {credits}",
+      "reserved": "{amount} reserved for {count, plural, one {# run} other {# runs}} in progress",
+      "frozen": "{amount} on hold while a payment is reviewed.",
+      "expired": "Your balance expired on {date}.",
+      "addFundsHint": "Add funds to pay for runs from your balance.",
+      "expires": "Expires on {date} unless you add funds.",
+      "addFunds": "Add funds",
+      "prepaid": "Prepaid {amount}",
+      "paused": {
+        "declined": "Auto-reload is paused because a payment didn't go through.",
+        "limit": "Auto-reload is paused: daily limit reached. It resumes tomorrow."
+      },
+      "turnBackOn": "Turn back on",
+      "autoReload": "Auto-reload",
+      "autoReloadValue": "Below {below}, add {add}",
+      "off": "Off",
+      "edit": "Edit",
+      "setUp": "Set up",
+      "set": "Set",
+      "spendLimit": "Monthly spend limit",
+      "spendLimitValue": "{limit} a month · {used} used",
+      "none": "None",
+      "balanceAlert": "Balance alert",
+      "balanceAlertValue": "Below {amount}",
+      "rowAction": "{action} {label}"
+    },
+    "banner": {
+      "contactSupport": "Contact support",
+      "pay": "Pay {amount}",
+      "portalFailed": "Couldn't open the payment method page",
+      "supportSubject": "Payment on my account"
+    },
+    "requireBilling": {
+      "loading": "Loading…"
+    },
+    "payReturn": {
+      "checking": "Checking your payment…",
+      "paidRun": "Payment received. Your 3D video is starting.",
+      "backToApp": "Back to {app}",
+      "backToProject": "Back to your project",
+      "notPaid": "The payment didn't go through.",
+      "tryAgain": "Try again",
+      "chooseAnother": "Choose another way to pay",
+      "slow": "This is taking longer than usual. We'll start as soon as the payment is confirmed.",
+      "startAgain": "Start again"
+    },
+    "settle": {
+      "nothingToPay": "Nothing to pay."
+    },
+    "restore": {
+      "title": "Restore Purchases",
+      "intro": "Bought a plan or {pro} on the web and it's missing? Restore it here.",
+      "restoring": "Restoring…",
+      "button": "Restore Purchases",
+      "appStoreNote": "Purchases from the App Store show when you sign in to the app.",
+      "failed": "We couldn't check your purchases right now. Try again in a while."
+    },
+    "restoreMove": {
+      "findOther": "Find purchases under another email",
+      "looking": "Looking…",
+      "emailLabel": "The email you bought it with",
+      "sending": "Sending…",
+      "sendCode": "Send code",
+      "codeSent": "If we find purchases, we'll send a code to {email}.",
+      "checking": "Checking…",
+      "findPurchases": "Find purchases",
+      "useAnother": "Use another email",
+      "restored": "Your purchases are restored",
+      "notFound": "We didn't find any purchases",
+      "tryAnother": "Try another email",
+      "signsInWith": "(It signs in with {providers}.)",
+      "contactSupport": "Contact support",
+      "supportSubject": "Move a plan to my account",
+      "signInThere": "Sign in to that account",
+      "hasOwnPlan": "This account already has a plan. Contact support to move it.",
+      "checkFailed": "We couldn't check right now. Try again in a while.",
+      "offerTitle": "{plan} plan · valid until {date}",
+      "movesHere": "What moves here",
+      "stays": "What stays",
+      "restoring": "Restoring…",
+      "restoreHere": "Restore {plan} here",
+      "moves": {
+        "plan": "Your plan, until that date",
+        "appAccess": "{pro} in the app",
+        "currentUsage": "This month's unused usage",
+        "monthsNotYetGiven": "The months of usage still to come"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "Usage already used",
+        "balance": "The old account's balance",
+        "appStorePurchases": "App Store purchases",
+        "pastRunsAndFiles": "Past videos and files",
+        "adminGrants": "Anything support gave the old account"
+      }
+    },
+    "yourPrices": {
+      "title": "Your prices per minute",
+      "yourPrices": "Your prices",
+      "payPerVideo": "Pay per video",
+      "withPlanOff": "With {plan}, {pct}% off",
+      "withPlan": "With {plan}",
+      "pctOff": "{pct}% off every minute",
+      "upgradeTo": "Upgrade to {plan}"
+    }
+  },
+  "auth": {
+    "errors": {
+      "signedOut": "You are signed out. Sign in to continue.",
+      "incorrectCredentials": "Incorrect email or password.",
+      "userNotFound": "No account found with that email.",
+      "invalidEmail": "That email address is not valid.",
+      "emailExists": "An account with that email already exists — sign in instead.",
+      "weakPassword": "Password is too weak — use at least 6 characters.",
+      "missingPassword": "Enter your password.",
+      "popupClosed": "The sign-in window was closed before finishing. Try again.",
+      "popupBlocked": "Your browser blocked the sign-in popup — allow popups and try again.",
+      "tooManyAttempts": "Too many attempts — wait a moment and try again.",
+      "network": "Network error — check your connection and try again.",
+      "accountDisabled": "This account has been disabled.",
+      "recentLogin": "For security, this action needs a fresh session — sign out, sign in again, then retry.",
+      "emailOnly": "Sign in with your email.",
+      "authUnavailable": "Sign-in is unavailable right now. Try again in a moment.",
+      "codeInvalid": "That code isn't right.",
+      "codeExpired": "That code has expired. Send a new one.",
+      "resendTooSoon": "Wait a moment, then send a new code.",
+      "tooManyCodes": "Too many codes for this email. Try again in an hour.",
+      "credentialInUse": "That sign-in already has its own account. Sign out, then sign in with it to use that account.",
+      "alreadyLinked": "That's already linked.",
+      "unauthorizedDomain": "Sign-in isn't available on this address yet.",
+      "providerUnavailable": "That sign-in isn't available yet.",
+      "customTokenInvalid": "Sign-in failed. Send a new code.",
+      "noSuchProvider": "That sign-in isn't linked.",
+      "failed": "Authentication failed. Try again.",
+      "accountExists": "You already have an account with {email}.",
+      "appleFailed": "Sign in with Apple didn't work. Try again.",
+      "signInFailed": "Sign-in failed. Try again.",
+      "otherAccountPasskey": "That passkey is for another account. Use one saved for this account.",
+      "appleUnavailable": "Sign in with Apple isn't available right now.",
+      "appleBlocked": "Your browser blocked the Apple window. Allow pop-ups for this site and try again.",
+      "appleUnfinished": "Sign in with Apple didn't finish. Try again.",
+      "linkUnfinished": "Connecting {provider} didn't finish. Try again.",
+      "signInUnfinished": "Sign-in with {provider} didn't finish. Try again.",
+      "notConfirmed": "Not confirmed. Nothing was changed.",
+      "somethingWrong": "Something went wrong.",
+      "didntWork": "That didn't work. Try again.",
+      "didntWorkShort": "That didn't work.",
+      "sendCodeFailed": "Couldn't send the code."
+    },
+    "passkeyErrors": {
+      "notRegistered": "This passkey isn't registered here. Sign in another way.",
+      "didntWork": "That didn't work. Try again.",
+      "cloneSuspected": "This passkey can't be used. Sign in another way.",
+      "unavailable": "Sign-in isn't available right now. Try again.",
+      "rateLimited": "Too many tries. Wait a few minutes.",
+      "closed": "The passkey prompt was closed before it finished. Try again.",
+      "didntFinish": "That didn't finish. Try again.",
+      "unsupported": "This browser can't use passkeys. Sign in another way.",
+      "exists": "This device already has a passkey for your account.",
+      "security": "Passkeys don't work on this address. Sign in another way.",
+      "failed": "The passkey didn't work. Try again or sign in another way.",
+      "network": "Couldn't reach the server. Check the connection and try again.",
+      "cantAdd": "This browser can't add passkeys."
+    },
+    "methods": {
+      "email": "Email",
+      "password": "Password",
+      "loadFailed": "Couldn't load your sign-in methods."
+    },
+    "signIn": {
+      "title": "Sign in",
+      "mocked": "Auth is mocked in this environment.",
+      "continue": "Continue",
+      "subtitle": "One account for {site} on the web and in the app.",
+      "continueApple": "Continue with Apple",
+      "continueGoogle": "Continue with Google",
+      "or": "or",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "sending": "Sending…",
+      "continueEmail": "Continue with email",
+      "agree": "By continuing, you agree to our <terms>Terms of Use</terms> and <privacy>Privacy Policy</privacy>."
+    },
+    "code": {
+      "wrongTriesLeft": "That code isn't right. {count, plural, one {# try} other {# tries}} left.",
+      "back": "Use another email",
+      "title": "Check your email",
+      "sentTo": "Enter the code we sent to <addr>{email}</addr>.",
+      "linking": "You already have an account with this email. {method} will be added to it.",
+      "signingIn": "Signing in…",
+      "newCodeSent": "New code sent.",
+      "resendIn": "Send a new code in {time}",
+      "resend": "Send a new code"
+    },
+    "providers": {
+      "emailCode": "an email code",
+      "passkey": "a passkey",
+      "or": "{list} or {last}",
+      "separator": ", "
+    },
+    "inUse": {
+      "identity": "That sign-in belongs to another account.",
+      "identityHow": "That sign-in belongs to another account (it signs in with {how}).",
+      "email": "That email belongs to another account.",
+      "emailHow": "That email belongs to another account (it signs in with {how})."
+    },
+    "emails": {
+      "relayNotMain": "Use a real email for your plan, not a hidden Apple address.",
+      "mainNotRemovable": "Make another email main first.",
+      "loadFailed": "Couldn't load your emails."
+    },
+    "passkeys": {
+      "loadFailed": "Couldn't load your passkeys."
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "Your account will be deleted on {date}. You can still change your mind: sign in before then.",
+      "pendingOn": "Your account is set to be deleted on {date}. Keep your account to do this.",
+      "pending": "Your account is set to be deleted. Keep your account to do this."
+    },
+    "title": "Account",
+    "profile": {
+      "title": "Profile",
+      "noEmail": "No email",
+      "displayName": "Display name",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "save": "Save",
+      "saveFailed": "Failed to update name.",
+      "idHint": "Account ID — quote this in support requests; projects and conversions are keyed to it.",
+      "copied": "Copied",
+      "copyId": "Copy ID"
+    },
+    "security": {
+      "title": "Sign-in & security"
+    },
+    "billing": {
+      "title": "Billing",
+      "card": "Your card and purchase history are on <link>Billing</link>.",
+      "businessDetails": "Invoices with your company name, tax ID and address: <link>Business details</link>."
+    },
+    "session": {
+      "title": "Session",
+      "signOut": "Sign out"
+    },
+    "delete": {
+      "scheduledTitle": "Account deletion scheduled",
+      "dangerZone": "Danger zone",
+      "typeToConfirm": "Type {word} to permanently delete your account",
+      "deleting": "Deleting…",
+      "button": "Delete account",
+      "refundFirst": "We return your {amount} balance to your payment method first.",
+      "refundAndDelete": "Refund and delete",
+      "returning": "We're returning your {amount}; your account is deleted once that's done.",
+      "note": "Anything you still owe is charged to your saved payment method first. Your projects, videos and 3D files are removed from your account at once; billing records are kept for support.",
+      "paymentNeededAmount": "Payment needed ({amount}): update your payment method on Billing, then delete your account.",
+      "paymentNeeded": "Payment needed: update your payment method on Billing, then delete your account.",
+      "failed": "Failed to delete account."
+    }
+  },
+  "look": {
+    "analysisRunning": "Analysis is still running — quotes unlock when it finishes.",
+    "requestFailed": "request failed",
+    "heading": "Stereo preview",
+    "follower": {
+      "depthLabel": "depth map",
+      "depthTitle": "The depth map from your Depth run — stereo is built from this",
+      "outputTitle": "The latest run's stereo output, synced to the source transport"
+    },
+    "profile": {
+      "jobFailed": "job failed",
+      "retry": "Retry profiling (free)",
+      "start": "Profile shots (free)",
+      "hint": "Measures each scene's depth and seeds these controls — free, ~1 min.",
+      "failed": "Profiling failed — {error}",
+      "stale": "Scene cuts changed since this profile was computed — defaults may be misaligned. The next run re-profiles against the current cuts.",
+      "adaptiveNote": "No scene profile yet — the first run computes per-scene depth parameters automatically (adaptive), so overrides are optional. After it succeeds, the computed values appear here as each scene's Auto defaults."
+    },
+    "compare": {
+      "output": "3D output",
+      "depth": "Depth map",
+      "noneYet": "Run a stereo preview to see the 3D output beside the source.",
+      "showingDepth": "Showing the Depth run's depth map — run a stereo preview to see the 3D output here."
+    },
+    "import": {
+      "fileLabel": "Scene profile file",
+      "title": "Load a scene profile exported from this page — replaces the per-scene tweaks and depth scale",
+      "button": "Import profile…",
+      "readFailed": "Could not read the scene profile.",
+      "failed": "Import failed — {error}",
+      "dialogTitle": "Import scene profile",
+      "dialogBody": "Replace your per-scene tweaks with {count, plural, other {# imported overrides}} and depth scale ×{scale}? Scenes without an override go back to Auto. Make 3D uses the same values.",
+      "replace": "Replace"
+    },
+    "export": {
+      "title": "Download the scene profile — each scene's Auto values plus your overrides and depth scale — as JSON",
+      "button": "Export profile"
+    },
+    "depth": {
+      "reuseLabel": "Depth map to reuse",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "Uploaded — {name}",
+      "uploadedFallback": "depth map",
+      "uploadedChip": "{hasName, select, yes {Uploaded depth map — {name} (used as-is, no depth compute)} other {Uploaded depth map (used as-is, no depth compute)}}",
+      "inheritedChip": "Depth map {res} px (from the Depth page — reused, not recomputed)",
+      "useDefault": "Use pipeline default depth resolution",
+      "none": "No depth run yet — this run computes its own depth map at the preset's default resolution."
+    },
+    "strength": {
+      "label": "Overall 3D strength (depth scale): <value>×{scale}</value> <muted>— scales every scene</muted>",
+      "aria": "Overall 3D strength (depth scale)"
+    },
+    "preset": {
+      "label": "Resolution preset",
+      "hint": "The output quality — the same choices as Make 3D."
+    },
+    "edgeLabel": "Edge style",
+    "formats": "Formats",
+    "selectFormat": "Select at least one format",
+    "priorRuns": "Prior stereo runs",
+    "scenes": {
+      "aria": "Scenes",
+      "heading": "Per-scene 3D · {count, plural, other {# scenes}}",
+      "hint": "Click a scene to jump the preview there — the playing scene leads the list. Only rows you change are sent as overrides."
+    },
+    "row": {
+      "jumpTitle": "Jump the preview to scene {n} (frame {frame})",
+      "thumbAlt": "scene {n} keyframe",
+      "name": "Scene {n}",
+      "convertAria": "Scene {n} convert to 3D",
+      "shotTypeAria": "Scene {n} shot type",
+      "auto": "Auto",
+      "autoWith": "Auto ({type})",
+      "passthrough": "2D passthrough — shipped as-is (both eyes identical)",
+      "overridden": "overridden",
+      "resetAria": "Reset scene {n} to auto",
+      "reset": "Reset"
+    },
+    "shotTypes": {
+      "closeUp": "Close-up",
+      "standard": "Standard",
+      "dynamic": "Dynamic",
+      "wide": "Wide"
+    },
+    "profileErrors": {
+      "notJson": "The file is not valid JSON — export a scene profile from this page to see the expected shape.",
+      "notProfile": "Not a scene-profile file — expected '{'\"kind\": \"{kind}\"'}'.",
+      "depthScale": "depth_scale must be a number in [0.3, 1.5].",
+      "noScenes": "The profile has no scenes array — nothing to import.",
+      "versionNote": " (the file was exported against scene cuts v{fileVersion}; this project is at v{currentVersion})",
+      "entryNotObject": "A scenes[] entry is not an object.",
+      "missingFirst": "A scene override is missing its integer `first` frame — overrides carry whole source-frame numbers only.",
+      "notSceneStart": "The override at frame {frame} does not start a scene on the current cut list{note}.",
+      "shotType": "Scene at frame {frame}: shot_type must be one of {types}.",
+      "displacement": "Scene at frame {frame}: displacement must be in (0, 0.03]."
+    }
+  },
+  "depth": {
+    "analysisRunning": "Analysis is still running — quotes unlock when it finishes.",
+    "res": {
+      "label": "Depth-map resolution",
+      "hint": "Higher detail costs more. Make 3D reuses this depth work at a discount while the detail, scene cuts and 2D scenes still match. Capped at your video's resolution."
+    },
+    "heading": "Depth map",
+    "uploadFailedFallback": "upload failed",
+    "requestFailed": "request failed",
+    "imported": {
+      "preview": "(preview)",
+      "clearAria": "Clear imported depth map"
+    },
+    "noRunYet": "Run a depth preview to see the depth map beside the source.",
+    "uploading": "Uploading… {percent}%",
+    "uploadFailed": "Upload failed — {error}",
+    "onFile": "On file: {name}",
+    "onFileFallback": "uploaded depth map",
+    "removeAria": "Remove uploaded depth map",
+    "fileAria": "Depth map file",
+    "upload": {
+      "title": "Preview a local depth video beside the source AND register it on the project — 3D look and Make 3D runs can then use it instead of computing depth. Must be frame-exact (full length, source frame rate), like the export.",
+      "button": "Upload depth map…"
+    },
+    "export": {
+      "titleDisabled": "Run a depth preview first — export downloads its raw depth file",
+      "titleEnabled": "Download the raw full-precision depth file from the latest run",
+      "button": "Export depth map",
+      "dialogTitle": "Export depth map",
+      "dialogBody": "This downloads the raw <mono>depth</mono> file from the latest run — the full-precision 10-bit depth map the later steps consume, not the 8-bit <mono>depth_vis</mono> preview playing on this page. It may look flat or black in ordinary players; that is expected for high-bit-depth grayscale.",
+      "download": "Download 10-bit depth"
+    },
+    "follower": {
+      "importedLabel": "imported depth",
+      "importedTitle": "Local preview of {name} — the same file uploads to the project for Stereo/Deliver runs",
+      "visTitle": "The run's 8-bit depth visualization — Export gives the raw full-precision file"
+    },
+    "missingVis": "The last depth run has no browser-playable depth video (depth_vis) — export the raw depth file instead.",
+    "scenes": {
+      "aria": "Scenes",
+      "heading": "Scenes · convert to 3D",
+      "hint": "Unchecked scenes stay 2D (end credits, logos): every run skips their depth, including depth previews, and the price stays the same."
+    },
+    "scene": {
+      "thumbAlt": "scene {n} keyframe",
+      "name": "Scene {n}",
+      "convertAria": "Scene {n} convert to 3D"
+    }
+  },
+  "preview": {
+    "analyzing": "We're still analyzing your video. Previews open when it's done.",
+    "heading": "Your video",
+    "band": {
+      "running": "being made",
+      "failed": "didn't finish"
+    },
+    "card": {
+      "title": "Your preview",
+      "backToLatest": "Back to latest",
+      "back": "Back",
+      "failed": "This preview didn't finish. You paid nothing for it.",
+      "running": "This preview is being made. It shows here when it's done.",
+      "empty": "Your preview appears here.",
+      "fetching": "Fetching the preview…",
+      "makeWhole": "Make the whole video in 3D",
+      "viewAria": "View",
+      "freeCheck": "Free 3D check on this screen"
+    },
+    "quality": "Quality",
+    "length": "Length",
+    "shorter": "Shorter",
+    "longer": "Longer",
+    "lengthValue": "{seconds} s",
+    "quickLook": "Quick look <muted>· half price</muted>",
+    "frameRate": "Frame rate · your video is {fps}",
+    "cta": "Preview this moment",
+    "explain": {
+      "frames": "{frames} frames at the {quality} rate: the same price per frame as the whole video.",
+      "quickLook": "{hasMinimum, select, yes {Quick look uses half the frame rate for half the price. Minimum charge {minimum}. If it fails, you pay nothing.} other {Quick look uses half the frame rate for half the price. If it fails, you pay nothing.}}"
+    },
+    "timeline": {
+      "heading": "Pick a moment",
+      "hintWithBands": "Click the strip to move the preview. The bars along its top are your past previews.",
+      "hint": "Click the strip to move the preview."
+    },
+    "past": {
+      "heading": "Past previews"
+    },
+    "rangeNote": "Preview <mono>{from} – {to}</mono> · Scene {scene} of {scenes}",
+    "row": {
+      "showing": "Showing",
+      "show": "Show"
+    },
+    "check": {
+      "redCyan": "Red-cyan",
+      "wiggle": "Wiggle",
+      "sideBySide": "Side by side",
+      "redCyanView": "Red-cyan view",
+      "wiggleView": "Wiggle view",
+      "leftEye": "Left eye",
+      "rightEye": "Right eye"
+    },
+    "player": {
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "speed": "Speed"
+    }
+  },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "Charged in US dollars.",
+      "withdrawal": "It starts right away. You agree that you lose your right to cancel once it's done.",
+      "refundedIfFails": "Refunded in full if it fails.",
+      "saveLine": "Saved for your next runs. You can remove it in Billing.",
+      "orPayAnotherWay": "or pay another way",
+      "paying": "Paying…",
+      "waitingConfirm": "Waiting for your payment to be confirmed. You can close this. Your 3D video starts as soon as it's through.",
+      "declined": "Your payment method was declined. Try another way to pay.",
+      "tooMany": "Too many attempts. Try a wallet or try again later.",
+      "paidStarting": "Paid. Starting your 3D…",
+      "alreadyPaid": "This is already paid.",
+      "expiredRun": "This payment expired. Start again when you're ready.",
+      "unavailable": "Payment isn't available in this region yet.",
+      "alipayLine": "You'll finish in Alipay, then come back here.",
+      "settleTitle": "Pay for your last runs",
+      "settleFoot": "Your downloads come back as soon as it's paid.",
+      "confirming": "Confirming your payment…",
+      "settled": "Paid. Your downloads are back.",
+      "alreadySettled": "Already paid. Your downloads are back.",
+      "expired": "This payment expired.",
+      "confirmTitle": "Confirm your payment",
+      "bankWants": "Your bank wants to confirm this payment.",
+      "declinedChoose": "Your {label} was declined. Choose another way to pay.",
+      "paymentMethod": "payment method",
+      "paymentProblem": "There's a problem with your last payment.",
+      "underReview": "We're checking a payment on your account.",
+      "disputedRow": "Unavailable while disputed with your bank",
+      "waitingForPayment": "Waiting for payment…",
+      "finishPayment": "Finish payment",
+      "pausedReview": "Paused while we check a payment.",
+      "popAfter": "Charged to your default payment method when it's ready. Not charged if it fails. It starts right away. You agree that you lose your right to cancel once it's done.",
+      "popPrecharge": "Charged to your default payment method when you start it. Cancel while it waits in line, or in its first minute, for a full refund. It starts right away. You agree that you lose your right to cancel once it's done.",
+      "popSheet": "You'll choose how to pay next. Refunded in full if it fails.",
+      "payToContinue": "Pay {amount} to continue",
+      "payAndStart": "Pay {amount} and start",
+      "paidMoreWaiting": "Paid {amount}. One more payment is waiting.",
+      "settleSubtitle": "{count, plural, one {# run · charged after it was done} other {# runs · charged after they were done}}",
+      "personalUse": "For personal use. Commercial use comes with Business and Studio plans."
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "Pay on another device",
+      "continueAlipay": "Continue to Alipay",
+      "payHereInstead": "Pay here instead",
+      "startAgain": "Start again"
+    },
+    "checkout": {
+      "payWithCard": "Pay with a card",
+      "orAddAnotherWay": "or add another way"
+    },
+    "settle": {
+      "pay": "Pay {amount}",
+      "payFromBalance": "Pay {amount} from your balance",
+      "balance": "Balance {amount}",
+      "tryAgain": "Try again"
+    },
+    "addMethod": {
+      "title": "Add a payment method",
+      "saveDeclined": "We couldn't save this payment method. Try another one.",
+      "saveTooMany": "Too many attempts. Try again tomorrow.",
+      "saveLimit": "You can save up to 5 payment methods. Remove one first.",
+      "makeDefault": "Make this my default",
+      "saving": "Saving…",
+      "save": "Save payment method",
+      "saved": "Saved."
+    },
+    "limits": {
+      "line": "Make your first 3D video or save a payment method to keep more than 3 projects and 10 GB of uploads.",
+      "addMethod": "Add payment method"
+    },
+    "deleteDues": {
+      "dues": "You have a payment to finish before we can delete your account.",
+      "activeRuns": "Cancel or wait for your running jobs before deleting your account.",
+      "deleting": "Deleting your account…",
+      "pay": "Pay {amount}"
+    },
+    "plan": {
+      "started": "{plan} is on. {amount} of usage is ready.",
+      "proUnknownKeeps": "Your current Pro keeps running. Cancel it where you bought it if you like.",
+      "proNoteAppStore": "Your App Store Pro keeps running. You can cancel it in your Apple ID settings.",
+      "proNoteMacAppStore": "Your Mac App Store Pro keeps running. You can cancel it in your Apple ID settings.",
+      "proNoteGrant": "Your Pro from {app} keeps running alongside {plan}.",
+      "subtitleMonthly": "{amount} of usage every month · cancel any time; it runs to the end of the paid month",
+      "subtitleYearly": "{amount} of usage every month · cancel any time; it runs to the end of the paid year",
+      "companyLink": "Add your company details for invoices",
+      "errorPlanActive": "You already have a plan. Cancel it in Billing before choosing another.",
+      "errorUnderReview": "We're checking a payment on your account. Contact support to continue.",
+      "errorUnavailable": "Plans aren't available right now. Try again later.",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "Billed monthly. Renews on {date} until you cancel.",
+      "billedYearly": "Billed yearly. Renews on {date} until you cancel.",
+      "start": "Start {plan} · {amount}",
+      "startYearly": "Start {plan} · {amount} a year"
+    },
+    "planChange": {
+      "previewFailed": "Couldn't work out the change. Nothing was charged.",
+      "insteadOf": "Instead of your {from}",
+      "changing": "Changing…",
+      "tryAgain": "Try again",
+      "changeOnDate": "Change to {plan} on {date}",
+      "changeOnRenewal": "Change to {plan} on renewal",
+      "payAndChange": "Pay {amount} and change",
+      "cantChange": "Can't change right now",
+      "workingOut": "Working it out…"
+    },
+    "china": {
+      "title": "Pay for your 3D video",
+      "scanWechat": "Scan with WeChat to pay {amount}",
+      "paid": "Paid.",
+      "codeExpired": "The code expired.",
+      "startAgain": "Start again",
+      "payOtherDevice": "Pay on another device",
+      "opening": "Opening…",
+      "wechatPhone": "To pay with WeChat, use a computer.",
+      "wechatHeadset": "Pay with WeChat on a computer"
+    },
+    "handoff": {
+      "titleComputer": "Pay on a computer",
+      "title": "Pay on your phone or computer",
+      "startAgain": "Start again",
+      "payHereInstead": "Pay here instead",
+      "openLink": "Open this link:",
+      "emailMe": "Email me the link",
+      "sentTo": "Sent to {email}.",
+      "sentToYou": "Sent to your email.",
+      "emailFailed": "Couldn't send the email. Try again.",
+      "payingOther": "Paying on your other device…",
+      "expiresIn": "Expires in {time}"
+    },
+    "handoffPage": {
+      "paid": "Paid. You can go back to your headset.",
+      "expired": "This link expired. Start again from your headset.",
+      "bad": "This link didn't work. Check it and try again.",
+      "limited": "Too many tries. Wait a minute.",
+      "forEmail": "For {email}",
+      "notFinished": "Payment not finished.",
+      "opening": "Opening…",
+      "continue": "Continue to payment"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "Paid from your balance",
+      "spendLimitReached": "You've reached your monthly spend limit.",
+      "topupSmallPrint": "Unspent funds can be refunded within 14 days. Your balance expires 12 months after your last top-up.",
+      "topupMin": "The minimum is {amount}.",
+      "settleFailed": "Your balance doesn't cover it any more. Pay another way.",
+      "paymentMethodBlocked": "This payment method can't be used. Add another one.",
+      "deletionPending": "Your account is being deleted.",
+      "topupDaily": "You've reached today's limit. Try again tomorrow.",
+      "topupDayLeft": "You can add up to {amount} more today.",
+      "autoReloadBlocked": {
+        "underReview": "Auto-reload can't be turned on while we check a payment.",
+        "dispute": "Auto-reload can't be turned on while a bank dispute is open.",
+        "paymentFailed": "Auto-reload can't be turned on until a failed payment is paid.",
+        "deletionPending": "Auto-reload can't be turned on while your account is being deleted."
+      },
+      "paidFromBalanceReload": "Paid from your balance. We'll add {amount} first.",
+      "popBalance": "We reserve {amount} from your balance when it starts and take only the final cost, never more. Failed runs cost nothing. It starts right away. You agree that you lose your right to cancel once it's done.",
+      "topupMaxFirst": "You can add up to {amount} for your first top-up.",
+      "topupMax": "You can add up to {amount} at a time.",
+      "topupDone": "Added {added}. Your balance is {balance}.",
+      "reloadConsent": "We'll charge your default payment method {add} whenever your balance drops below {below}. If it's declined, we try your others.",
+      "reloadConsentWithMethod": "We'll charge your default payment method ({method}) {add} whenever your balance drops below {below}. If it's declined, we try your others."
+    },
+    "addFunds": {
+      "title": "Add funds",
+      "balance": "Balance",
+      "amount": "Amount",
+      "other": "Other",
+      "add": "Add {amount}"
+    },
+    "autoReload": {
+      "title": "Auto-reload",
+      "addAtLeast": "Add at least {amount}.",
+      "atLeastThreshold": "Add at least as much as the threshold ({amount}).",
+      "methodNeeded": "Save a payment method to use auto-reload.",
+      "saveFailed": "Couldn't save that. Try again.",
+      "addMethod": "Add payment method",
+      "isOn": "Auto-reload is on.",
+      "saved": "Saved.",
+      "saving": "Saving…",
+      "save": "Save",
+      "below": "When my balance drops below",
+      "add": "Add"
+    },
+    "spending": {
+      "title": "Spending",
+      "limit": "Monthly spend limit",
+      "used": "a month · {amount} used",
+      "resets": "Runs stop when this month's spending reaches it. Resets on the 1st (UTC).",
+      "alert": "Email me when my balance drops below"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "yearly": "Yearly"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ week",
+        "monthly": "/ month",
+        "yearly": "/ year"
+      },
+      "perPeriod": {
+        "weekly": "{price} a week",
+        "monthly": "{price} a month",
+        "yearly": "{price} a year"
+      },
+      "per": {
+        "weekly": "a week",
+        "monthly": "a month",
+        "yearly": "a year"
+      },
+      "creditLine": "{amount} of usage credit when you join Pro (or the first time you sign in here with Pro from the app)",
+      "creditShort": "{amount} credit to start",
+      "creditRules": "{days, plural, other {Use it within # days.}} It isn't paid out.",
+      "creditRulesNoDays": "It isn't paid out.",
+      "terms": "Renews until you cancel.",
+      "loadFailed": "Plans didn't load.",
+      "signIn": "Sign in to get Pro."
+    },
+    "list": {
+      "notOnSale": "Pro isn't on sale on the web yet. Get it in {app} on iPhone, iPad, Mac or Vision Pro.",
+      "purchaseFailed": "The purchase didn't go through.",
+      "ariaLabel": "Pro plans",
+      "save": "Save {pct}%",
+      "creditPlus": "+ {credit}",
+      "opening": "Opening checkout…",
+      "getPro": "Get Pro"
+    },
+    "screen": {
+      "included": "Pro is included in your {plan} plan.",
+      "billing": "Billing",
+      "headline": "{pct}% off every 3D video",
+      "plusCredit": "Plus {credit}, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
+      "plus": "Plus Pro in the app on iPhone, iPad, Mac and Vision Pro.",
+      "welcome": "Welcome to Pro",
+      "youArePro": "You're Pro",
+      "appliesToEvery": "{pct}% off applies to every quote.",
+      "backToVideo": "Back to your video",
+      "yourProjects": "Your projects",
+      "managePlan": "Manage plan",
+      "manageBilling": "Manage in Billing",
+      "manageApple": "Manage in your Apple ID settings",
+      "manageAppleDot": "Manage in your Apple ID settings."
+    },
+    "membership": {
+      "web": "{plan} on the web.",
+      "appStore": "{plan} through the App Store.",
+      "macAppStore": "{plan} through the Mac App Store.",
+      "grant": "Pro given to your account by {app}, at no charge.",
+      "unknown": "Pro is active. Manage it where you bought it.",
+      "renewsOn": "Renews on {date}.",
+      "endsOn": "Ends on {date}."
+    },
+    "credit": {
+      "left": "{left} of {total} Pro credit left · use by {date}",
+      "notPaidOut": "It isn't paid out.",
+      "title": "Pro credit",
+      "usedFirst": "Used before your balance on every run.",
+      "trial": "Your free trial includes it."
+    },
+    "period": {
+      "previewFailed": "Couldn't work out the price. Nothing was charged.",
+      "switchTo": "Switch to {name}",
+      "dialogTitle": "Switch to Pro {name}?",
+      "working": "Working out today's price…",
+      "keep": "Keep my plan",
+      "confirmPay": "Confirm and pay {amount}",
+      "confirm": "Confirm"
+    },
+    "checkout": {
+      "renews": "Renews at {price} until you cancel.",
+      "planActive": "You already have a plan. Manage it in Billing.",
+      "unavailable": "Pro isn't available right now. Try again later.",
+      "subtitleWithCredit": "{price}, with {credit}",
+      "start": "Start Pro · {price}",
+      "success": "Pro is on. Every video is cheaper now."
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "Saved. Your next invoices will use these details.",
+      "saveFailed": "Couldn't save. Try again.",
+      "loadFailed": "We couldn't load your saved details. You can still fill them in.",
+      "companyName": "Company name",
+      "billingAddress": "Billing address",
+      "country": "Country",
+      "line1": "Address line 1",
+      "line2": "Address line 2 (optional)",
+      "city": "City",
+      "postalCode": "Postal code",
+      "state": "State or region",
+      "taxId": "Tax ID (optional)",
+      "taxType": "Type",
+      "taxNumber": "Number",
+      "noTaxId": "No tax ID is needed for this country.",
+      "billingEmail": "Billing email for invoice copies",
+      "poReference": "Purchase order reference (optional)",
+      "saving": "Saving…",
+      "save": "Save",
+      "billingLink": "Billing"
+    },
+    "country": {
+      "search": "Search countries",
+      "none": "No country found.",
+      "yours": "Your country",
+      "all": "All countries"
+    },
+    "taxTypes": {
+      "adNrt": "Andorran NRT number",
+      "aeTrn": "UAE tax registration number (TRN)",
+      "alTin": "Albanian tax ID number",
+      "amTin": "Armenian tax ID number",
+      "aoTin": "Angolan tax ID number",
+      "arCuit": "Argentine CUIT",
+      "auAbn": "Australian Business Number (ABN)",
+      "auAcn": "Australian Company Number (ACN)",
+      "auArn": "Australian Taxation Office reference number",
+      "auWpn": "Australian withholding payer number",
+      "awTin": "Aruban tax ID number",
+      "azTin": "Azerbaijani tax ID number",
+      "baTin": "Bosnian tax ID number",
+      "bbTin": "Barbadian tax ID number",
+      "bdBin": "Bangladeshi business ID (BIN)",
+      "bfIfu": "Burkinabe tax ID (IFU)",
+      "bgUic": "Bulgarian company code (UIC)",
+      "bhVat": "Bahraini VAT number",
+      "bjIfu": "Beninese tax ID (IFU)",
+      "boTin": "Bolivian tax ID number",
+      "brCnpj": "Brazilian company number (CNPJ)",
+      "brCpf": "Brazilian personal tax number (CPF)",
+      "bsTin": "Bahamian tax ID number",
+      "bwVat": "Botswana VAT number",
+      "byTin": "Belarusian tax ID number",
+      "caBn": "Canadian business number (BN)",
+      "caGstHst": "Canadian GST/HST number",
+      "caPstBc": "British Columbia PST number",
+      "caPstMb": "Manitoba PST number",
+      "caPstSk": "Saskatchewan PST number",
+      "caQst": "Québec QST number",
+      "cdNif": "Congolese tax ID (NIF)",
+      "chVat": "Swiss VAT number",
+      "chUid": "Swiss business ID (UID)",
+      "ciVat": "Ivorian VAT number",
+      "clTin": "Chilean tax ID (RUT)",
+      "cmNiu": "Cameroonian tax ID (NIU)",
+      "cnTin": "Chinese tax ID number",
+      "coNit": "Colombian NIT",
+      "crTin": "Costa Rican tax ID number",
+      "cvNif": "Cape Verdean tax ID (NIF)",
+      "czDic": "Czech tax number (DIČ)",
+      "deStn": "German tax number (Steuernummer)",
+      "doRcn": "Dominican RNC",
+      "ecRuc": "Ecuadorian RUC",
+      "egTin": "Egyptian tax ID number",
+      "esCif": "Spanish NIF",
+      "etTin": "Ethiopian tax ID number",
+      "foVat": "Faroese VAT number",
+      "frSiren": "French SIREN number",
+      "frSiret": "French SIRET number",
+      "frSpi": "French tax number (SPI)",
+      "gbVat": "UK VAT number",
+      "euVatNorthernIreland": "Northern Ireland VAT number (XI)",
+      "geVat": "Georgian VAT number",
+      "ghTin": "Ghanaian tax ID number",
+      "giTin": "Gibraltar tax ID number",
+      "gnNif": "Guinean tax ID (NIF)",
+      "hkBr": "Hong Kong business registration number",
+      "hrOib": "Croatian OIB",
+      "huTin": "Hungarian tax number",
+      "idNpwp": "Indonesian NPWP",
+      "ilVat": "Israeli VAT number",
+      "inGst": "Indian GST number",
+      "isVat": "Icelandic VAT number",
+      "isKt": "Icelandic ID number (kennitala)",
+      "itCf": "Italian tax code (codice fiscale)",
+      "jpTrn": "Japanese tax registration number (T number)",
+      "jpCn": "Japanese corporate number",
+      "jpRn": "Japanese registered foreign business number",
+      "kePin": "Kenyan KRA PIN",
+      "kgTin": "Kyrgyz tax ID number",
+      "khTin": "Cambodian tax ID number",
+      "krBrn": "Korean business registration number",
+      "kzBin": "Kazakh business ID (BIN)",
+      "laTin": "Lao tax ID number",
+      "liVat": "Liechtenstein VAT number",
+      "liUid": "Liechtenstein business ID (UID)",
+      "lkVat": "Sri Lankan VAT number",
+      "maVat": "Moroccan VAT number",
+      "mdVat": "Moldovan VAT number",
+      "mdCf": "Moldovan fiscal code",
+      "mePib": "Montenegrin PIB",
+      "mkVat": "North Macedonian VAT number",
+      "mrNif": "Mauritanian tax ID (NIF)",
+      "muVat": "Mauritian VAT number",
+      "mxRfc": "Mexican RFC",
+      "mySst": "Malaysian SST number",
+      "myFrp": "Malaysian FRP number",
+      "myItn": "Malaysian income tax number",
+      "mzNuit": "Mozambican NUIT",
+      "ngTin": "Nigerian tax ID number",
+      "noVat": "Norwegian VAT number",
+      "noVoec": "Norwegian VOEC number",
+      "npPan": "Nepalese PAN",
+      "nzGst": "New Zealand GST number",
+      "nzBn": "New Zealand business number",
+      "omVat": "Omani VAT number",
+      "peRuc": "Peruvian RUC",
+      "phTin": "Philippine tax ID number",
+      "plNip": "Polish NIP",
+      "ptNif": "Portuguese tax number (NIF)",
+      "pyRuc": "Paraguayan RUC",
+      "roTin": "Romanian tax ID number",
+      "rsPib": "Serbian PIB",
+      "ruInn": "Russian INN",
+      "ruKpp": "Russian KPP",
+      "saVat": "Saudi VAT number",
+      "sgUen": "Singapore UEN",
+      "sgGst": "Singapore GST number",
+      "siTin": "Slovenian tax number",
+      "smCoe": "San Marino COE number",
+      "snNinea": "Senegalese NINEA",
+      "srFin": "Surinamese FIN",
+      "svNit": "Salvadoran NIT",
+      "thVat": "Thai VAT number",
+      "tjTin": "Tajik tax ID number",
+      "trTin": "Turkish tax ID number",
+      "ttVat": "Trinidad and Tobago VAT number",
+      "ttBir": "Trinidad and Tobago BIR number",
+      "twVat": "Taiwanese VAT number (統一編號)",
+      "tzVat": "Tanzanian VAT number",
+      "uaVat": "Ukrainian VAT number",
+      "ugTin": "Ugandan tax ID number",
+      "usEin": "US employer ID (EIN)",
+      "uyRuc": "Uruguayan RUC",
+      "uzTin": "Uzbek tax ID number",
+      "uzVat": "Uzbek VAT number",
+      "veRif": "Venezuelan RIF",
+      "vnTin": "Vietnamese tax ID number",
+      "zaVat": "South African VAT number",
+      "zmTin": "Zambian tax ID number",
+      "zwTin": "Zimbabwean tax ID number",
+      "euVat": "EU VAT number"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "We'll review it within 2 business days.",
+      "mergedLine": "You'd already asked about some of these, so we added them to that request.",
+      "sentTitle": "Request sent",
+      "cancelToo": "Cancel your plan too?",
+      "cancelPlan": "Cancel plan",
+      "done": "Done",
+      "title": "Request a refund",
+      "intro": "Pick what it's about. A person reviews every request. You can ask within {days} days of a payment.",
+      "nothing": "Nothing paid in the last {days} days can be refunded.",
+      "planLabel": "{name} plan",
+      "paidDetail": "{amount} · paid {date}",
+      "alreadyAsked": "· already asked for",
+      "noteLabel": "What happened? (optional)",
+      "cancel": "Cancel",
+      "sending": "Sending…",
+      "send": "Send",
+      "sendFailed": "We couldn't send your request. Try again in a while.",
+      "optionsLoadFailed": "Couldn't load what can be refunded.",
+      "requestsLoadFailed": "Couldn't load your requests."
+    },
+    "section": {
+      "questionNotice": "We asked a question about your refund request. <link>Answer it</link>",
+      "ariaLabel": "Refunds",
+      "reportProblem": "Something wrong with a payment or a run? <link>Report a problem</link>",
+      "reportSubject": "{app}: report a problem",
+      "needRefund": "Need a refund? <button>Request a refund</button> · ask within {days} days of a payment, also after cancelling. A person reviews every request.",
+      "askWithin": "Ask for a refund within {days} days of a payment, also after cancelling. A person reviews every request.",
+      "appStore": "{pro} from the App Store is refunded by Apple. <link>Ask Apple for a refund</link>",
+      "yourRequests": "Your requests",
+      "about": {
+        "plan": "Plan payment",
+        "runs": "Runs",
+        "balance": "Balance",
+        "other": "Request"
+      },
+      "answerLabel": "Your answer",
+      "messageLabel": "Your message",
+      "sending": "Sending…",
+      "sendAnswer": "Send answer",
+      "send": "Send",
+      "cancel": "Cancel",
+      "askAgain": "Ask about this again",
+      "addMessage": "Add a message",
+      "replyFailed": "We couldn't send that. Try again in a while."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "Pay per video. <plans>Plans</plans> save {range}.",
+      "noRange": "Pay per video, or save with a <plans>plan</plans>."
+    },
+    "per": {
+      "year": "a year",
+      "month": "a month",
+      "week": "a week"
+    },
+    "screen": {
+      "title": "Prices",
+      "loading": "Loading prices…",
+      "howItWorks": "How pricing works",
+      "perMinute": "<b>Per minute of video at {fps} fps.</b> {fpsRule}. {roundedUp} Make only part of a video and pay only for that part.",
+      "discount": "<b>{pct}% off</b> any run over {threshold}.",
+      "minimumPerRun": "<b>Minimum charge {min}</b> per run.",
+      "minimumPerPreview": "<b>Minimum charge</b> {previewMin} per preview, {min} for other runs.",
+      "paidBefore": "<b>Paid before it starts.</b> Cancel while it waits in line, or in its first minute, for a full refund. Refunded in full if it fails.",
+      "currency": "US dollars, excluding tax. Every file type is included.",
+      "startProject": "Start a project"
+    },
+    "plansScreen": {
+      "loading": "Loading plans…",
+      "unavailable": "Plans aren't available yet.",
+      "perMinuteLink": "Prices per minute"
+    },
+    "proOffer": {
+      "saveLine": "{pro} members save {pct}%",
+      "title": "{pct}% off every 3D video",
+      "description": "One membership for {site} on the web and in the apps.",
+      "descriptionWithCredit": "One membership for {site} on the web and in the apps, with {credit}.",
+      "get": "Get {pro}"
+    },
+    "plans": {
+      "title": "Plans for work",
+      "subtitle": "Usage included every month. {business} bills monthly, {studio} yearly.",
+      "yourPlan": "Your plan",
+      "changeTo": "Change to {name}",
+      "choose": "Choose {name}",
+      "lines": {
+        "usage": "{amount} of usage every month",
+        "off": "{pct}% off every run",
+        "commercial": "Commercial use of your videos",
+        "freePreviews": "{count, plural, one {# free previews a month} other {# free previews a month}}",
+        "express": "Express included",
+        "fileQuality": "{high} and {master} file quality for client reviews and editing",
+        "fps": "Up to {fps} fps",
+        "invoices": "Invoices"
+      }
+    },
+    "table": {
+      "perEye": "{size} per eye",
+      "from": "from {price}",
+      "aMinuteAt": "a minute at {fps} fps",
+      "quality": "Quality",
+      "perMinute": "Per minute, {fps} fps",
+      "withPro": "With {pro}",
+      "withProOff": "With {pro} (−{pct}%)",
+      "proCredit": "{pro} also includes {credit}.",
+      "limitAndPreviews": "{limit} · previews from {price}"
+    },
+    "extras": {
+      "foveated": "More detail where you look",
+      "foveatedIncludedAt": "More detail where you look · included at {at}",
+      "fileQuality": "{quality} file quality",
+      "express": "Express",
+      "expressWhat": "First in line",
+      "addons": "Add-ons",
+      "freePreviews": "Free previews",
+      "perMonth": "{count} a month",
+      "firstFree": "Your first preview is free.",
+      "each": "{seconds} s each.",
+      "eachNoRollover": "{seconds} s each, no rollover.",
+      "balance": "Balance",
+      "addFunds": "Add funds from {amount} and pay runs from your balance.",
+      "refundable": "Unspent funds can be refunded within {days} days."
+    }
+  },
+  "meta": {
+    "site": {
+      "title": "{site} on the web — Convert 2D Video to 3D",
+      "description": "{site} on the web. Convert 2D videos to 3D: spatial video for Apple Vision Pro, side by side for Meta Quest, Pico and every 3D display. See the price before you start.",
+      "ogTitle": "{site} on the web: turn any video into lifelike 3D",
+      "ogImageAlt": "{site} on the web: turn any video into lifelike 3D, up to 8K, for Vision Pro and every headset"
+    },
+    "home": {
+      "appDescription": "Convert 2D videos to 3D: Vision Pro spatial video for Apple Vision Pro, and side by side 3D for Meta Quest, Pico, Samsung Galaxy XR and 3D displays."
+    },
+    "billing": {
+      "title": "Billing"
+    },
+    "businessDetails": {
+      "title": "Business details",
+      "heading": "Business details",
+      "intro": "What your invoices show. Saving changes your next invoices, not the ones already sent."
+    },
+    "businessSetup": {
+      "title": "Set up {business} or {studio}"
+    },
+    "payHandoff": {
+      "title": "Pay for your 3D video"
+    },
+    "payReturn": {
+      "title": "Payment"
+    },
+    "plans": {
+      "title": "Plans",
+      "description": "{site} on the web, {business} and {studio} plans: usage included every month, lower prices, free previews and Express."
+    },
+    "pricing": {
+      "title": "Prices",
+      "description": "{site} on the web prices: pay per minute of video, or save with a plan. {lifelike}, 1080p to 8K."
+    },
+    "pro": {
+      "description": "{site} {pro}: lower prices on every 3D video on the web, usage credit when you join, free previews, and {pro} in the app on iPhone, iPad, Mac and Vision Pro."
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "Dismiss this tip",
+      "billing": "Your balance, payment methods and receipts. Top up here, or let your balance reload by itself.",
+      "usage": "Every run with its price, month by month. Download a CSV for your records.",
+      "invoices": "Invoices for your top-ups and plans, ready to download.",
+      "plans": "Plans lower the price of every run and include usage every month. Paying per video works without one.",
+      "pricing": "Prices are per minute of video at the size you pick. You always see the exact price before you pay.",
+      "pro": "{pro} is one membership for the web and the apps. Members pay less for every run and get usage credit when they join.",
+      "account": "Your sign-in, your settings and, if you ever need it, deleting your account.",
+      "devices": "How to watch your 3D videos on this device.",
+      "scenes": "Where your video's scenes change. Previews and parts start at these points; you rarely need to change them."
+    },
+    "tips": {
+      "progress": "{n} of {total}",
+      "skip": "Skip tips",
+      "next": "Next",
+      "gotIt": "Got it",
+      "overview": {
+        "title": "Everything about your video",
+        "body": "Length, size, scenes and the price for the whole video. Looking costs nothing."
+      },
+      "preview": {
+        "title": "Try a short part first",
+        "body": "Pick a few seconds and watch them in 3D before you decide. Your first preview is free."
+      },
+      "make": {
+        "title": "Choose, then pay",
+        "body": "Pick where you will watch and the quality. The price updates as you go, and nothing is charged until you press Make 3D."
+      },
+      "files": {
+        "title": "Your 3D files",
+        "body": "Download them, or open this page in your headset’s browser and press play."
+      }
+    },
+    "getStarted": {
+      "title": "Get started",
+      "progress": "{done} of {total} done",
+      "hide": "Hide",
+      "done": "✓ Done",
+      "next": "Next",
+      "pickNow": "Pick now",
+      "listSeparator": ", ",
+      "steps": {
+        "headset": {
+          "title": "Pick your headset",
+          "body": "So we make the right files."
+        },
+        "firstVideo": {
+          "title": "Add your first video",
+          "body": "We look at it and show the price. Free."
+        },
+        "firstPreview": {
+          "title": "Watch your free preview",
+          "body": "A short part in 3D, on us."
+        },
+        "first3d": {
+          "title": "Make it 3D",
+          "body": "You see the price before you pay."
+        },
+        "watched": {
+          "title": "Watch it in your headset",
+          "body": "Open stereo3d.studio in its browser, or download the file."
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "Spatial video"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "Side by side"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "Side by side"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "Side by side"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "Side by side"
+      },
+      "glasses": {
+        "name": "XR glasses",
+        "files": "Side by side"
+      },
+      "tv": {
+        "name": "3D TV or projector",
+        "files": "Side by side (half size)"
+      },
+      "unsure": {
+        "name": "Not sure yet",
+        "files": "We include both"
+      }
+    },
+    "welcome": {
+      "eyebrow": "Welcome",
+      "skip": "Skip",
+      "back": "Back",
+      "gotIt": "Got it",
+      "continue": "Continue",
+      "later": "I'll do it later",
+      "stepOf": "Step {step} of {total}",
+      "business": "Working for clients? <link>{plan}</link> adds monthly usage, commercial use and invoices.",
+      "pro": {
+        "title": "Your {pro} works here too",
+        "prices": "{pro} prices on every video.",
+        "pricesPct": "{pro} prices on every video, {pct}% off.",
+        "previews": "Your plan includes {count, plural, one {# free previews} other {# free previews}} {period, select, pass {with your pass} month {a month} week {a week} year {a year} day {a day} other {a {period}}}.",
+        "credit": "You have {amount} of usage credit to use by {date}.",
+        "nothingBilled": "Nothing new is billed."
+      },
+      "headsets": {
+        "title": "Your videos, in 3D.",
+        "intro": "{site} turns any 2D video into 3D you can watch in your headset. First, where will you watch?",
+        "question": "Where will you watch?",
+        "fromApp": "From your app. We use this to pick the right files for you. You can change it on any project.",
+        "otherHeadset": "You told the app you use a headset. We use this to pick the right files for you.",
+        "note": "We use this to pick the right files for you. You can change it on any project."
+      },
+      "how": {
+        "loopLabel": "A singer in front of her band at sunset: on the left the 2D video, on the right the same moment in 3D",
+        "eyebrow": "How it works",
+        "title": "Three steps. You see the price before you pay.",
+        "titleShort": "You see the price before you pay.",
+        "description": "How {site} works",
+        "steps": {
+          "add": {
+            "title": "Add a video",
+            "body": "We look at every scene and show you the price. Free.",
+            "short": "See the price for free."
+          },
+          "preview": {
+            "title": "Watch a preview",
+            "body": "See a short part in 3D in your headset. Your first preview is on us.",
+            "short": "Your first one is on us."
+          },
+          "make": {
+            "title": "Make it 3D",
+            "body": "Pay for the whole video, then download it or play it in your headset's browser.",
+            "short": "Download it or play it in your headset."
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "Your first project",
+        "title": "Start with one of your videos.",
+        "description": "Add a video or open the sample",
+        "sample": "No video to hand? Open a finished sample and look around first."
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "Confirming payment",
+      "waitingInLine": "Waiting in line",
+      "making": "Making your 3D",
+      "readyPaymentNeeded": "Ready, payment needed",
+      "ready": "Ready",
+      "failedRefunded": "Failed, refunded {amount}",
+      "failedNotCharged": "Failed, not charged",
+      "cancelledRefunded": "Cancelled · refunded {amount}",
+      "cancelledNotCharged": "Cancelled · not charged",
+      "expiredNotCharged": "Didn't start, not charged",
+      "waitingNote": "Starts as soon as a machine is free, usually within minutes. The price stays the same.",
+      "short": {
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "expired": "Didn't start"
+      }
+    },
+    "stages": {
+      "preprocess": "Preparing the video",
+      "profile_scenes": "Measuring scenes",
+      "video_depth": "Measuring depth",
+      "video_stereo": "Building the 3D video",
+      "encode_outputs": "Encoding your files",
+      "encode_mvhevc": "Encoding the Vision Pro file",
+      "image_stereo": "Building the 3D image",
+      "queued": "Waiting to start",
+      "plan": "Preparing",
+      "render": "Rendering in 3D",
+      "encode": "Encoding",
+      "publish": "Publishing",
+      "done": "Finishing up",
+      "analyze": "Analyzing",
+      "proxy": "Building the preview",
+      "scene_detect": "Detecting scenes",
+      "thumbnails": "Rendering thumbnails"
+    },
+    "tracker": {
+      "expressWait": "Starting soon (Express).",
+      "expressWaitWithin": "Starting soon (Express). Within about {minutes} min.",
+      "cancelNowRefund": "{time} · Full refund if you cancel now",
+      "cancelNowNotCharged": "{time} · Not charged if you cancel now",
+      "cancelWhileWaitingRefund": "Cancel any time while it waits for a full refund.",
+      "cancelWhileWaitingNotCharged": "Cancel any time while it waits and you won't be charged.",
+      "steps": {
+        "ready": "Getting ready",
+        "making": "Making the 3D video",
+        "saving": "Saving your files"
+      },
+      "runFallback": "Run",
+      "billing": {
+        "refundPending": "Your refund is on its way. The full amount goes back to your payment method.",
+        "refunded": "Refunded in full.",
+        "notCharged": "You were not charged.",
+        "paidAtStart": "Paid when the run started. Refunded in full if it fails.",
+        "paidAtStartRefunded": "This run was paid when it started, so it is refunded in full."
+      },
+      "cancelFailed": "cancel failed",
+      "estimated": "Estimated: {duration}",
+      "allFiles": "All files",
+      "cancel": "Cancel",
+      "waitingForConfirmation": "Waiting for your payment to be confirmed.",
+      "confirmingWithBank": "Confirming the payment with your bank. It starts as soon as it clears.",
+      "chargeFailed": "There's a problem with your last payment.",
+      "payNow": "Pay now",
+      "failed": "Something went wrong on our side. Try again."
+    },
+    "overdue": {
+      "reported": "Thanks for letting us know. We're looking into this run and will reply by email.",
+      "title": "This is taking much longer than expected.",
+      "body": "Something may be stuck on our side. Report it and we'll look into it and reply by email.",
+      "notePlaceholder": "Anything we should know? (optional)",
+      "sending": "Sending…",
+      "report": "Report it",
+      "sendFailed": "Couldn't send the report. Try again."
+    },
+    "previous": {
+      "word": {
+        "refunded": "Refunded",
+        "making": "Making…"
+      },
+      "notCharged": "Not charged",
+      "wholeVideo": "Whole video",
+      "title": "Previous runs",
+      "allFiles": "All files",
+      "showFewer": "Show fewer",
+      "showAll": "Show all ({count})",
+      "filesDeleted": "These files were deleted on {date}.",
+      "filesUnavailable": "The files can't be opened right now.",
+      "watch": "Watch",
+      "partsInFiles": "{count} parts, in Files",
+      "files": "Files",
+      "alreadyMade": "You already made this on {day} · <link>Download</link>"
+    },
+    "prior": {
+      "hideDownloads": "Hide downloads",
+      "downloads": "Downloads",
+      "fetching": "Fetching download links…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "The sample isn't available right now.",
+      "failed": "Couldn't load the files."
+    },
+    "groups": {
+      "anyScreen": "Any screen",
+      "previewLifelikeHow": "Plays here, with the free 3D check.",
+      "previewHow": "Plays here, or in a headset's player.",
+      "mvhevcHow": "AirDrop or Files. Shows in Photos.",
+      "sbsDevice": "Meta Quest, Galaxy XR, Pico, Steam Frame, XR glasses",
+      "halfSbsDevice": "3D TVs, projectors, Meta Quest at 4K and above",
+      "sideBySideHow": "Open in the player and choose 3D side by side.",
+      "anaglyphHow": "Watch with red-cyan glasses.",
+      "depthDevice": "Depth video",
+      "depthHow": "For your own editing tools."
+    },
+    "short": {
+      "sbs": "Side by side",
+      "halfSbs": "Half side by side",
+      "anaglyph": "Red-cyan"
+    },
+    "download": "Download",
+    "fetching": "Fetching your files…",
+    "empty": "No files in this run.",
+    "thisHeadset": "This headset",
+    "row": {
+      "part": "Part {part}",
+      "clip": "Clip",
+      "full": "Full"
+    },
+    "otherFiles": "{devices} files ({count})",
+    "another": {
+      "longWait": "This can take a while. You can leave this page; the file appears here when it's ready.",
+      "aboutMinutes": "{count, plural, one {About # minute} other {About # minutes}}",
+      "almostReady": "Almost ready…",
+      "left": "About {time} left",
+      "almostDone": "Almost done…",
+      "unavailable": {
+        "halfOnly": "This run only has the half-size file. Make a new conversion for other formats.",
+        "filesErased": "These files were erased after 90 days without use.",
+        "splitRun": "This run is in parts, so other formats can't be made from it. Make a new conversion for other formats."
+      },
+      "failed": "That didn't work. Try again.",
+      "tooWide": "Full side by side isn't made at 6K and 8K. Pick Side by side (half size) or Spatial video.",
+      "rateLimited": "Too many tries. Wait a few minutes.",
+      "open": "Get another format",
+      "title": "Another format",
+      "free": "Free",
+      "madeFrom": "Made from this run's files.",
+      "formatMaking": "{format}: Making it…",
+      "formatAlmostReady": "{format}: Almost ready…",
+      "formatFailed": "{format}: That didn't work. Try again.",
+      "progressLabel": "{format} progress",
+      "tryAgain": "Try again"
+    },
+    "details": {
+      "toggle": "Details",
+      "fileWords": {
+        "sbs": "Side by side .mp4",
+        "halfSbs": "Side by side (half size) .mp4",
+        "anaglyph": "Red-cyan .mp4",
+        "depth": "Depth .mp4",
+        "depthVis": "Depth view .mp4"
+      },
+      "scene": "Scene {n}",
+      "scenes": "Scenes {a}–{b}",
+      "wholeVideo": "Whole video",
+      "perEye": "{width}×{height} per eye",
+      "px": "{value} px",
+      "left": "Left",
+      "right": "Right",
+      "on": "On",
+      "off": "Off",
+      "included": "Included",
+      "freePreview": "Free preview",
+      "proDiscountPct": "{plan} {pct}% · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "View receipt",
+      "viewInvoice": "View invoice",
+      "deletedOn": "Deleted on {date}",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} part {part} {size}",
+      "copied": "Copied",
+      "copy": "Copy",
+      "rows": {
+        "what": "What",
+        "part": "Part",
+        "quality": "Quality",
+        "frameRate": "Frame rate",
+        "filesMade": "Files made",
+        "filesOrdered": "Files ordered",
+        "parts": "Parts",
+        "strength": "3D strength",
+        "depthDetail": "Depth detail",
+        "scenesTuned": "Scenes tuned",
+        "originalEye": "Original eye",
+        "fileQuality": "File quality",
+        "bitrate": "Bitrate",
+        "audio": "Audio",
+        "foveation": "Foveated Detail",
+        "express": "Express",
+        "quickLook": "Quick look",
+        "intro": "Intro",
+        "ordered": "Ordered",
+        "finished": "Finished",
+        "took": "Took",
+        "price": "Price",
+        "freePreviewsUsed": "Free previews used",
+        "discount": "Discount",
+        "launchOffer": "Launch offer",
+        "receipt": "Receipt",
+        "invoice": "Invoice",
+        "runId": "Run ID",
+        "files": "Files",
+        "fileSizes": "File sizes",
+        "keptUntil": "Kept until"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, one {# part} other {# parts}}",
+      "label": "Conversion history",
+      "empty": "Nothing here yet. Your 3D files appear here when they're ready.",
+      "launchOffer": "Launch offer",
+      "failed": "Something went wrong on our side."
+    }
+  },
+  "viewer": {
+    "viewIn3D": "View in 3D",
+    "fullScreen": "Full screen",
+    "playsFlat": "Plays flat here. Vision Pro spatial video plays in 3D."
+  },
+  "quote": {
+    "timedOut": "Pricing is taking longer than usual.",
+    "charge": {
+      "atStart": "Charged when it starts. Refunded if it fails.",
+      "after": "Charged after it's done.",
+      "payBefore": "You pay before a run starts. Your credit and balance are used first.",
+      "payBeforePublic": "You pay before a run starts.",
+      "roundedUp": "Each started minute counts as a full minute.",
+      "rule": "Runs over {amount}: charged when it starts. refunded if it fails. Runs of {amount} or less: charged after it's done. Failed runs cost nothing.",
+      "cancelBefore": "It's charged when you start it. Cancel any time while it waits in line, or in its first minute, for a full refund.",
+      "cancelAfter": "Runs of {amount} or less are charged after they're done. Cancel any time while it waits in line, or in its first minute, and you pay nothing."
+    },
+    "payment": {
+      "refunded": "Refunded",
+      "notCharged": "Not charged",
+      "needed": "Payment needed",
+      "update": "Payment needed: update your payment method",
+      "payToDownload": "Pay {amount} to download",
+      "payToPlay": "Pay {amount} to play"
+    }
+  },
+  "make": {
+    "checkout": {
+      "requestFailed": "request failed",
+      "confirmFailed": "Payment confirmation failed — the conversion was not started.",
+      "starting": "Starting…",
+      "freePreview": "Free preview",
+      "paidFromCredit": "Paid from your credit",
+      "balanceShort": "Balance {amount} · <add>Add funds</add>",
+      "freePreviews": {
+        "first": "Your first preview is free",
+        "todayUsed": "Today's free previews are used. More tomorrow.",
+        "left": {
+          "week": "{remaining} of {allowance} free previews left this week",
+          "month": "{remaining} of {allowance} free previews left this month",
+          "year": "{remaining} of {allowance} free previews left this year",
+          "pass": "{remaining} of {allowance} free previews left on your pass",
+          "none": "{remaining} of {allowance} free previews left"
+        }
+      },
+      "changeLimit": "Change limit",
+      "contactSupport": "Contact support",
+      "block": {
+        "noPaymentMethod": "A payment method is needed before starting paid conversions.",
+        "addPaymentMethod": "Add payment method →",
+        "declined": "The payment for this run was declined. Nothing was charged.",
+        "updatePaymentMethod": "Update payment method →"
+      },
+      "getQuote": "Get quote",
+      "convert": "Convert",
+      "convertPrice": "Convert · {price}",
+      "retry": "Retry",
+      "updating": "Updating…",
+      "pricing": "Pricing…",
+      "runInProgress": "A run is in progress. You can start another when it finishes.",
+      "free": "Free",
+      "youllGet": "You'll get: {files}",
+      "labelPrice": "{label} · {price}"
+    },
+    "fileQuality": {
+      "title": "File quality",
+      "hint": {
+        "high": "For client reviews and big screens",
+        "master": "For editing and archiving"
+      },
+      "aboutSize": "about {size}",
+      "aboutMbps": "about {mbps} Mbit/s",
+      "mbps": "{mbps} Mbit/s",
+      "kbps": "{kbps} kbit/s",
+      "overall": "{rate} overall",
+      "measuredOne": "measured {rate}",
+      "measuredMany": "measured: {rates}",
+      "measuredPart": "{name} {rate}",
+      "askedMeasured": "{asked} ({measured})",
+      "bitrateAuto": "Automatic",
+      "bitrateMatchSource": "Match source",
+      "outputShort": {
+        "mvhevc": "Spatial",
+        "sbs": "SBS",
+        "half_sbs": "Half SBS",
+        "anaglyph": "Red-cyan",
+        "depth": "Depth",
+        "depth_vis": "Depth view"
+      }
+    },
+    "fps": {
+      "planRequired": "Frame rates above 30 fps come with {business} and {studio} plans.",
+      "planRequiredSeePlans": "Frame rates above 30 fps come with {business} and {studio} plans. <link>See plans</link>",
+      "pickFrameRate": "Pick a frame rate to see the price.",
+      "costLine": "Higher frame rates look smoother and cost more: at {fps} a minute counts as {minutes} minutes.",
+      "label": "Frame rate",
+      "free": "Free",
+      "lockedPlan": "{business} or {studio} plan"
+    },
+    "methods": {
+      "description": {
+        "lifelike": "Rebuilds every moment of your video as a real 3D scene, then films it again for each eye. The most natural depth and clean edges, in a fraction of the time.",
+        "classic": "Adds depth to your footage, with manual control over each step."
+      },
+      "lifelikeEyebrow": "Our newest 3D technology",
+      "tagClassic": "Older method",
+      "limitMinutes": "up to {minutes} minutes, up to {top}",
+      "limitAnyLength": "any length, up to {top}",
+      "limitsStatement": "{method}: {limit}.",
+      "convertWithLifelike": "Convert with {method}",
+      "moveToLifelikeTitle": "Convert this project with {method}?",
+      "moveToLifelikeBody": "Your Classic files stay in Files. You can't move back to Classic.",
+      "switchNotAllowed": "A {lifelike} project can't move back to {classic}.",
+      "sampleProject": "This is a finished sample, so there's nothing to pay for here. Its 3D files are in Files. Add your own video to make 3D.",
+      "classicRetired": "{classic} is retired. Your files stay here, and you can convert this project with {lifelike}.",
+      "highestQualityTag": "Highest quality",
+      "presetAboveSource": "That quality is higher than your video. Pick a lower one — we never upscale.",
+      "errors": {
+        "presetUnavailable": "{classic} goes up to 3K. Convert with {lifelike} for 4K and above.",
+        "methodUnavailable": "This 3D method isn't available right now. Please try again later.",
+        "sourceTooLong": "This video is too long for {classic}. Convert with {lifelike} at the top of the page. It works with videos of any length.",
+        "stepNotSupported": "This project's 3D method has changed. Reload the page to continue.",
+        "splitUnsupported": "Splitting into parts isn't available for this method."
+      }
+    },
+    "output": {
+      "inpaint": {
+        "propainter": "Full quality",
+        "migan": "Fast fill (no longer offered)",
+        "none": "Quick"
+      },
+      "edgeHint": "Shifting the picture for each eye opens thin gaps along object edges. Stretched pulls the neighbouring pixels across them; Filled paints them in. Two different looks: pick the one you like."
+    },
+    "stepDefs": {
+      "classic": {
+        "depth_preview": {
+          "title": "Depth",
+          "description": "Check how far away everything is before you make 3D: a 10-second depth clip from where you are on the timeline. Optional.",
+          "outputs": {
+            "o1": "A 10-second depth clip you can play beside your source, near is bright and far is dark"
+          },
+          "tips": {
+            "t1": "Move the playhead to the shot you want to check; the clip starts there.",
+            "t2": "Higher detail costs more; it is capped at your video's own resolution.",
+            "t3": "Look for stable depth across a scene — flicker between frames shows up as shimmer in 3D."
+          }
+        },
+        "stereo_preview": {
+          "title": "3D look",
+          "description": "Per-scene 3D: every scene is measured and classified automatically; adjust the ones that need it, and check a 10-second clip from where you are on the timeline.",
+          "outputs": {
+            "o1": "A 10-second 3D clip in the same qualities and formats Make 3D offers",
+            "o2": "The per-scene profile computed by the run seeds this page's Auto defaults"
+          },
+          "tips": {
+            "t1": "Every scene defaults to Auto: the profiler measures how far the action is from the camera and picks one of four shot types — only rows you change are sent as overrides.",
+            "t2": "Close-up — the subject is near the camera. Depth is kept gentle and the subject pops slightly toward you.",
+            "t3": "Standard — a mid-distance shot. Balanced depth around the screen plane; the most common case.",
+            "t4": "Wide — an establishing or far shot. Depth sits behind the screen like a window, which keeps edges clean on shots that are hardest to fill.",
+            "t5": "Dynamic — the camera or subject distance changes during the scene (push-ins, walk-aways), so the 3D strength adapts across the shot instead of staying fixed.",
+            "t6": "Override a scene's shot type when the automatic pick reads wrong — e.g. force Close-up on a tight shot the profiler called Standard to make it pop more.",
+            "t7": "Overall 3D strength scales EVERY scene at once; a per-scene shot-type override wins for its scene.",
+            "t8": "Edges are Filled by default: the thin gaps that open along object edges in 3D are painted in. The other edge style, Stretched, is under Advanced.",
+            "t9": "Uncheck “3D” on a scene to ship it as 2D — both eyes identical, no depth (end credits, logos, title cards).",
+            "t10": "“Profile shots (free)” measures each scene's depth from the preview proxy and seeds the per-scene controls — no charge, about a minute.",
+            "t11": "Your tweaks persist per project and carry to Make 3D automatically."
+          }
+        },
+        "production": {
+          "title": "Make 3D",
+          "description": "The whole video (or the part you pick) in 3D. It uses your Depth and 3D look settings and reuses earlier depth work at a discount.",
+          "outputs": {
+            "o1": "Your video in every format you pick: Vision Pro spatial video, side by side for other headsets and 3D TVs, red-cyan for a quick check",
+            "o2": "Full frame rate at the quality you pick, with Filled edges unless you chose Stretched under Advanced"
+          },
+          "tips": {
+            "t1": "The summary shows which Depth and 3D look settings this run uses — each can be switched back to automatic.",
+            "t2": "Reuse is the default: compatible preview artifacts (depth, preprocess) are discounted automatically — the quote shows each reused stage.",
+            "t3": "Pick “Start from scratch” to recompute everything, e.g. to raise quality beyond what previews ran at."
+          }
+        }
+      },
+      "lifelike": {
+        "lifelike_preview": {
+          "title": "Preview",
+          "description": "See a few seconds in 3D before you make the whole video.",
+          "outputs": {
+            "o1": "A few seconds of your video in 3D (5 by default), starting at the moment you pick",
+            "o2": "Side by side, so you can play it right here (or check it in red-cyan or as a wiggle, free) or on a headset"
+          },
+          "tips": {
+            "t1": "Pick a moment with the kind of shot that matters most to you — faces, fast motion, or wide views.",
+            "t2": "A preview costs what the same seconds cost in the final video, with a small minimum per run. Quick look renders half the frame rate for half the price.",
+            "t3": "Happy with it? Make 3D renders the whole video the same way."
+          }
+        },
+        "production": {
+          "title": "Make 3D",
+          "description": "The whole video, or just a part, in 3D.",
+          "outputs": {
+            "o1": "Vision Pro spatial video, full side by side, and half side by side",
+            "o2": "Long videos can come as 15-minute parts that each play smoothly"
+          },
+          "tips": {
+            "t1": "Vision Pro spatial video is for Apple Vision Pro; side by side plays on most other headsets and 3D TVs.",
+            "t2": "Half side by side keeps the file small; full side by side keeps every pixel.",
+            "t3": "You pay before a run starts. Your credit and balance are used first. Refunded if it fails."
+          }
+        }
+      }
+    }
+  },
+  "glossary": {
+    "formats": {
+      "mvhevc": "Vision Pro spatial video",
+      "sbs": "Side by side",
+      "half_sbs": "Side by side (half size)",
+      "anaglyph": "Red-cyan",
+      "tb": "Top-bottom",
+      "half_tb": "Top-bottom (half size)"
+    },
+    "otherOutputs": {
+      "depth": "Depth video",
+      "depth_vis": "Depth video (preview)"
+    },
+    "outputPart": "{name} · Part {part}",
+    "qualityDraft": "Draft",
+    "perEye": "{width}×{height} per eye",
+    "fullResolution": "Full resolution ({short}p)",
+    "steps": {
+      "depth_preview": "Depth preview",
+      "stereo_preview": "3D look preview",
+      "lifelike_preview": "Preview",
+      "production": "Full video"
+    },
+    "edgeStyles": {
+      "filled": "Filled",
+      "stretched": "Stretched"
+    },
+    "edges": {
+      "filled": "Filled edges",
+      "stretched": "Stretched edges",
+      "fast": "Fast fill (no longer offered)",
+      "none": "Unfilled edges"
+    },
+    "fps": "{fps} fps",
+    "scenes": "{count, plural, one {# scene} other {# scenes}}",
+    "hdrVideo": "HDR video",
+    "foveatedDetail": "Foveated Detail",
+    "foveatedHint": "More detail where you look.",
+    "summary": {
+      "depthScale": "3D strength ×{scale}",
+      "scenesAdjusted": "{count, plural, one {# scene adjusted} other {# scenes adjusted}}",
+      "splitParts": "in {minutes}-minute parts",
+      "originalEye": {
+        "left": "Original picture in the left eye",
+        "right": "Original picture in the right eye"
+      }
+    }
+  },
+  "offer": {
+    "name": "Launch offer",
+    "badge": "−{pct}% launch offer",
+    "note": {
+      "list": "{rest} and {last}",
+      "listSeparator": ", ",
+      "pctOn": "{label}: −{pct}% on {on}.",
+      "pctOnly": "{label}: −{pct}%.",
+      "onOnly": "{label}: on {on}.",
+      "labelOnly": "{label}."
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "This is taking longer than usual.",
+      "failed": "We couldn't analyze this video.",
+      "retry": "Try again",
+      "retrying": "Trying again…",
+      "contactSupport": "Contact support",
+      "refresh": "Refresh",
+      "restartFailed": "Could not restart the analysis — please try again."
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "Black bars found at the top and bottom of your video. We'll remove them so your 3D fills the frame.",
+          "sides": "Black bars found on the left and right of your video. We'll remove them so your 3D fills the frame.",
+          "all": "Black bars found on all sides of your video. We'll remove them so your 3D fills the frame."
+        },
+        "keeping": {
+          "topBottom": "Black bars found at the top and bottom of your video. Your 3D keeps them.",
+          "sides": "Black bars found on the left and right of your video. Your 3D keeps them.",
+          "all": "Black bars found on all sides of your video. Your 3D keeps them."
+        }
+      },
+      "perEye": "{size} per eye",
+      "saveError": "Couldn't save that. Try again.",
+      "groupLabel": "Black bars",
+      "remove": "Remove bars (recommended)",
+      "keep": "Keep them",
+      "toggle": {
+        "label": "Remove black bars",
+        "recommended": "Recommended",
+        "removingSized": "Your video has black bars. The 3D fills the frame, so its size changes to fit the picture: {without} instead of {full}.",
+        "removing": "Your video has black bars. The 3D fills the frame, so its size changes to fit the picture.",
+        "keepingSized": "The 3D keeps the black bars, at {full}.",
+        "keeping": "The 3D keeps the black bars."
+      },
+      "before": "Your video",
+      "after": "Your 3D"
+    },
+    "filmstrip": {
+      "hoverScene": "Scene {scene} · {timecode}",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "fit": "Fit",
+      "zoomHint": "⌘/Ctrl + scroll to zoom · scroll to pan",
+      "fullHeightLabel": "Full-height timeline",
+      "compactLabel": "Compact timeline",
+      "fullStrip": "Full strip",
+      "compactStrip": "Compact strip",
+      "pastPreview": "Past preview {label}",
+      "cutAt": "Cut at frame {frame}"
+    },
+    "method": {
+      "tooLongForClassic": "This video is too long for {classic}. {lifelike} works with videos of any length, so we kept it.",
+      "unavailable": "{next} isn't available right now, so your project keeps {current}.",
+      "switchError": "Couldn't change the method. Please try again.",
+      "longerThanClassic": "This video is longer than {classic} can take.",
+      "priceUnavailable": "Price not available right now.",
+      "newTag": "New",
+      "compare": {
+        "forVideo": "For this video",
+        "forVideoAt": "For this video at {quality}",
+        "methodNow": "{method} now",
+        "price": "Price",
+        "readyIn": "Ready in",
+        "closing": "Our newest 3D technology. No Depth or 3D look pages to set up."
+      },
+      "stayOn": "Stay on {method}",
+      "convertWith": "Convert with {method}",
+      "offer": {
+        "priceTime": ": {price}, {time} for this video.",
+        "price": ": {price} for this video.",
+        "noPrice": ".",
+        "higher": "or {quality} for {price}",
+        "move": "Move"
+      }
+    },
+    "tabs": {
+      "railLabel": "Workspace pages",
+      "overview": {
+        "label": "Overview",
+        "hint": "Your video, what you'll get, the price and the next step"
+      },
+      "scenes": {
+        "label": "Scenes",
+        "hint": "Check where each scene starts — free"
+      },
+      "depth": {
+        "label": "Depth",
+        "hint": "Optional: preview how far away everything is"
+      },
+      "look": {
+        "label": "3D look",
+        "hint": "Optional: adjust the 3D per scene and preview a moment"
+      },
+      "preview": {
+        "label": "Preview",
+        "hint": "See a few seconds in 3D from any moment"
+      },
+      "make": {
+        "label": "Make 3D",
+        "hint": "Make the whole video (or a part) in 3D"
+      },
+      "files": {
+        "label": "Files",
+        "hint": "Your 3D files, how to watch them, and what each run cost"
+      }
+    },
+    "shortcuts": {
+      "title": "Keyboard shortcuts",
+      "footer": "Shortcuts are ignored while typing in a field. Press <kbd>Esc</kbd> to close.",
+      "keys": {
+        "space": "Space",
+        "click": "Click",
+        "doubleClick": "2×Click",
+        "drag": "Drag",
+        "scroll": "Scroll"
+      },
+      "pages": {
+        "title": "Pages",
+        "page": "{page} page"
+      },
+      "playback": {
+        "title": "Playback (every preview & player)",
+        "playPause": "Play / pause",
+        "stepFrame": "Step exactly ±1 frame",
+        "stepSecond": "Step ±1 second"
+      },
+      "scenes": {
+        "title": "Scene changes (Scenes page)",
+        "scrub": "Scrub the filmstrip",
+        "addCut": "Add a cut at the cursor frame",
+        "moveCut": "Move a cut marker (snaps to frames)",
+        "removeCut": "Remove the selected cut",
+        "zoom": "Zoom the timeline at the playhead"
+      },
+      "help": {
+        "title": "Help",
+        "toggle": "Toggle this sheet"
+      }
+    },
+    "steps": {
+      "title": "Your steps",
+      "stepOf": "Step {step} of {total}",
+      "optional": "Optional",
+      "status": {
+        "analyzing": "Analyzing…",
+        "analyzingPercent": "Analyzing… {percent}%",
+        "unreadable": "Couldn't read the video",
+        "waiting": "Waiting",
+        "ready": "Ready",
+        "waitingInLine": "Waiting in line",
+        "makingPercent": "Making… {percent}%"
+      },
+      "action": {
+        "pickScenes": "Pick scenes",
+        "freePreview": "Make a free preview",
+        "previewPriced": "Preview a moment · {price}",
+        "preview": "Preview a moment",
+        "seeProgress": "See progress",
+        "make": "Make 3D",
+        "seeFiles": "See the 3D files",
+        "download": "Download"
+      },
+      "secondary": {
+        "straightToMake": "or go straight to Make 3D",
+        "checkLook": "or check the 3D look first",
+        "makeAgain": "or make it in 3D again"
+      }
+    },
+    "overview": {
+      "untitled": "Untitled project",
+      "method": "Method",
+      "youGet": "You'll get",
+      "youGetValue": "Vision Pro spatial video + Side by side",
+      "price": "Price",
+      "priceAt": "At {quality}",
+      "samplePrice": "A sample: already in 3D, never billed",
+      "pricing": "Pricing this video…",
+      "analyzing": "We're analyzing your video. Prices appear here when it's done. Free.",
+      "waiting": "Your video is waiting to be looked through. Prices appear here when it's done."
+    },
+    "viewer": {
+      "thumbAlt": "nearest thumbnail, frame {frame}",
+      "previewResolution": "Preview Resolution",
+      "thumbnail": "Thumbnail",
+      "proxyTitle": "Frame-exact preview proxy — conversions always use the full-resolution source ({size})",
+      "pauseLabel": "Pause preview",
+      "playLabel": "Play preview",
+      "pause": "❚❚ Pause",
+      "play": "▶ Play",
+      "stepBack": "Step back one frame",
+      "stepForward": "Step forward one frame",
+      "activePicture": "active picture {size}",
+      "theaterLabel": "Theater player",
+      "compactLabel": "Compact player",
+      "theater": "Theater",
+      "compact": "Compact",
+      "keysHint": "Space play/pause · ←/→ ±1 frame · Shift ±1 s"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "Draft",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "Very high",
+        "maximum": "Maximum",
+        "aspectMax": "aspect max",
+        "sourceNative": "source native"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "cut {cut} is not an integer frame",
+        "outside": "cut {cut} outside (0, {frames})",
+        "notIncreasing": "cuts not strictly increasing at {cut}"
+      },
+      "note": {
+        "outside": "Cannot cut at frame {frame} — cuts must be inside (0, {frames}).",
+        "exists": "There is already a cut at frame {frame}.",
+        "unreadable": "Could not read the cut list."
+      },
+      "addReason": {
+        "atStart": "Cuts must be after frame 0 — move the playhead first",
+        "exists": "There is already a cut at frame {frame}"
+      },
+      "saveFailed": "failed to save cuts",
+      "title": "Scene cuts",
+      "description": "Frame-exact scene boundaries — every later step maps depth per scene. Edits stay local until saved.",
+      "framesFps": "{frames} frames · {fps} fps",
+      "unsaved": "Unsaved changes",
+      "fileLabel": "Cut list file",
+      "import": "Import cuts…",
+      "export": "Export cuts",
+      "reset": "Reset to detected",
+      "saving": "Saving…",
+      "save": "Save cuts",
+      "conflict": "The scene list changed on the server since you loaded it. Reload the latest version and reapply your edits, then save again.",
+      "reload": "Reload & reapply",
+      "addTitle": "Add a scene cut at frame {frame} (the playhead)",
+      "add": "+ Add cut at playhead",
+      "removeTitleNone": "Select a cut marker on the timeline first",
+      "removeTitle": "Remove the selected cut (Delete)",
+      "remove": "− Remove cut",
+      "selected": "Cut {index} · {frame}",
+      "removeSelectedLabel": "Remove selected cut",
+      "hint": "Click the strip to scrub · double-click to add a cut · click a marker to select, drag to move · Delete removes",
+      "legend": {
+        "cut": "scene cut — the first frame of a new scene",
+        "playhead": "playhead"
+      },
+      "importDialog": {
+        "title": "Import scene cuts",
+        "body": "Replace {current} cuts with {imported} imported cuts? The replacement stays local until you save.",
+        "replace": "Replace"
+      }
+    },
+    "sceneList": {
+      "label": "Scenes",
+      "heading": "Scenes · {count}",
+      "keyframeAlt": "scene {scene} keyframe",
+      "scene": "Scene {scene}",
+      "mergeLabel": "Merge scene {scene} into the previous scene",
+      "mergeTitle": "Remove the cut at frame {frame}, merging this scene into scene {previous}",
+      "merge": "Merge ←"
+    },
+    "source": {
+      "title": "Source details",
+      "rows": {
+        "file": "File",
+        "size": "Size",
+        "container": "Container",
+        "length": "Length",
+        "resolution": "Resolution",
+        "frameRate": "Frame rate",
+        "frames": "Frames",
+        "codec": "Codec",
+        "bitDepth": "Bit depth",
+        "videoBitrate": "Video bitrate",
+        "colour": "Colour",
+        "rotation": "Rotation",
+        "bars": "Black bars",
+        "audio": "Audio",
+        "stereo": "Spatial or 3D",
+        "camera": "Camera"
+      },
+      "variableUpTo": "{fps} · variable, up to {max}",
+      "variable": "{fps} · variable",
+      "bitDepth": "{bits}-bit",
+      "none": "None",
+      "bars": {
+        "detected": "Detected",
+        "picture": "picture {size}",
+        "removed": "removed in your 3D",
+        "kept": "kept in your 3D"
+      },
+      "channels": {
+        "mono": "mono",
+        "stereo": "stereo",
+        "many": "{count} channels"
+      },
+      "stereo": {
+        "mvhevc": "Spatial video (MV-HEVC)",
+        "sbs": "Side by side 3D",
+        "tb": "Top and bottom 3D",
+        "spatial": "Spatial video",
+        "flat": "No, 2D"
+      }
+    },
+    "load": {
+      "notAvailable": "This project isn't available. It may have been removed."
+    },
+    "stepTab": {
+      "tips": "ⓘ Tips",
+      "drawerLabel": "{title} — what you get and tips",
+      "close": "Close tips",
+      "lastRun": "Last run",
+      "files": "Files →",
+      "whatYouGet": "What you get",
+      "tipsTitle": "Tips"
+    }
   }
 }

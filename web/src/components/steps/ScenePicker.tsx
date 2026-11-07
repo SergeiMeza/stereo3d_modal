@@ -11,6 +11,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { selectClass } from "./controls";
@@ -29,11 +30,12 @@ export function MuteToggle({
   onChange: (muted: boolean) => void;
   disabled?: boolean;
 }): JSX.Element {
+  const t = useT();
   return (
     <Button
       variant="outline"
       size="icon-xs"
-      aria-label={muted ? "Unmute" : "Mute"}
+      aria-label={muted ? t("preview.player.unmute") : t("preview.player.mute")}
       disabled={disabled}
       onClick={(e) => {
         blurAfterMouseClick(e);
@@ -63,12 +65,13 @@ export function SpeedSelect({
   value: number;
   onChange: (rate: number) => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <label className="flex items-center gap-1 text-xs text-fg-muted">
-      Speed
+      {t("preview.player.speed")}
       <select
         id={id}
-        aria-label="Speed"
+        aria-label={t("preview.player.speed")}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className={`${selectClass} py-1 text-xs`}

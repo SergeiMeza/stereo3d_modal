@@ -43,6 +43,9 @@ import {
   type RationalFPS,
 } from "@/lib/frames";
 import { qualityChoices, qualityLabelFor } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor, SAMPLE_PROJECT } from "./methods";
 import { formatCents, formatCentsShort } from "./money";
@@ -77,8 +80,12 @@ export function previewRange(
 }
 
 /** "Nov 7": the day a preview was ordered. */
-export function previewDay(iso: string): string {
-  return formatShortDay(iso);
+export function previewDay(iso: string, t: Tr = EN): string {
+  if (t.locale === EN.locale) return formatShortDay(iso);
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString(t.intl, { month: "short", day: "numeric" });
 }
 
 /** A run's state as a strip band shows it. */
@@ -111,6 +118,7 @@ function segClass(on: boolean): string {
 
 export function LifelikePreviewPanel(props: LifelikePreviewPanelProps): JSX.Element {
   const { project } = props;
+  const t = useT();
   const ready =
     project.analyze.state === "succeeded" && project.probe && project.scenes;
   if (!ready) {
@@ -118,10 +126,7 @@ export function LifelikePreviewPanel(props: LifelikePreviewPanelProps): JSX.Elem
       <PanelShell>
         <Card>
           <CardContent>
-            <p className="text-sm text-fg-muted">
-              We&apos;re still analyzing your video. Previews open when
-              it&apos;s done.
-            </p>
+            <p className="text-sm text-fg-muted">{t("preview.analyzing")}</p>
           </CardContent>
         </Card>
       </PanelShell>
@@ -136,6 +141,7 @@ function ReadyPreviewPanel({
   onProjectChanged,
 }: LifelikePreviewPanelProps): JSX.Element {
   const ck = useStepCheckout(project, "lifelike_preview", onProjectChanged);
+  const t = useT();
   const pricing = usePricing();
   const gateway = useGateway();
   // 00081: one play per preview file and page visit
@@ -250,7 +256,7 @@ function ReadyPreviewPanel({
           ? `${clock(shown.params.from_frame)} – ${clock(shown.params.to_frame)}`
           : null,
         qualityLabelFor(project, shown.params.preset),
-        previewDay(shown.created_at),
+        previewDay(shown.created_at, t),
       ]
         .filter(Boolean)
         .join(" · ")
@@ -268,8 +274,12 @@ function ReadyPreviewPanel({
             label: [
               `${clock(c.params.from_frame)} – ${clock(c.params.to_frame)}`,
               qualityLabelFor(project, c.params.preset),
-              previewDay(c.created_at),
-              bandState(c) === "running" ? "being made" : bandState(c) === "failed" ? "didn't finish" : null,
+              previewDay(c.created_at, t),
+              bandState(c) === "running"
+                ? t("preview.band.running")
+                : bandState(c) === "failed"
+                  ? t("preview.band.failed")
+                  : null,
             ]
               .filter(Boolean)
               .join(" · "),
@@ -281,11 +291,11 @@ function ReadyPreviewPanel({
 
   const previewCard: ReactNode = (
     <section
-      aria-label="Your preview"
+      aria-label={t("preview.card.title")}
       className="flex h-full flex-col gap-2 rounded-md border border-edge bg-surface-1 p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-xs font-semibold text-fg">Your preview</h3>
+        <h3 className="text-xs font-semibold text-fg">{t("preview.card.title")}</h3>
         {shown ? <StateChip conversion={shown} /> : null}
         {picked && picked.conversion_id !== latest?.conversion_id ? (
           <button
@@ -293,7 +303,7 @@ function ReadyPreviewPanel({
             onClick={() => setPick(null)}
             className="text-[11px] text-primary hover:underline"
           >
-            {latest ? "Back to latest" : "Back"}
+            {latest ? t("preview.card.backToLatest") : t("preview.card.back")}
           </button>
         ) : null}
         <span data-testid="preview-shown-meta" className="ml-auto text-[11px] text-fg-muted">
@@ -307,8 +317,8 @@ function ReadyPreviewPanel({
           style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
         >
           {bandState(shown) === "failed"
-            ? "This preview didn't finish. You paid nothing for it."
-            : "This preview is being made. It shows here when it's done."}
+            ? t("preview.card.failed")
+            : t("preview.card.running")}
         </div>
       ) : shown === undefined ? (
         <div
@@ -316,10 +326,10 @@ function ReadyPreviewPanel({
           className="flex flex-1 items-center justify-center rounded-md border border-dashed border-edge p-6 text-center text-xs text-fg-muted"
           style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
         >
-          Your preview appears here.
+          {t("preview.card.empty")}
         </div>
       ) : downloads === null ? (
-        <p className="text-xs text-fg-muted">Fetching the preview…</p>
+        <p className="text-xs text-fg-muted">{t("preview.card.fetching")}</p>
       ) : output === null ? (
         // a headset's own format (Vision Pro spatial video) plays flat
         // inline; View in 3D shows it in 3D
@@ -340,7 +350,7 @@ function ReadyPreviewPanel({
           <div className="flex flex-wrap items-center gap-2">
             <ViewIn3D files={downloads} onPlay={logPlay} />
             <a href="#tab=make" className="ml-auto text-xs text-primary hover:underline">
-              Make the whole video in 3D
+              {t("preview.card.makeWhole")}
             </a>
           </div>
           {shown ? <PreviewDownloads conversion={shown} /> : null}
@@ -359,7 +369,7 @@ function ReadyPreviewPanel({
           <div className="flex flex-wrap items-center gap-2">
             <div
               role="radiogroup"
-              aria-label="View"
+              aria-label={t("preview.card.viewAria")}
               className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5"
             >
               {CHECK_MODES.map((m) => (
@@ -371,22 +381,22 @@ function ReadyPreviewPanel({
                   onClick={() => setMode(m.id)}
                   className={segClass(mode === m.id)}
                 >
-                  {m.label}
+                  {t(m.labelKey)}
                 </button>
               ))}
             </div>
             <span className="text-[11px] text-fg-muted">
-              Free 3D check on this screen
+              {t("preview.card.freeCheck")}
             </span>
             <ViewIn3D files={downloads} size="xs" onPlay={logPlay} />
           </div>
           {shown ? <PreviewDownloads conversion={shown} /> : null}
           <div className="flex items-center text-xs">
             <span className="font-mono text-fg-muted">
-              {formatCents(shown.quote.amount_cents)}
+              {formatCents(shown.quote.amount_cents, t)}
             </span>
             <a href="#tab=make" className="ml-auto text-primary hover:underline">
-              Make the whole video in 3D
+              {t("preview.card.makeWhole")}
             </a>
           </div>
         </>
@@ -405,7 +415,7 @@ function ReadyPreviewPanel({
       <StepReview
         project={project}
         sourceFps={sourceFps}
-        heading="Your video"
+        heading={t("preview.heading")}
         aside={previewCard}
         range={(playhead) =>
           previewRange(playhead, probe.num_frames, sourceFps, seconds)
@@ -420,7 +430,7 @@ function ReadyPreviewPanel({
               <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-1">
                   <span id="pv-quality" className="text-[11px] text-fg-muted">
-                    Quality
+                    {t("preview.quality")}
                   </span>
                   <div
                     role="radiogroup"
@@ -443,11 +453,11 @@ function ReadyPreviewPanel({
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[11px] text-fg-muted">Length</span>
+                  <span className="text-[11px] text-fg-muted">{t("preview.length")}</span>
                   <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
                     <button
                       type="button"
-                      aria-label="Shorter"
+                      aria-label={t("preview.shorter")}
                       disabled={seconds <= MIN_LENGTH}
                       onClick={() => change(() => setSeconds((s) => s - 1))}
                       className={segClass(false)}
@@ -456,14 +466,14 @@ function ReadyPreviewPanel({
                     </button>
                     <span
                       data-testid="preview-length"
-                      aria-label="Length"
+                      aria-label={t("preview.length")}
                       className="px-2 font-mono text-xs text-fg"
                     >
-                      {seconds} s
+                      {t("preview.lengthValue", { seconds })}
                     </span>
                     <button
                       type="button"
-                      aria-label="Longer"
+                      aria-label={t("preview.longer")}
                       disabled={seconds >= MAX_LENGTH}
                       onClick={() => change(() => setSeconds((s) => s + 1))}
                       className={segClass(false)}
@@ -480,14 +490,16 @@ function ReadyPreviewPanel({
                       onChange={(e) => change(() => setQuickLook(e.target.checked))}
                       className="accent-primary"
                     />
-                    Quick look <span className="text-fg-muted">· half price</span>
+                    {rich(t, "preview.quickLook", {
+                      muted: (c) => <span className="text-fg-muted">{c}</span>,
+                    })}
                   </label>
                 )}
               </div>
               {fpsChoice.required ? (
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] text-fg-muted">
-                    Frame rate · your video is {fpsLabel(probe.fps)}
+                    {t("preview.frameRate", { fps: fpsLabel(probe.fps) })}
                   </span>
                   <FrameRatePicker
                     compact
@@ -506,23 +518,26 @@ function ReadyPreviewPanel({
                 checkout={ck}
                 request={run}
                 quoteRequest={quoteRequest}
-                label="Preview this moment"
+                label={t("preview.cta")}
                 trackerDownloads={false}
                 disabledReason={project.sample ? SAMPLE_PROJECT : fpsMissing ? PICK_FRAME_RATE : undefined}
                 explain={
                   <span className="flex flex-col gap-1.5">
                     <span>
-                      {frames} frames at the {choice?.label ?? preset} rate: the
-                      same price per frame as the whole video.
+                      {t("preview.explain.frames", {
+                        frames: String(frames),
+                        quality: choice?.label ?? preset,
+                      })}
                     </span>
                     <span>
-                      Quick look uses half the frame rate for half the price.
                       {/* the quote's own line names the minimum when it applies */}
-                      {pricing &&
-                      ck.quote?.quote.amount_cents !== previewMinimum(pricing)
-                        ? ` Minimum charge ${formatCentsShort(previewMinimum(pricing))}.`
-                        : ""}{" "}
-                      If it fails, you pay nothing.
+                      {t("preview.explain.quickLook", {
+                        hasMinimum:
+                          pricing && ck.quote?.quote.amount_cents !== previewMinimum(pricing)
+                            ? "yes"
+                            : "no",
+                        minimum: pricing ? formatCentsShort(previewMinimum(pricing), t) : "",
+                      })}
                     </span>
                   </span>
                 }
@@ -532,11 +547,11 @@ function ReadyPreviewPanel({
         }}
         timelineHeading={
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xs font-semibold text-fg">Pick a moment</h3>
+            <h3 className="text-xs font-semibold text-fg">{t("preview.timeline.heading")}</h3>
             <span className="text-[11px] text-fg-muted">
               {bands.length > 0
-                ? "Click the strip to move the preview. The bars along its top are your past previews."
-                : "Click the strip to move the preview."}
+                ? t("preview.timeline.hintWithBands")
+                : t("preview.timeline.hint")}
             </span>
           </div>
         }
@@ -555,8 +570,8 @@ function ReadyPreviewPanel({
       </StepReview>
 
       {succeeded.length > 1 || runs.length > succeeded.length ? (
-        <section aria-label="Past previews" className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold text-fg-muted">Past previews</h3>
+        <section aria-label={t("preview.past.heading")} className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-fg-muted">{t("preview.past.heading")}</h3>
           <ul className="flex flex-col gap-2">
             {runs.map((c) => (
               <PreviewRow
@@ -568,7 +583,7 @@ function ReadyPreviewPanel({
                     : ""
                 }
                 quality={qualityLabelFor(project, c.params.preset)}
-                day={previewDay(c.created_at)}
+                day={previewDay(c.created_at, t)}
                 shown={c.conversion_id === shown?.conversion_id}
                 onShow={() => showPast(c.conversion_id)}
               />
@@ -592,10 +607,15 @@ function PreviewRangeNote({
   scene: number;
   scenes: number;
 }): JSX.Element {
+  const t = useT();
   return (
     <p data-testid="preview-range" className="text-[11px] text-fg-muted">
-      Preview <span className="font-mono text-fg">{clock(range[0])} – {clock(range[1])}</span>
-      {" · "}Scene {scene} of {scenes}
+      {rich(
+        t,
+        "preview.rangeNote",
+        { mono: (c) => <span className="font-mono text-fg">{c}</span> },
+        { from: clock(range[0]), to: clock(range[1]), scene, scenes },
+      )}
     </p>
   );
 }
@@ -615,6 +635,7 @@ function PreviewRow({
   shown: boolean;
   onShow?: () => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <li
       data-testid={`preview-row-${c.conversion_id}`}
@@ -625,7 +646,7 @@ function PreviewRow({
       <span className="text-fg-muted">{day}</span>
       <StateChip conversion={c} />
       <span className="ml-auto font-mono text-fg-muted">
-        {formatCents(c.quote.amount_cents)}
+        {formatCents(c.quote.amount_cents, t)}
       </span>
       {onShow ? (
         <button
@@ -634,7 +655,7 @@ function PreviewRow({
           disabled={shown}
           className="text-primary hover:underline disabled:text-fg-muted disabled:no-underline"
         >
-          {shown ? "Showing" : "Show"}
+          {shown ? t("preview.row.showing") : t("preview.row.show")}
         </button>
       ) : null}
     </li>
