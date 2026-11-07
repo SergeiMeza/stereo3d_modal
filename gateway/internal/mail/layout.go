@@ -137,7 +137,10 @@ func (l Layout) Text() string {
 	}
 	if len(l.Rows) > 0 {
 		for _, r := range l.Rows {
-			b.WriteString(r.Label + ": " + r.Value)
+			b.WriteString(r.Label)
+			if r.Value != "" {
+				b.WriteString(": " + r.Value)
+			}
 			if r.Href != "" {
 				b.WriteString(" (" + r.Href + ")")
 			}
