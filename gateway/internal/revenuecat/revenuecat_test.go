@@ -205,3 +205,33 @@ func TestSubscriberReadAccepts201(t *testing.T) {
 		t.Fatal("404 read as success")
 	}
 }
+
+// The read gate (TEST): a uid it refuses is never sent to RevenueCat
+// (whose subscriber read creates the customer); it reads as no app Pro,
+// and the grant and attribute reads say ErrNotRead. Allowed uids read.
+func TestReadGate(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Write([]byte(`{"subscriber":{"entitlements":{"pro":{"expires_date":null,"product_identifier":"lifetime"}},"subscriptions":{},"non_subscriptions":{}}}`))
+	}))
+	defer srv.Close()
+	c := New("k").WithBase(srv.URL, time.Now)
+	c.SetReadGate(func(_ context.Context, uid string) bool { return uid == "allowed" })
+	ctx := context.Background()
+	if st, err := c.Pro(ctx, "other"); err != nil || st.Pro {
+		t.Fatalf("gated Pro %+v %v", st, err)
+	}
+	if _, err := c.PromotionalGrants(ctx, "other"); err != ErrNotRead {
+		t.Fatalf("gated grants %v", err)
+	}
+	if _, err := c.SubscriberAttributes(ctx, "other"); err != ErrNotRead {
+		t.Fatalf("gated attributes %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("%d calls for a gated uid", calls)
+	}
+	if st, err := c.Pro(ctx, "allowed"); err != nil || !st.Pro || calls != 1 {
+		t.Fatalf("allowed %+v %v calls %d", st, err, calls)
+	}
+}

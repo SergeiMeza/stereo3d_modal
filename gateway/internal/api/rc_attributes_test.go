@@ -154,3 +154,22 @@ func TestRCAttributes(t *testing.T) {
 		t.Fatal("prod default")
 	}
 }
+
+// TEST reads RevenueCat only for rc_attr_allow_uids; prod reads everyone
+// (no gate): creating customers there for web accounts is intended.
+func TestRCReadGateByEnv(t *testing.T) {
+	r := pricing.DefaultsFor("test")
+	r.RCAttrAllowUIDs = []string{"qa1"}
+	rates := func(context.Context) *pricing.Rates { return r }
+	if RCReadGate("prod", rates) != nil {
+		t.Fatal("prod is gated")
+	}
+	g := RCReadGate("test", rates)
+	if g == nil || !g(context.Background(), "qa1") || g(context.Background(), "someone") {
+		t.Fatal("test gate")
+	}
+	r.RCAttrAllowUIDs = nil // the default: nobody on TEST
+	if g(context.Background(), "qa1") {
+		t.Fatal("empty allowlist reads")
+	}
+}

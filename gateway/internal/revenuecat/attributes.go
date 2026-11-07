@@ -20,6 +20,9 @@ func (c *Client) SubscriberAttributes(ctx context.Context, uid string) (map[stri
 	if !c.Configured() || uid == "" {
 		return nil, fmt.Errorf("revenuecat not configured")
 	}
+	if !c.mayRead(ctx, uid) {
+		return nil, ErrNotRead
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/subscribers/"+url.PathEscape(uid), nil)

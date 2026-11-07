@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -264,5 +265,20 @@ func (s *Service) syncRCAttrsOne(ctx context.Context, rec *store.RCAttrSync, rea
 		slog.WarnContext(ctx, "rc attributes not sent", "attributes", strings.Join(names, ","), "err", sendErr)
 	} else if real && len(changed) > 0 {
 		slog.InfoContext(ctx, "rc attributes sent", "attributes", strings.Join(names, ","), "clear", rec.Clear)
+	}
+}
+
+// RCReadGate is the RevenueCat read gate for env (owner 2026-11-07). TEST
+// shares prod's one RevenueCat project, and GET /v1/subscribers/{id}
+// creates the customer it reads, so TEST reads only the uids
+// rc_attr_allow_uids clears (the same list the attribute writes use) and
+// everyone else reads as no app Pro, without a call. Prod has no gate
+// (nil): creating RevenueCat customers for web accounts is intended there.
+func RCReadGate(env string, rates func(context.Context) *pricing.Rates) func(context.Context, string) bool {
+	if env == "prod" {
+		return nil
+	}
+	return func(ctx context.Context, uid string) bool {
+		return slices.Contains(rates(ctx).RCAttrAllowUIDs, uid)
 	}
 }
