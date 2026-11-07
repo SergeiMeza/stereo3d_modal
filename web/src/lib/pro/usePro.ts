@@ -16,7 +16,7 @@ import { useCallback, useEffect } from "react";
 
 import { clearStepQuotes } from "@/components/steps/checkoutStore";
 import { AUTH_MODE, useAuth } from "@/lib/auth";
-import { gatewayBaseUrl } from "@/lib/region";
+import { gatewayFetch, prepareGatewayRoute } from "@/lib/region";
 import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { pricingEpochAtom } from "@/lib/api/usePricing";
@@ -131,9 +131,11 @@ async function callGateway(
     }
     return { pro: mockPro, known: true };
   }
+  // the route first: the token comes from the sign-in it uses (BL-34)
+  await prepareGatewayRoute();
   const token = await getToken();
-  const res = await fetch(
-    `${gatewayBaseUrl()}/v1/pro${fresh ? "/refresh" : ""}`,
+  const res = await gatewayFetch(
+    `/v1/pro${fresh ? "/refresh" : ""}`,
     {
       method: fresh ? "POST" : "GET",
       headers: { Authorization: `Bearer ${token}` },

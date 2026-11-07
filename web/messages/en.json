@@ -815,7 +815,8 @@
       "somethingWrong": "Something went wrong.",
       "didntWork": "That didn't work. Try again.",
       "didntWorkShort": "That didn't work.",
-      "sendCodeFailed": "Couldn't send the code."
+      "sendCodeFailed": "Couldn't send the code.",
+      "signInAgainHere": "We couldn't keep you signed in on this network. Sign in again with your email."
     },
     "passkeyErrors": {
       "notRegistered": "This passkey isn't registered here. Sign in another way.",

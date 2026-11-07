@@ -340,10 +340,31 @@ export interface ClientOptions {
   /** The reader's language for the errors the client words itself (the
    * gateway's own messages stay as sent); English when absent. */
   t?: Tr;
+  /** BL-34: settles the route before a request (before the token too, so
+   * the token comes from the sign-in the route uses). */
+  prepare?: () => Promise<void>;
+  /** BL-34: a request failed before any answer (fetch threw); the route
+   * looks again. HTTP statuses never reach it. */
+  onConnectionFailure?: (error: unknown) => void;
 }
 
 export class GatewayClient {
   constructor(private readonly opts: ClientOptions) {}
+
+  private base(): string {
+    return typeof this.opts.baseUrl === "function" ? this.opts.baseUrl() : this.opts.baseUrl;
+  }
+
+  /** fetch, telling the route about a failure before any answer. */
+  private async send(url: string, init: RequestInit): Promise<Response> {
+    const f = this.opts.fetchFn ?? fetch;
+    try {
+      return await f(url, init);
+    } catch (e) {
+      this.opts.onConnectionFailure?.(e);
+      throw e;
+    }
+  }
 
   private get t(): Tr {
     return this.opts.t ?? EN;
@@ -383,13 +404,9 @@ export class GatewayClient {
     headers?: Record<string, string>,
     opts: { anonymous?: boolean } = {},
   ): Promise<T> {
-    const f = this.opts.fetchFn ?? fetch;
+    await this.opts.prepare?.();
     const token = opts.anonymous ? null : await this.opts.getToken();
-    const base =
-      typeof this.opts.baseUrl === "function"
-        ? this.opts.baseUrl()
-        : this.opts.baseUrl;
-    const res = await f(`${base}${path}`, {
+    const res = await this.send(`${this.base()}${path}`, {
       method,
       headers: {
         ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
@@ -543,15 +560,14 @@ export class GatewayClient {
 
   /** The CSV download's address for a month. */
   usageCsvUrl(month: string): string {
-    const base = typeof this.opts.baseUrl === "function" ? this.opts.baseUrl() : this.opts.baseUrl;
-    return `${base}/v1/billing/usage?month=${encodeURIComponent(month)}&format=csv`;
+    return `${this.base()}/v1/billing/usage?month=${encodeURIComponent(month)}&format=csv`;
   }
 
   /** the CSV itself (signed request), for a download */
   async usageCsv(month: string): Promise<string> {
-    const f = this.opts.fetchFn ?? fetch;
+    await this.opts.prepare?.();
     const token = await this.opts.getToken();
-    const res = await f(this.usageCsvUrl(month), { headers: { Authorization: `Bearer ${token}` } });
+    const res = await this.send(this.usageCsvUrl(month), { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new GatewayError("server_error", this.t("errors.csvDownloadFailed"), res.status);
     return res.text();
   }
@@ -1126,10 +1142,9 @@ export class GatewayClient {
    * a GatewayError with the status otherwise (401: a bad token).
    */
   async openEvents(lastEventId: string | null, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
-    const f = this.opts.fetchFn ?? fetch;
-    const base = typeof this.opts.baseUrl === "function" ? this.opts.baseUrl() : this.opts.baseUrl;
+    await this.opts.prepare?.();
     const token = await this.opts.getToken();
-    const res = await f(`${base}/v1/events`, {
+    const res = await this.send(`${this.base()}/v1/events`, {
       headers: {
         Accept: "text/event-stream",
         Authorization: `Bearer ${token}`,

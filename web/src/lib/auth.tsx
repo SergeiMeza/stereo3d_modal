@@ -15,6 +15,12 @@
  *   the gateway's /v1/auth/* routes (lib/gatewayAuth.ts), email only. The
  *   Firebase SDK is never loaded: every SDK call below sits behind a
  *   region check made at call time.
+ * - BL-34: China mode also follows the gateway route (lib/gatewayRoute.ts).
+ *   A browser that can't reach the direct host moves to the cn. host and
+ *   signs in through the gateway like a visitor placed in China. Calls
+ *   that pick a sign-in wait for the route first. Someone signed in
+ *   through the SDK when the route moves is signed out on this network,
+ *   and the sign-in screen says so (auth.errors.signInAgainHere).
  *
  * The region is settled only on the client, so until it is (server render,
  * hydration) live auth reports ready=false, as the SDK did while restoring
@@ -80,7 +86,12 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { EN } from "@/lib/i18n/t";
 import { passkeySignIn } from "@/lib/passkeys";
 import { confirmItsYou } from "@/lib/reauth";
-import { currentRegion, gatewayBaseUrl } from "@/lib/region";
+import {
+  currentRegion,
+  gatewayFetch,
+  prepareGatewayRoute,
+  recheckDirectGatewayRoute,
+} from "@/lib/region";
 import { useRegion } from "@/lib/useRegion";
 
 export interface AuthUser {
@@ -279,8 +290,10 @@ async function getMockToken(): Promise<string> {
   return "mock-token";
 }
 
-/** Live mode: the gateway session in China mode, else the SDK user. */
+/** Live mode: the gateway session in China mode, else the SDK user. The
+ * route settles first (BL-34): it decides which of the two. */
 async function getLiveToken(): Promise<string> {
+  await prepareGatewayRoute();
   if (viaGateway()) {
     try {
       return await getGatewayToken();
@@ -427,8 +440,9 @@ export async function postSignInEvent(
   getToken: () => Promise<string>,
 ): Promise<void> {
   try {
+    await prepareGatewayRoute();
     const token = await getToken();
-    await fetch(`${gatewayBaseUrl()}/v1/events`, {
+    await gatewayFetch("/v1/events", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ name: "sign_in", props: { method } }),
@@ -633,6 +647,7 @@ const sendEmailCode = async (email: string) => {
 
 const signInWithEmailCode = async (email: string, code: string) => {
     try {
+      await prepareGatewayRoute();
       if (viaGateway()) {
         const answer = await verifyEmailCode(email, code, true);
         gatewayAdoptSession(answer);
@@ -683,6 +698,7 @@ const signInWithEmailCode = async (email: string, code: string) => {
   };
 
 const signInWithPasskey = async (opts?: { autofill?: boolean }) => {
+  await prepareGatewayRoute();
   const gw = viaGateway();
   // PasskeyError carries its own plain message (not a Firebase code)
   const answer = await passkeySignIn({ autofill: opts?.autofill, session: gw });
@@ -718,6 +734,7 @@ const reauthenticate = async (id: LinkableProvider) => {
 export const OTHER_ACCOUNT_PASSKEY = EN("auth.errors.otherAccountPasskey");
 
 const reauthenticateWithPasskey = async () => {
+  await prepareGatewayRoute();
   const gw = viaGateway();
   const uid = appStore.get(authStateAtom).user?.uid ?? null;
   const answer = await passkeySignIn({ session: gw });
@@ -890,10 +907,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? "gateway"
           : "firebase";
 
-  // ADR 0138: the session's state lives in the app-store auth atom
+  // ADR 0138: the session's state lives in the app-store auth atom.
+  // BL-34: moving from the SDK to the gateway (the route moved to the cn.
+  // host) while signed in through the SDK leaves no session here: say so
+  // on the sign-in screen rather than just showing it.
   useEffect(() => {
-    if (appStore.get(authStateAtom).mode !== mode) setAuth({ mode });
+    const was = appStore.get(authStateAtom);
+    if (was.mode === mode) return;
+    const lostSession = was.mode === "firebase" && mode === "gateway" && was.user !== null && gatewaySession() === null;
+    setAuth(
+      lostSession
+        ? { mode, redirectError: EN("auth.errors.signInAgainHere"), redirectFailure: keyedError("auth.errors.signInAgainHere") }
+        : { mode },
+    );
   }, [mode]);
+
+  // BL-34: settle the route as the page starts, and on the relay by
+  // choice, ask the direct host again every 6 h (on load and on coming
+  // back to the tab); the next page load follows its answer.
+  useEffect(() => {
+    if (AUTH_MODE === "mock") return;
+    void prepareGatewayRoute().then(() => recheckDirectGatewayRoute());
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void recheckDirectGatewayRoute();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   // Back from a redirect (the Apple fallback, Google on phones): settle
   // its answer, and say so when an expected one came back empty (owner

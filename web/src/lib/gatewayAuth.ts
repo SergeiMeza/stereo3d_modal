@@ -13,7 +13,7 @@
 
 import { keyed } from "@/lib/authErrors";
 import { EN } from "@/lib/i18n/t";
-import { gatewayBaseUrl } from "@/lib/region";
+import { gatewayFetch } from "@/lib/region";
 
 export interface GatewaySession {
   uid: string;
@@ -133,7 +133,7 @@ async function post<T>(
 ): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${gatewayBaseUrl()}${path}`, {
+    res = await gatewayFetch(path, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

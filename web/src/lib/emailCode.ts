@@ -10,7 +10,7 @@
  */
 
 import { GatewayAuthError } from "@/lib/gatewayAuth";
-import { currentRegion, gatewayBaseUrl } from "@/lib/region";
+import { currentRegion, gatewayFetch } from "@/lib/region";
 
 /** Seconds before another code may be asked for. */
 export const RESEND_AFTER_S = 30;
@@ -50,7 +50,7 @@ export class EmailCodeError extends GatewayAuthError {
 async function post<T>(path: string, body: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${gatewayBaseUrl()}${path}`, {
+    res = await gatewayFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
