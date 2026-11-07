@@ -46,4 +46,10 @@ describe("TermsPage", () => {
     expect(document.body.textContent).toContain("content credentials");
     expect(screen.getByRole("link", { name: "Privacy Policy" })).toBeTruthy();
   });
+
+  it("has the refunds anchor the pay sheet links to (BUX-19)", () => {
+    render(<TermsPage />);
+    const section = document.getElementById("refunds");
+    expect(section?.textContent).toContain("If nothing is delivered, you are refunded.");
+  });
 });

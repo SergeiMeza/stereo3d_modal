@@ -1216,7 +1216,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Charged in US dollars.",
-      "withdrawal": "It starts right away. You agree that you lose your right to cancel once it's done.",
+      "withdrawal": "By paying, you ask us to start now and agree you can't withdraw once it's done.",
       "refundedIfFails": "Refunded in full if it fails.",
       "saveLine": "Saved for your next runs. You can remove it in Billing.",
       "orPayAnotherWay": "or pay another way",
@@ -1259,7 +1259,8 @@
       "walletDeclined": "Your wallet payment didn't go through. Try again or pay another way.",
       "openNetwork": "We couldn't open the payment. Check your connection and try again.",
       "openServer": "We couldn't open the payment. Try again in a moment.",
-      "notPayable": "This run isn't waiting for a payment."
+      "notPayable": "This run isn't waiting for a payment.",
+      "refundPolicy": "Refund policy"
     },
     "sheet": {
       "title": "{action} · {amount}",

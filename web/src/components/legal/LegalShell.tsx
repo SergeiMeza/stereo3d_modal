@@ -27,13 +27,16 @@ export function LegalShell({
 
 export function LegalSection({
   title,
+  id,
   children,
 }: {
   title: string;
+  /** an anchor other pages link to (/terms#refunds) */
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="scroll-mt-20 space-y-3">
       <h2 className="text-lg font-semibold tracking-tight text-fg">{title}</h2>
       <div className="space-y-3 text-sm leading-relaxed text-fg-muted [&_li]:mt-1.5 [&_strong]:font-medium [&_strong]:text-fg [&_ul]:list-disc [&_ul]:pl-5">
         {children}

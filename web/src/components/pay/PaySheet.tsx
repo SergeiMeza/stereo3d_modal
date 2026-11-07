@@ -15,6 +15,7 @@
  */
 
 import { CheckIcon, LockIcon } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
@@ -76,6 +77,9 @@ const OPEN_ERROR_KEY: Record<PayOpenError, string> = {
 export function payOpenErrorKey(e: unknown): string {
   return OPEN_ERROR_KEY[payOpenError(e)];
 }
+
+/** BUX-19: where the refund terms are (Terms, Fees and payment). */
+export const REFUND_POLICY_HREF = "/terms#refunds";
 
 /** How long the success check shows before the sheet closes. */
 export const SUCCESS_CLOSE_MS = 1500;
@@ -355,7 +359,21 @@ export function PaySheet({
                     </Button>
                     )
                   }
-                  foot={t("pay.copy.refundedIfFails")}
+                  foot={
+                    <>
+                      <span>{t("pay.copy.refundedIfFails")}</span>{" "}
+                      {/* BUX-19: the refund terms, in a new tab so the sheet stays */}
+                      <Link
+                        href={REFUND_POLICY_HREF}
+                        target="_blank"
+                        rel="noopener"
+                        data-testid="pay-refund-policy"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {t("pay.copy.refundPolicy")}
+                      </Link>
+                    </>
+                  }
                   after={
                     elsewhereFirst ? (
                       <button
@@ -465,7 +483,7 @@ export function MainButtonArea({
   lines: string[];
   extra?: string;
   button: ReactNode;
-  foot?: string;
+  foot?: ReactNode;
   /** a text button under it (headset: Pay on another device) */
   after?: ReactNode;
   big?: boolean;

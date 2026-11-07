@@ -1184,9 +1184,12 @@ describe("pay-now methods (S3D-60/61)", () => {
     const sheet = await screen.findByTestId("pay-sheet");
     expect(within(sheet).getByRole("heading").textContent).toBe("Preview this moment · $1.00");
     expect(within(sheet).getByTestId("pay-lines").textContent).toBe(
-      "Charged in US dollars.It starts right away. You agree that you lose your right to cancel once it's done.",
+      "Charged in US dollars.By paying, you ask us to start now and agree you can't withdraw once it's done.",
     );
     expect(within(sheet).getByText("Refunded in full if it fails.")).toBeTruthy();
+    // BUX-19: the refund terms sit next to it
+    const policy = within(sheet).getByRole("link", { name: "Refund policy" });
+    expect(policy.getAttribute("href")).toBe("/terms#refunds");
     expect(within(sheet).getByTestId("pay-save-line")).toBeTruthy();
     const pay = within(sheet).getByTestId("pay-main");
     expect(pay.textContent).toBe("Pay $1.00 and start");
